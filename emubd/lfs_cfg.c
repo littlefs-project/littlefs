@@ -1,4 +1,10 @@
-#include "cfg.h"
+/*
+ * Simple config parser
+ *
+ * Copyright (c) 2017 Christopher Haster
+ * Distributed under the MIT license
+ */
+#include "emubd/lfs_cfg.h"
 
 #include <stdlib.h>
 #include <errno.h>
@@ -6,7 +12,7 @@
 #include <stdio.h>
 
 
-static int cfg_buffer(cfg_t *cfg, char c) {
+static int lfs_cfg_buffer(lfs_cfg_t *cfg, char c) {
     // Amortize double
     if (cfg->blen == cfg->bsize) {
         size_t nsize = cfg->bsize * 2;
@@ -26,16 +32,16 @@ static int cfg_buffer(cfg_t *cfg, char c) {
     return 0;
 }
 
-static int cfg_attr(cfg_t *cfg, unsigned key, unsigned val) {
+static int lfs_cfg_attr(lfs_cfg_t *cfg, unsigned key, unsigned val) {
     // Amortize double
     if (cfg->len == cfg->size) {
         size_t nsize = cfg->size * 2;
-        struct cfg_attr *nattrs = malloc(nsize*sizeof(struct cfg_attr));
+        struct lfs_cfg_attr *nattrs = malloc(nsize*sizeof(struct lfs_cfg_attr));
         if (!nattrs) {
             return -ENOMEM;
         }
 
-        memcpy(nattrs, cfg->attrs, cfg->size*sizeof(struct cfg_attr));
+        memcpy(nattrs, cfg->attrs, cfg->size*sizeof(struct lfs_cfg_attr));
         free(cfg->attrs);
         cfg->attrs = nattrs;
         cfg->size = nsize;
@@ -50,14 +56,14 @@ static int cfg_attr(cfg_t *cfg, unsigned key, unsigned val) {
     }
 
     memmove(&cfg->attrs[i+1], &cfg->attrs[i],
-        (cfg->size - i)*sizeof(struct cfg_attr));
+        (cfg->size - i)*sizeof(struct lfs_cfg_attr));
     cfg->attrs[i].key = key;
     cfg->attrs[i].val = val;
     cfg->len += 1;
     return 0;
 }
 
-static bool cfg_match(FILE *f, const char *matches) {
+static bool lfs_cfg_match(FILE *f, const char *matches) {
     char c = getc(f);
     ungetc(c, f);
 
@@ -70,11 +76,11 @@ static bool cfg_match(FILE *f, const char *matches) {
     return false;
 }
 
-int cfg_create(cfg_t *cfg, const char *filename) {
+int lfs_cfg_create(lfs_cfg_t *cfg, const char *filename) {
     // start with some initial space
     cfg->len = 0;
     cfg->size = 4;
-    cfg->attrs = malloc(cfg->size*sizeof(struct cfg_attr));
+    cfg->attrs = malloc(cfg->size*sizeof(struct lfs_cfg_attr));
 
     cfg->blen = 0;
     cfg->bsize = 16;
@@ -88,42 +94,42 @@ int cfg_create(cfg_t *cfg, const char *filename) {
     while (!feof(f)) {
         int err;
 
-        while (cfg_match(f, " \t\v\f")) {
+        while (lfs_cfg_match(f, " \t\v\f")) {
             fgetc(f);
         }
 
-        if (!cfg_match(f, "#\r\n")) {
+        if (!lfs_cfg_match(f, "#\r\n")) {
             unsigned key = cfg->blen;
-            while (!cfg_match(f, " \t\v\f:#") && !feof(f)) {
-                if ((err = cfg_buffer(cfg, fgetc(f)))) {
+            while (!lfs_cfg_match(f, " \t\v\f:#") && !feof(f)) {
+                if ((err = lfs_cfg_buffer(cfg, fgetc(f)))) {
                     return err;
                 }
             }
-            if ((err = cfg_buffer(cfg, 0))) {
+            if ((err = lfs_cfg_buffer(cfg, 0))) {
                 return err;
             }
 
-            while (cfg_match(f, " \t\v\f")) {
+            while (lfs_cfg_match(f, " \t\v\f")) {
                 fgetc(f);
             }
 
-            if (cfg_match(f, ":")) {
+            if (lfs_cfg_match(f, ":")) {
                 fgetc(f);
-                while (cfg_match(f, " \t\v\f")) {
+                while (lfs_cfg_match(f, " \t\v\f")) {
                     fgetc(f);
                 }
 
                 unsigned val = cfg->blen;
-                while (!cfg_match(f, " \t\v\f#\r\n") && !feof(f)) {
-                    if ((err = cfg_buffer(cfg, fgetc(f)))) {
+                while (!lfs_cfg_match(f, " \t\v\f#\r\n") && !feof(f)) {
+                    if ((err = lfs_cfg_buffer(cfg, fgetc(f)))) {
                         return err;
                     }
                 }
-                if ((err = cfg_buffer(cfg, 0))) {
+                if ((err = lfs_cfg_buffer(cfg, 0))) {
                     return err;
                 }
 
-                if ((err = cfg_attr(cfg, key, val))) {
+                if ((err = lfs_cfg_attr(cfg, key, val))) {
                     return err;
                 }
             } else {
@@ -131,7 +137,7 @@ int cfg_create(cfg_t *cfg, const char *filename) {
             }
         }
 
-        while (!cfg_match(f, "\r\n") && !feof(f)) {
+        while (!lfs_cfg_match(f, "\r\n") && !feof(f)) {
             fgetc(f);
         }
         fgetc(f);
@@ -140,15 +146,15 @@ int cfg_create(cfg_t *cfg, const char *filename) {
     return 0;
 }
 
-void cfg_destroy(cfg_t *cfg) {
+void lfs_cfg_destroy(lfs_cfg_t *cfg) {
     free(cfg->attrs);
 }
 
-bool cfg_has(cfg_t *cfg, const char *key) {
-    return cfg_get(cfg, key, 0);
+bool lfs_cfg_has(lfs_cfg_t *cfg, const char *key) {
+    return lfs_cfg_get(cfg, key, 0);
 }
 
-const char *cfg_get(cfg_t *cfg, const char *key, const char *def) {
+const char *lfs_cfg_get(lfs_cfg_t *cfg, const char *key, const char *def) {
     // binary search for attribute
     int lo = 0;
     int hi = cfg->len-1;
@@ -168,8 +174,8 @@ const char *cfg_get(cfg_t *cfg, const char *key, const char *def) {
     return def;
 }
 
-ssize_t cfg_geti(cfg_t *cfg, const char *key, ssize_t def) {
-    const char *val = cfg_get(cfg, key, 0);
+ssize_t lfs_cfg_geti(lfs_cfg_t *cfg, const char *key, ssize_t def) {
+    const char *val = lfs_cfg_get(cfg, key, 0);
     if (!val) {
         return def;
     }
@@ -179,8 +185,8 @@ ssize_t cfg_geti(cfg_t *cfg, const char *key, ssize_t def) {
     return (end == val) ? def : res;
 }
 
-size_t cfg_getu(cfg_t *cfg, const char *key, size_t def) {
-    const char *val = cfg_get(cfg, key, 0);
+size_t lfs_cfg_getu(lfs_cfg_t *cfg, const char *key, size_t def) {
+    const char *val = lfs_cfg_get(cfg, key, 0);
     if (!val) {
         return def;
     }

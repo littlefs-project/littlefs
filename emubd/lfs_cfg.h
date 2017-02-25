@@ -1,11 +1,11 @@
 /*
  * Simple config parser
  *
- * Copyright (c) 2016 Christopher Haster
+ * Copyright (c) 2017 Christopher Haster
  * Distributed under the MIT license
  */
-#ifndef CFG_H
-#define CFG_H
+#ifndef LFS_CFG_H
+#define LFS_CFG_H
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -26,7 +26,7 @@
 // huh: yeah_that's_basically_it # basically it
 
 // Internal config structure
-typedef struct cfg {
+typedef struct lfs_cfg {
     size_t len;
     size_t size;
 
@@ -34,41 +34,41 @@ typedef struct cfg {
     size_t bsize;
     char *buf;
 
-    struct cfg_attr {
+    struct lfs_cfg_attr {
         unsigned key;
         unsigned val;
     } *attrs;
-} cfg_t;
+} lfs_cfg_t;
 
 
 
 // Creates a cfg object and reads in the cfg file from the filename
 //
-// If the cfg_read fails, returns a negative value from the underlying
+// If the lfs_cfg_read fails, returns a negative value from the underlying
 // stdio functions
-int cfg_create(cfg_t *cfg, const char *filename);
+int lfs_cfg_create(lfs_cfg_t *cfg, const char *filename);
 
 // Destroys the cfg object and frees any used memory
-void cfg_destroy(cfg_t *cfg);
+void lfs_cfg_destroy(lfs_cfg_t *cfg);
 
 // Checks if a cfg attribute exists
-bool cfg_has(cfg_t *cfg, const char *key);
+bool lfs_cfg_has(lfs_cfg_t *cfg, const char *key);
 
 // Retrieves a cfg attribute as a null-terminated string
 //
 // If the attribute does not exist, returns the string passed as def
-const char *cfg_get(cfg_t *cfg, const char *key, const char *def);
+const char *lfs_cfg_get(lfs_cfg_t *cfg, const char *key, const char *def);
 
 // Retrieves a cfg attribute parsed as an int
 //
 // If the attribute does not exist or can't be parsed, returns the
 // integer passed as def
-ssize_t cfg_geti(cfg_t *cfg, const char *name, ssize_t def);
+ssize_t lfs_cfg_geti(lfs_cfg_t *cfg, const char *name, ssize_t def);
 
 // Retrieves a cfg attribute parsed as an unsigned int
 //
 // If the attribute does not exist or can't be parsed, returns the
 // integer passed as def
-size_t cfg_getu(cfg_t *cfg, const char *name, size_t def);
+size_t lfs_cfg_getu(lfs_cfg_t *cfg, const char *name, size_t def);
 
 #endif
