@@ -11,11 +11,10 @@
 #include "lfs_bd.h"
 
 struct lfs_free_list {
-    lfs_word_t rev[2];
-    lfs_ino_t phead;
     lfs_ino_t head;
-    lfs_ino_t tip;
-    lfs_off_t off;
+    lfs_word_t ioff;
+    lfs_word_t icount;
+    lfs_word_t rev;
 };
 
 typedef struct lfs {

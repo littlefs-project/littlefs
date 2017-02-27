@@ -34,4 +34,12 @@ static inline lfs_word_t lfs_min(lfs_word_t a, lfs_word_t b) {
     return (a < b) ? a : b;
 }
 
+static inline lfs_word_t lfs_ctz(lfs_word_t a) {
+    return __builtin_ctz(a);
+}
+
+static inline lfs_word_t lfs_npw2(lfs_word_t a) {
+    return 32 - __builtin_clz(a-1);
+}
+
 #endif

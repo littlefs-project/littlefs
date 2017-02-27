@@ -26,10 +26,111 @@ static uint32_t lfs_crc(const uint8_t *data, lfs_size_t size, uint32_t crc) {
     return crc;
 }
 
-lfs_error_t lfs_create(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *ops) {
-    // TODO rm me, for debugging
-    memset(lfs, 0, sizeof(lfs_t));
+static lfs_error_t lfs_alloc(lfs_t *lfs, lfs_ino_t *ino);
+static lfs_error_t lfs_free(lfs_t *lfs, lfs_ino_t ino);
 
+
+// Next index offset
+static lfs_off_t lfs_inext(lfs_t *lfs, lfs_off_t ioff) {
+    ioff += 1;
+
+    lfs_size_t wcount = lfs->info.erase_size/4;
+    while (ioff % wcount == 0) {
+        ioff += lfs_min(lfs_ctz(ioff/wcount + 1), wcount-1) + 1;
+    }
+
+    return ioff;
+}
+
+// Find index in index chain given its index offset
+static lfs_error_t lfs_ifind(lfs_t *lfs, lfs_ino_t head,
+        lfs_size_t icount, lfs_off_t ioff, lfs_ino_t *ino) {
+    lfs_size_t wcount = lfs->info.erase_size/4;
+    lfs_off_t iitarget = ioff / wcount;
+    lfs_off_t iicurrent = (icount-1) / wcount;
+
+    while (iitarget != iicurrent) {
+        lfs_size_t skip = lfs_min(
+                lfs_min(lfs_ctz(iicurrent+1), wcount-1),
+                lfs_npw2((iitarget ^ iicurrent)+1)-1);
+        
+        lfs_error_t err = lfs->ops->read(lfs->bd, (void*)&head,
+                head, 4*skip, 4);
+        if (err) {
+            return err;
+        }
+
+        iicurrent -= 1 << skip;
+    }
+
+    return lfs->ops->read(lfs->bd, (void*)ino, head, 4*(ioff % wcount), 4);
+}
+
+// Append index to index chain, updates head and icount
+static lfs_error_t lfs_iappend(lfs_t *lfs, lfs_ino_t *headp,
+        lfs_size_t *icountp, lfs_ino_t ino) {
+    lfs_ino_t head = *headp;
+    lfs_size_t ioff = *icountp - 1;
+    lfs_size_t wcount = lfs->info.erase_size/4;
+
+    ioff += 1;
+
+    while (ioff % wcount == 0) {
+        lfs_ino_t nhead;
+        lfs_error_t err = lfs_alloc(lfs, &nhead);
+        if (err) {
+            return err;
+        }
+
+        lfs_off_t skips = lfs_min(lfs_ctz(ioff/wcount + 1), wcount-1) + 1;
+        for (lfs_off_t i = 0; i < skips; i++) {
+            err = lfs->ops->write(lfs->bd, (void*)&head, nhead, 4*i, 4);
+            if (err) {
+                return err;
+            }
+
+            if (head && i != skips-1) {
+                err = lfs->ops->read(lfs->bd, (void*)&head, head, 4*i, 4);
+                if (err) {
+                    return err;
+                }
+            }
+        }
+
+        ioff += skips;
+        head = nhead;
+    }
+
+    lfs_error_t err = lfs->ops->write(lfs->bd, (void*)&ino,
+            head, 4*(ioff % wcount), 4);
+    if (err) {
+        return err;
+    }
+
+    *headp = head;
+    *icountp = ioff + 1;
+    return 0;
+}
+
+// Memory managment
+static lfs_error_t lfs_alloc(lfs_t *lfs, lfs_ino_t *ino) {
+    lfs_error_t err = lfs_ifind(lfs, lfs->free.head,
+            lfs->free.icount, lfs->free.ioff, ino);
+    if (err) {
+        return err;
+    }
+
+    lfs->free.ioff = lfs_inext(lfs, lfs->free.ioff);
+
+    return lfs->ops->erase(lfs->bd, *ino, 0, lfs->info.erase_size);
+}
+
+static lfs_error_t lfs_free(lfs_t *lfs, lfs_ino_t ino) {
+    return lfs_iappend(lfs, &lfs->free.head, &lfs->free.icount, ino);
+}
+
+// Little filesystem operations
+lfs_error_t lfs_create(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *ops) {
     lfs->bd = bd;
     lfs->ops = ops;
 
@@ -41,123 +142,6 @@ lfs_error_t lfs_create(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *ops) {
     return 0;
 }
 
-static lfs_off_t lfs_calc_irem(lfs_t *lfs, lfs_size_t isize) {
-    lfs_size_t icount = lfs->info.erase_size/4;
-
-    if (isize <= icount) {
-        return isize;
-    } else {
-        return ((isize-2) % (icount-1)) + 1;
-    }
-}
-
-static lfs_off_t lfs_calc_ioff(lfs_t *lfs, lfs_size_t ioff) {
-    lfs_size_t icount = lfs->info.erase_size/4;
-
-    if (ioff < icount) {
-        return ioff;
-    } else {
-        return ((ioff-1) % (icount-1)) + 1;
-    }
-}
-
-static lfs_error_t lfs_ifind(lfs_t *lfs, lfs_ino_t head,
-        lfs_size_t isize, lfs_off_t ioff, lfs_ino_t *ino) {
-    if (ioff >= isize) {
-        return -15;
-    } else if (isize == 1) {
-        *ino = head;
-        return 0;
-    }
-
-    lfs_off_t ilookback = isize - ioff;
-    lfs_off_t irealoff = lfs_calc_ioff(lfs, ioff);
-
-    while (true) {
-        lfs_size_t irem = lfs_calc_irem(lfs, isize);
-        if (ilookback <= irem) {
-            return lfs->ops->read(lfs->bd, (void*)ino,
-                    head, 4*irealoff, 4);
-        }
-
-        lfs_error_t err = lfs->ops->read(lfs->bd, (void*)&head, head, 0, 4);
-        if (err) {
-            return err;
-        }
-        ilookback -= irem;
-        isize -= irem;
-    }
-}
-
-static lfs_error_t lfs_alloc(lfs_t *lfs, lfs_ino_t *ino) {
-    lfs_error_t err = lfs_ifind(lfs, lfs->free.head,
-            lfs->free.rev[1], lfs->free.rev[0], ino);
-    if (err) {
-        return err;
-    }
-
-    err = lfs->ops->erase(lfs->bd, *ino, 0, lfs->info.erase_size);
-    if (err) {
-        return err;
-    }
-
-    lfs->free.rev[0] += 1;
-    return 0;
-}
-
-static lfs_error_t lfs_free(lfs_t *lfs, lfs_ino_t ino) {
-    // TODO handle overflow?
-    if (lfs->free.rev[1] == 0) {
-        lfs->free.head = ino;
-        lfs->free.rev[1]++;
-        lfs->free.off = lfs->info.erase_size;
-        return 0;
-    }
-
-    if (lfs->free.off == lfs->info.erase_size || !lfs->free.head) {
-        lfs_ino_t nhead = 0;
-        lfs_error_t err = lfs_alloc(lfs, &nhead);
-        if (err) {
-            return err;
-        }
-
-        if (lfs->free.off == lfs->info.erase_size) {
-            err = lfs->ops->write(lfs->bd, (void*)&lfs->free.head, nhead, 0, 4);
-            if (err) {
-                return err;
-            }
-        } else {
-            for (lfs_off_t i = 0; i < lfs->free.off; i += 4) {
-                lfs_ino_t ino;
-                lfs_error_t err = lfs->ops->read(lfs->bd, (void*)&ino,
-                        lfs->free.phead, i, 4);
-                if (err) {
-                    return err;
-                }
-
-                err = lfs->ops->write(lfs->bd, (void*)&ino,
-                        nhead, i, 4);
-                if (err) {
-                    return err;
-                }
-            }
-        }
-
-        lfs->free.head = nhead;
-        lfs->free.off = 4;
-    }
-
-    lfs_error_t err = lfs->ops->write(lfs->bd, (void*)&ino,
-            lfs->free.head, lfs->free.off, 4);
-    if (err) {
-        return err;
-    }
-
-    lfs->free.off += 4;
-    lfs->free.rev[1] += 1;
-    return 0;
-}
-
 lfs_error_t lfs_format(lfs_t *lfs) {
     struct lfs_bd_info info;
     lfs_error_t err = lfs->ops->info(lfs->bd, &info);
@@ -165,22 +149,21 @@ lfs_error_t lfs_format(lfs_t *lfs) {
         return err;
     }
 
-    err = lfs->ops->erase(lfs->bd, 0, 0, info.erase_size);
+    err = lfs->ops->erase(lfs->bd, 0, 0, 5*info.erase_size);
     if (err) {
         return err;
     }
 
-    // TODO erase what could be misinterpreted (pairs of blocks)
+    // TODO make sure that erase clobbered blocks
 
     {   // Create free list
-        lfs->free.rev[0] = 0;
-        lfs->free.rev[1] = 0;
-        lfs->free.phead = 0;
-        lfs->free.head = 0;
-        lfs->free.off = 0;
+        lfs->free.head = 4;
+        lfs->free.ioff = 1;
+        lfs->free.icount = 1;
+        lfs->free.rev = 1;
 
         lfs_size_t block_count = lfs->info.total_size / lfs->info.erase_size;
-        for (lfs_ino_t i = 4; i < block_count; i++) {
+        for (lfs_ino_t i = 5; i < block_count; i++) {
             lfs_error_t err = lfs_free(lfs, i);
             if (err) {
                 return err;
@@ -194,10 +177,8 @@ lfs_error_t lfs_format(lfs_t *lfs) {
             lfs_word_t rev;
             lfs_size_t len;
             lfs_ino_t  tail[2];
-            lfs_word_t free_rev[2];
-            lfs_ino_t  free_ino;
-        } header = {1, 0, {0, 0},
-            {lfs->free.rev[0], lfs->free.rev[1]}, lfs->free.head};
+            struct lfs_free_list free;
+        } header = {1, 0, {0, 0}, lfs->free};
         err = lfs->ops->write(lfs->bd, (void*)&header, 2, 0, sizeof(header));
         if (err) {
             return err;
@@ -227,12 +208,10 @@ lfs_error_t lfs_format(lfs_t *lfs) {
             lfs_word_t rev;
             lfs_word_t len;
             lfs_word_t tail[2];
-            lfs_word_t free_head;
-            lfs_word_t free_end;
-            lfs_ino_t  free_ino;
+            struct lfs_free_list free;
             char magic[4];
             struct lfs_bd_info info;
-        } header = {1, 0, {2, 3}, 0, 0, 0, {"lfs"}, info};
+        } header = {1, 0, {2, 3}, {0}, {"lfs"}, info};
         err = lfs->ops->write(lfs->bd, (void*)&header, 0, 0, sizeof(header));
         if (err) {
             return err;
