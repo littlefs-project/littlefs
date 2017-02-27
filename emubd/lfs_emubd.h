@@ -11,11 +11,19 @@
 #include "lfs_bd.h"
 
 
+// Stats for debugging and optimization
+struct lfs_bd_stats {
+    lfs_lword_t read_count;
+    lfs_lword_t write_count;
+    lfs_lword_t erase_count;
+};
+
 // The emu bd state
 typedef struct lfs_emubd {
     char *path;
     char *child;
     struct lfs_bd_info info;
+    struct lfs_bd_stats stats;
 } lfs_emubd_t;
 
 
@@ -49,6 +57,11 @@ lfs_error_t lfs_emubd_sync(lfs_emubd_t *bd);
 //
 // Any unknown information may be left unmodified
 lfs_error_t lfs_emubd_info(lfs_emubd_t *bd, struct lfs_bd_info *info);
+
+// Get stats of operations on the block device
+//
+// Used for debugging and optimizations
+lfs_error_t lfs_emubd_stats(lfs_emubd_t *bd, struct lfs_bd_stats *stats);
 
 // Block device operations
 extern const struct lfs_bd_ops lfs_emubd_ops;

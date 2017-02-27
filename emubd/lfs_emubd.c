@@ -18,6 +18,7 @@
 // Block device emulated on existing filesystem
 lfs_error_t lfs_emubd_create(lfs_emubd_t *emu, const char *path) {
     memset(&emu->info, 0, sizeof(emu->info));
+    memset(&emu->stats, 0, sizeof(emu->stats));
 
     // Allocate buffer for creating children files
     size_t pathlen = strlen(path);
@@ -64,8 +65,8 @@ lfs_error_t lfs_emubd_read(lfs_emubd_t *emu, uint8_t *buffer,
         return -EINVAL;
     }
 
-    // Default to some arbitrary value for debugging
-    memset(buffer, 0xcc, size);
+    // Zero out buffer for debugging
+    memset(buffer, 0, size);
 
     // Iterate over blocks until enough data is read
     while (size > 0) {
@@ -100,6 +101,7 @@ lfs_error_t lfs_emubd_read(lfs_emubd_t *emu, uint8_t *buffer,
         off = 0;
     }
 
+    emu->stats.read_count += 1;
     return 0;
 }
 
@@ -148,6 +150,7 @@ lfs_error_t lfs_emubd_write(lfs_emubd_t *emu, const uint8_t *buffer,
         off = 0;
     }
 
+    emu->stats.write_count += 1;
     return 0;
 }
 
@@ -175,6 +178,7 @@ lfs_error_t lfs_emubd_erase(lfs_emubd_t *emu,
         off = 0;
     }
 
+    emu->stats.erase_count += 1;
     return 0;
 }
 
@@ -185,6 +189,11 @@ lfs_error_t lfs_emubd_sync(lfs_emubd_t *emu) {
 
 lfs_error_t lfs_emubd_info(lfs_emubd_t *emu, struct lfs_bd_info *info) {
     *info = emu->info;
+    return 0;
+}
+
+lfs_error_t lfs_emubd_stats(lfs_emubd_t *emu, struct lfs_bd_stats *stats) {
+    *stats = emu->stats;
     return 0;
 }
 
