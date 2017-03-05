@@ -42,4 +42,7 @@ static inline lfs_word_t lfs_npw2(lfs_word_t a) {
     return 32 - __builtin_clz(a-1);
 }
 
+// Attributes
+#define lfs_disk_struct struct __attribute__((packed))
+
 #endif
