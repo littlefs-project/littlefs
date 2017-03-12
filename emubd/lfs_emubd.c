@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 
 // Block device emulated on existing filesystem
@@ -168,9 +169,17 @@ lfs_error_t lfs_emubd_erase(lfs_emubd_t *emu,
     // Iterate and erase blocks
     while (size > 0) {
         snprintf(emu->child, LFS_NAME_MAX, "%d", ino);
-        int err = unlink(emu->path);
+        struct stat st;
+        int err = stat(emu->path, &st);
         if (err && errno != ENOENT) {
             return -errno;
+        }
+
+        if (!err && S_ISREG(st.st_mode)) {
+            int err = unlink(emu->path);
+            if (err) {
+                return -errno;
+            }
         }
 
         size -= emu->info.erase_size;

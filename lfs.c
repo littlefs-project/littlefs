@@ -29,49 +29,6 @@ static uint32_t lfs_crc(const uint8_t *data, lfs_size_t size, uint32_t crc) {
 static lfs_error_t lfs_alloc(lfs_t *lfs, lfs_ino_t *ino);
 static lfs_error_t lfs_free(lfs_t *lfs, lfs_ino_t ino);
 
-// Disk structures
-//lfs_disk_struct lfs_disk_free {
-//    lfs_ino_t head;
-//    uint32_t ioff;
-//    uint32_t icount;
-//    uint32_t rev;
-//};
-//
-//lfs_disk_struct lfs_disk_dir {
-//    uint32_t rev;
-//    uint32_t count;
-//    lfs_ino_t tail[2];
-//    struct lfs_disk_free free;
-//};
-//
-//lfs_disk_struct lfs_disk_dirent {
-//    uint16_t type;
-//    uint16_t len;
-//};
-//
-//lfs_disk_struct lfs_disk_superblock {
-//    struct lfs_disk_dir dir;
-//    struct lfs_disk_dirent header;
-//    char magic[4];
-//    uint32_t read_size;
-//    uint32_t write_size;
-//    uint32_t erase_size;
-//    uint32_t erase_count;
-//};
-//
-//lfs_disk_struct lfs_disk_dirent_file {
-//    struct lfs_disk_dirent header;
-//    lfs_ino_t head;
-//    lfs_size_t size;
-//    char name[LFS_NAME_MAX];
-//};
-//
-//lfs_disk_struct lfs_disk_dirent_dir {
-//    struct lfs_disk_dirent header;
-//    lfs_ino_t ino[2];
-//    char name[LFS_NAME_MAX];
-//};
-
 
 // Next index offset
 static lfs_off_t lfs_inext(lfs_t *lfs, lfs_off_t ioff) {
@@ -173,23 +130,161 @@ static lfs_error_t lfs_free(lfs_t *lfs, lfs_ino_t ino) {
     return lfs_iappend(lfs, &lfs->free.d.head, &lfs->free.d.icount, ino);
 }
 
-// create a dir
-// create entry
-// update entry
 
+lfs_error_t lfs_check(lfs_t *lfs, lfs_ino_t block) {
+    uint32_t crc = 0xffffffff;
 
-//static lfs_error_t lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir);
-//static lfs_error_t lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry);
-//static lfs_error_t lfs_dir_destroy(lfs_t *lfs, lfs_dir_t *dir);
-//static lfs_error_t lfs_entry_alloc(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry);
-//static lfs_error_t lfs_entry_update(lfs_t *lfs, lfs_entry_t *entry);
-//static lfs_error_t lfs_entry_destroy(lfs_t *lfs, lfs_dir_t *dir);
+    for (lfs_size_t i = 0; i < lfs->info.erase_size; i += 4) {
+        uint32_t data;
+        int err = lfs->ops->read(lfs->bd, (void*)&data, block, i, 4);
+        if (err) {
+            return err;
+        }
 
-// Directory operations
-static lfs_error_t lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
+        crc = lfs_crc((void*)&data, 4, crc);
+    }
+
+    return (crc != 0) ? LFS_ERROR_CORRUPT : LFS_ERROR_OK;
+}
+
+lfs_error_t lfs_block_load(lfs_t *lfs,
+        const lfs_ino_t pair[2], lfs_ino_t *ino) {
+    lfs_word_t rev[2];
+    for (int i = 0; i < 2; i++) {
+        int err = lfs->ops->read(lfs->bd, (void*)&rev[i], pair[i], 0, 4);
+        if (err) {
+            return err;
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        lfs_ino_t check = pair[(rev[1] > rev[0]) ? 1-i : i];
+        int err = lfs_check(lfs, check);
+        if (err == LFS_ERROR_CORRUPT) {
+            continue;
+        } else if (err) {
+            return err;
+        }
+
+        return check;
+    }
+
+    LFS_ERROR("Corrupted dir at %d %d", pair[0], pair[1]);
+    return LFS_ERROR_CORRUPT;
+}
+
+struct lfs_read_region {
+    lfs_off_t off;
+    lfs_size_t size;
+    void *data;
+};
+
+lfs_error_t lfs_pair_read(lfs_t *lfs, lfs_ino_t pair[2],
+        int count, const struct lfs_read_region *regions) {
+    int checked = 0;
+    int rev = 0;
+    for (int i = 0; i < 2; i++) {
+        uint32_t nrev;
+        int err = lfs->ops->read(lfs->bd, (void*)&nrev,
+                pair[0], 0, 4);
+        if (err) {
+            return err;
+        }
+
+        // TODO diff these
+        if (checked > 0 && rev > nrev) {
+            continue;
+        }
+
+        err = lfs_check(lfs, pair[i]);
+        if (err == LFS_ERROR_CORRUPT) {
+            continue;
+        } else if (err) {
+            return err;
+        }
+
+        checked += 1;
+        rev = nrev;
+        lfs_swap(&pair[0], &pair[1]);
+    }
+
+    if (checked == 0) {
+        return LFS_ERROR_CORRUPT;
+    }
+
+    for (int i = 0; i < count; i++) {
+        int err = lfs->ops->read(lfs->bd, regions[i].data,
+                pair[1], regions[i].off, regions[i].size);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+
+struct lfs_write_region {
+    lfs_off_t off;
+    lfs_size_t size;
+    const void *data;
+};
+
+lfs_error_t lfs_pair_write(lfs_t *lfs, lfs_ino_t pair[2],
+        int count, const struct lfs_write_region *regions) {
+    uint32_t crc = 0xffffffff;
+    int err = lfs->ops->erase(lfs->bd,
+            pair[0], 0, lfs->info.erase_size);
+    if (err) {
+        return err;
+    }
+
+    lfs_off_t off = 0;
+    while (off < lfs->info.erase_size - 4) {
+        if (count > 0 && regions[0].off == off) {
+            crc = lfs_crc(regions[0].data, regions[0].size, crc);
+            int err = lfs->ops->write(lfs->bd, regions[0].data,
+                    pair[0], off, regions[0].size);
+            if (err) {
+                return err;
+            }
+
+            off += regions[0].size;
+            count -= 1;
+            regions += 1;
+        } else {
+            // TODO faster strides?
+            uint8_t data;
+            int err = lfs->ops->read(lfs->bd, (void*)&data,
+                    pair[1], off, sizeof(data));
+            if (err) {
+                return err;
+            }
+
+            crc = lfs_crc((void*)&data, sizeof(data), crc);
+            err = lfs->ops->write(lfs->bd, (void*)&data,
+                    pair[0], off, sizeof(data));
+            if (err) {
+                return err;
+            }
+
+            off += sizeof(data);
+        }
+    }
+
+    err = lfs->ops->write(lfs->bd, (void*)&crc,
+            pair[0], lfs->info.erase_size-4, 4);
+    if (err) {
+        return err;
+    }
+
+    lfs_swap(&pair[0], &pair[1]);
+    return 0;
+}
+
+static lfs_error_t lfs_dir_make(lfs_t *lfs, lfs_dir_t *dir) {
     // Allocate pair of dir blocks
     for (int i = 0; i < 2; i++) {
-        int err = lfs_alloc(lfs, &dir->dno[i]);
+        int err = lfs_alloc(lfs, &dir->pair[i]);
         if (err) {
             return err;
         }
@@ -197,7 +292,8 @@ static lfs_error_t lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
 
     // Rather than clobbering one of the blocks we just pretend
     // the revision may be valid
-    int err = lfs->ops->read(lfs->bd, (void*)&dir->d.rev, dir->dno[1], 0, 4);
+    int err = lfs->ops->read(lfs->bd, (void*)&dir->d.rev,
+            dir->pair[1], 0, 4);
     if (err) {
         return err;
     }
@@ -209,166 +305,16 @@ static lfs_error_t lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
     dir->d.tail[1] = 0;
     dir->d.parent[0] = 0;
     dir->d.parent[1] = 0;
-    return 0;
-}
 
-lfs_error_t lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
-    // TODO flush this
+    // TODO sort this out
     dir->d.free = lfs->free.d;
 
-    // Start by erasing target block
-    int err = lfs->ops->erase(lfs->bd, dir->dno[0], 0, lfs->info.erase_size);
-
-    // Write header and start calculating crc
-    uint32_t crc = lfs_crc((void*)&dir->d, sizeof(dir->d), 0xffffffff);
-    err = lfs->ops->write(lfs->bd, (void*)&dir->d,
-        dir->dno[0], 0, sizeof(dir->d));
-    if (err) {
-        return err;
-    }
-
-    // Copy over entries and write optional entry update
-    // TODO handle optional entry
-    for (lfs_off_t i = sizeof(dir->d); i < lfs->info.erase_size-4; i += 4) {
-        uint32_t data;
-        err = lfs->ops->read(lfs->bd, (void*)&data, dir->dno[1], i, 4);
-        if (err) {
-            return err;
-        }
-
-        crc = lfs_crc((void*)&data, 4, crc);
-        err = lfs->ops->write(lfs->bd, (void*)&data, dir->dno[0], i, 4);
-        if (err) {
-            return err;
-        }
-    }
-
-    // Write resulting crc
-    err = lfs->ops->write(lfs->bd, (void*)&crc,
-            dir->dno[0], lfs->info.erase_size-4, 4);
-    if (err) {
-        return err;
-    }
-
-    // Flip dnos to indicate next write of the dir pair
-    lfs_ino_t temp = dir->dno[0];
-    dir->dno[0] = dir->dno[1];
-    dir->dno[1] = temp;
-
-    return 0;
+    // Write out to memory
+    return lfs_pair_write(lfs, dir->pair,
+        1, (struct lfs_write_region[1]){
+            {0, sizeof(dir->d), &dir->d}
+        });
 }
-
-
-//static lfs_error_t lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
-//    memset(dir, 0, sizeof(lfs_dir_t));
-//
-//    for (int i = 0; i < 2; i++) {
-//        int err = lfs_alloc(lfs, &dir->dno[i]);
-//        if (err) {
-//            return err;
-//        }
-//    }
-//
-//    // Rather than clobbering one of the blocks we just pretend
-//    // the revision may be valid
-//    int err = lfs->ops->read(lfs->bd, (void*)&dir->rev, dir->dno[1], 0, 4);
-//    if (err) {
-//        return err;
-//    }
-//    dir->rev += 1;
-//
-//    // TODO move this to a flush of some sort?
-//    struct lfs_disk_dir disk_dir = {
-//        .rev = dir->rev,
-//        .count = dir->len,
-//        .tail[0] = dir->tail[0],
-//        .tail[1] = dir->tail[1],
-//        .free.head = lfs->free.head,
-//        .free.ioff = lfs->free.ioff,
-//        .free.icount = lfs->free.icount,
-//        .free.rev = lfs->free.rev,
-//    };
-//
-//    err = lfs->ops->write(lfs->bd, (void*)&disk_dir,
-//        dir->dno[0], 0, sizeof(struct lfs_disk_dir));
-//    if (err) {
-//        return err;
-//    }
-//
-//    uint32_t crc = 0xffffffff;
-//    for (lfs_off_t i = 0; i < lfs->info.erase_size-4; i += 4) {
-//        uint32_t data;
-//        err = lfs->ops->read(lfs->bd, (void*)&data, dir->dno[0], i, 4);
-//        if (err) {
-//            return err;
-//        }
-//
-//        crc = lfs_crc((void*)&data, 4, crc);
-//    }
-//
-//    err = lfs->ops->write(lfs->bd, (void*)&crc,
-//            dir->dno[0], lfs->info.erase_size-4, 4);
-//    if (err) {
-//        return err;
-//    }
-//
-//    lfs_ino_t temp = dir->dno[0];
-//    dir->dno[0] = dir->dno[1];
-//    dir->dno[1] = temp;
-//
-//    return 0;
-//}
-
-//lfs_error_t lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
-//        lfs_dirent_t *ent, const char *name) {
-//
-//
-//
-//    struct lfs_disk_dir disk_dir = {
-//        .rev = dir->rev,
-//        .count = dir->len,
-//        .tail[0] = dir->tail[0],
-//        .tail[1] = dir->tail[1],
-//        // TODO flush this?
-//        .free.head = lfs->free.head,
-//        .free.ioff = lfs->free.ioff,
-//        .free.icount = lfs->free.icount,
-//        .free.rev = lfs->free.rev,
-//    };
-//
-//    err = lfs->ops->write(lfs->bd, (void*)&disk_dir,
-//        dir->dno[0], 0, sizeof(struct lfs_disk_dir));
-//    if (err) {
-//        return err;
-//    }
-//
-//    if (ent) {
-//        // TODO update entry
-//    }
-//
-//    uint32_t crc = 0xffffffff;
-//    for (lfs_off_t i = 0; i < lfs->info.erase_size-4; i += 4) {
-//        uint32_t data;
-//        err = lfs->ops->read(lfs->bd, (void*)&data, dir->dno[0], i, 4);
-//        if (err) {
-//            return err;
-//        }
-//
-//        crc = lfs_crc((void*)&data, 4, crc);
-//    }
-//
-//    err = lfs->ops->write(lfs->bd, (void*)&crc,
-//            dir->dno[0], lfs->info.erase_size-4, 4);
-//    if (err) {
-//        return err;
-//    }
-//
-//    lfs_ino_t temp = dir->dno[0];
-//    dir->dno[0] = dir->dno[1];
-//    dir->dno[1] = temp;
-//
-//    return 0;
-//}
 
 
 // Little filesystem operations
@@ -391,7 +337,7 @@ lfs_error_t lfs_format(lfs_t *lfs) {
         return err;
     }
 
-    err = lfs->ops->erase(lfs->bd, 0, 0, 5*info.erase_size);
+    err = lfs->ops->erase(lfs->bd, 0, 0, 3*info.erase_size);
     if (err) {
         return err;
     }
@@ -399,13 +345,15 @@ lfs_error_t lfs_format(lfs_t *lfs) {
     // TODO make sure that erase clobbered blocks
 
     {   // Create free list
-        lfs->free.d.head = 4;
-        lfs->free.d.ioff = 1;
-        lfs->free.d.icount = 1;
-        lfs->free.d.rev = 1;
+        lfs->free = (lfs_free_t){
+            .d.head = 2,
+            .d.ioff = 1,
+            .d.icount = 1,
+            .d.rev = 1,
+        };
 
         lfs_size_t block_count = lfs->info.total_size / lfs->info.erase_size;
-        for (lfs_ino_t i = 5; i < block_count; i++) {
+        for (lfs_ino_t i = 3; i < block_count; i++) {
             lfs_error_t err = lfs_free(lfs, i);
             if (err) {
                 return err;
@@ -416,12 +364,7 @@ lfs_error_t lfs_format(lfs_t *lfs) {
     lfs_dir_t root;
     {
         // Write root directory
-        int err = lfs_dir_alloc(lfs, &root);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_dir_update(lfs, &root, 0);
+        int err = lfs_dir_make(lfs, &root);
         if (err) {
             return err;
         }
@@ -429,71 +372,31 @@ lfs_error_t lfs_format(lfs_t *lfs) {
 
     {
         // Write superblocks
-        lfs_ino_t sno[2] = {0, 1};
         lfs_superblock_t superblock = {
+            .pair = {0, 1},
             .d.rev = 1,
-            .d.count = 0,
-            .d.root = {root.dno[0], root.dno[1]},
+            .d.size = sizeof(struct lfs_disk_superblock),
+            .d.root = {root.pair[0], root.pair[1]},
             .d.magic = {"littlefs"},
             .d.block_size = info.erase_size,
             .d.block_count = info.total_size / info.erase_size,
         };
 
         for (int i = 0; i < 2; i++) {
-            err = lfs->ops->erase(lfs->bd, sno[i], 0, info.erase_size);
+            lfs_ino_t block = superblock.pair[0];
+            int err = lfs_pair_write(lfs, superblock.pair,
+                    1, (struct lfs_write_region[1]){
+                        {0, sizeof(superblock.d), &superblock.d}
+                    });
+
+            err = lfs_check(lfs, block);
             if (err) {
-                return err;
-            }
-
-            err = lfs->ops->write(lfs->bd, (void*)&superblock.d,
-                    sno[i], 0, sizeof(superblock.d));
-            if (err) {
-                return err;
-            }
-
-            uint32_t crc = lfs_crc((void*)&superblock.d,
-                    sizeof(superblock.d), 0xffffffff);
-
-            for (lfs_size_t i = sizeof(superblock);
-                    i < info.erase_size-4; i += 4) {
-                uint32_t data;
-                err = lfs->ops->read(lfs->bd, (void*)&data, 0, i, 4);
-                if (err) {
-                    return err;
-                }
-
-                crc = lfs_crc((void*)&data, 4, crc);
-            }
-
-            err = lfs->ops->write(lfs->bd, (void*)&crc,
-                    sno[i], info.erase_size-4, 4);
-            if (err) {
+                LFS_ERROR("Failed to write superblock at %d", block);
                 return err;
             }
         }
-
-        // TODO verify superblocks written correctly
     }
 
-
-    // Sanity check
-    uint32_t crc = 0xffffffff;
-    for (lfs_size_t i = 0; i < info.erase_size; i += 4) {
-        uint32_t data;
-        err = lfs->ops->read(lfs->bd, (void*)&data, 0, i, 4);
-        if (err) {
-            return err;
-        }
-
-        crc = lfs_crc((void*)&data, 4, crc);
-    }
-
-    uint32_t data;
-    err = lfs->ops->read(lfs->bd, (void*)&data, 0, info.erase_size-4, 4);
-    if (err) {
-        return err;
-    }
-
-    return crc;
+    return 0;
 }
 

@@ -12,6 +12,11 @@
 
 
 // Data structures
+enum lfs_error {
+    LFS_ERROR_OK      = 0,
+    LFS_ERROR_CORRUPT = -3,
+};
+
 typedef struct lfs_free {
     lfs_disk_struct lfs_disk_free {
         lfs_ino_t head;
@@ -22,8 +27,7 @@ typedef struct lfs_free {
 } lfs_free_t;
 
 typedef struct lfs_dir {
-    lfs_ino_t dno[2];
-
+    lfs_ino_t pair[2];
     lfs_disk_struct lfs_disk_dir {
         lfs_word_t rev;
         lfs_size_t size;
@@ -63,9 +67,10 @@ typedef struct lfs_entry {
 } lfs_entry_t;
 
 typedef struct lfs_superblock {
+    lfs_ino_t pair[2];
     lfs_disk_struct lfs_disk_superblock {
-        uint32_t rev;
-        uint32_t count;
+        lfs_word_t rev;
+        uint32_t size;
         lfs_ino_t root[2];
         char magic[8];
         uint32_t block_size;

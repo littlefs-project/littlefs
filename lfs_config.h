@@ -42,7 +42,20 @@ static inline lfs_word_t lfs_npw2(lfs_word_t a) {
     return 32 - __builtin_clz(a-1);
 }
 
+static inline void lfs_swap(lfs_word_t *a, lfs_word_t *b) {
+    lfs_word_t temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
 // Attributes
 #define lfs_disk_struct struct __attribute__((packed))
+
+// Logging operations
+#include <stdio.h>
+#define LFS_ERROR(fmt, ...) printf("Error: " fmt "\n", __VA_ARGS__)
+#define LFS_WARN(fmt, ...)  printf("Warn: "  fmt "\n", __VA_ARGS__)
+#define LFS_INFO(fmt, ...)  printf("Info: "  fmt "\n", __VA_ARGS__)
+
 
 #endif
