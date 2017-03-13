@@ -10,6 +10,10 @@
 #include <stdbool.h>
 
 
+static int lfs_diff(uint32_t a, uint32_t b) {
+    return (int)(unsigned)(a - b);
+}
+
 static uint32_t lfs_crc(const uint8_t *data, lfs_size_t size, uint32_t crc) {
     static const uint32_t rtable[16] = {
         0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
@@ -25,6 +29,27 @@ static uint32_t lfs_crc(const uint8_t *data, lfs_size_t size, uint32_t crc) {
 
     return crc;
 }
+
+static lfs_error_t lfs_bd_cmp(lfs_t *lfs,
+        lfs_ino_t ino, lfs_off_t off, lfs_size_t size, const void *d) {
+    const uint8_t *data = d;
+
+    for (int i = 0; i < size; i++) {
+        uint8_t c;
+        int err = lfs->ops->read(lfs->bd, (void*)&c, ino, off + i, 1);
+        if (err) {
+            return err;
+        }
+
+        if (c != data[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
 
 static lfs_error_t lfs_alloc(lfs_t *lfs, lfs_ino_t *ino);
 static lfs_error_t lfs_free(lfs_t *lfs, lfs_ino_t ino);
@@ -147,40 +172,14 @@ lfs_error_t lfs_check(lfs_t *lfs, lfs_ino_t block) {
     return (crc != 0) ? LFS_ERROR_CORRUPT : LFS_ERROR_OK;
 }
 
-lfs_error_t lfs_block_load(lfs_t *lfs,
-        const lfs_ino_t pair[2], lfs_ino_t *ino) {
-    lfs_word_t rev[2];
-    for (int i = 0; i < 2; i++) {
-        int err = lfs->ops->read(lfs->bd, (void*)&rev[i], pair[i], 0, 4);
-        if (err) {
-            return err;
-        }
-    }
-
-    for (int i = 0; i < 2; i++) {
-        lfs_ino_t check = pair[(rev[1] > rev[0]) ? 1-i : i];
-        int err = lfs_check(lfs, check);
-        if (err == LFS_ERROR_CORRUPT) {
-            continue;
-        } else if (err) {
-            return err;
-        }
-
-        return check;
-    }
-
-    LFS_ERROR("Corrupted dir at %d %d", pair[0], pair[1]);
-    return LFS_ERROR_CORRUPT;
-}
-
-struct lfs_read_region {
+struct lfs_fetch_region {
     lfs_off_t off;
     lfs_size_t size;
     void *data;
 };
 
-lfs_error_t lfs_pair_read(lfs_t *lfs, lfs_ino_t pair[2],
-        int count, const struct lfs_read_region *regions) {
+lfs_error_t lfs_pair_fetch(lfs_t *lfs, lfs_ino_t pair[2],
+        int count, const struct lfs_fetch_region *regions) {
     int checked = 0;
     int rev = 0;
     for (int i = 0; i < 2; i++) {
@@ -192,12 +191,13 @@ lfs_error_t lfs_pair_read(lfs_t *lfs, lfs_ino_t pair[2],
         }
 
         // TODO diff these
-        if (checked > 0 && rev > nrev) {
+        if (checked > 0 && lfs_diff(nrev, rev) < 0) {
             continue;
         }
 
-        err = lfs_check(lfs, pair[i]);
+        err = lfs_check(lfs, pair[0]);
         if (err == LFS_ERROR_CORRUPT) {
+            lfs_swap(&pair[0], &pair[1]);
             continue;
         } else if (err) {
             return err;
@@ -223,14 +223,14 @@ lfs_error_t lfs_pair_read(lfs_t *lfs, lfs_ino_t pair[2],
     return 0;
 }
 
-struct lfs_write_region {
+struct lfs_commit_region {
     lfs_off_t off;
     lfs_size_t size;
     const void *data;
 };
 
-lfs_error_t lfs_pair_write(lfs_t *lfs, lfs_ino_t pair[2],
-        int count, const struct lfs_write_region *regions) {
+lfs_error_t lfs_pair_commit(lfs_t *lfs, lfs_ino_t pair[2],
+        int count, const struct lfs_commit_region *regions) {
     uint32_t crc = 0xffffffff;
     int err = lfs->ops->erase(lfs->bd,
             pair[0], 0, lfs->info.erase_size);
@@ -281,7 +281,7 @@ lfs_error_t lfs_pair_write(lfs_t *lfs, lfs_ino_t pair[2],
     return 0;
 }
 
-static lfs_error_t lfs_dir_make(lfs_t *lfs, lfs_dir_t *dir) {
+lfs_error_t lfs_dir_make(lfs_t *lfs, lfs_dir_t *dir, lfs_ino_t parent[2]) {
     // Allocate pair of dir blocks
     for (int i = 0; i < 2; i++) {
         int err = lfs_alloc(lfs, &dir->pair[i]);
@@ -292,29 +292,192 @@ static lfs_error_t lfs_dir_make(lfs_t *lfs, lfs_dir_t *dir) {
 
     // Rather than clobbering one of the blocks we just pretend
     // the revision may be valid
-    int err = lfs->ops->read(lfs->bd, (void*)&dir->d.rev,
-            dir->pair[1], 0, 4);
+    int err = lfs->ops->read(lfs->bd, (void*)&dir->d.rev, dir->pair[1], 0, 4);
     if (err) {
         return err;
     }
     dir->d.rev += 1;
 
     // Other defaults
+    dir->i = sizeof(struct lfs_disk_dir);
     dir->d.size = sizeof(struct lfs_disk_dir);
     dir->d.tail[0] = 0;
     dir->d.tail[1] = 0;
-    dir->d.parent[0] = 0;
-    dir->d.parent[1] = 0;
 
     // TODO sort this out
     dir->d.free = lfs->free.d;
 
-    // Write out to memory
-    return lfs_pair_write(lfs, dir->pair,
-        1, (struct lfs_write_region[1]){
+    if (parent) {
+        // Create '..' entry
+        lfs_entry_t entry = {
+            .d.type = LFS_TYPE_DIR,
+            .d.len = sizeof(entry.d) + 2,
+            .d.u.dir[0] = parent[0],
+            .d.u.dir[1] = parent[1],
+        };
+
+        dir->d.size += entry.d.len;
+
+        // Write out to memory
+        return lfs_pair_commit(lfs, dir->pair,
+            3, (struct lfs_commit_region[3]){
+                {0, sizeof(dir->d), &dir->d},
+                {sizeof(dir->d), sizeof(entry.d), &entry.d},
+                {sizeof(dir->d)+sizeof(entry.d), 2, ".."},
+            });
+    } else {
+        return lfs_pair_commit(lfs, dir->pair,
+            1, (struct lfs_commit_region[1]){
+                {0, sizeof(dir->d), &dir->d},
+            });
+    }
+}
+
+lfs_error_t lfs_dir_fetch(lfs_t *lfs, lfs_dir_t *dir, lfs_ino_t pair[2]) {
+    dir->pair[0] = pair[0];
+    dir->pair[1] = pair[1];
+    dir->i = sizeof(dir->d);
+
+    int err = lfs_pair_fetch(lfs, dir->pair,
+        1, (struct lfs_fetch_region[1]) {
             {0, sizeof(dir->d), &dir->d}
         });
+
+    if (err == LFS_ERROR_CORRUPT) {
+        LFS_ERROR("Corrupted dir at %d %d", pair[0], pair[1]);
+    }
+
+    return err;
 }
+
+lfs_error_t lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
+    while (true) {
+        // TODO iterate down list
+        entry->dir[0] = dir->pair[0];
+        entry->dir[1] = dir->pair[1];
+        entry->off = dir->i;
+
+        if (dir->d.size - dir->i < sizeof(entry->d)) {
+            return LFS_ERROR_NO_ENTRY;
+        }
+
+        int err = lfs->ops->read(lfs->bd, (void*)&entry->d,
+                dir->pair[1], dir->i, sizeof(entry->d));
+        if (err) {
+            return err;
+        }
+
+        dir->i += entry->d.len;
+
+        // Skip any unknown entries
+        if (entry->d.type == 1 || entry->d.type == 2) {
+            return 0;
+        }
+    }
+}
+
+lfs_error_t lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
+        const char *path, lfs_entry_t *entry) {
+    // TODO follow directories
+    lfs_size_t pathlen = strcspn(path, "/");
+    while (true) {
+        int err = lfs_dir_next(lfs, dir, entry);
+        if (err) {
+            return err;
+        }
+
+        if (entry->d.len - sizeof(entry->d) != pathlen) {
+            continue;
+        }
+
+        int ret = lfs_bd_cmp(lfs, entry->dir[1],
+                entry->off + sizeof(entry->d), pathlen, path);
+        if (ret < 0) {
+            return ret;
+        }
+
+        // Found match
+        if (ret == true) {
+            return 0;
+        }
+    }
+}
+
+lfs_error_t lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir,
+        const char *path, lfs_entry_t *entry, uint16_t len) {
+    int err = lfs_dir_find(lfs, dir, path, entry);
+    if (err != LFS_ERROR_NO_ENTRY) {
+        return err ? err : LFS_ERROR_EXISTS;
+    }
+
+    // Check if we fit
+    if (dir->d.size + len > lfs->info.erase_size - 4) {
+        return -1; // TODO make fit
+    }
+
+    return 0;
+}
+
+lfs_error_t lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
+    int err = lfs_dir_fetch(lfs, dir, lfs->cwd);
+    if (err) {
+        return err;
+    }
+    
+    lfs_entry_t entry;
+    err = lfs_dir_find(lfs, dir, path, &entry);
+    if (err) {
+        return err;
+    } else if (entry.d.type != LFS_TYPE_DIR) {
+        return LFS_ERROR_NOT_DIR;
+    }
+
+    return lfs_dir_fetch(lfs, dir, entry.d.u.dir);
+}
+
+lfs_error_t lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
+    // Do nothing, dir is always synchronized
+    return 0;
+}
+
+lfs_error_t lfs_mkdir(lfs_t *lfs, const char *path) {
+    // Allocate entry for directory
+    lfs_dir_t cwd;
+    int err = lfs_dir_fetch(lfs, &cwd, lfs->cwd);
+    if (err) {
+        return err;
+    }
+
+    lfs_entry_t entry;
+    err = lfs_dir_alloc(lfs, &cwd, path,
+            &entry, sizeof(entry.d)+strlen(path));
+    if (err) {
+        return err;
+    }
+
+    // Build up new directory
+    lfs_dir_t dir;
+    err = lfs_dir_make(lfs, &dir, cwd.pair); // TODO correct parent?
+    if (err) {
+        return err;
+    }
+
+    entry.d.type = 2;
+    entry.d.len = sizeof(entry.d) + strlen(path);
+    entry.d.u.dir[0] = dir.pair[0];
+    entry.d.u.dir[1] = dir.pair[1];
+
+    cwd.d.rev += 1;
+    cwd.d.size += entry.d.len;
+
+    return lfs_pair_commit(lfs, entry.dir,
+        3, (struct lfs_commit_region[3]) {
+            {0, sizeof(cwd.d), &cwd.d},
+            {entry.off, sizeof(entry.d), &entry.d},
+            {entry.off+sizeof(entry.d), entry.d.len - sizeof(entry.d), path}
+        });
+}
+
 
 
 // Little filesystem operations
@@ -361,13 +524,16 @@ lfs_error_t lfs_format(lfs_t *lfs) {
         }
     }
 
-    lfs_dir_t root;
     {
         // Write root directory
-        int err = lfs_dir_make(lfs, &root);
+        lfs_dir_t root;
+        int err = lfs_dir_make(lfs, &root, 0);
         if (err) {
             return err;
         }
+
+        lfs->cwd[0] = root.pair[0];
+        lfs->cwd[1] = root.pair[1];
     }
 
     {
@@ -376,7 +542,7 @@ lfs_error_t lfs_format(lfs_t *lfs) {
             .pair = {0, 1},
             .d.rev = 1,
             .d.size = sizeof(struct lfs_disk_superblock),
-            .d.root = {root.pair[0], root.pair[1]},
+            .d.root = {lfs->cwd[0], lfs->cwd[1]},
             .d.magic = {"littlefs"},
             .d.block_size = info.erase_size,
             .d.block_count = info.total_size / info.erase_size,
@@ -384,8 +550,8 @@ lfs_error_t lfs_format(lfs_t *lfs) {
 
         for (int i = 0; i < 2; i++) {
             lfs_ino_t block = superblock.pair[0];
-            int err = lfs_pair_write(lfs, superblock.pair,
-                    1, (struct lfs_write_region[1]){
+            int err = lfs_pair_commit(lfs, superblock.pair,
+                    1, (struct lfs_commit_region[1]){
                         {0, sizeof(superblock.d), &superblock.d}
                     });
 
@@ -400,3 +566,32 @@ lfs_error_t lfs_format(lfs_t *lfs) {
     return 0;
 }
 
+lfs_error_t lfs_mount(lfs_t *lfs) {
+    struct lfs_bd_info info;
+    lfs_error_t err = lfs->ops->info(lfs->bd, &info);
+    if (err) {
+        return err;
+    }
+
+    lfs_superblock_t superblock;
+    err = lfs_pair_fetch(lfs,
+            (lfs_ino_t[2]){0, 1},
+            1, (struct lfs_fetch_region[1]){
+                {0, sizeof(superblock.d), &superblock.d}
+            });
+
+    if ((err == LFS_ERROR_CORRUPT ||
+            memcmp(superblock.d.magic, "littlefs", 8) != 0)) {
+        LFS_ERROR("Invalid superblock at %d %d\n", 0, 1);
+        return LFS_ERROR_CORRUPT;
+    }
+
+    printf("superblock %d %d\n",
+            superblock.d.block_size,
+            superblock.d.block_count);
+
+    lfs->cwd[0] = superblock.d.root[0];
+    lfs->cwd[1] = superblock.d.root[1];
+
+    return err;
+}
