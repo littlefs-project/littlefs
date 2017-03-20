@@ -15,6 +15,7 @@ typedef uint32_t lfs_word_t;
 typedef uint16_t lfs_hword_t;
 
 typedef lfs_word_t lfs_size_t;
+typedef int32_t lfs_ssize_t;
 typedef lfs_word_t lfs_off_t;
 typedef int lfs_error_t;
 

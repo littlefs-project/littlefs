@@ -26,12 +26,27 @@ enum lfs_type {
     LFS_TYPE_DIR = 2,
 };
 
+enum lfs_open_flags {
+    LFS_O_RDONLY = 0,
+    LFS_O_WRONLY = 1,
+    LFS_O_RDWR   = 2,
+    LFS_O_CREAT  = 0x0040,
+    LFS_O_EXCL   = 0x0080,
+    LFS_O_TRUNC  = 0x0200,
+    LFS_O_APPEND = 0x0400,
+    LFS_O_SYNC   = 0x1000,
+};
+
 typedef struct lfs_free {
+    lfs_word_t begin;
+    lfs_word_t off;
+    lfs_word_t end;
+
     lfs_disk_struct lfs_disk_free {
-        lfs_ino_t head;
-        lfs_word_t ioff;
-        lfs_word_t icount;
         lfs_word_t rev;
+        lfs_ino_t head;
+        lfs_word_t off;
+        lfs_word_t end;
     } d;
 } lfs_free_t;
 
@@ -46,7 +61,7 @@ typedef struct lfs_dir {
 
         struct lfs_disk_free free;
     } d;
-} lfs_dir_t; 
+} lfs_dir_t;
 
 typedef struct lfs_entry {
     lfs_ino_t dir[2];
@@ -64,6 +79,20 @@ typedef struct lfs_entry {
         } u;
     } d;
 } lfs_entry_t;
+
+typedef struct lfs_file {
+    lfs_ino_t head;
+    lfs_size_t size;
+
+    lfs_ino_t wblock;
+    lfs_word_t windex;
+
+    lfs_ino_t rblock;
+    lfs_word_t rindex;
+    lfs_off_t roff;
+
+    struct lfs_entry entry;
+} lfs_file_t;
 
 typedef struct lfs_superblock {
     lfs_ino_t pair[2];
@@ -94,5 +123,12 @@ lfs_error_t lfs_mount(lfs_t *lfs);
 
 lfs_error_t lfs_mkdir(lfs_t *lfs, const char *path);
 
+lfs_error_t lfs_file_open(lfs_t *lfs, lfs_file_t *file,
+        const char *path, int flags);
+lfs_error_t lfs_file_close(lfs_t *lfs, lfs_file_t *file);
+lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
+        const void *buffer, lfs_size_t size);
+lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
+        void *buffer, lfs_size_t size);
 
 #endif

@@ -67,9 +67,19 @@ static lfs_off_t lfs_inext(lfs_t *lfs, lfs_off_t ioff) {
     return ioff;
 }
 
+static lfs_off_t lfs_toindex(lfs_t *lfs, lfs_off_t off) {
+    lfs_off_t i = 0;
+    while (off > 512) {
+        i = lfs_inext(lfs, i);
+        off -= 512;
+    }
+
+    return i;
+}
+
 // Find index in index chain given its index offset
-static lfs_error_t lfs_ifind(lfs_t *lfs, lfs_ino_t head,
-        lfs_size_t icount, lfs_off_t ioff, lfs_ino_t *ino) {
+static lfs_error_t lfs_ifind_block(lfs_t *lfs, lfs_ino_t head,
+        lfs_size_t icount, lfs_off_t ioff, lfs_ino_t *block) {
     lfs_size_t wcount = lfs->info.erase_size/4;
     lfs_off_t iitarget = ioff / wcount;
     lfs_off_t iicurrent = (icount-1) / wcount;
@@ -86,6 +96,18 @@ static lfs_error_t lfs_ifind(lfs_t *lfs, lfs_ino_t head,
         }
 
         iicurrent -= 1 << skip;
+    }
+
+    *block = head;
+    return 0;
+}
+
+static lfs_error_t lfs_ifind(lfs_t *lfs, lfs_ino_t head,
+        lfs_size_t icount, lfs_off_t ioff, lfs_ino_t *ino) {
+    lfs_size_t wcount = lfs->info.erase_size/4;
+    int err = lfs_ifind_block(lfs, head, icount, ioff, &head);
+    if (err) {
+        return err;
     }
 
     return lfs->ops->read(lfs->bd, (void*)ino, head, 4*(ioff % wcount), 4);
@@ -107,7 +129,7 @@ static lfs_error_t lfs_iappend(lfs_t *lfs, lfs_ino_t *headp,
             return err;
         }
 
-        lfs_off_t skips = lfs_min(lfs_ctz(ioff/wcount + 1), wcount-1) + 1;
+        lfs_off_t skips = lfs_min(lfs_ctz(ioff/wcount + 1), wcount-2) + 1;
         for (lfs_off_t i = 0; i < skips; i++) {
             err = lfs->ops->write(lfs->bd, (void*)&head, nhead, 4*i, 4);
             if (err) {
@@ -141,20 +163,44 @@ static lfs_error_t lfs_iappend(lfs_t *lfs, lfs_ino_t *headp,
 static lfs_error_t lfs_alloc(lfs_t *lfs, lfs_ino_t *ino) {
     // TODO save slot for freeing?
     lfs_error_t err = lfs_ifind(lfs, lfs->free.d.head,
-            lfs->free.d.icount, lfs->free.d.ioff, ino);
+            lfs->free.end, lfs->free.off, ino);
     if (err) {
         return err;
     }
 
-    lfs->free.d.ioff = lfs_inext(lfs, lfs->free.d.ioff);
+    lfs->free.off = lfs_inext(lfs, lfs->free.off);
 
     return lfs->ops->erase(lfs->bd, *ino, 0, lfs->info.erase_size);
 }
 
 static lfs_error_t lfs_free(lfs_t *lfs, lfs_ino_t ino) {
-    return lfs_iappend(lfs, &lfs->free.d.head, &lfs->free.d.icount, ino);
+    return lfs_iappend(lfs, &lfs->free.d.head, &lfs->free.end, ino);
 }
 
+static lfs_error_t lfs_free_flush(lfs_t *lfs) {
+    lfs_size_t wcount = lfs->info.erase_size/4;
+
+    for (lfs_word_t i = lfs->free.begin / wcount;
+            i + wcount < lfs->free.off; i += wcount) {
+        lfs_ino_t block;
+        int err = lfs_ifind_block(lfs, lfs->free.d.head,
+                lfs->free.end, i, &block);
+        if (err) {
+            return err;
+        }
+
+        lfs_free(lfs, block);
+    }
+
+    if (lfs->free.off != lfs->free.d.off || lfs->free.end != lfs->free.d.end) {
+        // TODO handle overflow?
+        lfs->free.d.rev += 1;
+    }
+    lfs->free.d.off = lfs->free.off;
+    lfs->free.d.end = lfs->free.end;
+
+    return 0;
+}
 
 lfs_error_t lfs_check(lfs_t *lfs, lfs_ino_t block) {
     uint32_t crc = 0xffffffff;
@@ -303,8 +349,7 @@ lfs_error_t lfs_dir_make(lfs_t *lfs, lfs_dir_t *dir, lfs_ino_t parent[2]) {
     dir->d.size = sizeof(struct lfs_disk_dir);
     dir->d.tail[0] = 0;
     dir->d.tail[1] = 0;
-
-    // TODO sort this out
+    lfs_free_flush(lfs);
     dir->d.free = lfs->free.d;
 
     if (parent) {
@@ -469,6 +514,8 @@ lfs_error_t lfs_mkdir(lfs_t *lfs, const char *path) {
 
     cwd.d.rev += 1;
     cwd.d.size += entry.d.len;
+    lfs_free_flush(lfs);
+    cwd.d.free = lfs->free.d;
 
     return lfs_pair_commit(lfs, entry.dir,
         3, (struct lfs_commit_region[3]) {
@@ -476,6 +523,184 @@ lfs_error_t lfs_mkdir(lfs_t *lfs, const char *path) {
             {entry.off, sizeof(entry.d), &entry.d},
             {entry.off+sizeof(entry.d), entry.d.len - sizeof(entry.d), path}
         });
+}
+
+lfs_error_t lfs_file_open(lfs_t *lfs, lfs_file_t *file,
+        const char *path, int flags) {
+    // Allocate entry for file if it doesn't exist
+    // TODO check open files
+    lfs_dir_t cwd;
+    int err = lfs_dir_fetch(lfs, &cwd, lfs->cwd);
+    if (err) {
+        return err;
+    }
+
+    if (flags & LFS_O_CREAT) {
+        err = lfs_dir_alloc(lfs, &cwd, path,
+                &file->entry, sizeof(file->entry.d)+strlen(path));
+        if (err && err != LFS_ERROR_EXISTS) {
+            return err;
+        }
+    } else {
+        err = lfs_dir_find(lfs, &cwd, path, &file->entry);
+        if (err) {
+            return err;
+        }
+    }
+
+    if ((flags & LFS_O_CREAT) && err != LFS_ERROR_EXISTS) {
+        // Store file
+        file->head = 0;
+        file->size = 0;
+        file->wblock = 0;
+        file->windex = 0;
+        file->rblock = 0;
+        file->rindex = 0;
+        file->roff = 0;
+
+        file->entry.d.type = 1;
+        file->entry.d.len = sizeof(file->entry.d) + strlen(path);
+        file->entry.d.u.file.head = file->head;
+        file->entry.d.u.file.size = file->size;
+
+        cwd.d.rev += 1;
+        cwd.d.size += file->entry.d.len;
+        lfs_free_flush(lfs);
+        cwd.d.free = lfs->free.d;
+
+        return lfs_pair_commit(lfs, file->entry.dir,
+            3, (struct lfs_commit_region[3]) {
+                {0, sizeof(cwd.d), &cwd.d},
+                {file->entry.off, sizeof(file->entry.d),
+                        &file->entry.d},
+                {file->entry.off+sizeof(file->entry.d),
+                        file->entry.d.len-sizeof(file->entry.d), path}
+            });
+    } else {
+        file->head = file->entry.d.u.file.head;
+        file->size = file->entry.d.u.file.size;
+        file->windex = lfs_toindex(lfs, file->size);
+        file->rblock = 0;
+        file->rindex = 0;
+        file->roff = 0;
+
+        // TODO do this lazily in write?
+        // TODO cow the head i/d block
+        if (file->size < lfs->info.erase_size) {
+            file->wblock = file->head;
+        } else {
+            int err = lfs_ifind(lfs, file->head, file->windex,
+                    file->windex, &file->wblock);
+            if (err) {
+                return err;
+            }
+        }
+
+        return 0;
+    }
+}
+
+lfs_error_t lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
+    // Store file
+    lfs_dir_t cwd;
+    int err = lfs_dir_fetch(lfs, &cwd, file->entry.dir);
+    if (err) {
+        return err;
+    }
+
+    file->entry.d.u.file.head = file->head;
+    file->entry.d.u.file.size = file->size;
+
+    cwd.d.rev += 1;
+    lfs_free_flush(lfs);
+    cwd.d.free = lfs->free.d;
+
+    return lfs_pair_commit(lfs, file->entry.dir,
+        3, (struct lfs_commit_region[3]) {
+            {0, sizeof(cwd.d), &cwd.d},
+            {file->entry.off, sizeof(file->entry.d), &file->entry.d},
+        });
+}
+
+lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
+        const void *buffer, lfs_size_t size) {
+    const uint8_t *data = buffer;
+    lfs_size_t nsize = size;
+
+    while (nsize > 0) {
+        lfs_off_t woff = file->size % lfs->info.erase_size;
+
+        if (file->size == 0) {
+            int err = lfs_alloc(lfs, &file->wblock);
+            if (err) {
+                return err;
+            }
+
+            file->head = file->wblock;
+            file->windex = 0;
+        } else if (woff == 0) {
+            // TODO check that 2 blocks are available
+            // TODO check for available blocks for backing up scratch files?
+            int err = lfs_alloc(lfs, &file->wblock);
+            if (err) {
+                return err;
+            }
+
+            err = lfs_iappend(lfs, &file->head, &file->windex, file->wblock);
+            if (err) {
+                return err;
+            }
+        }
+
+        lfs_size_t diff = lfs_min(nsize, lfs->info.erase_size - woff);
+        int err = lfs->ops->write(lfs->bd, data, file->wblock, woff, diff);
+        if (err) {
+            return err;
+        }
+
+        file->size += diff;
+        data += diff;
+        nsize -= diff;
+    }
+
+    return size;
+}
+
+lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
+        void *buffer, lfs_size_t size) {
+    uint8_t *data = buffer;
+    lfs_size_t nsize = size;
+
+    while (nsize > 0 && file->roff < file->size) {
+        lfs_off_t roff = file->roff % lfs->info.erase_size;
+
+        // TODO cache index blocks
+        if (file->size < lfs->info.erase_size) {
+            file->rblock = file->head;
+        } else if (roff == 0) {
+            int err = lfs_ifind(lfs, file->head, file->windex,
+                    file->rindex, &file->rblock);
+            if (err) {
+                return err;
+            }
+
+            file->rindex = lfs_inext(lfs, file->rindex);
+        }
+
+        lfs_size_t diff = lfs_min(
+                lfs_min(nsize, file->size-file->roff),
+                lfs->info.erase_size - roff);
+        int err = lfs->ops->read(lfs->bd, data, file->rblock, roff, diff);
+        if (err) {
+            return err;
+        }
+
+        file->roff += diff;
+        data += diff;
+        nsize -= diff;
+    }
+
+    return size - nsize;
 }
 
 
@@ -509,10 +734,14 @@ lfs_error_t lfs_format(lfs_t *lfs) {
 
     {   // Create free list
         lfs->free = (lfs_free_t){
-            .d.head = 2,
-            .d.ioff = 1,
-            .d.icount = 1,
+            .begin = 1,
+            .off = 1,
+            .end = 1,
+
             .d.rev = 1,
+            .d.head = 2,
+            .d.off = 1,
+            .d.end = 1,
         };
 
         lfs_size_t block_count = lfs->info.total_size / lfs->info.erase_size;
