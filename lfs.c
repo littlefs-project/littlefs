@@ -762,7 +762,7 @@ int lfs_mount(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops) {
 
     if ((err == LFS_ERROR_CORRUPT ||
             memcmp(superblock.d.magic, "littlefs", 8) != 0)) {
-        LFS_ERROR("Invalid superblock at %d %d\n",
+        LFS_ERROR("Invalid superblock at %d %d",
                 superblock.pair[0], superblock.pair[1]);
         return LFS_ERROR_CORRUPT;
     }

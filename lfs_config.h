@@ -23,9 +23,9 @@ typedef uint32_t lfs_block_t;
 
 // Logging operations
 #include <stdio.h>
-#define LFS_ERROR(fmt, ...) printf("Error: " fmt "\n", __VA_ARGS__)
-#define LFS_WARN(fmt, ...)  printf("Warn: "  fmt "\n", __VA_ARGS__)
-#define LFS_INFO(fmt, ...)  printf("Info: "  fmt "\n", __VA_ARGS__)
+#define LFS_ERROR(fmt, ...) printf("lfs error: " fmt "\n", __VA_ARGS__)
+#define LFS_WARN(fmt, ...)  printf("lfs warn: " fmt "\n", __VA_ARGS__)
+#define LFS_INFO(fmt, ...)  printf("lfs info: " fmt "\n", __VA_ARGS__)
 
 
 #endif

@@ -31,11 +31,11 @@ enum lfs_open_flags {
     LFS_O_RDONLY = 0,
     LFS_O_WRONLY = 1,
     LFS_O_RDWR   = 2,
-    LFS_O_CREAT  = 0x0040,
-    LFS_O_EXCL   = 0x0080,
-    LFS_O_TRUNC  = 0x0200,
-    LFS_O_APPEND = 0x0400,
-    LFS_O_SYNC   = 0x1000,
+    LFS_O_CREAT  = 0x020,
+    LFS_O_EXCL   = 0x040,
+    LFS_O_TRUNC  = 0x080,
+    LFS_O_APPEND = 0x100,
+    LFS_O_SYNC   = 0x200,
 };
 
 

@@ -9,6 +9,8 @@ OBJ := $(SRC:.c=.o)
 DEP := $(SRC:.c=.d)
 ASM := $(SRC:.c=.s)
 
+TEST := $(wildcard tests/test_*)
+
 ifdef DEBUG
 CFLAGS += -O0 -g3
 else
@@ -27,6 +29,9 @@ asm: $(ASM)
 
 size: $(OBJ)
 	$(SIZE) -t $^
+
+test:
+	for t in $(TEST) ; do ./$$t ; done
 
 -include $(DEP)
 

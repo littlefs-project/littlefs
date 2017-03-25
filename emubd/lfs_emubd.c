@@ -5,7 +5,6 @@
  * Distributed under the MIT license
  */
 #include "emubd/lfs_emubd.h"
-#include "emubd/lfs_cfg.h"
 
 #include <errno.h>
 #include <string.h>
@@ -14,6 +13,7 @@
 #include <limits.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 
 // Block device emulated on existing filesystem
@@ -30,28 +30,44 @@ int lfs_emubd_create(lfs_emubd_t *emu, const char *path) {
 
     strcpy(emu->path, path);
     emu->path[pathlen] = '/';
-    emu->path[pathlen + 1 + LFS_NAME_MAX] = '\0';
     emu->child = &emu->path[pathlen+1];
-    strncpy(emu->child, "config", LFS_NAME_MAX);
+    memset(emu->child, '\0', LFS_NAME_MAX+1);
 
-    // Load config, erroring if it doesn't exist
-    lfs_cfg_t cfg;
-    int err = lfs_cfg_create(&cfg, emu->path);
-    if (err) {
-        return err;
+    // Create directory if it doesn't exist
+    int err = mkdir(path, 0777);
+    if (err && errno != EEXIST) {
+        return -errno;
     }
 
-    emu->info.read_size  = lfs_cfg_getu(&cfg, "read_size",  0);
-    emu->info.prog_size  = lfs_cfg_getu(&cfg, "prog_size",  0);
-    emu->info.erase_size = lfs_cfg_getu(&cfg, "erase_size", 0);
-    emu->info.total_size = lfs_cfg_getu(&cfg, "total_size", 0);
+    // Setup info based on configuration
+    emu->info.read_size  = LFS_EMUBD_READ_SIZE;
+    emu->info.prog_size  = LFS_EMUBD_PROG_SIZE;
+    emu->info.erase_size = LFS_EMUBD_ERASE_SIZE;
+    emu->info.total_size = LFS_EMUBD_TOTAL_SIZE;
 
-    lfs_cfg_destroy(&cfg);
+    // Load stats to continue incrementing
+    snprintf(emu->child, LFS_NAME_MAX, "stats");
+    FILE *f = fopen(emu->path, "r");
+    if (!f) {
+        return -errno;
+    }
+
+    size_t res = fread(&emu->stats, sizeof(emu->stats), 1, f);
+    if (res < 1) {
+        return -errno;
+    }
+
+    err = fclose(f);
+    if (err) {
+        return -errno;
+    }
 
     return 0;
 }
 
 void lfs_emubd_destroy(lfs_emubd_t *emu) {
+    lfs_emubd_sync(emu);
+
     free(emu->path);
 }
 
@@ -194,7 +210,39 @@ int lfs_emubd_erase(lfs_emubd_t *emu, lfs_block_t block,
 }
 
 int lfs_emubd_sync(lfs_emubd_t *emu) {
-    // Always in sync
+    // Just write out info/stats for later lookup
+    snprintf(emu->child, LFS_NAME_MAX, "info");
+    FILE *f = fopen(emu->path, "w");
+    if (!f) {
+        return -errno;
+    }
+
+    size_t res = fwrite(&emu->info, sizeof(emu->info), 1, f);
+    if (res < 1) {
+        return -errno;
+    }
+
+    int err = fclose(f);
+    if (err) {
+        return -errno;
+    }
+
+    snprintf(emu->child, LFS_NAME_MAX, "stats");
+    f = fopen(emu->path, "w");
+    if (!f) {
+        return -errno;
+    }
+
+    res = fwrite(&emu->stats, sizeof(emu->stats), 1, f);
+    if (res < 1) {
+        return -errno;
+    }
+
+    err = fclose(f);
+    if (err) {
+        return -errno;
+    }
+
     return 0;
 }
 

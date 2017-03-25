@@ -12,6 +12,24 @@
 #include "lfs_bd.h"
 
 
+// Config options
+#ifndef LFS_EMUBD_READ_SIZE
+#define LFS_EMUBD_READ_SIZE 1
+#endif
+
+#ifndef LFS_EMUBD_PROG_SIZE
+#define LFS_EMUBD_PROG_SIZE 1
+#endif
+
+#ifndef LFS_EMUBD_ERASE_SIZE
+#define LFS_EMUBD_ERASE_SIZE 512
+#endif
+
+#ifndef LFS_EMUBD_TOTAL_SIZE
+#define LFS_EMUBD_TOTAL_SIZE 524288
+#endif
+
+
 // Stats for debugging and optimization
 struct lfs_bd_stats {
     uint64_t read_count;
