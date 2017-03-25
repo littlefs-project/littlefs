@@ -23,8 +23,9 @@ lfs_t lfs;
 lfs_emubd_t bd;
 lfs_file_t file[4];
 lfs_dir_t dir[4];
-struct lfs_bd_info info;
-struct lfs_bd_stats stats;
+struct lfs_bd_info bd_info;
+struct lfs_bd_stats bd_stats;
+struct lfs_info info;
 
 uint8_t buffer[1024];
 uint8_t wbuffer[1024];
@@ -34,6 +35,11 @@ lfs_size_t wsize;
 lfs_size_t rsize;
 
 uintmax_t res;
+
+const struct lfs_config config = {{
+    .bd = &bd,
+    .bd_ops = &lfs_emubd_ops,
+}};
 
 
 int main() {{

@@ -39,9 +39,9 @@ static int lfs_bd_cmp(lfs_t *lfs, lfs_block_t block,
         lfs_off_t off, lfs_size_t size, const void *buffer) {
     const uint8_t *data = buffer;
 
-    while (off < size) {
+    for (lfs_off_t i = 0; i < size; i++) {
         uint8_t c;
-        int err = lfs_bd_read(lfs, block, off, 1, &c);
+        int err = lfs_bd_read(lfs, block, off+i, 1, &c);
         if (err) {
             return err;
         }
@@ -51,7 +51,6 @@ static int lfs_bd_cmp(lfs_t *lfs, lfs_block_t block,
         }
 
         data += 1;
-        off += 1;
     }
 
     return true;
@@ -329,29 +328,35 @@ static int lfs_dir_create(lfs_t *lfs, lfs_dir_t *dir, lfs_block_t parent[2]) {
     dir->d.rev += 1;
 
     // Calculate total size
-    dir->d.size = sizeof(dir->d);
-    if (parent) {
-        dir->d.size += sizeof(struct lfs_disk_entry);
-    }
+    dir->d.size = sizeof(dir->d) + 2*sizeof(struct lfs_disk_entry) + 3;
+    dir->off = sizeof(dir->d);
 
     // Other defaults
-    dir->off = dir->d.size;
     dir->d.tail[0] = 0;
     dir->d.tail[1] = 0;
     dir->d.free = lfs->free;
 
     // Write out to memory
     return lfs_pair_commit(lfs, dir->pair,
-        1 + (parent ? 2 : 0), (struct lfs_commit_region[]){
+        5, (struct lfs_commit_region[]){
             {0, sizeof(dir->d), &dir->d},
             {sizeof(dir->d), sizeof(struct lfs_disk_entry),
              &(struct lfs_disk_entry){
                 .type     = LFS_TYPE_DIR,
-                .len      = 12+2,
-                .u.dir[0] = parent ? parent[0] : 0,
-                .u.dir[1] = parent ? parent[1] : 0,
+                .len      = sizeof(struct lfs_disk_entry)+1,
+                .u.dir[0] = dir->pair[0],
+                .u.dir[1] = dir->pair[1],
             }},
-            {sizeof(dir->d)+sizeof(struct lfs_disk_entry), 2, ".."},
+            {sizeof(dir->d)+sizeof(struct lfs_disk_entry), 1, "."},
+            {sizeof(dir->d)+sizeof(struct lfs_disk_entry)+1,
+             sizeof(struct lfs_disk_entry),
+             &(struct lfs_disk_entry){
+                .type     = LFS_TYPE_DIR,
+                .len      = sizeof(struct lfs_disk_entry)+2,
+                .u.dir[0] = parent ? parent[0] : dir->pair[0],
+                .u.dir[1] = parent ? parent[1] : dir->pair[1],
+            }},
+            {sizeof(dir->d)+2*sizeof(struct lfs_disk_entry)+1, 2, ".."},
         });
 }
 
@@ -473,9 +478,19 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 }
 
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
-    int err = lfs_dir_fetch(lfs, dir, lfs->cwd);
+    if (path[0] == '/') {
+        dir->pair[0] = lfs->root[0];
+        dir->pair[1] = lfs->root[1];
+    } else {
+        dir->pair[0] = lfs->cwd[0];
+        dir->pair[1] = lfs->cwd[1];
+    }
+
+    int err = lfs_dir_fetch(lfs, dir, dir->pair);
     if (err) {
         return err;
+    } else if (strcmp(path, "/") == 0) {
+        return 0;
     }
     
     lfs_entry_t entry;
@@ -492,6 +507,29 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
 int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
     // Do nothing, dir is always synchronized
     return 0;
+}
+
+int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
+    memset(info, 0, sizeof(*info));
+
+    lfs_entry_t entry;
+    int err = lfs_dir_next(lfs, dir, &entry);
+    if (err) {
+        return (err == LFS_ERROR_NO_ENTRY) ? 0 : err;
+    }
+
+    info->type = entry.d.type & 0xff;
+    if (info->type == LFS_TYPE_REG) {
+        info->size = entry.d.u.file.size;
+    }
+
+    err = lfs_bd_read(lfs, entry.dir[0], entry.off + sizeof(entry.d),
+            entry.d.len - sizeof(entry.d), info->name);
+    if (err) {
+        return err;
+    }
+
+    return 1;
 }
 
 
@@ -548,6 +586,8 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
                  file->entry.d.len-sizeof(file->entry.d),
                  path}
             });
+    } else if (file->entry.d.type == LFS_TYPE_DIR) {
+        return LFS_ERROR_IS_DIR;
     } else {
         file->head = file->entry.d.u.file.head;
         file->size = file->entry.d.u.file.size;
@@ -675,9 +715,9 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 
 
 /// Generic filesystem operations ///
-int lfs_format(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops) {
-    lfs->bd = bd;
-    lfs->bd_ops = bd_ops;
+static int lfs_configure(lfs_t *lfs, const struct lfs_config *config) {
+    lfs->bd = config->bd;
+    lfs->bd_ops = config->bd_ops;
 
     struct lfs_bd_info info;
     int err = lfs_bd_info(lfs, &info);
@@ -685,11 +725,67 @@ int lfs_format(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops) {
         return err;
     }
 
-    lfs->read_size  = info.read_size;
-    lfs->prog_size  = info.prog_size;
-    lfs->block_size = info.erase_size;
-    lfs->block_count = info.total_size / info.erase_size;
-    lfs->words = info.erase_size / sizeof(uint32_t);
+    if (config->read_size) {
+        if (config->read_size < info.read_size ||
+            config->read_size % info.read_size != 0) {
+            LFS_ERROR("Invalid read size %u, device has %u\n",
+                config->read_size, info.read_size);
+            return LFS_ERROR_INVALID;
+        }
+
+        lfs->read_size = config->read_size;
+    } else {
+        lfs->read_size = info.read_size;
+    }
+
+    if (config->prog_size) {
+        if (config->prog_size < info.prog_size ||
+            config->prog_size % info.prog_size != 0) {
+            LFS_ERROR("Invalid prog size %u, device has %u\n",
+                config->prog_size, info.prog_size);
+            return LFS_ERROR_INVALID;
+        }
+
+        lfs->prog_size = config->prog_size;
+    } else {
+        lfs->prog_size = info.prog_size;
+    }
+
+    if (config->block_size) {
+        if (config->block_size < info.erase_size ||
+            config->block_size % info.erase_size != 0) {
+            LFS_ERROR("Invalid block size %u, device has %u\n",
+                config->prog_size, info.prog_size);
+            return LFS_ERROR_INVALID;
+        }
+
+        lfs->block_size = config->block_size;
+    } else {
+        lfs->block_size = lfs_min(512, info.erase_size);
+    }
+
+    if (config->block_count) {
+        if (config->block_count > info.total_size/info.erase_size) {
+            LFS_ERROR("Invalid block size %u, device has %u\n",
+                config->block_size,
+                (uint32_t)(info.total_size/info.erase_size));
+            return LFS_ERROR_INVALID;
+        }
+
+        lfs->block_count = config->block_count;
+    } else {
+        lfs->block_count = info.total_size / info.erase_size;
+    }
+
+    lfs->words = lfs->block_size / sizeof(uint32_t);
+    return 0;
+}
+
+int lfs_format(lfs_t *lfs, const struct lfs_config *config) {
+    int err = lfs_configure(lfs, config);
+    if (err) {
+        return err;
+    }
 
     // Create free list
     lfs->free.begin = 2;
@@ -701,6 +797,8 @@ int lfs_format(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops) {
     if (err) {
         return err;
     }
+    lfs->root[0] = root.pair[0];
+    lfs->root[1] = root.pair[1];
     lfs->cwd[0] = root.pair[0];
     lfs->cwd[1] = root.pair[1];
 
@@ -736,21 +834,11 @@ int lfs_format(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops) {
     return 0;
 }
 
-int lfs_mount(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops) {
-    lfs->bd = bd;
-    lfs->bd_ops = bd_ops;
-
-    struct lfs_bd_info info;
-    int err = lfs_bd_info(lfs, &info);
+int lfs_mount(lfs_t *lfs, const struct lfs_config *config) {
+    int err = lfs_configure(lfs, config);
     if (err) {
         return err;
     }
-
-    lfs->read_size  = info.read_size;
-    lfs->prog_size  = info.prog_size;
-    lfs->block_size = info.erase_size;
-    lfs->block_count = info.total_size / info.erase_size;
-    lfs->words = info.erase_size / sizeof(uint32_t);
 
     lfs_superblock_t superblock = {
         .pair = {0, 1},
@@ -767,8 +855,20 @@ int lfs_mount(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops) {
         return LFS_ERROR_CORRUPT;
     }
 
+    lfs->root[0] = superblock.d.root[0];
+    lfs->root[1] = superblock.d.root[1];
     lfs->cwd[0] = superblock.d.root[0];
     lfs->cwd[1] = superblock.d.root[1];
+
+    // TODO this is wrong, needs to check all dirs
+    lfs_dir_t dir;
+    err = lfs_dir_fetch(lfs, &dir, lfs->cwd);
+    if (err) {
+        return err;
+    }
+
+    lfs->free.begin = dir.d.free.begin;
+    lfs->free.end = dir.d.free.end;
 
     return err;
 }

@@ -18,8 +18,9 @@ enum lfs_error {
     LFS_ERROR_NO_ENTRY = -4,
     LFS_ERROR_EXISTS   = -5,
     LFS_ERROR_NOT_DIR  = -6,
-    LFS_ERROR_INVALID  = -7,
-    LFS_ERROR_NO_SPACE = -8,
+    LFS_ERROR_IS_DIR   = -7,
+    LFS_ERROR_INVALID  = -8,
+    LFS_ERROR_NO_SPACE = -9,
 };
 
 enum lfs_type {
@@ -39,6 +40,22 @@ enum lfs_open_flags {
 };
 
 
+struct lfs_config {
+    lfs_bd_t *bd;
+    const struct lfs_bd_ops *bd_ops;
+
+    lfs_size_t read_size;
+    lfs_size_t prog_size;
+
+    lfs_size_t block_size;
+    lfs_size_t block_count;
+};
+
+struct lfs_info {
+    uint8_t type;
+    lfs_size_t size;
+    char name[LFS_NAME_MAX+1];
+};
 
 typedef struct lfs_entry {
     lfs_block_t dir[2];
@@ -104,6 +121,7 @@ typedef struct lfs {
     lfs_bd_t *bd;
     const struct lfs_bd_ops *bd_ops;
 
+    lfs_block_t root[2];
     lfs_block_t cwd[2];
     struct lfs_disk_free free;
 
@@ -115,11 +133,14 @@ typedef struct lfs {
 } lfs_t;
 
 // Functions
-int lfs_format(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops);
-int lfs_mount(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops);
+int lfs_format(lfs_t *lfs, const struct lfs_config *config);
+int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
 int lfs_unmount(lfs_t *lfs);
 
 int lfs_mkdir(lfs_t *lfs, const char *path);
+int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
+int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir);
+int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
 
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);

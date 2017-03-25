@@ -18,13 +18,13 @@ def main():
         os.path.getsize(os.path.join('blocks', f))
         for f in os.listdir('blocks') if re.match('\d+', f))
 
-    print 'runtime: %.3f' % (time.time() - os.stat('blocks').st_ctime)
-
     with open('blocks/stats') as file:
         s = struct.unpack('<QQQ', file.read())
         print 'read_count: %d' % s[0]
         print 'prog_count: %d' % s[1]
         print 'erase_count: %d' % s[2]
+
+    print 'runtime: %.3f' % (time.time() - os.stat('blocks').st_ctime)
 
 if __name__ == "__main__":
     main(*sys.argv[1:])

@@ -9,7 +9,7 @@ OBJ := $(SRC:.c=.o)
 DEP := $(SRC:.c=.d)
 ASM := $(SRC:.c=.s)
 
-TEST := $(wildcard tests/test_*)
+TEST := $(patsubst tests/%.sh,%,$(wildcard tests/test_*))
 
 ifdef DEBUG
 CFLAGS += -O0 -g3
@@ -30,8 +30,10 @@ asm: $(ASM)
 size: $(OBJ)
 	$(SIZE) -t $^
 
-test:
-	for t in $(TEST) ; do ./$$t ; done
+.SUFFIXES:
+test: $(TEST)
+test_%: tests/test_%.sh
+	./$<
 
 -include $(DEP)
 
