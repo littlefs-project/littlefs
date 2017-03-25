@@ -19,6 +19,7 @@ enum lfs_error {
     LFS_ERROR_EXISTS   = -5,
     LFS_ERROR_NOT_DIR  = -6,
     LFS_ERROR_INVALID  = -7,
+    LFS_ERROR_NO_SPACE = -8,
 };
 
 enum lfs_type {
@@ -38,14 +39,8 @@ enum lfs_open_flags {
 };
 
 typedef struct lfs_free {
-    lfs_word_t begin;
-    lfs_word_t off;
-    lfs_word_t end;
-
     lfs_disk_struct lfs_disk_free {
-        lfs_word_t rev;
-        lfs_ino_t head;
-        lfs_word_t off;
+        lfs_word_t begin;
         lfs_word_t end;
     } d;
 } lfs_free_t;

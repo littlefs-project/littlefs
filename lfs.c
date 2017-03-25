@@ -52,7 +52,6 @@ static lfs_error_t lfs_bd_cmp(lfs_t *lfs,
 
 
 static lfs_error_t lfs_alloc(lfs_t *lfs, lfs_ino_t *ino);
-static lfs_error_t lfs_free(lfs_t *lfs, lfs_ino_t ino);
 
 
 // Next index offset
@@ -161,45 +160,17 @@ static lfs_error_t lfs_iappend(lfs_t *lfs, lfs_ino_t *headp,
 
 // Memory managment
 static lfs_error_t lfs_alloc(lfs_t *lfs, lfs_ino_t *ino) {
-    // TODO save slot for freeing?
-    lfs_error_t err = lfs_ifind(lfs, lfs->free.d.head,
-            lfs->free.end, lfs->free.off, ino);
-    if (err) {
-        return err;
+    if (lfs->free.d.begin != lfs->free.d.end) {
+        *ino = lfs->free.d.begin;
+        lfs->free.d.begin += 1;
+
+        return lfs->ops->erase(lfs->bd, *ino, 0, lfs->info.erase_size);
     }
 
-    lfs->free.off = lfs_inext(lfs, lfs->free.off);
-
-    return lfs->ops->erase(lfs->bd, *ino, 0, lfs->info.erase_size);
-}
-
-static lfs_error_t lfs_free(lfs_t *lfs, lfs_ino_t ino) {
-    return lfs_iappend(lfs, &lfs->free.d.head, &lfs->free.end, ino);
-}
-
-static lfs_error_t lfs_free_flush(lfs_t *lfs) {
-    lfs_size_t wcount = lfs->info.erase_size/4;
-
-    for (lfs_word_t i = lfs->free.begin / wcount;
-            i + wcount < lfs->free.off; i += wcount) {
-        lfs_ino_t block;
-        int err = lfs_ifind_block(lfs, lfs->free.d.head,
-                lfs->free.end, i, &block);
-        if (err) {
-            return err;
-        }
-
-        lfs_free(lfs, block);
-    }
-
-    if (lfs->free.off != lfs->free.d.off || lfs->free.end != lfs->free.d.end) {
-        // TODO handle overflow?
-        lfs->free.d.rev += 1;
-    }
-    lfs->free.d.off = lfs->free.off;
-    lfs->free.d.end = lfs->free.end;
-
-    return 0;
+    // TODO find next stride of free blocks
+    // TODO verify no strides exist where begin > current begin
+    // note: begin = 0 is invalid (superblock)
+    return LFS_ERROR_NO_SPACE;
 }
 
 lfs_error_t lfs_check(lfs_t *lfs, lfs_ino_t block) {
@@ -349,7 +320,6 @@ lfs_error_t lfs_dir_make(lfs_t *lfs, lfs_dir_t *dir, lfs_ino_t parent[2]) {
     dir->d.size = sizeof(struct lfs_disk_dir);
     dir->d.tail[0] = 0;
     dir->d.tail[1] = 0;
-    lfs_free_flush(lfs);
     dir->d.free = lfs->free.d;
 
     if (parent) {
@@ -514,7 +484,6 @@ lfs_error_t lfs_mkdir(lfs_t *lfs, const char *path) {
 
     cwd.d.rev += 1;
     cwd.d.size += entry.d.len;
-    lfs_free_flush(lfs);
     cwd.d.free = lfs->free.d;
 
     return lfs_pair_commit(lfs, entry.dir,
@@ -565,7 +534,6 @@ lfs_error_t lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 
         cwd.d.rev += 1;
         cwd.d.size += file->entry.d.len;
-        lfs_free_flush(lfs);
         cwd.d.free = lfs->free.d;
 
         return lfs_pair_commit(lfs, file->entry.dir,
@@ -612,7 +580,6 @@ lfs_error_t lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     file->entry.d.u.file.size = file->size;
 
     cwd.d.rev += 1;
-    lfs_free_flush(lfs);
     cwd.d.free = lfs->free.d;
 
     return lfs_pair_commit(lfs, file->entry.dir,
@@ -732,25 +699,14 @@ lfs_error_t lfs_format(lfs_t *lfs) {
 
     // TODO make sure that erase clobbered blocks
 
-    {   // Create free list
-        lfs->free = (lfs_free_t){
-            .begin = 1,
-            .off = 1,
-            .end = 1,
-
-            .d.rev = 1,
-            .d.head = 2,
-            .d.off = 1,
-            .d.end = 1,
-        };
-
+    {
         lfs_size_t block_count = lfs->info.total_size / lfs->info.erase_size;
-        for (lfs_ino_t i = 3; i < block_count; i++) {
-            lfs_error_t err = lfs_free(lfs, i);
-            if (err) {
-                return err;
-            }
-        }
+
+        // Create free list
+        lfs->free = (lfs_free_t){
+            .d.begin = 2,
+            .d.end = block_count,
+        };
     }
 
     {
