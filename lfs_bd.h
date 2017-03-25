@@ -16,10 +16,10 @@ typedef void lfs_bd_t;
 // Description of block devices
 struct lfs_bd_info {
     lfs_size_t read_size;   // Size of readable block
-    lfs_size_t write_size;  // Size of programmable block
+    lfs_size_t prog_size;   // Size of programmable block
     lfs_size_t erase_size;  // Size of erase block
 
-    lfs_lsize_t total_size; // Total size of the device
+    uint64_t total_size; // Total size of the device
 };
 
 // Block device operations
@@ -30,29 +30,29 @@ struct lfs_bd_info {
 // block device
 struct lfs_bd_ops {
     // Read a block
-    lfs_error_t (*read)(lfs_bd_t *bd, uint8_t *buffer,
-            lfs_ino_t ino, lfs_off_t off, lfs_size_t size);
+    int (*read)(lfs_bd_t *bd, lfs_block_t block,
+            lfs_off_t off, lfs_size_t size, void *buffer);
 
     // Program a block
     //
     // The block must have previously been erased.
-    lfs_error_t (*write)(lfs_bd_t *bd, const uint8_t *buffer,
-            lfs_ino_t ino, lfs_off_t off, lfs_size_t size);
+    int (*prog)(lfs_bd_t *bd, lfs_block_t block,
+            lfs_off_t off, lfs_size_t size, const void *buffer);
 
     // Erase a block
     //
     // A block must be erased before being programmed. The
     // state of an erased block is undefined.
-    lfs_error_t (*erase)(lfs_bd_t *bd,
-            lfs_ino_t ino, lfs_off_t off, lfs_size_t size);
+    int (*erase)(lfs_bd_t *bd, lfs_block_t block,
+            lfs_off_t off, lfs_size_t size);
 
     // Sync the block device
-    lfs_error_t (*sync)(lfs_bd_t *bd);
+    int (*sync)(lfs_bd_t *bd);
 
     // Get a description of the block device
     //
     // Any unknown information may be left as zero
-    lfs_error_t (*info)(lfs_bd_t *bd, struct lfs_bd_info *info);
+    int (*info)(lfs_bd_t *bd, struct lfs_bd_info *info);
 };
 
 

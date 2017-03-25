@@ -17,7 +17,7 @@
 
 
 // Block device emulated on existing filesystem
-lfs_error_t lfs_emubd_create(lfs_emubd_t *emu, const char *path) {
+int lfs_emubd_create(lfs_emubd_t *emu, const char *path) {
     memset(&emu->info, 0, sizeof(emu->info));
     memset(&emu->stats, 0, sizeof(emu->stats));
 
@@ -41,8 +41,8 @@ lfs_error_t lfs_emubd_create(lfs_emubd_t *emu, const char *path) {
         return err;
     }
 
-    emu->info.read_size = lfs_cfg_getu(&cfg,  "read_size",  0);
-    emu->info.write_size = lfs_cfg_getu(&cfg, "write_size", 0);
+    emu->info.read_size  = lfs_cfg_getu(&cfg, "read_size",  0);
+    emu->info.prog_size  = lfs_cfg_getu(&cfg, "prog_size",  0);
     emu->info.erase_size = lfs_cfg_getu(&cfg, "erase_size", 0);
     emu->info.total_size = lfs_cfg_getu(&cfg, "total_size", 0);
 
@@ -55,23 +55,24 @@ void lfs_emubd_destroy(lfs_emubd_t *emu) {
     free(emu->path);
 }
 
-lfs_error_t lfs_emubd_read(lfs_emubd_t *emu, uint8_t *buffer,
-        lfs_ino_t ino, lfs_off_t off, lfs_size_t size) {
+int lfs_emubd_read(lfs_emubd_t *emu, lfs_block_t block,
+        lfs_off_t off, lfs_size_t size, void *buffer) {
+    uint8_t *data = buffer;
 
     // Check if read is valid
     if (!(off % emu->info.read_size == 0 &&
          size % emu->info.read_size == 0 &&
-         ((lfs_lsize_t)ino*emu->info.erase_size + off + size
+         ((uint64_t)block*emu->info.erase_size + off + size
           < emu->info.total_size))) {
         return -EINVAL;
     }
 
     // Zero out buffer for debugging
-    memset(buffer, 0, size);
+    memset(data, 0, size);
 
     // Iterate over blocks until enough data is read
     while (size > 0) {
-        snprintf(emu->child, LFS_NAME_MAX, "%d", ino);
+        snprintf(emu->child, LFS_NAME_MAX, "%d", block);
         size_t count = lfs_min(emu->info.erase_size - off, size);
 
         FILE *f = fopen(emu->path, "rb");
@@ -85,7 +86,7 @@ lfs_error_t lfs_emubd_read(lfs_emubd_t *emu, uint8_t *buffer,
                 return -errno;
             }
 
-            size_t res = fread(buffer, 1, count, f);
+            size_t res = fread(data, 1, count, f);
             if (res < count && !feof(f)) {
                 return -errno;
             }
@@ -97,8 +98,8 @@ lfs_error_t lfs_emubd_read(lfs_emubd_t *emu, uint8_t *buffer,
         }
 
         size -= count;
-        buffer += count;
-        ino += 1;
+        data += count;
+        block += 1;
         off = 0;
     }
 
@@ -106,20 +107,21 @@ lfs_error_t lfs_emubd_read(lfs_emubd_t *emu, uint8_t *buffer,
     return 0;
 }
 
-lfs_error_t lfs_emubd_write(lfs_emubd_t *emu, const uint8_t *buffer,
-        lfs_ino_t ino, lfs_off_t off, lfs_size_t size) {
+int lfs_emubd_prog(lfs_emubd_t *emu, lfs_block_t block,
+        lfs_off_t off, lfs_size_t size, const void *buffer) {
+    const uint8_t *data = buffer;
 
     // Check if write is valid
-    if (!(off % emu->info.write_size == 0 &&
-         size % emu->info.write_size == 0 &&
-         ((lfs_lsize_t)ino*emu->info.erase_size + off + size
+    if (!(off % emu->info.prog_size == 0 &&
+         size % emu->info.prog_size == 0 &&
+         ((uint64_t)block*emu->info.erase_size + off + size
           < emu->info.total_size))) {
         return -EINVAL;
     }
 
     // Iterate over blocks until enough data is read
     while (size > 0) {
-        snprintf(emu->child, LFS_NAME_MAX, "%d", ino);
+        snprintf(emu->child, LFS_NAME_MAX, "%d", block);
         size_t count = lfs_min(emu->info.erase_size - off, size);
 
         FILE *f = fopen(emu->path, "r+b");
@@ -135,7 +137,7 @@ lfs_error_t lfs_emubd_write(lfs_emubd_t *emu, const uint8_t *buffer,
             return -errno;
         }
 
-        size_t res = fwrite(buffer, 1, count, f);
+        size_t res = fwrite(data, 1, count, f);
         if (res < count) {
             return -errno;
         }
@@ -146,29 +148,29 @@ lfs_error_t lfs_emubd_write(lfs_emubd_t *emu, const uint8_t *buffer,
         }
 
         size -= count;
-        buffer += count;
-        ino += 1;
+        data += count;
+        block += 1;
         off = 0;
     }
 
-    emu->stats.write_count += 1;
+    emu->stats.prog_count += 1;
     return 0;
 }
 
-lfs_error_t lfs_emubd_erase(lfs_emubd_t *emu,
-        lfs_ino_t ino, lfs_off_t off, lfs_size_t size) {
+int lfs_emubd_erase(lfs_emubd_t *emu, lfs_block_t block,
+        lfs_off_t off, lfs_size_t size) {
 
     // Check if erase is valid
     if (!(off % emu->info.erase_size == 0 &&
          size % emu->info.erase_size == 0 &&
-         ((lfs_lsize_t)ino*emu->info.erase_size + off + size
+         ((uint64_t)block*emu->info.erase_size + off + size
           < emu->info.total_size))) {
         return -EINVAL;
     }
 
     // Iterate and erase blocks
     while (size > 0) {
-        snprintf(emu->child, LFS_NAME_MAX, "%d", ino);
+        snprintf(emu->child, LFS_NAME_MAX, "%d", block);
         struct stat st;
         int err = stat(emu->path, &st);
         if (err && errno != ENOENT) {
@@ -183,7 +185,7 @@ lfs_error_t lfs_emubd_erase(lfs_emubd_t *emu,
         }
 
         size -= emu->info.erase_size;
-        ino += 1;
+        block += 1;
         off = 0;
     }
 
@@ -191,49 +193,49 @@ lfs_error_t lfs_emubd_erase(lfs_emubd_t *emu,
     return 0;
 }
 
-lfs_error_t lfs_emubd_sync(lfs_emubd_t *emu) {
+int lfs_emubd_sync(lfs_emubd_t *emu) {
     // Always in sync
     return 0;
 }
 
-lfs_error_t lfs_emubd_info(lfs_emubd_t *emu, struct lfs_bd_info *info) {
+int lfs_emubd_info(lfs_emubd_t *emu, struct lfs_bd_info *info) {
     *info = emu->info;
     return 0;
 }
 
-lfs_error_t lfs_emubd_stats(lfs_emubd_t *emu, struct lfs_bd_stats *stats) {
+int lfs_emubd_stats(lfs_emubd_t *emu, struct lfs_bd_stats *stats) {
     *stats = emu->stats;
     return 0;
 }
 
 
 // Wrappers for void*s
-static lfs_error_t lfs_emubd_bd_read(void *bd, uint8_t *buffer,
-        lfs_ino_t ino, lfs_off_t off, lfs_size_t size) {
-    return lfs_emubd_read((lfs_emubd_t*)bd, buffer, ino, off, size);
+static int lfs_emubd_bd_read(void *bd, lfs_block_t block,
+        lfs_off_t off, lfs_size_t size, void *buffer) {
+    return lfs_emubd_read((lfs_emubd_t*)bd, block, off, size, buffer);
 }
 
-static lfs_error_t lfs_emubd_bd_write(void *bd, const uint8_t *buffer,
-        lfs_ino_t ino, lfs_off_t off, lfs_size_t size) {
-    return lfs_emubd_write((lfs_emubd_t*)bd, buffer, ino, off, size);
+static int lfs_emubd_bd_prog(void *bd, lfs_block_t block,
+        lfs_off_t off, lfs_size_t size, const void *buffer) {
+    return lfs_emubd_prog((lfs_emubd_t*)bd, block, off, size, buffer);
 }
 
-static lfs_error_t lfs_emubd_bd_erase(void *bd,
-        lfs_ino_t ino, lfs_off_t off, lfs_size_t size) {
-    return lfs_emubd_erase((lfs_emubd_t*)bd, ino, off, size);
+static int lfs_emubd_bd_erase(void *bd, lfs_block_t block,
+        lfs_off_t off, lfs_size_t size) {
+    return lfs_emubd_erase((lfs_emubd_t*)bd, block, off, size);
 }
 
-static lfs_error_t lfs_emubd_bd_sync(void *bd) {
+static int lfs_emubd_bd_sync(void *bd) {
     return lfs_emubd_sync((lfs_emubd_t*)bd);
 }
 
-static lfs_error_t lfs_emubd_bd_info(void *bd, struct lfs_bd_info *info) {
+static int lfs_emubd_bd_info(void *bd, struct lfs_bd_info *info) {
     return lfs_emubd_info((lfs_emubd_t*)bd, info);
 }
 
 const struct lfs_bd_ops lfs_emubd_ops = {
     .read = lfs_emubd_bd_read,
-    .write = lfs_emubd_bd_write,
+    .prog = lfs_emubd_bd_prog,
     .erase = lfs_emubd_bd_erase,
     .sync = lfs_emubd_bd_sync,
     .info = lfs_emubd_bd_info,

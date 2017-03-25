@@ -38,63 +38,61 @@ enum lfs_open_flags {
     LFS_O_SYNC   = 0x1000,
 };
 
-typedef struct lfs_free {
-    lfs_disk_struct lfs_disk_free {
-        lfs_word_t begin;
-        lfs_word_t end;
-    } d;
-} lfs_free_t;
 
-typedef struct lfs_dir {
-    lfs_ino_t pair[2];
-    lfs_off_t i;
-
-    lfs_disk_struct lfs_disk_dir {
-        lfs_word_t rev;
-        lfs_size_t size;
-        lfs_ino_t tail[2];
-
-        struct lfs_disk_free free;
-    } d;
-} lfs_dir_t;
 
 typedef struct lfs_entry {
-    lfs_ino_t dir[2];
+    lfs_block_t dir[2];
     lfs_off_t off;
 
-    lfs_disk_struct lfs_disk_entry {
+    struct lfs_disk_entry {
         uint16_t type;
         uint16_t len;
         union {
-            lfs_disk_struct {
-                lfs_ino_t head;
+            struct {
+                lfs_block_t head;
                 lfs_size_t size;
             } file;
-            lfs_ino_t dir[2];
+            lfs_block_t dir[2];
         } u;
     } d;
 } lfs_entry_t;
 
 typedef struct lfs_file {
-    lfs_ino_t head;
+    lfs_block_t head;
     lfs_size_t size;
 
-    lfs_ino_t wblock;
-    lfs_word_t windex;
+    lfs_block_t wblock;
+    uint32_t windex;
 
-    lfs_ino_t rblock;
-    lfs_word_t rindex;
+    lfs_block_t rblock;
+    uint32_t rindex;
     lfs_off_t roff;
 
     struct lfs_entry entry;
 } lfs_file_t;
 
+typedef struct lfs_dir {
+    lfs_block_t pair[2];
+    lfs_off_t off;
+
+    struct lfs_disk_dir {
+        uint32_t rev;
+        lfs_size_t size;
+        lfs_block_t tail[2];
+
+        struct lfs_disk_free {
+            uint32_t begin;
+            uint32_t end;
+        } free;
+    } d;
+} lfs_dir_t;
+
 typedef struct lfs_superblock {
-    lfs_ino_t pair[2];
-    lfs_disk_struct lfs_disk_superblock {
-        lfs_word_t rev;
+    lfs_block_t pair[2];
+    struct lfs_disk_superblock {
+        uint32_t rev;
         uint32_t size;
-        lfs_ino_t root[2];
+        lfs_block_t root[2];
         char magic[8];
         uint32_t block_size;
         uint32_t block_count;
@@ -104,23 +102,28 @@ typedef struct lfs_superblock {
 // Little filesystem type
 typedef struct lfs {
     lfs_bd_t *bd;
-    const struct lfs_bd_ops *ops;
+    const struct lfs_bd_ops *bd_ops;
 
-    lfs_ino_t cwd[2];
-    lfs_free_t free;
-    struct lfs_bd_info info;
+    lfs_block_t cwd[2];
+    struct lfs_disk_free free;
+
+    lfs_size_t read_size;   // size of read
+    lfs_size_t prog_size;   // size of program
+    lfs_size_t block_size;  // size of erase (block size)
+    lfs_size_t block_count; // number of erasable blocks
+    lfs_size_t words;       // number of 32-bit words that can fit in a block
 } lfs_t;
 
 // Functions
-lfs_error_t lfs_create(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops);
-lfs_error_t lfs_format(lfs_t *lfs);
-lfs_error_t lfs_mount(lfs_t *lfs);
+int lfs_format(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops);
+int lfs_mount(lfs_t *lfs, lfs_bd_t *bd, const struct lfs_bd_ops *bd_ops);
+int lfs_unmount(lfs_t *lfs);
 
-lfs_error_t lfs_mkdir(lfs_t *lfs, const char *path);
+int lfs_mkdir(lfs_t *lfs, const char *path);
 
-lfs_error_t lfs_file_open(lfs_t *lfs, lfs_file_t *file,
+int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);
-lfs_error_t lfs_file_close(lfs_t *lfs, lfs_file_t *file);
+int lfs_file_close(lfs_t *lfs, lfs_file_t *file);
 lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size);
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
