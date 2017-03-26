@@ -88,7 +88,7 @@ int lfs_emubd_read(lfs_emubd_t *emu, lfs_block_t block,
 
     // Iterate over blocks until enough data is read
     while (size > 0) {
-        snprintf(emu->child, LFS_NAME_MAX, "%d", block);
+        snprintf(emu->child, LFS_NAME_MAX, "%x", block);
         size_t count = lfs_min(emu->info.erase_size - off, size);
 
         FILE *f = fopen(emu->path, "rb");
@@ -137,7 +137,7 @@ int lfs_emubd_prog(lfs_emubd_t *emu, lfs_block_t block,
 
     // Iterate over blocks until enough data is read
     while (size > 0) {
-        snprintf(emu->child, LFS_NAME_MAX, "%d", block);
+        snprintf(emu->child, LFS_NAME_MAX, "%x", block);
         size_t count = lfs_min(emu->info.erase_size - off, size);
 
         FILE *f = fopen(emu->path, "r+b");
@@ -186,7 +186,7 @@ int lfs_emubd_erase(lfs_emubd_t *emu, lfs_block_t block,
 
     // Iterate and erase blocks
     while (size > 0) {
-        snprintf(emu->child, LFS_NAME_MAX, "%d", block);
+        snprintf(emu->child, LFS_NAME_MAX, "%x", block);
         struct stat st;
         int err = stat(emu->path, &st);
         if (err && errno != ENOENT) {

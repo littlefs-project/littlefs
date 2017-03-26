@@ -11,22 +11,22 @@ def generate(test):
 
     lines = []
 
-    for line in test:
-        if '=>' in line:
-            test, expect = line.strip().strip(';').split('=>')
-            lines.append('res = {test};'.format(test=test.strip()))
-            lines.append('test_assert("{name}", res, {expect});'.format(
+    for line in re.split('(?<=[;{}])\n', test.read()):
+        match = re.match('( *)(.*)=>(.*);', line, re.MULTILINE)
+        if match:
+            tab, test, expect = match.groups()
+            lines.append(tab+'res = {test};'.format(test=test.strip()))
+            lines.append(tab+'test_assert("{name}", res, {expect});'.format(
                     name = re.match('\w*', test.strip()).group(),
                     expect = expect.strip()))
         else:
-            lines.append(line.strip())
+            lines.append(line)
 
     with open('test.c', 'w') as file:
-        file.write(template.format(tests='\n'.join(4*' ' + l for l in lines)))
+        file.write(template.format(tests='\n'.join(lines)))
 
 def compile():
-    os.environ['DEBUG'] = '1'
-    os.environ['CFLAGS'] = '-Werror'
+    os.environ['CFLAGS'] = os.environ.get('CFLAGS', '') + ' -Werror'
     subprocess.check_call(['make', '--no-print-directory', '-s'], env=os.environ)
 
 def execute():

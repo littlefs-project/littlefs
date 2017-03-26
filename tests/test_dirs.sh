@@ -3,13 +3,16 @@ set -eu
 
 echo "=== Directory tests ==="
 rm -rf blocks
+tests/test.py << TEST
+    lfs_format(&lfs, &config) => 0;
+TEST
 
 echo "--- Root directory ---"
 tests/test.py << TEST
-    lfs_format(&lfs, &config) => 0;
-
+    lfs_mount(&lfs, &config) => 0;
     lfs_dir_open(&lfs, &dir[0], "/") => 0;
     lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_unmount(&lfs) => 0;
 TEST
 
 echo "--- Directory creation ---"
@@ -33,12 +36,16 @@ tests/test.py << TEST
     lfs_dir_open(&lfs, &dir[0], "/") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "potato") => 0;
+    info.type => LFS_TYPE_DIR;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "burito") => 0;
+    info.type => LFS_TYPE_REG;
     lfs_dir_read(&lfs, &dir[0], &info) => 0;
     lfs_dir_close(&lfs, &dir[0]) => 0;
     lfs_unmount(&lfs) => 0;

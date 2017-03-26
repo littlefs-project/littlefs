@@ -5,18 +5,30 @@
 #include <string.h>
 #include <stdlib.h>
 
+
 // test stuff
 void test_log(const char *s, uintmax_t v) {{
     printf("%s: %jd\n", s, v);
 }}
 
-void test_assert(const char *s, uintmax_t v, uintmax_t e) {{
-    test_log(s, v);
+void test_assert(const char *file, unsigned line,
+        const char *s, uintmax_t v, uintmax_t e) {{
+    static const char *last[2] = {{0, 0}};
+    if (v != e || !(last[0] == s || last[1] == s)) {{
+        test_log(s, v);
+        last[0] = last[1];
+        last[1] = s;
+    }}
+
     if (v != e) {{
-        printf("\033[31massert %s failed, expected %jd\033[0m\n", s, e);
+        printf("\033[31m%s:%u: assert %s failed, expected %jd\033[0m\n",
+                file, line, s, e);
         exit(-2);
     }}
 }}
+
+#define test_assert(s, v, e) test_assert(__FILE__, __LINE__, s, v, e)
+
 
 // lfs declarations
 lfs_t lfs;
@@ -42,6 +54,7 @@ const struct lfs_config config = {{
 }};
 
 
+// Entry point
 int main() {{
     lfs_emubd_create(&bd, "blocks");
 
