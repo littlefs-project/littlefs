@@ -1376,3 +1376,31 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     return 0;
 }
 
+int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
+    lfs_dir_t cwd;
+    int err = lfs_dir_fetch(lfs, &cwd, lfs->cwd);
+    if (err) {
+        return err;
+    }
+
+    lfs_entry_t entry;
+    err = lfs_dir_find(lfs, &cwd, &path, &entry);
+    if (err) {
+        return err;
+    }
+
+    // TODO abstract out info assignment
+    memset(info, 0, sizeof(*info));
+    info->type = entry.d.type & 0xff;
+    if (info->type == LFS_TYPE_REG) {
+        info->size = entry.d.u.file.size;
+    }
+
+    err = lfs_bd_read(lfs, entry.dir[0], entry.off + sizeof(entry.d),
+            entry.d.len - sizeof(entry.d), info->name);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}

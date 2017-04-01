@@ -138,6 +138,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
 int lfs_unmount(lfs_t *lfs);
 
 int lfs_remove(lfs_t *lfs, const char *path);
+int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 
 int lfs_mkdir(lfs_t *lfs, const char *path);
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
