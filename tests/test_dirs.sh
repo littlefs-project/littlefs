@@ -118,7 +118,6 @@ tests/test.py << TEST
         sprintf((char*)buffer, "test%d", i);
         lfs_dir_read(&lfs, &dir[0], &info) => 1;
         strcmp(info.name, (char*)buffer) => 0;
-        info.type => LFS_TYPE_DIR;
     }
     lfs_dir_read(&lfs, &dir[0], &info) => 0;
     lfs_unmount(&lfs) => 0;

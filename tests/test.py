@@ -11,7 +11,7 @@ def generate(test):
 
     lines = []
     for line in re.split('(?<=[;{}])\n', test.read()):
-        match = re.match('(?: *\n)*( *)(.*)=>(.*);', line, re.MULTILINE)
+        match = re.match('(?: *\n)*( *)(.*)=>(.*);', line, re.DOTALL | re.MULTILINE)
         if match:
             tab, test, expect = match.groups()
             lines.append(tab+'res = {test};'.format(test=test.strip()))

@@ -19,7 +19,14 @@ typedef int32_t  lfs_soff_t;
 typedef uint32_t lfs_block_t;
 
 // Maximum length of file name
+#ifndef LFS_NAME_MAX
 #define LFS_NAME_MAX 255
+#endif
+
+// Lookahead distance
+#ifndef LFS_CFG_LOOKAHEAD
+#define LFS_CFG_LOOKAHEAD 128
+#endif
 
 // Logging operations
 #include <stdio.h>

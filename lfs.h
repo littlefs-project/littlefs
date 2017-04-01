@@ -96,11 +96,6 @@ typedef struct lfs_dir {
         uint32_t rev;
         lfs_size_t size;
         lfs_block_t tail[2];
-
-        struct lfs_disk_free {
-            uint32_t begin;
-            uint32_t end;
-        } free;
     } d;
 } lfs_dir_t;
 
@@ -118,24 +113,31 @@ typedef struct lfs_superblock {
 
 // Little filesystem type
 typedef struct lfs {
-    lfs_bd_t *bd;
-    const struct lfs_bd_ops *bd_ops;
-
-    lfs_block_t root[2];
-    lfs_block_t cwd[2];
-    struct lfs_disk_free free;
-
     lfs_size_t read_size;   // size of read
     lfs_size_t prog_size;   // size of program
     lfs_size_t block_size;  // size of erase (block size)
     lfs_size_t block_count; // number of erasable blocks
     lfs_size_t words;       // number of 32-bit words that can fit in a block
+
+    lfs_bd_t *bd;
+    const struct lfs_bd_ops *bd_ops;
+
+    lfs_block_t root[2];
+    lfs_block_t cwd[2];
+    struct {
+        lfs_block_t begin;
+        lfs_block_t end;
+    } free;
+
+    uint32_t lookahead[LFS_CFG_LOOKAHEAD/32];
 } lfs_t;
 
 // Functions
 int lfs_format(lfs_t *lfs, const struct lfs_config *config);
 int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
 int lfs_unmount(lfs_t *lfs);
+
+int lfs_remove(lfs_t *lfs, const char *path);
 
 int lfs_mkdir(lfs_t *lfs, const char *path);
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
