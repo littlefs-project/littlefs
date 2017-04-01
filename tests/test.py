@@ -10,9 +10,8 @@ def generate(test):
         template = file.read()
 
     lines = []
-
     for line in re.split('(?<=[;{}])\n', test.read()):
-        match = re.match('( *)(.*)=>(.*);', line, re.MULTILINE)
+        match = re.match('(?: *\n)*( *)(.*)=>(.*);', line, re.MULTILINE)
         if match:
             tab, test, expect = match.groups()
             lines.append(tab+'res = {test};'.format(test=test.strip()))
@@ -33,13 +32,17 @@ def execute():
     subprocess.check_call(["./lfs"])
 
 def main(test=None):
-    if test:
+    if test and not test.startswith('-'):
         with open(test) as file:
             generate(file)
     else:
         generate(sys.stdin)
 
     compile()
+
+    if test == '-s':
+        sys.exit(1)
+
     execute()
 
 if __name__ == "__main__":
