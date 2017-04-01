@@ -77,6 +77,7 @@ static int lfs_bd_crc(lfs_t *lfs, lfs_block_t block,
 
 // predeclared filesystem traversal
 static int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
+int lfs_deorphan(lfs_t *lfs);
 
 static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     lfs_t *lfs = p;
@@ -143,8 +144,24 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         int err = lfs_alloc_scan(lfs);
         if (err) {
             return err;
-        } else if (lfs->free.begin == lfs->free.end) {
-            return LFS_ERROR_NO_SPACE;
+        }
+
+        if (lfs->free.begin == lfs->free.end) {
+            // Still can't allocate a block? check for orphans
+            int err = lfs_deorphan(lfs);
+            if (err) {
+                return err;
+            }
+
+            err = lfs_alloc_scan(lfs);
+            if (err) {
+                return err;
+            }
+
+            if (lfs->free.begin == lfs->free.end) {
+                // Ok, it's true, we're out of space
+                return LFS_ERROR_NO_SPACE;
+            }
         }
     }
 
@@ -1146,7 +1163,7 @@ static int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
         // skip '.' and '..'
         dir.off += 2*sizeof(struct lfs_disk_entry) + 3;
 
-        // TODO iterate over files
+        // iterate over contents
         while ((0x7fffffff & dir.d.size) >= dir.off + sizeof(file.entry.d)) {
             int err = lfs_bd_read(lfs, dir.pair[0], dir.off,
                     sizeof(file.entry.d), &file.entry.d);
@@ -1155,14 +1172,7 @@ static int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
             }
 
             dir.off += file.entry.d.len;
-            if ((0xf & file.entry.d.type) == LFS_TYPE_DIR) {
-                for (int i = 0; i < 2; i++) {
-                    int err = cb(data, file.entry.d.u.dir[i]);
-                    if (err) {
-                        return err;
-                    }
-                }
-            } else if ((0xf & file.entry.d.type) == LFS_TYPE_REG) {
+            if ((0xf & file.entry.d.type) == LFS_TYPE_REG) {
                 if (file.entry.d.u.file.size < lfs->block_size) {
                     int err = cb(data, file.entry.d.u.file.head);
                     if (err) {
@@ -1189,6 +1199,85 @@ static int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
     }
 }
 
+int lfs_deorphan(lfs_t *lfs) {
+    // iterate over all directories
+    lfs_block_t pred[2] = {0, 1};
+    lfs_block_t cwd[2] = {lfs->root[0], lfs->root[1]};
+
+    while (true) {
+        lfs_dir_t child;
+        int err = lfs_dir_fetch(lfs, &child, cwd);
+        if (err) {
+            return err;
+        }
+
+        // orphans can only be empty dirs
+        // there still might be a dir block with this size that isn't
+        // the head of a directory, so we still have to check for '..'
+        if (child.d.size == sizeof(child.d) +
+                2*sizeof(struct lfs_disk_entry) + 3) {
+            lfs_entry_t entry;
+            err = lfs_dir_find(lfs, &child, &(const char*){".."}, &entry);
+            if (err && err != LFS_ERROR_NO_ENTRY) {
+                return err;
+            }
+
+            // only the head of directories can be orphans
+            if (err != LFS_ERROR_NO_ENTRY) {
+                lfs_dir_t dir;
+                int err = lfs_dir_fetch(lfs, &dir, entry.d.u.dir);
+                if (err) {
+                    return err;
+                }
+
+                // check if we are any of our parents children
+                while (true) {
+                    int err = lfs_dir_next(lfs, &dir, &entry);
+                    if (err && err != LFS_ERROR_NO_ENTRY) {
+                        return err;
+                    }
+
+                    if (err == LFS_ERROR_NO_ENTRY) {
+                        // we are an orphan
+                        LFS_INFO("Found orphan %d %d", cwd[0], cwd[1]);
+                        int err = lfs_dir_fetch(lfs, &dir, pred);
+                        if (err) {
+                            return err;
+                        }
+
+                        dir.d.tail[0] = child.d.tail[0];
+                        dir.d.tail[1] = child.d.tail[1];
+                        dir.d.rev += 1;
+
+                        err = lfs_pair_commit(lfs, dir.pair,
+                            1, (struct lfs_commit_region[]) {
+                                {0, sizeof(dir.d), &dir.d},
+                            });
+                        if (err) {
+                            return err;
+                        }
+
+                        break;
+                    } else if (lfs_paircmp(entry.d.u.dir, cwd) == 0) {
+                        // has parent
+                        break;
+                    }
+                }
+            }
+        }
+
+        // to next directory
+        pred[0] = cwd[0];
+        pred[1] = cwd[1];
+        cwd[0] = child.d.tail[0];
+        cwd[1] = child.d.tail[1];
+
+        if (!cwd[0]) {
+            return 0;
+        }
+    }
+}
+
 int lfs_remove(lfs_t *lfs, const char *path) {
     lfs_dir_t cwd;
     int err = lfs_dir_fetch(lfs, &cwd, lfs->cwd);
@@ -1202,9 +1291,9 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         return err;
     }
 
+    lfs_dir_t dir;
     if (entry.d.type == LFS_TYPE_DIR) {
         // must be empty before removal
-        lfs_dir_t dir;
         int err = lfs_dir_fetch(lfs, &dir, entry.d.u.dir);
         if (err) {
             return err;
@@ -1212,8 +1301,51 @@ int lfs_remove(lfs_t *lfs, const char *path) {
                 2*sizeof(struct lfs_disk_entry) + 3) {
             return LFS_ERROR_INVALID;
         }
+    }
 
+    cwd.d.rev += 1;
+    cwd.d.size -= entry.d.len;
+
+    // either shift out the one entry or remove the whole dir block
+    if (cwd.d.size == sizeof(dir.d)) {
+        lfs_dir_t pdir;
+        int err = lfs_dir_fetch(lfs, &pdir, lfs->cwd);
+        if (err) {
+            return err;
+        }
+
+        while (lfs_paircmp(pdir.d.tail, cwd.pair) != 0) {
+            int err = lfs_dir_fetch(lfs, &pdir, pdir.d.tail);
+            if (err) {
+                return err;
+            }
+        }
+
+        pdir.d.tail[0] = cwd.d.tail[0];
+        pdir.d.tail[1] = cwd.d.tail[1];
+        pdir.d.rev += 1;
+
+        err = lfs_pair_commit(lfs, pdir.pair,
+            1, (struct lfs_commit_region[]) {
+                {0, sizeof(pdir.d), &pdir.d},
+            });
+        if (err) {
+            return err;
+        }
+    } else {
+        int err = lfs_pair_shift(lfs, entry.dir,
+            1, (struct lfs_commit_region[]) {
+                {0, sizeof(cwd.d), &cwd.d},
+            },
+            entry.off, entry.d.len);
+        if (err) {
+            return err;
+        }
+    }
+
+    if (entry.d.type == LFS_TYPE_DIR) {
         // remove ourselves from the dir list
+        // this may create an orphan, which must be deorphaned
         lfs_dir_t pdir;
         memcpy(&pdir, &cwd, sizeof(pdir));
 
@@ -1241,15 +1373,6 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         }
     }
 
-    cwd.d.rev += 1;
-    cwd.d.size -= entry.d.len;
-    // TODO remove dir block?
-
-    // Drop contents on the floor
-    return lfs_pair_shift(lfs, entry.dir,
-        1, (struct lfs_commit_region[]) {
-            {0, sizeof(cwd.d), &cwd.d},
-        },
-        entry.off, entry.d.len);
+    return 0;
 }
 

@@ -14,6 +14,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <assert.h>
+#include <stdbool.h>
 
 
 // Block device emulated on existing filesystem
@@ -76,12 +78,10 @@ int lfs_emubd_read(lfs_emubd_t *emu, lfs_block_t block,
     uint8_t *data = buffer;
 
     // Check if read is valid
-    if (!(off % emu->info.read_size == 0 &&
-         size % emu->info.read_size == 0 &&
-         ((uint64_t)block*emu->info.erase_size + off + size
-          < emu->info.total_size))) {
-        return -EINVAL;
-    }
+    assert(off % emu->info.read_size == 0);
+    assert(size % emu->info.read_size == 0);
+    assert((uint64_t)block*emu->info.erase_size + off + size
+            < emu->info.total_size);
 
     // Zero out buffer for debugging
     memset(data, 0, size);
@@ -128,12 +128,10 @@ int lfs_emubd_prog(lfs_emubd_t *emu, lfs_block_t block,
     const uint8_t *data = buffer;
 
     // Check if write is valid
-    if (!(off % emu->info.prog_size == 0 &&
-         size % emu->info.prog_size == 0 &&
-         ((uint64_t)block*emu->info.erase_size + off + size
-          < emu->info.total_size))) {
-        return -EINVAL;
-    }
+    assert(off % emu->info.prog_size == 0);
+    assert(size % emu->info.prog_size == 0);
+    assert((uint64_t)block*emu->info.erase_size + off + size
+            < emu->info.total_size);
 
     // Iterate over blocks until enough data is read
     while (size > 0) {
@@ -177,12 +175,10 @@ int lfs_emubd_erase(lfs_emubd_t *emu, lfs_block_t block,
         lfs_off_t off, lfs_size_t size) {
 
     // Check if erase is valid
-    if (!(off % emu->info.erase_size == 0 &&
-         size % emu->info.erase_size == 0 &&
-         ((uint64_t)block*emu->info.erase_size + off + size
-          < emu->info.total_size))) {
-        return -EINVAL;
-    }
+    assert(off % emu->info.erase_size == 0);
+    assert(size % emu->info.erase_size == 0);
+    assert((uint64_t)block*emu->info.erase_size + off + size
+            < emu->info.total_size);
 
     // Iterate and erase blocks
     while (size > 0) {

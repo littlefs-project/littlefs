@@ -123,5 +123,62 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
+echo "--- Directory deletion ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &config) => 0;
+    lfs_remove(&lfs, "potato") => LFS_ERROR_INVALID;
+    lfs_remove(&lfs, "potato/sweet") => 0;
+    lfs_remove(&lfs, "potato/baked") => 0;
+    lfs_remove(&lfs, "potato/fried") => 0;
+
+    lfs_dir_open(&lfs, &dir[0], "potato") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+
+    lfs_remove(&lfs, "potato") => 0;
+
+    lfs_dir_open(&lfs, &dir[0], "/") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "burito") => 0;
+    info.type => LFS_TYPE_REG;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "cactus") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &config) => 0;
+    lfs_dir_open(&lfs, &dir[0], "/") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "burito") => 0;
+    info.type => LFS_TYPE_REG;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "cactus") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
 echo "--- Results ---"
 tests/stats.py
