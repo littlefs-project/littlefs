@@ -153,4 +153,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size);
 
+int lfs_deorphan(lfs_t *lfs);
+int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
+
 #endif

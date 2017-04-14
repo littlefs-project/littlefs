@@ -30,6 +30,14 @@ void test_assert(const char *file, unsigned line,
 #define test_assert(s, v, e) test_assert(__FILE__, __LINE__, s, v, e)
 
 
+// utility functions for traversals
+int test_count(void *p, lfs_block_t b) {{
+    unsigned *u = (unsigned*)p;
+    *u += 1;
+    return 0;
+}}
+
+
 // lfs declarations
 lfs_t lfs;
 lfs_emubd_t bd;
