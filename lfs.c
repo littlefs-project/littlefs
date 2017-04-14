@@ -627,9 +627,47 @@ static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
 
 static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
         const char **path, lfs_entry_t *entry) {
+    const char *pathname = *path;
+    size_t pathlen;
+
     while (true) {
-        const char *pathname = *path;
-        lfs_size_t pathlen = strcspn(pathname, "/");
+    nextname:
+        // skip slashes
+        pathname += strspn(pathname, "/");
+        pathlen = strcspn(pathname, "/");
+
+        // skip '.' and root '..'
+        if ((pathlen == 1 && memcmp(pathname, ".", 1) == 0) ||
+            (pathlen == 2 && memcmp(pathname, "..", 2) == 0)) {
+            pathname += pathlen;
+            goto nextname;
+        }
+
+        // skip if matched by '..' in name
+        const char *suffix = pathname + pathlen;
+        size_t sufflen;
+        int depth = 1;
+        while (true) {
+            suffix += strspn(suffix, "/");
+            sufflen = strcspn(suffix, "/");
+            if (sufflen == 0) {
+                break;
+            }
+
+            if (sufflen == 2 && memcmp(suffix, "..", 2) == 0) {
+                depth -= 1;
+                if (depth == 0) {
+                    pathname = suffix + sufflen;
+                    goto nextname;
+                }
+            } else {
+                depth += 1;
+            }
+
+            suffix += sufflen;
+        }
+
+        // find path
         while (true) {
             int err = lfs_dir_next(lfs, dir, entry);
             if (err) {
@@ -658,6 +696,7 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
             return 0;
         }
 
+        // continue on if we hit a directory
         if (entry->d.type != LFS_TYPE_DIR) {
             return LFS_ERROR_NOT_DIR;
         }

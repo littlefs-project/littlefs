@@ -31,7 +31,7 @@ size: $(OBJ)
 	$(SIZE) -t $^
 
 .SUFFIXES:
-test: test_format test_dirs test_files test_alloc test_orphan
+test: test_format test_dirs test_files test_alloc test_orphan test_paths
 test_%: tests/test_%.sh
 	./$<
 
