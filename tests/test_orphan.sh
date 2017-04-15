@@ -17,7 +17,7 @@ tests/test.py << TEST
 TEST
 # remove most recent file, this should be the update to the previous
 # linked-list entry and should orphan the child
-rm -v "blocks/$(ls -t blocks | sed -n '/^[0-9a-f]*$/p' | sed -n '1p')"
+rm -v blocks/8
 tests/test.py << TEST
     lfs_mount(&lfs, &config) => 0;
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERROR_NO_ENTRY;
