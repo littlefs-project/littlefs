@@ -1337,7 +1337,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     cwd.d.size -= entry.d.len;
 
     // either shift out the one entry or remove the whole dir block
-    if (cwd.d.size == sizeof(dir.d)) {
+    if (cwd.d.size == sizeof(cwd.d)) {
         lfs_dir_t pdir;
         int err = lfs_dir_fetch(lfs, &pdir, lfs->cwd);
         if (err) {
@@ -1393,6 +1393,179 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 
         while (pdir.d.tail[0]) {
             if (lfs_paircmp(pdir.d.tail, entry.d.u.dir) == 0) {
+                pdir.d.tail[0] = dir.d.tail[0];
+                pdir.d.tail[1] = dir.d.tail[1];
+                pdir.d.rev += 1;
+
+                int err = lfs_pair_commit(lfs, pdir.pair,
+                    1, (struct lfs_commit_region[]) {
+                        {0, sizeof(pdir.d), &pdir.d},
+                    });
+                if (err) {
+                    return err;
+                }
+
+                break;
+            }
+
+            int err = lfs_dir_fetch(lfs, &pdir, pdir.d.tail);
+            if (err) {
+                return err;
+            }
+        }
+    }
+
+    return 0;
+}
+
+int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
+    // Find old entry
+    lfs_dir_t oldcwd;
+    int err = lfs_dir_fetch(lfs, &oldcwd, lfs->cwd);
+    if (err) {
+        return err;
+    }
+
+    lfs_entry_t oldentry;
+    err = lfs_dir_find(lfs, &oldcwd, &oldpath, &oldentry);
+    if (err) {
+        return err;
+    }
+
+    // Allocate new entry
+    lfs_dir_t newcwd;
+    err = lfs_dir_fetch(lfs, &newcwd, lfs->cwd);
+    if (err) {
+        return err;
+    }
+
+    lfs_entry_t preventry;
+    err = lfs_dir_append(lfs, &newcwd, &newpath, &preventry);
+    if (err && err != LFS_ERROR_EXISTS) {
+        return err;
+    }
+    bool prevexists = (err == LFS_ERROR_EXISTS);
+
+    // must have same type
+    if (prevexists && preventry.d.type != oldentry.d.type) {
+        return LFS_ERROR_INVALID;
+    }
+
+    lfs_dir_t dir;
+    if (prevexists && preventry.d.type == LFS_TYPE_DIR) {
+        // must be empty before removal, checking size
+        // without masking top bit checks for any case where
+        // dir is not empty
+        int err = lfs_dir_fetch(lfs, &dir, preventry.d.u.dir);
+        if (err) {
+            return err;
+        } else if (dir.d.size != sizeof(dir.d)) {
+            return LFS_ERROR_INVALID;
+        }
+    }
+
+    // Move to new location
+    lfs_entry_t newentry = preventry;
+    newentry.d = oldentry.d;
+    newentry.d.len = sizeof(newentry.d) + strlen(newpath);
+
+    newcwd.d.rev += 1;
+    if (!prevexists) {
+        newcwd.d.size += newentry.d.len;
+    }
+
+    err = lfs_pair_commit(lfs, newentry.dir,
+        3, (struct lfs_commit_region[3]) {
+            {0, sizeof(newcwd.d), &newcwd.d},
+            {newentry.off,
+             sizeof(newentry.d),
+             &newentry.d},
+            {newentry.off+sizeof(newentry.d),
+             newentry.d.len - sizeof(newentry.d),
+             newpath}
+        });
+    if (err) {
+        return err;
+    }
+
+    // fetch again in case newcwd == oldcwd
+    // TODO handle this better?
+    err = lfs_dir_fetch(lfs, &oldcwd, oldcwd.pair);
+    if (err) {
+        return err;
+    }
+
+    err = lfs_dir_find(lfs, &oldcwd, &oldpath, &oldentry);
+    if (err) {
+        return err;
+    }
+
+    // Remove from old location
+    // TODO abstract this out for rename + remove?
+    oldcwd.d.rev += 1;
+    oldcwd.d.size -= oldentry.d.len;
+
+    // either shift out the one entry or remove the whole dir block
+    if (oldcwd.d.size == sizeof(oldcwd.d)) {
+        lfs_dir_t pdir;
+        int err = lfs_dir_fetch(lfs, &pdir, lfs->cwd);
+        if (err) {
+            return err;
+        }
+
+        while (lfs_paircmp(pdir.d.tail, oldcwd.pair) != 0) {
+            int err = lfs_dir_fetch(lfs, &pdir, pdir.d.tail);
+            if (err) {
+                return err;
+            }
+        }
+
+        // TODO easier check for head block? (common case)
+        if (!(pdir.d.size & 0x80000000)) {
+            int err = lfs_pair_shift(lfs, oldentry.dir,
+                1, (struct lfs_commit_region[]) {
+                    {0, sizeof(oldcwd.d), &oldcwd.d},
+                },
+                oldentry.off, oldentry.d.len);
+            if (err) {
+                return err;
+            }
+        } else {
+            pdir.d.tail[0] = oldcwd.d.tail[0];
+            pdir.d.tail[1] = oldcwd.d.tail[1];
+            pdir.d.rev += 1;
+
+            err = lfs_pair_commit(lfs, pdir.pair,
+                1, (struct lfs_commit_region[]) {
+                    {0, sizeof(pdir.d), &pdir.d},
+                });
+            if (err) {
+                return err;
+            }
+        }
+    } else {
+        int err = lfs_pair_shift(lfs, oldentry.dir,
+            1, (struct lfs_commit_region[]) {
+                {0, sizeof(oldcwd.d), &oldcwd.d},
+            },
+            oldentry.off, oldentry.d.len);
+        if (err) {
+            return err;
+        }
+    }
+
+    // TODO abstract this out for rename + remove?
+    if (prevexists && preventry.d.type == LFS_TYPE_DIR) {
+        // remove dest from the dir list
+        // this may create an orphan, which must be deorphaned
+        lfs_dir_t pdir;
+        int err = lfs_dir_fetch(lfs, &pdir, lfs->root);
+        if (err) {
+            return err;
+        }
+
+        while (pdir.d.tail[0]) {
+            if (lfs_paircmp(pdir.d.tail, preventry.d.u.dir) == 0) {
                 pdir.d.tail[0] = dir.d.tail[0];
                 pdir.d.tail[1] = dir.d.tail[1];
                 pdir.d.rev += 1;

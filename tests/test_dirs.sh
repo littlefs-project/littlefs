@@ -123,7 +123,7 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
-echo "--- Directory deletion ---"
+echo "--- Directory remove ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &config) => 0;
     lfs_remove(&lfs, "potato") => LFS_ERROR_INVALID;
@@ -174,6 +174,108 @@ tests/test.py << TEST
     info.type => LFS_TYPE_REG;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "cactus") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Directory rename ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &config) => 0;
+    lfs_mkdir(&lfs, "coldpotato") => 0;
+    lfs_mkdir(&lfs, "coldpotato/baked") => 0;
+    lfs_mkdir(&lfs, "coldpotato/sweet") => 0;
+    lfs_mkdir(&lfs, "coldpotato/fried") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &config) => 0;
+    lfs_rename(&lfs, "coldpotato", "hotpotato") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &config) => 0;
+    lfs_dir_open(&lfs, &dir[0], "hotpotato") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "baked") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "sweet") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "fried") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &config) => 0;
+    lfs_mkdir(&lfs, "warmpotato") => 0;
+    lfs_mkdir(&lfs, "warmpotato/mushy") => 0;
+    lfs_rename(&lfs, "hotpotato", "warmpotato") => LFS_ERROR_INVALID;
+
+    lfs_remove(&lfs, "warmpotato/mushy") => 0;
+    lfs_rename(&lfs, "hotpotato", "warmpotato") => 0;
+
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &config) => 0;
+    lfs_dir_open(&lfs, &dir[0], "warmpotato") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "baked") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "sweet") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "fried") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &config) => 0;
+    lfs_mkdir(&lfs, "coldpotato") => 0;
+    lfs_rename(&lfs, "warmpotato/baked", "coldpotato/baked") => 0;
+    lfs_rename(&lfs, "warmpotato/sweet", "coldpotato/sweet") => 0;
+    lfs_rename(&lfs, "warmpotato/fried", "coldpotato/fried") => 0;
+    lfs_remove(&lfs, "coldpotato") => LFS_ERROR_INVALID;
+    lfs_remove(&lfs, "warmpotato") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &config) => 0;
+    lfs_dir_open(&lfs, &dir[0], "coldpotato") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "baked") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "sweet") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "fried") => 0;
     info.type => LFS_TYPE_DIR;
     lfs_dir_read(&lfs, &dir[0], &info) => 0;
     lfs_dir_close(&lfs, &dir[0]) => 0;
