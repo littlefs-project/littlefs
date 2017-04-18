@@ -24,8 +24,9 @@ enum lfs_error {
 };
 
 enum lfs_type {
-    LFS_TYPE_REG = 1,
-    LFS_TYPE_DIR = 2,
+    LFS_TYPE_REG        = 0x01,
+    LFS_TYPE_DIR        = 0x02,
+    LFS_TYPE_SUPERBLOCK = 0x10,
 };
 
 enum lfs_open_flags {
@@ -58,7 +59,7 @@ struct lfs_info {
 };
 
 typedef struct lfs_entry {
-    lfs_block_t dir[2];
+    lfs_block_t pair[2];
     lfs_off_t off;
 
     struct lfs_disk_entry {
@@ -100,14 +101,17 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfs_superblock {
-    lfs_block_t pair[2];
+    lfs_block_t dir[2]; //TODO rm me?
+    lfs_off_t off;
+
     struct lfs_disk_superblock {
-        uint32_t rev;
-        uint32_t size;
-        lfs_block_t root[2];
+        uint16_t type;
+        uint16_t len;
+        uint32_t version;
         char magic[8];
         uint32_t block_size;
         uint32_t block_count;
+        lfs_block_t root[2];
     } d;
 } lfs_superblock_t;
 
@@ -123,7 +127,6 @@ typedef struct lfs {
     const struct lfs_bd_ops *bd_ops;
 
     lfs_block_t root[2];
-    lfs_block_t cwd[2];
     struct {
         lfs_block_t begin;
         lfs_block_t end;

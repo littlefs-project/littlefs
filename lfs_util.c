@@ -7,7 +7,7 @@
 #include "lfs_util.h"
 
 
-uint32_t lfs_crc(const void *buffer, lfs_size_t size, uint32_t crc) {
+uint32_t lfs_crc(uint32_t crc, lfs_size_t size, const void *buffer) {
     static const uint32_t rtable[16] = {
         0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
         0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
