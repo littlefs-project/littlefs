@@ -55,11 +55,11 @@ lfs_size_t rsize;
 uintmax_t res;
 
 #ifndef LFS_READ_SIZE
-#define LFS_READ_SIZE 1
+#define LFS_READ_SIZE 64
 #endif
 
 #ifndef LFS_PROG_SIZE
-#define LFS_PROG_SIZE 1
+#define LFS_PROG_SIZE 64
 #endif
 
 #ifndef LFS_BLOCK_SIZE

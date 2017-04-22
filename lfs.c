@@ -9,17 +9,147 @@
 
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 
 /// Block device operations ///
+static int lfs_bd_flush(lfs_t *lfs) {
+    if (lfs->pcache.off != -1) {
+        int err = lfs->cfg->prog(lfs->cfg, lfs->pcache.block,
+                lfs->pcache.off, lfs->cfg->prog_size,
+                lfs->pcache.buffer);
+        if (err) {
+            return err;
+        }
+
+        lfs->pcache.off = -1;
+    }
+
+    return 0;
+}
+
 static int lfs_bd_read(lfs_t *lfs, lfs_block_t block,
         lfs_off_t off, lfs_size_t size, void *buffer) {
-    return lfs->cfg->read(lfs->cfg, block, off, size, buffer);
+    uint8_t *data = buffer;
+
+    // flush overlapping programs
+    while (size > 0) {
+        if (block == lfs->pcache.block && off >= lfs->pcache.off &&
+                off < lfs->pcache.off + lfs->cfg->prog_size) {
+            // is already in cache?
+            lfs_size_t diff = lfs_min(size,
+                    lfs->cfg->prog_size - (off-lfs->pcache.off));
+            memcpy(data, &lfs->pcache.buffer[off-lfs->pcache.off], diff);
+
+            data += diff;
+            off += diff;
+            size -= diff;
+            continue;
+        } else if (block == lfs->rcache.block && off >= lfs->rcache.off &&
+                off < lfs->rcache.off + lfs->cfg->read_size) {
+            // is already in cache?
+            lfs_size_t diff = lfs_min(size,
+                    lfs->cfg->read_size - (off-lfs->rcache.off));
+            memcpy(data, &lfs->rcache.buffer[off-lfs->rcache.off], diff);
+
+            data += diff;
+            off += diff;
+            size -= diff;
+            continue;
+        }
+
+        // write out pending programs
+        int err = lfs_bd_flush(lfs);
+        if (err) {
+            return err;
+        }
+
+        if (off % lfs->cfg->read_size == 0 &&
+                size >= lfs->cfg->read_size) {
+            // bypass cache?
+            lfs_size_t diff = size - (size % lfs->cfg->read_size);
+            int err = lfs->cfg->read(lfs->cfg, block, off, diff, data);
+            if (err) {
+                return err;
+            }
+
+            data += diff;
+            off += diff;
+            size -= diff;
+            continue;
+        }
+
+        // load to cache, first condition can no longer fail
+        lfs->rcache.block = block;
+        lfs->rcache.off = off - (off % lfs->cfg->read_size);
+        // TODO remove reading, should be unnecessary
+        err = lfs->cfg->read(lfs->cfg, lfs->rcache.block,
+                lfs->rcache.off, lfs->cfg->read_size,
+                lfs->rcache.buffer);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
 }
 
 static int lfs_bd_prog(lfs_t *lfs, lfs_block_t block,
         lfs_off_t off, lfs_size_t size, const void *buffer) {
-    return lfs->cfg->prog(lfs->cfg, block, off, size, buffer);
+    const uint8_t *data = buffer;
+
+    if (block == lfs->rcache.block) {
+        // invalidate read cache
+        lfs->rcache.off = -1;
+    }
+
+    while (size > 0) {
+        if (block == lfs->pcache.block && off >= lfs->pcache.off &&
+                off < lfs->pcache.off + lfs->cfg->prog_size) {
+            // is already in cache?
+            lfs_size_t diff = lfs_min(size,
+                    lfs->cfg->prog_size - (off-lfs->pcache.off));
+            memcpy(&lfs->pcache.buffer[off-lfs->pcache.off], data, diff);
+
+            data += diff;
+            off += diff;
+            size -= diff;
+            continue;
+        }
+
+        // write out pending programs
+        int err = lfs_bd_flush(lfs);
+        if (err) {
+            return err;
+        }
+
+        if (off % lfs->cfg->prog_size == 0 &&
+                size >= lfs->cfg->prog_size) {
+            // bypass cache?
+            lfs_size_t diff = size - (size % lfs->cfg->prog_size);
+            int err = lfs->cfg->prog(lfs->cfg, block, off, diff, data);
+            if (err) {
+                return err;
+            }
+
+            data += diff;
+            off += diff;
+            size -= diff;
+            continue;
+        }
+
+        // prepare cache, first condition can no longer fail
+        lfs->pcache.block = block;
+        lfs->pcache.off = off - (off % lfs->cfg->prog_size);
+        err = lfs->cfg->read(lfs->cfg, lfs->pcache.block,
+                lfs->pcache.off, lfs->cfg->prog_size,
+                lfs->pcache.buffer);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
 }
 
 static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
@@ -27,6 +157,11 @@ static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
 }
 
 static int lfs_bd_sync(lfs_t *lfs) {
+    int err = lfs_bd_flush(lfs);
+    if (err) {
+        return err;
+    }
+
     return lfs->cfg->sync(lfs->cfg);
 }
 
@@ -41,11 +176,9 @@ static int lfs_bd_cmp(lfs_t *lfs, lfs_block_t block,
             return err;
         }
 
-        if (c != *data) {
+        if (c != data[i]) {
             return false;
         }
-
-        data += 1;
     }
 
     return true;
@@ -452,13 +585,13 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
     }
 
     while (off < lfs->cfg->block_size-4) {
-        uint8_t data;
-        int err = lfs_bd_read(lfs, dir->pair[0], off, 1, &data);
+        uint8_t data = 0xff;
+        crc = lfs_crc(crc, 1, &data);
+        err = lfs_bd_prog(lfs, dir->pair[0], off, 1, &data);
         if (err) {
             return err;
         }
 
-        crc = lfs_crc(crc, 1, &data);
         off += 1;
     }
 
@@ -512,13 +645,14 @@ static int lfs_dir_shift(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     }
 
     while (woff < lfs->cfg->block_size-4) {
-        uint8_t data;
-        int err = lfs_bd_read(lfs, dir->pair[0], woff, 1, &data);
+        uint8_t data = 0xff;
+        crc = lfs_crc(crc, 1, &data);
+        err = lfs_bd_prog(lfs, dir->pair[0], woff, 1, &data);
         if (err) {
             return err;
         }
 
-        crc = lfs_crc(crc, 1, &data);
+
         woff += 1;
     }
 
@@ -618,6 +752,7 @@ static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
             }
 
             dir->off = sizeof(dir->d);
+            continue;
         }
 
         int err = lfs_bd_read(lfs, dir->pair[0], dir->off,
@@ -986,9 +1121,51 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 
 
 /// Generic filesystem operations ///
-int lfs_format(lfs_t *lfs, const struct lfs_config *config) {
-    lfs->cfg = config;
+static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
+    lfs->cfg = cfg;
     lfs->words = lfs->cfg->block_size / sizeof(uint32_t);
+    lfs->rcache.off = -1;
+    lfs->pcache.off = -1;
+
+    if (lfs->cfg->read_buffer) {
+        lfs->rcache.buffer = lfs->cfg->read_buffer;
+    } else {
+        lfs->rcache.buffer = malloc(lfs->cfg->read_size);
+        if (!lfs->rcache.buffer) {
+            return LFS_ERROR_NO_MEM;
+        }
+    }
+
+    if (lfs->cfg->prog_buffer) {
+        lfs->pcache.buffer = lfs->cfg->prog_buffer;
+    } else {
+        lfs->pcache.buffer = malloc(lfs->cfg->prog_size);
+        if (!lfs->pcache.buffer) {
+            return LFS_ERROR_NO_MEM;
+        }
+    }
+
+    return 0;
+}
+
+static int lfs_deinit(lfs_t *lfs) {
+    // Free allocated memory
+    if (!lfs->cfg->read_buffer) {
+        free(lfs->rcache.buffer);
+    }
+
+    if (!lfs->cfg->prog_buffer) {
+        free(lfs->pcache.buffer);
+    }
+
+    return 0;
+}
+
+int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
+    int err = lfs_init(lfs, cfg);
+    if (err) {
+        return err;
+    }
 
     // Create free list
     lfs->free.begin = 0;
@@ -996,7 +1173,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *config) {
 
     // Create superblock dir
     lfs_dir_t superdir;
-    int err = lfs_dir_alloc(lfs, &superdir);
+    err = lfs_dir_alloc(lfs, &superdir);
     if (err) {
         return err;
     }
@@ -1044,16 +1221,23 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *config) {
     }
 
     // sanity check that fetch works
-    return lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
+    err = lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
+    if (err) {
+        return err;
+    }
+
+    return lfs_deinit(lfs);
 }
 
-int lfs_mount(lfs_t *lfs, const struct lfs_config *config) {
-    lfs->cfg = config;
-    lfs->words = lfs->cfg->block_size / sizeof(uint32_t);
+int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
+    int err = lfs_init(lfs, cfg);
+    if (err) {
+        return err;
+    }
 
     lfs_dir_t dir;
     lfs_superblock_t superblock;
-    int err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
+    err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
     if (!err) {
         err = lfs_bd_read(lfs, dir.pair[0],
                 sizeof(dir.d), sizeof(superblock.d), &superblock.d);
@@ -1078,8 +1262,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *config) {
 }
 
 int lfs_unmount(lfs_t *lfs) {
-    // Do nothing for now
-    return 0;
+    return lfs_deinit(lfs);
 }
 
 int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {

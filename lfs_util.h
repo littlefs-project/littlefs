@@ -8,6 +8,7 @@
 #define LFS_UTIL_H
 
 #include "lfs_config.h"
+#include <stdlib.h>
 
 
 // Builtin functions
@@ -32,7 +33,6 @@ static inline int lfs_scmp(uint32_t a, uint32_t b) {
 }
 
 uint32_t lfs_crc(uint32_t crc, lfs_size_t size, const void *buffer);
-
 
 
 #endif

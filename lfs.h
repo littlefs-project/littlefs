@@ -20,6 +20,7 @@ enum lfs_error {
     LFS_ERROR_IS_DIR   = -7,
     LFS_ERROR_INVALID  = -8,
     LFS_ERROR_NO_SPACE = -9,
+    LFS_ERROR_NO_MEM   = -10,
 };
 
 enum lfs_type {
@@ -74,6 +75,12 @@ struct lfs_config {
 
     // Number of erasable blocks on the device.
     lfs_size_t block_count;
+
+    // Optional, statically allocated read buffer. Must be read sized.
+    void *read_buffer;
+
+    // Optional, statically allocated program buffer. Must be program sized.
+    void *prog_buffer;
 };
 
 // File info structure
@@ -158,6 +165,12 @@ typedef struct lfs {
         lfs_block_t begin;
         lfs_block_t end;
     } free;
+
+    struct {
+        lfs_block_t block;
+        lfs_off_t off;
+        uint8_t *buffer;
+    } rcache, pcache;
 
     uint32_t lookahead[LFS_CFG_LOOKAHEAD/32];
 } lfs_t;
