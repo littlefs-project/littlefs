@@ -12,27 +12,22 @@
 
 
 /// Block device operations ///
-static int lfs_bd_info(lfs_t *lfs, struct lfs_bd_info *info) {
-    return lfs->bd_ops->info(lfs->bd, info);
-}
-
 static int lfs_bd_read(lfs_t *lfs, lfs_block_t block,
         lfs_off_t off, lfs_size_t size, void *buffer) {
-    return lfs->bd_ops->read(lfs->bd, block, off, size, buffer);
+    return lfs->cfg->read(lfs->cfg, block, off, size, buffer);
 }
 
 static int lfs_bd_prog(lfs_t *lfs, lfs_block_t block,
         lfs_off_t off, lfs_size_t size, const void *buffer) {
-    return lfs->bd_ops->prog(lfs->bd, block, off, size, buffer);
+    return lfs->cfg->prog(lfs->cfg, block, off, size, buffer);
 }
 
-static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block,
-        lfs_off_t off, lfs_size_t size) {
-    return lfs->bd_ops->erase(lfs->bd, block, off, size);
+static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
+    return lfs->cfg->erase(lfs->cfg, block);
 }
 
 static int lfs_bd_sync(lfs_t *lfs) {
-    return lfs->bd_ops->sync(lfs->bd);
+    return lfs->cfg->sync(lfs->cfg);
 }
 
 static int lfs_bd_cmp(lfs_t *lfs, lfs_block_t block,
@@ -101,7 +96,7 @@ static int lfs_alloc_scan(lfs_t *lfs) {
             // found free block, now find stride of free blocks
             // since this is relatively cheap (stress on relatively)
             lfs->free.begin += off;
-            lfs->free.end = lfs->block_count; // before superblock
+            lfs->free.end = lfs->cfg->block_count; // before superblock
 
             // find maximum stride in tree
             return lfs_traverse(lfs, lfs_alloc_stride, lfs);
@@ -157,7 +152,7 @@ static int lfs_alloc_erased(lfs_t *lfs, lfs_block_t *block) {
         return err;
     }
 
-    return lfs_bd_erase(lfs, *block, 0, lfs->block_size);
+    return lfs_bd_erase(lfs, *block);
 }
 
 
@@ -175,9 +170,9 @@ static lfs_off_t lfs_indexnext(lfs_t *lfs, lfs_off_t ioff) {
 
 static lfs_off_t lfs_indexfrom(lfs_t *lfs, lfs_off_t off) {
     lfs_off_t i = 0;
-    while (off > lfs->block_size) {
+    while (off > lfs->cfg->block_size) {
         i = lfs_indexnext(lfs, i);
-        off -= lfs->block_size;
+        off -= lfs->cfg->block_size;
     }
 
     return i;
@@ -370,7 +365,7 @@ static int lfs_dir_fetch(lfs_t *lfs,
         uint32_t crc = 0xffffffff;
         crc = lfs_crc(crc, sizeof(test), &test);
 
-        for (lfs_off_t j = sizeof(test); j < lfs->block_size; j += 4) {
+        for (lfs_off_t j = sizeof(test); j < lfs->cfg->block_size; j += 4) {
             uint32_t word;
             int err = lfs_bd_read(lfs, tpair[i], j, 4, &word);
             if (err) {
@@ -406,7 +401,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
     dir->d.rev += 1;
     lfs_pairswap(dir->pair);
 
-    int err = lfs_bd_erase(lfs, dir->pair[0], 0, lfs->block_size);
+    int err = lfs_bd_erase(lfs, dir->pair[0]);
     if (err) {
         return err;
     }
@@ -456,7 +451,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
         }
     }
 
-    while (off < lfs->block_size-4) {
+    while (off < lfs->cfg->block_size-4) {
         uint8_t data;
         int err = lfs_bd_read(lfs, dir->pair[0], off, 1, &data);
         if (err) {
@@ -467,7 +462,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
         off += 1;
     }
 
-    err = lfs_bd_prog(lfs, dir->pair[0], lfs->block_size-4, 4, &crc);
+    err = lfs_bd_prog(lfs, dir->pair[0], lfs->cfg->block_size-4, 4, &crc);
     if (err) {
         return err;
     }
@@ -480,7 +475,7 @@ static int lfs_dir_shift(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     dir->d.size -= entry->d.len;
     lfs_pairswap(dir->pair);
 
-    int err = lfs_bd_erase(lfs, dir->pair[0], 0, lfs->block_size);
+    int err = lfs_bd_erase(lfs, dir->pair[0]);
     if (err) {
         return err;
     }
@@ -516,7 +511,7 @@ static int lfs_dir_shift(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
         }
     }
 
-    while (woff < lfs->block_size-4) {
+    while (woff < lfs->cfg->block_size-4) {
         uint8_t data;
         int err = lfs_bd_read(lfs, dir->pair[0], woff, 1, &data);
         if (err) {
@@ -527,7 +522,7 @@ static int lfs_dir_shift(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
         woff += 1;
     }
 
-    err = lfs_bd_prog(lfs, dir->pair[0], lfs->block_size-4, 4, &crc);
+    err = lfs_bd_prog(lfs, dir->pair[0], lfs->cfg->block_size-4, 4, &crc);
     if (err) {
         return err;
     }
@@ -539,7 +534,7 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
         lfs_entry_t *entry, const void *data) {
     // check if we fit, if top bit is set we do not and move on
     while (true) {
-        if (dir->d.size + entry->d.len <= lfs->block_size - 4) {
+        if (dir->d.size + entry->d.len <= lfs->cfg->block_size - 4) {
             entry->pair[0] = dir->pair[0];
             entry->pair[1] = dir->pair[1];
             entry->off = dir->d.size;
@@ -882,7 +877,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 
     // TODO do this lazily in write?
     // TODO cow the head i/d block
-    if (file->size < lfs->block_size) {
+    if (file->size < lfs->cfg->block_size) {
         file->wblock = file->head;
     } else {
         int err = lfs_index_find(lfs, file->head, file->windex,
@@ -915,7 +910,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     while (nsize > 0) {
-        lfs_off_t woff = file->size % lfs->block_size;
+        lfs_off_t woff = file->size % lfs->cfg->block_size;
 
         if (file->size == 0) {
             int err = lfs_alloc_erased(lfs, &file->wblock);
@@ -938,7 +933,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
             }
         }
 
-        lfs_size_t diff = lfs_min(nsize, lfs->block_size - woff);
+        lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - woff);
         int err = lfs_bd_prog(lfs, file->wblock, woff, diff, data);
         if (err) {
             return err;
@@ -958,10 +953,10 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     while (nsize > 0 && file->roff < file->size) {
-        lfs_off_t roff = file->roff % lfs->block_size;
+        lfs_off_t roff = file->roff % lfs->cfg->block_size;
 
         // TODO cache index blocks
-        if (file->size < lfs->block_size) {
+        if (file->size < lfs->cfg->block_size) {
             file->rblock = file->head;
         } else if (roff == 0) {
             int err = lfs_index_find(lfs, file->head, file->windex,
@@ -975,7 +970,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 
         lfs_size_t diff = lfs_min(
                 lfs_min(nsize, file->size-file->roff),
-                lfs->block_size - roff);
+                lfs->cfg->block_size - roff);
         int err = lfs_bd_read(lfs, file->rblock, roff, diff, data);
         if (err) {
             return err;
@@ -991,85 +986,17 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 
 
 /// Generic filesystem operations ///
-static int lfs_configure(lfs_t *lfs, const struct lfs_config *config) {
-    lfs->bd = config->bd;
-    lfs->bd_ops = config->bd_ops;
-
-    struct lfs_bd_info info;
-    int err = lfs_bd_info(lfs, &info);
-    if (err) {
-        return err;
-    }
-
-    if (config->read_size) {
-        if (config->read_size < info.read_size ||
-            config->read_size % info.read_size != 0) {
-            LFS_ERROR("Invalid read size %u, device has %u\n",
-                config->read_size, info.read_size);
-            return LFS_ERROR_INVALID;
-        }
-
-        lfs->read_size = config->read_size;
-    } else {
-        lfs->read_size = info.read_size;
-    }
-
-    if (config->prog_size) {
-        if (config->prog_size < info.prog_size ||
-            config->prog_size % info.prog_size != 0) {
-            LFS_ERROR("Invalid prog size %u, device has %u\n",
-                config->prog_size, info.prog_size);
-            return LFS_ERROR_INVALID;
-        }
-
-        lfs->prog_size = config->prog_size;
-    } else {
-        lfs->prog_size = info.prog_size;
-    }
-
-    if (config->block_size) {
-        if (config->block_size < info.erase_size ||
-            config->block_size % info.erase_size != 0) {
-            LFS_ERROR("Invalid block size %u, device has %u\n",
-                config->prog_size, info.prog_size);
-            return LFS_ERROR_INVALID;
-        }
-
-        lfs->block_size = config->block_size;
-    } else {
-        lfs->block_size = lfs_min(512, info.erase_size);
-    }
-
-    if (config->block_count) {
-        if (config->block_count > info.total_size/info.erase_size) {
-            LFS_ERROR("Invalid block size %u, device has %u\n",
-                config->block_size,
-                (uint32_t)(info.total_size/info.erase_size));
-            return LFS_ERROR_INVALID;
-        }
-
-        lfs->block_count = config->block_count;
-    } else {
-        lfs->block_count = info.total_size / info.erase_size;
-    }
-
-    lfs->words = lfs->block_size / sizeof(uint32_t);
-    return 0;
-}
-
 int lfs_format(lfs_t *lfs, const struct lfs_config *config) {
-    int err = lfs_configure(lfs, config);
-    if (err) {
-        return err;
-    }
+    lfs->cfg = config;
+    lfs->words = lfs->cfg->block_size / sizeof(uint32_t);
 
     // Create free list
     lfs->free.begin = 0;
-    lfs->free.end = lfs->block_count-1;
+    lfs->free.end = lfs->cfg->block_count-1;
 
     // Create superblock dir
     lfs_dir_t superdir;
-    err = lfs_dir_alloc(lfs, &superdir);
+    int err = lfs_dir_alloc(lfs, &superdir);
     if (err) {
         return err;
     }
@@ -1096,8 +1023,8 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *config) {
         .d.len = sizeof(superblock.d),
         .d.version = 0x00000001,
         .d.magic = {"littlefs"},
-        .d.block_size  = lfs->block_size,
-        .d.block_count = lfs->block_count,
+        .d.block_size  = lfs->cfg->block_size,
+        .d.block_count = lfs->cfg->block_count,
         .d.root = {lfs->root[0], lfs->root[1]},
     };
     superdir.d.tail[0] = root.pair[0];
@@ -1121,14 +1048,12 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *config) {
 }
 
 int lfs_mount(lfs_t *lfs, const struct lfs_config *config) {
-    int err = lfs_configure(lfs, config);
-    if (err) {
-        return err;
-    }
+    lfs->cfg = config;
+    lfs->words = lfs->cfg->block_size / sizeof(uint32_t);
 
     lfs_dir_t dir;
     lfs_superblock_t superblock;
-    err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
+    int err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
     if (!err) {
         err = lfs_bd_read(lfs, dir.pair[0],
                 sizeof(dir.d), sizeof(superblock.d), &superblock.d);
@@ -1186,7 +1111,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
 
             dir.off += file.entry.d.len;
             if ((0xf & file.entry.d.type) == LFS_TYPE_REG) {
-                if (file.entry.d.u.file.size < lfs->block_size) {
+                if (file.entry.d.u.file.size < lfs->cfg->block_size) {
                     int err = cb(data, file.entry.d.u.file.head);
                     if (err) {
                         return err;

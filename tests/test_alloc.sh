@@ -4,14 +4,14 @@ set -eu
 echo "=== Allocator tests ==="
 rm -rf blocks
 tests/test.py << TEST
-    lfs_format(&lfs, &config) => 0;
+    lfs_format(&lfs, &cfg) => 0;
 TEST
 
 SIZE=15000
 
 lfs_mkdir() {
 tests/test.py << TEST
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "$1") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
@@ -19,7 +19,7 @@ TEST
 
 lfs_remove() {
 tests/test.py << TEST
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "$1/eggs") => 0;
     lfs_remove(&lfs, "$1/bacon") => 0;
     lfs_remove(&lfs, "$1/pancakes") => 0;
@@ -31,7 +31,7 @@ TEST
 lfs_alloc_singleproc() {
 tests/test.py << TEST
     const char *names[] = {"bacon", "eggs", "pancakes"};
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     for (int n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
         sprintf((char*)buffer, "$1/%s", names[n]);
         lfs_file_open(&lfs, &file[n], (char*)buffer,
@@ -54,7 +54,7 @@ lfs_alloc_multiproc() {
 for name in bacon eggs pancakes
 do
 tests/test.py << TEST
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "$1/$name",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
     size = strlen("$name");
@@ -72,7 +72,7 @@ lfs_verify() {
 for name in bacon eggs pancakes
 do
 tests/test.py << TEST
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "$1/$name", LFS_O_RDONLY) => 0;
     size = strlen("$name");
     for (int i = 0; i < $SIZE; i++) {

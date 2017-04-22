@@ -19,9 +19,12 @@
 
 
 // Block device emulated on existing filesystem
-int lfs_emubd_create(lfs_emubd_t *emu, const char *path) {
-    memset(&emu->info, 0, sizeof(emu->info));
-    memset(&emu->stats, 0, sizeof(emu->stats));
+int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
+    lfs_emubd_t *emu = cfg->context;
+    emu->cfg.read_size   = cfg->read_size;
+    emu->cfg.prog_size   = cfg->prog_size;
+    emu->cfg.block_size  = cfg->block_size;
+    emu->cfg.block_count = cfg->block_count;
 
     // Allocate buffer for creating children files
     size_t pathlen = strlen(path);
@@ -40,12 +43,6 @@ int lfs_emubd_create(lfs_emubd_t *emu, const char *path) {
     if (err && errno != EEXIST) {
         return -errno;
     }
-
-    // Setup info based on configuration
-    emu->info.read_size  = LFS_EMUBD_READ_SIZE;
-    emu->info.prog_size  = LFS_EMUBD_PROG_SIZE;
-    emu->info.erase_size = LFS_EMUBD_ERASE_SIZE;
-    emu->info.total_size = LFS_EMUBD_TOTAL_SIZE;
 
     // Load stats to continue incrementing
     snprintf(emu->child, LFS_NAME_MAX, "stats");
@@ -67,92 +64,42 @@ int lfs_emubd_create(lfs_emubd_t *emu, const char *path) {
     return 0;
 }
 
-void lfs_emubd_destroy(lfs_emubd_t *emu) {
-    lfs_emubd_sync(emu);
+void lfs_emubd_destroy(const struct lfs_config *cfg) {
+    lfs_emubd_sync(cfg);
 
+    lfs_emubd_t *emu = cfg->context;
     free(emu->path);
 }
 
-int lfs_emubd_read(lfs_emubd_t *emu, lfs_block_t block,
+int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, lfs_size_t size, void *buffer) {
+    lfs_emubd_t *emu = cfg->context;
     uint8_t *data = buffer;
 
     // Check if read is valid
-    assert(off % emu->info.read_size == 0);
-    assert(size % emu->info.read_size == 0);
-    assert((uint64_t)block*emu->info.erase_size + off + size
-            < emu->info.total_size);
+    assert(off  % cfg->read_size == 0);
+    assert(size % cfg->read_size == 0);
+    assert(block < cfg->block_count);
 
     // Zero out buffer for debugging
     memset(data, 0, size);
 
-    // Iterate over blocks until enough data is read
-    while (size > 0) {
-        snprintf(emu->child, LFS_NAME_MAX, "%x", block);
-        size_t count = lfs_min(emu->info.erase_size - off, size);
+    // Read data
+    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
 
-        FILE *f = fopen(emu->path, "rb");
-        if (!f && errno != ENOENT) {
-            return -errno;
-        }
-
-        if (f) {
-            int err = fseek(f, off, SEEK_SET);
-            if (err) {
-                return -errno;
-            }
-
-            size_t res = fread(data, 1, count, f);
-            if (res < count && !feof(f)) {
-                return -errno;
-            }
-
-            err = fclose(f);
-            if (err) {
-                return -errno;
-            }
-        }
-
-        size -= count;
-        data += count;
-        block += 1;
-        off = 0;
+    FILE *f = fopen(emu->path, "rb");
+    if (!f && errno != ENOENT) {
+        return -errno;
     }
 
-    emu->stats.read_count += 1;
-    return 0;
-}
-
-int lfs_emubd_prog(lfs_emubd_t *emu, lfs_block_t block,
-        lfs_off_t off, lfs_size_t size, const void *buffer) {
-    const uint8_t *data = buffer;
-
-    // Check if write is valid
-    assert(off % emu->info.prog_size == 0);
-    assert(size % emu->info.prog_size == 0);
-    assert((uint64_t)block*emu->info.erase_size + off + size
-            < emu->info.total_size);
-
-    // Iterate over blocks until enough data is read
-    while (size > 0) {
-        snprintf(emu->child, LFS_NAME_MAX, "%x", block);
-        size_t count = lfs_min(emu->info.erase_size - off, size);
-
-        FILE *f = fopen(emu->path, "r+b");
-        if (!f && errno == ENOENT) {
-            f = fopen(emu->path, "w+b");
-            if (!f) {
-                return -errno;
-            }
-        }
-
+    if (f) {
         int err = fseek(f, off, SEEK_SET);
         if (err) {
             return -errno;
         }
 
-        size_t res = fwrite(data, 1, count, f);
-        if (res < count) {
+        size_t res = fread(data, 1, size, f);
+        if (res < size && !feof(f)) {
             return -errno;
         }
 
@@ -160,60 +107,88 @@ int lfs_emubd_prog(lfs_emubd_t *emu, lfs_block_t block,
         if (err) {
             return -errno;
         }
+    }
 
-        size -= count;
-        data += count;
-        block += 1;
-        off = 0;
+    emu->stats.read_count += 1;
+    return 0;
+}
+
+int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
+        lfs_off_t off, lfs_size_t size, const void *buffer) {
+    lfs_emubd_t *emu = cfg->context;
+    const uint8_t *data = buffer;
+
+    // Check if write is valid
+    assert(off  % cfg->prog_size == 0);
+    assert(size % cfg->prog_size == 0);
+    assert(block < cfg->block_count);
+
+    // Program data
+    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+
+    FILE *f = fopen(emu->path, "r+b");
+    if (!f && errno == ENOENT) {
+        f = fopen(emu->path, "w+b");
+        if (!f) {
+            return -errno;
+        }
+    }
+
+    int err = fseek(f, off, SEEK_SET);
+    if (err) {
+        return -errno;
+    }
+
+    size_t res = fwrite(data, 1, size, f);
+    if (res < size) {
+        return -errno;
+    }
+
+    err = fclose(f);
+    if (err) {
+        return -errno;
     }
 
     emu->stats.prog_count += 1;
     return 0;
 }
 
-int lfs_emubd_erase(lfs_emubd_t *emu, lfs_block_t block,
-        lfs_off_t off, lfs_size_t size) {
+int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
+    lfs_emubd_t *emu = cfg->context;
 
     // Check if erase is valid
-    assert(off % emu->info.erase_size == 0);
-    assert(size % emu->info.erase_size == 0);
-    assert((uint64_t)block*emu->info.erase_size + off + size
-            < emu->info.total_size);
+    assert(block < cfg->block_count);
 
-    // Iterate and erase blocks
-    while (size > 0) {
-        snprintf(emu->child, LFS_NAME_MAX, "%x", block);
-        struct stat st;
-        int err = stat(emu->path, &st);
-        if (err && errno != ENOENT) {
+    // Erase the block
+    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+    struct stat st;
+    int err = stat(emu->path, &st);
+    if (err && errno != ENOENT) {
+        return -errno;
+    }
+
+    if (!err && S_ISREG(st.st_mode)) {
+        int err = unlink(emu->path);
+        if (err) {
             return -errno;
         }
-
-        if (!err && S_ISREG(st.st_mode)) {
-            int err = unlink(emu->path);
-            if (err) {
-                return -errno;
-            }
-        }
-
-        size -= emu->info.erase_size;
-        block += 1;
-        off = 0;
     }
 
     emu->stats.erase_count += 1;
     return 0;
 }
 
-int lfs_emubd_sync(lfs_emubd_t *emu) {
+int lfs_emubd_sync(const struct lfs_config *cfg) {
+    lfs_emubd_t *emu = cfg->context;
+
     // Just write out info/stats for later lookup
-    snprintf(emu->child, LFS_NAME_MAX, "info");
+    snprintf(emu->child, LFS_NAME_MAX, "config");
     FILE *f = fopen(emu->path, "w");
     if (!f) {
         return -errno;
     }
 
-    size_t res = fwrite(&emu->info, sizeof(emu->info), 1, f);
+    size_t res = fwrite(&emu->cfg, sizeof(emu->cfg), 1, f);
     if (res < 1) {
         return -errno;
     }
@@ -241,47 +216,4 @@ int lfs_emubd_sync(lfs_emubd_t *emu) {
 
     return 0;
 }
-
-int lfs_emubd_info(lfs_emubd_t *emu, struct lfs_bd_info *info) {
-    *info = emu->info;
-    return 0;
-}
-
-int lfs_emubd_stats(lfs_emubd_t *emu, struct lfs_bd_stats *stats) {
-    *stats = emu->stats;
-    return 0;
-}
-
-
-// Wrappers for void*s
-static int lfs_emubd_bd_read(void *bd, lfs_block_t block,
-        lfs_off_t off, lfs_size_t size, void *buffer) {
-    return lfs_emubd_read((lfs_emubd_t*)bd, block, off, size, buffer);
-}
-
-static int lfs_emubd_bd_prog(void *bd, lfs_block_t block,
-        lfs_off_t off, lfs_size_t size, const void *buffer) {
-    return lfs_emubd_prog((lfs_emubd_t*)bd, block, off, size, buffer);
-}
-
-static int lfs_emubd_bd_erase(void *bd, lfs_block_t block,
-        lfs_off_t off, lfs_size_t size) {
-    return lfs_emubd_erase((lfs_emubd_t*)bd, block, off, size);
-}
-
-static int lfs_emubd_bd_sync(void *bd) {
-    return lfs_emubd_sync((lfs_emubd_t*)bd);
-}
-
-static int lfs_emubd_bd_info(void *bd, struct lfs_bd_info *info) {
-    return lfs_emubd_info((lfs_emubd_t*)bd, info);
-}
-
-const struct lfs_bd_ops lfs_emubd_ops = {
-    .read = lfs_emubd_bd_read,
-    .prog = lfs_emubd_bd_prog,
-    .erase = lfs_emubd_bd_erase,
-    .sync = lfs_emubd_bd_sync,
-    .info = lfs_emubd_bd_info,
-};
 

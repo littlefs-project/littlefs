@@ -8,12 +8,12 @@ LARGESIZE=262144
 echo "=== File tests ==="
 rm -rf blocks
 tests/test.py << TEST
-    lfs_format(&lfs, &config) => 0;
+    lfs_format(&lfs, &cfg) => 0;
 TEST
 
 echo "--- Simple file test ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "hello", LFS_O_RDWR | LFS_O_CREAT | LFS_O_APPEND) => 0;
     size = strlen("Hello World!\n");
     memcpy(wbuffer, "Hello World!\n", size);
@@ -29,7 +29,7 @@ tests/test.py << TEST
     lfs_size_t size = $1;
     lfs_size_t chunk = 31;
     srand(0);
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "$2", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     for (lfs_size_t i = 0; i < size; i += chunk) {
         chunk = (chunk < size - i) ? chunk : size - i;
@@ -48,7 +48,7 @@ tests/test.py << TEST
     lfs_size_t size = $1;
     lfs_size_t chunk = 29;
     srand(0);
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "$2", LFS_O_RDONLY) => 0;
     for (lfs_size_t i = 0; i < size; i += chunk) {
         chunk = (chunk < size - i) ? chunk : size - i;
@@ -81,7 +81,7 @@ r_test $LARGESIZE largeavacado
 
 echo "--- Dir check ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir[0], "/") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;

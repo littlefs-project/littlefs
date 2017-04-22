@@ -8,10 +8,9 @@
 #define LFS_H
 
 #include "lfs_config.h"
-#include "lfs_bd.h"
 
 
-// Data structures
+// The littefs constants
 enum lfs_error {
     LFS_ERROR_OK       = 0,
     LFS_ERROR_CORRUPT  = -3,
@@ -41,23 +40,56 @@ enum lfs_open_flags {
 };
 
 
+// Configuration provided during initialization of the littlefs
 struct lfs_config {
-    lfs_bd_t *bd;
-    const struct lfs_bd_ops *bd_ops;
+    // Opaque user provided context
+    void *context;
 
+    // Read a region in a block
+    int (*read)(const struct lfs_config *c, lfs_block_t block,
+            lfs_off_t off, lfs_size_t size, void *buffer);
+
+    // Program a region in a block. The block must have previously
+    // been erased.
+    int (*prog)(const struct lfs_config *c, lfs_block_t block,
+            lfs_off_t off, lfs_size_t size, const void *buffer);
+
+    // Erase a block. A block must be erased before being programmed.
+    // The state of an erased block is undefined.
+    int (*erase)(const struct lfs_config *c, lfs_block_t block);
+
+    // Sync the state of the underlying block device
+    int (*sync)(const struct lfs_config *c);
+
+    // Minimum size of a read. This may be larger than the physical
+    // read size to cache reads from the block device.
     lfs_size_t read_size;
+
+    // Minimum size of a program. This may be larger than the physical
+    // program size to cache programs to the block device.
     lfs_size_t prog_size;
 
+    // Size of an erasable block.
     lfs_size_t block_size;
+
+    // Number of erasable blocks on the device.
     lfs_size_t block_count;
 };
 
+// File info structure
 struct lfs_info {
+    // Type of the file, either REG or DIR
     uint8_t type;
+
+    // Size of the file, only valid for REG files
     lfs_size_t size;
+
+    // Name of the file stored as a null-terminated string
     char name[LFS_NAME_MAX+1];
 };
 
+
+// Internal data structures
 typedef struct lfs_entry {
     lfs_block_t pair[2];
     lfs_off_t off;
@@ -115,16 +147,11 @@ typedef struct lfs_superblock {
     } d;
 } lfs_superblock_t;
 
+
 // Little filesystem type
 typedef struct lfs {
-    lfs_size_t read_size;   // size of read
-    lfs_size_t prog_size;   // size of program
-    lfs_size_t block_size;  // size of erase (block size)
-    lfs_size_t block_count; // number of erasable blocks
+    const struct lfs_config *cfg;
     lfs_size_t words;       // number of 32-bit words that can fit in a block
-
-    lfs_bd_t *bd;
-    const struct lfs_bd_ops *bd_ops;
 
     lfs_block_t root[2];
     struct {
@@ -134,6 +161,7 @@ typedef struct lfs {
 
     uint32_t lookahead[LFS_CFG_LOOKAHEAD/32];
 } lfs_t;
+
 
 // Functions
 int lfs_format(lfs_t *lfs, const struct lfs_config *config);
@@ -159,5 +187,6 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 
 int lfs_deorphan(lfs_t *lfs);
 int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
+
 
 #endif

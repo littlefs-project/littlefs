@@ -4,12 +4,12 @@ set -eu
 echo "=== Orphan tests ==="
 rm -rf blocks
 tests/test.py << TEST
-    lfs_format(&lfs, &config) => 0;
+    lfs_format(&lfs, &cfg) => 0;
 TEST
 
 echo "--- Orphan test ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "parent") => 0;
     lfs_mkdir(&lfs, "parent/orphan") => 0;
     lfs_mkdir(&lfs, "parent/child") => 0;
@@ -19,7 +19,7 @@ TEST
 # linked-list entry and should orphan the child
 rm -v blocks/8
 tests/test.py << TEST
-    lfs_mount(&lfs, &config) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERROR_NO_ENTRY;
     unsigned before = 0;
     lfs_traverse(&lfs, test_count, &before) => 0;
