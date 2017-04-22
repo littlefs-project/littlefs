@@ -76,11 +76,18 @@ struct lfs_config {
     // Number of erasable blocks on the device.
     lfs_size_t block_count;
 
+    // Number of blocks to lookahead during block allocation.
+    lfs_size_t lookahead;
+
     // Optional, statically allocated read buffer. Must be read sized.
     void *read_buffer;
 
     // Optional, statically allocated program buffer. Must be program sized.
     void *prog_buffer;
+
+    // Optional, statically allocated lookahead buffer.
+    // Must be 1 bit per lookahead block.
+    void *lookahead_buffer;
 };
 
 // File info structure
@@ -161,10 +168,6 @@ typedef struct lfs {
     lfs_size_t words;       // number of 32-bit words that can fit in a block
 
     lfs_block_t root[2];
-    struct {
-        lfs_block_t begin;
-        lfs_block_t end;
-    } free;
 
     struct {
         lfs_block_t block;
@@ -172,7 +175,11 @@ typedef struct lfs {
         uint8_t *buffer;
     } rcache, pcache;
 
-    uint32_t lookahead[LFS_CFG_LOOKAHEAD/32];
+    struct {
+        lfs_block_t start;
+        lfs_block_t off;
+        uint32_t *lookahead;
+    } free;
 } lfs_t;
 
 

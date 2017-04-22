@@ -23,11 +23,6 @@ typedef uint32_t lfs_block_t;
 #define LFS_NAME_MAX 255
 #endif
 
-// Lookahead distance
-#ifndef LFS_CFG_LOOKAHEAD
-#define LFS_CFG_LOOKAHEAD 128
-#endif
-
 // Logging operations
 #include <stdio.h>
 #define LFS_ERROR(fmt, ...) printf("lfs error: " fmt "\n", __VA_ARGS__)

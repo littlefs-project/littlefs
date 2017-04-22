@@ -189,103 +189,60 @@ static int lfs_bd_cmp(lfs_t *lfs, lfs_block_t block,
 static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     lfs_t *lfs = p;
 
-    lfs_block_t off = block - lfs->free.begin;
-    if (off < LFS_CFG_LOOKAHEAD) {
-        lfs->lookahead[off / 32] |= 1U << (off % 32);
+    lfs_block_t off = (block - lfs->free.start) % lfs->cfg->block_count;
+    if (off < lfs->cfg->lookahead) {
+        lfs->free.lookahead[off / 32] |= 1U << (off % 32);
     }
 
     return 0;
 }
 
-static int lfs_alloc_stride(void *p, lfs_block_t block) {
-    lfs_t *lfs = p;
-
-    lfs_block_t noff = block - lfs->free.begin;
-    lfs_block_t off = lfs->free.end - lfs->free.begin;
-    if (noff < off) {
-        lfs->free.end = noff + lfs->free.begin;
-    }
-
-    return 0;
-}
-
-static int lfs_alloc_scan(lfs_t *lfs) {
-    lfs_block_t start = lfs->free.begin;
+static int lfs_alloc_scan(lfs_t *lfs, lfs_block_t *block) {
+    lfs_block_t end = lfs->free.start + lfs->cfg->block_count;
 
     while (true) {
-        // mask out blocks in lookahead region
-        memset(lfs->lookahead, 0, sizeof(lfs->lookahead));
+        while (lfs->free.off < lfs->cfg->lookahead) {
+            lfs_block_t off = lfs->free.off;
+            lfs->free.off += 1;
+
+            if (!(lfs->free.lookahead[off / 32] & (1U << (off % 32)))) {
+                // found a free block
+                *block = (lfs->free.start + off) % lfs->cfg->block_count;
+                return 0;
+            }
+        }
+
+        // could not find block
+        lfs->free.start += lfs->cfg->lookahead;
+        lfs->free.off = 0;
+        if (lfs_scmp(lfs->free.start, end) > 0) {
+            return LFS_ERROR_NO_SPACE;
+        }
+
+        // find mask of free blocks from tree
+        memset(lfs->free.lookahead, 0, lfs->cfg->lookahead/8);
         int err = lfs_traverse(lfs, lfs_alloc_lookahead, lfs);
         if (err) {
             return err;
         }
-
-        // check if we've found a free block
-        for (uint32_t off = 0; off < LFS_CFG_LOOKAHEAD; off++) {
-            if (lfs->lookahead[off / 32] & (1U << (off % 32))) {
-                continue;
-            }
-
-            // found free block, now find stride of free blocks
-            // since this is relatively cheap (stress on relatively)
-            lfs->free.begin += off;
-            lfs->free.end = lfs->cfg->block_count; // before superblock
-
-            // find maximum stride in tree
-            return lfs_traverse(lfs, lfs_alloc_stride, lfs);
-        }
-
-        // continue to next lookahead unless we've searched the whole device
-        if (start-1 - lfs->free.begin < LFS_CFG_LOOKAHEAD) {
-            return 0;
-        }
-
-        // continue to next lookahead region
-        lfs->free.begin += LFS_CFG_LOOKAHEAD;
     }
 }
 
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
-    // If we don't remember any free blocks we will need to start searching
-    if (lfs->free.begin == lfs->free.end) {
-        int err = lfs_alloc_scan(lfs);
-        if (err) {
-            return err;
-        }
-
-        if (lfs->free.begin == lfs->free.end) {
-            // Still can't allocate a block? check for orphans
-            int err = lfs_deorphan(lfs);
-            if (err) {
-                return err;
-            }
-
-            err = lfs_alloc_scan(lfs);
-            if (err) {
-                return err;
-            }
-
-            if (lfs->free.begin == lfs->free.end) {
-                // Ok, it's true, we're out of space
-                return LFS_ERROR_NO_SPACE;
-            }
-        }
+    // try to scan for free block
+    int err = lfs_alloc_scan(lfs, block);
+    if (err != LFS_ERROR_NO_SPACE) {
+        return err;
     }
 
-    // Take first available block
-    *block = lfs->free.begin;
-    lfs->free.begin += 1;
-    return 0;
-}
-
-static int lfs_alloc_erased(lfs_t *lfs, lfs_block_t *block) {
-    // TODO rm me?
-    int err = lfs_alloc(lfs, block);
+    // still can't allocate a block? check for orphans
+    err = lfs_deorphan(lfs);
     if (err) {
         return err;
     }
 
-    return lfs_bd_erase(lfs, *block);
+    // scan again or die trying
+    return lfs_alloc_scan(lfs, block);
 }
 
 
@@ -343,7 +300,12 @@ static int lfs_index_append(lfs_t *lfs, lfs_block_t *headp,
 
     while (ioff % lfs->words == 0) {
         lfs_block_t nhead;
-        int err = lfs_alloc_erased(lfs, &nhead);
+        int err = lfs_alloc(lfs, &nhead);
+        if (err) {
+            return err;
+        }
+
+        err = lfs_bd_erase(lfs, nhead);
         if (err) {
             return err;
         }
@@ -480,7 +442,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
 static int lfs_dir_fetch(lfs_t *lfs,
         lfs_dir_t *dir, const lfs_block_t pair[2]) {
     // copy out pair, otherwise may be aliasing dir
-    const lfs_block_t tpair[2] = {pair[0], pair[1]}; 
+    const lfs_block_t tpair[2] = {pair[0], pair[1]};
     bool valid = false;
 
     // check both blocks for the most recent revision
@@ -1048,7 +1010,12 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         lfs_off_t woff = file->size % lfs->cfg->block_size;
 
         if (file->size == 0) {
-            int err = lfs_alloc_erased(lfs, &file->wblock);
+            int err = lfs_alloc(lfs, &file->wblock);
+            if (err) {
+                return err;
+            }
+
+            err = lfs_bd_erase(lfs, file->wblock);
             if (err) {
                 return err;
             }
@@ -1056,7 +1023,12 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
             file->head = file->wblock;
             file->windex = 0;
         } else if (woff == 0) {
-            int err = lfs_alloc_erased(lfs, &file->wblock);
+            int err = lfs_alloc(lfs, &file->wblock);
+            if (err) {
+                return err;
+            }
+
+            err = lfs_bd_erase(lfs, file->wblock);
             if (err) {
                 return err;
             }
@@ -1124,9 +1096,9 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->cfg = cfg;
     lfs->words = lfs->cfg->block_size / sizeof(uint32_t);
-    lfs->rcache.off = -1;
-    lfs->pcache.off = -1;
 
+    // setup read cache
+    lfs->rcache.off = -1;
     if (lfs->cfg->read_buffer) {
         lfs->rcache.buffer = lfs->cfg->read_buffer;
     } else {
@@ -1136,11 +1108,23 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         }
     }
 
+    // setup program cache
+    lfs->pcache.off = -1;
     if (lfs->cfg->prog_buffer) {
         lfs->pcache.buffer = lfs->cfg->prog_buffer;
     } else {
         lfs->pcache.buffer = malloc(lfs->cfg->prog_size);
         if (!lfs->pcache.buffer) {
+            return LFS_ERROR_NO_MEM;
+        }
+    }
+
+    // setup lookahead
+    if (lfs->cfg->lookahead_buffer) {
+        lfs->free.lookahead = lfs->cfg->lookahead_buffer;
+    } else {
+        lfs->free.lookahead = malloc(lfs->cfg->lookahead/8);
+        if (!lfs->free.lookahead) {
             return LFS_ERROR_NO_MEM;
         }
     }
@@ -1167,9 +1151,10 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
-    // Create free list
-    lfs->free.begin = 0;
-    lfs->free.end = lfs->cfg->block_count-1;
+    // Create free lookahead
+    memset(lfs->free.lookahead, 0, lfs->cfg->lookahead/8);
+    lfs->free.start = 0;
+    lfs->free.off = 0;
 
     // Create superblock dir
     lfs_dir_t superdir;
@@ -1235,6 +1220,11 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
+    // setup free lookahead
+    lfs->free.start = -lfs->cfg->lookahead;
+    lfs->free.off = lfs->cfg->lookahead;
+
+    // load superblock
     lfs_dir_t dir;
     lfs_superblock_t superblock;
     err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
