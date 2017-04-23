@@ -40,6 +40,12 @@ enum lfs_open_flags {
     LFS_O_SYNC   = 0x200,
 };
 
+enum lfs_whence_flags {
+    LFS_SEEK_SET = 0,
+    LFS_SEEK_CUR = 1,
+    LFS_SEEK_END = 2,
+};
+
 
 // Configuration provided during initialization of the littlefs
 struct lfs_config {
@@ -138,6 +144,9 @@ typedef struct lfs_dir {
     lfs_block_t pair[2];
     lfs_off_t off;
 
+    lfs_block_t head[2];
+    lfs_off_t pos;
+
     struct lfs_disk_dir {
         uint32_t rev;
         lfs_size_t size;
@@ -146,7 +155,7 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfs_superblock {
-    lfs_block_t dir[2]; //TODO rm me?
+    lfs_block_t pair[2];
     lfs_off_t off;
 
     struct lfs_disk_superblock {
@@ -195,6 +204,9 @@ int lfs_mkdir(lfs_t *lfs, const char *path);
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
 int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir);
 int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
+int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off);
+lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir);
+int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);
@@ -204,6 +216,11 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size);
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size);
+lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
+        lfs_soff_t off, int whence);
+lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
+lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file);
+int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 
 int lfs_deorphan(lfs_t *lfs);
 int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);

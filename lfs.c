@@ -545,8 +545,8 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
 
 static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     while (true) {
-        if ((0x7fffffff & dir->d.size) - dir->off < sizeof(entry->d)) {
-            if (!(dir->d.size >> 31)) {
+        if (dir->off + sizeof(entry->d) > (0x7fffffff & dir->d.size)) {
+            if (!(0x80000000 & dir->d.size)) {
                 entry->pair[0] = dir->pair[0];
                 entry->pair[1] = dir->pair[1];
                 entry->off = dir->off;
@@ -559,6 +559,7 @@ static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
             }
 
             dir->off = sizeof(dir->d);
+            dir->pos += sizeof(dir->d);
             continue;
         }
 
@@ -569,6 +570,7 @@ static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
         }
 
         dir->off += entry->d.len;
+        dir->pos += entry->d.len;
         if ((0xff & entry->d.type) == LFS_TYPE_REG ||
             (0xff & entry->d.type) == LFS_TYPE_DIR) {
             entry->pair[0] = dir->pair[0];
@@ -714,9 +716,14 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     int err = lfs_dir_fetch(lfs, dir, dir->pair);
     if (err) {
         return err;
-    } else if (strcmp(path, "/") == 0) {
-        // special offset for '.' and '..'
-        dir->off = sizeof(dir->d) - 2;
+    }
+
+    if (strspn(path, "/.") == strlen(path)) {
+        // can only be something like '/././../.'
+        dir->head[0] = dir->pair[0];
+        dir->head[1] = dir->pair[1];
+        dir->pos = sizeof(dir->d) - 2;
+        dir->off = sizeof(dir->d);
         return 0;
     }
 
@@ -733,8 +740,12 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
         return err;
     }
 
+    // setup head dir
     // special offset for '.' and '..'
-    dir->off = sizeof(dir->d) - 2;
+    dir->head[0] = dir->pair[0];
+    dir->head[1] = dir->pair[1];
+    dir->pos = sizeof(dir->d) - 2;
+    dir->off = sizeof(dir->d);
     return 0;
 }
 
@@ -746,15 +757,16 @@ int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
 int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     memset(info, 0, sizeof(*info));
 
-    if (dir->off == sizeof(dir->d) - 2) {
+    // special offset for '.' and '..'
+    if (dir->pos == sizeof(dir->d) - 2) {
         info->type = LFS_TYPE_DIR;
         strcpy(info->name, ".");
-        dir->off += 1;
+        dir->pos += 1;
         return 1;
-    } else if (dir->off == sizeof(dir->d) - 1) {
+    } else if (dir->pos == sizeof(dir->d) - 1) {
         info->type = LFS_TYPE_DIR;
         strcpy(info->name, "..");
-        dir->off += 1;
+        dir->pos += 1;
         return 1;
     }
 
@@ -776,6 +788,48 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     }
 
     return 1;
+}
+
+int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
+    // simply walk from head dir
+    int err = lfs_dir_rewind(lfs, dir);
+    if (err) {
+        return err;
+    }
+    dir->pos = off;
+
+    while (off > (0x7fffffff & dir->d.size)) {
+        off -= 0x7fffffff & dir->d.size;
+        if (!(0x80000000 & dir->d.size)) {
+            return LFS_ERROR_INVALID;
+        }
+
+        int err = lfs_dir_fetch(lfs, dir, dir->d.tail);
+        if (err) {
+            return err;
+        }
+    }
+
+    dir->off = off;
+    return 0;
+}
+
+lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir) {
+    return dir->pos;
+}
+
+int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
+    // reload the head dir
+    int err = lfs_dir_fetch(lfs, dir, dir->head);
+    if (err) {
+        return err;
+    }
+
+    dir->pair[0] = dir->head[0];
+    dir->pair[1] = dir->head[1];
+    dir->pos = sizeof(dir->d) - 2;
+    dir->off = sizeof(dir->d);
+    return 0;
 }
 
 
@@ -975,7 +1029,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     return lfs_file_sync(lfs, file);
 }
 
-int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
+static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     if (file->wblock == 0) {
         // already in sync, may be rdonly
         return 0;
@@ -1008,10 +1062,23 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     file->rblock = 0;
     file->wpos = oldwpos;
     file->wblock = 0;
+    return 0;
+}
+
+int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
+    if (file->wblock == 0) {
+        // already in sync, may be rdonly
+        return 0;
+    }
+
+    int err = lfs_file_flush(lfs, file);
+    if (err) {
+        return err;
+    }
 
     // update dir entry
     lfs_dir_t cwd;
-    int err = lfs_dir_fetch(lfs, &cwd, file->entry.pair);
+    err = lfs_dir_fetch(lfs, &cwd, file->entry.pair);
     if (err) {
         return err;
     }
@@ -1024,9 +1091,24 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     const uint8_t *data = buffer;
     lfs_size_t nsize = size;
 
+    if ((file->flags & 3) == LFS_O_RDONLY) {
+        return LFS_ERROR_INVALID;
+    }
+
     while (nsize > 0) {
         // check if we need a new block
         if (!file->wblock || file->woff == lfs->cfg->block_size) {
+            if (!file->wblock) {
+                // find out which block we're extending from
+                int err = lfs_index_find(lfs,
+                        file->entry.d.u.file.head, file->entry.d.u.file.size,
+                        file->wpos, &file->wblock, &file->woff);
+                if (err) {
+                    return err;
+                }
+            }
+
+            // extend file with new blocks
             int err = lfs_index_extend(lfs, file->wblock, file->wpos,
                     &file->wblock, &file->woff);
             if (err) {
@@ -1068,6 +1150,10 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     size = lfs_min(size, file->entry.d.u.file.size - file->rpos);
     lfs_size_t nsize = size;
 
+    if ((file->flags & 3) == LFS_O_WRONLY) {
+        return LFS_ERROR_INVALID;
+    }
+
     while (nsize > 0) {
         // check if we need a new block
         if (!file->rblock || file->roff == lfs->cfg->block_size) {
@@ -1093,6 +1179,57 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     }
 
     return size;
+}
+
+lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
+        lfs_soff_t off, int whence) {
+    // write out everything beforehand, may be noop if rdonly
+    int err = lfs_file_flush(lfs, file);
+    if (err) {
+        return err;
+    }
+
+    // rpos is always correct pos, even in append mode
+    // TODO keep rpos and wpos together?
+    lfs_off_t prev = file->rpos;
+    file->rblock = 0;
+    switch (whence) {
+        case LFS_SEEK_SET:
+            file->rpos = off;
+            break;
+
+        case LFS_SEEK_CUR:
+            file->rpos = file->rpos + off;
+            break;
+
+        case LFS_SEEK_END:
+            file->rpos = file->entry.d.u.file.size + off;
+            break;
+    }
+
+    if (!(file->flags & LFS_O_APPEND)) {
+        file->wpos = file->rpos;
+        file->wblock = 0;
+    }
+
+    return prev;
+}
+
+lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
+    return lfs_max(file->wpos, file->entry.d.u.file.size);
+}
+
+lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
+    return file->rpos;
+}
+
+int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
+    lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_SET);
+    if (res < 0) {
+        return res;
+    }
+
+    return 0;
 }
 
 
