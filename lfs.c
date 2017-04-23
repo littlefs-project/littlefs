@@ -246,154 +246,6 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 }
 
 
-/// Index list operations ///
-
-// Next index offset
-static lfs_off_t lfs_indexnext(lfs_t *lfs, lfs_off_t ioff) {
-    ioff += 1;
-    while (ioff % lfs->words == 0) {
-        ioff += lfs_min(lfs_ctz(ioff/lfs->words + 1), lfs->words-1) + 1;
-    }
-
-    return ioff;
-}
-
-static lfs_off_t lfs_indexfrom(lfs_t *lfs, lfs_off_t off) {
-    lfs_off_t i = 0;
-    while (off > lfs->cfg->block_size) {
-        i = lfs_indexnext(lfs, i);
-        off -= lfs->cfg->block_size;
-    }
-
-    return i;
-}
-
-// Find index in index chain given its index offset
-static int lfs_index_find(lfs_t *lfs, lfs_block_t head,
-        lfs_size_t icount, lfs_off_t ioff, lfs_block_t *block) {
-    lfs_off_t iitarget = ioff / lfs->words;
-    lfs_off_t iicurrent = (icount-1) / lfs->words;
-
-    while (iitarget != iicurrent) {
-        lfs_size_t skip = lfs_min(
-                lfs_min(lfs_ctz(iicurrent+1), lfs->words-1),
-                lfs_npw2((iitarget ^ iicurrent)+1)-1);
-
-        int err = lfs_bd_read(lfs, head, 4*skip, 4, &head);
-        if (err) {
-            return err;
-        }
-
-        iicurrent -= 1 << skip;
-    }
-
-    return lfs_bd_read(lfs, head, 4*(ioff % lfs->words), 4, block);
-}
-
-// Append index to index chain, updates head and icount
-static int lfs_index_append(lfs_t *lfs, lfs_block_t *headp,
-        lfs_size_t *icountp, lfs_block_t block) {
-    lfs_block_t head = *headp;
-    lfs_size_t ioff = *icountp - 1;
-
-    ioff += 1;
-
-    while (ioff % lfs->words == 0) {
-        lfs_block_t nhead;
-        int err = lfs_alloc(lfs, &nhead);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_bd_erase(lfs, nhead);
-        if (err) {
-            return err;
-        }
-
-        lfs_off_t skips = lfs_min(
-                lfs_ctz(ioff/lfs->words + 1), lfs->words-2) + 1;
-        for (lfs_off_t i = 0; i < skips; i++) {
-            err = lfs_bd_prog(lfs, nhead, 4*i, 4, &head);
-            if (err) {
-                return err;
-            }
-
-            if (head && i != skips-1) {
-                err = lfs_bd_read(lfs, head, 4*i, 4, &head);
-                if (err) {
-                    return err;
-                }
-            }
-        }
-
-        ioff += skips;
-        head = nhead;
-    }
-
-    int err = lfs_bd_prog(lfs, head, 4*(ioff % lfs->words), 4, &block);
-    if (err) {
-        return err;
-    }
-
-    *headp = head;
-    *icountp = ioff + 1;
-    return 0;
-}
-
-static int lfs_index_traverse(lfs_t *lfs, lfs_block_t head,
-        lfs_size_t icount, int (*cb)(void*, lfs_block_t), void *data) {
-    lfs_off_t iicurrent = (icount-1) / lfs->words;
-
-    while (iicurrent > 0) {
-        int err = cb(data, head);
-        if (err) {
-            return err;
-        }
-
-        lfs_size_t skip = lfs_min(lfs_ctz(iicurrent+1), lfs->words-1);
-        for (lfs_off_t i = skip; i < lfs->words; i++) {
-            lfs_block_t block;
-            int err = lfs_bd_read(lfs, head, 4*i, 4, &block);
-            if (err) {
-                return err;
-            }
-
-            err = cb(data, block);
-            if (err) {
-                return err;
-            }
-        }
-
-        err = lfs_bd_read(lfs, head, 0, 4, &head);
-        if (err) {
-            return err;
-        }
-
-        iicurrent -= 1;
-    }
-
-    int err = cb(data, head);
-    if (err) {
-        return err;
-    }
-
-    for (lfs_off_t i = 0; i < lfs->words; i++) {
-        lfs_block_t block;
-        int err = lfs_bd_read(lfs, head, 4*i, 4, &block);
-        if (err) {
-            return err;
-        }
-
-        err = cb(data, block);
-        if (err) {
-            return err;
-        }
-    }
-
-    return 0;
-}
-
-
 /// Metadata pair and directory operations ///
 static inline void lfs_pairswap(lfs_block_t pair[2]) {
     lfs_block_t t = pair[0];
@@ -934,9 +786,123 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
 }
 
 
+/// Index list operations ///
+static int lfs_index(lfs_t *lfs, lfs_off_t *off) {
+    lfs_off_t i = 0;
+
+    while (*off >= lfs->cfg->block_size) {
+        i += 1;
+        *off -= lfs->cfg->block_size;
+        *off += 4*lfs_min(lfs_ctz(i)+1, lfs->words-1);
+    }
+
+    return i;
+}
+
+static int lfs_index_find(lfs_t *lfs, lfs_block_t head, lfs_size_t size,
+        lfs_size_t pos, lfs_block_t *block, lfs_off_t *off) {
+    if (size == 0) {
+        *block = 0;
+        *off = 0;
+        return 0;
+    }
+
+    lfs_off_t current = lfs_index(lfs, &(lfs_off_t){size-1});
+    lfs_off_t target = lfs_index(lfs, &pos);
+
+    while (current != target) {
+        lfs_size_t skip = lfs_min(
+                lfs_npw2(current-target+1) - 1,
+                lfs_min(lfs_ctz(current)+1, lfs->words-1) - 1);
+
+        int err = lfs_bd_read(lfs, head, 4*skip, 4, &head);
+        if (err) {
+            return err;
+        }
+
+        current -= 1 << skip;
+    }
+
+    *block = head;
+    *off = pos;
+    return 0;
+}
+
+static int lfs_index_extend(lfs_t *lfs,
+        lfs_block_t head, lfs_size_t size,
+        lfs_off_t *block, lfs_block_t *off) {
+    int err = lfs_alloc(lfs, block);
+    if (err) {
+        return err;
+    }
+
+    err = lfs_bd_erase(lfs, *block);
+    if (err) {
+        return err;
+    }
+
+    if (size == 0) {
+        *off = 0;
+        return 0;
+    }
+
+    lfs_off_t index = lfs_index(lfs, &(lfs_off_t){size-1}) + 1;
+    lfs_size_t skips = lfs_min(lfs_ctz(index)+1, lfs->words-1);
+
+    for (lfs_off_t i = 0; i < skips; i++) {
+        err = lfs_bd_prog(lfs, *block, 4*i, 4, &head);
+        if (err) {
+            return err;
+        }
+
+        if (i != skips-1) {
+            err = lfs_bd_read(lfs, head, 4*i, 4, &head);
+            if (err) {
+                return err;
+            }
+        }
+    }
+
+    *off = 4*skips;
+    return 0;
+}
+
+static int lfs_index_traverse(lfs_t *lfs,
+        lfs_block_t head, lfs_size_t size,
+        int (*cb)(void*, lfs_block_t), void *data) {
+    if (size == 0) {
+        return 0;
+    }
+
+    lfs_off_t index = lfs_index(lfs, &(lfs_off_t){size-1});
+
+    while (true) {
+        int err = cb(data, head);
+        if (err) {
+            return err;
+        }
+
+        if (index == 0) {
+            return 0;
+        }
+
+        err = lfs_bd_read(lfs, head, 0, 4, &head);
+        if (err) {
+            return err;
+        }
+
+        index -= 1;
+    }
+
+    return 0;
+}
+
+
 /// Top level file operations ///
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags) {
+    file->flags = flags;
+
     // Allocate entry for file if it doesn't exist
     // TODO check open files
     lfs_dir_t cwd;
@@ -946,43 +912,36 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     }
 
     err = lfs_dir_find(lfs, &cwd, &file->entry, &path);
-    if (err && !((flags & LFS_O_CREAT) && err == LFS_ERROR_NO_ENTRY)) {
+    if (err && err != LFS_ERROR_NO_ENTRY) {
         return err;
-    } else if (err != LFS_ERROR_NO_ENTRY &&
-            file->entry.d.type == LFS_TYPE_DIR) {
-        return LFS_ERROR_IS_DIR;
     }
 
-    if ((flags & LFS_O_CREAT) && err == LFS_ERROR_NO_ENTRY) {
+    if (err == LFS_ERROR_NO_ENTRY) {
+        if (!(flags & LFS_O_CREAT)) {
+            return LFS_ERROR_NO_ENTRY;
+        }
+
         // create entry to remember name
-        file->entry.d.type = 1;
+        file->entry.d.type = LFS_TYPE_REG;
         file->entry.d.len = sizeof(file->entry.d) + strlen(path);
         file->entry.d.u.file.head = 0;
         file->entry.d.u.file.size = 0;
-        int err = lfs_dir_append(lfs, &cwd, &file->entry, path);
+        err = lfs_dir_append(lfs, &cwd, &file->entry, path);
         if (err) {
             return err;
         }
+    } else if (file->entry.d.type == LFS_TYPE_DIR) {
+        return LFS_ERROR_IS_DIR;
+    } else if (flags & LFS_O_EXCL) {
+        return LFS_ERROR_EXISTS;
     }
 
     file->head = file->entry.d.u.file.head;
     file->size = file->entry.d.u.file.size;
-    file->windex = lfs_indexfrom(lfs, file->size);
+    file->wpos = file->entry.d.u.file.size;
+    file->wblock = 0;
+    file->rpos = 0;
     file->rblock = 0;
-    file->rindex = 0;
-    file->roff = 0;
-
-    // TODO do this lazily in write?
-    // TODO cow the head i/d block
-    if (file->size < lfs->cfg->block_size) {
-        file->wblock = file->head;
-    } else {
-        int err = lfs_index_find(lfs, file->head, file->windex,
-                file->windex, &file->wblock);
-        if (err) {
-            return err;
-        }
-    }
 
     return 0;
 }
@@ -1007,48 +966,29 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     while (nsize > 0) {
-        lfs_off_t woff = file->size % lfs->cfg->block_size;
-
-        if (file->size == 0) {
-            int err = lfs_alloc(lfs, &file->wblock);
-            if (err) {
-                return err;
-            }
-
-            err = lfs_bd_erase(lfs, file->wblock);
-            if (err) {
-                return err;
-            }
-
-            file->head = file->wblock;
-            file->windex = 0;
-        } else if (woff == 0) {
-            int err = lfs_alloc(lfs, &file->wblock);
-            if (err) {
-                return err;
-            }
-
-            err = lfs_bd_erase(lfs, file->wblock);
-            if (err) {
-                return err;
-            }
-
-            err = lfs_index_append(lfs, &file->head,
-                    &file->windex, file->wblock);
+        if (!file->wblock || file->woff == lfs->cfg->block_size) {
+            int err = lfs_index_extend(lfs, file->head, file->wpos,
+                    &file->wblock, &file->woff);
             if (err) {
                 return err;
             }
         }
 
-        lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - woff);
-        int err = lfs_bd_prog(lfs, file->wblock, woff, diff, data);
+        lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - file->woff);
+        int err = lfs_bd_prog(lfs, file->wblock, file->woff, diff, data);
         if (err) {
             return err;
         }
 
-        file->size += diff;
+        file->wpos += diff;
+        file->woff += diff;
         data += diff;
         nsize -= diff;
+
+        if (file->wpos > file->size) {
+            file->size = file->wpos;
+            file->head = file->wblock;
+        }
     }
 
     return size;
@@ -1057,38 +997,31 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
+    size = lfs_min(size, file->size - file->rpos);
     lfs_size_t nsize = size;
 
-    while (nsize > 0 && file->roff < file->size) {
-        lfs_off_t roff = file->roff % lfs->cfg->block_size;
-
-        // TODO cache index blocks
-        if (file->size < lfs->cfg->block_size) {
-            file->rblock = file->head;
-        } else if (roff == 0) {
-            int err = lfs_index_find(lfs, file->head, file->windex,
-                    file->rindex, &file->rblock);
+    while (nsize > 0) {
+        if (!file->rblock || file->roff == lfs->cfg->block_size) {
+            int err = lfs_index_find(lfs, file->head, file->size, file->rpos,
+                    &file->rblock, &file->roff);
             if (err) {
                 return err;
             }
-
-            file->rindex = lfs_indexnext(lfs, file->rindex);
         }
 
-        lfs_size_t diff = lfs_min(
-                lfs_min(nsize, file->size-file->roff),
-                lfs->cfg->block_size - roff);
-        int err = lfs_bd_read(lfs, file->rblock, roff, diff, data);
+        lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - file->roff);
+        int err = lfs_bd_read(lfs, file->rblock, file->roff, diff, data);
         if (err) {
             return err;
         }
 
+        file->rpos += diff;
         file->roff += diff;
         data += diff;
         nsize -= diff;
     }
 
-    return size - nsize;
+    return size;
 }
 
 
@@ -1292,7 +1225,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
                 } else {
                     int err = lfs_index_traverse(lfs,
                             file.entry.d.u.file.head,
-                            lfs_indexfrom(lfs, file.entry.d.u.file.size),
+                            file.entry.d.u.file.size,
                             cb, data);
                     if (err) {
                         return err;

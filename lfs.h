@@ -125,12 +125,15 @@ typedef struct lfs_file {
     lfs_block_t head;
     lfs_size_t size;
 
+    lfs_off_t wpos;
     lfs_block_t wblock;
-    uint32_t windex;
+    lfs_off_t woff;
 
+    lfs_off_t rpos;
     lfs_block_t rblock;
-    uint32_t rindex;
     lfs_off_t roff;
+
+    int flags;
 
     struct lfs_entry entry;
 } lfs_file_t;
