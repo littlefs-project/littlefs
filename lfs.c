@@ -82,7 +82,6 @@ static int lfs_bd_read(lfs_t *lfs, lfs_block_t block,
         // load to cache, first condition can no longer fail
         lfs->rcache.block = block;
         lfs->rcache.off = off - (off % lfs->cfg->read_size);
-        // TODO remove reading, should be unnecessary
         err = lfs->cfg->read(lfs->cfg, lfs->rcache.block,
                 lfs->rcache.off, lfs->cfg->read_size,
                 lfs->rcache.buffer);
@@ -141,12 +140,6 @@ static int lfs_bd_prog(lfs_t *lfs, lfs_block_t block,
         // prepare cache, first condition can no longer fail
         lfs->pcache.block = block;
         lfs->pcache.off = off - (off % lfs->cfg->prog_size);
-        err = lfs->cfg->read(lfs->cfg, lfs->pcache.block,
-                lfs->pcache.off, lfs->cfg->prog_size,
-                lfs->pcache.buffer);
-        if (err) {
-            return err;
-        }
     }
 
     return 0;
@@ -810,7 +803,7 @@ static int lfs_index_find(lfs_t *lfs, lfs_block_t head, lfs_size_t size,
     lfs_off_t current = lfs_index(lfs, &(lfs_off_t){size-1});
     lfs_off_t target = lfs_index(lfs, &pos);
 
-    while (current != target) {
+    while (current > target) {
         lfs_size_t skip = lfs_min(
                 lfs_npw2(current-target+1) - 1,
                 lfs_min(lfs_ctz(current)+1, lfs->words-1) - 1);
@@ -831,6 +824,7 @@ static int lfs_index_find(lfs_t *lfs, lfs_block_t head, lfs_size_t size,
 static int lfs_index_extend(lfs_t *lfs,
         lfs_block_t head, lfs_size_t size,
         lfs_off_t *block, lfs_block_t *off) {
+    // go ahead and grab a block
     int err = lfs_alloc(lfs, block);
     if (err) {
         return err;
@@ -846,11 +840,35 @@ static int lfs_index_extend(lfs_t *lfs,
         return 0;
     }
 
-    lfs_off_t index = lfs_index(lfs, &(lfs_off_t){size-1}) + 1;
+    size -= 1;
+    lfs_off_t index = lfs_index(lfs, &size);
+    size += 1;
+
+    // just copy out the last block if it is incomplete
+    if (size != lfs->cfg->block_size) {
+        for (lfs_off_t i = 0; i < size; i++) {
+            uint8_t data;
+            int err = lfs_bd_read(lfs, head, i, 1, &data);
+            if (err) {
+                return err;
+            }
+
+            err = lfs_bd_prog(lfs, *block, i, 1, &data);
+            if (err) {
+                return err;
+            }
+        }
+
+        *off = size;
+        return 0;
+    }
+
+    // append block
+    index += 1;
     lfs_size_t skips = lfs_min(lfs_ctz(index)+1, lfs->words-1);
 
     for (lfs_off_t i = 0; i < skips; i++) {
-        err = lfs_bd_prog(lfs, *block, 4*i, 4, &head);
+        int err = lfs_bd_prog(lfs, *block, 4*i, 4, &head);
         if (err) {
             return err;
         }
@@ -936,26 +954,67 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         return LFS_ERROR_EXISTS;
     }
 
-    file->head = file->entry.d.u.file.head;
-    file->size = file->entry.d.u.file.size;
-    file->wpos = file->entry.d.u.file.size;
+    file->wpos = 0;
     file->wblock = 0;
     file->rpos = 0;
     file->rblock = 0;
+
+    if (flags & LFS_O_TRUNC) {
+        file->entry.d.u.file.head = 0;
+        file->entry.d.u.file.size = 0;
+    }
+
+    if (flags & LFS_O_APPEND) {
+        file->wpos = file->entry.d.u.file.size;
+    }
 
     return 0;
 }
 
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
-    // Store file
+    return lfs_file_sync(lfs, file);
+}
+
+int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
+    if (file->wblock == 0) {
+        // already in sync, may be rdonly
+        return 0;
+    }
+
+    // copy over anything after the file
+    lfs_off_t oldrpos = file->rpos;
+    lfs_off_t oldwpos = file->wpos;
+    file->rpos = file->wpos;
+    file->rblock = 0;
+
+    while (file->wpos < file->entry.d.u.file.size) {
+        uint8_t data;
+        lfs_ssize_t res = lfs_file_read(lfs, file, &data, 1);
+        if (res < 0) {
+            return res;
+        }
+
+        res = lfs_file_write(lfs, file, &data, 1);
+        if (res < 0) {
+            return res;
+        }
+    }
+
+    // actual file updates
+    file->entry.d.u.file.head = file->wblock;
+    file->entry.d.u.file.size = file->wpos;
+
+    file->rpos = oldrpos;
+    file->rblock = 0;
+    file->wpos = oldwpos;
+    file->wblock = 0;
+
+    // update dir entry
     lfs_dir_t cwd;
     int err = lfs_dir_fetch(lfs, &cwd, file->entry.pair);
     if (err) {
         return err;
     }
-
-    file->entry.d.u.file.head = file->head;
-    file->entry.d.u.file.size = file->size;
 
     return lfs_dir_commit(lfs, &cwd, &file->entry, NULL);
 }
@@ -966,14 +1025,16 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     while (nsize > 0) {
+        // check if we need a new block
         if (!file->wblock || file->woff == lfs->cfg->block_size) {
-            int err = lfs_index_extend(lfs, file->head, file->wpos,
+            int err = lfs_index_extend(lfs, file->wblock, file->wpos,
                     &file->wblock, &file->woff);
             if (err) {
                 return err;
             }
         }
 
+        // program as much as we can in current block
         lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - file->woff);
         int err = lfs_bd_prog(lfs, file->wblock, file->woff, diff, data);
         if (err) {
@@ -985,9 +1046,16 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         data += diff;
         nsize -= diff;
 
-        if (file->wpos > file->size) {
-            file->size = file->wpos;
-            file->head = file->wblock;
+        if (file->flags & LFS_O_APPEND) {
+            file->entry.d.u.file.head = file->wblock;
+            file->entry.d.u.file.size = file->wpos;
+        }
+    }
+
+    if (file->flags & LFS_O_SYNC) {
+        int err = lfs_file_sync(lfs, file);
+        if (err) {
+            return err;
         }
     }
 
@@ -997,18 +1065,21 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
-    size = lfs_min(size, file->size - file->rpos);
+    size = lfs_min(size, file->entry.d.u.file.size - file->rpos);
     lfs_size_t nsize = size;
 
     while (nsize > 0) {
+        // check if we need a new block
         if (!file->rblock || file->roff == lfs->cfg->block_size) {
-            int err = lfs_index_find(lfs, file->head, file->size, file->rpos,
-                    &file->rblock, &file->roff);
+            int err = lfs_index_find(lfs,
+                    file->entry.d.u.file.head, file->entry.d.u.file.size,
+                    file->rpos, &file->rblock, &file->roff);
             if (err) {
                 return err;
             }
         }
 
+        // read as much as we can in current block
         lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - file->roff);
         int err = lfs_bd_read(lfs, file->rblock, file->roff, diff, data);
         if (err) {

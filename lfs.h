@@ -122,8 +122,8 @@ typedef struct lfs_entry {
 } lfs_entry_t;
 
 typedef struct lfs_file {
-    lfs_block_t head;
-    lfs_size_t size;
+    struct lfs_entry entry;
+    int flags;
 
     lfs_off_t wpos;
     lfs_block_t wblock;
@@ -132,10 +132,6 @@ typedef struct lfs_file {
     lfs_off_t rpos;
     lfs_block_t rblock;
     lfs_off_t roff;
-
-    int flags;
-
-    struct lfs_entry entry;
 } lfs_file_t;
 
 typedef struct lfs_dir {
@@ -203,6 +199,7 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file);
+int lfs_file_sync(lfs_t *lfs, lfs_file_t *file);
 lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size);
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
