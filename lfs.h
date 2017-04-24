@@ -7,8 +7,24 @@
 #ifndef LFS_H
 #define LFS_H
 
-#include "lfs_config.h"
+#include <stdint.h>
+#include <stdbool.h>
 
+
+// Type definitions
+typedef uint32_t lfs_size_t;
+typedef uint32_t lfs_off_t;
+
+typedef int32_t  lfs_ssize_t;
+typedef int32_t  lfs_soff_t;
+
+typedef uint32_t lfs_block_t;
+
+
+// Configurable littlefs constants
+#ifndef LFS_NAME_MAX
+#define LFS_NAME_MAX 255
+#endif
 
 // The littefs constants
 enum lfs_error {
@@ -109,7 +125,7 @@ struct lfs_info {
 };
 
 
-// Internal data structures
+// littlefs data structures
 typedef struct lfs_entry {
     lfs_block_t pair[2];
     lfs_off_t off;
@@ -169,8 +185,7 @@ typedef struct lfs_superblock {
     } d;
 } lfs_superblock_t;
 
-
-// Little filesystem type
+// littlefs type
 typedef struct lfs {
     const struct lfs_config *cfg;
     lfs_size_t words;       // number of 32-bit words that can fit in a block
@@ -191,15 +206,17 @@ typedef struct lfs {
 } lfs_t;
 
 
-// Functions
+// filesystem functions
 int lfs_format(lfs_t *lfs, const struct lfs_config *config);
 int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
 int lfs_unmount(lfs_t *lfs);
 
+// general operations
 int lfs_remove(lfs_t *lfs, const char *path);
 int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
 int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 
+// directory operations
 int lfs_mkdir(lfs_t *lfs, const char *path);
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
 int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir);
@@ -208,20 +225,22 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off);
 lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir);
 int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 
+// file operations
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file);
 int lfs_file_sync(lfs_t *lfs, lfs_file_t *file);
-lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
-        const void *buffer, lfs_size_t size);
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size);
+lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
+        const void *buffer, lfs_size_t size);
 lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence);
-lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file);
 int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
+lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 
+// miscellaneous lfs specific operations
 int lfs_deorphan(lfs_t *lfs);
 int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 

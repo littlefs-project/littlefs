@@ -7,8 +7,9 @@
 #ifndef LFS_UTIL_H
 #define LFS_UTIL_H
 
-#include "lfs_config.h"
 #include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
 
 
 // Builtin functions
@@ -32,7 +33,13 @@ static inline int lfs_scmp(uint32_t a, uint32_t b) {
     return (int)(unsigned)(a - b);
 }
 
-uint32_t lfs_crc(uint32_t crc, lfs_size_t size, const void *buffer);
+uint32_t lfs_crc(uint32_t crc, size_t size, const void *buffer);
+
+
+// Logging functions
+#define LFS_DEBUG(fmt, ...) printf("lfs debug: " fmt "\n", __VA_ARGS__)
+#define LFS_WARN(fmt, ...)  printf("lfs warn: " fmt "\n", __VA_ARGS__)
+#define LFS_ERROR(fmt, ...) printf("lfs error: " fmt "\n", __VA_ARGS__)
 
 
 #endif
