@@ -28,15 +28,16 @@ typedef uint32_t lfs_block_t;
 
 // The littefs constants
 enum lfs_error {
-    LFS_ERROR_OK       = 0,
-    LFS_ERROR_CORRUPT  = -3,
-    LFS_ERROR_NO_ENTRY = -4,
-    LFS_ERROR_EXISTS   = -5,
-    LFS_ERROR_NOT_DIR  = -6,
-    LFS_ERROR_IS_DIR   = -7,
-    LFS_ERROR_INVALID  = -8,
-    LFS_ERROR_NO_SPACE = -9,
-    LFS_ERROR_NO_MEM   = -10,
+    LFS_ERR_OK      = 0,
+    LFS_ERR_IO      = -5,
+    LFS_ERR_CORRUPT = -77,
+    LFS_ERR_NOENT   = -2,
+    LFS_ERR_EXISTS  = -17,
+    LFS_ERR_NOTDIR  = -20,
+    LFS_ERR_ISDIR   = -21,
+    LFS_ERR_INVAL   = -22,
+    LFS_ERR_NOSPC   = -28,
+    LFS_ERR_NOMEM   = -12,
 };
 
 enum lfs_type {

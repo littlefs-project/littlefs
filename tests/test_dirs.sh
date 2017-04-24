@@ -56,11 +56,11 @@ TEST
 echo "--- Directory failures ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_mkdir(&lfs, "potato") => LFS_ERROR_EXISTS;
-    lfs_dir_open(&lfs, &dir[0], "tomato") => LFS_ERROR_NO_ENTRY;
-    lfs_dir_open(&lfs, &dir[0], "burito") => LFS_ERROR_NOT_DIR;
-    lfs_file_open(&lfs, &file[0], "tomato", LFS_O_RDONLY) => LFS_ERROR_NO_ENTRY;
-    lfs_file_open(&lfs, &file[0], "potato", LFS_O_RDONLY) => LFS_ERROR_IS_DIR;
+    lfs_mkdir(&lfs, "potato") => LFS_ERR_EXISTS;
+    lfs_dir_open(&lfs, &dir[0], "tomato") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir[0], "burito") => LFS_ERR_NOTDIR;
+    lfs_file_open(&lfs, &file[0], "tomato", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfs_file_open(&lfs, &file[0], "potato", LFS_O_RDONLY) => LFS_ERR_ISDIR;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -126,7 +126,7 @@ TEST
 echo "--- Directory remove ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_remove(&lfs, "potato") => LFS_ERROR_INVALID;
+    lfs_remove(&lfs, "potato") => LFS_ERR_INVAL;
     lfs_remove(&lfs, "potato/sweet") => 0;
     lfs_remove(&lfs, "potato/baked") => 0;
     lfs_remove(&lfs, "potato/fried") => 0;
@@ -220,7 +220,7 @@ tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "warmpotato") => 0;
     lfs_mkdir(&lfs, "warmpotato/mushy") => 0;
-    lfs_rename(&lfs, "hotpotato", "warmpotato") => LFS_ERROR_INVALID;
+    lfs_rename(&lfs, "hotpotato", "warmpotato") => LFS_ERR_INVAL;
 
     lfs_remove(&lfs, "warmpotato/mushy") => 0;
     lfs_rename(&lfs, "hotpotato", "warmpotato") => 0;
@@ -255,7 +255,7 @@ tests/test.py << TEST
     lfs_rename(&lfs, "warmpotato/baked", "coldpotato/baked") => 0;
     lfs_rename(&lfs, "warmpotato/sweet", "coldpotato/sweet") => 0;
     lfs_rename(&lfs, "warmpotato/fried", "coldpotato/fried") => 0;
-    lfs_remove(&lfs, "coldpotato") => LFS_ERROR_INVALID;
+    lfs_remove(&lfs, "coldpotato") => LFS_ERR_INVAL;
     lfs_remove(&lfs, "warmpotato") => 0;
     lfs_unmount(&lfs) => 0;
 TEST

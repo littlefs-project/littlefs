@@ -20,14 +20,14 @@ TEST
 rm -v blocks/8
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERROR_NO_ENTRY;
+    lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
     unsigned before = 0;
     lfs_traverse(&lfs, test_count, &before) => 0;
     test_log("before", before);
 
     lfs_deorphan(&lfs) => 0;
 
-    lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERROR_NO_ENTRY;
+    lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
     unsigned after = 0;
     lfs_traverse(&lfs, test_count, &after) => 0;
     test_log("after", after);

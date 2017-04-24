@@ -208,7 +208,7 @@ static int lfs_alloc_scan(lfs_t *lfs, lfs_block_t *block) {
         lfs->free.start += lfs->cfg->lookahead;
         lfs->free.off = 0;
         if (lfs_scmp(lfs->free.start, end) > 0) {
-            return LFS_ERROR_NO_SPACE;
+            return LFS_ERR_NOSPC;
         }
 
         // find mask of free blocks from tree
@@ -223,7 +223,7 @@ static int lfs_alloc_scan(lfs_t *lfs, lfs_block_t *block) {
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     // try to scan for free block
     int err = lfs_alloc_scan(lfs, block);
-    if (err != LFS_ERROR_NO_SPACE) {
+    if (err != LFS_ERR_NOSPC) {
         return err;
     }
 
@@ -329,7 +329,7 @@ static int lfs_dir_fetch(lfs_t *lfs,
 
     if (!valid) {
         LFS_ERROR("Corrupted dir pair at %d %d", tpair[0], tpair[1]);
-        return LFS_ERROR_CORRUPT;
+        return LFS_ERR_CORRUPT;
     }
 
     return 0;
@@ -549,7 +549,7 @@ static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
                 entry->pair[0] = dir->pair[0];
                 entry->pair[1] = dir->pair[1];
                 entry->off = dir->off;
-                return LFS_ERROR_NO_ENTRY;
+                return LFS_ERR_NOENT;
             }
 
             int err = lfs_dir_fetch(lfs, dir, dir->d.tail);
@@ -653,7 +653,7 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
 
         // continue on if we hit a directory
         if (entry->d.type != LFS_TYPE_DIR) {
-            return LFS_ERROR_NOT_DIR;
+            return LFS_ERR_NOTDIR;
         }
 
         int err = lfs_dir_fetch(lfs, dir, entry->d.u.dir);
@@ -679,8 +679,8 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     lfs_entry_t entry;
     err = lfs_dir_find(lfs, &cwd, &entry, &path);
-    if (err != LFS_ERROR_NO_ENTRY) {
-        return err ? err : LFS_ERROR_EXISTS;
+    if (err != LFS_ERR_NOENT) {
+        return err ? err : LFS_ERR_EXISTS;
     }
 
     // Build up new directory
@@ -731,7 +731,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     if (err) {
         return err;
     } else if (entry.d.type != LFS_TYPE_DIR) {
-        return LFS_ERROR_NOT_DIR;
+        return LFS_ERR_NOTDIR;
     }
 
     err = lfs_dir_fetch(lfs, dir, entry.d.u.dir);
@@ -772,7 +772,7 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     lfs_entry_t entry;
     int err = lfs_dir_next(lfs, dir, &entry);
     if (err) {
-        return (err == LFS_ERROR_NO_ENTRY) ? 0 : err;
+        return (err == LFS_ERR_NOENT) ? 0 : err;
     }
 
     info->type = entry.d.type & 0xff;
@@ -800,7 +800,7 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
     while (off > (0x7fffffff & dir->d.size)) {
         off -= 0x7fffffff & dir->d.size;
         if (!(0x80000000 & dir->d.size)) {
-            return LFS_ERROR_INVALID;
+            return LFS_ERR_INVAL;
         }
 
         int err = lfs_dir_fetch(lfs, dir, dir->d.tail);
@@ -983,13 +983,13 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     }
 
     err = lfs_dir_find(lfs, &cwd, &file->entry, &path);
-    if (err && err != LFS_ERROR_NO_ENTRY) {
+    if (err && err != LFS_ERR_NOENT) {
         return err;
     }
 
-    if (err == LFS_ERROR_NO_ENTRY) {
+    if (err == LFS_ERR_NOENT) {
         if (!(flags & LFS_O_CREAT)) {
-            return LFS_ERROR_NO_ENTRY;
+            return LFS_ERR_NOENT;
         }
 
         // create entry to remember name
@@ -1002,9 +1002,9 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
             return err;
         }
     } else if (file->entry.d.type == LFS_TYPE_DIR) {
-        return LFS_ERROR_IS_DIR;
+        return LFS_ERR_ISDIR;
     } else if (flags & LFS_O_EXCL) {
-        return LFS_ERROR_EXISTS;
+        return LFS_ERR_EXISTS;
     }
 
     file->wpos = 0;
@@ -1092,7 +1092,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     if ((file->flags & 3) == LFS_O_WRONLY) {
-        return LFS_ERROR_INVALID;
+        return LFS_ERR_INVAL;
     }
 
     while (nsize > 0) {
@@ -1128,7 +1128,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     if ((file->flags & 3) == LFS_O_RDONLY) {
-        return LFS_ERROR_INVALID;
+        return LFS_ERR_INVAL;
     }
 
     while (nsize > 0) {
@@ -1284,7 +1284,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         if (err) {
             return err;
         } else if (dir.d.size != sizeof(dir.d)) {
-            return LFS_ERROR_INVALID;
+            return LFS_ERR_INVAL;
         }
     }
 
@@ -1329,14 +1329,14 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
     lfs_entry_t preventry;
     err = lfs_dir_find(lfs, &newcwd, &preventry, &newpath);
-    if (err && err != LFS_ERROR_NO_ENTRY) {
+    if (err && err != LFS_ERR_NOENT) {
         return err;
     }
-    bool prevexists = (err != LFS_ERROR_NO_ENTRY);
+    bool prevexists = (err != LFS_ERR_NOENT);
 
     // must have same type
     if (prevexists && preventry.d.type != oldentry.d.type) {
-        return LFS_ERROR_INVALID;
+        return LFS_ERR_INVAL;
     }
 
     lfs_dir_t dir;
@@ -1348,7 +1348,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         if (err) {
             return err;
         } else if (dir.d.size != sizeof(dir.d)) {
-            return LFS_ERROR_INVALID;
+            return LFS_ERR_INVAL;
         }
     }
 
@@ -1412,7 +1412,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     } else {
         lfs->rcache.buffer = malloc(lfs->cfg->read_size);
         if (!lfs->rcache.buffer) {
-            return LFS_ERROR_NO_MEM;
+            return LFS_ERR_NOMEM;
         }
     }
 
@@ -1423,7 +1423,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     } else {
         lfs->pcache.buffer = malloc(lfs->cfg->prog_size);
         if (!lfs->pcache.buffer) {
-            return LFS_ERROR_NO_MEM;
+            return LFS_ERR_NOMEM;
         }
     }
 
@@ -1433,7 +1433,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     } else {
         lfs->free.lookahead = malloc(lfs->cfg->lookahead/8);
         if (!lfs->free.lookahead) {
-            return LFS_ERROR_NO_MEM;
+            return LFS_ERR_NOMEM;
         }
     }
 
@@ -1544,17 +1544,17 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->root[1] = superblock.d.root[1];
     }
 
-    if (err == LFS_ERROR_CORRUPT ||
+    if (err == LFS_ERR_CORRUPT ||
             memcmp(superblock.d.magic, "littlefs", 8) != 0) {
         LFS_ERROR("Invalid superblock at %d %d", dir.pair[0], dir.pair[1]);
-        return LFS_ERROR_CORRUPT;
+        return LFS_ERR_CORRUPT;
     }
 
     if (superblock.d.version > 0x0000ffff) {
         LFS_ERROR("Invalid version %d.%d\n",
                 0xffff & (superblock.d.version >> 16),
                 0xffff & (superblock.d.version >> 0));
-        return LFS_ERROR_INVALID;
+        return LFS_ERR_INVAL;
     }
 
     return err;
@@ -1637,11 +1637,11 @@ static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2]) {
 
         while (true) {
             int err = lfs_dir_next(lfs, &parent, &entry);
-            if (err && err != LFS_ERROR_NO_ENTRY) {
+            if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
 
-            if (err == LFS_ERROR_NO_ENTRY) {
+            if (err == LFS_ERR_NOENT) {
                 break;
             }
 

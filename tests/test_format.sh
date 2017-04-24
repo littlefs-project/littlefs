@@ -13,7 +13,7 @@ echo "--- Invalid superblocks ---"
 ln -f -s /dev/null blocks/0
 ln -f -s /dev/null blocks/1
 tests/test.py << TEST
-    lfs_format(&lfs, &cfg) => LFS_ERROR_CORRUPT;
+    lfs_format(&lfs, &cfg) => LFS_ERR_CORRUPT;
 TEST
 rm blocks/0 blocks/1
 
@@ -32,7 +32,7 @@ tests/test.py << TEST
 TEST
 rm blocks/0 blocks/1
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => LFS_ERROR_CORRUPT;
+    lfs_mount(&lfs, &cfg) => LFS_ERR_CORRUPT;
 TEST
 
 echo "--- Valid corrupt mount ---"
