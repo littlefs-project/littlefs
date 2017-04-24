@@ -15,8 +15,7 @@
 static int lfs_bd_flush(lfs_t *lfs) {
     if (lfs->pcache.off != -1) {
         int err = lfs->cfg->prog(lfs->cfg, lfs->pcache.block,
-                lfs->pcache.off, lfs->cfg->prog_size,
-                lfs->pcache.buffer);
+                lfs->pcache.off, lfs->pcache.buffer, lfs->cfg->prog_size);
         if (err) {
             return err;
         }
@@ -28,7 +27,7 @@ static int lfs_bd_flush(lfs_t *lfs) {
 }
 
 static int lfs_bd_read(lfs_t *lfs, lfs_block_t block,
-        lfs_off_t off, lfs_size_t size, void *buffer) {
+        lfs_off_t off, void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
 
     // flush overlapping programs
@@ -67,7 +66,7 @@ static int lfs_bd_read(lfs_t *lfs, lfs_block_t block,
                 size >= lfs->cfg->read_size) {
             // bypass cache?
             lfs_size_t diff = size - (size % lfs->cfg->read_size);
-            int err = lfs->cfg->read(lfs->cfg, block, off, diff, data);
+            int err = lfs->cfg->read(lfs->cfg, block, off, data, diff);
             if (err) {
                 return err;
             }
@@ -82,8 +81,7 @@ static int lfs_bd_read(lfs_t *lfs, lfs_block_t block,
         lfs->rcache.block = block;
         lfs->rcache.off = off - (off % lfs->cfg->read_size);
         err = lfs->cfg->read(lfs->cfg, lfs->rcache.block,
-                lfs->rcache.off, lfs->cfg->read_size,
-                lfs->rcache.buffer);
+                lfs->rcache.off, lfs->rcache.buffer, lfs->cfg->read_size);
         if (err) {
             return err;
         }
@@ -93,7 +91,7 @@ static int lfs_bd_read(lfs_t *lfs, lfs_block_t block,
 }
 
 static int lfs_bd_prog(lfs_t *lfs, lfs_block_t block,
-        lfs_off_t off, lfs_size_t size, const void *buffer) {
+        lfs_off_t off, const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
 
     if (block == lfs->rcache.block) {
@@ -125,7 +123,7 @@ static int lfs_bd_prog(lfs_t *lfs, lfs_block_t block,
                 size >= lfs->cfg->prog_size) {
             // bypass cache?
             lfs_size_t diff = size - (size % lfs->cfg->prog_size);
-            int err = lfs->cfg->prog(lfs->cfg, block, off, diff, data);
+            int err = lfs->cfg->prog(lfs->cfg, block, off, data, diff);
             if (err) {
                 return err;
             }
@@ -163,7 +161,7 @@ static int lfs_bd_cmp(lfs_t *lfs, lfs_block_t block,
 
     for (lfs_off_t i = 0; i < size; i++) {
         uint8_t c;
-        int err = lfs_bd_read(lfs, block, off+i, 1, &c);
+        int err = lfs_bd_read(lfs, block, off+i, &c, 1);
         if (err) {
             return err;
         }
@@ -267,7 +265,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
 
     // Rather than clobbering one of the blocks we just pretend
     // the revision may be valid
-    int err = lfs_bd_read(lfs, dir->pair[0], 0, 4, &dir->d.rev);
+    int err = lfs_bd_read(lfs, dir->pair[0], 0, &dir->d.rev, 4);
     if (err) {
         return err;
     }
@@ -292,7 +290,7 @@ static int lfs_dir_fetch(lfs_t *lfs,
     // check both blocks for the most recent revision
     for (int i = 0; i < 2; i++) {
         struct lfs_disk_dir test;
-        int err = lfs_bd_read(lfs, tpair[i], 0, sizeof(test), &test);
+        int err = lfs_bd_read(lfs, tpair[i], 0, &test, sizeof(test));
         if (err) {
             return err;
         }
@@ -302,16 +300,16 @@ static int lfs_dir_fetch(lfs_t *lfs,
         }
 
         uint32_t crc = 0xffffffff;
-        crc = lfs_crc(crc, sizeof(test), &test);
+        crc = lfs_crc(crc, &test, sizeof(test));
 
         for (lfs_off_t j = sizeof(test); j < lfs->cfg->block_size; j += 4) {
             uint32_t word;
-            int err = lfs_bd_read(lfs, tpair[i], j, 4, &word);
+            int err = lfs_bd_read(lfs, tpair[i], j, &word, 4);
             if (err) {
                 return err;
             }
 
-            crc = lfs_crc(crc, 4, &word);
+            crc = lfs_crc(crc, &word, 4);
         }
 
         if (crc != 0) {
@@ -346,8 +344,8 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
     }
 
     uint32_t crc = 0xffffffff;
-    crc = lfs_crc(crc, sizeof(dir->d), &dir->d);
-    err = lfs_bd_prog(lfs, dir->pair[0], 0, sizeof(dir->d), &dir->d);
+    crc = lfs_crc(crc, &dir->d, sizeof(dir->d));
+    err = lfs_bd_prog(lfs, dir->pair[0], 0, &dir->d, sizeof(dir->d));
     if (err) {
         return err;
     }
@@ -356,18 +354,18 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
     lfs_size_t size = 0x7fffffff & dir->d.size;
     while (off < size) {
         if (entry && off == entry->off) {
-            crc = lfs_crc(crc, sizeof(entry->d), &entry->d);
+            crc = lfs_crc(crc, &entry->d, sizeof(entry->d));
             int err = lfs_bd_prog(lfs, dir->pair[0],
-                    off, sizeof(entry->d), &entry->d);
+                    off, &entry->d, sizeof(entry->d));
             if (err) {
                 return err;
             }
             off += sizeof(entry->d);
 
             if (data) {
-                crc = lfs_crc(crc, entry->d.len - sizeof(entry->d), data);
+                crc = lfs_crc(crc, data, entry->d.len - sizeof(entry->d));
                 int err = lfs_bd_prog(lfs, dir->pair[0],
-                        off, entry->d.len - sizeof(entry->d), data);
+                        off, data, entry->d.len - sizeof(entry->d));
                 if (err) {
                     return err;
                 }
@@ -375,13 +373,13 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
             }
         } else {
             uint8_t data;
-            int err = lfs_bd_read(lfs, dir->pair[1], off, 1, &data);
+            int err = lfs_bd_read(lfs, dir->pair[1], off, &data, 1);
             if (err) {
                 return err;
             }
 
-            crc = lfs_crc(crc, 1, &data);
-            err = lfs_bd_prog(lfs, dir->pair[0], off, 1, &data);
+            crc = lfs_crc(crc, &data, 1);
+            err = lfs_bd_prog(lfs, dir->pair[0], off, &data, 1);
             if (err) {
                 return err;
             }
@@ -392,8 +390,8 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
 
     while (off < lfs->cfg->block_size-4) {
         uint8_t data = 0xff;
-        crc = lfs_crc(crc, 1, &data);
-        err = lfs_bd_prog(lfs, dir->pair[0], off, 1, &data);
+        crc = lfs_crc(crc, &data, 1);
+        err = lfs_bd_prog(lfs, dir->pair[0], off, &data, 1);
         if (err) {
             return err;
         }
@@ -401,7 +399,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
         off += 1;
     }
 
-    err = lfs_bd_prog(lfs, dir->pair[0], lfs->cfg->block_size-4, 4, &crc);
+    err = lfs_bd_prog(lfs, dir->pair[0], lfs->cfg->block_size-4, &crc, 4);
     if (err) {
         return err;
     }
@@ -420,8 +418,8 @@ static int lfs_dir_shift(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     }
 
     uint32_t crc = 0xffffffff;
-    crc = lfs_crc(crc, sizeof(dir->d), &dir->d);
-    err = lfs_bd_prog(lfs, dir->pair[0], 0, sizeof(dir->d), &dir->d);
+    crc = lfs_crc(crc, &dir->d, sizeof(dir->d));
+    err = lfs_bd_prog(lfs, dir->pair[0], 0, &dir->d, sizeof(dir->d));
     if (err) {
         return err;
     }
@@ -434,13 +432,13 @@ static int lfs_dir_shift(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
             roff += entry->d.len;
         } else {
             uint8_t data;
-            int err = lfs_bd_read(lfs, dir->pair[1], roff, 1, &data);
+            int err = lfs_bd_read(lfs, dir->pair[1], roff, &data, 1);
             if (err) {
                 return err;
             }
 
-            crc = lfs_crc(crc, 1, (void*)&data);
-            err = lfs_bd_prog(lfs, dir->pair[0], woff, 1, &data);
+            crc = lfs_crc(crc, &data, 1);
+            err = lfs_bd_prog(lfs, dir->pair[0], woff, &data, 1);
             if (err) {
                 return err;
             }
@@ -452,8 +450,8 @@ static int lfs_dir_shift(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
 
     while (woff < lfs->cfg->block_size-4) {
         uint8_t data = 0xff;
-        crc = lfs_crc(crc, 1, &data);
-        err = lfs_bd_prog(lfs, dir->pair[0], woff, 1, &data);
+        crc = lfs_crc(crc, &data, 1);
+        err = lfs_bd_prog(lfs, dir->pair[0], woff, &data, 1);
         if (err) {
             return err;
         }
@@ -462,7 +460,7 @@ static int lfs_dir_shift(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
         woff += 1;
     }
 
-    err = lfs_bd_prog(lfs, dir->pair[0], lfs->cfg->block_size-4, 4, &crc);
+    err = lfs_bd_prog(lfs, dir->pair[0], lfs->cfg->block_size-4, &crc, 4);
     if (err) {
         return err;
     }
@@ -556,7 +554,7 @@ static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
         }
 
         int err = lfs_bd_read(lfs, dir->pair[0], dir->off,
-                sizeof(entry->d), &entry->d);
+                &entry->d, sizeof(entry->d));
         if (err) {
             return err;
         }
@@ -772,7 +770,7 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     }
 
     err = lfs_bd_read(lfs, dir->pair[0], entry.off + sizeof(entry.d),
-            entry.d.len - sizeof(entry.d), info->name);
+            info->name, entry.d.len - sizeof(entry.d));
     if (err) {
         return err;
     }
@@ -852,7 +850,7 @@ static int lfs_index_find(lfs_t *lfs, lfs_block_t head, lfs_size_t size,
                 lfs_npw2(current-target+1) - 1,
                 lfs_min(lfs_ctz(current)+1, lfs->words-1) - 1);
 
-        int err = lfs_bd_read(lfs, head, 4*skip, 4, &head);
+        int err = lfs_bd_read(lfs, head, 4*skip, &head, 4);
         if (err) {
             return err;
         }
@@ -892,12 +890,12 @@ static int lfs_index_extend(lfs_t *lfs,
     if (size != lfs->cfg->block_size) {
         for (lfs_off_t i = 0; i < size; i++) {
             uint8_t data;
-            int err = lfs_bd_read(lfs, head, i, 1, &data);
+            int err = lfs_bd_read(lfs, head, i, &data, 1);
             if (err) {
                 return err;
             }
 
-            err = lfs_bd_prog(lfs, *block, i, 1, &data);
+            err = lfs_bd_prog(lfs, *block, i, &data, 1);
             if (err) {
                 return err;
             }
@@ -912,13 +910,13 @@ static int lfs_index_extend(lfs_t *lfs,
     lfs_size_t skips = lfs_min(lfs_ctz(index)+1, lfs->words-1);
 
     for (lfs_off_t i = 0; i < skips; i++) {
-        int err = lfs_bd_prog(lfs, *block, 4*i, 4, &head);
+        int err = lfs_bd_prog(lfs, *block, 4*i, &head, 4);
         if (err) {
             return err;
         }
 
         if (i != skips-1) {
-            err = lfs_bd_read(lfs, head, 4*i, 4, &head);
+            err = lfs_bd_read(lfs, head, 4*i, &head, 4);
             if (err) {
                 return err;
             }
@@ -948,7 +946,7 @@ static int lfs_index_traverse(lfs_t *lfs,
             return 0;
         }
 
-        err = lfs_bd_read(lfs, head, 0, 4, &head);
+        err = lfs_bd_read(lfs, head, 0, &head, 4);
         if (err) {
             return err;
         }
@@ -1078,7 +1076,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
 
         lfs_entry_t entry = {.off = file->off};
         err = lfs_bd_read(lfs, cwd.pair[0], entry.off,
-                sizeof(entry.d), &entry.d);
+                &entry.d, sizeof(entry.d));
         if (err) {
             return err;
         }
@@ -1134,7 +1132,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 
         // read as much as we can in current block
         lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - file->roff);
-        int err = lfs_bd_read(lfs, file->rblock, file->roff, diff, data);
+        int err = lfs_bd_read(lfs, file->rblock, file->roff, data, diff);
         if (err) {
             return err;
         }
@@ -1191,7 +1189,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
         // program as much as we can in current block
         lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - file->woff);
-        int err = lfs_bd_prog(lfs, file->wblock, file->woff, diff, data);
+        int err = lfs_bd_prog(lfs, file->wblock, file->woff, data, diff);
         if (err) {
             return err;
         }
@@ -1273,7 +1271,7 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     }
 
     err = lfs_bd_read(lfs, cwd.pair[0], entry.off + sizeof(entry.d),
-            entry.d.len - sizeof(entry.d), info->name);
+            info->name, entry.d.len - sizeof(entry.d));
     if (err) {
         return err;
     }
@@ -1556,7 +1554,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
     if (!err) {
         err = lfs_bd_read(lfs, dir.pair[0],
-                sizeof(dir.d), sizeof(superblock.d), &superblock.d);
+                sizeof(dir.d), &superblock.d, sizeof(superblock.d));
 
         lfs->root[0] = superblock.d.root[0];
         lfs->root[1] = superblock.d.root[1];
@@ -1606,7 +1604,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
         // iterate over contents
         while ((0x7fffffff & dir.d.size) >= dir.off + sizeof(entry.d)) {
             int err = lfs_bd_read(lfs, dir.pair[0], dir.off,
-                    sizeof(entry.d), &entry.d);
+                    &entry.d, sizeof(entry.d));
             if (err) {
                 return err;
             }

@@ -33,7 +33,7 @@ static inline int lfs_scmp(uint32_t a, uint32_t b) {
     return (int)(unsigned)(a - b);
 }
 
-uint32_t lfs_crc(uint32_t crc, size_t size, const void *buffer);
+uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
 
 
 // Logging functions

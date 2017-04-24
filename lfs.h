@@ -72,12 +72,12 @@ struct lfs_config {
 
     // Read a region in a block
     int (*read)(const struct lfs_config *c, lfs_block_t block,
-            lfs_off_t off, lfs_size_t size, void *buffer);
+            lfs_off_t off, void *buffer, lfs_size_t size);
 
     // Program a region in a block. The block must have previously
     // been erased.
     int (*prog)(const struct lfs_config *c, lfs_block_t block,
-            lfs_off_t off, lfs_size_t size, const void *buffer);
+            lfs_off_t off, const void *buffer, lfs_size_t size);
 
     // Erase a block. A block must be erased before being programmed.
     // The state of an erased block is undefined.

@@ -57,13 +57,13 @@ void lfs_emubd_destroy(const struct lfs_config *cfg);
 
 // Read a block
 int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
-        lfs_off_t off, lfs_size_t size, void *buffer);
+        lfs_off_t off, void *buffer, lfs_size_t size);
 
 // Program a block
 //
 // The block must have previously been erased.
 int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
-        lfs_off_t off, lfs_size_t size, const void *buffer);
+        lfs_off_t off, const void *buffer, lfs_size_t size);
 
 // Erase a block
 //
