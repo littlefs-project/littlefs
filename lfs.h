@@ -55,6 +55,7 @@ enum lfs_open_flags {
     LFS_O_TRUNC  = 0x080,
     LFS_O_APPEND = 0x100,
     LFS_O_SYNC   = 0x200,
+    LFS_O_DIRTY  = 0x10000,
 };
 
 enum lfs_whence_flags {
@@ -128,7 +129,6 @@ struct lfs_info {
 
 // littlefs data structures
 typedef struct lfs_entry {
-    lfs_block_t pair[2];
     lfs_off_t off;
 
     struct lfs_disk_entry {
@@ -145,14 +145,17 @@ typedef struct lfs_entry {
 } lfs_entry_t;
 
 typedef struct lfs_file {
-    struct lfs_entry entry;
-    int flags;
+    lfs_block_t pair[2];
+    lfs_off_t off;
+    lfs_block_t head;
+    lfs_size_t size;
 
-    lfs_off_t wpos;
+    uint32_t flags;
+    lfs_off_t pos;
+
     lfs_block_t wblock;
     lfs_off_t woff;
 
-    lfs_off_t rpos;
     lfs_block_t rblock;
     lfs_off_t roff;
 } lfs_file_t;
@@ -172,7 +175,6 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfs_superblock {
-    lfs_block_t pair[2];
     lfs_off_t off;
 
     struct lfs_disk_superblock {

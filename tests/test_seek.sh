@@ -211,7 +211,7 @@ tests/test.py << TEST
     lfs_file_seek(&lfs, &file[0], pos, LFS_SEEK_SET) => pos;
     lfs_file_write(&lfs, &file[0], buffer, size) => size;
 
-    lfs_file_seek(&lfs, &file[0], pos, LFS_SEEK_SET) => pos;
+    lfs_file_seek(&lfs, &file[0], pos, LFS_SEEK_SET) => pos+size;
     lfs_file_read(&lfs, &file[0], buffer, size) => size;
     memcmp(buffer, "doggodogdog", size) => 0;
 
@@ -254,7 +254,7 @@ tests/test.py << TEST
     lfs_file_seek(&lfs, &file[0], pos, LFS_SEEK_SET) => pos;
     lfs_file_write(&lfs, &file[0], buffer, size) => size;
 
-    lfs_file_seek(&lfs, &file[0], pos, LFS_SEEK_SET) => pos;
+    lfs_file_seek(&lfs, &file[0], pos, LFS_SEEK_SET) => pos+size;
     lfs_file_read(&lfs, &file[0], buffer, size) => size;
     memcmp(buffer, "doggodogdog", size) => 0;
 

@@ -14,10 +14,14 @@ TEST
 echo "--- Simple file test ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_file_open(&lfs, &file[0], "hello", LFS_O_RDWR | LFS_O_CREAT | LFS_O_APPEND) => 0;
+    lfs_file_open(&lfs, &file[0], "hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     size = strlen("Hello World!\n");
     memcpy(wbuffer, "Hello World!\n", size);
     lfs_file_write(&lfs, &file[0], wbuffer, size) => size;
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    lfs_file_open(&lfs, &file[0], "hello", LFS_O_RDONLY) => 0;
+    size = strlen("Hello World!\n");
     lfs_file_read(&lfs, &file[0], rbuffer, size) => size;
     memcmp(rbuffer, wbuffer, size) => 0;
     lfs_file_close(&lfs, &file[0]) => 0;
