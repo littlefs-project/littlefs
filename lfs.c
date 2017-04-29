@@ -1502,6 +1502,10 @@ static int lfs_deinit(lfs_t *lfs) {
         free(lfs->pcache.buffer);
     }
 
+    if (!lfs->cfg->lookahead_buffer) {
+        free(lfs->free.lookahead);
+    }
+
     return 0;
 }
 
