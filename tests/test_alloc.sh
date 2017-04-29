@@ -110,5 +110,88 @@ lfs_alloc_singleproc multiprocreuse
 lfs_verify multiprocreuse
 lfs_verify singleprocreuse
 
+echo "--- Cleanup ---"
+lfs_remove multiprocreuse
+lfs_remove singleprocreuse
+
+echo "--- Exhaustion test ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
+    size = strlen("exhaustion");
+    memcpy(buffer, "exhaustion", size);
+    lfs_file_write(&lfs, &file[0], buffer, size) => size;
+
+    size = strlen("blahblahblahblah");
+    memcpy(buffer, "blahblahblahblah", size);
+    lfs_ssize_t res;
+    while (true) {
+        res = lfs_file_write(&lfs, &file[0], buffer, size);
+        if (res < 0) {
+            break;
+        }
+
+        res => size;
+    }
+    res => LFS_ERR_NOSPC;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_RDONLY);
+    size = strlen("exhaustion");
+    lfs_file_read(&lfs, &file[0], buffer, size) => size;
+    memcmp(buffer, "exhaustion", size) => 0;
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Exhaustion wraparound test ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_remove(&lfs, "exhaustion") => 0;
+
+    lfs_file_open(&lfs, &file[0], "padding", LFS_O_WRONLY | LFS_O_CREAT);
+    size = strlen("buffering");
+    memcpy(buffer, "buffering", size);
+    for (int i = 0; i < $SIZE; i++) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_remove(&lfs, "padding") => 0;
+
+    lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
+    size = strlen("exhaustion");
+    memcpy(buffer, "exhaustion", size);
+    lfs_file_write(&lfs, &file[0], buffer, size) => size;
+
+    size = strlen("blahblahblahblah");
+    memcpy(buffer, "blahblahblahblah", size);
+    lfs_ssize_t res;
+    while (true) {
+        res = lfs_file_write(&lfs, &file[0], buffer, size);
+        if (res < 0) {
+            break;
+        }
+
+        res => size;
+    }
+    res => LFS_ERR_NOSPC;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_RDONLY);
+    size = strlen("exhaustion");
+    lfs_file_read(&lfs, &file[0], buffer, size) => size;
+    memcmp(buffer, "exhaustion", size) => 0;
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
 echo "--- Results ---"
 tests/stats.py

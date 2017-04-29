@@ -145,6 +145,7 @@ typedef struct lfs_entry {
 } lfs_entry_t;
 
 typedef struct lfs_file {
+    struct lfs_file *next;
     lfs_block_t pair[2];
     lfs_off_t off;
     lfs_block_t head;
@@ -194,6 +195,7 @@ typedef struct lfs {
     lfs_size_t words;       // number of 32-bit words that can fit in a block
 
     lfs_block_t root[2];
+    lfs_file_t *files;
 
     struct {
         lfs_block_t block;

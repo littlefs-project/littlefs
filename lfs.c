@@ -232,7 +232,13 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     }
 
     // scan again or die trying
-    return lfs_alloc_scan(lfs, block);
+    err = lfs_alloc_scan(lfs, block);
+    if (err) {
+        LFS_WARN("No more free space%s", "");
+        return err;
+    }
+
+    return 0;
 }
 
 
@@ -1010,11 +1016,25 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         file->size = 0;
     }
 
+    // add to list of files
+    file->next = lfs->files;
+    lfs->files = file;
+
     return 0;
 }
 
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
-    return lfs_file_sync(lfs, file);
+    int err = lfs_file_sync(lfs, file);
+
+    // remove from list of files
+    for (lfs_file_t **p = &lfs->files; *p; p = &(*p)->next) {
+        if (*p == file) {
+            *p = file->next;
+            break;
+        }
+    }
+
+    return err;
 }
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
@@ -1453,6 +1473,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         }
     }
 
+    // setup files as an empty list
+    lfs->files = NULL;
+
     return 0;
 }
 
@@ -1612,8 +1635,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
             dir.off += entry.d.len;
             if ((0xf & entry.d.type) == LFS_TYPE_REG) {
                 int err = lfs_index_traverse(lfs,
-                        entry.d.u.file.head, entry.d.u.file.size,
-                        cb, data);
+                        entry.d.u.file.head, entry.d.u.file.size, cb, data);
                 if (err) {
                     return err;
                 }
@@ -1623,10 +1645,29 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
         cwd[0] = dir.d.tail[0];
         cwd[1] = dir.d.tail[1];
 
-        if (!cwd[0]) {
-            return 0;
+        if (lfs_pairisnull(cwd)) {
+            break;
         }
     }
+
+    // iterate over any open files
+    for (lfs_file_t *f = lfs->files; f; f = f->next) {
+        if (f->flags & LFS_O_DIRTY) {
+            int err = lfs_index_traverse(lfs, f->head, f->size, cb, data);
+            if (err) {
+                return err;
+            }
+        }
+
+        if (f->wblock) {
+            int err = lfs_index_traverse(lfs, f->wblock, f->pos, cb, data);
+            if (err) {
+                return err;
+            }
+        }
+    }
+    
+    return 0;
 }
 
 static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2]) {
