@@ -256,12 +256,12 @@ static inline bool lfs_pairisnull(const lfs_block_t pair[2]) {
 static inline int lfs_paircmp(
         const lfs_block_t paira[2],
         const lfs_block_t pairb[2]) {
-    return !((paira[0] == pairb[0] && paira[1] == pairb[1]) ||
-             (paira[0] == pairb[1] && paira[1] == pairb[0]));
+    return !(paira[0] == pairb[0] || paira[1] == pairb[1] ||
+             paira[0] == pairb[1] || paira[1] == pairb[0]);
 }
 
 static int lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
-    // Allocate pair of dir blocks
+    // allocate pair of dir blocks
     for (int i = 0; i < 2; i++) {
         int err = lfs_alloc(lfs, &dir->pair[i]);
         if (err) {
@@ -269,21 +269,26 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
         }
     }
 
-    // Rather than clobbering one of the blocks we just pretend
+    // we couldn't find unique blocks, we're out of space
+    if (dir->pair[0] == dir->pair[1]) {
+        return LFS_ERR_NOSPC;
+    }
+
+    // rather than clobbering one of the blocks we just pretend
     // the revision may be valid
     int err = lfs_bd_read(lfs, dir->pair[0], 0, &dir->d.rev, 4);
     if (err) {
         return err;
     }
 
-    // Set defaults
+    // set defaults
     dir->d.rev += 1;
     dir->d.size = sizeof(dir->d);
     dir->d.tail[0] = 0;
     dir->d.tail[1] = 0;
     dir->off = sizeof(dir->d);
 
-    // Don't write out yet, let caller take care of that
+    // don't write out yet, let caller take care of that
     return 0;
 }
 
@@ -484,11 +489,19 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
             return lfs_dir_commit(lfs, dir, entry, data);
         }
 
+        // we need to allocate a new dir block
         if (!(0x80000000 & dir->d.size)) {
             lfs_dir_t newdir;
             int err = lfs_dir_alloc(lfs, &newdir);
             if (err) {
                 return err;
+            }
+
+            // our allocator doesn't track blocks before being appended,
+            // so even if we found some blocks, they may not be unique
+            if (entry->d.type == LFS_TYPE_DIR &&
+                    lfs_paircmp(entry->d.u.dir, newdir.pair) == 0) {
+                return LFS_ERR_NOSPC;
             }
 
             newdir.d.tail[0] = dir->d.tail[0];
@@ -1677,7 +1690,7 @@ static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2]) {
         .d.tail[1] = lfs->root[1],
     };
 
-    while (parent.d.tail[0]) {
+    while (true) {
         lfs_entry_t entry;
         int err = lfs_dir_fetch(lfs, &parent, parent.d.tail);
         if (err) {
@@ -1699,9 +1712,11 @@ static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2]) {
                 return true;
             }
         }
-    }
 
-    return false;
+        if (lfs_pairisnull(parent.d.tail)) {
+            return false;
+        }
+    }
 }
 
 int lfs_deorphan(lfs_t *lfs) {
@@ -1715,31 +1730,34 @@ int lfs_deorphan(lfs_t *lfs) {
         return err;
     }
 
-    while (pdir.d.tail[0]) {
+    while (!lfs_pairisnull(pdir.d.tail)) {
         int err = lfs_dir_fetch(lfs, &cdir, pdir.d.tail);
         if (err) {
             return err;
         }
 
-        // check if we have a parent
-        int parent = lfs_parent(lfs, pdir.d.tail);
-        if (parent < 0) {
-            return parent;
-        }
-
-        if (!parent) {
-            // we are an orphan
-            LFS_DEBUG("Orphan %d %d", pdir.d.tail[0], pdir.d.tail[1]);
-
-            pdir.d.tail[0] = cdir.d.tail[0];
-            pdir.d.tail[1] = cdir.d.tail[1];
-
-            err = lfs_dir_commit(lfs, &pdir, NULL, NULL);
-            if (err) {
-                return err;
+        // only check head blocks
+        if (!(0x80000000 & pdir.d.size)) {
+            // check if we have a parent
+            int parent = lfs_parent(lfs, pdir.d.tail);
+            if (parent < 0) {
+                return parent;
             }
 
-            break;
+            if (!parent) {
+                // we are an orphan
+                LFS_DEBUG("Orphan %d %d", pdir.d.tail[0], pdir.d.tail[1]);
+
+                pdir.d.tail[0] = cdir.d.tail[0];
+                pdir.d.tail[1] = cdir.d.tail[1];
+
+                err = lfs_dir_commit(lfs, &pdir, NULL, NULL);
+                if (err) {
+                    return err;
+                }
+
+                break;
+            }
         }
 
         memcpy(&pdir, &cdir, sizeof(pdir));

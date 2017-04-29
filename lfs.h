@@ -195,6 +195,7 @@ typedef struct lfs {
     lfs_size_t words;       // number of 32-bit words that can fit in a block
 
     lfs_block_t root[2];
+    lfs_dir_t *scratch;
     lfs_file_t *files;
 
     struct {
