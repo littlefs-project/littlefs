@@ -47,15 +47,19 @@ enum lfs_type {
 };
 
 enum lfs_open_flags {
-    LFS_O_RDONLY = 0,
-    LFS_O_WRONLY = 1,
-    LFS_O_RDWR   = 2,
-    LFS_O_CREAT  = 0x020,
-    LFS_O_EXCL   = 0x040,
-    LFS_O_TRUNC  = 0x080,
-    LFS_O_APPEND = 0x100,
-    LFS_O_SYNC   = 0x200,
-    LFS_O_DIRTY  = 0x10000,
+    // open flags
+    LFS_O_RDONLY = 1,
+    LFS_O_WRONLY = 2,
+    LFS_O_RDWR   = 3,
+    LFS_O_CREAT  = 0x0100,
+    LFS_O_EXCL   = 0x0200,
+    LFS_O_TRUNC  = 0x0400,
+    LFS_O_APPEND = 0x0800,
+
+    // internally used flags
+    LFS_F_DIRTY   = 0x10000,
+    LFS_F_WRITING = 0x20000,
+    LFS_F_READING = 0x40000,
 };
 
 enum lfs_whence_flags {
@@ -112,6 +116,10 @@ struct lfs_config {
     // Optional, statically allocated lookahead buffer.
     // Must be 1 bit per lookahead block.
     void *lookahead_buffer;
+
+    // Optional, statically allocated buffer for files. Must be program sized.
+    // If enabled, only one file may be opened at a time
+    void *file_buffer;
 };
 
 // File info structure
@@ -144,21 +152,25 @@ typedef struct lfs_entry {
     } d;
 } lfs_entry_t;
 
+typedef struct lfs_cache {
+    lfs_block_t block;
+    lfs_off_t off;
+    uint8_t *buffer;
+} lfs_cache_t;
+
 typedef struct lfs_file {
     struct lfs_file *next;
     lfs_block_t pair[2];
-    lfs_off_t off;
+    lfs_off_t poff;
+
     lfs_block_t head;
     lfs_size_t size;
 
     uint32_t flags;
     lfs_off_t pos;
-
-    lfs_block_t wblock;
-    lfs_off_t woff;
-
-    lfs_block_t rblock;
-    lfs_off_t roff;
+    lfs_block_t block;
+    lfs_off_t off;
+    lfs_cache_t cache;
 } lfs_file_t;
 
 typedef struct lfs_dir {
@@ -189,6 +201,12 @@ typedef struct lfs_superblock {
     } d;
 } lfs_superblock_t;
 
+typedef struct lfs_free {
+    lfs_block_t start;
+    lfs_block_t off;
+    uint32_t *lookahead;
+} lfs_free_t;
+
 // littlefs type
 typedef struct lfs {
     const struct lfs_config *cfg;
@@ -198,17 +216,10 @@ typedef struct lfs {
     lfs_dir_t *scratch;
     lfs_file_t *files;
 
-    struct {
-        lfs_block_t block;
-        lfs_off_t off;
-        uint8_t *buffer;
-    } rcache, pcache;
+    lfs_cache_t rcache;
+    lfs_cache_t pcache;
 
-    struct {
-        lfs_block_t start;
-        lfs_block_t off;
-        uint32_t *lookahead;
-    } free;
+    lfs_free_t free;
 } lfs_t;
 
 
