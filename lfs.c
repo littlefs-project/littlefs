@@ -1155,7 +1155,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
 
-    if (file->flags & LFS_F_DIRTY) {
+    if ((file->flags & LFS_F_DIRTY) && !lfs_pairisnull(file->pair)) {
         // update dir entry
         lfs_dir_t cwd;
         int err = lfs_dir_fetch(lfs, &cwd, file->pair);
@@ -1406,6 +1406,18 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         return err;
     }
 
+    // shift over any files that are affected
+    for (lfs_file_t *f = lfs->files; f; f = f->next) {
+        if (lfs_paircmp(f->pair, cwd.pair) == 0) {
+            if (f->poff == entry.off) {
+                f->pair[0] = 0xffffffff;
+                f->pair[1] = 0xffffffff;
+            } else if (f->poff > entry.off) {
+                f->poff -= entry.d.len;
+            }
+        }
+    }
+
     // if we were a directory, just run a deorphan step, this should
     // collect us, although is expensive
     if (entry.d.type == LFS_TYPE_DIR) {
@@ -1496,6 +1508,18 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     err = lfs_dir_remove(lfs, &oldcwd, &oldentry);
     if (err) {
         return err;
+    }
+
+    // shift over any files that are affected
+    for (lfs_file_t *f = lfs->files; f; f = f->next) {
+        if (lfs_paircmp(f->pair, oldcwd.pair) == 0) {
+            if (f->poff == oldentry.off) {
+                f->pair[0] = 0xffffffff;
+                f->pair[1] = 0xffffffff;
+            } else if (f->poff > oldentry.off) {
+                f->poff -= oldentry.d.len;
+            }
+        }
     }
 
     // if we were a directory, just run a deorphan step, this should
