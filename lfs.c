@@ -17,6 +17,7 @@ static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
         const lfs_cache_t *pcache, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
+    assert(block < lfs->cfg->block_count);
 
     while (size > 0) {
         if (pcache && block == pcache->block && off >= pcache->off &&
@@ -73,14 +74,14 @@ static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
 }
 
 static int lfs_cache_flush(lfs_t *lfs, lfs_cache_t *cache) {
-    if (cache->off != -1) {
+    if (cache->block != 0xffffffff) {
         int err = lfs->cfg->prog(lfs->cfg, cache->block,
                 cache->off, cache->buffer, lfs->cfg->prog_size);
         if (err) {
             return err;
         }
 
-        cache->off = -1;
+        cache->block = 0xffffffff;
     }
 
     return 0;
@@ -89,6 +90,7 @@ static int lfs_cache_flush(lfs_t *lfs, lfs_cache_t *cache) {
 static int lfs_cache_prog(lfs_t *lfs, lfs_cache_t *cache, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
+    assert(block < lfs->cfg->block_count);
 
     while (size > 0) {
         if (block == cache->block && off >= cache->off &&
@@ -115,7 +117,7 @@ static int lfs_cache_prog(lfs_t *lfs, lfs_cache_t *cache, lfs_block_t block,
 
         // cache must have been flushed, either by programming and
         // entire block or manually flushing the cache
-        assert(cache->off == -1);
+        assert(cache->block == 0xffffffff);
 
         if (off % lfs->cfg->prog_size == 0 &&
                 size >= lfs->cfg->prog_size) {
@@ -264,7 +266,7 @@ static inline void lfs_pairswap(lfs_block_t pair[2]) {
 }
 
 static inline bool lfs_pairisnull(const lfs_block_t pair[2]) {
-    return !pair[0] && !pair[1];
+    return pair[0] == 0xffffffff || pair[1] == 0xffffffff;
 }
 
 static inline int lfs_paircmp(
@@ -298,8 +300,8 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
     // set defaults
     dir->d.rev += 1;
     dir->d.size = sizeof(dir->d);
-    dir->d.tail[0] = 0;
-    dir->d.tail[1] = 0;
+    dir->d.tail[0] = -1;
+    dir->d.tail[1] = -1;
     dir->off = sizeof(dir->d);
 
     // don't write out yet, let caller take care of that
@@ -872,7 +874,7 @@ static int lfs_index_find(lfs_t *lfs,
         lfs_block_t head, lfs_size_t size,
         lfs_size_t pos, lfs_block_t *block, lfs_off_t *off) {
     if (size == 0) {
-        *block = 0;
+        *block = -1;
         *off = 0;
         return 0;
     }
@@ -1019,7 +1021,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         // create entry to remember name
         entry.d.type = LFS_TYPE_REG;
         entry.d.len = sizeof(entry.d) + strlen(path);
-        entry.d.u.file.head = 0;
+        entry.d.u.file.head = -1;
         entry.d.u.file.size = 0;
         err = lfs_dir_append(lfs, &cwd, &entry, path);
         if (err) {
@@ -1039,15 +1041,15 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     file->size = entry.d.u.file.size;
     file->flags = flags;
     file->pos = 0;
-    file->block = 0;
+    file->block = -1; // TODO rm me?
 
     if (flags & LFS_O_TRUNC) {
-        file->head = 0;
+        file->head = -1;
         file->size = 0;
     }
 
     // allocate buffer if needed
-    file->cache.off = -1;
+    file->cache.block = 0xffffffff;
     if (lfs->cfg->file_buffer) {
         file->cache.buffer = lfs->cfg->file_buffer;
     } else if ((file->flags & 3) == LFS_O_RDONLY) {
@@ -1091,7 +1093,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     if (file->flags & LFS_F_READING) {
         // just drop read cache
-        file->cache.off = -1;
+        file->cache.block = 0xffffffff;
         file->flags &= ~LFS_F_READING;
     }
 
@@ -1106,7 +1108,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
             .pos = file->pos,
             .cache = lfs->rcache,
         };
-        lfs->rcache.off = -1;
+        lfs->rcache.block = 0xffffffff;
 
         while (file->pos < file->size) {
             // copy over a byte at a time, leave it up to caching
@@ -1123,9 +1125,9 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
             }
 
             // keep our reference to the rcache in sync
-            if (lfs->rcache.off != -1) {
-                orig.cache.off = -1;
-                lfs->rcache.off = -1;
+            if (lfs->rcache.block != 0xffffffff) {
+                orig.cache.block = 0xffffffff;
+                lfs->rcache.block = 0xffffffff;
             }
         }
 
@@ -1273,7 +1275,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                 }
 
                 // mark cache as dirty since we may have read data into it
-                file->cache.off = -1;
+                file->cache.block = 0xffffffff;
                 file->flags |= LFS_F_WRITING;
             }
 
@@ -1515,7 +1517,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->words = lfs->cfg->block_size / sizeof(uint32_t);
 
     // setup read cache
-    lfs->rcache.off = -1;
+    lfs->rcache.block = 0xffffffff;
     if (lfs->cfg->read_buffer) {
         lfs->rcache.buffer = lfs->cfg->read_buffer;
     } else {
@@ -1526,7 +1528,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // setup program cache
-    lfs->pcache.off = -1;
+    lfs->pcache.block = 0xffffffff;
     if (lfs->cfg->prog_buffer) {
         lfs->pcache.buffer = lfs->cfg->prog_buffer;
     } else {
