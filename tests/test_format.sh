@@ -10,8 +10,8 @@ tests/test.py << TEST
 TEST
 
 echo "--- Invalid superblocks ---"
-ln -f -s /dev/null blocks/0
-ln -f -s /dev/null blocks/1
+ln -f -s /dev/zero blocks/0
+ln -f -s /dev/zero blocks/1
 tests/test.py << TEST
     lfs_format(&lfs, &cfg) => LFS_ERR_CORRUPT;
 TEST

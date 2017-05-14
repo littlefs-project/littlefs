@@ -191,6 +191,16 @@ static int lfs_cmp(lfs_t *lfs, lfs_block_t block,
 }
 
 
+/// Internal operations predeclared here ///
+int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
+static int lfs_pred(lfs_t *lfs, const lfs_block_t dir[2], lfs_dir_t *pdir);
+static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2],
+        lfs_dir_t *parent, lfs_entry_t *entry);
+static int lfs_relocate(lfs_t *lfs,
+        const lfs_block_t oldpair[2], const lfs_block_t newpair[2]);
+int lfs_deorphan(lfs_t *lfs);
+
+
 /// Block allocator ///
 static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     lfs_t *lfs = p;
@@ -203,11 +213,27 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     return 0;
 }
 
-static int lfs_alloc_scan(lfs_t *lfs, lfs_block_t *block) {
-    lfs_block_t end = lfs->free.start + lfs->cfg->block_count;
+static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
+    // deorphan if we haven't yet, only needed once after poweron
+    if (!lfs->deorphaned) {
+        int err = lfs_deorphan(lfs);
+        if (err) {
+            return err;
+        }
+    }
 
     while (true) {
-        while (lfs->free.off < lfs->cfg->lookahead) {
+        while (true) {
+            // check if we have looked at all blocks since last ack
+            if (lfs->free.start + lfs->free.off == lfs->free.end) {
+                LFS_WARN("No more free space %d", lfs->free.end);
+                return LFS_ERR_NOSPC;
+            }
+
+            if (lfs->free.off >= lfs->cfg->lookahead) {
+                break;
+            }
+
             lfs_block_t off = lfs->free.off;
             lfs->free.off += 1;
 
@@ -218,12 +244,8 @@ static int lfs_alloc_scan(lfs_t *lfs, lfs_block_t *block) {
             }
         }
 
-        // could not find block
         lfs->free.start += lfs->cfg->lookahead;
         lfs->free.off = 0;
-        if (lfs_scmp(lfs->free.start, end) > 0) {
-            return LFS_ERR_NOSPC;
-        }
 
         // find mask of free blocks from tree
         memset(lfs->free.lookahead, 0, lfs->cfg->lookahead/8);
@@ -234,27 +256,8 @@ static int lfs_alloc_scan(lfs_t *lfs, lfs_block_t *block) {
     }
 }
 
-static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
-    // try to scan for free block
-    int err = lfs_alloc_scan(lfs, block);
-    if (err != LFS_ERR_NOSPC) {
-        return err;
-    }
-
-    // still can't allocate a block? check for orphans
-    err = lfs_deorphan(lfs);
-    if (err) {
-        return err;
-    }
-
-    // scan again or die trying
-    err = lfs_alloc_scan(lfs, block);
-    if (err) {
-        LFS_WARN("No more free space%s", "");
-        return err;
-    }
-
-    return 0;
+static void lfs_alloc_ack(lfs_t *lfs) {
+    lfs->free.end = lfs->free.start + lfs->free.off + lfs->cfg->block_count;
 }
 
 
@@ -276,6 +279,13 @@ static inline int lfs_paircmp(
              paira[0] == pairb[1] || paira[1] == pairb[0]);
 }
 
+static inline bool lfs_pairsync(
+        const lfs_block_t paira[2],
+        const lfs_block_t pairb[2]) {
+    return (paira[0] == pairb[0] && paira[1] == pairb[1]) ||
+           (paira[0] == pairb[1] && paira[1] == pairb[0]);
+}
+
 static int lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
     // allocate pair of dir blocks
     for (int i = 0; i < 2; i++) {
@@ -283,11 +293,6 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
         if (err) {
             return err;
         }
-    }
-
-    // we couldn't find unique blocks, we're out of space
-    if (dir->pair[0] == dir->pair[1]) {
-        return LFS_ERR_NOSPC;
     }
 
     // rather than clobbering one of the blocks we just pretend
@@ -360,139 +365,149 @@ static int lfs_dir_fetch(lfs_t *lfs,
     return 0;
 }
 
+struct lfs_region {
+    lfs_off_t oldoff;
+    lfs_size_t oldlen;
+    const void *newdata;
+    lfs_size_t newlen;
+};
+
 static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
-        const lfs_entry_t *entry, const void *data) {
+        const struct lfs_region *regions, int count) {
     dir->d.rev += 1;
     lfs_pairswap(dir->pair);
-
-    int err = lfs_erase(lfs, dir->pair[0]);
-    if (err) {
-        return err;
+    for (int i = 0; i < count; i++) {
+        dir->d.size += regions[i].newlen - regions[i].oldlen;
     }
 
-    uint32_t crc = 0xffffffff;
-    crc = lfs_crc(crc, &dir->d, sizeof(dir->d));
-    err = lfs_prog(lfs, dir->pair[0], 0, &dir->d, sizeof(dir->d));
-    if (err) {
-        return err;
-    }
+    const lfs_block_t oldpair[2] = {dir->pair[0], dir->pair[1]};
+    bool relocated = false;
 
-    lfs_off_t off = sizeof(dir->d);
-    lfs_size_t size = 0x7fffffff & dir->d.size;
-    while (off < size) {
-        if (entry && off == entry->off) {
-            crc = lfs_crc(crc, &entry->d, sizeof(entry->d));
-            int err = lfs_prog(lfs, dir->pair[0],
-                    off, &entry->d, sizeof(entry->d));
-            if (err) {
-                return err;
+    while (true) {
+        int err = lfs_erase(lfs, dir->pair[0]);
+        if (err) {
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
             }
-            off += sizeof(entry->d);
+            return err;
+        }
 
-            if (data) {
-                crc = lfs_crc(crc, data, entry->d.len - sizeof(entry->d));
+        uint32_t crc = 0xffffffff;
+        crc = lfs_crc(crc, &dir->d, sizeof(dir->d));
+        err = lfs_prog(lfs, dir->pair[0], 0, &dir->d, sizeof(dir->d));
+        if (err) {
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
+            return err;
+        }
+
+        int i = 0;
+        lfs_off_t oldoff = sizeof(dir->d);
+        lfs_off_t newoff = sizeof(dir->d);
+        lfs_size_t newsize = 0x7fffffff & dir->d.size;
+        while (newoff < newsize) {
+            if (i < count && regions[i].oldoff == oldoff) {
+                crc = lfs_crc(crc, regions[i].newdata, regions[i].newlen);
                 int err = lfs_prog(lfs, dir->pair[0],
-                        off, data, entry->d.len - sizeof(entry->d));
+                        newoff, regions[i].newdata, regions[i].newlen);
+                if (err) {
+                    if (err == LFS_ERR_CORRUPT) {
+                        goto relocate;
+                    }
+                    return err;
+                }
+
+                oldoff += regions[i].oldlen;
+                newoff += regions[i].newlen;
+                i += 1;
+            } else {
+                uint8_t data;
+                int err = lfs_read(lfs, oldpair[1], oldoff, &data, 1);
                 if (err) {
                     return err;
                 }
-                off += entry->d.len - sizeof(entry->d);
-            }
-        } else {
-            uint8_t data;
-            int err = lfs_read(lfs, dir->pair[1], off, &data, 1);
-            if (err) {
-                return err;
-            }
 
-            crc = lfs_crc(crc, &data, 1);
-            err = lfs_prog(lfs, dir->pair[0], off, &data, 1);
-            if (err) {
-                return err;
-            }
+                crc = lfs_crc(crc, &data, 1);
+                err = lfs_prog(lfs, dir->pair[0], newoff, &data, 1);
+                if (err) {
+                    if (err == LFS_ERR_CORRUPT) {
+                        goto relocate;
+                    }
+                    return err;
+                }
 
-            off += 1;
+                oldoff += 1;
+                newoff += 1;
+            }
         }
-    }
 
-    while (off < lfs->cfg->block_size-4) {
-        uint8_t data = 0xff;
-        crc = lfs_crc(crc, &data, 1);
-        err = lfs_prog(lfs, dir->pair[0], off, &data, 1);
+        while (newoff < lfs->cfg->block_size-4) {
+            uint8_t data = 0xff;
+            crc = lfs_crc(crc, &data, 1);
+            err = lfs_prog(lfs, dir->pair[0], newoff, &data, 1);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
+            }
+
+            newoff += 1;
+        }
+
+        err = lfs_prog(lfs, dir->pair[0], lfs->cfg->block_size-4, &crc, 4);
         if (err) {
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
             return err;
         }
 
-        off += 1;
-    }
+        err = lfs_sync(lfs);
+        if (err) {
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
+            return err;
+        }
 
-    err = lfs_prog(lfs, dir->pair[0], lfs->cfg->block_size-4, &crc, 4);
-    if (err) {
-        return err;
-    }
+        // successful commit
+        if (relocated) {
+            LFS_DEBUG("Relocating %d %d to %d %d",
+                    oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
+            return lfs_relocate(lfs, oldpair, dir->pair);
+        }
+        return 0;
 
-    return lfs_sync(lfs);
+relocate:
+        LFS_DEBUG("Bad block at %d", dir->pair[0]);
+
+        // drop caches and prepare to relocate block
+        relocated = true;
+        lfs->pcache.block = 0xffffffff;
+
+        // can't relocate superblock, filesystem is now frozen
+        if (lfs_paircmp(oldpair, (const lfs_block_t[2]){0, 1}) == 0) {
+            LFS_WARN("Superblock %d has become unwritable", oldpair[0]);
+            return LFS_ERR_CORRUPT;
+        }
+
+        // relocate half of pair
+        err = lfs_alloc(lfs, &dir->pair[0]);
+        if (err) {
+            return err;
+        }
+    }
 }
 
-static int lfs_dir_shift(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
-    dir->d.rev += 1;
-    dir->d.size -= entry->d.len;
-    lfs_pairswap(dir->pair);
-
-    int err = lfs_erase(lfs, dir->pair[0]);
-    if (err) {
-        return err;
-    }
-
-    uint32_t crc = 0xffffffff;
-    crc = lfs_crc(crc, &dir->d, sizeof(dir->d));
-    err = lfs_prog(lfs, dir->pair[0], 0, &dir->d, sizeof(dir->d));
-    if (err) {
-        return err;
-    }
-
-    lfs_off_t woff = sizeof(dir->d);
-    lfs_off_t roff = sizeof(dir->d);
-    lfs_size_t size = 0x7fffffff & dir->d.size;
-    while (woff < size) {
-        if (roff == entry->off) {
-            roff += entry->d.len;
-        } else {
-            uint8_t data;
-            int err = lfs_read(lfs, dir->pair[1], roff, &data, 1);
-            if (err) {
-                return err;
-            }
-
-            crc = lfs_crc(crc, &data, 1);
-            err = lfs_prog(lfs, dir->pair[0], woff, &data, 1);
-            if (err) {
-                return err;
-            }
-
-            woff += 1;
-            roff += 1;
-        }
-    }
-
-    while (woff < lfs->cfg->block_size-4) {
-        uint8_t data = 0xff;
-        crc = lfs_crc(crc, &data, 1);
-        err = lfs_prog(lfs, dir->pair[0], woff, &data, 1);
-        if (err) {
-            return err;
-        }
-
-
-        woff += 1;
-    }
-
-    err = lfs_prog(lfs, dir->pair[0], lfs->cfg->block_size-4, &crc, 4);
-    if (err) {
-        return err;
-    }
-
-    return lfs_sync(lfs);
+static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
+        const lfs_entry_t *entry, const void *data) {
+    return lfs_dir_commit(lfs, dir, (struct lfs_region[]){
+            {entry->off, sizeof(entry->d), &entry->d, sizeof(entry->d)},
+            {entry->off+sizeof(entry->d), entry->d.len-sizeof(entry->d),
+             data, entry->d.len-sizeof(entry->d)}
+        }, data ? 2 : 1);
 }
 
 static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
@@ -501,8 +516,10 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
     while (true) {
         if (dir->d.size + entry->d.len <= lfs->cfg->block_size - 4) {
             entry->off = dir->d.size;
-            dir->d.size += entry->d.len;
-            return lfs_dir_commit(lfs, dir, entry, data);
+            return lfs_dir_commit(lfs, dir, (struct lfs_region[]){
+                    {entry->off, 0, &entry->d, sizeof(entry->d)},
+                    {entry->off, 0, data, entry->d.len - sizeof(entry->d)}
+                }, 2);
         }
 
         // we need to allocate a new dir block
@@ -513,18 +530,13 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            // our allocator doesn't track blocks before being appended,
-            // so even if we found some blocks, they may not be unique
-            if (entry->d.type == LFS_TYPE_DIR &&
-                    lfs_paircmp(entry->d.u.dir, newdir.pair) == 0) {
-                return LFS_ERR_NOSPC;
-            }
-
             newdir.d.tail[0] = dir->d.tail[0];
             newdir.d.tail[1] = dir->d.tail[1];
             entry->off = newdir.d.size;
-            newdir.d.size += entry->d.len;
-            err = lfs_dir_commit(lfs, &newdir, entry, data);
+            err = lfs_dir_commit(lfs, &newdir, (struct lfs_region[]){
+                    {entry->off, 0, &entry->d, sizeof(entry->d)},
+                    {entry->off, 0, data, entry->d.len - sizeof(entry->d)}
+                }, 2);
             if (err) {
                 return err;
             }
@@ -532,7 +544,7 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
             dir->d.size |= 0x80000000;
             dir->d.tail[0] = newdir.pair[0];
             dir->d.tail[1] = newdir.pair[1];
-            return lfs_dir_commit(lfs, dir, NULL, NULL);
+            return lfs_dir_commit(lfs, dir, NULL, 0);
         }
 
         int err = lfs_dir_fetch(lfs, dir, dir->d.tail);
@@ -546,62 +558,53 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     // either shift out the one entry or remove the whole dir block
     if (dir->d.size == sizeof(dir->d)) {
         lfs_dir_t pdir;
-        int err = lfs_dir_fetch(lfs, &pdir, lfs->root);
-        if (err) {
-            return err;
-        }
-
-        while (lfs_paircmp(pdir.d.tail, dir->pair) != 0) {
-            int err = lfs_dir_fetch(lfs, &pdir, pdir.d.tail);
-            if (err) {
-                return err;
-            }
+        int res = lfs_pred(lfs, dir->pair, &pdir);
+        if (res < 0) {
+            return res;
         }
 
         if (!(pdir.d.size & 0x80000000)) {
-            return lfs_dir_shift(lfs, dir, entry);
+            return lfs_dir_commit(lfs, dir, (struct lfs_region[]){
+                {entry->off, entry->d.len, NULL, 0},
+            }, 1);
         } else {
             pdir.d.tail[0] = dir->d.tail[0];
             pdir.d.tail[1] = dir->d.tail[1];
-            return lfs_dir_commit(lfs, &pdir, NULL, NULL);
+            return lfs_dir_commit(lfs, dir, NULL, 0);
         }
     } else {
-        return lfs_dir_shift(lfs, dir, entry);
+        return lfs_dir_commit(lfs, dir, (struct lfs_region[]){
+            {entry->off, entry->d.len, NULL, 0},
+        }, 1);
     }
 }
 
 static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
-    while (true) {
-        if (dir->off + sizeof(entry->d) > (0x7fffffff & dir->d.size)) {
-            if (!(0x80000000 & dir->d.size)) {
-                entry->off = dir->off;
-                return LFS_ERR_NOENT;
-            }
-
-            int err = lfs_dir_fetch(lfs, dir, dir->d.tail);
-            if (err) {
-                return err;
-            }
-
-            dir->off = sizeof(dir->d);
-            dir->pos += sizeof(dir->d);
-            continue;
+    while (dir->off + sizeof(entry->d) > (0x7fffffff & dir->d.size)) {
+        if (!(0x80000000 & dir->d.size)) {
+            entry->off = dir->off;
+            return LFS_ERR_NOENT;
         }
 
-        int err = lfs_read(lfs, dir->pair[0], dir->off,
-                &entry->d, sizeof(entry->d));
+        int err = lfs_dir_fetch(lfs, dir, dir->d.tail);
         if (err) {
             return err;
         }
 
-        dir->off += entry->d.len;
-        dir->pos += entry->d.len;
-        if ((0xff & entry->d.type) == LFS_TYPE_REG ||
-            (0xff & entry->d.type) == LFS_TYPE_DIR) {
-            entry->off = dir->off - entry->d.len;
-            return 0;
-        }
+        dir->off = sizeof(dir->d);
+        dir->pos += sizeof(dir->d);
     }
+
+    int err = lfs_read(lfs, dir->pair[0], dir->off,
+            &entry->d, sizeof(entry->d));
+    if (err) {
+        return err;
+    }
+
+    dir->off += entry->d.len;
+    dir->pos += entry->d.len;
+    entry->off = dir->off - entry->d.len;
+    return 0;
 }
 
 static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
@@ -653,7 +656,9 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            if (entry->d.len - sizeof(entry->d) != pathlen) {
+            if (((0xff & entry->d.type) != LFS_TYPE_REG &&
+                 (0xff & entry->d.type) != LFS_TYPE_DIR) ||
+                entry->d.len - sizeof(entry->d) != pathlen) {
                 continue;
             }
 
@@ -663,7 +668,7 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
                 return ret;
             }
 
-            // Found match
+            // found match
             if (ret == true) {
                 break;
             }
@@ -707,7 +712,9 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
         return err ? err : LFS_ERR_EXISTS;
     }
 
-    // Build up new directory
+    // build up new directory
+    lfs_alloc_ack(lfs);
+
     lfs_dir_t dir;
     err = lfs_dir_alloc(lfs, &dir);
     if (err) {
@@ -716,7 +723,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     dir.d.tail[0] = cwd.d.tail[0];
     dir.d.tail[1] = cwd.d.tail[1];
 
-    err = lfs_dir_commit(lfs, &dir, NULL, NULL);
+    err = lfs_dir_commit(lfs, &dir, NULL, 0);
     if (err) {
         return err;
     }
@@ -729,7 +736,13 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     cwd.d.tail[0] = dir.pair[0];
     cwd.d.tail[1] = dir.pair[1];
 
-    return lfs_dir_append(lfs, &cwd, &entry, path);
+    err = lfs_dir_append(lfs, &cwd, &entry, path);
+    if (err) {
+        return err;
+    }
+
+    lfs_alloc_ack(lfs);
+    return 0;
 }
 
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
@@ -773,7 +786,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
 }
 
 int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
-    // Do nothing, dir is always synchronized
+    // do nothing, dir is always synchronized
     return 0;
 }
 
@@ -794,9 +807,16 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     }
 
     lfs_entry_t entry;
-    int err = lfs_dir_next(lfs, dir, &entry);
-    if (err) {
-        return (err == LFS_ERR_NOENT) ? 0 : err;
+    while (true) {
+        int err = lfs_dir_next(lfs, dir, &entry);
+        if (err) {
+            return (err == LFS_ERR_NOENT) ? 0 : err;
+        }
+
+        if ((0xff & entry.d.type) == LFS_TYPE_REG ||
+            (0xff & entry.d.type) == LFS_TYPE_DIR) {
+            break;
+        }
     }
 
     info->type = entry.d.type & 0xff;
@@ -804,7 +824,7 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
         info->size = entry.d.u.file.size;
     }
 
-    err = lfs_read(lfs, dir->pair[0], entry.off + sizeof(entry.d),
+    int err = lfs_read(lfs, dir->pair[0], entry.off + sizeof(entry.d),
             info->name, entry.d.len - sizeof(entry.d));
     if (err) {
         return err;
@@ -906,66 +926,83 @@ static int lfs_index_extend(lfs_t *lfs,
         lfs_cache_t *rcache, lfs_cache_t *pcache,
         lfs_block_t head, lfs_size_t size,
         lfs_off_t *block, lfs_block_t *off) {
-    // go ahead and grab a block
-    int err = lfs_alloc(lfs, block);
-    if (err) {
-        return err;
-    }
-
-    err = lfs_erase(lfs, *block);
-    if (err) {
-        return err;
-    }
-
-    if (size == 0) {
-        *off = 0;
-        return 0;
-    }
-
-    size -= 1;
-    lfs_off_t index = lfs_index(lfs, &size);
-    size += 1;
-
-    // just copy out the last block if it is incomplete
-    if (size != lfs->cfg->block_size) {
-        for (lfs_off_t i = 0; i < size; i++) {
-            uint8_t data;
-            int err = lfs_cache_read(lfs, rcache, NULL, head, i, &data, 1);
-            if (err) {
-                return err;
-            }
-
-            err = lfs_cache_prog(lfs, pcache, *block, i, &data, 1);
-            if (err) {
-                return err;
-            }
-        }
-
-        *off = size;
-        return 0;
-    }
-
-    // append block
-    index += 1;
-    lfs_size_t words = lfs->cfg->block_size / 4;
-    lfs_size_t skips = lfs_min(lfs_ctz(index)+1, words-1);
-
-    for (lfs_off_t i = 0; i < skips; i++) {
-        int err = lfs_cache_prog(lfs, pcache, *block, 4*i, &head, 4);
+    while (true) {
+        // go ahead and grab a block
+        int err = lfs_alloc(lfs, block);
         if (err) {
             return err;
         }
 
-        if (i != skips-1) {
-            err = lfs_cache_read(lfs, rcache, NULL, head, 4*i, &head, 4);
+        err = lfs_erase(lfs, *block);
+        if (err) {
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
+            return err;
+        }
+
+        if (size == 0) {
+            *off = 0;
+            return 0;
+        }
+
+        size -= 1;
+        lfs_off_t index = lfs_index(lfs, &size);
+        size += 1;
+
+        // just copy out the last block if it is incomplete
+        if (size != lfs->cfg->block_size) {
+            for (lfs_off_t i = 0; i < size; i++) {
+                uint8_t data;
+                int err = lfs_cache_read(lfs, rcache, NULL, head, i, &data, 1);
+                if (err) {
+                    return err;
+                }
+
+                err = lfs_cache_prog(lfs, pcache, *block, i, &data, 1);
+                if (err) {
+                    if (err == LFS_ERR_CORRUPT) {
+                        goto relocate;
+                    }
+                    return err;
+                }
+            }
+
+            *off = size;
+            return 0;
+        }
+
+        // append block
+        index += 1;
+        lfs_size_t words = lfs->cfg->block_size / 4;
+        lfs_size_t skips = lfs_min(lfs_ctz(index)+1, words-1);
+
+        for (lfs_off_t i = 0; i < skips; i++) {
+            int err = lfs_cache_prog(lfs, pcache, *block, 4*i, &head, 4);
             if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
                 return err;
             }
-        }
-    }
 
-    *off = 4*skips;
-    return 0;
+            if (i != skips-1) {
+                err = lfs_cache_read(lfs, rcache, NULL, head, 4*i, &head, 4);
+                if (err) {
+                    return err;
+                }
+            }
+        }
+
+        *off = 4*skips;
+        return 0;
+
+relocate:
+        LFS_DEBUG("Bad block at %d", *block);
+
+        // just clear cache and try a new block
+        pcache->block = 0xffffffff;
+    }
 }
 
 static int lfs_index_traverse(lfs_t *lfs,
@@ -1003,7 +1040,7 @@ static int lfs_index_traverse(lfs_t *lfs,
 /// Top level file operations ///
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags) {
-    // Allocate entry for file if it doesn't exist
+    // allocate entry for file if it doesn't exist
     lfs_dir_t cwd;
     int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
     if (err) {
@@ -1044,7 +1081,6 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     file->size = entry.d.u.file.size;
     file->flags = flags;
     file->pos = 0;
-    file->block = -1; // TODO rm me?
 
     if (flags & LFS_O_TRUNC) {
         file->head = -1;
@@ -1181,7 +1217,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         entry.d.u.file.head = file->head;
         entry.d.u.file.size = file->size;
 
-        err = lfs_dir_commit(lfs, &cwd, &entry, NULL);
+        err = lfs_dir_update(lfs, &cwd, &entry, NULL);
         if (err) {
             return err;
         }
@@ -1283,6 +1319,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
             }
 
             // extend file with new blocks
+            lfs_alloc_ack(lfs);
             int err = lfs_index_extend(lfs, &lfs->rcache, &file->cache,
                     file->block, file->pos,
                     &file->block, &file->off);
@@ -1293,16 +1330,64 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
         // program as much as we can in current block
         lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - file->off);
-        int err = lfs_cache_prog(lfs, &file->cache,
-                file->block, file->off, data, diff);
-        if (err) {
-            return err;
+        while (true) {
+            int err = lfs_cache_prog(lfs, &file->cache,
+                    file->block, file->off, data, diff);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
+            }
+
+            break;
+relocate:
+            LFS_DEBUG("Bad block at %d", file->block);
+
+            // just relocate what exists into new block
+            lfs_block_t nblock;
+            err = lfs_alloc(lfs, &nblock);
+            if (err) {
+                return err;
+            }
+
+            // either read from dirty cache or disk
+            for (lfs_off_t i = 0; i < file->off; i++) {
+                uint8_t data;
+                if (file->cache.block == file->block && i >= file->cache.off) {
+                    data = file->cache.buffer[i - file->cache.off];
+                } else {
+                    // just read from disk
+                    err = lfs_read(lfs, file->block, i, &data, 1);
+                    if (err) {
+                        return err;
+                    }
+                }
+
+                err = lfs_prog(lfs, nblock, i, &data, 1);
+                if (err) {
+                    if (err == LFS_ERR_CORRUPT) {
+                        goto relocate;
+                    }
+                    return err;
+                }
+            }
+
+            // copy over new state of file
+            memcpy(file->cache.buffer, lfs->pcache.buffer, lfs->cfg->prog_size);
+            file->cache.block = lfs->pcache.block;
+            file->cache.off = lfs->pcache.off;
+            lfs->pcache.block = 0xffffffff;
+
+            file->block = nblock;
         }
 
         file->pos += diff;
         file->off += diff;
         data += diff;
         nsize -= diff;
+
+        lfs_alloc_ack(lfs);
     }
 
     return size;
@@ -1485,7 +1570,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     newentry.d.len = sizeof(newentry.d) + strlen(newpath);
 
     if (prevexists) {
-        int err = lfs_dir_commit(lfs, &newcwd, &newentry, newpath);
+        int err = lfs_dir_update(lfs, &newcwd, &newentry, newpath);
         if (err) {
             return err;
         }
@@ -1574,14 +1659,17 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         }
     }
 
-    // setup files as an empty list
+    // setup default state
+    lfs->root[0] = 0xffffffff;
+    lfs->root[1] = 0xffffffff;
     lfs->files = NULL;
+    lfs->deorphaned = false;
 
     return 0;
 }
 
 static int lfs_deinit(lfs_t *lfs) {
-    // Free allocated memory
+    // free allocated memory
     if (!lfs->cfg->read_buffer) {
         free(lfs->rcache.buffer);
     }
@@ -1603,26 +1691,28 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
-    // Create free lookahead
+    // create free lookahead
     memset(lfs->free.lookahead, 0, lfs->cfg->lookahead/8);
     lfs->free.start = 0;
     lfs->free.off = 0;
+    lfs->free.end = lfs->free.start + lfs->cfg->block_count;
 
-    // Create superblock dir
+    // create superblock dir
+    lfs_alloc_ack(lfs);
     lfs_dir_t superdir;
     err = lfs_dir_alloc(lfs, &superdir);
     if (err) {
         return err;
     }
 
-    // Write root directory
+    // write root directory
     lfs_dir_t root;
     err = lfs_dir_alloc(lfs, &root);
     if (err) {
         return err;
     }
 
-    err = lfs_dir_commit(lfs, &root, NULL, NULL);
+    err = lfs_dir_commit(lfs, &root, NULL, 0);
     if (err) {
         return err;
     }
@@ -1630,7 +1720,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->root[0] = root.pair[0];
     lfs->root[1] = root.pair[1];
 
-    // Write superblocks
+    // write superblocks
     lfs_superblock_t superblock = {
         .off = sizeof(superdir.d),
         .d.type = LFS_TYPE_SUPERBLOCK,
@@ -1643,18 +1733,24 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     };
     superdir.d.tail[0] = root.pair[0];
     superdir.d.tail[1] = root.pair[1];
-    superdir.d.size += sizeof(superdir.d);
+    superdir.d.size = sizeof(superdir.d) + sizeof(superblock.d);
 
+    // write both pairs to be safe
+    bool valid = false;
     for (int i = 0; i < 2; i++) {
-        // Write both pairs for extra safety, do some finagling to pretend
-        // the superblock is an entry
-        int err = lfs_dir_commit(lfs, &superdir,
-                (const lfs_entry_t*)&superblock,
-                (const struct lfs_disk_entry*)&superblock.d + 1);
-        if (err) {
-            LFS_ERROR("Failed to write superblock at %d", superdir.pair[0]);
+        int err = lfs_dir_commit(lfs, &superdir, (struct lfs_region[]){
+                {sizeof(superdir.d), sizeof(superblock.d),
+                 &superblock.d, sizeof(superblock.d)}
+            }, 1);
+        if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
+
+        valid = valid || !err;
+    }
+
+    if (!valid) {
+        return LFS_ERR_CORRUPT;
     }
 
     // sanity check that fetch works
@@ -1663,6 +1759,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
+    lfs_alloc_ack(lfs);
     return lfs_deinit(lfs);
 }
 
@@ -1675,6 +1772,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     // setup free lookahead
     lfs->free.start = -lfs->cfg->lookahead;
     lfs->free.off = lfs->cfg->lookahead;
+    lfs->free.end = lfs->free.start + lfs->cfg->block_count;
 
     // load superblock
     lfs_dir_t dir;
@@ -1711,6 +1809,10 @@ int lfs_unmount(lfs_t *lfs) {
 
 /// Littlefs specific operations ///
 int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
+    if (lfs_pairisnull(lfs->root)) {
+        return 0;
+    }
+
     // iterate over metadata pairs
     lfs_dir_t dir;
     lfs_entry_t entry;
@@ -1777,22 +1879,49 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
     return 0;
 }
 
-static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2]) {
-    // iterate over all directory directory entries
-    lfs_dir_t parent = {
-        .d.tail[0] = lfs->root[0],
-        .d.tail[1] = lfs->root[1],
-    };
+static int lfs_pred(lfs_t *lfs, const lfs_block_t dir[2], lfs_dir_t *pdir) {
+    if (lfs_pairisnull(lfs->root)) {
+        return 0;
+    }
 
-    while (true) {
-        lfs_entry_t entry;
-        int err = lfs_dir_fetch(lfs, &parent, parent.d.tail);
+    // iterate over all directory directory entries
+    int err = lfs_dir_fetch(lfs, pdir, (const lfs_block_t[2]){0, 1});
+    if (err) {
+        return err;
+    }
+
+    while (!lfs_pairisnull(pdir->d.tail)) {
+        if (lfs_paircmp(pdir->d.tail, dir) == 0) {
+            return true;
+        }
+
+        int err = lfs_dir_fetch(lfs, pdir, pdir->d.tail);
+        if (err) {
+            return err;
+        }
+    }
+
+    return false;
+}
+
+static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2],
+        lfs_dir_t *parent, lfs_entry_t *entry) {
+    if (lfs_pairisnull(lfs->root)) {
+        return 0;
+    }
+    
+    parent->d.tail[0] = 0;
+    parent->d.tail[1] = 1;
+
+    // iterate over all directory directory entries
+    while (!lfs_pairisnull(parent->d.tail)) {
+        int err = lfs_dir_fetch(lfs, parent, parent->d.tail);
         if (err) {
             return err;
         }
 
         while (true) {
-            int err = lfs_dir_next(lfs, &parent, &entry);
+            int err = lfs_dir_next(lfs, parent, entry);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
@@ -1801,29 +1930,81 @@ static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2]) {
                 break;
             }
 
-            if ((0xf & entry.d.type) == LFS_TYPE_DIR &&
-                    lfs_paircmp(entry.d.u.dir, dir) == 0) {
+            if (((0xf & entry->d.type) == LFS_TYPE_DIR) && 
+                 lfs_paircmp(entry->d.u.dir, dir) == 0) {
                 return true;
             }
         }
-
-        if (lfs_pairisnull(parent.d.tail)) {
-            return false;
-        }
     }
+
+    return false;
+}
+
+static int lfs_relocate(lfs_t *lfs,
+        const lfs_block_t oldpair[2], const lfs_block_t newpair[2]) {
+    // find parent
+    lfs_dir_t parent;
+    lfs_entry_t entry;
+    int res = lfs_parent(lfs, oldpair, &parent, &entry);
+    if (res < 0) {
+        return res;
+    }
+
+    if (res) {
+        // update disk, this creates a desync
+        entry.d.u.dir[0] = newpair[0];
+        entry.d.u.dir[1] = newpair[1];
+
+        int err = lfs_dir_update(lfs, &parent, &entry, NULL);
+        if (err) {
+            return err;
+        }
+
+        // update internal root
+        if (lfs_paircmp(oldpair, lfs->root) == 0) {
+            LFS_DEBUG("Relocating root %d %d", newpair[0], newpair[1]);
+            lfs->root[0] = newpair[0];
+            lfs->root[1] = newpair[1];
+        }
+
+        // clean up bad block, which should now be a desync
+        return lfs_deorphan(lfs);
+    }
+
+    // find pred
+    res = lfs_pred(lfs, oldpair, &parent);
+    if (res < 0) {
+        return res;
+    }
+
+    if (res) {
+        // just replace bad pair, no desync can occur
+        parent.d.tail[0] = newpair[0];
+        parent.d.tail[0] = newpair[0];
+
+        return lfs_dir_commit(lfs, &parent, NULL, 0);
+    }
+
+    // couldn't find dir, must be new
+    return 0;
 }
 
 int lfs_deorphan(lfs_t *lfs) {
-    // iterate over all directories
+    lfs->deorphaned = true;
+    if (lfs_pairisnull(lfs->root)) {
+        return 0;
+    }
+
     lfs_dir_t pdir;
     lfs_dir_t cdir;
 
-    // skip root
-    int err = lfs_dir_fetch(lfs, &pdir, lfs->root);
+    // skip superblock
+    int err = lfs_dir_fetch(lfs, &pdir, (const lfs_block_t[2]){0, 1});
     if (err) {
         return err;
     }
 
+    // iterate over all directories
     while (!lfs_pairisnull(pdir.d.tail)) {
         int err = lfs_dir_fetch(lfs, &cdir, pdir.d.tail);
         if (err) {
@@ -1833,19 +2014,36 @@ int lfs_deorphan(lfs_t *lfs) {
         // only check head blocks
         if (!(0x80000000 & pdir.d.size)) {
             // check if we have a parent
-            int parent = lfs_parent(lfs, pdir.d.tail);
-            if (parent < 0) {
-                return parent;
+            lfs_dir_t parent;
+            lfs_entry_t entry;
+            int res = lfs_parent(lfs, pdir.d.tail, &parent, &entry);
+            if (res < 0) {
+                return res;
             }
 
-            if (!parent) {
+            if (!res) {
                 // we are an orphan
                 LFS_DEBUG("Orphan %d %d", pdir.d.tail[0], pdir.d.tail[1]);
 
                 pdir.d.tail[0] = cdir.d.tail[0];
                 pdir.d.tail[1] = cdir.d.tail[1];
 
-                err = lfs_dir_commit(lfs, &pdir, NULL, NULL);
+                err = lfs_dir_commit(lfs, &pdir, NULL, 0);
+                if (err) {
+                    return err;
+                }
+
+                break;
+            }
+
+            if (!lfs_pairsync(entry.d.u.dir, pdir.d.tail)) {
+                // we have desynced
+                LFS_DEBUG("Desync %d %d", entry.d.u.dir[0], entry.d.u.dir[1]);
+
+                pdir.d.tail[0] = entry.d.u.dir[0];
+                pdir.d.tail[1] = entry.d.u.dir[1];
+
+                err = lfs_dir_commit(lfs, &pdir, NULL, 0);
                 if (err) {
                     return err;
                 }

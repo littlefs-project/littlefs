@@ -124,6 +124,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Directory remove ---"
+# TESTING HERE
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "potato") => LFS_ERR_INVAL;

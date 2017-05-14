@@ -144,13 +144,24 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
         return -errno;
     }
 
+    err = fseek(f, off, SEEK_SET);
+    if (err) {
+        return -errno;
+    }
+
+    uint8_t dat;
+    res = fread(&dat, 1, 1, f);
+    if (res < 1) {
+        return -errno;
+    }
+
     err = fclose(f);
     if (err) {
         return -errno;
     }
 
     emu->stats.prog_count += 1;
-    return 0;
+    return (dat != data[0]) ? LFS_ERR_CORRUPT : 0;
 }
 
 int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {

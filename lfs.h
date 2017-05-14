@@ -43,7 +43,7 @@ enum lfs_error {
 enum lfs_type {
     LFS_TYPE_REG        = 0x01,
     LFS_TYPE_DIR        = 0x02,
-    LFS_TYPE_SUPERBLOCK = 0x10,
+    LFS_TYPE_SUPERBLOCK = 0x12,
 };
 
 enum lfs_open_flags {
@@ -193,15 +193,16 @@ typedef struct lfs_superblock {
     struct lfs_disk_superblock {
         uint16_t type;
         uint16_t len;
+        lfs_block_t root[2];
         uint32_t version;
         char magic[8];
         uint32_t block_size;
         uint32_t block_count;
-        lfs_block_t root[2];
     } d;
 } lfs_superblock_t;
 
 typedef struct lfs_free {
+    lfs_block_t end;
     lfs_block_t start;
     lfs_block_t off;
     uint32_t *lookahead;
@@ -212,8 +213,8 @@ typedef struct lfs {
     const struct lfs_config *cfg;
 
     lfs_block_t root[2];
-    lfs_dir_t *scratch;
     lfs_file_t *files;
+    bool deorphaned;
 
     lfs_cache_t rcache;
     lfs_cache_t pcache;
@@ -257,8 +258,8 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 
 // miscellaneous lfs specific operations
-int lfs_deorphan(lfs_t *lfs);
 int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
+int lfs_deorphan(lfs_t *lfs);
 
 
 #endif

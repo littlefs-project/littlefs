@@ -13,11 +13,17 @@ void test_log(const char *s, uintmax_t v) {{
 
 void test_assert(const char *file, unsigned line,
         const char *s, uintmax_t v, uintmax_t e) {{
-    static const char *last[2] = {{0, 0}};
-    if (v != e || !(last[0] == s || last[1] == s)) {{
+    static const char *last[6] = {{0, 0}};
+    if (v != e || !(last[0] == s || last[1] == s ||
+            last[2] == s || last[3] == s ||
+            last[4] == s || last[5] == s)) {{
         test_log(s, v);
         last[0] = last[1];
-        last[1] = s;
+        last[1] = last[2];
+        last[2] = last[3];
+        last[3] = last[4];
+        last[4] = last[5];
+        last[5] = s;
     }}
 
     if (v != e) {{
