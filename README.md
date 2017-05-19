@@ -1,23 +1,33 @@
 ## The little filesystem
 
-A little fail-safe filesystem designed for low ram/rom footprint.
+A little fail-safe filesystem designed for embedded systems.
 
-**Fail-safe** - The littlefs is designed to work consistently with random power
-failures. During filesystem operations the storage on disk is always kept
-in a valid state. The filesystem also has strong copy-on-write garuntees.
+```
+   | | |     .---._____
+  .-----.   |          |
+--|o    |---| littlefs |
+--|     |---|          |
+  '-----'   '----------'
+   | | |
+```
+
+**Fail-safe** - The littlefs is designed to work consistently with random
+power failures. During filesystem operations the storage on disk is always
+kept in a valid state. The filesystem also has strong copy-on-write garuntees.
 When updating a file, the original file will remain unmodified until the
 file is closed, or sync is called.
 
-**Handles bad blocks** - While the littlefs does not implement static wear
-leveling, if the underlying block device reports write errors, the littlefs
-uses a form of dynamic wear leveling to manage blocks that go bad during
-the lifetime of the filesystem.
+**Wear awareness** - While the littlefs does not implement static wear
+leveling, the littlefs takes into account write errors reported by the
+underlying block device and uses a limited form of dynamic wear leveling
+to manage blocks that go bad during the lifetime of the filesystem.
 
-**Constrained memory** - The littlefs is designed to work in bounded memory,
-recursion is avoided, and dynamic memory is kept to a minimum. The littlefs
-allocates two fixed-size buffers for general operations, and one fixed-size
-buffer per file. If there is only ever one file in use, these buffers can be
-provided statically.
+**Bounded ram/rom** - The littlefs is designed to work in a
+limited amount of memory, recursion is avoided, and dynamic memory is kept
+to a minimum. The littlefs allocates two fixed-size buffers for general
+operations, and one fixed-size buffer per file. If there is only ever one file
+in use, all memory can be provided statically and the littlefs can be used
+in a system without dynamic memory.
 
 ## Example
 
@@ -74,7 +84,7 @@ int main(void) {
     // remember the storage is not updated until the file is closed successfully
     lfs_file_close(&lfs, &file);
 
-    // release and resources we were using
+    // release any resources we were using
     lfs_unmount(&lfs);
 }
 ```
@@ -112,6 +122,14 @@ that the data written to disk is machine portable. It should be fine as
 long as the machines involved share endianness and don't have really
 strange padding requirements. If the question does come up, the littlefs
 metadata should be stored on disk in little-endian format.
+
+## Design
+
+the littlefs was developed with the goal of learning more about filesystem
+design by tackling the relative unsolved problem of managing a robust
+filesystem resilient to power loss on devices with limited RAM and ROM.
+More detail on the solutions and tradeoffs incorporated into this filesystem
+can be found in [DESIGN.md](DESIGN.md).
 
 ## Testing
 
