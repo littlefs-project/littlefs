@@ -187,7 +187,7 @@ Here is what updating a one-block file may look like:
 
 It doesn't matter if we lose power while writing block 5 with the new data,
 since the old data remains unmodified in block 4. This example also
-highlights how the atomic updates of the metadata blockss provide a
+highlights how the atomic updates of the metadata blocks provide a
 synchronization barrier for the rest of the littlefs.
 
 At this point, it may look like we are wasting an awfully large amount
@@ -299,7 +299,7 @@ Here is what it might look like to update a file stored with a CTZ linked-list:
                                     .---------.---------.
                                     | rev: 1  | rev: 0  |
                                     | file: 6 | file: 0 |
-                                    | size: 4 | xor: 0  |
+                                    | size: 4 | size: 0 |
                                     | xor: 3  | xor: 0  |
                                     '---------'---------'
                                         |
@@ -515,7 +515,7 @@ directory linked-lists and avoid using any additional space.
    |        .-'    '-------------------------.
    |       v                                  v
    |  .--------.        .--------.        .--------.
-   '->| dir A  |------->| dir B  |------->| dir B  |
+   '->| dir A  |------->| dir A  |------->| dir B  |
       | pair 0 |        | pair 1 |        | pair 0 |
       |        |        |        |        |        |
       '--------'        '--------'        '--------'
