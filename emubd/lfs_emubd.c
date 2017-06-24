@@ -161,7 +161,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     }
 
     emu->stats.prog_count += 1;
-    return (dat != data[0]) ? LFS_ERR_CORRUPT : 0;
+    return 0;
 }
 
 int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {

@@ -32,7 +32,7 @@ typedef uint32_t lfs_block_t;
 enum lfs_error {
     LFS_ERR_OK      = 0,    // No error
     LFS_ERR_IO      = -5,   // Error during device operation
-    LFS_ERR_CORRUPT = -77,  // Corrupted
+    LFS_ERR_CORRUPT = -52,  // Corrupted
     LFS_ERR_NOENT   = -2,   // No directory entry
     LFS_ERR_EXISTS  = -17,  // Entry already exists
     LFS_ERR_NOTDIR  = -20,  // Entry is not a dir
