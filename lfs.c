@@ -1207,14 +1207,10 @@ relocate:
     // either read from dirty cache or disk
     for (lfs_off_t i = 0; i < file->off; i++) {
         uint8_t data;
-        if (file->cache.block == file->block && i >= file->cache.off) {
-            data = file->cache.buffer[i - file->cache.off];
-        } else {
-            // just read from disk
-            err = lfs_bd_read(lfs, file->block, i, &data, 1);
-            if (err) {
-                return err;
-            }
+        err = lfs_cache_read(lfs, &lfs->rcache, &file->cache,
+                file->block, i, &data, 1);
+        if (err) {
+            return err;
         }
 
         err = lfs_cache_prog(lfs, &lfs->pcache, &lfs->rcache,
