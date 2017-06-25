@@ -1196,6 +1196,14 @@ relocate:
         return err;
     }
 
+    err = lfs_bd_erase(lfs, nblock);
+    if (err) {
+        if (err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
+        return err;
+    }
+
     // either read from dirty cache or disk
     for (lfs_off_t i = 0; i < file->off; i++) {
         uint8_t data;

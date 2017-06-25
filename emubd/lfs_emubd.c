@@ -127,12 +127,12 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     snprintf(emu->child, LFS_NAME_MAX, "%x", block);
 
     FILE *f = fopen(emu->path, "r+b");
-    if (!f && errno == ENOENT) {
-        f = fopen(emu->path, "w+b");
-        if (!f) {
-            return -errno;
-        }
+    if (!f && errno != ENOENT) {
+        return -errno;
     }
+
+    // Check that file was erased
+    assert(f);
 
     int err = fseek(f, off, SEEK_SET);
     if (err) {
@@ -180,6 +180,18 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
 
     if (!err && S_ISREG(st.st_mode)) {
         int err = unlink(emu->path);
+        if (err) {
+            return -errno;
+        }
+    }
+
+    if (err || S_ISREG(st.st_mode)) {
+        FILE *f = fopen(emu->path, "w");
+        if (!f) {
+            return -errno;
+        }
+
+        err = fclose(f);
         if (err) {
             return -errno;
         }
