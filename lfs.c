@@ -237,6 +237,8 @@ static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
 }
 
 static int lfs_bd_sync(lfs_t *lfs) {
+    lfs->rcache.block = 0xffffffff;
+
     int err = lfs_cache_flush(lfs, &lfs->pcache, NULL);
     if (err) {
         return err;
