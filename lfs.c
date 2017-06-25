@@ -1183,6 +1183,50 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     return err;
 }
 
+static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
+relocate:
+    LFS_DEBUG("Bad block at %d", file->block);
+
+    // just relocate what exists into new block
+    lfs_block_t nblock;
+    int err = lfs_alloc(lfs, &nblock);
+    if (err) {
+        return err;
+    }
+
+    // either read from dirty cache or disk
+    for (lfs_off_t i = 0; i < file->off; i++) {
+        uint8_t data;
+        if (file->cache.block == file->block && i >= file->cache.off) {
+            data = file->cache.buffer[i - file->cache.off];
+        } else {
+            // just read from disk
+            err = lfs_bd_read(lfs, file->block, i, &data, 1);
+            if (err) {
+                return err;
+            }
+        }
+
+        err = lfs_cache_prog(lfs, &lfs->pcache, &lfs->rcache,
+                nblock, i, &data, 1);
+        if (err) {
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
+            return err;
+        }
+    }
+
+    // copy over new state of file
+    memcpy(file->cache.buffer, lfs->pcache.buffer, lfs->cfg->prog_size);
+    file->cache.block = lfs->pcache.block;
+    file->cache.off = lfs->pcache.off;
+    lfs->pcache.block = 0xffffffff;
+
+    file->block = nblock;
+    return 0;
+}
+
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     if (file->flags & LFS_F_READING) {
         // just drop read cache
@@ -1225,9 +1269,21 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
         }
 
         // write out what we have
-        int err = lfs_cache_flush(lfs, &file->cache, &lfs->rcache);
-        if (err) {
-            return err;
+        while (true) {
+            int err = lfs_cache_flush(lfs, &file->cache, &lfs->rcache);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
+            }
+
+            break;
+relocate:
+            err = lfs_file_relocate(lfs, file);
+            if (err) {
+                return err;
+            }
         }
 
         // actual file updates
@@ -1396,45 +1452,10 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
             break;
 relocate:
-            LFS_DEBUG("Bad block at %d", file->block);
-
-            // just relocate what exists into new block
-            lfs_block_t nblock;
-            err = lfs_alloc(lfs, &nblock);
+            err = lfs_file_relocate(lfs, file);
             if (err) {
                 return err;
             }
-
-            // either read from dirty cache or disk
-            for (lfs_off_t i = 0; i < file->off; i++) {
-                uint8_t data;
-                if (file->cache.block == file->block && i >= file->cache.off) {
-                    data = file->cache.buffer[i - file->cache.off];
-                } else {
-                    // just read from disk
-                    err = lfs_bd_read(lfs, file->block, i, &data, 1);
-                    if (err) {
-                        return err;
-                    }
-                }
-
-                err = lfs_cache_prog(lfs, &lfs->pcache, &lfs->rcache,
-                        nblock, i, &data, 1);
-                if (err) {
-                    if (err == LFS_ERR_CORRUPT) {
-                        goto relocate;
-                    }
-                    return err;
-                }
-            }
-
-            // copy over new state of file
-            memcpy(file->cache.buffer, lfs->pcache.buffer, lfs->cfg->prog_size);
-            file->cache.block = lfs->pcache.block;
-            file->cache.off = lfs->pcache.off;
-            lfs->pcache.block = 0xffffffff;
-
-            file->block = nblock;
         }
 
         file->pos += diff;
