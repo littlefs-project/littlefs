@@ -1,2 +1,4 @@
 script:
-    - make test
+    - CFLAGS="-DLFS_READ_SIZE=16  -DLFS_PROG_SIZE=16"  make test
+    - CFLAGS="-DLFS_READ_SIZE=1   -DLFS_PROG_SIZE=1"   make test
+    - CFLAGS="-DLFS_READ_SIZE=512 -DLFS_PROG_SIZE=512" make test
