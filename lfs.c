@@ -711,9 +711,9 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            if (((0xff & entry->d.type) != LFS_TYPE_REG &&
-                 (0xff & entry->d.type) != LFS_TYPE_DIR) ||
-                entry->d.len - sizeof(entry->d) != pathlen) {
+            if ((entry->d.type != LFS_TYPE_REG &&
+                 entry->d.type != LFS_TYPE_DIR) ||
+                entry->d.name != pathlen) {
                 continue;
             }
 
@@ -784,7 +784,8 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     }
 
     entry.d.type = LFS_TYPE_DIR;
-    entry.d.len = sizeof(entry.d) + strlen(path);
+    entry.d.name = strlen(path);
+    entry.d.len = sizeof(entry.d) + entry.d.name;
     entry.d.u.dir[0] = dir.pair[0];
     entry.d.u.dir[1] = dir.pair[1];
 
@@ -868,19 +869,19 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
             return (err == LFS_ERR_NOENT) ? 0 : err;
         }
 
-        if ((0xff & entry.d.type) == LFS_TYPE_REG ||
-            (0xff & entry.d.type) == LFS_TYPE_DIR) {
+        if (entry.d.type == LFS_TYPE_REG ||
+            entry.d.type == LFS_TYPE_DIR) {
             break;
         }
     }
 
-    info->type = entry.d.type & 0xff;
+    info->type = entry.d.type;
     if (info->type == LFS_TYPE_REG) {
         info->size = entry.d.u.file.size;
     }
 
     int err = lfs_bd_read(lfs, dir->pair[0], entry.off + sizeof(entry.d),
-            info->name, entry.d.len - sizeof(entry.d));
+            info->name, entry.d.name);
     if (err) {
         return err;
     }
@@ -1116,7 +1117,8 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 
         // create entry to remember name
         entry.d.type = LFS_TYPE_REG;
-        entry.d.len = sizeof(entry.d) + strlen(path);
+        entry.d.name = strlen(path);
+        entry.d.len = sizeof(entry.d) + entry.d.name;
         entry.d.u.file.head = -1;
         entry.d.u.file.size = 0;
         err = lfs_dir_append(lfs, &cwd, &entry, path);
@@ -1530,13 +1532,13 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     }
 
     memset(info, 0, sizeof(*info));
-    info->type = entry.d.type & 0xff;
+    info->type = entry.d.type;
     if (info->type == LFS_TYPE_REG) {
         info->size = entry.d.u.file.size;
     }
 
     err = lfs_bd_read(lfs, cwd.pair[0], entry.off + sizeof(entry.d),
-            info->name, entry.d.len - sizeof(entry.d));
+            info->name, entry.d.name);
     if (err) {
         return err;
     }
@@ -1649,7 +1651,8 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     // move to new location
     lfs_entry_t newentry = preventry;
     newentry.d = oldentry.d;
-    newentry.d.len = sizeof(newentry.d) + strlen(newpath);
+    newentry.d.name = strlen(newpath);
+    newentry.d.len = sizeof(newentry.d) + newentry.d.name;
 
     if (prevexists) {
         int err = lfs_dir_update(lfs, &newcwd, &newentry, newpath);
@@ -1806,8 +1809,9 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_superblock_t superblock = {
         .off = sizeof(superdir.d),
         .d.type = LFS_TYPE_SUPERBLOCK,
+        .d.name = sizeof(superblock.d.magic),
         .d.len = sizeof(superblock.d),
-        .d.version = 0x00000001,
+        .d.version = 0x00010001,
         .d.magic = {"littlefs"},
         .d.block_size  = lfs->cfg->block_size,
         .d.block_count = lfs->cfg->block_count,
@@ -1874,7 +1878,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         return LFS_ERR_CORRUPT;
     }
 
-    if (superblock.d.version > 0x0000ffff) {
+    if (superblock.d.version > (0x00010001 | 0x0000ffff)) {
         LFS_ERROR("Invalid version %d.%d\n",
                 0xffff & (superblock.d.version >> 16),
                 0xffff & (superblock.d.version >> 0));
@@ -1922,7 +1926,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
             }
 
             dir.off += entry.d.len;
-            if ((0xf & entry.d.type) == LFS_TYPE_REG) {
+            if ((0xf & entry.d.type) == (0xf & LFS_TYPE_REG)) {
                 int err = lfs_index_traverse(lfs, &lfs->rcache, NULL,
                         entry.d.u.file.head, entry.d.u.file.size, cb, data);
                 if (err) {
@@ -2012,7 +2016,7 @@ static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2],
                 break;
             }
 
-            if (((0xf & entry->d.type) == LFS_TYPE_DIR) && 
+            if (((0xf & entry->d.type) == (0xf & LFS_TYPE_DIR)) &&
                  lfs_paircmp(entry->d.u.dir, dir) == 0) {
                 return true;
             }

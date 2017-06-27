@@ -44,9 +44,9 @@ enum lfs_error {
 
 // File types
 enum lfs_type {
-    LFS_TYPE_REG        = 0x01,
-    LFS_TYPE_DIR        = 0x02,
-    LFS_TYPE_SUPERBLOCK = 0x12,
+    LFS_TYPE_REG        = 0x11,
+    LFS_TYPE_DIR        = 0x22,
+    LFS_TYPE_SUPERBLOCK = 0xe2,
 };
 
 // File open flags
@@ -159,7 +159,8 @@ typedef struct lfs_entry {
     lfs_off_t off;
 
     struct lfs_disk_entry {
-        uint16_t type;
+        uint8_t type;
+        uint8_t name;
         uint16_t len;
         union {
             struct {
@@ -210,13 +211,14 @@ typedef struct lfs_superblock {
     lfs_off_t off;
 
     struct lfs_disk_superblock {
-        uint16_t type;
+        uint8_t type;
+        uint8_t name;
         uint16_t len;
         lfs_block_t root[2];
-        uint32_t version;
-        char magic[8];
         uint32_t block_size;
         uint32_t block_count;
+        uint32_t version;
+        char magic[8];
     } d;
 } lfs_superblock_t;
 
