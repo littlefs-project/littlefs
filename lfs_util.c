@@ -2,7 +2,7 @@
  * lfs util functions
  *
  * Copyright (c) 2017 Christopher Haster
- * Distributed under the MIT license
+ * Distributed under the Apache 2.0 license
  */
 #include "lfs_util.h"
 

@@ -2,7 +2,7 @@
  * The little filesystem
  *
  * Copyright (c) 2017 Christopher Haster
- * Distributed under the MIT license
+ * Distributed under the Apache 2.0 license
  */
 #ifndef LFS_H
 #define LFS_H
