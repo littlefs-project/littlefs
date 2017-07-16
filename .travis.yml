@@ -1,4 +1,14 @@
 script:
+    # make sure example can at least compile
+    - sed -n '/``` c/,/```/{/```/d; p;}' README.md > test.c &&
+      CFLAGS='
+        -Duser_provided_block_device_read=NULL
+        -Duser_provided_block_device_prog=NULL
+        -Duser_provided_block_device_erase=NULL
+        -Duser_provided_block_device_sync=NULL
+        -include stdio.h -Werror' make
+
+    # run tests
     - CFLAGS="-DLFS_READ_SIZE=16  -DLFS_PROG_SIZE=16"  make test
     - CFLAGS="-DLFS_READ_SIZE=1   -DLFS_PROG_SIZE=1"   make test
     - CFLAGS="-DLFS_READ_SIZE=512 -DLFS_PROG_SIZE=512" make test

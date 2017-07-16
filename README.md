@@ -77,7 +77,6 @@ int main(void) {
 
     // update boot count
     boot_count += 1;
-    printf("boot_count: %ld\n", boot_count);
     lfs_file_rewind(&lfs, &file);
     lfs_file_write(&lfs, &file, &boot_count, sizeof(boot_count));
 
@@ -86,6 +85,9 @@ int main(void) {
 
     // release any resources we were using
     lfs_unmount(&lfs);
+
+    // print the boot count
+    printf("boot_count: %d\n", boot_count);
 }
 ```
 
