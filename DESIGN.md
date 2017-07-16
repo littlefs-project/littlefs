@@ -639,9 +639,9 @@ v
    '--------'  '--------'
 ```
 
-Wait, wait, wait, wait, wait, that's not atomic at all! If power is lost after
-removing directory B from the root, directory B is still in the linked-list.
-We've just created a memory leak!
+Wait, wait, wait, that's not atomic at all! If power is lost after removing
+directory B from the root, directory B is still in the linked-list. We've
+just created a memory leak!
 
 And to be honest, I don't have a clever solution for this case. As a
 side-effect of using multiple pointers in the threaded tree, the littlefs
@@ -969,5 +969,5 @@ So, to summarize:
 10. Any case where an atomic operation is not possible, it is taken care of
    by a deorphan step that occurs on the first allocation after boot
 
-Welp, that's the little filesystem. Thanks for reading!
+That's the little filesystem. Thanks for reading!
 
