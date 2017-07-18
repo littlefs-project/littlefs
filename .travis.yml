@@ -6,7 +6,7 @@ script:
         -Duser_provided_block_device_prog=NULL
         -Duser_provided_block_device_erase=NULL
         -Duser_provided_block_device_sync=NULL
-        -include stdio.h -Werror' make
+        -include stdio.h -Werror' make all size
 
     # run tests
     - CFLAGS="-DLFS_READ_SIZE=16  -DLFS_PROG_SIZE=16"  make test
