@@ -160,8 +160,9 @@ typedef struct lfs_entry {
 
     struct lfs_disk_entry {
         uint8_t type;
-        uint8_t name;
-        uint16_t len;
+        uint8_t elen;
+        uint8_t alen;
+        uint8_t nlen;
         union {
             struct {
                 lfs_block_t head;
@@ -212,8 +213,9 @@ typedef struct lfs_superblock {
 
     struct lfs_disk_superblock {
         uint8_t type;
-        uint8_t name;
-        uint16_t len;
+        uint8_t elen;
+        uint8_t alen;
+        uint8_t nlen;
         lfs_block_t root[2];
         uint32_t block_size;
         uint32_t block_count;
