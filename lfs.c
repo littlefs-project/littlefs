@@ -262,7 +262,10 @@ int lfs_deorphan(lfs_t *lfs);
 static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     lfs_t *lfs = p;
 
-    lfs_block_t off = (block - lfs->free.start) % lfs->cfg->block_count;
+    lfs_block_t off = (((lfs_soff_t)(block - lfs->free.start)
+                % (lfs_soff_t)(lfs->cfg->block_count))
+            + lfs->cfg->block_count) % lfs->cfg->block_count;
+
     if (off < lfs->cfg->lookahead) {
         lfs->free.lookahead[off / 32] |= 1U << (off % 32);
     }
@@ -994,6 +997,7 @@ static int lfs_index_extend(lfs_t *lfs,
         if (err) {
             return err;
         }
+        assert(*block >= 2 && *block <= lfs->cfg->block_count);
 
         err = lfs_bd_erase(lfs, *block);
         if (err) {

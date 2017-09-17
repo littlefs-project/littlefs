@@ -9,6 +9,9 @@ script:
         -include stdio.h -Werror' make all size
 
     # run tests
-    - CFLAGS="-DLFS_READ_SIZE=16  -DLFS_PROG_SIZE=16"  make test
+    - make test
+
+    # run tests with a few different configurations
     - CFLAGS="-DLFS_READ_SIZE=1   -DLFS_PROG_SIZE=1"   make test
     - CFLAGS="-DLFS_READ_SIZE=512 -DLFS_PROG_SIZE=512" make test
+    - CFLAGS="-DLFS_BLOCK_COUNT=1023" make test
