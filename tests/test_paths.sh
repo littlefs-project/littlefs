@@ -31,6 +31,10 @@ tests/test.py << TEST
     strcmp(info.name, "hottea") => 0;
     lfs_stat(&lfs, "/tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
+
+    lfs_mkdir(&lfs, "/milk1") => 0;
+    lfs_stat(&lfs, "/milk1", &info) => 0;
+    strcmp(info.name, "milk1") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -43,6 +47,10 @@ tests/test.py << TEST
     strcmp(info.name, "hottea") => 0;
     lfs_stat(&lfs, "///tea///hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
+
+    lfs_mkdir(&lfs, "///milk2") => 0;
+    lfs_stat(&lfs, "///milk2", &info) => 0;
+    strcmp(info.name, "milk2") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -57,6 +65,10 @@ tests/test.py << TEST
     strcmp(info.name, "hottea") => 0;
     lfs_stat(&lfs, "/./tea/./hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
+
+    lfs_mkdir(&lfs, "/./milk3") => 0;
+    lfs_stat(&lfs, "/./milk3", &info) => 0;
+    strcmp(info.name, "milk3") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -71,6 +83,10 @@ tests/test.py << TEST
     strcmp(info.name, "hottea") => 0;
     lfs_stat(&lfs, "coffee/../soda/../tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
+
+    lfs_mkdir(&lfs, "coffee/../milk4") => 0;
+    lfs_stat(&lfs, "coffee/../milk4", &info) => 0;
+    strcmp(info.name, "milk4") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -79,6 +95,27 @@ tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "coffee/../../../../../../tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
+
+    lfs_mkdir(&lfs, "coffee/../../../../../../milk5") => 0;
+    lfs_stat(&lfs, "coffee/../../../../../../milk5", &info) => 0;
+    strcmp(info.name, "milk5") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Root tests ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_stat(&lfs, "/", &info) => 0;
+    info.type => LFS_TYPE_DIR;
+    strcmp(info.name, "/") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Sketchy path tests ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mkdir(&lfs, "dirt/ground") => LFS_ERR_NOENT;
+    lfs_mkdir(&lfs, "dirt/ground/earth") => LFS_ERR_NOENT;
     lfs_unmount(&lfs) => 0;
 TEST
 

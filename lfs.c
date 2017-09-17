@@ -709,6 +709,9 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
             suffix += sufflen;
         }
 
+        // update what we've found
+        *path = pathname;
+
         // find path
         while (true) {
             int err = lfs_dir_next(lfs, dir, entry);
@@ -750,8 +753,6 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
         if (err) {
             return err;
         }
-
-        *path = pathname;
     }
 
     return 0;
@@ -769,7 +770,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     lfs_entry_t entry;
     err = lfs_dir_find(lfs, &cwd, &entry, &path);
-    if (err != LFS_ERR_NOENT) {
+    if (err != LFS_ERR_NOENT || strchr(path, '/') != NULL) {
         return err ? err : LFS_ERR_EXISTS;
     }
 
@@ -817,8 +818,8 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
         return err;
     }
 
+    // check for root, can only be something like '/././../.'
     if (strspn(path, "/.") == strlen(path)) {
-        // can only be something like '/././../.'
         dir->head[0] = dir->pair[0];
         dir->head[1] = dir->pair[1];
         dir->pos = sizeof(dir->d) - 2;
@@ -1118,7 +1119,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 
     lfs_entry_t entry;
     err = lfs_dir_find(lfs, &cwd, &entry, &path);
-    if (err && err != LFS_ERR_NOENT) {
+    if (err && (err != LFS_ERR_NOENT || strchr(path, '/') != NULL)) {
         return err;
     }
 
@@ -1533,6 +1534,14 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
 
 /// General fs oprations ///
 int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
+    // check for root, can only be something like '/././../.'
+    if (strspn(path, "/.") == strlen(path)) {
+        memset(info, 0, sizeof(*info));
+        info->type = LFS_TYPE_DIR;
+        strcpy(info->name, "/");
+        return 0;
+    }
+
     lfs_dir_t cwd;
     int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
     if (err) {
@@ -1640,7 +1649,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
     lfs_entry_t preventry;
     err = lfs_dir_find(lfs, &newcwd, &preventry, &newpath);
-    if (err && err != LFS_ERR_NOENT) {
+    if (err && (err != LFS_ERR_NOENT || strchr(newpath, '/') != NULL)) {
         return err;
     }
     bool prevexists = (err != LFS_ERR_NOENT);
