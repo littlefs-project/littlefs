@@ -305,5 +305,43 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
+echo "--- Out-of-bounds seek ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "hello/kitty42", LFS_O_RDWR) => 0;
+
+    size = strlen("kittycatcat");
+    lfs_file_size(&lfs, &file[0]) => $LARGESIZE*size;
+    lfs_file_seek(&lfs, &file[0],
+            ($LARGESIZE+$SMALLSIZE)*size, LFS_SEEK_SET) => 0;
+    lfs_file_read(&lfs, &file[0], buffer, size) => 0;
+
+    memcpy(buffer, "porcupineee", size);
+    lfs_file_write(&lfs, &file[0], buffer, size) => size;
+
+    lfs_file_seek(&lfs, &file[0],
+            ($LARGESIZE+$SMALLSIZE)*size, LFS_SEEK_SET) =>
+            ($LARGESIZE+$SMALLSIZE+1)*size;
+    lfs_file_read(&lfs, &file[0], buffer, size) => size;
+    memcmp(buffer, "porcupineee", size) => 0;
+
+    lfs_file_seek(&lfs, &file[0],
+            $LARGESIZE*size, LFS_SEEK_SET) =>
+            ($LARGESIZE+$SMALLSIZE+1)*size;
+    lfs_file_read(&lfs, &file[0], buffer, size) => size;
+    memcmp(buffer, "\0\0\0\0\0\0\0\0\0\0\0", size) => 0;
+
+    lfs_file_seek(&lfs, &file[0],
+            -(($LARGESIZE+$SMALLSIZE)*size), LFS_SEEK_CUR) => LFS_ERR_INVAL;
+    lfs_file_tell(&lfs, &file[0]) => ($LARGESIZE+1)*size;
+
+    lfs_file_seek(&lfs, &file[0],
+            -(($LARGESIZE+2*$SMALLSIZE)*size), LFS_SEEK_END) => LFS_ERR_INVAL;
+    lfs_file_tell(&lfs, &file[0]) => ($LARGESIZE+1)*size;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
 echo "--- Results ---"
 tests/stats.py

@@ -1377,6 +1377,11 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         }
     }
 
+    if (file->pos >= file->size) {
+        // eof if past end
+        return 0;
+    }
+
     size = lfs_min(size, file->size - file->pos);
     nsize = size;
 
@@ -1430,6 +1435,19 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
     if ((file->flags & LFS_O_APPEND) && file->pos < file->size) {
         file->pos = file->size;
+    }
+
+    if (!(file->flags & LFS_F_WRITING) && file->pos > file->size) {
+        // fill with zeros
+        lfs_off_t pos = file->pos;
+        file->pos = file->size;
+
+        while (file->pos < pos) {
+            lfs_ssize_t res = lfs_file_write(lfs, file, &(uint8_t){0}, 1);
+            if (res < 0) {
+                return res;
+            }
+        }
     }
 
     while (nsize > 0) {
@@ -1506,8 +1524,16 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     if (whence == LFS_SEEK_SET) {
         file->pos = off;
     } else if (whence == LFS_SEEK_CUR) {
+        if (-off > file->pos) {
+            return LFS_ERR_INVAL;
+        }
+
         file->pos = file->pos + off;
     } else if (whence == LFS_SEEK_END) {
+        if (-off > file->size) {
+            return LFS_ERR_INVAL;
+        }
+
         file->pos = file->size + off;
     }
 
