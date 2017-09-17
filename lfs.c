@@ -975,6 +975,7 @@ static int lfs_index_find(lfs_t *lfs,
             return err;
         }
 
+        assert(head >= 2 && head <= lfs->cfg->block_count);
         current -= 1 << skip;
     }
 
@@ -1054,6 +1055,8 @@ static int lfs_index_extend(lfs_t *lfs,
                     return err;
                 }
             }
+
+            assert(head >= 2 && head <= lfs->cfg->block_count);
         }
 
         *off = 4*skips;
@@ -1428,18 +1431,17 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         // check if we need a new block
         if (!(file->flags & LFS_F_WRITING) ||
                 file->off == lfs->cfg->block_size) {
-            if (!(file->flags & LFS_F_WRITING)) {
+            if (!(file->flags & LFS_F_WRITING) && file->pos > 0) {
                 // find out which block we're extending from
                 int err = lfs_index_find(lfs, &file->cache, NULL,
                         file->head, file->size,
-                        file->pos, &file->block, &file->off);
+                        file->pos-1, &file->block, &file->off);
                 if (err) {
                     return err;
                 }
 
                 // mark cache as dirty since we may have read data into it
                 file->cache.block = 0xffffffff;
-                file->flags |= LFS_F_WRITING;
             }
 
             // extend file with new blocks
@@ -1450,6 +1452,8 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
             if (err) {
                 return err;
             }
+
+            file->flags |= LFS_F_WRITING;
         }
 
         // program as much as we can in current block
