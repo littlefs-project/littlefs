@@ -124,7 +124,6 @@ tests/test.py << TEST
 TEST
 
 echo "--- Directory remove ---"
-# TESTING HERE
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "potato") => LFS_ERR_INVAL;
@@ -277,6 +276,39 @@ tests/test.py << TEST
     info.type => LFS_TYPE_DIR;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "fried") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Multi-block remove ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_remove(&lfs, "cactus") => LFS_ERR_INVAL;
+
+    for (int i = 0; i < $LARGESIZE; i++) {
+        sprintf((char*)buffer, "cactus/test%d", i);
+        lfs_remove(&lfs, (char*)buffer) => 0;
+    }
+
+    lfs_remove(&lfs, "cactus") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir[0], "/") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "burito") => 0;
+    info.type => LFS_TYPE_REG;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "coldpotato") => 0;
     info.type => LFS_TYPE_DIR;
     lfs_dir_read(&lfs, &dir[0], &info) => 0;
     lfs_dir_close(&lfs, &dir[0]) => 0;
