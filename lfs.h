@@ -225,10 +225,11 @@ typedef struct lfs_superblock {
 } lfs_superblock_t;
 
 typedef struct lfs_free {
+    lfs_size_t lookahead;
+    lfs_block_t begin;
     lfs_block_t end;
-    lfs_block_t start;
     lfs_block_t off;
-    uint32_t *lookahead;
+    uint32_t *buffer;
 } lfs_free_t;
 
 // The littlefs type
@@ -237,12 +238,12 @@ typedef struct lfs {
 
     lfs_block_t root[2];
     lfs_file_t *files;
-    bool deorphaned;
 
     lfs_cache_t rcache;
     lfs_cache_t pcache;
 
     lfs_free_t free;
+    bool deorphaned;
 } lfs_t;
 
 

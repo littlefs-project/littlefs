@@ -262,12 +262,12 @@ int lfs_deorphan(lfs_t *lfs);
 static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     lfs_t *lfs = p;
 
-    lfs_block_t off = (((lfs_soff_t)(block - lfs->free.start)
+    lfs_block_t off = (((lfs_soff_t)(block - lfs->free.begin)
                 % (lfs_soff_t)(lfs->cfg->block_count))
             + lfs->cfg->block_count) % lfs->cfg->block_count;
 
-    if (off < lfs->cfg->lookahead) {
-        lfs->free.lookahead[off / 32] |= 1U << (off % 32);
+    if (off < lfs->free.lookahead) {
+        lfs->free.buffer[off / 32] |= 1U << (off % 32);
     }
 
     return 0;
@@ -285,30 +285,30 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     while (true) {
         while (true) {
             // check if we have looked at all blocks since last ack
-            if (lfs->free.start + lfs->free.off == lfs->free.end) {
+            if (lfs->free.begin + lfs->free.off == lfs->free.end) {
                 LFS_WARN("No more free space %d", lfs->free.end);
                 return LFS_ERR_NOSPC;
             }
 
-            if (lfs->free.off >= lfs->cfg->lookahead) {
+            if (lfs->free.off >= lfs->free.lookahead) {
                 break;
             }
 
             lfs_block_t off = lfs->free.off;
             lfs->free.off += 1;
 
-            if (!(lfs->free.lookahead[off / 32] & (1U << (off % 32)))) {
+            if (!(lfs->free.buffer[off / 32] & (1U << (off % 32)))) {
                 // found a free block
-                *block = (lfs->free.start + off) % lfs->cfg->block_count;
+                *block = (lfs->free.begin + off) % lfs->cfg->block_count;
                 return 0;
             }
         }
 
-        lfs->free.start += lfs->cfg->lookahead;
+        lfs->free.begin += lfs->free.lookahead;
         lfs->free.off = 0;
 
         // find mask of free blocks from tree
-        memset(lfs->free.lookahead, 0, lfs->cfg->lookahead/8);
+        memset(lfs->free.buffer, 0, lfs->free.lookahead/8);
         int err = lfs_traverse(lfs, lfs_alloc_lookahead, lfs);
         if (err) {
             return err;
@@ -317,7 +317,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 }
 
 static void lfs_alloc_ack(lfs_t *lfs) {
-    lfs->free.end = lfs->free.start + lfs->free.off + lfs->cfg->block_count;
+    lfs->free.end = lfs->free.begin + lfs->free.off + lfs->cfg->block_count;
 }
 
 
@@ -1786,12 +1786,15 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         }
     }
 
-    // setup lookahead
+    // setup lookahead, round down to nearest 32-bits
+    lfs->free.lookahead = lfs_min(lfs->cfg->lookahead, lfs->cfg->block_count);
+    lfs->free.lookahead = 32 * (lfs->free.lookahead / 32);
+    assert(lfs->free.lookahead > 0);
     if (lfs->cfg->lookahead_buffer) {
-        lfs->free.lookahead = lfs->cfg->lookahead_buffer;
+        lfs->free.buffer = lfs->cfg->lookahead_buffer;
     } else {
-        lfs->free.lookahead = malloc(lfs->cfg->lookahead/8);
-        if (!lfs->free.lookahead) {
+        lfs->free.buffer = malloc(lfs->free.lookahead/8);
+        if (!lfs->free.buffer) {
             return LFS_ERR_NOMEM;
         }
     }
@@ -1816,7 +1819,7 @@ static int lfs_deinit(lfs_t *lfs) {
     }
 
     if (!lfs->cfg->lookahead_buffer) {
-        free(lfs->free.lookahead);
+        free(lfs->free.buffer);
     }
 
     return 0;
@@ -1829,10 +1832,10 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // create free lookahead
-    memset(lfs->free.lookahead, 0, lfs->cfg->lookahead/8);
-    lfs->free.start = 0;
+    memset(lfs->free.buffer, 0, lfs->free.lookahead/8);
+    lfs->free.begin = 0;
     lfs->free.off = 0;
-    lfs->free.end = lfs->free.start + lfs->cfg->block_count;
+    lfs->free.end = lfs->free.begin + lfs->cfg->block_count;
 
     // create superblock dir
     lfs_alloc_ack(lfs);
@@ -1908,9 +1911,9 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // setup free lookahead
-    lfs->free.start = -lfs->cfg->lookahead;
-    lfs->free.off = lfs->cfg->lookahead;
-    lfs->free.end = lfs->free.start + lfs->cfg->block_count;
+    lfs->free.begin = -lfs->free.lookahead;
+    lfs->free.off = lfs->free.lookahead;
+    lfs->free.end = lfs->free.begin + lfs->cfg->block_count;
 
     // load superblock
     lfs_dir_t dir;
