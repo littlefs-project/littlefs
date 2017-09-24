@@ -131,7 +131,8 @@ the littlefs was developed with the goal of learning more about filesystem
 design by tackling the relative unsolved problem of managing a robust
 filesystem resilient to power loss on devices with limited RAM and ROM.
 More detail on the solutions and tradeoffs incorporated into this filesystem
-can be found in [DESIGN.md](DESIGN.md).
+can be found in [DESIGN.md](DESIGN.md). The specification for the layout
+of the filesystem on disk can be found in [SPEC.md](SPEC.md).
 
 ## Testing
 
