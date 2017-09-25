@@ -16,3 +16,33 @@ script:
     - CFLAGS="-DLFS_READ_SIZE=512 -DLFS_PROG_SIZE=512" make test
     - CFLAGS="-DLFS_BLOCK_COUNT=1023" make test
     - CFLAGS="-DLFS_LOOKAHEAD=2047"   make test
+
+    # self-host with littlefs-fuse for fuzz test
+    - make -C littlefs-fuse
+
+    - littlefs-fuse/lfs --format /dev/loop0
+    - littlefs-fuse/lfs /dev/loop0 mount
+
+    - ls mount
+    - mkdir mount/littlefs
+    - cp -r $(git ls-tree --name-only HEAD) mount/littlefs
+    - cd mount/littlefs
+    - ls
+    - make -B test_dirs
+
+before_install:
+    - fusermount -V
+    - gcc --version
+
+install:
+    - sudo apt-get install libfuse-dev
+    - git clone --depth 1 https://github.com/geky/littlefs-fuse
+
+before_script:
+    - rm -rf littlefs-fuse/littlefs/*
+    - cp -r $(git ls-tree --name-only HEAD) littlefs-fuse/littlefs
+
+    - mkdir mount
+    - sudo chmod a+rw /dev/loop0
+    - dd if=/dev/zero bs=512 count=2048 of=disk
+    - losetup /dev/loop0 disk

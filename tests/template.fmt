@@ -27,8 +27,8 @@ void test_assert(const char *file, unsigned line,
     }}
 
     if (v != e) {{
-        printf("\033[31m%s:%u: assert %s failed, expected %jd\033[0m\n",
-                file, line, s, e);
+        fprintf(stderr, "\033[31m%s:%u: assert %s failed with %jd, "
+                "expected %jd\033[0m\n", file, line, s, v, e);
         exit(-2);
     }}
 }}
