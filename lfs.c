@@ -1522,8 +1522,6 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     }
 
     // update pos
-    lfs_off_t pos = file->pos;
-
     if (whence == LFS_SEEK_SET) {
         file->pos = off;
     } else if (whence == LFS_SEEK_CUR) {
@@ -1540,7 +1538,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         file->pos = file->size + off;
     }
 
-    return pos;
+    return file->pos;
 }
 
 lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
