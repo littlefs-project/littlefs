@@ -46,7 +46,7 @@ enum lfs_error {
 enum lfs_type {
     LFS_TYPE_REG        = 0x11,
     LFS_TYPE_DIR        = 0x22,
-    LFS_TYPE_SUPERBLOCK = 0xe2,
+    LFS_TYPE_SUPERBLOCK = 0x2e,
 };
 
 // File open flags
@@ -244,6 +244,7 @@ typedef struct lfs {
 
     lfs_free_t free;
     bool deorphaned;
+    bool deduplicated;
 } lfs_t;
 
 
@@ -433,6 +434,9 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 //
 // Returns a negative error code on failure.
 int lfs_deorphan(lfs_t *lfs);
+
+// TODO doc
+int lfs_deduplicate(lfs_t *lfs);
 
 
 #endif

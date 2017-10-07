@@ -253,9 +253,11 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 static int lfs_pred(lfs_t *lfs, const lfs_block_t dir[2], lfs_dir_t *pdir);
 static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_dir_t *parent, lfs_entry_t *entry);
+static int lfs_moved(lfs_t *lfs, const void *e);
 static int lfs_relocate(lfs_t *lfs,
         const lfs_block_t oldpair[2], const lfs_block_t newpair[2]);
 int lfs_deorphan(lfs_t *lfs);
+int lfs_deduplicate(lfs_t *lfs);
 
 
 /// Block allocator ///
@@ -722,8 +724,8 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            if ((entry->d.type != LFS_TYPE_REG &&
-                 entry->d.type != LFS_TYPE_DIR) ||
+            if (((0x7f & entry->d.type) != LFS_TYPE_REG &&
+                 (0x7f & entry->d.type) != LFS_TYPE_DIR) ||
                 entry->d.nlen != pathlen) {
                 continue;
             }
@@ -739,6 +741,16 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
             if (res) {
                 break;
             }
+        }
+
+        // check that entry has not been moved
+        if (entry->d.type & 0x80) {
+            int moved = lfs_moved(lfs, &entry->d.u);
+            if (moved < 0 || moved) {
+                return (moved < 0) ? moved : LFS_ERR_NOENT;
+            }
+
+            entry->d.type &= ~0x80;
         }
 
         pathname += pathlen;
@@ -764,6 +776,14 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
 
 /// Top level directory operations ///
 int lfs_mkdir(lfs_t *lfs, const char *path) {
+    // make sure directories are clean
+    if (!lfs->deduplicated) {
+        int err = lfs_deduplicate(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
     // fetch parent directory
     lfs_dir_t cwd;
     int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
@@ -880,10 +900,26 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
             return (err == LFS_ERR_NOENT) ? 0 : err;
         }
 
-        if (entry.d.type == LFS_TYPE_REG ||
-            entry.d.type == LFS_TYPE_DIR) {
-            break;
+        if ((0x7f & entry.d.type) != LFS_TYPE_REG &&
+            (0x7f & entry.d.type) != LFS_TYPE_DIR) {
+            continue;
         }
+
+        // check that entry has not been moved
+        if (entry.d.type & 0x80) {
+            int moved = lfs_moved(lfs, &entry.d.u);
+            if (moved < 0) {
+                return moved;
+            }
+
+            if (moved) {
+                continue;
+            }
+
+            entry.d.type &= ~0x80;
+        }
+
+        break;
     }
 
     info->type = entry.d.type;
@@ -1113,6 +1149,14 @@ static int lfs_index_traverse(lfs_t *lfs,
 /// Top level file operations ///
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags) {
+    // make sure directories are clean
+    if ((flags & 3) != LFS_O_RDONLY && !lfs->deduplicated) {
+        int err = lfs_deduplicate(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
     // allocate entry for file if it doesn't exist
     lfs_dir_t cwd;
     int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
@@ -1598,6 +1642,14 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
 }
 
 int lfs_remove(lfs_t *lfs, const char *path) {
+    // make sure directories are clean
+    if (!lfs->deduplicated) {
+        int err = lfs_deduplicate(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
     lfs_dir_t cwd;
     int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
     if (err) {
@@ -1654,6 +1706,14 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 }
 
 int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
+    // make sure directories are clean
+    if (!lfs->deduplicated) {
+        int err = lfs_deduplicate(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
     // find old entry
     lfs_dir_t oldcwd;
     int err = lfs_dir_fetch(lfs, &oldcwd, lfs->root);
@@ -1666,6 +1726,14 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     if (err) {
         return err;
     }
+
+    // mark as moving
+    oldentry.d.type |= 0x80;
+    err = lfs_dir_update(lfs, &oldcwd, &oldentry, NULL);
+    if (err) {
+        return err;
+    }
+    oldentry.d.type &= ~0x80;
 
     // allocate new entry
     lfs_dir_t newcwd;
@@ -1716,35 +1784,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         }
     }
 
-    // fetch again in case newcwd == oldcwd
-    err = lfs_dir_fetch(lfs, &oldcwd, oldcwd.pair);
-    if (err) {
-        return err;
-    }
-
-    err = lfs_dir_find(lfs, &oldcwd, &oldentry, &oldpath);
-    if (err) {
-        return err;
-    }
-
-    // remove from old location
-    err = lfs_dir_remove(lfs, &oldcwd, &oldentry);
-    if (err) {
-        return err;
-    }
-
-    // shift over any files that are affected
-    for (lfs_file_t *f = lfs->files; f; f = f->next) {
-        if (lfs_paircmp(f->pair, oldcwd.pair) == 0) {
-            if (f->poff == oldentry.off) {
-                f->pair[0] = 0xffffffff;
-                f->pair[1] = 0xffffffff;
-            } else if (f->poff > oldentry.off) {
-                f->poff -= lfs_entry_size(&oldentry);
-            }
-        }
-    }
-
     // if we were a directory, just run a deorphan step, this should
     // collect us, although is expensive
     if (prevexists && preventry.d.type == LFS_TYPE_DIR) {
@@ -1752,6 +1791,12 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         if (err) {
             return err;
         }
+    }
+
+    // just deduplicate
+    err = lfs_deduplicate(lfs);
+    if (err) {
+        return err;
     }
 
     return 0;
@@ -1802,6 +1847,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->root[1] = 0xffffffff;
     lfs->files = NULL;
     lfs->deorphaned = false;
+    lfs->deduplicated = false;
 
     return 0;
 }
@@ -1979,7 +2025,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
             }
 
             dir.off += lfs_entry_size(&entry);
-            if ((0xf & entry.d.type) == (0xf & LFS_TYPE_REG)) {
+            if ((0x70 & entry.d.type) == (0x70 & LFS_TYPE_REG)) {
                 int err = lfs_index_traverse(lfs, &lfs->rcache, NULL,
                         entry.d.u.file.head, entry.d.u.file.size, cb, data);
                 if (err) {
@@ -2069,8 +2115,48 @@ static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2],
                 break;
             }
 
-            if (((0xf & entry->d.type) == (0xf & LFS_TYPE_DIR)) &&
+            if (((0x70 & entry->d.type) == (0x70 & LFS_TYPE_DIR)) &&
                  lfs_paircmp(entry->d.u.dir, dir) == 0) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+static int lfs_moved(lfs_t *lfs, const void *e) {
+    if (lfs_pairisnull(lfs->root)) {
+        return 0;
+    }
+
+    // skip superblock
+    lfs_dir_t cwd;
+    int err = lfs_dir_fetch(lfs, &cwd, (const lfs_block_t[2]){0, 1});
+    if (err) {
+        return err;
+    }
+
+    // iterate over all directory directory entries
+    lfs_entry_t entry;
+    while (!lfs_pairisnull(cwd.d.tail)) {
+        int err = lfs_dir_fetch(lfs, &cwd, cwd.d.tail);
+        if (err) {
+            return err;
+        }
+
+        while (true) {
+            int err = lfs_dir_next(lfs, &cwd, &entry);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            if (!(0x80 & entry.d.type) && 
+                 memcmp(&entry.d.u, e, sizeof(entry.d.u)) == 0) {
                 return true;
             }
         }
@@ -2192,6 +2278,80 @@ int lfs_deorphan(lfs_t *lfs) {
         }
 
         memcpy(&pdir, &cdir, sizeof(pdir));
+    }
+
+    return 0;
+}
+
+int lfs_deduplicate(lfs_t *lfs) {
+    lfs->deduplicated = true;
+
+    if (lfs_pairisnull(lfs->root)) {
+        return 0;
+    }
+
+    // skip superblock
+    lfs_dir_t cwd;
+    int err = lfs_dir_fetch(lfs, &cwd, (const lfs_block_t[2]){0, 1});
+    if (err) {
+        return err;
+    }
+
+    // iterate over all directory directory entries
+    lfs_entry_t entry;
+    while (!lfs_pairisnull(cwd.d.tail)) {
+        int err = lfs_dir_fetch(lfs, &cwd, cwd.d.tail);
+        if (err) {
+            return err;
+        }
+
+        while (true) {
+            int err = lfs_dir_next(lfs, &cwd, &entry);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            // found moved entry
+            if (entry.d.type & 0x80) {
+                int moved = lfs_moved(lfs, &entry.d.u);
+                if (moved < 0) {
+                    return moved;
+                }
+
+                if (moved) {
+                    LFS_DEBUG("Found move %d %d",
+                            entry.d.u.dir[0], entry.d.u.dir[1]);
+                    int err = lfs_dir_remove(lfs, &cwd, &entry);
+                    if (err) {
+                        return err;
+                    }
+
+                    // shift over any files that are affected
+                    for (lfs_file_t *f = lfs->files; f; f = f->next) {
+                        if (lfs_paircmp(f->pair, cwd.pair) == 0) {
+                            if (f->poff == entry.off) {
+                                f->pair[0] = 0xffffffff;
+                                f->pair[1] = 0xffffffff;
+                            } else if (f->poff > entry.off) {
+                                f->poff -= lfs_entry_size(&entry);
+                            }
+                        }
+                    }
+                } else {
+                    LFS_DEBUG("Found partial move %d %d",
+                            entry.d.u.dir[0], entry.d.u.dir[1]);
+                    entry.d.type &= ~0x80;
+                    int err = lfs_dir_update(lfs, &cwd, &entry, NULL);
+                    if (err) {
+                        return err;
+                    }
+                }
+            }
+        }
     }
 
     return 0;

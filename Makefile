@@ -32,7 +32,7 @@ size: $(OBJ)
 
 .SUFFIXES:
 test: test_format test_dirs test_files test_seek test_parallel \
-	test_alloc test_paths test_orphan test_corrupt
+	test_alloc test_paths test_orphan test_move test_corrupt
 test_%: tests/test_%.sh
 	./$<
 
