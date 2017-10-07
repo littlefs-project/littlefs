@@ -244,7 +244,6 @@ typedef struct lfs {
 
     lfs_free_t free;
     bool deorphaned;
-    bool deduplicated;
 } lfs_t;
 
 

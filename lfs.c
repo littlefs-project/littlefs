@@ -257,7 +257,6 @@ static int lfs_moved(lfs_t *lfs, const void *e);
 static int lfs_relocate(lfs_t *lfs,
         const lfs_block_t oldpair[2], const lfs_block_t newpair[2]);
 int lfs_deorphan(lfs_t *lfs);
-int lfs_deduplicate(lfs_t *lfs);
 
 
 /// Block allocator ///
@@ -276,14 +275,6 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
 }
 
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
-    // deorphan if we haven't yet, only needed once after poweron
-    if (!lfs->deorphaned) {
-        int err = lfs_deorphan(lfs);
-        if (err) {
-            return err;
-        }
-    }
-
     while (true) {
         while (true) {
             // check if we have looked at all blocks since last ack
@@ -440,7 +431,10 @@ struct lfs_region {
 
 static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
         const struct lfs_region *regions, int count) {
+    // increment revision count
     dir->d.rev += 1;
+
+    // keep pairs in order such that pair[0] is most recent
     lfs_pairswap(dir->pair);
     for (int i = 0; i < count; i++) {
         dir->d.size += regions[i].newlen - regions[i].oldlen;
@@ -629,8 +623,8 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
 
         if (!(pdir.d.size & 0x80000000)) {
             return lfs_dir_commit(lfs, dir, (struct lfs_region[]){
-                {entry->off, lfs_entry_size(entry), NULL, 0},
-            }, 1);
+                    {entry->off, lfs_entry_size(entry), NULL, 0},
+                }, 1);
         } else {
             pdir.d.size &= dir->d.size | 0x7fffffff;
             pdir.d.tail[0] = dir->d.tail[0];
@@ -638,9 +632,26 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
             return lfs_dir_commit(lfs, &pdir, NULL, 0);
         }
     } else {
-        return lfs_dir_commit(lfs, dir, (struct lfs_region[]){
-            {entry->off, lfs_entry_size(entry), NULL, 0},
-        }, 1);
+        int err = lfs_dir_commit(lfs, dir, (struct lfs_region[]){
+                {entry->off, lfs_entry_size(entry), NULL, 0},
+            }, 1);
+        if (err) {
+            return err;
+        }
+
+        // shift over any files that are affected
+        for (lfs_file_t *f = lfs->files; f; f = f->next) {
+            if (lfs_paircmp(f->pair, dir->pair) == 0) {
+                if (f->poff == entry->off) {
+                    f->pair[0] = 0xffffffff;
+                    f->pair[1] = 0xffffffff;
+                } else if (f->poff > entry->off) {
+                    f->poff -= lfs_entry_size(entry);
+                }
+            }
+        }
+
+        return 0;
     }
 }
 
@@ -776,9 +787,9 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
 
 /// Top level directory operations ///
 int lfs_mkdir(lfs_t *lfs, const char *path) {
-    // make sure directories are clean
-    if (!lfs->deduplicated) {
-        int err = lfs_deduplicate(lfs);
+    // deorphan if we haven't yet, needed at most once after poweron
+    if (!lfs->deorphaned) {
+        int err = lfs_deorphan(lfs);
         if (err) {
             return err;
         }
@@ -1149,9 +1160,9 @@ static int lfs_index_traverse(lfs_t *lfs,
 /// Top level file operations ///
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags) {
-    // make sure directories are clean
-    if ((flags & 3) != LFS_O_RDONLY && !lfs->deduplicated) {
-        int err = lfs_deduplicate(lfs);
+    // deorphan if we haven't yet, needed at most once after poweron
+    if ((flags & 3) != LFS_O_RDONLY && !lfs->deorphaned) {
+        int err = lfs_deorphan(lfs);
         if (err) {
             return err;
         }
@@ -1642,9 +1653,9 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
 }
 
 int lfs_remove(lfs_t *lfs, const char *path) {
-    // make sure directories are clean
-    if (!lfs->deduplicated) {
-        int err = lfs_deduplicate(lfs);
+    // deorphan if we haven't yet, needed at most once after poweron
+    if (!lfs->deorphaned) {
+        int err = lfs_deorphan(lfs);
         if (err) {
             return err;
         }
@@ -1681,22 +1692,18 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         return err;
     }
 
-    // shift over any files that are affected
-    for (lfs_file_t *f = lfs->files; f; f = f->next) {
-        if (lfs_paircmp(f->pair, cwd.pair) == 0) {
-            if (f->poff == entry.off) {
-                f->pair[0] = 0xffffffff;
-                f->pair[1] = 0xffffffff;
-            } else if (f->poff > entry.off) {
-                f->poff -= lfs_entry_size(&entry);
-            }
-        }
-    }
-
-    // if we were a directory, just run a deorphan step, this should
-    // collect us, although is expensive
+    // if we were a directory, find pred, replace tail
     if (entry.d.type == LFS_TYPE_DIR) {
-        int err = lfs_deorphan(lfs);
+        int res = lfs_pred(lfs, dir.pair, &cwd);
+        if (res < 0) {
+            return res;
+        }
+
+        assert(res); // must have pred
+        cwd.d.tail[0] = dir.d.tail[0];
+        cwd.d.tail[1] = dir.d.tail[1];
+
+        int err = lfs_dir_commit(lfs, &cwd, NULL, 0);
         if (err) {
             return err;
         }
@@ -1706,9 +1713,9 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 }
 
 int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
-    // make sure directories are clean
-    if (!lfs->deduplicated) {
-        int err = lfs_deduplicate(lfs);
+    // deorphan if we haven't yet, needed at most once after poweron
+    if (!lfs->deorphaned) {
+        int err = lfs_deorphan(lfs);
         if (err) {
             return err;
         }
@@ -1727,14 +1734,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         return err;
     }
 
-    // mark as moving
-    oldentry.d.type |= 0x80;
-    err = lfs_dir_update(lfs, &oldcwd, &oldentry, NULL);
-    if (err) {
-        return err;
-    }
-    oldentry.d.type &= ~0x80;
-
     // allocate new entry
     lfs_dir_t newcwd;
     err = lfs_dir_fetch(lfs, &newcwd, lfs->root);
@@ -1747,7 +1746,9 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     if (err && (err != LFS_ERR_NOENT || strchr(newpath, '/') != NULL)) {
         return err;
     }
+
     bool prevexists = (err != LFS_ERR_NOENT);
+    bool samepair = (lfs_paircmp(oldcwd.pair, newcwd.pair) == 0);
 
     // must have same type
     if (prevexists && preventry.d.type != oldentry.d.type) {
@@ -1767,9 +1768,22 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         }
     }
 
+    // mark as moving
+    oldentry.d.type |= 0x80;
+    err = lfs_dir_update(lfs, &oldcwd, &oldentry, NULL);
+    if (err) {
+        return err;
+    }
+
+    // update pair if newcwd == oldcwd
+    if (samepair) {
+        newcwd = oldcwd;
+    }
+
     // move to new location
     lfs_entry_t newentry = preventry;
     newentry.d = oldentry.d;
+    newentry.d.type &= ~0x80;
     newentry.d.nlen = strlen(newpath);
 
     if (prevexists) {
@@ -1784,19 +1798,32 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         }
     }
 
-    // if we were a directory, just run a deorphan step, this should
-    // collect us, although is expensive
+    // update pair if newcwd == oldcwd
+    if (samepair) {
+        oldcwd = newcwd;
+    }
+
+    // remove old entry
+    err = lfs_dir_remove(lfs, &oldcwd, &oldentry);
+    if (err) {
+        return err;
+    }
+
+    // if we were a directory, find pred, replace tail
     if (prevexists && preventry.d.type == LFS_TYPE_DIR) {
-        int err = lfs_deorphan(lfs);
+        int res = lfs_pred(lfs, dir.pair, &newcwd);
+        if (res < 0) {
+            return res;
+        }
+
+        assert(res); // must have pred
+        newcwd.d.tail[0] = dir.d.tail[0];
+        newcwd.d.tail[1] = dir.d.tail[1];
+
+        int err = lfs_dir_commit(lfs, &newcwd, NULL, 0);
         if (err) {
             return err;
         }
-    }
-
-    // just deduplicate
-    err = lfs_deduplicate(lfs);
-    if (err) {
-        return err;
     }
 
     return 0;
@@ -1847,7 +1874,6 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->root[1] = 0xffffffff;
     lfs->files = NULL;
     lfs->deorphaned = false;
-    lfs->deduplicated = false;
 
     return 0;
 }
@@ -1963,16 +1989,22 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_dir_t dir;
     lfs_superblock_t superblock;
     err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
+    if (err && err != LFS_ERR_CORRUPT) {
+        return err;
+    }
+
     if (!err) {
-        err = lfs_bd_read(lfs, dir.pair[0], sizeof(dir.d),
+        int err = lfs_bd_read(lfs, dir.pair[0], sizeof(dir.d),
                 &superblock.d, sizeof(superblock.d));
+        if (err) {
+            return err;
+        }
 
         lfs->root[0] = superblock.d.root[0];
         lfs->root[1] = superblock.d.root[1];
     }
 
-    if (err == LFS_ERR_CORRUPT ||
-            memcmp(superblock.d.magic, "littlefs", 8) != 0) {
+    if (err || memcmp(superblock.d.magic, "littlefs", 8) != 0) {
         LFS_ERROR("Invalid superblock at %d %d", dir.pair[0], dir.pair[1]);
         return LFS_ERR_CORRUPT;
     }
@@ -1984,7 +2016,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         return LFS_ERR_INVAL;
     }
 
-    return err;
+    return 0;
 }
 
 int lfs_unmount(lfs_t *lfs) {
@@ -2205,7 +2237,7 @@ static int lfs_relocate(lfs_t *lfs,
     if (res) {
         // just replace bad pair, no desync can occur
         parent.d.tail[0] = newpair[0];
-        parent.d.tail[0] = newpair[0];
+        parent.d.tail[1] = newpair[1];
 
         return lfs_dir_commit(lfs, &parent, NULL, 0);
     }
@@ -2216,27 +2248,22 @@ static int lfs_relocate(lfs_t *lfs,
 
 int lfs_deorphan(lfs_t *lfs) {
     lfs->deorphaned = true;
+
     if (lfs_pairisnull(lfs->root)) {
         return 0;
     }
 
-    lfs_dir_t pdir;
-    lfs_dir_t cdir;
+    lfs_dir_t pdir = {.d.size = 0x80000000};
+    lfs_dir_t cwd = {.d.tail[0] = 0, .d.tail[1] = 1};
 
-    // skip superblock
-    int err = lfs_dir_fetch(lfs, &pdir, (const lfs_block_t[2]){0, 1});
-    if (err) {
-        return err;
-    }
-
-    // iterate over all directories
-    while (!lfs_pairisnull(pdir.d.tail)) {
-        int err = lfs_dir_fetch(lfs, &cdir, pdir.d.tail);
+    // iterate over all directory directory entries
+    while (!lfs_pairisnull(cwd.d.tail)) {
+        int err = lfs_dir_fetch(lfs, &cwd, cwd.d.tail);
         if (err) {
             return err;
         }
 
-        // only check head blocks
+        // check head blocks for orphans
         if (!(0x80000000 & pdir.d.size)) {
             // check if we have a parent
             lfs_dir_t parent;
@@ -2248,10 +2275,11 @@ int lfs_deorphan(lfs_t *lfs) {
 
             if (!res) {
                 // we are an orphan
-                LFS_DEBUG("Orphan %d %d", pdir.d.tail[0], pdir.d.tail[1]);
+                LFS_DEBUG("Found orphan %d %d",
+                        pdir.d.tail[0], pdir.d.tail[1]);
 
-                pdir.d.tail[0] = cdir.d.tail[0];
-                pdir.d.tail[1] = cdir.d.tail[1];
+                pdir.d.tail[0] = cwd.d.tail[0];
+                pdir.d.tail[1] = cwd.d.tail[1];
 
                 err = lfs_dir_commit(lfs, &pdir, NULL, 0);
                 if (err) {
@@ -2263,7 +2291,8 @@ int lfs_deorphan(lfs_t *lfs) {
 
             if (!lfs_pairsync(entry.d.u.dir, pdir.d.tail)) {
                 // we have desynced
-                LFS_DEBUG("Desync %d %d", entry.d.u.dir[0], entry.d.u.dir[1]);
+                LFS_DEBUG("Found desync %d %d",
+                        entry.d.u.dir[0], entry.d.u.dir[1]);
 
                 pdir.d.tail[0] = entry.d.u.dir[0];
                 pdir.d.tail[1] = entry.d.u.dir[1];
@@ -2277,34 +2306,8 @@ int lfs_deorphan(lfs_t *lfs) {
             }
         }
 
-        memcpy(&pdir, &cdir, sizeof(pdir));
-    }
-
-    return 0;
-}
-
-int lfs_deduplicate(lfs_t *lfs) {
-    lfs->deduplicated = true;
-
-    if (lfs_pairisnull(lfs->root)) {
-        return 0;
-    }
-
-    // skip superblock
-    lfs_dir_t cwd;
-    int err = lfs_dir_fetch(lfs, &cwd, (const lfs_block_t[2]){0, 1});
-    if (err) {
-        return err;
-    }
-
-    // iterate over all directory directory entries
-    lfs_entry_t entry;
-    while (!lfs_pairisnull(cwd.d.tail)) {
-        int err = lfs_dir_fetch(lfs, &cwd, cwd.d.tail);
-        if (err) {
-            return err;
-        }
-
+        // check entries for moves
+        lfs_entry_t entry;
         while (true) {
             int err = lfs_dir_next(lfs, &cwd, &entry);
             if (err && err != LFS_ERR_NOENT) {
@@ -2329,18 +2332,6 @@ int lfs_deduplicate(lfs_t *lfs) {
                     if (err) {
                         return err;
                     }
-
-                    // shift over any files that are affected
-                    for (lfs_file_t *f = lfs->files; f; f = f->next) {
-                        if (lfs_paircmp(f->pair, cwd.pair) == 0) {
-                            if (f->poff == entry.off) {
-                                f->pair[0] = 0xffffffff;
-                                f->pair[1] = 0xffffffff;
-                            } else if (f->poff > entry.off) {
-                                f->poff -= lfs_entry_size(&entry);
-                            }
-                        }
-                    }
                 } else {
                     LFS_DEBUG("Found partial move %d %d",
                             entry.d.u.dir[0], entry.d.u.dir[1]);
@@ -2352,6 +2343,8 @@ int lfs_deduplicate(lfs_t *lfs) {
                 }
             }
         }
+
+        memcpy(&pdir, &cwd, sizeof(pdir));
     }
 
     return 0;
