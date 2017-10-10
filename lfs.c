@@ -1005,12 +1005,11 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
 /// File index list operations ///
 static int lfs_index(lfs_t *lfs, lfs_off_t *off) {
     lfs_off_t i = 0;
-    lfs_size_t words = lfs->cfg->block_size / 4;
 
     while (*off >= lfs->cfg->block_size) {
         i += 1;
         *off -= lfs->cfg->block_size;
-        *off += 4*lfs_min(lfs_ctz(i)+1, words-1);
+        *off += 4*(lfs_ctz(i) + 1);
     }
 
     return i;
@@ -1028,12 +1027,11 @@ static int lfs_index_find(lfs_t *lfs,
 
     lfs_off_t current = lfs_index(lfs, &(lfs_off_t){size-1});
     lfs_off_t target = lfs_index(lfs, &pos);
-    lfs_size_t words = lfs->cfg->block_size / 4;
 
     while (current > target) {
         lfs_size_t skip = lfs_min(
                 lfs_npw2(current-target+1) - 1,
-                lfs_min(lfs_ctz(current)+1, words-1) - 1);
+                lfs_ctz(current));
 
         int err = lfs_cache_read(lfs, rcache, pcache, head, 4*skip, &head, 4);
         if (err) {
@@ -1102,8 +1100,7 @@ static int lfs_index_extend(lfs_t *lfs,
 
         // append block
         index += 1;
-        lfs_size_t words = lfs->cfg->block_size / 4;
-        lfs_size_t skips = lfs_min(lfs_ctz(index)+1, words-1);
+        lfs_size_t skips = lfs_ctz(index) + 1;
 
         for (lfs_off_t i = 0; i < skips; i++) {
             int err = lfs_cache_prog(lfs, pcache, rcache,
@@ -1879,6 +1876,10 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
             return LFS_ERR_NOMEM;
         }
     }
+
+    // check that the block size is large enough to fit ctz pointers
+    assert(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
+            <= lfs->cfg->block_size);
 
     // setup default state
     lfs->root[0] = 0xffffffff;
