@@ -243,7 +243,8 @@ typedef struct lfs {
     lfs_cache_t pcache;
 
     lfs_free_t free;
-    bool deorphaned;
+    uint8_t unstable;
+    uint8_t sum;
 } lfs_t;
 
 
