@@ -121,12 +121,17 @@ Here's the layout of entries on disk:
 **Entry type** - Type of the entry, currently this is limited to the following:
 - 0x11 - file entry
 - 0x22 - directory entry
-- 0xe2 - superblock entry
+- 0x2e - superblock entry
 
-Additionally, the type is broken into two 4 bit nibbles, with the lower nibble
+Additionally, the type is broken into two 4 bit nibbles, with the upper nibble
 specifying the type's data structure used when scanning the filesystem. The
-upper nibble clarifies the type further when multiple entries share the same
+lower nibble clarifies the type further when multiple entries share the same
 data structure.
+
+The highest bit is reserved for marking the entry as "moved". If an entry
+is marked as "moved", the entry may also exist somewhere else in the
+filesystem. If the entry exists elsewhere, this entry must be treated as
+though it does not exist.
 
 **Entry length** - Length in bytes of the entry-specific data. This does
 not include the entry type size, attributes, or name. The full size in bytes
@@ -175,7 +180,7 @@ Here's the layout of the superblock entry:
 
 | offset | size                   | description                            |
 |--------|------------------------|----------------------------------------|
-| 0x00   | 8 bits                 | entry type (0xe2 for superblock entry) |
+| 0x00   | 8 bits                 | entry type (0x2e for superblock entry) |
 | 0x01   | 8 bits                 | entry length (20 bytes)                |
 | 0x02   | 8 bits                 | attribute length                       |
 | 0x03   | 8 bits                 | name length (8 bytes)                  |
@@ -208,7 +213,7 @@ Here's an example of a complete superblock:
 (32 bits) revision count   = 3                    (0x00000003)
 (32 bits) dir size         = 52 bytes, end of dir (0x00000034)
 (64 bits) tail pointer     = 3, 2                 (0x00000003, 0x00000002)
-(8 bits)  entry type       = superblock           (0xe2)
+(8 bits)  entry type       = superblock           (0x2e)
 (8 bits)  entry length     = 20 bytes             (0x14)
 (8 bits)  attribute length = 0 bytes              (0x00)
 (8 bits)  name length      = 8 bytes              (0x08)
@@ -220,7 +225,7 @@ Here's an example of a complete superblock:
 (32 bits) crc              = 0xc50b74fa
 
 00000000: 03 00 00 00 34 00 00 00 03 00 00 00 02 00 00 00  ....4...........
-00000010: e2 14 00 08 03 00 00 00 02 00 00 00 00 02 00 00  ................
+00000010: 2e 14 00 08 03 00 00 00 02 00 00 00 00 02 00 00  ................
 00000020: 00 04 00 00 01 00 01 00 6c 69 74 74 6c 65 66 73  ........littlefs
 00000030: fa 74 0b c5                                      .t..
 ```
@@ -262,15 +267,19 @@ Here's an example of a directory entry:
 
 Files are stored in entries with a pointer to the head of the file and the
 size of the file. This is enough information to determine the state of the
-CTZ linked-list that is being referenced.
+CTZ skip-list that is being referenced.
 
 How files are actually stored on disk is a bit complicated. The full
-explanation of CTZ linked-lists can be found in [DESIGN.md](DESIGN.md#ctz-linked-lists).
+explanation of CTZ skip-lists can be found in [DESIGN.md](DESIGN.md#ctz-skip-lists).
 
 A terribly quick summary: For every nth block where n is divisible by 2^x,
-the block contains a pointer that points x blocks towards the beginning of the
-file. These pointers are stored in order of x in each block of the file
-immediately before the data in the block.
+the block contains a pointer to block n-2^x. These pointers are stored in
+increasing order of x in each block of the file preceding the data in the
+block.
+
+The maximum number of pointers in a block is bounded by the maximum file size
+divided by the block size. With 32 bits for file size, this results in a
+minimum block size of 104 bytes.
 
 Here's the layout of a file entry:
 
@@ -286,7 +295,7 @@ Here's the layout of a file entry:
 | 0xc+a  | name length bytes      | directory name                     |
 
 **File head** - Pointer to the block that is the head of the file's CTZ
-linked-list.
+skip-list.
 
 **File size** - Size of file in bytes.
 
