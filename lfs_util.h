@@ -41,6 +41,10 @@ static inline uint32_t lfs_npw2(uint32_t a) {
     return 32 - __builtin_clz(a-1);
 }
 
+static inline uint32_t lfs_popc(uint32_t a) {
+    return __builtin_popcount(a);
+}
+
 static inline int lfs_scmp(uint32_t a, uint32_t b) {
     return (int)(unsigned)(a - b);
 }
