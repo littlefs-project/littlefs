@@ -1003,7 +1003,7 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
 
 
 /// File index list operations ///
-static int lfs_index(lfs_t *lfs, lfs_off_t *off) {
+static int lfs_ctz_index(lfs_t *lfs, lfs_off_t *off) {
     lfs_off_t i = 0;
 
     while (*off >= lfs->cfg->block_size) {
@@ -1015,7 +1015,7 @@ static int lfs_index(lfs_t *lfs, lfs_off_t *off) {
     return i;
 }
 
-static int lfs_index_find(lfs_t *lfs,
+static int lfs_ctz_find(lfs_t *lfs,
         lfs_cache_t *rcache, const lfs_cache_t *pcache,
         lfs_block_t head, lfs_size_t size,
         lfs_size_t pos, lfs_block_t *block, lfs_off_t *off) {
@@ -1025,8 +1025,8 @@ static int lfs_index_find(lfs_t *lfs,
         return 0;
     }
 
-    lfs_off_t current = lfs_index(lfs, &(lfs_off_t){size-1});
-    lfs_off_t target = lfs_index(lfs, &pos);
+    lfs_off_t current = lfs_ctz_index(lfs, &(lfs_off_t){size-1});
+    lfs_off_t target = lfs_ctz_index(lfs, &pos);
 
     while (current > target) {
         lfs_size_t skip = lfs_min(
@@ -1047,7 +1047,7 @@ static int lfs_index_find(lfs_t *lfs,
     return 0;
 }
 
-static int lfs_index_extend(lfs_t *lfs,
+static int lfs_ctz_extend(lfs_t *lfs,
         lfs_cache_t *rcache, lfs_cache_t *pcache,
         lfs_block_t head, lfs_size_t size,
         lfs_off_t *block, lfs_block_t *off) {
@@ -1073,7 +1073,7 @@ static int lfs_index_extend(lfs_t *lfs,
         }
 
         size -= 1;
-        lfs_off_t index = lfs_index(lfs, &size);
+        lfs_off_t index = lfs_ctz_index(lfs, &size);
         size += 1;
 
         // just copy out the last block if it is incomplete
@@ -1133,7 +1133,7 @@ relocate:
     }
 }
 
-static int lfs_index_traverse(lfs_t *lfs,
+static int lfs_ctz_traverse(lfs_t *lfs,
         lfs_cache_t *rcache, const lfs_cache_t *pcache,
         lfs_block_t head, lfs_size_t size,
         int (*cb)(void*, lfs_block_t), void *data) {
@@ -1141,7 +1141,7 @@ static int lfs_index_traverse(lfs_t *lfs,
         return 0;
     }
 
-    lfs_off_t index = lfs_index(lfs, &(lfs_off_t){size-1});
+    lfs_off_t index = lfs_ctz_index(lfs, &(lfs_off_t){size-1});
 
     while (true) {
         int err = cb(data, head);
@@ -1455,7 +1455,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         // check if we need a new block
         if (!(file->flags & LFS_F_READING) ||
                 file->off == lfs->cfg->block_size) {
-            int err = lfs_index_find(lfs, &file->cache, NULL,
+            int err = lfs_ctz_find(lfs, &file->cache, NULL,
                     file->head, file->size,
                     file->pos, &file->block, &file->off);
             if (err) {
@@ -1522,7 +1522,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                 file->off == lfs->cfg->block_size) {
             if (!(file->flags & LFS_F_WRITING) && file->pos > 0) {
                 // find out which block we're extending from
-                int err = lfs_index_find(lfs, &file->cache, NULL,
+                int err = lfs_ctz_find(lfs, &file->cache, NULL,
                         file->head, file->size,
                         file->pos-1, &file->block, &file->off);
                 if (err) {
@@ -1535,7 +1535,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
             // extend file with new blocks
             lfs_alloc_ack(lfs);
-            int err = lfs_index_extend(lfs, &lfs->rcache, &file->cache,
+            int err = lfs_ctz_extend(lfs, &lfs->rcache, &file->cache,
                     file->block, file->pos,
                     &file->block, &file->off);
             if (err) {
@@ -2070,7 +2070,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
 
             dir.off += lfs_entry_size(&entry);
             if ((0x70 & entry.d.type) == (0x70 & LFS_TYPE_REG)) {
-                int err = lfs_index_traverse(lfs, &lfs->rcache, NULL,
+                int err = lfs_ctz_traverse(lfs, &lfs->rcache, NULL,
                         entry.d.u.file.head, entry.d.u.file.size, cb, data);
                 if (err) {
                     return err;
@@ -2089,7 +2089,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
     // iterate over any open files
     for (lfs_file_t *f = lfs->files; f; f = f->next) {
         if (f->flags & LFS_F_DIRTY) {
-            int err = lfs_index_traverse(lfs, &lfs->rcache, &f->cache,
+            int err = lfs_ctz_traverse(lfs, &lfs->rcache, &f->cache,
                     f->head, f->size, cb, data);
             if (err) {
                 return err;
@@ -2097,7 +2097,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
         }
 
         if (f->flags & LFS_F_WRITING) {
-            int err = lfs_index_traverse(lfs, &lfs->rcache, &f->cache,
+            int err = lfs_ctz_traverse(lfs, &lfs->rcache, &f->cache,
                     f->block, f->pos, cb, data);
             if (err) {
                 return err;
