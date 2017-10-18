@@ -1005,21 +1005,15 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
 /// File index list operations ///
 static int lfs_ctz_index(lfs_t *lfs, lfs_off_t *off) {
     lfs_off_t size = *off;
-    lfs_off_t i = size / (lfs->cfg->block_size-2*4);
+    lfs_off_t b = lfs->cfg->block_size - 2*4;
+    lfs_off_t i = size / b;
     if (i == 0) {
         return 0;
     }
 
-    lfs_off_t nsize = (lfs->cfg->block_size-2*4)*i + 4*lfs_popc(i-1) + 2*4;
-    lfs_soff_t noff = size - nsize;
-
-    if (noff < 0) {
-        *off = noff + lfs->cfg->block_size;
-        return i-1;
-    } else {
-        *off = noff + 4*(lfs_ctz(i) + 1);
-        return i;
-    }
+    i = (size - 4*(lfs_popc(i-1)+2)) / b;
+    *off = size - b*i - 4*lfs_popc(i);
+    return i;
 }
 
 static int lfs_ctz_find(lfs_t *lfs,

@@ -396,42 +396,23 @@ for a file size:
 
 Unfortunately, we're not quite done. The popcount function is non-injective,
 so we can only find the file size from the block index, not the other way
-around. However, we can guess and correct. Consider an n' block index that
-is greater than n, we can find one pretty easily:
+around. However, we can solve for an n' block index that is greater than n
+with an error bounded by the range of the popcount function. We can then
+repeatedly substitute this n' into the original equation until the error
+is smaller than the integer division. As it turns out, we only need to
+perform this substitution once. Now we directly calculate our block index:
 
-![summation3step1](https://latex.codecogs.com/svg.latex?n%27%20%3D%20%5Cleft%5Clfloor%5Cfrac%7BN%7D%7BB-2%5Cfrac%7Bw%7D%7B8%7D%7D%5Cright%5Crfloor)
+![formulaforn](https://latex.codecogs.com/svg.latex?n%20%3D%20%5Cleft%5Clfloor%5Cfrac%7BN-%5Cfrac%7Bw%7D%7B8%7D%5Cleft%28%5Ctext%7Bpopcount%7D%5Cleft%28%5Cfrac%7BN%7D%7BB-2%5Cfrac%7Bw%7D%7B8%7D%7D-1%5Cright%29&plus;2%5Cright%29%7D%7BB-2%5Cfrac%7Bw%7D%7B8%7D%7D%5Cright%5Crfloor)
 
-where:  
-n' >= n  
+Now that we have our block index n, we can just plug it back into the above
+equation to find the offset. However, we do need to rearrange the equation
+a bit to avoid integer overflow:
 
-We can plug n' back into our popcount equation to find an N' file size that
-is greater than N. However, we need to rearrange our terms a bit to avoid
-integer overflow:
+![formulaforoff](https://latex.codecogs.com/svg.latex?%5Cmathit%7Boff%7D%20%3D%20N%20-%20%5Cleft%28B-2%5Cfrac%7Bw%7D%7B8%7D%5Cright%29n%20-%20%5Cfrac%7Bw%7D%7B8%7D%5Ctext%7Bpopcount%7D%28n%29)
 
-![summation3step2](https://latex.codecogs.com/svg.latex?N%27%20%3D%20%28B-2%5Cfrac%7Bw%7D%7B8%7D%29n%27&plus;%5Cfrac%7Bw%7D%7B8%7D%5Ctext%7Bpopcount%7D%28n%27%29)
-
-where:  
-N' >= N  
-
-Now that we have N', we can find our block offset:
-
-![summation3step3](https://latex.codecogs.com/svg.latex?%5Cmathit%7Boff%7D%27%20%3D%20N%20-%20N%27)
-
-where:  
-off' >= off, our byte offset in the block  
-
-Now we're getting somewhere. N' is greater than or equal to N, and as long as
-the number of pointers per block is bounded by the block size, it can only be
-different by at most one block. So we have two cases that can be determined by
-the sign of off'. If off' is negative, we correct n' and add a block to off'.
-Note that we also need to incorporate the overhead of the last block to get
-the right offset.
-
-![summation3step4](https://latex.codecogs.com/svg.latex?n%2C%20%5Cmathit%7Boff%7D%20%3D%20%5Cbegin%7Bcases%7D%20n%27-1%2C%20%5Cmathit%7Boff%7D%27&plus;B%20%26%20%5Cmathit%7Boff%7D%27%20%3C%200%20%5C%5C%20n%27%2C%20%5Cmathit%7Boff%7D%27&plus;%5Cfrac%7Bw%7D%7B8%7D%5Cleft%5B%5Ctext%7Bctz%7D%28n%27%29&plus;1%5Cright%5D%20%26%20%5Cmathit%7Boff%7D%27%20%5Cgeq%200%20%5Cend%7Bcases%7D)
-
-It's a lot of math, but computers are very good at math. With these equations
-we can solve for the block index + offset while only needed to store the file
-size in O(1).
+The solution involves quite a bit of math, but computers are very good at math.
+We can now solve for the block index + offset while only needed to store the
+file size in O(1).
 
 Here is what it might look like to update a file stored with a CTZ skip-list:
 ```
