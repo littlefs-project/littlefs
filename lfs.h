@@ -236,7 +236,6 @@ typedef struct lfs_superblock {
 } lfs_superblock_t;
 
 typedef struct lfs_free {
-    lfs_size_t lookahead;
     lfs_block_t begin;
     lfs_block_t end;
     lfs_block_t off;

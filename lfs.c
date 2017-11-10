@@ -278,7 +278,7 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
                 % (lfs_soff_t)(lfs->cfg->block_count))
             + lfs->cfg->block_count) % lfs->cfg->block_count;
 
-    if (off < lfs->free.lookahead) {
+    if (off < lfs->cfg->lookahead) {
         lfs->free.buffer[off / 32] |= 1U << (off % 32);
     }
 
@@ -294,7 +294,8 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
                 return LFS_ERR_NOSPC;
             }
 
-            if (lfs->free.off >= lfs->free.lookahead) {
+            if (lfs->free.off >= lfs_min(
+                    lfs->cfg->lookahead, lfs->cfg->block_count)) {
                 break;
             }
 
@@ -308,11 +309,11 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
             }
         }
 
-        lfs->free.begin += lfs->free.lookahead;
+        lfs->free.begin += lfs_min(lfs->cfg->lookahead, lfs->cfg->block_count);
         lfs->free.off = 0;
 
         // find mask of free blocks from tree
-        memset(lfs->free.buffer, 0, lfs->free.lookahead/8);
+        memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
         int err = lfs_traverse(lfs, lfs_alloc_lookahead, lfs);
         if (err) {
             return err;
@@ -1870,13 +1871,12 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // setup lookahead, round down to nearest 32-bits
-    lfs->free.lookahead = lfs_min(lfs->cfg->lookahead, lfs->cfg->block_count);
-    lfs->free.lookahead = 32 * (lfs->free.lookahead / 32);
-    assert(lfs->free.lookahead > 0);
+    assert(lfs->cfg->lookahead % 32 == 0);
+    assert(lfs->cfg->lookahead > 0);
     if (lfs->cfg->lookahead_buffer) {
         lfs->free.buffer = lfs->cfg->lookahead_buffer;
     } else {
-        lfs->free.buffer = malloc(lfs->free.lookahead/8);
+        lfs->free.buffer = malloc(lfs->cfg->lookahead/8);
         if (!lfs->free.buffer) {
             return LFS_ERR_NOMEM;
         }
@@ -1919,7 +1919,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // create free lookahead
-    memset(lfs->free.buffer, 0, lfs->free.lookahead/8);
+    memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
     lfs->free.begin = 0;
     lfs->free.off = 0;
     lfs->free.end = lfs->free.begin + lfs->cfg->block_count;
@@ -1998,8 +1998,8 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // setup free lookahead
-    lfs->free.begin = -lfs->free.lookahead;
-    lfs->free.off = lfs->free.lookahead;
+    lfs->free.begin = -lfs->cfg->lookahead;
+    lfs->free.off = lfs->cfg->lookahead;
     lfs->free.end = lfs->free.begin + lfs->cfg->block_count;
 
     // load superblock
