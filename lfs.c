@@ -1922,7 +1922,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
     lfs->free.begin = 0;
     lfs->free.off = 0;
-    lfs->free.end = lfs->free.begin + lfs->cfg->block_count;
+    lfs->free.end = lfs->free.begin + lfs->free.off + lfs->cfg->block_count;
 
     // create superblock dir
     lfs_alloc_ack(lfs);
@@ -2000,7 +2000,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     // setup free lookahead
     lfs->free.begin = -lfs->cfg->lookahead;
     lfs->free.off = lfs->cfg->lookahead;
-    lfs->free.end = lfs->free.begin + lfs->cfg->block_count;
+    lfs->free.end = lfs->free.begin + lfs->free.off + lfs->cfg->block_count;
 
     // load superblock
     lfs_dir_t dir;
