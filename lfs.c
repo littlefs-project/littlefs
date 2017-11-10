@@ -2027,7 +2027,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     if (superblock.d.version > (0x00010001 | 0x0000ffff)) {
-        LFS_ERROR("Invalid version %d.%d\n",
+        LFS_ERROR("Invalid version %d.%d",
                 0xffff & (superblock.d.version >> 16),
                 0xffff & (superblock.d.version >> 0));
         return LFS_ERR_INVAL;
