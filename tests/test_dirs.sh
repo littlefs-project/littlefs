@@ -56,7 +56,7 @@ TEST
 echo "--- Directory failures ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_mkdir(&lfs, "potato") => LFS_ERR_EXISTS;
+    lfs_mkdir(&lfs, "potato") => LFS_ERR_EXIST;
     lfs_dir_open(&lfs, &dir[0], "tomato") => LFS_ERR_NOENT;
     lfs_dir_open(&lfs, &dir[0], "burito") => LFS_ERR_NOTDIR;
     lfs_file_open(&lfs, &file[0], "tomato", LFS_O_RDONLY) => LFS_ERR_NOENT;

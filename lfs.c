@@ -819,7 +819,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     lfs_entry_t entry;
     err = lfs_dir_find(lfs, &cwd, &entry, &path);
     if (err != LFS_ERR_NOENT || strchr(path, '/') != NULL) {
-        return err ? err : LFS_ERR_EXISTS;
+        return err ? err : LFS_ERR_EXIST;
     }
 
     // build up new directory
@@ -1219,7 +1219,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     } else if (entry.d.type == LFS_TYPE_DIR) {
         return LFS_ERR_ISDIR;
     } else if (flags & LFS_O_EXCL) {
-        return LFS_ERR_EXISTS;
+        return LFS_ERR_EXIST;
     }
 
     // setup file struct
