@@ -1054,17 +1054,18 @@ static int lfs_ctz_find(lfs_t *lfs,
 static int lfs_ctz_extend(lfs_t *lfs,
         lfs_cache_t *rcache, lfs_cache_t *pcache,
         lfs_block_t head, lfs_size_t size,
-        lfs_off_t *block, lfs_block_t *off) {
+        lfs_block_t *block, lfs_off_t *off) {
     while (true) {
-        if (true) {
-            // go ahead and grab a block
-            int err = lfs_alloc(lfs, block);
-            if (err) {
-                return err;
-            }
-            assert(*block >= 2 && *block <= lfs->cfg->block_count);
+        // go ahead and grab a block
+        lfs_block_t nblock;
+        int err = lfs_alloc(lfs, &nblock);
+        if (err) {
+            return err;
+        }
+        assert(nblock >= 2 && nblock <= lfs->cfg->block_count);
 
-            err = lfs_bd_erase(lfs, *block);
+        if (true) {
+            err = lfs_bd_erase(lfs, nblock);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
@@ -1073,6 +1074,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
             }
 
             if (size == 0) {
+                *block = nblock;
                 *off = 0;
                 return 0;
             }
@@ -1092,7 +1094,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
                     }
 
                     err = lfs_cache_prog(lfs, pcache, rcache,
-                            *block, i, &data, 1);
+                            nblock, i, &data, 1);
                     if (err) {
                         if (err == LFS_ERR_CORRUPT) {
                             goto relocate;
@@ -1101,6 +1103,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
                     }
                 }
 
+                *block = nblock;
                 *off = size;
                 return 0;
             }
@@ -1111,7 +1114,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
 
             for (lfs_off_t i = 0; i < skips; i++) {
                 int err = lfs_cache_prog(lfs, pcache, rcache,
-                        *block, 4*i, &head, 4);
+                        nblock, 4*i, &head, 4);
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
@@ -1130,12 +1133,13 @@ static int lfs_ctz_extend(lfs_t *lfs,
                 assert(head >= 2 && head <= lfs->cfg->block_count);
             }
 
+            *block = nblock;
             *off = 4*skips;
             return 0;
         }
 
 relocate:
-        LFS_DEBUG("Bad block at %d", *block);
+        LFS_DEBUG("Bad block at %d", nblock);
 
         // just clear cache and try a new block
         pcache->block = 0xffffffff;
