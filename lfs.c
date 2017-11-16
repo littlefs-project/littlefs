@@ -531,18 +531,19 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
             }
 
             // successful commit, check checksum to make sure
-            crc = 0xffffffff;
+            uint32_t ncrc = 0xffffffff;
             err = lfs_bd_crc(lfs, dir->pair[0], 0,
-                    0x7fffffff & dir->d.size, &crc);
+                    (0x7fffffff & dir->d.size)-4, &ncrc);
             if (err) {
                 return err;
             }
 
-            if (crc == 0) {
-                break;
+            if (ncrc != crc) {
+                goto relocate;
             }
         }
 
+        break;
 relocate:
         //commit was corrupted
         LFS_DEBUG("Bad block at %d", dir->pair[0]);

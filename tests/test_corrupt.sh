@@ -82,6 +82,17 @@ do
     lfs_chktree
 done
 
+echo "--- Block persistance ---"
+for i in {0..33}
+do 
+    rm -rf blocks
+    mkdir blocks
+    lfs_mktree
+    chmod a-w blocks/$(printf '%x' $i)
+    lfs_mktree
+    lfs_chktree
+done
+
 echo "--- Big region corruption ---"
 rm -rf blocks
 mkdir blocks
