@@ -75,6 +75,7 @@ enum lfs_open_flags {
     LFS_F_DIRTY   = 0x10000, // File does not match storage
     LFS_F_WRITING = 0x20000, // File has been written since last flush
     LFS_F_READING = 0x40000, // File has been read since last flush
+    LFS_F_ERRED   = 0x80000, // An error occured during write
 };
 
 // File seek flags

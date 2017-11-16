@@ -121,6 +121,7 @@ tests/test.py << TEST
     size = strlen("exhaustion");
     memcpy(buffer, "exhaustion", size);
     lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    lfs_file_sync(&lfs, &file[0]) => 0;
 
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
@@ -142,6 +143,7 @@ tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_RDONLY);
     size = strlen("exhaustion");
+    lfs_file_size(&lfs, &file[0]) => size;
     lfs_file_read(&lfs, &file[0], buffer, size) => size;
     memcmp(buffer, "exhaustion", size) => 0;
     lfs_file_close(&lfs, &file[0]) => 0;
@@ -166,6 +168,7 @@ tests/test.py << TEST
     size = strlen("exhaustion");
     memcpy(buffer, "exhaustion", size);
     lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    lfs_file_sync(&lfs, &file[0]) => 0;
 
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
@@ -187,6 +190,7 @@ tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_RDONLY);
     size = strlen("exhaustion");
+    lfs_file_size(&lfs, &file[0]) => size;
     lfs_file_read(&lfs, &file[0], buffer, size) => size;
     memcmp(buffer, "exhaustion", size) => 0;
     lfs_file_close(&lfs, &file[0]) => 0;
@@ -196,14 +200,14 @@ TEST
 echo "--- Dir exhaustion test ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_stat(&lfs, "exhaustion", &info) => 0;
-    lfs_size_t fullsize = info.size;
     lfs_remove(&lfs, "exhaustion") => 0;
 
     lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
-    for (lfs_size_t i = 0; i < fullsize - 2*512; i += size) {
+    for (lfs_size_t i = 0;
+            i < (cfg.block_count-6)*(cfg.block_size-8);
+            i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
     lfs_file_close(&lfs, &file[0]) => 0;
@@ -214,7 +218,11 @@ tests/test.py << TEST
     lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_WRONLY | LFS_O_APPEND);
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
-    lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    for (lfs_size_t i = 0;
+            i < (cfg.block_size-8);
+            i += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
     lfs_file_close(&lfs, &file[0]) => 0;
 
     lfs_mkdir(&lfs, "exhaustiondir") => LFS_ERR_NOSPC;
@@ -224,14 +232,14 @@ TEST
 echo "--- Chained dir exhaustion test ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_stat(&lfs, "exhaustion", &info) => 0;
-    lfs_size_t fullsize = info.size;
-
     lfs_remove(&lfs, "exhaustion") => 0;
+
     lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
-    for (lfs_size_t i = 0; i < fullsize - 19*512; i += size) {
+    for (lfs_size_t i = 0;
+            i < (cfg.block_count-24)*(cfg.block_size-8);
+            i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
     lfs_file_close(&lfs, &file[0]) => 0;
@@ -247,7 +255,9 @@ tests/test.py << TEST
     lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
-    for (lfs_size_t i = 0; i < fullsize - 20*512; i += size) {
+    for (lfs_size_t i = 0;
+            i < (cfg.block_count-26)*(cfg.block_size-8);
+            i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
     lfs_file_close(&lfs, &file[0]) => 0;

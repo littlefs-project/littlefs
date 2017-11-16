@@ -1403,7 +1403,9 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
 
-    if ((file->flags & LFS_F_DIRTY) && !lfs_pairisnull(file->pair)) {
+    if ((file->flags & LFS_F_DIRTY) &&
+            !(file->flags & LFS_F_ERRED) &&
+            !lfs_pairisnull(file->pair)) {
         // update dir entry
         lfs_dir_t cwd;
         int err = lfs_dir_fetch(lfs, &cwd, file->pair);
@@ -1537,6 +1539,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                         file->head, file->size,
                         file->pos-1, &file->block, &file->off);
                 if (err) {
+                    file->flags |= LFS_F_ERRED;
                     return err;
                 }
 
@@ -1550,6 +1553,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                     file->block, file->pos,
                     &file->block, &file->off);
             if (err) {
+                file->flags |= LFS_F_ERRED;
                 return err;
             }
 
@@ -1565,6 +1569,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
                 }
+                file->flags |= LFS_F_ERRED;
                 return err;
             }
 
@@ -1572,6 +1577,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 relocate:
             err = lfs_file_relocate(lfs, file);
             if (err) {
+                file->flags |= LFS_F_ERRED;
                 return err;
             }
         }
@@ -1584,6 +1590,7 @@ relocate:
         lfs_alloc_ack(lfs);
     }
 
+    file->flags &= ~LFS_F_ERRED;
     return size;
 }
 
