@@ -11,23 +11,17 @@ A little fail-safe filesystem designed for embedded systems.
    | | |
 ```
 
-**Fail-safe** - The littlefs is designed to work consistently with random
-power failures. During filesystem operations the storage on disk is always
-kept in a valid state. The filesystem also has strong copy-on-write garuntees.
-When updating a file, the original file will remain unmodified until the
-file is closed, or sync is called.
+**Bounded RAM/ROM** - The littlefs is designed to work with a limited amount
+of memory. Recursion is avoided and dynamic memory is limited to configurable
+buffers that can be provided statically.
 
-**Wear awareness** - While the littlefs does not implement static wear
-leveling, the littlefs takes into account write errors reported by the
-underlying block device and uses a limited form of dynamic wear leveling
-to manage blocks that go bad during the lifetime of the filesystem.
+**Power-loss resilient** - The littlefs is designed for systems that may have
+random power failures. The littlefs has strong copy-on-write guaruntees and
+storage on disk is always kept in a valid state.
 
-**Bounded ram/rom** - The littlefs is designed to work in a
-limited amount of memory, recursion is avoided, and dynamic memory is kept
-to a minimum. The littlefs allocates two fixed-size buffers for general
-operations, and one fixed-size buffer per file. If there is only ever one file
-in use, all memory can be provided statically and the littlefs can be used
-in a system without dynamic memory.
+**Wear leveling** - Since the most common form of embedded storage is erodible
+flash memories, littlefs provides a form of dynamic wear leveling for systems
+that can not fit a full flash translation layer.
 
 ## Example
 
@@ -96,7 +90,7 @@ int main(void) {
 Detailed documentation (or at least as much detail as is currently available)
 can be cound in the comments in [lfs.h](lfs.h).
 
-As you may have noticed, the littlefs takes in a configuration structure that
+As you may have noticed, littlefs takes in a configuration structure that
 defines how the filesystem operates. The configuration struct provides the
 filesystem with the block device operations and dimensions, tweakable
 parameters that tradeoff memory usage for performance, and optional
@@ -104,14 +98,16 @@ static buffers if the user wants to avoid dynamic memory.
 
 The state of the littlefs is stored in the `lfs_t` type which is left up
 to the user to allocate, allowing multiple filesystems to be in use
-simultaneously. With the `lfs_t` and configuration struct, a user can either
+simultaneously. With the `lfs_t` and configuration struct, a user can
 format a block device or mount the filesystem.
 
 Once mounted, the littlefs provides a full set of posix-like file and
 directory functions, with the deviation that the allocation of filesystem
-structures must be provided by the user. An important addition is that
-no file updates will actually be written to disk until a sync or close
-is called.
+structures must be provided by the user.
+
+All posix operations, such as remove and rename, are atomic, even in event
+of power-loss. Additionally, no file updates are actually commited to the
+filesystem until sync or close is called on the file.
 
 ## Other notes
 
@@ -119,20 +115,19 @@ All littlefs have the potential to return a negative error code. The errors
 can be either one of those found in the `enum lfs_error` in [lfs.h](lfs.h),
 or an error returned by the user's block device operations.
 
-It should also be noted that the littlefs does not do anything to insure
-that the data written to disk is machine portable. It should be fine as
-long as the machines involved share endianness and don't have really
-strange padding requirements. If the question does come up, the littlefs
-metadata should be stored on disk in little-endian format.
+It should also be noted that the current implementation of littlefs doesn't
+really do anything to insure that the data written to disk is machine portable.
+This is fine as long as all of the involved machines share endianness
+(little-endian) and don't have strange padding requirements.
 
-## Design
+## Reference material
 
-the littlefs was developed with the goal of learning more about filesystem
-design by tackling the relative unsolved problem of managing a robust
-filesystem resilient to power loss on devices with limited RAM and ROM.
-More detail on the solutions and tradeoffs incorporated into this filesystem
-can be found in [DESIGN.md](DESIGN.md). The specification for the layout
-of the filesystem on disk can be found in [SPEC.md](SPEC.md).
+[DESIGN.md](DESIGN.md) - DESIGN.md contains a fully detailed dive into how
+littlefs actually works. I would encourage you to read it since the
+solutions and tradeoffs at work here are quite interesting.
+
+[SPEC.md](SPEC.md) - SPEC.md contains the on-disk specification of littlefs
+with all the nitty-gritty details. Can be useful for developing tooling.
 
 ## Testing
 
@@ -143,3 +138,19 @@ The tests assume a linux environment and can be started with make:
 ``` bash
 make test
 ```
+
+## Related projects
+
+[mbed-littlefs](https://github.com/armmbed/mbed-littlefs) - The easiest way to
+get started with littlefs is to jump into [mbed](https://os.mbed.com/), which
+already has block device drivers for most forms of embedded storage. The
+mbed-littlefs provides the mbed wrapper for littlefs.
+
+[littlefs-fuse](https://github.com/geky/littlefs-fuse) - A [FUSE](https://github.com/libfuse/libfuse)
+wrapper for littlefs. The project allows you to mount littlefs directly in a
+Linux machine. Can be useful for debugging littlefs if you have an SD card
+handy.
+
+[littlefs-js](https://github.com/geky/littlefs-js) - A javascript wrapper for
+littlefs. I'm not sure why you would want this, but it is handy for demos.
+You can see it in action [here](http://littlefs.geky.net/demo.html).

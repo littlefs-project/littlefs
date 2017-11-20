@@ -1,6 +1,6 @@
 ## The design of the little filesystem
 
-The littlefs is a little fail-safe filesystem designed for embedded systems.
+A little fail-safe filesystem designed for embedded systems.
 
 ```
    | | |     .---._____
@@ -16,9 +16,9 @@ more about filesystem design by tackling the relative unsolved problem of
 managing a robust filesystem resilient to power loss on devices
 with limited RAM and ROM.
 
-The embedded systems the littlefs is targeting are usually 32bit
-microcontrollers with around 32Kbytes of RAM and 512Kbytes of ROM. These are
-often paired with SPI NOR flash chips with about 4Mbytes of flash storage.
+The embedded systems the littlefs is targeting are usually 32 bit
+microcontrollers with around 32KB of RAM and 512KB of ROM. These are
+often paired with SPI NOR flash chips with about 4MB of flash storage.
 
 Flash itself is a very interesting piece of technology with quite a bit of
 nuance. Unlike most other forms of storage, writing to flash requires two
@@ -32,17 +32,17 @@ has more information if you are interesting in how this works.
 This leaves us with an interesting set of limitations that can be simplified
 to three strong requirements:
 
-1. **Fail-safe** - This is actually the main goal of the littlefs and the focus
-   of this project. Embedded systems are usually designed without a shutdown
-   routine and a notable lack of user interface for recovery, so filesystems
-   targeting embedded systems should be prepared to lose power an any given
-   time.
+1. **Power-loss resilient** - This is the main goal of the littlefs and the
+   focus of this project. Embedded systems are usually designed without a
+   shutdown routine and a notable lack of user interface for recovery, so
+   filesystems targeting embedded systems must be prepared to lose power an
+   any given time.
 
    Despite this state of things, there are very few embedded filesystems that
-   handle power loss in a reasonable manner, and can become corrupted if the
-   user is unlucky enough.
+   handle power loss in a reasonable manner, and most can become corrupted if
+   the user is unlucky enough.
 
-2. **Wear awareness** - Due to the destructive nature of flash, most flash
+2. **Wear leveling** - Due to the destructive nature of flash, most flash
    chips have a limited number of erase cycles, usually in the order of around
    100,000 erases per block for NOR flash. Filesystems that don't take wear
    into account can easily burn through blocks used to store frequently updated
@@ -78,9 +78,9 @@ summary of the general ideas behind some of them.
 Most of the existing filesystems fall into the one big category of filesystem
 designed in the early days of spinny magnet disks. While there is a vast amount
 of interesting technology and ideas in this area, the nature of spinny magnet
-disks encourage properties such as grouping writes near each other, that don't
+disks encourage properties, such as grouping writes near each other, that don't
 make as much sense on recent storage types. For instance, on flash, write
-locality is not as important and can actually increase wear destructively.
+locality is not important and can actually increase wear destructively.
 
 One of the most popular designs for flash filesystems is called the
 [logging filesystem](https://en.wikipedia.org/wiki/Log-structured_file_system).
@@ -97,8 +97,7 @@ scaling as the size of storage increases. And most filesystems compensate by
 caching large parts of the filesystem in RAM, a strategy that is unavailable
 for embedded systems.
 
-Another interesting filesystem design technique that the littlefs borrows the
-most from, is the [copy-on-write (COW)](https://en.wikipedia.org/wiki/Copy-on-write).
+Another interesting filesystem design technique is that of [copy-on-write (COW)](https://en.wikipedia.org/wiki/Copy-on-write).
 A good example of this is the [btrfs](https://en.wikipedia.org/wiki/Btrfs)
 filesystem. COW filesystems can easily recover from corrupted blocks and have
 natural protection against power loss. However, if they are not designed with
@@ -150,12 +149,12 @@ check our checksum we notice that block 1 was corrupted. So we fall back to
 block 2 and use the value 9.
 
 Using this concept, the littlefs is able to update metadata blocks atomically.
-There are a few other tweaks, such as using a 32bit crc and using sequence
+There are a few other tweaks, such as using a 32 bit crc and using sequence
 arithmetic to handle revision count overflow, but the basic concept
 is the same. These metadata pairs define the backbone of the littlefs, and the
 rest of the filesystem is built on top of these atomic updates.
 
-## Files
+## Non-meta data
 
 Now, the metadata pairs do come with some drawbacks. Most notably, each pair
 requires two blocks for each block of data. I'm sure users would be very
@@ -224,12 +223,12 @@ Exhibit A: A linked-list
 
 To get around this, the littlefs, at its heart, stores files backwards. Each
 block points to its predecessor, with the first block containing no pointers.
-If you think about this, it makes a bit of sense. Appending blocks just point
-to their predecessor and no other blocks need to be updated. If we update
-a block in the middle, we will need to copy out the blocks that follow,
-but can reuse the blocks before the modified block. Since most file operations
-either reset the file each write or append to files, this design avoids
-copying the file in the most common cases.
+If you think about for a while, it starts to make a bit of sense. Appending
+blocks just point to their predecessor and no other blocks need to be updated.
+If we update a block in the middle, we will need to copy out the blocks that
+follow, but can reuse the blocks before the modified block. Since most file
+operations either reset the file each write or append to files, this design
+avoids copying the file in the most common cases.
 
 ```
 Exhibit B: A backwards linked-list
@@ -351,7 +350,7 @@ file size doesn't have an obvious implementation.
 
 We can start by just writing down an equation. The first idea that comes to
 mind is to just use a for loop to sum together blocks until we reach our
-file size. We can write equation equation as a summation:
+file size. We can write this equation as a summation:
 
 ![summation1](https://latex.codecogs.com/svg.latex?N%20%3D%20%5Csum_i%5En%5Cleft%5BB-%5Cfrac%7Bw%7D%7B8%7D%5Cleft%28%5Ctext%7Bctz%7D%28i%29&plus;1%5Cright%29%5Cright%5D)
 
@@ -374,7 +373,7 @@ The [On-Line Encyclopedia of Integer Sequences (OEIS)](https://oeis.org/).
 If we work out the first couple of values in our summation, we find that CTZ
 maps to [A001511](https://oeis.org/A001511), and its partial summation maps
 to [A005187](https://oeis.org/A005187), and surprisingly, both of these
-sequences have relatively trivial equations! This leads us to the completely
+sequences have relatively trivial equations! This leads us to a rather
 unintuitive property:
 
 ![mindblown](https://latex.codecogs.com/svg.latex?%5Csum_i%5En%5Cleft%28%5Ctext%7Bctz%7D%28i%29&plus;1%5Cright%29%20%3D%202n-%5Ctext%7Bpopcount%7D%28n%29)
@@ -383,7 +382,7 @@ where:
 ctz(i) = the number of trailing bits that are 0 in i  
 popcount(i) = the number of bits that are 1 in i  
 
-I find it bewildering that these two seemingly unrelated bitwise instructions
+It's a bit bewildering that these two seemingly unrelated bitwise instructions
 are related by this property. But if we start to disect this equation we can
 see that it does hold. As n approaches infinity, we do end up with an average
 overhead of 2 pointers as we find earlier. And popcount seems to handle the
@@ -1154,21 +1153,26 @@ develops errors and needs to be moved.
 
 The second concern for the littlefs, is that blocks in the filesystem may wear
 unevenly. In this situation, a filesystem may meet an early demise where
-there are no more non-corrupted blocks that aren't in use. It may be entirely
-possible that files were written once and left unmodified, wasting the
-potential erase cycles of the blocks it sits on.
+there are no more non-corrupted blocks that aren't in use. It's common to
+have files that were written once and left unmodified, wasting the potential
+erase cycles of the blocks it sits on.
 
 Wear leveling is a term that describes distributing block writes evenly to
 avoid the early termination of a flash part. There are typically two levels
 of wear leveling:
-1. Dynamic wear leveling - Blocks are distributed evenly during blocks writes.
-   Note that the issue with write-once files still exists in this case.
-2. Static wear leveling - Unmodified blocks are evicted for new block writes.
-   This provides the longest lifetime for a flash device.
+1. Dynamic wear leveling - Wear is distributed evenly across all **dynamic**
+   blocks. Usually this is accomplished by simply choosing the unused block
+   with the lowest amount of wear. Note this does not solve the problem of
+   static data.
+2. Static wear leveling - Wear is distributed evenly across all **dynamic**
+   and **static** blocks. Unmodified blocks may be evicted for new block
+   writes. This does handle the problem of static data but may lead to
+   wear amplification.
 
-Now, it's possible to use the revision count on metadata pairs to approximate
-the wear of a metadata block. And combined with the COW nature of files, the
-littlefs could provide a form of dynamic wear leveling.
+In littlefs's case, it's possible to use the revision count on metadata pairs
+to approximate the wear of a metadata block. And combined with the COW nature
+of files, littlefs could provide your usually implementation of dynamic wear
+leveling.
 
 However, the littlefs does not. This is for a few reasons. Most notably, even
 if the littlefs did implement dynamic wear leveling, this would still not
@@ -1179,19 +1183,20 @@ As a flash device reaches the end of its life, the metadata blocks will
 naturally be the first to go since they are updated most often. In this
 situation, the littlefs is designed to simply move on to another set of
 metadata blocks. This travelling means that at the end of a flash device's
-life, the filesystem will have worn the device down as evenly as a dynamic
-wear leveling filesystem could anyways. Simply put, if the lifetime of flash
-is a serious concern, static wear leveling is the only valid solution.
+life, the filesystem will have worn the device down nearly as evenly as the
+usual dynamic wear leveling could. More aggressive wear leveling would come
+with a code-size cost for marginal benefit.
 
-This is a very important takeaway to note. If your storage stack uses highly
-sensitive storage such as NAND flash. In most cases you are going to be better
-off just using a [flash translation layer (FTL)](https://en.wikipedia.org/wiki/Flash_translation_layer).
+
+One important takeaway to note, if your storage stack uses highly sensitive
+storage such as NAND flash, static wear leveling is the only valid solution.
+In most cases you are going to be better off using a full [flash translation layer (FTL)](https://en.wikipedia.org/wiki/Flash_translation_layer).
 NAND flash already has many limitations that make it poorly suited for an
 embedded system: low erase cycles, very large blocks, errors that can develop
 even during reads, errors that can develop during writes of neighboring blocks.
 Managing sensitive storage such as NAND flash is out of scope for the littlefs.
 The littlefs does have some properties that may be beneficial on top of a FTL,
-such as limiting the number of writes where possible. But if you have the
+such as limiting the number of writes where possible, but if you have the
 storage requirements that necessitate the need of NAND flash, you should have
 the RAM to match and just use an FTL or flash filesystem.
 
