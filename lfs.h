@@ -445,8 +445,5 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 // Returns a negative error code on failure.
 int lfs_deorphan(lfs_t *lfs);
 
-// TODO doc
-int lfs_deduplicate(lfs_t *lfs);
-
 
 #endif
