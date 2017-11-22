@@ -11,6 +11,8 @@ ASM := $(SRC:.c=.s)
 
 TEST := $(patsubst tests/%.sh,%,$(wildcard tests/test_*))
 
+SHELL = /bin/bash -o pipefail
+
 ifdef DEBUG
 CFLAGS += -O0 -g3
 else
@@ -35,7 +37,7 @@ test: test_format test_dirs test_files test_seek test_parallel \
 	test_alloc test_paths test_orphan test_move test_corrupt
 test_%: tests/test_%.sh
 ifdef QUIET
-	./$< | sed '/^[^-=]/d'
+	./$< | sed -n '/^[-=]/p'
 else
 	./$<
 endif
