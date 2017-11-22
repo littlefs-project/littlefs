@@ -569,7 +569,18 @@ relocate:
         // update references if we relocated
         LFS_DEBUG("Relocating %d %d to %d %d",
                 oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
-        return lfs_relocate(lfs, oldpair, dir->pair);
+        int err = lfs_relocate(lfs, oldpair, dir->pair);
+        if (err) {
+            return err;
+        }
+    }
+
+    // shift over any directories that are affected
+    for (lfs_dir_t *d = lfs->dirs; d; d = d->next) {
+        if (lfs_paircmp(d->pair, dir->pair) == 0) {
+            d->pair[0] = dir->pair[0];
+            d->pair[1] = dir->pair[1];
+        }
     }
 
     return 0;
@@ -628,7 +639,7 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
 }
 
 static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
-    // either shift out the one entry or remove the whole dir block
+    // check if we should just drop the directory block
     if ((dir->d.size & 0x7fffffff) == sizeof(dir->d)+4
             + lfs_entry_size(entry)) {
         lfs_dir_t pdir;
@@ -637,38 +648,44 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
             return res;
         }
 
-        if (!(pdir.d.size & 0x80000000)) {
-            return lfs_dir_commit(lfs, dir, (struct lfs_region[]){
-                    {entry->off, lfs_entry_size(entry), NULL, 0},
-                }, 1);
-        } else {
+        if (pdir.d.size & 0x80000000) {
             pdir.d.size &= dir->d.size | 0x7fffffff;
             pdir.d.tail[0] = dir->d.tail[0];
             pdir.d.tail[1] = dir->d.tail[1];
             return lfs_dir_commit(lfs, &pdir, NULL, 0);
         }
-    } else {
-        int err = lfs_dir_commit(lfs, dir, (struct lfs_region[]){
-                {entry->off, lfs_entry_size(entry), NULL, 0},
-            }, 1);
-        if (err) {
-            return err;
-        }
+    }
 
-        // shift over any files that are affected
-        for (lfs_file_t *f = lfs->files; f; f = f->next) {
-            if (lfs_paircmp(f->pair, dir->pair) == 0) {
-                if (f->poff == entry->off) {
-                    f->pair[0] = 0xffffffff;
-                    f->pair[1] = 0xffffffff;
-                } else if (f->poff > entry->off) {
-                    f->poff -= lfs_entry_size(entry);
-                }
+    // shift out the entry
+    int err = lfs_dir_commit(lfs, dir, (struct lfs_region[]){
+            {entry->off, lfs_entry_size(entry), NULL, 0},
+        }, 1);
+    if (err) {
+        return err;
+    }
+
+    // shift over any files/directories that are affected
+    for (lfs_file_t *f = lfs->files; f; f = f->next) {
+        if (lfs_paircmp(f->pair, dir->pair) == 0) {
+            if (f->poff == entry->off) {
+                f->pair[0] = 0xffffffff;
+                f->pair[1] = 0xffffffff;
+            } else if (f->poff > entry->off) {
+                f->poff -= lfs_entry_size(entry);
             }
         }
-
-        return 0;
     }
+
+    for (lfs_dir_t *d = lfs->dirs; d; d = d->next) {
+        if (lfs_paircmp(d->pair, dir->pair) == 0) {
+            if (d->off > entry->off) {
+                d->off -= lfs_entry_size(entry);
+                d->pos -= lfs_entry_size(entry);
+            }
+        }
+    }
+
+    return 0;
 }
 
 static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
@@ -894,11 +911,23 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     dir->head[1] = dir->pair[1];
     dir->pos = sizeof(dir->d) - 2;
     dir->off = sizeof(dir->d);
+
+    // add to list of directories
+    dir->next = lfs->dirs;
+    lfs->dirs = dir;
+
     return 0;
 }
 
 int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
-    // do nothing, dir is always synchronized
+    // remove from list of directories
+    for (lfs_dir_t **p = &lfs->dirs; *p; p = &(*p)->next) {
+        if (*p == dir) {
+            *p = dir->next;
+            break;
+        }
+    }
+
     return 0;
 }
 
@@ -1902,6 +1931,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->root[0] = 0xffffffff;
     lfs->root[1] = 0xffffffff;
     lfs->files = NULL;
+    lfs->dirs = NULL;
     lfs->deorphaned = false;
 
     return 0;

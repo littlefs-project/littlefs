@@ -282,6 +282,49 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
+echo "--- Recursive remove ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_remove(&lfs, "coldpotato") => LFS_ERR_INVAL;
+
+    lfs_dir_open(&lfs, &dir[0], "coldpotato") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+
+    while (true) {
+        int err = lfs_dir_read(&lfs, &dir[0], &info);
+        err >= 0 => 1;
+        if (err == 0) {
+            break;
+        }
+
+        strcpy((char*)buffer, "coldpotato/");
+        strcat((char*)buffer, info.name);
+        lfs_remove(&lfs, (char*)buffer) => 0;
+    }
+
+    lfs_remove(&lfs, "coldpotato") => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir[0], "/") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "burito") => 0;
+    info.type => LFS_TYPE_REG;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "cactus") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
 echo "--- Multi-block remove ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
@@ -307,9 +350,6 @@ tests/test.py << TEST
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "burito") => 0;
     info.type => LFS_TYPE_REG;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
-    strcmp(info.name, "coldpotato") => 0;
-    info.type => LFS_TYPE_DIR;
     lfs_dir_read(&lfs, &dir[0], &info) => 0;
     lfs_dir_close(&lfs, &dir[0]) => 0;
     lfs_unmount(&lfs) => 0;
