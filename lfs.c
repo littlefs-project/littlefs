@@ -2040,8 +2040,8 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // setup free lookahead
-    lfs->free.begin = -lfs->cfg->lookahead;
-    lfs->free.off = lfs->cfg->lookahead;
+    lfs->free.begin = -lfs_min(lfs->cfg->lookahead, lfs->cfg->block_count);
+    lfs->free.off = -lfs->free.begin;
     lfs->free.end = lfs->free.begin + lfs->free.off + lfs->cfg->block_count;
 
     // load superblock
