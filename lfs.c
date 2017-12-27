@@ -1195,12 +1195,22 @@ static int lfs_ctz_traverse(lfs_t *lfs,
             return 0;
         }
 
-        err = lfs_cache_read(lfs, rcache, pcache, head, 0, &head, 4);
+        lfs_block_t heads[2];
+        int count = 2 - (index & 1);
+        err = lfs_cache_read(lfs, rcache, pcache, head, 0, &heads, count*4);
         if (err) {
             return err;
         }
 
-        index -= 1;
+        for (int i = 0; i < count-1; i++) {
+            err = cb(data, heads[i]);
+            if (err) {
+                return err;
+            }
+        }
+
+        head = heads[count-1];
+        index -= count;
     }
 }
 
