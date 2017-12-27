@@ -41,16 +41,17 @@ typedef uint32_t lfs_block_t;
 // Possible error codes, these are negative to allow
 // valid positive return values
 enum lfs_error {
-    LFS_ERR_OK      = 0,    // No error
-    LFS_ERR_IO      = -5,   // Error during device operation
-    LFS_ERR_CORRUPT = -52,  // Corrupted
-    LFS_ERR_NOENT   = -2,   // No directory entry
-    LFS_ERR_EXIST   = -17,  // Entry already exists
-    LFS_ERR_NOTDIR  = -20,  // Entry is not a dir
-    LFS_ERR_ISDIR   = -21,  // Entry is a dir
-    LFS_ERR_INVAL   = -22,  // Invalid parameter
-    LFS_ERR_NOSPC   = -28,  // No space left on device
-    LFS_ERR_NOMEM   = -12,  // No more memory available
+    LFS_ERR_OK       = 0,    // No error
+    LFS_ERR_IO       = -5,   // Error during device operation
+    LFS_ERR_CORRUPT  = -52,  // Corrupted
+    LFS_ERR_NOENT    = -2,   // No directory entry
+    LFS_ERR_EXIST    = -17,  // Entry already exists
+    LFS_ERR_NOTDIR   = -20,  // Entry is not a dir
+    LFS_ERR_ISDIR    = -21,  // Entry is a dir
+    LFS_ERR_NOTEMPTY = -39,  // Dir is not empty
+    LFS_ERR_INVAL    = -22,  // Invalid parameter
+    LFS_ERR_NOSPC    = -28,  // No space left on device
+    LFS_ERR_NOMEM    = -12,  // No more memory available
 };
 
 // File types

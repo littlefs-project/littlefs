@@ -126,7 +126,7 @@ TEST
 echo "--- Directory remove ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_remove(&lfs, "potato") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "potato") => LFS_ERR_NOTEMPTY;
     lfs_remove(&lfs, "potato/sweet") => 0;
     lfs_remove(&lfs, "potato/baked") => 0;
     lfs_remove(&lfs, "potato/fried") => 0;
@@ -255,7 +255,7 @@ tests/test.py << TEST
     lfs_rename(&lfs, "warmpotato/baked", "coldpotato/baked") => 0;
     lfs_rename(&lfs, "warmpotato/sweet", "coldpotato/sweet") => 0;
     lfs_rename(&lfs, "warmpotato/fried", "coldpotato/fried") => 0;
-    lfs_remove(&lfs, "coldpotato") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "coldpotato") => LFS_ERR_NOTEMPTY;
     lfs_remove(&lfs, "warmpotato") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
@@ -285,7 +285,7 @@ TEST
 echo "--- Recursive remove ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_remove(&lfs, "coldpotato") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "coldpotato") => LFS_ERR_NOTEMPTY;
 
     lfs_dir_open(&lfs, &dir[0], "coldpotato") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
@@ -328,7 +328,7 @@ TEST
 echo "--- Multi-block remove ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_remove(&lfs, "cactus") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "cactus") => LFS_ERR_NOTEMPTY;
 
     for (int i = 0; i < $LARGESIZE; i++) {
         sprintf((char*)buffer, "cactus/test%d", i);
