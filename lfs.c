@@ -1635,13 +1635,13 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     if (whence == LFS_SEEK_SET) {
         file->pos = off;
     } else if (whence == LFS_SEEK_CUR) {
-        if ((lfs_off_t)-off > file->pos) {
+        if (off < 0 && (lfs_off_t)-off > file->pos) {
             return LFS_ERR_INVAL;
         }
 
         file->pos = file->pos + off;
     } else if (whence == LFS_SEEK_END) {
-        if ((lfs_off_t)-off > file->size) {
+        if (off < 0 && (lfs_off_t)-off > file->size) {
             return LFS_ERR_INVAL;
         }
 
