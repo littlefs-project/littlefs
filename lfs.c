@@ -1992,14 +1992,16 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     // write superblocks
     lfs_superblock_t superblock = {
         .off = sizeof(superdir.d),
-        .d.type = LFS_TYPE_SUPERBLOCK,
-        .d.elen = sizeof(superblock.d) - sizeof(superblock.d.magic) - 4,
-        .d.nlen = sizeof(superblock.d.magic),
-        .d.version = 0x00010001,
-        .d.magic = {"littlefs"},
-        .d.block_size  = lfs->cfg->block_size,
-        .d.block_count = lfs->cfg->block_count,
-        .d.root = {lfs->root[0], lfs->root[1]},
+        .d = {
+            .type = LFS_TYPE_SUPERBLOCK,
+            .elen = sizeof(superblock.d) - sizeof(superblock.d.magic) - 4,
+            .nlen = sizeof(superblock.d.magic),
+            .version = 0x00010001,
+            .magic = {"littlefs"},
+            .block_size  = lfs->cfg->block_size,
+            .block_count = lfs->cfg->block_count,
+            .root = {lfs->root[0], lfs->root[1]},
+        },
     };
     superdir.d.tail[0] = root.pair[0];
     superdir.d.tail[1] = root.pair[1];
@@ -2312,8 +2314,8 @@ int lfs_deorphan(lfs_t *lfs) {
         return 0;
     }
 
-    lfs_dir_t pdir = {.d.size = 0x80000000};
-    lfs_dir_t cwd = {.d.tail[0] = 0, .d.tail[1] = 1};
+    lfs_dir_t pdir = {.d = { .size = 0x80000000}};
+    lfs_dir_t cwd = {.d = { .tail[0] = 0, .tail[1] = 1}};
 
     // iterate over all directory directory entries
     while (!lfs_pairisnull(cwd.d.tail)) {
