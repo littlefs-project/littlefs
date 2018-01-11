@@ -99,14 +99,14 @@ struct lfs_config {
 
     // Program a region in a block. The block must have previously
     // been erased. Negative error codes are propogated to the user.
-    // The prog function must return LFS_ERR_CORRUPT if the block should
-    // be considered bad.
+    // May return LFS_ERR_CORRUPT if the block should be considered bad.
     int (*prog)(const struct lfs_config *c, lfs_block_t block,
             lfs_off_t off, const void *buffer, lfs_size_t size);
 
     // Erase a block. A block must be erased before being programmed.
     // The state of an erased block is undefined. Negative error codes
     // are propogated to the user.
+    // May return LFS_ERR_CORRUPT if the block should be considered bad.
     int (*erase)(const struct lfs_config *c, lfs_block_t block);
 
     // Sync the state of the underlying block device. Negative error codes
@@ -121,11 +121,13 @@ struct lfs_config {
     // Minimum size of a block program. This determines the size of program
     // buffers. This may be larger than the physical program size to improve
     // performance by caching more of the block device.
+    // Must be a multiple of the read size.
     lfs_size_t prog_size;
 
     // Size of an erasable block. This does not impact ram consumption and
     // may be larger than the physical erase size. However, this should be
-    // kept small as each file currently takes up an entire block .
+    // kept small as each file currently takes up an entire block.
+    // Must be a multiple of the program size.
     lfs_size_t block_size;
 
     // Number of erasable blocks on the device.

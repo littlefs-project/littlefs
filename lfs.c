@@ -1926,6 +1926,10 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         }
     }
 
+    // check that program and read sizes are multiples of the block size
+    assert(lfs->cfg->prog_size % lfs->cfg->read_size == 0);
+    assert(lfs->cfg->block_size % lfs->cfg->prog_size == 0);
+
     // check that the block size is large enough to fit ctz pointers
     assert(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
