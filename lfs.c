@@ -1261,6 +1261,9 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     file->pos = 0;
 
     if (flags & LFS_O_TRUNC) {
+        if (file->size != 0) {
+            file->flags |= LFS_F_DIRTY;
+        }
         file->head = 0xffffffff;
         file->size = 0;
     }
