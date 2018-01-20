@@ -1664,6 +1664,57 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     return file->pos;
 }
 
+int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+    if ((file->flags & 3) == LFS_O_RDONLY) {
+        return LFS_ERR_INVAL;
+    }
+
+    if (size < lfs_file_size(lfs, file)) {
+        // need to flush since directly changing metadata
+        int err = lfs_file_flush(lfs, file);
+        if (err) {
+            return err;
+        }
+
+        // lookup new head in ctz skip list
+        err = lfs_ctz_find(lfs, &file->cache, NULL,
+                file->head, file->size,
+                size, &file->head, &(lfs_off_t){0});
+        if (err) {
+            return err;
+        }
+
+        file->size = size;
+        file->flags |= LFS_F_DIRTY;
+    } else if (size > lfs_file_size(lfs, file)) {
+        lfs_off_t pos = file->pos;
+
+        // flush+seek if not already at end
+        if (file->pos != lfs_file_size(lfs, file)) {
+            int err = lfs_file_seek(lfs, file, 0, SEEK_END);
+            if (err) {
+                return err;
+            }
+        }
+
+        // fill with zeros
+        while (file->pos < size) {
+            lfs_ssize_t res = lfs_file_write(lfs, file, &(uint8_t){0}, 1);
+            if (res < 0) {
+                return res;
+            }
+        }
+
+        // restore pos
+        int err = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
+        if (err < 0) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+
 lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
     return file->pos;
 }
@@ -1678,7 +1729,11 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
 }
 
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
-    return lfs_max(file->pos, file->size);
+    if (file->flags & LFS_F_WRITING) {
+        return lfs_max(file->pos, file->size);
+    } else {
+        return file->size;
+    }
 }
 
 

@@ -364,6 +364,11 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence);
 
+// Truncates the size of the file to the specified size
+//
+// Returns a negative error code on failure.
+int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
+
 // Return the position of the file
 //
 // Equivalent to lfs_file_seek(lfs, file, 0, LFS_SEEK_CUR)
