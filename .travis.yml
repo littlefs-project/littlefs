@@ -27,7 +27,7 @@ script:
     - cp -r $(git ls-tree --name-only HEAD) mount/littlefs
     - cd mount/littlefs
     - ls
-    - make -B test_dirs QUIET=1
+    - make -B test_dirs test_files QUIET=1
 
 before_install:
     - fusermount -V
