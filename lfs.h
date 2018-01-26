@@ -22,6 +22,23 @@
 #include <stdbool.h>
 
 
+/// Version info ///
+
+// Software library version
+// Major (top-nibble), incremented on backwards incompatible changes
+// Minor (bottom-nibble), incremented on feature additions
+#define LFS_VERSION 0x00010002
+#define LFS_VERSION_MAJOR (0xffff & (LFS_VERSION >> 16))
+#define LFS_VERSION_MINOR (0xffff & (LFS_VERSION >>  0))
+
+// Version of On-disk data structures
+// Major (top-nibble), incremented on backwards incompatible changes
+// Minor (bottom-nibble), incremented on feature additions
+#define LFS_DISK_VERSION 0x00010001
+#define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
+#define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
+
+
 /// Definitions ///
 
 // Type definitions
