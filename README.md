@@ -139,6 +139,9 @@ The tests assume a linux environment and can be started with make:
 make test
 ```
 
+## Todos 
+- [ ] Generate a nice documentation ? 
+
 ## Related projects
 
 [Mbed OS](https://github.com/ARMmbed/mbed-os/tree/master/features/filesystem/littlefs) -
