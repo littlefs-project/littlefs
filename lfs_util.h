@@ -33,16 +33,37 @@ static inline uint32_t lfs_min(uint32_t a, uint32_t b) {
     return (a < b) ? a : b;
 }
 
-static inline uint32_t lfs_ctz(uint32_t a) {
-    return __builtin_ctz(a);
+static inline uint32_t lfs_npw2(uint32_t a) {
+#if defined(__GNUC__) || defined(__CC_ARM)
+    return 32 - __builtin_clz(a-1);
+#else
+    uint32_t r = 0;
+    uint32_t s;
+    a -= 1;
+    s = (a > 0xffff) << 4; a >>= s; r |= s;
+    s = (a > 0xff  ) << 3; a >>= s; r |= s;
+    s = (a > 0xf   ) << 2; a >>= s; r |= s;
+    s = (a > 0x3   ) << 1; a >>= s; r |= s;
+    return (r | (a >> 1)) + 1;
+#endif
 }
 
-static inline uint32_t lfs_npw2(uint32_t a) {
-    return 32 - __builtin_clz(a-1);
+static inline uint32_t lfs_ctz(uint32_t a) {
+#if defined(__GNUC__)
+    return __builtin_ctz(a);
+#else
+    return lfs_npw2((a & -a) + 1) - 1;
+#endif
 }
 
 static inline uint32_t lfs_popc(uint32_t a) {
+#if defined(__GNUC__) || defined(__CC_ARM)
     return __builtin_popcount(a);
+#else
+    a = a - ((a >> 1) & 0x55555555);
+    a = (a & 0x33333333) + ((a >> 2) & 0x33333333);
+    return (((a + (a >> 4)) & 0xf0f0f0f) * 0x1010101) >> 24;
+#endif
 }
 
 static inline int lfs_scmp(uint32_t a, uint32_t b) {
