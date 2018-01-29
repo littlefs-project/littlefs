@@ -1,20 +1,23 @@
+env:
+    - CFLAGS=-Werror
+
 script:
     # make sure example can at least compile
     - sed -n '/``` c/,/```/{/```/d; p;}' README.md > test.c &&
-      CFLAGS='
+      make all size CFLAGS+="
         -Duser_provided_block_device_read=NULL
         -Duser_provided_block_device_prog=NULL
         -Duser_provided_block_device_erase=NULL
         -Duser_provided_block_device_sync=NULL
-        -include stdio.h -Werror' make all size
+        -include stdio.h"
 
     # run tests
     - make test QUIET=1
 
     # run tests with a few different configurations
-    - CFLAGS="-DLFS_READ_SIZE=1   -DLFS_PROG_SIZE=1"       make test QUIET=1
-    - CFLAGS="-DLFS_READ_SIZE=512 -DLFS_PROG_SIZE=512"     make test QUIET=1
-    - CFLAGS="-DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD=2048" make test QUIET=1
+    - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=1      -DLFS_PROG_SIZE=1"
+    - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=512    -DLFS_PROG_SIZE=512"
+    - make test QUIET=1 CFLAGS+="-DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD=2048"
 
     # self-host with littlefs-fuse for fuzz test
     - make -C littlefs-fuse

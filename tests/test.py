@@ -33,8 +33,7 @@ def generate(test):
         pass
 
 def compile():
-    os.environ['CFLAGS'] = os.environ.get('CFLAGS', '') + ' -Werror'
-    subprocess.check_call(['make', '--no-print-directory', '-s'], env=os.environ)
+    subprocess.check_call(['make', '--no-print-directory', '-s'])
 
 def execute():
     subprocess.check_call(["./lfs"])

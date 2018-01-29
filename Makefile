@@ -14,15 +14,15 @@ TEST := $(patsubst tests/%.sh,%,$(wildcard tests/test_*))
 SHELL = /bin/bash -o pipefail
 
 ifdef DEBUG
-CFLAGS += -O0 -g3
+override CFLAGS += -O0 -g3
 else
-CFLAGS += -Os
+override CFLAGS += -Os
 endif
 ifdef WORD
-CFLAGS += -m$(WORD)
+override CFLAGS += -m$(WORD)
 endif
-CFLAGS += -I.
-CFLAGS += -std=c99 -Wall -pedantic
+override CFLAGS += -I.
+override CFLAGS += -std=c99 -Wall -pedantic
 
 
 all: $(TARGET)
