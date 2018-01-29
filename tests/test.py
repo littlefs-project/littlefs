@@ -21,8 +21,16 @@ def generate(test):
         else:
             lines.append(line)
 
+    # Create test file
     with open('test.c', 'w') as file:
         file.write(template.format(tests='\n'.join(lines)))
+
+    # Remove build artifacts to force rebuild
+    try:
+        os.remove('test.o')
+        os.remove('lfs')
+    except OSError:
+        pass
 
 def compile():
     os.environ['CFLAGS'] = os.environ.get('CFLAGS', '') + ' -Werror'
