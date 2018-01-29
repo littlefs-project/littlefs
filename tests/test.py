@@ -14,8 +14,8 @@ def generate(test):
         match = re.match('(?: *\n)*( *)(.*)=>(.*);', line, re.DOTALL | re.MULTILINE)
         if match:
             tab, test, expect = match.groups()
-            lines.append(tab+'res = {test};'.format(test=test.strip()))
-            lines.append(tab+'test_assert("{name}", res, {expect});'.format(
+            lines.append(tab+'test = {test};'.format(test=test.strip()))
+            lines.append(tab+'test_assert("{name}", test, {expect});'.format(
                     name = re.match('\w*', test.strip()).group(),
                     expect = expect.strip()))
         else:
