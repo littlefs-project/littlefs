@@ -18,17 +18,13 @@
 #include "lfs.h"
 #include "lfs_util.h"
 
-#include <string.h>
-#include <stdlib.h>
-#include <assert.h>
-
 
 /// Caching block device operations ///
 static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
         const lfs_cache_t *pcache, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
-    assert(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->cfg->block_count);
 
     while (size > 0) {
         if (pcache && block == pcache->block && off >= pcache->off &&
@@ -153,7 +149,7 @@ static int lfs_cache_prog(lfs_t *lfs, lfs_cache_t *pcache,
         lfs_cache_t *rcache, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
-    assert(block < lfs->cfg->block_count);
+    LFS_ASSERT(block < lfs->cfg->block_count);
 
     while (size > 0) {
         if (block == pcache->block && off >= pcache->off &&
@@ -180,7 +176,7 @@ static int lfs_cache_prog(lfs_t *lfs, lfs_cache_t *pcache,
 
         // pcache must have been flushed, either by programming and
         // entire block or manually flushing the pcache
-        assert(pcache->block == 0xffffffff);
+        LFS_ASSERT(pcache->block == 0xffffffff);
 
         if (off % lfs->cfg->prog_size == 0 &&
                 size >= lfs->cfg->prog_size) {
@@ -1130,7 +1126,7 @@ static int lfs_ctz_find(lfs_t *lfs,
             return err;
         }
 
-        assert(head >= 2 && head <= lfs->cfg->block_count);
+        LFS_ASSERT(head >= 2 && head <= lfs->cfg->block_count);
         current -= 1 << skip;
     }
 
@@ -1150,7 +1146,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
         if (err) {
             return err;
         }
-        assert(nblock >= 2 && nblock <= lfs->cfg->block_count);
+        LFS_ASSERT(nblock >= 2 && nblock <= lfs->cfg->block_count);
 
         if (true) {
             err = lfs_bd_erase(lfs, nblock);
@@ -1221,7 +1217,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
                     }
                 }
 
-                assert(head >= 2 && head <= lfs->cfg->block_count);
+                LFS_ASSERT(head >= 2 && head <= lfs->cfg->block_count);
             }
 
             *block = nblock;
@@ -1347,12 +1343,12 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     if (lfs->cfg->file_buffer) {
         file->cache.buffer = lfs->cfg->file_buffer;
     } else if ((file->flags & 3) == LFS_O_RDONLY) {
-        file->cache.buffer = malloc(lfs->cfg->read_size);
+        file->cache.buffer = lfs_malloc(lfs->cfg->read_size);
         if (!file->cache.buffer) {
             return LFS_ERR_NOMEM;
         }
     } else {
-        file->cache.buffer = malloc(lfs->cfg->prog_size);
+        file->cache.buffer = lfs_malloc(lfs->cfg->prog_size);
         if (!file->cache.buffer) {
             return LFS_ERR_NOMEM;
         }
@@ -1378,7 +1374,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
 
     // clean up memory
     if (!lfs->cfg->file_buffer) {
-        free(file->cache.buffer);
+        lfs_free(file->cache.buffer);
     }
 
     return err;
@@ -1527,7 +1523,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             return err;
         }
 
-        assert(entry.d.type == LFS_TYPE_REG);
+        LFS_ASSERT(entry.d.type == LFS_TYPE_REG);
         entry.d.u.file.head = file->head;
         entry.d.u.file.size = file->size;
 
@@ -1753,7 +1749,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
         // flush+seek if not already at end
         if (file->pos != oldsize) {
-            int err = lfs_file_seek(lfs, file, 0, SEEK_END);
+            int err = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
             if (err < 0) {
                 return err;
             }
@@ -1886,7 +1882,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
             return res;
         }
 
-        assert(res); // must have pred
+        LFS_ASSERT(res); // must have pred
         cwd.d.tail[0] = dir.d.tail[0];
         cwd.d.tail[1] = dir.d.tail[1];
 
@@ -2003,7 +1999,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             return res;
         }
 
-        assert(res); // must have pred
+        LFS_ASSERT(res); // must have pred
         newcwd.d.tail[0] = dir.d.tail[0];
         newcwd.d.tail[1] = dir.d.tail[1];
 
@@ -2026,7 +2022,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     if (lfs->cfg->read_buffer) {
         lfs->rcache.buffer = lfs->cfg->read_buffer;
     } else {
-        lfs->rcache.buffer = malloc(lfs->cfg->read_size);
+        lfs->rcache.buffer = lfs_malloc(lfs->cfg->read_size);
         if (!lfs->rcache.buffer) {
             return LFS_ERR_NOMEM;
         }
@@ -2037,30 +2033,30 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     if (lfs->cfg->prog_buffer) {
         lfs->pcache.buffer = lfs->cfg->prog_buffer;
     } else {
-        lfs->pcache.buffer = malloc(lfs->cfg->prog_size);
+        lfs->pcache.buffer = lfs_malloc(lfs->cfg->prog_size);
         if (!lfs->pcache.buffer) {
             return LFS_ERR_NOMEM;
         }
     }
 
     // setup lookahead, round down to nearest 32-bits
-    assert(lfs->cfg->lookahead % 32 == 0);
-    assert(lfs->cfg->lookahead > 0);
+    LFS_ASSERT(lfs->cfg->lookahead % 32 == 0);
+    LFS_ASSERT(lfs->cfg->lookahead > 0);
     if (lfs->cfg->lookahead_buffer) {
         lfs->free.buffer = lfs->cfg->lookahead_buffer;
     } else {
-        lfs->free.buffer = malloc(lfs->cfg->lookahead/8);
+        lfs->free.buffer = lfs_malloc(lfs->cfg->lookahead/8);
         if (!lfs->free.buffer) {
             return LFS_ERR_NOMEM;
         }
     }
 
     // check that program and read sizes are multiples of the block size
-    assert(lfs->cfg->prog_size % lfs->cfg->read_size == 0);
-    assert(lfs->cfg->block_size % lfs->cfg->prog_size == 0);
+    LFS_ASSERT(lfs->cfg->prog_size % lfs->cfg->read_size == 0);
+    LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->prog_size == 0);
 
     // check that the block size is large enough to fit ctz pointers
-    assert(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
+    LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
 
     // setup default state
@@ -2076,15 +2072,15 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 static int lfs_deinit(lfs_t *lfs) {
     // free allocated memory
     if (!lfs->cfg->read_buffer) {
-        free(lfs->rcache.buffer);
+        lfs_free(lfs->rcache.buffer);
     }
 
     if (!lfs->cfg->prog_buffer) {
-        free(lfs->pcache.buffer);
+        lfs_free(lfs->pcache.buffer);
     }
 
     if (!lfs->cfg->lookahead_buffer) {
-        free(lfs->free.buffer);
+        lfs_free(lfs->free.buffer);
     }
 
     return 0;
