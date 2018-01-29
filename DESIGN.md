@@ -26,19 +26,21 @@ operations: erasing and programming. The programming operation is relatively
 cheap, and can be very granular. For NOR flash specifically, byte-level
 programs are quite common. Erasing, however, requires an expensive operation
 that forces the state of large blocks of memory to reset in a destructive
-reaction that gives flash its name. The [Wikipedia entry](https://en.wikipedia.org/wiki/Flash_memory)
-has more information if you are interesting in how this works.
+fashion that gives flash its name. The [Wikipedia entry](https://en.wikipedia.org/wiki/Flash_memory)
+has more information if you are interested in how this works.
 
 This leaves us with an interesting set of limitations that can be simplified
 to three strong requirements:
 
 1. **Power-loss resilient** - This is the main goal of the littlefs and the
-   focus of this project. Embedded systems are usually designed without a
+   focus of this project.
+
+     Embedded systems are usually designed without a
    shutdown routine and a notable lack of user interface for recovery, so
-   filesystems targeting embedded systems must be prepared to lose power an
+   filesystems targeting embedded systems must be prepared to lose power at
    any given time.
 
-   Despite this state of things, there are very few embedded filesystems that
+     Despite this state of things, there are very few embedded filesystems that
    handle power loss in a reasonable manner, and most can become corrupted if
    the user is unlucky enough.
 
@@ -48,11 +50,12 @@ to three strong requirements:
    into account can easily burn through blocks used to store frequently updated
    metadata.
 
-   Consider the [FAT filesystem](https://en.wikipedia.org/wiki/Design_of_the_FAT_file_system),
+     Consider the [FAT filesystem](https://en.wikipedia.org/wiki/Design_of_the_FAT_file_system),
    which stores a file allocation table (FAT) at a specific offset from the
    beginning of disk. Every block allocation will update this table, and after
    100,000 updates, the block will likely go bad, rendering the filesystem
-   unusable even if there are many more erase cycles available on the storage.
+   unusable even if there are many more erase cycles available on the storage
+   as a whole.
 
 3. **Bounded RAM/ROM** - Even with the design difficulties presented by the
    previous two limitations, we have already seen several flash filesystems
@@ -63,7 +66,7 @@ to three strong requirements:
    These operations make perfect sense when the filesystem's only concern is
    erase cycles, but the idea is a bit silly on embedded systems.
 
-   To cater to embedded systems, the littlefs has the simple limitation of
+     To cater for embedded systems, the littlefs has the simple limitation of
    using only a bounded amount of RAM and ROM. That is, no matter what is
    written to the filesystem, and no matter how large the underlying storage
    is, the littlefs will always use the same amount of RAM and ROM. This
@@ -80,21 +83,21 @@ designed in the early days of spinning magnetic disks. While there is a vast amo
 of interesting technology and ideas in this area, the nature of spinning magnetic
 disks encourage properties, such as grouping writes near each other, that don't
 make as much sense on recent storage types. For instance, on flash, write
-locality is not important and can actually increase wear destructively.
+locality is not important and can actually increase wear.
 
 One of the most popular designs for flash filesystems is called the
 [logging filesystem](https://en.wikipedia.org/wiki/Log-structured_file_system).
 The flash filesystems [jffs](https://en.wikipedia.org/wiki/JFFS)
-and [yaffs](https://en.wikipedia.org/wiki/YAFFS) are good examples. In
-logging filesystem, data is not store in a data structure on disk, but instead
+and [yaffs](https://en.wikipedia.org/wiki/YAFFS) are good examples. In a
+logging filesystem, data is not stored in a data structure on disk, but instead
 the changes to the files are stored on disk. This has several neat advantages,
-such as the fact that the data is written in a cyclic log format naturally
+such as the fact that the data is written in a cyclic log format and as such naturally
 wear levels as a side effect. And, with a bit of error detection, the entire
 filesystem can easily be designed to be resilient to power loss. The
 journaling component of most modern day filesystems is actually a reduced
 form of a logging filesystem. However, logging filesystems have a difficulty
 scaling as the size of storage increases. And most filesystems compensate by
-caching large parts of the filesystem in RAM, a strategy that is unavailable
+caching large parts of the filesystem in RAM, a strategy that is inappropriate
 for embedded systems.
 
 Another interesting filesystem design technique is that of [copy-on-write (COW)](https://en.wikipedia.org/wiki/Copy-on-write).
@@ -102,12 +105,12 @@ A good example of this is the [btrfs](https://en.wikipedia.org/wiki/Btrfs)
 filesystem. COW filesystems can easily recover from corrupted blocks and have
 natural protection against power loss. However, if they are not designed with
 wear in mind, a COW filesystem could unintentionally wear down the root block
-where the COW data structures are synchronized.
+where the COW data structures are persisted.
 
 ## Metadata pairs
 
 The core piece of technology that provides the backbone for the littlefs is
-the concept of metadata pairs. The key idea here, is that any metadata that
+the concept of metadata pairs. The key idea here is that any metadata that
 needs to be updated atomically is stored on a pair of blocks tagged with
 a revision count and checksum. Every update alternates between these two
 pairs, so that at any time there is always a backup containing the previous
@@ -130,7 +133,7 @@ what the pair of blocks may look like after each update:
 After each update, we can find the most up to date value of data by looking
 at the revision count.
 
-Now consider what the blocks may look like if we suddenly loss power while
+Now consider what the blocks may look like if we suddenly lose power while
 changing the value of data to 5:
 ```
   block 1   block 2        block 1   block 2        block 1   block 2
@@ -158,10 +161,10 @@ rest of the filesystem is built on top of these atomic updates.
 
 Now, the metadata pairs do come with some drawbacks. Most notably, each pair
 requires two blocks for each block of data. I'm sure users would be very
-unhappy if their storage was suddenly cut in half! Instead of storing
+unhappy if their storage was suddenly half the size! Instead of storing
 everything in these metadata blocks, the littlefs uses a COW data structure
 for files which is in turn pointed to by a metadata block. When
-we update a file, we create a copies of any blocks that are modified until
+we update a file, we create copies of any blocks that are modified until
 the metadata blocks are updated with the new copy. Once the metadata block
 points to the new copy, we deallocate the old blocks that are no longer in use.
 
@@ -184,7 +187,7 @@ Here is what updating a one-block file may look like:
             update data in file        update metadata pair
 ```
 
-It doesn't matter if we lose power while writing block 5 with the new data,
+It doesn't matter if we lose power while writing new data to block 5,
 since the old data remains unmodified in block 4. This example also
 highlights how the atomic updates of the metadata blocks provide a
 synchronization barrier for the rest of the littlefs.
@@ -206,7 +209,7 @@ files in filesystems. Of these, the littlefs uses a rather unique [COW](https://
 data structure that allows the filesystem to reuse unmodified parts of the
 file without additional metadata pairs.
 
-First lets consider storing files in a simple linked-list. What happens when
+First lets consider storing files in a simple linked-list. What happens when we
 append a block? We have to change the last block in the linked-list to point
 to this new block, which means we have to copy out the last block, and change
 the second-to-last block, and then the third-to-last, and so on until we've
@@ -240,8 +243,8 @@ Exhibit B: A backwards linked-list
 ```
 
 However, a backwards linked-list does come with a rather glaring problem.
-Iterating over a file _in order_ has a runtime of O(n^2). Gah! A quadratic
-runtime to just _read_ a file? That's awful. Keep in mind reading files are
+Iterating over a file _in order_ has a runtime cost of O(n^2). Gah! A quadratic
+runtime to just _read_ a file? That's awful. Keep in mind reading files is
 usually the most common filesystem operation.
 
 To avoid this problem, the littlefs uses a multilayered linked-list. For
@@ -255,7 +258,7 @@ The name comes from the use of the
 [count trailing zeros (CTZ)](https://en.wikipedia.org/wiki/Count_trailing_zeros)
 instruction, which allows us to calculate the power-of-two factors efficiently.
 For a given block n, the block contains ctz(n)+1 pointers.
-
+[Exhibit C](#exhibit_c)
 ```
 Exhibit C: A backwards CTZ skip-list
 .--------.  .--------.  .--------.  .--------.  .--------.  .--------.
@@ -266,9 +269,9 @@ Exhibit C: A backwards CTZ skip-list
 ```
 
 The additional pointers allow us to navigate the data-structure on disk
-much more efficiently than in a single linked-list.
+much more efficiently than in a singly linked-list.
 
-Taking exhibit C for example, here is the path from data block 5 to data
+Taking [Exhibit C](exhibit_c) for example, here is the path from data block 5 to data
 block 1. You can see how data block 3 was completely skipped:
 ```
 .--------.  .--------.  .--------.  .--------.  .--------.  .--------.
@@ -500,6 +503,7 @@ scanned to find the most recent free list, but once the list was found the
 state of all free blocks becomes known.
 
 However, this approach had several issues:
+
 - There was a lot of nuanced logic for adding blocks to the free list without
   modifying the blocks, since the blocks remain active until the metadata is
   updated.
@@ -509,7 +513,7 @@ However, this approach had several issues:
   out of blocks and may no longer be able to add blocks to the free list.
 - If we used a revision count to track the most recently updated free list,
   metadata blocks that were left unmodified were ticking time bombs that would
-  cause the system to go haywire if the revision count overflowed
+  cause the system to go haywire if the revision count overflowed.
 - Every single metadata block wasted space to store these free list references.
 
 Actually, to simplify, this approach had one massive glaring issue: complexity.
@@ -539,7 +543,7 @@ would have an abhorrent runtime.
 So the littlefs compromises. It doesn't store a bitmap the size of the storage,
 but it does store a little bit-vector that contains a fixed set lookahead
 for block allocations. During a block allocation, the lookahead vector is
-checked for any free blocks, if there are none, the lookahead region jumps
+checked for any free blocks. If there are none, the lookahead region jumps
 forward and the entire filesystem is scanned for free blocks.
 
 Here's what it might look like to allocate 4 blocks on a decently busy
@@ -1151,7 +1155,7 @@ develops errors and needs to be moved.
 
 ## Wear leveling
 
-The second concern for the littlefs, is that blocks in the filesystem may wear
+The second concern for the littlefs is that blocks in the filesystem may wear
 unevenly. In this situation, a filesystem may meet an early demise where
 there are no more non-corrupted blocks that aren't in use. It's common to
 have files that were written once and left unmodified, wasting the potential
@@ -1171,7 +1175,7 @@ of wear leveling:
 
 In littlefs's case, it's possible to use the revision count on metadata pairs
 to approximate the wear of a metadata block. And combined with the COW nature
-of files, littlefs could provide your usually implementation of dynamic wear
+of files, littlefs could provide your usual implementation of dynamic wear
 leveling.
 
 However, the littlefs does not. This is for a few reasons. Most notably, even
@@ -1212,7 +1216,7 @@ So, to summarize:
 5. Files are represented by copy-on-write CTZ skip-lists which support O(1)
    append and O(n log n) reading
 6. Blocks are allocated by scanning the filesystem for used blocks in a
-   fixed-size lookahead region is that stored in a bit-vector
+   fixed-size lookahead region that is stored in a bit-vector
 7. To facilitate scanning the filesystem, all directories are part of a
    linked-list that is threaded through the entire filesystem
 8. If a block develops an error, the littlefs allocates a new block, and
