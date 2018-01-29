@@ -45,3 +45,31 @@ before_script:
     - sudo chmod a+rw /dev/loop0
     - dd if=/dev/zero bs=512 count=2048 of=disk
     - losetup /dev/loop0 disk
+
+deploy:
+    # Let before_deploy take over
+    provider: script
+    script: 'true'
+    on:
+        branch: master
+
+before_deploy:
+    - cd $TRAVIS_BUILD_DIR
+    # Update tag for version defined in lfs.h
+    - LFS_VERSION=$(grep -ox '#define LFS_VERSION .*' lfs.h | cut -d ' ' -f3)
+    - LFS_VERSION_MAJOR=$((0xffff & ($LFS_VERSION >> 16)))
+    - LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
+    - LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR"
+    - |
+      curl -u $GEKY_BOT -X POST \
+        https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs \
+        -d @- <<< "{
+          \"ref\": \"refs/tags/$LFS_VERSION\",
+          \"sha\": \"$TRAVIS_COMMIT\"
+        }"
+    - |
+      curl -f -u $GEKY_BOT -X PATCH \
+        https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/$LFS_VERSION \
+        -d @- <<< "{
+          \"sha\": \"$TRAVIS_COMMIT\"
+        }"

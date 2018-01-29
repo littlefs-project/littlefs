@@ -2067,7 +2067,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         .d.type = LFS_TYPE_SUPERBLOCK,
         .d.elen = sizeof(superblock.d) - sizeof(superblock.d.magic) - 4,
         .d.nlen = sizeof(superblock.d.magic),
-        .d.version = 0x00010001,
+        .d.version = LFS_DISK_VERSION,
         .d.magic = {"littlefs"},
         .d.block_size  = lfs->cfg->block_size,
         .d.block_count = lfs->cfg->block_count,
@@ -2140,10 +2140,11 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         return LFS_ERR_CORRUPT;
     }
 
-    if (superblock.d.version > (0x00010001 | 0x0000ffff)) {
-        LFS_ERROR("Invalid version %d.%d",
-                0xffff & (superblock.d.version >> 16),
-                0xffff & (superblock.d.version >> 0));
+    uint16_t major_version = (0xffff & (superblock.d.version >> 16));
+    uint16_t minor_version = (0xffff & (superblock.d.version >>  0));
+    if ((major_version != LFS_DISK_VERSION_MAJOR ||
+         minor_version > LFS_DISK_VERSION_MINOR)) {
+        LFS_ERROR("Invalid version %d.%d", major_version, minor_version);
         return LFS_ERR_INVAL;
     }
 
