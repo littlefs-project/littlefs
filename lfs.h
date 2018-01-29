@@ -22,6 +22,23 @@
 #include <stdbool.h>
 
 
+/// Version info ///
+
+// Software library version
+// Major (top-nibble), incremented on backwards incompatible changes
+// Minor (bottom-nibble), incremented on feature additions
+#define LFS_VERSION 0x00010002
+#define LFS_VERSION_MAJOR (0xffff & (LFS_VERSION >> 16))
+#define LFS_VERSION_MINOR (0xffff & (LFS_VERSION >>  0))
+
+// Version of On-disk data structures
+// Major (top-nibble), incremented on backwards incompatible changes
+// Minor (bottom-nibble), incremented on feature additions
+#define LFS_DISK_VERSION 0x00010001
+#define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
+#define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
+
+
 /// Definitions ///
 
 // Type definitions
@@ -363,6 +380,11 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 // Returns the old position of the file, or a negative error code on failure.
 lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence);
+
+// Truncates the size of the file to the specified size
+//
+// Returns a negative error code on failure.
+int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
 
 // Return the position of the file
 //
