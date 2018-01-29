@@ -116,7 +116,7 @@ can be either one of those found in the `enum lfs_error` in [lfs.h](lfs.h),
 or an error returned by the user's block device operations.
 
 It should also be noted that the current implementation of littlefs doesn't
-really do anything to insure that the data written to disk is machine portable.
+really do anything to ensure that the data written to disk is machine portable.
 This is fine as long as all of the involved machines share endianness
 (little-endian) and don't have strange padding requirements.
 
@@ -148,7 +148,7 @@ littlefs is available in Mbed OS as the [LittleFileSystem](https://os.mbed.com/d
 class.
 
 [littlefs-fuse](https://github.com/geky/littlefs-fuse) - A [FUSE](https://github.com/libfuse/libfuse)
-wrapper for littlefs. The project allows you to mount littlefs directly in a
+wrapper for littlefs. The project allows you to mount littlefs directly on a
 Linux machine. Can be useful for debugging littlefs if you have an SD card
 handy.
 
