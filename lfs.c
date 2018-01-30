@@ -351,7 +351,7 @@ static inline bool lfs_pairsync(
            (paira[0] == pairb[1] && paira[1] == pairb[0]);
 }
 
-static inline lfs_size_t lfs_entry_size(const lfs_entry_t *entry) {
+static inline lfs_size_t lfs_entry_size(const lfs_entry_t *const entry) {
     return 4 + entry->d.elen + entry->d.alen + entry->d.nlen;
 }
 
@@ -640,8 +640,8 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
 
 static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     // check if we should just drop the directory block
-    if ((dir->d.size & 0x7fffffff) == sizeof(dir->d)+4
-            + lfs_entry_size(entry)) {
+    const lfs_size_t entry_sz = lfs_entry_size(entry);
+    if ((dir->d.size & 0x7fffffff) == sizeof(dir->d)+4 + entry_sz) {
         lfs_dir_t pdir;
         int res = lfs_pred(lfs, dir->pair, &pdir);
         if (res < 0) {
@@ -658,7 +658,7 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
 
     // shift out the entry
     int err = lfs_dir_commit(lfs, dir, (struct lfs_region[]){
-            {entry->off, lfs_entry_size(entry), NULL, 0},
+            {entry->off, entry_sz, NULL, 0},
         }, 1);
     if (err) {
         return err;
@@ -671,7 +671,7 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
                 f->pair[0] = 0xffffffff;
                 f->pair[1] = 0xffffffff;
             } else if (f->poff > entry->off) {
-                f->poff -= lfs_entry_size(entry);
+                f->poff -= entry_sz;
             }
         }
     }
@@ -679,8 +679,8 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     for (lfs_dir_t *d = lfs->dirs; d; d = d->next) {
         if (lfs_paircmp(d->pair, dir->pair) == 0) {
             if (d->off > entry->off) {
-                d->off -= lfs_entry_size(entry);
-                d->pos -= lfs_entry_size(entry);
+                d->off -= entry_sz;
+                d->pos -= entry_sz;
             }
         }
     }
@@ -711,8 +711,9 @@ static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     }
 
     entry->off = dir->off;
-    dir->off += lfs_entry_size(entry);
-    dir->pos += lfs_entry_size(entry);
+    const lfs_size_t entry_sz = lfs_entry_size(entry);
+    dir->off += entry_sz;
+    dir->pos += entry_sz;
     return 0;
 }
 
