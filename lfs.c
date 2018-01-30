@@ -1737,7 +1737,7 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
 }
 
 
-/// General fs oprations ///
+/// General fs operations ///
 int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     // check for root, can only be something like '/././../.'
     if (strspn(path, "/.") == strlen(path)) {
