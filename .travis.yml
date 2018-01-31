@@ -63,16 +63,45 @@ before_deploy:
     - LFS_VERSION_MAJOR=$((0xffff & ($LFS_VERSION >> 16)))
     - LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
     - LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR"
+    - echo "littlefs version $LFS_VERSION"
     - |
       curl -u $GEKY_BOT -X POST \
         https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs \
-        -d @- <<< "{
+        -d "{
           \"ref\": \"refs/tags/$LFS_VERSION\",
           \"sha\": \"$TRAVIS_COMMIT\"
         }"
     - |
       curl -f -u $GEKY_BOT -X PATCH \
         https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/$LFS_VERSION \
-        -d @- <<< "{
+        -d "{
           \"sha\": \"$TRAVIS_COMMIT\"
         }"
+    # Create release notes from commits
+    - LFS_PREV_VERSION="v$LFS_VERSION_MAJOR.$(($LFS_VERSION_MINOR-1))"
+    - |
+      if [ $(git tag -l "$LFS_PREV_VERSION") ]
+      then
+        curl -u $GEKY_BOT -X POST \
+            https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases \
+            -d "{
+                \"tag_name\": \"$LFS_VERSION\",
+                \"name\": \"$LFS_VERSION\"
+            }"
+        RELEASE=$(
+            curl -f https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases/tags/$LFS_VERSION
+        )
+        CHANGES=$(
+            git log --oneline $LFS_PREV_VERSION.. --grep='^Merge' --invert-grep
+        )
+        curl -f -u $GEKY_BOT -X PATCH \
+            https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases/$(
+                jq -r '.id' <<< "$RELEASE"
+            ) \
+            -d "$(
+                jq -s '{
+                    "body": ((.[0] // "" | sub("(?<=\n)#+ Changes.*"; ""; "mi"))
+                        + "### Changes\n\n" + .[1])
+                }' <(jq '.body' <<< "$RELEASE") <(jq -sR '.' <<< "$CHANGES")
+            )"
+      fi
