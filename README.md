@@ -16,7 +16,7 @@ of memory. Recursion is avoided and dynamic memory is limited to configurable
 buffers that can be provided statically.
 
 **Power-loss resilient** - The littlefs is designed for systems that may have
-random power failures. The littlefs has strong copy-on-write guaruntees and
+random power failures. The littlefs has strong copy-on-write guarantees and
 storage on disk is always kept in a valid state.
 
 **Wear leveling** - Since the most common form of embedded storage is erodible
@@ -88,7 +88,7 @@ int main(void) {
 ## Usage
 
 Detailed documentation (or at least as much detail as is currently available)
-can be cound in the comments in [lfs.h](lfs.h).
+can be found in the comments in [lfs.h](lfs.h).
 
 As you may have noticed, littlefs takes in a configuration structure that
 defines how the filesystem operates. The configuration struct provides the
@@ -101,12 +101,12 @@ to the user to allocate, allowing multiple filesystems to be in use
 simultaneously. With the `lfs_t` and configuration struct, a user can
 format a block device or mount the filesystem.
 
-Once mounted, the littlefs provides a full set of posix-like file and
+Once mounted, the littlefs provides a full set of POSIX-like file and
 directory functions, with the deviation that the allocation of filesystem
 structures must be provided by the user.
 
-All posix operations, such as remove and rename, are atomic, even in event
-of power-loss. Additionally, no file updates are actually commited to the
+All POSIX operations, such as remove and rename, are atomic, even in event
+of power-loss. Additionally, no file updates are actually committed to the
 filesystem until sync or close is called on the file.
 
 ## Other notes
@@ -116,7 +116,7 @@ can be either one of those found in the `enum lfs_error` in [lfs.h](lfs.h),
 or an error returned by the user's block device operations.
 
 It should also be noted that the current implementation of littlefs doesn't
-really do anything to insure that the data written to disk is machine portable.
+really do anything to ensure that the data written to disk is machine portable.
 This is fine as long as all of the involved machines share endianness
 (little-endian) and don't have strange padding requirements.
 
@@ -131,9 +131,9 @@ with all the nitty-gritty details. Can be useful for developing tooling.
 
 ## Testing
 
-The littlefs comes with a test suite designed to run on a pc using the
+The littlefs comes with a test suite designed to run on a PC using the
 [emulated block device](emubd/lfs_emubd.h) found in the emubd directory.
-The tests assume a linux environment and can be started with make:
+The tests assume a Linux environment and can be started with make:
 
 ``` bash
 make test
@@ -148,7 +148,7 @@ littlefs is available in Mbed OS as the [LittleFileSystem](https://os.mbed.com/d
 class.
 
 [littlefs-fuse](https://github.com/geky/littlefs-fuse) - A [FUSE](https://github.com/libfuse/libfuse)
-wrapper for littlefs. The project allows you to mount littlefs directly in a
+wrapper for littlefs. The project allows you to mount littlefs directly on a
 Linux machine. Can be useful for debugging littlefs if you have an SD card
 handy.
 
