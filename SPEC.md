@@ -46,7 +46,7 @@ Here's the layout of metadata blocks on disk:
 | 0x04   | 32 bits       | dir size       |
 | 0x08   | 64 bits       | tail pointer   |
 | 0x10   | size-16 bytes | dir entries    |
-| 0x00+s | 32 bits       | crc            |
+| 0x00+s | 32 bits       | CRC            |
 
 **Revision count** - Incremented every update, only the uncorrupted
 metadata-block with the most recent revision count contains the valid metadata.
@@ -75,7 +75,7 @@ Here's an example of a simple directory stored on disk:
 (32 bits) revision count = 10                    (0x0000000a)
 (32 bits) dir size       = 154 bytes, end of dir (0x0000009a)
 (64 bits) tail pointer   = 37, 36                (0x00000025, 0x00000024)
-(32 bits) crc            = 0xc86e3106
+(32 bits) CRC            = 0xc86e3106
 
 00000000: 0a 00 00 00 9a 00 00 00 25 00 00 00 24 00 00 00  ........%...$...
 00000010: 22 08 00 03 05 00 00 00 04 00 00 00 74 65 61 22  "...........tea"
@@ -138,12 +138,12 @@ not include the entry type size, attributes, or name. The full size in bytes
 of the entry is 4 + entry length + attribute length + name length.
 
 **Attribute length** - Length of system-specific attributes in bytes. Since
-attributes are system specific, there is not much garuntee on the values in
+attributes are system specific, there is not much guarantee on the values in
 this section, and systems are expected to work even when it is empty. See the
 [attributes](#entry-attributes) section for more details.
 
-**Name length** - Length of the entry name. Entry names are stored as utf8,
-although most systems will probably only support ascii. Entry names can not
+**Name length** - Length of the entry name. Entry names are stored as UTF8,
+although most systems will probably only support ASCII. Entry names can not
 contain '/' and can not be '.' or '..' as these are a part of the syntax of
 filesystem paths.
 
@@ -222,7 +222,7 @@ Here's an example of a complete superblock:
 (32 bits) block count      = 1024 blocks          (0x00000400)
 (32 bits) version          = 1.1                  (0x00010001)
 (8 bytes) magic string     = littlefs
-(32 bits) crc              = 0xc50b74fa
+(32 bits) CRC              = 0xc50b74fa
 
 00000000: 03 00 00 00 34 00 00 00 03 00 00 00 02 00 00 00  ....4...........
 00000010: 2e 14 00 08 03 00 00 00 02 00 00 00 00 02 00 00  ................
