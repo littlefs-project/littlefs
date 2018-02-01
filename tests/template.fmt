@@ -58,7 +58,7 @@ lfs_size_t size;
 lfs_size_t wsize;
 lfs_size_t rsize;
 
-uintmax_t res;
+uintmax_t test;
 
 #ifndef LFS_READ_SIZE
 #define LFS_READ_SIZE 16

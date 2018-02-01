@@ -14,19 +14,26 @@ def generate(test):
         match = re.match('(?: *\n)*( *)(.*)=>(.*);', line, re.DOTALL | re.MULTILINE)
         if match:
             tab, test, expect = match.groups()
-            lines.append(tab+'res = {test};'.format(test=test.strip()))
-            lines.append(tab+'test_assert("{name}", res, {expect});'.format(
+            lines.append(tab+'test = {test};'.format(test=test.strip()))
+            lines.append(tab+'test_assert("{name}", test, {expect});'.format(
                     name = re.match('\w*', test.strip()).group(),
                     expect = expect.strip()))
         else:
             lines.append(line)
 
+    # Create test file
     with open('test.c', 'w') as file:
         file.write(template.format(tests='\n'.join(lines)))
 
+    # Remove build artifacts to force rebuild
+    try:
+        os.remove('test.o')
+        os.remove('lfs')
+    except OSError:
+        pass
+
 def compile():
-    os.environ['CFLAGS'] = os.environ.get('CFLAGS', '') + ' -Werror'
-    subprocess.check_call(['make', '--no-print-directory', '-s'], env=os.environ)
+    subprocess.check_call(['make', '--no-print-directory', '-s'])
 
 def execute():
     subprocess.check_call(["./lfs"])
