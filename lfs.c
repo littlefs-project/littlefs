@@ -21,7 +21,37 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/param.h>
 
+#if (__GNUC__ >= 4) && (__GNUC_MINOR__ >= 3)
+#define LFS_BSWAP32(v) __builtin_bswap32(v);
+#else
+#define LFS_BSWAP32(v) ((((uint32_t)(v) & 0xff000000) >> 24) | (((uint32_t)(v) & 0x00ff0000) >> 8) | (((uint32_t)(v) & 0x0000ff00) << 8) | (((uint32_t)(v) & 0x000000ff) << 24))
+#endif
+
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define LFS_ENDIAN_CONV_U32(v) do { (v) = LFS_BSWAP32(v); } while(0)
+#else
+#define LFS_ENDIAN_CONV_U32(v)
+#endif
+
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define LFS_ENDIAN_CONV_DISK_DIR(v) do { LFS_ENDIAN_CONV_U32(v.rev); LFS_ENDIAN_CONV_U32(v.size); LFS_ENDIAN_CONV_U32(v.tail[0]); LFS_ENDIAN_CONV_U32(v.tail[1]); } while(0) 
+#else
+#define LFS_ENDIAN_CONV_DISK_DIR(v)
+#endif
+
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define LFS_ENDIAN_CONV_DISK_ENTRY(v) do { LFS_ENDIAN_CONV_U32(v.u.dir[0]); LFS_ENDIAN_CONV_U32(v.u.dir[1]); } while(0)
+#else
+#define LFS_ENDIAN_CONV_DISK_ENTRY(v)
+#endif
+
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define LFS_ENDIAN_CONV_DISK_SUPERBLOCK(v) do { LFS_ENDIAN_CONV_U32(v.root[0]); LFS_ENDIAN_CONV_U32(v.root[1]); LFS_ENDIAN_CONV_U32(v.block_size); LFS_ENDIAN_CONV_U32(v.block_count); LFS_ENDIAN_CONV_U32(v.version); } while(0)
+#else
+#define LFS_ENDIAN_CONV_DISK_SUPERBLOCK(v)
+#endif
 
 /// Caching block device operations ///
 static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
@@ -370,6 +400,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
     if (err) {
         return err;
     }
+    LFS_ENDIAN_CONV_U32(dir->d.rev); // little-endian to host conversion
 
     // set defaults
     dir->d.rev += 1;
@@ -395,6 +426,7 @@ static int lfs_dir_fetch(lfs_t *lfs,
         if (err) {
             return err;
         }
+        LFS_ENDIAN_CONV_DISK_DIR(test); // little-endian to host conversion
 
         if (valid && lfs_scmp(test.rev, dir->d.rev) < 0) {
             continue;
@@ -405,8 +437,10 @@ static int lfs_dir_fetch(lfs_t *lfs,
             continue;
         }
 
+        LFS_ENDIAN_CONV_DISK_DIR(test); // host to little-endian conversion
         uint32_t crc = 0xffffffff;
         lfs_crc(&crc, &test, sizeof(test));
+        LFS_ENDIAN_CONV_DISK_DIR(test); // little-endian to host conversion
         err = lfs_bd_crc(lfs, tpair[i], sizeof(test),
                 (0x7fffffff & test.size) - sizeof(test), &crc);
         if (err) {
@@ -417,7 +451,7 @@ static int lfs_dir_fetch(lfs_t *lfs,
             continue;
         }
 
-        valid = true;
+		valid = true;
 
         // setup dir in case it's valid
         dir->pair[0] = tpair[(i+0) % 2];
@@ -466,8 +500,9 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
             }
 
             uint32_t crc = 0xffffffff;
-            lfs_crc(&crc, &dir->d, sizeof(dir->d));
-            err = lfs_bd_prog(lfs, dir->pair[0], 0, &dir->d, sizeof(dir->d));
+            lfs_dir_t _dir; _dir.d = dir->d; LFS_ENDIAN_CONV_DISK_DIR(_dir.d); // host to little-endian conversion
+            lfs_crc(&crc, &_dir.d, sizeof(_dir.d));
+            err = lfs_bd_prog(lfs, dir->pair[0], 0, &_dir.d, sizeof(_dir.d));
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
@@ -514,7 +549,9 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
                 }
             }
 
+            LFS_ENDIAN_CONV_U32(crc); // host to little-endian conversion
             err = lfs_bd_prog(lfs, dir->pair[0], newoff, &crc, 4);
+            LFS_ENDIAN_CONV_U32(crc); // little-endian to host conversion
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
@@ -588,8 +625,9 @@ relocate:
 
 static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
         const lfs_entry_t *entry, const void *data) {
+    lfs_entry_t _entry; _entry.d = entry->d; LFS_ENDIAN_CONV_DISK_ENTRY(_entry.d); // host to little-endian conversion
     return lfs_dir_commit(lfs, dir, (struct lfs_region[]){
-            {entry->off, sizeof(entry->d), &entry->d, sizeof(entry->d)},
+            {entry->off, sizeof(entry->d), &_entry.d, sizeof(entry->d)},
             {entry->off+sizeof(entry->d), entry->d.nlen, data, entry->d.nlen}
         }, data ? 2 : 1);
 }
@@ -600,8 +638,9 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
     while (true) {
         if (dir->d.size + lfs_entry_size(entry) <= lfs->cfg->block_size) {
             entry->off = dir->d.size - 4;
+            lfs_entry_t _entry; _entry.d = entry->d; LFS_ENDIAN_CONV_DISK_ENTRY(_entry.d); // host to little-endian conversion
             return lfs_dir_commit(lfs, dir, (struct lfs_region[]){
-                    {entry->off, 0, &entry->d, sizeof(entry->d)},
+                    {entry->off, 0, &_entry.d, sizeof(entry->d)},
                     {entry->off, 0, data, entry->d.nlen}
                 }, 2);
         }
@@ -617,8 +656,9 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
             newdir.d.tail[0] = dir->d.tail[0];
             newdir.d.tail[1] = dir->d.tail[1];
             entry->off = newdir.d.size - 4;
+            lfs_entry_t _entry; _entry.d = entry->d; LFS_ENDIAN_CONV_DISK_ENTRY(_entry.d); // host to little-endian conversion
             err = lfs_dir_commit(lfs, &newdir, (struct lfs_region[]){
-                    {entry->off, 0, &entry->d, sizeof(entry->d)},
+                    {entry->off, 0, &_entry.d, sizeof(entry->d)},
                     {entry->off, 0, data, entry->d.nlen}
                 }, 2);
             if (err) {
@@ -709,6 +749,7 @@ static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     if (err) {
         return err;
     }
+    LFS_ENDIAN_CONV_DISK_ENTRY(entry->d); // little-endian to host conversion
 
     entry->off = dir->off;
     dir->off += lfs_entry_size(entry);
@@ -1070,6 +1111,7 @@ static int lfs_ctz_find(lfs_t *lfs,
         if (err) {
             return err;
         }
+        LFS_ENDIAN_CONV_U32(head); // little-endian to host conversion
 
         assert(head >= 2 && head <= lfs->cfg->block_count);
         current -= 1 << skip;
@@ -1142,8 +1184,10 @@ static int lfs_ctz_extend(lfs_t *lfs,
             lfs_size_t skips = lfs_ctz(index) + 1;
 
             for (lfs_off_t i = 0; i < skips; i++) {
+                LFS_ENDIAN_CONV_U32(head); // host to little-endian conversion
                 int err = lfs_cache_prog(lfs, pcache, rcache,
                         nblock, 4*i, &head, 4);
+                LFS_ENDIAN_CONV_U32(head); // little-endian to host conversion
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
@@ -1157,6 +1201,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
                     if (err) {
                         return err;
                     }
+                    LFS_ENDIAN_CONV_U32(head); // little-endian to host conversion
                 }
 
                 assert(head >= 2 && head <= lfs->cfg->block_count);
@@ -1201,6 +1246,8 @@ static int lfs_ctz_traverse(lfs_t *lfs,
         if (err) {
             return err;
         }
+        LFS_ENDIAN_CONV_U32(heads[0]); // host to little-endian conversion
+        LFS_ENDIAN_CONV_U32(heads[1]); // host to little-endian conversion
 
         for (int i = 0; i < count-1; i++) {
             err = cb(data, heads[i]);
@@ -1461,6 +1508,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         if (err) {
             return err;
         }
+        LFS_ENDIAN_CONV_DISK_ENTRY(entry.d); // little-endian to host conversion
 
         if (entry.d.type != LFS_TYPE_REG) {
             // sanity check valid entry
@@ -2080,9 +2128,10 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     // write both pairs to be safe
     bool valid = false;
     for (int i = 0; i < 2; i++) {
+        lfs_superblock_t _superblock; _superblock.d = superblock.d; LFS_ENDIAN_CONV_DISK_SUPERBLOCK(_superblock.d); // host to little-endian conversion
         int err = lfs_dir_commit(lfs, &superdir, (struct lfs_region[]){
                 {sizeof(superdir.d), sizeof(superblock.d),
-                 &superblock.d, sizeof(superblock.d)}
+                 &_superblock.d, sizeof(superblock.d)}
             }, 1);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -2130,6 +2179,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         if (err) {
             return err;
         }
+        LFS_ENDIAN_CONV_DISK_SUPERBLOCK(superblock.d); // little-endian to host conversion
 
         lfs->root[0] = superblock.d.root[0];
         lfs->root[1] = superblock.d.root[1];
@@ -2186,6 +2236,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
             if (err) {
                 return err;
             }
+            LFS_ENDIAN_CONV_DISK_ENTRY(entry.d); // little-endian to host conversion
 
             dir.off += lfs_entry_size(&entry);
             if ((0x70 & entry.d.type) == (0x70 & LFS_TYPE_REG)) {
