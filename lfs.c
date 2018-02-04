@@ -1694,7 +1694,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         // flush+seek if not already at end
         if (file->pos != oldsize) {
             int err = lfs_file_seek(lfs, file, 0, SEEK_END);
-            if (err) {
+            if (err < 0) {
                 return err;
             }
         }

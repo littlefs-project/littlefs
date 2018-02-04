@@ -13,10 +13,12 @@ TEST
 
 truncate_test() {
 STARTSIZES="$1"
-HOTSIZES="$2"
-COLDSIZES="$3"
+STARTSEEKS="$2"
+HOTSIZES="$3"
+COLDSIZES="$4"
 tests/test.py << TEST
     static const lfs_off_t startsizes[] = {$STARTSIZES};
+    static const lfs_off_t startseeks[] = {$STARTSEEKS};
     static const lfs_off_t hotsizes[]   = {$HOTSIZES};
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -32,6 +34,11 @@ tests/test.py << TEST
             lfs_file_write(&lfs, &file[0], buffer, size) => size;
         }
         lfs_file_size(&lfs, &file[0]) => startsizes[i];
+
+        if (startseeks[i] != startsizes[i]) {
+            lfs_file_seek(&lfs, &file[0],
+                    startseeks[i], LFS_SEEK_SET) => startseeks[i];
+        }
 
         lfs_file_truncate(&lfs, &file[0], hotsizes[i]) => 0;
         lfs_file_size(&lfs, &file[0]) => hotsizes[i];
@@ -109,10 +116,12 @@ echo "--- Cold shrinking truncate ---"
 truncate_test \
     "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE" \
     "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE" \
+    "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE" \
     "           0,   $SMALLSIZE,  $MEDIUMSIZE,   $LARGESIZE, 2*$LARGESIZE"
 
 echo "--- Cold expanding truncate ---"
 truncate_test \
+    "           0,   $SMALLSIZE,  $MEDIUMSIZE,   $LARGESIZE, 2*$LARGESIZE" \
     "           0,   $SMALLSIZE,  $MEDIUMSIZE,   $LARGESIZE, 2*$LARGESIZE" \
     "           0,   $SMALLSIZE,  $MEDIUMSIZE,   $LARGESIZE, 2*$LARGESIZE" \
     "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE"
@@ -120,12 +129,28 @@ truncate_test \
 echo "--- Warm shrinking truncate ---"
 truncate_test \
     "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE" \
+    "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE" \
     "           0,   $SMALLSIZE,  $MEDIUMSIZE,   $LARGESIZE, 2*$LARGESIZE" \
     "           0,            0,            0,            0,            0"
 
 echo "--- Warm expanding truncate ---"
 truncate_test \
     "           0,   $SMALLSIZE,  $MEDIUMSIZE,   $LARGESIZE, 2*$LARGESIZE" \
+    "           0,   $SMALLSIZE,  $MEDIUMSIZE,   $LARGESIZE, 2*$LARGESIZE" \
+    "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE" \
+    "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE"
+
+echo "--- Mid-file shrinking truncate ---"
+truncate_test \
+    "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE" \
+    "  $LARGESIZE,   $LARGESIZE,   $LARGESIZE,   $LARGESIZE,   $LARGESIZE" \
+    "           0,   $SMALLSIZE,  $MEDIUMSIZE,   $LARGESIZE, 2*$LARGESIZE" \
+    "           0,            0,            0,            0,            0"
+
+echo "--- Mid-file expanding truncate ---"
+truncate_test \
+    "           0,   $SMALLSIZE,  $MEDIUMSIZE,   $LARGESIZE, 2*$LARGESIZE" \
+    "           0,            0,   $SMALLSIZE,  $MEDIUMSIZE,   $LARGESIZE" \
     "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE" \
     "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE"
 
