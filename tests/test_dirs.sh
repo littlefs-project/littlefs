@@ -220,7 +220,7 @@ tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "warmpotato") => 0;
     lfs_mkdir(&lfs, "warmpotato/mushy") => 0;
-    lfs_rename(&lfs, "hotpotato", "warmpotato") => LFS_ERR_INVAL;
+    lfs_rename(&lfs, "hotpotato", "warmpotato") => LFS_ERR_NOTEMPTY;
 
     lfs_remove(&lfs, "warmpotato/mushy") => 0;
     lfs_rename(&lfs, "hotpotato", "warmpotato") => 0;

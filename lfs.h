@@ -66,6 +66,7 @@ enum lfs_error {
     LFS_ERR_NOTDIR   = -20,  // Entry is not a dir
     LFS_ERR_ISDIR    = -21,  // Entry is a dir
     LFS_ERR_NOTEMPTY = -39,  // Dir is not empty
+    LFS_ERR_BADF     = -9,   // Bad file number
     LFS_ERR_INVAL    = -22,  // Invalid parameter
     LFS_ERR_NOSPC    = -28,  // No space left on device
     LFS_ERR_NOMEM    = -12,  // No more memory available

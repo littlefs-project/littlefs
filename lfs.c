@@ -1463,11 +1463,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             return err;
         }
 
-        if (entry.d.type != LFS_TYPE_REG) {
-            // sanity check valid entry
-            return LFS_ERR_INVAL;
-        }
-
+        assert(entry.d.type == LFS_TYPE_REG);
         entry.d.u.file.head = file->head;
         entry.d.u.file.size = file->size;
 
@@ -1488,7 +1484,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     if ((file->flags & 3) == LFS_O_WRONLY) {
-        return LFS_ERR_INVAL;
+        return LFS_ERR_BADF;
     }
 
     if (file->flags & LFS_F_WRITING) {
@@ -1544,7 +1540,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     if ((file->flags & 3) == LFS_O_RDONLY) {
-        return LFS_ERR_INVAL;
+        return LFS_ERR_BADF;
     }
 
     if (file->flags & LFS_F_READING) {
@@ -1667,7 +1663,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     if ((file->flags & 3) == LFS_O_RDONLY) {
-        return LFS_ERR_INVAL;
+        return LFS_ERR_BADF;
     }
 
     lfs_off_t oldsize = lfs_file_size(lfs, file);
@@ -1879,7 +1875,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
     // must have same type
     if (prevexists && preventry.d.type != oldentry.d.type) {
-        return LFS_ERR_INVAL;
+        return LFS_ERR_ISDIR;
     }
 
     lfs_dir_t dir;
@@ -1891,7 +1887,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         if (err) {
             return err;
         } else if (dir.d.size != sizeof(dir.d)+4) {
-            return LFS_ERR_INVAL;
+            return LFS_ERR_NOTEMPTY;
         }
     }
 
