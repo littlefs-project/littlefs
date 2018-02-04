@@ -7,11 +7,11 @@
 
 
 // test stuff
-void test_log(const char *s, uintmax_t v) {{
+static void test_log(const char *s, uintmax_t v) {{
     printf("%s: %jd\n", s, v);
 }}
 
-void test_assert(const char *file, unsigned line,
+static void test_assert(const char *file, unsigned line,
         const char *s, uintmax_t v, uintmax_t e) {{
     static const char *last[6] = {{0, 0}};
     if (v != e || !(last[0] == s || last[1] == s ||
@@ -37,7 +37,8 @@ void test_assert(const char *file, unsigned line,
 
 
 // utility functions for traversals
-int test_count(void *p, lfs_block_t b) {{
+static int __attribute__((used)) test_count(void *p, lfs_block_t b) {{
+    (void)b;
     unsigned *u = (unsigned*)p;
     *u += 1;
     return 0;
@@ -96,7 +97,7 @@ const struct lfs_config cfg = {{
 
 
 // Entry point
-int main() {{
+int main(void) {{
     lfs_emubd_create(&cfg, "blocks");
 
 {tests}
