@@ -37,8 +37,8 @@ static void test_assert(const char *file, unsigned line,
 
 
 // utility functions for traversals
-static int __attribute__((used)) test_count(void *p,
-	lfs_block_t b __attribute__((unused))) {{
+static int __attribute__((used)) test_count(void *p, lfs_block_t b) {{
+    (void)b;
     unsigned *u = (unsigned*)p;
     *u += 1;
     return 0;
