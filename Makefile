@@ -1,63 +1,66 @@
-TARGET = lfs
+TARGET_EXE = lfs
+TARGET_LIB = lfs.a
+
+TARGET := $(TARGET_LIB)
+ifneq (,$(wildcard test.c))
+	TARGET := $(TARGET_EXE)
+endif
 
 CC = gcc
-AR = ar
-SIZE = size
 
 SRC += $(wildcard *.c emubd/*.c)
 OBJ := $(SRC:.c=.o)
 DEP := $(SRC:.c=.d)
-ASM := $(SRC:.c=.s)
-
-TEST := $(patsubst tests/%.sh,%,$(wildcard tests/test_*))
-
-SHELL = /bin/bash -o pipefail
 
 ifdef DEBUG
 CFLAGS += -O0 -g3
 else
 CFLAGS += -Os
 endif
+
 ifdef WORD
 CFLAGS += -m$(WORD)
 endif
 CFLAGS += -I.
 CFLAGS += -std=c99 -Wall -pedantic
 
-
-all: $(TARGET)
-
-asm: $(ASM)
-
-size: $(OBJ)
-	$(SIZE) -t $^
-
-.SUFFIXES:
-test: test_format test_dirs test_files test_seek test_truncate test_parallel \
-	test_alloc test_paths test_orphan test_move test_corrupt
-test_%: tests/test_%.sh
-ifdef QUIET
-	./$< | sed -n '/^[-=]/p'
-else
-	./$<
-endif
+LFLAGS = -lm
 
 -include $(DEP)
 
-$(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
+all: $(TARGET)
 
-%.a: $(OBJ)
-	$(AR) rcs $@ $^
+$(TARGET_EXE):  $(TARGET_LIB)
+	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
 %.o: %.c
 	$(CC) -c -MMD $(CFLAGS) $< -o $@
 
+$(TARGET_LIB): $(OBJ)
+	ar rcs $(TARGET_LIB) $^
+
+.PHONY: test
+test:
+	cd tests && $(MAKE)
+
+.PHONY: ar
+ar : $(OBJ)
+	ar rcs $(TARGET_LIB) $^
+
+.PHONY: asm
+ASM := $(SRC:.c=.s)
+asm: $(ASM)
 %.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
+.PHONY: size
+size: $(OBJ)
+	size -t $^
+
+.PHONY: clean
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET_EXE) $(TARGET_LIB)
 	rm -f $(OBJ)
 	rm -f $(DEP)
 	rm -f $(ASM)
+	rm -f test.*
