@@ -260,8 +260,9 @@ typedef struct lfs_superblock {
 
 typedef struct lfs_free {
     lfs_block_t begin;
-    lfs_block_t end;
+    lfs_block_t size;
     lfs_block_t off;
+    lfs_block_t ack;
     uint32_t *buffer;
 } lfs_free_t;
 

@@ -266,6 +266,40 @@ tests/test.py << TEST
     lfs_mkdir(&lfs, "exhaustiondir2") => LFS_ERR_NOSPC;
 TEST
 
+echo "--- Split dir test ---"
+rm -rf blocks
+tests/test.py << TEST
+    lfs_format(&lfs, &cfg) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+
+    // create one block whole for half a directory
+    lfs_file_open(&lfs, &file[0], "bump", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_write(&lfs, &file[0], (void*)"hi", 2) => 2;
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
+    size = strlen("blahblahblahblah");
+    memcpy(buffer, "blahblahblahblah", size);
+    for (lfs_size_t i = 0;
+            i < (cfg.block_count-6)*(cfg.block_size-8);
+            i += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    // open whole
+    lfs_remove(&lfs, "bump") => 0;
+
+    lfs_mkdir(&lfs, "splitdir") => 0;
+    lfs_file_open(&lfs, &file[0], "splitdir/bump",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_write(&lfs, &file[0], buffer, size) => LFS_ERR_NOSPC;
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    lfs_unmount(&lfs) => 0;
+TEST
 
 echo "--- Results ---"
 tests/stats.py
