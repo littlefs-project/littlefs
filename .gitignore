@@ -1,0 +1,9 @@
+# Compilation output
+*.o
+*.d
+*.a
+
+# Testing things
+blocks/
+lfs
+test.c
