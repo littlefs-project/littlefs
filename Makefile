@@ -1,8 +1,8 @@
 TARGET = lfs
 
-CC = gcc
-AR = ar
-SIZE = size
+CC ?= gcc
+AR ?= ar
+SIZE ?= size
 
 SRC += $(wildcard *.c emubd/*.c)
 OBJ := $(SRC:.c=.o)
