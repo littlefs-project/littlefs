@@ -33,10 +33,15 @@ def generate(test):
         pass
 
 def compile():
-    subprocess.check_call(['make', '--no-print-directory', '-s'])
+    subprocess.check_call([
+            os.environ.get('MAKE', 'make'),
+            '--no-print-directory', '-s'])
 
 def execute():
-    subprocess.check_call(["./lfs"])
+    if 'EXEC' in os.environ:
+        subprocess.check_call([os.environ['EXEC'], "./lfs"])
+    else:
+        subprocess.check_call(["./lfs"])
 
 def main(test=None):
     if test and not test.startswith('-'):
