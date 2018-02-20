@@ -24,7 +24,7 @@ script:
 
   - make clean test QUIET=1 CFLAGS+="-DLFS_NO_INTRINSICS"
 
-  # compile and find the code size with the smalles configuration
+  # compile and find the code size with the smallest configuration
   - make clean size
         OBJ="$(ls lfs*.o | tr '\n' ' ')"
         CFLAGS+="-DLFS_NO{ASSERT,DEBUG,WARN,ERROR}"
@@ -35,12 +35,13 @@ script:
     if [ "$TRAVIS_TEST_RESULT" -eq 0 ]
     then
         CURR=$(tail -n1 sizes | awk '{print $1}')
-        STATUS="Passed, code size is ${CURR}B"
-
         PREV=$(curl https://api.github.com/repos/$TRAVIS_REPO_SLUG/status/master \
-            | jq -r ".statuses[] | select(.context == \"ci/$NAME\").description" \
-            | sed 's/.*code size is \([0-9]*\).*/\1/' \
+            | jq -re "select(.sha != \"$TRAVIS_COMMIT\")
+                | .statuses[] | select(.context == \"$STAGE/$NAME\").description
+                | capture(\"code size is (?<size>[0-9]+)\").size" \
             || echo 0)
+
+        STATUS="Passed, code size is ${CURR}B"
         if [ "$PREV" -ne 0 ]
         then
             STATUS="$STATUS ($(python -c "print '%+.2f' % (100*($CURR-$PREV)/$PREV.0)")%)"
@@ -48,14 +49,18 @@ script:
     fi
 
 # CI matrix
-matrix:
+jobs:
   include:
     # native testing
-    - env:
+    - stage: test
+      env:
+        - STAGE=test
         - NAME=littlefs-x86
 
     # cross-compile with ARM (thumb mode)
-    - env:
+    - stage: test
+      env:
+        - STAGE=test
         - NAME=littlefs-arm
         - CC="arm-linux-gnueabi-gcc --static -mthumb"
         - EXEC="qemu-arm"
@@ -65,7 +70,9 @@ matrix:
         - qemu-arm -version
 
     # cross-compile with PowerPC
-    - env:
+    - stage: test
+      env:
+        - STAGE=test
         - NAME=littlefs-powerpc
         - CC="powerpc-linux-gnu-gcc --static"
         - EXEC="qemu-ppc"
@@ -75,7 +82,9 @@ matrix:
         - qemu-ppc -version
 
     # cross-compile with MIPS
-    - env:
+    - stage: test
+      env:
+        - STAGE=test
         - NAME=littlefs-mips
         - CC="mips-linux-gnu-gcc --static"
         - EXEC="qemu-mips"
@@ -87,7 +96,9 @@ matrix:
         - qemu-mips -version
 
     # self-host with littlefs-fuse for fuzz test
-    - env:
+    - stage: test
+      env:
+        - STAGE=test
         - NAME=littlefs-fuse
       install:
         - sudo apt-get install libfuse-dev
@@ -117,13 +128,67 @@ matrix:
         - ls
         - make -B test_dirs test_files QUIET=1
 
+      # Automatically update releases
+    - stage: deploy
+      env:
+        - STAGE=deploy
+        - NAME=deploy
+      script:
+        # Update tag for version defined in lfs.h
+        - LFS_VERSION=$(grep -ox '#define LFS_VERSION .*' lfs.h | cut -d ' ' -f3)
+        - LFS_VERSION_MAJOR=$((0xffff & ($LFS_VERSION >> 16)))
+        - LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
+        - LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR"
+        - echo "littlefs version $LFS_VERSION"
+        - |
+          curl -u $GEKY_BOT_RELEASES -X POST \
+            https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs \
+            -d "{
+              \"ref\": \"refs/tags/$LFS_VERSION\",
+              \"sha\": \"$TRAVIS_COMMIT\"
+            }"
+        - |
+          curl -f -u $GEKY_BOT_RELEASES -X PATCH \
+            https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/$LFS_VERSION \
+            -d "{
+              \"sha\": \"$TRAVIS_COMMIT\"
+            }"
+        # Create release notes from commits
+        - LFS_PREV_VERSION="v$LFS_VERSION_MAJOR.$(($LFS_VERSION_MINOR-1))"
+        - |
+          if [ $(git tag -l "$LFS_PREV_VERSION") ]
+          then
+            curl -u $GEKY_BOT_RELEASES -X POST \
+                https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases \
+                -d "{
+                    \"tag_name\": \"$LFS_VERSION\",
+                    \"name\": \"$LFS_VERSION\"
+                }"
+            RELEASE=$(
+                curl -f https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases/tags/$LFS_VERSION
+            )
+            CHANGES=$(
+                git log --oneline $LFS_PREV_VERSION.. --grep='^Merge' --invert-grep
+            )
+            curl -f -u $GEKY_BOT_RELEASES -X PATCH \
+                https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases/$(
+                    jq -r '.id' <<< "$RELEASE"
+                ) \
+                -d "$(
+                    jq -s '{
+                        "body": ((.[0] // "" | sub("(?<=\n)#+ Changes.*"; ""; "mi"))
+                            + "### Changes\n\n" + .[1])
+                    }' <(jq '.body' <<< "$RELEASE") <(jq -sR '.' <<< "$CHANGES")
+                )"
+          fi
+
 # Manage statuses
 before_install:
   - |
     curl -u $GEKY_BOT_STATUSES -X POST \
         https://api.github.com/repos/$TRAVIS_REPO_SLUG/statuses/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
         -d "{
-            \"context\": \"ci/$NAME\",
+            \"context\": \"$STAGE/$NAME\",
             \"state\": \"pending\",
             \"description\": \"${STATUS:-In progress}\",
             \"target_url\": \"https://travis-ci.org/$TRAVIS_REPO_SLUG/jobs/$TRAVIS_JOB_ID\"
@@ -134,7 +199,7 @@ after_failure:
     curl -u $GEKY_BOT_STATUSES -X POST \
         https://api.github.com/repos/$TRAVIS_REPO_SLUG/statuses/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
         -d "{
-            \"context\": \"ci/$NAME\",
+            \"context\": \"$STAGE/$NAME\",
             \"state\": \"failure\",
             \"description\": \"${STATUS:-Failed}\",
             \"target_url\": \"https://travis-ci.org/$TRAVIS_REPO_SLUG/jobs/$TRAVIS_JOB_ID\"
@@ -145,66 +210,14 @@ after_success:
     curl -u $GEKY_BOT_STATUSES -X POST \
         https://api.github.com/repos/$TRAVIS_REPO_SLUG/statuses/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
         -d "{
-            \"context\": \"ci/$NAME\",
+            \"context\": \"$STAGE/$NAME\",
             \"state\": \"success\",
             \"description\": \"${STATUS:-Passed}\",
             \"target_url\": \"https://travis-ci.org/$TRAVIS_REPO_SLUG/jobs/$TRAVIS_JOB_ID\"
         }"
 
-# Automatically update releases
-deploy:
-  # Let before_deploy take over
-  provider: script
-  script: 'true'
-  on:
-    branch: master
-
-before_deploy:
-  - cd $TRAVIS_BUILD_DIR
-  # Update tag for version defined in lfs.h
-  - LFS_VERSION=$(grep -ox '#define LFS_VERSION .*' lfs.h | cut -d ' ' -f3)
-  - LFS_VERSION_MAJOR=$((0xffff & ($LFS_VERSION >> 16)))
-  - LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
-  - LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR"
-  - echo "littlefs version $LFS_VERSION"
-  - |
-    curl -u $GEKY_BOT_RELEASES -X POST \
-      https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs \
-      -d "{
-        \"ref\": \"refs/tags/$LFS_VERSION\",
-        \"sha\": \"$TRAVIS_COMMIT\"
-      }"
-  - |
-    curl -f -u $GEKY_BOT_RELEASES -X PATCH \
-      https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/$LFS_VERSION \
-      -d "{
-        \"sha\": \"$TRAVIS_COMMIT\"
-      }"
-  # Create release notes from commits
-  - LFS_PREV_VERSION="v$LFS_VERSION_MAJOR.$(($LFS_VERSION_MINOR-1))"
-  - |
-    if [ $(git tag -l "$LFS_PREV_VERSION") ]
-    then
-      curl -u $GEKY_BOT_RELEASES -X POST \
-          https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases \
-          -d "{
-              \"tag_name\": \"$LFS_VERSION\",
-              \"name\": \"$LFS_VERSION\"
-          }"
-      RELEASE=$(
-          curl -f https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases/tags/$LFS_VERSION
-      )
-      CHANGES=$(
-          git log --oneline $LFS_PREV_VERSION.. --grep='^Merge' --invert-grep
-      )
-      curl -f -u $GEKY_BOT_RELEASES -X PATCH \
-          https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases/$(
-              jq -r '.id' <<< "$RELEASE"
-          ) \
-          -d "$(
-              jq -s '{
-                  "body": ((.[0] // "" | sub("(?<=\n)#+ Changes.*"; ""; "mi"))
-                      + "### Changes\n\n" + .[1])
-              }' <(jq '.body' <<< "$RELEASE") <(jq -sR '.' <<< "$CHANGES")
-          )"
-    fi
+# Job control
+stages:
+    - name: test
+    - name: deploy
+      if: branch = master
