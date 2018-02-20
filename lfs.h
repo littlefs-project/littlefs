@@ -50,6 +50,8 @@ typedef int32_t  lfs_soff_t;
 
 typedef uint32_t lfs_block_t;
 
+typedef uint32_t lfs_time_t;
+
 // Max name size in bytes
 #ifndef LFS_NAME_MAX
 #define LFS_NAME_MAX 255
@@ -77,6 +79,11 @@ enum lfs_type {
     LFS_TYPE_REG        = 0x11,
     LFS_TYPE_DIR        = 0x22,
     LFS_TYPE_SUPERBLOCK = 0x2e,
+};
+
+// Attribute types
+enum lfs_attribute {
+	LFS_ATTRIBUTE_TIME  = 0xC1,
 };
 
 // File open flags
@@ -184,6 +191,8 @@ struct lfs_info {
 
     // Name of the file stored as a null-terminated string
     char name[LFS_NAME_MAX+1];
+
+    lfs_time_t time;
 };
 
 

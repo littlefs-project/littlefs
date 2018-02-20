@@ -18,6 +18,11 @@
 #include "lfs.h"
 #include "lfs_util.h"
 
+#define ATTRIBUTE_LEN	5
+
+static uint8_t lfs_dir_compute_attribute(uint8_t *buf);
+static int lfs_dir_extract_attribute(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry, struct lfs_info *info);
+
 
 /// Caching block device operations ///
 static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
@@ -630,18 +635,20 @@ relocate:
 }
 
 static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
-        lfs_entry_t *entry, const void *data) {
-    lfs_entry_tole32(&entry->d);
+        const lfs_entry_t *entry,
+                          const void *attribute, const void *name) {
+	lfs_entry_tole32(&entry->d);
     int err = lfs_dir_commit(lfs, dir, (struct lfs_region[]){
             {entry->off, sizeof(entry->d), &entry->d, sizeof(entry->d)},
-            {entry->off+sizeof(entry->d), entry->d.nlen, data, entry->d.nlen}
-        }, data ? 2 : 1);
-    lfs_entry_fromle32(&entry->d);
+            {entry->off+sizeof(entry->d), entry->d.alen, attribute, entry->d.alen},
+            {entry->off+sizeof(entry->d)+entry->d.alen, entry->d.nlen, name, entry->d.nlen}
+        }, name ? 3 : attribute ? 2 : 1);
+	lfs_entry_fromle32(&entry->d);
     return err;
 }
 
 static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
-        lfs_entry_t *entry, const void *data) {
+        lfs_entry_t *entry, const void *attribute, const void *name) {
     // check if we fit, if top bit is set we do not and move on
     while (true) {
         if (dir->d.size + lfs_entry_size(entry) <= lfs->cfg->block_size) {
@@ -650,9 +657,11 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
             lfs_entry_tole32(&entry->d);
             int err = lfs_dir_commit(lfs, dir, (struct lfs_region[]){
                     {entry->off, 0, &entry->d, sizeof(entry->d)},
-                    {entry->off, 0, data, entry->d.nlen}
-                }, 2);
-            lfs_entry_fromle32(&entry->d);
+                    {entry->off, 0, attribute, entry->d.alen},
+                    {entry->off, 0, name, entry->d.nlen}
+                }, 3);
+			lfs_entry_fromle32(&entry->d);
+
             return err;
         }
 
@@ -669,10 +678,10 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
             entry->off = newdir.d.size - 4;
             lfs_entry_tole32(&entry->d);
             err = lfs_dir_commit(lfs, &newdir, (struct lfs_region[]){
-                    {entry->off, 0, &entry->d, sizeof(entry->d)},
-                    {entry->off, 0, data, entry->d.nlen}
-                }, 2);
-            lfs_entry_fromle32(&entry->d);
+		            {entry->off, 0, &entry->d, sizeof(entry->d)},
+		            {entry->off, 0, attribute, entry->d.alen},
+		            {entry->off, 0, name, entry->d.nlen}
+                }, 3);
             if (err) {
                 return err;
             }
@@ -908,17 +917,18 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
         return err;
     }
 
+	uint8_t attribute[ATTRIBUTE_LEN];
     entry.d.type = LFS_TYPE_DIR;
     entry.d.elen = sizeof(entry.d) - 4;
-    entry.d.alen = 0;
-    entry.d.nlen = strlen(path);
+	entry.d.alen = lfs_dir_compute_attribute(attribute);
+	entry.d.nlen = strlen(path);
     entry.d.u.dir[0] = dir.pair[0];
     entry.d.u.dir[1] = dir.pair[1];
 
     cwd.d.tail[0] = dir.pair[0];
     cwd.d.tail[1] = dir.pair[1];
 
-    err = lfs_dir_append(lfs, &cwd, &entry, path);
+    err = lfs_dir_append(lfs, &cwd, &entry, attribute, path);
     if (err) {
         return err;
     }
@@ -1033,6 +1043,10 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     if (info->type == LFS_TYPE_REG) {
         info->size = entry.d.u.file.size;
     }
+
+	if(entry.d.alen > 0){
+		int err = lfs_dir_extract_attribute(lfs, dir, &entry, info);
+	}
 
     int err = lfs_bd_read(lfs, dir->pair[0],
             entry.off + 4+entry.d.elen+entry.d.alen,
@@ -1304,17 +1318,19 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
             return LFS_ERR_NOENT;
         }
 
+	    uint8_t attribute[ATTRIBUTE_LEN];
+
         // create entry to remember name
         entry.d.type = LFS_TYPE_REG;
         entry.d.elen = sizeof(entry.d) - 4;
-        entry.d.alen = 0;
+        entry.d.alen = lfs_dir_compute_attribute(attribute);
         entry.d.nlen = strlen(path);
         entry.d.u.file.head = 0xffffffff;
         entry.d.u.file.size = 0;
-        err = lfs_dir_append(lfs, &cwd, &entry, path);
-        if (err) {
-            return err;
-        }
+	    err = lfs_dir_append(lfs, &cwd, &entry, attribute, path);
+	    if (err) {
+		    return err;
+	    }
     } else if (entry.d.type == LFS_TYPE_DIR) {
         return LFS_ERR_ISDIR;
     } else if (flags & LFS_O_EXCL) {
@@ -1524,10 +1540,12 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         }
 
         LFS_ASSERT(entry.d.type == LFS_TYPE_REG);
+
+	    uint8_t attribute[ATTRIBUTE_LEN];
         entry.d.u.file.head = file->head;
         entry.d.u.file.size = file->size;
-
-        err = lfs_dir_update(lfs, &cwd, &entry, NULL);
+		entry.d.alen = lfs_dir_compute_attribute(attribute);
+        err = lfs_dir_update(lfs, &cwd, &entry, attribute, NULL);
         if (err) {
             return err;
         }
@@ -1953,7 +1971,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
     // mark as moving
     oldentry.d.type |= 0x80;
-    err = lfs_dir_update(lfs, &oldcwd, &oldentry, NULL);
+    err = lfs_dir_update(lfs, &oldcwd, &oldentry, NULL, NULL);
     if (err) {
         return err;
     }
@@ -1964,18 +1982,20 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     // move to new location
+	uint8_t attribute[ATTRIBUTE_LEN];
     lfs_entry_t newentry = preventry;
     newentry.d = oldentry.d;
     newentry.d.type &= ~0x80;
+	newentry.d.alen = lfs_dir_compute_attribute(attribute);
     newentry.d.nlen = strlen(newpath);
 
     if (prevexists) {
-        err = lfs_dir_update(lfs, &newcwd, &newentry, newpath);
+        int err = lfs_dir_update(lfs, &newcwd, &newentry, attribute, newpath);
         if (err) {
             return err;
         }
     } else {
-        err = lfs_dir_append(lfs, &newcwd, &newentry, newpath);
+        int err = lfs_dir_append(lfs, &newcwd, &newentry, attribute, newpath);
         if (err) {
             return err;
         }
@@ -2408,7 +2428,7 @@ static int lfs_relocate(lfs_t *lfs,
         entry.d.u.dir[0] = newpair[0];
         entry.d.u.dir[1] = newpair[1];
 
-        int err = lfs_dir_update(lfs, &parent, &entry, NULL);
+        int err = lfs_dir_update(lfs, &parent, &entry, NULL, NULL);
         if (err) {
             return err;
         }
@@ -2532,7 +2552,7 @@ int lfs_deorphan(lfs_t *lfs) {
                     LFS_DEBUG("Found partial move %d %d",
                             entry.d.u.dir[0], entry.d.u.dir[1]);
                     entry.d.type &= ~0x80;
-                    err = lfs_dir_update(lfs, &cwd, &entry, NULL);
+                    err = lfs_dir_update(lfs, &cwd, &entry, NULL, NULL);
                     if (err) {
                         return err;
                     }
@@ -2546,3 +2566,40 @@ int lfs_deorphan(lfs_t *lfs) {
     return 0;
 }
 
+static uint8_t lfs_dir_compute_attribute(uint8_t *buf) {
+	uint32_t now = tstamp(NULL);        // TODO implement your get time second function
+	buf[0] = LFS_ATTRIBUTE_TIME;
+	buf[1] = now & 0xFF;
+	buf[2] = (now >> 8) & 0xFF;
+	buf[3] = (now >> 16) & 0xFF;
+	buf[4] = (now >> 24) & 0xFF;
+
+	return ATTRIBUTE_LEN;
+}
+static int lfs_dir_extract_attribute(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry, struct lfs_info *info) {
+
+	LOG_LFS_DEBUG("alen = %u", entry->d.alen);
+	uint8_t *attribute = lfs_malloc(entry->d.alen);
+	ASSERT(attribute);
+	if (attribute) {
+		int err = lfs_bd_read(lfs, dir->pair[0],
+		                      entry->off + 4 + entry->d.elen,
+		                      attribute, entry->d.alen);
+		if (err) {
+			lfs_free(attribute);
+			return err;
+		}
+
+		// TODO search inside the attributes
+		if (entry->d.alen >= ATTRIBUTE_LEN) {
+			if (attribute[0] == LFS_ATTRIBUTE_TIME) {
+				info->time =
+						attribute[1] + attribute[2] * 256 + attribute[3] * 256 * 256 + attribute[4] * 256 * 256 * 256;
+			}
+		}
+
+		lfs_free(attribute);
+	}
+
+	return 0;
+}
