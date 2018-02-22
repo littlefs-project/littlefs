@@ -108,6 +108,10 @@ tests/test.py << TEST
     lfs_stat(&lfs, "/", &info) => 0;
     info.type => LFS_TYPE_DIR;
     strcmp(info.name, "/") => 0;
+
+    lfs_mkdir(&lfs, "/") => LFS_ERR_EXIST;
+    lfs_file_open(&lfs, &file[0], "/", LFS_O_WRONLY | LFS_O_CREAT)
+        => LFS_ERR_ISDIR;
     lfs_unmount(&lfs) => 0;
 TEST
 

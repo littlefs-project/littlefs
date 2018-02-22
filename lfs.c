@@ -780,6 +780,19 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
         pathname += strspn(pathname, "/");
         pathlen = strcspn(pathname, "/");
 
+        // special case for root dir
+        if (pathname[0] == '\0') {
+            *entry = (lfs_entry_t){
+                .d.type = LFS_TYPE_DIR,
+                .d.elen = sizeof(entry->d) - 4,
+                .d.alen = 0,
+                .d.nlen = 0,
+                .d.u.dir[0] = lfs->root[0],
+                .d.u.dir[1] = lfs->root[1],
+            };
+            return 0;
+        }
+
         // skip '.' and root '..'
         if ((pathlen == 1 && memcmp(pathname, ".", 1) == 0) ||
             (pathlen == 2 && memcmp(pathname, "..", 2) == 0)) {
@@ -934,15 +947,6 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     int err = lfs_dir_fetch(lfs, dir, dir->pair);
     if (err) {
         return err;
-    }
-
-    // check for root, can only be something like '/././../.'
-    if (strspn(path, "/.") == strlen(path)) {
-        dir->head[0] = dir->pair[0];
-        dir->head[1] = dir->pair[1];
-        dir->pos = sizeof(dir->d) - 2;
-        dir->off = sizeof(dir->d);
-        return 0;
     }
 
     lfs_entry_t entry;
@@ -1799,14 +1803,6 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
 
 /// General fs operations ///
 int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
-    // check for root, can only be something like '/././../.'
-    if (strspn(path, "/.") == strlen(path)) {
-        memset(info, 0, sizeof(*info));
-        info->type = LFS_TYPE_DIR;
-        strcpy(info->name, "/");
-        return 0;
-    }
-
     lfs_dir_t cwd;
     int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
     if (err) {
@@ -1825,11 +1821,15 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
         info->size = entry.d.u.file.size;
     }
 
-    err = lfs_bd_read(lfs, cwd.pair[0],
-            entry.off + 4+entry.d.elen+entry.d.alen,
-            info->name, entry.d.nlen);
-    if (err) {
-        return err;
+    if (lfs_paircmp(entry.d.u.dir, lfs->root) == 0) {
+        strcpy(info->name, "/");
+    } else {
+        err = lfs_bd_read(lfs, cwd.pair[0],
+                entry.off + 4+entry.d.elen+entry.d.alen,
+                info->name, entry.d.nlen);
+        if (err) {
+            return err;
+        }
     }
 
     return 0;
