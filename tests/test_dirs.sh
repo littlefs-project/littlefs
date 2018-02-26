@@ -118,6 +118,7 @@ tests/test.py << TEST
         sprintf((char*)buffer, "test%d", i);
         lfs_dir_read(&lfs, &dir[0], &info) => 1;
         strcmp(info.name, (char*)buffer) => 0;
+        info.type => LFS_TYPE_DIR;
     }
     lfs_dir_read(&lfs, &dir[0], &info) => 0;
     lfs_unmount(&lfs) => 0;
@@ -336,6 +337,71 @@ tests/test.py << TEST
     }
 
     lfs_remove(&lfs, "cactus") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir[0], "/") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "burito") => 0;
+    info.type => LFS_TYPE_REG;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Multi-block directory with files ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mkdir(&lfs, "prickly-pear") => 0;
+    for (int i = 0; i < $LARGESIZE; i++) {
+        sprintf((char*)buffer, "prickly-pear/test%d", i);
+        lfs_file_open(&lfs, &file[0], (char*)buffer,
+                LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        size = 6;
+        memcpy(wbuffer, "Hello", size);
+        lfs_file_write(&lfs, &file[0], wbuffer, size) => size;
+        lfs_file_close(&lfs, &file[0]) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir[0], "prickly-pear") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    info.type => LFS_TYPE_DIR;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    info.type => LFS_TYPE_DIR;
+    for (int i = 0; i < $LARGESIZE; i++) {
+        sprintf((char*)buffer, "test%d", i);
+        lfs_dir_read(&lfs, &dir[0], &info) => 1;
+        strcmp(info.name, (char*)buffer) => 0;
+        info.type => LFS_TYPE_REG;
+        info.size => 6;
+    }
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Multi-block remove with files ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_remove(&lfs, "prickly-pear") => LFS_ERR_NOTEMPTY;
+
+    for (int i = 0; i < $LARGESIZE; i++) {
+        sprintf((char*)buffer, "prickly-pear/test%d", i);
+        lfs_remove(&lfs, (char*)buffer) => 0;
+    }
+
+    lfs_remove(&lfs, "prickly-pear") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 tests/test.py << TEST

@@ -658,17 +658,17 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
 
         // we need to allocate a new dir block
         if (!(0x80000000 & dir->d.size)) {
-            lfs_dir_t newdir;
-            int err = lfs_dir_alloc(lfs, &newdir);
+            lfs_dir_t olddir = *dir;
+            int err = lfs_dir_alloc(lfs, dir);
             if (err) {
                 return err;
             }
 
-            newdir.d.tail[0] = dir->d.tail[0];
-            newdir.d.tail[1] = dir->d.tail[1];
-            entry->off = newdir.d.size - 4;
+            dir->d.tail[0] = olddir.d.tail[0];
+            dir->d.tail[1] = olddir.d.tail[1];
+            entry->off = dir->d.size - 4;
             lfs_entry_tole32(&entry->d);
-            err = lfs_dir_commit(lfs, &newdir, (struct lfs_region[]){
+            err = lfs_dir_commit(lfs, dir, (struct lfs_region[]){
                     {entry->off, 0, &entry->d, sizeof(entry->d)},
                     {entry->off, 0, data, entry->d.nlen}
                 }, 2);
@@ -677,10 +677,10 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            dir->d.size |= 0x80000000;
-            dir->d.tail[0] = newdir.pair[0];
-            dir->d.tail[1] = newdir.pair[1];
-            return lfs_dir_commit(lfs, dir, NULL, 0);
+            olddir.d.size |= 0x80000000;
+            olddir.d.tail[0] = dir->pair[0];
+            olddir.d.tail[1] = dir->pair[1];
+            return lfs_dir_commit(lfs, &olddir, NULL, 0);
         }
 
         int err = lfs_dir_fetch(lfs, dir, dir->d.tail);
