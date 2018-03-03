@@ -793,7 +793,7 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
         // special case for root dir
         if (pathname[0] == '\0') {
             *entry = (lfs_entry_t){
-                .d.type = LFS_TYPE_DIR,
+                .d.type = LFS_STRUCT_DIR | LFS_TYPE_DIR,
                 .d.elen = sizeof(entry->d) - 4,
                 .d.alen = 0,
                 .d.nlen = 0,
@@ -844,8 +844,8 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            if (((0x7f & entry->d.type) != LFS_TYPE_REG &&
-                 (0x7f & entry->d.type) != LFS_TYPE_DIR) ||
+            if (((0x7f & entry->d.type) != (LFS_STRUCT_CTZ | LFS_TYPE_REG) &&
+                 (0x7f & entry->d.type) != (LFS_STRUCT_DIR | LFS_TYPE_DIR)) ||
                 entry->d.nlen != pathlen) {
                 continue;
             }
@@ -864,13 +864,13 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
         }
 
         // check that entry has not been moved
-        if (entry->d.type & 0x80) {
+        if (entry->d.type & LFS_STRUCT_MOVED) {
             int moved = lfs_moved(lfs, &entry->d.u);
             if (moved < 0 || moved) {
                 return (moved < 0) ? moved : LFS_ERR_NOENT;
             }
 
-            entry->d.type &= ~0x80;
+            entry->d.type &= ~LFS_STRUCT_MOVED;
         }
 
         pathname += pathlen;
@@ -880,7 +880,7 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
         }
 
         // continue on if we hit a directory
-        if (entry->d.type != LFS_TYPE_DIR) {
+        if ((0xf & entry->d.type) != LFS_TYPE_DIR) {
             return LFS_ERR_NOTDIR;
         }
 
@@ -931,7 +931,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
         return err;
     }
 
-    entry.d.type = LFS_TYPE_DIR;
+    entry.d.type = LFS_STRUCT_DIR | LFS_TYPE_DIR;
     entry.d.elen = sizeof(entry.d) - 4;
     entry.d.alen = 0;
     entry.d.nlen = strlen(path);
@@ -963,7 +963,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     err = lfs_dir_find(lfs, dir, &entry, &path);
     if (err) {
         return err;
-    } else if (entry.d.type != LFS_TYPE_DIR) {
+    } else if (entry.d.type != (LFS_STRUCT_DIR | LFS_TYPE_DIR)) {
         return LFS_ERR_NOTDIR;
     }
 
@@ -1021,13 +1021,13 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
             return (err == LFS_ERR_NOENT) ? 0 : err;
         }
 
-        if ((0x7f & entry.d.type) != LFS_TYPE_REG &&
-            (0x7f & entry.d.type) != LFS_TYPE_DIR) {
+        if ((0x7f & entry.d.type) != (LFS_STRUCT_CTZ | LFS_TYPE_REG) &&
+            (0x7f & entry.d.type) != (LFS_STRUCT_DIR | LFS_TYPE_DIR)) {
             continue;
         }
 
         // check that entry has not been moved
-        if (entry.d.type & 0x80) {
+        if (entry.d.type & LFS_STRUCT_MOVED) {
             int moved = lfs_moved(lfs, &entry.d.u);
             if (moved < 0) {
                 return moved;
@@ -1037,13 +1037,13 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
                 continue;
             }
 
-            entry.d.type &= ~0x80;
+            entry.d.type &= ~LFS_STRUCT_MOVED;
         }
 
         break;
     }
 
-    info->type = entry.d.type;
+    info->type = 0xf & entry.d.type;
     if (info->type == LFS_TYPE_REG) {
         info->size = entry.d.u.file.size;
     }
@@ -1319,7 +1319,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         }
 
         // create entry to remember name
-        entry.d.type = LFS_TYPE_REG;
+        entry.d.type = LFS_STRUCT_CTZ | LFS_TYPE_REG;
         entry.d.elen = sizeof(entry.d) - 4;
         entry.d.alen = 0;
         entry.d.nlen = strlen(path);
@@ -1329,7 +1329,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         if (err) {
             return err;
         }
-    } else if (entry.d.type == LFS_TYPE_DIR) {
+    } else if ((0xf & entry.d.type) == LFS_TYPE_DIR) {
         return LFS_ERR_ISDIR;
     } else if (flags & LFS_O_EXCL) {
         return LFS_ERR_EXIST;
@@ -1537,7 +1537,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             return err;
         }
 
-        LFS_ASSERT(entry.d.type == LFS_TYPE_REG);
+        LFS_ASSERT(entry.d.type == (LFS_STRUCT_CTZ | LFS_TYPE_REG));
         entry.d.u.file.head = file->head;
         entry.d.u.file.size = file->size;
 
@@ -1826,7 +1826,7 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     }
 
     memset(info, 0, sizeof(*info));
-    info->type = entry.d.type;
+    info->type = 0xf & entry.d.type;
     if (info->type == LFS_TYPE_REG) {
         info->size = entry.d.u.file.size;
     }
@@ -1867,7 +1867,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     }
 
     lfs_dir_t dir;
-    if (entry.d.type == LFS_TYPE_DIR) {
+    if ((0xf & entry.d.type) == LFS_TYPE_DIR) {
         // must be empty before removal, checking size
         // without masking top bit checks for any case where
         // dir is not empty
@@ -1886,7 +1886,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     }
 
     // if we were a directory, find pred, replace tail
-    if (entry.d.type == LFS_TYPE_DIR) {
+    if ((0xf & entry.d.type) == LFS_TYPE_DIR) {
         int res = lfs_pred(lfs, dir.pair, &cwd);
         if (res < 0) {
             return res;
@@ -1949,7 +1949,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     lfs_dir_t dir;
-    if (prevexists && preventry.d.type == LFS_TYPE_DIR) {
+    if (prevexists && (0xf & preventry.d.type) == LFS_TYPE_DIR) {
         // must be empty before removal, checking size
         // without masking top bit checks for any case where
         // dir is not empty
@@ -1962,7 +1962,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     // mark as moving
-    oldentry.d.type |= 0x80;
+    oldentry.d.type |= LFS_STRUCT_MOVED;
     err = lfs_dir_update(lfs, &oldcwd, &oldentry, NULL);
     if (err) {
         return err;
@@ -1976,7 +1976,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     // move to new location
     lfs_entry_t newentry = preventry;
     newentry.d = oldentry.d;
-    newentry.d.type &= ~0x80;
+    newentry.d.type &= ~LFS_STRUCT_MOVED;
     newentry.d.nlen = strlen(newpath);
 
     if (prevexists) {
@@ -2003,7 +2003,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     // if we were a directory, find pred, replace tail
-    if (prevexists && preventry.d.type == LFS_TYPE_DIR) {
+    if (prevexists && (0xf & preventry.d.type) == LFS_TYPE_DIR) {
         int res = lfs_pred(lfs, dir.pair, &newcwd);
         if (res < 0) {
             return res;
@@ -2134,7 +2134,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     // write superblocks
     lfs_superblock_t superblock = {
         .off = sizeof(superdir.d),
-        .d.type = LFS_TYPE_SUPERBLOCK,
+        .d.type = LFS_STRUCT_DIR | LFS_TYPE_SUPERBLOCK,
         .d.elen = sizeof(superblock.d) - sizeof(superblock.d.magic) - 4,
         .d.nlen = sizeof(superblock.d.magic),
         .d.version = LFS_DISK_VERSION,
@@ -2263,7 +2263,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
             }
 
             dir.off += lfs_entry_size(&entry);
-            if ((0x70 & entry.d.type) == (0x70 & LFS_TYPE_REG)) {
+            if ((0x70 & entry.d.type) == LFS_STRUCT_CTZ) {
                 err = lfs_ctz_traverse(lfs, &lfs->rcache, NULL,
                         entry.d.u.file.head, entry.d.u.file.size, cb, data);
                 if (err) {
@@ -2353,7 +2353,7 @@ static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2],
                 break;
             }
 
-            if (((0x70 & entry->d.type) == (0x70 & LFS_TYPE_DIR)) &&
+            if (((0x70 & entry->d.type) == LFS_STRUCT_DIR) &&
                  lfs_paircmp(entry->d.u.dir, dir) == 0) {
                 return true;
             }
@@ -2393,7 +2393,7 @@ static int lfs_moved(lfs_t *lfs, const void *e) {
                 break;
             }
 
-            if (!(0x80 & entry.d.type) &&
+            if (!(LFS_STRUCT_MOVED & entry.d.type) &&
                  memcmp(&entry.d.u, e, sizeof(entry.d.u)) == 0) {
                 return true;
             }
@@ -2525,7 +2525,7 @@ int lfs_deorphan(lfs_t *lfs) {
             }
 
             // found moved entry
-            if (entry.d.type & 0x80) {
+            if (entry.d.type & LFS_STRUCT_MOVED) {
                 int moved = lfs_moved(lfs, &entry.d.u);
                 if (moved < 0) {
                     return moved;
@@ -2541,7 +2541,7 @@ int lfs_deorphan(lfs_t *lfs) {
                 } else {
                     LFS_DEBUG("Found partial move %d %d",
                             entry.d.u.dir[0], entry.d.u.dir[1]);
-                    entry.d.type &= ~0x80;
+                    entry.d.type &= ~LFS_STRUCT_MOVED;
                     err = lfs_dir_update(lfs, &cwd, &entry, NULL);
                     if (err) {
                         return err;
