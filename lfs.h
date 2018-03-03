@@ -74,9 +74,15 @@ enum lfs_error {
 
 // File types
 enum lfs_type {
-    LFS_TYPE_REG        = 0x11,
-    LFS_TYPE_DIR        = 0x22,
-    LFS_TYPE_SUPERBLOCK = 0x2e,
+    // file type
+    LFS_TYPE_REG        = 0x01,
+    LFS_TYPE_DIR        = 0x02,
+    LFS_TYPE_SUPERBLOCK = 0x0e,
+
+    // on disk structure
+    LFS_STRUCT_CTZ      = 0x10,
+    LFS_STRUCT_DIR      = 0x20,
+    LFS_STRUCT_MOVED    = 0x80,
 };
 
 // File open flags
