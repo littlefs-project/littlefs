@@ -484,30 +484,85 @@ static int lfs_dir_fetch(lfs_t *lfs,
     return 0;
 }
 
-struct lfs_region {
-    enum {
-        LFS_FROM_MEM,
-        LFS_FROM_DISK,
-    } source;
+struct lfs_commit {
+    uint32_t crc;
+    lfs_block_t block;
+    lfs_off_t off;
+};
 
+static int lfs_commit(lfs_t *lfs, struct lfs_commit *c, const void *data, lfs_size_t size) {
+    lfs_crc(&c->crc, data, size);
+    int err = lfs_bd_prog(lfs, c->block, c->off, data, size);
+    c->off += size;
+    return err;
+}
+
+struct lfs_region {
     lfs_off_t off;
     lfs_ssize_t diff;
-    union {
-        struct {
-            const void *data;
-        } m;
-        struct {
-            lfs_block_t block;
-            lfs_off_t off;
-        } d;
-    } u;
-    lfs_size_t len;
-
+    int (*commit)(lfs_t *lfs, struct lfs_commit *c, const void *p);
+    const void *data;
     struct lfs_region *next;
 };
 
+struct lfs_commit_mem {
+    const void *data;
+    lfs_size_t size;
+};
+
+static int lfs_commit_mem(lfs_t *lfs, struct lfs_commit *c, const void *p) {
+    const struct lfs_commit_mem *m = p;
+    return lfs_commit(lfs, c, m->data, m->size);
+}
+
+struct lfs_commit_disk {
+    lfs_block_t block;
+    lfs_off_t off;
+    lfs_size_t size;
+    struct lfs_region *regions;
+};
+
+static int lfs_commit_disk(lfs_t *lfs, struct lfs_commit *c, const void *p) {
+    const struct lfs_commit_disk *u = p;
+
+    struct lfs_region *r = u->regions;
+    lfs_off_t off = 0;
+    while (true) {
+        if (r && r->off == off) {
+            lfs_off_t orig = c->off;
+            int err = r->commit(lfs, c, r->data);
+            if (err) {
+                return err;
+            }
+
+            off += (c->off - orig) - r->diff;
+            r = r->next;
+        } else if (off < u->size) {
+            uint8_t data;
+            int err = lfs_bd_read(lfs, u->block, u->off + off, &data, 1);
+            if (err) {
+                return err;
+            }
+
+            err = lfs_commit(lfs, c, &data, 1);
+            if (err) {
+                return err;
+            }
+
+            off += 1;
+        } else {
+            return 0;
+        }
+    }
+}
+
 static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
         struct lfs_region *regions) {
+    // state for copying over
+    const lfs_block_t oldpair[2] = {dir->pair[1], dir->pair[0]};
+    lfs_size_t oldsize = (0x7fffffff & dir->d.size) - 4;
+    bool relocated = false;
+
     // increment revision count
     dir->d.rev += 1;
 
@@ -516,9 +571,6 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
     for (struct lfs_region *r = regions; r; r = r->next) {
         dir->d.size += r->diff;
     }
-
-    const lfs_block_t oldpair[2] = {dir->pair[0], dir->pair[1]};
-    bool relocated = false;
 
     while (true) {
         if (true) {
@@ -530,10 +582,20 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            uint32_t crc = 0xffffffff;
+            struct lfs_commit c = {
+                .crc = 0xffffffff,
+                .block = dir->pair[0],
+                .off = 0,
+            };
+
             lfs_dir_tole32(&dir->d);
-            lfs_crc(&crc, &dir->d, sizeof(dir->d));
-            err = lfs_bd_prog(lfs, dir->pair[0], 0, &dir->d, sizeof(dir->d));
+            err = lfs_commit_disk(lfs, &c, &(struct lfs_commit_disk){
+                    oldpair[1], 0, oldsize,
+                    &(struct lfs_region){
+                        0, 0,
+                        lfs_commit_mem, &(struct lfs_commit_mem){
+                            &dir->d, sizeof(dir->d)},
+                        regions}});
             lfs_dir_fromle32(&dir->d);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -542,54 +604,9 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            struct lfs_region *r = regions;
-            int j = 0;
-            lfs_off_t oldoff = sizeof(dir->d);
-            lfs_off_t newoff = sizeof(dir->d);
-            while (newoff < (0x7fffffff & dir->d.size)-4) {
-                while (r && r->off == oldoff && r->len == j) {
-                    oldoff += r->len - r->diff;
-                    r = r->next;
-                    j = 0;
-                }
-
-                uint8_t data;
-                if (r && r->off == oldoff) {
-                    if (r->source == LFS_FROM_DISK) {
-                        err = lfs_bd_read(lfs, r->u.d.block,
-                                r->u.d.off + j, &data, 1);
-                        if (err) {
-                            return err;
-                        }
-                    } else {
-                        data = ((const uint8_t *)r->u.m.data)[j];
-                    }
-
-                    j += 1;
-                } else {
-                    err = lfs_bd_read(lfs, oldpair[1], oldoff, &data, 1);
-                    if (err) {
-                        return err;
-                    }
-
-                    oldoff += 1;
-                }
-
-                lfs_crc(&crc, &data, 1);
-                err = lfs_bd_prog(lfs, dir->pair[0], newoff, &data, 1);
-                if (err) {
-                    if (err == LFS_ERR_CORRUPT) {
-                        goto relocate;
-                    }
-                    return err;
-                }
-
-                newoff += 1;
-            }
-
-            crc = lfs_tole32(crc);
-            err = lfs_bd_prog(lfs, dir->pair[0], newoff, &crc, 4);
-            crc = lfs_fromle32(crc);
+            c.crc = lfs_tole32(c.crc);
+            err = lfs_bd_prog(lfs, dir->pair[0], c.off, &c.crc, 4);
+            c.crc = lfs_fromle32(c.crc);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
@@ -613,12 +630,13 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            if (ncrc != crc) {
+            if (ncrc != c.crc) {
                 goto relocate;
             }
         }
 
         break;
+
 relocate:
         //commit was corrupted
         LFS_DEBUG("Bad block at %d", dir->pair[0]);
@@ -709,14 +727,10 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
 
 static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
         lfs_entry_t *entry, struct lfs_region *regions) {
-    lfs_off_t oldoff = entry->off;
+    lfs_off_t oldoff = entry->off; // <- TODO rm me?
     lfs_ssize_t diff = 0;
-    lfs_size_t len = 0;
-    struct lfs_region **tail = &regions;
     for (struct lfs_region *r = regions; r; r = r->next) {
         diff += r->diff;
-        len += r->len;
-        tail = &r->next;
     }
 
     // do we still fit?
@@ -731,45 +745,44 @@ static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
         }
     } else {
         lfs_dir_t olddir = *dir;
+        lfs_off_t oldoff = entry->off;
+        lfs_size_t oldsize = lfs_entry_size(entry) - diff;
 
         // mark as moving
         entry->d.type |= LFS_STRUCT_MOVED;
         int err = lfs_dir_commit(lfs, &olddir,
                 &(struct lfs_region){
-                    LFS_FROM_MEM, oldoff, 0,
-                    {.m.data = &entry->d.type}, 1});
+                    oldoff, 0,
+                    lfs_commit_mem, &(struct lfs_commit_mem){
+                        &entry->d.type, 1}});
         if (err) {
             return err;
         }
 
         // append updated entry
         entry->d.type &= LFS_STRUCT_MOVED;
-        lfs_size_t prefix = regions->off;
-        lfs_size_t suffix = lfs_entry_size(entry) - len - 4;
-        for (struct lfs_region *r = regions; r; r = r->next) {
-            r->off = 0;
-            r->diff = r->len;
+        err = lfs_dir_append(lfs, dir, entry,
+                &(struct lfs_region){
+                    0, +lfs_entry_size(entry),
+                    lfs_commit_disk, &(struct lfs_commit_disk){
+                        olddir.pair[0], entry->off, oldsize, regions}});
+        if (err) {
+            return err;
         }
-
-        regions = &(struct lfs_region){
-                LFS_FROM_DISK, 0, +prefix,
-                {.d.block = olddir.pair[0], .d.off = entry->off},
-                prefix, regions};
-        *tail = &(struct lfs_region){
-                LFS_FROM_DISK, 0, +suffix,
-                {.d.block = olddir.pair[0], .d.off = entry->off+prefix+len},
-                suffix};
 
         // remove old entry
         err = lfs_dir_commit(lfs, &olddir,
                 &(struct lfs_region){
-                    LFS_FROM_MEM, oldoff, -(lfs_entry_size(entry) - diff),
-                    {.m.data = NULL}, 0});
+                    oldoff, -oldsize,
+                    lfs_commit_mem, &(struct lfs_commit_mem){
+                        NULL, 0}});
         if (err) {
             return err;
         }
     }
 
+    // TODO move to dir_commit?
+    // TODO this doesn't work...
     // shift over any files/directories that are affected
     for (lfs_file_t *f = lfs->files; f; f = f->next) {
         if (lfs_paircmp(f->pair, dir->pair) == 0) {
@@ -812,9 +825,11 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     }
 
     // shift out the entry
-    int err = lfs_dir_commit(lfs, dir, &(struct lfs_region){
-            LFS_FROM_MEM, entry->off, -lfs_entry_size(entry),
-            {.m.data = NULL}, 0});
+    int err = lfs_dir_commit(lfs, dir,
+            &(struct lfs_region){
+                entry->off, -lfs_entry_size(entry),
+                lfs_commit_mem, &(struct lfs_commit_mem){
+                    NULL, 0}});
     if (err) {
         return err;
     }
@@ -1036,11 +1051,13 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     err = lfs_dir_append(lfs, &cwd, &entry,
             &(struct lfs_region){
-                LFS_FROM_MEM, 0, +sizeof(entry.d),
-                {.m.data = &entry.d}, sizeof(entry.d),
+                0, +sizeof(entry.d),
+                lfs_commit_mem, &(struct lfs_commit_mem){
+                    &entry.d, sizeof(entry.d)},
             &(struct lfs_region){
-                LFS_FROM_MEM, 0, +entry.d.nlen,
-                {.m.data = path}, entry.d.nlen}});
+                0, +entry.d.nlen,
+                lfs_commit_mem, &(struct lfs_commit_mem){
+                    path, entry.d.nlen}}});
     if (err) {
         return err;
     }
@@ -1426,11 +1443,13 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         entry.d.u.file.size = 0;
         err = lfs_dir_append(lfs, &cwd, &entry,
                 &(struct lfs_region){
-                    LFS_FROM_MEM, 0, +sizeof(entry.d),
-                    {.m.data = &entry.d}, sizeof(entry.d),
+                    0, +sizeof(entry.d),
+                    lfs_commit_mem, &(struct lfs_commit_mem){
+                        &entry.d, sizeof(entry.d)},
                 &(struct lfs_region){
-                    LFS_FROM_MEM, 0, +entry.d.nlen,
-                    {.m.data = path}, entry.d.nlen}});
+                    0, +entry.d.nlen,
+                    lfs_commit_mem, &(struct lfs_commit_mem){
+                        path, entry.d.nlen}}});
         if (err) {
             return err;
         }
@@ -1648,8 +1667,9 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
 
         err = lfs_dir_update(lfs, &cwd, &entry,
             &(struct lfs_region){
-                LFS_FROM_MEM, 0, 0,
-                {.m.data = &entry.d}, sizeof(entry.d)});
+                0, 0,
+                lfs_commit_mem, &(struct lfs_commit_mem){
+                    &entry.d, sizeof(entry.d)}});
         if (err) {
             return err;
         }
@@ -2073,8 +2093,9 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     oldentry.d.type |= LFS_STRUCT_MOVED;
     err = lfs_dir_update(lfs, &oldcwd, &oldentry,
             &(struct lfs_region){
-                LFS_FROM_MEM, 0, 0,
-                {.m.data = &oldentry.d}, sizeof(oldentry.d)});
+                0, 0,
+                lfs_commit_mem, &(struct lfs_commit_mem){
+                    &oldentry.d, sizeof(oldentry.d)}});
     if (err) {
         return err;
     }
@@ -2093,22 +2114,26 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     if (prevexists) {
         err = lfs_dir_update(lfs, &newcwd, &newentry,
                 &(struct lfs_region){
-                    LFS_FROM_MEM, 0, 0,
-                    {.m.data = &newentry.d}, sizeof(newentry.d),
+                    0, 0,
+                    lfs_commit_mem, &(struct lfs_commit_mem){
+                        &newentry.d, sizeof(newentry.d)},
                 &(struct lfs_region){
-                    LFS_FROM_MEM, sizeof(newentry.d), 0,
-                    {.m.data = newpath}, newentry.d.nlen}});
+                    sizeof(newentry.d), 0,
+                    lfs_commit_mem, &(struct lfs_commit_mem){
+                        newpath, newentry.d.nlen}}});
         if (err) {
             return err;
         }
     } else {
         err = lfs_dir_append(lfs, &newcwd, &newentry,
                 &(struct lfs_region){
-                    LFS_FROM_MEM, 0, +sizeof(newentry.d),
-                    {.m.data = &newentry.d}, sizeof(newentry.d),
+                    0, +sizeof(newentry.d),
+                    lfs_commit_mem, &(struct lfs_commit_mem){
+                        &newentry.d, sizeof(newentry.d)},
                 &(struct lfs_region){
-                    LFS_FROM_MEM, 0, +newentry.d.nlen,
-                    {.m.data = newpath}, newentry.d.nlen}});
+                    0, +newentry.d.nlen,
+                    lfs_commit_mem, &(struct lfs_commit_mem){
+                        newpath, newentry.d.nlen}}});
         if (err) {
             return err;
         }
@@ -2275,8 +2300,9 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     bool valid = false;
     for (int i = 0; i < 2; i++) {
         err = lfs_dir_commit(lfs, &superdir, &(struct lfs_region){
-                LFS_FROM_MEM, sizeof(superdir.d), 0,
-                {.m.data = &superblock.d}, sizeof(superblock.d)});
+                sizeof(superdir.d), 0,
+                lfs_commit_mem, &(struct lfs_commit_mem){
+                    &superblock.d, sizeof(superblock.d)}});
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
@@ -2542,8 +2568,9 @@ static int lfs_relocate(lfs_t *lfs,
 
         int err = lfs_dir_update(lfs, &parent, &entry,
                 &(struct lfs_region){
-                    LFS_FROM_MEM, 0, 0,
-                    {.m.data = &entry.d}, sizeof(entry.d)});
+                    0, 0,
+                    lfs_commit_mem, &(struct lfs_commit_mem){
+                        &entry.d, sizeof(entry.d)}});
         if (err) {
             return err;
         }
@@ -2669,8 +2696,9 @@ int lfs_deorphan(lfs_t *lfs) {
                     entry.d.type &= ~LFS_STRUCT_MOVED;
                     err = lfs_dir_update(lfs, &cwd, &entry,
                             &(struct lfs_region){
-                                LFS_FROM_MEM, 0, 0,
-                                {.m.data = &entry.d}, sizeof(entry.d)});
+                                0, 0,
+                                lfs_commit_mem, &(struct lfs_commit_mem){
+                                    &entry.d, sizeof(entry.d)}});
                     if (err) {
                         return err;
                     }
