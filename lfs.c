@@ -676,6 +676,59 @@ static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
     return err;
 }
 
+static int lfs_dir_append_(lfs_t *lfs, lfs_dir_t *dir,
+        lfs_entry_t *entry, struct lfs_region *region) {
+    // check if we fit, if top bit is set we do not and move on
+    while (true) {
+        if (dir->d.size + lfs_entry_size(entry) <= lfs->cfg->block_size) {
+            entry->off = dir->d.size - 4;
+            for (struct lfs_region *r = region; r; r = r->next) {
+                r->oldoff += entry->off;
+            }
+
+            lfs_entry_tole32(&entry->d);
+            int err = lfs_dir_commit(lfs, dir,
+                    &(struct lfs_region){
+                        LFS_FROM_MEM, entry->off, 0,
+                        {.m.data = &entry->d}, 4, region});
+            lfs_entry_fromle32(&entry->d);
+            return err;
+        }
+
+        // we need to allocate a new dir block
+        if (!(0x80000000 & dir->d.size)) {
+            lfs_dir_t olddir = *dir;
+            int err = lfs_dir_alloc(lfs, dir);
+            if (err) {
+                return err;
+            }
+
+            dir->d.tail[0] = olddir.d.tail[0];
+            dir->d.tail[1] = olddir.d.tail[1];
+            entry->off = dir->d.size - 4;
+            lfs_entry_tole32(&entry->d);
+            err = lfs_dir_commit(lfs, dir,
+                    &(struct lfs_region){
+                        LFS_FROM_MEM, entry->off, 0,
+                        {.m.data = &entry->d}, 4, region});
+            lfs_entry_fromle32(&entry->d);
+            if (err) {
+                return err;
+            }
+
+            olddir.d.size |= 0x80000000;
+            olddir.d.tail[0] = dir->pair[0];
+            olddir.d.tail[1] = dir->pair[1];
+            return lfs_dir_commit(lfs, &olddir, NULL);
+        }
+
+        int err = lfs_dir_fetch(lfs, dir, dir->d.tail);
+        if (err) {
+            return err;
+        }
+    }
+}
+
 static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
         lfs_entry_t *entry, const void *data) {
     // check if we fit, if top bit is set we do not and move on
@@ -973,7 +1026,13 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     cwd.d.tail[0] = dir.pair[0];
     cwd.d.tail[1] = dir.pair[1];
 
-    err = lfs_dir_append(lfs, &cwd, &entry, path);
+    err = lfs_dir_append_(lfs, &cwd, &entry,
+            &(struct lfs_region){
+                LFS_FROM_MEM, 0, 0,
+                {.m.data = (uint8_t*)&entry.d + 4}, sizeof(entry.d) - 4,
+            &(struct lfs_region){
+                LFS_FROM_MEM, 0, 0,
+                {.m.data = path}, entry.d.nlen}});
     if (err) {
         return err;
     }
@@ -1357,7 +1416,13 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         entry.d.nlen = strlen(path);
         entry.d.u.file.head = 0xffffffff;
         entry.d.u.file.size = 0;
-        err = lfs_dir_append(lfs, &cwd, &entry, path);
+        err = lfs_dir_append_(lfs, &cwd, &entry,
+                &(struct lfs_region){
+                    LFS_FROM_MEM, 0, 0,
+                    {.m.data = (uint8_t*)&entry.d + 4}, sizeof(entry.d) - 4,
+                &(struct lfs_region){
+                    LFS_FROM_MEM, 0, 0,
+                    {.m.data = path}, entry.d.nlen}});
         if (err) {
             return err;
         }
@@ -2017,7 +2082,13 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             return err;
         }
     } else {
-        err = lfs_dir_append(lfs, &newcwd, &newentry, newpath);
+        err = lfs_dir_append_(lfs, &newcwd, &newentry,
+                &(struct lfs_region){
+                    LFS_FROM_MEM, 0, 0,
+                    {.m.data = (uint8_t*)&newentry.d + 4}, sizeof(newentry.d) - 4,
+                &(struct lfs_region){
+                    LFS_FROM_MEM, 0, 0,
+                    {.m.data = newpath}, newentry.d.nlen}});
         if (err) {
             return err;
         }
