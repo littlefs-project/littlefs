@@ -489,8 +489,8 @@ struct lfs_region {
         LFS_FROM_DISK,
     } source;
 
-    lfs_off_t oldoff;
-    lfs_size_t oldlen;
+    lfs_off_t off;
+    lfs_ssize_t diff;
     union {
         struct {
             const void *data;
@@ -500,20 +500,20 @@ struct lfs_region {
             lfs_off_t off;
         } d;
     } u;
-    lfs_size_t newlen;
+    lfs_size_t len;
 
     struct lfs_region *next;
 };
 
 static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
-        struct lfs_region *region) {
+        struct lfs_region *regions) {
     // increment revision count
     dir->d.rev += 1;
 
     // keep pairs in order such that pair[0] is most recent
     lfs_pairswap(dir->pair);
-    for (struct lfs_region *r = region; r; r = r->next) {
-        dir->d.size += r->newlen - r->oldlen;
+    for (struct lfs_region *r = regions; r; r = r->next) {
+        dir->d.size += r->diff;
     }
 
     const lfs_block_t oldpair[2] = {dir->pair[0], dir->pair[1]};
@@ -541,19 +541,19 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            struct lfs_region *r = region;
+            struct lfs_region *r = regions;
             int j = 0;
             lfs_off_t oldoff = sizeof(dir->d);
             lfs_off_t newoff = sizeof(dir->d);
             while (newoff < (0x7fffffff & dir->d.size)-4) {
-                while (r && r->oldoff == oldoff && r->newlen == j) {
-                    oldoff += r->oldlen;
+                while (r && r->off == oldoff && r->len == j) {
+                    oldoff += r->len - r->diff;
                     r = r->next;
                     j = 0;
                 }
 
                 uint8_t data;
-                if (r && r->oldoff == oldoff) {
+                if (r && r->off == oldoff) {
                     if (r->source == LFS_FROM_DISK) {
                         err = lfs_bd_read(lfs, r->u.d.block,
                                 r->u.d.off + j, &data, 1);
@@ -660,90 +660,21 @@ relocate:
     return 0;
 }
 
-static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
-        lfs_entry_t *entry, const void *data) {
-    lfs_entry_tole32(&entry->d);
-    int err = lfs_dir_commit(lfs, dir,
-            &(struct lfs_region){
-                LFS_FROM_MEM, entry->off, sizeof(entry->d),
-                {.m.data = &entry->d}, sizeof(entry->d),
-            data ?
-                &(struct lfs_region){
-                    LFS_FROM_MEM, entry->off+sizeof(entry->d), entry->d.nlen,
-                    {.m.data = data}, entry->d.nlen}
-                : NULL});
-    lfs_entry_fromle32(&entry->d);
-    return err;
-}
-
-static int lfs_dir_append_(lfs_t *lfs, lfs_dir_t *dir,
-        lfs_entry_t *entry, struct lfs_region *region) {
-    // check if we fit, if top bit is set we do not and move on
-    while (true) {
-        if (dir->d.size + lfs_entry_size(entry) <= lfs->cfg->block_size) {
-            entry->off = dir->d.size - 4;
-            for (struct lfs_region *r = region; r; r = r->next) {
-                r->oldoff += entry->off;
-            }
-
-            lfs_entry_tole32(&entry->d);
-            int err = lfs_dir_commit(lfs, dir,
-                    &(struct lfs_region){
-                        LFS_FROM_MEM, entry->off, 0,
-                        {.m.data = &entry->d}, 4, region});
-            lfs_entry_fromle32(&entry->d);
-            return err;
-        }
-
-        // we need to allocate a new dir block
-        if (!(0x80000000 & dir->d.size)) {
-            lfs_dir_t olddir = *dir;
-            int err = lfs_dir_alloc(lfs, dir);
-            if (err) {
-                return err;
-            }
-
-            dir->d.tail[0] = olddir.d.tail[0];
-            dir->d.tail[1] = olddir.d.tail[1];
-            entry->off = dir->d.size - 4;
-            lfs_entry_tole32(&entry->d);
-            err = lfs_dir_commit(lfs, dir,
-                    &(struct lfs_region){
-                        LFS_FROM_MEM, entry->off, 0,
-                        {.m.data = &entry->d}, 4, region});
-            lfs_entry_fromle32(&entry->d);
-            if (err) {
-                return err;
-            }
-
-            olddir.d.size |= 0x80000000;
-            olddir.d.tail[0] = dir->pair[0];
-            olddir.d.tail[1] = dir->pair[1];
-            return lfs_dir_commit(lfs, &olddir, NULL);
-        }
-
-        int err = lfs_dir_fetch(lfs, dir, dir->d.tail);
-        if (err) {
-            return err;
-        }
-    }
-}
-
 static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
-        lfs_entry_t *entry, const void *data) {
+        lfs_entry_t *entry, struct lfs_region *regions) {
     // check if we fit, if top bit is set we do not and move on
     while (true) {
         if (dir->d.size + lfs_entry_size(entry) <= lfs->cfg->block_size) {
             entry->off = dir->d.size - 4;
+            for (struct lfs_region *r = regions; r; r = r->next) {
+                r->off += entry->off;
+            }
 
             lfs_entry_tole32(&entry->d);
             int err = lfs_dir_commit(lfs, dir,
                     &(struct lfs_region){
-                        LFS_FROM_MEM, entry->off, 0,
-                        {.m.data = &entry->d}, sizeof(entry->d),
-                    &(struct lfs_region){
-                        LFS_FROM_MEM, entry->off, 0,
-                        {.m.data = data}, entry->d.nlen}});
+                        LFS_FROM_MEM, entry->off, +4,
+                        {.m.data = &entry->d}, 4, regions});
             lfs_entry_fromle32(&entry->d);
             return err;
         }
@@ -759,14 +690,15 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
             dir->d.tail[0] = olddir.d.tail[0];
             dir->d.tail[1] = olddir.d.tail[1];
             entry->off = dir->d.size - 4;
+            for (struct lfs_region *r = regions; r; r = r->next) {
+                r->off += entry->off;
+            }
+
             lfs_entry_tole32(&entry->d);
             err = lfs_dir_commit(lfs, dir,
                     &(struct lfs_region){
-                        LFS_FROM_MEM, entry->off, 0,
-                        {.m.data = &entry->d}, sizeof(entry->d),
-                    &(struct lfs_region){
-                        LFS_FROM_MEM, entry->off, 0,
-                        {.m.data = data}, entry->d.nlen}});
+                        LFS_FROM_MEM, entry->off, +4,
+                        {.m.data = &entry->d}, 4, regions});
             lfs_entry_fromle32(&entry->d);
             if (err) {
                 return err;
@@ -783,6 +715,97 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
             return err;
         }
     }
+}
+
+static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
+        lfs_entry_t *entry, struct lfs_region *regions) {
+    lfs_off_t oldoff = entry->off;
+    lfs_ssize_t diff = 0;
+    lfs_size_t len = 0;
+    struct lfs_region **tail = &regions;
+    for (struct lfs_region *r = regions; r; r = r->next) {
+        diff += r->diff;
+        len += r->len;
+        tail = &r->next;
+    }
+
+    // do we still fit?
+    if ((0x7fffffff & dir->d.size) + diff <= lfs->cfg->block_size) {
+        for (struct lfs_region *r = regions; r; r = r->next) {
+            r->off += entry->off;
+        }
+
+        lfs_entry_tole32(&entry->d);
+        int err = lfs_dir_commit(lfs, dir,
+                &(struct lfs_region){
+                    LFS_FROM_MEM, entry->off, 0,
+                    {.m.data = &entry->d}, sizeof(entry->d), regions});
+        lfs_entry_fromle32(&entry->d);
+        if (err) {
+            return err;
+        }
+    } else {
+        lfs_dir_t olddir = *dir;
+
+        // mark as moving
+        entry->d.type |= LFS_STRUCT_MOVED;
+        int err = lfs_dir_commit(lfs, &olddir,
+                &(struct lfs_region){
+                    LFS_FROM_MEM, oldoff, 0,
+                    {.m.data = &entry->d.type}, 1});
+        if (err) {
+            return err;
+        }
+
+        // append updated entry
+        entry->d.type &= LFS_STRUCT_MOVED;
+        lfs_size_t prefix = regions->off;
+        lfs_size_t suffix = lfs_entry_size(entry) - len - 4;
+        for (struct lfs_region *r = regions; r; r = r->next) {
+            r->off = 0;
+            r->diff = r->len;
+        }
+
+        regions = &(struct lfs_region){
+                LFS_FROM_DISK, 0, +prefix,
+                {.d.block = olddir.pair[0], .d.off = entry->off},
+                prefix, regions};
+        *tail = &(struct lfs_region){
+                LFS_FROM_DISK, 0, +suffix,
+                {.d.block = olddir.pair[0], .d.off = entry->off+prefix+len},
+                suffix};
+
+        // remove old entry
+        err = lfs_dir_commit(lfs, &olddir,
+                &(struct lfs_region){
+                    LFS_FROM_MEM, oldoff, -(lfs_entry_size(entry) - diff),
+                    {.m.data = NULL}, 0});
+        if (err) {
+            return err;
+        }
+    }
+
+    // shift over any files/directories that are affected
+    for (lfs_file_t *f = lfs->files; f; f = f->next) {
+        if (lfs_paircmp(f->pair, dir->pair) == 0) {
+            if (f->poff == oldoff) {
+                f->poff = entry->off;
+            } else if (f->poff > entry->off) {
+                f->poff += diff;
+            }
+        }
+    }
+
+    for (lfs_dir_t *d = lfs->dirs; d; d = d->next) {
+        if (lfs_paircmp(d->pair, dir->pair) == 0) {
+            if (d->off > entry->off) {
+                d->off += diff;
+                d->pos += diff;
+            }
+        }
+    }
+
+    return 0;
 }
 
 static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
@@ -805,7 +828,7 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
 
     // shift out the entry
     int err = lfs_dir_commit(lfs, dir, &(struct lfs_region){
-            LFS_FROM_MEM, entry->off, lfs_entry_size(entry),
+            LFS_FROM_MEM, entry->off, -lfs_entry_size(entry),
             {.m.data = NULL}, 0});
     if (err) {
         return err;
@@ -1026,12 +1049,12 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     cwd.d.tail[0] = dir.pair[0];
     cwd.d.tail[1] = dir.pair[1];
 
-    err = lfs_dir_append_(lfs, &cwd, &entry,
+    err = lfs_dir_append(lfs, &cwd, &entry,
             &(struct lfs_region){
-                LFS_FROM_MEM, 0, 0,
-                {.m.data = (uint8_t*)&entry.d + 4}, sizeof(entry.d) - 4,
+                LFS_FROM_MEM, 0, +(sizeof(entry.d)-4),
+                {.m.data = (uint8_t*)&entry.d+4}, sizeof(entry.d)-4,
             &(struct lfs_region){
-                LFS_FROM_MEM, 0, 0,
+                LFS_FROM_MEM, 0, +entry.d.nlen,
                 {.m.data = path}, entry.d.nlen}});
     if (err) {
         return err;
@@ -1416,12 +1439,12 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         entry.d.nlen = strlen(path);
         entry.d.u.file.head = 0xffffffff;
         entry.d.u.file.size = 0;
-        err = lfs_dir_append_(lfs, &cwd, &entry,
+        err = lfs_dir_append(lfs, &cwd, &entry,
                 &(struct lfs_region){
-                    LFS_FROM_MEM, 0, 0,
-                    {.m.data = (uint8_t*)&entry.d + 4}, sizeof(entry.d) - 4,
+                    LFS_FROM_MEM, 0, +(sizeof(entry.d)-4),
+                    {.m.data = (uint8_t*)&entry.d+4}, sizeof(entry.d)-4,
                 &(struct lfs_region){
-                    LFS_FROM_MEM, 0, 0,
+                    LFS_FROM_MEM, 0, +entry.d.nlen,
                     {.m.data = path}, entry.d.nlen}});
         if (err) {
             return err;
@@ -1638,7 +1661,10 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         entry.d.u.file.head = file->head;
         entry.d.u.file.size = file->size;
 
-        err = lfs_dir_update(lfs, &cwd, &entry, NULL);
+        err = lfs_dir_update(lfs, &cwd, &entry,
+            &(struct lfs_region){
+                LFS_FROM_MEM, 0, 0,
+                {.m.data = (const uint8_t *)&entry.d+4},  sizeof(entry.d)-4});
         if (err) {
             return err;
         }
@@ -2077,17 +2103,25 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     newentry.d.nlen = strlen(newpath);
 
     if (prevexists) {
-        err = lfs_dir_update(lfs, &newcwd, &newentry, newpath);
+        err = lfs_dir_update(lfs, &newcwd, &newentry,
+                &(struct lfs_region){
+                    LFS_FROM_MEM, 0, 0,
+                    {.m.data = (const uint8_t*)&newentry.d+4},
+                    sizeof(newentry.d)-4,
+                &(struct lfs_region){
+                    LFS_FROM_MEM, sizeof(newentry.d)-4, 0,
+                    {.m.data = newpath}, newentry.d.nlen}});
         if (err) {
             return err;
         }
     } else {
-        err = lfs_dir_append_(lfs, &newcwd, &newentry,
+        err = lfs_dir_append(lfs, &newcwd, &newentry,
                 &(struct lfs_region){
-                    LFS_FROM_MEM, 0, 0,
-                    {.m.data = (uint8_t*)&newentry.d + 4}, sizeof(newentry.d) - 4,
+                    LFS_FROM_MEM, 0, +(sizeof(newentry.d)-4),
+                    {.m.data = (const uint8_t*)&newentry.d+4},
+                    sizeof(newentry.d)-4,
                 &(struct lfs_region){
-                    LFS_FROM_MEM, 0, 0,
+                    LFS_FROM_MEM, 0, +newentry.d.nlen,
                     {.m.data = newpath}, newentry.d.nlen}});
         if (err) {
             return err;
@@ -2255,7 +2289,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     bool valid = false;
     for (int i = 0; i < 2; i++) {
         err = lfs_dir_commit(lfs, &superdir, &(struct lfs_region){
-                LFS_FROM_MEM, sizeof(superdir.d), sizeof(superblock.d),
+                LFS_FROM_MEM, sizeof(superdir.d), 0,
                 {.m.data = &superblock.d}, sizeof(superblock.d)});
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -2520,7 +2554,10 @@ static int lfs_relocate(lfs_t *lfs,
         entry.d.u.dir[0] = newpair[0];
         entry.d.u.dir[1] = newpair[1];
 
-        int err = lfs_dir_update(lfs, &parent, &entry, NULL);
+        int err = lfs_dir_update(lfs, &parent, &entry,
+                &(struct lfs_region){
+                    LFS_FROM_MEM, 0, 0,
+                    {.m.data = (const uint8_t*)&entry.d+4}, sizeof(entry.d)-4});
         if (err) {
             return err;
         }
