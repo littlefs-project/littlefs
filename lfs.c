@@ -683,7 +683,8 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
         lfs_entry_t *entry, struct lfs_region *regions) {
     // check if we fit, if top bit is set we do not and move on
     while (true) {
-        if (dir->d.size + lfs_entry_size(entry) <= lfs->cfg->block_size) {
+        if ((0x7fffffff & dir->d.size) + lfs_entry_size(entry)
+                <= lfs->cfg->block_size) {
             entry->off = dir->d.size - 4;
             for (struct lfs_region *r = regions; r; r = r->next) {
                 r->off += entry->off;
