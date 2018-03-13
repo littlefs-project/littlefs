@@ -115,11 +115,6 @@ All littlefs have the potential to return a negative error code. The errors
 can be either one of those found in the `enum lfs_error` in [lfs.h](lfs.h),
 or an error returned by the user's block device operations.
 
-It should also be noted that the current implementation of littlefs doesn't
-really do anything to ensure that the data written to disk is machine portable.
-This is fine as long as all of the involved machines share endianness
-(little-endian) and don't have strange padding requirements.
-
 In the configuration struct, the `prog` and `erase` function provided by the
 user may return a `LFS_ERR_CORRUPT` error if the implementation already can
 detect corrupt blocks. However, the wear leveling does not depend on the return
