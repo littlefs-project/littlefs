@@ -220,4 +220,4 @@ after_success:
 stages:
     - name: test
     - name: deploy
-      if: branch = master
+      if: branch = master AND type = push
