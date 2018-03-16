@@ -196,6 +196,7 @@ struct lfs_info {
 /// littlefs data structures ///
 typedef struct lfs_entry {
     lfs_off_t off;
+    lfs_size_t size;
 
     struct lfs_disk_entry {
         uint8_t type;
@@ -249,8 +250,6 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfs_superblock {
-    lfs_off_t off;
-
     struct lfs_disk_superblock {
         uint8_t type;
         uint8_t elen;
