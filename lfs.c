@@ -349,11 +349,10 @@ static void lfs_entry_fromle32(struct lfs_disk_entry *d) {
     d->u.dir[1] = lfs_fromle32(d->u.dir[1]);
 }
 
-// TODO
-//static void lfs_entry_tole32(struct lfs_disk_entry *d) {
-//    d->u.dir[0] = lfs_tole32(d->u.dir[0]);
-//    d->u.dir[1] = lfs_tole32(d->u.dir[1]);
-//}
+static void lfs_entry_tole32(struct lfs_disk_entry *d) {
+    d->u.dir[0] = lfs_tole32(d->u.dir[0]);
+    d->u.dir[1] = lfs_tole32(d->u.dir[1]);
+}
 
 static void lfs_superblock_fromle32(struct lfs_disk_superblock *d) {
     d->root[0]     = lfs_fromle32(d->root[0]);
@@ -683,7 +682,10 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
                 r->off += entry->off;
             }
 
-            return lfs_dir_commit(lfs, dir, regions);
+            lfs_entry_tole32(&entry->d);
+            int err = lfs_dir_commit(lfs, dir, regions);
+            lfs_entry_fromle32(&entry->d);
+            return err;
         }
 
         // we need to allocate a new dir block
@@ -701,7 +703,9 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
                 r->off += entry->off;
             }
 
+            lfs_entry_tole32(&entry->d);
             err = lfs_dir_commit(lfs, dir, regions);
+            lfs_entry_fromle32(&entry->d);
             if (err) {
                 return err;
             }
@@ -783,7 +787,9 @@ static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
             r->off += entry->off;
         }
 
+        lfs_entry_tole32(&entry->d);
         int err = lfs_dir_commit(lfs, dir, regions);
+        lfs_entry_fromle32(&entry->d);
         if (err) {
             return err;
         }
@@ -807,32 +813,35 @@ static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
         }
     } else {
         lfs_dir_t olddir = *dir;
-        lfs_off_t oldoff = entry->off;
-        lfs_size_t oldsize = entry->size - diff;
+        lfs_entry_t oldentry = {
+            .off = entry->off,
+            .size = entry->size - diff,
+            .d.type = entry->d.type | LFS_STRUCT_MOVED,
+        };
 
         // mark as moving
-        entry->d.type |= LFS_STRUCT_MOVED;
         int err = lfs_dir_commit(lfs, &olddir,
                 &(struct lfs_region){
-                    oldoff, 0,
-                    lfs_commit_mem, &entry->d.type, 1});
+                    oldentry.off, 0,
+                    lfs_commit_mem, &oldentry.d.type, 1});
         if (err) {
             return err;
         }
-        entry->d.type &= LFS_STRUCT_MOVED;
 
         // append updated entry
+        lfs_entry_tole32(&entry->d);
         err = lfs_dir_append(lfs, dir, entry,
                 &(struct lfs_region){
                     0, +entry->size,
                     lfs_commit_disk, &(struct lfs_commit_disk){
-                        olddir.pair[0], entry->off, regions}, oldsize});
+                        olddir.pair[0], entry->off, regions}, oldentry.size});
+        lfs_entry_fromle32(&entry->d);
         if (err) {
             return err;
         }
 
         // remove old entry
-        err = lfs_dir_remove(lfs, dir, &(lfs_entry_t){oldoff, oldsize});
+        err = lfs_dir_remove(lfs, dir, &oldentry);
         if (err) {
             return err;
         }
@@ -1645,10 +1654,12 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         entry.d.u.file.head = file->head;
         entry.d.u.file.size = file->size;
 
+        lfs_entry_tole32(&entry.d);
         err = lfs_dir_update(lfs, &cwd, &entry,
             &(struct lfs_region){
                 0, 0,
                 lfs_commit_mem, &entry.d, sizeof(entry.d)});
+        lfs_entry_fromle32(&entry.d);
         if (err) {
             return err;
         }
@@ -2073,7 +2084,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     err = lfs_dir_update(lfs, &oldcwd, &oldentry,
             &(struct lfs_region){
                 0, 0,
-                lfs_commit_mem, &oldentry.d, sizeof(oldentry.d)});
+                lfs_commit_mem, &oldentry.d.type, 1});
     if (err) {
         return err;
     }
