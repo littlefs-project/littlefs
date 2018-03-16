@@ -677,15 +677,14 @@ relocate:
     return 0;
 }
 
-static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
-        lfs_entry_t *entry, struct lfs_region *regions) {
+static int lfs_dir_append_(lfs_t *lfs, lfs_dir_t *dir,
+        lfs_off_t *off, lfs_size_t size, struct lfs_region *regions) {
     // check if we fit, if top bit is set we do not and move on
     while (true) {
-        if ((0x7fffffff & dir->d.size) + lfs_entry_size(entry)
-                <= lfs->cfg->block_size) {
-            entry->off = dir->d.size - 4;
+        if ((0x7fffffff & dir->d.size) + size <= lfs->cfg->block_size) {
+            *off = dir->d.size - 4;
             for (struct lfs_region *r = regions; r; r = r->next) {
-                r->off += entry->off;
+                r->off += *off;
             }
 
             return lfs_dir_commit(lfs, dir, regions);
@@ -701,9 +700,9 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
 
             dir->d.tail[0] = olddir.d.tail[0];
             dir->d.tail[1] = olddir.d.tail[1];
-            entry->off = dir->d.size - 4;
+            *off = dir->d.size - 4;
             for (struct lfs_region *r = regions; r; r = r->next) {
-                r->off += entry->off;
+                r->off += *off;
             }
 
             err = lfs_dir_commit(lfs, dir, regions);
@@ -724,89 +723,10 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
     }
 }
 
-static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
-        lfs_entry_t *entry, struct lfs_region *regions) {
-    lfs_off_t oldoff = entry->off; // <- TODO rm me?
-    lfs_ssize_t diff = 0;
-    for (struct lfs_region *r = regions; r; r = r->next) {
-        diff += r->diff;
-    }
-
-    // do we still fit?
-    if ((0x7fffffff & dir->d.size) + diff <= lfs->cfg->block_size) {
-        for (struct lfs_region *r = regions; r; r = r->next) {
-            r->off += entry->off;
-        }
-
-        int err = lfs_dir_commit(lfs, dir, regions);
-        if (err) {
-            return err;
-        }
-    } else {
-        lfs_dir_t olddir = *dir;
-        lfs_off_t oldoff = entry->off;
-        lfs_size_t oldsize = lfs_entry_size(entry) - diff;
-
-        // mark as moving
-        entry->d.type |= LFS_STRUCT_MOVED;
-        int err = lfs_dir_commit(lfs, &olddir,
-                &(struct lfs_region){
-                    oldoff, 0,
-                    lfs_commit_mem, &entry->d.type, 1});
-        if (err) {
-            return err;
-        }
-
-        // append updated entry
-        entry->d.type &= LFS_STRUCT_MOVED;
-        err = lfs_dir_append(lfs, dir, entry,
-                &(struct lfs_region){
-                    0, +lfs_entry_size(entry),
-                    lfs_commit_disk, &(struct lfs_commit_disk){
-                        olddir.pair[0], entry->off, regions}, oldsize});
-        if (err) {
-            return err;
-        }
-
-        // remove old entry
-        err = lfs_dir_commit(lfs, &olddir,
-                &(struct lfs_region){
-                    oldoff, -oldsize,
-                    lfs_commit_mem, NULL, 0});
-        if (err) {
-            return err;
-        }
-    }
-
-    // TODO move to dir_commit?
-    // TODO this doesn't work...
-    // shift over any files/directories that are affected
-    for (lfs_file_t *f = lfs->files; f; f = f->next) {
-        if (lfs_paircmp(f->pair, dir->pair) == 0) {
-            if (f->poff == oldoff) {
-                f->poff = entry->off;
-            } else if (f->poff > entry->off) {
-                f->poff += diff;
-            }
-        }
-    }
-
-    for (lfs_dir_t *d = lfs->dirs; d; d = d->next) {
-        if (lfs_paircmp(d->pair, dir->pair) == 0) {
-            if (d->off > entry->off) {
-                d->off += diff;
-                d->pos += diff;
-            }
-        }
-    }
-
-    return 0;
-}
-
-static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
+static int lfs_dir_remove_(lfs_t *lfs, lfs_dir_t *dir,
+        lfs_off_t off, lfs_size_t size) {
     // check if we should just drop the directory block
-    if ((dir->d.size & 0x7fffffff) == sizeof(dir->d)+4
-            + lfs_entry_size(entry)) {
+    if ((dir->d.size & 0x7fffffff) == sizeof(dir->d)+4 + size) {
         lfs_dir_t pdir;
         int res = lfs_pred(lfs, dir->pair, &pdir);
         if (res < 0) {
@@ -824,7 +744,7 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     // shift out the entry
     int err = lfs_dir_commit(lfs, dir,
             &(struct lfs_region){
-                entry->off, -lfs_entry_size(entry),
+                off, -size,
                 lfs_commit_mem, NULL, 0});
     if (err) {
         return err;
@@ -833,22 +753,107 @@ static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
     // shift over any files/directories that are affected
     for (lfs_file_t *f = lfs->files; f; f = f->next) {
         if (lfs_paircmp(f->pair, dir->pair) == 0) {
-            if (f->poff == entry->off) {
+            if (f->poff == off) {
                 f->pair[0] = 0xffffffff;
                 f->pair[1] = 0xffffffff;
-            } else if (f->poff > entry->off) {
-                f->poff -= lfs_entry_size(entry);
+            } else if (f->poff > off) {
+                f->poff -= size;
             }
         }
     }
 
     for (lfs_dir_t *d = lfs->dirs; d; d = d->next) {
         if (lfs_paircmp(d->pair, dir->pair) == 0) {
-            if (d->off > entry->off) {
-                d->off -= lfs_entry_size(entry);
-                d->pos -= lfs_entry_size(entry);
+            if (d->off > off) {
+                d->off -= size;
+                d->pos -= size;
             }
         }
+    }
+
+    return 0;
+}
+
+static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
+        lfs_entry_t *entry, struct lfs_region *regions) {
+    return lfs_dir_append_(lfs, dir,
+            &entry->off, lfs_entry_size(entry), regions);
+}
+
+static int lfs_dir_remove(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
+    return lfs_dir_remove_(lfs, dir,
+            entry->off, lfs_entry_size(entry));
+}
+
+static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
+        lfs_entry_t *entry, struct lfs_region *regions) {
+    lfs_ssize_t diff = 0;
+    for (struct lfs_region *r = regions; r; r = r->next) {
+        diff += r->diff;
+    }
+
+    // do we still fit?
+    if ((0x7fffffff & dir->d.size) + diff <= lfs->cfg->block_size) {
+        for (struct lfs_region *r = regions; r; r = r->next) {
+            r->off += entry->off;
+        }
+
+        int err = lfs_dir_commit(lfs, dir, regions);
+        if (err) {
+            return err;
+        }
+
+        // shift over any files/directories that are affected
+        for (lfs_file_t *f = lfs->files; f; f = f->next) {
+            if (lfs_paircmp(f->pair, dir->pair) == 0) {
+                if (f->poff > entry->off) {
+                    f->poff += diff;
+                }
+            }
+        }
+
+        for (lfs_dir_t *d = lfs->dirs; d; d = d->next) {
+            if (lfs_paircmp(d->pair, dir->pair) == 0) {
+                if (d->off > entry->off) {
+                    d->off += diff;
+                    d->pos += diff;
+                }
+            }
+        }
+    } else {
+        lfs_dir_t olddir = *dir;
+        lfs_off_t oldoff = entry->off;
+        lfs_size_t oldsize = lfs_entry_size(entry) - diff;
+
+        // mark as moving
+        entry->d.type |= LFS_STRUCT_MOVED;
+        int err = lfs_dir_commit(lfs, &olddir,
+                &(struct lfs_region){
+                    oldoff, 0,
+                    lfs_commit_mem, &entry->d.type, 1});
+        if (err) {
+            return err;
+        }
+        entry->d.type &= LFS_STRUCT_MOVED;
+
+        // append updated entry
+        err = lfs_dir_append(lfs, dir, entry,
+                &(struct lfs_region){
+                    0, +lfs_entry_size(entry),
+                    lfs_commit_disk, &(struct lfs_commit_disk){
+                        olddir.pair[0], entry->off, regions}, oldsize});
+        if (err) {
+            return err;
+        }
+
+        // remove old entry
+        err = lfs_dir_remove_(lfs, dir, oldoff, oldsize);
+        if (err) {
+            return err;
+        }
+
+        // TODO remove file under file?
+        // TODO need to shift entries?
     }
 
     return 0;
