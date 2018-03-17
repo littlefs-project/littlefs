@@ -24,7 +24,7 @@ static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
         const lfs_cache_t *pcache, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
-    //LFS_ASSERT(block < lfs->cfg->block_count); TODO reintroduce :/
+    LFS_ASSERT(block != 0xffffffff);
 
     while (size > 0) {
         if (pcache && block == pcache->block && off >= pcache->off &&
@@ -68,6 +68,7 @@ static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
         }
 
         // load to cache, first condition can no longer fail
+        LFS_ASSERT(block < lfs->cfg->block_count);
         rcache->block = block;
         rcache->off = off - (off % lfs->cfg->read_size);
         int err = lfs->cfg->read(lfs->cfg, rcache->block,
@@ -121,6 +122,7 @@ static int lfs_cache_crc(lfs_t *lfs, lfs_cache_t *rcache,
 static int lfs_cache_flush(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache) {
     if (pcache->block != 0xffffffff) {
+        LFS_ASSERT(pcache->block < lfs->cfg->block_count);
         int err = lfs->cfg->prog(lfs->cfg, pcache->block,
                 pcache->off, pcache->buffer, lfs->cfg->prog_size);
         if (err) {
@@ -149,7 +151,7 @@ static int lfs_cache_prog(lfs_t *lfs, lfs_cache_t *pcache,
         lfs_cache_t *rcache, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
-    //LFS_ASSERT(block < lfs->cfg->block_count); TODO reintroduce :/
+    LFS_ASSERT(block != 0xffffffff);
 
     while (size > 0) {
         if (block == pcache->block && off >= pcache->off &&
@@ -181,6 +183,7 @@ static int lfs_cache_prog(lfs_t *lfs, lfs_cache_t *pcache,
         if (off % lfs->cfg->prog_size == 0 &&
                 size >= lfs->cfg->prog_size) {
             // bypass pcache?
+            LFS_ASSERT(block < lfs->cfg->block_count);
             lfs_size_t diff = size - (size % lfs->cfg->prog_size);
             int err = lfs->cfg->prog(lfs->cfg, block, off, data, diff);
             if (err) {
@@ -240,6 +243,7 @@ static int lfs_bd_crc(lfs_t *lfs, lfs_block_t block,
 }
 
 static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
+    LFS_ASSERT(block < lfs->cfg->block_count);
     return lfs->cfg->erase(lfs->cfg, block);
 }
 
@@ -1483,9 +1487,11 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 
     // load inline files
     if ((0x70 & entry.d.type) == LFS_STRUCT_INLINE) {
-        file->head = 0xffffffff;
+        file->head = 0xfffffffe;
         file->size = entry.d.elen;
         file->flags |= LFS_F_INLINE;
+        file->cache.block = file->head;
+        file->cache.off = 0;
         err = lfs_bd_read(lfs, cwd.pair[0],
                 entry.off + 4,
                 file->cache.buffer, file->size);
@@ -1670,6 +1676,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             return err;
         }
 
+        // TODO entry read?
         lfs_entry_t entry = {.off = file->poff};
         err = lfs_bd_read(lfs, cwd.pair[0], entry.off,
                 &entry.d, sizeof(entry.d));
@@ -1678,6 +1685,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             return err;
         }
         LFS_ASSERT((0xf & entry.d.type) == LFS_TYPE_REG);
+        entry.size = 4 + entry.d.elen + entry.d.alen + entry.d.nlen;
 
         if (file->flags & LFS_F_INLINE) {
             file->size = lfs_max(file->pos, file->size);
@@ -1742,16 +1750,16 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         // check if we need a new block
         if (!(file->flags & LFS_F_READING) ||
                 file->off == lfs->cfg->block_size) {
-            if (!(file->flags & LFS_F_INLINE)) {
+            if (file->flags & LFS_F_INLINE) {
+                file->block = 0xfffffffe;
+                file->off = 0;
+            } else {
                 int err = lfs_ctz_find(lfs, &file->cache, NULL,
                         file->head, file->size,
                         file->pos, &file->block, &file->off);
                 if (err) {
                     return err;
                 }
-            } else {
-                file->block = 0xffffffff;
-                file->off = 0;
             }
 
             file->flags |= LFS_F_READING;
@@ -1818,7 +1826,10 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         // check if we need a new block
         if (!(file->flags & LFS_F_WRITING) ||
                 file->off == lfs->cfg->block_size) {
-            if (!(file->flags & LFS_F_INLINE)) {
+            if (file->flags & LFS_F_INLINE) {
+                file->block = 0xfffffffe;
+                file->off = 0;
+            } else {
                 if (!(file->flags & LFS_F_WRITING) && file->pos > 0) {
                     // find out which block we're extending from
                     int err = lfs_ctz_find(lfs, &file->cache, NULL,
@@ -1842,9 +1853,6 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                     file->flags |= LFS_F_ERRED;
                     return err;
                 }
-            } else {
-                file->block = 0xffffffff;
-                file->off = 0;
             }
 
             file->flags |= LFS_F_WRITING;
