@@ -55,6 +55,10 @@ typedef uint32_t lfs_block_t;
 #define LFS_NAME_MAX 255
 #endif
 
+#ifndef LFS_INLINE_MAX
+#define LFS_INLINE_MAX 255
+#endif
+
 // Possible error codes, these are negative to allow
 // valid positive return values
 enum lfs_error {
@@ -82,25 +86,27 @@ enum lfs_type {
     // on disk structure
     LFS_STRUCT_CTZ      = 0x10,
     LFS_STRUCT_DIR      = 0x20,
+    LFS_STRUCT_INLINE   = 0x30,
     LFS_STRUCT_MOVED    = 0x80,
 };
 
 // File open flags
 enum lfs_open_flags {
     // open flags
-    LFS_O_RDONLY = 1,        // Open a file as read only
-    LFS_O_WRONLY = 2,        // Open a file as write only
-    LFS_O_RDWR   = 3,        // Open a file as read and write
-    LFS_O_CREAT  = 0x0100,   // Create a file if it does not exist
-    LFS_O_EXCL   = 0x0200,   // Fail if a file already exists
-    LFS_O_TRUNC  = 0x0400,   // Truncate the existing file to zero size
-    LFS_O_APPEND = 0x0800,   // Move to end of file on every write
+    LFS_O_RDONLY = 1,         // Open a file as read only
+    LFS_O_WRONLY = 2,         // Open a file as write only
+    LFS_O_RDWR   = 3,         // Open a file as read and write
+    LFS_O_CREAT  = 0x0100,    // Create a file if it does not exist
+    LFS_O_EXCL   = 0x0200,    // Fail if a file already exists
+    LFS_O_TRUNC  = 0x0400,    // Truncate the existing file to zero size
+    LFS_O_APPEND = 0x0800,    // Move to end of file on every write
 
     // internally used flags
-    LFS_F_DIRTY   = 0x10000, // File does not match storage
-    LFS_F_WRITING = 0x20000, // File has been written since last flush
-    LFS_F_READING = 0x40000, // File has been read since last flush
-    LFS_F_ERRED   = 0x80000, // An error occured during write
+    LFS_F_DIRTY   = 0x10000,  // File does not match storage
+    LFS_F_WRITING = 0x20000,  // File has been written since last flush
+    LFS_F_READING = 0x40000,  // File has been read since last flush
+    LFS_F_ERRED   = 0x80000,  // An error occured during write
+    LFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
 };
 
 // File seek flags

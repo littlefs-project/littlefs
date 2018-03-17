@@ -24,7 +24,7 @@ static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
         const lfs_cache_t *pcache, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block != 0xffffffff);
 
     while (size > 0) {
         if (pcache && block == pcache->block && off >= pcache->off &&
@@ -68,6 +68,7 @@ static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
         }
 
         // load to cache, first condition can no longer fail
+        LFS_ASSERT(block < lfs->cfg->block_count);
         rcache->block = block;
         rcache->off = off - (off % lfs->cfg->read_size);
         int err = lfs->cfg->read(lfs->cfg, rcache->block,
@@ -121,6 +122,7 @@ static int lfs_cache_crc(lfs_t *lfs, lfs_cache_t *rcache,
 static int lfs_cache_flush(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache) {
     if (pcache->block != 0xffffffff) {
+        LFS_ASSERT(pcache->block < lfs->cfg->block_count);
         int err = lfs->cfg->prog(lfs->cfg, pcache->block,
                 pcache->off, pcache->buffer, lfs->cfg->prog_size);
         if (err) {
@@ -149,7 +151,7 @@ static int lfs_cache_prog(lfs_t *lfs, lfs_cache_t *pcache,
         lfs_cache_t *rcache, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
-    LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_ASSERT(block != 0xffffffff);
 
     while (size > 0) {
         if (block == pcache->block && off >= pcache->off &&
@@ -181,6 +183,7 @@ static int lfs_cache_prog(lfs_t *lfs, lfs_cache_t *pcache,
         if (off % lfs->cfg->prog_size == 0 &&
                 size >= lfs->cfg->prog_size) {
             // bypass pcache?
+            LFS_ASSERT(block < lfs->cfg->block_count);
             lfs_size_t diff = size - (size % lfs->cfg->prog_size);
             int err = lfs->cfg->prog(lfs->cfg, block, off, data, diff);
             if (err) {
@@ -240,6 +243,7 @@ static int lfs_bd_crc(lfs_t *lfs, lfs_block_t block,
 }
 
 static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
+    LFS_ASSERT(block < lfs->cfg->block_count);
     return lfs->cfg->erase(lfs->cfg, block);
 }
 
@@ -851,7 +855,7 @@ static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
 }
 
 static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
-    while (dir->off + sizeof(entry->d) > (0x7fffffff & dir->d.size)-4) {
+    while (dir->off >= (0x7fffffff & dir->d.size)-4) {
         if (!(0x80000000 & dir->d.size)) {
             entry->off = dir->off;
             return LFS_ERR_NOENT;
@@ -942,8 +946,8 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
                 return err;
             }
 
-            if (((0x7f & entry->d.type) != (LFS_STRUCT_CTZ | LFS_TYPE_REG) &&
-                 (0x7f & entry->d.type) != (LFS_STRUCT_DIR | LFS_TYPE_DIR)) ||
+            if (((0xf & entry->d.type) != LFS_TYPE_REG &&
+                 (0xf & entry->d.type) != LFS_TYPE_DIR) ||
                 entry->d.nlen != pathlen) {
                 continue;
             }
@@ -1126,8 +1130,8 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
             return (err == LFS_ERR_NOENT) ? 0 : err;
         }
 
-        if ((0x7f & entry.d.type) != (LFS_STRUCT_CTZ | LFS_TYPE_REG) &&
-            (0x7f & entry.d.type) != (LFS_STRUCT_DIR | LFS_TYPE_DIR)) {
+        if ((0xf & entry.d.type) != LFS_TYPE_REG &&
+            (0xf & entry.d.type) != LFS_TYPE_DIR) {
             continue;
         }
 
@@ -1149,8 +1153,10 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     }
 
     info->type = 0xf & entry.d.type;
-    if (info->type == LFS_TYPE_REG) {
+    if (entry.d.type == (LFS_STRUCT_CTZ | LFS_TYPE_REG)) {
         info->size = entry.d.u.file.size;
+    } else if (entry.d.type == (LFS_STRUCT_INLINE | LFS_TYPE_REG)) {
+        info->size = entry.d.elen;
     }
 
     int err = lfs_bd_read(lfs, dir->pair[0],
@@ -1424,18 +1430,16 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         }
 
         // create entry to remember name
-        entry.d.type = LFS_STRUCT_CTZ | LFS_TYPE_REG;
-        entry.d.elen = sizeof(entry.d) - 4;
+        entry.d.type = LFS_STRUCT_INLINE | LFS_TYPE_REG;
+        entry.d.elen = 0;
         entry.d.alen = 0;
         entry.d.nlen = strlen(path);
-        entry.d.u.file.head = 0xffffffff;
-        entry.d.u.file.size = 0;
         entry.size = 4 + entry.d.elen + entry.d.alen + entry.d.nlen;
 
         err = lfs_dir_append(lfs, &cwd, &entry,
                 &(struct lfs_region){
-                    0, +sizeof(entry.d),
-                    lfs_commit_mem, &entry.d, sizeof(entry.d),
+                    0, +4,
+                    lfs_commit_mem, &entry.d, 4,
                 &(struct lfs_region){
                     0, +entry.d.nlen,
                     lfs_commit_mem, path, entry.d.nlen}});
@@ -1478,6 +1482,22 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         file->cache.buffer = lfs_malloc(lfs->cfg->prog_size);
         if (!file->cache.buffer) {
             return LFS_ERR_NOMEM;
+        }
+    }
+
+    // load inline files
+    if ((0x70 & entry.d.type) == LFS_STRUCT_INLINE) {
+        file->head = 0xfffffffe;
+        file->size = entry.d.elen;
+        file->flags |= LFS_F_INLINE;
+        file->cache.block = file->head;
+        file->cache.off = 0;
+        err = lfs_bd_read(lfs, cwd.pair[0],
+                entry.off + 4,
+                file->cache.buffer, file->size);
+        if (err) {
+            lfs_free(file->cache.buffer);
+            return err;
         }
     }
 
@@ -1556,6 +1576,20 @@ relocate:
 }
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
+    if (file->flags & LFS_F_INLINE) {
+        // do nothing since we won't need the cache for anything else
+        if (file->flags & LFS_F_READING) {
+            file->flags &= ~LFS_F_READING;
+        }
+
+        if (file->flags & LFS_F_WRITING) {
+            file->flags &= ~LFS_F_WRITING;
+            file->flags |= LFS_F_DIRTY;
+        }
+
+        return 0;
+    }
+
     if (file->flags & LFS_F_READING) {
         // just drop read cache
         file->cache.block = 0xffffffff;
@@ -1642,6 +1676,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             return err;
         }
 
+        // TODO entry read?
         lfs_entry_t entry = {.off = file->poff};
         err = lfs_bd_read(lfs, cwd.pair[0], entry.off,
                 &entry.d, sizeof(entry.d));
@@ -1649,19 +1684,35 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         if (err) {
             return err;
         }
+        LFS_ASSERT((0xf & entry.d.type) == LFS_TYPE_REG);
+        entry.size = 4 + entry.d.elen + entry.d.alen + entry.d.nlen;
 
-        LFS_ASSERT(entry.d.type == (LFS_STRUCT_CTZ | LFS_TYPE_REG));
-        entry.d.u.file.head = file->head;
-        entry.d.u.file.size = file->size;
+        if (file->flags & LFS_F_INLINE) {
+            file->size = lfs_max(file->pos, file->size);
+            lfs_ssize_t diff = file->size - entry.d.elen;
+            entry.d.elen = file->size;
 
-        lfs_entry_tole32(&entry.d);
-        err = lfs_dir_update(lfs, &cwd, &entry,
-            &(struct lfs_region){
-                0, 0,
-                lfs_commit_mem, &entry.d, sizeof(entry.d)});
-        lfs_entry_fromle32(&entry.d);
-        if (err) {
-            return err;
+            err = lfs_dir_update(lfs, &cwd, &entry,
+                &(struct lfs_region){
+                    0, 0,
+                    lfs_commit_mem, &entry.d, 4,
+                &(struct lfs_region){
+                    4, diff,
+                    lfs_commit_mem, file->cache.buffer, file->size}});
+            if (err) {
+                return err;
+            }
+        } else {
+            entry.d.u.file.head = file->head;
+            entry.d.u.file.size = file->size;
+
+            err = lfs_dir_update(lfs, &cwd, &entry,
+                &(struct lfs_region){
+                    0, 0,
+                    lfs_commit_mem, &entry.d, sizeof(entry.d)});
+            if (err) {
+                return err;
+            }
         }
 
         file->flags &= ~LFS_F_DIRTY;
@@ -1699,11 +1750,16 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         // check if we need a new block
         if (!(file->flags & LFS_F_READING) ||
                 file->off == lfs->cfg->block_size) {
-            int err = lfs_ctz_find(lfs, &file->cache, NULL,
-                    file->head, file->size,
-                    file->pos, &file->block, &file->off);
-            if (err) {
-                return err;
+            if (file->flags & LFS_F_INLINE) {
+                file->block = 0xfffffffe;
+                file->off = 0;
+            } else {
+                int err = lfs_ctz_find(lfs, &file->cache, NULL,
+                        file->head, file->size,
+                        file->pos, &file->block, &file->off);
+                if (err) {
+                    return err;
+                }
             }
 
             file->flags |= LFS_F_READING;
@@ -1761,31 +1817,42 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     }
 
     while (nsize > 0) {
+        //printf("pos %d\n", file->pos + nsize);
+        // TODO combine with block allocation?
+        if (file->pos + nsize >= LFS_INLINE_MAX) {
+            file->flags &= ~LFS_F_INLINE;
+        }
+
         // check if we need a new block
         if (!(file->flags & LFS_F_WRITING) ||
                 file->off == lfs->cfg->block_size) {
-            if (!(file->flags & LFS_F_WRITING) && file->pos > 0) {
-                // find out which block we're extending from
-                int err = lfs_ctz_find(lfs, &file->cache, NULL,
-                        file->head, file->size,
-                        file->pos-1, &file->block, &file->off);
+            if (file->flags & LFS_F_INLINE) {
+                file->block = 0xfffffffe;
+                file->off = 0;
+            } else {
+                if (!(file->flags & LFS_F_WRITING) && file->pos > 0) {
+                    // find out which block we're extending from
+                    int err = lfs_ctz_find(lfs, &file->cache, NULL,
+                            file->head, file->size,
+                            file->pos-1, &file->block, &file->off);
+                    if (err) {
+                        file->flags |= LFS_F_ERRED;
+                        return err;
+                    }
+
+                    // mark cache as dirty since we may have read data into it
+                    file->cache.block = 0xffffffff;
+                }
+
+                // extend file with new blocks
+                lfs_alloc_ack(lfs);
+                int err = lfs_ctz_extend(lfs, &lfs->rcache, &file->cache,
+                        file->block, file->pos,
+                        &file->block, &file->off);
                 if (err) {
                     file->flags |= LFS_F_ERRED;
                     return err;
                 }
-
-                // mark cache as dirty since we may have read data into it
-                file->cache.block = 0xffffffff;
-            }
-
-            // extend file with new blocks
-            lfs_alloc_ack(lfs);
-            int err = lfs_ctz_extend(lfs, &lfs->rcache, &file->cache,
-                    file->block, file->pos,
-                    &file->block, &file->off);
-            if (err) {
-                file->flags |= LFS_F_ERRED;
-                return err;
             }
 
             file->flags |= LFS_F_WRITING;

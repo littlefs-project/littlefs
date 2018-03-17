@@ -357,7 +357,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Multi-block directory with files ---"
-tests/test.py << TEST
+tests/test.py -s << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "prickly-pear") => 0;
     for (int i = 0; i < $LARGESIZE; i++) {
