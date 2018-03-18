@@ -554,6 +554,7 @@ static int lfs_commit_disk(lfs_t *lfs, struct lfs_commit *c,
     }
 }
 
+// TODO handle overflowing reads (zero?)
 static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
         struct lfs_region *regions) {
     // state for copying over
@@ -1152,6 +1153,8 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
         break;
     }
 
+    // TODO common info constructor?
+    // TODO also used in lfs_stat
     info->type = 0xf & entry.d.type;
     if (entry.d.type == (LFS_STRUCT_CTZ | LFS_TYPE_REG)) {
         info->size = entry.d.u.file.size;
@@ -1452,23 +1455,6 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         return LFS_ERR_EXIST;
     }
 
-    // setup file struct
-    file->pair[0] = cwd.pair[0];
-    file->pair[1] = cwd.pair[1];
-    file->poff = entry.off;
-    file->head = entry.d.u.file.head;
-    file->size = entry.d.u.file.size;
-    file->flags = flags;
-    file->pos = 0;
-
-    if (flags & LFS_O_TRUNC) {
-        if (file->size != 0) {
-            file->flags |= LFS_F_DIRTY;
-        }
-        file->head = 0xffffffff;
-        file->size = 0;
-    }
-
     // allocate buffer if needed
     file->cache.block = 0xffffffff;
     if (lfs->cfg->file_buffer) {
@@ -1483,6 +1469,25 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         if (!file->cache.buffer) {
             return LFS_ERR_NOMEM;
         }
+    }
+
+    // TODO combine these below?
+    // setup file struct
+    file->pair[0] = cwd.pair[0];
+    file->pair[1] = cwd.pair[1];
+    file->poff = entry.off;
+    file->head = entry.d.u.file.head;
+    file->size = entry.d.u.file.size;
+    file->flags = flags;
+    file->pos = 0;
+
+    if (flags & LFS_O_TRUNC) {
+        if (file->size != 0) {
+            file->flags |= LFS_F_DIRTY;
+        }
+
+        entry.d.type = LFS_STRUCT_INLINE | LFS_TYPE_REG;
+        entry.d.elen = 0;
     }
 
     // load inline files
@@ -1528,9 +1533,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
 }
 
 static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
-relocate:
-    LFS_DEBUG("Bad block at %d", file->block);
-
+relocate:;
     // just relocate what exists into new block
     lfs_block_t nblock;
     int err = lfs_alloc(lfs, &nblock);
@@ -1583,6 +1586,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
         }
 
         if (file->flags & LFS_F_WRITING) {
+            file->size = lfs_max(file->pos, file->size);
             file->flags &= ~LFS_F_WRITING;
             file->flags |= LFS_F_DIRTY;
         }
@@ -1642,6 +1646,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
 
             break;
 relocate:
+            LFS_DEBUG("Bad block at %d", file->block);
             err = lfs_file_relocate(lfs, file);
             if (err) {
                 return err;
@@ -1676,7 +1681,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             return err;
         }
 
-        // TODO entry read?
+        // TODO entry read function?
         lfs_entry_t entry = {.off = file->poff};
         err = lfs_bd_read(lfs, cwd.pair[0], entry.off,
                 &entry.d, sizeof(entry.d));
@@ -1685,12 +1690,12 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             return err;
         }
         LFS_ASSERT((0xf & entry.d.type) == LFS_TYPE_REG);
-        entry.size = 4 + entry.d.elen + entry.d.alen + entry.d.nlen;
 
         if (file->flags & LFS_F_INLINE) {
-            file->size = lfs_max(file->pos, file->size);
             lfs_ssize_t diff = file->size - entry.d.elen;
+            entry.d.type = LFS_STRUCT_INLINE | LFS_TYPE_REG;
             entry.d.elen = file->size;
+            entry.size = 4 + entry.d.elen + entry.d.alen + entry.d.nlen;
 
             err = lfs_dir_update(lfs, &cwd, &entry,
                 &(struct lfs_region){
@@ -1703,12 +1708,17 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
                 return err;
             }
         } else {
+            lfs_ssize_t diff = sizeof(entry.d) - entry.d.elen; 
+            entry.d.type = LFS_STRUCT_CTZ | LFS_TYPE_REG;
+            entry.d.elen = sizeof(entry.d);
             entry.d.u.file.head = file->head;
             entry.d.u.file.size = file->size;
+            entry.size = 4 + entry.d.elen + entry.d.alen + entry.d.nlen;
 
+            // TODO combine up?
             err = lfs_dir_update(lfs, &cwd, &entry,
                 &(struct lfs_region){
-                    0, 0,
+                    0, diff,
                     lfs_commit_mem, &entry.d, sizeof(entry.d)});
             if (err) {
                 return err;
@@ -1747,12 +1757,13 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     nsize = size;
 
     while (nsize > 0) {
+        // TODO can this be collapsed?
         // check if we need a new block
         if (!(file->flags & LFS_F_READING) ||
                 file->off == lfs->cfg->block_size) {
             if (file->flags & LFS_F_INLINE) {
                 file->block = 0xfffffffe;
-                file->off = 0;
+                file->off = file->pos;
             } else {
                 int err = lfs_ctz_find(lfs, &file->cache, NULL,
                         file->head, file->size,
@@ -1816,19 +1827,31 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         }
     }
 
-    while (nsize > 0) {
-        //printf("pos %d\n", file->pos + nsize);
-        // TODO combine with block allocation?
-        if (file->pos + nsize >= LFS_INLINE_MAX) {
-            file->flags &= ~LFS_F_INLINE;
+    // TODO combine with block allocation?
+    // TODO need to move out if no longer fits in block also
+    // TODO store INLINE_MAX in superblock?
+    if ((file->pos + nsize >= LFS_INLINE_MAX) ||
+        (file->pos + nsize >= lfs->cfg->read_size)) {
+        int err = lfs_file_relocate(lfs, file);
+        if (err) {
+            file->flags |= LFS_F_ERRED;
+            return err;
         }
 
+        file->flags &= ~LFS_F_INLINE;
+        file->flags |= LFS_F_WRITING;
+    }
+
+    while (nsize > 0) {
+        // TODO can this be collapsed?
+        // TODO can we reduce this now that block 0 is never allocated?
+        // TODO actually, how does this behave if inline max == 0?
         // check if we need a new block
         if (!(file->flags & LFS_F_WRITING) ||
                 file->off == lfs->cfg->block_size) {
             if (file->flags & LFS_F_INLINE) {
                 file->block = 0xfffffffe;
-                file->off = 0;
+                file->off = file->pos;
             } else {
                 if (!(file->flags & LFS_F_WRITING) && file->pos > 0) {
                     // find out which block we're extending from
@@ -1920,6 +1943,8 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     return file->pos;
 }
 
+// TODO handle inlining?
+// TODO note at least needs tests for trunc on inlined file
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     if ((file->flags & 3) == LFS_O_RDONLY) {
         return LFS_ERR_BADF;
@@ -2012,8 +2037,10 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
 
     memset(info, 0, sizeof(*info));
     info->type = 0xf & entry.d.type;
-    if (info->type == LFS_TYPE_REG) {
+    if (entry.d.type == (LFS_STRUCT_CTZ | LFS_TYPE_REG)) {
         info->size = entry.d.u.file.size;
+    } else if (entry.d.type == (LFS_STRUCT_INLINE | LFS_TYPE_REG)) {
+        info->size = entry.d.elen;
     }
 
     if (lfs_paircmp(entry.d.u.dir, lfs->root) == 0) {
