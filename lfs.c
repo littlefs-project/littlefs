@@ -821,7 +821,7 @@ static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
         lfs_entry_t oldentry = {
             .off = entry->off,
             .size = entry->size - diff,
-            .d.type = entry->d.type | LFS_STRUCT_MOVED,
+            .d.type = entry->d.type | LFS_STRUCT_MOVED, // TODO FIXME when changing type??
         };
 
         // mark as moving
@@ -846,7 +846,12 @@ static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
         }
 
         // remove old entry
-        err = lfs_dir_remove(lfs, dir, &oldentry);
+        err = lfs_dir_fetch(lfs, &olddir, olddir.pair);
+        if (err) {
+            return err;
+        }
+
+        err = lfs_dir_remove(lfs, &olddir, &oldentry);
         if (err) {
             return err;
         }
@@ -1579,78 +1584,69 @@ relocate:;
 }
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
-    if (file->flags & LFS_F_INLINE) {
-        // do nothing since we won't need the cache for anything else
-        if (file->flags & LFS_F_READING) {
-            file->flags &= ~LFS_F_READING;
-        }
-
-        if (file->flags & LFS_F_WRITING) {
-            file->size = lfs_max(file->pos, file->size);
-            file->flags &= ~LFS_F_WRITING;
-            file->flags |= LFS_F_DIRTY;
-        }
-
-        return 0;
-    }
-
     if (file->flags & LFS_F_READING) {
-        // just drop read cache
-        file->cache.block = 0xffffffff;
+        if (!(file->flags & LFS_F_INLINE)) {
+            // just drop read cache
+            file->cache.block = 0xffffffff;
+        }
         file->flags &= ~LFS_F_READING;
     }
 
     if (file->flags & LFS_F_WRITING) {
         lfs_off_t pos = file->pos;
 
-        // copy over anything after current branch
-        lfs_file_t orig = {
-            .head = file->head,
-            .size = file->size,
-            .flags = LFS_O_RDONLY,
-            .pos = file->pos,
-            .cache = lfs->rcache,
-        };
-        lfs->rcache.block = 0xffffffff;
+        if (!(file->flags & LFS_F_INLINE)) {
+            // copy over anything after current branch
+            lfs_file_t orig = {
+                .head = file->head,
+                .size = file->size,
+                .flags = LFS_O_RDONLY,
+                .pos = file->pos,
+                .cache = lfs->rcache,
+            };
+            lfs->rcache.block = 0xffffffff;
 
-        while (file->pos < file->size) {
-            // copy over a byte at a time, leave it up to caching
-            // to make this efficient
-            uint8_t data;
-            lfs_ssize_t res = lfs_file_read(lfs, &orig, &data, 1);
-            if (res < 0) {
-                return res;
-            }
-
-            res = lfs_file_write(lfs, file, &data, 1);
-            if (res < 0) {
-                return res;
-            }
-
-            // keep our reference to the rcache in sync
-            if (lfs->rcache.block != 0xffffffff) {
-                orig.cache.block = 0xffffffff;
-                lfs->rcache.block = 0xffffffff;
-            }
-        }
-
-        // write out what we have
-        while (true) {
-            int err = lfs_cache_flush(lfs, &file->cache, &lfs->rcache);
-            if (err) {
-                if (err == LFS_ERR_CORRUPT) {
-                    goto relocate;
+            while (file->pos < file->size) {
+                // copy over a byte at a time, leave it up to caching
+                // to make this efficient
+                uint8_t data;
+                lfs_ssize_t res = lfs_file_read(lfs, &orig, &data, 1);
+                if (res < 0) {
+                    return res;
                 }
-                return err;
+
+                res = lfs_file_write(lfs, file, &data, 1);
+                if (res < 0) {
+                    return res;
+                }
+
+                // keep our reference to the rcache in sync
+                if (lfs->rcache.block != 0xffffffff) {
+                    orig.cache.block = 0xffffffff;
+                    lfs->rcache.block = 0xffffffff;
+                }
             }
 
-            break;
+            // write out what we have
+            while (true) {
+                int err = lfs_cache_flush(lfs, &file->cache, &lfs->rcache);
+                if (err) {
+                    if (err == LFS_ERR_CORRUPT) {
+                        goto relocate;
+                    }
+                    return err;
+                }
+
+                break;
 relocate:
-            LFS_DEBUG("Bad block at %d", file->block);
-            err = lfs_file_relocate(lfs, file);
-            if (err) {
-                return err;
+                LFS_DEBUG("Bad block at %d", file->block);
+                err = lfs_file_relocate(lfs, file);
+                if (err) {
+                    return err;
+                }
             }
+        } else {
+            file->size = lfs_max(file->pos, file->size);
         }
 
         // actual file updates
@@ -1691,7 +1687,23 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         }
         LFS_ASSERT((0xf & entry.d.type) == LFS_TYPE_REG);
 
-        if (file->flags & LFS_F_INLINE) {
+        if (!(file->flags & LFS_F_INLINE)) {
+            lfs_ssize_t diff = sizeof(entry.d)-4 - entry.d.elen;
+            entry.d.type = LFS_STRUCT_CTZ | LFS_TYPE_REG;
+            entry.d.elen = sizeof(entry.d)-4;
+            entry.d.u.file.head = file->head;
+            entry.d.u.file.size = file->size;
+            entry.size = 4 + entry.d.elen + entry.d.alen + entry.d.nlen;
+
+            // TODO combine down?
+            err = lfs_dir_update(lfs, &cwd, &entry,
+                &(struct lfs_region){
+                    0, diff,
+                    lfs_commit_mem, &entry.d, sizeof(entry.d)});
+            if (err) {
+                return err;
+            }
+        } else {
             lfs_ssize_t diff = file->size - entry.d.elen;
             entry.d.type = LFS_STRUCT_INLINE | LFS_TYPE_REG;
             entry.d.elen = file->size;
@@ -1704,22 +1716,6 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
                 &(struct lfs_region){
                     4, diff,
                     lfs_commit_mem, file->cache.buffer, file->size}});
-            if (err) {
-                return err;
-            }
-        } else {
-            lfs_ssize_t diff = sizeof(entry.d) - entry.d.elen; 
-            entry.d.type = LFS_STRUCT_CTZ | LFS_TYPE_REG;
-            entry.d.elen = sizeof(entry.d);
-            entry.d.u.file.head = file->head;
-            entry.d.u.file.size = file->size;
-            entry.size = 4 + entry.d.elen + entry.d.alen + entry.d.nlen;
-
-            // TODO combine up?
-            err = lfs_dir_update(lfs, &cwd, &entry,
-                &(struct lfs_region){
-                    0, diff,
-                    lfs_commit_mem, &entry.d, sizeof(entry.d)});
             if (err) {
                 return err;
             }
@@ -1761,16 +1757,16 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         // check if we need a new block
         if (!(file->flags & LFS_F_READING) ||
                 file->off == lfs->cfg->block_size) {
-            if (file->flags & LFS_F_INLINE) {
-                file->block = 0xfffffffe;
-                file->off = file->pos;
-            } else {
+            if (!(file->flags & LFS_F_INLINE)) {
                 int err = lfs_ctz_find(lfs, &file->cache, NULL,
                         file->head, file->size,
                         file->pos, &file->block, &file->off);
                 if (err) {
                     return err;
                 }
+            } else {
+                file->block = 0xfffffffe;
+                file->off = file->pos;
             }
 
             file->flags |= LFS_F_READING;
@@ -1830,8 +1826,14 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     // TODO combine with block allocation?
     // TODO need to move out if no longer fits in block also
     // TODO store INLINE_MAX in superblock?
-    if ((file->pos + nsize >= LFS_INLINE_MAX) ||
-        (file->pos + nsize >= lfs->cfg->read_size)) {
+    // TODO what if inline files is > block size (ie 128)
+    if ((file->flags & LFS_F_INLINE) && (
+         (file->pos + nsize >= LFS_INLINE_MAX) ||
+         (file->pos + nsize >= lfs->cfg->read_size))) {
+        file->block = 0xfffffffe;
+        file->off = file->pos;
+
+        lfs_alloc_ack(lfs);
         int err = lfs_file_relocate(lfs, file);
         if (err) {
             file->flags |= LFS_F_ERRED;
@@ -1849,10 +1851,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         // check if we need a new block
         if (!(file->flags & LFS_F_WRITING) ||
                 file->off == lfs->cfg->block_size) {
-            if (file->flags & LFS_F_INLINE) {
-                file->block = 0xfffffffe;
-                file->off = file->pos;
-            } else {
+            if (!(file->flags & LFS_F_INLINE)) {
                 if (!(file->flags & LFS_F_WRITING) && file->pos > 0) {
                     // find out which block we're extending from
                     int err = lfs_ctz_find(lfs, &file->cache, NULL,
@@ -1876,6 +1875,9 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                     file->flags |= LFS_F_ERRED;
                     return err;
                 }
+            } else {
+                file->block = 0xfffffffe;
+                file->off = file->pos;
             }
 
             file->flags |= LFS_F_WRITING;
@@ -1944,7 +1946,6 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 }
 
 // TODO handle inlining?
-// TODO note at least needs tests for trunc on inlined file
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     if ((file->flags & 3) == LFS_O_RDONLY) {
         return LFS_ERR_BADF;
@@ -2179,6 +2180,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             &(struct lfs_region){
                 0, 0,
                 lfs_commit_mem, &oldentry.d.type, 1});
+    oldentry.d.type &= ~LFS_STRUCT_MOVED;
     if (err) {
         return err;
     }
@@ -2193,26 +2195,39 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     newentry.d = oldentry.d;
     newentry.d.type &= ~LFS_STRUCT_MOVED;
     newentry.d.nlen = strlen(newpath);
+    newentry.size = 4 + newentry.d.elen + newentry.d.alen + newentry.d.nlen;
 
     if (prevexists) {
         err = lfs_dir_update(lfs, &newcwd, &newentry,
                 &(struct lfs_region){
-                    0, 0,
-                    lfs_commit_mem, &newentry.d, sizeof(newentry.d),
-                &(struct lfs_region){
-                    sizeof(newentry.d), 0,
-                    lfs_commit_mem, newpath, newentry.d.nlen}});
+                    0, newentry.size - preventry.size,
+                    lfs_commit_disk, &(struct lfs_commit_disk){
+                        oldcwd.pair[0], oldentry.off,
+                        &(struct lfs_region){
+                            0, 0,
+                            lfs_commit_mem, &newentry.d, 4,
+                        &(struct lfs_region){
+                            newentry.size - newentry.d.nlen,
+                            +newentry.d.nlen-oldentry.d.nlen,
+                            lfs_commit_mem, newpath, newentry.d.nlen}}},
+                            oldentry.size});
         if (err) {
             return err;
         }
     } else {
         err = lfs_dir_append(lfs, &newcwd, &newentry,
                 &(struct lfs_region){
-                    0, +sizeof(newentry.d),
-                    lfs_commit_mem, &newentry.d, sizeof(newentry.d),
-                &(struct lfs_region){
-                    0, +newentry.d.nlen,
-                    lfs_commit_mem, newpath, newentry.d.nlen}});
+                    0, +newentry.size,
+                    lfs_commit_disk, &(struct lfs_commit_disk){
+                        oldcwd.pair[0], oldentry.off,
+                        &(struct lfs_region){
+                            0, 0,
+                            lfs_commit_mem, &newentry.d, 4,
+                        &(struct lfs_region){
+                            newentry.size - newentry.d.nlen,
+                            +newentry.d.nlen-oldentry.d.nlen,
+                            lfs_commit_mem, newpath, newentry.d.nlen}}},
+                            oldentry.size});
         if (err) {
             return err;
         }
@@ -2507,7 +2522,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
 
     // iterate over any open files
     for (lfs_file_t *f = lfs->files; f; f = f->next) {
-        if (f->flags & LFS_F_DIRTY) {
+        if ((f->flags & LFS_F_DIRTY) && !(f->flags & LFS_F_INLINE)) {
             int err = lfs_ctz_traverse(lfs, &lfs->rcache, &f->cache,
                     f->head, f->size, cb, data);
             if (err) {
@@ -2515,7 +2530,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
             }
         }
 
-        if (f->flags & LFS_F_WRITING) {
+        if ((f->flags & LFS_F_WRITING) && !(f->flags & LFS_F_INLINE)) {
             int err = lfs_ctz_traverse(lfs, &lfs->rcache, &f->cache,
                     f->block, f->pos, cb, data);
             if (err) {
