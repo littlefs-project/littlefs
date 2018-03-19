@@ -836,7 +836,12 @@ static int lfs_dir_update(lfs_t *lfs, lfs_dir_t *dir,
         }
 
         // remove old entry
-        err = lfs_dir_remove(lfs, dir, &oldentry);
+        err = lfs_dir_fetch(lfs, &olddir, olddir.pair);
+        if (err) {
+            return err;
+        }
+
+        err = lfs_dir_remove(lfs, &olddir, &oldentry);
         if (err) {
             return err;
         }
@@ -1820,8 +1825,9 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     // TODO combine with block allocation?
     // TODO need to move out if no longer fits in block also
     // TODO store INLINE_MAX in superblock?
-    if ((file->pos + nsize >= LFS_INLINE_MAX) ||
-        (file->pos + nsize >= lfs->cfg->read_size)) {
+    if ((file->flags & LFS_F_INLINE) && (
+         (file->pos + nsize >= LFS_INLINE_MAX) ||
+         (file->pos + nsize >= lfs->cfg->read_size))) {
         int err = lfs_file_relocate(lfs, file);
         if (err) {
             file->flags |= LFS_F_ERRED;
