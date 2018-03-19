@@ -2199,7 +2199,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     if (err || memcmp(superblock.d.magic, "littlefs", 8) != 0) {
-        LFS_ERROR("Invalid superblock at %d %d", dir.pair[0], dir.pair[1]);
+        LFS_ERROR("Invalid superblock at %d %d", 0, 1);
         return LFS_ERR_CORRUPT;
     }
 
