@@ -274,9 +274,12 @@ TEST
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
 
-    // create one block whole for half a directory
+    // create one block hole for half a directory
     lfs_file_open(&lfs, &file[0], "bump", LFS_O_WRONLY | LFS_O_CREAT) => 0;
-    lfs_file_write(&lfs, &file[0], (void*)"hi", 2) => 2;
+    for (lfs_size_t i = 0; i < cfg.block_size; i += 2) {
+        memcpy(&buffer[i], "hi", 2);
+    }
+    lfs_file_write(&lfs, &file[0], buffer, cfg.block_size) => cfg.block_size;
     lfs_file_close(&lfs, &file[0]) => 0;
 
     lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
@@ -295,7 +298,10 @@ tests/test.py << TEST
     lfs_mkdir(&lfs, "splitdir") => 0;
     lfs_file_open(&lfs, &file[0], "splitdir/bump",
             LFS_O_WRONLY | LFS_O_CREAT) => 0;
-    lfs_file_write(&lfs, &file[0], buffer, size) => LFS_ERR_NOSPC;
+    for (lfs_size_t i = 0; i < cfg.block_size; i += 2) {
+        memcpy(&buffer[i], "hi", 2);
+    }
+    lfs_file_write(&lfs, &file[0], buffer, cfg.block_size) => LFS_ERR_NOSPC;
     lfs_file_close(&lfs, &file[0]) => 0;
 
     lfs_unmount(&lfs) => 0;
