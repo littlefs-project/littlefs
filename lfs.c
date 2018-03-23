@@ -677,6 +677,12 @@ relocate:
     return 0;
 }
 
+// TODO zeros?
+static int lfs_dir_get(lfs_t *lfs, const lfs_dir_t *dir,
+        lfs_off_t off, void *buffer, lfs_size_t size) {
+    return lfs_bd_read(lfs, dir->pair[0], off, buffer, size);
+}
+
 static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir,
         lfs_entry_t *entry, struct lfs_region *regions) {
     // check if we fit, if top bit is set we do not and move on
@@ -876,8 +882,7 @@ static int lfs_dir_next(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry) {
         dir->pos += sizeof(dir->d) + 4;
     }
 
-    int err = lfs_bd_read(lfs, dir->pair[0], dir->off,
-            &entry->d, sizeof(entry->d));
+    int err = lfs_dir_get(lfs, dir, dir->off, &entry->d, sizeof(entry->d));
     lfs_entry_fromle32(&entry->d);
     if (err) {
         return err;
@@ -1167,7 +1172,7 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
         info->size = entry.d.elen;
     }
 
-    int err = lfs_bd_read(lfs, dir->pair[0],
+    int err = lfs_dir_get(lfs, dir,
             entry.off + entry.size - entry.d.nlen,
             info->name, entry.d.nlen);
     if (err) {
@@ -1502,7 +1507,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         file->flags |= LFS_F_INLINE;
         file->cache.block = file->head;
         file->cache.off = 0;
-        err = lfs_bd_read(lfs, cwd.pair[0],
+        err = lfs_dir_get(lfs, &cwd,
                 entry.off + 4,
                 file->cache.buffer, file->size);
         if (err) {
@@ -1679,8 +1684,8 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
 
         // TODO entry read function?
         lfs_entry_t entry = {.off = file->poff};
-        err = lfs_bd_read(lfs, cwd.pair[0], entry.off,
-                &entry.d, sizeof(entry.d));
+        err = lfs_dir_get(lfs, &cwd,
+                entry.off, &entry.d, sizeof(entry.d));
         lfs_entry_fromle32(&entry.d);
         if (err) {
             return err;
@@ -2047,7 +2052,7 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     if (lfs_paircmp(entry.d.u.dir, lfs->root) == 0) {
         strcpy(info->name, "/");
     } else {
-        err = lfs_bd_read(lfs, cwd.pair[0],
+        err = lfs_dir_get(lfs, &cwd,
                 entry.off + entry.size - entry.d.nlen,
                 info->name, entry.d.nlen);
         if (err) {
@@ -2439,14 +2444,14 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     if (!err) {
-        err = lfs_bd_read(lfs, dir.pair[0], sizeof(dir.d)+4,
-                &superblock.d, sizeof(superblock.d));
+        err = lfs_dir_get(lfs, &dir,
+                sizeof(dir.d)+4, &superblock.d, sizeof(superblock.d));
         lfs_superblock_fromle32(&superblock.d);
         if (err) {
             return err;
         }
 
-        err = lfs_bd_read(lfs, dir.pair[0],
+        err = lfs_dir_get(lfs, &dir,
                 sizeof(dir.d) + 4 + sizeof(superblock.d),
                 magic, sizeof(magic));
         if (err) {
@@ -2504,8 +2509,8 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
         // iterate over contents
         lfs_entry_t entry;
         while (dir.off + sizeof(entry.d) <= (0x7fffffff & dir.d.size)-4) {
-            err = lfs_bd_read(lfs, dir.pair[0], dir.off,
-                    &entry.d, sizeof(entry.d));
+            err = lfs_dir_get(lfs, &dir,
+                    dir.off, &entry.d, sizeof(entry.d));
             lfs_entry_fromle32(&entry.d);
             if (err) {
                 return err;
