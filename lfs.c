@@ -2372,38 +2372,40 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
     lfs->root[0] = root.pair[0];
     lfs->root[1] = root.pair[1];
+    superdir.d.tail[0] = lfs->root[0];
+    superdir.d.tail[1] = lfs->root[1];
 
-    // write superblocks
-    lfs_superblock_t superblock = {
-        .d.type = LFS_STRUCT_DIR | LFS_TYPE_SUPERBLOCK,
-        .d.elen = sizeof(superblock.d) - sizeof(superblock.d.magic) - 4,
-        .d.nlen = sizeof(superblock.d.magic),
-        .d.version = LFS_DISK_VERSION,
-        .d.magic = {"littlefs"},
-        .d.block_size  = lfs->cfg->block_size,
-        .d.block_count = lfs->cfg->block_count,
-        .d.root = {lfs->root[0], lfs->root[1]},
-    };
-    superdir.d.tail[0] = root.pair[0];
-    superdir.d.tail[1] = root.pair[1];
-    superdir.d.size = sizeof(superdir.d) + sizeof(superblock.d) + 4;
+    // write one superblocks
+    lfs_superblock_t superblock;
+    superblock.d.version = LFS_DISK_VERSION,
+    superblock.d.root[0] = lfs->root[0];
+    superblock.d.root[1] = lfs->root[1];
+    superblock.d.block_size  = lfs->cfg->block_size;
+    superblock.d.block_count = lfs->cfg->block_count;
 
-    // write both pairs to be safe
+    lfs_entry_t superentry;
+    superentry.d.type = LFS_STRUCT_DIR | LFS_TYPE_SUPERBLOCK;
+    superentry.d.elen = sizeof(superblock.d);
+    superentry.d.alen = 0;
+    superentry.d.nlen = strlen("littlefs");
+    superentry.off = sizeof(superdir.d);
+    superentry.size = 4 + superentry.d.elen +
+            superentry.d.alen + superentry.d.nlen;
+
+    lfs_entry_tole32(&superentry.d);
     lfs_superblock_tole32(&superblock.d);
-    bool valid = false;
-    for (int i = 0; i < 2; i++) {
-        err = lfs_dir_commit(lfs, &superdir, &(struct lfs_region){
-                sizeof(superdir.d), 0,
-                lfs_commit_mem, &superblock.d, sizeof(superblock.d)});
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
-        }
-
-        valid = valid || !err;
-    }
-
-    if (!valid) {
-        return LFS_ERR_CORRUPT;
+    err = lfs_dir_append(lfs, &superdir, &superentry,
+            &(struct lfs_region){
+                0, +4,
+                lfs_commit_mem, &superentry.d, 4,
+            &(struct lfs_region){
+                0, +sizeof(superblock.d),
+                lfs_commit_mem, &superblock.d, sizeof(superblock.d),
+            &(struct lfs_region){
+                0, +superentry.d.nlen,
+                lfs_commit_mem, "littlefs", superentry.d.nlen}}});
+    if (err) {
+        return err;
     }
 
     // sanity check that fetch works
@@ -2412,7 +2414,6 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
-    lfs_alloc_ack(lfs);
     return lfs_deinit(lfs);
 }
 
@@ -2431,15 +2432,23 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     // load superblock
     lfs_dir_t dir;
     lfs_superblock_t superblock;
+    char magic[8];
     err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
     }
 
     if (!err) {
-        err = lfs_bd_read(lfs, dir.pair[0], sizeof(dir.d),
+        err = lfs_bd_read(lfs, dir.pair[0], sizeof(dir.d)+4,
                 &superblock.d, sizeof(superblock.d));
         lfs_superblock_fromle32(&superblock.d);
+        if (err) {
+            return err;
+        }
+
+        err = lfs_bd_read(lfs, dir.pair[0],
+                sizeof(dir.d) + 4 + sizeof(superblock.d),
+                magic, sizeof(magic));
         if (err) {
             return err;
         }
@@ -2448,8 +2457,8 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->root[1] = superblock.d.root[1];
     }
 
-    if (err || memcmp(superblock.d.magic, "littlefs", 8) != 0) {
-        LFS_ERROR("Invalid superblock at %d %d", 0, 1);
+    if (err || memcmp(magic, "littlefs", 8) != 0) {
+        LFS_ERROR("Invalid superblock at %d %d", dir.pair[0], dir.pair[1]);
         return LFS_ERR_CORRUPT;
     }
 
