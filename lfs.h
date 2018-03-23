@@ -257,15 +257,10 @@ typedef struct lfs_dir {
 
 typedef struct lfs_superblock {
     struct lfs_disk_superblock {
-        uint8_t type;
-        uint8_t elen;
-        uint8_t alen;
-        uint8_t nlen;
         lfs_block_t root[2];
         uint32_t block_size;
         uint32_t block_count;
         uint32_t version;
-        char magic[8];
     } d;
 } lfs_superblock_t;
 
