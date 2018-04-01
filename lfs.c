@@ -355,6 +355,9 @@ static void lfs_superblock_fromle32(struct lfs_disk_superblock *d) {
     d->block_size  = lfs_fromle32(d->block_size);
     d->block_count = lfs_fromle32(d->block_count);
     d->version     = lfs_fromle32(d->version);
+    d->inline_size = lfs_fromle32(d->inline_size);
+    d->attrs_size  = lfs_fromle32(d->attrs_size);
+    d->name_size   = lfs_fromle32(d->name_size);
 }
 
 static void lfs_superblock_tole32(struct lfs_disk_superblock *d) {
@@ -363,6 +366,9 @@ static void lfs_superblock_tole32(struct lfs_disk_superblock *d) {
     d->block_size  = lfs_tole32(d->block_size);
     d->block_count = lfs_tole32(d->block_count);
     d->version     = lfs_tole32(d->version);
+    d->inline_size = lfs_tole32(d->inline_size);
+    d->attrs_size  = lfs_tole32(d->attrs_size);
+    d->name_size   = lfs_tole32(d->name_size);
 }
 
 
@@ -1008,6 +1014,12 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
         return err ? err : LFS_ERR_EXIST;
     }
 
+    // check that name fits
+    lfs_size_t nlen = strlen(path);
+    if (nlen > lfs->name_size) {
+        return LFS_ERR_NAMETOOLONG;
+    }
+
     // build up new directory
     lfs_alloc_ack(lfs);
 
@@ -1027,7 +1039,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     entry.d.type = LFS_STRUCT_DIR | LFS_TYPE_DIR;
     entry.d.elen = sizeof(entry.d) - 4;
     entry.d.alen = 0;
-    entry.d.nlen = strlen(path);
+    entry.d.nlen = nlen;
     entry.d.u.dir[0] = dir.pair[0];
     entry.d.u.dir[1] = dir.pair[1];
     entry.size = 0;
@@ -1036,7 +1048,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     cwd.d.tail[1] = dir.pair[1];
     err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
             {LFS_FROM_MEM, 0, &entry.d, sizeof(entry.d)},
-            {LFS_FROM_MEM, 0, path, entry.d.nlen}}, 2);
+            {LFS_FROM_MEM, 0, path, nlen}}, 2);
     if (err) {
         return err;
     }
@@ -1417,16 +1429,22 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
             return LFS_ERR_NOENT;
         }
 
+        // check that name fits
+        lfs_size_t nlen = strlen(path);
+        if (nlen > lfs->name_size) {
+            return LFS_ERR_NAMETOOLONG;
+        }
+
         // create entry to remember name
         entry.d.type = LFS_STRUCT_INLINE | LFS_TYPE_REG;
         entry.d.elen = 0;
         entry.d.alen = 0;
-        entry.d.nlen = strlen(path);
+        entry.d.nlen = nlen;
         entry.size = 0;
 
         err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
                 {LFS_FROM_MEM, 0, &entry.d, 4},
-                {LFS_FROM_MEM, 0, path, entry.d.nlen}}, 2);
+                {LFS_FROM_MEM, 0, path, nlen}}, 2);
         if (err) {
             return err;
         }
@@ -1561,10 +1579,6 @@ relocate:;
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     if (file->flags & LFS_F_READING) {
-        if (!(file->flags & LFS_F_INLINE)) {
-            // just drop read cache
-            file->cache.block = 0xffffffff;
-        }
         file->flags &= ~LFS_F_READING;
     }
 
@@ -1797,9 +1811,8 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     // TODO need to move out if no longer fits in block also
     // TODO store INLINE_MAX in superblock?
     // TODO what if inline files is > block size (ie 128)
-    if ((file->flags & LFS_F_INLINE) && (
-         (file->pos + nsize >= LFS_INLINE_MAX) ||
-         (file->pos + nsize >= lfs->cfg->read_size))) {
+    if ((file->flags & LFS_F_INLINE) &&
+            file->pos + nsize >= lfs->inline_size) {
         file->block = 0xfffffffe;
         file->off = file->pos;
 
@@ -2127,6 +2140,12 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     bool prevexists = (err != LFS_ERR_NOENT);
     bool samepair = (lfs_paircmp(oldcwd.pair, newcwd.pair) == 0);
 
+    // check that name fits
+    lfs_size_t nlen = strlen(newpath);
+    if (nlen > lfs->name_size) {
+        return LFS_ERR_NAMETOOLONG;
+    }
+
     // must have same type
     if (prevexists && preventry.d.type != oldentry.d.type) {
         return LFS_ERR_ISDIR;
@@ -2164,7 +2183,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs_entry_t newentry = preventry;
     newentry.d = oldentry.d;
     newentry.d.type &= ~LFS_STRUCT_MOVED;
-    newentry.d.nlen = strlen(newpath);
+    newentry.d.nlen = nlen;
     if (!prevexists) {
         newentry.size = 0;
     }
@@ -2175,8 +2194,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
                 oldcwd.pair[0], oldentry.off, (struct lfs_region[]){
                     {LFS_FROM_MEM, 0, &newentry.d, 4},
                     {LFS_FROM_DROP, 0, NULL, -4},
-                    {LFS_FROM_MEM, newsize - newentry.d.nlen,
-                        newpath, newentry.d.nlen}}, 3},
+                    {LFS_FROM_MEM, newsize - nlen, newpath, nlen}}, 3},
                 newsize},
             {LFS_FROM_DROP, 0, NULL, -preventry.size}}, prevexists ? 2 : 1);
     if (err) {
@@ -2262,6 +2280,26 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
 
+    // check that the size limits are sane
+    LFS_ASSERT(lfs->cfg->inline_size <= LFS_INLINE_MAX);
+    LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->read_size);
+    lfs->inline_size = lfs->cfg->inline_size;
+    if (!lfs->inline_size) {
+        lfs->inline_size = lfs_min(LFS_INLINE_MAX, lfs->cfg->read_size);
+    }
+
+    LFS_ASSERT(lfs->cfg->attrs_size <= LFS_ATTRS_MAX);
+    lfs->attrs_size = lfs->cfg->attrs_size;
+    if (!lfs->attrs_size) {
+        lfs->attrs_size = LFS_ATTRS_MAX;
+    }
+
+    LFS_ASSERT(lfs->cfg->name_size <= LFS_NAME_MAX);
+    lfs->name_size = lfs->cfg->name_size;
+    if (!lfs->name_size) {
+        lfs->name_size = LFS_NAME_MAX;
+    }
+
     // setup default state
     lfs->root[0] = 0xffffffff;
     lfs->root[1] = 0xffffffff;
@@ -2326,13 +2364,16 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     superdir.d.tail[0] = lfs->root[0];
     superdir.d.tail[1] = lfs->root[1];
 
-    // write one superblocks
+    // write one superblock
     lfs_superblock_t superblock;
     superblock.d.version = LFS_DISK_VERSION,
     superblock.d.root[0] = lfs->root[0];
     superblock.d.root[1] = lfs->root[1];
     superblock.d.block_size  = lfs->cfg->block_size;
     superblock.d.block_count = lfs->cfg->block_count;
+    superblock.d.inline_size = lfs->inline_size;
+    superblock.d.attrs_size  = lfs->attrs_size;
+    superblock.d.name_size   = lfs->name_size;
 
     lfs_entry_t superentry;
     superentry.d.type = LFS_STRUCT_DIR | LFS_TYPE_SUPERBLOCK;
@@ -2375,33 +2416,41 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // load superblock
     lfs_dir_t dir;
+    lfs_entry_t entry;
     lfs_superblock_t superblock;
     char magic[8];
+
     err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
-    if (err && err != LFS_ERR_CORRUPT) {
+    if (err) {
+        if (err == LFS_ERR_CORRUPT) {
+            LFS_ERROR("Invalid superblock at %d %d", 0, 1);
+        }
         return err;
     }
 
-    if (!err) {
-        err = lfs_dir_get(lfs, &dir,
-                sizeof(dir.d)+4, &superblock.d, sizeof(superblock.d));
-        lfs_superblock_fromle32(&superblock.d);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_dir_get(lfs, &dir,
-                sizeof(dir.d)+4 + sizeof(superblock.d), magic, sizeof(magic));
-        if (err) {
-            return err;
-        }
-
-        lfs->root[0] = superblock.d.root[0];
-        lfs->root[1] = superblock.d.root[1];
+    err = lfs_dir_get(lfs, &dir, sizeof(dir.d), &entry.d, sizeof(entry.d));
+    if (err) {
+        return err;
     }
 
-    if (err || memcmp(magic, "littlefs", 8) != 0) {
-        LFS_ERROR("Invalid superblock at %d %d", dir.pair[0], dir.pair[1]);
+    memset(&superblock.d, 0, sizeof(superblock.d));
+    err = lfs_dir_get(lfs, &dir,
+            sizeof(dir.d)+4, &superblock.d,
+            lfs_min(sizeof(superblock.d), entry.d.elen));
+    lfs_superblock_fromle32(&superblock.d);
+    if (err) {
+        return err;
+    }
+
+    err = lfs_dir_get(lfs, &dir,
+            sizeof(dir.d)+4+entry.d.elen+entry.d.alen, magic,
+            lfs_min(sizeof(magic), entry.d.nlen));
+    if (err) {
+        return err;
+    }
+
+    if (memcmp(magic, "littlefs", 8) != 0) {
+        LFS_ERROR("Invalid superblock at %d %d", 0, 1);
         return LFS_ERR_CORRUPT;
     }
 
@@ -2412,6 +2461,39 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         LFS_ERROR("Invalid version %d.%d", major_version, minor_version);
         return LFS_ERR_INVAL;
     }
+
+    if (superblock.d.inline_size) {
+        if (superblock.d.inline_size > lfs->inline_size) {
+            LFS_ERROR("Unsupported inline size (%d > %d)",
+                    superblock.d.inline_size, lfs->inline_size);
+            return LFS_ERR_INVAL;
+        }
+
+        lfs->inline_size = superblock.d.inline_size;
+    }
+
+    if (superblock.d.attrs_size) {
+        if (superblock.d.attrs_size > lfs->attrs_size) {
+            LFS_ERROR("Unsupported attrs size (%d > %d)",
+                    superblock.d.attrs_size, lfs->attrs_size);
+            return LFS_ERR_INVAL;
+        }
+
+        lfs->attrs_size = superblock.d.attrs_size;
+    }
+
+    if (superblock.d.name_size) {
+        if (superblock.d.name_size > lfs->name_size) {
+            LFS_ERROR("Unsupported name size (%d > %d)",
+                    superblock.d.name_size, lfs->name_size);
+            return LFS_ERR_INVAL;
+        }
+
+        lfs->name_size = superblock.d.name_size;
+    }
+
+    lfs->root[0] = superblock.d.root[0];
+    lfs->root[1] = superblock.d.root[1];
 
     return 0;
 }

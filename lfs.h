@@ -50,30 +50,37 @@ typedef int32_t  lfs_soff_t;
 
 typedef uint32_t lfs_block_t;
 
+// Maximum inline file size in bytes
+#ifndef LFS_INLINE_MAX
+#define LFS_INLINE_MAX 255
+#endif
+
+// Maximum size of all attributes per file in bytes
+#ifndef LFS_ATTRS_MAX
+#define LFS_ATTRS_MAX 255
+#endif
+
 // Max name size in bytes
 #ifndef LFS_NAME_MAX
 #define LFS_NAME_MAX 255
 #endif
 
-#ifndef LFS_INLINE_MAX
-#define LFS_INLINE_MAX 255
-#endif
-
 // Possible error codes, these are negative to allow
 // valid positive return values
 enum lfs_error {
-    LFS_ERR_OK       = 0,    // No error
-    LFS_ERR_IO       = -5,   // Error during device operation
-    LFS_ERR_CORRUPT  = -52,  // Corrupted
-    LFS_ERR_NOENT    = -2,   // No directory entry
-    LFS_ERR_EXIST    = -17,  // Entry already exists
-    LFS_ERR_NOTDIR   = -20,  // Entry is not a dir
-    LFS_ERR_ISDIR    = -21,  // Entry is a dir
-    LFS_ERR_NOTEMPTY = -39,  // Dir is not empty
-    LFS_ERR_BADF     = -9,   // Bad file number
-    LFS_ERR_INVAL    = -22,  // Invalid parameter
-    LFS_ERR_NOSPC    = -28,  // No space left on device
-    LFS_ERR_NOMEM    = -12,  // No more memory available
+    LFS_ERR_OK          = 0,    // No error
+    LFS_ERR_IO          = -5,   // Error during device operation
+    LFS_ERR_CORRUPT     = -52,  // Corrupted
+    LFS_ERR_NOENT       = -2,   // No directory entry
+    LFS_ERR_EXIST       = -17,  // Entry already exists
+    LFS_ERR_NOTDIR      = -20,  // Entry is not a dir
+    LFS_ERR_ISDIR       = -21,  // Entry is a dir
+    LFS_ERR_NOTEMPTY    = -39,  // Dir is not empty
+    LFS_ERR_BADF        = -9,   // Bad file number
+    LFS_ERR_INVAL       = -22,  // Invalid parameter
+    LFS_ERR_NOSPC       = -28,  // No space left on device
+    LFS_ERR_NOMEM       = -12,  // No more memory available
+    LFS_ERR_NAMETOOLONG = -36,  // File name too long
 };
 
 // File types
@@ -102,10 +109,10 @@ enum lfs_open_flags {
     LFS_O_APPEND = 0x0800,    // Move to end of file on every write
 
     // internally used flags
-    LFS_F_DIRTY   = 0x10000,  // File does not match storage
-    LFS_F_WRITING = 0x20000,  // File has been written since last flush
-    LFS_F_READING = 0x40000,  // File has been read since last flush
-    LFS_F_ERRED   = 0x80000,  // An error occured during write
+    LFS_F_DIRTY   = 0x010000, // File does not match storage
+    LFS_F_WRITING = 0x020000, // File has been written since last flush
+    LFS_F_READING = 0x040000, // File has been read since last flush
+    LFS_F_ERRED   = 0x080000, // An error occured during write
     LFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
 };
 
@@ -183,6 +190,13 @@ struct lfs_config {
     // Optional, statically allocated buffer for files. Must be program sized.
     // If enabled, only one file may be opened at a time.
     void *file_buffer;
+
+    // Optional,
+    lfs_size_t inline_size;
+    // Optional,
+    lfs_size_t attrs_size;
+    // Optional,
+    lfs_size_t name_size;
 };
 
 
@@ -258,9 +272,14 @@ typedef struct lfs_dir {
 typedef struct lfs_superblock {
     struct lfs_disk_superblock {
         lfs_block_t root[2];
-        uint32_t block_size;
-        uint32_t block_count;
+
+        lfs_size_t block_size;
+        lfs_size_t block_count;
         uint32_t version;
+
+        lfs_size_t inline_size;
+        lfs_size_t attrs_size;
+        lfs_size_t name_size;
     } d;
 } lfs_superblock_t;
 
@@ -285,6 +304,10 @@ typedef struct lfs {
 
     lfs_free_t free;
     bool deorphaned;
+
+    lfs_size_t inline_size;
+    lfs_size_t attrs_size;
+    lfs_size_t name_size;
 } lfs_t;
 
 
