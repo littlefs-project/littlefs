@@ -52,17 +52,17 @@ typedef uint32_t lfs_block_t;
 
 // Maximum inline file size in bytes
 #ifndef LFS_INLINE_MAX
-#define LFS_INLINE_MAX 255
+#define LFS_INLINE_MAX 0x3ff
 #endif
 
 // Maximum size of all attributes per file in bytes
 #ifndef LFS_ATTRS_MAX
-#define LFS_ATTRS_MAX 255
+#define LFS_ATTRS_MAX 0x3f
 #endif
 
 // Max name size in bytes
 #ifndef LFS_NAME_MAX
-#define LFS_NAME_MAX 255
+#define LFS_NAME_MAX 0xff
 #endif
 
 // Possible error codes, these are negative to allow
@@ -248,6 +248,7 @@ typedef struct lfs_file {
     lfs_size_t size;
 
     uint32_t flags;
+    lfs_size_t inline_size;
     lfs_off_t pos;
     lfs_block_t block;
     lfs_off_t off;
