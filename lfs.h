@@ -27,14 +27,14 @@
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_VERSION 0x00010003
+#define LFS_VERSION 0x00010004
 #define LFS_VERSION_MAJOR (0xffff & (LFS_VERSION >> 16))
 #define LFS_VERSION_MINOR (0xffff & (LFS_VERSION >>  0))
 
 // Version of On-disk data structures
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_DISK_VERSION 0x00010001
+#define LFS_DISK_VERSION 0x00010002
 #define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
 #define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
 
@@ -50,17 +50,25 @@ typedef int32_t  lfs_soff_t;
 
 typedef uint32_t lfs_block_t;
 
-// Maximum inline file size in bytes
+// Maximum inline file size in bytes. Large inline files require a larger
+// read and prog cache, but if a file can be inline it does not need its own
+// data block. LFS_ATTRS_MAX + LFS_INLINE_MAX must be <= 0xffff. Stored in
+// superblock and must be respected by other littlefs drivers.
 #ifndef LFS_INLINE_MAX
 #define LFS_INLINE_MAX 0x3ff
 #endif
 
-// Maximum size of all attributes per file in bytes
+// Maximum size of all attributes per file in bytes, may be redefined but a
+// a smaller LFS_ATTRS_MAX has no benefit. LFS_ATTRS_MAX + LFS_INLINE_MAX
+// must be <= 0xffff. Stored in superblock and must be respected by other
+// littlefs drivers.
 #ifndef LFS_ATTRS_MAX
 #define LFS_ATTRS_MAX 0x3f
 #endif
 
-// Max name size in bytes
+// Max name size in bytes, may be redefined to reduce the size of the
+// info struct. Stored in superblock and must be respected by other
+// littlefs drivers.
 #ifndef LFS_NAME_MAX
 #define LFS_NAME_MAX 0xff
 #endif
@@ -191,11 +199,23 @@ struct lfs_config {
     // If enabled, only one file may be opened at a time.
     void *file_buffer;
 
-    // Optional,
+    // Optional upper limit on inlined files in bytes. Large inline files
+    // require a larger read and prog cache, but if a file can be inlined it
+    // does not need its own data block. Must be smaller than the read size
+    // and prog size. Defaults to min(LFS_INLINE_MAX, read_size) when zero.
+    // Stored in superblock and must be respected by other littlefs drivers.
     lfs_size_t inline_size;
-    // Optional,
+
+    // Optional upper limit on attributes per file in bytes. No downside for
+    // larger attributes size but must be less than LFS_ATTRS_MAX. Defaults to
+    // LFS_ATTRS_MAX when zero.Stored in superblock and must be respected by
+    // other littlefs drivers.
     lfs_size_t attrs_size;
-    // Optional,
+
+    // Optional upper limit on length of file names in bytes. No downside for
+    // larger names except the size of the info struct which is controlled by
+    // the LFS_NAME_MAX define. Defaults to LFS_NAME_MAX when zero. Stored in
+    // superblock and must be respected by other littlefs drivers.
     lfs_size_t name_size;
 };
 

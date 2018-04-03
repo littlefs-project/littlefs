@@ -722,7 +722,6 @@ relocate:
     return 0;
 }
 
-// TODO zeros?
 static int lfs_dir_get(lfs_t *lfs, const lfs_dir_t *dir,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     return lfs_bd_read(lfs, dir->pair[0], off, buffer, size);
@@ -1180,8 +1179,6 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
         break;
     }
 
-    // TODO common info constructor?
-    // TODO also used in lfs_stat
     info->type = 0xf & entry.d.type;
     if (entry.d.type == (LFS_STRUCT_CTZ | LFS_TYPE_REG)) {
         info->size = entry.d.u.file.size;
@@ -1707,7 +1704,6 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             return err;
         }
 
-        // TODO entry read function?
         lfs_entry_t entry = {.off = file->poff};
         err = lfs_dir_get(lfs, &cwd, entry.off, &entry.d, sizeof(entry.d));
         lfs_entry_fromle32(&entry.d);
@@ -1778,7 +1774,6 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     nsize = size;
 
     while (nsize > 0) {
-        // TODO can this be collapsed?
         // check if we need a new block
         if (!(file->flags & LFS_F_READING) ||
                 file->off == lfs->cfg->block_size) {
@@ -1848,12 +1843,9 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         }
     }
 
-    // TODO combine with block allocation?
-    // TODO need to move out if no longer fits in block also
-    // TODO store INLINE_MAX in superblock?
-    // TODO what if inline files is > block size (ie 128)
     if ((file->flags & LFS_F_INLINE) &&
             file->pos + nsize >= file->inline_size) {
+        // inline file doesn't fit anymore
         file->block = 0xfffffffe;
         file->off = file->pos;
 
@@ -1869,9 +1861,6 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     }
 
     while (nsize > 0) {
-        // TODO can this be collapsed?
-        // TODO can we reduce this now that block 0 is never allocated?
-        // TODO actually, how does this behave if inline max == 0?
         // check if we need a new block
         if (!(file->flags & LFS_F_WRITING) ||
                 file->off == lfs->cfg->block_size) {
@@ -1969,7 +1958,6 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     return file->pos;
 }
 
-// TODO handle inlining?
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     if ((file->flags & 3) == LFS_O_RDONLY) {
         return LFS_ERR_BADF;
