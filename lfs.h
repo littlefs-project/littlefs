@@ -89,6 +89,8 @@ enum lfs_error {
     LFS_ERR_NOSPC       = -28,  // No space left on device
     LFS_ERR_NOMEM       = -12,  // No more memory available
     LFS_ERR_NAMETOOLONG = -36,  // File name too long
+    LFS_ERR_NODATA      = -61,  // No data/attr available
+    LFS_ERR_RANGE       = -34,  // Result not representable
 };
 
 // File types
@@ -253,6 +255,13 @@ typedef struct lfs_entry {
     } d;
 } lfs_entry_t;
 
+typedef struct lfs_attr {
+    struct lfs_disk_attr {
+        uint8_t type;
+        uint8_t len;
+    } d;
+} lfs_attr_t;
+
 typedef struct lfs_cache {
     lfs_block_t block;
     lfs_off_t off;
@@ -378,6 +387,29 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
 // Fills out the info structure, based on the specified file or directory.
 // Returns a negative error code on failure.
 int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
+
+// Get a custom attribute
+//
+// Attributes are identified by an 8-bit type and are limited to at
+// most LFS_ATTRS_SIZE bytes.
+// Returns the size of the attribute, or a negative error code on failure.
+int lfs_getattr(lfs_t *lfs, const char *path,
+        uint8_t type, void *buffer, lfs_size_t size);
+
+// Set a custom attribute
+//
+// Attributes are identified by an 8-bit type and are limited to at
+// most LFS_ATTRS_SIZE bytes.
+// Returns a negative error code on failure.
+int lfs_setattr(lfs_t *lfs, const char *path,
+        uint8_t type, const void *buffer, lfs_size_t size);
+
+// Remove a custom attribute
+//
+// Attributes are identified by an 8-bit type and are limited to at
+// most LFS_ATTRS_SIZE bytes.
+// Returns a negative error code on failure.
+int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 
 
 /// File operations ///
