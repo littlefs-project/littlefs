@@ -515,11 +515,18 @@ struct lfs_region {
         LFS_FROM_DROP,
         LFS_FROM_MEM,
         LFS_FROM_REGION,
+        LFS_FROM_ATTRS,
     } type;
 
     lfs_off_t off;
     const void *buffer;
     lfs_ssize_t size;
+};
+
+struct lfs_attrs_region {
+    const struct lfs_attr *attrs;
+    int count;
+    lfs_size_t len;
 };
 
 struct lfs_region_region {
@@ -568,6 +575,73 @@ static int lfs_commit_region(lfs_t *lfs,
                     newoff += regions[i].size;
                     break;
                 }
+                case LFS_FROM_ATTRS: {
+                    const struct lfs_attrs_region *attrs = regions[i].buffer;
+
+                    // order doesn't matter, so we write new attrs first. this
+                    // is still O(n^2) but only O(n) disk access
+                    for (int j = 0; j < attrs->count; j++) {
+                        if (attrs->attrs[j].size == 0) {
+                            continue;
+                        }
+
+                        lfs_entry_attr_t attr = {
+                            .d.type = attrs->attrs[j].type,
+                            .d.len = attrs->attrs[j].size,
+                        };
+
+                        lfs_crc(crc, &attr.d, sizeof(attr.d));
+                        int err = lfs_bd_prog(lfs, newblock, newoff,
+                                &attr.d, sizeof(attr.d));
+                        if (err) {
+                            return err;
+                        }
+
+                        lfs_crc(crc,
+                                attrs->attrs[j].buffer, attrs->attrs[j].size);
+                        err = lfs_bd_prog(lfs, newblock, newoff+sizeof(attr.d),
+                                attrs->attrs[j].buffer, attrs->attrs[j].size);
+                        if (err) {
+                            return err;
+                        }
+
+                        newoff += sizeof(attr.d) + attrs->attrs[j].size;
+                    }
+
+                    // copy over attributes without updates
+                    lfs_entry_attr_t attr;
+                    for (lfs_off_t k = 0; k < attrs->len; k += 2+attr.d.len) {
+                        int err = lfs_bd_read(lfs, oldblock, oldoff,
+                                &attr.d, sizeof(attr.d));
+                        if (err) {
+                            return err;
+                        }
+
+                        bool updating = false;
+                        for (int j = 0; j < attrs->count; j++) {
+                            if (attr.d.type == attrs->attrs[j].type) {
+                                updating = true;
+                            }
+                        }
+
+                        if (!updating) {
+                            err = lfs_commit_region(lfs,
+                                    oldblock, oldoff,
+                                    newblock, newoff,
+                                    0, NULL, 0,
+                                    attr.d.len, crc);
+                            if (err) {
+                                return err;
+                            }
+
+                            newoff += 2+attr.d.len;
+                        }
+
+                        oldoff += 2+attr.d.len;
+                    }
+
+                    break;
+                }
             }
 
             i += 1;
@@ -590,6 +664,8 @@ static int lfs_commit_region(lfs_t *lfs,
         }
     }
 
+    // sanity check our commit math
+    LFS_ASSERT(newoff == end);
     return 0;
 }
 
@@ -1044,116 +1120,100 @@ static int lfs_dir_getinfo(lfs_t *lfs,
     return 0;
 }
 
-static int lfs_dir_getattr(lfs_t *lfs,
+static int lfs_dir_getattrs(lfs_t *lfs,
         lfs_dir_t *dir, const lfs_entry_t *entry,
-        uint8_t type, void *buffer, lfs_size_t size) {
+        const struct lfs_attr *attrs, int count) {
+    // set to zero in case we can't find the attributes or size mismatch
+    for (int j = 0; j < count; j++) {
+        memset(attrs[j].buffer, 0, attrs[j].size);
+    }
+
     // search for attribute in attribute region
-    lfs_off_t off = sizeof(dir->d) + lfs_entry_elen(entry);
-    lfs_off_t i = 0;
-    while (i < lfs_entry_alen(entry)) {
-        lfs_attr_t attr;
+    lfs_off_t off = 4+lfs_entry_elen(entry);
+    lfs_entry_attr_t attr;
+    for (lfs_off_t i = 0; i < lfs_entry_alen(entry); i += 2+attr.d.len) {
         int err = lfs_dir_get(lfs, dir,
                 entry->off+off+i, &attr.d, sizeof(attr.d));
         if (err) {
             return err;
         }
 
-        if (attr.d.type != type) {
-            i += attr.d.len;
-            continue;
+        for (int j = 0; j < count; j++) {
+            if (attr.d.type == attrs[j].type) {
+                if (attr.d.len > attrs[j].size) {
+                    return LFS_ERR_RANGE;
+                }
+
+                err = lfs_dir_get(lfs, dir,
+                        entry->off+off+i+sizeof(attr.d),
+                        attrs[j].buffer, attr.d.len);
+                if (err) {
+                    return err;
+                }
+            }
         }
-
-        if (attr.d.len > size) {
-            return LFS_ERR_RANGE;
-        }
-
-        err = lfs_dir_get(lfs, dir,
-                entry->off+off+i+sizeof(attr.d), buffer, attr.d.len);
-        if (err) {
-            return err;
-        }
-
-        return attr.d.len;
-    }
-
-    return LFS_ERR_NODATA;
-}
-
-static int lfs_dir_setattr(lfs_t *lfs,
-        lfs_dir_t *dir, lfs_entry_t *entry,
-        uint8_t type, const void *buffer, lfs_size_t size) {
-    // search for attribute in attribute region
-    lfs_off_t off = sizeof(dir->d) + lfs_entry_elen(entry);
-    lfs_off_t i = 0;
-    lfs_size_t oldlen = 0;
-    while (i < lfs_entry_alen(entry)) {
-        lfs_attr_t attr;
-        int err = lfs_dir_get(lfs, dir,
-                entry->off+off+i, &attr.d, sizeof(attr.d));
-        if (err) {
-            return err;
-        }
-
-        if (attr.d.type != type) {
-            i += attr.d.len;
-            continue;
-        }
-
-        oldlen = attr.d.len;
-        break;
-    }
-
-    // make sure the attribute fits
-    if (lfs_entry_elen(entry) - oldlen + size > lfs->attrs_size ||
-        (0x7fffffff & dir->d.size) - oldlen + size > lfs->cfg->block_size) {
-        return LFS_ERR_NOSPC;
-    }
-
-    lfs_attr_t attr;
-    attr.d.type = type;
-    attr.d.len = size;
-    int err = lfs_dir_set(lfs, dir, entry, (struct lfs_region[]){
-            {LFS_FROM_MEM, off+i, &attr.d, sizeof(attr.d)},
-            {LFS_FROM_MEM, off+i, buffer, size},
-            {LFS_FROM_DROP, off+i, NULL, -oldlen}}, 3);
-    if (err) {
-        return err;
     }
 
     return 0;
 }
 
-static int lfs_dir_removeattr(lfs_t *lfs,
-        lfs_dir_t *dir, lfs_entry_t *entry, uint8_t type) {
-    // search for attribute in attribute region
-    lfs_off_t off = sizeof(dir->d) + lfs_entry_elen(entry);
-    lfs_off_t i = 0;
-    while (i < lfs_entry_alen(entry)) {
-        lfs_attr_t attr;
+static lfs_ssize_t lfs_dir_checkattrs(lfs_t *lfs,
+        lfs_dir_t *dir, lfs_entry_t *entry,
+        const struct lfs_attr *attrs, int count) {
+    // check that attributes fit
+    lfs_size_t nsize = 0;
+    for (int j = 0; j < count; j++) {
+        nsize += 2+attrs[j].size;
+    }
+
+    lfs_off_t off = 4+lfs_entry_elen(entry);
+    lfs_entry_attr_t attr;
+    for (lfs_off_t i = 0; i < lfs_entry_alen(entry); i += 2+attr.d.len) {
         int err = lfs_dir_get(lfs, dir,
                 entry->off+off+i, &attr.d, sizeof(attr.d));
         if (err) {
             return err;
         }
 
-        if (attr.d.type != type) {
-            i += attr.d.len;
-            continue;
+        bool updated = false;
+        for (int j = 0; j < count; j++) {
+            if (attr.d.type == attrs[j].type) {
+                updated = true;
+            }
         }
 
-        err = lfs_dir_set(lfs, dir, entry, (struct lfs_region[]){
-                {LFS_FROM_DROP, off+i,
-                    NULL, -(sizeof(attr.d)+attr.d.len)}}, 1);
-        if (err) {
-            return err;
+        if (!updated) {
+            nsize += 2+attr.d.len;
         }
-
-        return 0;
     }
 
-    return LFS_ERR_NODATA;
+    if (nsize > lfs->attrs_size || (
+            (0x7fffffff & dir->d.size) + lfs_entry_size(entry) -
+            lfs_entry_alen(entry) + nsize > lfs->cfg->block_size)) {
+        return LFS_ERR_NOSPC;
+    }
+
+    return nsize;
 }
 
+static int lfs_dir_setattrs(lfs_t *lfs,
+        lfs_dir_t *dir, lfs_entry_t *entry,
+        const struct lfs_attr *attrs, int count) {
+    // make sure attributes fit
+    lfs_ssize_t nsize = lfs_dir_checkattrs(lfs, dir, entry, attrs, count);
+    if (nsize < 0) {
+        return nsize;
+    }
+
+    // commit to entry, majority of work is in LFS_FROM_ATTRS
+    lfs_size_t oldlen = lfs_entry_alen(entry);
+    entry->d.alen = (0xc0 & entry->d.alen) | nsize;
+    return lfs_dir_set(lfs, dir, entry, (struct lfs_region[]){
+            {LFS_FROM_MEM, 0, &entry->d, 4},
+            {LFS_FROM_DROP, 0, NULL, -4},
+            {LFS_FROM_ATTRS, 4+lfs_entry_elen(entry),
+                &(struct lfs_attrs_region){attrs, count, oldlen}, nsize}}, 3);
+}
 
 
 /// Top level directory operations ///
@@ -2372,8 +2432,8 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
 
 /// Attribute operations ///
-int lfs_getattr(lfs_t *lfs, const char *path,
-        uint8_t type, void *buffer, lfs_size_t size) {
+int lfs_getattrs(lfs_t *lfs, const char *path,
+        const struct lfs_attr *attrs, int count) {
     lfs_dir_t cwd;
     int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
     if (err) {
@@ -2386,11 +2446,11 @@ int lfs_getattr(lfs_t *lfs, const char *path,
         return err;
     }
 
-    return lfs_dir_getattr(lfs, &cwd, &entry, type, buffer, size);
+    return lfs_dir_getattrs(lfs, &cwd, &entry, attrs, count);
 }
 
-int lfs_setattr(lfs_t *lfs, const char *path,
-        uint8_t type, const void *buffer, lfs_size_t size) {
+int lfs_setattrs(lfs_t *lfs, const char *path,
+        const struct lfs_attr *attrs, int count) {
     lfs_dir_t cwd;
     int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
     if (err) {
@@ -2403,23 +2463,7 @@ int lfs_setattr(lfs_t *lfs, const char *path,
         return err;
     }
 
-    return lfs_dir_setattr(lfs, &cwd, &entry, type, buffer, size);
-}
-
-int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
-    lfs_dir_t cwd;
-    int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
-    if (err) {
-        return err;
-    }
-
-    lfs_entry_t entry;
-    err = lfs_dir_find(lfs, &cwd, &entry, &path);
-    if (err) {
-        return err;
-    }
-
-    return lfs_dir_removeattr(lfs, &cwd, &entry, type);
+    return lfs_dir_setattrs(lfs, &cwd, &entry, attrs, count);
 }
 
 
