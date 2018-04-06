@@ -289,13 +289,136 @@ tests/test.py << TEST
     }
     lfs_file_close(&lfs, &file[0]) => 0;
 
-    // open whole
+    // open hole
     lfs_remove(&lfs, "bump") => 0;
 
     lfs_mkdir(&lfs, "splitdir") => 0;
     lfs_file_open(&lfs, &file[0], "splitdir/bump",
             LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_write(&lfs, &file[0], buffer, size) => LFS_ERR_NOSPC;
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Outdated lookahead test ---"
+rm -rf blocks
+tests/test.py << TEST
+    lfs_format(&lfs, &cfg) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+
+    // fill completely with two files
+    lfs_file_open(&lfs, &file[0], "exhaustion1",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    size = strlen("blahblahblahblah");
+    memcpy(buffer, "blahblahblahblah", size);
+    for (lfs_size_t i = 0;
+            i < ((cfg.block_count-4)/2)*(cfg.block_size-8);
+            i += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    lfs_file_open(&lfs, &file[0], "exhaustion2",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    size = strlen("blahblahblahblah");
+    memcpy(buffer, "blahblahblahblah", size);
+    for (lfs_size_t i = 0;
+            i < ((cfg.block_count-4+1)/2)*(cfg.block_size-8);
+            i += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    // remount to force reset of lookahead
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+
+    // rewrite one file
+    lfs_file_open(&lfs, &file[0], "exhaustion1",
+            LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+    lfs_file_sync(&lfs, &file[0]) => 0;
+    size = strlen("blahblahblahblah");
+    memcpy(buffer, "blahblahblahblah", size);
+    for (lfs_size_t i = 0;
+            i < ((cfg.block_count-4)/2)*(cfg.block_size-8);
+            i += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    // rewrite second file, this requires lookahead does not
+    // use old population
+    lfs_file_open(&lfs, &file[0], "exhaustion2",
+            LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+    lfs_file_sync(&lfs, &file[0]) => 0;
+    size = strlen("blahblahblahblah");
+    memcpy(buffer, "blahblahblahblah", size);
+    for (lfs_size_t i = 0;
+            i < ((cfg.block_count-4+1)/2)*(cfg.block_size-8);
+            i += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_close(&lfs, &file[0]) => 0;
+TEST
+
+echo "--- Outdated lookahead and split dir test ---"
+rm -rf blocks
+tests/test.py << TEST
+    lfs_format(&lfs, &cfg) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+
+    // fill completely with two files
+    lfs_file_open(&lfs, &file[0], "exhaustion1",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    size = strlen("blahblahblahblah");
+    memcpy(buffer, "blahblahblahblah", size);
+    for (lfs_size_t i = 0;
+            i < ((cfg.block_count-4)/2)*(cfg.block_size-8);
+            i += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    lfs_file_open(&lfs, &file[0], "exhaustion2",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    size = strlen("blahblahblahblah");
+    memcpy(buffer, "blahblahblahblah", size);
+    for (lfs_size_t i = 0;
+            i < ((cfg.block_count-4+1)/2)*(cfg.block_size-8);
+            i += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    // remount to force reset of lookahead
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+
+    // rewrite one file with a hole of one block
+    lfs_file_open(&lfs, &file[0], "exhaustion1",
+            LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+    lfs_file_sync(&lfs, &file[0]) => 0;
+    size = strlen("blahblahblahblah");
+    memcpy(buffer, "blahblahblahblah", size);
+    for (lfs_size_t i = 0;
+            i < ((cfg.block_count-4)/2 - 1)*(cfg.block_size-8);
+            i += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    // try to allocate a directory, should fail!
+    lfs_mkdir(&lfs, "split") => LFS_ERR_NOSPC;
+
+    // file should not fail
+    lfs_file_open(&lfs, &file[0], "notasplit",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_write(&lfs, &file[0], "hi", 2) => 2;
     lfs_file_close(&lfs, &file[0]) => 0;
 
     lfs_unmount(&lfs) => 0;

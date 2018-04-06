@@ -290,6 +290,15 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
             if (!(lfs->free.buffer[off / 32] & (1U << (off % 32)))) {
                 // found a free block
                 *block = (lfs->free.begin + off) % lfs->cfg->block_count;
+
+                // eagerly find next off so an alloc ack can
+                // discredit old lookahead blocks
+                while (lfs->free.off != lfs->free.size &&
+                        (lfs->free.buffer[lfs->free.off / 32] &
+                            (1U << (lfs->free.off % 32)))) {
+                    lfs->free.off += 1;
+                }
+
                 return 0;
             }
         }
@@ -315,7 +324,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 }
 
 static void lfs_alloc_ack(lfs_t *lfs) {
-    lfs->free.ack = lfs->free.off-1 + lfs->free.begin + lfs->cfg->block_count;
+    lfs->free.ack = lfs->free.begin+lfs->free.off + lfs->cfg->block_count;
 }
 
 
