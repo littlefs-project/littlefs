@@ -283,7 +283,7 @@ typedef struct lfs_cache {
 typedef struct lfs_file {
     struct lfs_file *next;
     lfs_block_t pair[2];
-    lfs_off_t poff;
+    lfs_off_t pairoff;
 
     lfs_block_t head;
     lfs_size_t size;
@@ -294,6 +294,9 @@ typedef struct lfs_file {
     lfs_block_t block;
     lfs_off_t off;
     lfs_cache_t cache;
+
+    const struct lfs_attr *attrs;
+    int attrcount;
 } lfs_file_t;
 
 typedef struct lfs_dir {
