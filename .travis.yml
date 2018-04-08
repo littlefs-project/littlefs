@@ -35,7 +35,7 @@ script:
     if [ "$TRAVIS_TEST_RESULT" -eq 0 ]
     then
         CURR=$(tail -n1 sizes | awk '{print $1}')
-        PREV=$(curl https://api.github.com/repos/$TRAVIS_REPO_SLUG/status/master \
+        PREV=$(curl -u $GEKY_BOT_STATUSES https://api.github.com/repos/$TRAVIS_REPO_SLUG/status/master \
             | jq -re "select(.sha != \"$TRAVIS_COMMIT\")
                 | .statuses[] | select(.context == \"$STAGE/$NAME\").description
                 | capture(\"code size is (?<size>[0-9]+)\").size" \
@@ -165,7 +165,8 @@ jobs:
                     \"name\": \"$LFS_VERSION\"
                 }"
             RELEASE=$(
-                curl -f https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases/tags/$LFS_VERSION
+                curl -f -u $GEKY_BOT_RELEASES \
+                    https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases/tags/$LFS_VERSION
             )
             CHANGES=$(
                 git log --oneline $LFS_PREV_VERSION.. --grep='^Merge' --invert-grep
