@@ -512,21 +512,20 @@ static int lfs_dir_fetch(lfs_t *lfs,
 
 struct lfs_region {
     enum {
-        LFS_FROM_DROP,
         LFS_FROM_MEM,
         LFS_FROM_REGION,
         LFS_FROM_ATTRS,
     } type;
 
-    lfs_off_t off;
+    lfs_off_t oldoff;
+    lfs_size_t oldsize;
     const void *buffer;
-    lfs_ssize_t size;
+    lfs_size_t newsize;
 };
 
-struct lfs_attrs_region {
+struct lfs_region_attrs {
     const struct lfs_attr *attrs;
     int count;
-    lfs_size_t len;
 };
 
 struct lfs_region_region {
@@ -536,47 +535,44 @@ struct lfs_region_region {
     int count;
 };
 
-static int lfs_commit_region(lfs_t *lfs,
+static int lfs_commit_region(lfs_t *lfs, uint32_t *crc,
         lfs_block_t oldblock, lfs_off_t oldoff,
         lfs_block_t newblock, lfs_off_t newoff,
-        lfs_off_t regionoff,
-        const struct lfs_region *regions, int count,
-        lfs_size_t size, uint32_t *crc) {
+        lfs_off_t regionoff, lfs_size_t regionsize,
+        const struct lfs_region *regions, int count) {
     int i = 0;
-    lfs_size_t end = newoff + size;
-    while (newoff < end) {
+    lfs_size_t newend = newoff + regionsize;
+    while (newoff < newend) {
         // commit from different types of regions
-        if (i < count && regions[i].off == oldoff - regionoff) {
+        if (i < count && regions[i].oldoff == oldoff - regionoff) {
             switch (regions[i].type) {
-                case LFS_FROM_DROP: {
-                    oldoff -= regions[i].size;
-                    break;
-                }
                 case LFS_FROM_MEM: {
-                    lfs_crc(crc, regions[i].buffer, regions[i].size);
+                    lfs_crc(crc, regions[i].buffer, regions[i].newsize);
                     int err = lfs_bd_prog(lfs, newblock, newoff,
-                            regions[i].buffer, regions[i].size);
+                            regions[i].buffer, regions[i].newsize);
                     if (err) {
                         return err;
                     }
-                    newoff += regions[i].size;
+                    newoff += regions[i].newsize;
+                    oldoff += regions[i].oldsize;
                     break;
                 }
                 case LFS_FROM_REGION: {
                     const struct lfs_region_region *disk = regions[i].buffer;
-                    int err = lfs_commit_region(lfs,
+                    int err = lfs_commit_region(lfs, crc,
                             disk->block, disk->off,
                             newblock, newoff,
-                            disk->off, disk->regions, disk->count,
-                            regions[i].size, crc);
+                            disk->off, regions[i].newsize,
+                            disk->regions, disk->count);
                     if (err) {
                         return err;
                     }
-                    newoff += regions[i].size;
+                    newoff += regions[i].newsize;
+                    oldoff -= regions[i].oldsize;
                     break;
                 }
                 case LFS_FROM_ATTRS: {
-                    const struct lfs_attrs_region *attrs = regions[i].buffer;
+                    const struct lfs_region_attrs *attrs = regions[i].buffer;
 
                     // order doesn't matter, so we write new attrs first. this
                     // is still O(n^2) but only O(n) disk access
@@ -585,10 +581,9 @@ static int lfs_commit_region(lfs_t *lfs,
                             continue;
                         }
 
-                        lfs_entry_attr_t attr = {
-                            .d.type = attrs->attrs[j].type,
-                            .d.len = attrs->attrs[j].size,
-                        };
+                        lfs_entry_attr_t attr;
+                        attr.d.type = attrs->attrs[j].type;
+                        attr.d.len = attrs->attrs[j].size;
 
                         lfs_crc(crc, &attr.d, sizeof(attr.d));
                         int err = lfs_bd_prog(lfs, newblock, newoff,
@@ -605,12 +600,13 @@ static int lfs_commit_region(lfs_t *lfs,
                             return err;
                         }
 
-                        newoff += sizeof(attr.d) + attrs->attrs[j].size;
+                        newoff += 2+attrs->attrs[j].size;
                     }
 
                     // copy over attributes without updates
-                    lfs_entry_attr_t attr;
-                    for (lfs_off_t k = 0; k < attrs->len; k += 2+attr.d.len) {
+                    lfs_off_t oldend = oldoff + regions[i].oldsize;
+                    while (oldoff < oldend) {
+                        lfs_entry_attr_t attr;
                         int err = lfs_bd_read(lfs, oldblock, oldoff,
                                 &attr.d, sizeof(attr.d));
                         if (err) {
@@ -625,11 +621,11 @@ static int lfs_commit_region(lfs_t *lfs,
                         }
 
                         if (!updating) {
-                            err = lfs_commit_region(lfs,
+                            err = lfs_commit_region(lfs, crc,
                                     oldblock, oldoff,
                                     newblock, newoff,
-                                    0, NULL, 0,
-                                    attr.d.len, crc);
+                                    0, 2+attr.d.len,
+                                    NULL, 0);
                             if (err) {
                                 return err;
                             }
@@ -665,7 +661,7 @@ static int lfs_commit_region(lfs_t *lfs,
     }
 
     // sanity check our commit math
-    LFS_ASSERT(newoff == end);
+    LFS_ASSERT(newoff == newend);
     return 0;
 }
 
@@ -681,7 +677,8 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
     // keep pairs in order such that pair[0] is most recent
     lfs_pairswap(dir->pair);
     for (int i = 0; i < count; i++) {
-        dir->d.size += regions[i].size;
+        dir->d.size += regions[i].newsize;
+        dir->d.size -= regions[i].oldsize;
     }
 
     while (true) {
@@ -708,12 +705,11 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
             }
 
             // commit region
-            err = lfs_commit_region(lfs,
+            err = lfs_commit_region(lfs, &crc,
                     dir->pair[1], sizeof(dir->d),
                     dir->pair[0], sizeof(dir->d),
-                    0, regions, count,
-                    (0x7fffffff & dir->d.size)-sizeof(dir->d)-4,
-                    &crc);
+                    0, (0x7fffffff & dir->d.size)-sizeof(dir->d)-4,
+                    regions, count);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
@@ -807,7 +803,8 @@ static int lfs_dir_set(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry,
         struct lfs_region *regions, int count) {
     lfs_ssize_t diff = 0; 
     for (int i = 0; i < count; i++) {
-        diff += regions[i].size;
+        diff += regions[i].newsize;
+        diff -= regions[i].oldsize;
     }
 
     lfs_size_t oldsize = entry->size;
@@ -829,8 +826,7 @@ static int lfs_dir_set(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry,
 
             type |= LFS_STRUCT_MOVED;
             err = lfs_dir_commit(lfs, &olddir, (struct lfs_region[]){
-                        {LFS_FROM_MEM, oldoff, &type, 1},
-                        {LFS_FROM_DROP, oldoff, NULL, -1}}, 2);
+                        {LFS_FROM_MEM, oldoff, 1, &type, 1}}, 1);
             if (err) {
                 return err;
             }
@@ -865,7 +861,7 @@ static int lfs_dir_set(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry,
         entry->off = dir->d.size - 4;
         entry->size += diff;
         int err = lfs_dir_commit(lfs, dir, (struct lfs_region[]){
-                {LFS_FROM_REGION, entry->off, &(struct lfs_region_region){
+                {LFS_FROM_REGION, entry->off, 0, &(struct lfs_region_region){
                     olddir.pair[0], oldoff,
                     regions, count}, entry->size}}, 1);
         if (err) {
@@ -893,7 +889,7 @@ static int lfs_dir_set(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry,
             lfs_entry_t oldentry;
             oldentry.off = oldoff;
             err = lfs_dir_set(lfs, &olddir, &oldentry, (struct lfs_region[]){
-                    {LFS_FROM_DROP, 0, NULL, -oldsize}}, 1);
+                    {LFS_FROM_MEM, 0, oldsize, NULL, 0}}, 1);
             if (err) {
                 return err;
             }
@@ -922,7 +918,7 @@ static int lfs_dir_set(lfs_t *lfs, lfs_dir_t *dir, lfs_entry_t *entry,
     }
 
     for (int i = 0; i < count; i++) {
-        regions[i].off += entry->off;
+        regions[i].oldoff += entry->off;
     }
 
     int err = lfs_dir_commit(lfs, dir, regions, count);
@@ -1129,11 +1125,11 @@ static int lfs_dir_getattrs(lfs_t *lfs,
     }
 
     // search for attribute in attribute region
-    lfs_off_t off = 4+lfs_entry_elen(entry);
-    lfs_entry_attr_t attr;
-    for (lfs_off_t i = 0; i < lfs_entry_alen(entry); i += 2+attr.d.len) {
-        int err = lfs_dir_get(lfs, dir,
-                entry->off+off+i, &attr.d, sizeof(attr.d));
+    lfs_off_t off = entry->off + 4+lfs_entry_elen(entry);
+    lfs_off_t end = off + lfs_entry_alen(entry);
+    while (off < end) {
+        lfs_entry_attr_t attr;
+        int err = lfs_dir_get(lfs, dir, off, &attr.d, sizeof(attr.d));
         if (err) {
             return err;
         }
@@ -1144,14 +1140,15 @@ static int lfs_dir_getattrs(lfs_t *lfs,
                     return LFS_ERR_RANGE;
                 }
 
-                err = lfs_dir_get(lfs, dir,
-                        entry->off+off+i+sizeof(attr.d),
+                err = lfs_dir_get(lfs, dir, off+sizeof(attr.d),
                         attrs[j].buffer, attr.d.len);
                 if (err) {
                     return err;
                 }
             }
         }
+
+        off += 2+attr.d.len;
     }
 
     return 0;
@@ -1161,16 +1158,19 @@ static lfs_ssize_t lfs_dir_checkattrs(lfs_t *lfs,
         lfs_dir_t *dir, lfs_entry_t *entry,
         const struct lfs_attr *attrs, int count) {
     // check that attributes fit
+    // two separate passes so disk access is O(n)
     lfs_size_t nsize = 0;
     for (int j = 0; j < count; j++) {
-        nsize += 2+attrs[j].size;
+        if (attrs[j].size > 0) {
+            nsize += 2+attrs[j].size;
+        }
     }
 
-    lfs_off_t off = 4+lfs_entry_elen(entry);
-    lfs_entry_attr_t attr;
-    for (lfs_off_t i = 0; i < lfs_entry_alen(entry); i += 2+attr.d.len) {
-        int err = lfs_dir_get(lfs, dir,
-                entry->off+off+i, &attr.d, sizeof(attr.d));
+    lfs_off_t off = entry->off + 4+lfs_entry_elen(entry);
+    lfs_off_t end = off + lfs_entry_alen(entry);
+    while (off < end) {
+        lfs_entry_attr_t attr;
+        int err = lfs_dir_get(lfs, dir, off, &attr.d, sizeof(attr.d));
         if (err) {
             return err;
         }
@@ -1185,6 +1185,8 @@ static lfs_ssize_t lfs_dir_checkattrs(lfs_t *lfs,
         if (!updated) {
             nsize += 2+attr.d.len;
         }
+
+        off += 2+attr.d.len;
     }
 
     if (nsize > lfs->attrs_size || (
@@ -1200,19 +1202,18 @@ static int lfs_dir_setattrs(lfs_t *lfs,
         lfs_dir_t *dir, lfs_entry_t *entry,
         const struct lfs_attr *attrs, int count) {
     // make sure attributes fit
-    lfs_ssize_t nsize = lfs_dir_checkattrs(lfs, dir, entry, attrs, count);
-    if (nsize < 0) {
-        return nsize;
+    lfs_size_t oldlen = lfs_entry_alen(entry);
+    lfs_ssize_t newlen = lfs_dir_checkattrs(lfs, dir, entry, attrs, count);
+    if (newlen < 0) {
+        return newlen;
     }
 
     // commit to entry, majority of work is in LFS_FROM_ATTRS
-    lfs_size_t oldlen = lfs_entry_alen(entry);
-    entry->d.alen = (0xc0 & entry->d.alen) | nsize;
+    entry->d.alen = (0xc0 & entry->d.alen) | newlen;
     return lfs_dir_set(lfs, dir, entry, (struct lfs_region[]){
-            {LFS_FROM_MEM, 0, &entry->d, 4},
-            {LFS_FROM_DROP, 0, NULL, -4},
-            {LFS_FROM_ATTRS, 4+lfs_entry_elen(entry),
-                &(struct lfs_attrs_region){attrs, count, oldlen}, nsize}}, 3);
+            {LFS_FROM_MEM, 0, 4, &entry->d, 4},
+            {LFS_FROM_ATTRS, 4+lfs_entry_elen(entry), oldlen,
+                &(struct lfs_region_attrs){attrs, count}, newlen}}, 2);
 }
 
 
@@ -1272,8 +1273,8 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     cwd.d.tail[0] = dir.pair[0];
     cwd.d.tail[1] = dir.pair[1];
     err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
-            {LFS_FROM_MEM, 0, &entry.d, sizeof(entry.d)},
-            {LFS_FROM_MEM, 0, path, nlen}}, 2);
+            {LFS_FROM_MEM, 0, 0, &entry.d, sizeof(entry.d)},
+            {LFS_FROM_MEM, 0, 0, path, nlen}}, 2);
     if (err) {
         return err;
     }
@@ -1657,8 +1658,8 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         entry.size = 0;
 
         err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
-                {LFS_FROM_MEM, 0, &entry.d, 4},
-                {LFS_FROM_MEM, 0, path, nlen}}, 2);
+                {LFS_FROM_MEM, 0, 0, &entry.d, 4},
+                {LFS_FROM_MEM, 0, 0, path, nlen}}, 2);
         if (err) {
             return err;
         }
@@ -1910,8 +1911,8 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             entry.d.u.file.size = file->size;
 
             err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
-                    {LFS_FROM_MEM, 0, &entry.d, sizeof(entry.d)},
-                    {LFS_FROM_DROP, 0, NULL, -oldlen-4}}, 2);
+                    {LFS_FROM_MEM, 0, 4+oldlen,
+                        &entry.d, sizeof(entry.d)}}, 1);
             if (err) {
                 return err;
             }
@@ -1921,9 +1922,9 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             entry.d.alen = (entry.d.alen & 0x3f) | ((file->size >> 2) & 0xc0);
 
             err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
-                    {LFS_FROM_MEM, 0, &entry.d, 4},
-                    {LFS_FROM_MEM, 0, file->cache.buffer, file->size},
-                    {LFS_FROM_DROP, 0, NULL, -oldlen-4}}, 3);
+                    {LFS_FROM_MEM, 0, 0, &entry.d, 4},
+                    {LFS_FROM_MEM, 0, 4+oldlen,
+                        file->cache.buffer, file->size}}, 2);
             if (err) {
                 return err;
             }
@@ -2274,7 +2275,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 
     // remove the entry
     err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
-            {LFS_FROM_DROP, 0, NULL, -entry.size}}, 1);
+            {LFS_FROM_MEM, 0, entry.size, NULL, 0}}, 1);
     if (err) {
         return err;
     }
@@ -2364,8 +2365,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     // mark as moving
     oldentry.d.type |= LFS_STRUCT_MOVED;
     err = lfs_dir_set(lfs, &oldcwd, &oldentry, (struct lfs_region[]){
-            {LFS_FROM_MEM, 0, &oldentry.d.type, 1},
-            {LFS_FROM_DROP, 0, NULL, -1}}, 2);
+            {LFS_FROM_MEM, 0, 1, &oldentry.d.type, 1}}, 1);
     oldentry.d.type &= ~LFS_STRUCT_MOVED;
     if (err) {
         return err;
@@ -2381,19 +2381,16 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     newentry.d = oldentry.d;
     newentry.d.type &= ~LFS_STRUCT_MOVED;
     newentry.d.nlen = nlen;
-    if (!prevexists) {
-        newentry.size = 0;
-    }
+    newentry.size = prevexists ? preventry.size : 0;
 
     lfs_size_t newsize = oldentry.size - oldentry.d.nlen + newentry.d.nlen;
     err = lfs_dir_set(lfs, &newcwd, &newentry, (struct lfs_region[]){
-            {LFS_FROM_REGION, 0, &(struct lfs_region_region){
-                oldcwd.pair[0], oldentry.off, (struct lfs_region[]){
-                    {LFS_FROM_MEM, 0, &newentry.d, 4},
-                    {LFS_FROM_DROP, 0, NULL, -4},
-                    {LFS_FROM_MEM, newsize - nlen, newpath, nlen}}, 3},
-                newsize},
-            {LFS_FROM_DROP, 0, NULL, -preventry.size}}, prevexists ? 2 : 1);
+            {LFS_FROM_REGION, 0, prevexists ? preventry.size : 0,
+                &(struct lfs_region_region){
+                    oldcwd.pair[0], oldentry.off, (struct lfs_region[]){
+                        {LFS_FROM_MEM, 0, 4, &newentry.d, 4},
+                        {LFS_FROM_MEM, newsize-nlen, 0, newpath, nlen}}, 2},
+                newsize}}, 1);
     if (err) {
         return err;
     }
@@ -2405,7 +2402,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
     // remove old entry
     err = lfs_dir_set(lfs, &oldcwd, &oldentry, (struct lfs_region[]){
-            {LFS_FROM_DROP, 0, NULL, -oldentry.size}}, 1);
+            {LFS_FROM_MEM, 0, oldentry.size, NULL, 0}}, 1);
     if (err) {
         return err;
     }
@@ -2619,9 +2616,9 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_entry_tole32(&superentry.d);
     lfs_superblock_tole32(&superblock.d);
     err = lfs_dir_set(lfs, &superdir, &superentry, (struct lfs_region[]){
-            {LFS_FROM_MEM, 0, &superentry.d, 4},
-            {LFS_FROM_MEM, 0, &superblock.d, sizeof(superblock.d)},
-            {LFS_FROM_MEM, 0, "littlefs", superentry.d.nlen}}, 3);
+            {LFS_FROM_MEM, 0, 0, &superentry.d, 4},
+            {LFS_FROM_MEM, 0, 0, &superblock.d, sizeof(superblock.d)},
+            {LFS_FROM_MEM, 0, 0, "littlefs", superentry.d.nlen}}, 3);
     if (err) {
         return err;
     }
@@ -2925,8 +2922,8 @@ static int lfs_relocate(lfs_t *lfs,
         entry.d.u.dir[0] = newpair[0];
         entry.d.u.dir[1] = newpair[1];
         int err = lfs_dir_set(lfs, &parent, &entry, (struct lfs_region[]){
-                {LFS_FROM_MEM, 0, &entry.d, sizeof(entry.d)},
-                {LFS_FROM_DROP, 0, NULL, (lfs_ssize_t)-sizeof(entry.d)}}, 2);
+                {LFS_FROM_MEM, 0, sizeof(entry.d),
+                    &entry.d, sizeof(entry.d)}}, 1);
         if (err) {
             return err;
         }
@@ -3043,7 +3040,7 @@ int lfs_deorphan(lfs_t *lfs) {
                     LFS_DEBUG("Found move %d %d",
                             entry.d.u.dir[0], entry.d.u.dir[1]);
                     err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
-                            {LFS_FROM_DROP, 0, NULL, -entry.size}}, 1);
+                            {LFS_FROM_MEM, 0, entry.size, NULL, 0}}, 1);
                     if (err) {
                         return err;
                     }
@@ -3052,9 +3049,8 @@ int lfs_deorphan(lfs_t *lfs) {
                             entry.d.u.dir[0], entry.d.u.dir[1]);
                     entry.d.type &= ~LFS_STRUCT_MOVED;
                     err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
-                            {LFS_FROM_MEM, 0, &entry.d, sizeof(entry.d)},
-                            {LFS_FROM_DROP, 0, NULL,
-                                (lfs_ssize_t)-sizeof(entry.d)}}, 2);
+                            {LFS_FROM_MEM, 0, sizeof(entry.d),
+                                &entry.d, sizeof(entry.d)}}, 1);
                     if (err) {
                         return err;
                     }
