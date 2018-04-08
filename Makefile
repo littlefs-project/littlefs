@@ -33,8 +33,8 @@ size: $(OBJ)
 	$(SIZE) -t $^
 
 .SUFFIXES:
-test: test_format test_dirs test_files test_seek test_truncate test_parallel \
-	test_alloc test_paths test_orphan test_move test_corrupt
+test: test_format test_dirs test_files test_seek test_truncate \
+	test_interspersed test_alloc test_paths test_orphan test_move test_corrupt
 test_%: tests/test_%.sh
 ifdef QUIET
 	@./$< | sed -n '/^[-=]/p'
