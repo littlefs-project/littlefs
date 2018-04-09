@@ -3183,3 +3183,19 @@ int lfs_fs_setattrs(lfs_t *lfs, const struct lfs_attr *attrs, int count) {
 
     return lfs_dir_setattrs(lfs, &dir, &entry, attrs, count);
 }
+
+static int lfs_fs_size_count(void *p, lfs_block_t block) {
+    lfs_size_t *size = p;
+    *size += 1;
+    return 0;
+}
+
+lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
+    lfs_size_t size = 0;
+    int err = lfs_traverse(lfs, lfs_fs_size_count, &size);
+    if (err) {
+        return err;
+    }
+
+    return size;
+}
