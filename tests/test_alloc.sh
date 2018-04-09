@@ -110,9 +110,35 @@ lfs_alloc_singleproc multiprocreuse
 lfs_verify multiprocreuse
 lfs_verify singleprocreuse
 
-echo "--- Cleanup ---"
 lfs_remove multiprocreuse
 lfs_remove singleprocreuse
+
+echo "--- Lookahead overflow test ---"
+lfs_mkdir overflow
+for name in bacon eggs pancakes
+do
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+
+    // setup lookahead to almost overflow
+    lfs.free.begin = ((lfs_size_t)-1) - $SIZE/(2*cfg.block_size);
+    lfs.free.size = 0;
+    lfs.free.off = 0;
+
+    lfs_file_open(&lfs, &file[0], "overflow/$name",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
+    size = strlen("$name");
+    memcpy(buffer, "$name", size);
+    for (int i = 0; i < $SIZE; i++) {
+        printf("%d\n", lfs.free.begin);
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+done
+lfs_verify overflow
+lfs_remove overflow
 
 echo "--- Exhaustion test ---"
 tests/test.py << TEST
@@ -368,7 +394,6 @@ echo "--- Outdated lookahead and split dir test ---"
 rm -rf blocks
 tests/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
-
     lfs_mount(&lfs, &cfg) => 0;
 
     // fill completely with two files
@@ -423,6 +448,9 @@ tests/test.py << TEST
 
     lfs_unmount(&lfs) => 0;
 TEST
+
+
+
 
 echo "--- Results ---"
 tests/stats.py
