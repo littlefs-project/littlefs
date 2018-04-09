@@ -590,6 +590,14 @@ int lfs_fs_getattrs(lfs_t *lfs, const struct lfs_attr *attrs, int count);
 // Returns a negative error code on failure.
 int lfs_fs_setattrs(lfs_t *lfs, const struct lfs_attr *attrs, int count);
 
+// Finds the current size of the filesystem
+//
+// Note: Result is best effort. If files share COW structures, the returned
+// size may be larger than the filesystem actually is.
+//
+// Returns the number of allocated blocks, or a negative error code on failure.
+lfs_ssize_t lfs_fs_size(lfs_t *lfs);
+
 
 /// Miscellaneous littlefs specific operations ///
 
