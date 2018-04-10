@@ -120,17 +120,16 @@ do
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
 
-    // setup lookahead to almost overflow
-    lfs.free.begin = ((lfs_size_t)-1) - $SIZE/(2*cfg.block_size);
-    lfs.free.size = 0;
-    lfs.free.off = 0;
+//    // setup lookahead to almost overflow
+//    lfs.free.begin = ((lfs_size_t)-1) - 2*$SIZE;
+//    lfs.free.size = 0;
+//    lfs.free.off = 0;
 
     lfs_file_open(&lfs, &file[0], "overflow/$name",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
     size = strlen("$name");
     memcpy(buffer, "$name", size);
     for (int i = 0; i < $SIZE; i++) {
-        printf("%d\n", lfs.free.begin);
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
     lfs_file_close(&lfs, &file[0]) => 0;
