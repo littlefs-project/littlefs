@@ -270,8 +270,7 @@ int lfs_deorphan(lfs_t *lfs);
 static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     lfs_t *lfs = p;
 
-    lfs_block_t off = (((lfs_soff_t)(block - lfs->free.begin)
-                % (lfs_soff_t)(lfs->cfg->block_count))
+    lfs_block_t off = ((block - lfs->free.off)
             + lfs->cfg->block_count) % lfs->cfg->block_count;
 
     if (off < lfs->free.size) {
@@ -283,20 +282,22 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
 
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     while (true) {
-        while (lfs->free.off != lfs->free.size) {
-            lfs_block_t off = lfs->free.off;
-            lfs->free.off += 1;
+        while (lfs->free.i != lfs->free.size) {
+            lfs_block_t off = lfs->free.i;
+            lfs->free.i += 1;
+            lfs->free.ack -= 1;
 
             if (!(lfs->free.buffer[off / 32] & (1U << (off % 32)))) {
                 // found a free block
-                *block = (lfs->free.begin + off) % lfs->cfg->block_count;
+                *block = (lfs->free.off + off) % lfs->cfg->block_count;
 
                 // eagerly find next off so an alloc ack can
                 // discredit old lookahead blocks
-                while (lfs->free.off != lfs->free.size &&
-                        (lfs->free.buffer[lfs->free.off / 32] &
-                            (1U << (lfs->free.off % 32)))) {
-                    lfs->free.off += 1;
+                while (lfs->free.i != lfs->free.size &&
+                        (lfs->free.buffer[lfs->free.i / 32]
+                            & (1U << (lfs->free.i % 32)))) {
+                    lfs->free.i += 1;
+                    lfs->free.ack -= 1;
                 }
 
                 return 0;
@@ -304,15 +305,15 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         }
 
         // check if we have looked at all blocks since last ack
-        if (lfs->free.off == lfs->free.ack - lfs->free.begin) {
-            LFS_WARN("No more free space %d", lfs->free.off + lfs->free.begin);
+        if (lfs->free.ack == 0) {
+            LFS_WARN("No more free space %d", lfs->free.i + lfs->free.off);
             return LFS_ERR_NOSPC;
         }
 
-        lfs->free.begin += lfs->free.size;
-        lfs->free.size = lfs_min(lfs->cfg->lookahead,
-                lfs->free.ack - lfs->free.begin);
-        lfs->free.off = 0;
+        lfs->free.off = (lfs->free.off + lfs->free.size)
+                % lfs->cfg->block_count;
+        lfs->free.size = lfs_min(lfs->cfg->lookahead, lfs->free.ack);
+        lfs->free.i = 0;
 
         // find mask of free blocks from tree
         memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
@@ -324,7 +325,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 }
 
 static void lfs_alloc_ack(lfs_t *lfs) {
-    lfs->free.ack = lfs->free.begin+lfs->free.off + lfs->cfg->block_count;
+    lfs->free.ack = lfs->cfg->block_count;
 }
 
 
@@ -2103,9 +2104,9 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // create free lookahead
     memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
-    lfs->free.begin = 0;
-    lfs->free.size = lfs_min(lfs->cfg->lookahead, lfs->cfg->block_count);
     lfs->free.off = 0;
+    lfs->free.size = lfs_min(lfs->cfg->lookahead, lfs->cfg->block_count);
+    lfs->free.i = 0;
     lfs_alloc_ack(lfs);
 
     // create superblock dir
@@ -2182,9 +2183,9 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // setup free lookahead
-    lfs->free.begin = 0;
-    lfs->free.size = 0;
     lfs->free.off = 0;
+    lfs->free.size = 0;
+    lfs->free.i = 0;
     lfs_alloc_ack(lfs);
 
     // load superblock
