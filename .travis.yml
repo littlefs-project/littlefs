@@ -22,6 +22,7 @@ script:
   - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=512    -DLFS_PROG_SIZE=512"
   - make test QUIET=1 CFLAGS+="-DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD=2048"
 
+  - make clean test QUIET=1 CFLAGS+="-DLFS_INLINE_MAX=0"
   - make clean test QUIET=1 CFLAGS+="-DLFS_NO_INTRINSICS"
 
   # compile and find the code size with the smallest configuration
