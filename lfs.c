@@ -1739,87 +1739,87 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 }
 
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
-        int err = lfs_file_sync(lfs, file);
+    int err = lfs_file_sync(lfs, file);
 
-        // remove from list of files
-        for (lfs_file_t **p = &lfs->files; *p; p = &(*p)->next) {
-            if (*p == file) {
-                *p = file->next;
-                break;
-            }
+    // remove from list of files
+    for (lfs_file_t **p = &lfs->files; *p; p = &(*p)->next) {
+        if (*p == file) {
+            *p = file->next;
+            break;
         }
+    }
 
-        // clean up memory
-        if (!lfs->cfg->file_buffer) {
-            lfs_free(file->cache.buffer);
-        }
+    // clean up memory
+    if (!lfs->cfg->file_buffer) {
+        lfs_free(file->cache.buffer);
+    }
 
+    return err;
+}
+
+static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
+relocate:;
+    // just relocate what exists into new block
+    lfs_block_t nblock;
+    int err = lfs_alloc(lfs, &nblock);
+    if (err) {
         return err;
     }
 
-    static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
-    relocate:;
-        // just relocate what exists into new block
-        lfs_block_t nblock;
-        int err = lfs_alloc(lfs, &nblock);
+    err = lfs_bd_erase(lfs, nblock);
+    if (err) {
+        if (err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
+        return err;
+    }
+
+    // either read from dirty cache or disk
+    for (lfs_off_t i = 0; i < file->off; i++) {
+        uint8_t data;
+        err = lfs_cache_read(lfs, &lfs->rcache, &file->cache,
+                file->block, i, &data, 1);
         if (err) {
             return err;
         }
 
-        err = lfs_bd_erase(lfs, nblock);
+        err = lfs_cache_prog(lfs, &lfs->pcache, &lfs->rcache,
+                nblock, i, &data, 1);
         if (err) {
             if (err == LFS_ERR_CORRUPT) {
                 goto relocate;
             }
             return err;
         }
-
-        // either read from dirty cache or disk
-        for (lfs_off_t i = 0; i < file->off; i++) {
-            uint8_t data;
-            err = lfs_cache_read(lfs, &lfs->rcache, &file->cache,
-                    file->block, i, &data, 1);
-            if (err) {
-                return err;
-            }
-
-            err = lfs_cache_prog(lfs, &lfs->pcache, &lfs->rcache,
-                    nblock, i, &data, 1);
-            if (err) {
-                if (err == LFS_ERR_CORRUPT) {
-                    goto relocate;
-                }
-                return err;
-            }
-        }
-
-        // copy over new state of file
-        memcpy(file->cache.buffer, lfs->pcache.buffer, lfs->cfg->prog_size);
-        file->cache.block = lfs->pcache.block;
-        file->cache.off = lfs->pcache.off;
-        lfs->pcache.block = 0xffffffff;
-
-        file->block = nblock;
-        return 0;
     }
 
-    static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
-        if (file->flags & LFS_F_READING) {
-            file->flags &= ~LFS_F_READING;
-        }
+    // copy over new state of file
+    memcpy(file->cache.buffer, lfs->pcache.buffer, lfs->cfg->prog_size);
+    file->cache.block = lfs->pcache.block;
+    file->cache.off = lfs->pcache.off;
+    lfs->pcache.block = 0xffffffff;
 
-        if (file->flags & LFS_F_WRITING) {
-            lfs_off_t pos = file->pos;
+    file->block = nblock;
+    return 0;
+}
 
-            if (!(file->flags & LFS_F_INLINE)) {
-                // copy over anything after current branch
-                lfs_file_t orig = {
-                    .head = file->head,
-                    .size = file->size,
-                    .flags = LFS_O_RDONLY,
-                    .pos = file->pos,
-                    .cache = lfs->rcache,
-                };
+static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
+    if (file->flags & LFS_F_READING) {
+        file->flags &= ~LFS_F_READING;
+    }
+
+    if (file->flags & LFS_F_WRITING) {
+        lfs_off_t pos = file->pos;
+
+        if (!(file->flags & LFS_F_INLINE)) {
+            // copy over anything after current branch
+            lfs_file_t orig = {
+                .head = file->head,
+                .size = file->size,
+                .flags = LFS_O_RDONLY,
+                .pos = file->pos,
+                .cache = lfs->rcache,
+            };
             lfs->rcache.block = 0xffffffff;
 
             while (file->pos < file->size) {
@@ -2270,6 +2270,7 @@ int lfs_file_getattrs(lfs_t *lfs, lfs_file_t *file,
                     return LFS_ERR_RANGE;
                 }
 
+                memset(attrs[j].buffer, 0, attrs[j].size);
                 memcpy(attrs[j].buffer,
                         file->attrs[i].buffer, file->attrs[i].size);
             }
@@ -2281,9 +2282,9 @@ int lfs_file_getattrs(lfs_t *lfs, lfs_file_t *file,
 
 int lfs_file_setattrs(lfs_t *lfs, lfs_file_t *file,
         const struct lfs_attr *attrs, int count) {
-    // just tack to the file, will be written at sync time
-    file->attrs = attrs;
-    file->attrcount = count;
+    if ((file->flags & 3) == LFS_O_RDONLY) {
+        return LFS_ERR_BADF;
+    }
 
     // at least make sure attributes fit
     if (!lfs_pairisnull(file->pair)) {
@@ -2305,6 +2306,11 @@ int lfs_file_setattrs(lfs_t *lfs, lfs_file_t *file,
             return res;
         }
     }
+
+    // just tack to the file, will be written at sync time
+    file->attrs = attrs;
+    file->attrcount = count;
+    file->flags |= LFS_F_DIRTY;
 
     return 0;
 }
@@ -2430,6 +2436,10 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs_size_t nlen = strlen(newpath);
     if (nlen > lfs->name_size) {
         return LFS_ERR_NAMETOOLONG;
+    }
+
+    if (oldentry.size - oldentry.d.nlen + nlen > lfs->cfg->block_size) {
+        return LFS_ERR_NOSPC;
     }
 
     // must have same type
