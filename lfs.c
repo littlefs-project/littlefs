@@ -783,25 +783,18 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
         lfs_entry_t *entry, const char **path) {
     const char *pathname = *path;
     size_t pathlen;
+    entry->d.type = LFS_TYPE_DIR;
+    entry->d.elen = sizeof(entry->d) - 4;
+    entry->d.alen = 0;
+    entry->d.nlen = 0;
+    entry->d.u.dir[0] = lfs->root[0];
+    entry->d.u.dir[1] = lfs->root[1];
 
     while (true) {
-    nextname:
+nextname:
         // skip slashes
         pathname += strspn(pathname, "/");
         pathlen = strcspn(pathname, "/");
-
-        // special case for root dir
-        if (pathname[0] == '\0') {
-            *entry = (lfs_entry_t){
-                .d.type = LFS_TYPE_DIR,
-                .d.elen = sizeof(entry->d) - 4,
-                .d.alen = 0,
-                .d.nlen = 0,
-                .d.u.dir[0] = lfs->root[0],
-                .d.u.dir[1] = lfs->root[1],
-            };
-            return 0;
-        }
 
         // skip '.' and root '..'
         if ((pathlen == 1 && memcmp(pathname, ".", 1) == 0) ||
@@ -834,10 +827,25 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
             suffix += sufflen;
         }
 
+        // found path
+        if (pathname[0] == '\0') {
+            return 0;
+        }
+
         // update what we've found
         *path = pathname;
 
-        // find path
+        // continue on if we hit a directory
+        if (entry->d.type != LFS_TYPE_DIR) {
+            return LFS_ERR_NOTDIR;
+        }
+
+        int err = lfs_dir_fetch(lfs, dir, entry->d.u.dir);
+        if (err) {
+            return err;
+        }
+
+        // find entry matching name
         while (true) {
             int err = lfs_dir_next(lfs, dir, entry);
             if (err) {
@@ -873,21 +881,8 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
             entry->d.type &= ~0x80;
         }
 
+        // to next name
         pathname += pathlen;
-        pathname += strspn(pathname, "/");
-        if (pathname[0] == '\0') {
-            return 0;
-        }
-
-        // continue on if we hit a directory
-        if (entry->d.type != LFS_TYPE_DIR) {
-            return LFS_ERR_NOTDIR;
-        }
-
-        int err = lfs_dir_fetch(lfs, dir, entry->d.u.dir);
-        if (err) {
-            return err;
-        }
     }
 }
 
@@ -904,13 +899,8 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     // fetch parent directory
     lfs_dir_t cwd;
-    int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
-    if (err) {
-        return err;
-    }
-
     lfs_entry_t entry;
-    err = lfs_dir_find(lfs, &cwd, &entry, &path);
+    int err = lfs_dir_find(lfs, &cwd, &entry, &path);
     if (err != LFS_ERR_NOENT || strchr(path, '/') != NULL) {
         return err ? err : LFS_ERR_EXIST;
     }
@@ -954,13 +944,8 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     dir->pair[0] = lfs->root[0];
     dir->pair[1] = lfs->root[1];
 
-    int err = lfs_dir_fetch(lfs, dir, dir->pair);
-    if (err) {
-        return err;
-    }
-
     lfs_entry_t entry;
-    err = lfs_dir_find(lfs, dir, &entry, &path);
+    int err = lfs_dir_find(lfs, dir, &entry, &path);
     if (err) {
         return err;
     } else if (entry.d.type != LFS_TYPE_DIR) {
@@ -1302,13 +1287,8 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 
     // allocate entry for file if it doesn't exist
     lfs_dir_t cwd;
-    int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
-    if (err) {
-        return err;
-    }
-
     lfs_entry_t entry;
-    err = lfs_dir_find(lfs, &cwd, &entry, &path);
+    int err = lfs_dir_find(lfs, &cwd, &entry, &path);
     if (err && (err != LFS_ERR_NOENT || strchr(path, '/') != NULL)) {
         return err;
     }
@@ -1814,13 +1794,8 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
 /// General fs operations ///
 int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     lfs_dir_t cwd;
-    int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
-    if (err) {
-        return err;
-    }
-
     lfs_entry_t entry;
-    err = lfs_dir_find(lfs, &cwd, &entry, &path);
+    int err = lfs_dir_find(lfs, &cwd, &entry, &path);
     if (err) {
         return err;
     }
@@ -1855,13 +1830,8 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     }
 
     lfs_dir_t cwd;
-    int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
-    if (err) {
-        return err;
-    }
-
     lfs_entry_t entry;
-    err = lfs_dir_find(lfs, &cwd, &entry, &path);
+    int err = lfs_dir_find(lfs, &cwd, &entry, &path);
     if (err) {
         return err;
     }
@@ -1916,24 +1886,14 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
     // find old entry
     lfs_dir_t oldcwd;
-    int err = lfs_dir_fetch(lfs, &oldcwd, lfs->root);
-    if (err) {
-        return err;
-    }
-
     lfs_entry_t oldentry;
-    err = lfs_dir_find(lfs, &oldcwd, &oldentry, &oldpath);
+    int err = lfs_dir_find(lfs, &oldcwd, &oldentry, &oldpath);
     if (err) {
         return err;
     }
 
     // allocate new entry
     lfs_dir_t newcwd;
-    err = lfs_dir_fetch(lfs, &newcwd, lfs->root);
-    if (err) {
-        return err;
-    }
-
     lfs_entry_t preventry;
     err = lfs_dir_find(lfs, &newcwd, &preventry, &newpath);
     if (err && (err != LFS_ERR_NOENT || strchr(newpath, '/') != NULL)) {
