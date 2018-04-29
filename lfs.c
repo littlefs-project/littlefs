@@ -1335,6 +1335,10 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     // allocate buffer if needed
     file->cache.block = 0xffffffff;
     if (lfs->cfg->file_buffer) {
+        if (lfs->files) {
+            // already in use
+            return LFS_ERR_NOMEM;
+        }
         file->cache.buffer = lfs->cfg->file_buffer;
     } else if ((file->flags & 3) == LFS_O_RDONLY) {
         file->cache.buffer = lfs_malloc(lfs->cfg->read_size);
