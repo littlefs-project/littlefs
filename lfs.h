@@ -105,6 +105,24 @@ enum lfs_type {
     LFS_STRUCT_DIR      = 0x20,
     LFS_STRUCT_INLINE   = 0x30,
     LFS_STRUCT_MOVED    = 0x80,
+
+    LFS_TYPE_CTZ_      = 0x1,
+    LFS_TYPE_DIR_      = 0x2,
+    LFS_TYPE_INLINE_   = 0x3,
+    LFS_TYPE_ATTR_     = 0x4,
+    LFS_TYPE_NAME_     = 0x5,
+    LFS_TYPE_DROP_     = 0x7,
+    LFS_TYPE_TAIL_     = 0xd,
+    LFS_TYPE_CRC_      = 0xe,
+
+//    LFS_TYPE_DIR_        = 0x002,
+//    LFS_TYPE_SUPERBLOCK_ = 0xff2,
+
+//    LFS_MASK_ID_         = 0xff000000,
+//    LFS_MASK_TYPE_       = 0x00fff000,
+//    LFS_MASK_ATTR_       = 0x00ff0000,
+//    LFS_MASK_STRUCT_     = 0x0000f000,
+//    LFS_MASK_SIZE_       = 0x00000fff,
 };
 
 // File open flags
@@ -313,6 +331,17 @@ typedef struct lfs_dir {
         lfs_block_t tail[2];
     } d;
 } lfs_dir_t;
+
+typedef struct lfs_dir_ {
+    lfs_block_t pair[2];
+    lfs_block_t tail[2];
+
+    uint32_t rev;
+    lfs_off_t off;
+    uint32_t etag;
+    uint16_t count;
+    bool erased;
+} lfs_dir_t_;
 
 typedef struct lfs_superblock {
     struct lfs_disk_superblock {
