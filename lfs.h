@@ -27,14 +27,14 @@
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_VERSION 0x00010004
+#define LFS_VERSION 0x00020000
 #define LFS_VERSION_MAJOR (0xffff & (LFS_VERSION >> 16))
 #define LFS_VERSION_MINOR (0xffff & (LFS_VERSION >>  0))
 
 // Version of On-disk data structures
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_DISK_VERSION 0x00010002
+#define LFS_DISK_VERSION 0x00020000
 #define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
 #define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
 
@@ -105,6 +105,33 @@ enum lfs_type {
     LFS_STRUCT_DIR      = 0x20,
     LFS_STRUCT_INLINE   = 0x30,
     LFS_STRUCT_MOVED    = 0x80,
+
+    // file type
+    LFS_TYPE_REG_        = 0x020,
+    LFS_TYPE_DIR_        = 0x030,
+
+    LFS_TYPE_NAME_       = 0x010,
+    LFS_TYPE_MOVE_       = 0x060,
+    LFS_TYPE_DROP_       = 0x070,
+
+    LFS_TYPE_SUPERBLOCK_ = 0x0c0,
+    LFS_TYPE_TAIL_       = 0x0d0,
+    LFS_TYPE_CRC_        = 0x0e0,
+
+    // on disk structure
+    LFS_STRUCT_ATTR_     = 0x100,
+    LFS_STRUCT_INLINE_   = 0x000,
+    LFS_STRUCT_CTZ_      = 0x00c,
+    LFS_STRUCT_DIR_      = 0x008,
+
+//    LFS_TYPE_DIR_        = 0x002,
+//    LFS_TYPE_SUPERBLOCK_ = 0xff2,
+
+//    LFS_MASK_ID_         = 0xff000000,
+//    LFS_MASK_TYPE_       = 0x00fff000,
+//    LFS_MASK_ATTR_       = 0x00ff0000,
+//    LFS_MASK_STRUCT_     = 0x0000f000,
+//    LFS_MASK_SIZE_       = 0x00000fff,
 };
 
 // File open flags
@@ -267,6 +294,21 @@ typedef struct lfs_entry {
     } d;
 } lfs_entry_t;
 
+typedef struct lfs_entry_ {
+    uint32_t tag;
+    union {
+        lfs_block_t pair[2];
+        struct {
+            lfs_block_t head;
+            lfs_size_t size;
+        } ctz;
+        struct {
+            lfs_block_t block;
+            lfs_off_t off;
+        } d;
+    } u;
+} lfs_entry_t_;
+
 typedef struct lfs_entry_attr {
     struct lfs_disk_entry_attr {
         uint8_t type;
@@ -313,6 +355,17 @@ typedef struct lfs_dir {
         lfs_block_t tail[2];
     } d;
 } lfs_dir_t;
+
+typedef struct lfs_dir_ {
+    lfs_block_t pair[2];
+    lfs_block_t tail[2];
+
+    uint32_t rev;
+    lfs_off_t off;
+    uint32_t etag;
+    uint16_t count;
+    bool erased;
+} lfs_dir_t_;
 
 typedef struct lfs_superblock {
     struct lfs_disk_superblock {
