@@ -106,14 +106,23 @@ enum lfs_type {
     LFS_STRUCT_INLINE   = 0x30,
     LFS_STRUCT_MOVED    = 0x80,
 
-    LFS_TYPE_CTZ_      = 0x1,
-    LFS_TYPE_DIR_      = 0x2,
-    LFS_TYPE_INLINE_   = 0x3,
-    LFS_TYPE_ATTR_     = 0x4,
-    LFS_TYPE_NAME_     = 0x5,
-    LFS_TYPE_DROP_     = 0x7,
-    LFS_TYPE_TAIL_     = 0xd,
-    LFS_TYPE_CRC_      = 0xe,
+    // file type
+    LFS_TYPE_REG_        = 0x020,
+    LFS_TYPE_DIR_        = 0x030,
+
+    LFS_TYPE_NAME_       = 0x010,
+    LFS_TYPE_MOVE_       = 0x060,
+    LFS_TYPE_DROP_       = 0x070,
+
+    LFS_TYPE_SUPERBLOCK_ = 0x0c0,
+    LFS_TYPE_TAIL_       = 0x0d0,
+    LFS_TYPE_CRC_        = 0x0e0,
+
+    // on disk structure
+    LFS_STRUCT_ATTR_     = 0x100,
+    LFS_STRUCT_INLINE_   = 0x000,
+    LFS_STRUCT_CTZ_      = 0x00c,
+    LFS_STRUCT_DIR_      = 0x008,
 
 //    LFS_TYPE_DIR_        = 0x002,
 //    LFS_TYPE_SUPERBLOCK_ = 0xff2,
@@ -284,6 +293,21 @@ typedef struct lfs_entry {
         } u;
     } d;
 } lfs_entry_t;
+
+typedef struct lfs_entry_ {
+    uint32_t tag;
+    union {
+        lfs_block_t pair[2];
+        struct {
+            lfs_block_t head;
+            lfs_size_t size;
+        } ctz;
+        struct {
+            lfs_block_t block;
+            lfs_off_t off;
+        } d;
+    } u;
+} lfs_entry_t_;
 
 typedef struct lfs_entry_attr {
     struct lfs_disk_entry_attr {

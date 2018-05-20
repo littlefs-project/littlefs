@@ -720,7 +720,7 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
 
             lfs_crc(&crc, &tag, sizeof(tag));
             tag = lfs_fromle32(tag) ^ ptag;
-            printf("tag %#010x (%x:%x %#010x)\n", tag, dir->pair[0], off, lfs_tag_type(ptag));
+            printf("tag %#010x (%x:%x)\n", tag, dir->pair[0], off);
 
             // next commit not yet programmed
             if (lfs_tag_type(ptag) == LFS_TYPE_CRC_ && lfs_tag_valid(tag)) {
@@ -1164,46 +1164,53 @@ int lfs_dir_setter(lfs_t *lfs, void *p, struct lfs_commit *commit) {
         &(struct lfs_dir_setter){regions, count});
 }
 
-struct lfs_dir_lookuper {
+struct lfs_dir_finder {
     const char *name;
-    lfs_size_t size;
-    lfs_block_t pair[2];
-    uint32_t tag;
+    lfs_size_t len;
+
+    int16_t id;
+    lfs_entry_t_ *entry;
     lfs_block_t tail[2];
 };
 
-static int lfs_dir_lookuper(lfs_t *lfs, void *p, struct lfs_region__ region) {
-    struct lfs_dir_lookuper *lookup = p;
+static int lfs_dir_finder(lfs_t *lfs, void *p, struct lfs_region__ region) {
+    struct lfs_dir_finder *find = p;
 
     if (lfs_tag_type(region.tag) == LFS_TYPE_NAME_ &&
-            lfs_tag_size(region.tag) == lookup->size) {
+            lfs_tag_size(region.tag) == find->len) {
         int res = lfs_bd_cmp(lfs, region.u.d.block, region.u.d.off,
-                lookup->name, lookup->size);
+                find->name, find->len);
         if (res < 0) {
             return res;
         }
 
         if (res) {
             // found a match
-            lookup->tag = region.tag & ~0x80000000;
-            lookup->pair[0] = 0xffffffff;
-            lookup->pair[1] = 0xffffffff;
+            find->id = lfs_tag_id(region.tag);
+            find->entry->tag = 0xffffffff;
         }
     }
 
-    if (lfs_tag_valid(lookup->tag) &&
-            lfs_tag_id(region.tag) == lfs_tag_id(lookup->tag) &&
-            lfs_tag_type(region.tag) == LFS_TYPE_DIR_) {
-        int err = lfs_bd_read(lfs, region.u.d.block, region.u.d.off,
-                lookup->pair, sizeof(lookup->pair));
-        if (err) {
-            return err;
+    if (find->id >= 0 && lfs_tag_id(region.tag) == find->id &&
+            (lfs_tag_type(region.tag) & 0x1f0) >= LFS_TYPE_REG_ &&
+            (lfs_tag_type(region.tag) & 0x1f0) <= LFS_TYPE_DIR_) {
+        // TODO combine regions and entries?
+        find->entry->tag = ~0x80000000 & region.tag;
+        if (lfs_tag_type(region.tag) & 0x00f) {
+            int err = lfs_bd_read(lfs, region.u.d.block, region.u.d.off,
+                    &find->entry->u, sizeof(find->entry->u));
+            if (err) {
+                return err;
+            }
+        } else {
+            find->entry->u.d.block = region.u.d.block;
+            find->entry->u.d.off = region.u.d.off;
         }
     }
 
-    if (lfs_tag_type(lookup->tag) == LFS_TYPE_TAIL_) {
+    if (lfs_tag_type(region.tag) == LFS_TYPE_TAIL_) {
         int err = lfs_bd_read(lfs, region.u.d.block, region.u.d.off,
-                lookup->tail, sizeof(lookup->tail));
+                find->tail, sizeof(find->tail));
         if (err) {
             return err;
         }
@@ -1212,87 +1219,88 @@ static int lfs_dir_lookuper(lfs_t *lfs, void *p, struct lfs_region__ region) {
     return 0;
 }
 
-/*static*/ int32_t lfs_dir_lookup_(lfs_t *lfs, lfs_dir_t_ *dir,
-        const char **path) {
-    struct lfs_dir_lookuper lookup = {
+/*static*/ int32_t lfs_dir_find_(lfs_t *lfs, lfs_dir_t_ *dir,
+        lfs_entry_t_ *entry, const char **path) {
+    struct lfs_dir_finder find = {
         .name = *path,
-        .pair[0] = 4, // TODO make superblock
-        .pair[1] = 5,
+        .entry = entry,
     };
+
+    // TODO make superblock
+    entry->u.pair[0] = 4;
+    entry->u.pair[1] = 5;
 
     while (true) {
     nextname:
         // skip slashes
-        lookup.name += strspn(lookup.name, "/");
-        lookup.size = strcspn(lookup.name, "/");
+        find.name += strspn(find.name, "/");
+        find.len = strcspn(find.name, "/");
 
         // special case for root dir
-        if (lookup.name[0] == '\0') {
+        if (find.name[0] == '\0') {
             // TODO set up root?
-//            *entry = (lfs_entry_t){
-//                .d.type = LFS_STRUCT_DIR | LFS_TYPE_DIR,
-//                .d.u.dir[0] = lfs->root[0],
-//                .d.u.dir[1] = lfs->root[1],
-//            };
+            entry->tag = LFS_STRUCT_DIR | LFS_TYPE_DIR;
+            entry->u.pair[0] = lfs->root[0];
+            entry->u.pair[1] = lfs->root[1];
             return lfs_mktag(LFS_TYPE_DIR_, 0x1ff, 0);
         }
 
         // skip '.' and root '..'
-        if ((lookup.size == 1 && memcmp(lookup.name, ".", 1) == 0) ||
-            (lookup.size == 2 && memcmp(lookup.name, "..", 2) == 0)) {
-            lookup.name += lookup.size;
+        if ((find.len == 1 && memcmp(find.name, ".", 1) == 0) ||
+            (find.len == 2 && memcmp(find.name, "..", 2) == 0)) {
+            find.name += find.len;
             goto nextname;
         }
 
         // skip if matched by '..' in name
-        const char *suffix = lookup.name + lookup.size;
-        lfs_size_t suffsize;
+        const char *suffix = find.name + find.len;
+        lfs_size_t sufflen;
         int depth = 1;
         while (true) {
             suffix += strspn(suffix, "/");
-            suffsize = strcspn(suffix, "/");
-            if (suffsize == 0) {
+            sufflen = strcspn(suffix, "/");
+            if (sufflen == 0) {
                 break;
             }
 
-            if (suffsize == 2 && memcmp(suffix, "..", 2) == 0) {
+            if (sufflen == 2 && memcmp(suffix, "..", 2) == 0) {
                 depth -= 1;
                 if (depth == 0) {
-                    lookup.name = suffix + suffsize;
+                    find.name = suffix + sufflen;
                     goto nextname;
                 }
             } else {
                 depth += 1;
             }
 
-            suffix += suffsize;
+            suffix += sufflen;
         }
 
         // update what we've found
-        *path = lookup.name;
+        *path = find.name;
 
         // find path //  TODO handle tails
         while (true) {
-            lookup.tag = 0xffffffff;
-            lookup.tail[0] = 0xffffffff;
-            lookup.tail[1] = 0xffffffff;
-            int err = lfs_dir_fetch_(lfs, dir, lookup.pair,
-                    lfs_dir_lookuper, &lookup);
+            find.id = -1;
+            find.tail[0] = 0xffffffff;
+            find.tail[1] = 0xffffffff;
+            int err = lfs_dir_fetch_(lfs, dir, entry->u.pair,
+                    lfs_dir_finder, &find);
             if (err) {
                 return err;
             }
 
-            if (lfs_tag_valid(lookup.tag)) {
+            if (find.id >= 0) {
                 // found it
                 break;
             }
 
-            if (lfs_pairisnull(lookup.tail)) {
+            if (lfs_pairisnull(find.tail)) {
                 return LFS_ERR_NOENT;
             }
 
-            lookup.pair[0] = lookup.tail[0];
-            lookup.pair[1] = lookup.tail[1];
+            entry->u.pair[0] = find.tail[0];
+            entry->u.pair[1] = find.tail[1];
         }
         
 // TODO handle moves
@@ -1306,15 +1314,15 @@ static int lfs_dir_lookuper(lfs_t *lfs, void *p, struct lfs_region__ region) {
 //            entry->d.type &= ~LFS_STRUCT_MOVED;
 //        }
 
-        lookup.name += lookup.size;
-        lookup.name += strspn(lookup.name, "/");
-        if (lookup.name[0] == '\0') {
-            return lookup.tag;
+        find.name += find.len;
+        find.name += strspn(find.name, "/");
+        if (find.name[0] == '\0') {
+            return 0;
         }
 
         // continue on if we hit a directory
         // TODO update with what's on master?
-        if (lfs_tag_type(lookup.tag) != LFS_TYPE_DIR_) {
+        if (lfs_tag_type(entry->tag) != LFS_TYPE_DIR_) {
             return LFS_ERR_NOTDIR;
         }
     }
