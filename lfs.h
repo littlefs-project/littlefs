@@ -107,14 +107,14 @@ enum lfs_type {
     LFS_STRUCT_MOVED    = 0x80,
 
     // file type
-    LFS_TYPE_REG_        = 0x020,
-    LFS_TYPE_DIR_        = 0x030,
+    LFS_TYPE_REG_        = 0x040,
+    LFS_TYPE_DIR_        = 0x050,
 
     LFS_TYPE_NAME_       = 0x010,
-    LFS_TYPE_MOVE_       = 0x060,
-    LFS_TYPE_DROP_       = 0x070,
+    LFS_TYPE_MOVE_       = 0x080,
+    LFS_TYPE_DROP_       = 0x090,
 
-    LFS_TYPE_SUPERBLOCK_ = 0x0c0,
+    LFS_TYPE_SUPERBLOCK_ = 0x0c8,
     LFS_TYPE_TAIL_       = 0x0d0,
     LFS_TYPE_CRC_        = 0x0e0,
 
@@ -294,9 +294,13 @@ typedef struct lfs_entry {
     } d;
 } lfs_entry_t;
 
+typedef uint32_t lfs_tag_t;
+typedef int32_t lfs_stag_t;
+
 typedef struct lfs_entry_ {
     uint32_t tag;
     union {
+        void *buffer;
         lfs_block_t pair[2];
         struct {
             lfs_block_t head;
@@ -357,14 +361,20 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfs_dir_ {
+    struct lfs_dir_ *next;
     lfs_block_t pair[2];
-    lfs_block_t tail[2];
 
+    lfs_block_t tail[2];
     uint32_t rev;
     lfs_off_t off;
     uint32_t etag;
     uint16_t count;
     bool erased;
+    bool split;
+
+    uint16_t id;
+    lfs_block_t head[2];
+    lfs_off_t pos;
 } lfs_dir_t_;
 
 typedef struct lfs_superblock {
@@ -380,6 +390,19 @@ typedef struct lfs_superblock {
         lfs_size_t name_size;
     } d;
 } lfs_superblock_t;
+
+typedef struct lfs_superblock_ {
+    lfs_block_t root[2];
+    char magic[8];
+    uint32_t version;
+
+    lfs_size_t block_size;
+    lfs_size_t block_count;
+
+    lfs_size_t inline_size;
+    lfs_size_t attrs_size;
+    lfs_size_t name_size;
+} lfs_superblock_t_;
 
 typedef struct lfs_free {
     lfs_block_t off;
