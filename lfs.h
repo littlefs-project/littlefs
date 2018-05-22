@@ -106,32 +106,25 @@ enum lfs_type {
     LFS_STRUCT_INLINE   = 0x30,
     LFS_STRUCT_MOVED    = 0x80,
 
-    // file type
+    // file types
     LFS_TYPE_REG_        = 0x040,
     LFS_TYPE_DIR_        = 0x050,
 
+    // internally used types
     LFS_TYPE_NAME_       = 0x010,
     LFS_TYPE_MOVE_       = 0x080,
     LFS_TYPE_DROP_       = 0x090,
 
-    LFS_TYPE_SUPERBLOCK_ = 0x0c8,
-    LFS_TYPE_TAIL_       = 0x0d0,
+    LFS_TYPE_SUPERBLOCK_ = 0x0a0,
+    LFS_TYPE_SOFTTAIL_   = 0x0c0,
+    LFS_TYPE_HARDTAIL_   = 0x0d0,
     LFS_TYPE_CRC_        = 0x0e0,
 
     // on disk structure
     LFS_STRUCT_ATTR_     = 0x100,
     LFS_STRUCT_INLINE_   = 0x000,
-    LFS_STRUCT_CTZ_      = 0x00c,
+    LFS_STRUCT_CTZ_      = 0x004,
     LFS_STRUCT_DIR_      = 0x008,
-
-//    LFS_TYPE_DIR_        = 0x002,
-//    LFS_TYPE_SUPERBLOCK_ = 0xff2,
-
-//    LFS_MASK_ID_         = 0xff000000,
-//    LFS_MASK_TYPE_       = 0x00fff000,
-//    LFS_MASK_ATTR_       = 0x00ff0000,
-//    LFS_MASK_STRUCT_     = 0x0000f000,
-//    LFS_MASK_SIZE_       = 0x00000fff,
 };
 
 // File open flags
@@ -344,6 +337,24 @@ typedef struct lfs_file {
     const struct lfs_attr *attrs;
     int attrcount;
 } lfs_file_t;
+
+typedef struct lfs_file_ {
+    struct lfs_file *next;
+    lfs_block_t pair[2];
+    uint16_t id;
+
+    lfs_block_t head;
+    lfs_size_t size;
+
+    uint32_t flags;
+    lfs_off_t pos;
+    lfs_block_t block;
+    lfs_off_t off;
+    lfs_cache_t cache;
+
+    const struct lfs_attr *attrs;
+    int attrcount;
+} lfs_file_t_;
 
 typedef struct lfs_dir {
     struct lfs_dir *next;
