@@ -306,6 +306,11 @@ typedef struct lfs_entry_ {
     } u;
 } lfs_entry_t_;
 
+typedef struct lfs_entry_list_ {
+    lfs_entry_t_ e;
+    struct lfs_entry_list_ *next;
+} lfs_entrylist_t;
+
 typedef struct lfs_entry_attr {
     struct lfs_disk_entry_attr {
         uint8_t type;
@@ -318,25 +323,6 @@ typedef struct lfs_cache {
     lfs_off_t off;
     uint8_t *buffer;
 } lfs_cache_t;
-
-typedef struct lfs_file {
-    struct lfs_file *next;
-    lfs_block_t pair[2];
-    lfs_off_t pairoff;
-
-    lfs_block_t head;
-    lfs_size_t size;
-
-    uint32_t flags;
-    lfs_size_t inline_size;
-    lfs_off_t pos;
-    lfs_block_t block;
-    lfs_off_t off;
-    lfs_cache_t cache;
-
-    const struct lfs_attr *attrs;
-    int attrcount;
-} lfs_file_t;
 
 typedef struct lfs_file_ {
     struct lfs_file *next;
@@ -352,9 +338,8 @@ typedef struct lfs_file_ {
     lfs_off_t off;
     lfs_cache_t cache;
 
-    const struct lfs_attr *attrs;
-    int attrcount;
-} lfs_file_t_;
+    lfs_entrylist_t *attrs;
+} lfs_file_t;
 
 typedef struct lfs_dir {
     struct lfs_dir *next;
