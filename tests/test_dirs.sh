@@ -117,6 +117,8 @@ tests/test.py << TEST
     for (int i = 0; i < $LARGESIZE; i++) {
         sprintf((char*)buffer, "test%d", i);
         lfs_dir_read(&lfs, &dir[0], &info) => 1;
+        printf("nameee %s\n", info.name);
+        printf("expect %s\n", (char*)buffer);
         strcmp(info.name, (char*)buffer) => 0;
         info.type => LFS_TYPE_DIR;
     }
