@@ -95,36 +95,25 @@ enum lfs_error {
 
 // File types
 enum lfs_type {
-    // file type
-    LFS_TYPE_REG        = 0x01,
-    LFS_TYPE_DIR        = 0x02,
-    LFS_TYPE_SUPERBLOCK = 0x0e,
-
-    // on disk structure
-    LFS_STRUCT_CTZ      = 0x10,
-    LFS_STRUCT_DIR      = 0x20,
-    LFS_STRUCT_INLINE   = 0x30,
-    LFS_STRUCT_MOVED    = 0x80,
-
     // file types
-    LFS_TYPE_REG_        = 0x040,
-    LFS_TYPE_DIR_        = 0x050,
+    LFS_TYPE_REG        = 0x040,
+    LFS_TYPE_DIR        = 0x050,
 
     // internally used types
-    LFS_TYPE_NAME_       = 0x010,
-    LFS_TYPE_MOVE_       = 0x080,
-    LFS_TYPE_DELETE_     = 0x090,
+    LFS_TYPE_NAME       = 0x010,
+    LFS_TYPE_MOVE       = 0x080,
+    LFS_TYPE_DELETE     = 0x090,
 
-    LFS_TYPE_SUPERBLOCK_ = 0x0a0,
-    LFS_TYPE_SOFTTAIL_   = 0x0c0,
-    LFS_TYPE_HARDTAIL_   = 0x0d0,
-    LFS_TYPE_CRC_        = 0x0e0,
+    LFS_TYPE_SUPERBLOCK = 0x0a0,
+    LFS_TYPE_SOFTTAIL   = 0x0c0,
+    LFS_TYPE_HARDTAIL   = 0x0d0,
+    LFS_TYPE_CRC        = 0x0e0,
 
     // on disk structure
-    LFS_STRUCT_ATTR_     = 0x100,
-    LFS_STRUCT_INLINE_   = 0x000,
-    LFS_STRUCT_CTZ_      = 0x004,
-    LFS_STRUCT_DIR_      = 0x008,
+    LFS_STRUCT_ATTR     = 0x100,
+    LFS_STRUCT_INLINE   = 0x000,
+    LFS_STRUCT_CTZ      = 0x004,
+    LFS_STRUCT_DIR      = 0x008,
 };
 
 // File open flags
@@ -268,30 +257,9 @@ struct lfs_attr {
 
 
 /// littlefs data structures ///
-typedef struct lfs_entry {
-    lfs_off_t off;
-    lfs_size_t size;
-
-    struct lfs_disk_entry {
-        uint8_t type;
-        uint8_t elen;
-        uint8_t alen;
-        uint8_t nlen;
-        union {
-            struct {
-                lfs_block_t head;
-                lfs_size_t size;
-            } file;
-            lfs_block_t dir[2];
-        } u;
-    } d;
-} lfs_entry_t;
-
 typedef uint32_t lfs_tag_t;
-typedef int32_t lfs_stag_t;
-
-typedef struct lfs_entry_ {
-    uint32_t tag;
+typedef struct lfs_entry {
+    lfs_tag_t tag;
     union {
         void *buffer;
         lfs_block_t pair[2];
@@ -304,19 +272,12 @@ typedef struct lfs_entry_ {
             lfs_off_t off;
         } d;
     } u;
-} lfs_entry_t_;
+} lfs_entry_t;
 
-typedef struct lfs_entry_list_ {
-    lfs_entry_t_ e;
-    struct lfs_entry_list_ *next;
+typedef struct lfs_entrylist {
+    lfs_entry_t e;
+    struct lfs_entrylist *next;
 } lfs_entrylist_t;
-
-typedef struct lfs_entry_attr {
-    struct lfs_disk_entry_attr {
-        uint8_t type;
-        uint8_t len;
-    } d;
-} lfs_entry_attr_t;
 
 typedef struct lfs_cache {
     lfs_block_t block;
@@ -324,7 +285,7 @@ typedef struct lfs_cache {
     uint8_t *buffer;
 } lfs_cache_t;
 
-typedef struct lfs_file_ {
+typedef struct lfs_file {
     struct lfs_file *next;
     lfs_block_t pair[2];
     uint16_t id;
@@ -344,21 +305,6 @@ typedef struct lfs_file_ {
 typedef struct lfs_dir {
     struct lfs_dir *next;
     lfs_block_t pair[2];
-    lfs_off_t off;
-
-    lfs_block_t head[2];
-    lfs_off_t pos;
-
-    struct lfs_disk_dir {
-        uint32_t rev;
-        lfs_size_t size;
-        lfs_block_t tail[2];
-    } d;
-} lfs_dir_t;
-
-typedef struct lfs_dir_ {
-    struct lfs_dir_ *next;
-    lfs_block_t pair[2];
 
     lfs_block_t tail[2];
     uint32_t rev;
@@ -372,23 +318,9 @@ typedef struct lfs_dir_ {
     uint16_t id;
     lfs_block_t head[2];
     lfs_off_t pos;
-} lfs_dir_t_;
+} lfs_dir_t;
 
 typedef struct lfs_superblock {
-    struct lfs_disk_superblock {
-        lfs_block_t root[2];
-
-        lfs_size_t block_size;
-        lfs_size_t block_count;
-        uint32_t version;
-
-        lfs_size_t inline_size;
-        lfs_size_t attrs_size;
-        lfs_size_t name_size;
-    } d;
-} lfs_superblock_t;
-
-typedef struct lfs_superblock_ {
     lfs_block_t root[2];
     char magic[8];
     uint32_t version;
@@ -399,7 +331,7 @@ typedef struct lfs_superblock_ {
     lfs_size_t inline_size;
     lfs_size_t attrs_size;
     lfs_size_t name_size;
-} lfs_superblock_t_;
+} lfs_superblock_t;
 
 typedef struct lfs_free {
     lfs_block_t off;
