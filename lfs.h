@@ -113,7 +113,7 @@ enum lfs_type {
     // internally used types
     LFS_TYPE_NAME_       = 0x010,
     LFS_TYPE_MOVE_       = 0x080,
-    LFS_TYPE_DROP_       = 0x090,
+    LFS_TYPE_DELETE_     = 0x090,
 
     LFS_TYPE_SUPERBLOCK_ = 0x0a0,
     LFS_TYPE_SOFTTAIL_   = 0x0c0,
@@ -367,6 +367,7 @@ typedef struct lfs_dir_ {
     uint16_t count;
     bool erased;
     bool split;
+    int16_t moveid;
 
     uint16_t id;
     lfs_block_t head[2];
