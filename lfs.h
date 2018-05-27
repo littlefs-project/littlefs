@@ -313,6 +313,7 @@ typedef struct lfs_dir {
     uint16_t count;
     bool erased;
     bool split;
+    bool stop_at_commit; // TODO hmmm
     int16_t moveid;
 
     uint16_t id;
