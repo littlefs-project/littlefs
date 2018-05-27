@@ -114,6 +114,11 @@ enum lfs_type {
     LFS_STRUCT_INLINE   = 0x000,
     LFS_STRUCT_CTZ      = 0x004,
     LFS_STRUCT_DIR      = 0x008,
+
+    // internal sources
+    LFS_FROM_REGION     = 0x000,
+    LFS_FROM_DISK       = 0x001,
+    LFS_FROM_MOVE       = 0x002,
 };
 
 // File open flags

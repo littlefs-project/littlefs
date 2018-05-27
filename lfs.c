@@ -636,6 +636,12 @@ static int lfs_commit_movescan(lfs_t *lfs, void *p, lfs_entry_t entry) {
         return 0;
     }
 
+    if (lfs_tag_type(entry.tag) == LFS_TYPE_MOVE) {
+        // TODO need this?
+        // ignore moves
+        return 0;
+    }
+
     if (lfs_tag_id(entry.tag) != move->id.from) {
         // ignore non-matching ids
         return 0;
@@ -823,6 +829,9 @@ static int lfs_dir_fetchwith(lfs_t *lfs,
 
                     if (lfs_tag_type(tag) == LFS_TYPE_DELETE) {
                         dir->count -= 1;
+                        if (dir->moveid != -1) {
+                            //printf("RENAME DEL %d (%d)\n", lfs_tag_id(tag), dir->moveid);
+                        }
                         if (lfs_tag_id(tag) == dir->moveid) {
                             dir->moveid = -1;
                         } else if (lfs_tag_id(tag) < dir->moveid) {
@@ -3736,6 +3745,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     // mark as moving
+    //printf("RENAME MOVE %d %d %d\n", oldcwd.pair[0], oldcwd.pair[1], oldid);
     err = lfs_dir_commit(lfs, &oldcwd, &(lfs_entrylist_t){
             {lfs_mktag(LFS_TYPE_MOVE, oldid, 0)}});
     if (err) {
@@ -3771,6 +3781,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     // remove old entry
+    //printf("RENAME DELETE %d %d %d\n", oldcwd.pair[0], oldcwd.pair[1], oldid);
     err = lfs_dir_delete(lfs, &oldcwd, oldid);
     if (err) {
         return err;
