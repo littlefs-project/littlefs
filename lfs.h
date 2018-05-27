@@ -114,6 +114,11 @@ enum lfs_type {
     LFS_STRUCT_INLINE   = 0x000,
     LFS_STRUCT_CTZ      = 0x004,
     LFS_STRUCT_DIR      = 0x008,
+
+    // internal sources
+    LFS_FROM_REGION     = 0x000,
+    LFS_FROM_DISK       = 0x001,
+    LFS_FROM_MOVE       = 0x002,
 };
 
 // File open flags
@@ -313,6 +318,7 @@ typedef struct lfs_dir {
     uint16_t count;
     bool erased;
     bool split;
+    bool stop_at_commit; // TODO hmmm
     int16_t moveid;
 
     uint16_t id;
