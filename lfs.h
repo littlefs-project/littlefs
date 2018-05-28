@@ -117,8 +117,8 @@ enum lfs_type {
 
     // internal sources
     LFS_FROM_REGION     = 0x000,
-    LFS_FROM_DISK       = 0x001,
-    LFS_FROM_MOVE       = 0x002,
+    LFS_FROM_DISK       = 0x200,
+    LFS_FROM_MOVE       = 0x001,
 };
 
 // File open flags
@@ -276,6 +276,7 @@ typedef struct lfs_entry {
             lfs_block_t block;
             lfs_off_t off;
         } d;
+        struct lfs_dir *dir;
     } u;
 } lfs_entry_t;
 
