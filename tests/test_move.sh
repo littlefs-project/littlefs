@@ -59,7 +59,7 @@ tests/test.py << TEST
     lfs_rename(&lfs, "b/hello", "c/hello") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-rm -v blocks/7
+truncate -s-7 blocks/6
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir[0], "b") => 0;
@@ -86,8 +86,8 @@ tests/test.py << TEST
     lfs_rename(&lfs, "c/hello", "d/hello") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-rm -v blocks/8
-rm -v blocks/a
+truncate -s-7 blocks/8
+truncate -s-7 blocks/a
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir[0], "c") => 0;

@@ -809,10 +809,12 @@ static int lfs_dir_fetchwith(lfs_t *lfs,
         lfs_crc(&crc, &dir->rev, sizeof(dir->rev));
         dir->rev = lfs_fromle32(dir->rev);
 
+        lfs_dir_t temp = *dir;
+
         while (true) {
             // extract next tag
             lfs_tag_t tag;
-            int err = lfs_bd_read(lfs, dir->pair[0], off, &tag, sizeof(tag));
+            int err = lfs_bd_read(lfs, temp.pair[0], off, &tag, sizeof(tag));
             if (err) {
                 return err;
             }
@@ -831,18 +833,18 @@ static int lfs_dir_fetchwith(lfs_t *lfs,
                 break;
             }
 
-            //printf("tag r %#010x (%x:%x %03x %03x %03x)\n", tag, dir->pair[0], off+sizeof(tag), lfs_tag_type(tag), lfs_tag_id(tag), lfs_tag_size(tag));
+            //printf("tag r %#010x (%x:%x %03x %03x %03x)\n", tag, temp.pair[0], off+sizeof(tag), lfs_tag_type(tag), lfs_tag_id(tag), lfs_tag_size(tag));
             if (lfs_tag_type(tag) == LFS_TYPE_CRC) {
                 // check the crc entry
                 uint32_t dcrc;
-                int err = lfs_bd_read(lfs, dir->pair[0],
+                int err = lfs_bd_read(lfs, temp.pair[0],
                         off+sizeof(tag), &dcrc, sizeof(dcrc));
                 if (err) {
                     return err;
                 }
 
                 if (crc != lfs_fromle32(dcrc)) {
-                    if (off == sizeof(dir->rev)) {
+                    if (off == sizeof(temp.rev)) {
                         // try other block
                         break;
                     } else {
@@ -852,11 +854,12 @@ static int lfs_dir_fetchwith(lfs_t *lfs,
                     }
                 }
 
-                dir->off = off + sizeof(tag)+lfs_tag_size(tag);
-                dir->etag = tag;
+                temp.off = off + sizeof(tag)+lfs_tag_size(tag);
+                temp.etag = tag;
                 crc = 0xffffffff;
+                *dir = temp;
             } else {
-                err = lfs_bd_crc(lfs, dir->pair[0],
+                err = lfs_bd_crc(lfs, temp.pair[0],
                         off+sizeof(tag), lfs_tag_size(tag), &crc);
                 if (err) {
                     return err;
@@ -864,37 +867,37 @@ static int lfs_dir_fetchwith(lfs_t *lfs,
 
                 if (lfs_tag_type(tag) == LFS_TYPE_SOFTTAIL ||
                         lfs_tag_type(tag) == LFS_TYPE_HARDTAIL) {
-                    dir->split = lfs_tag_type(tag) == LFS_TYPE_HARDTAIL;
-                    err = lfs_bd_read(lfs, dir->pair[0], off+sizeof(tag),
-                            dir->tail, sizeof(dir->tail));
+                    temp.split = lfs_tag_type(tag) == LFS_TYPE_HARDTAIL;
+                    err = lfs_bd_read(lfs, temp.pair[0], off+sizeof(tag),
+                            temp.tail, sizeof(temp.tail));
                     if (err) {
                         return err;
                     }
                 } else if (lfs_tag_type(tag) == LFS_TYPE_MOVE) {
                     // TODO handle moves correctly?
-                    dir->moveid = lfs_tag_id(tag);
+                    temp.moveid = lfs_tag_id(tag);
                 } else {
                     if (lfs_tag_id(tag) < 0x1ff &&
-                            lfs_tag_id(tag) >= dir->count) {
-                        dir->count = lfs_tag_id(tag)+1;
+                            lfs_tag_id(tag) >= temp.count) {
+                        temp.count = lfs_tag_id(tag)+1;
                     }
 
                     if (lfs_tag_type(tag) == LFS_TYPE_DELETE) {
-                        dir->count -= 1;
-                        if (dir->moveid != -1) {
-                            //printf("RENAME DEL %d (%d)\n", lfs_tag_id(tag), dir->moveid);
+                        temp.count -= 1;
+                        if (temp.moveid != -1) {
+                            //printf("RENAME DEL %d (%d)\n", lfs_tag_id(tag), temp.moveid);
                         }
-                        if (lfs_tag_id(tag) == dir->moveid) {
-                            dir->moveid = -1;
-                        } else if (lfs_tag_id(tag) < dir->moveid) {
-                            dir->moveid -= 1;
+                        if (lfs_tag_id(tag) == temp.moveid) {
+                            temp.moveid = -1;
+                        } else if (lfs_tag_id(tag) < temp.moveid) {
+                            temp.moveid -= 1;
                         }
                     }
 
                     if (cb) {
                         err = cb(lfs, data, (lfs_entry_t){
                                 (tag | 0x80000000),
-                                .u.d.block=dir->pair[0],
+                                .u.d.block=temp.pair[0],
                                 .u.d.off=off+sizeof(tag)});
                         if (err) {
                             return err;
@@ -1615,6 +1618,17 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_dir_t *dir,
         strcpy(info->name, "/");
         info->type = LFS_TYPE_DIR;
         return 0;
+    }
+
+    if (id == dir->moveid) {
+        int moved = lfs_moved(lfs, dir, dir->moveid);
+        if (moved < 0) {
+            return moved;
+        }
+
+        if (moved) {
+            return LFS_ERR_NOENT;
+        }
     }
 
     lfs_entry_t entry;
@@ -4680,8 +4694,9 @@ static int lfs_moved(lfs_t *lfs, lfs_dir_t *fromdir, uint16_t fromid) {
     // grab entry pair we're looking for
     fromdir->moveid = -1;
     lfs_entry_t fromentry;
-    int err = lfs_dir_getentry(lfs, fromdir, 0x43dff000,
-            lfs_mktag(LFS_STRUCT_DIR, fromid, 0), &fromentry);
+    // TODO what about inline files?
+    int err = lfs_dir_getentry(lfs, fromdir, 0x401ff000,
+            lfs_mktag(LFS_TYPE_REG, fromid, 0), &fromentry);
     fromdir->moveid = fromid;
     if (err) {
         return err;
