@@ -475,7 +475,8 @@ struct lfs_commit {
 
 // TODO predelcare
 static int lfs_commit_move_(lfs_t *lfs, struct lfs_commit *commit,
-        lfs_entry_t entry);
+        uint16_t fromid, uint16_t toid,
+        lfs_dir_t *dir, lfs_entrylist_t *list);
 
 //static int lfs_commit_compactcheck(lfs_t *lfs, void *p, lfs_entry_t entry) {
 //    struct lfs_commit *commit = p;
@@ -499,7 +500,9 @@ static int lfs_commit_commit(lfs_t *lfs,
 
     // special cases
     if ((lfs_tag_type(entry.tag) & 0x103) == LFS_FROM_MOVE) {
-        return lfs_commit_move_(lfs, commit, entry); 
+        return lfs_commit_move_(lfs, commit,
+                lfs_tag_size(entry.tag), lfs_tag_id(entry.tag),
+                entry.u.dir, NULL); 
     }
 
     uint16_t id = lfs_tag_id(entry.tag) - commit->filter.begin;
@@ -633,7 +636,7 @@ static int lfs_commit_list(lfs_t *lfs, struct lfs_commit *commit,
 // committer for moves
 // TODO rename?
 struct lfs_commit_move {
-    lfs_dir_t *dir;
+    lfs_dir_t *dir; // TODO need dir?
     struct {
         uint16_t from;
         uint16_t to;
@@ -680,7 +683,8 @@ static int lfs_commit_movescan(lfs_t *lfs, void *p, lfs_entry_t entry) {
                 .stop_at_commit=true},
             lfs_tag_type(entry.tag) & 0x100 ? 0x7ffff000 : 0x7c1ff000,
             &(lfs_entry_t){
-                lfs_mktag(lfs_tag_type(entry.tag), move->id.to, 0)});
+                lfs_mktag(lfs_tag_type(entry.tag),
+                    move->id.to - move->commit->filter.begin, 0)}); // TODO can all these filter adjustments be consolidated?
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
@@ -714,15 +718,22 @@ static int lfs_commit_move(lfs_t *lfs, void *p, struct lfs_commit *commit) {
 }
 
 static int lfs_commit_move_(lfs_t *lfs, struct lfs_commit *commit,
-        lfs_entry_t entry) {
+        uint16_t fromid, uint16_t toid,
+        lfs_dir_t *dir, lfs_entrylist_t *list) {
     struct lfs_commit_move move = {
-        .dir = entry.u.dir,
-        .id.to = lfs_tag_id(entry.tag),
-        .id.from = lfs_tag_size(entry.tag),
+        .id.from = fromid,
+        .id.to = toid,
         .commit = commit,
     };
 
-    int err = lfs_dir_traverse(lfs, entry.u.dir, lfs_commit_movescan, &move);
+    for (; list; list = list->next) {
+        int err = lfs_commit_movescan(lfs, &move, list->e);
+        if (err) {
+            return err;
+        }
+    }
+
+    int err = lfs_dir_traverse(lfs, dir, lfs_commit_movescan, &move);
     if (err) {
         return err;
     }
@@ -1185,6 +1196,7 @@ static int lfs_dir_compact_(lfs_t *lfs, lfs_dir_t *dir, lfs_entrylist_t *list,
     // save some state in case block is bad
     const lfs_block_t oldpair[2] = {dir->pair[1], dir->pair[0]};
     bool relocated = false;
+    lfs_dir_t tail;
 
     // increment revision count
     dir->rev += 1;
@@ -1236,22 +1248,23 @@ static int lfs_dir_compact_(lfs_t *lfs, lfs_dir_t *dir, lfs_entrylist_t *list,
                 .filter.end = end,
             };
 
-            // commit regions which can't fend for themselves
-            err = lfs_commit_list(lfs, &commit, list);
-            if (err) {
-                if (err == LFS_ERR_NOSPC) {
-                    goto split;
-                } else if (err == LFS_ERR_CORRUPT) {
-                    goto relocate;
-                }
-                return err;
-            }
-
-            // move over other commits, leaving it up to lfs_commit_move to
-            // filter out duplicates, and the commit filtering to reassign ids
+//            // commit regions which can't fend for themselves
+//            err = lfs_commit_list(lfs, &commit, list);
+//            if (err) {
+//                if (err == LFS_ERR_NOSPC) {
+//                    goto split;
+//                } else if (err == LFS_ERR_CORRUPT) {
+//                    goto relocate;
+//                }
+//                return err;
+//            }
+//
+//            // move over other commits, leaving it up to lfs_commit_move to
+//            // filter out duplicates, and the commit filtering to reassign ids
             for (uint16_t id = begin; id < end; id++) {
-                err = lfs_commit_commit(lfs, &commit, (lfs_entry_t){
-                        lfs_mktag(LFS_FROM_MOVE, id, id), .u.dir=source});
+                err = lfs_commit_move_(lfs, &commit, id, id, source, list);
+//                err = lfs_commit_commit(lfs, &commit, (lfs_entry_t){
+//                        lfs_mktag(LFS_FROM_MOVE, id, id), .u.dir=source});
                 if (err) {
                     if (err == LFS_ERR_NOSPC) {
                         goto split;
@@ -1458,8 +1471,55 @@ static int lfs_dir_append(lfs_t *lfs, lfs_dir_t *dir, uint16_t *id) {
 
 static int lfs_dir_delete(lfs_t *lfs, lfs_dir_t *dir, uint16_t id) {
     dir->count -= 1;
-    return lfs_dir_commit_(lfs, dir, &(lfs_entrylist_t){
+
+    // check if we should drop the directory block
+    if (dir->count == 0) {
+        lfs_dir_t pdir;
+        int res = lfs_pred(lfs, dir->pair, &pdir);
+        if (res < 0) {
+            return res;
+        }
+
+        if (res && pdir.split) {
+            pdir.split = dir->split;
+            pdir.tail[0] = dir->tail[0];
+            pdir.tail[1] = dir->tail[1];
+            int err = lfs_dir_commit(lfs, &pdir, &(lfs_entrylist_t){
+                    {lfs_mktag(LFS_TYPE_SOFTTAIL + pdir.split*0x10,
+                        0x1ff, sizeof(pdir.tail)),
+                     .u.buffer=pdir.tail}});
+            return err;
+        }
+    }
+
+    int err = lfs_dir_commit_(lfs, dir, &(lfs_entrylist_t){
             {lfs_mktag(LFS_TYPE_DELETE, id, 0)}});
+    if (err) {
+        return err;
+    }
+
+    // shift over any files that are affected
+    // TODO move this to dir_commit?
+    for (lfs_file_t *f = lfs->files; f; f = f->next) {
+        if (lfs_paircmp(f->pair, dir->pair) == 0) {
+            if (f->id == id) {
+                f->pair[0] = 0xffffffff;
+                f->pair[1] = 0xffffffff;
+            } else if (f->id > id) {
+                f->id -= 1;
+            }
+        }
+    }
+
+// TODO ?
+//    for (lfs_dir_t *d = lfs->dirs; d; d = d->next) {
+//        if (lfs_paircmp(d->pair, dir->pair) == 0) {
+//            if (d->id > id) {
+//                d->id -= 1;
+//                d->pos -= 1;
+//            }
+//        }
+//    }
 }
 
 struct lfs_dir_getter {
@@ -1674,7 +1734,7 @@ static int lfs_dir_find(lfs_t *lfs, lfs_dir_t *dir,
 
         // find path
         while (true) {
-            printf("checking %d %d for %s\n", entry.u.pair[0], entry.u.pair[1], *path);
+            //printf("checking %d %d for %s\n", entry.u.pair[0], entry.u.pair[1], *path);
             find.id = -1;
             int err = lfs_dir_fetchwith(lfs, dir, entry.u.pair,
                     lfs_dir_finder, &find);
@@ -2796,11 +2856,14 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
     }
 
     // first two for ./..
-    dir->id = lfs_min(2 + dir->count, off);
-    dir->pos += dir->id;
-    off -= dir->id;
+    dir->pos = lfs_min(2, off);
+    off -= dir->pos;
 
     while (off != 0) {
+        dir->id = lfs_min(dir->count, off);
+        dir->pos += dir->id;
+        off -= dir->id;
+
         if (dir->id == dir->count) {
             if (!dir->split) {
                 return LFS_ERR_INVAL;
@@ -2811,10 +2874,6 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
                 return err;
             }
         }
-
-        dir->id = lfs_min(dir->count, off);
-        dir->pos += dir->id;
-        off -= dir->id;
     }
 
     return 0;
@@ -3209,6 +3268,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
             return err;
         }
 
+        // TODO do we need to make file registered to list to catch updates from this commit? ie if id/cwd change
         err = lfs_dir_commit_(lfs, &cwd, &(lfs_entrylist_t){
                 {lfs_mktag(LFS_TYPE_NAME, id, nlen),
                  .u.buffer=(void*)path}, &(lfs_entrylist_t){
@@ -3217,9 +3277,19 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
             return err;
         }
 
+        // TODO eh
+        if (id >= cwd.count) {
+            // catch updates from a compact in the above commit
+            id -= cwd.count;
+            cwd.pair[0] = cwd.tail[0];
+            cwd.pair[1] = cwd.tail[1];
+        }
+
         entry.tag = lfs_mktag(LFS_TYPE_REG | LFS_STRUCT_INLINE, id, 0);
     } else {
-        if (flags & LFS_O_EXCL) {
+        if (id == -1) {
+            return LFS_ERR_ISDIR;
+        } else if (flags & LFS_O_EXCL) {
             return LFS_ERR_EXIST;
         }
 
@@ -4502,7 +4572,7 @@ static int lfs_pred(lfs_t *lfs, const lfs_block_t pair[2], lfs_dir_t *pdir) {
     pdir->tail[1] = 1;
     while (!lfs_pairisnull(pdir->tail)) {
         if (lfs_paircmp(pdir->tail, pair) == 0) {
-            return true;
+            return true; // TODO should we return true only if pred is part of dir?
         }
 
         int err = lfs_dir_fetch(lfs, pdir, pdir->tail);

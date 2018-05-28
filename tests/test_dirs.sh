@@ -329,7 +329,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Multi-block remove ---"
-tests/test.py -s << TEST
+tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "cactus") => LFS_ERR_NOTEMPTY;
 
