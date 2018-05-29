@@ -263,7 +263,7 @@ struct lfs_attr {
 
 /// littlefs data structures ///
 typedef uint32_t lfs_tag_t;
-typedef struct lfs_entry {
+typedef struct lfs_mattr {
     lfs_tag_t tag;
     union {
         void *buffer;
@@ -278,12 +278,12 @@ typedef struct lfs_entry {
         } d;
         struct lfs_dir *dir;
     } u;
-} lfs_entry_t;
+} lfs_mattr_t;
 
-typedef struct lfs_entrylist {
-    lfs_entry_t e;
-    struct lfs_entrylist *next;
-} lfs_entrylist_t;
+typedef struct lfs_mattrlist {
+    lfs_mattr_t e;
+    struct lfs_mattrlist *next;
+} lfs_mattrlist_t;
 
 typedef struct lfs_cache {
     lfs_block_t block;
@@ -295,7 +295,6 @@ typedef struct lfs_file {
     struct lfs_file *next;
     lfs_block_t pair[2];
     uint16_t id;
-
     lfs_block_t head;
     lfs_size_t size;
 
@@ -305,12 +304,15 @@ typedef struct lfs_file {
     lfs_off_t off;
     lfs_cache_t cache;
 
-    lfs_entrylist_t *attrs;
+    lfs_mattrlist_t *attrs;
 } lfs_file_t;
 
 typedef struct lfs_dir {
     struct lfs_dir *next;
     lfs_block_t pair[2];
+    uint16_t id;
+    uint16_t pos;
+    lfs_block_t head[2];
 
     lfs_block_t tail[2];
     uint32_t rev;
@@ -321,10 +323,6 @@ typedef struct lfs_dir {
     bool split;
     bool stop_at_commit; // TODO hmmm
     int16_t moveid;
-
-    uint16_t id;
-    lfs_block_t head[2];
-    lfs_off_t pos;
 } lfs_dir_t;
 
 typedef struct lfs_superblock {
