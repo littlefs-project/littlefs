@@ -1290,13 +1290,6 @@ static int lfs_dir_getentry(lfs_t *lfs, lfs_mdir_t *dir,
 
 static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
         int16_t id, struct lfs_info *info) {
-    if (id < 0) {
-        // special case for root
-        strcpy(info->name, "/");
-        info->type = LFS_TYPE_DIR;
-        return 0;
-    }
-
     if (id == dir->moveid) {
         int moved = lfs_moved(lfs, dir, dir->moveid);
         if (moved < 0) {
@@ -1366,7 +1359,7 @@ static int lfs_dir_finder(lfs_t *lfs, void *p, lfs_mattr_t attr) {
 
 // TODO drop others, make this only return id, also make get take in only entry to populate (with embedded tag)
 static int lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
-        const char **path, int16_t *id) {
+        const char **path, uint16_t *id) {
     lfs_mattr_t attr = {
         .u.pair[0] = lfs->root[0],
         .u.pair[1] = lfs->root[1],
@@ -1384,9 +1377,8 @@ static int lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
 
         // special case for root dir
         if (find.name[0] == '\0') {
-            // TODO set up root?
-            *id = -1;
-            return 0;
+            // Return ISDIR when we hit root
+            return LFS_ERR_ISDIR;
         }
 
         // skip '.' and root '..'
@@ -1492,9 +1484,9 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     }
 
     lfs_mdir_t cwd;
-    int err = lfs_dir_find(lfs, &cwd, &path, &(int16_t){0});
+    int err = lfs_dir_find(lfs, &cwd, &path, &(uint16_t){0});
     if (err != LFS_ERR_NOENT || strchr(path, '/') != NULL) {
-        if (!err) {
+        if (!err || err == LFS_ERR_ISDIR) {
             return LFS_ERR_EXIST;
         }
         return err;
@@ -1543,14 +1535,14 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 }
 
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
-    int16_t id;
+    uint16_t id;
     int err = lfs_dir_find(lfs, &dir->m, &path, &id);
-    if (err) {
+    if (err && err != LFS_ERR_ISDIR) {
         return err;
     }
 
     lfs_mattr_t attr;
-    if (id < 0) {
+    if (err == LFS_ERR_ISDIR) {
         // handle root dir separately
         attr.u.pair[0] = lfs->root[0];
         attr.u.pair[1] = lfs->root[1];
@@ -1895,7 +1887,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 
     // allocate entry for file if it doesn't exist
     lfs_mdir_t cwd;
-    int16_t id;
+    uint16_t id;
     int err = lfs_dir_find(lfs, &cwd, &path, &id);
     if (err && (err != LFS_ERR_NOENT || strchr(path, '/') != NULL)) {
         return err;
@@ -2573,10 +2565,17 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
 /// General fs operations ///
 int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     lfs_mdir_t cwd;
-    int16_t id;
+    uint16_t id;
     int err = lfs_dir_find(lfs, &cwd, &path, &id);
-    if (err) {
+    if (err && err != LFS_ERR_ISDIR) {
         return err;
+    }
+
+    if (err == LFS_ERR_ISDIR) {
+        // special case for root
+        strcpy(info->name, "/");
+        info->type = LFS_TYPE_DIR;
+        return 0;
     }
 
     return lfs_dir_getinfo(lfs, &cwd, id, info);
@@ -2597,7 +2596,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         return err;
     }
 
-    int16_t id;
+    uint16_t id;
     err = lfs_dir_find(lfs, &cwd, &path, &id);
     if (err) {
         return err;
@@ -2669,7 +2668,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
     // find old entry
     lfs_mdir_t oldcwd;
-    int16_t oldid;
+    uint16_t oldid;
     int err = lfs_dir_find(lfs, &oldcwd, &oldpath, &oldid);
     if (err) {
         return err;
@@ -2685,7 +2684,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
     // find new entry
     lfs_mdir_t newcwd;
-    int16_t newid;
+    uint16_t newid;
     err = lfs_dir_find(lfs, &newcwd, &newpath, &newid);
     if (err && err != LFS_ERR_NOENT) {
         return err;
@@ -3746,18 +3745,18 @@ int lfs_deorphan(lfs_t *lfs) {
 //    return lfs_dir_setattrs(lfs, &dir, &entry, attrs, count);
 //}
 
-static int lfs_fs_size_count(void *p, lfs_block_t block) {
-    lfs_size_t *size = p;
-    *size += 1;
-    return 0;
-}
-
-lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
-    lfs_size_t size = 0;
-    int err = lfs_fs_traverse(lfs, lfs_fs_size_count, &size);
-    if (err) {
-        return err;
-    }
-
-    return size;
-}
+//static int lfs_fs_size_count(void *p, lfs_block_t block) {
+//    lfs_size_t *size = p;
+//    *size += 1;
+//    return 0;
+//}
+//
+//lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
+//    lfs_size_t size = 0;
+//    int err = lfs_fs_traverse(lfs, lfs_fs_size_count, &size);
+//    if (err) {
+//        return err;
+//    }
+//
+//    return size;
+//}
