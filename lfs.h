@@ -102,9 +102,10 @@ enum lfs_type {
     // internally used types
     LFS_TYPE_NAME       = 0x010,
     LFS_TYPE_MOVE       = 0x080,
-    LFS_TYPE_DELETE     = 0x090,
+    LFS_TYPE_DELETE     = 0x020,
 
-    LFS_TYPE_SUPERBLOCK = 0x0a0,
+    LFS_TYPE_SUPERBLOCK = 0x030,
+    LFS_TYPE_IDELETE    = 0x0b0,
     LFS_TYPE_SOFTTAIL   = 0x0c0,
     LFS_TYPE_HARDTAIL   = 0x0d0,
     LFS_TYPE_CRC        = 0x0e0,
@@ -285,6 +286,25 @@ typedef struct lfs_mattrlist {
     struct lfs_mattrlist *next;
 } lfs_mattrlist_t;
 
+typedef struct lfs_entry {
+    lfs_block_t pair[2];
+    uint16_t id;
+} lfs_entry_t;
+
+typedef struct lfs_mdir {
+    lfs_block_t pair[2];
+    lfs_block_t tail[2];
+    uint32_t rev;
+    lfs_off_t off;
+    uint32_t etag;
+    uint16_t count;
+    bool erased;
+    bool split;
+    lfs_entry_t idelete;
+    bool stop_at_commit; // TODO hmmm
+    uint16_t moveid; // TODO rm me
+} lfs_mdir_t;
+
 typedef struct lfs_cache {
     lfs_block_t block;
     lfs_off_t off;
@@ -306,19 +326,6 @@ typedef struct lfs_file {
 
     lfs_mattrlist_t *attrs;
 } lfs_file_t;
-
-typedef struct lfs_mdir {
-    lfs_block_t pair[2];
-    lfs_block_t tail[2];
-    uint32_t rev;
-    lfs_off_t off;
-    uint32_t etag;
-    uint16_t count;
-    bool erased;
-    bool split;
-    bool stop_at_commit; // TODO hmmm
-    int16_t moveid;
-} lfs_mdir_t;
 
 typedef struct lfs_dir {
     struct lfs_dir *next;
@@ -363,6 +370,8 @@ typedef struct lfs {
 
     lfs_free_t free;
     bool deorphaned;
+    lfs_entry_t idelete;
+    lfs_entry_t diff;
 
     lfs_size_t inline_size;
     lfs_size_t attrs_size;
