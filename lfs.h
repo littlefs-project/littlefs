@@ -276,7 +276,7 @@ typedef struct lfs_mattr {
             lfs_block_t block;
             lfs_off_t off;
         } d;
-        struct lfs_dir *dir;
+        struct lfs_mdir *dir;
     } u;
 } lfs_mattr_t;
 
@@ -307,13 +307,8 @@ typedef struct lfs_file {
     lfs_mattrlist_t *attrs;
 } lfs_file_t;
 
-typedef struct lfs_dir {
-    struct lfs_dir *next;
+typedef struct lfs_mdir {
     lfs_block_t pair[2];
-    uint16_t id;
-    uint16_t pos;
-    lfs_block_t head[2];
-
     lfs_block_t tail[2];
     uint32_t rev;
     lfs_off_t off;
@@ -323,6 +318,15 @@ typedef struct lfs_dir {
     bool split;
     bool stop_at_commit; // TODO hmmm
     int16_t moveid;
+} lfs_mdir_t;
+
+typedef struct lfs_dir {
+    struct lfs_dir *next;
+    struct lfs_mdir m;
+
+    lfs_block_t head[2];
+    uint16_t id;
+    lfs_off_t pos;
 } lfs_dir_t;
 
 typedef struct lfs_superblock {
