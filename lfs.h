@@ -96,30 +96,40 @@ enum lfs_error {
 // File types
 enum lfs_type {
     // file types
-    LFS_TYPE_REG        = 0x040,
-    LFS_TYPE_DIR        = 0x050,
+    LFS_TYPE_REG        = 0x008,
+    LFS_TYPE_DIR        = 0x010,
+    LFS_TYPE_SUPERBLOCK = 0x038,
+
+    // internally used entry structures
+    LFS_STRUCT_CTZ      = 0x001,
+    LFS_STRUCT_DIR      = 0x002,
+    LFS_STRUCT_INLINE   = 0x003,
+
+    LFS_STRUCT_NAME     = 0x041,
+    LFS_STRUCT_DELETE   = 0x047,
+    LFS_STRUCT_MOVE     = 0x046, // TODO rm me
+
+    LFS_STRUCT_TAIL     = 0x081,
+    LFS_STRUCT_CRC      = 0x087,
+    LFS_STRUCT_IDELETE  = 0x0c1,
 
     // internally used types
-    LFS_TYPE_NAME       = 0x010,
-    LFS_TYPE_MOVE       = 0x080,
-    LFS_TYPE_DELETE     = 0x020,
+    LFS_TYPE_SOFTTAIL   = 0x081,
+    LFS_TYPE_HARDTAIL   = 0x089,
+    LFS_TYPE_CRC        = 0x087,
+    LFS_TYPE_IDELETE    = 0x0c1,
 
-    LFS_TYPE_SUPERBLOCK = 0x030,
-    LFS_TYPE_IDELETE    = 0x0b0,
-    LFS_TYPE_SOFTTAIL   = 0x0c0,
-    LFS_TYPE_HARDTAIL   = 0x0d0,
-    LFS_TYPE_CRC        = 0x0e0,
-
-    // on disk structure
-    LFS_STRUCT_ATTR     = 0x100,
-    LFS_STRUCT_INLINE   = 0x000,
-    LFS_STRUCT_CTZ      = 0x004,
-    LFS_STRUCT_DIR      = 0x008,
+    // internally used scopes
+    LFS_SCOPE_STRUCT    = 0x000,
+    LFS_SCOPE_ENTRY     = 0x040,
+    LFS_SCOPE_DIR       = 0x080,
+    LFS_SCOPE_FS        = 0x0c0,
+    LFS_SCOPE_USER      = 0x100,
 
     // internal sources
     LFS_FROM_REGION     = 0x000,
     LFS_FROM_DISK       = 0x200,
-    LFS_FROM_MOVE       = 0x001,
+    LFS_FROM_MOVE       = 0x004,
 };
 
 // File open flags
