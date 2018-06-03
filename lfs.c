@@ -383,11 +383,11 @@ static inline void lfs_pairswap(lfs_block_t pair[2]) {
     pair[1] = t;
 }
 
-static inline bool lfs_pairisnull(const lfs_block_t pair[2]) {
+static bool lfs_pairisnull(const lfs_block_t pair[2]) {
     return pair[0] == 0xffffffff || pair[1] == 0xffffffff;
 }
 
-static inline int lfs_paircmp(
+static int lfs_paircmp(
         const lfs_block_t paira[2],
         const lfs_block_t pairb[2]) {
     return !(paira[0] == pairb[0] || paira[1] == pairb[1] ||
