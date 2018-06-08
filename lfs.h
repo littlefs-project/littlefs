@@ -334,7 +334,7 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 //
 // Returns a negative error code on failure.
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
-        const char *path, int flags);
+        const char *path, int flags, void *file_buffer);
 
 // Close a file
 //
