@@ -836,7 +836,7 @@ nextname:
 
         // find entry matching name
         while (true) {
-            int err = lfs_dir_next(lfs, dir, entry);
+            err = lfs_dir_next(lfs, dir, entry);
             if (err) {
                 return err;
             }

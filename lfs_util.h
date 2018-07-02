@@ -158,6 +158,7 @@ static inline void *lfs_malloc(size_t size) {
 #ifndef LFS_NO_MALLOC
     return malloc(size);
 #else
+    (void)size;
     return NULL;
 #endif
 }
@@ -166,6 +167,8 @@ static inline void *lfs_malloc(size_t size) {
 static inline void lfs_free(void *p) {
 #ifndef LFS_NO_MALLOC
     free(p);
+#else
+    (void)p;
 #endif
 }
 
