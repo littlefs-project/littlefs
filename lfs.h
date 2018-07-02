@@ -129,7 +129,7 @@ enum lfs_type {
     // internal sources
     LFS_FROM_REGION     = 0x000,
     LFS_FROM_DISK       = 0x200,
-    LFS_FROM_MOVE       = 0x004,
+    LFS_FROM_MOVE       = 0x0ff,
 };
 
 // File open flags
@@ -296,10 +296,17 @@ typedef struct lfs_mattrlist {
     struct lfs_mattrlist *next;
 } lfs_mattrlist_t;
 
-typedef struct lfs_entry {
-    lfs_block_t pair[2];
-    uint16_t id;
-} lfs_entry_t;
+//typedef struct lfs_entry {
+//    lfs_block_t pair[2];
+//    uint16_t id;
+//} lfs_entry_t;
+
+typedef struct lfs_globals {
+    struct lfs_move {
+        lfs_block_t pair[2];
+        uint16_t id;
+    } move;
+} lfs_globals_t;
 
 typedef struct lfs_mdir {
     lfs_block_t pair[2];
@@ -310,7 +317,7 @@ typedef struct lfs_mdir {
     uint16_t count;
     bool erased;
     bool split;
-    lfs_entry_t idelete;
+    lfs_globals_t globals;
     bool stop_at_commit; // TODO hmmm
     uint16_t moveid; // TODO rm me
 } lfs_mdir_t;
@@ -380,8 +387,8 @@ typedef struct lfs {
 
     lfs_free_t free;
     bool deorphaned;
-    lfs_entry_t idelete;
-    lfs_entry_t diff;
+    lfs_globals_t globals;
+    lfs_globals_t diff;
 
     lfs_size_t inline_size;
     lfs_size_t attrs_size;
