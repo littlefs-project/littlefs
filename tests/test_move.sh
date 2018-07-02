@@ -59,7 +59,7 @@ tests/test.py << TEST
     lfs_rename(&lfs, "b/hello", "c/hello") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-truncate -s-7 blocks/6
+truncate -s-11 blocks/6
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir[0], "b") => 0;
@@ -86,8 +86,8 @@ tests/test.py << TEST
     lfs_rename(&lfs, "c/hello", "d/hello") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-truncate -s-7 blocks/8
-truncate -s-7 blocks/a
+truncate -s-11 blocks/8
+truncate -s-11 blocks/a
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir[0], "c") => 0;
@@ -104,6 +104,32 @@ tests/test.py << TEST
     strcmp(info.name, ".") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "..") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Move file after corrupt ---"
+tests/test.py -s << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_rename(&lfs, "c/hello", "d/hello") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir[0], "c") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_dir_open(&lfs, &dir[0], "d") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "hello") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
