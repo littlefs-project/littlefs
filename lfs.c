@@ -721,16 +721,18 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
 
 static int lfs_commit_globals(lfs_t *lfs, struct lfs_commit *commit,
         const lfs_globals_t *source, const lfs_globals_t *diff) {
-    lfs_globals_t res = lfs_globals_xor(source, diff);
+    if (lfs_globals_iszero(diff)) {
+        return 0;
+    }
 
-    if (!lfs_globals_iszero(&res)) {
-        int err = lfs_commit_commit(lfs, commit, (lfs_mattr_t){
-                lfs_mktag(LFS_TYPE_IDELETE,
-                    res.move.id, sizeof(res.move.pair)),
-                    .u.buffer=res.move.pair});
-        if (err) {
-            return err;
-        }
+    // TODO check performance/complexity of different strategies here
+    lfs_globals_t res = lfs_globals_xor(source, diff);
+    int err = lfs_commit_commit(lfs, commit, (lfs_mattr_t){
+            lfs_mktag(LFS_TYPE_IDELETE,
+                res.move.id, sizeof(res.move.pair)),
+                .u.buffer=res.move.pair});
+    if (err) {
+        return err;
     }
 
     return 0;
@@ -878,6 +880,17 @@ static int lfs_dir_fetchwith(lfs_t *lfs,
                 temp.etag = tag;
                 crc = 0xffffffff;
                 *dir = temp;
+
+                // TODO simplify this?
+                if (cb) {
+                    err = cb(lfs, data, (lfs_mattr_t){
+                            (tag | 0x80000000),
+                            .u.d.block=temp.pair[0],
+                            .u.d.off=off+sizeof(tag)});
+                    if (err) {
+                        return err;
+                    }
+                }
             } else {
                 // TODO crc before callback???
                 err = lfs_bd_crc(lfs, temp.pair[0],
@@ -1007,6 +1020,11 @@ static int lfs_dir_compact(lfs_t *lfs, lfs_mdir_t *dir, lfs_mattrlist_t *list,
     // save some state in case block is bad
     const lfs_block_t oldpair[2] = {dir->pair[1], dir->pair[0]};
     bool relocated = false;
+
+    // There's nothing special about our global delta, so feed it back
+    // into the global global delta
+    lfs->diff = lfs_globals_xor(&lfs->diff, &dir->globals);
+    dir->globals = (lfs_globals_t){0};
 
     // increment revision count
     dir->rev += 1;
@@ -1207,14 +1225,12 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir, lfs_mattrlist_t *list) {
             return err;
         }
 
-        if (!lfs_globals_iszero(&lfs->diff)) {
-            err = lfs_commit_globals(lfs, &commit, &dir->globals, &lfs->diff);
-            if (err) {
-                if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
-                    goto compact;
-                }
-                return err;
+        err = lfs_commit_globals(lfs, &commit, &dir->globals, &lfs->diff);
+        if (err) {
+            if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
+                goto compact;
             }
+            return err;
         }
 
         err = lfs_commit_crc(lfs, &commit);
@@ -1242,6 +1258,7 @@ compact:
     }
 
     // update any directories that are affected
+    // TODO what about pairs? what if we're splitting??
     for (lfs_dir_t *d = lfs->dirs; d; d = d->next) {
         if (lfs_paircmp(d->m.pair, dir->pair) == 0) {
             d->m = *dir;
@@ -1441,6 +1458,7 @@ struct lfs_dir_find {
     const char *name;
     uint16_t len;
     int16_t id;
+    int16_t tempid;
 };
 
 static int lfs_dir_findscan(lfs_t *lfs, void *p, lfs_mattr_t attr) {
@@ -1456,14 +1474,16 @@ static int lfs_dir_findscan(lfs_t *lfs, void *p, lfs_mattr_t attr) {
 
         if (res) {
             // found a match
-            find->id = lfs_tag_id(attr.tag);
+            find->tempid = lfs_tag_id(attr.tag);
         }
     } else if (lfs_tag_type(attr.tag) == LFS_STRUCT_DELETE) {
-        if (lfs_tag_id(attr.tag) == find->id) {
-            find->id = -1;
-        } else if (lfs_tag_id(attr.tag) < find->id) {
-            find->id -= 1;
+        if (lfs_tag_id(attr.tag) == find->tempid) {
+            find->tempid = -1;
+        } else if (lfs_tag_id(attr.tag) < find->tempid) {
+            find->tempid -= 1;
         }
+    } else if (lfs_tag_type(attr.tag) == LFS_TYPE_CRC) {
+        find->id = find->tempid;
     }
 
     return 0;
@@ -1531,6 +1551,7 @@ static int lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
         while (true) {
             //printf("checking %d %d for %s\n", attr.u.pair[0], attr.u.pair[1], *path);
             find.id = -1;
+            find.tempid = -1;
             int err = lfs_dir_fetchwith(lfs, dir, attr.u.pair,
                     lfs_dir_findscan, &find);
             if (err) {
@@ -3451,9 +3472,11 @@ static int lfs_pred(lfs_t *lfs, const lfs_block_t dir[2], lfs_mdir_t *pdir) {
 */
 
 
+// TODO combine parentscan and findscan?
 struct lfs_dir_parentscan {
     lfs_block_t pair[2];
     int16_t id;
+    int16_t tempid;
 };
 
 static int lfs_parentscan(lfs_t *lfs, void *p, lfs_mattr_t attr) {
@@ -3468,14 +3491,16 @@ static int lfs_parentscan(lfs_t *lfs, void *p, lfs_mattr_t attr) {
 
         if (lfs_paircmp(attr.u.pair, parentscan->pair) == 0) {
             // found a match
-            parentscan->id = lfs_tag_id(attr.tag);
+            parentscan->tempid = lfs_tag_id(attr.tag);
         }
     } else if (lfs_tag_struct(attr.tag) == LFS_STRUCT_DELETE) {
-        if (lfs_tag_id(attr.tag) == parentscan->id) {
-            parentscan->id = -1;
-        } else if (lfs_tag_id(attr.tag) < parentscan->id) {
-            parentscan->id -= 1;
+        if (lfs_tag_id(attr.tag) == parentscan->tempid) {
+            parentscan->tempid = -1;
+        } else if (lfs_tag_id(attr.tag) < parentscan->tempid) {
+            parentscan->tempid -= 1;
         }
+    } else if (lfs_tag_type(attr.tag) == LFS_TYPE_CRC) {
+        parentscan->id = parentscan->tempid;
     }
 
     return 0;
@@ -3490,7 +3515,8 @@ static int lfs_parent(lfs_t *lfs, const lfs_block_t pair[2],
         struct lfs_dir_parentscan parentscan = {
             .pair[0] = pair[0],
             .pair[1] = pair[1],
-            .id = -1
+            .id = -1,
+            .tempid = -1,
         };
 
         int err = lfs_dir_fetchwith(lfs, parent, parent->tail,
