@@ -152,8 +152,6 @@ tests/test.py << TEST
     strcmp(info.name, "..") => 0;
     info.type => LFS_TYPE_DIR;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
-    printf("nameee \"%s\"\n", info.name);
-    printf("expect \"%s\"\n", "burito");
     strcmp(info.name, "burito") => 0;
     info.type => LFS_TYPE_REG;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
