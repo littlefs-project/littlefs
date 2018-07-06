@@ -1,4 +1,7 @@
-TARGET = lfs
+TARGET = lfs.a
+ifneq ($(wildcard test.c main.c),)
+override TARGET = lfs
+endif
 
 CC ?= gcc
 AR ?= ar
@@ -35,7 +38,9 @@ size: $(OBJ)
 .SUFFIXES:
 test: test_format test_dirs test_files test_seek test_truncate \
 	test_interspersed test_alloc test_paths test_orphan test_move test_corrupt
+	@rm test.c
 test_%: tests/test_%.sh
+
 ifdef QUIET
 	@./$< | sed -n '/^[-=]/p'
 else
@@ -44,7 +49,7 @@ endif
 
 -include $(DEP)
 
-$(TARGET): $(OBJ)
+lfs: $(OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
 %.a: $(OBJ)
