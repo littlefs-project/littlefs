@@ -664,6 +664,13 @@ static int lfs_commit_movescan(lfs_t *lfs, void *p, lfs_mattr_t attr) {
         return 0;
     }
 
+    // TODO AHHHH, scopes, what about user scope above?
+    if (lfs_tag_scope(attr.tag) == LFS_SCOPE_FS ||
+            lfs_tag_scope(attr.tag) == LFS_SCOPE_DIR) {
+        // ignore non-matching ids
+        return 0;
+    }
+
     if (lfs_tag_id(attr.tag) != move->id.from) {
         // ignore non-matching ids
         return 0;
@@ -1023,6 +1030,9 @@ static int lfs_dir_compact(lfs_t *lfs, lfs_mdir_t *dir, lfs_mattrlist_t *list,
 
     // There's nothing special about our global delta, so feed it back
     // into the global global delta
+    // TODO IMMENSE HMM globals get bleed into from above, need to be fixed after commits due to potential moves
+    lfs_globals_t gtemp = dir->globals; // TODO hmm, why did we have different variables then?
+
     lfs->diff = lfs_globals_xor(&lfs->diff, &dir->globals);
     dir->globals = (lfs_globals_t){0};
 
@@ -1196,6 +1206,8 @@ relocate:
         lfs->diff = (lfs_globals_t){0};
     }
 
+    lfs->globals = lfs_globals_xor(&lfs->globals, &gtemp); // TODO hmm, why did we have different variables then?
+
     return 0;
 }
 
@@ -1244,6 +1256,8 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir, lfs_mattrlist_t *list) {
         // successful commit, lets update dir
         dir->off = commit.off;
         dir->etag = commit.ptag;
+//        // TODO hm
+//        dir->globals = lfs_globals_xor(&dir->globals, &lfs->diff);
         lfs->globals = lfs_globals_xor(&lfs->globals, &lfs->diff);
         lfs->diff = (lfs_globals_t){0};
         break;
@@ -2953,6 +2967,10 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         if (res < 0) {
             return res;
         }
+
+        // TODO test for global state stealing?
+        // steal global state
+        lfs->globals = lfs_globals_xor(&lfs->globals, &prevdir.globals);
 
         LFS_ASSERT(res); // must have pred
         newcwd.tail[0] = prevdir.tail[0];
