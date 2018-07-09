@@ -107,7 +107,6 @@ enum lfs_type {
 
     LFS_STRUCT_NAME     = 0x041,
     LFS_STRUCT_DELETE   = 0x047,
-    LFS_STRUCT_MOVE     = 0x046, // TODO rm me
 
     LFS_STRUCT_TAIL     = 0x081,
     LFS_STRUCT_CRC      = 0x087,
@@ -319,7 +318,6 @@ typedef struct lfs_mdir {
     bool split;
     lfs_globals_t globals;
     bool stop_at_commit; // TODO hmmm
-    uint16_t moveid; // TODO rm me
 } lfs_mdir_t;
 
 typedef struct lfs_cache {

@@ -264,7 +264,6 @@ int lfs_fs_traverse(lfs_t *lfs,
 static int lfs_pred(lfs_t *lfs, const lfs_block_t dir[2], lfs_mdir_t *pdir);
 static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent, lfs_mattr_t *attr);
-static int lfs_moved(lfs_t *lfs, lfs_mdir_t *fromdir, uint16_t fromid);
 static int lfs_relocate(lfs_t *lfs,
         const lfs_block_t oldpair[2], const lfs_block_t newpair[2]);
 int lfs_scan(lfs_t *lfs);
@@ -658,12 +657,6 @@ static int lfs_commit_movescan(lfs_t *lfs, void *p, lfs_mattr_t attr) {
         return 0;
     }
 
-    if (lfs_tag_type(attr.tag) == LFS_STRUCT_MOVE) {
-        // TODO need this?
-        // ignore moves
-        return 0;
-    }
-
     // TODO AHHHH, scopes, what about user scope above?
     if (lfs_tag_scope(attr.tag) == LFS_SCOPE_FS ||
             lfs_tag_scope(attr.tag) == LFS_SCOPE_DIR) {
@@ -809,7 +802,6 @@ static int lfs_dir_fetchwith(lfs_t *lfs,
         dir->count = 0;
         dir->split = false;
         dir->globals = (lfs_globals_t){0};
-        dir->moveid = -1;
 
         dir->rev = lfs_tole32(rev[0]);
         lfs_crc(&crc, &dir->rev, sizeof(dir->rev));
@@ -921,9 +913,6 @@ static int lfs_dir_fetchwith(lfs_t *lfs,
                     if (err) {
                         return err;
                     }
-                } else if (lfs_tag_type(tag) == LFS_STRUCT_MOVE) {
-                    // TODO handle moves correctly?
-                    temp.moveid = lfs_tag_id(tag);
                 } else {
                     if (lfs_tag_scope(tag) <= LFS_SCOPE_ENTRY &&
                             lfs_tag_id(tag) >= temp.count) {
@@ -932,14 +921,6 @@ static int lfs_dir_fetchwith(lfs_t *lfs,
 
                     if (lfs_tag_struct(tag) == LFS_STRUCT_DELETE) {
                         temp.count -= 1;
-                        if (temp.moveid != -1) {
-                            //printf("RENAME DEL %d (%d)\n", lfs_tag_id(tag), temp.moveid);
-                        }
-                        if (lfs_tag_id(tag) == temp.moveid) {
-                            temp.moveid = -1;
-                        } else if (lfs_tag_id(tag) < temp.moveid) {
-                            temp.moveid -= 1;
-                        }
                     }
 
                     if (cb) {
@@ -1086,6 +1067,19 @@ static int lfs_dir_compact(lfs_t *lfs, lfs_mdir_t *dir, lfs_mattrlist_t *list,
                 .filter.end = end,
             };
 
+            if (!relocated) {
+                err = lfs_commit_globals(lfs, &commit,
+                        &dir->globals, &lfs->diff);
+                if (err) {
+                    if (err == LFS_ERR_NOSPC) {
+                        goto split;
+                    } else if (err == LFS_ERR_CORRUPT) {
+                        goto relocate;
+                    }
+                    return err;
+                }
+            }
+
             // commit with a move
             for (uint16_t id = begin; id < end; id++) {
                 err = lfs_commit_move(lfs, &commit, id, id, source, list);
@@ -1101,24 +1095,11 @@ static int lfs_dir_compact(lfs_t *lfs, lfs_mdir_t *dir, lfs_mattrlist_t *list,
                 ack = id;
             }
 
-            // reopen the reserved space at the end
-            // TODO can I just commit these first?
+            // reopen reserved space at the end
             commit.end = lfs->cfg->block_size - 2*sizeof(uint32_t);
 
-            if (!relocated) {
-                err = lfs_commit_globals(lfs, &commit,
-                        &dir->globals, &lfs->diff);
-                if (err) {
-                    if (err == LFS_ERR_NOSPC) {
-                        goto split;
-                    } else if (err == LFS_ERR_CORRUPT) {
-                        goto relocate;
-                    }
-                    return err;
-                }
-            }
-
             if (!lfs_pairisnull(dir->tail)) {
+                // commit tail, which may be new after last size check
                 // TODO le32
                 err = lfs_commit_commit(lfs, &commit, (lfs_mattr_t){
                         lfs_mktag(LFS_STRUCT_TAIL + dir->split*0x8,
@@ -1279,6 +1260,7 @@ compact:
         }
     }
 
+    // TODO what if we relocated the block containing the move?
     return 0;
 }
 
@@ -1379,19 +1361,6 @@ static int lfs_dir_get(lfs_t *lfs, lfs_mdir_t *dir,
         return LFS_ERR_NOENT;
     }
 
-    // TODO hmm, stop at commit? maybe we need to handle this elsewhere?
-    // Should commit get be its own thing? commit traverse?
-    if (id == dir->moveid && !dir->stop_at_commit) {
-        int moved = lfs_moved(lfs, dir, dir->moveid);
-        if (moved < 0) {
-            return moved;
-        }
-
-        if (moved) {
-            return LFS_ERR_NOENT;
-        }
-    }
-
     attr->tag = lfs_mktag(0, id, 0) | (attr->tag & 0xffc00fff);
     return 0;
 }
@@ -1433,17 +1402,6 @@ static int lfs_dir_getentry(lfs_t *lfs, lfs_mdir_t *dir,
 
 static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
         int16_t id, struct lfs_info *info) {
-    if (id == dir->moveid) {
-        int moved = lfs_moved(lfs, dir, dir->moveid);
-        if (moved < 0) {
-            return moved;
-        }
-
-        if (moved) {
-            return LFS_ERR_NOENT;
-        }
-    }
-
     lfs_mattr_t attr;
     int err = lfs_dir_getentry(lfs, dir, 0x703ff000,
             lfs_mktag(LFS_SCOPE_STRUCT, id, 0), &attr);
@@ -1583,17 +1541,6 @@ static int lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
 
             attr.u.pair[0] = dir->tail[0];
             attr.u.pair[1] = dir->tail[1];
-        }
-
-        if (find.id == dir->moveid) {
-            int moved = lfs_moved(lfs, dir, dir->moveid);
-            if (moved < 0) {
-                return moved;
-            }
-
-            if (moved) {
-                return LFS_ERR_NOENT;
-            }
         }
 
         *id = find.id;
@@ -2913,38 +2860,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs->diff.move.pair[1] = oldcwd.pair[1] ^ lfs->globals.move.pair[1];
     lfs->diff.move.id      = oldid          ^ lfs->globals.move.id;
 
-//    // mark as moving
-//    //printf("RENAME MOVE %d %d %d\n", oldcwd.pair[0], oldcwd.pair[1], oldid);
-//    err = lfs_dir_commit(lfs, &oldcwd, &(lfs_mattrlist_t){
-//            {lfs_mktag(LFS_STRUCT_MOVE, oldid, 0)}});
-//    if (err) {
-//        return err;
-//    }
-//
-//    if (samepair) {
-//        // update pair if newcwd == oldcwd
-//        newcwd = oldcwd;
-//    }
-//
-// TODO check that all complaints are fixed
-//    // move to new location
-//    // TODO NAME?????
-//    // TODO HAH, move doesn't want to override things (due
-//    // to its use in compaction), but that's _exactly what we want here
-//    err = lfs_dir_commitwith(lfs, &newcwd, lfs_commit_move,
-//            &(struct lfs_commit_move){.dir=&oldcwd, .id={oldid, newid}});
-//    if (err) {
-//        return err;
-//    }
-//    // TODO NONONONONO
-//    // TODO also don't call strlen twice (see prev name check)
-//    err = lfs_dir_commit(lfs, &newcwd, &(lfs_mattrlist_t){
-//            {lfs_mktag(LFS_STRUCT_NAME, newid, strlen(newpath)),
-//             .u.buffer=(void*)newpath}});
-//    if (err) {
-//        return err;
-//    }
-
     // move over all attributes
     err = lfs_dir_commit(lfs, &newcwd, &(lfs_mattrlist_t){
             {lfs_mktag(LFS_STRUCT_NAME | lfs_tag_subtype(oldattr.tag),
@@ -3624,97 +3539,6 @@ static int lfs_parent(lfs_t *lfs, const lfs_block_t dir[2],
     return false;
 }
 */
-static int lfs_moved(lfs_t *lfs, lfs_mdir_t *fromdir, uint16_t fromid) {
-    // grab entry pair we're looking for
-    fromdir->moveid = -1;
-    lfs_mattr_t fromentry;
-    // TODO what about inline files?
-    int err = lfs_dir_getentry(lfs, fromdir, 0x71fff000,
-            lfs_mktag(LFS_STRUCT_DIR, fromid, 0), &fromentry);
-    fromdir->moveid = fromid;
-    if (err) {
-        return err;
-    }
-
-    // skip superblock
-    lfs_mdir_t todir;
-    err = lfs_dir_fetch(lfs, &todir, (const lfs_block_t[2]){0, 1});
-    if (err) {
-        return err;
-    }
-
-    // iterate over all directory directory entries
-    while (!lfs_pairisnull(todir.tail)) {
-        int err = lfs_dir_fetch(lfs, &todir, todir.tail);
-        if (err) {
-            return err;
-        }
-
-        for (int toid = 0; toid < todir.count; toid++) {
-            if (lfs_paircmp(todir.pair, fromdir->pair) == 0 &&
-                    toid == fromid) {
-                continue;
-            }
-
-            lfs_mattr_t toentry;
-            int err = lfs_dir_getentry(lfs, &todir, 0x71fff000,
-                    lfs_mktag(LFS_STRUCT_DIR, toid, 0), &toentry);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    continue;
-                }
-                return err;
-            }
-
-            if (lfs_paircmp(toentry.u.pair, fromentry.u.pair) == 0) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-/*
-static int lfs_moved(lfs_t *lfs, const void *e) {
-    if (lfs_pairisnull(lfs->root)) {
-        return 0;
-    }
-
-    // skip superblock
-    lfs_mdir_t cwd;
-    int err = lfs_dir_fetch(lfs, &cwd, (const lfs_block_t[2]){0, 1});
-    if (err) {
-        return err;
-    }
-
-    // iterate over all directory directory entries
-    lfs_mattr_t entry;
-    while (!lfs_pairisnull(cwd.d.tail)) {
-        err = lfs_dir_fetch(lfs, &cwd, cwd.d.tail);
-        if (err) {
-            return err;
-        }
-
-        while (true) {
-            err = lfs_dir_next(lfs, &cwd, &entry);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-
-            if (!(LFS_STRUCT_MOVED & entry.d.type) &&
-                 memcmp(&entry.d.u, e, sizeof(entry.d.u)) == 0) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-*/
 
 // TODO rename to lfs_dir_relocate?
 static int lfs_relocate(lfs_t *lfs,
@@ -3912,148 +3736,11 @@ int lfs_deorphan(lfs_t *lfs) {
             }
         }
 
-        // check entries for moves
-        //if (dir.moveid >= 0) {
-// TODO moves and stuff
-                    // TODO need to load entry to find it
-//                    // found moved entry
-//                    int moved = lfs_moved(lfs, &entry.u);
-//                    if (moved < 0) {
-//                        return moved;
-//                    }
-//
-//                    if (moved) {
-//                        LFS_DEBUG("Found move %d %d",
-//                                entry.d.u.dir[0], entry.d.u.dir[1]);
-//                        err = lfs_dir_set(lfs, &dir, &entry, (struct lfs_region[]){
-//                                {LFS_FROM_MEM, 0, entry.size, NULL, 0}}, 1);
-//                        if (err) {
-//                            return err;
-//                        }
-//                    } else {
-//                        LFS_DEBUG("Found partial move %d %d",
-//                                entry.d.u.dir[0], entry.d.u.dir[1]);
-//                        entry.d.type &= ~LFS_STRUCT_MOVED;
-//                        err = lfs_dir_set(lfs, &dir, &entry, (struct lfs_region[]){
-//                                {LFS_FROM_MEM, 0, 1, &entry.d, 1}}, 1);
-//                        if (err) {
-//                            return err;
-//                        }
-//                    }
-        //}
-
         memcpy(&pdir, &dir, sizeof(pdir));
     }
 
     return 0;
 }
-/*
-int lfs_deorphan(lfs_t *lfs) {
-    lfs->deorphaned = true;
-
-    if (lfs_pairisnull(lfs->root)) {
-        return 0;
-    }
-
-    lfs_mdir_t pdir = {.d.size = 0x80000000};
-    lfs_mdir_t cwd = {.d.tail[0] = 0, .d.tail[1] = 1};
-
-    // iterate over all directory directory entries
-    while (!lfs_pairisnull(cwd.d.tail)) {
-        int err = lfs_dir_fetch(lfs, &cwd, cwd.d.tail);
-        if (err) {
-            return err;
-        }
-
-        // check head blocks for orphans
-        if (!(0x80000000 & pdir.d.size)) {
-            // check if we have a parent
-            lfs_mdir_t parent;
-            lfs_mattr_t entry;
-            int res = lfs_parent(lfs, pdir.d.tail, &parent, &entry);
-            if (res < 0) {
-                return res;
-            }
-
-            if (!res) {
-                // we are an orphan
-                LFS_DEBUG("Found orphan %d %d",
-                        pdir.d.tail[0], pdir.d.tail[1]);
-
-                pdir.d.tail[0] = cwd.d.tail[0];
-                pdir.d.tail[1] = cwd.d.tail[1];
-
-                err = lfs_dir_commit(lfs, &pdir, NULL, 0);
-                if (err) {
-                    return err;
-                }
-
-                break;
-            }
-
-            if (!lfs_pairsync(entry.d.u.dir, pdir.d.tail)) {
-                // we have desynced
-                LFS_DEBUG("Found desync %d %d",
-                        entry.d.u.dir[0], entry.d.u.dir[1]);
-
-                pdir.d.tail[0] = entry.d.u.dir[0];
-                pdir.d.tail[1] = entry.d.u.dir[1];
-
-                err = lfs_dir_commit(lfs, &pdir, NULL, 0);
-                if (err) {
-                    return err;
-                }
-
-                break;
-            }
-        }
-
-        // check entries for moves
-        lfs_mattr_t entry;
-        while (true) {
-            err = lfs_dir_next(lfs, &cwd, &entry);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-
-            // found moved entry
-            if (entry.d.type & LFS_STRUCT_MOVED) {
-                int moved = lfs_moved(lfs, &entry.d.u);
-                if (moved < 0) {
-                    return moved;
-                }
-
-                if (moved) {
-                    LFS_DEBUG("Found move %d %d",
-                            entry.d.u.dir[0], entry.d.u.dir[1]);
-                    err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
-                            {LFS_FROM_MEM, 0, entry.size, NULL, 0}}, 1);
-                    if (err) {
-                        return err;
-                    }
-                } else {
-                    LFS_DEBUG("Found partial move %d %d",
-                            entry.d.u.dir[0], entry.d.u.dir[1]);
-                    entry.d.type &= ~LFS_STRUCT_MOVED;
-                    err = lfs_dir_set(lfs, &cwd, &entry, (struct lfs_region[]){
-                            {LFS_FROM_MEM, 0, 1, &entry.d, 1}}, 1);
-                    if (err) {
-                        return err;
-                    }
-                }
-            }
-        }
-
-        memcpy(&pdir, &cwd, sizeof(pdir));
-    }
-
-    return 0;
-}
-*/
 
 /// External filesystem filesystem operations ///
 //int lfs_fs_getattrs(lfs_t *lfs, const struct lfs_attr *attrs, int count) {
