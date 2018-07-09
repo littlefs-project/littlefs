@@ -98,7 +98,7 @@ enum lfs_type {
     // file types
     LFS_TYPE_REG        = 0x008,
     LFS_TYPE_DIR        = 0x010,
-    LFS_TYPE_SUPERBLOCK = 0x038,
+    LFS_TYPE_SUPERBLOCK = 0x042,
 
     // internally used entry structures
     LFS_STRUCT_CTZ      = 0x001,
@@ -316,8 +316,8 @@ typedef struct lfs_mdir {
     uint16_t count;
     bool erased;
     bool split;
-    lfs_globals_t globals;
     bool stop_at_commit; // TODO hmmm
+    lfs_globals_t globals;
 } lfs_mdir_t;
 
 typedef struct lfs_cache {
@@ -352,7 +352,6 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfs_superblock {
-    lfs_block_t root[2];
     char magic[8];
     uint32_t version;
 
