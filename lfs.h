@@ -118,7 +118,7 @@ enum lfs_type {
     // internal chip sources
     LFS_FROM_REGION     = 0x000,
     LFS_FROM_DISK       = 0x200,
-    LFS_FROM_MOVE       = 0x030,
+    LFS_FROM_DIR        = 0x030,
 };
 
 // File open flags
