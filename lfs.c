@@ -439,10 +439,6 @@ static inline bool lfs_tag_isuser(lfs_tag_t tag) {
     return (tag & 0x40000000);
 }
 
-static inline bool lfs_tag_hasid(lfs_tag_t tag) {
-    return (tag & 0x60000000) != 0x20000000;
-}
-
 static inline uint16_t lfs_tag_type(lfs_tag_t tag) {
     return (tag & 0x7fc00000) >> 22;
 }
@@ -498,14 +494,14 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
 static int lfs_commit_commit(lfs_t *lfs,
         struct lfs_commit *commit, lfs_mattr_t attr) {
     // filter out ids
-    if (lfs_tag_hasid(attr.tag) && (
+    if (lfs_tag_id(attr.tag) < 0x3ff && (
             lfs_tag_id(attr.tag) < commit->filter.begin ||
             lfs_tag_id(attr.tag) >= commit->filter.end)) {
         return 0;
     }
 
     // special cases
-    if (lfs_tag_type(attr.tag) == LFS_FROM_MOVE) {
+    if (lfs_tag_type(attr.tag) == LFS_FROM_DIR) {
         return lfs_commit_move(lfs, commit,
                 lfs_tag_size(attr.tag), lfs_tag_id(attr.tag),
                 attr.u.dir, NULL); 
@@ -657,8 +653,7 @@ static int lfs_commit_movescan(lfs_t *lfs, void *p, lfs_mattr_t attr) {
         return 0;
     }
 
-    // TODO need this if 0x3ff is required?
-    if (!lfs_tag_hasid(attr.tag) || lfs_tag_id(attr.tag) != move->id.from) {
+    if (lfs_tag_id(attr.tag) != move->id.from) {
         // ignore non-matching ids
         return 0;
     }
@@ -721,9 +716,8 @@ static int lfs_commit_globals(lfs_t *lfs, struct lfs_commit *commit,
     // TODO check performance/complexity of different strategies here
     lfs_globals_t res = lfs_globals_xor(source, diff);
     int err = lfs_commit_commit(lfs, commit, (lfs_mattr_t){
-            lfs_mktag(LFS_TYPE_GLOBALS,
-                res.move.id, sizeof(res.move.pair)),
-                .u.buffer=res.move.pair});
+            lfs_mktag(LFS_TYPE_GLOBALS, 0x3ff, sizeof(res)),
+            .u.buffer=&res});
     if (err) {
         return err;
     }
@@ -899,15 +893,14 @@ static int lfs_dir_fetchwith(lfs_t *lfs,
                         return err;
                     }
                 } else if (lfs_tag_type(tag) == LFS_TYPE_GLOBALS) {
-                    temp.globals.move.id = lfs_tag_id(tag);
                     err = lfs_bd_read(lfs, temp.pair[0], off+sizeof(tag),
-                            &temp.globals.move.pair,
-                            sizeof(temp.globals.move.pair));
+                            &temp.globals, sizeof(temp.globals));
                     if (err) {
                         return err;
                     }
                 } else {
-                    if (lfs_tag_hasid(tag) && lfs_tag_id(tag) >= temp.count) {
+                    if (lfs_tag_id(tag) < 0x3ff &&
+                            lfs_tag_id(tag) >= temp.count) {
                         temp.count = lfs_tag_id(tag)+1;
                     }
 
@@ -2822,7 +2815,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     err = lfs_dir_commit(lfs, &newcwd, &(lfs_mattrlist_t){
             {lfs_mktag(oldtype, newid, strlen(newpath)),
                 .u.buffer=(void*)newpath}, &(lfs_mattrlist_t){
-            {lfs_mktag(LFS_FROM_MOVE, newid, oldid),
+            {lfs_mktag(LFS_FROM_DIR, newid, oldid),
                 .u.dir=&oldcwd}}});
     if (err) {
         return err;
