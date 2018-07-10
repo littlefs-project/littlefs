@@ -27,7 +27,7 @@ script:
   # compile and find the code size with the smallest configuration
   - make clean size
         OBJ="$(ls lfs*.o | tr '\n' ' ')"
-        CFLAGS+="-DLFS_NO{ASSERT,DEBUG,WARN,ERROR}"
+        CFLAGS+="-DLFS_NO_ASSERT -DLFS_NO_DEBUG -DLFS_NO_WARN -DLFS_NO_ERROR"
         | tee sizes
 
   # update status if we succeeded, compare with master if possible
