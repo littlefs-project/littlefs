@@ -7,6 +7,8 @@
 #include "lfs.h"
 #include "lfs_util.h"
 
+#include <inttypes.h>
+
 
 /// Caching block device operations ///
 static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
@@ -308,7 +310,8 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
         // check if we have looked at all blocks since last ack
         if (lfs->free.ack == 0) {
-            LFS_WARN("No more free space %d", lfs->free.i + lfs->free.off);
+            LFS_WARN("No more free space %" PRIu32,
+                    lfs->free.i + lfs->free.off);
             return LFS_ERR_NOSPC;
         }
 
@@ -478,7 +481,8 @@ static int lfs_dir_fetch(lfs_t *lfs,
     }
 
     if (!valid) {
-        LFS_ERROR("Corrupted dir pair at %d %d", tpair[0], tpair[1]);
+        LFS_ERROR("Corrupted dir pair at %" PRIu32 " %" PRIu32 ,
+                tpair[0], tpair[1]);
         return LFS_ERR_CORRUPT;
     }
 
@@ -601,7 +605,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_dir_t *dir,
         break;
 relocate:
         //commit was corrupted
-        LFS_DEBUG("Bad block at %d", dir->pair[0]);
+        LFS_DEBUG("Bad block at %" PRIu32, dir->pair[0]);
 
         // drop caches and prepare to relocate block
         relocated = true;
@@ -609,7 +613,8 @@ relocate:
 
         // can't relocate superblock, filesystem is now frozen
         if (lfs_paircmp(oldpair, (const lfs_block_t[2]){0, 1}) == 0) {
-            LFS_WARN("Superblock %d has become unwritable", oldpair[0]);
+            LFS_WARN("Superblock %" PRIu32 " has become unwritable",
+                    oldpair[0]);
             return LFS_ERR_CORRUPT;
         }
 
@@ -622,7 +627,7 @@ relocate:
 
     if (relocated) {
         // update references if we relocated
-        LFS_DEBUG("Relocating %d %d to %d %d",
+        LFS_DEBUG("Relocating %" PRIu32 " %" PRIu32 " to %" PRIu32 " %" PRIu32,
                 oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
         int err = lfs_relocate(lfs, oldpair, dir->pair);
         if (err) {
@@ -1227,7 +1232,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
         }
 
 relocate:
-        LFS_DEBUG("Bad block at %d", nblock);
+        LFS_DEBUG("Bad block at %" PRIu32, nblock);
 
         // just clear cache and try a new block
         lfs_cache_drop(lfs, &lfs->pcache);
@@ -1384,7 +1389,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
 
 static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
 relocate:
-    LFS_DEBUG("Bad block at %d", file->block);
+    LFS_DEBUG("Bad block at %" PRIu32, file->block);
 
     // just relocate what exists into new block
     lfs_block_t nblock;
@@ -2395,7 +2400,8 @@ static int lfs_relocate(lfs_t *lfs,
 
         // update internal root
         if (lfs_paircmp(oldpair, lfs->root) == 0) {
-            LFS_DEBUG("Relocating root %d %d", newpair[0], newpair[1]);
+            LFS_DEBUG("Relocating root %" PRIu32 " %" PRIu32,
+                    newpair[0], newpair[1]);
             lfs->root[0] = newpair[0];
             lfs->root[1] = newpair[1];
         }
@@ -2451,7 +2457,7 @@ int lfs_deorphan(lfs_t *lfs) {
 
             if (!res) {
                 // we are an orphan
-                LFS_DEBUG("Found orphan %d %d",
+                LFS_DEBUG("Found orphan %" PRIu32 " %" PRIu32,
                         pdir.d.tail[0], pdir.d.tail[1]);
 
                 pdir.d.tail[0] = cwd.d.tail[0];
@@ -2467,7 +2473,7 @@ int lfs_deorphan(lfs_t *lfs) {
 
             if (!lfs_pairsync(entry.d.u.dir, pdir.d.tail)) {
                 // we have desynced
-                LFS_DEBUG("Found desync %d %d",
+                LFS_DEBUG("Found desync %" PRIu32 " %" PRIu32,
                         entry.d.u.dir[0], entry.d.u.dir[1]);
 
                 pdir.d.tail[0] = entry.d.u.dir[0];
@@ -2502,14 +2508,14 @@ int lfs_deorphan(lfs_t *lfs) {
                 }
 
                 if (moved) {
-                    LFS_DEBUG("Found move %d %d",
+                    LFS_DEBUG("Found move %" PRIu32 " %" PRIu32,
                             entry.d.u.dir[0], entry.d.u.dir[1]);
                     err = lfs_dir_remove(lfs, &cwd, &entry);
                     if (err) {
                         return err;
                     }
                 } else {
-                    LFS_DEBUG("Found partial move %d %d",
+                    LFS_DEBUG("Found partial move %" PRIu32 " %" PRIu32,
                             entry.d.u.dir[0], entry.d.u.dir[1]);
                     entry.d.type &= ~0x80;
                     err = lfs_dir_update(lfs, &cwd, &entry, NULL);
@@ -2525,4 +2531,3 @@ int lfs_deorphan(lfs_t *lfs) {
 
     return 0;
 }
-

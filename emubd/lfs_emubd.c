@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <inttypes.h>
 
 
 // Block device emulated on existing filesystem
@@ -85,7 +86,7 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     memset(data, 0, size);
 
     // Read data
-    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
 
     FILE *f = fopen(emu->path, "rb");
     if (!f && errno != ENOENT) {
@@ -124,7 +125,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     assert(block < cfg->block_count);
 
     // Program data
-    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
 
     FILE *f = fopen(emu->path, "r+b");
     if (!f) {
@@ -171,7 +172,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     assert(block < cfg->block_count);
 
     // Erase the block
-    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
     struct stat st;
     int err = stat(emu->path, &st);
     if (err && errno != ENOENT) {
@@ -239,4 +240,3 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
 
     return 0;
 }
-
