@@ -10,6 +10,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 
 /// Version info ///
 
@@ -459,5 +464,9 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 // Returns a negative error code on failure.
 int lfs_deorphan(lfs_t *lfs);
 
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif

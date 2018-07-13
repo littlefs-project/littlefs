@@ -10,6 +10,11 @@
 #include "lfs.h"
 #include "lfs_util.h"
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 
 // Config options
 #ifndef LFS_EMUBD_READ_SIZE
@@ -74,5 +79,9 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block);
 // Sync the block device
 int lfs_emubd_sync(const struct lfs_config *cfg);
 
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif
