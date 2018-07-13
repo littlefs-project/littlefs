@@ -263,7 +263,7 @@ struct lfs_attr {
 
 /// littlefs data structures ///
 typedef struct lfs_mattr {
-    struct lfs_mattr *next;
+    const struct lfs_mattr *next;
     int32_t tag;
     const void *buffer;
 } lfs_mattr_t;
@@ -284,7 +284,7 @@ typedef struct lfs_mdir {
     uint16_t count;
     bool erased;
     bool split;
-    lfs_globals_t globals;
+    lfs_globals_t locals;
 } lfs_mdir_t;
 
 typedef struct lfs_cache {
@@ -353,6 +353,7 @@ typedef struct lfs {
 
     lfs_free_t free;
     bool deorphaned;
+    lfs_globals_t globals2;
     lfs_globals_t globals;
     lfs_globals_t diff;
 
