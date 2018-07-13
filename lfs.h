@@ -263,7 +263,7 @@ struct lfs_attr {
 
 /// littlefs data structures ///
 typedef struct lfs_mattr {
-    struct lfs_mattr *next;
+    const struct lfs_mattr *next;
     int32_t tag;
     const void *buffer;
 } lfs_mattr_t;
