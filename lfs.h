@@ -280,8 +280,8 @@ typedef struct lfs_mattr {
 } lfs_mattr_t;
 
 typedef struct lfs_mattrlist {
-    lfs_mattr_t e;
     struct lfs_mattrlist *next;
+    lfs_mattr_t e;
 } lfs_mattrlist_t;
 
 //typedef struct lfs_entry {

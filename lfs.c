@@ -431,7 +431,8 @@ static inline bool lfs_pairsync(
 
 #define LFS_MKATTR(type, id, buffer_, size, next) \
     &(lfs_mattrlist_t){ \
-        {LFS_MKTAG(type, id, size), .u.buffer=(void*)(buffer_)}, (next)}
+        (next), \
+        {LFS_MKTAG(type, id, size), .u.buffer=(void*)(buffer_)}}
 
 static inline bool lfs_tagisvalid(uint32_t tag) {
     return !(tag & 0x80000000);
@@ -616,6 +617,52 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
 }
 
 // TODO predeclare
+static int32_t lfs_commit_get(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
+        uint32_t etag, uint32_t getmask, uint32_t gettag, void *buffer,
+        bool stopatcommit) {
+    uint16_t id = lfs_tagid(gettag);
+    lfs_size_t size = lfs_tagsize(gettag);
+
+    // iterate over dir block backwards (for faster lookups)
+    off += sizeof(uint32_t); // TODO nah
+    uint32_t tag = etag;
+
+    while (off > 2*sizeof(tag)) {
+        LFS_ASSERT(off > 2*sizeof(tag)+lfs_tagsize(tag));
+        off -= sizeof(tag)+lfs_tagsize(tag);
+
+        if (lfs_tagtype(tag) == LFS_TYPE_CRC && stopatcommit) {
+            break;
+        } else if (lfs_tagtype(tag) == LFS_TYPE_DELETE) {
+            if (lfs_tagid(tag) <= lfs_tagid(gettag)) {
+                gettag += LFS_MKTAG(0, 1, 0);
+            }
+        } else if ((tag & getmask) == (gettag & getmask)) {
+            if (buffer) {
+                lfs_size_t diff = lfs_min(size, lfs_tagsize(tag));
+                int err = lfs_bd_read(lfs, block, off, buffer, diff);
+                if (err) {
+                    return err;
+                }
+
+                memset((uint8_t*)buffer + diff, 0, size - diff);
+            }
+
+            return LFS_MKTAG(0, id, 0) | (tag & 0xffc00fff);
+        }
+
+        uint32_t ntag;
+        int err = lfs_bd_read(lfs, block,
+                off-sizeof(ntag), &ntag, sizeof(ntag));
+        if (err) {
+            return err;
+        }
+        tag ^= lfs_fromle32(ntag);
+    }
+
+    return LFS_ERR_NOENT;
+}
+
 static int32_t lfs_dir_get(lfs_t *lfs, lfs_mdir_t *dir,
         uint32_t getmask, uint32_t gettag, void *buffer);
 
@@ -1187,12 +1234,12 @@ static int lfs_dir_delete(lfs_t *lfs, lfs_mdir_t *dir, uint16_t id) {
     // check if we should drop the directory block
     if (dir->count == 0) {
         lfs_mdir_t pdir;
-        int res = lfs_pred(lfs, dir->pair, &pdir);
-        if (res < 0) {
-            return res;
+        int err = lfs_pred(lfs, dir->pair, &pdir);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
         }
 
-        if (res && pdir.split) {
+        if (err != LFS_ERR_NOENT && pdir.split) {
             // steal tail, and global state
             pdir.split = dir->split;
             pdir.tail[0] = dir->tail[0];
@@ -2568,12 +2615,11 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     }
 
     if (lfs_tagtype(tag) == LFS_TYPE_DIR) {
-        int res = lfs_pred(lfs, dir.pair, &cwd);
-        if (res < 0) {
-            return res;
+        int err = lfs_pred(lfs, dir.pair, &cwd);
+        if (err) {
+            return err;
         }
 
-        LFS_ASSERT(res); // must have pred
         cwd.tail[0] = dir.tail[0];
         cwd.tail[1] = dir.tail[1];
         err = lfs_dir_commit(lfs, &cwd,
@@ -2675,16 +2721,15 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     if (prevtag != LFS_ERR_NOENT && lfs_tagtype(prevtag) == LFS_TYPE_DIR) {
-        int res = lfs_pred(lfs, prevdir.pair, &newcwd);
-        if (res < 0) {
-            return res;
+        int err = lfs_pred(lfs, prevdir.pair, &newcwd);
+        if (err) {
+            return err;
         }
 
         // TODO test for global state stealing?
         // steal global state
         lfs->globals = lfs_globals_xor(&lfs->globals, &prevdir.globals);
 
-        LFS_ASSERT(res); // must have pred
         newcwd.tail[0] = prevdir.tail[0];
         newcwd.tail[1] = prevdir.tail[1];
         err = lfs_dir_commit(lfs, &newcwd,
@@ -3169,7 +3214,8 @@ static int lfs_pred(lfs_t *lfs, const lfs_block_t pair[2], lfs_mdir_t *pdir) {
     pdir->tail[1] = 1;
     while (!lfs_pairisnull(pdir->tail)) {
         if (lfs_paircmp(pdir->tail, pair) == 0) {
-            return true; // TODO should we return true only if pred is part of dir?
+            //return true; // TODO should we return true only if pred is part of dir?
+            return 0;
         }
 
         int err = lfs_dir_fetch(lfs, pdir, pdir->tail);
@@ -3178,7 +3224,7 @@ static int lfs_pred(lfs_t *lfs, const lfs_block_t pair[2], lfs_mdir_t *pdir) {
         }
     }
 
-    return false;
+    return LFS_ERR_NOENT;
 }
 
 static int32_t lfs_parent(lfs_t *lfs, const lfs_block_t pair[2],
@@ -3210,17 +3256,17 @@ static int lfs_relocate(lfs_t *lfs,
         const lfs_block_t oldpair[2], const lfs_block_t newpair[2]) {
     // find parent
     lfs_mdir_t parent;
-    lfs_mattr_t attr;
-    attr.tag = lfs_parent(lfs, oldpair, &parent);
-    if (attr.tag < 0 && attr.tag != LFS_ERR_NOENT) {
-        return attr.tag;
+    int32_t tag = lfs_parent(lfs, oldpair, &parent);
+    if (tag < 0 && tag != LFS_ERR_NOENT) {
+        return tag;
     }
 
-    if (attr.tag != LFS_ERR_NOENT) {
+    if (tag != LFS_ERR_NOENT) {
         // update disk, this creates a desync
-        attr.u.pair[0] = newpair[0];
-        attr.u.pair[1] = newpair[1];
-        int err = lfs_dir_commit(lfs, &parent, &(lfs_mattrlist_t){attr});
+        int err = lfs_dir_commit(lfs, &parent,
+                LFS_MKATTR(lfs_tagtype(tag), lfs_tagid(tag),
+                        newpair, lfs_tagsize(tag), NULL));
+                    // TODO don't recreate tag?
         if (err) {
             return err;
         }
@@ -3239,12 +3285,12 @@ static int lfs_relocate(lfs_t *lfs,
     }
 
     // find pred
-    int res = lfs_pred(lfs, oldpair, &parent);
-    if (res < 0) {
-        return res;
+    int err = lfs_pred(lfs, oldpair, &parent);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
     }
 
-    if (res) {
+    if (err != LFS_ERR_NOENT) {
         // just replace bad pair, no desync can occur
         parent.tail[0] = newpair[0];
         parent.tail[1] = newpair[1];
