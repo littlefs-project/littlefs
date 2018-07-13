@@ -262,9 +262,8 @@ struct lfs_attr {
 
 
 /// littlefs data structures ///
-typedef uint32_t lfs_tag_t;
 typedef struct lfs_mattr {
-    lfs_tag_t tag;
+    int32_t tag;
     union {
         void *buffer;
         lfs_block_t pair[2];
