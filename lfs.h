@@ -118,7 +118,7 @@ enum lfs_type {
     // internal chip sources
     LFS_FROM_REGION         = 0x000,
     LFS_FROM_DISK           = 0x200,
-    LFS_FROM_DIR            = 0x030,
+    LFS_FROM_MOVE           = 0x030,
 };
 
 // File open flags
@@ -263,31 +263,10 @@ struct lfs_attr {
 
 /// littlefs data structures ///
 typedef struct lfs_mattr {
+    struct lfs_mattr *next;
     int32_t tag;
-    union {
-        void *buffer;
-        lfs_block_t pair[2];
-        struct {
-            lfs_block_t head;
-            lfs_size_t size;
-        } ctz;
-        struct {
-            lfs_block_t block;
-            lfs_off_t off;
-        } d;
-        struct lfs_mdir *dir;
-    } u;
+    const void *buffer;
 } lfs_mattr_t;
-
-typedef struct lfs_mattrlist {
-    lfs_mattr_t e;
-    struct lfs_mattrlist *next;
-} lfs_mattrlist_t;
-
-//typedef struct lfs_entry {
-//    lfs_block_t pair[2];
-//    uint16_t id;
-//} lfs_entry_t;
 
 typedef struct lfs_globals {
     struct lfs_move {
@@ -305,7 +284,6 @@ typedef struct lfs_mdir {
     uint16_t count;
     bool erased;
     bool split;
-    bool stop_at_commit; // TODO hmmm
     lfs_globals_t globals;
 } lfs_mdir_t;
 
@@ -319,8 +297,10 @@ typedef struct lfs_file {
     struct lfs_file *next;
     lfs_block_t pair[2];
     uint16_t id;
-    lfs_block_t head;
-    lfs_size_t size;
+    struct lfs_ctz {
+        lfs_block_t head;
+        lfs_size_t size;
+    } ctz;
 
     uint32_t flags;
     lfs_off_t pos;
@@ -328,7 +308,7 @@ typedef struct lfs_file {
     lfs_off_t off;
     lfs_cache_t cache;
 
-    lfs_mattrlist_t *attrs;
+    lfs_mattr_t *attrs;
 } lfs_file_t;
 
 typedef struct lfs_dir {
