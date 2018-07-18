@@ -417,9 +417,12 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
     // rather than clobbering one of the blocks we just pretend
     // the revision may be valid
     int err = lfs_bd_read(lfs, dir->pair[0], 0, &dir->d.rev, 4);
-    dir->d.rev = lfs_fromle32(dir->d.rev);
-    if (err) {
+    if (err && err != LFS_ERR_CORRUPT) {
         return err;
+    }
+
+    if (err != LFS_ERR_CORRUPT) {
+        dir->d.rev = lfs_fromle32(dir->d.rev);
     }
 
     // set defaults
@@ -445,6 +448,9 @@ static int lfs_dir_fetch(lfs_t *lfs,
         int err = lfs_bd_read(lfs, tpair[i], 0, &test, sizeof(test));
         lfs_dir_fromle32(&test);
         if (err) {
+            if (err == LFS_ERR_CORRUPT) {
+                continue;
+            }
             return err;
         }
 
@@ -464,6 +470,9 @@ static int lfs_dir_fetch(lfs_t *lfs,
         err = lfs_bd_crc(lfs, tpair[i], sizeof(test),
                 (0x7fffffff & test.size) - sizeof(test), &crc);
         if (err) {
+            if (err == LFS_ERR_CORRUPT) {
+                continue;
+            }
             return err;
         }
 
