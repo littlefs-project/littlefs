@@ -1282,8 +1282,9 @@ static int lfs_ctz_traverse(lfs_t *lfs,
 
 
 /// Top level file operations ///
-int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
-        const char *path, int flags) {
+int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
+        const char *path, int flags,
+        const struct lfs_file_config *cfg) {
     // deorphan if we haven't yet, needed at most once after poweron
     if ((flags & 3) != LFS_O_RDONLY && !lfs->deorphaned) {
         int err = lfs_deorphan(lfs);
@@ -1323,6 +1324,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     }
 
     // setup file struct
+    file->cfg = cfg;
     file->pair[0] = cwd.pair[0];
     file->pair[1] = cwd.pair[1];
     file->poff = entry.off;
@@ -1340,7 +1342,10 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     }
 
     // allocate buffer if needed
-    if (lfs->cfg->file_buffer) {
+    file->cache.block = 0xffffffff;
+    if (file->cfg && file->cfg->buffer) {
+        file->cache.buffer = file->cfg->buffer;
+    } else if (lfs->cfg->file_buffer) {
         if (lfs->files) {
             // already in use
             return LFS_ERR_NOMEM;
@@ -1368,6 +1373,11 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     return 0;
 }
 
+int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
+        const char *path, int flags) {
+    return lfs_file_opencfg(lfs, file, path, flags, NULL);
+}
+
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     int err = lfs_file_sync(lfs, file);
 
@@ -1380,7 +1390,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     }
 
     // clean up memory
-    if (!lfs->cfg->file_buffer) {
+    if (!(file->cfg && file->cfg->buffer) && !lfs->cfg->file_buffer) {
         lfs_free(file->cache.buffer);
     }
 
