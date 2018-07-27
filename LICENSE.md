@@ -22,15 +22,3 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
----
-
-*Note*:
-Individual files contain the following tag instead of the full license text.
-
-
-
-    SPDX-License-Identifier:    BSD-3-Clause
-
-This enables machine processing of license information based on the SPDX
-License Identifiers that are here available: http://spdx.org/licenses/
