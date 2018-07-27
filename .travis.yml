@@ -155,7 +155,7 @@ jobs:
           if [ "$TRAVIS_COMMIT" == "$CURRENT_COMMIT" ]
           then
             # Build release notes
-            PREV=$(git tag --sort=-v:refname -l "v*.*.*" | head -1)
+            PREV=$(git tag --sort=-v:refname -l "v*" | head -1)
             if [ ! -z "$PREV" ]
             then
                 echo "PREV $PREV"
