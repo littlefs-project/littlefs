@@ -863,8 +863,6 @@ static int lfs_dir_compact(lfs_t *lfs,
         break;
 
 split:
-        // TODO update dirs that get split here?
-
         // commit no longer fits, need to split dir,
         // drop caches and create tail
         lfs->pcache.block = 0xffffffff;
@@ -920,6 +918,18 @@ relocate:
         int err = lfs_relocate(lfs, oldpair, dir->pair);
         if (err) {
             return err;
+        }
+    }
+
+    // update any dirs/files that are affected
+    for (int i = 0; i < 2; i++) {
+        for (lfs_file_t *f = ((lfs_file_t**)&lfs->files)[i]; f; f = f->next) {
+            if (lfs_paircmp(f->pair, dir->pair) == 0 &&
+                    f->id >= begin && f->id < end) {
+                f->pair[0] = dir->pair[0];
+                f->pair[1] = dir->pair[1];
+                f->id -= begin;
+            }
         }
     }
 
@@ -1052,19 +1062,17 @@ compact:
     }
 
     // update any directories that are affected
-    // TODO what about pairs? what if we're splitting??
     for (lfs_dir_t *d = lfs->dirs; d; d = d->next) {
         if (lfs_paircmp(d->m.pair, dir->pair) == 0) {
             d->m = *dir;
             if (d->id > lfs_tagid(deletetag)) {
-                d->id -= 1;
                 d->pos -= 1;
             }
         }
     }
 
-    for (lfs_file_t *f = lfs->files; f; f = f->next) {
-        if (lfs_paircmp(f->pair, dir->pair) == 0) {
+    for (int i = 0; i < 2; i++) {
+        for (lfs_file_t *f = ((lfs_file_t**)&lfs->files)[i]; f; f = f->next) {
             if (f->id == lfs_tagid(deletetag)) {
                 f->pair[0] = 0xffffffff;
                 f->pair[1] = 0xffffffff;
@@ -3186,8 +3194,6 @@ static int lfs_relocate(lfs_t *lfs,
             lfs->root[1] = newpair[1];
         }
 
-        // TODO update dir list!!?
-
         // clean up bad block, which should now be a desync
         return lfs_deorphan(lfs);
     }
@@ -3209,17 +3215,6 @@ static int lfs_relocate(lfs_t *lfs,
                 NULL));
         if (err) {
             return err;
-        }
-    }
-
-    // shift over any dirs/files that are affected
-    for (int i = 0; i < 2; i++) {
-        for (lfs_dir_t *d = ((void*[2]){lfs->dirs, lfs->files})[i];
-                d; d = d->next) {
-            if (lfs_paircmp(d->m.pair, oldpair) == 0) {
-                d->m.pair[0] = newpair[0];
-                d->m.pair[1] = newpair[1];
-            }
         }
     }
 

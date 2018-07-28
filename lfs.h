@@ -295,8 +295,8 @@ typedef struct lfs_cache {
 
 typedef struct lfs_file {
     struct lfs_file *next;
-    lfs_block_t pair[2];
     uint16_t id;
+    lfs_block_t pair[2];
     struct lfs_ctz {
         lfs_block_t head;
         lfs_size_t size;
@@ -313,10 +313,10 @@ typedef struct lfs_file {
 
 typedef struct lfs_dir {
     struct lfs_dir *next;
+    uint16_t id;
     struct lfs_mdir m;
 
     lfs_block_t head[2];
-    uint16_t id;
     lfs_off_t pos;
 } lfs_dir_t;
 
