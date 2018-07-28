@@ -1273,21 +1273,19 @@ static int32_t lfs_dir_get(lfs_t *lfs, lfs_mdir_t *dir,
 }
 
 static int32_t lfs_dir_lookup(lfs_t *lfs, lfs_mdir_t *dir, const char **path) {
-    lfs_block_t pair[2] = {lfs->root[0], lfs->root[1]};
+    // we reduce path to a single name if we can find it
     const char *name = *path;
-    lfs_size_t namelen;
-    int32_t tag;
+    *path = NULL;
+
+    // default to root dir
+    int32_t tag = LFS_MKTAG(LFS_TYPE_DIR, 0x3ff, 0);
+    lfs_block_t pair[2] = {lfs->root[0], lfs->root[1]};
 
     while (true) {
-    nextname:
+nextname:
         // skip slashes
         name += strspn(name, "/");
-        namelen = strcspn(name, "/");
-
-        if (name[0] == '\0') {
-            // special case for root dir
-            return LFS_MKTAG(LFS_TYPE_DIR, 0x3ff, 0);
-        }
+        lfs_size_t namelen = strcspn(name, "/");
 
         // skip '.' and root '..'
         if ((namelen == 1 && memcmp(name, ".", 1) == 0) ||
@@ -1320,10 +1318,31 @@ static int32_t lfs_dir_lookup(lfs_t *lfs, lfs_mdir_t *dir, const char **path) {
             suffix += sufflen;
         }
 
-        // update what we've found
-        *path = name;
+        // found path
+        if (name[0] == '\0') {
+            return tag;
+        }
 
-        // find path
+        // update what we've found if path is only a name
+        if (strchr(name, '/') == NULL) {
+            *path = name;
+        }
+
+        // only continue if we hit a directory
+        if (lfs_tagtype(tag) != LFS_TYPE_DIR) {
+            return LFS_ERR_NOTDIR;
+        }
+
+        // grab the entry data
+        if (lfs_tagid(tag) != 0x3ff) {
+            int32_t res = lfs_dir_get(lfs, dir, 0x7c3ff000,
+                    LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tagid(tag), 8), pair);
+            if (res < 0) {
+                return res;
+            }
+        }
+
+        // find entry matching name
         while (true) {
             tag = lfs_dir_find(lfs, dir, pair, 0x7c000fff,
                     LFS_MKTAG(LFS_TYPE_NAME, 0, namelen), name);
@@ -1337,6 +1356,7 @@ static int32_t lfs_dir_lookup(lfs_t *lfs, lfs_mdir_t *dir, const char **path) {
             }
 
             if (!dir->split) {
+                // couldn't find it
                 return LFS_ERR_NOENT;
             }
 
@@ -1344,26 +1364,8 @@ static int32_t lfs_dir_lookup(lfs_t *lfs, lfs_mdir_t *dir, const char **path) {
             pair[1] = dir->tail[1];
         }
 
+        // to next name
         name += namelen;
-        name += strspn(name, "/");
-        if (name[0] == '\0') {
-            return tag;
-        }
-
-        // don't continue on if we didn't hit a directory
-        // TODO update with what's on master?
-        if (lfs_tagtype(tag) != LFS_TYPE_DIR) {
-            return LFS_ERR_NOTDIR;
-        }
-
-        // TODO optimize grab for inline files and like?
-        // TODO would this mean more code?
-        // grab the entry data
-        int32_t res = lfs_dir_get(lfs, dir, 0x7c3ff000,
-                LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tagid(tag), 8), pair);
-        if (res < 0) {
-            return res;
-        }
     }
 }
 
@@ -1408,11 +1410,8 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     lfs_mdir_t cwd;
     int32_t res = lfs_dir_lookup(lfs, &cwd, &path);
-    if (res != LFS_ERR_NOENT || strchr(path, '/') != NULL) {
-        if (res >= 0) {
-            return LFS_ERR_EXIST;
-        }
-        return res;
+    if (res != LFS_ERR_NOENT || !path) {
+        return (res < 0) ? res : LFS_ERR_EXIST;
     }
 
     // check that name fits
@@ -1806,7 +1805,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     // allocate entry for file if it doesn't exist
     lfs_mdir_t cwd;
     int32_t tag = lfs_dir_lookup(lfs, &cwd, &path);
-    if (tag < 0 && (tag != LFS_ERR_NOENT || strchr(path, '/') != NULL)) {
+    if (tag < 0 && (tag != LFS_ERR_NOENT || !path)) {
         return tag;
     }
 
