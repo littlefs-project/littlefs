@@ -52,18 +52,18 @@ typedef uint32_t lfs_block_t;
 
 // Maximum inline file size in bytes. Large inline files require a larger
 // read and prog cache, but if a file can be inline it does not need its own
-// data block. LFS_ATTRS_MAX + LFS_INLINE_MAX must be <= 0xffff. Stored in
+// data block. LFS_ATTR_MAX + LFS_INLINE_MAX must be <= 0xffff. Stored in
 // superblock and must be respected by other littlefs drivers.
 #ifndef LFS_INLINE_MAX
 #define LFS_INLINE_MAX 0x3ff
 #endif
 
 // Maximum size of all attributes per file in bytes, may be redefined but a
-// a smaller LFS_ATTRS_MAX has no benefit. LFS_ATTRS_MAX + LFS_INLINE_MAX
+// a smaller LFS_ATTR_MAX has no benefit. LFS_ATTR_MAX + LFS_INLINE_MAX
 // must be <= 0xffff. Stored in superblock and must be respected by other
 // littlefs drivers.
-#ifndef LFS_ATTRS_MAX
-#define LFS_ATTRS_MAX 0x3f
+#ifndef LFS_ATTR_MAX
+#define LFS_ATTR_MAX 0x3f
 #endif
 
 // Max name size in bytes, may be redefined to reduce the size of the
@@ -89,8 +89,7 @@ enum lfs_error {
     LFS_ERR_NOSPC       = -28,  // No space left on device
     LFS_ERR_NOMEM       = -12,  // No more memory available
     LFS_ERR_NAMETOOLONG = -36,  // File name too long
-    LFS_ERR_NODATA      = -61,  // No data/attr available
-    LFS_ERR_RANGE       = -34,  // Result not representable
+    LFS_ERR_NOATTR      = -61,  // No data/attr available
 };
 
 // File types
@@ -119,6 +118,7 @@ enum lfs_type {
     LFS_FROM_REGION         = 0x000,
     LFS_FROM_DISK           = 0x200,
     LFS_FROM_MOVE           = 0x030,
+    LFS_FROM_ATTRS          = 0x020,
 };
 
 // File open flags
@@ -223,10 +223,10 @@ struct lfs_config {
     lfs_size_t inline_size;
 
     // Optional upper limit on attributes per file in bytes. No downside for
-    // larger attributes size but must be less than LFS_ATTRS_MAX. Defaults to
-    // LFS_ATTRS_MAX when zero.Stored in superblock and must be respected by
+    // larger attributes size but must be less than LFS_ATTR_MAX. Defaults to
+    // LFS_ATTR_MAX when zero.Stored in superblock and must be respected by
     // other littlefs drivers.
-    lfs_size_t attrs_size;
+    lfs_size_t attr_size;
 
     // Optional upper limit on length of file names in bytes. No downside for
     // larger names except the size of the info struct which is controlled by
@@ -234,7 +234,6 @@ struct lfs_config {
     // superblock and must be respected by other littlefs drivers.
     lfs_size_t name_size;
 };
-
 
 // File info structure
 struct lfs_info {
@@ -256,16 +255,30 @@ struct lfs_attr {
     // Pointer to buffer containing the attribute
     void *buffer;
 
-    // Size of attribute in bytes, limited to LFS_ATTRS_MAX
+    // Size of attribute in bytes, limited to LFS_ATTR_MAX
     lfs_size_t size;
+
+    // Pointer to next attribute in linked list
+    const struct lfs_attr *next;
+};
+
+// Optional configuration provided during lfs_file_opencfg
+struct lfs_file_config {
+    // Optional, statically allocated buffer for files. Must be program sized.
+    // If NULL, malloc will be used by default.
+    void *buffer;
+
+    // Optional, custom attributes
+    // TODO document more
+    const struct lfs_attr *attrs;
 };
 
 
 /// littlefs data structures ///
 typedef struct lfs_mattr {
-    const struct lfs_mattr *next;
     int32_t tag;
     const void *buffer;
+    const struct lfs_mattr *next;
 } lfs_mattr_t;
 
 typedef struct lfs_globals {
@@ -302,13 +315,13 @@ typedef struct lfs_file {
         lfs_size_t size;
     } ctz;
 
+    const struct lfs_file_config *cfg;
+    const struct lfs_attr *attrs;
     uint32_t flags;
     lfs_off_t pos;
     lfs_block_t block;
     lfs_off_t off;
     lfs_cache_t cache;
-
-    lfs_mattr_t *attrs;
 } lfs_file_t;
 
 typedef struct lfs_dir {
@@ -328,7 +341,7 @@ typedef struct lfs_superblock {
     lfs_size_t block_count;
 
     lfs_size_t inline_size;
-    lfs_size_t attrs_size;
+    lfs_size_t attr_size;
     lfs_size_t name_size;
 } lfs_superblock_t;
 
@@ -358,7 +371,7 @@ typedef struct lfs {
     lfs_globals_t diff;
 
     lfs_size_t inline_size;
-    lfs_size_t attrs_size;
+    lfs_size_t attr_size;
     lfs_size_t name_size;
 } lfs_t;
 
@@ -368,7 +381,8 @@ typedef struct lfs {
 // Format a block device with the littlefs
 //
 // Requires a littlefs object and config struct. This clobbers the littlefs
-// object, and does not leave the filesystem mounted.
+// object, and does not leave the filesystem mounted. The config struct must
+// be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
 int lfs_format(lfs_t *lfs, const struct lfs_config *config);
@@ -377,7 +391,8 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *config);
 //
 // Requires a littlefs object and config struct. Multiple filesystems
 // may be mounted simultaneously with multiple littlefs objects. Both
-// lfs and config must be allocated while mounted.
+// lfs and config must be allocated while mounted. The config struct must
+// be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
 int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
@@ -416,9 +431,10 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 // smaller than the buffer, it is padded with zeros. It the stored attribute
 // is larger than the buffer, LFS_ERR_RANGE is returned.
 //
+// TODO doc
 // Returns a negative error code on failure.
-int lfs_getattrs(lfs_t *lfs, const char *path,
-        const struct lfs_attr *attrs, int count);
+lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
+        uint8_t type, void *buffer, lfs_size_t size);
 
 // Set custom attributes
 //
@@ -426,22 +442,37 @@ int lfs_getattrs(lfs_t *lfs, const char *path,
 // disk based on their type id. Unspecified attributes are left unmodified.
 // Specifying an attribute with zero size deletes the attribute.
 //
+// TODO doc
 // Returns a negative error code on failure.
-int lfs_setattrs(lfs_t *lfs, const char *path,
-        const struct lfs_attr *attrs, int count);
+int lfs_setattr(lfs_t *lfs, const char *path,
+        uint8_t type, const void *buffer, lfs_size_t size);
 
 
 /// File operations ///
 
 // Open a file
 //
-// The mode that the file is opened in is determined
-// by the flags, which are values from the enum lfs_open_flags
-// that are bitwise-ored together.
+// The mode that the file is opened in is determined by the flags, which
+// are values from the enum lfs_open_flags that are bitwise-ored together.
 //
 // Returns a negative error code on failure.
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);
+
+
+// Open a file with extra configuration
+//
+// The mode that the file is opened in is determined by the flags, which
+// are values from the enum lfs_open_flags that are bitwise-ored together.
+//
+// The config struct provides additional config options per file as described
+// above. The config struct must be allocated while the file is open, and the
+// config struct must be zeroed for defaults and backwards compatibility.
+//
+// Returns a negative error code on failure.
+int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
+        const char *path, int flags,
+        const struct lfs_file_config *config);
 
 // Close a file
 //
@@ -503,30 +534,6 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 // Returns the size of the file, or a negative error code on failure.
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 
-// Get custom attributes attached to a file
-//
-// Attributes are looked up based on the type id. If the stored attribute is
-// smaller than the buffer, it is padded with zeros. It the stored attribute
-// is larger than the buffer, LFS_ERR_RANGE is returned.
-//
-// Returns a negative error code on failure.
-int lfs_file_getattrs(lfs_t *lfs, lfs_file_t *file,
-        const struct lfs_attr *attrs, int count);
-
-// Set custom attributes on a file
-//
-// The array of attributes will be used to update the attributes stored on
-// disk based on their type id. Unspecified attributes are left unmodified.
-// Specifying an attribute with zero size deletes the attribute.
-//
-// Note: Attributes are not written out until a call to lfs_file_sync
-// or lfs_file_close and must be allocated until the file is closed or
-// lfs_file_setattrs is called with a count of zero.
-//
-// Returns a negative error code on failure.
-int lfs_file_setattrs(lfs_t *lfs, lfs_file_t *file,
-        const struct lfs_attr *attrs, int count);
-
 
 /// Directory operations ///
 
@@ -583,8 +590,10 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 // smaller than the buffer, it is padded with zeros. It the stored attribute
 // is larger than the buffer, LFS_ERR_RANGE is returned.
 //
+// TODO doc
 // Returns a negative error code on failure.
-int lfs_fs_getattrs(lfs_t *lfs, const struct lfs_attr *attrs, int count);
+lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
+        uint8_t type, void *buffer, lfs_size_t size);
 
 // Set custom attributes on the filesystem
 //
@@ -594,8 +603,10 @@ int lfs_fs_getattrs(lfs_t *lfs, const struct lfs_attr *attrs, int count);
 //
 // Note: Filesystem level attributes are not available for wear-leveling
 //
+// TODO doc
 // Returns a negative error code on failure.
-int lfs_fs_setattrs(lfs_t *lfs, const struct lfs_attr *attrs, int count);
+int lfs_fs_setattr(lfs_t *lfs,
+        uint8_t type, const void *buffer, lfs_size_t size);
 
 // Finds the current size of the filesystem
 //

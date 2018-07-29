@@ -364,7 +364,7 @@ static void lfs_alloc_ack(lfs_t *lfs) {
 //    d->block_count = lfs_fromle32(d->block_count);
 //    d->version     = lfs_fromle32(d->version);
 //    d->inline_size = lfs_fromle32(d->inline_size);
-//    d->attrs_size  = lfs_fromle32(d->attrs_size);
+//    d->attr_size  = lfs_fromle32(d->attr_size);
 //    d->name_size   = lfs_fromle32(d->name_size);
 //}
 //
@@ -375,7 +375,7 @@ static void lfs_alloc_ack(lfs_t *lfs) {
 //    d->block_count = lfs_tole32(d->block_count);
 //    d->version     = lfs_tole32(d->version);
 //    d->inline_size = lfs_tole32(d->inline_size);
-//    d->attrs_size  = lfs_tole32(d->attrs_size);
+//    d->attr_size  = lfs_tole32(d->attr_size);
 //    d->name_size   = lfs_tole32(d->name_size);
 //}
 
@@ -430,7 +430,7 @@ static inline bool lfs_pairsync(
     (((uint32_t)(type) << 22) | ((uint32_t)(id) << 12) | (uint32_t)(size))
 
 #define LFS_MKATTR(type, id, buffer, size, next) \
-    &(const lfs_mattr_t){(next), LFS_MKTAG(type, id, size), (buffer)}
+    &(const lfs_mattr_t){LFS_MKTAG(type, id, size), (buffer), (next)}
 
 static inline bool lfs_tagisvalid(uint32_t tag) {
     return !(tag & 0x80000000);
@@ -526,13 +526,20 @@ static int32_t lfs_commitget(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
     return LFS_ERR_NOENT;
 }
 
+static int lfs_commitattrs(lfs_t *lfs, struct lfs_commit *commit,
+        uint16_t id, const struct lfs_attr *attrs);
+
 static int lfs_commitmove(lfs_t *lfs, struct lfs_commit *commit,
         uint16_t fromid, uint16_t toid,
         const lfs_mdir_t *dir, const lfs_mattr_t *attrs);
 
 static int lfs_commitattr(lfs_t *lfs, struct lfs_commit *commit,
         uint32_t tag, const void *buffer) {
-    if (lfs_tagtype(tag) == LFS_FROM_MOVE) {
+    if (lfs_tagtype(tag) == LFS_FROM_ATTRS) {
+        // special case for custom attributes
+        return lfs_commitattrs(lfs, commit,
+                lfs_tagid(tag), buffer);
+    } else if (lfs_tagtype(tag) == LFS_FROM_MOVE) {
         // special case for moves
         return lfs_commitmove(lfs, commit,
                 lfs_tagsize(tag), lfs_tagid(tag),
@@ -583,6 +590,19 @@ static int lfs_commitattr(lfs_t *lfs, struct lfs_commit *commit,
 
     commit->off += size;
     commit->ptag = tag & 0x7fffffff;
+    return 0;
+}
+
+static int lfs_commitattrs(lfs_t *lfs, struct lfs_commit *commit,
+        uint16_t id, const struct lfs_attr *attrs) {
+    for (const struct lfs_attr *a = attrs; a; a = a->next) {
+        int err = lfs_commitattr(lfs, commit,
+                LFS_MKTAG(0x100 | a->type, id, a->size), a->buffer);
+        if (err) {
+            return err;
+        }
+    }
+
     return 0;
 }
 
@@ -1378,9 +1398,6 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     }
 
     info->type = lfs_tagtype(tag);
-    if (lfs_tagsize(tag) > lfs->name_size) {
-        return LFS_ERR_RANGE;
-    }
 
     struct lfs_ctz ctz;
     tag = lfs_dir_get(lfs, dir, 0x7c3ff000,
@@ -1410,7 +1427,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     lfs_mdir_t cwd;
     int32_t res = lfs_dir_lookup(lfs, &cwd, &path);
-    if (res != LFS_ERR_NOENT || !path) {
+    if (!(res == LFS_ERR_NOENT && path)) {
         return (res < 0) ? res : LFS_ERR_EXIST;
     }
 
@@ -1792,8 +1809,9 @@ static int lfs_ctztraverse(lfs_t *lfs,
 
 
 /// Top level file operations ///
-int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
-        const char *path, int flags) {
+int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
+        const char *path, int flags,
+        const struct lfs_file_config *cfg) {
     // deorphan if we haven't yet, needed at most once after poweron
     if ((flags & 3) != LFS_O_RDONLY && !lfs->deorphaned) {
         int err = lfs_deorphan(lfs);
@@ -1805,7 +1823,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     // allocate entry for file if it doesn't exist
     lfs_mdir_t cwd;
     int32_t tag = lfs_dir_lookup(lfs, &cwd, &path);
-    if (tag < 0 && (tag != LFS_ERR_NOENT || !path)) {
+    if (tag < 0 && !(tag == LFS_ERR_NOENT && path)) {
         return tag;
     }
 
@@ -1859,6 +1877,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     }
 
     // setup file struct
+    file->cfg = cfg;
     file->pair[0] = cwd.pair[0];
     file->pair[1] = cwd.pair[1];
     file->id = lfs_tagid(tag);
@@ -1866,9 +1885,34 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     file->pos = 0;
     file->attrs = NULL;
 
+    if (cfg && cfg->attrs) {
+        // fetch attrs
+        for (const struct lfs_attr *a = cfg->attrs; a; a = a->next) {
+            if ((file->flags & 3) != LFS_O_WRONLY) {
+                int32_t res = lfs_dir_get(lfs, &cwd, 0x7ffff000,
+                        LFS_MKTAG(0x100 | a->type, file->id, a->size), a->buffer);
+                if (res < 0 && res != LFS_ERR_NOENT) {
+                    return res;
+                }
+            }
+
+            if ((file->flags & 3) != LFS_O_RDONLY) {
+                if (a->size > lfs->attr_size) {
+                    return LFS_ERR_NOSPC;
+                }
+
+                file->flags |= LFS_F_DIRTY;
+            }
+        }
+
+        file->attrs = cfg->attrs;
+    }
+
     // allocate buffer if needed
     file->cache.block = 0xffffffff;
-    if (lfs->cfg->file_buffer) {
+    if (file->cfg && file->cfg->buffer) {
+        file->cache.buffer = file->cfg->buffer;
+    } else if (lfs->cfg->file_buffer) {
         file->cache.buffer = lfs->cfg->file_buffer;
     } else if ((file->flags & 3) == LFS_O_RDONLY) {
         file->cache.buffer = lfs_malloc(lfs->cfg->read_size);
@@ -1909,6 +1953,11 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     return 0;
 }
 
+int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
+        const char *path, int flags) {
+    return lfs_file_opencfg(lfs, file, path, flags, NULL);
+}
+
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     int err = lfs_file_sync(lfs, file);
 
@@ -1921,7 +1970,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     }
 
     // clean up memory
-    if (!lfs->cfg->file_buffer) {
+    if (!(file->cfg && file->cfg->buffer) && !lfs->cfg->file_buffer) {
         lfs_free(file->cache.buffer);
     }
 
@@ -2071,7 +2120,8 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             int err = lfs_dir_commit(lfs, &cwd,
                     LFS_MKATTR(LFS_TYPE_CTZSTRUCT, file->id,
                         &file->ctz.head, sizeof(file->ctz),
-                    file->attrs));
+                    LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->attrs, 0,
+                    NULL)));
             if (err) {
                 return err;
             }
@@ -2079,7 +2129,8 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             int err = lfs_dir_commit(lfs, &cwd,
                     LFS_MKATTR(LFS_TYPE_INLINESTRUCT, file->id,
                             file->cache.buffer, file->ctz.size,
-                    file->attrs));
+                    LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->attrs, 0,
+                    NULL)));
             if (err) {
                 return err;
             }
@@ -2688,7 +2739,85 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     return 0;
 }
 
-//int lfs_getattrs(lfs_t *lfs, const char *path,
+lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
+        uint8_t type, void *buffer, lfs_size_t size) {
+    lfs_mdir_t cwd;
+    int32_t res = lfs_dir_lookup(lfs, &cwd, &path);
+    if (res < 0) {
+        return res;
+    }
+
+    res = lfs_dir_get(lfs, &cwd, 0x7ffff000,
+            LFS_MKTAG(0x100 | type, lfs_tagid(res),
+                lfs_min(size, lfs->attr_size)), buffer);
+    if (res < 0) {
+        if (res == LFS_ERR_NOENT) {
+            return LFS_ERR_NOATTR;
+        }
+        return res;
+    }
+
+    return lfs_tagsize(res);
+}
+
+int lfs_setattr(lfs_t *lfs, const char *path,
+        uint8_t type, const void *buffer, lfs_size_t size) {
+    if (size > lfs->attr_size) {
+        return LFS_ERR_NOSPC;
+    }
+
+    lfs_mdir_t cwd;
+    int32_t res = lfs_dir_lookup(lfs, &cwd, &path);
+    if (res < 0) {
+        return res;
+    }
+
+    return lfs_dir_commit(lfs, &cwd,
+        LFS_MKATTR(0x100 | type, lfs_tagid(res), buffer, size,
+        NULL));
+}
+
+lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
+        uint8_t type, void *buffer, lfs_size_t size) {
+    lfs_mdir_t superdir;
+    int err = lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
+    if (err) {
+        return err;
+    }
+
+    int32_t res = lfs_dir_get(lfs, &superdir, 0x7ffff000,
+            LFS_MKTAG(0x100 | type, 0,
+                lfs_min(size, lfs->attr_size)), buffer);
+    if (res < 0) {
+        if (res == LFS_ERR_NOENT) {
+            return LFS_ERR_NOATTR;
+        }
+        return res;
+    }
+
+    return lfs_tagsize(res);
+}
+
+int lfs_fs_setattr(lfs_t *lfs,
+        uint8_t type, const void *buffer, lfs_size_t size) {
+    if (size > lfs->attr_size) {
+        return LFS_ERR_NOSPC;
+    }
+
+    lfs_mdir_t superdir;
+    int err = lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
+    if (err) {
+        return err;
+    }
+
+    return lfs_dir_commit(lfs, &superdir,
+        LFS_MKATTR(0x100 | type, 0, buffer, size,
+        NULL));
+}
+
+//
+//
+//
 //        const struct lfs_attr *attrs, int count) {
 //    lfs_mdir_t cwd;
 //    int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
@@ -2777,10 +2906,10 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->inline_size = lfs_min(LFS_INLINE_MAX, lfs->cfg->read_size);
     }
 
-    LFS_ASSERT(lfs->cfg->attrs_size <= LFS_ATTRS_MAX);
-    lfs->attrs_size = lfs->cfg->attrs_size;
-    if (!lfs->attrs_size) {
-        lfs->attrs_size = LFS_ATTRS_MAX;
+    LFS_ASSERT(lfs->cfg->attr_size <= LFS_ATTR_MAX);
+    lfs->attr_size = lfs->cfg->attr_size;
+    if (!lfs->attr_size) {
+        lfs->attr_size = LFS_ATTR_MAX;
     }
 
     LFS_ASSERT(lfs->cfg->name_size <= LFS_NAME_MAX);
@@ -2873,7 +3002,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         .block_size  = lfs->cfg->block_size,
         .block_count = lfs->cfg->block_count,
         .inline_size = lfs->inline_size,
-        .attrs_size  = lfs->attrs_size,
+        .attr_size   = lfs->attr_size,
         .name_size   = lfs->name_size,
     };
 
@@ -2954,14 +3083,14 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->inline_size = superblock.inline_size;
     }
 
-    if (superblock.attrs_size) {
-        if (superblock.attrs_size > lfs->attrs_size) {
-            LFS_ERROR("Unsupported attrs size (%d > %d)",
-                    superblock.attrs_size, lfs->attrs_size);
+    if (superblock.attr_size) {
+        if (superblock.attr_size > lfs->attr_size) {
+            LFS_ERROR("Unsupported attr size (%d > %d)",
+                    superblock.attr_size, lfs->attr_size);
             return LFS_ERR_INVAL;
         }
 
-        lfs->attrs_size = superblock.attrs_size;
+        lfs->attr_size = superblock.attr_size;
     }
 
     if (superblock.name_size) {
