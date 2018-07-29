@@ -118,6 +118,7 @@ enum lfs_type {
     LFS_FROM_REGION         = 0x000,
     LFS_FROM_DISK           = 0x200,
     LFS_FROM_MOVE           = 0x030,
+    LFS_FROM_ATTRS          = 0x020,
 };
 
 // File open flags
@@ -258,7 +259,7 @@ struct lfs_attr {
     lfs_size_t size;
 
     // Pointer to next attribute in linked list
-    struct lfs_attr *next;
+    const struct lfs_attr *next;
 };
 
 // Optional configuration provided during lfs_file_opencfg
@@ -269,7 +270,7 @@ struct lfs_file_config {
 
     // Optional, custom attributes
     // TODO document more
-    struct lfs_attr *attrs;
+    const struct lfs_attr *attrs;
 };
 
 
@@ -315,7 +316,7 @@ typedef struct lfs_file {
     } ctz;
 
     const struct lfs_file_config *cfg;
-    struct lfs_mattr *attrs;
+    const struct lfs_attr *attrs;
     uint32_t flags;
     lfs_off_t pos;
     lfs_block_t block;

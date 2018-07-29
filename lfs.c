@@ -526,13 +526,20 @@ static int32_t lfs_commitget(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
     return LFS_ERR_NOENT;
 }
 
+static int lfs_commitattrs(lfs_t *lfs, struct lfs_commit *commit,
+        uint16_t id, const struct lfs_attr *attrs);
+
 static int lfs_commitmove(lfs_t *lfs, struct lfs_commit *commit,
         uint16_t fromid, uint16_t toid,
         const lfs_mdir_t *dir, const lfs_mattr_t *attrs);
 
 static int lfs_commitattr(lfs_t *lfs, struct lfs_commit *commit,
         uint32_t tag, const void *buffer) {
-    if (lfs_tagtype(tag) == LFS_FROM_MOVE) {
+    if (lfs_tagtype(tag) == LFS_FROM_ATTRS) {
+        // special case for custom attributes
+        return lfs_commitattrs(lfs, commit,
+                lfs_tagid(tag), buffer);
+    } else if (lfs_tagtype(tag) == LFS_FROM_MOVE) {
         // special case for moves
         return lfs_commitmove(lfs, commit,
                 lfs_tagsize(tag), lfs_tagid(tag),
@@ -583,6 +590,19 @@ static int lfs_commitattr(lfs_t *lfs, struct lfs_commit *commit,
 
     commit->off += size;
     commit->ptag = tag & 0x7fffffff;
+    return 0;
+}
+
+static int lfs_commitattrs(lfs_t *lfs, struct lfs_commit *commit,
+        uint16_t id, const struct lfs_attr *attrs) {
+    for (const struct lfs_attr *a = attrs; a; a = a->next) {
+        int err = lfs_commitattr(lfs, commit,
+                LFS_MKTAG(0x100 | a->type, id, a->size), a->buffer);
+        if (err) {
+            return err;
+        }
+    }
+
     return 0;
 }
 
@@ -1865,33 +1885,27 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     file->pos = 0;
     file->attrs = NULL;
 
-    if (cfg) {
+    if (cfg && cfg->attrs) {
         // fetch attrs
-        file->attrs = (lfs_mattr_t*)cfg->attrs;
-
-        for (lfs_mattr_t *b = file->attrs; b; b = (lfs_mattr_t*)b->next) {
-            struct lfs_attr *a = (struct lfs_attr*)b;
-            if (a->size > lfs->attr_size) {
-                return LFS_ERR_NOSPC;
-            }
-
-            b->tag = LFS_MKTAG(0x100 | a->type, file->id, a->size);
+        for (const struct lfs_attr *a = cfg->attrs; a; a = a->next) {
             if ((file->flags & 3) != LFS_O_WRONLY) {
                 int32_t res = lfs_dir_get(lfs, &cwd, 0x7ffff000,
-                        b->tag, a->buffer);
+                        LFS_MKTAG(0x100 | a->type, file->id, a->size), a->buffer);
                 if (res < 0 && res != LFS_ERR_NOENT) {
                     return res;
                 }
             }
 
-            b->buffer = a->buffer;
-            b->next = (lfs_mattr_t*)a->next;
-
             if ((file->flags & 3) != LFS_O_RDONLY) {
-                // TODO hmm
+                if (a->size > lfs->attr_size) {
+                    return LFS_ERR_NOSPC;
+                }
+
                 file->flags |= LFS_F_DIRTY;
             }
         }
+
+        file->attrs = cfg->attrs;
     }
 
     // allocate buffer if needed
@@ -1958,17 +1972,6 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     // clean up memory
     if (!(file->cfg && file->cfg->buffer) && !lfs->cfg->file_buffer) {
         lfs_free(file->cache.buffer);
-    }
-
-    // fix attr structures
-    // TODO this is a hack?
-    for (struct lfs_attr *b = (struct lfs_attr*)file->attrs; b; b = b->next) {
-        lfs_mattr_t *a = (lfs_mattr_t*)b;
-
-        b->next = (struct lfs_attr*)a->next;
-        b->size = lfs_tagsize(a->tag);
-        b->buffer = (void*)a->buffer;
-        b->type = 0xff & lfs_tagtype(a->tag);
     }
 
     return err;
@@ -2112,17 +2115,13 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             return err;
         }
 
-        // update all ids in case we've moved
-        for (lfs_mattr_t *a = file->attrs; a; a = (lfs_mattr_t*)a->next) {
-            a->tag = (a->tag & 0xffc00fff) | LFS_MKTAG(0, file->id, 0);
-        }
-
         // either update the references or inline the whole file
         if (!(file->flags & LFS_F_INLINE)) {
             int err = lfs_dir_commit(lfs, &cwd,
                     LFS_MKATTR(LFS_TYPE_CTZSTRUCT, file->id,
                         &file->ctz.head, sizeof(file->ctz),
-                    file->attrs));
+                    LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->attrs, 0,
+                    NULL)));
             if (err) {
                 return err;
             }
@@ -2130,7 +2129,8 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             int err = lfs_dir_commit(lfs, &cwd,
                     LFS_MKATTR(LFS_TYPE_INLINESTRUCT, file->id,
                             file->cache.buffer, file->ctz.size,
-                    file->attrs));
+                    LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->attrs, 0,
+                    NULL)));
             if (err) {
                 return err;
             }
@@ -2741,9 +2741,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
 lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
         uint8_t type, void *buffer, lfs_size_t size) {
-    // TODO need me?
-    memset(buffer, 0, size);
-
     lfs_mdir_t cwd;
     int32_t res = lfs_dir_lookup(lfs, &cwd, &path);
     if (res < 0) {
@@ -2782,9 +2779,6 @@ int lfs_setattr(lfs_t *lfs, const char *path,
 
 lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
         uint8_t type, void *buffer, lfs_size_t size) {
-    // TODO need me?
-    memset(buffer, 0, size);
-
     lfs_mdir_t superdir;
     int err = lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
     if (err) {
