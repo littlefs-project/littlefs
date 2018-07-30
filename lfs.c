@@ -759,7 +759,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir,
     dir->tail[1] = tail[1];
     dir->erased = false;
     dir->split = split;
-    dir->locals = (lfs_globals_t){0};
+    dir->locals = (lfs_globals_t){{{0}}};
 
     // don't write out yet, let caller take care of that
     return 0;
@@ -775,7 +775,7 @@ static int lfs_dir_compact(lfs_t *lfs,
     // There's nothing special about our global delta, so feed it back
     // into the global global delta
     lfs_globalsxor(&lfs->diff, &dir->locals);
-    dir->locals = (lfs_globals_t){0};
+    dir->locals = (lfs_globals_t){{{0}}};
 
     // increment revision count
     dir->rev += 1;
@@ -929,7 +929,7 @@ relocate:
     if (!relocated) {
         // successful commit, update globals
         lfs_globalsxor(&dir->locals, &lfs->diff);
-        lfs->diff = (lfs_globals_t){0};
+        lfs->diff = (lfs_globals_t){{{0}}};
     } else {
         // update references if we relocated
         LFS_DEBUG("Relocating %d %d to %d %d",
@@ -1070,7 +1070,7 @@ compact:
         dir->etag = commit.ptag;
         // successful commit, update globals
         lfs_globalsxor(&dir->locals, &lfs->diff);
-        lfs->diff = (lfs_globals_t){0};
+        lfs->diff = (lfs_globals_t){{{0}}};
     }
 
     // update globals that are affected
@@ -1142,7 +1142,7 @@ static int32_t lfs_dir_find(lfs_t *lfs,
         uint16_t tempcount = 0;
         lfs_block_t temptail[2] = {0xffffffff, 0xffffffff};
         bool tempsplit = false;
-        lfs_globals_t templocals = (lfs_globals_t){0};
+        lfs_globals_t templocals = (lfs_globals_t){{{0}}};
 
         while (true) {
             // extract next tag
@@ -1882,37 +1882,30 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     file->id = lfs_tagid(tag);
     file->flags = flags;
     file->pos = 0;
-    file->attrs = NULL;
 
-    if (cfg && cfg->attrs) {
-        // fetch attrs
-        for (const struct lfs_attr *a = cfg->attrs; a; a = a->next) {
-            if ((file->flags & 3) != LFS_O_WRONLY) {
-                int32_t res = lfs_dir_get(lfs, &cwd, 0x7ffff000,
-                        LFS_MKTAG(0x100 | a->type, file->id, a->size), a->buffer);
-                if (res < 0 && res != LFS_ERR_NOENT) {
-                    return res;
-                }
-            }
-
-            if ((file->flags & 3) != LFS_O_RDONLY) {
-                if (a->size > lfs->attr_size) {
-                    return LFS_ERR_NOSPC;
-                }
-
-                file->flags |= LFS_F_DIRTY;
+    // fetch attrs
+    for (const struct lfs_attr *a = file->cfg->attrs; a; a = a->next) {
+        if ((file->flags & 3) != LFS_O_WRONLY) {
+            int32_t res = lfs_dir_get(lfs, &cwd, 0x7ffff000,
+                    LFS_MKTAG(0x100 | a->type, file->id, a->size), a->buffer);
+            if (res < 0 && res != LFS_ERR_NOENT) {
+                return res;
             }
         }
 
-        file->attrs = cfg->attrs;
+        if ((file->flags & 3) != LFS_O_RDONLY) {
+            if (a->size > lfs->attr_size) {
+                return LFS_ERR_NOSPC;
+            }
+
+            file->flags |= LFS_F_DIRTY;
+        }
     }
 
     // allocate buffer if needed
     file->cache.block = 0xffffffff;
-    if (file->cfg && file->cfg->buffer) {
+    if (file->cfg->buffer) {
         file->cache.buffer = file->cfg->buffer;
-    } else if (lfs->cfg->file_buffer) {
-        file->cache.buffer = lfs->cfg->file_buffer;
     } else if ((file->flags & 3) == LFS_O_RDONLY) {
         file->cache.buffer = lfs_malloc(lfs->cfg->read_size);
         if (!file->cache.buffer) {
@@ -1954,7 +1947,8 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags) {
-    return lfs_file_opencfg(lfs, file, path, flags, NULL);
+    static const struct lfs_file_config defaults = {0};
+    return lfs_file_opencfg(lfs, file, path, flags, &defaults);
 }
 
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
@@ -1969,7 +1963,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     }
 
     // clean up memory
-    if (!(file->cfg && file->cfg->buffer) && !lfs->cfg->file_buffer) {
+    if (file->cfg->buffer) {
         lfs_free(file->cache.buffer);
     }
 
@@ -2119,7 +2113,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             int err = lfs_dir_commit(lfs, &cwd,
                     LFS_MKATTR(LFS_TYPE_CTZSTRUCT, file->id,
                         &file->ctz.head, sizeof(file->ctz),
-                    LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->attrs, 0,
+                    LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->cfg->attrs, 0,
                     NULL)));
             if (err) {
                 return err;
@@ -2128,7 +2122,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             int err = lfs_dir_commit(lfs, &cwd,
                     LFS_MKATTR(LFS_TYPE_INLINESTRUCT, file->id,
                             file->cache.buffer, file->ctz.size,
-                    LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->attrs, 0,
+                    LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->cfg->attrs, 0,
                     NULL)));
             if (err) {
                 return err;
@@ -2237,7 +2231,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     }
 
     if ((file->flags & LFS_F_INLINE) &&
-            file->pos + nsize >= lfs->cfg->inline_size) {
+            file->pos + nsize >= lfs->inline_size) {
         // inline file doesn't fit anymore
         file->block = 0xfffffffe;
         file->off = file->pos;
@@ -3365,7 +3359,7 @@ int lfs_scan(lfs_t *lfs) {
     }
 
     lfs_mdir_t dir = {.tail = {0, 1}};
-    lfs->diff = (lfs_globals_t){0};
+    lfs->diff = (lfs_globals_t){{{0}}};
 
     // iterate over all directory directory entries
     while (!lfs_pairisnull(dir.tail)) {
@@ -3382,7 +3376,7 @@ int lfs_scan(lfs_t *lfs) {
     // TODO does this only run once?
     // TODO Should we inline this into init??
     lfs_globalsxor(&lfs->globals, &lfs->diff);
-    lfs->diff = (lfs_globals_t){0};
+    lfs->diff = (lfs_globals_t){{{0}}};
     if (!lfs_pairisnull(lfs->globals.move.pair)) {
         LFS_DEBUG("Found move %d %d %d",
                 lfs->globals.move.pair[0],

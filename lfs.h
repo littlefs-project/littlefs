@@ -54,16 +54,18 @@ typedef uint32_t lfs_block_t;
 // read and prog cache, but if a file can be inline it does not need its own
 // data block. LFS_ATTR_MAX + LFS_INLINE_MAX must be <= 0xffff. Stored in
 // superblock and must be respected by other littlefs drivers.
+// TODO doc
 #ifndef LFS_INLINE_MAX
-#define LFS_INLINE_MAX 0x3ff
+#define LFS_INLINE_MAX 0xfff
 #endif
 
 // Maximum size of all attributes per file in bytes, may be redefined but a
 // a smaller LFS_ATTR_MAX has no benefit. LFS_ATTR_MAX + LFS_INLINE_MAX
 // must be <= 0xffff. Stored in superblock and must be respected by other
 // littlefs drivers.
+// TODO doc
 #ifndef LFS_ATTR_MAX
-#define LFS_ATTR_MAX 0x3f
+#define LFS_ATTR_MAX 0xfff
 #endif
 
 // Max name size in bytes, may be redefined to reduce the size of the
@@ -211,10 +213,6 @@ struct lfs_config {
     // lookahead block.
     void *lookahead_buffer;
 
-    // Optional, statically allocated buffer for files. Must be program sized.
-    // If enabled, only one file may be opened at a time.
-    void *file_buffer;
-
     // Optional upper limit on inlined files in bytes. Large inline files
     // require a larger read and prog cache, but if a file can be inlined it
     // does not need its own data block. Must be smaller than the read size
@@ -317,7 +315,6 @@ typedef struct lfs_file {
     } ctz;
 
     const struct lfs_file_config *cfg;
-    const struct lfs_attr *attrs;
     uint32_t flags;
     lfs_off_t pos;
     lfs_block_t block;
