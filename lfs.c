@@ -488,8 +488,7 @@ static int32_t lfs_commitget(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
         uint32_t tag, uint32_t getmask, uint32_t gettag, int32_t getdiff,
         void *buffer, bool stopatcommit) {
     // iterate over dir block backwards (for faster lookups)
-    while (off > sizeof(tag)) {
-        LFS_ASSERT(off > sizeof(tag)+lfs_tagsize(tag));
+    while (off >= 2*sizeof(tag)+lfs_tagsize(tag)) {
         off -= sizeof(tag)+lfs_tagsize(tag);
 
         if (lfs_tagtype(tag) == LFS_TYPE_CRC && stopatcommit) {
@@ -1133,23 +1132,22 @@ static int32_t lfs_dir_find(lfs_t *lfs,
         lfs_off_t off = sizeof(dir->rev);
         uint32_t ptag = 0;
         uint32_t crc = 0xffffffff;
-        dir->tail[0] = 0xffffffff;
-        dir->tail[1] = 0xffffffff;
-        dir->count = 0;
-        dir->split = false;
-        dir->locals = (lfs_globals_t){0};
 
         dir->rev = lfs_tole32(rev[0]);
         lfs_crc(&crc, &dir->rev, sizeof(dir->rev));
         dir->rev = lfs_fromle32(dir->rev);
+        dir->off = 0;
 
-        lfs_mdir_t tempdir = *dir;
         uint32_t tempfoundtag = foundtag;
+        uint16_t tempcount = 0;
+        lfs_block_t temptail[2] = {0xffffffff, 0xffffffff};
+        bool tempsplit = false;
+        lfs_globals_t templocals = (lfs_globals_t){0};
 
         while (true) {
             // extract next tag
             uint32_t tag;
-            int err = lfs_bd_read(lfs, tempdir.pair[0],
+            int err = lfs_bd_read(lfs, dir->pair[0],
                     off, &tag, sizeof(tag));
             if (err) {
                 return err;
@@ -1161,67 +1159,66 @@ static int32_t lfs_dir_find(lfs_t *lfs,
             // next commit not yet programmed
             if (lfs_tagtype(ptag) == LFS_TYPE_CRC && !lfs_tagisvalid(tag)) {
                 dir->erased = true;
-                goto done;
+                break;
             }
 
             // check we're in valid range
             if (off + sizeof(tag)+lfs_tagsize(tag) > lfs->cfg->block_size) {
+                dir->erased = false;
                 break;
             }
 
             if (lfs_tagtype(tag) == LFS_TYPE_CRC) {
                 // check the crc attr
                 uint32_t dcrc;
-                int err = lfs_bd_read(lfs, tempdir.pair[0],
+                int err = lfs_bd_read(lfs, dir->pair[0],
                         off+sizeof(tag), &dcrc, sizeof(dcrc));
                 if (err) {
                     return err;
                 }
 
                 if (crc != lfs_fromle32(dcrc)) {
-                    if (off == sizeof(tempdir.rev)) {
-                        // try other block
-                        break;
-                    } else {
-                        // consider what we have good enough
-                        dir->erased = false;
-                        goto done;
-                    }
+                    dir->erased = false;
+                    break;
                 }
 
-                tempdir.off = off + sizeof(tag)+lfs_tagsize(tag);
-                tempdir.etag = tag;
-                crc = 0xffffffff;
-                *dir = tempdir;
                 foundtag = tempfoundtag;
+                dir->off = off + sizeof(tag)+lfs_tagsize(tag);
+                dir->etag = tag;
+                dir->count = tempcount;
+                dir->tail[0] = temptail[0];
+                dir->tail[1] = temptail[1];
+                dir->split = tempsplit;
+                dir->locals = templocals;
+                crc = 0xffffffff;
             } else {
-                err = lfs_bd_crc(lfs, tempdir.pair[0],
+                err = lfs_bd_crc(lfs, dir->pair[0],
                         off+sizeof(tag), lfs_tagsize(tag), &crc);
                 if (err) {
                     return err;
                 }
 
-                if (lfs_tagid(tag) < 0x3ff &&
-                        lfs_tagid(tag) >= tempdir.count) {
-                    tempdir.count = lfs_tagid(tag)+1;
+                if (lfs_tagid(tag) < 0x3ff && lfs_tagid(tag) >= tempcount) {
+                    tempcount = lfs_tagid(tag)+1;
                 }
 
+                // TODO use subtype accross all of these?
                 if (lfs_tagsubtype(tag) == LFS_TYPE_TAIL) {
-                    tempdir.split = (lfs_tagtype(tag) & 1);
-                    err = lfs_bd_read(lfs, tempdir.pair[0], off+sizeof(tag),
-                            tempdir.tail, sizeof(tempdir.tail));
+                    tempsplit = (lfs_tagtype(tag) & 1);
+                    err = lfs_bd_read(lfs, dir->pair[0], off+sizeof(tag),
+                            temptail, sizeof(temptail));
                     if (err) {
                         return err;
                     }
                 } else if (lfs_tagtype(tag) == LFS_TYPE_GLOBALS) {
-                    err = lfs_bd_read(lfs, tempdir.pair[0], off+sizeof(tag),
-                            &tempdir.locals, sizeof(tempdir.locals));
+                    err = lfs_bd_read(lfs, dir->pair[0], off+sizeof(tag),
+                            &templocals, sizeof(templocals));
                     if (err) {
                         return err;
                     }
                 } else if (lfs_tagtype(tag) == LFS_TYPE_DELETE) {
-                    LFS_ASSERT(tempdir.count > 0);
-                    tempdir.count -= 1;
+                    LFS_ASSERT(tempcount > 0);
+                    tempcount -= 1;
 
                     if (lfs_tagid(tag) == lfs_tagid(tempfoundtag)) {
                         tempfoundtag = LFS_ERR_NOENT;
@@ -1230,7 +1227,7 @@ static int32_t lfs_dir_find(lfs_t *lfs,
                         tempfoundtag -= LFS_MKTAG(0, 1, 0);
                     }
                 } else if ((tag & findmask) == (findtag & findmask)) {
-                    int res = lfs_bd_cmp(lfs, tempdir.pair[0], off+sizeof(tag),
+                    int res = lfs_bd_cmp(lfs, dir->pair[0], off+sizeof(tag),
                             findbuffer, lfs_tagsize(tag));
                     if (res < 0) {
                         return res;
@@ -1247,6 +1244,21 @@ static int32_t lfs_dir_find(lfs_t *lfs,
             off += sizeof(tag)+lfs_tagsize(tag);
         }
 
+        // consider what we have good enough
+        if (dir->off > 0) {
+            // synthetic move
+            if (lfs_paircmp(dir->pair, lfs->globals.move.pair) == 0) {
+                if (lfs->globals.move.id == lfs_tagid(foundtag)) {
+                    foundtag = LFS_ERR_NOENT;
+                } else if (lfs_tagisvalid(foundtag) &&
+                        lfs->globals.move.id < lfs_tagid(foundtag)) {
+                    foundtag -= LFS_MKTAG(0, 1, 0);
+                }
+            }
+
+            return foundtag;
+        }
+
         // failed, try the other crc?
         lfs_pairswap(dir->pair);
         lfs_pairswap(rev);
@@ -1254,19 +1266,6 @@ static int32_t lfs_dir_find(lfs_t *lfs,
 
     LFS_ERROR("Corrupted dir pair at %d %d", dir->pair[0], dir->pair[1]);
     return LFS_ERR_CORRUPT;
-
-done:
-    // synthetic move
-    if (lfs_paircmp(dir->pair, lfs->globals.move.pair) == 0) {
-        if (lfs->globals.move.id == lfs_tagid(foundtag)) {
-            foundtag = LFS_ERR_NOENT;
-        } else if (lfs_tagisvalid(foundtag) &&
-                lfs->globals.move.id < lfs_tagid(foundtag)) {
-            foundtag -= LFS_MKTAG(0, 1, 0);
-        }
-    }
-
-    return foundtag;
 }
 
 static int lfs_dir_fetch(lfs_t *lfs,
