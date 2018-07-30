@@ -249,7 +249,8 @@ struct lfs_info {
 
 // Custom attribute structure
 struct lfs_attr {
-    // Type of attribute, provided by user and used to identify the attribute
+    // 8-bit Type of attribute, provided by user and used to
+    // identify the attribute
     uint8_t type;
 
     // Pointer to buffer containing the attribute
@@ -259,7 +260,7 @@ struct lfs_attr {
     lfs_size_t size;
 
     // Pointer to next attribute in linked list
-    const struct lfs_attr *next;
+    struct lfs_attr *next;
 };
 
 // Optional configuration provided during lfs_file_opencfg
@@ -268,9 +269,9 @@ struct lfs_file_config {
     // If NULL, malloc will be used by default.
     void *buffer;
 
-    // Optional, custom attributes
+    // Optional, linked list of custom attributes.
     // TODO document more
-    const struct lfs_attr *attrs;
+    struct lfs_attr *attrs;
 };
 
 
@@ -582,7 +583,8 @@ lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir);
 int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 
 
-/// Filesystem filesystem operations ///
+/// Filesystem filesystem operations /// TODO choose one
+/// Miscellaneous littlefs specific operations /// TODO choose one
 
 // Get custom attributes on the filesystem
 //
@@ -616,9 +618,6 @@ int lfs_fs_setattr(lfs_t *lfs,
 // Returns the number of allocated blocks, or a negative error code on failure.
 lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 
-
-/// Miscellaneous littlefs specific operations ///
-
 // Traverse through all blocks in use by the filesystem
 //
 // The provided callback will be called with each block address that is
@@ -626,16 +625,8 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 // blocks are in use or how much of the storage is available.
 //
 // Returns a negative error code on failure.
-int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
-
-// Prunes any recoverable errors that may have occured in the filesystem
-//
-// Not needed to be called by user unless an operation is interrupted
-// but the filesystem is still mounted. This is already called on first
-// allocation.
-//
-// Returns a negative error code on failure.
-int lfs_deorphan(lfs_t *lfs);
+// TODO don't pass lfs_t?
+int lfs_fs_traverse(lfs_t *lfs, int (*cb)(lfs_t*, void*, lfs_block_t), void *data);
 
 
 #endif
