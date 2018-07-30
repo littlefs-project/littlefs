@@ -78,11 +78,8 @@ do
     rm -rf blocks
     mkdir blocks
     ln -s /dev/zero blocks/$(printf '%x' $i)
-    echo $i 1i
     lfs_mktree
-    echo $i 2i
     lfs_chktree
-    echo $i 3i
 done
 
 echo "--- Block persistance ---"
