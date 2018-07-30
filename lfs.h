@@ -625,8 +625,7 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 // blocks are in use or how much of the storage is available.
 //
 // Returns a negative error code on failure.
-// TODO don't pass lfs_t?
-int lfs_fs_traverse(lfs_t *lfs, int (*cb)(lfs_t*, void*, lfs_block_t), void *data);
+int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 
 
 #endif

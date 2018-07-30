@@ -259,8 +259,7 @@ static int lfs_bd_sync(lfs_t *lfs) {
 
 
 /// Internal operations predeclared here ///
-int lfs_fs_traverse(lfs_t *lfs,
-        int (*cb)(lfs_t*, void*, lfs_block_t), void *data);
+int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 static int lfs_pred(lfs_t *lfs, const lfs_block_t dir[2], lfs_mdir_t *pdir);
 static int32_t lfs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
@@ -272,7 +271,8 @@ int lfs_deorphan(lfs_t *lfs);
 
 
 /// Block allocator ///
-static int lfs_alloc_lookahead(lfs_t *lfs, void *p, lfs_block_t block) {
+static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
+    lfs_t *lfs = (lfs_t*)p;
     lfs_block_t off = ((block - lfs->free.off)
             + lfs->cfg->block_count) % lfs->cfg->block_count;
 
@@ -320,7 +320,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
         // find mask of free blocks from tree
         memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
-        int err = lfs_fs_traverse(lfs, lfs_alloc_lookahead, NULL);
+        int err = lfs_fs_traverse(lfs, lfs_alloc_lookahead, lfs);
         if (err) {
             return err;
         }
@@ -1768,7 +1768,7 @@ relocate:
 static int lfs_ctztraverse(lfs_t *lfs,
         lfs_cache_t *rcache, const lfs_cache_t *pcache,
         lfs_block_t head, lfs_size_t size,
-        int (*cb)(lfs_t*, void*, lfs_block_t), void *data) {
+        int (*cb)(void*, lfs_block_t), void *data) {
     if (size == 0) {
         return 0;
     }
@@ -1776,7 +1776,7 @@ static int lfs_ctztraverse(lfs_t *lfs,
     lfs_off_t index = lfs_ctzindex(lfs, &(lfs_off_t){size-1});
 
     while (true) {
-        int err = cb(lfs, data, head);
+        int err = cb(data, head);
         if (err) {
             return err;
         }
@@ -1795,7 +1795,7 @@ static int lfs_ctztraverse(lfs_t *lfs,
         }
 
         for (int i = 0; i < count-1; i++) {
-            err = cb(lfs, data, heads[i]);
+            err = cb(data, heads[i]);
             if (err) {
                 return err;
             }
@@ -3117,7 +3117,7 @@ int lfs_unmount(lfs_t *lfs) {
 
 /// Internal filesystem filesystem operations ///
 int lfs_fs_traverse(lfs_t *lfs,
-        int (*cb)(lfs_t *lfs, void *data, lfs_block_t block), void *data) {
+        int (*cb)(void *data, lfs_block_t block), void *data) {
     if (lfs_pairisnull(lfs->root)) {
         return 0;
     }
@@ -3126,7 +3126,7 @@ int lfs_fs_traverse(lfs_t *lfs,
     lfs_mdir_t dir = {.tail = {0, 1}};
     while (!lfs_pairisnull(dir.tail)) {
         for (int i = 0; i < 2; i++) {
-            int err = cb(lfs, data, dir.tail[i]);
+            int err = cb(data, dir.tail[i]);
             if (err) {
                 return err;
             }
@@ -3542,7 +3542,7 @@ int lfs_deorphan(lfs_t *lfs) {
 //}
 
 // TODO need lfs?
-static int lfs_fs_size_count(lfs_t *lfs, void *p, lfs_block_t block) {
+static int lfs_fs_size_count(void *p, lfs_block_t block) {
     lfs_size_t *size = p;
     *size += 1;
     return 0;
