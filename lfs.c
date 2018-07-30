@@ -3255,6 +3255,12 @@ int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
 }
 */
 static int lfs_pred(lfs_t *lfs, const lfs_block_t pair[2], lfs_mdir_t *pdir) {
+    if (lfs_pairisnull(lfs->root)) {
+        // TODO best place for this?
+        // TODO needed for relocate
+        return LFS_ERR_NOENT;
+    }
+
     // iterate over all directory directory entries
     pdir->tail[0] = 0;
     pdir->tail[1] = 1;
@@ -3275,6 +3281,11 @@ static int lfs_pred(lfs_t *lfs, const lfs_block_t pair[2], lfs_mdir_t *pdir) {
 
 static int32_t lfs_parent(lfs_t *lfs, const lfs_block_t pair[2],
         lfs_mdir_t *parent) {
+    if (lfs_pairisnull(lfs->root)) {
+        // TODO best place for this?
+        return LFS_ERR_NOENT;
+    }
+
     // search for both orderings so we can reuse the find function
     lfs_block_t child[2] = {pair[0], pair[1]};
 
@@ -3531,18 +3542,19 @@ int lfs_deorphan(lfs_t *lfs) {
 //    return lfs_dir_setattrs(lfs, &dir, &entry, attrs, count);
 //}
 
-//static int lfs_fs_size_count(void *p, lfs_block_t block) {
-//    lfs_size_t *size = p;
-//    *size += 1;
-//    return 0;
-//}
-//
-//lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
-//    lfs_size_t size = 0;
-//    int err = lfs_fs_traverse(lfs, lfs_fs_size_count, &size);
-//    if (err) {
-//        return err;
-//    }
-//
-//    return size;
-//}
+// TODO need lfs?
+static int lfs_fs_size_count(lfs_t *lfs, void *p, lfs_block_t block) {
+    lfs_size_t *size = p;
+    *size += 1;
+    return 0;
+}
+
+lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
+    lfs_size_t size = 0;
+    int err = lfs_fs_traverse(lfs, lfs_fs_size_count, &size);
+    if (err) {
+        return err;
+    }
+
+    return size;
+}
