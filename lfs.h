@@ -110,7 +110,7 @@ enum lfs_type {
     LFS_TYPE_TAIL           = 0x0c0,
     LFS_TYPE_SOFTTAIL       = 0x0c0,
     LFS_TYPE_HARDTAIL       = 0x0c1,
-    LFS_TYPE_CRC            = 0x0ff,
+    LFS_TYPE_CRC            = 0x0ff, // TODO are trailing ones useful?
 
     LFS_TYPE_INLINESTRUCT   = 0x040,
     LFS_TYPE_CTZSTRUCT      = 0x041,
@@ -280,12 +280,9 @@ typedef struct lfs_mattr {
     const struct lfs_mattr *next;
 } lfs_mattr_t;
 
-typedef struct lfs_globals {
-    struct lfs_move {
-        lfs_block_t pair[2];
-        uint16_t id;
-    } move;
-} lfs_globals_t;
+typedef union lfs_global {
+    uint16_t u16[5];
+} lfs_global_t;
 
 typedef struct lfs_mdir {
     lfs_block_t pair[2];
@@ -296,7 +293,7 @@ typedef struct lfs_mdir {
     uint16_t count;
     bool erased;
     bool split;
-    lfs_globals_t locals;
+    lfs_global_t locals;
 } lfs_mdir_t;
 
 typedef struct lfs_cache {
@@ -314,12 +311,13 @@ typedef struct lfs_file {
         lfs_size_t size;
     } ctz;
 
-    const struct lfs_file_config *cfg;
     uint32_t flags;
     lfs_off_t pos;
     lfs_block_t block;
     lfs_off_t off;
     lfs_cache_t cache;
+
+    const struct lfs_file_config *cfg;
 } lfs_file_t;
 
 typedef struct lfs_dir {
@@ -353,21 +351,18 @@ typedef struct lfs_free {
 
 // The littlefs type
 typedef struct lfs {
-    const struct lfs_config *cfg;
+    lfs_cache_t rcache;
+    lfs_cache_t pcache;
 
     lfs_block_t root[2];
     lfs_file_t *files;
     lfs_dir_t *dirs;
 
-    lfs_cache_t rcache;
-    lfs_cache_t pcache;
-
+    lfs_global_t globals;
+    lfs_global_t locals;
     lfs_free_t free;
-    bool deorphaned;
-    lfs_globals_t globals2;
-    lfs_globals_t globals;
-    lfs_globals_t diff;
 
+    const struct lfs_config *cfg;
     lfs_size_t inline_size;
     lfs_size_t attr_size;
     lfs_size_t name_size;
