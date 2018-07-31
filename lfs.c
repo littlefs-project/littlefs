@@ -886,6 +886,11 @@ split:
         // drop caches and create tail
         lfs->pcache.block = 0xffffffff;
 
+        if (ack == -1) {
+            // If we can't fit in this block, we won't fit in next block
+            return LFS_ERR_NOSPC;
+        }
+
         lfs_mdir_t tail;
         int err = lfs_dir_alloc(lfs, &tail, dir->split, dir->tail);
         if (err) {
@@ -1971,49 +1976,53 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
 }
 
 static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
-relocate:;
-    // just relocate what exists into new block
-    lfs_block_t nblock;
-    int err = lfs_alloc(lfs, &nblock);
-    if (err) {
-        return err;
-    }
-
-    err = lfs_bd_erase(lfs, nblock);
-    if (err) {
-        if (err == LFS_ERR_CORRUPT) {
-            goto relocate;
-        }
-        return err;
-    }
-
-    // either read from dirty cache or disk
-    for (lfs_off_t i = 0; i < file->off; i++) {
-        uint8_t data;
-        err = lfs_cache_read(lfs, &lfs->rcache, &file->cache,
-                file->block, i, &data, 1);
+    while (true) {
+        // just relocate what exists into new block
+        lfs_block_t nblock;
+        int err = lfs_alloc(lfs, &nblock);
         if (err) {
             return err;
         }
 
-        err = lfs_cache_prog(lfs, &lfs->pcache, &lfs->rcache,
-                nblock, i, &data, 1);
+        err = lfs_bd_erase(lfs, nblock);
         if (err) {
             if (err == LFS_ERR_CORRUPT) {
                 goto relocate;
             }
             return err;
         }
+
+        // either read from dirty cache or disk
+        for (lfs_off_t i = 0; i < file->off; i++) {
+            uint8_t data;
+            err = lfs_cache_read(lfs, &lfs->rcache, &file->cache,
+                    file->block, i, &data, 1);
+            if (err) {
+                return err;
+            }
+
+            err = lfs_cache_prog(lfs, &lfs->pcache, &lfs->rcache,
+                    nblock, i, &data, 1);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
+            }
+        }
+
+        // copy over new state of file
+        memcpy(file->cache.buffer, lfs->pcache.buffer, lfs->cfg->prog_size);
+        file->cache.block = lfs->pcache.block;
+        file->cache.off = lfs->pcache.off;
+        lfs->pcache.block = 0xffffffff;
+
+        file->block = nblock;
+        return 0;
+
+relocate:
+        continue;
     }
-
-    // copy over new state of file
-    memcpy(file->cache.buffer, lfs->pcache.buffer, lfs->cfg->prog_size);
-    file->cache.block = lfs->pcache.block;
-    file->cache.off = lfs->pcache.off;
-    lfs->pcache.block = 0xffffffff;
-
-    file->block = nblock;
-    return 0;
 }
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
@@ -2067,6 +2076,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
                 }
 
                 break;
+
 relocate:
                 LFS_DEBUG("Bad block at %d", file->block);
                 err = lfs_file_relocate(lfs, file);
@@ -2091,48 +2101,58 @@ relocate:
 }
 
 int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
-    int err = lfs_file_flush(lfs, file);
-    if (err) {
-        return err;
-    }
-
-    if ((file->flags & LFS_F_DIRTY) &&
-            !(file->flags & LFS_F_ERRED) &&
-            !lfs_pairisnull(file->pair)) {
-        // update dir entry
-        // TODO keep list of dirs including these guys for no
-        // need of another reload?
-        lfs_mdir_t cwd;
-        err = lfs_dir_fetch(lfs, &cwd, file->pair);
+    while (true) {
+        int err = lfs_file_flush(lfs, file);
         if (err) {
             return err;
         }
 
-        // either update the references or inline the whole file
-        if (!(file->flags & LFS_F_INLINE)) {
-            int err = lfs_dir_commit(lfs, &cwd,
-                    LFS_MKATTR(LFS_TYPE_CTZSTRUCT, file->id,
-                        &file->ctz.head, sizeof(file->ctz),
-                    LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->cfg->attrs, 0,
-                    NULL)));
+        if ((file->flags & LFS_F_DIRTY) &&
+                !(file->flags & LFS_F_ERRED) &&
+                !lfs_pairisnull(file->pair)) {
+            // update dir entry
+            // TODO keep list of dirs including these guys for no
+            // need of another reload?
+            lfs_mdir_t cwd;
+            err = lfs_dir_fetch(lfs, &cwd, file->pair);
             if (err) {
                 return err;
             }
-        } else {
+
+            // either update the references or inline the whole file
             int err = lfs_dir_commit(lfs, &cwd,
-                    LFS_MKATTR(LFS_TYPE_INLINESTRUCT, file->id,
-                            file->cache.buffer, file->ctz.size,
                     LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->cfg->attrs, 0,
-                    NULL)));
+                    (file->flags & LFS_F_INLINE) ?
+                        LFS_MKATTR(LFS_TYPE_INLINESTRUCT, file->id,
+                            file->cache.buffer, file->ctz.size, NULL) :
+                        LFS_MKATTR(LFS_TYPE_CTZSTRUCT, file->id,
+                            &file->ctz.head, sizeof(file->ctz), NULL)));
             if (err) {
+                if (err == LFS_ERR_NOSPC && (file->flags & LFS_F_INLINE)) {
+                    goto relocate;
+                }
                 return err;
             }
+
+            file->flags &= ~LFS_F_DIRTY;
         }
 
-        file->flags &= ~LFS_F_DIRTY;
-    }
+        return 0;
 
-    return 0;
+relocate:
+        // inline file doesn't fit anymore
+        file->block = 0xfffffffe;
+        file->off = file->pos;
+
+        lfs_alloc_ack(lfs);
+        err = lfs_file_relocate(lfs, file);
+        if (err) {
+            return err;
+        }
+
+        file->flags &= ~LFS_F_INLINE;
+        file->flags |= LFS_F_WRITING;
+    }
 }
 
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
@@ -3304,6 +3324,7 @@ static int32_t lfs_parent(lfs_t *lfs, const lfs_block_t pair[2],
 // TODO rename to lfs_dir_relocate?
 static int lfs_relocate(lfs_t *lfs,
         const lfs_block_t oldpair[2], const lfs_block_t newpair[2]) {
+    // TODO name lfs_dir_relocate?
     // find parent
     lfs_mdir_t parent;
     int32_t tag = lfs_parent(lfs, oldpair, &parent);

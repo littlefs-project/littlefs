@@ -59,7 +59,7 @@ tests/test.py << TEST
     lfs_rename(&lfs, "b/hello", "c/hello") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-truncate -s-7 blocks/6
+tests/corrupt.py blocks/{6,7}
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir[0], "b") => 0;
@@ -86,8 +86,8 @@ tests/test.py << TEST
     lfs_rename(&lfs, "c/hello", "d/hello") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-truncate -s-7 blocks/8
-truncate -s-7 blocks/a
+tests/corrupt.py blocks/{8,9}
+tests/corrupt.py blocks/{a,b}
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir[0], "c") => 0;
@@ -166,7 +166,7 @@ tests/test.py << TEST
     lfs_rename(&lfs, "b/hi", "c/hi") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-truncate -s-7 blocks/7
+tests/corrupt.py blocks/{6,7}
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir[0], "b") => 0;
@@ -193,8 +193,8 @@ tests/test.py << TEST
     lfs_rename(&lfs, "c/hi", "d/hi") => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-truncate -s-7 blocks/9
-truncate -s-7 blocks/b
+tests/corrupt.py blocks/{8,9}
+tests/corrupt.py blocks/{a,b}
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir[0], "c") => 0;
