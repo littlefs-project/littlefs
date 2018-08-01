@@ -280,6 +280,12 @@ typedef struct lfs_mattr {
     const struct lfs_mattr *next;
 } lfs_mattr_t;
 
+typedef struct lfs_cache {
+    lfs_block_t block;
+    lfs_off_t off;
+    uint8_t *buffer;
+} lfs_cache_t;
+
 typedef union lfs_global {
     uint16_t u16[5];
 } lfs_global_t;
@@ -288,24 +294,37 @@ typedef struct lfs_mdir {
     lfs_block_t pair[2];
     lfs_block_t tail[2];
     uint32_t rev;
-    lfs_off_t off;
     uint32_t etag;
+    lfs_off_t off;
     uint16_t count;
     bool erased;
     bool split;
     lfs_global_t locals;
 } lfs_mdir_t;
 
-typedef struct lfs_cache {
-    lfs_block_t block;
-    lfs_off_t off;
-    uint8_t *buffer;
-} lfs_cache_t;
+typedef struct lfs_mlist {
+    struct lfs_mlist *next;
+    uint16_t id;
+    uint8_t type;
+    lfs_mdir_t m;
+} lfs_mlist_t;
+
+typedef struct lfs_dir {
+    struct lfs_dir *next;
+    uint16_t id;
+    uint8_t type;
+    lfs_mdir_t m;
+
+    lfs_off_t pos;
+    lfs_block_t head[2];
+} lfs_dir_t;
 
 typedef struct lfs_file {
     struct lfs_file *next;
     uint16_t id;
-    lfs_block_t pair[2];
+    uint8_t type;
+    lfs_mdir_t m;
+
     struct lfs_ctz {
         lfs_block_t head;
         lfs_size_t size;
@@ -319,15 +338,6 @@ typedef struct lfs_file {
 
     const struct lfs_file_config *cfg;
 } lfs_file_t;
-
-typedef struct lfs_dir {
-    struct lfs_dir *next;
-    uint16_t id;
-    struct lfs_mdir m;
-
-    lfs_block_t head[2];
-    lfs_off_t pos;
-} lfs_dir_t;
 
 typedef struct lfs_superblock {
     char magic[8];
@@ -355,8 +365,7 @@ typedef struct lfs {
     lfs_cache_t pcache;
 
     lfs_block_t root[2];
-    lfs_file_t *files;
-    lfs_dir_t *dirs;
+    lfs_mlist_t *mlist;
 
     lfs_global_t globals;
     lfs_global_t locals;
