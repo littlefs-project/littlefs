@@ -264,7 +264,7 @@ static int lfs_pred(lfs_t *lfs, const lfs_block_t dir[2], lfs_mdir_t *pdir);
 static int32_t lfs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
 static int lfs_relocate(lfs_t *lfs,
-        const lfs_block_t oldpair[2], const lfs_block_t newpair[2]);
+        const lfs_block_t oldpair[2], lfs_block_t newpair[2]);
 int lfs_scan(lfs_t *lfs);
 int lfs_fixmove(lfs_t *lfs);
 int lfs_forceconsistency(lfs_t *lfs);
@@ -332,74 +332,6 @@ static void lfs_alloc_ack(lfs_t *lfs) {
 }
 
 
-/// Endian swapping functions ///
-//static void lfs_dir_fromle32(struct lfs_disk_dir *d) {
-//    d->rev     = lfs_fromle32(d->rev);
-//    d->size    = lfs_fromle32(d->size);
-//    d->tail[0] = lfs_fromle32(d->tail[0]);
-//    d->tail[1] = lfs_fromle32(d->tail[1]);
-//}
-//
-//static void lfs_mdir_tole32(struct lfs_disk_dir *d) {
-//    d->rev     = lfs_tole32(d->rev);
-//    d->size    = lfs_tole32(d->size);
-//    d->tail[0] = lfs_tole32(d->tail[0]);
-//    d->tail[1] = lfs_tole32(d->tail[1]);
-//}
-//
-//static void lfs_entry_fromle32(struct lfs_disk_entry *d) {
-//    d->u.dir[0] = lfs_fromle32(d->u.dir[0]);
-//    d->u.dir[1] = lfs_fromle32(d->u.dir[1]);
-//}
-//
-//static void lfs_entry_tole32(struct lfs_disk_entry *d) {
-//    d->u.dir[0] = lfs_tole32(d->u.dir[0]);
-//    d->u.dir[1] = lfs_tole32(d->u.dir[1]);
-//}
-
-///*static*/ void lfs_superblock_fromle32(struct lfs_disk_superblock *d) {
-//    d->root[0]     = lfs_fromle32(d->root[0]);
-//    d->root[1]     = lfs_fromle32(d->root[1]);
-//    d->block_size  = lfs_fromle32(d->block_size);
-//    d->block_count = lfs_fromle32(d->block_count);
-//    d->version     = lfs_fromle32(d->version);
-//    d->inline_size = lfs_fromle32(d->inline_size);
-//    d->attr_size  = lfs_fromle32(d->attr_size);
-//    d->name_size   = lfs_fromle32(d->name_size);
-//}
-//
-///*static*/ void lfs_superblock_tole32(struct lfs_disk_superblock *d) {
-//    d->root[0]     = lfs_tole32(d->root[0]);
-//    d->root[1]     = lfs_tole32(d->root[1]);
-//    d->block_size  = lfs_tole32(d->block_size);
-//    d->block_count = lfs_tole32(d->block_count);
-//    d->version     = lfs_tole32(d->version);
-//    d->inline_size = lfs_tole32(d->inline_size);
-//    d->attr_size  = lfs_tole32(d->attr_size);
-//    d->name_size   = lfs_tole32(d->name_size);
-//}
-
-/// Other struct functions ///
-//static inline lfs_size_t lfs_entry_elen(const lfs_mattr_t *attr) {
-//    return (lfs_size_t)(attr->d.elen) |
-//        ((lfs_size_t)(attr->d.alen & 0xc0) << 2);
-//}
-//
-//static inline lfs_size_t lfs_entry_alen(const lfs_mattr_t *attr) {
-//    return attr->d.alen & 0x3f;
-//}
-//
-//static inline lfs_size_t lfs_entry_nlen(const lfs_mattr_t *attr) {
-//    return attr->d.nlen;
-//}
-//
-//static inline lfs_size_t lfs_entry_size(const lfs_mattr_t *attr) {
-//    return 4 + lfs_entry_elen(attr) +
-//            lfs_entry_alen(attr) +
-//            lfs_entry_nlen(attr);
-//}
-
-
 /// Metadata pair and directory operations ///
 static inline void lfs_pairswap(lfs_block_t pair[2]) {
     lfs_block_t t = pair[0];
@@ -424,6 +356,27 @@ static inline bool lfs_pairsync(
     return (paira[0] == pairb[0] && paira[1] == pairb[1]) ||
            (paira[0] == pairb[1] && paira[1] == pairb[0]);
 }
+
+static inline void lfs_pairfromle32(lfs_block_t *pair) {
+    pair[0] = lfs_fromle32(pair[0]);
+    pair[1] = lfs_fromle32(pair[1]);
+}
+
+static inline void lfs_pairtole32(lfs_block_t *pair) {
+    pair[0] = lfs_tole32(pair[0]);
+    pair[1] = lfs_tole32(pair[1]);
+}
+
+static void lfs_ctzfromle32(struct lfs_ctz *ctz) {
+    ctz->head = lfs_fromle32(ctz->head);
+    ctz->size = lfs_fromle32(ctz->size);
+}
+
+static void lfs_ctztole32(struct lfs_ctz *ctz) {
+    ctz->head = lfs_tole32(ctz->head);
+    ctz->size = lfs_tole32(ctz->size);
+}
+
 
 /// Entry tag operations ///
 #define LFS_MKTAG(type, id, size) \
@@ -492,6 +445,16 @@ static inline void lfs_globalxordeorphaned(lfs_global_t *a, bool deorphaned) {
     a->u16[0] ^= deorphaned << 15;
 }
 
+static inline void lfs_globalfromle32(lfs_global_t *a) {
+    a->u16[0] = lfs_fromle16(a->u16[0]);
+    lfs_pairfromle32((lfs_block_t*)&a->u16[1]);
+}
+
+static inline void lfs_globaltole32(lfs_global_t *a) {
+    a->u16[0] = lfs_tole16(a->u16[0]);
+    lfs_pairtole32((lfs_block_t*)&a->u16[1]);
+}
+
 static inline const lfs_block_t *lfs_globalmovepair(const lfs_t *lfs) {
     return (const lfs_block_t*)&lfs->globals.u16[1];
 }
@@ -510,13 +473,17 @@ static inline void lfs_globalmove(lfs_t *lfs,
     lfs_globalzero(&diff);
     lfs_globalxormove(&diff, lfs_globalmovepair(lfs), lfs_globalmoveid(lfs));
     lfs_globalxormove(&diff, pair, id);
+    lfs_globalfromle32(&lfs->locals);
     lfs_globalxor(&lfs->locals, &diff);
+    lfs_globaltole32(&lfs->locals);
     lfs_globalxor(&lfs->globals, &diff);
 }
 
 static inline void lfs_globaldeorphaned(lfs_t *lfs, bool deorphaned) {
     deorphaned ^= lfs_globalisdeorphaned(lfs);
+    lfs_globalfromle32(&lfs->locals);
     lfs_globalxordeorphaned(&lfs->locals, deorphaned);
+    lfs_globaltole32(&lfs->locals);
     lfs_globalxordeorphaned(&lfs->globals, deorphaned);
 }
 
@@ -748,7 +715,8 @@ static int lfs_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
     }
 
     // build crc tag
-    tag = (0x80000000 & ~lfs_fromle32(tag)) |
+    tag = lfs_fromle32(tag);
+    tag = (0x80000000 & ~tag) |
             LFS_MKTAG(LFS_TYPE_CRC, 0x3ff,
                 off - (commit->off+sizeof(uint32_t)));
 
@@ -907,9 +875,11 @@ static int lfs_dir_compact(lfs_t *lfs,
             if (!lfs_pairisnull(dir->tail)) {
                 // commit tail, which may be new after last size check
                 // TODO le32
+                lfs_pairtole32(dir->tail);
                 err = lfs_commitattr(lfs, &commit,
                         LFS_MKTAG(LFS_TYPE_TAIL + dir->split,
                             0x3ff, sizeof(dir->tail)), dir->tail);
+                lfs_pairfromle32(dir->tail);
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
@@ -1025,7 +995,9 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
                 lfs_globalmovepair(lfs), lfs_globalmoveid(lfs));
         lfs_globalxormove(&canceldiff, 
                 (lfs_block_t[2]){0xffffffff, 0xffffffff}, 0x3ff);
+        lfs_globalfromle32(&lfs->locals);
         lfs_globalxor(&lfs->locals, &canceldiff);
+        lfs_globaltole32(&lfs->locals);
 
         cancelattr.tag = LFS_MKTAG(LFS_TYPE_DELETE, lfs_globalmoveid(lfs), 0);
         cancelattr.next = attrs;
@@ -1089,7 +1061,9 @@ compact:
 
         for (const lfs_mattr_t *a = attrs; a; a = a->next) {
             if (lfs_tagtype(a->tag) != LFS_TYPE_DELETE) {
+                lfs_pairtole32(dir->tail);
                 int err = lfs_commitattr(lfs, &commit, a->tag, a->buffer);
+                lfs_pairfromle32(dir->tail);
                 if (err) {
                     if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
                         goto compact;
@@ -1173,10 +1147,10 @@ static int32_t lfs_dir_find(lfs_t *lfs,
     uint32_t rev[2];
     for (int i = 0; i < 2; i++) {
         int err = lfs_bd_read(lfs, dir->pair[i], 0, &rev[i], sizeof(rev[i]));
-        rev[i] = lfs_fromle32(rev[i]);
         if (err) {
             return err;
         }
+        rev[i] = lfs_fromle32(rev[i]);
     }
 
     if (lfs_scmp(rev[1], rev[0]) > 0) {
@@ -1234,8 +1208,9 @@ static int32_t lfs_dir_find(lfs_t *lfs,
                 if (err) {
                     return err;
                 }
+                dcrc = lfs_fromle32(dcrc);
 
-                if (crc != lfs_fromle32(dcrc)) {
+                if (crc != dcrc) {
                     dir->erased = false;
                     break;
                 }
@@ -1268,6 +1243,7 @@ static int32_t lfs_dir_find(lfs_t *lfs,
                     if (err) {
                         return err;
                     }
+                    lfs_pairfromle32(temptail);
                 } else if (lfs_tagtype(tag) == LFS_TYPE_GLOBALS) {
                     err = lfs_bd_read(lfs, dir->pair[0], off+sizeof(tag),
                             &templocals, sizeof(templocals));
@@ -1417,6 +1393,7 @@ nextname:
             if (res < 0) {
                 return res;
             }
+            lfs_pairfromle32(pair);
         }
 
         // find entry matching name
@@ -1462,6 +1439,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     if (tag < 0) {
         return tag;
     }
+    lfs_ctzfromle32(&ctz);
 
     if (lfs_tagtype(tag) == LFS_TYPE_CTZSTRUCT) {
         info->size = ctz.size;
@@ -1510,11 +1488,13 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     uint16_t id = cwd.count;
     cwd.tail[0] = dir.pair[0];
     cwd.tail[1] = dir.pair[1];
+    lfs_pairtole32(dir.pair);
     err = lfs_dir_commit(lfs, &cwd,
             LFS_MKATTR(LFS_TYPE_DIR, id, path, nlen,
             LFS_MKATTR(LFS_TYPE_DIRSTRUCT, id, dir.pair, sizeof(dir.pair),
             LFS_MKATTR(LFS_TYPE_SOFTTAIL, 0x3ff, cwd.tail, sizeof(cwd.tail),
             NULL))));
+    lfs_pairfromle32(dir.pair);
     if (err) {
         return err;
     }
@@ -1546,6 +1526,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
         if (res < 0) {
             return res;
         }
+        lfs_pairfromle32(pair);
     }
 
     // fetch first pair
@@ -1929,6 +1910,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         if (tag < 0) {
             return tag;
         }
+        lfs_ctzfromle32(&file->ctz);
     }
 
     // setup file struct
@@ -2170,14 +2152,28 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
                 return err;
             }
 
-            // either update the references or inline the whole file
+            uint16_t type;
+            const void *buffer;
+            lfs_size_t size;
+            if (file->flags & LFS_F_INLINE) {
+                // inline the whole file
+                type = LFS_TYPE_INLINESTRUCT;
+                buffer = file->cache.buffer;
+                size = file->ctz.size;
+            } else {
+                // update the ctz reference
+                type = LFS_TYPE_CTZSTRUCT;
+                buffer = &file->ctz;
+                size = sizeof(file->ctz);
+            }
+
+            // commit file data and attributes
+            lfs_ctztole32(&file->ctz);
             int err = lfs_dir_commit(lfs, &cwd,
+                    LFS_MKATTR(type, file->id, buffer, size,
                     LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->cfg->attrs, 0,
-                    (file->flags & LFS_F_INLINE) ?
-                        LFS_MKATTR(LFS_TYPE_INLINESTRUCT, file->id,
-                            file->cache.buffer, file->ctz.size, NULL) :
-                        LFS_MKATTR(LFS_TYPE_CTZSTRUCT, file->id,
-                            &file->ctz.head, sizeof(file->ctz), NULL)));
+                    NULL)));
+            lfs_ctzfromle32(&file->ctz);
             if (err) {
                 if (err == LFS_ERR_NOSPC && (file->flags & LFS_F_INLINE)) {
                     goto relocate;
@@ -2619,6 +2615,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         if (res < 0) {
             return res;
         }
+        lfs_pairfromle32(pair);
 
         int err = lfs_dir_fetch(lfs, &dir, pair);
         if (err) {
@@ -2708,6 +2705,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             if (res < 0) {
                 return res;
             }
+            lfs_pairfromle32(prevpair);
 
             // must be empty before removal
             int err = lfs_dir_fetch(lfs, &prevdir, prevpair);
@@ -2920,6 +2918,24 @@ int lfs_fs_setattr(lfs_t *lfs,
 
 
 /// Filesystem operations ///
+static inline void lfs_superblockfromle32(lfs_superblock_t *superblock) {
+    superblock->version     = lfs_fromle32(superblock->version);
+    superblock->block_size  = lfs_fromle32(superblock->block_size);
+    superblock->block_count = lfs_fromle32(superblock->block_count);
+    superblock->inline_size = lfs_fromle32(superblock->inline_size);
+    superblock->attr_size   = lfs_fromle32(superblock->attr_size);
+    superblock->name_size   = lfs_fromle32(superblock->name_size);
+}
+
+static inline void lfs_superblocktole32(lfs_superblock_t *superblock) {
+    superblock->version     = lfs_tole32(superblock->version);
+    superblock->block_size  = lfs_tole32(superblock->block_size);
+    superblock->block_count = lfs_tole32(superblock->block_count);
+    superblock->inline_size = lfs_tole32(superblock->inline_size);
+    superblock->attr_size   = lfs_tole32(superblock->attr_size);
+    superblock->name_size   = lfs_tole32(superblock->name_size);
+}
+
 static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->cfg = cfg;
 
@@ -3070,10 +3086,14 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         .name_size   = lfs->name_size,
     };
 
+    lfs_superblocktole32(&superblock);
+    lfs_pairtole32(lfs->root);
     err = lfs_dir_commit(lfs, &dir,
             LFS_MKATTR(LFS_TYPE_SUPERBLOCK, 0, &superblock, sizeof(superblock),
             LFS_MKATTR(LFS_TYPE_DIRSTRUCT, 0, lfs->root, sizeof(lfs->root),
             NULL)));
+    lfs_pairfromle32(lfs->root);
+    lfs_superblockfromle32(&superblock);
     if (err) {
         return err;
     }
@@ -3116,6 +3136,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     if (res < 0) {
         return res;
     }
+    lfs_superblockfromle32(&superblock);
 
     if (memcmp(superblock.magic, "littlefs", 8) != 0) {
         LFS_ERROR("Invalid superblock at %d %d", 0, 1);
@@ -3136,6 +3157,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     if (res < 0) {
         return res;
     }
+    lfs_pairfromle32(lfs->root);
 
     if (superblock.inline_size) {
         if (superblock.inline_size > lfs->inline_size) {
@@ -3213,6 +3235,7 @@ int lfs_fs_traverse(lfs_t *lfs,
                 }
                 return tag;
             }
+            lfs_ctzfromle32(&ctz);
 
             if (lfs_tagtype(tag) == LFS_TYPE_CTZSTRUCT) {
                 int err = lfs_ctztraverse(lfs, &lfs->rcache, NULL,
@@ -3352,7 +3375,7 @@ static int32_t lfs_parent(lfs_t *lfs, const lfs_block_t pair[2],
 
     // search for both orderings so we can reuse the find function
     lfs_block_t child[2] = {pair[0], pair[1]};
-
+    lfs_pairtole32(child);
     for (int i = 0; i < 2; i++) {
         // iterate over all directory directory entries
         parent->tail[0] = 0;
@@ -3374,7 +3397,7 @@ static int32_t lfs_parent(lfs_t *lfs, const lfs_block_t pair[2],
 
 // TODO rename to lfs_dir_relocate?
 static int lfs_relocate(lfs_t *lfs,
-        const lfs_block_t oldpair[2], const lfs_block_t newpair[2]) {
+        const lfs_block_t oldpair[2], lfs_block_t newpair[2]) {
     // TODO name lfs_dir_relocate?
     // find parent
     lfs_mdir_t parent;
@@ -3385,8 +3408,10 @@ static int lfs_relocate(lfs_t *lfs,
 
     if (tag != LFS_ERR_NOENT) {
         // update disk, this creates a desync
+        lfs_pairtole32(newpair);
         int err = lfs_dir_commit(lfs, &parent,
                 &(lfs_mattr_t){.tag=tag, .buffer=newpair});
+        lfs_pairfromle32(newpair);
         if (err) {
             return err;
         }
@@ -3415,7 +3440,7 @@ static int lfs_relocate(lfs_t *lfs,
         parent.tail[1] = newpair[1];
         int err = lfs_dir_commit(lfs, &parent,
                 LFS_MKATTR(LFS_TYPE_TAIL + parent.split, 0x3ff,
-                    newpair, sizeof(lfs_block_t[2]),
+                    parent.tail, sizeof(parent.tail),
                 NULL));
         if (err) {
             return err;
@@ -3447,6 +3472,7 @@ int lfs_scan(lfs_t *lfs) {
     // update littlefs with globals
     // TODO does this only run once?
     // TODO Should we inline this into init??
+    lfs_globalfromle32(&lfs->locals);
     lfs_globalxor(&lfs->globals, &lfs->locals);
     lfs_globalzero(&lfs->locals);
     if (!lfs_pairisnull(lfs_globalmovepair(lfs))) {
@@ -3504,6 +3530,7 @@ int lfs_forceconsistency(lfs_t *lfs) {
                 if (res < 0) {
                     return res;
                 }
+                lfs_pairfromle32(pair);
 
                 if (!lfs_pairsync(pair, pdir.tail)) {
                     // we have desynced

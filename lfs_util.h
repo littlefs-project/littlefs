@@ -136,7 +136,7 @@ static inline int lfs_scmp(uint32_t a, uint32_t b) {
     return (int)(unsigned)(a - b);
 }
 
-// Convert from 32-bit little-endian to native order
+// Convert between 32-bit little-endian and native order
 static inline uint32_t lfs_fromle32(uint32_t a) {
 #if !defined(LFS_NO_INTRINSICS) && ( \
     (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_LITTLE_ENDIAN  ) || \
@@ -156,9 +156,30 @@ static inline uint32_t lfs_fromle32(uint32_t a) {
 #endif
 }
 
-// Convert to 32-bit little-endian from native order
 static inline uint32_t lfs_tole32(uint32_t a) {
     return lfs_fromle32(a);
+}
+
+// Convert between 16-bit little-endian and native order
+static inline uint16_t lfs_fromle16(uint16_t a) {
+#if !defined(LFS_NO_INTRINSICS) && ( \
+    (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_LITTLE_ENDIAN  ) || \
+    (defined(__BYTE_ORDER  ) && __BYTE_ORDER   == __ORDER_LITTLE_ENDIAN  ) || \
+    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
+    return a;
+#elif !defined(LFS_NO_INTRINSICS) && ( \
+    (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_BIG_ENDIAN  ) || \
+    (defined(__BYTE_ORDER  ) && __BYTE_ORDER   == __ORDER_BIG_ENDIAN  ) || \
+    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__))
+    return __builtin_bswap16(a);
+#else
+    return (((uint8_t*)&a)[0] <<  0) |
+           (((uint8_t*)&a)[1] <<  8);
+#endif
+}
+
+static inline uint16_t lfs_tole16(uint16_t a) {
+    return lfs_fromle16(a);
 }
 
 // Align to nearest multiple of a size
