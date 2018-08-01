@@ -3007,13 +3007,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->files = NULL;
     lfs->dirs = NULL;
     lfs_globalones(&lfs->globals);
-
-    // scan for any global updates
-    // TODO rm me? need to grab any inits
-    int err = lfs_scan(lfs);
-    if (err) {
-        return err;
-    }
+    lfs_globalzero(&lfs->locals);
 
     return 0;
 }
@@ -3189,6 +3183,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->name_size = superblock.name_size;
     }
 
+    // scan for any global updates
     err = lfs_scan(lfs);
     if (err) {
         return err;
@@ -3343,8 +3338,6 @@ int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
 */
 static int lfs_pred(lfs_t *lfs, const lfs_block_t pair[2], lfs_mdir_t *pdir) {
     if (lfs_pairisnull(lfs->root)) {
-        // TODO best place for this?
-        // TODO needed for relocate
         return LFS_ERR_NOENT;
     }
 
@@ -3369,7 +3362,6 @@ static int lfs_pred(lfs_t *lfs, const lfs_block_t pair[2], lfs_mdir_t *pdir) {
 static int32_t lfs_parent(lfs_t *lfs, const lfs_block_t pair[2],
         lfs_mdir_t *parent) {
     if (lfs_pairisnull(lfs->root)) {
-        // TODO best place for this?
         return LFS_ERR_NOENT;
     }
 
@@ -3451,14 +3443,12 @@ static int lfs_relocate(lfs_t *lfs,
 }
 
 int lfs_scan(lfs_t *lfs) {
-    if (lfs_pairisnull(lfs->root)) { // TODO rm me
+    if (lfs_pairisnull(lfs->root)) {
         return 0;
     }
 
-    lfs_mdir_t dir = {.tail = {0, 1}};
-    lfs_globalzero(&lfs->locals);
-
     // iterate over all directory directory entries
+    lfs_mdir_t dir = {.tail = {0, 1}};
     while (!lfs_pairisnull(dir.tail)) {
         int err = lfs_dir_fetch(lfs, &dir, dir.tail);
         if (err) {
