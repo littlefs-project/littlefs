@@ -104,13 +104,13 @@ enum lfs_type {
     LFS_TYPE_USER           = 0x100,
     LFS_TYPE_SUPERBLOCK     = 0x010,
     LFS_TYPE_NAME           = 0x000,
-    LFS_TYPE_DELETE         = 0x03f,
+    LFS_TYPE_DELETE         = 0x030,
     LFS_TYPE_STRUCT         = 0x040,
     LFS_TYPE_GLOBALS        = 0x080,
     LFS_TYPE_TAIL           = 0x0c0,
     LFS_TYPE_SOFTTAIL       = 0x0c0,
     LFS_TYPE_HARDTAIL       = 0x0c1,
-    LFS_TYPE_CRC            = 0x0ff, // TODO are trailing ones useful?
+    LFS_TYPE_CRC            = 0x0f0, // TODO are trailing ones useful?
 
     LFS_TYPE_INLINESTRUCT   = 0x040,
     LFS_TYPE_CTZSTRUCT      = 0x041,
@@ -119,8 +119,8 @@ enum lfs_type {
     // internal chip sources
     LFS_FROM_REGION         = 0x000,
     LFS_FROM_DISK           = 0x200,
-    LFS_FROM_MOVE           = 0x030,
-    LFS_FROM_ATTRS          = 0x020,
+    LFS_FROM_MOVE           = 0x021,
+    LFS_FROM_ATTRS          = 0x022,
 };
 
 // File open flags
