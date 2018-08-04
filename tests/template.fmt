@@ -66,7 +66,11 @@ uintmax_t test;
 #endif
 
 #ifndef LFS_PROG_SIZE
-#define LFS_PROG_SIZE 16
+#define LFS_PROG_SIZE LFS_READ_SIZE
+#endif
+
+#ifndef LFS_CACHE_SIZE
+#define LFS_CACHE_SIZE 64
 #endif
 
 #ifndef LFS_BLOCK_SIZE
@@ -92,6 +96,7 @@ const struct lfs_config cfg = {{
 
     .read_size   = LFS_READ_SIZE,
     .prog_size   = LFS_PROG_SIZE,
+    .cache_size  = LFS_CACHE_SIZE,
     .block_size  = LFS_BLOCK_SIZE,
     .block_count = LFS_BLOCK_COUNT,
     .lookahead   = LFS_LOOKAHEAD,

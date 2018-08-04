@@ -177,21 +177,24 @@ struct lfs_config {
     // are propogated to the user.
     int (*sync)(const struct lfs_config *c);
 
-    // Minimum size of a block read. This determines the size of read buffers.
-    // This may be larger than the physical read size to improve performance
-    // by caching more of the block device.
+    // Minimum size of a block read. All read operations will be a
+    // multiple of this value.
     lfs_size_t read_size;
 
-    // Minimum size of a block program. This determines the size of program
-    // buffers. This may be larger than the physical program size to improve
-    // performance by caching more of the block device.
-    // Must be a multiple of the read size.
+    // Minimum size of a block program. All program operations will be a
+    // multiple of this value.
     lfs_size_t prog_size;
+
+    // Size of block caches. Each cache buffers a portion of a block in RAM.
+    // This determines the size of the read cache, the program cache, and a
+    // cache per file. Larger caches can improve performance by storing more
+    // data. Must be a multiple of the read and program sizes.
+    lfs_size_t cache_size;
 
     // Size of an erasable block. This does not impact ram consumption and
     // may be larger than the physical erase size. However, this should be
     // kept small as each file currently takes up an entire block.
-    // Must be a multiple of the program size.
+    // Must be a multiple of the read, program, and cache sizes.
     lfs_size_t block_size;
 
     // Number of erasable blocks on the device.
@@ -283,6 +286,7 @@ typedef struct lfs_mattr {
 typedef struct lfs_cache {
     lfs_block_t block;
     lfs_off_t off;
+    lfs_size_t size;
     uint8_t *buffer;
 } lfs_cache_t;
 
