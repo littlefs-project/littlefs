@@ -183,8 +183,12 @@ static inline uint16_t lfs_tole16(uint16_t a) {
 }
 
 // Align to nearest multiple of a size
+static inline uint32_t lfs_aligndown(uint32_t a, uint32_t alignment) {
+    return a - (a % alignment);
+}
+
 static inline uint32_t lfs_alignup(uint32_t a, uint32_t alignment) {
-    return (a + alignment-1) - ((a + alignment-1) % alignment);
+    return lfs_aligndown(a + alignment-1, alignment);
 }
 
 // Calculate CRC-32 with polynomial = 0x04c11db7
