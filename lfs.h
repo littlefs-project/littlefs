@@ -287,18 +287,23 @@ typedef struct lfs_cache {
 } lfs_cache_t;
 
 typedef union lfs_global {
-    uint16_t u16[5];
+    uint32_t u32[3];
+    struct {
+        lfs_block_t movepair[2];
+        uint16_t moveid;
+        bool deorphaned;
+    } s;
 } lfs_global_t;
 
 typedef struct lfs_mdir {
     lfs_block_t pair[2];
-    lfs_block_t tail[2];
     uint32_t rev;
     uint32_t etag;
     lfs_off_t off;
     uint16_t count;
     bool erased;
     bool split;
+    lfs_block_t tail[2];
     lfs_global_t locals;
 } lfs_mdir_t;
 
