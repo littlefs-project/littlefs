@@ -283,6 +283,52 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
+echo "--- Move state stealing ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+
+    lfs_remove(&lfs, "b") => 0;
+    lfs_remove(&lfs, "c") => 0;
+
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+
+    lfs_dir_open(&lfs, &dir[0], "a/hi") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir[0], "b") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir[0], "c") => LFS_ERR_NOENT;
+
+    lfs_dir_open(&lfs, &dir[0], "d/hi") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, ".") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "..") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "hola") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "bonjour") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "ohayo") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_close(&lfs, &dir[0]) => 0;
+
+    lfs_dir_open(&lfs, &dir[0], "a/hello") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir[0], "b") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir[0], "c") => LFS_ERR_NOENT;
+
+    lfs_file_open(&lfs, &file[0], "d/hello", LFS_O_RDONLY) => 0;
+    lfs_file_read(&lfs, &file[0], buffer, 5) => 5;
+    memcmp(buffer, "hola\n", 5) => 0;
+    lfs_file_read(&lfs, &file[0], buffer, 8) => 8;
+    memcmp(buffer, "bonjour\n", 8) => 0;
+    lfs_file_read(&lfs, &file[0], buffer, 6) => 6;
+    memcmp(buffer, "ohayo\n", 6) => 0;
+    lfs_file_close(&lfs, &file[0]) => 0;
+
+    lfs_unmount(&lfs) => 0;
+TEST
+
 
 echo "--- Results ---"
 tests/stats.py
