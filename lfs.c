@@ -2703,6 +2703,16 @@ static inline void lfs_superblocktole32(lfs_superblock_t *superblock) {
 static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->cfg = cfg;
 
+    // check that block size is a multiple of cache size is a multiple
+    // of prog and read sizes
+    LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->read_size == 0);
+    LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->prog_size == 0);
+    LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->cache_size == 0);
+
+    // check that the block size is large enough to fit ctz pointers
+    LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
+            <= lfs->cfg->block_size);
+
     // setup read cache
     lfs->rcache.block = 0xffffffff;
     if (lfs->cfg->read_buffer) {
@@ -2725,7 +2735,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         }
     }
 
-    // setup lookahead, round down to nearest 32-bits
+    // setup lookahead, must be multiple of 32-bits
     LFS_ASSERT(lfs->cfg->lookahead % 32 == 0);
     LFS_ASSERT(lfs->cfg->lookahead > 0);
     if (lfs->cfg->lookahead_buffer) {
@@ -2737,22 +2747,12 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         }
     }
 
-    // check that block size is a multiple of cache size is a multiple
-    // of prog and read sizes
-    LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->read_size == 0);
-    LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->prog_size == 0);
-    LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->cache_size == 0);
-
-    // check that the block size is large enough to fit ctz pointers
-    LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
-            <= lfs->cfg->block_size);
-
     // check that the size limits are sane
     LFS_ASSERT(lfs->cfg->inline_size <= LFS_INLINE_MAX);
-    LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->read_size); // TODO 
+    LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->cache_size);
     lfs->inline_size = lfs->cfg->inline_size;
     if (!lfs->inline_size) {
-        lfs->inline_size = lfs_min(LFS_INLINE_MAX, lfs->cfg->read_size);
+        lfs->inline_size = lfs_min(LFS_INLINE_MAX, lfs->cfg->cache_size);
     }
 
     LFS_ASSERT(lfs->cfg->attr_size <= LFS_ATTR_MAX);
@@ -2841,9 +2841,9 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
         .block_size  = lfs->cfg->block_size,
         .block_count = lfs->cfg->block_count,
-        .inline_size = lfs->inline_size,
         .attr_size   = lfs->attr_size,
         .name_size   = lfs->name_size,
+        .inline_size = lfs->inline_size,
     };
 
     lfs_superblocktole32(&superblock);
@@ -2883,9 +2883,6 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_mdir_t superdir;
     err = lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
     if (err) {
-        if (err == LFS_ERR_CORRUPT) {
-            LFS_ERROR("Invalid superblock at %d %d", 0, 1);
-        }
         return err;
     }
 
@@ -2899,8 +2896,8 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_superblockfromle32(&superblock);
 
     if (memcmp(superblock.magic, "littlefs", 8) != 0) {
-        LFS_ERROR("Invalid superblock at %d %d", 0, 1);
-        return LFS_ERR_CORRUPT;
+        LFS_ERROR("Invalid superblock \"%.8s\"", superblock.magic);
+        return LFS_ERR_INVAL;
     }
 
     uint16_t major_version = (0xffff & (superblock.version >> 16));
@@ -2919,16 +2916,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
     lfs_pairfromle32(lfs->root);
 
-    if (superblock.inline_size) {
-        if (superblock.inline_size > lfs->inline_size) {
-            LFS_ERROR("Unsupported inline size (%d > %d)",
-                    superblock.inline_size, lfs->inline_size);
-            return LFS_ERR_INVAL;
-        }
-
-        lfs->inline_size = superblock.inline_size;
-    }
-
+    // check superblock configuration
     if (superblock.attr_size) {
         if (superblock.attr_size > lfs->attr_size) {
             LFS_ERROR("Unsupported attr size (%d > %d)",
@@ -2947,6 +2935,16 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         }
 
         lfs->name_size = superblock.name_size;
+    }
+
+    if (superblock.inline_size) {
+        if (superblock.inline_size > lfs->inline_size) {
+            LFS_ERROR("Unsupported inline size (%d > %d)",
+                    superblock.inline_size, lfs->inline_size);
+            return LFS_ERR_INVAL;
+        }
+
+        lfs->inline_size = superblock.inline_size;
     }
 
     // scan for any global updates
