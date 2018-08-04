@@ -2513,7 +2513,6 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         lfs_globaldeorphaned(lfs, true);
 
         // steal state
-        // TODO test for global state stealing?
         cwd.tail[0] = dir.tail[0];
         cwd.tail[1] = dir.tail[1];
         lfs_globalxor(&lfs->locals, &dir.locals);
@@ -2626,7 +2625,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         lfs_globaldeorphaned(lfs, true);
 
         // steal state
-        // TODO test for global state stealing?
         newcwd.tail[0] = prevdir.tail[0];
         newcwd.tail[1] = prevdir.tail[1];
         lfs_globalxor(&lfs->locals, &prevdir.locals);
