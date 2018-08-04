@@ -50,29 +50,27 @@ typedef int32_t  lfs_soff_t;
 
 typedef uint32_t lfs_block_t;
 
-// Maximum inline file size in bytes. Large inline files require a larger
-// read and prog cache, but if a file can be inline it does not need its own
-// data block. LFS_ATTR_MAX + LFS_INLINE_MAX must be <= 0xffff. Stored in
-// superblock and must be respected by other littlefs drivers.
-// TODO doc
-#ifndef LFS_INLINE_MAX
-#define LFS_INLINE_MAX 0xfff
-#endif
-
 // Maximum size of all attributes per file in bytes, may be redefined but a
-// a smaller LFS_ATTR_MAX has no benefit. LFS_ATTR_MAX + LFS_INLINE_MAX
-// must be <= 0xffff. Stored in superblock and must be respected by other
+// a smaller LFS_ATTR_MAX has no benefit. Stored in 12-bits and limited
+// to <= 0xfff. Stored in superblock and must be respected by other
 // littlefs drivers.
-// TODO doc
 #ifndef LFS_ATTR_MAX
 #define LFS_ATTR_MAX 0xfff
 #endif
 
-// Max name size in bytes, may be redefined to reduce the size of the
-// info struct. Stored in superblock and must be respected by other
-// littlefs drivers.
+// Maximum name size in bytes, may be redefined to reduce the size of the
+// info struct. Limited to <= LFS_ATTR_MAX. Stored in superblock and must
+// be respected by other littlefs drivers.
 #ifndef LFS_NAME_MAX
 #define LFS_NAME_MAX 0xff
+#endif
+
+// Maximum inline file size in bytes. Large inline files require a larger
+// cache size, but if a file can be inline it does not need its own data
+// block. Limited to <= LFS_ATTR_MAX and <= cache_size. Stored in superblock
+// and must be respected by other littlefs drivers.
+#ifndef LFS_INLINE_MAX
+#define LFS_INLINE_MAX 0xfff
 #endif
 
 // Possible error codes, these are negative to allow
@@ -110,7 +108,7 @@ enum lfs_type {
     LFS_TYPE_TAIL           = 0x0c0,
     LFS_TYPE_SOFTTAIL       = 0x0c0,
     LFS_TYPE_HARDTAIL       = 0x0c1,
-    LFS_TYPE_CRC            = 0x0f0, // TODO are trailing ones useful?
+    LFS_TYPE_CRC            = 0x0f0,
 
     LFS_TYPE_INLINESTRUCT   = 0x040,
     LFS_TYPE_CTZSTRUCT      = 0x041,
@@ -216,15 +214,8 @@ struct lfs_config {
     // lookahead block.
     void *lookahead_buffer;
 
-    // Optional upper limit on inlined files in bytes. Large inline files
-    // require a larger read and prog cache, but if a file can be inlined it
-    // does not need its own data block. Must be smaller than the read size
-    // and prog size. Defaults to min(LFS_INLINE_MAX, read_size) when zero.
-    // Stored in superblock and must be respected by other littlefs drivers.
-    lfs_size_t inline_size;
-
-    // Optional upper limit on attributes per file in bytes. No downside for
-    // larger attributes size but must be less than LFS_ATTR_MAX. Defaults to
+    // Optional upper limit on file attributes in bytes. No downside for larger
+    // attributes size but must be less than LFS_ATTR_MAX. Defaults to
     // LFS_ATTR_MAX when zero.Stored in superblock and must be respected by
     // other littlefs drivers.
     lfs_size_t attr_size;
@@ -234,6 +225,13 @@ struct lfs_config {
     // the LFS_NAME_MAX define. Defaults to LFS_NAME_MAX when zero. Stored in
     // superblock and must be respected by other littlefs drivers.
     lfs_size_t name_size;
+
+    // Optional upper limit on inlined files in bytes. Large inline files
+    // require a larger cache size, but if a file can be inlined it does not
+    // need its own data block. Must be smaller than cache_size and less than
+    // LFS_INLINE_MAX. Defaults to min(LFS_INLINE_MAX, read_size) when zero.
+    // Stored in superblock and must be respected by other littlefs drivers.
+    lfs_size_t inline_size;
 };
 
 // File info structure
@@ -355,9 +353,9 @@ typedef struct lfs_superblock {
     lfs_size_t block_size;
     lfs_size_t block_count;
 
-    lfs_size_t inline_size;
     lfs_size_t attr_size;
     lfs_size_t name_size;
+    lfs_size_t inline_size;
 } lfs_superblock_t;
 
 typedef struct lfs_free {
@@ -381,9 +379,11 @@ typedef struct lfs {
     lfs_free_t free;
 
     const struct lfs_config *cfg;
-    lfs_size_t inline_size;
+    lfs_size_t block_size;
+    lfs_size_t block_count;
     lfs_size_t attr_size;
     lfs_size_t name_size;
+    lfs_size_t inline_size;
 } lfs_t;
 
 
