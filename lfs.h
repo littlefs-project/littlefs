@@ -89,7 +89,6 @@ enum lfs_error {
     LFS_ERR_NOSPC       = -28,  // No space left on device
     LFS_ERR_NOMEM       = -12,  // No more memory available
     LFS_ERR_NAMETOOLONG = -36,  // File name too long
-    LFS_ERR_NOATTR      = -61,  // No data/attr available
 };
 
 // File types
@@ -248,7 +247,7 @@ struct lfs_info {
 
 // Custom attribute structure
 struct lfs_attr {
-    // 8-bit Type of attribute, provided by user and used to
+    // 8-bit type of attribute, provided by user and used to
     // identify the attribute
     uint8_t type;
 
@@ -268,8 +267,17 @@ struct lfs_file_config {
     // If NULL, malloc will be used by default.
     void *buffer;
 
-    // Optional, linked list of custom attributes.
-    // TODO document more
+    // Optional, linked list of custom attributes related to the file. If the
+    // file is opened with read access, the attributes will be read from
+    // during the open call. If the file is opened with write access, the
+    // attributes will be written to disk every file sync or close. This
+    // write occurs atomically with update to the file's contents.
+    //
+    // Custom attributes are uniquely identified by an 8-bit type and limited
+    // to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller
+    // than the buffer, it will be padded with zeros. If the stored attribute
+    // is larger, then it will be silently truncated. If the attribute is not
+    // found, it will be created implicitly.
     struct lfs_attr *attrs;
 };
 
@@ -436,24 +444,27 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
 // Returns a negative error code on failure.
 int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 
-// Get custom attributes
+// Get a custom attribute
 //
-// Attributes are looked up based on the type id. If the stored attribute is
-// smaller than the buffer, it is padded with zeros. It the stored attribute
-// is larger than the buffer, LFS_ERR_RANGE is returned.
+// Custom attributes are uniquely identified by an 8-bit type and limited
+// to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller than
+// the buffer, it will be padded with zeros. If the stored attribute is larger,
+// then it will be silently truncated.
 //
-// TODO doc
-// Returns a negative error code on failure.
+// Returns the size of the attribute, or a negative error code on failure.
+// Note, the returned size is the size of the attribute on disk, irrespective
+// of the size of the buffer. This can be used to dynamically allocate a buffer
+// or check for existance.
 lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
         uint8_t type, void *buffer, lfs_size_t size);
 
 // Set custom attributes
 //
-// The array of attributes will be used to update the attributes stored on
-// disk based on their type id. Unspecified attributes are left unmodified.
-// Specifying an attribute with zero size deletes the attribute.
+// Custom attributes are uniquely identified by an 8-bit type and limited
+// to LFS_ATTR_MAX bytes. If an attribute is not found, it will be
+// implicitly created, and setting the size of an attribute to zero deletes
+// the attribute.
 //
-// TODO doc
 // Returns a negative error code on failure.
 int lfs_setattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size);
@@ -593,32 +604,7 @@ lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir);
 int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 
 
-/// Filesystem filesystem operations /// TODO choose one
-/// Miscellaneous littlefs specific operations /// TODO choose one
-
-// Get custom attributes on the filesystem
-//
-// Attributes are looked up based on the type id. If the stored attribute is
-// smaller than the buffer, it is padded with zeros. It the stored attribute
-// is larger than the buffer, LFS_ERR_RANGE is returned.
-//
-// TODO doc
-// Returns a negative error code on failure.
-lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
-        uint8_t type, void *buffer, lfs_size_t size);
-
-// Set custom attributes on the filesystem
-//
-// The array of attributes will be used to update the attributes stored on
-// disk based on their type id. Unspecified attributes are left unmodified.
-// Specifying an attribute with zero size deletes the attribute.
-//
-// Note: Filesystem level attributes are not available for wear-leveling
-//
-// TODO doc
-// Returns a negative error code on failure.
-int lfs_fs_setattr(lfs_t *lfs,
-        uint8_t type, const void *buffer, lfs_size_t size);
+/// Filesystem-level filesystem operations
 
 // Finds the current size of the filesystem
 //
@@ -636,6 +622,35 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 //
 // Returns a negative error code on failure.
 int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
+
+// Get custom attributes on the filesystem
+//
+// Custom attributes are uniquely identified by an 8-bit type and limited
+// to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller than
+// the buffer, it will be padded with zeros. If the stored attribute is larger,
+// then it will be silently truncated.
+//
+// Note, filesystem-level attributes are not available for wear-leveling
+//
+// Returns the size of the attribute, or a negative error code on failure.
+// Note, the returned size is the size of the attribute on disk, irrespective
+// of the size of the buffer. This can be used to dynamically allocate a buffer
+// or check for existance.
+lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
+        uint8_t type, void *buffer, lfs_size_t size);
+
+// Set custom attributes on the filesystem
+//
+// Custom attributes are uniquely identified by an 8-bit type and limited
+// to LFS_ATTR_MAX bytes. If an attribute is not found, it will be
+// implicitly created, and setting the size of an attribute to zero deletes
+// the attribute.
+//
+// Note, filesystem-level attributes are not available for wear-leveling
+//
+// Returns a negative error code on failure.
+int lfs_fs_setattr(lfs_t *lfs,
+        uint8_t type, const void *buffer, lfs_size_t size);
 
 
 #endif

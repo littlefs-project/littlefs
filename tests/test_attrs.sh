@@ -241,7 +241,7 @@ tests/test.py << TEST
 
     lfs_getattr(&lfs, "hello/hello", 'B', buffer,    9) => 9;
     lfs_getattr(&lfs, "hello/hello", 'C', buffer+9,  9) => 5;
-    lfs_getattr(&lfs, "hello/hello", 'D', buffer+18, 9) => LFS_ERR_NOATTR;
+    lfs_getattr(&lfs, "hello/hello", 'D', buffer+18, 9) => 0;
     memcmp(buffer,    "fffffffff",          9) => 0;
     memcmp(buffer+9,  "ccccc\0\0\0\0",      9) => 0;
     memcmp(buffer+18, "\0\0\0\0\0\0\0\0\0", 9) => 0;
