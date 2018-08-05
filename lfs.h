@@ -1,25 +1,19 @@
 /*
  * The little filesystem
  *
- * Copyright (c) 2017 ARM Limited
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright (c) 2017, Arm Limited. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef LFS_H
 #define LFS_H
 
 #include <stdint.h>
 #include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 
 /// Version info ///
@@ -481,7 +475,6 @@ int lfs_setattr(lfs_t *lfs, const char *path,
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);
 
-
 // Open a file with extra configuration
 //
 // The mode that the file is opened in is determined by the flags, which
@@ -652,5 +645,9 @@ lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
 int lfs_fs_setattr(lfs_t *lfs,
         uint8_t type, const void *buffer, lfs_size_t size);
 
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif

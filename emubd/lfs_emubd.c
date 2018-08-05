@@ -1,19 +1,8 @@
 /*
  * Block device emulated on standard files
  *
- * Copyright (c) 2017 ARM Limited
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright (c) 2017, Arm Limited. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "emubd/lfs_emubd.h"
 
@@ -27,6 +16,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <inttypes.h>
 
 
 // Block device emulated on existing filesystem
@@ -96,7 +86,7 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     memset(data, 0, size);
 
     // Read data
-    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
 
     FILE *f = fopen(emu->path, "rb");
     if (!f && errno != ENOENT) {
@@ -135,7 +125,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     assert(block < cfg->block_count);
 
     // Program data
-    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
 
     FILE *f = fopen(emu->path, "r+b");
     if (!f) {
@@ -182,7 +172,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     assert(block < cfg->block_count);
 
     // Erase the block
-    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
     struct stat st;
     int err = stat(emu->path, &st);
     if (err && errno != ENOENT) {
@@ -250,4 +240,3 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
 
     return 0;
 }
-

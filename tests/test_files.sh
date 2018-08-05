@@ -30,7 +30,7 @@ TEST
 
 w_test() {
 tests/test.py << TEST
-    lfs_size_t size = $1;
+    size = $1;
     lfs_size_t chunk = 31;
     srand(0);
     lfs_mount(&lfs, &cfg) => 0;
@@ -50,7 +50,7 @@ TEST
 
 r_test() {
 tests/test.py << TEST
-    lfs_size_t size = $1;
+    size = $1;
     lfs_size_t chunk = 29;
     srand(0);
     lfs_mount(&lfs, &cfg) => 0;

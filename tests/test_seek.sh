@@ -153,7 +153,7 @@ tests/test.py << TEST
     lfs_file_read(&lfs, &file[0], buffer, size) => size;
     memcmp(buffer, "kittycatcat", size) => 0;
 
-    lfs_size_t size = lfs_file_size(&lfs, &file[0]);
+    size = lfs_file_size(&lfs, &file[0]);
     lfs_file_seek(&lfs, &file[0], 0, LFS_SEEK_CUR) => size;
 
     lfs_file_close(&lfs, &file[0]) => 0;
@@ -202,7 +202,7 @@ tests/test.py << TEST
     lfs_file_read(&lfs, &file[0], buffer, size) => size;
     memcmp(buffer, "kittycatcat", size) => 0;
 
-    lfs_size_t size = lfs_file_size(&lfs, &file[0]);
+    size = lfs_file_size(&lfs, &file[0]);
     lfs_file_seek(&lfs, &file[0], 0, LFS_SEEK_CUR) => size;
 
     lfs_file_close(&lfs, &file[0]) => 0;
@@ -243,7 +243,7 @@ tests/test.py << TEST
     lfs_file_read(&lfs, &file[0], buffer, size) => size;
     memcmp(buffer, "kittycatcat", size) => 0;
 
-    lfs_size_t size = lfs_file_size(&lfs, &file[0]);
+    size = lfs_file_size(&lfs, &file[0]);
     lfs_file_seek(&lfs, &file[0], 0, LFS_SEEK_CUR) => size;
 
     lfs_file_close(&lfs, &file[0]) => 0;
@@ -286,7 +286,7 @@ tests/test.py << TEST
     lfs_file_read(&lfs, &file[0], buffer, size) => size;
     memcmp(buffer, "kittycatcat", size) => 0;
 
-    lfs_size_t size = lfs_file_size(&lfs, &file[0]);
+    size = lfs_file_size(&lfs, &file[0]);
     lfs_file_seek(&lfs, &file[0], 0, LFS_SEEK_CUR) => size;
 
     lfs_file_close(&lfs, &file[0]) => 0;
