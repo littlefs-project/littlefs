@@ -217,20 +217,20 @@ struct lfs_config {
     // attributes size but must be less than LFS_ATTR_MAX. Defaults to
     // LFS_ATTR_MAX when zero.Stored in superblock and must be respected by
     // other littlefs drivers.
-    lfs_size_t attr_size;
+    lfs_size_t attr_max;
 
     // Optional upper limit on length of file names in bytes. No downside for
     // larger names except the size of the info struct which is controlled by
     // the LFS_NAME_MAX define. Defaults to LFS_NAME_MAX when zero. Stored in
     // superblock and must be respected by other littlefs drivers.
-    lfs_size_t name_size;
+    lfs_size_t name_max;
 
     // Optional upper limit on inlined files in bytes. Large inline files
     // require a larger cache size, but if a file can be inlined it does not
     // need its own data block. Must be smaller than cache_size and less than
     // LFS_INLINE_MAX. Defaults to min(LFS_INLINE_MAX, read_size) when zero.
     // Stored in superblock and must be respected by other littlefs drivers.
-    lfs_size_t inline_size;
+    lfs_size_t inline_max;
 };
 
 // File info structure
@@ -361,9 +361,9 @@ typedef struct lfs_superblock {
     lfs_size_t block_size;
     lfs_size_t block_count;
 
-    lfs_size_t attr_size;
-    lfs_size_t name_size;
-    lfs_size_t inline_size;
+    lfs_size_t attr_max;
+    lfs_size_t name_max;
+    lfs_size_t inline_max;
 } lfs_superblock_t;
 
 typedef struct lfs_free {
@@ -389,9 +389,9 @@ typedef struct lfs {
     const struct lfs_config *cfg;
     lfs_size_t block_size;
     lfs_size_t block_count;
-    lfs_size_t attr_size;
-    lfs_size_t name_size;
-    lfs_size_t inline_size;
+    lfs_size_t attr_max;
+    lfs_size_t name_max;
+    lfs_size_t inline_max;
 } lfs_t;
 
 

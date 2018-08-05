@@ -92,8 +92,6 @@ const struct lfs_config cfg = {{
     .erase = &lfs_emubd_erase,
     .sync  = &lfs_emubd_sync,
 
-    .name_size = 255,
-
     .read_size   = LFS_READ_SIZE,
     .prog_size   = LFS_PROG_SIZE,
     .cache_size  = LFS_CACHE_SIZE,

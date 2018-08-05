@@ -1382,7 +1382,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     }
 
     int32_t tag = lfs_dir_get(lfs, dir, 0x7c3ff000,
-            LFS_MKTAG(LFS_TYPE_NAME, id, lfs->name_size+1), info->name);
+            LFS_MKTAG(LFS_TYPE_NAME, id, lfs->name_max+1), info->name);
     if (tag < 0) {
         return tag;
     }
@@ -1422,7 +1422,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     // check that name fits
     lfs_size_t nlen = strlen(path);
-    if (nlen > lfs->name_size) {
+    if (nlen > lfs->name_max) {
         return LFS_ERR_NAMETOOLONG;
     }
 
@@ -1842,7 +1842,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
         // check that name fits
         lfs_size_t nlen = strlen(path);
-        if (nlen > lfs->name_size) {
+        if (nlen > lfs->name_max) {
             err = LFS_ERR_NAMETOOLONG;
             goto cleanup;
         }
@@ -1892,7 +1892,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         }
 
         if ((file->flags & 3) != LFS_O_RDONLY) {
-            if (a->size > lfs->attr_size) {
+            if (a->size > lfs->attr_max) {
                 err = LFS_ERR_NOSPC;
                 goto cleanup;
             }
@@ -2252,7 +2252,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     }
 
     if ((file->flags & LFS_F_INLINE) &&
-            file->pos + nsize >= lfs->inline_size) {
+            file->pos + nsize >= lfs->inline_max) {
         // inline file doesn't fit anymore
         file->block = 0xfffffffe;
         file->off = file->pos;
@@ -2586,7 +2586,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     } else {
         // check that name fits
         lfs_size_t nlen = strlen(newpath);
-        if (nlen > lfs->name_size) {
+        if (nlen > lfs->name_max) {
             return LFS_ERR_NAMETOOLONG;
         }
 
@@ -2650,7 +2650,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
 
     res = lfs_dir_get(lfs, &cwd, 0x7ffff000,
             LFS_MKTAG(0x100 | type, lfs_tagid(res),
-                lfs_min(size, lfs->attr_size)), buffer);
+                lfs_min(size, lfs->attr_max)), buffer);
     if (res < 0 && res != LFS_ERR_NOENT) {
         return res;
     }
@@ -2660,7 +2660,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
 
 int lfs_setattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size) {
-    if (size > lfs->attr_size) {
+    if (size > lfs->attr_max) {
         return LFS_ERR_NOSPC;
     }
 
@@ -2681,18 +2681,18 @@ static inline void lfs_superblockfromle32(lfs_superblock_t *superblock) {
     superblock->version     = lfs_fromle32(superblock->version);
     superblock->block_size  = lfs_fromle32(superblock->block_size);
     superblock->block_count = lfs_fromle32(superblock->block_count);
-    superblock->inline_size = lfs_fromle32(superblock->inline_size);
-    superblock->attr_size   = lfs_fromle32(superblock->attr_size);
-    superblock->name_size   = lfs_fromle32(superblock->name_size);
+    superblock->inline_max  = lfs_fromle32(superblock->inline_max);
+    superblock->attr_max    = lfs_fromle32(superblock->attr_max);
+    superblock->name_max    = lfs_fromle32(superblock->name_max);
 }
 
 static inline void lfs_superblocktole32(lfs_superblock_t *superblock) {
     superblock->version     = lfs_tole32(superblock->version);
     superblock->block_size  = lfs_tole32(superblock->block_size);
     superblock->block_count = lfs_tole32(superblock->block_count);
-    superblock->inline_size = lfs_tole32(superblock->inline_size);
-    superblock->attr_size   = lfs_tole32(superblock->attr_size);
-    superblock->name_size   = lfs_tole32(superblock->name_size);
+    superblock->inline_max  = lfs_tole32(superblock->inline_max);
+    superblock->attr_max    = lfs_tole32(superblock->attr_max);
+    superblock->name_max    = lfs_tole32(superblock->name_max);
 }
 
 static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
@@ -2743,23 +2743,23 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // check that the size limits are sane
-    LFS_ASSERT(lfs->cfg->inline_size <= LFS_INLINE_MAX);
-    LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->cache_size);
-    lfs->inline_size = lfs->cfg->inline_size;
-    if (!lfs->inline_size) {
-        lfs->inline_size = lfs_min(LFS_INLINE_MAX, lfs->cfg->cache_size);
+    LFS_ASSERT(lfs->cfg->inline_max <= LFS_INLINE_MAX);
+    LFS_ASSERT(lfs->cfg->inline_max <= lfs->cfg->cache_size);
+    lfs->inline_max = lfs->cfg->inline_max;
+    if (!lfs->inline_max) {
+        lfs->inline_max = lfs_min(LFS_INLINE_MAX, lfs->cfg->cache_size);
     }
 
-    LFS_ASSERT(lfs->cfg->attr_size <= LFS_ATTR_MAX);
-    lfs->attr_size = lfs->cfg->attr_size;
-    if (!lfs->attr_size) {
-        lfs->attr_size = LFS_ATTR_MAX;
+    LFS_ASSERT(lfs->cfg->attr_max <= LFS_ATTR_MAX);
+    lfs->attr_max = lfs->cfg->attr_max;
+    if (!lfs->attr_max) {
+        lfs->attr_max = LFS_ATTR_MAX;
     }
 
-    LFS_ASSERT(lfs->cfg->name_size <= LFS_NAME_MAX);
-    lfs->name_size = lfs->cfg->name_size;
-    if (!lfs->name_size) {
-        lfs->name_size = LFS_NAME_MAX;
+    LFS_ASSERT(lfs->cfg->name_max <= LFS_NAME_MAX);
+    lfs->name_max = lfs->cfg->name_max;
+    if (!lfs->name_max) {
+        lfs->name_max = LFS_NAME_MAX;
     }
 
     // setup default state
@@ -2836,9 +2836,9 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
         .block_size  = lfs->cfg->block_size,
         .block_count = lfs->cfg->block_count,
-        .attr_size   = lfs->attr_size,
-        .name_size   = lfs->name_size,
-        .inline_size = lfs->inline_size,
+        .attr_max    = lfs->attr_max,
+        .name_max    = lfs->name_max,
+        .inline_max  = lfs->inline_max,
     };
 
     lfs_superblocktole32(&superblock);
@@ -2912,34 +2912,34 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_pairfromle32(lfs->root);
 
     // check superblock configuration
-    if (superblock.attr_size) {
-        if (superblock.attr_size > lfs->attr_size) {
-            LFS_ERROR("Unsupported attr size (%d > %d)",
-                    superblock.attr_size, lfs->attr_size);
+    if (superblock.attr_max) {
+        if (superblock.attr_max > lfs->attr_max) {
+            LFS_ERROR("Unsupported attr_max (%d > %d)",
+                    superblock.attr_max, lfs->attr_max);
             return LFS_ERR_INVAL;
         }
 
-        lfs->attr_size = superblock.attr_size;
+        lfs->attr_max = superblock.attr_max;
     }
 
-    if (superblock.name_size) {
-        if (superblock.name_size > lfs->name_size) {
-            LFS_ERROR("Unsupported name size (%d > %d)",
-                    superblock.name_size, lfs->name_size);
+    if (superblock.name_max) {
+        if (superblock.name_max > lfs->name_max) {
+            LFS_ERROR("Unsupported name_max (%d > %d)",
+                    superblock.name_max, lfs->name_max);
             return LFS_ERR_INVAL;
         }
 
-        lfs->name_size = superblock.name_size;
+        lfs->name_max = superblock.name_max;
     }
 
-    if (superblock.inline_size) {
-        if (superblock.inline_size > lfs->inline_size) {
-            LFS_ERROR("Unsupported inline size (%d > %d)",
-                    superblock.inline_size, lfs->inline_size);
+    if (superblock.inline_max) {
+        if (superblock.inline_max > lfs->inline_max) {
+            LFS_ERROR("Unsupported inline_max (%d > %d)",
+                    superblock.inline_max, lfs->inline_max);
             return LFS_ERR_INVAL;
         }
 
-        lfs->inline_size = superblock.inline_size;
+        lfs->inline_max = superblock.inline_max;
     }
 
     // scan for any global updates
@@ -3265,7 +3265,7 @@ lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
 
     int32_t res = lfs_dir_get(lfs, &superdir, 0x7ffff000,
             LFS_MKTAG(0x100 | type, 0,
-                lfs_min(size, lfs->attr_size)), buffer);
+                lfs_min(size, lfs->attr_max)), buffer);
     if (res < 0) {
         return res;
     }
@@ -3275,7 +3275,7 @@ lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
 
 int lfs_fs_setattr(lfs_t *lfs,
         uint8_t type, const void *buffer, lfs_size_t size) {
-    if (size > lfs->attr_size) {
+    if (size > lfs->attr_max) {
         return LFS_ERR_NOSPC;
     }
 
