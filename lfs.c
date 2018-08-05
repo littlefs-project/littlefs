@@ -2651,14 +2651,11 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
     res = lfs_dir_get(lfs, &cwd, 0x7ffff000,
             LFS_MKTAG(0x100 | type, lfs_tagid(res),
                 lfs_min(size, lfs->attr_size)), buffer);
-    if (res < 0) {
-        if (res == LFS_ERR_NOENT) {
-            return LFS_ERR_NOATTR;
-        }
+    if (res < 0 && res != LFS_ERR_NOENT) {
         return res;
     }
 
-    return lfs_tagsize(res);
+    return (res == LFS_ERR_NOENT) ? 0 : lfs_tagsize(res);
 }
 
 int lfs_setattr(lfs_t *lfs, const char *path,
@@ -3270,13 +3267,10 @@ lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
             LFS_MKTAG(0x100 | type, 0,
                 lfs_min(size, lfs->attr_size)), buffer);
     if (res < 0) {
-        if (res == LFS_ERR_NOENT) {
-            return LFS_ERR_NOATTR;
-        }
         return res;
     }
 
-    return lfs_tagsize(res);
+    return (res == LFS_ERR_NOENT) ? 0 : lfs_tagsize(res);
 }
 
 int lfs_fs_setattr(lfs_t *lfs,
