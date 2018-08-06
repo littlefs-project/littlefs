@@ -93,7 +93,8 @@ enum lfs_type {
 
     // internally used types
     LFS_TYPE_USER           = 0x100,
-    LFS_TYPE_SUPERBLOCK     = 0x010,
+    LFS_TYPE_SUPERBLOCK     = 0x011,
+    LFS_TYPE_ROOT           = 0x012,
     LFS_TYPE_NAME           = 0x000,
     LFS_TYPE_DELETE         = 0x030,
     LFS_TYPE_STRUCT         = 0x040,
@@ -110,8 +111,9 @@ enum lfs_type {
     // internal chip sources
     LFS_FROM_REGION         = 0x000,
     LFS_FROM_DISK           = 0x200,
-    LFS_FROM_MOVE           = 0x021,
-    LFS_FROM_ATTRS          = 0x022,
+    LFS_FROM_MOVE           = 0x050,
+    LFS_FROM_ATTRS          = 0x060,
+    LFS_FROM_SUPERBLOCK     = 0x070,
 };
 
 // File open flags

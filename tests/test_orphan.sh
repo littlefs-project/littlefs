@@ -17,26 +17,26 @@ tests/test.py << TEST
 TEST
 # corrupt most recent commit, this should be the update to the previous
 # linked-list entry and should orphan the child
-tests/corrupt.py blocks/{8,9}
-tests/test.py  << TEST
+tests/corrupt.py blocks/{6,7}
+tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
 
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
     lfs_ssize_t before = lfs_fs_size(&lfs);
-    before => 10;
+    before => 8;
 
     lfs_unmount(&lfs) => 0;
     lfs_mount(&lfs, &cfg) => 0;
 
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
     lfs_ssize_t orphaned = lfs_fs_size(&lfs);
-    orphaned => 10;
+    orphaned => 8;
 
     lfs_mkdir(&lfs, "parent/otherchild") => 0;
 
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
     lfs_ssize_t deorphaned = lfs_fs_size(&lfs);
-    deorphaned => 10;
+    deorphaned => 8;
 
     lfs_unmount(&lfs) => 0;
 TEST

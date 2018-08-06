@@ -206,7 +206,7 @@ tests/test.py << TEST
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < (cfg.block_count-6)*(cfg.block_size-8);
+            i < (cfg.block_count-4)*(cfg.block_size-8);
             i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
@@ -286,7 +286,7 @@ tests/test.py << TEST
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < (cfg.block_count-6)*(cfg.block_size-8);
+            i < (cfg.block_count-4)*(cfg.block_size-8);
             i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
@@ -320,7 +320,7 @@ tests/test.py << TEST
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-4)/2)*(cfg.block_size-8);
+            i < ((cfg.block_count-2)/2)*(cfg.block_size-8);
             i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
@@ -331,7 +331,7 @@ tests/test.py << TEST
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-4+1)/2)*(cfg.block_size-8);
+            i < ((cfg.block_count-2+1)/2)*(cfg.block_size-8);
             i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
@@ -349,7 +349,7 @@ tests/test.py << TEST
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-4)/2)*(cfg.block_size-8);
+            i < ((cfg.block_count-2)/2)*(cfg.block_size-8);
             i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
@@ -363,7 +363,7 @@ tests/test.py << TEST
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-4+1)/2)*(cfg.block_size-8);
+            i < ((cfg.block_count-2+1)/2)*(cfg.block_size-8);
             i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
@@ -383,7 +383,7 @@ tests/test.py << TEST
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-4)/2)*(cfg.block_size-8);
+            i < ((cfg.block_count-2)/2)*(cfg.block_size-8);
             i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
@@ -394,7 +394,7 @@ tests/test.py << TEST
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-4+1)/2)*(cfg.block_size-8);
+            i < ((cfg.block_count-2+1)/2)*(cfg.block_size-8);
             i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }
@@ -412,7 +412,7 @@ tests/test.py << TEST
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-4)/2 - 1)*(cfg.block_size-8);
+            i < ((cfg.block_count-2)/2 - 1)*(cfg.block_size-8);
             i += size) {
         lfs_file_write(&lfs, &file[0], buffer, size) => size;
     }

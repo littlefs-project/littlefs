@@ -377,6 +377,25 @@ static void lfs_ctz_tole32(struct lfs_ctz *ctz) {
     ctz->size = lfs_tole32(ctz->size);
 }
 
+static inline void lfs_superblock_fromle32(lfs_superblock_t *superblock) {
+    superblock->version     = lfs_fromle32(superblock->version);
+    superblock->block_size  = lfs_fromle32(superblock->block_size);
+    superblock->block_count = lfs_fromle32(superblock->block_count);
+    superblock->inline_max  = lfs_fromle32(superblock->inline_max);
+    superblock->attr_max    = lfs_fromle32(superblock->attr_max);
+    superblock->name_max    = lfs_fromle32(superblock->name_max);
+}
+
+static inline void lfs_superblock_tole32(lfs_superblock_t *superblock) {
+    superblock->version     = lfs_tole32(superblock->version);
+    superblock->block_size  = lfs_tole32(superblock->block_size);
+    superblock->block_count = lfs_tole32(superblock->block_count);
+    superblock->inline_max  = lfs_tole32(superblock->inline_max);
+    superblock->attr_max    = lfs_tole32(superblock->attr_max);
+    superblock->name_max    = lfs_tole32(superblock->name_max);
+}
+
+
 
 /// Entry tag operations ///
 #define LFS_MKTAG(type, id, size) \
@@ -524,15 +543,15 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
 
 static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
         uint32_t tag, const void *buffer) {
-    if (lfs_tag_type(tag) == LFS_FROM_ATTRS) {
-        // special case for custom attributes
-        return lfs_commit_attrs(lfs, commit,
-                lfs_tag_id(tag), buffer);
-    } else if (lfs_tag_type(tag) == LFS_FROM_MOVE) {
+    if (lfs_tag_subtype(tag) == LFS_FROM_MOVE) {
         // special case for moves
         return lfs_commit_move(lfs, commit,
                 lfs_tag_size(tag), lfs_tag_id(tag),
                 buffer, NULL);
+    } else if (lfs_tag_subtype(tag) == LFS_FROM_ATTRS) {
+        // special case for custom attributes
+        return lfs_commit_attrs(lfs, commit,
+                lfs_tag_id(tag), buffer);
     }
 
     // check if we fit
@@ -628,7 +647,8 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
             tag |= 0x80000000;
         }
 
-        if (lfs_tag_type(tag) == LFS_TYPE_DELETE && lfs_tag_id(tag) <= fromid) {
+        if (lfs_tag_type(tag) == LFS_TYPE_DELETE &&
+                lfs_tag_id(tag) <= fromid) {
             // something was deleted, we need to move around it
             fromid += 1;
         } else if (lfs_tag_id(tag) != fromid) {
@@ -667,8 +687,8 @@ static int lfs_commit_globals(lfs_t *lfs, struct lfs_commit *commit,
 
     lfs_global_xor(locals, &lfs->locals);
     int err = lfs_commit_attr(lfs, commit,
-            LFS_MKTAG(LFS_TYPE_GLOBALS + locals->s.deorphaned,
-                0x3ff, sizeof(lfs_global_t)), locals);
+            LFS_MKTAG(LFS_TYPE_GLOBALS + locals->s.deorphaned, 0x3ff, 10),
+            locals);
     lfs_global_xor(locals, &lfs->locals);
     return err;
 }
@@ -726,7 +746,7 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
 
 // internal dir operations
 static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
-    // allocate pair of dir blocks (backwards, so we write to block 1 first)
+    // allocate pair of dir blocks (backwards, so we write block 1 first)
     for (int i = 0; i < 2; i++) {
         int err = lfs_alloc(lfs, &dir->pair[(i+1)%2]);
         if (err) {
@@ -756,10 +776,9 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
     return 0;
 }
 
-static int32_t lfs_dir_find(lfs_t *lfs,
+static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
         lfs_mdir_t *dir, const lfs_block_t pair[2],
-        uint32_t findmask, uint32_t findtag,
-        const void *findbuffer) {
+        uint32_t findmask, uint32_t findtag, const void *findbuffer) {
     dir->pair[0] = pair[0];
     dir->pair[1] = pair[1];
     int32_t foundtag = LFS_ERR_NOENT;
@@ -887,7 +906,7 @@ static int32_t lfs_dir_find(lfs_t *lfs,
                 } else if (lfs_tag_subtype(tag) == LFS_TYPE_GLOBALS) {
                     templocals.s.deorphaned = (lfs_tag_type(tag) & 1);
                     err = lfs_bd_read(lfs, dir->pair[0], off+sizeof(tag),
-                            &templocals, sizeof(templocals));
+                            &templocals, 10);
                     if (err) {
                         if (err == LFS_ERR_CORRUPT) {
                             dir->erased = false;
@@ -906,7 +925,7 @@ static int32_t lfs_dir_find(lfs_t *lfs,
                     }
                 } else if ((tag & findmask) == (findtag & findmask)) {
                     int res = lfs_bd_cmp(lfs, dir->pair[0], off+sizeof(tag),
-                            findbuffer, lfs_tag_size(tag));
+                            findbuffer, lfs_tag_size(findtag));
                     if (res < 0) {
                         if (res == LFS_ERR_CORRUPT) {
                             dir->erased = false;
@@ -953,12 +972,30 @@ static int32_t lfs_dir_find(lfs_t *lfs,
 
 static int lfs_dir_fetch(lfs_t *lfs,
         lfs_mdir_t *dir, const lfs_block_t pair[2]) {
-    int32_t res = lfs_dir_find(lfs, dir, pair, 0xffffffff, 0xffffffff, NULL);
+    int32_t res = lfs_dir_fetchmatch(lfs, dir, pair,
+            0xffffffff, 0xffffffff, NULL);
     if (res < 0 && res != LFS_ERR_NOENT) {
         return res;
     }
 
     return 0;
+}
+
+static int32_t lfs_dir_find(lfs_t *lfs,
+        lfs_mdir_t *dir, const lfs_block_t pair[2], bool fs,
+        uint32_t findmask, uint32_t findtag, const void *findbuffer) {
+    dir->split = true;
+    dir->tail[0] = pair[0];
+    dir->tail[1] = pair[1];
+    while ((dir->split || fs) && !lfs_pair_isnull(dir->tail)) {
+        int32_t tag = lfs_dir_fetchmatch(lfs, dir, dir->tail,
+                findmask, findtag, findbuffer);
+        if (tag != LFS_ERR_NOENT) {
+            return tag;
+        }
+    }
+
+    return LFS_ERR_NOENT;
 }
 
 static int32_t lfs_dir_get(lfs_t *lfs, lfs_mdir_t *dir,
@@ -979,6 +1016,8 @@ static int lfs_dir_compact(lfs_t *lfs,
         lfs_mdir_t *source, uint16_t begin, uint16_t end) {
     // save some state in case block is bad
     const lfs_block_t oldpair[2] = {dir->pair[1], dir->pair[0]};
+    int16_t ack;
+    bool expanding = false;
     bool relocated = false;
 
     // There's nothing special about our global delta, so feed it back
@@ -989,9 +1028,25 @@ static int lfs_dir_compact(lfs_t *lfs,
     // increment revision count
     dir->rev += 1;
 
+    if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0 &&
+            dir->rev % 16 == 0) {
+        // we're writing too much to the superblock, should we expand?
+        lfs_ssize_t res = lfs_fs_size(lfs);
+        if (res < 0) {
+            return res;
+        }
+
+        // do we have enough space to expand?
+        if (res < lfs->cfg->block_count/2) {
+            expanding = (lfs_pair_cmp(dir->pair, lfs->root) != 0);
+            ack = 0;
+            goto split;
+        }
+    }
+
     while (true) {
         // last complete id
-        int16_t ack = -1;
+        ack = -1;
         dir->count = end - begin;
 
         if (true) {
@@ -1111,7 +1166,7 @@ split:
         tail.tail[0] = dir->tail[0];
         tail.tail[1] = dir->tail[1];
 
-        err = lfs_dir_compact(lfs, &tail, attrs, dir, ack+1, end);
+        err = lfs_dir_compact(lfs, &tail, attrs, dir, ack+1-expanding, end);
         if (err) {
             return err;
         }
@@ -1390,25 +1445,10 @@ nextname:
         }
 
         // find entry matching name
-        while (true) {
-            tag = lfs_dir_find(lfs, dir, pair, 0x7c000fff,
-                    LFS_MKTAG(LFS_TYPE_NAME, 0, namelen), name);
-            if (tag < 0 && tag != LFS_ERR_NOENT) {
-                return tag;
-            }
-
-            if (tag != LFS_ERR_NOENT) {
-                // found it
-                break;
-            }
-
-            if (!dir->split) {
-                // couldn't find it
-                return LFS_ERR_NOENT;
-            }
-
-            pair[0] = dir->tail[0];
-            pair[1] = dir->tail[1];
+        tag = lfs_dir_find(lfs, dir, pair, false, 0x7c000fff,
+                LFS_MKTAG(LFS_TYPE_NAME, 0, namelen), name);
+        if (tag < 0) {
+            return tag;
         }
 
         // to next name
@@ -2721,24 +2761,6 @@ int lfs_setattr(lfs_t *lfs, const char *path,
 
 
 /// Filesystem operations ///
-static inline void lfs_superblockfromle32(lfs_superblock_t *superblock) {
-    superblock->version     = lfs_fromle32(superblock->version);
-    superblock->block_size  = lfs_fromle32(superblock->block_size);
-    superblock->block_count = lfs_fromle32(superblock->block_count);
-    superblock->inline_max  = lfs_fromle32(superblock->inline_max);
-    superblock->attr_max    = lfs_fromle32(superblock->attr_max);
-    superblock->name_max    = lfs_fromle32(superblock->name_max);
-}
-
-static inline void lfs_superblocktole32(lfs_superblock_t *superblock) {
-    superblock->version     = lfs_tole32(superblock->version);
-    superblock->block_size  = lfs_tole32(superblock->block_size);
-    superblock->block_count = lfs_tole32(superblock->block_count);
-    superblock->inline_max  = lfs_tole32(superblock->inline_max);
-    superblock->attr_max    = lfs_tole32(superblock->attr_max);
-    superblock->name_max    = lfs_tole32(superblock->name_max);
-}
-
 static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->cfg = cfg;
     int err = 0;
@@ -2859,29 +2881,12 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->free.i = 0;
     lfs_alloc_ack(lfs);
 
-    // create superblock dir
-    lfs_mdir_t dir;
-    err = lfs_dir_alloc(lfs, &dir);
-    if (err) {
-        goto cleanup;
-    }
-
-    // write root directory
+    // create root dir
     lfs_mdir_t root;
     err = lfs_dir_alloc(lfs, &root);
     if (err) {
         goto cleanup;
     }
-
-    err = lfs_dir_commit(lfs, &root, NULL);
-    if (err) {
-        goto cleanup;
-    }
-
-    lfs->root[0] = root.pair[0];
-    lfs->root[1] = root.pair[1];
-    dir.tail[0] = lfs->root[0];
-    dir.tail[1] = lfs->root[1];
 
     // write one superblock
     lfs_superblock_t superblock = {
@@ -2895,20 +2900,17 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         .inline_max  = lfs->inline_max,
     };
 
-    lfs_superblocktole32(&superblock);
-    lfs_pair_tole32(lfs->root);
-    err = lfs_dir_commit(lfs, &dir,
+    lfs_superblock_tole32(&superblock);
+    err = lfs_dir_commit(lfs, &root,
             LFS_MKATTR(LFS_TYPE_SUPERBLOCK, 0, &superblock, sizeof(superblock),
-            LFS_MKATTR(LFS_TYPE_DIRSTRUCT, 0, lfs->root, sizeof(lfs->root),
+            LFS_MKATTR(LFS_TYPE_ROOT, 1, NULL, 0,
             NULL)));
-    lfs_pair_fromle32(lfs->root);
-    lfs_superblockfromle32(&superblock);
     if (err) {
         goto cleanup;
     }
 
     // sanity check that fetch works
-    err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
+    err = lfs_dir_fetch(lfs, &root, (const lfs_block_t[2]){0, 1});
     if (err) {
         goto cleanup;
     }
@@ -2931,27 +2933,34 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_alloc_ack(lfs);
 
     // load superblock
-    lfs_mdir_t superdir;
-    err = lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
+    lfs_mdir_t root;
+    err = lfs_dir_fetch(lfs, &root, (const lfs_block_t[2]){0, 1});
     if (err) {
-        goto cleanup;
+        return err;
     }
 
     lfs_superblock_t superblock;
-    int32_t res = lfs_dir_get(lfs, &superdir, 0x7ffff000,
+    int32_t res = lfs_dir_get(lfs, &root, 0x7fc00000,
             LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, sizeof(superblock)),
             &superblock);
     if (res < 0) {
         err = res;
         goto cleanup;
     }
-    lfs_superblockfromle32(&superblock);
+    lfs_superblock_fromle32(&superblock);
 
-    if (memcmp(superblock.magic, "littlefs", 8) != 0) {
-        LFS_ERROR("Invalid superblock \"%.8s\"", superblock.magic);
-        return LFS_ERR_INVAL;
+    // find root
+    int32_t tag = lfs_dir_find(lfs,
+            &root, (const lfs_block_t[2]){0, 1}, false, 0x7fc00000,
+            LFS_MKTAG(LFS_TYPE_ROOT, 0, 0), NULL);
+    if (tag < 0) {
+        return tag;
     }
 
+    lfs->root[0] = root.pair[0];
+    lfs->root[1] = root.pair[1];
+
+    // check version
     uint16_t major_version = (0xffff & (superblock.version >> 16));
     uint16_t minor_version = (0xffff & (superblock.version >>  0));
     if ((major_version != LFS_DISK_VERSION_MAJOR ||
@@ -2961,15 +2970,6 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         err = LFS_ERR_INVAL;
         goto cleanup;
     }
-
-    res = lfs_dir_get(lfs, &superdir, 0x7ffff000,
-            LFS_MKTAG(LFS_TYPE_DIRSTRUCT, 0, sizeof(lfs->root)),
-            &lfs->root);
-    if (res < 0) {
-        err = res;
-        goto cleanup;
-    }
-    lfs_pair_fromle32(lfs->root);
 
     // check superblock configuration
     if (superblock.attr_max) {
@@ -3145,16 +3145,11 @@ static int32_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
     lfs_block_t child[2] = {pair[0], pair[1]};
     lfs_pair_tole32(child);
     for (int i = 0; i < 2; i++) {
-        // iterate over all directory directory entries
-        parent->tail[0] = 0;
-        parent->tail[1] = 1;
-        while (!lfs_pair_isnull(parent->tail)) {
-            int32_t tag = lfs_dir_find(lfs, parent, parent->tail, 0x7fc00fff,
-                    LFS_MKTAG(LFS_TYPE_DIRSTRUCT, 0, sizeof(child)),
-                    child);
-            if (tag != LFS_ERR_NOENT) {
-                return tag;
-            }
+        int32_t tag = lfs_dir_find(lfs, parent,
+                (const lfs_block_t[2]){0, 1}, true, 0x7fc00fff,
+                LFS_MKTAG(LFS_TYPE_DIRSTRUCT, 0, sizeof(child)), child);
+        if (tag != LFS_ERR_NOENT) {
+            return tag;
         }
 
         lfs_pair_swap(child);
@@ -3190,6 +3185,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
 
     if (tag != LFS_ERR_NOENT) {
         // update disk, this creates a desync
+        lfs_global_deorphaned(lfs, false);
         lfs_pair_tole32(newpair);
         int err = lfs_dir_commit(lfs, &parent,
                 &(lfs_mattr_t){.tag=tag, .buffer=newpair});
