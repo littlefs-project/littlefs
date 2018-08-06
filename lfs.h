@@ -93,7 +93,8 @@ enum lfs_type {
 
     // internally used types
     LFS_TYPE_USER           = 0x100,
-    LFS_TYPE_SUPERBLOCK     = 0x010,
+    LFS_TYPE_SUPERBACKUP    = 0x010,
+    LFS_TYPE_SUPERBLOCK     = 0x011,
     LFS_TYPE_NAME           = 0x000,
     LFS_TYPE_DELETE         = 0x030,
     LFS_TYPE_STRUCT         = 0x040,
