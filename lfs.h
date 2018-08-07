@@ -104,9 +104,9 @@ enum lfs_type {
     LFS_TYPE_HARDTAIL       = 0x0c1,
     LFS_TYPE_CRC            = 0x0f0,
 
-    LFS_TYPE_INLINESTRUCT   = 0x040,
-    LFS_TYPE_CTZSTRUCT      = 0x041,
-    LFS_TYPE_DIRSTRUCT      = 0x042,
+    LFS_TYPE_DIRSTRUCT      = 0x040,
+    LFS_TYPE_INLINESTRUCT   = 0x041,
+    LFS_TYPE_CTZSTRUCT      = 0x042,
 
     // internal chip sources
     LFS_FROM_REGION         = 0x000,
