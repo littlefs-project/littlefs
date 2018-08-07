@@ -121,7 +121,7 @@ static int lfs_cache_crc(lfs_t *lfs,
             return err;
         }
 
-        lfs_crc(crc, &c, 1);
+        *crc = lfs_crc(*crc, &c, 1);
     }
 
     return 0;
@@ -236,7 +236,7 @@ static int lfs_bd_cmp(lfs_t *lfs, lfs_block_t block,
     return lfs_cache_cmp(lfs, NULL, &lfs->rcache, block, off, buffer, size);
 }
 
-static int lfs_bd_crc(lfs_t *lfs, lfs_block_t block,
+static int lfs_bd_crc32(lfs_t *lfs, lfs_block_t block,
         lfs_off_t off, lfs_size_t size, uint32_t *crc) {
     return lfs_cache_crc(lfs, NULL, &lfs->rcache, block, off, size, crc);
 }
@@ -562,7 +562,7 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
 
     // write out tag
     uint32_t ntag = lfs_tole32((tag & 0x7fffffff) ^ commit->ptag);
-    lfs_crc(&commit->crc, &ntag, sizeof(ntag));
+    commit->crc = lfs_crc(commit->crc, &ntag, sizeof(ntag));
     int err = lfs_bd_prog(lfs, commit->block, commit->off,
             &ntag, sizeof(ntag));
     if (err) {
@@ -572,7 +572,7 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
 
     if (!(tag & 0x80000000)) {
         // from memory
-        lfs_crc(&commit->crc, buffer, size);
+        commit->crc = lfs_crc(commit->crc, buffer, size);
         err = lfs_bd_prog(lfs, commit->block, commit->off, buffer, size);
         if (err) {
             return err;
@@ -588,7 +588,7 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
                 return err;
             }
 
-            lfs_crc(&commit->crc, &dat, 1);
+            commit->crc = lfs_crc(commit->crc, &dat, 1);
             err = lfs_bd_prog(lfs, commit->block, commit->off+i, &dat, 1);
             if (err) {
                 return err;
@@ -714,7 +714,7 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
     // write out crc
     uint32_t footer[2];
     footer[0] = lfs_tole32(tag ^ commit->ptag);
-    lfs_crc(&commit->crc, &footer[0], sizeof(footer[0]));
+    commit->crc = lfs_crc(commit->crc, &footer[0], sizeof(footer[0]));
     footer[1] = lfs_tole32(commit->crc);
     err = lfs_bd_prog(lfs, commit->block, commit->off, footer, sizeof(footer));
     if (err) {
@@ -731,7 +731,7 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
 
     // successful commit, check checksum to make sure
     uint32_t crc = 0xffffffff;
-    err = lfs_bd_crc(lfs, commit->block, commit->begin,
+    err = lfs_bd_crc32(lfs, commit->block, commit->begin,
             commit->off-lfs_tag_size(tag)-commit->begin, &crc);
     if (err) {
         return err;
@@ -810,7 +810,7 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
         uint32_t crc = 0xffffffff;
 
         dir->rev = lfs_tole32(rev[0]);
-        lfs_crc(&crc, &dir->rev, sizeof(dir->rev));
+        crc = lfs_crc(crc, &dir->rev, sizeof(dir->rev));
         dir->rev = lfs_fromle32(dir->rev);
         dir->off = 0;
 
@@ -835,7 +835,7 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
                 return err;
             }
 
-            lfs_crc(&crc, &tag, sizeof(tag));
+            crc = lfs_crc(crc, &tag, sizeof(tag));
             tag = lfs_fromle32(tag) ^ ptag;
 
             // next commit not yet programmed
@@ -879,7 +879,7 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
                 dir->locals = templocals;
                 crc = 0xffffffff;
             } else {
-                err = lfs_bd_crc(lfs, dir->pair[0],
+                err = lfs_bd_crc32(lfs, dir->pair[0],
                         off+sizeof(tag), lfs_tag_size(tag), &crc);
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
@@ -1062,7 +1062,7 @@ static int lfs_dir_compact(lfs_t *lfs,
             // write out header
             uint32_t crc = 0xffffffff;
             uint32_t rev = lfs_tole32(dir->rev);
-            lfs_crc(&crc, &rev, sizeof(rev));
+            crc = lfs_crc(crc, &rev, sizeof(rev));
             err = lfs_bd_prog(lfs, dir->pair[1], 0, &rev, sizeof(rev));
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {

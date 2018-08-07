@@ -187,7 +187,7 @@ static inline uint32_t lfs_alignup(uint32_t a, uint32_t alignment) {
 }
 
 // Calculate CRC-32 with polynomial = 0x04c11db7
-void lfs_crc(uint32_t *crc, const void *buffer, size_t size);
+uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
 
 // Allocate memory, only used if buffers are not provided to littlefs
 static inline void *lfs_malloc(size_t size) {
