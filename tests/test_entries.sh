@@ -4,7 +4,8 @@ set -eu
 # Note: These tests are intended for 512 byte inline size at different
 # inline sizes they should still pass, but won't be testing anything
 
-echo "=== Directory tests ==="
+echo "=== Entry tests ==="
+rm -rf blocks
 function read_file {
 cat << TEST
 
