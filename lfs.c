@@ -658,7 +658,7 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
             int32_t res = lfs_commit_get(lfs, commit->block,
                     commit->off, commit->ptag,
                     lfs_tag_isuser(tag) ? 0x7ffff000 : 0x7c3ff000,
-                    LFS_MKTAG(lfs_tag_type(tag), toid, 0),
+                    (tag & 0x7fc00000) | LFS_MKTAG(0, toid, 0),
                     0, NULL, true);
             if (res < 0 && res != LFS_ERR_NOENT) {
                 return res;
@@ -1166,7 +1166,7 @@ split:
         tail.tail[0] = dir->tail[0];
         tail.tail[1] = dir->tail[1];
 
-        err = lfs_dir_compact(lfs, &tail, attrs, dir, ack+1-expanding, end);
+        err = lfs_dir_compact(lfs, &tail, attrs, source, ack+1-expanding, end);
         if (err) {
             return err;
         }
@@ -1346,8 +1346,12 @@ compact:
     lfs_global_xor(&lfs->globals, &canceldiff);
 
     // update any directories that are affected
+    lfs_mdir_t copy = *dir;
+
+    // two passes, once for things that aren't us, and one
+    // for things that are
     for (lfs_mlist_t *d = lfs->mlist; d; d = d->next) {
-        if (lfs_pair_cmp(d->m.pair, dir->pair) == 0) {
+        if (lfs_pair_cmp(d->m.pair, copy.pair) == 0) {
             d->m = *dir;
             if (d->id == lfs_tag_id(deletetag)) {
                 d->m.pair[0] = 0xffffffff;
