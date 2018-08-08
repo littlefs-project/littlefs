@@ -2199,25 +2199,27 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             uint16_t type;
             const void *buffer;
             lfs_size_t size;
+            struct lfs_ctz ctz;
             if (file->flags & LFS_F_INLINE) {
                 // inline the whole file
                 type = LFS_TYPE_INLINESTRUCT;
                 buffer = file->cache.buffer;
                 size = file->ctz.size;
-            } else {
+            } else if (lfs_tole32(0x11223344) == 0x11223344) {
                 // update the ctz reference
                 type = LFS_TYPE_CTZSTRUCT;
-                buffer = &file->ctz;
-                size = sizeof(file->ctz);
+                // copy ctz so alloc will work during a relocate
+                ctz = file->ctz;
+                lfs_ctz_tole32(&ctz);
+                buffer = &ctz;
+                size = sizeof(ctz);
             }
 
             // commit file data and attributes
-            lfs_ctz_tole32(&file->ctz);
             err = lfs_dir_commit(lfs, &file->m,
                     LFS_MKATTR(type, file->id, buffer, size,
                     LFS_MKATTR(LFS_FROM_ATTRS, file->id, file->cfg->attrs, 0,
                     NULL)));
-            lfs_ctz_fromle32(&file->ctz);
             if (err) {
                 if (err == LFS_ERR_NOSPC && (file->flags & LFS_F_INLINE)) {
                     goto relocate;
