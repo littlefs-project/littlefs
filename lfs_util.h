@@ -11,8 +11,8 @@
 // LFS_CONFIG as a header file to include (-DLFS_CONFIG=lfs_config.h).
 //
 // If LFS_CONFIG is used, none of the default utils will be emitted and must be
-// provided by the config file. To start I would suggest copying lfs_util.h and
-// modifying as needed.
+// provided by the config file. To start, I would suggest copying lfs_util.h
+// and modifying as needed.
 #ifdef LFS_CONFIG
 #define LFS_STRINGIZE(x) LFS_STRINGIZE2(x)
 #define LFS_STRINGIZE2(x) #x
@@ -86,6 +86,15 @@ static inline uint32_t lfs_max(uint32_t a, uint32_t b) {
 
 static inline uint32_t lfs_min(uint32_t a, uint32_t b) {
     return (a < b) ? a : b;
+}
+
+// Align to nearest multiple of a size
+static inline uint32_t lfs_aligndown(uint32_t a, uint32_t alignment) {
+    return a - (a % alignment);
+}
+
+static inline uint32_t lfs_alignup(uint32_t a, uint32_t alignment) {
+    return lfs_aligndown(a + alignment-1, alignment);
 }
 
 // Find the next smallest power of 2 less than or equal to a
@@ -175,15 +184,6 @@ static inline uint16_t lfs_fromle16(uint16_t a) {
 
 static inline uint16_t lfs_tole16(uint16_t a) {
     return lfs_fromle16(a);
-}
-
-// Align to nearest multiple of a size
-static inline uint32_t lfs_aligndown(uint32_t a, uint32_t alignment) {
-    return a - (a % alignment);
-}
-
-static inline uint32_t lfs_alignup(uint32_t a, uint32_t alignment) {
-    return lfs_aligndown(a + alignment-1, alignment);
 }
 
 // Calculate CRC-32 with polynomial = 0x04c11db7
