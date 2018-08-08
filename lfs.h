@@ -178,12 +178,6 @@ struct lfs_config {
     // multiple of this value.
     lfs_size_t prog_size;
 
-    // Size of block caches. Each cache buffers a portion of a block in RAM.
-    // This determines the size of the read cache, the program cache, and a
-    // cache per file. Larger caches can improve performance by storing more
-    // data. Must be a multiple of the read and program sizes.
-    lfs_size_t cache_size;
-
     // Size of an erasable block. This does not impact ram consumption and
     // may be larger than the physical erase size. However, this should be
     // kept small as each file currently takes up an entire block.
@@ -192,6 +186,17 @@ struct lfs_config {
 
     // Number of erasable blocks on the device.
     lfs_size_t block_count;
+
+    // Number of erase cycles before we should move data to another block.
+    // May be zero to never move data, in which case no block-level
+    // wear-leveling is performed.
+    uint32_t block_cycles;
+
+    // Size of block caches. Each cache buffers a portion of a block in RAM.
+    // This determines the size of the read cache, the program cache, and a
+    // cache per file. Larger caches can improve performance by storing more
+    // data. Must be a multiple of the read and program sizes.
+    lfs_size_t cache_size;
 
     // Number of blocks to lookahead during block allocation. A larger
     // lookahead reduces the number of passes required to allocate a block.
