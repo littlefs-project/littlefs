@@ -17,7 +17,7 @@ tests/test.py << TEST
 TEST
 # corrupt most recent commit, this should be the update to the previous
 # linked-list entry and should orphan the child
-tests/corrupt.py blocks/{6,7}
+tests/corrupt.py
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
 

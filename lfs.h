@@ -382,6 +382,7 @@ typedef struct lfs {
 
     lfs_block_t root[2];
     lfs_mlist_t *mlist;
+    uint32_t seed;
 
     lfs_global_t globals;
     lfs_global_t locals;
