@@ -879,6 +879,8 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
                 dir->tail[1] = temptail[1];
                 dir->split = tempsplit;
                 dir->locals = templocals;
+
+                lfs->seed ^= crc;
                 crc = 0xffffffff;
             } else {
                 err = lfs_bd_crc32(lfs, dir->pair[0],
@@ -2874,6 +2876,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->root[0] = 0xffffffff;
     lfs->root[1] = 0xffffffff;
     lfs->mlist = NULL;
+    lfs->seed = 0;
     lfs->globals.s.movepair[0] = 0xffffffff;
     lfs->globals.s.movepair[1] = 0xffffffff;
     lfs->globals.s.moveid = 0x3ff;
@@ -2961,12 +2964,6 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     if (err) {
         return err;
     }
-
-    // setup free lookahead
-    lfs->free.off = 0;
-    lfs->free.size = 0;
-    lfs->free.i = 0;
-    lfs_alloc_ack(lfs);
 
     // load superblock
     lfs_mdir_t root;
@@ -3064,6 +3061,12 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
                 lfs->globals.s.movepair[1],
                 lfs->globals.s.moveid);
     }
+
+    // setup free lookahead
+    lfs->free.off = lfs->seed % lfs->cfg->block_size;
+    lfs->free.size = 0;
+    lfs->free.i = 0;
+    lfs_alloc_ack(lfs);
 
     return 0;
 
