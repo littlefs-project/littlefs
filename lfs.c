@@ -2083,7 +2083,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     }
 
     // clean up memory
-    if (file->cfg->buffer) {
+    if (!file->cfg->buffer) {
         lfs_free(file->cache.buffer);
     }
 
