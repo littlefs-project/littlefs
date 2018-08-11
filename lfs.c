@@ -447,7 +447,7 @@ static inline bool lfs_global_iszero(const lfs_global_t *a) {
 }
 
 static inline void lfs_global_zero(lfs_global_t *a) {
-    lfs_global_xor(a, a);
+    memset(a, 0, sizeof(lfs_global_t));
 }
 
 static inline void lfs_global_fromle32(lfs_global_t *a) {
@@ -2083,7 +2083,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     }
 
     // clean up memory
-    if (file->cfg->buffer) {
+    if (!file->cfg->buffer) {
         lfs_free(file->cache.buffer);
     }
 
