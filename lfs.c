@@ -540,7 +540,7 @@ static int lfs_commit_attrs(lfs_t *lfs, struct lfs_commit *commit,
         uint16_t id, const struct lfs_attr *attrs);
 
 static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
-        uint16_t fromid, uint16_t toid,
+        uint32_t frommask, uint32_t fromtag, uint32_t tomask, uint32_t totag,
         const lfs_mdir_t *dir, const lfs_mattr_t *attrs);
 
 static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
@@ -548,7 +548,8 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
     if (lfs_tag_subtype(tag) == LFS_FROM_MOVE) {
         // special case for moves
         return lfs_commit_move(lfs, commit,
-                lfs_tag_size(tag), lfs_tag_id(tag),
+                0x003ff000, LFS_MKTAG(0, lfs_tag_size(tag), 0),
+                0x003ff000, LFS_MKTAG(0, lfs_tag_id(tag), 0),
                 buffer, NULL);
     } else if (lfs_tag_subtype(tag) == LFS_FROM_ATTRS) {
         // special case for custom attributes
@@ -617,7 +618,7 @@ static int lfs_commit_attrs(lfs_t *lfs, struct lfs_commit *commit,
 }
 
 static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
-        uint16_t fromid, uint16_t toid,
+        uint32_t frommask, uint32_t fromtag, uint32_t tomask, uint32_t totag,
         const lfs_mdir_t *dir, const lfs_mattr_t *attrs) {
     // iterate through list and commits, only committing unique entries
     lfs_off_t off = dir->off;
@@ -650,17 +651,15 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
         }
 
         if (lfs_tag_type(tag) == LFS_TYPE_DELETE &&
-                lfs_tag_id(tag) <= fromid) {
+                lfs_tag_id(tag) <= lfs_tag_id(fromtag)) {
             // something was deleted, we need to move around it
-            fromid += 1;
-        } else if (lfs_tag_id(tag) != fromid) {
-            // ignore non-matching ids
-        } else {
+            fromtag += LFS_MKTAG(0, 1, 0);
+        } else if ((tag & frommask) == (fromtag & frommask)) {
             // check if type has already been committed
             int32_t res = lfs_commit_get(lfs, commit->block,
                     commit->off, commit->ptag,
                     lfs_tag_isuser(tag) ? 0x7ffff000 : 0x7c3ff000,
-                    (tag & 0x7fc00000) | LFS_MKTAG(0, toid, 0),
+                    (tag & ~tomask) | totag,
                     0, NULL, true);
             if (res < 0 && res != LFS_ERR_NOENT) {
                 return res;
@@ -669,7 +668,7 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
             if (res == LFS_ERR_NOENT) {
                 // update id and commit, as we are currently unique
                 int err = lfs_commit_attr(lfs, commit,
-                        (tag & 0xffc00fff) | LFS_MKTAG(0, toid, 0),
+                        (tag & ~tomask) | totag,
                         buffer);
                 if (err) {
                     return err;
@@ -1068,8 +1067,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                 // do we have enough space to expand?
                 if (res < lfs->cfg->block_count/2) {
                     LFS_DEBUG("Expanding superblock at rev %"PRIu32, dir->rev);
-                    ack = 0;
-                    exhausted = (lfs_pair_cmp(dir->pair, lfs->root) != 0);
+                    exhausted = true;
                     goto split;
                 }
             } else {
@@ -1118,7 +1116,9 @@ static int lfs_dir_compact(lfs_t *lfs,
         // commit with a move
         for (uint16_t id = begin; id < end; id++) {
             err = lfs_commit_move(lfs, &commit,
-                    id, id - begin, source, attrs);
+                    0x003ff000, LFS_MKTAG(0, id, 0),
+                    0x003ff000, LFS_MKTAG(0, id - begin, 0),
+                    source, attrs);
             if (err) {
                 if (err == LFS_ERR_NOSPC) {
                     goto split;
@@ -1134,7 +1134,23 @@ static int lfs_dir_compact(lfs_t *lfs,
         // reopen reserved space at the end
         commit.end = lfs->cfg->block_size - 8;
 
+        if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
+            // move over (duplicate) superblock if we are root
+            err = lfs_commit_move(lfs, &commit,
+                    0x7c000000, LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 0),
+                    0x7ffff000, LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 0),
+                    source, attrs);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
+            }
+        }
+
         if (!relocated) {
+            // commit any globals, unless we're relocating, in which case our
+            // parent will steal our globals
             err = lfs_commit_globals(lfs, &commit, &dir->locals);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -1178,8 +1194,7 @@ split:
         // commit no longer fits, need to split dir,
         // drop caches and create tail
         lfs_cache_drop(lfs, &lfs->pcache);
-
-        if (ack == -1) {
+        if (!exhausted && ack < 0) {
             // If we can't fit in this block, we won't fit in next block
             return LFS_ERR_NOSPC;
         }
@@ -1190,11 +1205,16 @@ split:
             return err;
         }
 
+        if (exhausted) {
+            lfs->root[0] = tail.pair[0];
+            lfs->root[1] = tail.pair[1];
+        }
+
         tail.split = dir->split;
         tail.tail[0] = dir->tail[0];
         tail.tail[1] = dir->tail[1];
 
-        err = lfs_dir_compact(lfs, &tail, attrs, source, ack+1-exhausted, end);
+        err = lfs_dir_compact(lfs, &tail, attrs, source, ack+1, end);
         if (err) {
             return err;
         }
@@ -2770,9 +2790,19 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
         return res;
     }
 
+    uint16_t id = lfs_tag_id(res);
+    if (id == 0x3ff) {
+        // special case for root
+        id = 0;
+        int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
+        if (err) {
+            return err;
+        }
+    }
+
     res = lfs_dir_get(lfs, &cwd, 0x7ffff000,
-            LFS_MKTAG(0x100 | type, lfs_tag_id(res),
-                lfs_min(size, lfs->attr_max)), buffer);
+            LFS_MKTAG(0x100 | type, id, lfs_min(size, lfs->attr_max)),
+            buffer);
     if (res < 0 && res != LFS_ERR_NOENT) {
         return res;
     }
@@ -2792,8 +2822,18 @@ int lfs_setattr(lfs_t *lfs, const char *path,
         return res;
     }
 
+    uint16_t id = lfs_tag_id(res);
+    if (id == 0x3ff) {
+        // special case for root
+        id = 0;
+        int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
+        if (err) {
+            return err;
+        }
+    }
+
     return lfs_dir_commit(lfs, &cwd,
-        LFS_MKATTR(0x100 | type, lfs_tag_id(res), buffer, size,
+        LFS_MKATTR(0x100 | type, id, buffer, size,
         NULL));
 }
 
@@ -2941,9 +2981,8 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
     lfs_superblock_tole32(&superblock);
     err = lfs_dir_commit(lfs, &root,
-            LFS_MKATTR(LFS_TYPE_SUPERBLOCK, 0, &superblock, sizeof(superblock),
-            LFS_MKATTR(LFS_TYPE_ROOT, 1, NULL, 0,
-            NULL)));
+            LFS_MKATTR(LFS_TYPE_ROOT, 0, &superblock, sizeof(superblock),
+            NULL));
     if (err) {
         goto cleanup;
     }
@@ -2965,15 +3004,18 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
-    // load superblock
+    // find root/superblock
     lfs_mdir_t root;
-    err = lfs_dir_fetch(lfs, &root, (const lfs_block_t[2]){0, 1});
-    if (err) {
-        return err;
+    lfs_superblock_t superblock;
+    int32_t tag = lfs_dir_find(lfs,
+            &root, (const lfs_block_t[2]){0, 1}, false, 0x7fc00000,
+            LFS_MKTAG(LFS_TYPE_ROOT, 0, 8), "littlefs");
+    if (tag < 0) {
+        err = tag;
+        goto cleanup;
     }
 
-    lfs_superblock_t superblock;
-    int32_t res = lfs_dir_get(lfs, &root, 0x7fc00000,
+    int32_t res = lfs_dir_get(lfs, &root, 0x7c000000,
             LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, sizeof(superblock)),
             &superblock);
     if (res < 0) {
@@ -2981,14 +3023,6 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         goto cleanup;
     }
     lfs_superblock_fromle32(&superblock);
-
-    // find root
-    int32_t tag = lfs_dir_find(lfs,
-            &root, (const lfs_block_t[2]){0, 1}, false, 0x7fc00000,
-            LFS_MKTAG(LFS_TYPE_ROOT, 0, 0), NULL);
-    if (tag < 0) {
-        return tag;
-    }
 
     lfs->root[0] = root.pair[0];
     lfs->root[1] = root.pair[1];
@@ -3368,41 +3402,6 @@ static int lfs_fs_forceconsistency(lfs_t *lfs) {
     }
 
     return 0;
-}
-
-lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
-        uint8_t type, void *buffer, lfs_size_t size) {
-    lfs_mdir_t superdir;
-    int err = lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
-    if (err) {
-        return err;
-    }
-
-    int32_t res = lfs_dir_get(lfs, &superdir, 0x7ffff000,
-            LFS_MKTAG(0x100 | type, 0,
-                lfs_min(size, lfs->attr_max)), buffer);
-    if (res < 0) {
-        return res;
-    }
-
-    return (res == LFS_ERR_NOENT) ? 0 : lfs_tag_size(res);
-}
-
-int lfs_fs_setattr(lfs_t *lfs,
-        uint8_t type, const void *buffer, lfs_size_t size) {
-    if (size > lfs->attr_max) {
-        return LFS_ERR_NOSPC;
-    }
-
-    lfs_mdir_t superdir;
-    int err = lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
-    if (err) {
-        return err;
-    }
-
-    return lfs_dir_commit(lfs, &superdir,
-        LFS_MKATTR(0x100 | type, 0, buffer, size,
-        NULL));
 }
 
 static int lfs_fs_size_count(void *p, lfs_block_t block) {

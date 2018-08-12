@@ -77,55 +77,55 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
-echo "--- Set/get fs attribute ---"
+echo "--- Set/get root attribute ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_fs_setattr(&lfs, 'A', "aaaa",   4) => 0;
-    lfs_fs_setattr(&lfs, 'B', "bbbbbb", 6) => 0;
-    lfs_fs_setattr(&lfs, 'C', "ccccc",  5) => 0;
-    lfs_fs_getattr(&lfs, 'A', buffer,    4) => 4;
-    lfs_fs_getattr(&lfs, 'B', buffer+4,  6) => 6;
-    lfs_fs_getattr(&lfs, 'C', buffer+10, 5) => 5;
+    lfs_setattr(&lfs, "/", 'A', "aaaa",   4) => 0;
+    lfs_setattr(&lfs, "/", 'B', "bbbbbb", 6) => 0;
+    lfs_setattr(&lfs, "/", 'C', "ccccc",  5) => 0;
+    lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
+    lfs_getattr(&lfs, "/", 'B', buffer+4,  6) => 6;
+    lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
     memcmp(buffer,    "aaaa",   4) => 0;
     memcmp(buffer+4,  "bbbbbb", 6) => 0;
     memcmp(buffer+10, "ccccc",  5) => 0;
 
-    lfs_fs_setattr(&lfs, 'B', "", 0) => 0;
-    lfs_fs_getattr(&lfs, 'A', buffer,    4) => 4;
-    lfs_fs_getattr(&lfs, 'B', buffer+4,  6) => 0;
-    lfs_fs_getattr(&lfs, 'C', buffer+10, 5) => 5;
+    lfs_setattr(&lfs, "/", 'B', "", 0) => 0;
+    lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
+    lfs_getattr(&lfs, "/", 'B', buffer+4,  6) => 0;
+    lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
     memcmp(buffer,    "aaaa",         4) => 0;
     memcmp(buffer+4,  "\0\0\0\0\0\0", 6) => 0;
     memcmp(buffer+10, "ccccc",        5) => 0;
 
-    lfs_fs_setattr(&lfs, 'B', "dddddd", 6) => 0;
-    lfs_fs_getattr(&lfs, 'A', buffer,    4) => 4;
-    lfs_fs_getattr(&lfs, 'B', buffer+4,  6) => 6;
-    lfs_fs_getattr(&lfs, 'C', buffer+10, 5) => 5;
+    lfs_setattr(&lfs, "/", 'B', "dddddd", 6) => 0;
+    lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
+    lfs_getattr(&lfs, "/", 'B', buffer+4,  6) => 6;
+    lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
     memcmp(buffer,    "aaaa",   4) => 0;
     memcmp(buffer+4,  "dddddd", 6) => 0;
     memcmp(buffer+10, "ccccc",  5) => 0;
 
-    lfs_fs_setattr(&lfs, 'B', "eee", 3) => 0;
-    lfs_fs_getattr(&lfs, 'A', buffer,    4) => 4;
-    lfs_fs_getattr(&lfs, 'B', buffer+4,  6) => 3;
-    lfs_fs_getattr(&lfs, 'C', buffer+10, 5) => 5;
+    lfs_setattr(&lfs, "/", 'B', "eee", 3) => 0;
+    lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
+    lfs_getattr(&lfs, "/", 'B', buffer+4,  6) => 3;
+    lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
     memcmp(buffer,    "aaaa",      4) => 0;
     memcmp(buffer+4,  "eee\0\0\0", 6) => 0;
     memcmp(buffer+10, "ccccc",     5) => 0;
 
-    lfs_fs_setattr(&lfs, 'A', buffer, LFS_ATTR_MAX+1) => LFS_ERR_NOSPC;
-    lfs_fs_setattr(&lfs, 'B', "fffffffff", 9) => 0;
-    lfs_fs_getattr(&lfs, 'A', buffer,    4) => 4;
-    lfs_fs_getattr(&lfs, 'B', buffer+4,  6) => 9;
-    lfs_fs_getattr(&lfs, 'C', buffer+10, 5) => 5;
+    lfs_setattr(&lfs, "/", 'A', buffer, LFS_ATTR_MAX+1) => LFS_ERR_NOSPC;
+    lfs_setattr(&lfs, "/", 'B', "fffffffff", 9) => 0;
+    lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
+    lfs_getattr(&lfs, "/", 'B', buffer+4,  6) => 9;
+    lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
     lfs_unmount(&lfs) => 0;
 TEST
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_fs_getattr(&lfs, 'A', buffer,    4) => 4;
-    lfs_fs_getattr(&lfs, 'B', buffer+4,  9) => 9;
-    lfs_fs_getattr(&lfs, 'C', buffer+13, 5) => 5;
+    lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
+    lfs_getattr(&lfs, "/", 'B', buffer+4,  9) => 9;
+    lfs_getattr(&lfs, "/", 'C', buffer+13, 5) => 5;
     memcmp(buffer,    "aaaa",      4) => 0;
     memcmp(buffer+4,  "fffffffff", 9) => 0;
     memcmp(buffer+13, "ccccc",     5) => 0;

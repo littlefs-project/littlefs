@@ -7,7 +7,7 @@ TYPES = {
     (0x1ff, 0x001): 'reg',
     (0x1ff, 0x002): 'dir',
     (0x1ff, 0x011): 'superblock',
-    (0x1ff, 0x012): 'root',
+    (0x1ff, 0x010): 'root',
     (0x1ff, 0x030): 'delete',
     (0x1f0, 0x080): 'globals',
     (0x1ff, 0x0c0): 'tail soft',
@@ -50,8 +50,12 @@ def main(*blocks):
                 crc = ncrc
 
             versions.append((nrev, '%s (rev %d)' % (block, nrev)))
-        except IOError:
+        except (IOError, struct.error):
             pass
+
+    if not file:
+        print 'Bad metadata pair {%s}' % ', '.join(blocks)
+        return 1
 
     print "--- %s ---" % ', '.join(v for _,v in sorted(versions, reverse=True))
 
@@ -93,6 +97,8 @@ def main(*blocks):
         if type == 0x0f0:
             crc = 0
 
+    return 0
+
 if __name__ == "__main__":
     import sys
-    main(*sys.argv[1:])
+    sys.exit(main(*sys.argv[1:]))
