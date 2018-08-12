@@ -94,7 +94,7 @@ enum lfs_type {
     // internally used types
     LFS_TYPE_USER           = 0x100,
     LFS_TYPE_SUPERBLOCK     = 0x011,
-    LFS_TYPE_ROOT           = 0x012,
+    LFS_TYPE_ROOT           = 0x010,
     LFS_TYPE_NAME           = 0x000,
     LFS_TYPE_DELETE         = 0x030,
     LFS_TYPE_STRUCT         = 0x040,
@@ -623,35 +623,6 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 //
 // Returns a negative error code on failure.
 int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
-
-// Get custom attributes on the filesystem
-//
-// Custom attributes are uniquely identified by an 8-bit type and limited
-// to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller than
-// the buffer, it will be padded with zeros. If the stored attribute is larger,
-// then it will be silently truncated.
-//
-// Note, filesystem-level attributes are not available for wear-leveling
-//
-// Returns the size of the attribute, or a negative error code on failure.
-// Note, the returned size is the size of the attribute on disk, irrespective
-// of the size of the buffer. This can be used to dynamically allocate a buffer
-// or check for existance.
-lfs_ssize_t lfs_fs_getattr(lfs_t *lfs,
-        uint8_t type, void *buffer, lfs_size_t size);
-
-// Set custom attributes on the filesystem
-//
-// Custom attributes are uniquely identified by an 8-bit type and limited
-// to LFS_ATTR_MAX bytes. If an attribute is not found, it will be
-// implicitly created, and setting the size of an attribute to zero deletes
-// the attribute.
-//
-// Note, filesystem-level attributes are not available for wear-leveling
-//
-// Returns a negative error code on failure.
-int lfs_fs_setattr(lfs_t *lfs,
-        uint8_t type, const void *buffer, lfs_size_t size);
 
 
 #ifdef __cplusplus
