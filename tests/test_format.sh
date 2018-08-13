@@ -22,7 +22,7 @@ echo "--- Invalid superblocks ---"
 ln -f -s /dev/zero blocks/0
 ln -f -s /dev/zero blocks/1
 tests/test.py << TEST
-    lfs_format(&lfs, &cfg) => LFS_ERR_CORRUPT;
+    lfs_format(&lfs, &cfg) => LFS_ERR_NOSPC;
 TEST
 rm blocks/0 blocks/1
 
