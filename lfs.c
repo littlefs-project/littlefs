@@ -1237,7 +1237,7 @@ relocate:
         // can't relocate superblock, filesystem is now frozen
         if (lfs_pair_cmp(oldpair, (const lfs_block_t[2]){0, 1}) == 0) {
             LFS_WARN("Superblock %"PRIu32" has become unwritable", oldpair[1]);
-            return LFS_ERR_CORRUPT;
+            return LFS_ERR_NOSPC;
         }
 
         // relocate half of pair
