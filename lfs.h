@@ -302,8 +302,13 @@ typedef union lfs_global {
     struct {
         lfs_block_t movepair[2];
         uint16_t moveid;
-        bool deorphaned;
-    } s;
+        uint8_t deorphaned;
+    } l;
+    struct {
+        lfs_block_t movepair[2];
+        uint16_t moveid;
+        uint8_t orphans;
+    } g;
 } lfs_global_t;
 
 typedef struct lfs_mdir {
