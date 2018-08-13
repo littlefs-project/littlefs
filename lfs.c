@@ -142,7 +142,7 @@ static inline void lfs_cache_zero(lfs_t *lfs, lfs_cache_t *pcache) {
 
 static int lfs_cache_flush(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate) {
-    if (pcache->block != 0xffffffff) {
+    if (pcache->block != 0xffffffff && pcache->block != 0xfffffffe) {
         LFS_ASSERT(pcache->block < lfs->cfg->block_count);
         lfs_size_t diff = lfs_alignup(pcache->size, lfs->cfg->prog_size);
         int err = lfs->cfg->prog(lfs->cfg, pcache->block,
@@ -2158,7 +2158,10 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
         return 0;
 
 relocate:
-        continue;
+        LFS_DEBUG("Bad block at %"PRIu32, nblock);
+
+        // just clear cache and try a new block
+        lfs_cache_drop(lfs, &lfs->pcache);
     }
 }
 
@@ -2397,7 +2400,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     }
 
     if ((file->flags & LFS_F_INLINE) &&
-            file->pos + nsize >= lfs->inline_max) {
+            file->pos + nsize > lfs->inline_max) {
         // inline file doesn't fit anymore
         file->block = 0xfffffffe;
         file->off = file->pos;

@@ -341,6 +341,10 @@ tests/test.py << TEST
     }
     lfs_file_close(&lfs, &file[0]) => 0;
 
+    // remount to force reset of lookahead
+    lfs_unmount(&lfs) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+
     // open hole
     lfs_remove(&lfs, "bump") => 0;
 
@@ -350,7 +354,7 @@ tests/test.py << TEST
     for (lfs_size_t i = 0; i < cfg.block_size; i += 2) {
         memcpy(&buffer[i], "hi", 2);
     }
-    lfs_file_write(&lfs, &file[0], buffer, cfg.block_size) => LFS_ERR_NOSPC;
+    lfs_file_write(&lfs, &file[0], buffer, 2*cfg.block_size) => LFS_ERR_NOSPC;
     lfs_file_close(&lfs, &file[0]) => 0;
 
     lfs_unmount(&lfs) => 0;
@@ -388,7 +392,6 @@ tests/test.py << TEST
 
     // remount to force reset of lookahead
     lfs_unmount(&lfs) => 0;
-
     lfs_mount(&lfs, &cfg) => 0;
 
     // rewrite one file
@@ -451,7 +454,6 @@ tests/test.py << TEST
 
     // remount to force reset of lookahead
     lfs_unmount(&lfs) => 0;
-
     lfs_mount(&lfs, &cfg) => 0;
 
     // rewrite one file with a hole of one block
