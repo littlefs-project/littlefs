@@ -451,31 +451,32 @@ static inline void lfs_global_zero(lfs_global_t *a) {
 }
 
 static inline void lfs_global_fromle32(lfs_global_t *a) {
-    lfs_pair_fromle32(a->s.movepair);
-    a->s.moveid = lfs_fromle16(a->s.moveid);
+    lfs_pair_fromle32(a->l.movepair);
+    a->l.moveid = lfs_fromle16(a->l.moveid);
 }
 
 static inline void lfs_global_tole32(lfs_global_t *a) {
-    lfs_pair_tole32(a->s.movepair);
-    a->s.moveid = lfs_tole16(a->s.moveid);
+    lfs_pair_tole32(a->l.movepair);
+    a->l.moveid = lfs_tole16(a->l.moveid);
 }
 
 static inline void lfs_global_move(lfs_t *lfs,
         const lfs_block_t pair[2], uint16_t id) {
     lfs_global_t diff;
     lfs_global_zero(&diff);
-    diff.s.movepair[0] ^= lfs->globals.s.movepair[0] ^ pair[0];
-    diff.s.movepair[1] ^= lfs->globals.s.movepair[1] ^ pair[1];
-    diff.s.moveid      ^= lfs->globals.s.moveid      ^ id;
+    diff.l.movepair[0] ^= lfs->globals.g.movepair[0] ^ pair[0];
+    diff.l.movepair[1] ^= lfs->globals.g.movepair[1] ^ pair[1];
+    diff.l.moveid      ^= lfs->globals.g.moveid      ^ id;
     lfs_global_fromle32(&lfs->locals);
     lfs_global_xor(&lfs->locals, &diff);
     lfs_global_tole32(&lfs->locals);
     lfs_global_xor(&lfs->globals, &diff);
 }
 
-static inline void lfs_global_deorphaned(lfs_t *lfs, bool deorphaned) {
-    lfs->locals.s.deorphaned  ^= lfs->globals.s.deorphaned ^ deorphaned;
-    lfs->globals.s.deorphaned ^= lfs->globals.s.deorphaned ^ deorphaned;
+static inline void lfs_global_orphans(lfs_t *lfs, int8_t orphans) {
+    lfs->locals.l.deorphaned ^= (lfs->globals.g.orphans == 0);
+    lfs->locals.l.deorphaned ^= (lfs->globals.g.orphans + orphans == 0);
+    lfs->globals.g.orphans += orphans;
 }
 
 
@@ -688,7 +689,7 @@ static int lfs_commit_globals(lfs_t *lfs, struct lfs_commit *commit,
 
     lfs_global_xor(locals, &lfs->locals);
     int err = lfs_commit_attr(lfs, commit,
-            LFS_MKTAG(LFS_TYPE_GLOBALS + locals->s.deorphaned, 0x3ff, 10),
+            LFS_MKTAG(LFS_TYPE_GLOBALS + locals->l.deorphaned, 0x3ff, 10),
             locals);
     lfs_global_xor(locals, &lfs->locals);
     return err;
@@ -907,7 +908,7 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
                     }
                     lfs_pair_fromle32(temptail);
                 } else if (lfs_tag_subtype(tag) == LFS_TYPE_GLOBALS) {
-                    templocals.s.deorphaned = (lfs_tag_type(tag) & 1);
+                    templocals.l.deorphaned = (lfs_tag_type(tag) & 1);
                     err = lfs_bd_read(lfs, dir->pair[0], off+sizeof(tag),
                             &templocals, 10);
                     if (err) {
@@ -973,11 +974,11 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
         // consider what we have good enough
         if (dir->off > 0) {
             // synthetic move
-            if (lfs_pair_cmp(dir->pair, lfs->globals.s.movepair) == 0) {
-                if (lfs->globals.s.moveid == lfs_tag_id(foundtag)) {
+            if (lfs_pair_cmp(dir->pair, lfs->globals.g.movepair) == 0) {
+                if (lfs->globals.g.moveid == lfs_tag_id(foundtag)) {
                     foundtag = LFS_ERR_NOENT;
                 } else if (lfs_tag_isvalid(foundtag) &&
-                        lfs->globals.s.moveid < lfs_tag_id(foundtag)) {
+                        lfs->globals.g.moveid < lfs_tag_id(foundtag)) {
                     foundtag -= LFS_MKTAG(0, 1, 0);
                 }
             }
@@ -1026,8 +1027,8 @@ static int32_t lfs_dir_find(lfs_t *lfs,
 static int32_t lfs_dir_get(lfs_t *lfs, lfs_mdir_t *dir,
         uint32_t getmask, uint32_t gettag, void *buffer) {
     int32_t getdiff = 0;
-    if (lfs_pair_cmp(dir->pair, lfs->globals.s.movepair) == 0 &&
-            lfs_tag_id(gettag) <= lfs->globals.s.moveid) {
+    if (lfs_pair_cmp(dir->pair, lfs->globals.g.movepair) == 0 &&
+            lfs_tag_id(gettag) <= lfs->globals.g.moveid) {
         // synthetic moves
         getdiff = LFS_MKTAG(0, 1, 0);
     }
@@ -1270,17 +1271,17 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
     lfs_mattr_t cancelattr;
     lfs_global_t canceldiff;
     lfs_global_zero(&canceldiff);
-    if (lfs_pair_cmp(dir->pair, lfs->globals.s.movepair) == 0) {
+    if (lfs_pair_cmp(dir->pair, lfs->globals.g.movepair) == 0) {
         // Wait, we have the move? Just cancel this out here
         // We need to, or else the move can become outdated
-        canceldiff.s.movepair[0] ^= lfs->globals.s.movepair[0] ^ 0xffffffff;
-        canceldiff.s.movepair[1] ^= lfs->globals.s.movepair[1] ^ 0xffffffff;
-        canceldiff.s.moveid      ^= lfs->globals.s.moveid      ^ 0x3ff;
+        canceldiff.l.movepair[0] ^= lfs->globals.g.movepair[0] ^ 0xffffffff;
+        canceldiff.l.movepair[1] ^= lfs->globals.g.movepair[1] ^ 0xffffffff;
+        canceldiff.l.moveid      ^= lfs->globals.g.moveid      ^ 0x3ff;
         lfs_global_fromle32(&lfs->locals);
         lfs_global_xor(&lfs->locals, &canceldiff);
         lfs_global_tole32(&lfs->locals);
 
-        cancelattr.tag = LFS_MKTAG(LFS_TYPE_DELETE, lfs->globals.s.moveid, 0);
+        cancelattr.tag = LFS_MKTAG(LFS_TYPE_DELETE, lfs->globals.l.moveid, 0);
         cancelattr.next = attrs;
         attrs = &cancelattr;
     }
@@ -2636,7 +2637,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         }
 
         // mark fs as orphaned
-        lfs_global_deorphaned(lfs, false);
+        lfs_global_orphans(lfs, +1);
     }
 
     // delete the entry
@@ -2648,13 +2649,13 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     }
 
     if (lfs_tag_type(tag) == LFS_TYPE_DIR) {
+        // fix orphan
+        lfs_global_orphans(lfs, -1);
+
         err = lfs_fs_pred(lfs, dir.pair, &cwd);
         if (err) {
             return err;
         }
-
-        // fix orphan
-        lfs_global_deorphaned(lfs, true);
 
         // steal state
         cwd.tail[0] = dir.tail[0];
@@ -2696,36 +2697,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     uint16_t newid = lfs_tag_id(prevtag);
 
     lfs_mdir_t prevdir;
-    if (prevtag != LFS_ERR_NOENT) {
-        // check that we have same type
-        if (lfs_tag_type(prevtag) != lfs_tag_type(oldtag)) {
-            return LFS_ERR_ISDIR;
-        }
-
-        if (lfs_tag_type(prevtag) == LFS_TYPE_DIR) {
-            // must be empty before removal
-            lfs_block_t prevpair[2];
-            int32_t res = lfs_dir_get(lfs, &newcwd, 0x7c3ff000,
-                    LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), prevpair);
-            if (res < 0) {
-                return res;
-            }
-            lfs_pair_fromle32(prevpair);
-
-            // must be empty before removal
-            err = lfs_dir_fetch(lfs, &prevdir, prevpair);
-            if (err) {
-                return err;
-            }
-
-            if (prevdir.count > 0 || prevdir.split) {
-                return LFS_ERR_NOTEMPTY;
-            }
-
-            // mark fs as orphaned
-            lfs_global_deorphaned(lfs, false);
-        }
-    } else {
+    if (prevtag == LFS_ERR_NOENT) {
         // check that name fits
         lfs_size_t nlen = strlen(newpath);
         if (nlen > lfs->name_max) {
@@ -2734,6 +2706,30 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
         // get next id
         newid = newcwd.count;
+    } else if (lfs_tag_type(prevtag) != lfs_tag_type(oldtag)) {
+        return LFS_ERR_ISDIR;
+    } else if (lfs_tag_type(prevtag) == LFS_TYPE_DIR) {
+        // must be empty before removal
+        lfs_block_t prevpair[2];
+        int32_t res = lfs_dir_get(lfs, &newcwd, 0x7c3ff000,
+                LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), prevpair);
+        if (res < 0) {
+            return res;
+        }
+        lfs_pair_fromle32(prevpair);
+
+        // must be empty before removal
+        err = lfs_dir_fetch(lfs, &prevdir, prevpair);
+        if (err) {
+            return err;
+        }
+
+        if (prevdir.count > 0 || prevdir.split) {
+            return LFS_ERR_NOTEMPTY;
+        }
+
+        // mark fs as orphaned
+        lfs_global_orphans(lfs, +1);
     }
 
     // create move to fix later
@@ -2758,13 +2754,13 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     if (prevtag != LFS_ERR_NOENT && lfs_tag_type(prevtag) == LFS_TYPE_DIR) {
+        // fix orphan
+        lfs_global_orphans(lfs, -1);
+
         err = lfs_fs_pred(lfs, prevdir.pair, &newcwd);
         if (err) {
             return err;
         }
-
-        // fix orphan
-        lfs_global_deorphaned(lfs, true);
 
         // steal state
         newcwd.tail[0] = prevdir.tail[0];
@@ -2917,10 +2913,10 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->root[1] = 0xffffffff;
     lfs->mlist = NULL;
     lfs->seed = 0;
-    lfs->globals.s.movepair[0] = 0xffffffff;
-    lfs->globals.s.movepair[1] = 0xffffffff;
-    lfs->globals.s.moveid = 0x3ff;
-    lfs->globals.s.deorphaned = true;
+    lfs->globals.g.movepair[0] = 0xffffffff;
+    lfs->globals.g.movepair[1] = 0xffffffff;
+    lfs->globals.g.moveid = 0x3ff;
+    lfs->globals.g.orphans = 0;
     lfs_global_zero(&lfs->locals);
 
     return 0;
@@ -3089,11 +3085,11 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_global_fromle32(&lfs->locals);
     lfs_global_xor(&lfs->globals, &lfs->locals);
     lfs_global_zero(&lfs->locals);
-    if (!lfs_pair_isnull(lfs->globals.s.movepair)) {
+    if (!lfs_pair_isnull(lfs->globals.g.movepair)) {
         LFS_DEBUG("Found move %"PRIu32" %"PRIu32" %"PRIu32,
-                lfs->globals.s.movepair[0],
-                lfs->globals.s.movepair[1],
-                lfs->globals.s.moveid);
+                lfs->globals.g.movepair[0],
+                lfs->globals.g.movepair[1],
+                lfs->globals.g.moveid);
     }
 
     // setup free lookahead
@@ -3254,7 +3250,8 @@ static int lfs_fs_relocate(lfs_t *lfs,
 
     if (tag != LFS_ERR_NOENT) {
         // update disk, this creates a desync
-        lfs_global_deorphaned(lfs, false);
+        lfs_global_orphans(lfs, +1);
+
         lfs_pair_tole32(newpair);
         int err = lfs_dir_commit(lfs, &parent,
                 &(lfs_mattr_t){.tag=tag, .buffer=newpair});
@@ -3263,8 +3260,8 @@ static int lfs_fs_relocate(lfs_t *lfs,
             return err;
         }
 
-        // clean up bad block, which should now be a desync
-        return lfs_fs_deorphan(lfs);
+        // next step, clean up orphans
+        lfs_global_orphans(lfs, -1);
     }
 
     // find pred
@@ -3275,7 +3272,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
 
     // if we can't find dir, it must be new
     if (err != LFS_ERR_NOENT) {
-        // just replace bad pair, no desync can occur
+        // replace bad pair, either we clean up desync, or no desync occured
         parent.tail[0] = newpair[0];
         parent.tail[1] = newpair[1];
         err = lfs_dir_commit(lfs, &parent,
@@ -3359,20 +3356,20 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
     }
 
     // mark orphans as fixed
-    lfs_global_deorphaned(lfs, true);
+    lfs_global_orphans(lfs, -lfs->globals.g.orphans);
     return 0;
 }
 
 static int lfs_fs_demove(lfs_t *lfs) {
     // Fix bad moves
     LFS_DEBUG("Fixing move %"PRIu32" %"PRIu32" %"PRIu32,
-            lfs->globals.s.movepair[0],
-            lfs->globals.s.movepair[1],
-            lfs->globals.s.moveid);
+            lfs->globals.g.movepair[0],
+            lfs->globals.g.movepair[1],
+            lfs->globals.g.moveid);
 
     // fetch and delete the moved entry
     lfs_mdir_t movedir;
-    int err = lfs_dir_fetch(lfs, &movedir, lfs->globals.s.movepair);
+    int err = lfs_dir_fetch(lfs, &movedir, lfs->globals.g.movepair);
     if (err) {
         return err;
     }
@@ -3387,14 +3384,14 @@ static int lfs_fs_demove(lfs_t *lfs) {
 }
 
 static int lfs_fs_forceconsistency(lfs_t *lfs) {
-    if (!lfs->globals.s.deorphaned) {
+    if (lfs->globals.g.orphans) {
         int err = lfs_fs_deorphan(lfs);
         if (err) {
             return err;
         }
     }
 
-    if (lfs->globals.s.moveid != 0x3ff) {
+    if (lfs->globals.g.moveid != 0x3ff) {
         int err = lfs_fs_demove(lfs);
         if (err) {
             return err;
