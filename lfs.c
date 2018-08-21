@@ -39,6 +39,9 @@ static int lfs_bd_read(lfs_t *lfs,
         void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
     LFS_ASSERT(block != 0xffffffff);
+    if (off+size > lfs->cfg->block_size) {
+        return LFS_ERR_CORRUPT;
+    }
 
     while (size > 0) {
         if (pcache && block == pcache->block &&
@@ -452,6 +455,7 @@ struct lfs_commit {
 
     lfs_off_t begin;
     lfs_off_t end;
+    lfs_off_t ack;
 };
 
 struct lfs_diskoff {
@@ -503,6 +507,24 @@ static int32_t lfs_commit_get(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
     return LFS_ERR_NOENT;
 }
 
+static int lfs_commit_prog(lfs_t *lfs, struct lfs_commit *commit,
+        const void *buffer, lfs_size_t size) {
+    lfs_off_t skip = lfs_min(lfs_max(commit->ack, commit->off)
+            - commit->off, size);
+    int err = lfs_bd_prog(lfs,
+            &lfs->pcache, &lfs->rcache, false,
+            commit->block, commit->off + skip,
+            (const uint8_t*)buffer + skip, size - skip);
+    if (err) {
+        return err;
+    }
+
+    commit->crc = lfs_crc(commit->crc, buffer, size);
+    commit->off += size;
+    commit->ack = lfs_max(commit->off, commit->ack);
+    return 0;
+}
+
 static int lfs_commit_attrs(lfs_t *lfs, struct lfs_commit *commit,
         uint16_t id, const struct lfs_attr *attrs);
 
@@ -532,21 +554,14 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
 
     // write out tag
     uint32_t ntag = lfs_tole32((tag & 0x7fffffff) ^ commit->ptag);
-    commit->crc = lfs_crc(commit->crc, &ntag, sizeof(ntag));
-    int err = lfs_bd_prog(lfs,
-            &lfs->pcache, &lfs->rcache, false,
-            commit->block, commit->off, &ntag, sizeof(ntag));
+    int err = lfs_commit_prog(lfs, commit, &ntag, sizeof(ntag));
     if (err) {
         return err;
     }
-    commit->off += sizeof(ntag);
 
     if (!(tag & 0x80000000)) {
         // from memory
-        commit->crc = lfs_crc(commit->crc, buffer, size);
-        err = lfs_bd_prog(lfs,
-                &lfs->pcache, &lfs->rcache, false,
-                commit->block, commit->off, buffer, size);
+        err = lfs_commit_prog(lfs, commit, buffer, size);
         if (err) {
             return err;
         }
@@ -563,17 +578,13 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
                 return err;
             }
 
-            commit->crc = lfs_crc(commit->crc, &dat, 1);
-            err = lfs_bd_prog(lfs,
-                    &lfs->pcache, &lfs->rcache, false,
-                    commit->block, commit->off+i, &dat, 1);
+            err = lfs_commit_prog(lfs, commit, &dat, 1);
             if (err) {
                 return err;
             }
         }
     }
 
-    commit->off += size;
     commit->ptag = tag & 0x7fffffff;
     return 0;
 }
@@ -677,13 +688,11 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
 
     // read erased state from next program unit
     uint32_t tag = 0;
-    if (off < lfs->cfg->block_size) {
-        int err = lfs_bd_read(lfs,
-                &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
-                commit->block, off, &tag, sizeof(tag));
-        if (err) {
-            return err;
-        }
+    int err = lfs_bd_read(lfs,
+            &lfs->pcache, &lfs->rcache, sizeof(tag),
+            commit->block, off, &tag, sizeof(tag));
+    if (err && err != LFS_ERR_CORRUPT) {
+        return err;
     }
 
     // build crc tag
@@ -697,7 +706,7 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
     footer[0] = lfs_tole32(tag ^ commit->ptag);
     commit->crc = lfs_crc(commit->crc, &footer[0], sizeof(footer[0]));
     footer[1] = lfs_tole32(commit->crc);
-    int err = lfs_bd_prog(lfs,
+    err = lfs_bd_prog(lfs,
             &lfs->pcache, &lfs->rcache, false,
             commit->block, commit->off, &footer, sizeof(footer));
     if (err) {
@@ -824,12 +833,6 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
         lfs_global_zero(&templocals);
 
         while (true) {
-            // reached end of block
-            if (off+sizeof(uint32_t) >= lfs->cfg->block_size) {
-                dir->erased = false;
-                break;
-            }
-
             // extract next tag
             uint32_t tag;
             int err = lfs_bd_read(lfs,
@@ -1076,50 +1079,74 @@ static int lfs_dir_compact(lfs_t *lfs,
     lfs_global_zero(&dir->locals);
 
     while (true) {
-        // last complete id
-        dir->count = end - begin;
-        int16_t ack = -1;
+        // setup compaction
+        bool splitted = false;
         bool exhausted = false;
 
-        // increment revision count
-        dir->rev += 1;
-        if (lfs->cfg->block_cycles && dir->rev % lfs->cfg->block_cycles == 0) {
-            if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
-                // we're writing too much to the superblock, should we expand?
-                lfs_ssize_t res = lfs_fs_size(lfs);
-                if (res < 0) {
-                    return res;
-                }
+        struct lfs_commit commit;
+        commit.block = dir->pair[1];
+        commit.ack = 0;
 
-                // do we have enough space to expand?
-                if (res < lfs->cfg->block_count/2) {
-                    LFS_DEBUG("Expanding superblock at rev %"PRIu32, dir->rev);
+commit:
+        // setup erase state
+        exhausted = false;
+        dir->count = end - begin;
+        int16_t ackid = -1;
+
+        // setup commit state
+        commit.off = 0;
+        commit.crc = 0xffffffff;
+        commit.ptag = 0;
+
+        // space is complicated, we need room for tail, crc, globals,
+        // cleanup delete, and we cap at half a block to give room
+        // for metadata updates
+        commit.begin = 0;
+        commit.end = lfs_min(
+             lfs_alignup(lfs->cfg->block_size/2, lfs->cfg->prog_size),
+             lfs->cfg->block_size - 38);
+
+        if (!splitted) {
+            // increment revision count
+            dir->rev += 1;
+            if (lfs->cfg->block_cycles &&
+                    dir->rev % lfs->cfg->block_cycles == 0) {
+                if (lfs_pair_cmp(dir->pair,
+                        (const lfs_block_t[2]){0, 1}) == 0) {
+                    // we're writing too much to the superblock,
+                    // should we expand?
+                    lfs_ssize_t res = lfs_fs_size(lfs);
+                    if (res < 0) {
+                        return res;
+                    }
+
+                    // do we have enough space to expand?
+                    if (res < lfs->cfg->block_count/2) {
+                        LFS_DEBUG("Expanding superblock at rev %"PRIu32,
+                                dir->rev);
+                        exhausted = true;
+                        goto split;
+                    }
+                } else {
+                    // we're writing too much, time to relocate
                     exhausted = true;
-                    goto split;
+                    goto relocate;
                 }
-            } else {
-                // we're writing too much, time to relocate
-                exhausted = true;
-                goto relocate;
             }
-        }
 
-        // erase block to write to
-        int err = lfs_bd_erase(lfs, dir->pair[1]);
-        if (err) {
-            if (err == LFS_ERR_CORRUPT) {
-                goto relocate;
+            // erase block to write to
+            int err = lfs_bd_erase(lfs, dir->pair[1]);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
             }
-            return err;
         }
 
         // write out header
-        uint32_t crc = 0xffffffff;
         uint32_t rev = lfs_tole32(dir->rev);
-        crc = lfs_crc(crc, &rev, sizeof(rev));
-        err = lfs_bd_prog(lfs,
-                &lfs->pcache, &lfs->rcache, false,
-                dir->pair[1], 0, &rev, sizeof(rev));
+        int err = lfs_commit_prog(lfs, &commit, &rev, sizeof(rev));
         if (err) {
             if (err == LFS_ERR_CORRUPT) {
                 goto relocate;
@@ -1127,28 +1154,13 @@ static int lfs_dir_compact(lfs_t *lfs,
             return err;
         }
 
-        // setup compaction
-        struct lfs_commit commit = {
-            .block = dir->pair[1],
-            .off = sizeof(dir->rev),
-            .crc = crc,
-            .ptag = 0,
-
-            // space is complicated, we need room for tail, crc, globals,
-            // and we cap at half a block to give room for metadata updates
-            .begin = 0,
-            .end = lfs_min(
-                lfs_alignup(lfs->cfg->block_size/2, lfs->cfg->prog_size),
-                lfs->cfg->block_size - 34),
-        };
-
         // commit with a move
-        for (uint16_t id = begin; id < end; id++) {
+        for (uint16_t id = begin; id < end || commit.off < commit.ack; id++) {
             err = lfs_commit_move(lfs, &commit,
                     0x003ff000, LFS_MKTAG(0, id, 0),
                     0x003ff000, LFS_MKTAG(0, id - begin, 0),
                     source, attrs);
-            if (err) {
+            if (err && !(splitted && err == LFS_ERR_NOSPC)) {
                 if (err == LFS_ERR_NOSPC) {
                     goto split;
                 } else if (err == LFS_ERR_CORRUPT) {
@@ -1157,11 +1169,24 @@ static int lfs_dir_compact(lfs_t *lfs,
                 return err;
             }
 
-            ack = id;
+            ackid = id;
         }
 
         // reopen reserved space at the end
         commit.end = lfs->cfg->block_size - 8;
+
+        if (ackid >= end) {
+            // extra garbage attributes were written out during split,
+            // need to clean up
+            err = lfs_commit_attr(lfs, &commit,
+                    LFS_MKTAG(LFS_TYPE_DELETE, ackid, 0), NULL);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
+            }
+        }
 
         if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
             // move over (duplicate) superblock if we are root
@@ -1178,8 +1203,8 @@ static int lfs_dir_compact(lfs_t *lfs,
         }
 
         if (!relocated) {
-            // commit any globals, unless we're relocating, in which case our
-            // parent will steal our globals
+            // commit any globals, unless we're relocating,
+            // in which case our parent will steal our globals
             err = lfs_commit_globals(lfs, &commit, &dir->locals);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -1222,8 +1247,13 @@ static int lfs_dir_compact(lfs_t *lfs,
 split:
         // commit no longer fits, need to split dir,
         // drop caches and create tail
-        lfs_cache_drop(lfs, &lfs->pcache);
-        if (!exhausted && ack < 0) {
+        splitted = !exhausted;
+        if (lfs->pcache.block != 0xffffffff) {
+            commit.ack -= lfs->pcache.size;
+            lfs_cache_drop(lfs, &lfs->pcache);
+        }
+
+        if (!exhausted && ackid < 0) {
             // If we can't fit in this block, we won't fit in next block
             return LFS_ERR_NOSPC;
         }
@@ -1234,25 +1264,26 @@ split:
             return err;
         }
 
+        tail.split = dir->split;
+        tail.tail[0] = dir->tail[0];
+        tail.tail[1] = dir->tail[1];
+
+        err = lfs_dir_compact(lfs, &tail, attrs, source, ackid+1, end);
+        if (err) {
+            return err;
+        }
+
+        end = ackid+1;
+        dir->tail[0] = tail.pair[0];
+        dir->tail[1] = tail.pair[1];
+        dir->split = true;
+
         if (exhausted) {
             lfs->root[0] = tail.pair[0];
             lfs->root[1] = tail.pair[1];
         }
 
-        tail.split = dir->split;
-        tail.tail[0] = dir->tail[0];
-        tail.tail[1] = dir->tail[1];
-
-        err = lfs_dir_compact(lfs, &tail, attrs, source, ack+1, end);
-        if (err) {
-            return err;
-        }
-
-        end = ack+1;
-        dir->tail[0] = tail.pair[0];
-        dir->tail[1] = tail.pair[1];
-        dir->split = true;
-        continue;
+        goto commit;
 
 relocate:
         // commit was corrupted, drop caches and prepare to relocate block
@@ -1363,6 +1394,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
 
             .begin = dir->off,
             .end = lfs->cfg->block_size - 8,
+            .ack = 0,
         };
 
         for (const lfs_mattr_t *a = attrs; a; a = a->next) {
