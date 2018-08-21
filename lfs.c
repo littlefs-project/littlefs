@@ -1373,7 +1373,10 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     }
 
     // zero to avoid information leak
-    lfs_cache_zero(lfs, &file->cache);
+    lfs_cache_drop(lfs, &file->cache);
+    if ((file->flags & 3) != LFS_O_RDONLY) {
+        lfs_cache_zero(lfs, &file->cache);
+    }
 
     // add to list of files
     file->next = lfs->files;
@@ -2055,8 +2058,8 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // zero to avoid information leaks
-    lfs_cache_zero(lfs, &lfs->rcache);
     lfs_cache_zero(lfs, &lfs->pcache);
+    lfs_cache_drop(lfs, &lfs->rcache);
 
     // setup lookahead, round down to nearest 32-bits
     LFS_ASSERT(lfs->cfg->lookahead % 32 == 0);
