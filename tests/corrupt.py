@@ -11,7 +11,7 @@ def corrupt(block):
         file.read(4)
 
         # go to last commit
-        tag = 0
+        tag = 0xffffffff
         while True:
             try:
                 ntag, = struct.unpack('<I', file.read(4))

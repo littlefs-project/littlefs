@@ -12,7 +12,7 @@ TYPES = {
     (0x1f0, 0x080): 'globals',
     (0x1ff, 0x0c0): 'tail soft',
     (0x1ff, 0x0c1): 'tail hard',
-    (0x1ff, 0x0f0): 'crc',
+    (0x1f0, 0x0f0): 'crc',
     (0x1ff, 0x040): 'struct dir',
     (0x1ff, 0x041): 'struct inline',
     (0x1ff, 0x042): 'struct ctz',
@@ -63,7 +63,7 @@ def main(*blocks):
     print "%-4s  %-8s  %-14s  %3s  %3s  %s" % (
         'off', 'tag', 'type', 'id', 'len', 'dump')
 
-    tag = 0
+    tag = 0xffffffff
     off = 4
     while True:
         try:
@@ -79,23 +79,25 @@ def main(*blocks):
         type = (tag & 0x7fc00000) >> 22
         id   = (tag & 0x003ff000) >> 12
         size = (tag & 0x00000fff) >> 0
+        iscrc = (type & 0x1f0) == 0x0f0
 
         data = file.read(size)
-        if type == 0x0f0:
+        if iscrc:
             crc = binascii.crc32(data[:4], crc)
         else:
             crc = binascii.crc32(data, crc)
 
         print '%04x: %08x  %-14s  %3s  %3d  %-23s  %-8s' % (
             off, tag,
-            typeof(type) + (' bad!' if type == 0x0f0 and ~crc else ''),
+            typeof(type) + (' bad!' if iscrc and ~crc else ''),
             id if id != 0x3ff else '.', size,
             ' '.join('%02x' % ord(c) for c in data[:8]),
             ''.join(c if c >= ' ' and c <= '~' else '.' for c in data[:8]))
 
         off += tag & 0xfff
-        if type == 0x0f0:
+        if iscrc:
             crc = 0
+            tag ^= (type & 1) << 31
 
     return 0
 

@@ -385,7 +385,7 @@ static inline uint16_t lfs_tag_type(uint32_t tag) {
 }
 
 static inline uint16_t lfs_tag_subtype(uint32_t tag) {
-    return (tag & 0x7c000000) >> 22;
+    return ((tag & 0x7c000000) >> 26) << 4;
 }
 
 static inline uint16_t lfs_tag_id(uint32_t tag) {
@@ -470,7 +470,7 @@ static int32_t lfs_commit_get(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
     while (off >= 2*sizeof(tag)+lfs_tag_size(tag)) {
         off -= sizeof(tag)+lfs_tag_size(tag);
 
-        if (lfs_tag_type(tag) == LFS_TYPE_CRC && stopatcommit) {
+        if (lfs_tag_subtype(tag) == LFS_TYPE_CRC && stopatcommit) {
             break;
         } else if (lfs_tag_type(tag) == LFS_TYPE_DELETE) {
             if (lfs_tag_id(tag) <= lfs_tag_id(gettag + getdiff)) {
@@ -502,6 +502,7 @@ static int32_t lfs_commit_get(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
             return err;
         }
         tag ^= lfs_fromle32(ntag);
+        tag &= 0x7fffffff;
     }
 
     return LFS_ERR_NOENT;
@@ -632,8 +633,7 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
                 return err;
             }
 
-            ntag = lfs_fromle32(ntag);
-            ntag ^= tag;
+            ntag = lfs_fromle32(ntag) ^ tag;
             tag |= 0x80000000;
         }
 
@@ -687,7 +687,7 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
             lfs->cfg->prog_size);
 
     // read erased state from next program unit
-    uint32_t tag = 0;
+    uint32_t tag;
     int err = lfs_bd_read(lfs,
             &lfs->pcache, &lfs->rcache, sizeof(tag),
             commit->block, off, &tag, sizeof(tag));
@@ -696,10 +696,9 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
     }
 
     // build crc tag
-    tag = lfs_fromle32(tag);
-    tag = (0x80000000 & ~tag) |
-            LFS_MKTAG(LFS_TYPE_CRC, 0x3ff,
-                off - (commit->off+sizeof(uint32_t)));
+    bool reset = ~lfs_fromle32(tag) >> 31;
+    tag = LFS_MKTAG(LFS_TYPE_CRC + reset,
+            0x3ff, off - (commit->off+sizeof(uint32_t)));
 
     // write out crc
     uint32_t footer[2];
@@ -713,7 +712,7 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
         return err;
     }
     commit->off += sizeof(tag)+lfs_tag_size(tag);
-    commit->ptag = tag;
+    commit->ptag = tag ^ (reset << 31);
 
     // flush buffers
     err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
@@ -774,7 +773,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
 
     // set defaults
     dir->off = sizeof(dir->rev);
-    dir->etag = 0;
+    dir->etag = 0xffffffff;
     dir->count = 0;
     dir->tail[0] = 0xffffffff;
     dir->tail[1] = 0xffffffff;
@@ -817,7 +816,7 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
     // load blocks and check crc
     for (int i = 0; i < 2; i++) {
         lfs_off_t off = sizeof(dir->rev);
-        uint32_t ptag = 0;
+        uint32_t ptag = 0xffffffff;
         uint32_t crc = 0xffffffff;
 
         dir->rev = lfs_tole32(rev[0]);
@@ -851,8 +850,8 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
             tag = lfs_fromle32(tag) ^ ptag;
 
             // next commit not yet programmed
-            if (lfs_tag_type(ptag) == LFS_TYPE_CRC && !lfs_tag_isvalid(tag)) {
-                dir->erased = true;
+            if (!lfs_tag_isvalid(tag)) {
+                dir->erased = (lfs_tag_subtype(ptag) == LFS_TYPE_CRC);
                 break;
             }
 
@@ -862,7 +861,7 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
                 break;
             }
 
-            if (lfs_tag_type(tag) == LFS_TYPE_CRC) {
+            if (lfs_tag_subtype(tag) == LFS_TYPE_CRC) {
                 // check the crc attr
                 uint32_t dcrc;
                 err = lfs_bd_read(lfs,
@@ -882,6 +881,10 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
                     break;
                 }
 
+                // reset the next bit if we need to
+                tag ^= (lfs_tag_type(tag) & 1) << 31;
+
+                // update with what's found so far
                 foundtag = tempfoundtag;
                 dir->off = off + sizeof(tag)+lfs_tag_size(tag);
                 dir->etag = tag;
@@ -1096,7 +1099,7 @@ commit:
         // setup commit state
         commit.off = 0;
         commit.crc = 0xffffffff;
-        commit.ptag = 0;
+        commit.ptag = 0xffffffff;
 
         // space is complicated, we need room for tail, crc, globals,
         // cleanup delete, and we cap at half a block to give room
