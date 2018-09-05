@@ -552,7 +552,6 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
 
 struct lfs_commit_split {
     uint16_t fromid;
-    uint16_t toid;
     uint16_t count;
     bool delete;
     bool branch;
@@ -562,7 +561,7 @@ struct lfs_commit_split {
 };
 
 static int lfs_commit_split(lfs_t *lfs, struct lfs_commit *commit,
-        const struct lfs_commit_split *split);
+        uint16_t id, const struct lfs_commit_split *split);
 
 static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
         uint32_t tag, const void *buffer) {
@@ -575,7 +574,8 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
                 buffer, NULL);
     } else if (lfs_tag_type(tag) == LFS_FROM_SPLIT) {
         // specail case for feeding commits from tail lists
-        return lfs_commit_split(lfs, commit, buffer);
+        return lfs_commit_split(lfs, commit,
+                lfs_tag_id(tag), buffer);
     } else if (lfs_tag_type(tag) == LFS_FROM_ATTRS) {
         // special case for custom attributes
         return lfs_commit_attrs(lfs, commit,
@@ -733,39 +733,34 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit,
 }
 
 static int lfs_commit_split(lfs_t *lfs, struct lfs_commit *commit,
-        const struct lfs_commit_split *split) {
-    if (split->delete) {
-        int err = lfs_commit_attr(lfs, commit,
-                LFS_MKTAG(LFS_TYPE_DELETE, split->toid, 0), NULL);
-        if (err) {
-            return err;
-        }
-    }
-
+        uint16_t toid, const struct lfs_commit_split *split) {
     uint16_t fromid = split->fromid;
     uint16_t count = split->count;
     bool branch = split->branch;
+    bool delete = split->delete;
     while (count > 0) {
         if (branch) {
-            int err = lfs_commit_attr(lfs, commit,
-                    LFS_MKTAG(LFS_TYPE_CHILD, split->toid, 0), NULL);
-            if (err) {
-                return err;
+            if (!delete) {
+                int err = lfs_commit_attr(lfs, commit,
+                        LFS_MKTAG(LFS_TYPE_CHILD, toid, 0), NULL);
+                if (err) {
+                    return err;
+                }
+            } else {
+                delete = false;
             }
 
-            err = lfs_commit_attr(lfs, commit,
-                    LFS_MKTAG(LFS_TYPE_DIRSTRUCT, split->toid, 8),
+            int err = lfs_commit_attr(lfs, commit,
+                    LFS_MKTAG(LFS_TYPE_DIRSTRUCT, toid, 8),
                     split->child->pair);
             if (err) {
                 return err;
             }
 
-            printf("split %d (%d)\n", split->child->count, count);
             count -= split->child->count;
             fromid -= split->child->count;
 
             if (count >= 2) {
-                printf("tail %x %x\n", split->child->tail[0], split->child->tail[1]);
                 err = lfs_dir_fetch(lfs, split->child, split->child->tail);
                 if (err) {
                     return err;
@@ -774,13 +769,12 @@ static int lfs_commit_split(lfs_t *lfs, struct lfs_commit *commit,
         } else {
             int err = lfs_commit_move(lfs, commit,
                     0x003ff000, LFS_MKTAG(0, fromid, 0),
-                    0x003ff000, LFS_MKTAG(0, split->toid, 0),
+                    0x003ff000, LFS_MKTAG(0, toid, 0),
                     split->source, split->attrs);
             if (err) {
                 return err;
             }
 
-            printf("betwe %d (%d)\n", 1, count);
             count -= 1;
             fromid -= 1;
         }
@@ -1352,7 +1346,7 @@ static int lfs_dir_compact2_(lfs_t *lfs,
         for (uint16_t id = begin; id < end; id++) {
             err = lfs_commit_move(lfs, &commit,
                     0x003ff000, LFS_MKTAG(0, id, 0),
-                    0x003ff000, LFS_MKTAG(0, id - begin, 0),
+                    0x003ff000, LFS_MKTAG(0, commit.count, 0),
                     source, attrs);
             if (err) {
                 if (err == LFS_ERR_NOSPC) {
@@ -1514,7 +1508,6 @@ int lfs_dir_split(lfs_t *lfs,
             return err;
         }
 
-        printf("got %d\n", child.count);
         begin += child.count;
         children += child.count;
         ncount += 1;
@@ -1531,6 +1524,7 @@ int lfs_dir_split(lfs_t *lfs,
     }
 
     struct lfs_commit_split split;
+    uint16_t toid;
     split.fromid = end-1;
     split.count = children;
     split.child = &child;
@@ -1558,17 +1552,17 @@ int lfs_dir_split(lfs_t *lfs,
         parent.off = 0;
         parent.erased = false;
         split.delete = false;
-        split.toid = 0;
+        toid = 0;
     } else {
         // TODO update tail in this case
         parent.tail[0] = dir->tail[0];
         parent.tail[1] = dir->tail[1];
         split.delete = true;
-        split.toid = lfs_tag_id(tag);
+        toid = lfs_tag_id(tag);
     }
 
     return lfs_dir_commit(lfs, &parent, ncount - split.delete,
-            LFS_MKATTR(LFS_FROM_SPLIT, split.toid, &split, 0,
+            LFS_MKATTR(LFS_FROM_SPLIT, toid, &split, 0,
             NULL));
 }
 
