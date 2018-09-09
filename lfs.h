@@ -88,21 +88,21 @@ enum lfs_error {
 // File types
 enum lfs_type {
     // file types
-    LFS_TYPE_REG            = 0x001,
-    LFS_TYPE_DIR            = 0x002,
+    LFS_TYPE_REG            = 0x002,
+    LFS_TYPE_DIR            = 0x003,
 
     // internally used types
     LFS_TYPE_USER           = 0x100,
-    LFS_TYPE_SUPERBLOCK     = 0x011,
-    LFS_TYPE_ROOT           = 0x010,
+    LFS_TYPE_SUPERBLOCK     = 0x001,
+    LFS_TYPE_ROOT           = 0x000,
     LFS_TYPE_NAME           = 0x000,
-    LFS_TYPE_DELETE         = 0x030,
+    LFS_TYPE_DELETE         = 0x020,
     LFS_TYPE_STRUCT         = 0x040,
-    LFS_TYPE_GLOBALS        = 0x080,
-    LFS_TYPE_TAIL           = 0x0c0,
-    LFS_TYPE_SOFTTAIL       = 0x0c0,
-    LFS_TYPE_HARDTAIL       = 0x0c1,
-    LFS_TYPE_CRC            = 0x0f0,
+    LFS_TYPE_GLOBALS        = 0x0e0,
+    LFS_TYPE_TAIL           = 0x080,
+    LFS_TYPE_SOFTTAIL       = 0x080,
+    LFS_TYPE_HARDTAIL       = 0x081,
+    LFS_TYPE_CRC            = 0x0a0,
 
     LFS_TYPE_DIRSTRUCT      = 0x040,
     LFS_TYPE_INLINESTRUCT   = 0x041,
@@ -111,9 +111,9 @@ enum lfs_type {
     // internal chip sources
     LFS_FROM_REGION         = 0x000,
     LFS_FROM_DISK           = 0x200,
-    LFS_FROM_MOVE           = 0x050,
-    LFS_FROM_ATTRS          = 0x060,
-    LFS_FROM_SUPERBLOCK     = 0x070,
+    LFS_FROM_MOVE           = 0x0c1,
+    LFS_FROM_ATTRS          = 0x0c2,
+    LFS_FROM_SUPERBLOCK     = 0x0c3,
 };
 
 // File open flags
