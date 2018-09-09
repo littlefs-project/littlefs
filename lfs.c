@@ -401,7 +401,7 @@ static inline lfs_size_t lfs_tag_size(uint32_t tag) {
 }
 
 static inline lfs_size_t lfs_tag_dsize(uint32_t tag) {
-    return sizeof(tag) + lfs_tag_size(tag) + lfs_tag_isdelete(tag);
+    return sizeof(tag) + lfs_tag_size(tag + lfs_tag_isdelete(tag));
 }
 
 // operations on set of globals
@@ -472,7 +472,7 @@ struct lfs_diskoff {
 };
 
 static int32_t lfs_commit_get(lfs_t *lfs,
-        lfs_block_t block, lfs_off_t off, uint32_t tag, bool stopatcommit,
+        lfs_block_t block, lfs_off_t off, uint32_t tag, bool compacting,
         uint32_t getmask, uint32_t gettag, int32_t getdiff, void *buffer) {
     gettag += getdiff;
 
@@ -480,7 +480,7 @@ static int32_t lfs_commit_get(lfs_t *lfs,
     while (off >= sizeof(uint32_t) + lfs_tag_dsize(tag)) {
         off -= lfs_tag_dsize(tag);
 
-        if (lfs_tag_subtype(tag) == LFS_TYPE_CRC && stopatcommit) {
+        if (lfs_tag_subtype(tag) == LFS_TYPE_CRC && compacting) {
             break;
         } else if (lfs_tag_subtype(tag) == LFS_TYPE_DELETE) {
             // something was deleted, need to move around it
@@ -489,8 +489,11 @@ static int32_t lfs_commit_get(lfs_t *lfs,
             }
         }
 
-        if (!lfs_tag_isdelete(tag) &&
-                (tag & getmask) == ((gettag - getdiff) & getmask)) {
+        if ((tag & getmask) == ((gettag - getdiff) & getmask)) {
+            if (lfs_tag_isdelete(tag) && !compacting) {
+                return LFS_ERR_NOENT;
+            }
+
             if (buffer) {
                 lfs_size_t diff = lfs_min(
                         lfs_tag_size(gettag), lfs_tag_size(tag));
@@ -2912,19 +2915,18 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
     res = lfs_dir_get(lfs, &cwd, 0x7ffff000,
             LFS_MKTAG(0x100 | type, id, lfs_min(size, lfs->attr_max)),
             buffer);
-    if (res < 0 && res != LFS_ERR_NOENT) {
+    if (res < 0) {
+        if (res == LFS_ERR_NOENT) {
+            return LFS_ERR_NOATTR;
+        }
         return res;
     }
 
-    return (res == LFS_ERR_NOENT) ? 0 : lfs_tag_size(res);
+    return lfs_tag_size(res);
 }
 
-int lfs_setattr(lfs_t *lfs, const char *path,
+static int lfs_commitattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size) {
-    if (size > lfs->attr_max) {
-        return LFS_ERR_NOSPC;
-    }
-
     lfs_mdir_t cwd;
     int32_t res = lfs_dir_lookup(lfs, &cwd, &path);
     if (res < 0) {
@@ -2944,6 +2946,19 @@ int lfs_setattr(lfs_t *lfs, const char *path,
     return lfs_dir_commit(lfs, &cwd,
             LFS_MKATTR(0x100 | type, id, buffer, size,
             NULL));
+}
+
+int lfs_setattr(lfs_t *lfs, const char *path,
+        uint8_t type, const void *buffer, lfs_size_t size) {
+    if (size > lfs->attr_max) {
+        return LFS_ERR_NOSPC;
+    }
+
+    return lfs_commitattr(lfs, path, type, buffer, size);
+}
+
+int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
+    return lfs_commitattr(lfs, path, type, NULL, 0xfff);
 }
 
 

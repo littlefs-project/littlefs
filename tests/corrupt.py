@@ -19,10 +19,11 @@ def corrupt(block):
                 break
 
             tag ^= ntag
-            file.seek(tag & 0xfff, os.SEEK_CUR)
+            size = (tag & 0xfff) if (tag & 0xfff) != 0xfff else 0
+            file.seek(size, os.SEEK_CUR)
 
         # lob off last 3 bytes
-        file.seek(-((tag & 0xfff) + 3), os.SEEK_CUR)
+        file.seek(-(size + 3), os.SEEK_CUR)
         file.truncate()
 
 def main(args):

@@ -37,6 +37,14 @@ tests/test.py << TEST
     memcmp(buffer+4,  "\0\0\0\0\0\0", 6) => 0;
     memcmp(buffer+10, "ccccc",        5) => 0;
 
+    lfs_removeattr(&lfs, "hello", 'B') => 0;
+    lfs_getattr(&lfs, "hello", 'A', buffer,    4) => 4;
+    lfs_getattr(&lfs, "hello", 'B', buffer+4,  6) => LFS_ERR_NOATTR;
+    lfs_getattr(&lfs, "hello", 'C', buffer+10, 5) => 5;
+    memcmp(buffer,    "aaaa",         4) => 0;
+    memcmp(buffer+4,  "\0\0\0\0\0\0", 6) => 0;
+    memcmp(buffer+10, "ccccc",        5) => 0;
+
     lfs_setattr(&lfs, "hello", 'B', "dddddd", 6) => 0;
     lfs_getattr(&lfs, "hello", 'A', buffer,    4) => 4;
     lfs_getattr(&lfs, "hello", 'B', buffer+4,  6) => 6;
@@ -93,6 +101,14 @@ tests/test.py << TEST
     lfs_setattr(&lfs, "/", 'B', "", 0) => 0;
     lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
     lfs_getattr(&lfs, "/", 'B', buffer+4,  6) => 0;
+    lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
+    memcmp(buffer,    "aaaa",         4) => 0;
+    memcmp(buffer+4,  "\0\0\0\0\0\0", 6) => 0;
+    memcmp(buffer+10, "ccccc",        5) => 0;
+
+    lfs_removeattr(&lfs, "/", 'B') => 0;
+    lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
+    lfs_getattr(&lfs, "/", 'B', buffer+4,  6) => LFS_ERR_NOATTR;
     lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
     memcmp(buffer,    "aaaa",         4) => 0;
     memcmp(buffer+4,  "\0\0\0\0\0\0", 6) => 0;
@@ -241,7 +257,7 @@ tests/test.py << TEST
 
     lfs_getattr(&lfs, "hello/hello", 'B', buffer,    9) => 9;
     lfs_getattr(&lfs, "hello/hello", 'C', buffer+9,  9) => 5;
-    lfs_getattr(&lfs, "hello/hello", 'D', buffer+18, 9) => 0;
+    lfs_getattr(&lfs, "hello/hello", 'D', buffer+18, 9) => LFS_ERR_NOATTR;
     memcmp(buffer,    "fffffffff",          9) => 0;
     memcmp(buffer+9,  "ccccc\0\0\0\0",      9) => 0;
     memcmp(buffer+18, "\0\0\0\0\0\0\0\0\0", 9) => 0;

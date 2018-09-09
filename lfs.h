@@ -82,6 +82,7 @@ enum lfs_error {
     LFS_ERR_INVAL       = -22,  // Invalid parameter
     LFS_ERR_NOSPC       = -28,  // No space left on device
     LFS_ERR_NOMEM       = -12,  // No more memory available
+    LFS_ERR_NOATTR      = -61,  // No data/attr available
     LFS_ERR_NAMETOOLONG = -36,  // File name too long
 };
 
@@ -456,7 +457,8 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 // Custom attributes are uniquely identified by an 8-bit type and limited
 // to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller than
 // the buffer, it will be padded with zeros. If the stored attribute is larger,
-// then it will be silently truncated.
+// then it will be silently truncated. If no attribute is found, the error
+// LFS_ERR_NOATTR is returned and the buffer is filled with zeros.
 //
 // Returns the size of the attribute, or a negative error code on failure.
 // Note, the returned size is the size of the attribute on disk, irrespective
@@ -469,12 +471,18 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
 //
 // Custom attributes are uniquely identified by an 8-bit type and limited
 // to LFS_ATTR_MAX bytes. If an attribute is not found, it will be
-// implicitly created, and setting the size of an attribute to zero deletes
-// the attribute.
+// implicitly created.
 //
 // Returns a negative error code on failure.
 int lfs_setattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size);
+
+// Removes a custom attribute
+//
+// If an attribute is not found, nothing happens.
+//
+// Returns a negative error code on failure.
+int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 
 
 /// File operations ///
