@@ -49,7 +49,7 @@ typedef uint32_t lfs_block_t;
 // to <= 0xfff. Stored in superblock and must be respected by other
 // littlefs drivers.
 #ifndef LFS_ATTR_MAX
-#define LFS_ATTR_MAX 0xfff
+#define LFS_ATTR_MAX 0xffe
 #endif
 
 // Maximum name size in bytes, may be redefined to reduce the size of the
@@ -64,7 +64,7 @@ typedef uint32_t lfs_block_t;
 // block. Limited to <= LFS_ATTR_MAX and <= cache_size. Stored in superblock
 // and must be respected by other littlefs drivers.
 #ifndef LFS_INLINE_MAX
-#define LFS_INLINE_MAX 0xfff
+#define LFS_INLINE_MAX 0xffe
 #endif
 
 // Possible error codes, these are negative to allow

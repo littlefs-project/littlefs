@@ -380,6 +380,10 @@ static inline bool lfs_tag_isuser(uint32_t tag) {
     return (tag & 0x40000000);
 }
 
+static inline bool lfs_tag_isdelete(uint32_t tag) {
+    return (tag & 0x00000fff) == 0xfff;
+}
+
 static inline uint16_t lfs_tag_type(uint32_t tag) {
     return (tag & 0x7fc00000) >> 22;
 }
@@ -394,6 +398,10 @@ static inline uint16_t lfs_tag_id(uint32_t tag) {
 
 static inline lfs_size_t lfs_tag_size(uint32_t tag) {
     return tag & 0x00000fff;
+}
+
+static inline lfs_size_t lfs_tag_dsize(uint32_t tag) {
+    return sizeof(tag) + lfs_tag_size(tag) + lfs_tag_isdelete(tag);
 }
 
 // operations on set of globals
@@ -469,8 +477,8 @@ static int32_t lfs_commit_get(lfs_t *lfs,
     gettag += getdiff;
 
     // iterate over dir block backwards (for faster lookups)
-    while (off >= 2*sizeof(uint32_t)+lfs_tag_size(tag)) {
-        off -= sizeof(tag)+lfs_tag_size(tag);
+    while (off >= sizeof(uint32_t) + lfs_tag_dsize(tag)) {
+        off -= lfs_tag_dsize(tag);
 
         if (lfs_tag_subtype(tag) == LFS_TYPE_CRC && stopatcommit) {
             break;
@@ -481,7 +489,8 @@ static int32_t lfs_commit_get(lfs_t *lfs,
             }
         }
 
-        if ((tag & getmask) == ((gettag - getdiff) & getmask)) {
+        if (!lfs_tag_isdelete(tag) &&
+                (tag & getmask) == ((gettag - getdiff) & getmask)) {
             if (buffer) {
                 lfs_size_t diff = lfs_min(
                         lfs_tag_size(gettag), lfs_tag_size(tag));
@@ -563,8 +572,8 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
     }
 
     // check if we fit
-    lfs_size_t size = lfs_tag_size(tag);
-    if (commit->off + sizeof(tag)+size > commit->end) {
+    lfs_size_t dsize = lfs_tag_dsize(tag);
+    if (commit->off + dsize > commit->end) {
         return LFS_ERR_NOSPC;
     }
 
@@ -577,18 +586,18 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
 
     if (!(tag & 0x80000000)) {
         // from memory
-        err = lfs_commit_prog(lfs, commit, buffer, size);
+        err = lfs_commit_prog(lfs, commit, buffer, dsize-sizeof(tag));
         if (err) {
             return err;
         }
     } else {
         // from disk
         const struct lfs_diskoff *disk = buffer;
-        for (lfs_off_t i = 0; i < size; i++) {
+        for (lfs_off_t i = 0; i < dsize-sizeof(tag); i++) {
             // rely on caching to make this efficient
             uint8_t dat;
             err = lfs_bd_read(lfs,
-                    &lfs->pcache, &lfs->rcache, size-i,
+                    &lfs->pcache, &lfs->rcache, dsize-sizeof(tag)-i,
                     disk->block, disk->off+i, &dat, 1);
             if (err) {
                 return err;
@@ -626,7 +635,8 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit, int pass,
     // iterate through list and commits, only committing unique entries
     lfs_off_t off = dir->off;
     uint32_t ntag = dir->etag;
-    while (attrs || off >= 2*sizeof(uint32_t)+lfs_tag_size(ntag)) {
+    bool end = false;
+    while (attrs || off >= sizeof(uint32_t) + lfs_tag_dsize(ntag)) {
         struct lfs_diskoff disk;
         uint32_t tag;
         const void *buffer;
@@ -635,7 +645,7 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit, int pass,
             buffer = attrs->buffer;
             attrs = attrs->next;
         } else {
-            off -= sizeof(ntag)+lfs_tag_size(ntag);
+            off -= lfs_tag_dsize(ntag);
 
             tag = ntag;
             buffer = &disk;
@@ -653,13 +663,16 @@ static int lfs_commit_move(lfs_t *lfs, struct lfs_commit *commit, int pass,
             tag |= 0x80000000;
         }
 
-        if (lfs_tag_subtype(tag) == LFS_TYPE_DELETE &&
+        if (lfs_tag_subtype(tag) == LFS_TYPE_CRC) {
+            end = 2 & lfs_tag_type(tag);
+        } else if (lfs_tag_subtype(tag) == LFS_TYPE_DELETE &&
                 lfs_tag_id(tag) <= lfs_tag_id(fromtag - fromdiff)) {
             // something was deleted, we need to move around it
             fromdiff -= LFS_MKTAG(0, 1, 0);
         }
 
-        if ((tag & frommask) == ((fromtag - fromdiff) & frommask)) {
+        if ((tag & frommask) == ((fromtag - fromdiff) & frommask) &&
+                !(lfs_tag_isdelete(tag) && end)) {
             bool duplicate;
             if (pass == 0) {
                 duplicate = (lfs_tag_subtype(tag) != LFS_TYPE_NAME);
@@ -714,7 +727,8 @@ static int lfs_commit_globals(lfs_t *lfs, struct lfs_commit *commit,
     return err;
 }
 
-static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
+static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit,
+        bool compacting) {
     // align to program units
     lfs_off_t off = lfs_alignup(commit->off + 2*sizeof(uint32_t),
             lfs->cfg->prog_size);
@@ -730,7 +744,7 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit) {
 
     // build crc tag
     bool reset = ~lfs_fromle32(tag) >> 31;
-    tag = LFS_MKTAG(LFS_TYPE_CRC + reset,
+    tag = LFS_MKTAG(LFS_TYPE_CRC + (compacting << 1) + reset,
             0x3ff, off - (commit->off+sizeof(uint32_t)));
 
     // write out crc
@@ -889,7 +903,7 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
             }
 
             // check we're in valid range
-            if (off + sizeof(tag)+lfs_tag_size(tag) > lfs->cfg->block_size) {
+            if (off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
                 dir->erased = false;
                 break;
             }
@@ -919,7 +933,7 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
 
                 // update with what's found so far
                 foundtag = tempfoundtag;
-                dir->off = off + sizeof(tag)+lfs_tag_size(tag);
+                dir->off = off + lfs_tag_dsize(tag);
                 dir->etag = tag;
                 dir->count = tempcount;
                 dir->tail[0] = temptail[0];
@@ -931,11 +945,11 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
                 crc = 0xffffffff;
             } else {
                 // crc the entry first, leaving it in the cache
-                for (lfs_off_t j = 0; j < lfs_tag_size(tag); j++) {
+                for (lfs_off_t j = sizeof(tag); j < lfs_tag_dsize(tag); j++) {
                     uint8_t dat;
                     err = lfs_bd_read(lfs,
                             NULL, &lfs->rcache, lfs->cfg->block_size,
-                            dir->pair[0], off+sizeof(tag)+j, &dat, 1);
+                            dir->pair[0], off+j, &dat, 1);
                     if (err) {
                         if (err == LFS_ERR_CORRUPT) {
                             dir->erased = false;
@@ -994,7 +1008,9 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
 
                 if ((tag & findmask) == (findtag & findmask)) {
                     // found a match?
-                    if (lfs_tag_type(findtag) == LFS_TYPE_DIRSTRUCT) {
+                    if (lfs_tag_isdelete(findtag)) {
+                        tempfoundtag = LFS_ERR_NOENT;
+                    } else if (lfs_tag_type(findtag) == LFS_TYPE_DIRSTRUCT) {
                         lfs_block_t child[2];
                         err = lfs_bd_read(lfs,
                                 &lfs->pcache, &lfs->rcache,
@@ -1037,7 +1053,7 @@ static int32_t lfs_dir_fetchmatch(lfs_t *lfs,
             }
 
             ptag = tag;
-            off += sizeof(tag)+lfs_tag_size(tag);
+            off += lfs_tag_dsize(tag);
         }
 
         // consider what we have good enough
@@ -1259,7 +1275,7 @@ commit:
             }
         }
 
-        err = lfs_commit_crc(lfs, &commit);
+        err = lfs_commit_crc(lfs, &commit, true);
         if (err) {
             if (err == LFS_ERR_CORRUPT) {
                 goto relocate;
@@ -1428,7 +1444,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             .ack = 0,
         };
 
-        // iterate over commits backwards, this lets us "append" commits cheaply
+        // iterate over commits backwards, this lets us "append" commits
         for (int i = 0; i < attrcount; i++) {
             const lfs_mattr_t *a = attrs;
             for (int j = 0; j < attrcount-i-1; j++) {
@@ -1454,7 +1470,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             return err;
         }
 
-        err = lfs_commit_crc(lfs, &commit);
+        err = lfs_commit_crc(lfs, &commit, false);
         if (err) {
             if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
                 goto compact;
@@ -2926,8 +2942,8 @@ int lfs_setattr(lfs_t *lfs, const char *path,
     }
 
     return lfs_dir_commit(lfs, &cwd,
-        LFS_MKATTR(0x100 | type, id, buffer, size,
-        NULL));
+            LFS_MKATTR(0x100 | type, id, buffer, size,
+            NULL));
 }
 
 
