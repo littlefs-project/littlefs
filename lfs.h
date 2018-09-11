@@ -113,7 +113,7 @@ enum lfs_type {
     LFS_FROM_REGION         = 0x000,
     LFS_FROM_DISK           = 0x200,
     LFS_FROM_MOVE           = 0x0c1,
-    LFS_FROM_ATTRS          = 0x0c2,
+    LFS_FROM_USERATTRS      = 0x0c2,
     LFS_FROM_SUPERBLOCK     = 0x0c3,
 };
 
@@ -284,13 +284,7 @@ struct lfs_file_config {
 };
 
 
-/// littlefs data structures ///
-typedef struct lfs_mattr {
-    int32_t tag;
-    const void *buffer;
-    const struct lfs_mattr *next;
-} lfs_mattr_t;
-
+/// internal littlefs data structures ///
 typedef struct lfs_cache {
     lfs_block_t block;
     lfs_off_t off;
@@ -324,13 +318,7 @@ typedef struct lfs_mdir {
     lfs_global_t locals;
 } lfs_mdir_t;
 
-typedef struct lfs_mlist {
-    struct lfs_mlist *next;
-    uint16_t id;
-    uint8_t type;
-    lfs_mdir_t m;
-} lfs_mlist_t;
-
+// littlefs directory type
 typedef struct lfs_dir {
     struct lfs_dir *next;
     uint16_t id;
@@ -341,6 +329,7 @@ typedef struct lfs_dir {
     lfs_block_t head[2];
 } lfs_dir_t;
 
+// littlefs file type
 typedef struct lfs_file {
     struct lfs_file *next;
     uint16_t id;
@@ -373,26 +362,29 @@ typedef struct lfs_superblock {
     lfs_size_t inline_max;
 } lfs_superblock_t;
 
-typedef struct lfs_free {
-    lfs_block_t off;
-    lfs_block_t size;
-    lfs_block_t i;
-    lfs_block_t ack;
-    uint32_t *buffer;
-} lfs_free_t;
-
-// The littlefs type
+// The littlefs filesystem type
 typedef struct lfs {
     lfs_cache_t rcache;
     lfs_cache_t pcache;
 
     lfs_block_t root[2];
-    lfs_mlist_t *mlist;
+    struct lfs_mlist {
+        struct lfs_mlist *next;
+        uint16_t id;
+        uint8_t type;
+        lfs_mdir_t m;
+    } *mlist;
     uint32_t seed;
 
     lfs_global_t globals;
     lfs_global_t locals;
-    lfs_free_t free;
+    struct lfs_free {
+        lfs_block_t off;
+        lfs_block_t size;
+        lfs_block_t i;
+        lfs_block_t ack;
+        uint32_t *buffer;
+    } free;
 
     const struct lfs_config *cfg;
     lfs_size_t block_size;
