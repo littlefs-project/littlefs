@@ -3116,7 +3116,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
     lfs_superblock_tole32(&superblock);
     err = lfs_dir_commit(lfs, &root,
-            LFS_MKATTR(LFS_TYPE_ROOT, 0, &superblock, sizeof(superblock),
+            LFS_MKATTR(LFS_TYPE_SUPERBLOCK, 0, &superblock, sizeof(superblock),
             NULL));
     if (err) {
         goto cleanup;
@@ -3139,97 +3139,94 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
-    // find root/superblock
-    lfs_mdir_t root;
-    lfs_superblock_t superblock;
-    lfs_stag_t tag = lfs_dir_findmatch(lfs,
-            &root, (const lfs_block_t[2]){0, 1}, false, 0x7fc00000,
-            LFS_MKTAG(LFS_TYPE_ROOT, 0, 8),
-            lfs_dir_find_match, &(struct lfs_dir_find_match){
-                lfs, "littlefs", 8});
-    if (tag < 0) {
-        err = tag;
-        goto cleanup;
-    }
-
-    lfs_stag_t res = lfs_dir_get(lfs, &root, 0x7f800000,
-            LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, sizeof(superblock)),
-            &superblock);
-    if (res < 0) {
-        err = res;
-        goto cleanup;
-    }
-    lfs_superblock_fromle32(&superblock);
-
-    lfs->root[0] = root.pair[0];
-    lfs->root[1] = root.pair[1];
-
-    // check version
-    uint16_t major_version = (0xffff & (superblock.version >> 16));
-    uint16_t minor_version = (0xffff & (superblock.version >>  0));
-    if ((major_version != LFS_DISK_VERSION_MAJOR ||
-         minor_version > LFS_DISK_VERSION_MINOR)) {
-        LFS_ERROR("Invalid version %"PRIu32".%"PRIu32,
-                major_version, minor_version);
-        err = LFS_ERR_INVAL;
-        goto cleanup;
-    }
-
-    // check superblock configuration
-    if (superblock.attr_max) {
-        if (superblock.attr_max > lfs->attr_max) {
-            LFS_ERROR("Unsupported attr_max (%"PRIu32" > %"PRIu32")",
-                    superblock.attr_max, lfs->attr_max);
-            err = LFS_ERR_INVAL;
-            goto cleanup;
-        }
-
-        lfs->attr_max = superblock.attr_max;
-    }
-
-    if (superblock.name_max) {
-        if (superblock.name_max > lfs->name_max) {
-            LFS_ERROR("Unsupported name_max (%"PRIu32" > %"PRIu32")",
-                    superblock.name_max, lfs->name_max);
-            err = LFS_ERR_INVAL;
-            goto cleanup;
-        }
-
-        lfs->name_max = superblock.name_max;
-    }
-
-    if (superblock.inline_max) {
-        if (superblock.inline_max > lfs->inline_max) {
-            LFS_ERROR("Unsupported inline_max (%"PRIu32" > %"PRIu32")",
-                    superblock.inline_max, lfs->inline_max);
-            err = LFS_ERR_INVAL;
-            goto cleanup;
-        }
-
-        lfs->inline_max = superblock.inline_max;
-    }
-
-    // scan for any global updates
+    // scan directory blocks for superblock and any global updates
     lfs_mdir_t dir = {.tail = {0, 1}};
     while (!lfs_pair_isnull(dir.tail)) {
-        res = lfs_dir_fetchmatch(lfs, &dir, dir.tail, 0x7c000000,
-                LFS_MKTAG(LFS_TYPE_GLOBALS, 0, 10),  NULL, NULL);
+        // fetch next block in tail list
+        lfs_stag_t res = lfs_dir_fetchmatch(lfs, &dir, dir.tail, 0x7fc00000,
+                LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8),
+                lfs_dir_find_match, &(struct lfs_dir_find_match){
+                    lfs, "littlefs", 8});
         if (res < 0) {
-            err = LFS_ERR_INVAL;
+            err = res;
             goto cleanup;
         }
 
+        // has superblock?
         if (res) {
-            lfs_global_t locals;
-            res = lfs_dir_get(lfs, &dir, 0x7c000000,
-                    LFS_MKTAG(LFS_TYPE_GLOBALS, 0, 10), &locals);
+            // update root
+            lfs->root[0] = dir.pair[0];
+            lfs->root[1] = dir.pair[1];
+
+            // grab superblock
+            lfs_superblock_t superblock;
+            res = lfs_dir_get(lfs, &dir, 0x7f800000,
+                    LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, sizeof(superblock)),
+                    &superblock);
             if (res < 0) {
                 err = res;
                 goto cleanup;
             }
-            locals.l.deorphaned = (lfs_tag_type(res) & 1);
+            lfs_superblock_fromle32(&superblock);
 
-            // xor together indirect deletes
+            // check version
+            uint16_t major_version = (0xffff & (superblock.version >> 16));
+            uint16_t minor_version = (0xffff & (superblock.version >>  0));
+            if ((major_version != LFS_DISK_VERSION_MAJOR ||
+                 minor_version > LFS_DISK_VERSION_MINOR)) {
+                LFS_ERROR("Invalid version %"PRIu32".%"PRIu32,
+                        major_version, minor_version);
+                err = LFS_ERR_INVAL;
+                goto cleanup;
+            }
+
+            // check superblock configuration
+            if (superblock.attr_max) {
+                if (superblock.attr_max > lfs->attr_max) {
+                    LFS_ERROR("Unsupported attr_max (%"PRIu32" > %"PRIu32")",
+                            superblock.attr_max, lfs->attr_max);
+                    err = LFS_ERR_INVAL;
+                    goto cleanup;
+                }
+
+                lfs->attr_max = superblock.attr_max;
+            }
+
+            if (superblock.name_max) {
+                if (superblock.name_max > lfs->name_max) {
+                    LFS_ERROR("Unsupported name_max (%"PRIu32" > %"PRIu32")",
+                            superblock.name_max, lfs->name_max);
+                    err = LFS_ERR_INVAL;
+                    goto cleanup;
+                }
+
+                lfs->name_max = superblock.name_max;
+            }
+
+            if (superblock.inline_max) {
+                if (superblock.inline_max > lfs->inline_max) {
+                    LFS_ERROR("Unsupported inline_max (%"PRIu32" > %"PRIu32")",
+                            superblock.inline_max, lfs->inline_max);
+                    err = LFS_ERR_INVAL;
+                    goto cleanup;
+                }
+
+                lfs->inline_max = superblock.inline_max;
+            }
+        }
+
+        // has globals?
+        lfs_global_t locals;
+        res = lfs_dir_get(lfs, &dir, 0x7c000000,
+                LFS_MKTAG(LFS_TYPE_GLOBALS, 0, 10), &locals);
+        if (res < 0 && res != LFS_ERR_NOENT) {
+            err = res;
+            goto cleanup;
+        }
+
+        if (res != LFS_ERR_NOENT) {
+            locals.l.deorphaned = (lfs_tag_type(res) & 1);
+            // xor together to find resulting globals
             lfs_global_xor(&lfs->locals, &locals);
         }
     }
