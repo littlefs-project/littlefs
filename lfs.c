@@ -1290,6 +1290,7 @@ static int lfs_dir_compact(lfs_t *lfs,
         // setup compaction
         bool splitted = false;
         bool exhausted = false;
+        bool overcompacting = false;
 
         struct lfs_commit commit;
         commit.block = dir->pair[1];
@@ -1310,9 +1311,11 @@ commit:
         // cleanup delete, and we cap at half a block to give room
         // for metadata updates
         commit.begin = 0;
-        commit.end = lfs_min(
-             lfs_alignup(lfs->cfg->block_size/2, lfs->cfg->prog_size),
-             lfs->cfg->block_size - 38);
+        commit.end = lfs->cfg->block_size - 38;
+        if (!overcompacting) {
+            commit.end = lfs_min(commit.end,
+                    lfs_alignup(lfs->cfg->block_size/2, lfs->cfg->prog_size));
+        }
 
         if (!splitted) {
             // increment revision count
@@ -1369,8 +1372,9 @@ commit:
                         0x003ff000, LFS_MKTAG(0, id, 0),
                         -LFS_MKTAG(0, begin, 0),
                         source, attrs);
-                if (err && !(splitted && err == LFS_ERR_NOSPC)) {
-                    if (err == LFS_ERR_NOSPC) {
+                if (err && !(splitted && !overcompacting &&
+                        err == LFS_ERR_NOSPC)) {
+                    if (!overcompacting && err == LFS_ERR_NOSPC) {
                         goto split;
                     } else if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
@@ -1457,6 +1461,11 @@ split:
         lfs_mdir_t tail;
         err = lfs_dir_alloc(lfs, &tail);
         if (err) {
+            if (err == LFS_ERR_NOSPC) {
+                // No space to expand? Try overcompacting
+                overcompacting = true;
+                goto commit;
+            }
             return err;
         }
 
