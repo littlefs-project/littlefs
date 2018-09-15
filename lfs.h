@@ -290,20 +290,6 @@ typedef struct lfs_cache {
     uint8_t *buffer;
 } lfs_cache_t;
 
-typedef union lfs_global {
-    uint32_t u32[3];
-    struct {
-        lfs_block_t movepair[2];
-        uint16_t moveid;
-        uint8_t deorphaned;
-    } l;
-    struct {
-        lfs_block_t movepair[2];
-        uint16_t moveid;
-        uint8_t orphans;
-    } g;
-} lfs_global_t;
-
 typedef struct lfs_mdir {
     lfs_block_t pair[2];
     uint32_t rev;
@@ -373,8 +359,13 @@ typedef struct lfs {
     } *mlist;
     uint32_t seed;
 
-    lfs_global_t globals;
-    lfs_global_t locals;
+    struct lfs_globals {
+        lfs_block_t pair[2];
+        uint16_t id;
+        bool hasmove;
+        uint8_t orphans;
+    } globals, locals;
+
     struct lfs_free {
         lfs_block_t off;
         lfs_block_t size;
