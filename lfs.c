@@ -265,7 +265,7 @@ typedef uint32_t lfs_tag_t;
 typedef int32_t lfs_stag_t;
 
 #define LFS_MKTAG(type, id, size) \
-    (((lfs_tag_t)(type) << 22) | ((lfs_tag_t)(id) << 12) | (lfs_tag_t)(size))
+    (((lfs_tag_t)(type) << 22) | ((lfs_tag_t)(id) << 13) | (lfs_tag_t)(size))
 
 static inline bool lfs_tag_isvalid(lfs_tag_t tag) {
     return !(tag & 0x80000000);
@@ -276,7 +276,7 @@ static inline bool lfs_tag_isuser(lfs_tag_t tag) {
 }
 
 static inline bool lfs_tag_isdelete(lfs_tag_t tag) {
-    return (tag & 0x00000fff) == 0xfff;
+    return ((int32_t)(tag << 19) >> 19) == -1;
 }
 
 static inline uint16_t lfs_tag_type(lfs_tag_t tag) {
@@ -288,11 +288,11 @@ static inline uint16_t lfs_tag_subtype(lfs_tag_t tag) {
 }
 
 static inline uint16_t lfs_tag_id(lfs_tag_t tag) {
-    return (tag & 0x003ff000) >> 12;
+    return (tag & 0x003fe000) >> 13;
 }
 
 static inline lfs_size_t lfs_tag_size(lfs_tag_t tag) {
-    return tag & 0x00000fff;
+    return tag & 0x00001fff;
 }
 
 static inline lfs_size_t lfs_tag_dsize(lfs_tag_t tag) {
@@ -837,14 +837,14 @@ static int lfs_dir_getglobals(lfs_t *lfs, const lfs_mdir_t *dir,
 
 static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
         uint16_t id, struct lfs_info *info) {
-    if (id == 0x3ff) {
+    if (id == 0x1ff) {
         // special case for root
         strcpy(info->name, "/");
         info->type = LFS_TYPE_DIR;
         return 0;
     }
 
-    lfs_stag_t tag = lfs_dir_get(lfs, dir, 0x7c3ff000,
+    lfs_stag_t tag = lfs_dir_get(lfs, dir, 0x7c3fe000,
             LFS_MKTAG(LFS_TYPE_NAME, id, lfs->name_max+1), info->name);
     if (tag < 0) {
         return tag;
@@ -853,7 +853,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     info->type = lfs_tag_type(tag);
 
     struct lfs_ctz ctz;
-    tag = lfs_dir_get(lfs, dir, 0x7c3ff000,
+    tag = lfs_dir_get(lfs, dir, 0x7c3fe000,
             LFS_MKTAG(LFS_TYPE_STRUCT, id, sizeof(ctz)), &ctz);
     if (tag < 0) {
         return tag;
@@ -912,7 +912,7 @@ static lfs_stag_t lfs_dir_find(lfs_t *lfs,
     *path = NULL;
 
     // default to root dir
-    lfs_stag_t tag = LFS_MKTAG(LFS_TYPE_DIR, 0x3ff, 0);
+    lfs_stag_t tag = LFS_MKTAG(LFS_TYPE_DIR, 0x1ff, 0);
     lfs_block_t pair[2] = {lfs->root[0], lfs->root[1]};
 
     while (true) {
@@ -968,8 +968,8 @@ nextname:
         }
 
         // grab the entry data
-        if (lfs_tag_id(tag) != 0x3ff) {
-            lfs_stag_t res = lfs_dir_get(lfs, dir, 0x7c3ff000,
+        if (lfs_tag_id(tag) != 0x1ff) {
+            lfs_stag_t res = lfs_dir_get(lfs, dir, 0x7c3fe000,
                     LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
             if (res < 0) {
                 return res;
@@ -978,7 +978,7 @@ nextname:
         }
 
         // find entry matching name
-        tag = lfs_dir_findmatch(lfs, dir, pair, false, 0x7c000fff,
+        tag = lfs_dir_findmatch(lfs, dir, pair, false, 0x7c001fff,
                 LFS_MKTAG(LFS_TYPE_NAME, 0, namelen),
                 lfs_dir_find_match, &(struct lfs_dir_find_match){
                     lfs, name, namelen});
@@ -1046,7 +1046,7 @@ static int lfs_commit_move_match(void *data,
                     .pair[0] = commit->block,
                     .off = commit->off,
                     .etag = commit->ptag}, NULL,
-                lfs_tag_isuser(tag) ? 0x7ffff000 : 0x7c3ff000, tag, 0,
+                lfs_tag_isuser(tag) ? 0x7fffe000 : 0x7c3fe000, tag, 0,
                 lfs_dir_get_match, &(struct lfs_dir_get_match){
                     lfs, NULL, 0, true});
         if (res < 0 && res != LFS_ERR_NOENT) {
@@ -1089,7 +1089,7 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
     if (lfs_tag_type(tag) == LFS_FROM_MOVE) {
         // special case for moves
         return lfs_commit_move(lfs, commit, 1,
-                0x003ff000, LFS_MKTAG(0, lfs_tag_size(tag), 0),
+                0x003fe000, LFS_MKTAG(0, lfs_tag_size(tag), 0),
                 LFS_MKTAG(0, lfs_tag_id(tag), 0) -
                     LFS_MKTAG(0, lfs_tag_size(tag), 0),
                 buffer, NULL);
@@ -1146,7 +1146,7 @@ static int lfs_commit_globals(lfs_t *lfs, struct lfs_commit *commit,
         struct lfs_globals *globals) {
     return lfs_commit_attr(lfs, commit,
             LFS_MKTAG(LFS_TYPE_GLOBALS + 2*globals->hasmove + globals->orphans,
-                0x3ff, 10), globals);
+                0x1ff, 10), globals);
 }
 
 static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit,
@@ -1166,8 +1166,8 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit,
 
     // build crc tag
     bool reset = ~lfs_fromle32(tag) >> 31;
-    tag = LFS_MKTAG(LFS_TYPE_CRC + (compacting << 1) + reset,
-            0x3ff, off - (commit->off+sizeof(lfs_tag_t)));
+    tag = LFS_MKTAG(LFS_TYPE_CRC + 2*compacting + reset,
+            0x1ff, off - (commit->off+sizeof(lfs_tag_t)));
 
     // write out crc
     uint32_t footer[2];
@@ -1267,7 +1267,7 @@ static int lfs_dir_drop(lfs_t *lfs, lfs_mdir_t *dir, const lfs_mdir_t *tail) {
     // update pred's tail
     return lfs_dir_commit(lfs, dir,
             LFS_MKATTR(LFS_TYPE_TAIL + dir->split,
-                0x3ff, dir->tail, sizeof(dir->tail),
+                0x1ff, dir->tail, sizeof(dir->tail),
             NULL));
 }
 
@@ -1369,7 +1369,7 @@ commit:
         for (uint16_t id = begin; id < end || commit.off < commit.ack; id++) {
             for (int pass = 0; pass < 2; pass++) {
                 err = lfs_commit_move(lfs, &commit, pass,
-                        0x003ff000, LFS_MKTAG(0, id, 0),
+                        0x003fe000, LFS_MKTAG(0, id, 0),
                         -LFS_MKTAG(0, begin, 0),
                         source, attrs);
                 if (err && !(splitted && !overcompacting &&
@@ -1419,7 +1419,7 @@ commit:
             lfs_pair_tole32(dir->tail);
             err = lfs_commit_attr(lfs, &commit,
                     LFS_MKTAG(LFS_TYPE_TAIL + dir->split,
-                        0x3ff, sizeof(dir->tail)), dir->tail);
+                        0x1ff, sizeof(dir->tail)), dir->tail);
             lfs_pair_fromle32(dir->tail);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -1737,7 +1737,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     cwd.tail[1] = dir.pair[1];
     lfs_pair_tole32(dir.pair);
     err = lfs_dir_commit(lfs, &cwd,
-            LFS_MKATTR(LFS_TYPE_SOFTTAIL, 0x3ff, cwd.tail, sizeof(cwd.tail),
+            LFS_MKATTR(LFS_TYPE_SOFTTAIL, 0x1ff, cwd.tail, sizeof(cwd.tail),
             LFS_MKATTR(LFS_TYPE_DIRSTRUCT, id, dir.pair, sizeof(dir.pair),
             LFS_MKATTR(LFS_TYPE_DIR, id, path, nlen,
             NULL))));
@@ -1760,13 +1760,13 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     }
 
     lfs_block_t pair[2];
-    if (lfs_tag_id(tag) == 0x3ff) {
+    if (lfs_tag_id(tag) == 0x1ff) {
         // handle root dir separately
         pair[0] = lfs->root[0];
         pair[1] = lfs->root[1];
     } else {
         // get dir pair from parent
-        lfs_stag_t res = lfs_dir_get(lfs, &dir->m, 0x7c3ff000,
+        lfs_stag_t res = lfs_dir_get(lfs, &dir->m, 0x7c3fe000,
                 LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
         if (res < 0) {
             return res;
@@ -2163,7 +2163,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         file->flags |= LFS_F_DIRTY;
     } else {
         // try to load what's on disk, if it's inlined we'll fix it later
-        tag = lfs_dir_get(lfs, &file->m, 0x7c3ff000,
+        tag = lfs_dir_get(lfs, &file->m, 0x7c3fe000,
                 LFS_MKTAG(LFS_TYPE_STRUCT, file->id, 8), &file->ctz);
         if (tag < 0) {
             err = tag;
@@ -2175,7 +2175,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     // fetch attrs
     for (const struct lfs_attr *a = file->cfg->attrs; a; a = a->next) {
         if ((file->flags & 3) != LFS_O_WRONLY) {
-            lfs_stag_t res = lfs_dir_get(lfs, &file->m, 0x7ffff000,
+            lfs_stag_t res = lfs_dir_get(lfs, &file->m, 0x7fffe000,
                     LFS_MKTAG(0x100 | a->type, file->id, a->size), a->buffer);
             if (res < 0 && res != LFS_ERR_NOENT) {
                 err = res;
@@ -2218,7 +2218,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
         // don't always read (may be new/trunc file)
         if (file->ctz.size > 0) {
-            lfs_stag_t res = lfs_dir_get(lfs, &file->m, 0x7c3ff000,
+            lfs_stag_t res = lfs_dir_get(lfs, &file->m, 0x7c3fe000,
                     LFS_MKTAG(LFS_TYPE_STRUCT, file->id, file->ctz.size),
                     file->cache.buffer);
             if (res < 0) {
@@ -2778,7 +2778,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     if (lfs_tag_type(tag) == LFS_TYPE_DIR) {
         // must be empty before removal
         lfs_block_t pair[2];
-        lfs_stag_t res = lfs_dir_get(lfs, &cwd, 0x7c3ff000,
+        lfs_stag_t res = lfs_dir_get(lfs, &cwd, 0x7c3fe000,
                 LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
         if (res < 0) {
             return res;
@@ -2862,7 +2862,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     } else if (lfs_tag_type(prevtag) == LFS_TYPE_DIR) {
         // must be empty before removal
         lfs_block_t prevpair[2];
-        lfs_stag_t res = lfs_dir_get(lfs, &newcwd, 0x7c3ff000,
+        lfs_stag_t res = lfs_dir_get(lfs, &newcwd, 0x7c3fe000,
                 LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), prevpair);
         if (res < 0) {
             return res;
@@ -2933,7 +2933,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
     }
 
     uint16_t id = lfs_tag_id(res);
-    if (id == 0x3ff) {
+    if (id == 0x1ff) {
         // special case for root
         id = 0;
         int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
@@ -2942,7 +2942,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
         }
     }
 
-    res = lfs_dir_get(lfs, &cwd, 0x7ffff000,
+    res = lfs_dir_get(lfs, &cwd, 0x7fffe000,
             LFS_MKTAG(0x100 | type, id, lfs_min(size, lfs->attr_max)),
             buffer);
     if (res < 0) {
@@ -2964,7 +2964,7 @@ static int lfs_commitattr(lfs_t *lfs, const char *path,
     }
 
     uint16_t id = lfs_tag_id(res);
-    if (id == 0x3ff) {
+    if (id == 0x1ff) {
         // special case for root
         id = 0;
         int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
@@ -2988,7 +2988,7 @@ int lfs_setattr(lfs_t *lfs, const char *path,
 }
 
 int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
-    return lfs_commitattr(lfs, path, type, NULL, LFS_ATTR_MAX+1);
+    return lfs_commitattr(lfs, path, type, NULL, 0x1fff);
 }
 
 
@@ -3290,7 +3290,7 @@ int lfs_fs_traverse(lfs_t *lfs,
 
         for (uint16_t id = 0; id < dir.count; id++) {
             struct lfs_ctz ctz;
-            lfs_stag_t tag = lfs_dir_get(lfs, &dir, 0x7c3ff000,
+            lfs_stag_t tag = lfs_dir_get(lfs, &dir, 0x7c3fe000,
                     LFS_MKTAG(LFS_TYPE_STRUCT, id, sizeof(ctz)), &ctz);
             if (tag < 0) {
                 if (tag == LFS_ERR_NOENT) {
@@ -3393,7 +3393,7 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
     for (int i = 0; i < 2; i++) {
         struct lfs_fs_parent_match match = {lfs, {pair[0], pair[1]}};
         lfs_stag_t tag = lfs_dir_findmatch(lfs, parent,
-                (const lfs_block_t[2]){0, 1}, true, 0x7fc00fff,
+                (const lfs_block_t[2]){0, 1}, true, 0x7fc01fff,
                 LFS_MKTAG(LFS_TYPE_DIRSTRUCT, 0, 8),
                 lfs_fs_parent_match, &match);
         if (tag != LFS_ERR_NOENT) {
@@ -3458,7 +3458,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
         parent.tail[1] = newpair[1];
         err = lfs_dir_commit(lfs, &parent,
                 LFS_MKATTR(LFS_TYPE_TAIL + parent.split,
-                    0x3ff, parent.tail, sizeof(parent.tail),
+                    0x1ff, parent.tail, sizeof(parent.tail),
                 NULL));
         if (err) {
             return err;
@@ -3532,7 +3532,7 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
             }
 
             lfs_block_t pair[2];
-            lfs_stag_t res = lfs_dir_get(lfs, &parent, 0x7ffff000, tag, pair);
+            lfs_stag_t res = lfs_dir_get(lfs, &parent, 0x7fffe000, tag, pair);
             if (res < 0) {
                 return res;
             }
@@ -3547,7 +3547,7 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
                 pdir.tail[1] = pair[1];
                 err = lfs_dir_commit(lfs, &pdir,
                         LFS_MKATTR(LFS_TYPE_SOFTTAIL,
-                            0x3ff, pdir.tail, sizeof(pdir.tail),
+                            0x1ff, pdir.tail, sizeof(pdir.tail),
                         NULL));
                 if (err) {
                     return err;

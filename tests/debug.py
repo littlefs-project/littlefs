@@ -76,11 +76,11 @@ def main(*blocks):
         off += 4
 
         type = (tag & 0x7fc00000) >> 22
-        id   = (tag & 0x003ff000) >> 12
-        size = (tag & 0x00000fff) >> 0
+        id   = (tag & 0x003fe000) >> 13
+        size = (tag & 0x00001fff) >> 0
         iscrc = (type & 0x1f0) == 0x0f0
 
-        data = file.read(size if size != 0xfff else 0)
+        data = file.read(size if size != 0x1fff else 0)
         if iscrc:
             crc = binascii.crc32(data[:4], crc)
         else:
@@ -89,12 +89,12 @@ def main(*blocks):
         print '%04x: %08x  %-14s  %3s  %3s  %-23s  %-8s' % (
             off, tag,
             typeof(type) + (' bad!' if iscrc and ~crc else ''),
-            id if id != 0x3ff else '.',
-            size if size != 0xfff else 'x',
+            id if id != 0x1ff else '.',
+            size if size != 0x1fff else 'x',
             ' '.join('%02x' % ord(c) for c in data[:8]),
             ''.join(c if c >= ' ' and c <= '~' else '.' for c in data[:8]))
 
-        off += size if size != 0xfff else 0
+        off += size if size != 0x1fff else 0
         if iscrc:
             crc = 0
             tag ^= (type & 1) << 31
