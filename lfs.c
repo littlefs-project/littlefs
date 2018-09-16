@@ -185,7 +185,7 @@ static int lfs_cache_prog(lfs_t *lfs, lfs_cache_t *pcache,
         if (off % lfs->cfg->prog_size == 0 &&
                 size >= lfs->cfg->prog_size) {
             // bypass pcache?
-            lfs_size_t diff = size - (size % lfs->cfg->prog_size);
+            lfs_size_t diff = lfs_min(size, lfs->cfg->prog_size);
             int err = lfs->cfg->prog(lfs->cfg, block, off, data, diff);
             if (err) {
                 return err;
