@@ -46,7 +46,7 @@ static int lfs_cache_read(lfs_t *lfs, lfs_cache_t *rcache,
 
         if (off % lfs->cfg->read_size == 0 && size >= lfs->cfg->read_size) {
             // bypass cache?
-            lfs_size_t diff = size - (size % lfs->cfg->read_size);
+            lfs_size_t diff = lfs_min(size, lfs->cfg->read_size);
             int err = lfs->cfg->read(lfs->cfg, block, off, data, diff);
             if (err) {
                 return err;
