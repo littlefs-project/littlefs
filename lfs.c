@@ -2475,7 +2475,11 @@ int lfs_deorphan(lfs_t *lfs) {
     lfs_dir_t cwd = {.d.tail[0] = 0, .d.tail[1] = 1};
 
     // iterate over all directory directory entries
-    while (!lfs_pairisnull(cwd.d.tail)) {
+    for (int i = 0; i < lfs->cfg->block_count; i++) {
+        if (lfs_pairisnull(cwd.d.tail)) {
+            return 0;
+        }
+
         int err = lfs_dir_fetch(lfs, &cwd, cwd.d.tail);
         if (err) {
             return err;
@@ -2504,7 +2508,7 @@ int lfs_deorphan(lfs_t *lfs) {
                     return err;
                 }
 
-                break;
+                return 0;
             }
 
             if (!lfs_pairsync(entry.d.u.dir, pdir.d.tail)) {
@@ -2520,7 +2524,7 @@ int lfs_deorphan(lfs_t *lfs) {
                     return err;
                 }
 
-                break;
+                return 0;
             }
         }
 
@@ -2565,5 +2569,7 @@ int lfs_deorphan(lfs_t *lfs) {
         memcpy(&pdir, &cwd, sizeof(pdir));
     }
 
-    return 0;
+    // If we reached here, we have more directory pairs than blocks in the
+    // filesystem... So something must be horribly wrong
+    return LFS_ERR_CORRUPT;
 }
