@@ -2096,83 +2096,86 @@ cleanup:
 }
 
 int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
-    int err = lfs_init(lfs, cfg);
-    if (err) {
-        return err;
-    }
+    int err = 0;
+    if (true) {
+        err = lfs_init(lfs, cfg);
+        if (err) {
+            return err;
+        }
 
-    // create free lookahead
-    memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
-    lfs->free.off = 0;
-    lfs->free.size = lfs_min(lfs->cfg->lookahead, lfs->cfg->block_count);
-    lfs->free.i = 0;
-    lfs_alloc_ack(lfs);
+        // create free lookahead
+        memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
+        lfs->free.off = 0;
+        lfs->free.size = lfs_min(lfs->cfg->lookahead, lfs->cfg->block_count);
+        lfs->free.i = 0;
+        lfs_alloc_ack(lfs);
 
-    // create superblock dir
-    lfs_dir_t superdir;
-    err = lfs_dir_alloc(lfs, &superdir);
-    if (err) {
-        goto cleanup;
-    }
-
-    // write root directory
-    lfs_dir_t root;
-    err = lfs_dir_alloc(lfs, &root);
-    if (err) {
-        goto cleanup;
-    }
-
-    err = lfs_dir_commit(lfs, &root, NULL, 0);
-    if (err) {
-        goto cleanup;
-    }
-
-    lfs->root[0] = root.pair[0];
-    lfs->root[1] = root.pair[1];
-
-    // write superblocks
-    lfs_superblock_t superblock = {
-        .off = sizeof(superdir.d),
-        .d.type = LFS_TYPE_SUPERBLOCK,
-        .d.elen = sizeof(superblock.d) - sizeof(superblock.d.magic) - 4,
-        .d.nlen = sizeof(superblock.d.magic),
-        .d.version = LFS_DISK_VERSION,
-        .d.magic = {"littlefs"},
-        .d.block_size  = lfs->cfg->block_size,
-        .d.block_count = lfs->cfg->block_count,
-        .d.root = {lfs->root[0], lfs->root[1]},
-    };
-    superdir.d.tail[0] = root.pair[0];
-    superdir.d.tail[1] = root.pair[1];
-    superdir.d.size = sizeof(superdir.d) + sizeof(superblock.d) + 4;
-
-    // write both pairs to be safe
-    lfs_superblock_tole32(&superblock.d);
-    bool valid = false;
-    for (int i = 0; i < 2; i++) {
-        err = lfs_dir_commit(lfs, &superdir, (struct lfs_region[]){
-                {sizeof(superdir.d), sizeof(superblock.d),
-                 &superblock.d, sizeof(superblock.d)}
-            }, 1);
-        if (err && err != LFS_ERR_CORRUPT) {
+        // create superblock dir
+        lfs_dir_t superdir;
+        err = lfs_dir_alloc(lfs, &superdir);
+        if (err) {
             goto cleanup;
         }
 
-        valid = valid || !err;
-    }
+        // write root directory
+        lfs_dir_t root;
+        err = lfs_dir_alloc(lfs, &root);
+        if (err) {
+            goto cleanup;
+        }
 
-    if (!valid) {
-        err = LFS_ERR_CORRUPT;
-        goto cleanup;
-    }
+        err = lfs_dir_commit(lfs, &root, NULL, 0);
+        if (err) {
+            goto cleanup;
+        }
 
-    // sanity check that fetch works
-    err = lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
-    if (err) {
-        goto cleanup;
-    }
+        lfs->root[0] = root.pair[0];
+        lfs->root[1] = root.pair[1];
 
-    lfs_alloc_ack(lfs);
+        // write superblocks
+        lfs_superblock_t superblock = {
+            .off = sizeof(superdir.d),
+            .d.type = LFS_TYPE_SUPERBLOCK,
+            .d.elen = sizeof(superblock.d) - sizeof(superblock.d.magic) - 4,
+            .d.nlen = sizeof(superblock.d.magic),
+            .d.version = LFS_DISK_VERSION,
+            .d.magic = {"littlefs"},
+            .d.block_size  = lfs->cfg->block_size,
+            .d.block_count = lfs->cfg->block_count,
+            .d.root = {lfs->root[0], lfs->root[1]},
+        };
+        superdir.d.tail[0] = root.pair[0];
+        superdir.d.tail[1] = root.pair[1];
+        superdir.d.size = sizeof(superdir.d) + sizeof(superblock.d) + 4;
+
+        // write both pairs to be safe
+        lfs_superblock_tole32(&superblock.d);
+        bool valid = false;
+        for (int i = 0; i < 2; i++) {
+            err = lfs_dir_commit(lfs, &superdir, (struct lfs_region[]){
+                    {sizeof(superdir.d), sizeof(superblock.d),
+                     &superblock.d, sizeof(superblock.d)}
+                }, 1);
+            if (err && err != LFS_ERR_CORRUPT) {
+                goto cleanup;
+            }
+
+            valid = valid || !err;
+        }
+
+        if (!valid) {
+            err = LFS_ERR_CORRUPT;
+            goto cleanup;
+        }
+
+        // sanity check that fetch works
+        err = lfs_dir_fetch(lfs, &superdir, (const lfs_block_t[2]){0, 1});
+        if (err) {
+            goto cleanup;
+        }
+
+        lfs_alloc_ack(lfs);
+    }
 
 cleanup:
     lfs_deinit(lfs);
@@ -2180,53 +2183,56 @@ cleanup:
 }
 
 int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
-    int err = lfs_init(lfs, cfg);
-    if (err) {
-        return err;
-    }
-
-    // setup free lookahead
-    lfs->free.off = 0;
-    lfs->free.size = 0;
-    lfs->free.i = 0;
-    lfs_alloc_ack(lfs);
-
-    // load superblock
-    lfs_dir_t dir;
-    lfs_superblock_t superblock;
-    err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
-    if (err && err != LFS_ERR_CORRUPT) {
-        goto cleanup;
-    }
-
-    if (!err) {
-        err = lfs_bd_read(lfs, dir.pair[0], sizeof(dir.d),
-                &superblock.d, sizeof(superblock.d));
-        lfs_superblock_fromle32(&superblock.d);
+    int err = 0;
+    if (true) {
+        err = lfs_init(lfs, cfg);
         if (err) {
+            return err;
+        }
+
+        // setup free lookahead
+        lfs->free.off = 0;
+        lfs->free.size = 0;
+        lfs->free.i = 0;
+        lfs_alloc_ack(lfs);
+
+        // load superblock
+        lfs_dir_t dir;
+        lfs_superblock_t superblock;
+        err = lfs_dir_fetch(lfs, &dir, (const lfs_block_t[2]){0, 1});
+        if (err && err != LFS_ERR_CORRUPT) {
             goto cleanup;
         }
 
-        lfs->root[0] = superblock.d.root[0];
-        lfs->root[1] = superblock.d.root[1];
-    }
+        if (!err) {
+            err = lfs_bd_read(lfs, dir.pair[0], sizeof(dir.d),
+                    &superblock.d, sizeof(superblock.d));
+            lfs_superblock_fromle32(&superblock.d);
+            if (err) {
+                goto cleanup;
+            }
 
-    if (err || memcmp(superblock.d.magic, "littlefs", 8) != 0) {
-        LFS_ERROR("Invalid superblock at %d %d", 0, 1);
-        err = LFS_ERR_CORRUPT;
-        goto cleanup;
-    }
+            lfs->root[0] = superblock.d.root[0];
+            lfs->root[1] = superblock.d.root[1];
+        }
 
-    uint16_t major_version = (0xffff & (superblock.d.version >> 16));
-    uint16_t minor_version = (0xffff & (superblock.d.version >>  0));
-    if ((major_version != LFS_DISK_VERSION_MAJOR ||
-         minor_version > LFS_DISK_VERSION_MINOR)) {
-        LFS_ERROR("Invalid version %d.%d", major_version, minor_version);
-        err = LFS_ERR_INVAL;
-        goto cleanup;
-    }
+        if (err || memcmp(superblock.d.magic, "littlefs", 8) != 0) {
+            LFS_ERROR("Invalid superblock at %d %d", 0, 1);
+            err = LFS_ERR_CORRUPT;
+            goto cleanup;
+        }
 
-    return 0;
+        uint16_t major_version = (0xffff & (superblock.d.version >> 16));
+        uint16_t minor_version = (0xffff & (superblock.d.version >>  0));
+        if ((major_version != LFS_DISK_VERSION_MAJOR ||
+             minor_version > LFS_DISK_VERSION_MINOR)) {
+            LFS_ERROR("Invalid version %d.%d", major_version, minor_version);
+            err = LFS_ERR_INVAL;
+            goto cleanup;
+        }
+
+        return 0;
+    }
 
 cleanup:
 
