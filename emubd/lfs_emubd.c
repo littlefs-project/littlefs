@@ -47,19 +47,24 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
 
     // Load stats to continue incrementing
     snprintf(emu->child, LFS_NAME_MAX, "stats");
+
     FILE *f = fopen(emu->path, "r");
-    if (!f) {
+    if (!f && errno != ENOENT) {
         return -errno;
     }
 
-    size_t res = fread(&emu->stats, sizeof(emu->stats), 1, f);
-    if (res < 1) {
-        return -errno;
-    }
+    if (errno == ENOENT) {
+        memset(&emu->stats, 0x0, sizeof(emu->stats));
+    } else {
+        size_t res = fread(&emu->stats, sizeof(emu->stats), 1, f);
+        if (res < 1) {
+            return -errno;
+        }
 
-    err = fclose(f);
-    if (err) {
-        return -errno;
+        err = fclose(f);
+        if (err) {
+            return -errno;
+        }
     }
 
     return 0;
