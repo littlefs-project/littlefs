@@ -1,13 +1,13 @@
 #!/bin/bash
 set -eu
 
-echo "=== Parallel tests ==="
+echo "=== Interspersed tests ==="
 rm -rf blocks
 tests/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 TEST
 
-echo "--- Parallel file test ---"
+echo "--- Interspersed file test ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "a", LFS_O_WRONLY | LFS_O_CREAT) => 0;
@@ -77,7 +77,7 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
-echo "--- Parallel remove file test ---"
+echo "--- Interspersed remove file test ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "e", LFS_O_WRONLY | LFS_O_CREAT) => 0;

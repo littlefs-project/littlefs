@@ -90,6 +90,22 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
+echo "--- Trailing dot path tests ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_stat(&lfs, "tea/hottea/", &info) => 0;
+    strcmp(info.name, "hottea") => 0;
+    lfs_stat(&lfs, "tea/hottea/.", &info) => 0;
+    strcmp(info.name, "hottea") => 0;
+    lfs_stat(&lfs, "tea/hottea/./.", &info) => 0;
+    strcmp(info.name, "hottea") => 0;
+    lfs_stat(&lfs, "tea/hottea/..", &info) => 0;
+    strcmp(info.name, "tea") => 0;
+    lfs_stat(&lfs, "tea/hottea/../.", &info) => 0;
+    strcmp(info.name, "tea") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
 echo "--- Root dot dot path tests ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
