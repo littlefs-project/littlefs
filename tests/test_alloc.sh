@@ -32,18 +32,18 @@ lfs_alloc_singleproc() {
 tests/test.py << TEST
     const char *names[] = {"bacon", "eggs", "pancakes"};
     lfs_mount(&lfs, &cfg) => 0;
-    for (int n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
+    for (unsigned n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
         sprintf((char*)buffer, "$1/%s", names[n]);
         lfs_file_open(&lfs, &file[n], (char*)buffer,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
     }
-    for (int n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
+    for (unsigned n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
         size = strlen(names[n]);
         for (int i = 0; i < $SIZE; i++) {
             lfs_file_write(&lfs, &file[n], names[n], size) => size;
         }
     }
-    for (int n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
+    for (unsigned n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
         lfs_file_close(&lfs, &file[n]) => 0;
     }
     lfs_unmount(&lfs) => 0;
