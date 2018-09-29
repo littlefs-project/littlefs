@@ -140,12 +140,13 @@ jobs:
         - LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
         # Grab latests patch from repo tags, default to 0, needs finagling to get past github's pagination api
         - PREV_URL=https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR.
-        - PREV_URL=$(curl -f -u "$GEKY_BOT_RELEASES" "$PREV_URL" -I
+        - PREV_URL=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL" -I
                 | sed -n '/^Link/{s/.*<\(.*\)>; rel="last"/\1/;p;q0};$q1'
                 || echo $PREV_URL)
-        - LFS_VERSION_PATCH=$(curl -f -u "$GEKY_BOT_RELEASES" "$PREV_URL"
+        - LFS_VERSION_PATCH=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL"
                 | jq 'map(.ref | match("\\bv.*\\..*\\.(.*)$";"g")
-                    .captures[].string | tonumber + 1) | max // 0')
+                    .captures[].string | tonumber) | max + 1'
+                || echo 0)
         # We have our new version
         - LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR.$LFS_VERSION_PATCH"
         - echo "VERSION $LFS_VERSION"
@@ -156,24 +157,34 @@ jobs:
                 | jq -re '.sha')
           if [ "$TRAVIS_COMMIT" == "$CURRENT_COMMIT" ]
           then
-            # Build release notes
-            PREV=$(git tag --sort=-v:refname -l "v*" | head -1)
-            if [ ! -z "$PREV" ]
-            then
-                echo "PREV $PREV"
-                CHANGES=$'### Changes\n\n'$( \
-                    git log --oneline $PREV.. --grep='^Merge' --invert-grep)
-                printf "CHANGES\n%s\n\n" "$CHANGES"
-            fi
-            # Create the release
+            # Create a simple tag
             curl -f -u "$GEKY_BOT_RELEASES" -X POST \
-                https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases \
+                https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs \
                 -d "{
-                    \"tag_name\": \"$LFS_VERSION\",
-                    \"target_commitish\": \"$TRAVIS_COMMIT\",
-                    \"name\": \"${LFS_VERSION%.0}\",
-                    \"body\": $(jq -sR '.' <<< "$CHANGES")
+                    \"ref\": \"refs/tags/$LFS_VERSION\",
+                    \"sha\": \"$TRAVIS_COMMIT\"
                 }"
+            # Minor release?
+            if [[ "$LFS_VERSION" == *.0 ]]
+            then
+              # Build release notes
+              PREV=$(git tag --sort=-v:refname -l "v*.0" | head -1)
+              if [ ! -z "$PREV" ]
+              then
+                  echo "PREV $PREV"
+                  CHANGES=$'### Changes\n\n'$( \
+                      git log --oneline $PREV.. --grep='^Merge' --invert-grep)
+                  printf "CHANGES\n%s\n\n" "$CHANGES"
+              fi
+              # Create the release
+              curl -f -u "$GEKY_BOT_RELEASES" -X POST \
+                  https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases \
+                  -d "{
+                      \"tag_name\": \"$LFS_VERSION\",
+                      \"name\": \"${LFS_VERSION%.0}\",
+                      \"body\": $(jq -sR '.' <<< "$CHANGES")
+                  }"
+            fi
           fi
 
 # Manage statuses
