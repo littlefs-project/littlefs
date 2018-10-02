@@ -44,39 +44,46 @@ static int lfs_bd_read(lfs_t *lfs,
     }
 
     while (size > 0) {
-        if (pcache && block == pcache->block &&
-                off >= pcache->off &&
-                off < pcache->off + pcache->size) {
-            // is already in pcache?
-            lfs_size_t diff = lfs_min(size, pcache->size - (off-pcache->off));
-            memcpy(data, &pcache->buffer[off-pcache->off], diff);
+        lfs_size_t diff = size;
 
-            data += diff;
-            off += diff;
-            size -= diff;
-            continue;
+        if (pcache && block == pcache->block &&
+                off < pcache->off + pcache->size) {
+            if (off >= pcache->off) {
+                // is already in pcache?
+                diff = lfs_min(diff, pcache->size - (off-pcache->off));
+                memcpy(data, &pcache->buffer[off-pcache->off], diff);
+
+                data += diff;
+                off += diff;
+                size -= diff;
+                continue;
+            }
+
+            // pcache takes priority
+            diff = lfs_min(diff, pcache->off-off);
         }
 
         if (block == rcache->block &&
-                off >= rcache->off &&
                 off < rcache->off + rcache->size) {
-            // is already in rcache?
-            lfs_size_t diff = lfs_min(size, rcache->size - (off-rcache->off));
-            if (pcache && block == pcache->block) {
-                diff = lfs_min(diff, pcache->off - off);
-            }
-            memcpy(data, &rcache->buffer[off-rcache->off], diff);
+            if (off >= rcache->off) {
+                // is already in rcache?
+                diff = lfs_min(diff, rcache->size - (off-rcache->off));
+                memcpy(data, &rcache->buffer[off-rcache->off], diff);
 
-            data += diff;
-            off += diff;
-            size -= diff;
-            continue;
+                data += diff;
+                off += diff;
+                size -= diff;
+                continue;
+            }
+
+            // rcache takes priority
+            diff = lfs_min(diff, rcache->off-off);
         }
 
         if (size >= hint && off % lfs->cfg->read_size == 0 &&
                 size >= lfs->cfg->read_size) {
             // bypass cache?
-            lfs_size_t diff = size - (size % lfs->cfg->read_size);
+            diff = lfs_aligndown(diff, lfs->cfg->read_size);
             int err = lfs->cfg->read(lfs->cfg, block, off, data, diff);
             if (err) {
                 return err;
@@ -91,10 +98,10 @@ static int lfs_bd_read(lfs_t *lfs,
         // load to cache, first condition can no longer fail
         LFS_ASSERT(block < lfs->cfg->block_count);
         rcache->block = block;
-        rcache->off = lfs_aligndown(off, lfs->cfg->prog_size);
-        rcache->size = lfs_min(lfs_min(
-                lfs_alignup(off+hint, lfs->cfg->prog_size),
-                lfs->cfg->block_size) - rcache->off, lfs->cfg->cache_size);
+        rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
+        rcache->size = lfs_min(lfs_alignup(off+hint, lfs->cfg->read_size),
+                lfs_min(lfs->cfg->block_size - rcache->off,
+                    lfs->cfg->cache_size));
         int err = lfs->cfg->read(lfs->cfg, rcache->block,
                 rcache->off, rcache->buffer, rcache->size);
         if (err) {
