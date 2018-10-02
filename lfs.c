@@ -388,18 +388,18 @@ static inline void lfs_superblock_fromle32(lfs_superblock_t *superblock) {
     superblock->version     = lfs_fromle32(superblock->version);
     superblock->block_size  = lfs_fromle32(superblock->block_size);
     superblock->block_count = lfs_fromle32(superblock->block_count);
+    superblock->name_max    = lfs_fromle32(superblock->name_max);
     superblock->inline_max  = lfs_fromle32(superblock->inline_max);
     superblock->attr_max    = lfs_fromle32(superblock->attr_max);
-    superblock->name_max    = lfs_fromle32(superblock->name_max);
 }
 
 static inline void lfs_superblock_tole32(lfs_superblock_t *superblock) {
     superblock->version     = lfs_tole32(superblock->version);
     superblock->block_size  = lfs_tole32(superblock->block_size);
     superblock->block_count = lfs_tole32(superblock->block_count);
+    superblock->name_max    = lfs_tole32(superblock->name_max);
     superblock->inline_max  = lfs_tole32(superblock->inline_max);
     superblock->attr_max    = lfs_tole32(superblock->attr_max);
-    superblock->name_max    = lfs_tole32(superblock->name_max);
 }
 
 
@@ -3054,6 +3054,12 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // check that the size limits are sane
+    LFS_ASSERT(lfs->cfg->name_max <= LFS_NAME_MAX);
+    lfs->name_max = lfs->cfg->name_max;
+    if (!lfs->name_max) {
+        lfs->name_max = LFS_NAME_MAX;
+    }
+
     LFS_ASSERT(lfs->cfg->inline_max <= LFS_INLINE_MAX);
     LFS_ASSERT(lfs->cfg->inline_max <= lfs->cfg->cache_size);
     lfs->inline_max = lfs->cfg->inline_max;
@@ -3065,12 +3071,6 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->attr_max = lfs->cfg->attr_max;
     if (!lfs->attr_max) {
         lfs->attr_max = LFS_ATTR_MAX;
-    }
-
-    LFS_ASSERT(lfs->cfg->name_max <= LFS_NAME_MAX);
-    lfs->name_max = lfs->cfg->name_max;
-    if (!lfs->name_max) {
-        lfs->name_max = LFS_NAME_MAX;
     }
 
     // setup default state
@@ -3132,9 +3132,9 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
         .block_size  = lfs->cfg->block_size,
         .block_count = lfs->cfg->block_count,
-        .attr_max    = lfs->attr_max,
         .name_max    = lfs->name_max,
         .inline_max  = lfs->inline_max,
+        .attr_max    = lfs->attr_max,
     };
 
     lfs_superblock_tole32(&superblock);
@@ -3204,17 +3204,6 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             }
 
             // check superblock configuration
-            if (superblock.attr_max) {
-                if (superblock.attr_max > lfs->attr_max) {
-                    LFS_ERROR("Unsupported attr_max (%"PRIu32" > %"PRIu32")",
-                            superblock.attr_max, lfs->attr_max);
-                    err = LFS_ERR_INVAL;
-                    goto cleanup;
-                }
-
-                lfs->attr_max = superblock.attr_max;
-            }
-
             if (superblock.name_max) {
                 if (superblock.name_max > lfs->name_max) {
                     LFS_ERROR("Unsupported name_max (%"PRIu32" > %"PRIu32")",
@@ -3236,6 +3225,18 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
 
                 lfs->inline_max = superblock.inline_max;
             }
+
+            if (superblock.attr_max) {
+                if (superblock.attr_max > lfs->attr_max) {
+                    LFS_ERROR("Unsupported attr_max (%"PRIu32" > %"PRIu32")",
+                            superblock.attr_max, lfs->attr_max);
+                    err = LFS_ERR_INVAL;
+                    goto cleanup;
+                }
+
+                lfs->attr_max = superblock.attr_max;
+            }
+
         }
 
         // has globals?
