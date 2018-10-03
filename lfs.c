@@ -462,11 +462,11 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
         lfs->free.off = (lfs->free.off + lfs->free.size)
                 % lfs->cfg->block_count;
-        lfs->free.size = lfs_min(lfs->cfg->lookahead, lfs->free.ack);
+        lfs->free.size = lfs_min(8*lfs->cfg->lookahead_size, lfs->free.ack);
         lfs->free.i = 0;
 
         // find mask of free blocks from tree
-        memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
+        memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
         int err = lfs_fs_traverse(lfs, lfs_alloc_lookahead, lfs);
         if (err) {
             return err;
@@ -3041,12 +3041,12 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_cache_zero(lfs, &lfs->pcache);
 
     // setup lookahead, must be multiple of 32-bits
-    LFS_ASSERT(lfs->cfg->lookahead % 32 == 0);
-    LFS_ASSERT(lfs->cfg->lookahead > 0);
+    LFS_ASSERT(lfs->cfg->lookahead_size % 4 == 0);
+    LFS_ASSERT(lfs->cfg->lookahead_size > 0);
     if (lfs->cfg->lookahead_buffer) {
         lfs->free.buffer = lfs->cfg->lookahead_buffer;
     } else {
-        lfs->free.buffer = lfs_malloc(lfs->cfg->lookahead/8);
+        lfs->free.buffer = lfs_malloc(lfs->cfg->lookahead_size);
         if (!lfs->free.buffer) {
             err = LFS_ERR_NOMEM;
             goto cleanup;
@@ -3112,9 +3112,10 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // create free lookahead
-    memset(lfs->free.buffer, 0, lfs->cfg->lookahead/8);
+    memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
     lfs->free.off = 0;
-    lfs->free.size = lfs_min(lfs->cfg->lookahead, lfs->cfg->block_count);
+    lfs->free.size = lfs_min(8*lfs->cfg->lookahead_size,
+            lfs->cfg->block_count);
     lfs->free.i = 0;
     lfs_alloc_ack(lfs);
 

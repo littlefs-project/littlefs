@@ -177,39 +177,41 @@ struct lfs_config {
     lfs_size_t prog_size;
 
     // Size of an erasable block. This does not impact ram consumption and
-    // may be larger than the physical erase size. However, this should be
-    // kept small as each file currently takes up an entire block.
-    // Must be a multiple of the read, program, and cache sizes.
+    // may be larger than the physical erase size. However, non-inlined files
+    // take up at minimum one block. Must be a multiple of the read
+    // and program sizes.
     lfs_size_t block_size;
 
     // Number of erasable blocks on the device.
     lfs_size_t block_count;
 
     // Number of erase cycles before we should move data to another block.
-    // May be zero to never move data, in which case no block-level
-    // wear-leveling is performed.
+    // May be zero, in which case no block-level wear-leveling is performed.
     uint32_t block_cycles;
 
     // Size of block caches. Each cache buffers a portion of a block in RAM.
-    // This determines the size of the read cache, the program cache, and a
+    // The littlefs needs a read cache, a program cache, and one additional
     // cache per file. Larger caches can improve performance by storing more
-    // data. Must be a multiple of the read and program sizes.
+    // data and reducing the number of disk accesses. Must be a multiple of
+    // the read and program sizes, and a factor of the block size.
     lfs_size_t cache_size;
 
-    // Number of blocks to lookahead during block allocation. A larger
-    // lookahead reduces the number of passes required to allocate a block.
-    // The lookahead buffer requires only 1 bit per block so it can be quite
-    // large with little ram impact. Should be a multiple of 32.
-    lfs_size_t lookahead;
+    // Size of the lookahead buffer in bytes. A larger lookahead buffer
+    // increases the number of blocks found during an allocation pass. The
+    // lookahead buffer is stored as a compact bitmap, so each byte of RAM
+    // can track 8 blocks. Must be a multiple of 4.
+    lfs_size_t lookahead_size;
 
-    // Optional, statically allocated read buffer. Must be read sized.
+    // Optional statically allocated read buffer. Must be cache_size.
+    // By default lfs_malloc is used to allocate this buffer.
     void *read_buffer;
 
-    // Optional, statically allocated program buffer. Must be program sized.
+    // Optional statically allocated program buffer. Must be cache_size.
+    // By default lfs_malloc is used to allocate this buffer.
     void *prog_buffer;
 
-    // Optional, statically allocated lookahead buffer. Must be 1 bit per
-    // lookahead block.
+    // Optional statically allocated program buffer. Must be lookahead_size.
+    // By default lfs_malloc is used to allocate this buffer.
     void *lookahead_buffer;
 
     // Optional upper limit on length of file names in bytes. No downside for
@@ -266,11 +268,11 @@ struct lfs_attr {
 
 // Optional configuration provided during lfs_file_opencfg
 struct lfs_file_config {
-    // Optional, statically allocated buffer for files. Must be program sized.
-    // If NULL, malloc will be used by default.
+    // Optional statically allocated file buffer. Must be cache_size.
+    // By default lfs_malloc is used to allocate this buffer.
     void *buffer;
 
-    // Optional, linked list of custom attributes related to the file. If the
+    // Optional linked list of custom attributes related to the file. If the
     // file is opened with read access, the attributes will be read from
     // during the open call. If the file is opened with write access, the
     // attributes will be written to disk every file sync or close. This
