@@ -139,6 +139,14 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
+echo "--- Superblock conflict test ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mkdir(&lfs, "littlefs") => 0;
+    lfs_remove(&lfs, "littlefs") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
 echo "--- Max path test ---"
 tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;

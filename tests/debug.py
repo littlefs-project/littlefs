@@ -4,8 +4,8 @@ import struct
 import binascii
 
 TYPES = {
-    (0x1ff, 0x002): 'reg',
-    (0x1ff, 0x003): 'dir',
+    (0x1ff, 0x011): 'create reg',
+    (0x1ff, 0x010): 'create dir',
     (0x1ff, 0x001): 'superblock',
     (0x1ff, 0x020): 'delete',
     (0x1f0, 0x0e0): 'globals',
@@ -23,10 +23,10 @@ def typeof(type):
         mask = 0x1ff & ~((1 << prefix)-1)
         if (mask, type & mask) in TYPES:
             return TYPES[mask, type & mask] + (
-                ' [%0*x]' % (prefix/4, type & ((1 << prefix)-1))
+                ' %0*x' % (prefix/4, type & ((1 << prefix)-1))
                 if prefix else '')
     else:
-        return '[%02x]' % type
+        return '%02x' % type
 
 def main(*blocks):
     # find most recent block

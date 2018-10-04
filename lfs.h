@@ -88,12 +88,12 @@ enum lfs_error {
 // File types
 enum lfs_type {
     // file types
-    LFS_TYPE_REG            = 0x002,
-    LFS_TYPE_DIR            = 0x003,
+    LFS_TYPE_REG            = 0x011,
+    LFS_TYPE_DIR            = 0x010,
 
     // internally used types
     LFS_TYPE_USERATTR       = 0x100,
-    LFS_TYPE_NAME           = 0x000,
+    LFS_TYPE_CREATE         = 0x000,
     LFS_TYPE_DELETE         = 0x020,
     LFS_TYPE_STRUCT         = 0x040,
     LFS_TYPE_TAIL           = 0x080,
@@ -110,8 +110,8 @@ enum lfs_type {
     // internal chip sources
     LFS_FROM_MEM            = 0x000,
     LFS_FROM_DISK           = 0x200,
-    LFS_FROM_MOVE           = 0x0c1,
-    LFS_FROM_USERATTRS      = 0x0c2,
+    LFS_FROM_MOVE           = 0x061,
+    LFS_FROM_USERATTRS      = 0x062,
 };
 
 // File open flags
@@ -339,9 +339,7 @@ typedef struct lfs_file {
 } lfs_file_t;
 
 typedef struct lfs_superblock {
-    char magic[8];
     uint32_t version;
-
     lfs_size_t block_size;
     lfs_size_t block_count;
 

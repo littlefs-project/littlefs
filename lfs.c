@@ -287,7 +287,7 @@ static inline uint16_t lfs_tag_type(lfs_tag_t tag) {
 }
 
 static inline uint16_t lfs_tag_subtype(lfs_tag_t tag) {
-    return ((tag & 0x7c000000) >> 26) << 4;
+    return ((tag & 0x78000000) >> 26) << 4;
 }
 
 static inline uint16_t lfs_tag_id(lfs_tag_t tag) {
@@ -531,7 +531,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
             }
         }
 
-        if (lfs_tag_subtype(tag) == LFS_TYPE_NAME) {
+        if (lfs_tag_subtype(tag) == LFS_TYPE_CREATE) {
             // found where something was created
             if (lfs_tag_id(tag) == lfs_tag_id(matchtag - matchdiff)) {
                 break;
@@ -673,7 +673,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 }
 
                 // check for special tags
-                if (lfs_tag_subtype(tag) == LFS_TYPE_NAME) {
+                if (lfs_tag_subtype(tag) == LFS_TYPE_CREATE) {
                     temp.count += 1;
 
                     if (tempfoundtag &&
@@ -822,7 +822,7 @@ static lfs_stag_t lfs_dir_get(lfs_t *lfs, const lfs_mdir_t *dir,
 static int lfs_dir_getglobals(lfs_t *lfs, const lfs_mdir_t *dir,
         struct lfs_globals *globals) {
     struct lfs_globals locals;
-    lfs_stag_t res = lfs_dir_get(lfs, dir, 0x7c000000,
+    lfs_stag_t res = lfs_dir_get(lfs, dir, 0x78000000,
             LFS_MKTAG(LFS_TYPE_GLOBALS, 0, 10), &locals);
     if (res < 0 && res != LFS_ERR_NOENT) {
         return res;
@@ -848,7 +848,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     }
 
     lfs_stag_t tag = lfs_dir_get(lfs, dir, 0x7c3fe000,
-            LFS_MKTAG(LFS_TYPE_NAME, id, lfs->name_max+1), info->name);
+            LFS_MKTAG(LFS_TYPE_DIR, id, lfs->name_max+1), info->name);
     if (tag < 0) {
         return tag;
     }
@@ -856,7 +856,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     info->type = lfs_tag_type(tag);
 
     struct lfs_ctz ctz;
-    tag = lfs_dir_get(lfs, dir, 0x7c3fe000,
+    tag = lfs_dir_get(lfs, dir, 0x783fe000,
             LFS_MKTAG(LFS_TYPE_STRUCT, id, sizeof(ctz)), &ctz);
     if (tag < 0) {
         return tag;
@@ -893,13 +893,12 @@ static int lfs_dir_find_match(void *data,
     }
 
     // found match?
-    if (res == 0 && (name->size == lfs_tag_size(tag) ||
-            lfs_tag_type(tag) == LFS_TYPE_SUPERBLOCK)) {
+    if (res == 0 && name->size == lfs_tag_size(tag)) {
         return tag;
     }
 
     // a greater name found, exit early
-    if (res == 2 && lfs_tag_type(tag) != LFS_TYPE_SUPERBLOCK) {
+    if (res > 1 && lfs_tag_type(tag) != LFS_TYPE_SUPERBLOCK) {
         return tag | 0x1fff;
     }
 
@@ -969,7 +968,7 @@ nextname:
 
         // grab the entry data
         if (lfs_tag_id(tag) != 0x1ff) {
-            lfs_stag_t res = lfs_dir_get(lfs, dir, 0x7c3fe000,
+            lfs_stag_t res = lfs_dir_get(lfs, dir, 0x783fe000,
                     LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), dir->tail);
             if (res < 0) {
                 return res;
@@ -980,7 +979,7 @@ nextname:
         // find entry matching name
         while (true) {
             tag = lfs_dir_fetchmatch(lfs, dir, dir->tail,
-                    0x7c000000, LFS_MKTAG(LFS_TYPE_NAME, 0, namelen),
+                    0x7c000000, LFS_MKTAG(LFS_TYPE_DIR, 0, namelen),
                     lfs_dir_find_match, &(struct lfs_dir_find_match){
                         lfs, name, namelen});
             if (tag < 0) {
@@ -1059,7 +1058,7 @@ static int lfs_commit_move_match(void *data,
     struct lfs_commit *commit = move->commit;
 
     if (move->pass == 0) {
-        if (lfs_tag_subtype(tag) != LFS_TYPE_NAME) {
+        if (lfs_tag_subtype(tag) != LFS_TYPE_CREATE) {
             return 0;
         }
     } else {
@@ -1068,7 +1067,7 @@ static int lfs_commit_move_match(void *data,
                     .pair[0] = commit->block,
                     .off = commit->off,
                     .etag = commit->ptag}, NULL,
-                lfs_tag_isuser(tag) ? 0x7fffe000 : 0x7c3fe000, tag, 0,
+                lfs_tag_isuser(tag) ? 0x7fffe000 : 0x783fe000, tag, 0,
                 lfs_dir_get_match, &(struct lfs_dir_get_match){
                     lfs, NULL, 0, true});
         if (res < 0 && res != LFS_ERR_NOENT) {
@@ -1578,7 +1577,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
     lfs_tag_t createtag = 0xffffffff;
     int attrcount = 0;
     for (const struct lfs_mattr *a = attrs; a; a = a->next) {
-        if (lfs_tag_subtype(a->tag) == LFS_TYPE_NAME) {
+        if (lfs_tag_subtype(a->tag) == LFS_TYPE_CREATE) {
             dir->count += 1;
             createtag = a->tag;
         } else if (lfs_tag_subtype(a->tag) == LFS_TYPE_DELETE) {
@@ -1795,7 +1794,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
         pair[1] = lfs->root[1];
     } else {
         // get dir pair from parent
-        lfs_stag_t res = lfs_dir_get(lfs, &dir->m, 0x7c3fe000,
+        lfs_stag_t res = lfs_dir_get(lfs, &dir->m, 0x783fe000,
                 LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
         if (res < 0) {
             return res;
@@ -2190,7 +2189,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         file->flags |= LFS_F_DIRTY;
     } else {
         // try to load what's on disk, if it's inlined we'll fix it later
-        tag = lfs_dir_get(lfs, &file->m, 0x7c3fe000,
+        tag = lfs_dir_get(lfs, &file->m, 0x783fe000,
                 LFS_MKTAG(LFS_TYPE_STRUCT, file->id, 8), &file->ctz);
         if (tag < 0) {
             err = tag;
@@ -2245,7 +2244,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
         // don't always read (may be new/trunc file)
         if (file->ctz.size > 0) {
-            lfs_stag_t res = lfs_dir_get(lfs, &file->m, 0x7c3fe000,
+            lfs_stag_t res = lfs_dir_get(lfs, &file->m, 0x783fe000,
                     LFS_MKTAG(LFS_TYPE_STRUCT, file->id, file->ctz.size),
                     file->cache.buffer);
             if (res < 0) {
@@ -2800,7 +2799,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     if (lfs_tag_type(tag) == LFS_TYPE_DIR) {
         // must be empty before removal
         lfs_block_t pair[2];
-        lfs_stag_t res = lfs_dir_get(lfs, &cwd, 0x7c3fe000,
+        lfs_stag_t res = lfs_dir_get(lfs, &cwd, 0x783fe000,
                 LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
         if (res < 0) {
             return res;
@@ -2880,7 +2879,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     } else if (lfs_tag_type(prevtag) == LFS_TYPE_DIR) {
         // must be empty before removal
         lfs_block_t prevpair[2];
-        lfs_stag_t res = lfs_dir_get(lfs, &newcwd, 0x7c3fe000,
+        lfs_stag_t res = lfs_dir_get(lfs, &newcwd, 0x783fe000,
                 LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), prevpair);
         if (res < 0) {
             return res;
@@ -3139,9 +3138,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // write one superblock
     lfs_superblock_t superblock = {
-        .magic = {"littlefs"},
-        .version = LFS_DISK_VERSION,
-
+        .version     = LFS_DISK_VERSION,
         .block_size  = lfs->cfg->block_size,
         .block_count = lfs->cfg->block_count,
         .name_max    = lfs->name_max,
@@ -3151,8 +3148,10 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
     lfs_superblock_tole32(&superblock);
     err = lfs_dir_commit(lfs, &root,
-            LFS_MKATTR(LFS_TYPE_SUPERBLOCK, 0, &superblock, sizeof(superblock),
-            NULL));
+            LFS_MKATTR(LFS_TYPE_INLINESTRUCT, 0,
+                &superblock, sizeof(superblock),
+            LFS_MKATTR(LFS_TYPE_SUPERBLOCK, 0, "littlefs", 8,
+            NULL)));
     if (err) {
         goto cleanup;
     }
@@ -3178,7 +3177,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_mdir_t dir = {.tail = {0, 1}};
     while (!lfs_pair_isnull(dir.tail)) {
         // fetch next block in tail list
-        lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail, 0x7fc00000,
+        lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail, 0x7fffe000,
                 LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8),
                 lfs_dir_find_match, &(struct lfs_dir_find_match){
                     lfs, "littlefs", 8});
@@ -3195,8 +3194,8 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
 
             // grab superblock
             lfs_superblock_t superblock;
-            tag = lfs_dir_get(lfs, &dir, 0x7f800000,
-                    LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, sizeof(superblock)),
+            tag = lfs_dir_get(lfs, &dir, 0x7fffe000,
+                    LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
                     &superblock);
             if (tag < 0) {
                 err = tag;
@@ -3248,7 +3247,6 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
 
                 lfs->attr_max = superblock.attr_max;
             }
-
         }
 
         // has globals?
@@ -3256,6 +3254,12 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         if (err) {
             return err;
         }
+    }
+
+    // found superblock?
+    if (lfs_pair_isnull(lfs->root)) {
+        err = LFS_ERR_INVAL;
+        goto cleanup;
     }
 
     // update littlefs with globals
@@ -3306,7 +3310,7 @@ int lfs_fs_traverse(lfs_t *lfs,
 
         for (uint16_t id = 0; id < dir.count; id++) {
             struct lfs_ctz ctz;
-            lfs_stag_t tag = lfs_dir_get(lfs, &dir, 0x7c3fe000,
+            lfs_stag_t tag = lfs_dir_get(lfs, &dir, 0x783fe000,
                     LFS_MKTAG(LFS_TYPE_STRUCT, id, sizeof(ctz)), &ctz);
             if (tag < 0) {
                 if (tag == LFS_ERR_NOENT) {
