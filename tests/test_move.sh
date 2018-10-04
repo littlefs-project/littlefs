@@ -257,9 +257,9 @@ tests/test.py << TEST
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "..") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
-    strcmp(info.name, "hola") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "bonjour") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "hola") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "ohayo") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 0;
@@ -303,9 +303,9 @@ tests/test.py << TEST
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "..") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
-    strcmp(info.name, "hola") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "bonjour") => 0;
+    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    strcmp(info.name, "hola") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 1;
     strcmp(info.name, "ohayo") => 0;
     lfs_dir_read(&lfs, &dir[0], &info) => 0;

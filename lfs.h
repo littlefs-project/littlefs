@@ -92,7 +92,7 @@ enum lfs_type {
     LFS_TYPE_DIR            = 0x003,
 
     // internally used types
-    LFS_TYPE_USER           = 0x100,
+    LFS_TYPE_USERATTR       = 0x100,
     LFS_TYPE_NAME           = 0x000,
     LFS_TYPE_DELETE         = 0x020,
     LFS_TYPE_STRUCT         = 0x040,
