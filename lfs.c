@@ -1746,29 +1746,58 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     // build up new directory
     lfs_alloc_ack(lfs);
-
     lfs_mdir_t dir;
     err = lfs_dir_alloc(lfs, &dir);
     if (err) {
         return err;
     }
 
-    dir.tail[0] = cwd.tail[0];
-    dir.tail[1] = cwd.tail[1];
+    // find end of list
+    lfs_mdir_t pred = cwd;
+    while (pred.split) {
+        err = lfs_dir_fetch(lfs, &pred, pred.tail);
+        if (err) {
+            return err;
+        }
+    }
+
+    // setup dir
+    dir.tail[0] = pred.tail[0];
+    dir.tail[1] = pred.tail[1];
     err = lfs_dir_commit(lfs, &dir, NULL);
     if (err) {
         return err;
     }
 
-    // get next slot and commit
-    cwd.tail[0] = dir.pair[0];
-    cwd.tail[1] = dir.pair[1];
+    // current block end of list?
+    if (!cwd.split) {
+        // update atomically
+        cwd.tail[0] = dir.pair[0];
+        cwd.tail[1] = dir.pair[1];
+    } else {
+        // update tails, this creates a desync
+        pred.tail[0] = dir.pair[0];
+        pred.tail[1] = dir.pair[1];
+        lfs_global_orphans(lfs, +1);
+        err = lfs_dir_commit(lfs, &pred,
+                LFS_MKATTR(LFS_TYPE_SOFTTAIL, 0x1ff,
+                    pred.tail, sizeof(pred.tail),
+                NULL));
+        if (err) {
+            return err;
+        }
+        lfs_global_orphans(lfs, -1);
+    }
+
+    // now insert into our parent block
     lfs_pair_tole32(dir.pair);
     err = lfs_dir_commit(lfs, &cwd,
-            LFS_MKATTR(LFS_TYPE_SOFTTAIL, 0x1ff, cwd.tail, sizeof(cwd.tail),
             LFS_MKATTR(LFS_TYPE_DIRSTRUCT, id, dir.pair, sizeof(dir.pair),
             LFS_MKATTR(LFS_TYPE_DIR, id, path, nlen,
-            NULL))));
+            (!cwd.split)
+                ? LFS_MKATTR(LFS_TYPE_SOFTTAIL, 0x1ff,
+                    cwd.tail, sizeof(cwd.tail), NULL)
+                : NULL)));
     lfs_pair_fromle32(dir.pair);
     if (err) {
         return err;

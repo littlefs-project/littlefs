@@ -89,7 +89,7 @@ do
     rm -rf blocks
     mkdir blocks
     lfs_mktree
-    chmod a-w blocks/$b
+    chmod a-w blocks/$b || true
     lfs_mktree
     lfs_chktree
 done
