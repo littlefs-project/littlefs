@@ -280,6 +280,7 @@ typedef struct lfs {
 
     lfs_free_t free;
     bool deorphaned;
+    bool moving;
 } lfs_t;
 
 
