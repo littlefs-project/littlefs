@@ -1644,6 +1644,11 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         file->pos = file->size;
     }
 
+    if (file->pos + size > LFS_FILE_MAX) {
+        // larger than file limit?
+        return LFS_ERR_FBIG;
+    }
+
     if (!(file->flags & LFS_F_WRITING) && file->pos > file->size) {
         // fill with zeros
         lfs_off_t pos = file->pos;
@@ -1730,24 +1735,24 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         return err;
     }
 
-    // update pos
+    // find new pos
+    lfs_soff_t npos = file->pos;
     if (whence == LFS_SEEK_SET) {
-        file->pos = off;
+        npos = off;
     } else if (whence == LFS_SEEK_CUR) {
-        if (off < 0 && (lfs_off_t)-off > file->pos) {
-            return LFS_ERR_INVAL;
-        }
-
-        file->pos = file->pos + off;
+        npos = file->pos + off;
     } else if (whence == LFS_SEEK_END) {
-        if (off < 0 && (lfs_off_t)-off > file->size) {
-            return LFS_ERR_INVAL;
-        }
-
-        file->pos = file->size + off;
+        npos = file->size + off;
     }
 
-    return file->pos;
+    if (npos < 0 || npos > LFS_FILE_MAX) {
+        // file position out of range
+        return LFS_ERR_INVAL;
+    }
+
+    // update pos
+    file->pos = npos;
+    return npos;
 }
 
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
