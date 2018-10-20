@@ -182,6 +182,7 @@ jobs:
                   -d "{
                       \"tag_name\": \"$LFS_VERSION\",
                       \"name\": \"${LFS_VERSION%.0}\",
+                      \"draft\": true,
                       \"body\": $(jq -sR '.' <<< "$CHANGES")
                   }"
             fi
