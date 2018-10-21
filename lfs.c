@@ -518,7 +518,10 @@ static int lfs_dir_traverse(lfs_t *lfs,
 
         if (lfs_tag_subtype(tag) == LFS_TYPE_CRC) {
             lastcommit = 2 & lfs_tag_type(tag);
-        } else if (lfs_tag_subtype(tag) == LFS_TYPE_DELETE) {
+        }
+
+        if (lfs_tag_id(matchmask) != 0 &&
+                lfs_tag_subtype(tag) == LFS_TYPE_DELETE) {
             // something was deleted, need to move around it
             if (lfs_tag_id(tag) <= lfs_tag_id(matchtag - matchdiff)) {
                 matchdiff -= LFS_MKTAG(0, 1, 0);
@@ -533,11 +536,13 @@ static int lfs_dir_traverse(lfs_t *lfs,
             }
         }
 
-        if (lfs_tag_subtype(tag) == LFS_TYPE_CREATE) {
+        if (lfs_tag_id(matchmask) != 0 &&
+                lfs_tag_subtype(tag) == LFS_TYPE_CREATE) {
             // found where something was created
             if (lfs_tag_id(tag) == lfs_tag_id(matchtag - matchdiff)) {
                 break;
-            } else if (lfs_tag_id(tag) < lfs_tag_id(matchtag - matchdiff)) {
+            } else if (lfs_tag_id(tag) <
+                    lfs_tag_id(matchtag - matchdiff)) {
                 matchdiff += LFS_MKTAG(0, 1, 0);
             }
         }
@@ -686,7 +691,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                     LFS_ASSERT(temp.count > 0);
                     temp.count -= 1;
 
-                    if (tempfoundtag &&
+                    if (tempfoundtag && !lfs_tag_isdelete(tempfoundtag) &&
                             lfs_tag_id(tag) == lfs_tag_id(tempfoundtag)) {
                         tempfoundtag = 0;
                     } else if (tempfoundtag &&
@@ -1390,7 +1395,8 @@ commit:
             }
 
             // commit with a move
-            for (uint16_t id = begin; id < end || commit.off < commit.ack; id++) {
+            for (uint16_t id = begin;
+                    id < end || commit.off < commit.ack; id++) {
                 for (int pass = 0; pass < 2; pass++) {
                     err = lfs_commit_move(lfs, &commit, pass,
                             0x003fe000, LFS_MKTAG(0, id, 0),
@@ -1556,6 +1562,7 @@ relocate:
 
 static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         const struct lfs_mattr *attrs) {
+    // check for globals work
     struct lfs_mattr cancelattr;
     struct lfs_globals cancels;
     lfs_global_zero(&cancels);
@@ -1564,7 +1571,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         // Wait, we have the move? Just cancel this out here
         // We need to, or else the move can become outdated
         cancelattr.tag = LFS_MKTAG(LFS_TYPE_DELETE, lfs->globals.id, 0);
-        cancelattr.next = attrs; // TODO need order
+        cancelattr.next = attrs;
         attrs = &cancelattr;
 
         cancels.hasmove = lfs->globals.hasmove;
@@ -1584,26 +1591,31 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         if (lfs_tag_subtype(a->tag) == LFS_TYPE_CREATE) {
             dir->count += 1;
             createtag = a->tag;
+
+            // Oh no, did we tweak globals? We need to fix that too
+            if (lfs_tag_id(a->tag) <= lfs_tag_id(cancelattr.tag)) {
+                cancelattr.tag += LFS_MKTAG(0, 1, 0);
+            }
         } else if (lfs_tag_subtype(a->tag) == LFS_TYPE_DELETE) {
             LFS_ASSERT(dir->count > 0);
             dir->count -= 1;
             deletetag = a->tag;
-
-            if (dir->count == 0) {
-                // should we actually drop the directory block?
-                lfs_mdir_t pdir;
-                int err = lfs_fs_pred(lfs, dir->pair, &pdir);
-                if (err && err != LFS_ERR_NOENT) {
-                    return err;
-                }
-
-                if (err != LFS_ERR_NOENT && pdir.split) {
-                    return lfs_dir_drop(lfs, &pdir, dir);
-                }
-            }
         }
 
         attrcount += 1;
+    }
+
+    // should we actually drop the directory block?
+    if (lfs_tag_isvalid(deletetag) && dir->count == 0) {
+        lfs_mdir_t pdir;
+        int err = lfs_fs_pred(lfs, dir->pair, &pdir);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        if (err != LFS_ERR_NOENT && pdir.split) {
+            return lfs_dir_drop(lfs, &pdir, dir);
+        }
     }
 
     if (dir->erased) {
