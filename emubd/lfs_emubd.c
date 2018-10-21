@@ -30,7 +30,7 @@ static inline void lfs_emubd_tole32(lfs_emubd_t *emu) {
     emu->stats.prog_count  = lfs_tole32(emu->stats.prog_count);
     emu->stats.erase_count = lfs_tole32(emu->stats.erase_count);
 
-    for (int i = 0; i < sizeof(emu->history.blocks) /
+    for (unsigned i = 0; i < sizeof(emu->history.blocks) /
             sizeof(emu->history.blocks[0]); i++) {
         emu->history.blocks[i] = lfs_tole32(emu->history.blocks[i]);
     }
@@ -46,7 +46,7 @@ static inline void lfs_emubd_fromle32(lfs_emubd_t *emu) {
     emu->stats.prog_count  = lfs_fromle32(emu->stats.prog_count);
     emu->stats.erase_count = lfs_fromle32(emu->stats.erase_count);
 
-    for (int i = 0; i < sizeof(emu->history.blocks) /
+    for (unsigned i = 0; i < sizeof(emu->history.blocks) /
             sizeof(emu->history.blocks[0]); i++) {
         emu->history.blocks[i] = lfs_fromle32(emu->history.blocks[i]);
     }

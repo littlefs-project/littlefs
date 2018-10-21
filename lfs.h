@@ -66,6 +66,15 @@ typedef uint32_t lfs_block_t;
 #define LFS_ATTR_MAX 0x1ffe
 #endif
 
+// Maximum size of a file in bytes, may be redefined to limit to support other
+// drivers. Limited on disk to <= 4294967296. However, above 2147483647 the
+// functions lfs_file_seek, lfs_file_size, and lfs_file_tell will return
+// incorrect values due to signed sizes. Stored in superblock and must be
+// respected by other littlefs drivers.
+#ifndef LFS_FILE_MAX
+#define LFS_FILE_MAX 2147483647
+#endif
+
 // Possible error codes, these are negative to allow
 // valid positive return values
 enum lfs_error {
@@ -78,6 +87,7 @@ enum lfs_error {
     LFS_ERR_ISDIR       = -21,  // Entry is a dir
     LFS_ERR_NOTEMPTY    = -39,  // Dir is not empty
     LFS_ERR_BADF        = -9,   // Bad file number
+    LFS_ERR_FBIG        = -27,  // File too large
     LFS_ERR_INVAL       = -22,  // Invalid parameter
     LFS_ERR_NOSPC       = -28,  // No space left on device
     LFS_ERR_NOMEM       = -12,  // No more memory available
@@ -233,6 +243,11 @@ struct lfs_config {
     // LFS_ATTR_MAX when zero. Stored in superblock and must be respected by
     // other littlefs drivers.
     lfs_size_t attr_max;
+
+    // Optional upper limit on files in bytes. No downside for larger files
+    // but must be <= LFS_FILE_MAX. Defaults to LFS_FILE_MAX when zero. Stored
+    // in superblock and must be respected by other littlefs drivers.
+    lfs_size_t file_max;
 };
 
 // File info structure
@@ -346,6 +361,7 @@ typedef struct lfs_superblock {
     lfs_size_t name_max;
     lfs_size_t inline_max;
     lfs_size_t attr_max;
+    lfs_size_t file_max;
 } lfs_superblock_t;
 
 // The littlefs filesystem type
@@ -378,11 +394,10 @@ typedef struct lfs {
     } free;
 
     const struct lfs_config *cfg;
-    lfs_size_t block_size;
-    lfs_size_t block_count;
     lfs_size_t name_max;
     lfs_size_t inline_max;
     lfs_size_t attr_max;
+    lfs_size_t file_max;
 } lfs_t;
 
 
