@@ -68,7 +68,7 @@ def main(*blocks):
         try:
             data = file.read(4)
             crc = binascii.crc32(data, crc)
-            ntag, = struct.unpack('<I', data)
+            ntag, = struct.unpack('>I', data)
         except struct.error:
             break
 

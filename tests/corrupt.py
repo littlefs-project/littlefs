@@ -14,7 +14,7 @@ def corrupt(block):
         tag = 0xffffffff
         while True:
             try:
-                ntag, = struct.unpack('<I', file.read(4))
+                ntag, = struct.unpack('>I', file.read(4))
             except struct.error:
                 break
 

@@ -186,6 +186,52 @@ static inline uint16_t lfs_tole16(uint16_t a) {
     return lfs_fromle16(a);
 }
 
+// Convert between 32-bit big-endian and native order
+static inline uint32_t lfs_frombe32(uint32_t a) {
+#if !defined(LFS_NO_INTRINSICS) && ( \
+    (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_LITTLE_ENDIAN  ) || \
+    (defined(__BYTE_ORDER  ) && __BYTE_ORDER   == __ORDER_LITTLE_ENDIAN  ) || \
+    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
+    return __builtin_bswap32(a);
+#elif !defined(LFS_NO_INTRINSICS) && ( \
+    (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_BIG_ENDIAN  ) || \
+    (defined(__BYTE_ORDER  ) && __BYTE_ORDER   == __ORDER_BIG_ENDIAN  ) || \
+    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__))
+    return a;
+#else
+    return (((uint8_t*)&a)[0] << 24) |
+           (((uint8_t*)&a)[1] << 16) |
+           (((uint8_t*)&a)[2] <<  8) |
+           (((uint8_t*)&a)[3] <<  0);
+#endif
+}
+
+static inline uint32_t lfs_tobe32(uint32_t a) {
+    return lfs_frombe32(a);
+}
+
+// Convert between 16-bit big-endian and native order
+static inline uint16_t lfs_frombe16(uint16_t a) {
+#if !defined(LFS_NO_INTRINSICS) && ( \
+    (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_LITTLE_ENDIAN  ) || \
+    (defined(__BYTE_ORDER  ) && __BYTE_ORDER   == __ORDER_LITTLE_ENDIAN  ) || \
+    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
+    return __builtin_bswap16(a);
+#elif !defined(LFS_NO_INTRINSICS) && ( \
+    (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_BIG_ENDIAN  ) || \
+    (defined(__BYTE_ORDER  ) && __BYTE_ORDER   == __ORDER_BIG_ENDIAN  ) || \
+    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__))
+    return a;
+#else
+    return (((uint8_t*)&a)[0] <<  8) |
+           (((uint8_t*)&a)[1] <<  0);
+#endif
+}
+
+static inline uint16_t lfs_tobe16(uint16_t a) {
+    return lfs_frombe16(a);
+}
+
 // Calculate CRC-32 with polynomial = 0x04c11db7
 uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
 

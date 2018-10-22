@@ -512,7 +512,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
                 return err;
             }
 
-            ntag = lfs_fromle32(ntag) ^ tag;
+            ntag = lfs_frombe32(ntag) ^ tag;
             tag |= 0x80000000;
         }
 
@@ -617,7 +617,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             }
 
             crc = lfs_crc(crc, &tag, sizeof(tag));
-            tag = lfs_fromle32(tag) ^ ptag;
+            tag = lfs_frombe32(tag) ^ ptag;
 
             // next commit not yet programmed
             if (!lfs_tag_isvalid(tag)) {
@@ -1134,7 +1134,7 @@ static int lfs_commit_attr(lfs_t *lfs, struct lfs_commit *commit,
     }
 
     // write out tag
-    lfs_tag_t ntag = lfs_tole32((tag & 0x7fffffff) ^ commit->ptag);
+    lfs_tag_t ntag = lfs_tobe32((tag & 0x7fffffff) ^ commit->ptag);
     int err = lfs_commit_prog(lfs, commit, &ntag, sizeof(ntag));
     if (err) {
         return err;
@@ -1193,13 +1193,13 @@ static int lfs_commit_crc(lfs_t *lfs, struct lfs_commit *commit,
     }
 
     // build crc tag
-    bool reset = ~lfs_fromle32(tag) >> 31;
+    bool reset = ~lfs_frombe32(tag) >> 31;
     tag = LFS_MKTAG(LFS_TYPE_CRC + 2*compacting + reset,
             0x1ff, off - (commit->off+sizeof(lfs_tag_t)));
 
     // write out crc
     uint32_t footer[2];
-    footer[0] = lfs_tole32(tag ^ commit->ptag);
+    footer[0] = lfs_tobe32(tag ^ commit->ptag);
     commit->crc = lfs_crc(commit->crc, &footer[0], sizeof(footer[0]));
     footer[1] = lfs_tole32(commit->crc);
     err = lfs_bd_prog(lfs,
