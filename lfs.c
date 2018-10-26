@@ -888,7 +888,7 @@ nextname:
         }
 
         // check that entry has not been moved
-        if (entry->d.type & 0x80) {
+        if (!lfs->moving && entry->d.type & 0x80) {
             int moved = lfs_moved(lfs, &entry->d.u);
             if (moved < 0 || moved) {
                 return (moved < 0) ? moved : LFS_ERR_NOENT;
@@ -1644,6 +1644,11 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         file->pos = file->size;
     }
 
+    if (file->pos + size > LFS_FILE_MAX) {
+        // larger than file limit?
+        return LFS_ERR_FBIG;
+    }
+
     if (!(file->flags & LFS_F_WRITING) && file->pos > file->size) {
         // fill with zeros
         lfs_off_t pos = file->pos;
@@ -1730,24 +1735,24 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         return err;
     }
 
-    // update pos
+    // find new pos
+    lfs_soff_t npos = file->pos;
     if (whence == LFS_SEEK_SET) {
-        file->pos = off;
+        npos = off;
     } else if (whence == LFS_SEEK_CUR) {
-        if (off < 0 && (lfs_off_t)-off > file->pos) {
-            return LFS_ERR_INVAL;
-        }
-
-        file->pos = file->pos + off;
+        npos = file->pos + off;
     } else if (whence == LFS_SEEK_END) {
-        if (off < 0 && (lfs_off_t)-off > file->size) {
-            return LFS_ERR_INVAL;
-        }
-
-        file->pos = file->size + off;
+        npos = file->size + off;
     }
 
-    return file->pos;
+    if (npos < 0 || npos > LFS_FILE_MAX) {
+        // file position out of range
+        return LFS_ERR_INVAL;
+    }
+
+    // update pos
+    file->pos = npos;
+    return npos;
 }
 
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
@@ -1922,7 +1927,14 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     // find old entry
     lfs_dir_t oldcwd;
     lfs_entry_t oldentry;
-    int err = lfs_dir_find(lfs, &oldcwd, &oldentry, &oldpath);
+    int err = lfs_dir_find(lfs, &oldcwd, &oldentry, &(const char *){oldpath});
+    if (err) {
+        return err;
+    }
+
+    // mark as moving
+    oldentry.d.type |= 0x80;
+    err = lfs_dir_update(lfs, &oldcwd, &oldentry, NULL);
     if (err) {
         return err;
     }
@@ -1935,11 +1947,9 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         return err;
     }
 
-    bool prevexists = (err != LFS_ERR_NOENT);
-    bool samepair = (lfs_paircmp(oldcwd.pair, newcwd.pair) == 0);
-
     // must have same type
-    if (prevexists && preventry.d.type != oldentry.d.type) {
+    bool prevexists = (err != LFS_ERR_NOENT);
+    if (prevexists && preventry.d.type != (0x7f & oldentry.d.type)) {
         return LFS_ERR_ISDIR;
     }
 
@@ -1954,18 +1964,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         } else if (dir.d.size != sizeof(dir.d)+4) {
             return LFS_ERR_NOTEMPTY;
         }
-    }
-
-    // mark as moving
-    oldentry.d.type |= 0x80;
-    err = lfs_dir_update(lfs, &oldcwd, &oldentry, NULL);
-    if (err) {
-        return err;
-    }
-
-    // update pair if newcwd == oldcwd
-    if (samepair) {
-        newcwd = oldcwd;
     }
 
     // move to new location
@@ -1986,10 +1984,13 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         }
     }
 
-    // update pair if newcwd == oldcwd
-    if (samepair) {
-        oldcwd = newcwd;
+    // fetch old pair again in case dir block changed
+    lfs->moving = true;
+    err = lfs_dir_find(lfs, &oldcwd, &oldentry, &oldpath);
+    if (err) {
+        return err;
     }
+    lfs->moving = false;
 
     // remove old entry
     err = lfs_dir_remove(lfs, &oldcwd, &oldentry);
@@ -2087,6 +2088,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->files = NULL;
     lfs->dirs = NULL;
     lfs->deorphaned = false;
+    lfs->moving = false;
 
     return 0;
 
