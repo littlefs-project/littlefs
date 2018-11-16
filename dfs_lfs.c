@@ -9,22 +9,28 @@
 #include <stdio.h>
 #include <string.h>
 
-#define RT_DFS_LFS_DRIVES 1
+#ifndef RT_DEF_LFS_DRIVERS
+    #define RT_DEF_LFS_DRIVERS 1
+#endif
+
+#if (RT_DEF_LFS_DRIVERS < 1)
+    #error "#define RT_DEF_LFS_DRIVERS must > 0"
+#endif
 
 #ifndef LFS_READ_SIZE
-#define LFS_READ_SIZE 128
+    #define LFS_READ_SIZE 128
 #endif
 
 #ifndef LFS_PROG_SIZE
-#define LFS_PROG_SIZE 256
+    #define LFS_PROG_SIZE 256
 #endif
 
 #ifndef LFS_BLOCK_SIZE
-#define LFS_BLOCK_SIZE 512
+    #define LFS_BLOCK_SIZE 512
 #endif
 
 #ifndef LFS_LOOKAHEAD
-#define LFS_LOOKAHEAD 512
+    #define LFS_LOOKAHEAD 512
 #endif
 
 typedef struct _dfs_lfs_s
@@ -43,19 +49,19 @@ typedef struct _dfs_lfs_fd_s
     } u;
 } dfs_lfs_fd_t;
 
-static struct _dfs_lfs_s* _lfs_mount_tbl[RT_DFS_LFS_DRIVES] = { 0 };
+static struct _dfs_lfs_s* _lfs_mount_tbl[RT_DEF_LFS_DRIVERS] = {0};
 
 // Read a region in a block. Negative error codes are propogated
 // to the user.
 static int _lfs_flash_read(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size)
 {
-    struct rt_mtd_nor_device* mtd_nor;
+    rt_mtd_t *mtd_dev;
 
     RT_ASSERT(c != RT_NULL);
     RT_ASSERT(c->context != RT_NULL);
 
-    mtd_nor = (struct rt_mtd_nor_device*)c->context;
-    rt_mtd_nor_read(mtd_nor, block * c->block_size + off, buffer, size);
+    mtd_dev = (rt_mtd_t*)c->context;
+    rt_mtd_read(mtd_dev, block * c->block_size + off, buffer, size);
 
     return LFS_ERR_OK;
 }
@@ -65,13 +71,13 @@ static int _lfs_flash_read(const struct lfs_config* c, lfs_block_t block, lfs_of
 // May return LFS_ERR_CORRUPT if the block should be considered bad.
 static int _lfs_flash_prog(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, const void* buffer, lfs_size_t size)
 {
-    struct rt_mtd_nor_device* mtd_nor;
+    rt_mtd_t *mtd_dev;
 
     RT_ASSERT(c != RT_NULL);
     RT_ASSERT(c->context != RT_NULL);
 
-    mtd_nor = (struct rt_mtd_nor_device*)c->context;
-    rt_mtd_nor_write(mtd_nor, block * c->block_size + off, buffer, size);
+    mtd_dev = (rt_mtd_t*)c->context;
+    rt_mtd_write(mtd_dev, block * c->block_size + off, buffer, size);
 
     return LFS_ERR_OK;
 }
@@ -82,13 +88,13 @@ static int _lfs_flash_prog(const struct lfs_config* c, lfs_block_t block, lfs_of
 // May return LFS_ERR_CORRUPT if the block should be considered bad.
 static int _lfs_flash_erase(const struct lfs_config* c, lfs_block_t block)
 {
-    struct rt_mtd_nor_device* mtd_nor;
+    rt_mtd_t* mtd_dev;
 
     RT_ASSERT(c != RT_NULL);
     RT_ASSERT(c->context != RT_NULL);
 
-    mtd_nor = (struct rt_mtd_nor_device*)c->context;
-    rt_mtd_nor_erase_block(mtd_nor, block * c->block_size, c->block_size);
+    mtd_dev = (rt_mtd_t*)c->context;
+    rt_mtd_erase(mtd_dev, block * c->block_size, c->block_size);
 
     return LFS_ERR_OK;
 }
@@ -102,17 +108,17 @@ static int _lfs_flash_sync(const struct lfs_config* c)
 
 /* results:
  *  -1, no space to install fatfs driver
- *  >= 0, there is an space to install fatfs driver
+ *  >= 0, there is an space to install littlefs driver
  */
-static int get_disk(rt_device_t dev_id)
+static int _get_disk(rt_device_t dev_id)
 {
     int index;
 
     if (dev_id == RT_NULL)
     {
-        for (index = 0; index < RT_DFS_LFS_DRIVES; index++)
+        for (index = 0; index < RT_DFS_LFS_DRIVES; index ++)
         {
-            if (_lfs_mount_tbl[index] == RT_NULL)
+            if(_lfs_mount_tbl[index] == RT_NULL)
             {
                 return index;
             }
@@ -120,10 +126,9 @@ static int get_disk(rt_device_t dev_id)
     }
     else
     {
-        for (index = 0; index < RT_DFS_LFS_DRIVES; index++)
+        for (index = 0; index < RT_DFS_LFS_DRIVES; index ++)
         {
-            if ((_lfs_mount_tbl[index] != RT_NULL)
-                && (_lfs_mount_tbl[index]->cfg.context == (void*)dev_id))
+            if ((_lfs_mount_tbl[index] != RT_NULL) && (_lfs_mount_tbl[index]->cfg.context == (void *)dev_id))
             {
                 return index;
             }
@@ -133,7 +138,7 @@ static int get_disk(rt_device_t dev_id)
     return -1;
 }
 
-static int lfs_result_to_dfs(int result)
+static int _lfs_result_to_dfs(int result)
 {
     int status = 0;
 
@@ -194,49 +199,38 @@ static int lfs_result_to_dfs(int result)
     return status;
 }
 
-static void _dfs_lfs_load_config(dfs_lfs_t* dfs_lfs, struct rt_mtd_nor_device* mtd_nor)
+static void _lfs_load_config(struct lfs_config* lfs_cfg, rt_mtd_t* mtd_dev)
 {
-    dfs_lfs->cfg.context = (void*)mtd_nor;
+    lfs_cfg->context = (void*)mtd_dev;
 
-    // MTD device can access 1 byte....
-    dfs_lfs->cfg.read_size = 1;
-    if (dfs_lfs->cfg.read_size < LFS_READ_SIZE)
+    lfs_cfg->read_size = LFS_READ_SIZE;
+    lfs_cfg->prog_size = LFS_PROG_SIZE;
+
+    lfs_cfg->block_size = mtd_dev->block_size;
+    if (lfs_cfg->block_size < LFS_BLOCK_SIZE)
     {
-        dfs_lfs->cfg.read_size = LFS_READ_SIZE;
+        lfs_cfg->block_size = LFS_BLOCK_SIZE;
     }
 
-    // MTD device can access 1 byte....
-    dfs_lfs->cfg.prog_size = 1;
-    if (dfs_lfs->cfg.prog_size < LFS_PROG_SIZE)
+    lfs_cfg->block_count = mtd_dev->block_end - mtd_dev->block_start;
+
+    lfs_cfg->lookahead = 32 * ((lfs_cfg->block_count + 31) / 32);
+    if (lfs_cfg->lookahead > LFS_LOOKAHEAD)
     {
-        dfs_lfs->cfg.prog_size = LFS_PROG_SIZE;
+        lfs_cfg->lookahead = LFS_LOOKAHEAD;
     }
 
-    dfs_lfs->cfg.block_size = mtd_nor->block_size;
-    if (dfs_lfs->cfg.block_size < LFS_BLOCK_SIZE)
-    {
-        dfs_lfs->cfg.block_size = LFS_BLOCK_SIZE;
-    }
-
-    dfs_lfs->cfg.block_count = mtd_nor->block_end - mtd_nor->block_start;
-
-    dfs_lfs->cfg.lookahead = 32 * ((dfs_lfs->cfg.block_count + 31) / 32);
-    if (dfs_lfs->cfg.lookahead > LFS_LOOKAHEAD)
-    {
-        dfs_lfs->cfg.lookahead = LFS_LOOKAHEAD;
-    }
-
-    dfs_lfs->cfg.read = &_lfs_flash_read;
-    dfs_lfs->cfg.prog = &_lfs_flash_prog;
-    dfs_lfs->cfg.erase = &_lfs_flash_erase;
-    dfs_lfs->cfg.sync = &_lfs_flash_sync;
+    lfs_cfg->read = &_lfs_flash_read;
+    lfs_cfg->prog = &_lfs_flash_prog;
+    lfs_cfg->erase = &_lfs_flash_erase;
+    lfs_cfg->sync = &_lfs_flash_sync;
 }
 
-static int dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, const void* data)
+static int _dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, const void* data)
 {
     int result;
-    dfs_lfs_t* dfs_lfs;
     int index;
+    dfs_lfs_t* dfs_lfs;
 
     /* Check Device Type */
     if (dfs->dev_id->type != RT_Device_Class_MTD)
@@ -246,79 +240,71 @@ static int dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, const
     }
 
     /* get an empty position */
-    index = get_disk(RT_NULL);
+    index = _get_disk(RT_NULL);
     if (index == -1)
     {
         return -EIO;
     }
 
     /*create lfs handle */
-    dfs_lfs = rt_malloc(sizeof(dfs_lfs_t));
+    dfs_lfs = (dfs_lfs_t*)rt_malloc(sizeof(dfs_lfs_t));
     if (dfs_lfs == RT_NULL)
     {
         rt_kprintf("ERROR:no memory!\n");
-        _lfs_mount_tbl[index] = RT_NULL;
         return -ENOMEM;
     }
     rt_memset(dfs_lfs, 0, sizeof(dfs_lfs_t));
 
-    { /* init cfg data */
-        struct rt_mtd_nor_device* mtd_nor = (struct rt_mtd_nor_device*)dfs->dev_id;
-
-        _dfs_lfs_load_config(dfs_lfs, mtd_nor);
-    }
+    _lfs_load_config(&dfs_lfs->cfg, (rt_mtd_t*)dfs->dev_id);
 
     /* mount lfs*/
     result = lfs_mount(&dfs_lfs->lfs, &dfs_lfs->cfg);
-    if (result == LFS_ERR_OK)
+    if (result != LFS_ERR_OK)
     {
-        /* save device */
-        _lfs_mount_tbl[index] = dfs_lfs;
+        /* release memory */
+        rt_free(dfs_lfs);
 
-        /* mount succeed! */
-        dfs->data = (void*)dfs_lfs;
-
-        return RT_EOK;
+        return -EIO;
     }
 
-    /* release memory */
-    rt_free(dfs_lfs);
-    _lfs_mount_tbl[index] = RT_NULL;
-    return -EIO;
-}
-
-static int dfs_lfs_unmount(struct dfs_filesystem* dfs)
-{
-    int index;
-    dfs_lfs_t* dfs_lfs = RT_NULL;
-
-    RT_ASSERT(dfs != RT_NULL);
-    RT_ASSERT(dfs->data != RT_NULL);
-
-    dfs_lfs = (dfs_lfs_t*)dfs->data;
-
-    /* find the device index and then umount it */
-    index = get_disk(dfs->dev_id);
-    if (index == -1) /* not found */
-    {
-        return -ENOENT;
-    }
-
-    dfs_lfs = _lfs_mount_tbl[index];
-    _lfs_mount_tbl[index] = RT_NULL;
-    dfs->data = RT_NULL;
-
-    lfs_unmount(&dfs_lfs->lfs);
-    rt_free(dfs_lfs);
+    /* mount succeed! */
+    dfs->data = (void*)dfs_lfs;
+    _lfs_mount_tbl[index] = dfs_lfs;
 
     return RT_EOK;
 }
 
-static int dfs_lfs_mkfs(rt_device_t dev_id)
+static int _dfs_lfs_unmount(struct dfs_filesystem* dfs)
 {
-    dfs_lfs_t* dfs_lfs = RT_NULL;
     int result;
     int index;
+    dfs_lfs_t* dfs_lfs;
+
+    RT_ASSERT(dfs != RT_NULL);
+    RT_ASSERT(dfs->data != RT_NULL);
+
+    /* find the device index and then umount it */
+    index = _get_disk(dfs->dev_id);
+    if (index == -1)
+    {
+        return -ENOENT;
+    }
+    _lfs_mount_tbl[index] = RT_NULL;
+
+    dfs_lfs = (dfs_lfs_t*)dfs->data;
+    dfs->data = RT_NULL;
+
+    result = lfs_unmount(&dfs_lfs->lfs);
+    rt_free(dfs_lfs);
+
+    return _lfs_result_to_dfs(result);
+}
+
+static int _dfs_lfs_mkfs(rt_device_t dev_id)
+{
+    int result;
+    int index;
+    dfs_lfs_t* dfs_lfs;
 
     if (dev_id == RT_NULL)
     {
@@ -343,46 +329,55 @@ static int dfs_lfs_mkfs(rt_device_t dev_id)
             rt_kprintf("sorry, there is no space to do mkfs! \n");
             return -ENOSPC;
         }
-        else
+
+        /* create lfs handle */
+        dfs_lfs = rt_malloc(sizeof(dfs_lfs_t));
+
+        if (dfs_lfs == RT_NULL)
         {
-            /*create lfs handle */
-            dfs_lfs = rt_malloc(sizeof(dfs_lfs_t));
+            rt_kprintf("ERROR:no memory!\n");
 
-            if (dfs_lfs == RT_NULL)
-            {
-                rt_kprintf("ERROR:no memory!\n");
-
-                _lfs_mount_tbl[index] = RT_NULL;
-                return -ENOMEM;
-            }
-            rt_memset(dfs_lfs, 0, sizeof(dfs_lfs_t));
-
-            { /* init cfg data */
-                struct rt_mtd_nor_device* mtd_nor =
-                  (struct rt_mtd_nor_device*)dev_id;
-
-                _dfs_lfs_load_config(dfs_lfs, mtd_nor);
-            }
+            _lfs_mount_tbl[index] = RT_NULL;
+            return -ENOMEM;
         }
-    }
-    else
-    {
-        dfs_lfs = _lfs_mount_tbl[index];
-        _lfs_mount_tbl[index] = RT_NULL;
+        rt_memset(dfs_lfs, 0, sizeof(dfs_lfs_t));
 
-        /* unmount it */
-        lfs_unmount(&dfs_lfs->lfs);
+        _lfs_load_config(dfs_lfs, (rt_mtd_t*)dev_id);
+
+        /* format flash device */
+        result = lfs_format(&dfs_lfs->lfs, &dfs_lfs->cfg);
+
+        return _lfs_result_to_dfs(result);
     }
+
+    dfs_lfs = _lfs_mount_tbl[index];
+
+    /* unmount it */
+    result = lfs_unmount(&dfs_lfs->lfs);
+    if (result != LFS_ERR_OK)
+    {
+        return _lfs_result_to_dfs(result);
+    }
+
+    _lfs_mount_tbl[index] = RT_NULL;
 
     /* format flash device */
     result = lfs_format(&dfs_lfs->lfs, &dfs_lfs->cfg);
     if (result != LFS_ERR_OK)
     {
-        return lfs_result_to_dfs(result);
+        return _lfs_result_to_dfs(result);
     }
 
-    /* release rt_spiffs */
-    return RT_EOK;
+    _lfs_load_config(&dfs_lfs->cfg, (rt_mtd_t*)dev_id);
+
+    /* mount lfs*/
+    result = lfs_mount(&dfs_lfs->lfs, &dfs_lfs->cfg);
+    if (result == LFS_ERR_OK)
+    {
+        _lfs_mount_tbl[index] = dfs_lfs;
+    }
+
+    return _lfs_result_to_dfs(result);
 }
 
 static int _dfs_lfs_statfs_count(void* p, lfs_block_t b)
@@ -391,7 +386,7 @@ static int _dfs_lfs_statfs_count(void* p, lfs_block_t b)
     return 0;
 }
 
-static int dfs_lfs_statfs(struct dfs_filesystem* dfs, struct statfs* buf)
+static int _dfs_lfs_statfs(struct dfs_filesystem* dfs, struct statfs* buf)
 {
     dfs_lfs_t* dfs_lfs;
     int result;
@@ -417,7 +412,7 @@ static int dfs_lfs_statfs(struct dfs_filesystem* dfs, struct statfs* buf)
     return RT_EOK;
 }
 
-static int dfs_lfs_unlink(struct dfs_filesystem* dfs, const char* path)
+static int _dfs_lfs_unlink(struct dfs_filesystem* dfs, const char* path)
 {
     dfs_lfs_t* dfs_lfs;
     int result;
@@ -451,7 +446,7 @@ static void _dfs_lfs_tostat(struct stat* st, struct lfs_info* info)
     }
 }
 
-int dfs_lfs_stat(struct dfs_filesystem* dfs, const char* path, struct stat* st)
+static int _dfs_lfs_stat(struct dfs_filesystem* dfs, const char* path, struct stat* st)
 {
     dfs_lfs_t* dfs_lfs;
     int result;
@@ -471,7 +466,7 @@ int dfs_lfs_stat(struct dfs_filesystem* dfs, const char* path, struct stat* st)
     return 0;
 }
 
-static int dfs_lfs_rename(struct dfs_filesystem* dfs, const char* from, const char* to)
+static int _dfs_lfs_rename(struct dfs_filesystem* dfs, const char* from, const char* to)
 {
     dfs_lfs_t* dfs_lfs;
     int result;
@@ -487,7 +482,7 @@ static int dfs_lfs_rename(struct dfs_filesystem* dfs, const char* from, const ch
 /******************************************************************************
  * file operations
  ******************************************************************************/
-static int dfs_lfs_open(struct dfs_fd* file)
+static int _dfs_lfs_open(struct dfs_fd* file)
 {
     struct dfs_filesystem* dfs;
     dfs_lfs_t* dfs_lfs;
@@ -577,6 +572,8 @@ static int dfs_lfs_open(struct dfs_fd* file)
         else
         {
             file->data = (void*)dfs_lfs_fd;
+            file->pos = dfs_lfs_fd->u.file.pos;
+            file->size = dfs_lfs_fd->u.file.size;
             return RT_EOK;
         }
 
@@ -590,7 +587,7 @@ static int dfs_lfs_open(struct dfs_fd* file)
     }
 }
 
-static int dfs_lfs_close(struct dfs_fd* file)
+static int _dfs_lfs_close(struct dfs_fd* file)
 {
     int result;
     dfs_lfs_fd_t* dfs_lfs_fd;
@@ -613,12 +610,12 @@ static int dfs_lfs_close(struct dfs_fd* file)
     return lfs_result_to_dfs(result);
 }
 
-static int dfs_lfs_ioctl(struct dfs_fd* file, int cmd, void* args)
+static int _dfs_lfs_ioctl(struct dfs_fd* file, int cmd, void* args)
 {
     return -ENOSYS;
 }
 
-int dfs_lfs_read(struct dfs_fd* file, void* buf, size_t len)
+static int _dfs_lfs_read(struct dfs_fd* file, void* buf, size_t len)
 {
     lfs_ssize_t ssize;
     dfs_lfs_fd_t* dfs_lfs_fd;
@@ -626,13 +623,14 @@ int dfs_lfs_read(struct dfs_fd* file, void* buf, size_t len)
     RT_ASSERT(file != RT_NULL);
     RT_ASSERT(file->data != RT_NULL);
 
-    dfs_lfs_fd = (dfs_lfs_fd_t*)file->data;
-
     if (file->type == FT_DIRECTORY)
     {
         return -EISDIR;
     }
 
+    dfs_lfs_fd = (dfs_lfs_fd_t*)file->data;
+
+#if 0
     if (lfs_file_tell(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file) != file->pos)
     {
         lfs_soff_t soff = lfs_file_seek(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file, file->pos, LFS_SEEK_SET);
@@ -641,6 +639,7 @@ int dfs_lfs_read(struct dfs_fd* file, void* buf, size_t len)
             return lfs_result_to_dfs(soff);
         }
     }
+#endif
 
     ssize = lfs_file_read(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file, buf, len);
     if (ssize < 0)
@@ -654,7 +653,7 @@ int dfs_lfs_read(struct dfs_fd* file, void* buf, size_t len)
     return ssize;
 }
 
-int dfs_lfs_write(struct dfs_fd* file, const void* buf, size_t len)
+static int _dfs_lfs_write(struct dfs_fd* file, const void* buf, size_t len)
 {
     lfs_ssize_t ssize;
     dfs_lfs_fd_t* dfs_lfs_fd;
@@ -667,6 +666,8 @@ int dfs_lfs_write(struct dfs_fd* file, const void* buf, size_t len)
     }
 
     dfs_lfs_fd = (dfs_lfs_fd_t*)file->data;
+
+#if 0
     if (lfs_file_tell(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file) != file->pos)
     {
         lfs_soff_t soff = lfs_file_seek(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file, file->pos, LFS_SEEK_SET);
@@ -675,6 +676,7 @@ int dfs_lfs_write(struct dfs_fd* file, const void* buf, size_t len)
             return lfs_result_to_dfs(soff);
         }
     }
+#endif
 
     ssize = lfs_file_write(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file, buf, len);
     if (ssize < 0)
@@ -685,13 +687,15 @@ int dfs_lfs_write(struct dfs_fd* file, const void* buf, size_t len)
     /* update position and file size */
     file->pos = dfs_lfs_fd->u.file.pos;
     file->size = dfs_lfs_fd->u.file.size;
+
     return ssize;
 }
 
-int dfs_lfs_flush(struct dfs_fd* file)
+static int _dfs_lfs_flush(struct dfs_fd* file)
 {
     int result;
     dfs_lfs_fd_t* dfs_lfs_fd;
+
     RT_ASSERT(file != RT_NULL);
     RT_ASSERT(file->data != RT_NULL);
 
@@ -702,9 +706,10 @@ int dfs_lfs_flush(struct dfs_fd* file)
     return lfs_result_to_dfs(result);
 }
 
-int dfs_lfs_lseek(struct dfs_fd* file, rt_off_t offset)
+static int _dfs_lfs_lseek(struct dfs_fd* file, rt_off_t offset)
 {
     dfs_lfs_fd_t* dfs_lfs_fd;
+
     RT_ASSERT(file != RT_NULL);
     RT_ASSERT(file->data != RT_NULL);
 
@@ -734,7 +739,7 @@ int dfs_lfs_lseek(struct dfs_fd* file, rt_off_t offset)
     return (file->pos);
 }
 
-int dfs_lfs_getdents(struct dfs_fd* file, struct dirent* dirp, uint32_t count)
+static int _dfs_lfs_getdents(struct dfs_fd* file, struct dirent* dirp, uint32_t count)
 {
     dfs_lfs_fd_t* dfs_lfs_fd;
     int result;
@@ -743,6 +748,7 @@ int dfs_lfs_getdents(struct dfs_fd* file, struct dirent* dirp, uint32_t count)
     struct lfs_info info;
 
     RT_ASSERT(file->data != RT_NULL);
+
     dfs_lfs_fd = (dfs_lfs_fd_t*)(file->data);
 
     /* make integer count */
@@ -764,6 +770,7 @@ int dfs_lfs_getdents(struct dfs_fd* file, struct dirent* dirp, uint32_t count)
         }
 
         d->d_type = DT_UNKNOWN;
+
         switch (info.type)
         {
         case LFS_TYPE_DIR:
@@ -797,14 +804,14 @@ int dfs_lfs_getdents(struct dfs_fd* file, struct dirent* dirp, uint32_t count)
 }
 
 static const struct dfs_file_ops _dfs_lfs_fops = {
-    dfs_lfs_open,
-    dfs_lfs_close,
-    dfs_lfs_ioctl,
-    dfs_lfs_read,
-    dfs_lfs_write,
-    dfs_lfs_flush,
-    dfs_lfs_lseek,
-    dfs_lfs_getdents,
+    _dfs_lfs_open,
+    _dfs_lfs_close,
+    _dfs_lfs_ioctl,
+    _dfs_lfs_read,
+    _dfs_lfs_write,
+    _dfs_lfs_flush,
+    _dfs_lfs_lseek,
+    _dfs_lfs_getdents,
     //    RT_NULL, /* poll interface */
 };
 
@@ -813,14 +820,14 @@ static const struct dfs_filesystem_ops _dfs_lfs_ops = {
     DFS_FS_FLAG_DEFAULT,
     &_dfs_lfs_fops,
 
-    dfs_lfs_mount,
-    dfs_lfs_unmount,
+    _dfs_lfs_mount,
+    _dfs_lfs_unmount,
 
-    dfs_lfs_mkfs,
-    dfs_lfs_statfs,
-    dfs_lfs_unlink,
-    dfs_lfs_stat,
-    dfs_lfs_rename,
+    _dfs_lfs_mkfs,
+    _dfs_lfs_statfs,
+    _dfs_lfs_unlink,
+    _dfs_lfs_stat,
+    _dfs_lfs_rename,
 };
 
 int dfs_lfs_init(void)
