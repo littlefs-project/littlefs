@@ -18,7 +18,7 @@
 #endif
 
 #ifndef LFS_READ_SIZE
-    #define LFS_READ_SIZE 128
+    #define LFS_READ_SIZE 256
 #endif
 
 #ifndef LFS_PROG_SIZE
@@ -26,7 +26,7 @@
 #endif
 
 #ifndef LFS_BLOCK_SIZE
-    #define LFS_BLOCK_SIZE 512
+    #define LFS_BLOCK_SIZE 4096
 #endif
 
 #ifndef LFS_LOOKAHEAD
@@ -55,13 +55,13 @@ static struct _dfs_lfs_s* _lfs_mount_tbl[RT_DEF_LFS_DRIVERS] = {0};
 // to the user.
 static int _lfs_flash_read(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size)
 {
-    rt_mtd_t *mtd_dev;
+    struct rt_mtd_nor_device* mtd_nor;
 
     RT_ASSERT(c != RT_NULL);
     RT_ASSERT(c->context != RT_NULL);
 
-    mtd_dev = (rt_mtd_t*)c->context;
-    rt_mtd_read(mtd_dev, block * c->block_size + off, buffer, size);
+    mtd_nor = (struct rt_mtd_nor_device*)c->context;
+    rt_mtd_nor_read(mtd_nor, block * c->block_size + off, buffer, size);
 
     return LFS_ERR_OK;
 }
@@ -71,13 +71,13 @@ static int _lfs_flash_read(const struct lfs_config* c, lfs_block_t block, lfs_of
 // May return LFS_ERR_CORRUPT if the block should be considered bad.
 static int _lfs_flash_prog(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, const void* buffer, lfs_size_t size)
 {
-    rt_mtd_t *mtd_dev;
+    struct rt_mtd_nor_device* mtd_nor;
 
     RT_ASSERT(c != RT_NULL);
     RT_ASSERT(c->context != RT_NULL);
 
-    mtd_dev = (rt_mtd_t*)c->context;
-    rt_mtd_write(mtd_dev, block * c->block_size + off, buffer, size);
+    mtd_nor = (struct rt_mtd_nor_device*)c->context;
+    rt_mtd_nor_write(mtd_nor, block * c->block_size + off, buffer, size);
 
     return LFS_ERR_OK;
 }
@@ -88,13 +88,13 @@ static int _lfs_flash_prog(const struct lfs_config* c, lfs_block_t block, lfs_of
 // May return LFS_ERR_CORRUPT if the block should be considered bad.
 static int _lfs_flash_erase(const struct lfs_config* c, lfs_block_t block)
 {
-    rt_mtd_t* mtd_dev;
+    struct rt_mtd_nor_device* mtd_nor;
 
     RT_ASSERT(c != RT_NULL);
     RT_ASSERT(c->context != RT_NULL);
 
-    mtd_dev = (rt_mtd_t*)c->context;
-    rt_mtd_erase(mtd_dev, block * c->block_size, c->block_size);
+    mtd_nor = (struct rt_mtd_nor_device*)c->context;
+    rt_mtd_nor_erase_block(mtd_nor, block * c->block_size, c->block_size);
 
     return LFS_ERR_OK;
 }
@@ -199,20 +199,20 @@ static int _lfs_result_to_dfs(int result)
     return status;
 }
 
-static void _lfs_load_config(struct lfs_config* lfs_cfg, rt_mtd_t* mtd_dev)
+static void _lfs_load_config(struct lfs_config* lfs_cfg, struct rt_mtd_nor_device* mtd_nor)
 {
-    lfs_cfg->context = (void*)mtd_dev;
+    lfs_cfg->context = (void*)mtd_nor;
 
     lfs_cfg->read_size = LFS_READ_SIZE;
     lfs_cfg->prog_size = LFS_PROG_SIZE;
 
-    lfs_cfg->block_size = mtd_dev->block_size;
+    lfs_cfg->block_size = mtd_nor->block_size;
     if (lfs_cfg->block_size < LFS_BLOCK_SIZE)
     {
         lfs_cfg->block_size = LFS_BLOCK_SIZE;
     }
 
-    lfs_cfg->block_count = mtd_dev->size / mtd_dev->block_size;
+    lfs_cfg->block_count = mtd_nor->block_end - mtd_nor->block_start;
 
     lfs_cfg->lookahead = 32 * ((lfs_cfg->block_count + 31) / 32);
     if (lfs_cfg->lookahead > LFS_LOOKAHEAD)
@@ -255,7 +255,7 @@ static int _dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, cons
     }
     rt_memset(dfs_lfs, 0, sizeof(dfs_lfs_t));
 
-    _lfs_load_config(&dfs_lfs->cfg, (rt_mtd_t*)dfs->dev_id);
+    _lfs_load_config(&dfs_lfs->cfg, (struct rt_mtd_nor_device*)dfs->dev_id);
 
     /* mount lfs*/
     result = lfs_mount(&dfs_lfs->lfs, &dfs_lfs->cfg);
@@ -342,7 +342,7 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
         }
         rt_memset(dfs_lfs, 0, sizeof(dfs_lfs_t));
 
-        _lfs_load_config(&dfs_lfs->cfg, (rt_mtd_t*)dev_id);
+        _lfs_load_config(&dfs_lfs->cfg, (struct rt_mtd_nor_device*)dev_id);
 
         /* format flash device */
         result = lfs_format(&dfs_lfs->lfs, &dfs_lfs->cfg);
@@ -368,7 +368,7 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
         return _lfs_result_to_dfs(result);
     }
 
-    _lfs_load_config(&dfs_lfs->cfg, (rt_mtd_t*)dev_id);
+    _lfs_load_config(&dfs_lfs->cfg, (struct rt_mtd_nor_device*)dev_id);
 
     /* mount lfs*/
     result = lfs_mount(&dfs_lfs->lfs, &dfs_lfs->cfg);
