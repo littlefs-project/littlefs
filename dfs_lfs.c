@@ -61,7 +61,10 @@ static int _lfs_flash_read(const struct lfs_config* c, lfs_block_t block, lfs_of
     RT_ASSERT(c->context != RT_NULL);
 
     mtd_nor = (struct rt_mtd_nor_device*)c->context;
-    rt_mtd_nor_read(mtd_nor, block * c->block_size + off, buffer, size);
+    if (rt_mtd_nor_read(mtd_nor, block * c->block_size + off, buffer, size) != size)
+    {
+        return LFS_ERR_IO;
+    }
 
     return LFS_ERR_OK;
 }
@@ -77,7 +80,10 @@ static int _lfs_flash_prog(const struct lfs_config* c, lfs_block_t block, lfs_of
     RT_ASSERT(c->context != RT_NULL);
 
     mtd_nor = (struct rt_mtd_nor_device*)c->context;
-    rt_mtd_nor_write(mtd_nor, block * c->block_size + off, buffer, size);
+    if (rt_mtd_nor_write(mtd_nor, block * c->block_size + off, buffer, size) != size)
+    {
+        return LFS_ERR_IO;
+    }
 
     return LFS_ERR_OK;
 }
@@ -94,7 +100,10 @@ static int _lfs_flash_erase(const struct lfs_config* c, lfs_block_t block)
     RT_ASSERT(c->context != RT_NULL);
 
     mtd_nor = (struct rt_mtd_nor_device*)c->context;
-    rt_mtd_nor_erase_block(mtd_nor, block * c->block_size, c->block_size);
+    if (rt_mtd_nor_erase_block(mtd_nor, block * c->block_size, c->block_size) != RT_EOK)
+    {
+        return LFS_ERR_IO;
+    }
 
     return LFS_ERR_OK;
 }
