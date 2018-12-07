@@ -7,6 +7,6 @@ src = Glob('*.c') + Glob('*.cpp')
 CPPPATH = [cwd]
 CPPDEFINES = ['LFS_CONFIG=lfs_config.h']
 
-group = DefineGroup('littlefs', src, depend = ['RT_USING_LITTLEFS', 'RT_USING_DFS'], CPPPATH = CPPPATH, CPPDEFINES = CPPDEFINES)
+group = DefineGroup('littlefs', src, depend = ['PKG_USING_LITTLEFS', 'RT_USING_DFS'], CPPPATH = CPPPATH, CPPDEFINES = CPPDEFINES)
 
 Return('group')
