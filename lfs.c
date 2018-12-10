@@ -1083,7 +1083,7 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
     return 0;
 }
 
-lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir) {
+lfs_soff_t lfs_dir_tell(const lfs_t *lfs, const lfs_dir_t *dir) {
     (void)lfs;
     return dir->pos;
 }
@@ -1807,7 +1807,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     return 0;
 }
 
-lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
+lfs_soff_t lfs_file_tell(const lfs_t *lfs, const lfs_file_t *file) {
     (void)lfs;
     return file->pos;
 }
@@ -1821,7 +1821,7 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
     return 0;
 }
 
-lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
+lfs_soff_t lfs_file_size(const lfs_t *lfs, const lfs_file_t *file) {
     (void)lfs;
     if (file->flags & LFS_F_WRITING) {
         return lfs_max(file->pos, file->size);
