@@ -21,7 +21,7 @@ extern "C"
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_VERSION 0x00010006
+#define LFS_VERSION 0x00010007
 #define LFS_VERSION_MAJOR (0xffff & (LFS_VERSION >> 16))
 #define LFS_VERSION_MINOR (0xffff & (LFS_VERSION >>  0))
 
@@ -49,6 +49,11 @@ typedef uint32_t lfs_block_t;
 #define LFS_NAME_MAX 255
 #endif
 
+// Max file size in bytes
+#ifndef LFS_FILE_MAX
+#define LFS_FILE_MAX 2147483647
+#endif
+
 // Possible error codes, these are negative to allow
 // valid positive return values
 enum lfs_error {
@@ -61,6 +66,7 @@ enum lfs_error {
     LFS_ERR_ISDIR    = -21,  // Entry is a dir
     LFS_ERR_NOTEMPTY = -39,  // Dir is not empty
     LFS_ERR_BADF     = -9,   // Bad file number
+    LFS_ERR_FBIG     = -27,  // File too large
     LFS_ERR_INVAL    = -22,  // Invalid parameter
     LFS_ERR_NOSPC    = -28,  // No space left on device
     LFS_ERR_NOMEM    = -12,  // No more memory available
@@ -280,6 +286,7 @@ typedef struct lfs {
 
     lfs_free_t free;
     bool deorphaned;
+    bool moving;
 } lfs_t;
 
 
