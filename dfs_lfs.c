@@ -775,7 +775,7 @@ static int _dfs_lfs_getdents(struct dfs_fd* file, struct dirent* dirp, uint32_t 
         result = lfs_dir_read(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.dir, &info);
         if ((result != 1) || (info.name[0] == 0))
         {
-            return result;
+            break;
         }
 
         d->d_type = DT_UNKNOWN;
