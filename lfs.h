@@ -118,6 +118,7 @@ enum lfs_type {
     LFS_TYPE_CTZSTRUCT      = 0x042,
 
     // internal chip sources
+    LFS_TYPE_FROM           = 0x060,
     LFS_FROM_MEM            = 0x000,
     LFS_FROM_DISK           = 0x200,
     LFS_FROM_MOVE           = 0x061,
