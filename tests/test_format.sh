@@ -12,8 +12,7 @@ TEST
 echo "--- Basic mounting ---"
 tests/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
-TEST
-tests/test.py << TEST
+
     lfs_mount(&lfs, &cfg) => 0;
     lfs_unmount(&lfs) => 0;
 TEST

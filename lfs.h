@@ -45,25 +45,25 @@ typedef int32_t  lfs_soff_t;
 typedef uint32_t lfs_block_t;
 
 // Maximum name size in bytes, may be redefined to reduce the size of the
-// info struct. Limited to <= 8190. Stored in superblock and must be
+// info struct. Limited to <= 1022. Stored in superblock and must be
 // respected by other littlefs drivers.
 #ifndef LFS_NAME_MAX
-#define LFS_NAME_MAX 0xff
+#define LFS_NAME_MAX 255
 #endif
 
 // Maximum inline file size in bytes, may be redefined to limit RAM usage,
 // but littlefs will automatically limit the LFS_INLINE_MAX to the
-// configured cache_size. Limited to <= 8190. Stored in superblock and must
+// configured cache_size. Limited to <= 1022. Stored in superblock and must
 // be respected by other littlefs drivers.
 #ifndef LFS_INLINE_MAX
-#define LFS_INLINE_MAX 0x1ffe
+#define LFS_INLINE_MAX 1022
 #endif
 
 // Maximum size of custom attributes in bytes, may be redefined, but there is
-// no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 8190. Stored
+// no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022. Stored
 // in superblock and must be respected by other littlefs drivers.
 #ifndef LFS_ATTR_MAX
-#define LFS_ATTR_MAX 0x1ffe
+#define LFS_ATTR_MAX 1022
 #endif
 
 // Maximum size of a file in bytes, may be redefined to limit to support other
@@ -98,31 +98,33 @@ enum lfs_error {
 // File types
 enum lfs_type {
     // file types
-    LFS_TYPE_REG            = 0x011,
-    LFS_TYPE_DIR            = 0x010,
+    LFS_TYPE_REG            = 0x001,
+    LFS_TYPE_DIR            = 0x002,
 
     // internally used types
-    LFS_TYPE_USERATTR       = 0x100,
-    LFS_TYPE_CREATE         = 0x000,
-    LFS_TYPE_DELETE         = 0x020,
-    LFS_TYPE_STRUCT         = 0x040,
-    LFS_TYPE_TAIL           = 0x080,
-    LFS_TYPE_SOFTTAIL       = 0x080,
-    LFS_TYPE_HARDTAIL       = 0x081,
-    LFS_TYPE_CRC            = 0x0a0,
-    LFS_TYPE_SUPERBLOCK     = 0x001,
-    LFS_TYPE_GLOBALS        = 0x0e0,
+    LFS_TYPE_SPLICE         = 0x400,
+    LFS_TYPE_NAME           = 0x000,
+    LFS_TYPE_STRUCT         = 0x200,
+    LFS_TYPE_USERATTR       = 0x300,
+    LFS_TYPE_FROM           = 0x100,
+    LFS_TYPE_TAIL           = 0x600,
+    LFS_TYPE_GLOBALS        = 0x700,
+    LFS_TYPE_CRC            = 0x500,
 
-    LFS_TYPE_DIRSTRUCT      = 0x040,
-    LFS_TYPE_INLINESTRUCT   = 0x041,
-    LFS_TYPE_CTZSTRUCT      = 0x042,
+    // internally used type specializations
+    LFS_TYPE_CREATE         = 0x401,
+    LFS_TYPE_DELETE         = 0x4ff,
+    LFS_TYPE_SUPERBLOCK     = 0x0ff,
+    LFS_TYPE_DIRSTRUCT      = 0x200,
+    LFS_TYPE_CTZSTRUCT      = 0x202,
+    LFS_TYPE_INLINESTRUCT   = 0x201,
+    LFS_TYPE_SOFTTAIL       = 0x600,
+    LFS_TYPE_HARDTAIL       = 0x601,
+    LFS_TYPE_MOVESTATE      = 0x7ff,
 
     // internal chip sources
-    LFS_TYPE_FROM           = 0x060,
-    LFS_FROM_MEM            = 0x000,
-    LFS_FROM_DISK           = 0x200,
-    LFS_FROM_MOVE           = 0x061,
-    LFS_FROM_USERATTRS      = 0x062,
+    LFS_FROM_MOVE           = 0x101,
+    LFS_FROM_USERATTRS      = 0x102,
 };
 
 // File open flags
@@ -314,8 +316,8 @@ typedef struct lfs_cache {
 typedef struct lfs_mdir {
     lfs_block_t pair[2];
     uint32_t rev;
-    uint32_t etag;
     lfs_off_t off;
+    uint32_t etag;
     uint16_t count;
     bool erased;
     bool split;

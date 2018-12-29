@@ -253,7 +253,7 @@ tests/test.py << TEST
 
     // find out max file size
     lfs_mkdir(&lfs, "exhaustiondir") => 0;
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 10; i++) {
         sprintf((char*)buffer, "dirwithanexhaustivelylongnameforpadding%d", i);
         lfs_mkdir(&lfs, (char*)buffer) => 0;
     }
@@ -275,7 +275,7 @@ tests/test.py << TEST
 
     lfs_remove(&lfs, "exhaustion") => 0;
     lfs_remove(&lfs, "exhaustiondir") => 0;
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 10; i++) {
         sprintf((char*)buffer, "dirwithanexhaustivelylongnameforpadding%d", i);
         lfs_remove(&lfs, (char*)buffer) => 0;
     }
@@ -287,7 +287,7 @@ tests/test.py << TEST
     }
     lfs_file_sync(&lfs, &file[0]) => 0;
 
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 10; i++) {
         sprintf((char*)buffer, "dirwithanexhaustivelylongnameforpadding%d", i);
         lfs_mkdir(&lfs, (char*)buffer) => 0;
     }
