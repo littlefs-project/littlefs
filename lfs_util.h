@@ -164,28 +164,6 @@ static inline uint32_t lfs_tole32(uint32_t a) {
     return lfs_fromle32(a);
 }
 
-// Convert between 16-bit little-endian and native order
-static inline uint16_t lfs_fromle16(uint16_t a) {
-#if !defined(LFS_NO_INTRINSICS) && ( \
-    (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_LITTLE_ENDIAN  ) || \
-    (defined(__BYTE_ORDER  ) && __BYTE_ORDER   == __ORDER_LITTLE_ENDIAN  ) || \
-    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
-    return a;
-#elif !defined(LFS_NO_INTRINSICS) && ( \
-    (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_BIG_ENDIAN  ) || \
-    (defined(__BYTE_ORDER  ) && __BYTE_ORDER   == __ORDER_BIG_ENDIAN  ) || \
-    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__))
-    return __builtin_bswap16(a);
-#else
-    return (((uint8_t*)&a)[0] <<  0) |
-           (((uint8_t*)&a)[1] <<  8);
-#endif
-}
-
-static inline uint16_t lfs_tole16(uint16_t a) {
-    return lfs_fromle16(a);
-}
-
 // Convert between 32-bit big-endian and native order
 static inline uint32_t lfs_frombe32(uint32_t a) {
 #if !defined(LFS_NO_INTRINSICS) && ( \
@@ -208,28 +186,6 @@ static inline uint32_t lfs_frombe32(uint32_t a) {
 
 static inline uint32_t lfs_tobe32(uint32_t a) {
     return lfs_frombe32(a);
-}
-
-// Convert between 16-bit big-endian and native order
-static inline uint16_t lfs_frombe16(uint16_t a) {
-#if !defined(LFS_NO_INTRINSICS) && ( \
-    (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_LITTLE_ENDIAN  ) || \
-    (defined(__BYTE_ORDER  ) && __BYTE_ORDER   == __ORDER_LITTLE_ENDIAN  ) || \
-    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
-    return __builtin_bswap16(a);
-#elif !defined(LFS_NO_INTRINSICS) && ( \
-    (defined(  BYTE_ORDER  ) &&   BYTE_ORDER   ==   ORDER_BIG_ENDIAN  ) || \
-    (defined(__BYTE_ORDER  ) && __BYTE_ORDER   == __ORDER_BIG_ENDIAN  ) || \
-    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__))
-    return a;
-#else
-    return (((uint8_t*)&a)[0] <<  8) |
-           (((uint8_t*)&a)[1] <<  0);
-#endif
-}
-
-static inline uint16_t lfs_tobe16(uint16_t a) {
-    return lfs_frombe16(a);
 }
 
 // Calculate CRC-32 with polynomial = 0x04c11db7

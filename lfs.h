@@ -381,12 +381,10 @@ typedef struct lfs {
     } *mlist;
     uint32_t seed;
 
-    struct lfs_globals {
+    struct lfs_gstate {
+        uint32_t tag;
         lfs_block_t pair[2];
-        uint16_t id;
-        bool hasmove;
-        uint8_t orphans;
-    } globals, locals;
+    } gstate, gpending, gdelta;
 
     struct lfs_free {
         lfs_block_t off;
