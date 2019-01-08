@@ -123,6 +123,7 @@ enum lfs_type {
     LFS_TYPE_MOVESTATE      = 0x7ff,
 
     // internal chip sources
+    LFS_FROM_NOOP           = 0x000,
     LFS_FROM_MOVE           = 0x101,
     LFS_FROM_USERATTRS      = 0x102,
 };
@@ -268,7 +269,8 @@ struct lfs_info {
     char name[LFS_NAME_MAX+1];
 };
 
-// Custom attribute structure
+// Custom attribute structure, used to describe custom attributes
+// committed atomically during file writes.
 struct lfs_attr {
     // 8-bit type of attribute, provided by user and used to
     // identify the attribute
@@ -279,9 +281,6 @@ struct lfs_attr {
 
     // Size of attribute in bytes, limited to LFS_ATTR_MAX
     lfs_size_t size;
-
-    // Pointer to next attribute in linked list
-    struct lfs_attr *next;
 };
 
 // Optional configuration provided during lfs_file_opencfg
@@ -290,8 +289,8 @@ struct lfs_file_config {
     // By default lfs_malloc is used to allocate this buffer.
     void *buffer;
 
-    // Optional linked list of custom attributes related to the file. If the
-    // file is opened with read access, the attributes will be read from
+    // Optional list of custom attributes related to the file. If the file
+    // is opened with read access, these attributes will be read from disk
     // during the open call. If the file is opened with write access, the
     // attributes will be written to disk every file sync or close. This
     // write occurs atomically with update to the file's contents.
@@ -302,6 +301,9 @@ struct lfs_file_config {
     // is larger, then it will be silently truncated. If the attribute is not
     // found, it will be created implicitly.
     struct lfs_attr *attrs;
+
+    // Number of custom attributes in the list
+    lfs_size_t attr_count;
 };
 
 
