@@ -51,28 +51,19 @@ typedef uint32_t lfs_block_t;
 #define LFS_NAME_MAX 255
 #endif
 
-// Maximum inline file size in bytes, may be redefined to limit RAM usage,
-// but littlefs will automatically limit the LFS_INLINE_MAX to the
-// configured cache_size. Limited to <= 1022. Stored in superblock and must
-// be respected by other littlefs drivers.
-#ifndef LFS_INLINE_MAX
-#define LFS_INLINE_MAX 1022
-#endif
-
-// Maximum size of custom attributes in bytes, may be redefined, but there is
-// no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022. Stored
-// in superblock and must be respected by other littlefs drivers.
-#ifndef LFS_ATTR_MAX
-#define LFS_ATTR_MAX 1022
-#endif
-
 // Maximum size of a file in bytes, may be redefined to limit to support other
 // drivers. Limited on disk to <= 4294967296. However, above 2147483647 the
 // functions lfs_file_seek, lfs_file_size, and lfs_file_tell will return
-// incorrect values due to signed sizes. Stored in superblock and must be
-// respected by other littlefs drivers.
+// incorrect values due to using signed integers. Stored in superblock and
+// must be respected by other littlefs drivers.
 #ifndef LFS_FILE_MAX
 #define LFS_FILE_MAX 2147483647
+#endif
+
+// Maximum size of custom attributes in bytes, may be redefined, but there is
+// no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022.
+#ifndef LFS_ATTR_MAX
+#define LFS_ATTR_MAX 1022
 #endif
 
 // Possible error codes, these are negative to allow
@@ -234,24 +225,15 @@ struct lfs_config {
     // superblock and must be respected by other littlefs drivers.
     lfs_size_t name_max;
 
-    // Optional upper limit on inlined files in bytes. Inline files must be
-    // backed by RAM, but if a file fits in RAM it can be inlined into its
-    // directory block without needing its own data block. Must be <=
-    // cache_size and LFS_INLINE_MAX. Defaults to min(LFS_INLINE_MAX,
-    // cache_size) when zero. Stored in superblock and must be respected by
-    // other littlefs drivers.
-    lfs_size_t inline_max;
-
-    // Optional upper limit on custom attributes in bytes. No downside for
-    // larger attributes size but must be <= LFS_ATTR_MAX. Defaults to
-    // LFS_ATTR_MAX when zero. Stored in superblock and must be respected by
-    // other littlefs drivers.
-    lfs_size_t attr_max;
-
     // Optional upper limit on files in bytes. No downside for larger files
     // but must be <= LFS_FILE_MAX. Defaults to LFS_FILE_MAX when zero. Stored
     // in superblock and must be respected by other littlefs drivers.
     lfs_size_t file_max;
+
+    // Optional upper limit on custom attributes in bytes. No downside for
+    // larger attributes size but must be <= LFS_ATTR_MAX. Defaults to
+    // LFS_ATTR_MAX when zero.
+    lfs_size_t attr_max;
 };
 
 // File info structure
@@ -362,11 +344,9 @@ typedef struct lfs_superblock {
     uint32_t version;
     lfs_size_t block_size;
     lfs_size_t block_count;
-
     lfs_size_t name_max;
-    lfs_size_t inline_max;
-    lfs_size_t attr_max;
     lfs_size_t file_max;
+    lfs_size_t attr_max;
 } lfs_superblock_t;
 
 // The littlefs filesystem type
@@ -398,9 +378,8 @@ typedef struct lfs {
 
     const struct lfs_config *cfg;
     lfs_size_t name_max;
-    lfs_size_t inline_max;
-    lfs_size_t attr_max;
     lfs_size_t file_max;
+    lfs_size_t attr_max;
 } lfs_t;
 
 
