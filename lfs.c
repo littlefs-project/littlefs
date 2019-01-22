@@ -556,8 +556,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
                 return err;
             }
 
-            memset((uint8_t*)gbuffer + diff, 0,
-                    lfs_tag_size(gtag) - diff);
+            memset((uint8_t*)gbuffer + diff, 0, gsize - diff);
 
             return tag + gdiff;
         }
@@ -1651,6 +1650,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             f->flags &= ~LFS_F_READING;
             f->off = 0;
 
+            lfs_alloc_ack(lfs);
             int err = lfs_file_relocate(lfs, f);
             if (err) {
                 return err;
@@ -2419,7 +2419,6 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
 }
 
 static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
-    lfs_alloc_ack(lfs);
     while (true) {
         // just relocate what exists into new block
         lfs_block_t nblock;
@@ -2490,7 +2489,12 @@ relocate:
 }
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
-    file->flags &= ~LFS_F_READING;
+    if (file->flags & LFS_F_READING) {
+        if (!(file->flags & LFS_F_INLINE)) {
+            lfs_cache_drop(lfs, &file->cache);
+        }
+        file->flags &= ~LFS_F_READING;
+    }
 
     if (file->flags & LFS_F_WRITING) {
         lfs_off_t pos = file->pos;
@@ -2737,6 +2741,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                 lfs->cfg->cache_size, lfs->cfg->block_size/8))) {
         // inline file doesn't fit anymore
         file->off = file->pos;
+        lfs_alloc_ack(lfs);
         int err = lfs_file_relocate(lfs, file);
         if (err) {
             file->flags |= LFS_F_ERRED;
@@ -2832,7 +2837,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         npos = file->ctz.size + off;
     }
 
-    if (npos < 0 || npos > lfs->file_max) {
+    if (npos > lfs->file_max) {
         // file position out of range
         return LFS_ERR_INVAL;
     }
@@ -3370,7 +3375,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             uint16_t minor_version = (0xffff & (superblock.version >>  0));
             if ((major_version != LFS_DISK_VERSION_MAJOR ||
                  minor_version > LFS_DISK_VERSION_MINOR)) {
-                LFS_ERROR("Invalid version %"PRIu32".%"PRIu32,
+                LFS_ERROR("Invalid version %"PRIu16".%"PRIu16,
                         major_version, minor_version);
                 err = LFS_ERR_INVAL;
                 goto cleanup;
@@ -3428,7 +3433,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->gpending.tag += !lfs_tag_isvalid(lfs->gpending.tag);
     lfs->gstate = lfs->gpending;
     if (lfs_gstate_hasmove(&lfs->gstate)) {
-        LFS_DEBUG("Found move %"PRIu32" %"PRIu32" %"PRIu32,
+        LFS_DEBUG("Found move %"PRIu32" %"PRIu32" %"PRIu16,
                 lfs->gstate.pair[0],
                 lfs->gstate.pair[1],
                 lfs_tag_id(lfs->gstate.tag));
@@ -3664,7 +3669,7 @@ static int lfs_fs_demove(lfs_t *lfs) {
     }
 
     // Fix bad moves
-    LFS_DEBUG("Fixing move %"PRIu32" %"PRIu32" %"PRIu32,
+    LFS_DEBUG("Fixing move %"PRIu32" %"PRIu32" %"PRIu16,
             lfs->gstate.pair[0],
             lfs->gstate.pair[1],
             lfs_tag_id(lfs->gstate.tag));
