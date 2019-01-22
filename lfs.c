@@ -365,6 +365,19 @@ static inline bool lfs_gstate_hasmovehere(const struct lfs_gstate *a,
     return lfs_tag_type1(a->tag) && lfs_pair_cmp(a->pair, pair) == 0;
 }
 
+static inline void lfs_gstate_xororphans(struct lfs_gstate *a,
+        const struct lfs_gstate *b, bool orphans) {
+    a->tag ^= LFS_MKTAG(0x800, 0, 0) & (b->tag ^ (orphans << 31));
+}
+
+static inline void lfs_gstate_xormove(struct lfs_gstate *a,
+        const struct lfs_gstate *b, uint16_t id, const lfs_block_t pair[2]) {
+    a->tag ^= LFS_MKTAG(0x7ff, 0x3ff, 0) & (b->tag ^ (
+            (id != 0x3ff) ? LFS_MKTAG(LFS_TYPE_DELETE, id, 0) : 0));
+    a->pair[0] ^= b->pair[0] ^ ((id != 0x3ff) ? pair[0] : 0);
+    a->pair[1] ^= b->pair[1] ^ ((id != 0x3ff) ? pair[1] : 0);
+}
+
 static inline void lfs_gstate_fromle32(struct lfs_gstate *a) {
     a->tag     = lfs_fromle32(a->tag);
     a->pair[0] = lfs_fromle32(a->pair[0]);
@@ -982,6 +995,7 @@ static int lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
 
     if (res != LFS_ERR_NOENT) {
         // xor together to find resulting gstate
+        lfs_gstate_fromle32(&temp);
         lfs_gstate_xor(gstate, &temp);
     }
 
@@ -1548,17 +1562,14 @@ static int lfs_dir_compact(lfs_t *lfs,
                 }
             }
 
-            // need to update gstate now that we've acknowledged moves
-            if (lfs_gstate_hasmovehere(&lfs->gpending, dir->pair)) {
-                lfs_fs_prepmove(lfs, 0x3ff, NULL);
-            }
-
             if (!relocated && !lfs_gstate_iszero(&lfs->gdelta)) {
                 // commit any globals, unless we're relocating,
                 // in which case our parent will steal our globals
+                lfs_gstate_tole32(&lfs->gdelta);
                 err = lfs_dir_commitattr(lfs, &commit,
                         LFS_MKTAG(LFS_TYPE_MOVESTATE, 0x3ff,
                             sizeof(lfs->gdelta)), &lfs->gdelta);
+                lfs_gstate_fromle32(&lfs->gdelta);
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
@@ -1581,6 +1592,12 @@ static int lfs_dir_compact(lfs_t *lfs,
             dir->off = commit.off;
             dir->etag = commit.ptag;
             dir->erased = true;
+            // note we able to have already handled move here
+            if (lfs_gstate_hasmovehere(&lfs->gpending, dir->pair)) {
+                lfs_gstate_xormove(&lfs->gpending,
+                    &lfs->gpending, 0x3ff, NULL);
+            }
+
         }
         break;
 
@@ -1670,6 +1687,9 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         deletetag = lfs->gpending.tag & LFS_MKTAG(0x7ff, 0x3ff, 0);
         LFS_ASSERT(dir->count > 0);
         dir->count -= 1;
+
+        // mark gdelta so we reflect the move we will fix
+        lfs_gstate_xormove(&lfs->gdelta, &lfs->gpending, 0x3ff, NULL);
     }
 
     // should we actually drop the directory block?
@@ -1712,11 +1732,6 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             return err;
         }
 
-        // need to update gstate now that we've acknowledged moves
-        if (lfs_gstate_hasmovehere(&lfs->gpending, dir->pair)) {
-            lfs_fs_prepmove(lfs, 0x3ff, NULL);
-        }
-
         // commit any global diffs if we have any
         if (!lfs_gstate_iszero(&lfs->gdelta)) {
             err = lfs_dir_getgstate(lfs, dir, &lfs->gdelta);
@@ -1724,9 +1739,11 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
                 return err;
             }
 
+            lfs_gstate_tole32(&lfs->gdelta);
             err = lfs_dir_commitattr(lfs, &commit,
                     LFS_MKTAG(LFS_TYPE_MOVESTATE, 0x3ff,
                         sizeof(lfs->gdelta)), &lfs->gdelta);
+            lfs_gstate_fromle32(&lfs->gdelta);
             if (err) {
                 if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
                     goto compact;
@@ -1747,7 +1764,13 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         // successful commit, update dir
         dir->off = commit.off;
         dir->etag = commit.ptag;
-        // successful commit, update gstate
+
+        // note we able to have already handled move here
+        if (lfs_gstate_hasmovehere(&lfs->gpending, dir->pair)) {
+            lfs_gstate_xormove(&lfs->gpending, &lfs->gpending, 0x3ff, NULL);
+        }
+
+        // update gstate
         lfs->gstate = lfs->gpending;
         lfs->gdelta = (struct lfs_gstate){0};
     } else {
@@ -3402,7 +3425,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // update littlefs with gstate
-    lfs_gstate_fromle32(&lfs->gpending);
+    lfs->gpending.tag += !lfs_tag_isvalid(lfs->gpending.tag);
     lfs->gstate = lfs->gpending;
     if (lfs_gstate_hasmove(&lfs->gstate)) {
         LFS_DEBUG("Found move %"PRIu32" %"PRIu32" %"PRIu32,
@@ -3621,34 +3644,17 @@ static int lfs_fs_relocate(lfs_t *lfs,
 }
 
 static void lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
-    lfs_gstate_fromle32(&lfs->gdelta);
-    lfs->gdelta.tag ^= lfs_gstate_hasorphans(&lfs->gpending);
-
     lfs->gpending.tag += orphans;
-
-    lfs->gdelta.tag ^= lfs_gstate_hasorphans(&lfs->gpending);
-    lfs_gstate_tole32(&lfs->gdelta);
+    lfs_gstate_xororphans(&lfs->gdelta,   &lfs->gpending,
+            lfs_gstate_hasorphans(&lfs->gpending));
+    lfs_gstate_xororphans(&lfs->gpending, &lfs->gpending,
+            lfs_gstate_hasorphans(&lfs->gpending));
 }
 
 static void lfs_fs_prepmove(lfs_t *lfs,
         uint16_t id, const lfs_block_t pair[2]) {
-    lfs_gstate_fromle32(&lfs->gdelta);
-    lfs_gstate_xor(&lfs->gdelta, &lfs->gpending);
-
-    if (id != 0x3ff) {
-        lfs->gpending.tag = LFS_MKTAG(LFS_TYPE_DELETE, id,
-                lfs_gstate_getorphans(&lfs->gpending));
-        lfs->gpending.pair[0] = pair[0];
-        lfs->gpending.pair[1] = pair[1];
-    } else {
-        lfs->gpending.tag = LFS_MKTAG(0, 0,
-                lfs_gstate_getorphans(&lfs->gpending));
-        lfs->gpending.pair[0] = 0;
-        lfs->gpending.pair[1] = 0;
-    }
-
-    lfs_gstate_xor(&lfs->gdelta, &lfs->gpending);
-    lfs_gstate_tole32(&lfs->gdelta);
+    lfs_gstate_xormove(&lfs->gdelta,   &lfs->gpending, id, pair);
+    lfs_gstate_xormove(&lfs->gpending, &lfs->gpending, id, pair);
 }
 
 
