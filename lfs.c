@@ -2259,6 +2259,7 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
     lfs_entry_t entry;
     lfs_block_t cwd[2] = {0, 1};
 
+    lfs_block_t dirs = 0;
     while (true) {
         for (int i = 0; i < 2; i++) {
             int err = cb(data, cwd[i]);
@@ -2296,6 +2297,11 @@ int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data) {
 
         if (lfs_pairisnull(cwd)) {
             break;
+        }
+        if (dirs++ >= lfs->cfg->block_count) {
+            // If we reached here, we have more directory pairs than blocks in the
+            // filesystem... So something must be horribly wrong
+            return LFS_ERR_CORRUPT;
         }
     }
 
