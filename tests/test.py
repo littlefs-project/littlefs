@@ -28,7 +28,7 @@ def generate(test):
     # Remove build artifacts to force rebuild
     try:
         os.remove('test.o')
-        os.remove('lfs')
+        os.remove('lfs2')
     except OSError:
         pass
 
@@ -39,9 +39,9 @@ def compile():
 
 def execute():
     if 'EXEC' in os.environ:
-        subprocess.check_call([os.environ['EXEC'], "./lfs"])
+        subprocess.check_call([os.environ['EXEC'], "./lfs2"])
     else:
-        subprocess.check_call(["./lfs"])
+        subprocess.check_call(["./lfs2"])
 
 def main(test=None):
     if test and not test.startswith('-'):

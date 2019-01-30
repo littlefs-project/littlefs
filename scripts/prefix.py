@@ -5,7 +5,7 @@
 # conflict at compile time.
 #
 # example:
-# $ ./scripts/prefix.py lfs2
+# $ ./scripts/prefix.py lfs22
 
 import os
 import os.path
@@ -16,7 +16,7 @@ import tempfile
 import shutil
 import subprocess
 
-DEFAULT_PREFIX = "lfs"
+DEFAULT_PREFIX = "lfs2"
 
 def subn(from_prefix, to_prefix, name):
     name, count1 = re.subn('\\b'+from_prefix, to_prefix, name)

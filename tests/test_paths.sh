@@ -4,165 +4,165 @@ set -eu
 echo "=== Path tests ==="
 rm -rf blocks
 tests/test.py << TEST
-    lfs_format(&lfs, &cfg) => 0;
+    lfs2_format(&lfs2, &cfg) => 0;
 TEST
 
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_mkdir(&lfs, "tea") => 0;
-    lfs_mkdir(&lfs, "coffee") => 0;
-    lfs_mkdir(&lfs, "soda") => 0;
-    lfs_mkdir(&lfs, "tea/hottea") => 0;
-    lfs_mkdir(&lfs, "tea/warmtea") => 0;
-    lfs_mkdir(&lfs, "tea/coldtea") => 0;
-    lfs_mkdir(&lfs, "coffee/hotcoffee") => 0;
-    lfs_mkdir(&lfs, "coffee/warmcoffee") => 0;
-    lfs_mkdir(&lfs, "coffee/coldcoffee") => 0;
-    lfs_mkdir(&lfs, "soda/hotsoda") => 0;
-    lfs_mkdir(&lfs, "soda/warmsoda") => 0;
-    lfs_mkdir(&lfs, "soda/coldsoda") => 0;
-    lfs_unmount(&lfs) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "tea") => 0;
+    lfs2_mkdir(&lfs2, "coffee") => 0;
+    lfs2_mkdir(&lfs2, "soda") => 0;
+    lfs2_mkdir(&lfs2, "tea/hottea") => 0;
+    lfs2_mkdir(&lfs2, "tea/warmtea") => 0;
+    lfs2_mkdir(&lfs2, "tea/coldtea") => 0;
+    lfs2_mkdir(&lfs2, "coffee/hotcoffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/warmcoffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/coldcoffee") => 0;
+    lfs2_mkdir(&lfs2, "soda/hotsoda") => 0;
+    lfs2_mkdir(&lfs2, "soda/warmsoda") => 0;
+    lfs2_mkdir(&lfs2, "soda/coldsoda") => 0;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Root path tests ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_stat(&lfs, "tea/hottea", &info) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "/tea/hottea", &info) => 0;
+    lfs2_stat(&lfs2, "/tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
 
-    lfs_mkdir(&lfs, "/milk1") => 0;
-    lfs_stat(&lfs, "/milk1", &info) => 0;
+    lfs2_mkdir(&lfs2, "/milk1") => 0;
+    lfs2_stat(&lfs2, "/milk1", &info) => 0;
     strcmp(info.name, "milk1") => 0;
-    lfs_unmount(&lfs) => 0;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Redundant slash path tests ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_stat(&lfs, "/tea/hottea", &info) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "/tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "//tea//hottea", &info) => 0;
+    lfs2_stat(&lfs2, "//tea//hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "///tea///hottea", &info) => 0;
+    lfs2_stat(&lfs2, "///tea///hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
 
-    lfs_mkdir(&lfs, "///milk2") => 0;
-    lfs_stat(&lfs, "///milk2", &info) => 0;
+    lfs2_mkdir(&lfs2, "///milk2") => 0;
+    lfs2_stat(&lfs2, "///milk2", &info) => 0;
     strcmp(info.name, "milk2") => 0;
-    lfs_unmount(&lfs) => 0;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Dot path tests ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_stat(&lfs, "./tea/hottea", &info) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "./tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "/./tea/hottea", &info) => 0;
+    lfs2_stat(&lfs2, "/./tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "/././tea/hottea", &info) => 0;
+    lfs2_stat(&lfs2, "/././tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "/./tea/./hottea", &info) => 0;
+    lfs2_stat(&lfs2, "/./tea/./hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
 
-    lfs_mkdir(&lfs, "/./milk3") => 0;
-    lfs_stat(&lfs, "/./milk3", &info) => 0;
+    lfs2_mkdir(&lfs2, "/./milk3") => 0;
+    lfs2_stat(&lfs2, "/./milk3", &info) => 0;
     strcmp(info.name, "milk3") => 0;
-    lfs_unmount(&lfs) => 0;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Dot dot path tests ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_stat(&lfs, "coffee/../tea/hottea", &info) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "coffee/../tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "tea/coldtea/../hottea", &info) => 0;
+    lfs2_stat(&lfs2, "tea/coldtea/../hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "coffee/coldcoffee/../../tea/hottea", &info) => 0;
+    lfs2_stat(&lfs2, "coffee/coldcoffee/../../tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "coffee/../soda/../tea/hottea", &info) => 0;
+    lfs2_stat(&lfs2, "coffee/../soda/../tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
 
-    lfs_mkdir(&lfs, "coffee/../milk4") => 0;
-    lfs_stat(&lfs, "coffee/../milk4", &info) => 0;
+    lfs2_mkdir(&lfs2, "coffee/../milk4") => 0;
+    lfs2_stat(&lfs2, "coffee/../milk4", &info) => 0;
     strcmp(info.name, "milk4") => 0;
-    lfs_unmount(&lfs) => 0;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Trailing dot path tests ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_stat(&lfs, "tea/hottea/", &info) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "tea/hottea/", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "tea/hottea/.", &info) => 0;
+    lfs2_stat(&lfs2, "tea/hottea/.", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "tea/hottea/./.", &info) => 0;
+    lfs2_stat(&lfs2, "tea/hottea/./.", &info) => 0;
     strcmp(info.name, "hottea") => 0;
-    lfs_stat(&lfs, "tea/hottea/..", &info) => 0;
+    lfs2_stat(&lfs2, "tea/hottea/..", &info) => 0;
     strcmp(info.name, "tea") => 0;
-    lfs_stat(&lfs, "tea/hottea/../.", &info) => 0;
+    lfs2_stat(&lfs2, "tea/hottea/../.", &info) => 0;
     strcmp(info.name, "tea") => 0;
-    lfs_unmount(&lfs) => 0;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Root dot dot path tests ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_stat(&lfs, "coffee/../../../../../../tea/hottea", &info) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "coffee/../../../../../../tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
 
-    lfs_mkdir(&lfs, "coffee/../../../../../../milk5") => 0;
-    lfs_stat(&lfs, "coffee/../../../../../../milk5", &info) => 0;
+    lfs2_mkdir(&lfs2, "coffee/../../../../../../milk5") => 0;
+    lfs2_stat(&lfs2, "coffee/../../../../../../milk5", &info) => 0;
     strcmp(info.name, "milk5") => 0;
-    lfs_unmount(&lfs) => 0;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Root tests ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_stat(&lfs, "/", &info) => 0;
-    info.type => LFS_TYPE_DIR;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "/", &info) => 0;
+    info.type => LFS2_TYPE_DIR;
     strcmp(info.name, "/") => 0;
 
-    lfs_mkdir(&lfs, "/") => LFS_ERR_EXIST;
-    lfs_file_open(&lfs, &file[0], "/", LFS_O_WRONLY | LFS_O_CREAT)
-        => LFS_ERR_ISDIR;
-    lfs_unmount(&lfs) => 0;
+    lfs2_mkdir(&lfs2, "/") => LFS2_ERR_EXIST;
+    lfs2_file_open(&lfs2, &file[0], "/", LFS2_O_WRONLY | LFS2_O_CREAT)
+        => LFS2_ERR_ISDIR;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Sketchy path tests ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_mkdir(&lfs, "dirt/ground") => LFS_ERR_NOENT;
-    lfs_mkdir(&lfs, "dirt/ground/earth") => LFS_ERR_NOENT;
-    lfs_unmount(&lfs) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "dirt/ground") => LFS2_ERR_NOENT;
+    lfs2_mkdir(&lfs2, "dirt/ground/earth") => LFS2_ERR_NOENT;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Superblock conflict test ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_mkdir(&lfs, "littlefs") => 0;
-    lfs_remove(&lfs, "littlefs") => 0;
-    lfs_unmount(&lfs) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "littlefs") => 0;
+    lfs2_remove(&lfs2, "littlefs") => 0;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Max path test ---"
 tests/test.py << TEST
-    lfs_mount(&lfs, &cfg) => 0;
-    memset(buffer, 'w', LFS_NAME_MAX+1);
-    buffer[LFS_NAME_MAX+2] = '\0';
-    lfs_mkdir(&lfs, (char*)buffer) => LFS_ERR_NAMETOOLONG;
-    lfs_file_open(&lfs, &file[0], (char*)buffer,
-            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_NAMETOOLONG;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    memset(buffer, 'w', LFS2_NAME_MAX+1);
+    buffer[LFS2_NAME_MAX+2] = '\0';
+    lfs2_mkdir(&lfs2, (char*)buffer) => LFS2_ERR_NAMETOOLONG;
+    lfs2_file_open(&lfs2, &file[0], (char*)buffer,
+            LFS2_O_WRONLY | LFS2_O_CREAT) => LFS2_ERR_NAMETOOLONG;
 
     memcpy(buffer, "coffee/", strlen("coffee/"));
-    memset(buffer+strlen("coffee/"), 'w', LFS_NAME_MAX+1);
-    buffer[strlen("coffee/")+LFS_NAME_MAX+2] = '\0';
-    lfs_mkdir(&lfs, (char*)buffer) => LFS_ERR_NAMETOOLONG;
-    lfs_file_open(&lfs, &file[0], (char*)buffer,
-            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_NAMETOOLONG;
-    lfs_unmount(&lfs) => 0;
+    memset(buffer+strlen("coffee/"), 'w', LFS2_NAME_MAX+1);
+    buffer[strlen("coffee/")+LFS2_NAME_MAX+2] = '\0';
+    lfs2_mkdir(&lfs2, (char*)buffer) => LFS2_ERR_NAMETOOLONG;
+    lfs2_file_open(&lfs2, &file[0], (char*)buffer,
+            LFS2_O_WRONLY | LFS2_O_CREAT) => LFS2_ERR_NAMETOOLONG;
+    lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Results ---"
