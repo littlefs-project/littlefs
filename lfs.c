@@ -1316,14 +1316,13 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
     int err = lfs_bd_read(lfs,
             NULL, &lfs->rcache, sizeof(dir->rev),
             dir->pair[0], 0, &dir->rev, sizeof(dir->rev));
-    if (err) {
-        return err;
-    }
-
     dir->rev = lfs_fromle32(dir->rev);
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
     }
+
+    // make sure we don't immediately evict
+    dir->rev += dir->rev & 1;
 
     // set defaults
     dir->off = sizeof(dir->rev);
@@ -1457,7 +1456,8 @@ static int lfs_dir_compact(lfs_t *lfs,
 
     // increment revision count
     dir->rev += 1;
-    if (lfs->cfg->block_cycles && dir->rev % lfs->cfg->block_cycles == 0) {
+    if (lfs->cfg->block_cycles &&
+            (dir->rev % (lfs->cfg->block_cycles+1) == 0)) {
         if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
             // oh no! we're writing too much to the superblock,
             // should we expand?
