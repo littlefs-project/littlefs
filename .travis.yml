@@ -18,16 +18,16 @@ script:
   - make test QUIET=1
 
   # run tests with a few different configurations
-  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=1      -DLFS_PROG_SIZE=1"
-  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=512    -DLFS_PROG_SIZE=512"
-  - make test QUIET=1 CFLAGS+="-DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD=2048"
+  - make test QUIET=1 CFLAGS+="-DLFS1_READ_SIZE=1      -DLFS1_PROG_SIZE=1"
+  - make test QUIET=1 CFLAGS+="-DLFS1_READ_SIZE=512    -DLFS1_PROG_SIZE=512"
+  - make test QUIET=1 CFLAGS+="-DLFS1_BLOCK_COUNT=1023 -DLFS1_LOOKAHEAD=2048"
 
-  - make clean test QUIET=1 CFLAGS+="-DLFS_NO_INTRINSICS"
+  - make clean test QUIET=1 CFLAGS+="-DLFS1_NO_INTRINSICS"
 
   # compile and find the code size with the smallest configuration
   - make clean size
-        OBJ="$(ls lfs*.o | tr '\n' ' ')"
-        CFLAGS+="-DLFS_NO_ASSERT -DLFS_NO_DEBUG -DLFS_NO_WARN -DLFS_NO_ERROR"
+        OBJ="$(ls lfs1*.o | tr '\n' ' ')"
+        CFLAGS+="-DLFS1_NO_ASSERT -DLFS1_NO_DEBUG -DLFS1_NO_WARN -DLFS1_NO_ERROR"
         | tee sizes
 
   # update status if we succeeded, compare with master if possible
@@ -95,61 +95,28 @@ jobs:
         - mips-linux-gnu-gcc --version
         - qemu-mips -version
 
-    # self-host with littlefs-fuse for fuzz test
-    - stage: test
-      env:
-        - STAGE=test
-        - NAME=littlefs-fuse
-      install:
-        - sudo apt-get install libfuse-dev
-        - git clone --depth 1 https://github.com/geky/littlefs-fuse
-        - fusermount -V
-        - gcc --version
-      before_script:
-        # setup disk for littlefs-fuse
-        - rm -rf littlefs-fuse/littlefs/*
-        - cp -r $(git ls-tree --name-only HEAD) littlefs-fuse/littlefs
-
-        - mkdir mount
-        - sudo chmod a+rw /dev/loop0
-        - dd if=/dev/zero bs=512 count=2048 of=disk
-        - losetup /dev/loop0 disk
-      script:
-        # self-host test
-        - make -C littlefs-fuse
-
-        - littlefs-fuse/lfs --format /dev/loop0
-        - littlefs-fuse/lfs /dev/loop0 mount
-
-        - ls mount
-        - mkdir mount/littlefs
-        - cp -r $(git ls-tree --name-only HEAD) mount/littlefs
-        - cd mount/littlefs
-        - ls
-        - make -B test_dirs test_files QUIET=1
-
       # Automatically update releases
     - stage: deploy
       env:
         - STAGE=deploy
         - NAME=deploy
       script:
-        # Find version defined in lfs.h
-        - LFS_VERSION=$(grep -ox '#define LFS_VERSION .*' lfs.h | cut -d ' ' -f3)
-        - LFS_VERSION_MAJOR=$((0xffff & ($LFS_VERSION >> 16)))
-        - LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
+        # Find version defined in lfs1.h
+        - LFS1_VERSION=$(grep -ox '#define LFS1_VERSION .*' lfs1.h | cut -d ' ' -f3)
+        - LFS1_VERSION_MAJOR=$((0xffff & ($LFS1_VERSION >> 16)))
+        - LFS1_VERSION_MINOR=$((0xffff & ($LFS1_VERSION >>  0)))
         # Grab latests patch from repo tags, default to 0, needs finagling to get past github's pagination api
-        - PREV_URL=https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR.
+        - PREV_URL=https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/v$LFS1_VERSION_MAJOR.$LFS1_VERSION_MINOR.
         - PREV_URL=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL" -I
                 | sed -n '/^Link/{s/.*<\(.*\)>; rel="last"/\1/;p;q0};$q1'
                 || echo $PREV_URL)
-        - LFS_VERSION_PATCH=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL"
+        - LFS1_VERSION_PATCH=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL"
                 | jq 'map(.ref | match("\\bv.*\\..*\\.(.*)$";"g")
                     .captures[].string | tonumber) | max + 1'
                 || echo 0)
         # We have our new version
-        - LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR.$LFS_VERSION_PATCH"
-        - echo "VERSION $LFS_VERSION"
+        - LFS1_VERSION="v$LFS1_VERSION_MAJOR.$LFS1_VERSION_MINOR.$LFS1_VERSION_PATCH"
+        - echo "VERSION $LFS1_VERSION"
         - |
           # Check that we're the most recent commit
           CURRENT_COMMIT=$(curl -f -u "$GEKY_BOT_RELEASES" \
@@ -161,11 +128,11 @@ jobs:
             curl -f -u "$GEKY_BOT_RELEASES" -X POST \
                 https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs \
                 -d "{
-                    \"ref\": \"refs/tags/$LFS_VERSION\",
+                    \"ref\": \"refs/tags/$LFS1_VERSION\",
                     \"sha\": \"$TRAVIS_COMMIT\"
                 }"
             # Minor release?
-            if [[ "$LFS_VERSION" == *.0 ]]
+            if [[ "$LFS1_VERSION" == *.0 ]]
             then
               # Build release notes
               PREV=$(git tag --sort=-v:refname -l "v*.0" | head -1)
@@ -180,8 +147,8 @@ jobs:
               curl -f -u "$GEKY_BOT_RELEASES" -X POST \
                   https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases \
                   -d "{
-                      \"tag_name\": \"$LFS_VERSION\",
-                      \"name\": \"${LFS_VERSION%.0}\",
+                      \"tag_name\": \"$LFS1_VERSION\",
+                      \"name\": \"${LFS1_VERSION%.0}\",
                       \"draft\": true,
                       \"body\": $(jq -sR '.' <<< "$CHANGES")
                   }"

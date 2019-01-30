@@ -1,6 +1,6 @@
-TARGET = lfs.a
+TARGET = lfs1.a
 ifneq ($(wildcard test.c main.c),)
-override TARGET = lfs
+override TARGET = lfs1
 endif
 
 CC ?= gcc
@@ -50,7 +50,7 @@ endif
 
 -include $(DEP)
 
-lfs: $(OBJ)
+lfs1: $(OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
 %.a: $(OBJ)

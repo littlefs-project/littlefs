@@ -30,14 +30,14 @@ main runs. The program can be interrupted at any time without losing track
 of how many times it has been booted and without corrupting the filesystem:
 
 ``` c
-#include "lfs.h"
+#include "lfs1.h"
 
 // variables used by the filesystem
-lfs_t lfs;
-lfs_file_t file;
+lfs1_t lfs1;
+lfs1_file_t file;
 
 // configuration of the filesystem is provided by this struct
-const struct lfs_config cfg = {
+const struct lfs1_config cfg = {
     // block device operations
     .read  = user_provided_block_device_read,
     .prog  = user_provided_block_device_prog,
@@ -55,30 +55,30 @@ const struct lfs_config cfg = {
 // entry point
 int main(void) {
     // mount the filesystem
-    int err = lfs_mount(&lfs, &cfg);
+    int err = lfs1_mount(&lfs1, &cfg);
 
     // reformat if we can't mount the filesystem
     // this should only happen on the first boot
     if (err) {
-        lfs_format(&lfs, &cfg);
-        lfs_mount(&lfs, &cfg);
+        lfs1_format(&lfs1, &cfg);
+        lfs1_mount(&lfs1, &cfg);
     }
 
     // read current count
     uint32_t boot_count = 0;
-    lfs_file_open(&lfs, &file, "boot_count", LFS_O_RDWR | LFS_O_CREAT);
-    lfs_file_read(&lfs, &file, &boot_count, sizeof(boot_count));
+    lfs1_file_open(&lfs1, &file, "boot_count", LFS1_O_RDWR | LFS1_O_CREAT);
+    lfs1_file_read(&lfs1, &file, &boot_count, sizeof(boot_count));
 
     // update boot count
     boot_count += 1;
-    lfs_file_rewind(&lfs, &file);
-    lfs_file_write(&lfs, &file, &boot_count, sizeof(boot_count));
+    lfs1_file_rewind(&lfs1, &file);
+    lfs1_file_write(&lfs1, &file, &boot_count, sizeof(boot_count));
 
     // remember the storage is not updated until the file is closed successfully
-    lfs_file_close(&lfs, &file);
+    lfs1_file_close(&lfs1, &file);
 
     // release any resources we were using
-    lfs_unmount(&lfs);
+    lfs1_unmount(&lfs1);
 
     // print the boot count
     printf("boot_count: %d\n", boot_count);
@@ -88,7 +88,7 @@ int main(void) {
 ## Usage
 
 Detailed documentation (or at least as much detail as is currently available)
-can be found in the comments in [lfs.h](lfs.h).
+can be found in the comments in [lfs1.h](lfs1.h).
 
 As you may have noticed, littlefs takes in a configuration structure that
 defines how the filesystem operates. The configuration struct provides the
@@ -96,9 +96,9 @@ filesystem with the block device operations and dimensions, tweakable
 parameters that tradeoff memory usage for performance, and optional
 static buffers if the user wants to avoid dynamic memory.
 
-The state of the littlefs is stored in the `lfs_t` type which is left up
+The state of the littlefs is stored in the `lfs1_t` type which is left up
 to the user to allocate, allowing multiple filesystems to be in use
-simultaneously. With the `lfs_t` and configuration struct, a user can
+simultaneously. With the `lfs1_t` and configuration struct, a user can
 format a block device or mount the filesystem.
 
 Once mounted, the littlefs provides a full set of POSIX-like file and
@@ -112,11 +112,11 @@ filesystem until sync or close is called on the file.
 ## Other notes
 
 All littlefs calls have the potential to return a negative error code. The 
-errors can be either one of those found in the `enum lfs_error` in 
-[lfs.h](lfs.h), or an error returned by the user's block device operations.
+errors can be either one of those found in the `enum lfs1_error` in 
+[lfs1.h](lfs1.h), or an error returned by the user's block device operations.
 
 In the configuration struct, the `prog` and `erase` function provided by the
-user may return a `LFS_ERR_CORRUPT` error if the implementation already can
+user may return a `LFS1_ERR_CORRUPT` error if the implementation already can
 detect corrupt blocks. However, the wear leveling does not depend on the return
 code of these functions, instead all data is read back and checked for
 integrity.
@@ -139,7 +139,7 @@ with all the nitty-gritty details. Can be useful for developing tooling.
 ## Testing
 
 The littlefs comes with a test suite designed to run on a PC using the
-[emulated block device](emubd/lfs_emubd.h) found in the emubd directory.
+[emulated block device](emubd/lfs1_emubd.h) found in the emubd directory.
 The tests assume a Linux environment and can be started with make:
 
 ``` bash
