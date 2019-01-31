@@ -1414,7 +1414,8 @@ static int lfs_dir_compact(lfs_t *lfs,
     bool relocated = false;
     bool exhausted = false;
 
-    while (true) {
+    // should we split?
+    while (end - begin > 1) {
         // find size
         lfs_size_t size = 0;
         int err = lfs_dir_traverse(lfs,
@@ -1429,7 +1430,7 @@ static int lfs_dir_compact(lfs_t *lfs,
 
         // space is complicated, we need room for tail, crc, gstate,
         // cleanup delete, and we cap at half a block to give room
-        // for metadata updates
+        // for metadata updates.
         if (size <= lfs_min(lfs->cfg->block_size - 36,
                 lfs_alignup(lfs->cfg->block_size/2, lfs->cfg->prog_size))) {
             break;

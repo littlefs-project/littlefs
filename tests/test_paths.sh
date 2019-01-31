@@ -165,5 +165,29 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
+echo "--- Really big path test ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    memset(buffer, 'w', LFS_NAME_MAX);
+    buffer[LFS_NAME_MAX+1] = '\0';
+    lfs_mkdir(&lfs, (char*)buffer) => 0;
+    lfs_remove(&lfs, (char*)buffer) => 0;
+    lfs_file_open(&lfs, &file[0], (char*)buffer,
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_remove(&lfs, (char*)buffer) => 0;
+
+    memcpy(buffer, "coffee/", strlen("coffee/"));
+    memset(buffer+strlen("coffee/"), 'w', LFS_NAME_MAX);
+    buffer[strlen("coffee/")+LFS_NAME_MAX+1] = '\0';
+    lfs_mkdir(&lfs, (char*)buffer) => 0;
+    lfs_remove(&lfs, (char*)buffer) => 0;
+    lfs_file_open(&lfs, &file[0], (char*)buffer,
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_remove(&lfs, (char*)buffer) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
 echo "--- Results ---"
 tests/stats.py
