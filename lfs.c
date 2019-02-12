@@ -765,7 +765,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
     lfs_stag_t besttag = -1;
 
     // find the block with the most recent revision
-    uint32_t revs[2];
+    uint32_t revs[2] = {0, 0};
     int r = 0;
     for (int i = 0; i < 2; i++) {
         int err = lfs_bd_read(lfs,
@@ -776,7 +776,8 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             return err;
         }
 
-        if (lfs_scmp(revs[i], revs[(i+1)%2]) > 0 || err == LFS_ERR_CORRUPT) {
+        if (err != LFS_ERR_CORRUPT &&
+                lfs_scmp(revs[i], revs[(i+1)%2]) > 0) {
             r = i;
         }
     }
@@ -2944,8 +2945,8 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
-    if (tag < 0) {
-        return tag;
+    if (tag < 0 || lfs_tag_id(tag) == 0x3ff) {
+        return (tag < 0) ? tag : LFS_ERR_INVAL;
     }
 
     lfs_mdir_t dir;
@@ -3007,16 +3008,17 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     // find old entry
     lfs_mdir_t oldcwd;
     lfs_stag_t oldtag = lfs_dir_find(lfs, &oldcwd, &oldpath, NULL);
-    if (oldtag < 0) {
-        return oldtag;
+    if (oldtag < 0 || lfs_tag_id(oldtag) == 0x3ff) {
+        return (oldtag < 0) ? oldtag : LFS_ERR_INVAL;
     }
 
     // find new entry
     lfs_mdir_t newcwd;
     uint16_t newid;
     lfs_stag_t prevtag = lfs_dir_find(lfs, &newcwd, &newpath, &newid);
-    if (prevtag < 0 && !(prevtag == LFS_ERR_NOENT && newid != 0x3ff)) {
-        return err;
+    if ((prevtag < 0 || lfs_tag_id(prevtag) == 0x3ff) &&
+            !(prevtag == LFS_ERR_NOENT && newid != 0x3ff)) {
+        return (prevtag < 0) ? prevtag : LFS_ERR_INVAL;
     }
 
     lfs_mdir_t prevdir;
@@ -3186,6 +3188,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     // check that the block size is large enough to fit ctz pointers
     LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
+
+    // we don't support some corner cases
+    LFS_ASSERT(lfs->cfg->block_cycles < 0xffffffff);
 
     // setup read cache
     if (lfs->cfg->read_buffer) {

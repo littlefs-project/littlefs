@@ -128,6 +128,14 @@ tests/test.py << TEST
     lfs_mkdir(&lfs, "/") => LFS_ERR_EXIST;
     lfs_file_open(&lfs, &file[0], "/", LFS_O_WRONLY | LFS_O_CREAT)
         => LFS_ERR_ISDIR;
+
+    // more corner cases
+    lfs_remove(&lfs, "") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, ".") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "..") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "/") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "//") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "./") => LFS_ERR_INVAL;
     lfs_unmount(&lfs) => 0;
 TEST
 
