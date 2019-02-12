@@ -26,7 +26,9 @@ override CFLAGS += -m$(WORD)
 endif
 override CFLAGS += -I.
 override CFLAGS += -std=c99 -Wall -pedantic
-override CFLAGS += -Wshadow -Wunused-parameter -Wjump-misses-init -Wsign-compare
+override CFLAGS += -Wextra -Wshadow -Wjump-misses-init
+# Remove missing-field-initializers because of GCC bug
+override CFLAGS += -Wno-missing-field-initializers
 
 
 all: $(TARGET)

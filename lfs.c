@@ -1889,7 +1889,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     // now insert into our parent block
     lfs_pair_tole32(dir.pair);
     err = lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
-            {LFS_MKTAG(LFS_TYPE_CREATE, id, 0)},
+            {LFS_MKTAG(LFS_TYPE_CREATE, id, 0), NULL},
             {LFS_MKTAG(LFS_TYPE_DIR, id, nlen), path},
             {LFS_MKTAG(LFS_TYPE_DIRSTRUCT, id, 8), dir.pair},
             {!cwd.split
@@ -2296,9 +2296,9 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
         // get next slot and create entry to remember name
         err = lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
-                {LFS_MKTAG(LFS_TYPE_CREATE, file->id, 0)},
+                {LFS_MKTAG(LFS_TYPE_CREATE, file->id, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_REG, file->id, nlen), path},
-                {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0)}));
+                {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0), NULL}));
         if (err) {
             err = LFS_ERR_NAMETOOLONG;
             goto cleanup;
@@ -2975,7 +2975,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 
     // delete the entry
     err = lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
-            {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(tag), 0)}));
+            {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(tag), 0), NULL}));
     if (err) {
         return err;
     }
@@ -3070,8 +3070,8 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     err = lfs_dir_commit(lfs, &newcwd, LFS_MKATTRS(
             {prevtag != LFS_ERR_NOENT
                 ? LFS_MKTAG(LFS_TYPE_DELETE, newid, 0)
-                : LFS_MKTAG(LFS_FROM_NOOP, 0, 0)},
-            {LFS_MKTAG(LFS_TYPE_CREATE, newid, 0)},
+                : LFS_MKTAG(LFS_FROM_NOOP, 0, 0), NULL},
+            {LFS_MKTAG(LFS_TYPE_CREATE, newid, 0), NULL},
             {LFS_MKTAG(lfs_tag_type3(oldtag), newid, strlen(newpath)),
                 newpath},
             {LFS_MKTAG(LFS_FROM_MOVE, newid, lfs_tag_id(oldtag)), &oldcwd}));
@@ -3318,7 +3318,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
         lfs_superblock_tole32(&superblock);
         err = lfs_dir_commit(lfs, &root, LFS_MKATTRS( 
-                {LFS_MKTAG(LFS_TYPE_CREATE, 0, 0)},
+                {LFS_MKTAG(LFS_TYPE_CREATE, 0, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
                 {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
                     &superblock}));
