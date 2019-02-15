@@ -778,6 +778,15 @@ static int _dfs_lfs_getdents(struct dfs_fd* file, struct dirent* dirp, uint32_t 
             break;
         }
 
+        if (rt_strcmp(info.name, ".") == 0)
+        {
+            continue;
+        }
+        else if (rt_strcmp(info.name, "..") == 0)
+        {
+            continue;
+        }
+
         d->d_type = DT_UNKNOWN;
 
         switch (info.type)
