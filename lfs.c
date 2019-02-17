@@ -1755,9 +1755,13 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     return npos;
 }
 
-int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_soff_t size) {
     if ((file->flags & 3) == LFS_O_RDONLY) {
         return LFS_ERR_BADF;
+    }
+
+    if ((size < 0) || (size > LFS_FILE_MAX)) {
+        return LFS_ERR_INVAL;
     }
 
     lfs_off_t oldsize = lfs_file_size(lfs, file);

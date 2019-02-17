@@ -405,7 +405,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 // Truncates the size of the file to the specified size
 //
 // Returns a negative error code on failure.
-int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
+int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_soff_t size);
 
 // Return the position of the file
 //
