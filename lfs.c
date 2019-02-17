@@ -2864,6 +2864,10 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         return LFS_ERR_BADF;
     }
 
+    if (size > LFS_FILE_MAX) {
+        return LFS_ERR_INVAL;
+    }
+
     lfs_off_t oldsize = lfs_file_size(lfs, file);
     if (size < oldsize) {
         // need to flush since directly changing metadata
