@@ -380,6 +380,10 @@ typedef struct lfs {
     lfs_size_t name_max;
     lfs_size_t file_max;
     lfs_size_t attr_max;
+
+#ifdef LFS_MIGRATE
+    struct lfs1 *lfs1;
+#endif
 } lfs_t;
 
 
@@ -616,6 +620,21 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 //
 // Returns a negative error code on failure.
 int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
+
+#ifdef LFS_MIGRATE
+// Attempts to migrate a previous version of littlefs
+//
+// Behaves similarly to the lfs_format function. Attempts to mount
+// the previous version of littlefs and update the filesystem so it can be
+// mounted with the current version of littlefs.
+//
+// Requires a littlefs object and config struct. This clobbers the littlefs
+// object, and does not leave the filesystem mounted. The config struct must
+// be zeroed for defaults and backwards compatibility.
+//
+// Returns a negative error code on failure.
+int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
+#endif
 
 
 #ifdef __cplusplus

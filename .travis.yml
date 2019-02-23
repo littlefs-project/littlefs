@@ -113,7 +113,7 @@ jobs:
 
         - mkdir mount
         - sudo chmod a+rw /dev/loop0
-        - dd if=/dev/zero bs=512 count=2048 of=disk
+        - dd if=/dev/zero bs=512 count=4096 of=disk
         - losetup /dev/loop0 disk
       script:
         # self-host test
@@ -126,6 +126,7 @@ jobs:
         - mkdir mount/littlefs
         - cp -r $(git ls-tree --name-only HEAD) mount/littlefs
         - cd mount/littlefs
+        - stat .
         - ls -flh
         - make -B test_dirs test_files QUIET=1
 
