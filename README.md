@@ -1,6 +1,6 @@
-## The little filesystem
+## littlefs
 
-A little fail-safe filesystem designed for embedded systems.
+A little fail-safe filesystem designed for microcontrollers.
 
 ```
    | | |     .---._____
@@ -11,17 +11,19 @@ A little fail-safe filesystem designed for embedded systems.
    | | |
 ```
 
-**Bounded RAM/ROM** - The littlefs is designed to work with a limited amount
-of memory. Recursion is avoided and dynamic memory is limited to configurable
-buffers that can be provided statically.
+**Power-loss resilience** - littlefs is designed to handle random power
+failures. All file operations have strong copy-on-write guarantees and if
+power is lost the filesystem will fall back to the last known good state.
 
-**Power-loss resilient** - The littlefs is designed for systems that may have
-random power failures. The littlefs has strong copy-on-write guarantees and
-storage on disk is always kept in a valid state.
+**Dynamic wear leveling** - littlefs is designed with flash in mind, and
+provides wear leveling over dynamic blocks. Additionally, littlefs can
+detect bad blocks and work around them.
 
-**Wear leveling** - Since the most common form of embedded storage is erodible
-flash memories, littlefs provides a form of dynamic wear leveling for systems
-that can not fit a full flash translation layer.
+**Bounded RAM/ROM** - littlefs is designed to work with a small amount of
+memory. RAM usage is strictly bounded, which means RAM consumption does not
+change as the filesystem grows. The filesystem contains no unbounded
+recursion and dynamic memory is limited to configurable buffers that can be
+provided statically.
 
 ## Example
 
@@ -91,11 +93,11 @@ int main(void) {
 Detailed documentation (or at least as much detail as is currently available)
 can be found in the comments in [lfs.h](lfs.h).
 
-As you may have noticed, littlefs takes in a configuration structure that
-defines how the filesystem operates. The configuration struct provides the
-filesystem with the block device operations and dimensions, tweakable
-parameters that tradeoff memory usage for performance, and optional
-static buffers if the user wants to avoid dynamic memory.
+littlefs takes in a configuration structure that defines how the filesystem
+operates. The configuration struct provides the filesystem with the block
+device operations and dimensions, tweakable parameters that tradeoff memory
+usage for performance, and optional static buffers if the user wants to avoid
+dynamic memory.
 
 The state of the littlefs is stored in the `lfs_t` type which is left up
 to the user to allocate, allowing multiple filesystems to be in use
@@ -107,14 +109,14 @@ directory functions, with the deviation that the allocation of filesystem
 structures must be provided by the user.
 
 All POSIX operations, such as remove and rename, are atomic, even in event
-of power-loss. Additionally, no file updates are actually committed to the
-filesystem until sync or close is called on the file.
+of power-loss. Additionally, no file updates are not actually committed to
+the filesystem until sync or close is called on the file.
 
 ## Other notes
 
-All littlefs have the potential to return a negative error code. The errors
-can be either one of those found in the `enum lfs_error` in [lfs.h](lfs.h),
-or an error returned by the user's block device operations.
+All littlefs functions have the potential to return a negative error code. The
+errors can be either one of those found in the `enum lfs_error` in
+[lfs.h](lfs.h), or an error returned by the user's block device operations.
 
 In the configuration struct, the `prog` and `erase` function provided by the
 user may return a `LFS_ERR_CORRUPT` error if the implementation already can
@@ -128,14 +130,60 @@ from memory, otherwise data integrity can not be guaranteed. If the `write`
 function does not perform caching, and therefore each `read` or `write` call
 hits the memory, the `sync` function can simply return 0.
 
-## Reference material
+## Design
 
-[DESIGN.md](DESIGN.md) - DESIGN.md contains a fully detailed dive into how
-littlefs actually works. I would encourage you to read it since the
-solutions and tradeoffs at work here are quite interesting.
+At a high level, littlefs is a block based filesystem that uses small logs to
+store metadata and larger copy-on-write (COW) structures to store file data.
 
-[SPEC.md](SPEC.md) - SPEC.md contains the on-disk specification of littlefs
-with all the nitty-gritty details. Can be useful for developing tooling.
+In littlefs, these ingredients form a sort of two-layered cake, with the small
+logs (called metadata pairs) providing fast updates to metadata anywhere on
+storage, while the COW structures store file data compactly and without any
+wear amplification cost.
+
+Both of these data structures are built out of blocks, which are fed by a
+common block allocator. By limiting the number of erases allowed on a block
+per allocation, the allocator provides dynamic wear leveling over the entire
+filesystem.
+
+```
+                    root
+                   .--------.--------.
+                   | A'| B'|         |
+                   |   |   |->       |
+                   |   |   |         |
+                   '--------'--------'
+                .----'   '--------------.
+       A       v                 B       v
+      .--------.--------.       .--------.--------.
+      | C'| D'|         |       | E'|new|         |
+      |   |   |->       |       |   | E'|->       |
+      |   |   |         |       |   |   |         |
+      '--------'--------'       '--------'--------'
+      .-'   '--.                  |   '------------------.
+     v          v              .-'                        v
+.--------.  .--------.        v                       .--------.
+|   C    |  |   D    |   .--------.       write       | new E  |
+|        |  |        |   |   E    |        ==>        |        |
+|        |  |        |   |        |                   |        |
+'--------'  '--------'   |        |                   '--------'
+                         '--------'                   .-'    |
+                         .-'    '-.    .-------------|------'
+                        v          v  v              v
+                   .--------.  .--------.       .--------.
+                   |   F    |  |   G    |       | new F  |
+                   |        |  |        |       |        |
+                   |        |  |        |       |        |
+                   '--------'  '--------'       '--------'
+```
+
+More details on how littlefs works can be found in [DESIGN.md](DESIGN.md) and
+[SPEC.md](SPEC.md).
+
+- [DESIGN.md](DESIGN.md) - A fully detailed dive into how littlefs works.
+  I would suggest reading it as the tradeoffs at work are quite interesting.
+
+- [SPEC.md](SPEC.md) - The on-disk specification of littlefs with all the
+  nitty-gritty details. May be useful for tooling development.
 
 ## Testing
 
@@ -149,9 +197,9 @@ make test
 
 ## License
 
-The littlefs is provided under the [BSD-3-Clause](https://spdx.org/licenses/BSD-3-Clause.html)
-license. See [LICENSE.md](LICENSE.md) for more information. Contributions to
-this project are accepted under the same license.
+The littlefs is provided under the [BSD-3-Clause] license. See
+[LICENSE.md](LICENSE.md) for more information. Contributions to this project
+are accepted under the same license.
 
 Individual files contain the following tag instead of the full license text.
 
@@ -162,32 +210,39 @@ License Identifiers that are here available: http://spdx.org/licenses/
 
 ## Related projects
 
-[Mbed OS](https://github.com/ARMmbed/mbed-os/tree/master/features/filesystem/littlefs) -
-The easiest way to get started with littlefs is to jump into [Mbed](https://os.mbed.com/),
-which already has block device drivers for most forms of embedded storage. The
-littlefs is available in Mbed OS as the [LittleFileSystem](https://os.mbed.com/docs/latest/reference/littlefilesystem.html)
-class.
+- [littlefs-fuse] - A [FUSE] wrapper for littlefs. The project allows you to
+  mount littlefs directly on a Linux machine. Can be useful for debugging
+  littlefs if you have an SD card handy.
 
-[littlefs-fuse](https://github.com/geky/littlefs-fuse) - A [FUSE](https://github.com/libfuse/libfuse)
-wrapper for littlefs. The project allows you to mount littlefs directly on a
-Linux machine. Can be useful for debugging littlefs if you have an SD card
-handy.
+- [littlefs-js] - A javascript wrapper for littlefs. I'm not sure why you would
+  want this, but it is handy for demos.  You can see it in action
+  [here][littlefs-js-demo].
 
-[littlefs-js](https://github.com/geky/littlefs-js) - A javascript wrapper for
-littlefs. I'm not sure why you would want this, but it is handy for demos.
-You can see it in action [here](http://littlefs.geky.net/demo.html).
+- [mklfs] - A command line tool built by the [Lua RTOS] guys for making
+  littlefs images from a host PC. Supports Windows, Mac OS, and Linux.
 
-[mklfs](https://github.com/whitecatboard/Lua-RTOS-ESP32/tree/master/components/mklfs/src) -
-A command line tool built by the [Lua RTOS](https://github.com/whitecatboard/Lua-RTOS-ESP32)
-guys for making littlefs images from a host PC. Supports Windows, Mac OS,
-and Linux.
+- [Mbed OS] - The easiest way to get started with littlefs is to jump into Mbed
+  which already has block device drivers for most forms of embedded storage.
+  littlefs is available in Mbed OS as the [LittleFileSystem] class.
 
-[SPIFFS](https://github.com/pellepl/spiffs) - Another excellent embedded
-filesystem for NOR flash. As a more traditional logging filesystem with full
-static wear-leveling, SPIFFS will likely outperform littlefs on small
-memories such as the internal flash on microcontrollers.
+- [SPIFFS] - Another excellent embedded filesystem for NOR flash. As a more
+  traditional logging filesystem with full static wear-leveling, SPIFFS will
+  likely outperform littlefs on small memories such as the internal flash on
+  microcontrollers.
 
-[Dhara](https://github.com/dlbeer/dhara) - An interesting NAND flash
-translation layer designed for small MCUs. It offers static wear-leveling and
-power-resilience with only a fixed O(|address|) pointer structure stored on
-each block and in RAM.
+- [Dhara] - An interesting NAND flash translation layer designed for small
+  MCUs. It offers static wear-leveling and power-resilience with only a fixed
+  _O(|address|)_ pointer structure stored on each block and in RAM.
+
+
+[BSD-3-Clause]: https://spdx.org/licenses/BSD-3-Clause.html
+[littlefs-fuse]: https://github.com/geky/littlefs-fuse
+[FUSE]: https://github.com/libfuse/libfuse
+[littlefs-js]: https://github.com/geky/littlefs-js
+[littlefs-js-demo]:http://littlefs.geky.net/demo.html
+[mklfs]: https://github.com/whitecatboard/Lua-RTOS-ESP32/tree/master/components/mklfs/src
+[Lua RTOS]: https://github.com/whitecatboard/Lua-RTOS-ESP32
+[Mbed OS]: https://github.com/armmbed/mbed-os
+[LittleFileSystem]: https://os.mbed.com/docs/mbed-os/v5.12/apis/littlefilesystem.html
+[SPIFFS]: https://github.com/pellepl/spiffs
+[Dhara]: https://github.com/dlbeer/dhara

@@ -1,9 +1,9 @@
-## The little filesystem technical specification
+## littlefs technical specification
 
 This is the technical specification of the little filesystem. This document
 covers the technical details of how the littlefs is stored on disk for
-introspection and tool development. This document assumes you are familiar
-with the design of the littlefs, for more info on how littlefs works check
+introspection and tooling. This document assumes you are familiar with the
+design of the littlefs, for more info on how littlefs works check
 out [DESIGN.md](DESIGN.md).
 
 ```
@@ -18,22 +18,21 @@ out [DESIGN.md](DESIGN.md).
 ## Some quick notes
 
 - littlefs is a block-based filesystem. The disk is divided into an array of
-  evenly sized blocks that are used as the logical unit of storage. Block
-  pointers are stored in 32 bits.
+  evenly sized blocks that are used as the logical unit of storage.
+
+- Block pointers are stored in 32 bits, with the special value `0xffffffff`
+  representing a null block address.
 
 - In addition to the logical block size (which usually matches the erase
   block size), littlefs also uses a program block size and read block size.
-  These determine the alignment of block device operations, but aren't needed
-  for portability.
+  These determine the alignment of block device operations, but don't need
+  to be consistent for portability.
 
-- By default, any values in littlefs are stored in little-endian byte order.
-
-- The littlefs uses the value of `0xffffffff` to represent a null
-  block address.
+- By default, all values in littlefs are stored in little-endian byte order.
 
 ## Directories / Metadata pairs
 
-Metadata pairs form the backbone of the littlefs and provide a system for
+Metadata pairs form the backbone of littlefs and provide a system for
 distributed atomic updates. Even the superblock is stored in a metadata pair.
 
 As their name suggests, a metadata pair is stored in two blocks, with one block
@@ -91,14 +90,14 @@ alignment.
 
 Metadata block fields:
 
-- **Revision count (32-bits)** - Incremented every erase cycle. If both blocks
-  contain valid commits, only the block with the most recent revision count
-  should be used. Sequence comparison must be used to avoid issues with
-  integer overflow.
+1. **Revision count (32-bits)** - Incremented every erase cycle. If both blocks
+   contain valid commits, only the block with the most recent revision count
+   should be used. Sequence comparison must be used to avoid issues with
+   integer overflow.
 
-- **CRC (32-bits)** - Detects corruption from power-loss or other write
-  issues.  Uses a CRC-32 with a polynomial of `0x04c11db7` initialized
-  with `0xffffffff`.
+2. **CRC (32-bits)** - Detects corruption from power-loss or other write
+   issues.  Uses a CRC-32 with a polynomial of `0x04c11db7` initialized
+   with `0xffffffff`.
 
 Entries themselves are stored as a 32-bit tag followed by a variable length
 blob of data. But exactly how these tags are stored is a little bit tricky.
@@ -159,7 +158,7 @@ Here's a more complete example of metadata block containing 4 entries:
 | |                                       |   ||   |
 | |-------------------+-------------------|   ||   |
 | |     tag CxCRC     |        CRC        |   ||   /
-| |-------------------+-------------------|   ||    
+| |-------------------+-------------------|   ||
 | |     tag CRCxA'    |      data A'      |   ||   \
 | |-------------------+                   |   ||   |
 | |                                       |   ||   |
@@ -167,7 +166,7 @@ Here's a more complete example of metadata block containing 4 entries:
 | |              |     tag CRCxA'    |    |   ||   |
 | |--------------+-------------------+----|   ||   |
 | | CRC          |        padding         |   ||   /
-| |--------------+----+-------------------|   ||    
+| |--------------+----+-------------------|   ||
 | |     tag CRCxA''   |      data A''     | <---.  \
 | |-------------------+                   |   |||  |
 | |                                       |   |||  |
@@ -179,12 +178,12 @@ Here's a more complete example of metadata block containing 4 entries:
 | |                             |   tag Dx|  ||||  |
 | |---------+-------------------+---------|  ||||  |
 | |CRC      |        CRC        |         |  ||||  /
-| |---------+-------------------+         |  ||||   
+| |---------+-------------------+         |  ||||
 | |           unwritten storage           |  ||||  more commits
 | |                                       |  ||||       |
-| |                                       |  ||||       v              
-| |                                       |  ||||   
-| |                                       |  |||| 
+| |                                       |  ||||       v
+| |                                       |  ||||
+| |                                       |  ||||
 | '---------------------------------------'  ||||
 '---------------------------------------'    |||'- most recent A
                                              ||'-- most recent B
@@ -198,7 +197,7 @@ So in littlefs, 32-bit tags describe every type of metadata. And this means
 _every_ type of metadata, including file entries, directory fields, and
 global state. Even the CRCs used to mark the end of commits get their own tag.
 
-Because of this, the tag format contains some densely packed informtaion. Note
+Because of this, the tag format contains some densely packed information. Note
 that there are multiple levels of types which break down into more info:
 
 ```
@@ -214,9 +213,9 @@ that there are multiple levels of types which break down into more info:
 ```
 
 
-Before we go further, there's one VERY important thing to note. These tags are
-NOT stored in little-endian. Tags stored in commits are actually stored in
-big-endian (and is the only thing in littlefs stored in big-endian). This
+Before we go further, there's one important thing to note. These tags are
+**not** stored in little-endian. Tags stored in commits are actually stored
+in big-endian (and is the only thing in littlefs stored in big-endian). This
 little bit of craziness comes from the fact that the valid bit must be the
 first bit in a commit, and when converted to little-endian, the valid bit finds
 itself in byte 4. We could restructure the tag to store the valid bit lower,
@@ -228,26 +227,26 @@ invalid and can be used for null values.
 
 Metadata tag fields:
 
-- **Valid bit (1-bit)** - Indicates if the tag is valid.
+1. **Valid bit (1-bit)** - Indicates if the tag is valid.
 
-- **Type3 (11-bits)** - Type of the tag. This field is broken down further
-  into a 3-bit abstract type and an 8-bit chunk field. Note that the value
-  `0x000` is invalid and not assigned a type.
+2. **Type3 (11-bits)** - Type of the tag. This field is broken down further
+   into a 3-bit abstract type and an 8-bit chunk field. Note that the value
+   `0x000` is invalid and not assigned a type.
 
-- **Type1 (3-bits)** - Abstract type of the tag. Groups the tags into
-  8 categories that facilitate bitmasked lookups.
+3. **Type1 (3-bits)** - Abstract type of the tag. Groups the tags into
+   8 categories that facilitate bitmasked lookups.
 
-- **Chunk (8-bits)** - Chunk field used for various purposes by the different
-  abstract types.  type1+chunk+id form a unique identifier for each tag in the
-  metadata block.
+4. **Chunk (8-bits)** - Chunk field used for various purposes by the different
+   abstract types.  type1+chunk+id form a unique identifier for each tag in the
+   metadata block.
 
-- **Id (10-bits)** - File id associated with the tag. Each file in a metadata
-  block gets a unique id which is used to associate tags with that file. The
-  special value `0x3ff` is used for any tags that are not associated with a
-  file, such as directory and global metadata.
+5. **Id (10-bits)** - File id associated with the tag. Each file in a metadata
+   block gets a unique id which is used to associate tags with that file. The
+   special value `0x3ff` is used for any tags that are not associated with a
+   file, such as directory and global metadata.
 
-- **Length (10-bits)** - Length of the data in bytes. The special value
-  `0x3ff` indicates that this tag has been deleted.
+6. **Length (10-bits)** - Length of the data in bytes. The special value
+   `0x3ff` indicates that this tag has been deleted.
 
 ## Metadata types
 
@@ -274,7 +273,7 @@ array of files.
 ---
 #### `0x0xx` LFS_TYPE_NAME
 
-Associates the id with a file name and file type. 
+Associates the id with a file name and file type.
 
 The data contains the file name stored as an ASCII string (may be expanded to
 UTF8 in the future).
@@ -300,9 +299,9 @@ Layout of the name tag:
 
 Name fields:
 
-- **file type (8-bits)** - Type of the file.
+1. **file type (8-bits)** - Type of the file.
 
-- **file name** - File name stored as an ASCII string.
+2. **file name** - File name stored as an ASCII string.
 
 ---
 #### `0x001` LFS_TYPE_REG
@@ -335,14 +334,15 @@ across a linked-list of metadata pairs rooted on the blocks 0 and 1. The last
 metadata pair doubles as the root directory of the filesystem.
 
 ```
-.--------.  .--------.  .--------.  .--------.  .--------.
-| super  |->| super  |->| super  |->| super  |->| file B |
-| block  |  | block  |  | block  |  | block  |  | file C |
-|        |  |        |  |        |  | file A |  | file D |
+ .--------.  .--------.  .--------.  .--------.  .--------.
+.| super  |->| super  |->| super  |->| super  |->| file B |
+|| block  | || block  | || block  | || block  | || file C |
+||        | ||        | ||        | || file A | || file D |
+|'--------' |'--------' |'--------' |'--------' |'--------'
 '--------'  '--------'  '--------'  '--------'  '--------'
 
-\---------------+----------------/  \---------+---------/
-          superblock pairs              root directory
+\----------------+----------------/ \----------+----------/
+          superblock pairs               root directory
 ```
 
 The filesystem starts with only the root directory. The superblock metadata
@@ -366,48 +366,41 @@ Layout of the superblock name tag and inline-struct tag:
  '----------------- valid bit
 
         tag                          data
-[--      32      --][--      32      --|--      32      --|
-[1|- 11 -| 10 | 10 ][--      32      --|--      32      --|
- ^    ^     ^    ^            ^- version         ^- block size
+[--      32      --][--      32      --|--      32      --|--      32      --]
+[1|- 11 -| 10 | 10 ][--      32      --|--      32      --|--      32      --]
+ ^    ^     ^    ^            ^- version         ^- block size      ^- block count
+ |    |     |    |  [--      32      --|--      32      --|--      32      --]
+ |    |     |    |  [--      32      --|--      32      --|--      32      --]
+ |    |     |    |            ^- name max        ^- file max        ^- attr max
  |    |     |    '- size (24)
  |    |     '------ id (0)
  |    '------------ type (0x201)
  '----------------- valid bit
-
-                        data (cont)
-|--      32      --|--      32      --|--      32      --|
-|--      32      --|--      32      --|--      32      --|
-          ^- block count     ^- name max        ^- file max
-
-     data (cont)
-|--      32      --]
-|--      32      --]
-          ^- attr max
 ```
 
 Superblock fields:
 
-- **Magic string (8-bytes)** - Magic string indicating the presence of littlefs
-  on the device. Must be the string "littlefs".
+1. **Magic string (8-bytes)** - Magic string indicating the presence of
+   littlefs on the device. Must be the string "littlefs".
 
-- **Version (32-bits)** - The version of littlefs at format time. The version
-  is encoded in a 32-bit value with the upper 16-bits containing the major
-  version, and the lower 16-bits containing the minor version.
+2. **Version (32-bits)** - The version of littlefs at format time. The version
+   is encoded in a 32-bit value with the upper 16-bits containing the major
+   version, and the lower 16-bits containing the minor version.
 
-  This specification describes version 2.0 (`0x00020000`).
+   This specification describes version 2.0 (`0x00020000`).
 
-- **Block size (32-bits)** - Size of the logical block size used by the
-  filesystem in bytes.
+3. **Block size (32-bits)** - Size of the logical block size used by the
+   filesystem in bytes.
 
-- **Block count (32-bits)** - Number of blocks in the filesystem.
+4. **Block count (32-bits)** - Number of blocks in the filesystem.
 
-- **Name max (32-bits)** - Maximum size of file names in bytes.
+5. **Name max (32-bits)** - Maximum size of file names in bytes.
 
-- **File max (32-bits)** - Maximum size of files in bytes.
+6. **File max (32-bits)** - Maximum size of files in bytes.
 
-- **Attr max (32-bits)** - Maximum size of file attributes in bytes.
+7. **Attr max (32-bits)** - Maximum size of file attributes in bytes.
 
-The superblock must always be the first entry (id 0) in a metdata pair as well
+The superblock must always be the first entry (id 0) in a metadata pair as well
 as be the first entry written to the block. This means that the superblock
 entry can be read from a device using offsets alone.
 
@@ -419,7 +412,7 @@ Associates the id with an on-disk data structure.
 The exact layout of the data depends on the data structure type stored in the
 chunk field and can be one of the following.
 
-Any type of struct supercedes all other structs associated with the id. For
+Any type of struct supersedes all other structs associated with the id. For
 example, appending a ctz-struct replaces an inline-struct on the same file.
 
 ---
@@ -431,12 +424,13 @@ Directories in littlefs are stored on disk as a linked-list of metadata pairs,
 each pair containing any number of files in alphabetical order.
 
 ```
-    |
-    v
-.--------.  .--------.  .--------.  .--------.  .--------.  .--------.
-| file A |->| file D |->| file G |->| file I |->| file J |->| file M |
-| file B |  | file E |  | file H |  |        |  | file K |  | file N |
-| file C |  | file F |  |        |  |        |  | file L |  |        |
+     |
+     v
+ .--------.  .--------.  .--------.  .--------.  .--------.  .--------.
+.| file A |->| file D |->| file G |->| file I |->| file J |->| file M |
+|| file B | || file E | || file H | ||        | || file K | || file N |
+|| file C | || file F | ||        | ||        | || file L | ||        |
+|'--------' |'--------' |'--------' |'--------' |'--------' |'--------'
 '--------'  '--------'  '--------'  '--------'  '--------'  '--------'
 ```
 
@@ -460,15 +454,15 @@ Layout of the dir-struct tag:
 
 Dir-struct fields:
 
-- **Metadata pair (8-bytes)** - Pointer to the first metadata-pair
-  in the directory.
+1. **Metadata pair (8-bytes)** - Pointer to the first metadata-pair
+   in the directory.
 
 ---
 #### `0x201` LFS_TYPE_INLINESTRUCT
 
 Gives the id an inline data structure.
 
-Inline structs store small files that can fit in the metdata pair. In this
+Inline structs store small files that can fit in the metadata pair. In this
 case, the file data is stored directly in the tag's data area.
 
 Layout of the inline-struct tag:
@@ -485,7 +479,7 @@ Layout of the inline-struct tag:
 
 Inline-struct fields:
 
-- **Inline data** - File data stored directly in the metadata-pair.
+1. **Inline data** - File data stored directly in the metadata-pair.
 
 ---
 #### `0x202` LFS_TYPE_CTZSTRUCT
@@ -497,12 +491,13 @@ are stored in a skip-list in reverse, with a pointer to the head of the
 skip-list. Note that the head of the skip-list and the file size is enough
 information to read the file.
 
-How exactly CTZ skip-lists work is a bit complicted. A full explanation can be
+How exactly CTZ skip-lists work is a bit complicated. A full explanation can be
 found in the [DESIGN.md](DESIGN.md#ctz-skip-lists).
 
-A quick summary: For every nth block where n is divisible by 2^x, the block
-contains a pointer to block n-2^x. These pointers are stored in increasing
-order of x in each block of the file before the actual data.
+A quick summary: For every _n_&zwj;th block where _n_ is divisible by
+2&zwj;_&#739;_, that block contains a pointer to block _n_-2&zwj;_&#739;_.
+These pointers are stored in increasing order of _x_ in each block of the file
+before the actual data.
 
 ```
                                                                |
@@ -536,15 +531,15 @@ Layout of the CTZ-struct tag:
 
 CTZ-struct fields:
 
-- **File head (32-bits)** - Pointer to the block that is the head of the
-  file's CTZ skip-list.
+1. **File head (32-bits)** - Pointer to the block that is the head of the
+   file's CTZ skip-list.
 
-- **File size (32-bits)** - Size of the file in bytes.
+2. **File size (32-bits)** - Size of the file in bytes.
 
 ---
 #### `0x3xx` LFS_TYPE_USERATTR
 
-Attaches a user attribute to an id. 
+Attaches a user attribute to an id.
 
 littlefs has a concept of "user attributes". These are small user-provided
 attributes that can be used to store things like timestamps, hashes,
@@ -571,9 +566,9 @@ Layout of the user-attr tag:
 
 User-attr fields:
 
-- **Attr type (8-bits)** - Type of the user attributes.
+1. **Attr type (8-bits)** - Type of the user attributes.
 
-- **Attr data** - The data associated with the user attribute.
+2. **Attr data** - The data associated with the user attribute.
 
 ---
 #### `0x6xx` LFS_TYPE_TAIL
@@ -586,21 +581,23 @@ which indicates if the following metadata pair is a part of the directory
 (hard-tail) or only used to traverse the filesystem (soft-tail).
 
 ```
-         .--------.  
-         | dir A  |-.
-         |softtail| |
+         .--------.
+        .| dir A  |-.
+        ||softtail| |
 .--------|        |-'
-|        '--------'  
+|       |'--------'
+|       '---|--|-'
 |        .-'    '-------------.
 |       v                      v
 |  .--------.  .--------.  .--------.
 '->| dir B  |->| dir B  |->| dir C  |
-   |hardtail|  |softtail|  |        |
-   |        |  |        |  |        |
-   '--------'  '--------'  '--------'
+  ||hardtail| ||softtail| ||        |
+  ||        | ||        | ||        |
+  |'--------' |'--------' |'--------'
+  '--------'  '--------'  '--------'
 ```
 
-Currently any type supercedes any other preceding tails in the metadata pair,
+Currently any type supersedes any other preceding tails in the metadata pair,
 but this may change if additional metadata pair state is added.
 
 A note about the metadata pair linked-list: Normally, this linked-list contains
@@ -611,10 +608,10 @@ exactly this flag is stored is described below.
 
 When the sync flag is set:
 
-- The linked-list may contain an orphaned directory that has been removed in
-  the filesystem.
-- The linked-list may contain a metadata pair with a bad block that has been
-  replaced in the filesystem.
+1. The linked-list may contain an orphaned directory that has been removed in
+   the filesystem.
+2. The linked-list may contain a metadata pair with a bad block that has been
+   replaced in the filesystem.
 
 If the sync flag is set, the threaded linked-list must be checked for these
 errors before it can be used reliably. Note that the threaded linked-list can
@@ -635,9 +632,9 @@ Layout of the tail tag:
 
 Tail fields:
 
-- **Tail type (8-bits)** - Type of the tail pointer.
+1. **Tail type (8-bits)** - Type of the tail pointer.
 
-- **Metadata pair (8-bytes)** - Pointer to the next metadata-pair.
+2. **Metadata pair (8-bytes)** - Pointer to the next metadata-pair.
 
 ---
 #### `0x600` LFS_TYPE_SOFTTAIL
@@ -668,18 +665,18 @@ littlefs has a concept of "global state". This is a small set of state that
 can be updated by a commit to _any_ metadata pair in the filesystem.
 
 The way this works is that the global state is stored as a set of deltas
-distributed across the filesystem such that the global state can by found by
+distributed across the filesystem such that the global state can be found by
 the xor-sum of these deltas.
 
 ```
-.--------.  .--------.  .--------.  .--------.  .--------.
-|        |->| gstate |->|        |->| gstate |->| gstate |
-|        |  | 0x23   |  |        |  | 0xff   |  | 0xce   |
-|        |  |        |  |        |  |        |  |        |
-'--------'  '--------'  '--------'  '--------'  '--------'
-                |                       |           |
-                v                       v           v
-      0x00 --> xor ------------------> xor ------> xor --> gstate 0x12
+ .--------.  .--------.  .--------.  .--------.  .--------.
+.|        |->| gdelta |->|        |->| gdelta |->| gdelta |
+||        | || 0x23   | ||        | || 0xff   | || 0xce   |
+||        | ||        | ||        | ||        | ||        |
+|'--------' |'--------' |'--------' |'--------' |'--------'
+'--------'  '----|---'  '--------'  '----|---'  '----|---'
+                 v                       v           v
+       0x00 --> xor ------------------> xor ------> xor --> gstate = 0x12
 ```
 
 Note that storing globals this way is very expensive in terms of storage usage,
@@ -730,17 +727,17 @@ Layout of the move state:
 
 Move state fields:
 
-- **Sync bit (1-bit)** - Indicates if the metadata pair threaded linked-list is
-  in-sync. If set, the threaded linked-list should be checked for errors.
+1. **Sync bit (1-bit)** - Indicates if the metadata pair threaded linked-list
+   is in-sync. If set, the threaded linked-list should be checked for errors.
 
-- **Move type (11-bits)** - Type of move being performed. Must be either
-  `0x000`, indicating no move, or `0x4ff` indicating the source file should
-  be deleted.
+2. **Move type (11-bits)** - Type of move being performed. Must be either
+   `0x000`, indicating no move, or `0x4ff` indicating the source file should
+   be deleted.
 
-- **Move id (10-bits)** - The file id being moved.
+3. **Move id (10-bits)** - The file id being moved.
 
-- **Metadata pair (8-bytes)** - Pointer to the metadata-pair containing
-  the move.
+4. **Metadata pair (8-bytes)** - Pointer to the metadata-pair containing
+   the move.
 
 ---
 #### `0x5xx` LFS_TYPE_CRC
@@ -778,13 +775,13 @@ Layout of the CRC tag:
 
 CRC fields:
 
-- **Valid state (1-bit)** - Indicates the expected value of the valid bit for
-  any tags in the next commit.
+1. **Valid state (1-bit)** - Indicates the expected value of the valid bit for
+   any tags in the next commit.
 
-- **CRC (32-bits)** - CRC-32 with a polynomial of `0x04c11db7` initialized with
-  `0xffffffff`.
+2. **CRC (32-bits)** - CRC-32 with a polynomial of `0x04c11db7` initialized
+   with `0xffffffff`.
 
-- **Padding** - Padding to the next program-aligned boundary. No guarantees are
-  made about the contents.
+3. **Padding** - Padding to the next program-aligned boundary. No guarantees
+   are made about the contents.
 
 ---
