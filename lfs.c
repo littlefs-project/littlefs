@@ -4268,6 +4268,8 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
             }
 
             dir2.rev = dir1.d.rev;
+            dir1.head[0] = dir1.pair[0];
+            dir1.head[1] = dir1.pair[1];
             lfs->root[0] = dir2.pair[0];
             lfs->root[1] = dir2.pair[1];
 
@@ -4368,7 +4370,10 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
             // Copy over first block to thread into fs. Unfortunately
             // if this fails there is not much we can do.
-            err = lfs_bd_erase(lfs, dir1.pair[1]);
+            LFS_DEBUG("Migrating %"PRIu32" %"PRIu32" -> %"PRIu32" %"PRIu32,
+                    lfs->root[0], lfs->root[1], dir1.head[0], dir1.head[1]);
+
+            err = lfs_bd_erase(lfs, dir1.head[1]);
             if (err) {
                 goto cleanup;
             }
@@ -4389,7 +4394,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
                 err = lfs_bd_prog(lfs,
                         &lfs->pcache, &lfs->rcache, true,
-                        dir1.pair[1], i, &dat, 1);
+                        dir1.head[1], i, &dat, 1);
                 if (err) {
                     goto cleanup;
                 }
