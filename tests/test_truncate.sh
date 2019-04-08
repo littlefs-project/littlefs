@@ -8,7 +8,7 @@ LARGESIZE=8192
 echo "=== Truncate tests ==="
 rm -rf blocks
 tests/test.py << TEST
-    lfs_format(&lfs, &cfg) => 0;
+    lfs1_format(&lfs1, &cfg) => 0;
 TEST
 
 truncate_test() {
@@ -17,98 +17,98 @@ STARTSEEKS="$2"
 HOTSIZES="$3"
 COLDSIZES="$4"
 tests/test.py << TEST
-    static const lfs_off_t startsizes[] = {$STARTSIZES};
-    static const lfs_off_t startseeks[] = {$STARTSEEKS};
-    static const lfs_off_t hotsizes[]   = {$HOTSIZES};
+    static const lfs1_off_t startsizes[] = {$STARTSIZES};
+    static const lfs1_off_t startseeks[] = {$STARTSEEKS};
+    static const lfs1_off_t hotsizes[]   = {$HOTSIZES};
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs1_mount(&lfs1, &cfg) => 0;
 
     for (unsigned i = 0; i < sizeof(startsizes)/sizeof(startsizes[0]); i++) {
         sprintf((char*)buffer, "hairyhead%d", i);
-        lfs_file_open(&lfs, &file[0], (const char*)buffer,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+        lfs1_file_open(&lfs1, &file[0], (const char*)buffer,
+                LFS1_O_WRONLY | LFS1_O_CREAT | LFS1_O_TRUNC) => 0;
 
         strcpy((char*)buffer, "hair");
         size = strlen((char*)buffer);
-        for (lfs_off_t j = 0; j < startsizes[i]; j += size) {
-            lfs_file_write(&lfs, &file[0], buffer, size) => size;
+        for (lfs1_off_t j = 0; j < startsizes[i]; j += size) {
+            lfs1_file_write(&lfs1, &file[0], buffer, size) => size;
         }
-        lfs_file_size(&lfs, &file[0]) => startsizes[i];
+        lfs1_file_size(&lfs1, &file[0]) => startsizes[i];
 
         if (startseeks[i] != startsizes[i]) {
-            lfs_file_seek(&lfs, &file[0],
-                    startseeks[i], LFS_SEEK_SET) => startseeks[i];
+            lfs1_file_seek(&lfs1, &file[0],
+                    startseeks[i], LFS1_SEEK_SET) => startseeks[i];
         }
 
-        lfs_file_truncate(&lfs, &file[0], hotsizes[i]) => 0;
-        lfs_file_size(&lfs, &file[0]) => hotsizes[i];
+        lfs1_file_truncate(&lfs1, &file[0], hotsizes[i]) => 0;
+        lfs1_file_size(&lfs1, &file[0]) => hotsizes[i];
 
-        lfs_file_close(&lfs, &file[0]) => 0;
+        lfs1_file_close(&lfs1, &file[0]) => 0;
     }
 
-    lfs_unmount(&lfs) => 0;
+    lfs1_unmount(&lfs1) => 0;
 TEST
 tests/test.py << TEST
-    static const lfs_off_t startsizes[] = {$STARTSIZES};
-    static const lfs_off_t hotsizes[]   = {$HOTSIZES};
-    static const lfs_off_t coldsizes[]  = {$COLDSIZES};
+    static const lfs1_off_t startsizes[] = {$STARTSIZES};
+    static const lfs1_off_t hotsizes[]   = {$HOTSIZES};
+    static const lfs1_off_t coldsizes[]  = {$COLDSIZES};
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs1_mount(&lfs1, &cfg) => 0;
 
     for (unsigned i = 0; i < sizeof(startsizes)/sizeof(startsizes[0]); i++) {
         sprintf((char*)buffer, "hairyhead%d", i);
-        lfs_file_open(&lfs, &file[0], (const char*)buffer, LFS_O_RDWR) => 0;
-        lfs_file_size(&lfs, &file[0]) => hotsizes[i];
+        lfs1_file_open(&lfs1, &file[0], (const char*)buffer, LFS1_O_RDWR) => 0;
+        lfs1_file_size(&lfs1, &file[0]) => hotsizes[i];
 
         size = strlen("hair");
-        lfs_off_t j = 0;
+        lfs1_off_t j = 0;
         for (; j < startsizes[i] && j < hotsizes[i]; j += size) {
-            lfs_file_read(&lfs, &file[0], buffer, size) => size;
+            lfs1_file_read(&lfs1, &file[0], buffer, size) => size;
             memcmp(buffer, "hair", size) => 0;
         }
 
         for (; j < hotsizes[i]; j += size) {
-            lfs_file_read(&lfs, &file[0], buffer, size) => size;
+            lfs1_file_read(&lfs1, &file[0], buffer, size) => size;
             memcmp(buffer, "\0\0\0\0", size) => 0;
         }
 
-        lfs_file_truncate(&lfs, &file[0], coldsizes[i]) => 0;
-        lfs_file_size(&lfs, &file[0]) => coldsizes[i];
+        lfs1_file_truncate(&lfs1, &file[0], coldsizes[i]) => 0;
+        lfs1_file_size(&lfs1, &file[0]) => coldsizes[i];
 
-        lfs_file_close(&lfs, &file[0]) => 0;
+        lfs1_file_close(&lfs1, &file[0]) => 0;
     }
 
-    lfs_unmount(&lfs) => 0;
+    lfs1_unmount(&lfs1) => 0;
 TEST
 tests/test.py << TEST
-    static const lfs_off_t startsizes[] = {$STARTSIZES};
-    static const lfs_off_t hotsizes[]   = {$HOTSIZES};
-    static const lfs_off_t coldsizes[]  = {$COLDSIZES};
+    static const lfs1_off_t startsizes[] = {$STARTSIZES};
+    static const lfs1_off_t hotsizes[]   = {$HOTSIZES};
+    static const lfs1_off_t coldsizes[]  = {$COLDSIZES};
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs1_mount(&lfs1, &cfg) => 0;
 
     for (unsigned i = 0; i < sizeof(startsizes)/sizeof(startsizes[0]); i++) {
         sprintf((char*)buffer, "hairyhead%d", i);
-        lfs_file_open(&lfs, &file[0], (const char*)buffer, LFS_O_RDONLY) => 0;
-        lfs_file_size(&lfs, &file[0]) => coldsizes[i];
+        lfs1_file_open(&lfs1, &file[0], (const char*)buffer, LFS1_O_RDONLY) => 0;
+        lfs1_file_size(&lfs1, &file[0]) => coldsizes[i];
 
         size = strlen("hair");
-        lfs_off_t j = 0;
+        lfs1_off_t j = 0;
         for (; j < startsizes[i] && j < hotsizes[i] && j < coldsizes[i];
                 j += size) {
-            lfs_file_read(&lfs, &file[0], buffer, size) => size;
+            lfs1_file_read(&lfs1, &file[0], buffer, size) => size;
             memcmp(buffer, "hair", size) => 0;
         }
 
         for (; j < coldsizes[i]; j += size) {
-            lfs_file_read(&lfs, &file[0], buffer, size) => size;
+            lfs1_file_read(&lfs1, &file[0], buffer, size) => size;
             memcmp(buffer, "\0\0\0\0", size) => 0;
         }
 
-        lfs_file_close(&lfs, &file[0]) => 0;
+        lfs1_file_close(&lfs1, &file[0]) => 0;
     }
 
-    lfs_unmount(&lfs) => 0;
+    lfs1_unmount(&lfs1) => 0;
 TEST
 }
 

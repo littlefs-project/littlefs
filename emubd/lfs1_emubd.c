@@ -4,7 +4,7 @@
  * Copyright (c) 2017, Arm Limited. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include "emubd/lfs_emubd.h"
+#include "emubd/lfs1_emubd.h"
 
 #include <errno.h>
 #include <string.h>
@@ -20,8 +20,8 @@
 
 
 // Block device emulated on existing filesystem
-int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
-    lfs_emubd_t *emu = cfg->context;
+int lfs1_emubd_create(const struct lfs1_config *cfg, const char *path) {
+    lfs1_emubd_t *emu = cfg->context;
     emu->cfg.read_size   = cfg->read_size;
     emu->cfg.prog_size   = cfg->prog_size;
     emu->cfg.block_size  = cfg->block_size;
@@ -29,7 +29,7 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
 
     // Allocate buffer for creating children files
     size_t pathlen = strlen(path);
-    emu->path = malloc(pathlen + 1 + LFS_NAME_MAX + 1);
+    emu->path = malloc(pathlen + 1 + LFS1_NAME_MAX + 1);
     if (!emu->path) {
         return -ENOMEM;
     }
@@ -37,7 +37,7 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
     strcpy(emu->path, path);
     emu->path[pathlen] = '/';
     emu->child = &emu->path[pathlen+1];
-    memset(emu->child, '\0', LFS_NAME_MAX+1);
+    memset(emu->child, '\0', LFS1_NAME_MAX+1);
 
     // Create directory if it doesn't exist
     int err = mkdir(path, 0777);
@@ -46,7 +46,7 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
     }
 
     // Load stats to continue incrementing
-    snprintf(emu->child, LFS_NAME_MAX, "stats");
+    snprintf(emu->child, LFS1_NAME_MAX, "stats");
 
     FILE *f = fopen(emu->path, "r");
     if (!f && errno != ENOENT) {
@@ -70,16 +70,16 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
     return 0;
 }
 
-void lfs_emubd_destroy(const struct lfs_config *cfg) {
-    lfs_emubd_sync(cfg);
+void lfs1_emubd_destroy(const struct lfs1_config *cfg) {
+    lfs1_emubd_sync(cfg);
 
-    lfs_emubd_t *emu = cfg->context;
+    lfs1_emubd_t *emu = cfg->context;
     free(emu->path);
 }
 
-int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
-        lfs_off_t off, void *buffer, lfs_size_t size) {
-    lfs_emubd_t *emu = cfg->context;
+int lfs1_emubd_read(const struct lfs1_config *cfg, lfs1_block_t block,
+        lfs1_off_t off, void *buffer, lfs1_size_t size) {
+    lfs1_emubd_t *emu = cfg->context;
     uint8_t *data = buffer;
 
     // Check if read is valid
@@ -91,7 +91,7 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     memset(data, 0, size);
 
     // Read data
-    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
+    snprintf(emu->child, LFS1_NAME_MAX, "%" PRIx32, block);
 
     FILE *f = fopen(emu->path, "rb");
     if (!f && errno != ENOENT) {
@@ -119,9 +119,9 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     return 0;
 }
 
-int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
-        lfs_off_t off, const void *buffer, lfs_size_t size) {
-    lfs_emubd_t *emu = cfg->context;
+int lfs1_emubd_prog(const struct lfs1_config *cfg, lfs1_block_t block,
+        lfs1_off_t off, const void *buffer, lfs1_size_t size) {
+    lfs1_emubd_t *emu = cfg->context;
     const uint8_t *data = buffer;
 
     // Check if write is valid
@@ -130,7 +130,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     assert(block < cfg->block_count);
 
     // Program data
-    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
+    snprintf(emu->child, LFS1_NAME_MAX, "%" PRIx32, block);
 
     FILE *f = fopen(emu->path, "r+b");
     if (!f) {
@@ -170,14 +170,14 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     return 0;
 }
 
-int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    lfs_emubd_t *emu = cfg->context;
+int lfs1_emubd_erase(const struct lfs1_config *cfg, lfs1_block_t block) {
+    lfs1_emubd_t *emu = cfg->context;
 
     // Check if erase is valid
     assert(block < cfg->block_count);
 
     // Erase the block
-    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
+    snprintf(emu->child, LFS1_NAME_MAX, "%" PRIx32, block);
     struct stat st;
     int err = stat(emu->path, &st);
     if (err && errno != ENOENT) {
@@ -207,11 +207,11 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     return 0;
 }
 
-int lfs_emubd_sync(const struct lfs_config *cfg) {
-    lfs_emubd_t *emu = cfg->context;
+int lfs1_emubd_sync(const struct lfs1_config *cfg) {
+    lfs1_emubd_t *emu = cfg->context;
 
     // Just write out info/stats for later lookup
-    snprintf(emu->child, LFS_NAME_MAX, "config");
+    snprintf(emu->child, LFS1_NAME_MAX, "config");
     FILE *f = fopen(emu->path, "w");
     if (!f) {
         return -errno;
@@ -227,7 +227,7 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
         return -errno;
     }
 
-    snprintf(emu->child, LFS_NAME_MAX, "stats");
+    snprintf(emu->child, LFS1_NAME_MAX, "stats");
     f = fopen(emu->path, "w");
     if (!f) {
         return -errno;
