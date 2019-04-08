@@ -114,7 +114,7 @@ the filesystem until sync or close is called on the file.
 
 ## Other notes
 
-All littlefs functions have the potential to return a negative error code. The
+All littlefs calls have the potential to return a negative error code. The
 errors can be either one of those found in the `enum lfs_error` in
 [lfs.h](lfs.h), or an error returned by the user's block device operations.
 
