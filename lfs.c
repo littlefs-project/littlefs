@@ -1437,8 +1437,10 @@ static int lfs_dir_compact(lfs_t *lfs,
         // space is complicated, we need room for tail, crc, gstate,
         // cleanup delete, and we cap at half a block to give room
         // for metadata updates.
-        if (size <= lfs_min(lfs->cfg->block_size - 36,
-                lfs_alignup(lfs->cfg->block_size/2, lfs->cfg->prog_size))) {
+        if (end - begin < 0xff &&
+                size <= lfs_min(lfs->cfg->block_size - 36,
+                    lfs_alignup(lfs->cfg->block_size/2,
+                        lfs->cfg->prog_size))) {
             break;
         }
 
@@ -1711,7 +1713,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         }
     }
 
-    if (dir->erased) {
+    if (dir->erased || dir->count >= 0xff) {
         // try to commit
         struct lfs_commit commit = {
             .block = dir->pair[0],
