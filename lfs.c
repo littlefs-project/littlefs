@@ -855,7 +855,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 }
 
                 // reset the next bit if we need to
-                ptag ^= (lfs_tag_chunk(tag) & 1) << 31;
+                ptag ^= (lfs_tag_chunk(tag) & 1U) << 31;
 
                 // toss our crc into the filesystem seed for
                 // pseudorandom numbers
@@ -1498,7 +1498,7 @@ static int lfs_dir_compact(lfs_t *lfs,
 
     // begin loop to commit compaction to blocks until a compact sticks
     while (true) {
-        if (true) {
+        {
             // There's nothing special about our global delta, so feed it into
             // our local global delta
             int err = lfs_dir_getgstate(lfs, dir, &lfs->gdelta);
@@ -1603,7 +1603,6 @@ static int lfs_dir_compact(lfs_t *lfs,
                 lfs_gstate_xormove(&lfs->gpending,
                     &lfs->gpending, 0x3ff, NULL);
             }
-
         }
         break;
 
@@ -2123,7 +2122,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
         }
         LFS_ASSERT(nblock >= 2 && nblock <= lfs->cfg->block_count);
 
-        if (true) {
+        {
             err = lfs_bd_erase(lfs, nblock);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -3298,7 +3297,7 @@ static int lfs_deinit(lfs_t *lfs) {
 
 int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     int err = 0;
-    if (true) {
+    {
         err = lfs_init(lfs, cfg);
         if (err) {
             return err;
@@ -4182,7 +4181,7 @@ static int lfs1_moved(lfs_t *lfs, const void *e) {
 static int lfs1_mount(lfs_t *lfs, struct lfs1 *lfs1,
         const struct lfs_config *cfg) {
     int err = 0;
-    if (true) {
+    {
         err = lfs_init(lfs, cfg);
         if (err) {
             return err;
@@ -4253,7 +4252,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
-    if (true) {
+    {
         // iterate through each directory, copying over entries
         // into new directory
         lfs1_dir_t dir1;
