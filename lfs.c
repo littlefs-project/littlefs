@@ -827,7 +827,8 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             // next commit not yet programmed or we're not in valid range
             if (!lfs_tag_isvalid(tag) ||
                     off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
-                dir->erased = (lfs_tag_type1(ptag) == LFS_TYPE_CRC);
+                dir->erased = (lfs_tag_type1(ptag) == LFS_TYPE_CRC &&
+                        dir->off % lfs->cfg->prog_size == 0);
                 break;
             }
 
@@ -1596,7 +1597,7 @@ static int lfs_dir_compact(lfs_t *lfs,
             dir->count = end - begin;
             dir->off = commit.off;
             dir->etag = commit.ptag;
-            dir->erased = true;
+            dir->erased = (dir->off % lfs->cfg->prog_size == 0);
             // note we able to have already handled move here
             if (lfs_gstate_hasmovehere(&lfs->gpending, dir->pair)) {
                 lfs_gstate_xormove(&lfs->gpending,
@@ -2381,7 +2382,8 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         if (file->ctz.size > 0) {
             lfs_stag_t res = lfs_dir_get(lfs, &file->m,
                     LFS_MKTAG(0x700, 0x3ff, 0),
-                    LFS_MKTAG(LFS_TYPE_STRUCT, file->id, file->cache.size),
+                    LFS_MKTAG(LFS_TYPE_STRUCT, file->id,
+                        lfs_min(file->cache.size, 0x3fe)),
                     file->cache.buffer);
             if (res < 0) {
                 err = res;
