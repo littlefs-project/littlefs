@@ -215,8 +215,9 @@ struct lfs_config {
     // By default lfs_malloc is used to allocate this buffer.
     void *prog_buffer;
 
-    // Optional statically allocated program buffer. Must be lookahead_size.
-    // By default lfs_malloc is used to allocate this buffer.
+    // Optional statically allocated lookahead buffer. Must be lookahead_size
+    // and aligned to a 64-bit boundary. By default lfs_malloc is used to
+    // allocate this buffer.
     void *lookahead_buffer;
 
     // Optional upper limit on length of file names in bytes. No downside for

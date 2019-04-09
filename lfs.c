@@ -3228,8 +3228,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_cache_zero(lfs, &lfs->pcache);
 
     // setup lookahead, must be multiple of 64-bits
-    LFS_ASSERT(lfs->cfg->lookahead_size % 8 == 0);
     LFS_ASSERT(lfs->cfg->lookahead_size > 0);
+    LFS_ASSERT(lfs->cfg->lookahead_size % 8 == 0 &&
+            (uintptr_t)lfs->cfg->lookahead_buffer % 8 == 0);
     if (lfs->cfg->lookahead_buffer) {
         lfs->free.buffer = lfs->cfg->lookahead_buffer;
     } else {
