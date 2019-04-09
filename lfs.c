@@ -2578,6 +2578,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     while (true) {
         int err = lfs_file_flush(lfs, file);
         if (err) {
+            file->flags |= LFS_F_ERRED;
             return err;
         }
 
@@ -2613,6 +2614,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
                 if (err == LFS_ERR_NOSPC && (file->flags & LFS_F_INLINE)) {
                     goto relocate;
                 }
+                file->flags |= LFS_F_ERRED;
                 return err;
             }
 
@@ -2626,6 +2628,7 @@ relocate:
         file->off = file->pos;
         err = lfs_file_relocate(lfs, file);
         if (err) {
+            file->flags |= LFS_F_ERRED;
             return err;
         }
     }
