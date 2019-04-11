@@ -18,10 +18,11 @@ script:
   - make test QUIET=1
 
   # run tests with a few different configurations
-  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=1      -DLFS_PROG_SIZE=1"
-  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=512    -DLFS_PROG_SIZE=512"
-  - make test QUIET=1 CFLAGS+="-DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD=2048"
+  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=1      -DLFS_CACHE_SIZE=4"
+  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=512    -DLFS_CACHE_SIZE=512 -DLFS_BLOCK_CYCLES=16"
+  - make test QUIET=1 CFLAGS+="-DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
 
+  - make clean test QUIET=1 CFLAGS+="-DLFS_INLINE_MAX=0"
   - make clean test QUIET=1 CFLAGS+="-DLFS_NO_INTRINSICS"
 
   # compile and find the code size with the smallest configuration
@@ -103,7 +104,7 @@ jobs:
       if: branch !~ -prefix$
       install:
         - sudo apt-get install libfuse-dev
-        - git clone --depth 1 https://github.com/geky/littlefs-fuse
+        - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2-alpha
         - fusermount -V
         - gcc --version
       before_script:
@@ -113,7 +114,7 @@ jobs:
 
         - mkdir mount
         - sudo chmod a+rw /dev/loop0
-        - dd if=/dev/zero bs=512 count=2048 of=disk
+        - dd if=/dev/zero bs=512 count=4096 of=disk
         - losetup /dev/loop0 disk
       script:
         # self-host test
@@ -126,7 +127,59 @@ jobs:
         - mkdir mount/littlefs
         - cp -r $(git ls-tree --name-only HEAD) mount/littlefs
         - cd mount/littlefs
-        - ls
+        - stat .
+        - ls -flh
+        - make -B test_dirs test_files QUIET=1
+
+    # self-host with littlefs-fuse for fuzz test
+    - stage: test
+      env:
+        - STAGE=test
+        - NAME=littlefs-migration
+      install:
+        - sudo apt-get install libfuse-dev
+        - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2-alpha v2
+        - git clone --depth 1 https://github.com/geky/littlefs-fuse v1
+        - fusermount -V
+        - gcc --version
+      before_script:
+        # setup disk for littlefs-fuse
+        - rm -rf v2/littlefs/*
+        - cp -r $(git ls-tree --name-only HEAD) v2/littlefs
+
+        - mkdir mount
+        - sudo chmod a+rw /dev/loop0
+        - dd if=/dev/zero bs=512 count=4096 of=disk
+        - losetup /dev/loop0 disk
+      script:
+        # compile v1 and v2
+        - make -C v1
+        - make -C v2
+
+        # run self-host test with v1
+        - v1/lfs --format /dev/loop0
+        - v1/lfs /dev/loop0 mount
+
+        - ls mount
+        - mkdir mount/littlefs
+        - cp -r $(git ls-tree --name-only HEAD) mount/littlefs
+        - cd mount/littlefs
+        - stat .
+        - ls -flh
+        - make -B test_dirs test_files QUIET=1
+
+        # attempt to migrate
+        - cd ../..
+        - fusermount -u mount
+
+        - v2/lfs --migrate /dev/loop0
+        - v2/lfs /dev/loop0 mount
+
+        # run self-host test with v2 right where we left off
+        - ls mount
+        - cd mount/littlefs
+        - stat .
+        - ls -flh
         - make -B test_dirs test_files QUIET=1
 
     # Automatically create releases

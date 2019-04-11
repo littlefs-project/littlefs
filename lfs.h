@@ -21,14 +21,14 @@ extern "C"
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_VERSION 0x00010007
+#define LFS_VERSION 0x00020000
 #define LFS_VERSION_MAJOR (0xffff & (LFS_VERSION >> 16))
 #define LFS_VERSION_MINOR (0xffff & (LFS_VERSION >>  0))
 
 // Version of On-disk data structures
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_DISK_VERSION 0x00010001
+#define LFS_DISK_VERSION 0x00020000
 #define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
 #define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
 
@@ -44,57 +44,98 @@ typedef int32_t  lfs_soff_t;
 
 typedef uint32_t lfs_block_t;
 
-// Max name size in bytes
+// Maximum name size in bytes, may be redefined to reduce the size of the
+// info struct. Limited to <= 1022. Stored in superblock and must be
+// respected by other littlefs drivers.
 #ifndef LFS_NAME_MAX
 #define LFS_NAME_MAX 255
 #endif
 
-// Max file size in bytes
+// Maximum size of a file in bytes, may be redefined to limit to support other
+// drivers. Limited on disk to <= 4294967296. However, above 2147483647 the
+// functions lfs_file_seek, lfs_file_size, and lfs_file_tell will return
+// incorrect values due to using signed integers. Stored in superblock and
+// must be respected by other littlefs drivers.
 #ifndef LFS_FILE_MAX
 #define LFS_FILE_MAX 2147483647
+#endif
+
+// Maximum size of custom attributes in bytes, may be redefined, but there is
+// no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022.
+#ifndef LFS_ATTR_MAX
+#define LFS_ATTR_MAX 1022
 #endif
 
 // Possible error codes, these are negative to allow
 // valid positive return values
 enum lfs_error {
-    LFS_ERR_OK       = 0,    // No error
-    LFS_ERR_IO       = -5,   // Error during device operation
-    LFS_ERR_CORRUPT  = -52,  // Corrupted
-    LFS_ERR_NOENT    = -2,   // No directory entry
-    LFS_ERR_EXIST    = -17,  // Entry already exists
-    LFS_ERR_NOTDIR   = -20,  // Entry is not a dir
-    LFS_ERR_ISDIR    = -21,  // Entry is a dir
-    LFS_ERR_NOTEMPTY = -39,  // Dir is not empty
-    LFS_ERR_BADF     = -9,   // Bad file number
-    LFS_ERR_FBIG     = -27,  // File too large
-    LFS_ERR_INVAL    = -22,  // Invalid parameter
-    LFS_ERR_NOSPC    = -28,  // No space left on device
-    LFS_ERR_NOMEM    = -12,  // No more memory available
+    LFS_ERR_OK          = 0,    // No error
+    LFS_ERR_IO          = -5,   // Error during device operation
+    LFS_ERR_CORRUPT     = -84,  // Corrupted
+    LFS_ERR_NOENT       = -2,   // No directory entry
+    LFS_ERR_EXIST       = -17,  // Entry already exists
+    LFS_ERR_NOTDIR      = -20,  // Entry is not a dir
+    LFS_ERR_ISDIR       = -21,  // Entry is a dir
+    LFS_ERR_NOTEMPTY    = -39,  // Dir is not empty
+    LFS_ERR_BADF        = -9,   // Bad file number
+    LFS_ERR_FBIG        = -27,  // File too large
+    LFS_ERR_INVAL       = -22,  // Invalid parameter
+    LFS_ERR_NOSPC       = -28,  // No space left on device
+    LFS_ERR_NOMEM       = -12,  // No more memory available
+    LFS_ERR_NOATTR      = -61,  // No data/attr available
+    LFS_ERR_NAMETOOLONG = -36,  // File name too long
 };
 
 // File types
 enum lfs_type {
-    LFS_TYPE_REG        = 0x11,
-    LFS_TYPE_DIR        = 0x22,
-    LFS_TYPE_SUPERBLOCK = 0x2e,
+    // file types
+    LFS_TYPE_REG            = 0x001,
+    LFS_TYPE_DIR            = 0x002,
+
+    // internally used types
+    LFS_TYPE_SPLICE         = 0x400,
+    LFS_TYPE_NAME           = 0x000,
+    LFS_TYPE_STRUCT         = 0x200,
+    LFS_TYPE_USERATTR       = 0x300,
+    LFS_TYPE_FROM           = 0x100,
+    LFS_TYPE_TAIL           = 0x600,
+    LFS_TYPE_GLOBALS        = 0x700,
+    LFS_TYPE_CRC            = 0x500,
+
+    // internally used type specializations
+    LFS_TYPE_CREATE         = 0x401,
+    LFS_TYPE_DELETE         = 0x4ff,
+    LFS_TYPE_SUPERBLOCK     = 0x0ff,
+    LFS_TYPE_DIRSTRUCT      = 0x200,
+    LFS_TYPE_CTZSTRUCT      = 0x202,
+    LFS_TYPE_INLINESTRUCT   = 0x201,
+    LFS_TYPE_SOFTTAIL       = 0x600,
+    LFS_TYPE_HARDTAIL       = 0x601,
+    LFS_TYPE_MOVESTATE      = 0x7ff,
+
+    // internal chip sources
+    LFS_FROM_NOOP           = 0x000,
+    LFS_FROM_MOVE           = 0x101,
+    LFS_FROM_USERATTRS      = 0x102,
 };
 
 // File open flags
 enum lfs_open_flags {
     // open flags
-    LFS_O_RDONLY = 1,        // Open a file as read only
-    LFS_O_WRONLY = 2,        // Open a file as write only
-    LFS_O_RDWR   = 3,        // Open a file as read and write
-    LFS_O_CREAT  = 0x0100,   // Create a file if it does not exist
-    LFS_O_EXCL   = 0x0200,   // Fail if a file already exists
-    LFS_O_TRUNC  = 0x0400,   // Truncate the existing file to zero size
-    LFS_O_APPEND = 0x0800,   // Move to end of file on every write
+    LFS_O_RDONLY = 1,         // Open a file as read only
+    LFS_O_WRONLY = 2,         // Open a file as write only
+    LFS_O_RDWR   = 3,         // Open a file as read and write
+    LFS_O_CREAT  = 0x0100,    // Create a file if it does not exist
+    LFS_O_EXCL   = 0x0200,    // Fail if a file already exists
+    LFS_O_TRUNC  = 0x0400,    // Truncate the existing file to zero size
+    LFS_O_APPEND = 0x0800,    // Move to end of file on every write
 
     // internally used flags
-    LFS_F_DIRTY   = 0x10000, // File does not match storage
-    LFS_F_WRITING = 0x20000, // File has been written since last flush
-    LFS_F_READING = 0x40000, // File has been read since last flush
-    LFS_F_ERRED   = 0x80000, // An error occured during write
+    LFS_F_DIRTY   = 0x010000, // File does not match storage
+    LFS_F_WRITING = 0x020000, // File has been written since last flush
+    LFS_F_READING = 0x040000, // File has been read since last flush
+    LFS_F_ERRED   = 0x080000, // An error occured during write
+    LFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
 };
 
 // File seek flags
@@ -132,52 +173,68 @@ struct lfs_config {
     // are propogated to the user.
     int (*sync)(const struct lfs_config *c);
 
-    // Minimum size of a block read. This determines the size of read buffers.
-    // This may be larger than the physical read size to improve performance
-    // by caching more of the block device.
+    // Minimum size of a block read. All read operations will be a
+    // multiple of this value.
     lfs_size_t read_size;
 
-    // Minimum size of a block program. This determines the size of program
-    // buffers. This may be larger than the physical program size to improve
-    // performance by caching more of the block device.
-    // Must be a multiple of the read size.
+    // Minimum size of a block program. All program operations will be a
+    // multiple of this value.
     lfs_size_t prog_size;
 
     // Size of an erasable block. This does not impact ram consumption and
-    // may be larger than the physical erase size. However, this should be
-    // kept small as each file currently takes up an entire block.
-    // Must be a multiple of the program size.
+    // may be larger than the physical erase size. However, non-inlined files
+    // take up at minimum one block. Must be a multiple of the read
+    // and program sizes.
     lfs_size_t block_size;
 
     // Number of erasable blocks on the device.
     lfs_size_t block_count;
 
-    // Number of blocks to lookahead during block allocation. A larger
-    // lookahead reduces the number of passes required to allocate a block.
-    // The lookahead buffer requires only 1 bit per block so it can be quite
-    // large with little ram impact. Should be a multiple of 32.
-    lfs_size_t lookahead;
+    // Number of erase cycles before we should move data to another block.
+    // May be zero, in which case no block-level wear-leveling is performed.
+    uint32_t block_cycles;
 
-    // Optional, statically allocated read buffer. Must be read sized.
+    // Size of block caches. Each cache buffers a portion of a block in RAM.
+    // The littlefs needs a read cache, a program cache, and one additional
+    // cache per file. Larger caches can improve performance by storing more
+    // data and reducing the number of disk accesses. Must be a multiple of
+    // the read and program sizes, and a factor of the block size.
+    lfs_size_t cache_size;
+
+    // Size of the lookahead buffer in bytes. A larger lookahead buffer
+    // increases the number of blocks found during an allocation pass. The
+    // lookahead buffer is stored as a compact bitmap, so each byte of RAM
+    // can track 8 blocks. Must be a multiple of 4.
+    lfs_size_t lookahead_size;
+
+    // Optional statically allocated read buffer. Must be cache_size.
+    // By default lfs_malloc is used to allocate this buffer.
     void *read_buffer;
 
-    // Optional, statically allocated program buffer. Must be program sized.
+    // Optional statically allocated program buffer. Must be cache_size.
+    // By default lfs_malloc is used to allocate this buffer.
     void *prog_buffer;
 
-    // Optional, statically allocated lookahead buffer. Must be 1 bit per
-    // lookahead block.
+    // Optional statically allocated lookahead buffer. Must be lookahead_size
+    // and aligned to a 64-bit boundary. By default lfs_malloc is used to
+    // allocate this buffer.
     void *lookahead_buffer;
 
-    // Optional, statically allocated buffer for files. Must be program sized.
-    // If enabled, only one file may be opened at a time.
-    void *file_buffer;
-};
+    // Optional upper limit on length of file names in bytes. No downside for
+    // larger names except the size of the info struct which is controlled by
+    // the LFS_NAME_MAX define. Defaults to LFS_NAME_MAX when zero. Stored in
+    // superblock and must be respected by other littlefs drivers.
+    lfs_size_t name_max;
 
-// Optional configuration provided during lfs_file_opencfg
-struct lfs_file_config {
-    // Optional, statically allocated buffer for files. Must be program sized.
-    // If NULL, malloc will be used by default.
-    void *buffer;
+    // Optional upper limit on files in bytes. No downside for larger files
+    // but must be <= LFS_FILE_MAX. Defaults to LFS_FILE_MAX when zero. Stored
+    // in superblock and must be respected by other littlefs drivers.
+    lfs_size_t file_max;
+
+    // Optional upper limit on custom attributes in bytes. No downside for
+    // larger attributes size but must be <= LFS_ATTR_MAX. Defaults to
+    // LFS_ATTR_MAX when zero.
+    lfs_size_t attr_max;
 };
 
 // File info structure
@@ -185,108 +242,149 @@ struct lfs_info {
     // Type of the file, either LFS_TYPE_REG or LFS_TYPE_DIR
     uint8_t type;
 
-    // Size of the file, only valid for REG files
+    // Size of the file, only valid for REG files. Limited to 32-bits.
     lfs_size_t size;
 
-    // Name of the file stored as a null-terminated string
+    // Name of the file stored as a null-terminated string. Limited to
+    // LFS_NAME_MAX+1, which can be changed by redefining LFS_NAME_MAX to
+    // reduce RAM. LFS_NAME_MAX is stored in superblock and must be
+    // respected by other littlefs drivers.
     char name[LFS_NAME_MAX+1];
 };
 
+// Custom attribute structure, used to describe custom attributes
+// committed atomically during file writes.
+struct lfs_attr {
+    // 8-bit type of attribute, provided by user and used to
+    // identify the attribute
+    uint8_t type;
 
-/// littlefs data structures ///
-typedef struct lfs_entry {
-    lfs_off_t off;
+    // Pointer to buffer containing the attribute
+    void *buffer;
 
-    struct lfs_disk_entry {
-        uint8_t type;
-        uint8_t elen;
-        uint8_t alen;
-        uint8_t nlen;
-        union {
-            struct {
-                lfs_block_t head;
-                lfs_size_t size;
-            } file;
-            lfs_block_t dir[2];
-        } u;
-    } d;
-} lfs_entry_t;
+    // Size of attribute in bytes, limited to LFS_ATTR_MAX
+    lfs_size_t size;
+};
 
+// Optional configuration provided during lfs_file_opencfg
+struct lfs_file_config {
+    // Optional statically allocated file buffer. Must be cache_size.
+    // By default lfs_malloc is used to allocate this buffer.
+    void *buffer;
+
+    // Optional list of custom attributes related to the file. If the file
+    // is opened with read access, these attributes will be read from disk
+    // during the open call. If the file is opened with write access, the
+    // attributes will be written to disk every file sync or close. This
+    // write occurs atomically with update to the file's contents.
+    //
+    // Custom attributes are uniquely identified by an 8-bit type and limited
+    // to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller
+    // than the buffer, it will be padded with zeros. If the stored attribute
+    // is larger, then it will be silently truncated. If the attribute is not
+    // found, it will be created implicitly.
+    struct lfs_attr *attrs;
+
+    // Number of custom attributes in the list
+    lfs_size_t attr_count;
+};
+
+
+/// internal littlefs data structures ///
 typedef struct lfs_cache {
     lfs_block_t block;
     lfs_off_t off;
+    lfs_size_t size;
     uint8_t *buffer;
 } lfs_cache_t;
 
+typedef struct lfs_mdir {
+    lfs_block_t pair[2];
+    uint32_t rev;
+    lfs_off_t off;
+    uint32_t etag;
+    uint16_t count;
+    bool erased;
+    bool split;
+    lfs_block_t tail[2];
+} lfs_mdir_t;
+
+// littlefs directory type
+typedef struct lfs_dir {
+    struct lfs_dir *next;
+    uint16_t id;
+    uint8_t type;
+    lfs_mdir_t m;
+
+    lfs_off_t pos;
+    lfs_block_t head[2];
+} lfs_dir_t;
+
+// littlefs file type
 typedef struct lfs_file {
     struct lfs_file *next;
-    lfs_block_t pair[2];
-    lfs_off_t poff;
+    uint16_t id;
+    uint8_t type;
+    lfs_mdir_t m;
 
-    lfs_block_t head;
-    lfs_size_t size;
+    struct lfs_ctz {
+        lfs_block_t head;
+        lfs_size_t size;
+    } ctz;
 
-    const struct lfs_file_config *cfg;
     uint32_t flags;
     lfs_off_t pos;
     lfs_block_t block;
     lfs_off_t off;
     lfs_cache_t cache;
+
+    const struct lfs_file_config *cfg;
 } lfs_file_t;
 
-typedef struct lfs_dir {
-    struct lfs_dir *next;
-    lfs_block_t pair[2];
-    lfs_off_t off;
-
-    lfs_block_t head[2];
-    lfs_off_t pos;
-
-    struct lfs_disk_dir {
-        uint32_t rev;
-        lfs_size_t size;
-        lfs_block_t tail[2];
-    } d;
-} lfs_dir_t;
-
 typedef struct lfs_superblock {
-    lfs_off_t off;
-
-    struct lfs_disk_superblock {
-        uint8_t type;
-        uint8_t elen;
-        uint8_t alen;
-        uint8_t nlen;
-        lfs_block_t root[2];
-        uint32_t block_size;
-        uint32_t block_count;
-        uint32_t version;
-        char magic[8];
-    } d;
+    uint32_t version;
+    lfs_size_t block_size;
+    lfs_size_t block_count;
+    lfs_size_t name_max;
+    lfs_size_t file_max;
+    lfs_size_t attr_max;
 } lfs_superblock_t;
 
-typedef struct lfs_free {
-    lfs_block_t off;
-    lfs_block_t size;
-    lfs_block_t i;
-    lfs_block_t ack;
-    uint32_t *buffer;
-} lfs_free_t;
-
-// The littlefs type
+// The littlefs filesystem type
 typedef struct lfs {
-    const struct lfs_config *cfg;
-
-    lfs_block_t root[2];
-    lfs_file_t *files;
-    lfs_dir_t *dirs;
-
     lfs_cache_t rcache;
     lfs_cache_t pcache;
 
-    lfs_free_t free;
-    bool deorphaned;
-    bool moving;
+    lfs_block_t root[2];
+    struct lfs_mlist {
+        struct lfs_mlist *next;
+        uint16_t id;
+        uint8_t type;
+        lfs_mdir_t m;
+    } *mlist;
+    uint32_t seed;
+
+    struct lfs_gstate {
+        uint32_t tag;
+        lfs_block_t pair[2];
+    } gstate, gpending, gdelta;
+
+    struct lfs_free {
+        lfs_block_t off;
+        lfs_block_t size;
+        lfs_block_t i;
+        lfs_block_t ack;
+        uint32_t *buffer;
+    } free;
+
+    const struct lfs_config *cfg;
+    lfs_size_t name_max;
+    lfs_size_t file_max;
+    lfs_size_t attr_max;
+
+#ifdef LFS_MIGRATE
+    struct lfs1 *lfs1;
+#endif
 } lfs_t;
 
 
@@ -338,6 +436,38 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
 // Fills out the info structure, based on the specified file or directory.
 // Returns a negative error code on failure.
 int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
+
+// Get a custom attribute
+//
+// Custom attributes are uniquely identified by an 8-bit type and limited
+// to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller than
+// the buffer, it will be padded with zeros. If the stored attribute is larger,
+// then it will be silently truncated. If no attribute is found, the error
+// LFS_ERR_NOATTR is returned and the buffer is filled with zeros.
+//
+// Returns the size of the attribute, or a negative error code on failure.
+// Note, the returned size is the size of the attribute on disk, irrespective
+// of the size of the buffer. This can be used to dynamically allocate a buffer
+// or check for existance.
+lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
+        uint8_t type, void *buffer, lfs_size_t size);
+
+// Set custom attributes
+//
+// Custom attributes are uniquely identified by an 8-bit type and limited
+// to LFS_ATTR_MAX bytes. If an attribute is not found, it will be
+// implicitly created.
+//
+// Returns a negative error code on failure.
+int lfs_setattr(lfs_t *lfs, const char *path,
+        uint8_t type, const void *buffer, lfs_size_t size);
+
+// Removes a custom attribute
+//
+// If an attribute is not found, nothing happens.
+//
+// Returns a negative error code on failure.
+int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 
 
 /// File operations ///
@@ -473,7 +603,15 @@ lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir);
 int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 
 
-/// Miscellaneous littlefs specific operations ///
+/// Filesystem-level filesystem operations
+
+// Finds the current size of the filesystem
+//
+// Note: Result is best effort. If files share COW structures, the returned
+// size may be larger than the filesystem actually is.
+//
+// Returns the number of allocated blocks, or a negative error code on failure.
+lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 
 // Traverse through all blocks in use by the filesystem
 //
@@ -482,16 +620,22 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 // blocks are in use or how much of the storage is available.
 //
 // Returns a negative error code on failure.
-int lfs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
+int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 
-// Prunes any recoverable errors that may have occured in the filesystem
+#ifdef LFS_MIGRATE
+// Attempts to migrate a previous version of littlefs
 //
-// Not needed to be called by user unless an operation is interrupted
-// but the filesystem is still mounted. This is already called on first
-// allocation.
+// Behaves similarly to the lfs_format function. Attempts to mount
+// the previous version of littlefs and update the filesystem so it can be
+// mounted with the current version of littlefs.
+//
+// Requires a littlefs object and config struct. This clobbers the littlefs
+// object, and does not leave the filesystem mounted. The config struct must
+// be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-int lfs_deorphan(lfs_t *lfs);
+int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
+#endif
 
 
 #ifdef __cplusplus

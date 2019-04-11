@@ -128,6 +128,14 @@ tests/test.py << TEST
     lfs_mkdir(&lfs, "/") => LFS_ERR_EXIST;
     lfs_file_open(&lfs, &file[0], "/", LFS_O_WRONLY | LFS_O_CREAT)
         => LFS_ERR_ISDIR;
+
+    // more corner cases
+    lfs_remove(&lfs, "") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, ".") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "..") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "/") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "//") => LFS_ERR_INVAL;
+    lfs_remove(&lfs, "./") => LFS_ERR_INVAL;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -136,6 +144,56 @@ tests/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "dirt/ground") => LFS_ERR_NOENT;
     lfs_mkdir(&lfs, "dirt/ground/earth") => LFS_ERR_NOENT;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Superblock conflict test ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mkdir(&lfs, "littlefs") => 0;
+    lfs_remove(&lfs, "littlefs") => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Max path test ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    memset(buffer, 'w', LFS_NAME_MAX+1);
+    buffer[LFS_NAME_MAX+2] = '\0';
+    lfs_mkdir(&lfs, (char*)buffer) => LFS_ERR_NAMETOOLONG;
+    lfs_file_open(&lfs, &file[0], (char*)buffer,
+            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_NAMETOOLONG;
+
+    memcpy(buffer, "coffee/", strlen("coffee/"));
+    memset(buffer+strlen("coffee/"), 'w', LFS_NAME_MAX+1);
+    buffer[strlen("coffee/")+LFS_NAME_MAX+2] = '\0';
+    lfs_mkdir(&lfs, (char*)buffer) => LFS_ERR_NAMETOOLONG;
+    lfs_file_open(&lfs, &file[0], (char*)buffer,
+            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_NAMETOOLONG;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Really big path test ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    memset(buffer, 'w', LFS_NAME_MAX);
+    buffer[LFS_NAME_MAX+1] = '\0';
+    lfs_mkdir(&lfs, (char*)buffer) => 0;
+    lfs_remove(&lfs, (char*)buffer) => 0;
+    lfs_file_open(&lfs, &file[0], (char*)buffer,
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_remove(&lfs, (char*)buffer) => 0;
+
+    memcpy(buffer, "coffee/", strlen("coffee/"));
+    memset(buffer+strlen("coffee/"), 'w', LFS_NAME_MAX);
+    buffer[strlen("coffee/")+LFS_NAME_MAX+1] = '\0';
+    lfs_mkdir(&lfs, (char*)buffer) => 0;
+    lfs_remove(&lfs, (char*)buffer) => 0;
+    lfs_file_open(&lfs, &file[0], (char*)buffer,
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_remove(&lfs, (char*)buffer) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
