@@ -578,7 +578,8 @@ int lfs2_dir_close(lfs2_t *lfs2, lfs2_dir_t *dir);
 // Read an entry in the directory
 //
 // Fills out the info structure, based on the specified file or directory.
-// Returns a negative error code on failure.
+// Returns a positive value on success, 0 at the end of directory,
+// or a negative error code on failure.
 int lfs2_dir_read(lfs2_t *lfs2, lfs2_dir_t *dir, struct lfs2_info *info);
 
 // Change the position of the directory

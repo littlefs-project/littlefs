@@ -139,7 +139,7 @@ jobs:
       install:
         - sudo apt-get install libfuse-dev
         - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2-alpha v2
-        - git clone --depth 1 https://github.com/geky/littlefs-fuse v1
+        - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v1 v1
         - fusermount -V
         - gcc --version
       before_script:
