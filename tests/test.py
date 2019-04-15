@@ -10,7 +10,7 @@ def generate(test):
         template = file.read()
 
     lines = []
-    for line in re.split('(?<=[;{}])\n', test.read()):
+    for line in re.split('(?<=(?:.;| [{}]))\n', test.read()):
         match = re.match('(?: *\n)*( *)(.*)=>(.*);', line, re.DOTALL | re.MULTILINE)
         if match:
             tab, test, expect = match.groups()

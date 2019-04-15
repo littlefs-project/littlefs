@@ -7,7 +7,7 @@ import os
 import re
 
 def main():
-    with open('blocks/config') as file:
+    with open('blocks/.config') as file:
         s = struct.unpack('<LLLL', file.read())
         print 'read_size: %d' % s[0]
         print 'prog_size: %d' % s[1]
@@ -18,7 +18,7 @@ def main():
         os.path.getsize(os.path.join('blocks', f))
         for f in os.listdir('blocks') if re.match('\d+', f))
 
-    with open('blocks/stats') as file:
+    with open('blocks/.stats') as file:
         s = struct.unpack('<QQQ', file.read())
         print 'read_count: %d' % s[0]
         print 'prog_count: %d' % s[1]

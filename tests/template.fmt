@@ -66,7 +66,7 @@ uintmax_t test;
 #endif
 
 #ifndef LFS_PROG_SIZE
-#define LFS_PROG_SIZE 16
+#define LFS_PROG_SIZE LFS_READ_SIZE
 #endif
 
 #ifndef LFS_BLOCK_SIZE
@@ -77,8 +77,16 @@ uintmax_t test;
 #define LFS_BLOCK_COUNT 1024
 #endif
 
-#ifndef LFS_LOOKAHEAD
-#define LFS_LOOKAHEAD 128
+#ifndef LFS_BLOCK_CYCLES
+#define LFS_BLOCK_CYCLES 1024
+#endif
+
+#ifndef LFS_CACHE_SIZE
+#define LFS_CACHE_SIZE 64
+#endif
+
+#ifndef LFS_LOOKAHEAD_SIZE
+#define LFS_LOOKAHEAD_SIZE 16
 #endif
 
 const struct lfs_config cfg = {{
@@ -88,11 +96,13 @@ const struct lfs_config cfg = {{
     .erase = &lfs_emubd_erase,
     .sync  = &lfs_emubd_sync,
 
-    .read_size   = LFS_READ_SIZE,
-    .prog_size   = LFS_PROG_SIZE,
-    .block_size  = LFS_BLOCK_SIZE,
-    .block_count = LFS_BLOCK_COUNT,
-    .lookahead   = LFS_LOOKAHEAD,
+    .read_size      = LFS_READ_SIZE,
+    .prog_size      = LFS_PROG_SIZE,
+    .block_size     = LFS_BLOCK_SIZE,
+    .block_count    = LFS_BLOCK_COUNT,
+    .block_cycles   = LFS_BLOCK_CYCLES,
+    .cache_size     = LFS_CACHE_SIZE,
+    .lookahead_size = LFS_LOOKAHEAD_SIZE,
 }};
 
 
