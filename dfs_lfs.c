@@ -29,8 +29,16 @@
     #define LFS_BLOCK_SIZE 4096
 #endif
 
-#ifndef LFS_LOOKAHEAD
-    #define LFS_LOOKAHEAD 512
+#ifndef LFS_CACHE_SIZE
+    #define LFS_CACHE_SIZE LFS_PROG_SIZE
+#endif
+
+#ifndef LFS_BLOCK_CYCLES
+    #define LFS_BLOCK_CYCLES 0
+#endif
+
+#ifndef LFS_LOOKAHEAD_MAX
+    #define LFS_LOOKAHEAD_MAX 128
 #endif
 
 typedef struct _dfs_lfs_s
@@ -221,12 +229,15 @@ static void _lfs_load_config(struct lfs_config* lfs_cfg, struct rt_mtd_nor_devic
         lfs_cfg->block_size = LFS_BLOCK_SIZE;
     }
 
+    lfs_cfg->cache_size = LFS_CACHE_SIZE;
+    lfs_cfg->block_cycles = LFS_BLOCK_CYCLES;
+
     lfs_cfg->block_count = mtd_nor->block_end - mtd_nor->block_start;
 
-    lfs_cfg->lookahead = 32 * ((lfs_cfg->block_count + 31) / 32);
-    if (lfs_cfg->lookahead > LFS_LOOKAHEAD)
+    lfs_cfg->lookahead_size = 32 * ((lfs_cfg->block_count + 31) / 32);
+    if (lfs_cfg->lookahead_size > LFS_LOOKAHEAD_MAX)
     {
-        lfs_cfg->lookahead = LFS_LOOKAHEAD;
+        lfs_cfg->lookahead_size = LFS_LOOKAHEAD_MAX;
     }
 
     lfs_cfg->read = &_lfs_flash_read;
@@ -408,7 +419,7 @@ static int _dfs_lfs_statfs(struct dfs_filesystem* dfs, struct statfs* buf)
     dfs_lfs = (dfs_lfs_t*)dfs->data;
 
     /* Get total sectors and free sectors */
-    result = lfs_traverse(&dfs_lfs->lfs, _dfs_lfs_statfs_count, &in_use);
+    result = lfs_fs_traverse(&dfs_lfs->lfs, _dfs_lfs_statfs_count, &in_use);
     if (result != LFS_ERR_OK)
     {
         return _lfs_result_to_dfs(result);
@@ -582,7 +593,7 @@ static int _dfs_lfs_open(struct dfs_fd* file)
         {
             file->data = (void*)dfs_lfs_fd;
             file->pos = dfs_lfs_fd->u.file.pos;
-            file->size = dfs_lfs_fd->u.file.size;
+            file->size = dfs_lfs_fd->u.file.ctz.size;
             return RT_EOK;
         }
 
@@ -695,7 +706,7 @@ static int _dfs_lfs_write(struct dfs_fd* file, const void* buf, size_t len)
 
     /* update position and file size */
     file->pos = dfs_lfs_fd->u.file.pos;
-    file->size = dfs_lfs_fd->u.file.size;
+    file->size = dfs_lfs_fd->u.file.ctz.size;
 
     return ssize;
 }
@@ -851,8 +862,6 @@ static const struct dfs_filesystem_ops _dfs_lfs_ops = {
 int dfs_lfs_init(void)
 {
     /* register ram file system */
-    dfs_register(&_dfs_lfs_ops);
-
-    return 0;
+    return dfs_register(&_dfs_lfs_ops);
 }
 INIT_COMPONENT_EXPORT(dfs_lfs_init);
