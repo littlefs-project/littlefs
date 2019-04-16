@@ -29,7 +29,7 @@ static inline void lfs2_cache_drop(lfs2_t *lfs2, lfs2_cache_t *rcache) {
 
 static inline void lfs2_cache_zero(lfs2_t *lfs2, lfs2_cache_t *pcache) {
     // zero to avoid information leak
-    memset(pcache->buffer, 0xff, lfs2->cfg->prog_size);
+    memset(pcache->buffer, 0xff, lfs2->cfg->cache_size);
     pcache->block = 0xffffffff;
 }
 
