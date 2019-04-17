@@ -80,21 +80,6 @@ static int lfs2_bd_read(lfs2_t *lfs2,
             diff = lfs2_min(diff, rcache->off-off);
         }
 
-        if (size >= hint && off % lfs2->cfg->read_size == 0 &&
-                size >= lfs2->cfg->read_size) {
-            // bypass cache?
-            diff = lfs2_aligndown(diff, lfs2->cfg->read_size);
-            int err = lfs2->cfg->read(lfs2->cfg, block, off, data, diff);
-            if (err) {
-                return err;
-            }
-
-            data += diff;
-            off += diff;
-            size -= diff;
-            continue;
-        }
-
         // load to cache, first condition can no longer fail
         LFS2_ASSERT(block < lfs2->cfg->block_count);
         rcache->block = block;
