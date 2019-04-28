@@ -29,7 +29,7 @@ static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
 
 static inline void lfs_cache_zero(lfs_t *lfs, lfs_cache_t *pcache) {
     // zero to avoid information leak
-    memset(pcache->buffer, 0xff, lfs->cfg->prog_size);
+    memset(pcache->buffer, 0xff, lfs->cfg->cache_size);
     pcache->block = 0xffffffff;
 }
 
@@ -78,21 +78,6 @@ static int lfs_bd_read(lfs_t *lfs,
 
             // rcache takes priority
             diff = lfs_min(diff, rcache->off-off);
-        }
-
-        if (size >= hint && off % lfs->cfg->read_size == 0 &&
-                size >= lfs->cfg->read_size) {
-            // bypass cache?
-            diff = lfs_aligndown(diff, lfs->cfg->read_size);
-            int err = lfs->cfg->read(lfs->cfg, block, off, data, diff);
-            if (err) {
-                return err;
-            }
-
-            data += diff;
-            off += diff;
-            size -= diff;
-            continue;
         }
 
         // load to cache, first condition can no longer fail
