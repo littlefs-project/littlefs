@@ -975,9 +975,9 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
 
 static int lfs_dir_fetch(lfs_t *lfs,
         lfs_mdir_t *dir, const lfs_block_t pair[2]) {
-    // note, mask=-1, tag=0 can never match a tag since this
+    // note, mask=-1, tag=-1 can never match a tag since this
     // pattern has the invalid bit set
-    return (int)lfs_dir_fetchmatch(lfs, dir, pair, -1, 0, NULL, NULL, NULL);
+    return (int)lfs_dir_fetchmatch(lfs, dir, pair, -1, -1, NULL, NULL, NULL);
 }
 
 static int lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
@@ -1643,7 +1643,6 @@ relocate:
         if (err && (err != LFS_ERR_NOSPC && !exhausted)) {
             return err;
         }
-
         continue;
     }
 
