@@ -969,9 +969,9 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
 
 static int lfs_dir_fetch(lfs_t *lfs,
         lfs_mdir_t *dir, const lfs_block_t pair[2]) {
-    // note, mask=-1, tag=0 can never match a tag since this
+    // note, mask=-1, tag=-1 can never match a tag since this
     // pattern has the invalid bit set
-    return lfs_dir_fetchmatch(lfs, dir, pair, -1, 0, NULL, NULL, NULL);
+    return lfs_dir_fetchmatch(lfs, dir, pair, -1, -1, NULL, NULL, NULL);
 }
 
 static int lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
@@ -1401,6 +1401,7 @@ static int lfs_dir_compact(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t begin, uint16_t end) {
     // save some state in case block is bad
+    unsigned int relocateCounter = 0;
     const lfs_block_t oldpair[2] = {dir->pair[1], dir->pair[0]};
     bool relocated = false;
     bool exhausted = false;
@@ -1609,10 +1610,13 @@ relocate:
 
         // relocate half of pair
         int err = lfs_alloc(lfs, &dir->pair[1]);
-        if (err && (err != LFS_ERR_NOSPC && !exhausted)) {
+        if (err)
+        {
+          relocateCounter++;
+          if((err != LFS_ERR_NOSPC && !exhausted) || (relocateCounter >= lfs->cfg->block_count)) {
             return err;
+          }
         }
-
         continue;
     }
 
