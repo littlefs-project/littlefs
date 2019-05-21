@@ -84,9 +84,12 @@ static int lfs_bd_read(lfs_t *lfs,
         LFS_ASSERT(block < lfs->cfg->block_count);
         rcache->block = block;
         rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
-        rcache->size = lfs_min(lfs_alignup(off+hint, lfs->cfg->read_size),
-                lfs_min(lfs->cfg->block_size - rcache->off,
-                    lfs->cfg->cache_size));
+        rcache->size = lfs_min(
+                lfs_min(
+                    lfs_alignup(off+hint, lfs->cfg->read_size),
+                    lfs->cfg->block_size)
+                - rcache->off,
+                lfs->cfg->cache_size);
         int err = lfs->cfg->read(lfs->cfg, rcache->block,
                 rcache->off, rcache->buffer, rcache->size);
         if (err) {
