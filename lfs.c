@@ -2867,13 +2867,14 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         // lookup new head in ctz skip list
         err = lfs_ctz_find(lfs, NULL, &file->cache,
                 file->ctz.head, file->ctz.size,
-                size, &file->ctz.head, &(lfs_off_t){0});
+                size, &file->block, &file->off);
         if (err) {
             return err;
         }
 
+        file->ctz.head = file->block;
         file->ctz.size = size;
-        file->flags |= LFS_F_DIRTY;
+        file->flags |= LFS_F_DIRTY | LFS_F_READING;
     } else if (size > oldsize) {
         lfs_off_t pos = file->pos;
 

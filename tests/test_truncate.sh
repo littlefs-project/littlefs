@@ -11,6 +11,150 @@ tests/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 TEST
 
+echo "--- Simple truncate ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "baldynoop",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+
+    strcpy((char*)buffer, "hair");
+    size = strlen((char*)buffer);
+    for (lfs_off_t j = 0; j < $LARGESIZE; j += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_size(&lfs, &file[0]) => $LARGESIZE;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "baldynoop", LFS_O_RDWR) => 0;
+    lfs_file_size(&lfs, &file[0]) => $LARGESIZE;
+
+    lfs_file_truncate(&lfs, &file[0], $MEDIUMSIZE) => 0;
+    lfs_file_size(&lfs, &file[0]) => $MEDIUMSIZE;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "baldynoop", LFS_O_RDONLY) => 0;
+    lfs_file_size(&lfs, &file[0]) => $MEDIUMSIZE;
+
+    size = strlen("hair");
+    for (lfs_off_t j = 0; j < $MEDIUMSIZE; j += size) {
+        lfs_file_read(&lfs, &file[0], buffer, size) => size;
+        memcmp(buffer, "hair", size) => 0;
+    }
+    lfs_file_read(&lfs, &file[0], buffer, size) => 0;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Truncate and read ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "baldyread",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+
+    strcpy((char*)buffer, "hair");
+    size = strlen((char*)buffer);
+    for (lfs_off_t j = 0; j < $LARGESIZE; j += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_size(&lfs, &file[0]) => $LARGESIZE;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "baldyread", LFS_O_RDWR) => 0;
+    lfs_file_size(&lfs, &file[0]) => $LARGESIZE;
+
+    lfs_file_truncate(&lfs, &file[0], $MEDIUMSIZE) => 0;
+    lfs_file_size(&lfs, &file[0]) => $MEDIUMSIZE;
+
+    size = strlen("hair");
+    for (lfs_off_t j = 0; j < $MEDIUMSIZE; j += size) {
+        lfs_file_read(&lfs, &file[0], buffer, size) => size;
+        memcmp(buffer, "hair", size) => 0;
+    }
+    lfs_file_read(&lfs, &file[0], buffer, size) => 0;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "baldyread", LFS_O_RDONLY) => 0;
+    lfs_file_size(&lfs, &file[0]) => $MEDIUMSIZE;
+
+    size = strlen("hair");
+    for (lfs_off_t j = 0; j < $MEDIUMSIZE; j += size) {
+        lfs_file_read(&lfs, &file[0], buffer, size) => size;
+        memcmp(buffer, "hair", size) => 0;
+    }
+    lfs_file_read(&lfs, &file[0], buffer, size) => 0;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Truncate and write ---"
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "baldywrite",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+
+    strcpy((char*)buffer, "hair");
+    size = strlen((char*)buffer);
+    for (lfs_off_t j = 0; j < $LARGESIZE; j += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_size(&lfs, &file[0]) => $LARGESIZE;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "baldywrite", LFS_O_RDWR) => 0;
+    lfs_file_size(&lfs, &file[0]) => $LARGESIZE;
+
+    lfs_file_truncate(&lfs, &file[0], $MEDIUMSIZE) => 0;
+    lfs_file_size(&lfs, &file[0]) => $MEDIUMSIZE;
+
+    strcpy((char*)buffer, "bald");
+    size = strlen((char*)buffer);
+    for (lfs_off_t j = 0; j < $MEDIUMSIZE; j += size) {
+        lfs_file_write(&lfs, &file[0], buffer, size) => size;
+    }
+    lfs_file_size(&lfs, &file[0]) => $MEDIUMSIZE;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+tests/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file[0], "baldywrite", LFS_O_RDONLY) => 0;
+    lfs_file_size(&lfs, &file[0]) => $MEDIUMSIZE;
+
+    size = strlen("bald");
+    for (lfs_off_t j = 0; j < $MEDIUMSIZE; j += size) {
+        lfs_file_read(&lfs, &file[0], buffer, size) => size;
+        memcmp(buffer, "bald", size) => 0;
+    }
+    lfs_file_read(&lfs, &file[0], buffer, size) => 0;
+
+    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+TEST
+
+# More aggressive general truncation tests
 truncate_test() {
 STARTSIZES="$1"
 STARTSEEKS="$2"
