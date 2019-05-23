@@ -3900,7 +3900,7 @@ typedef struct lfs1_superblock {
 
 
 /// Low-level wrappers v1->v2 ///
-void lfs1_crc(uint32_t *crc, const void *buffer, size_t size) {
+static void lfs1_crc(uint32_t *crc, const void *buffer, size_t size) {
     *crc = lfs_crc(*crc, buffer, size);
 }
 
