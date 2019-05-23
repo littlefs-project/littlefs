@@ -84,9 +84,12 @@ static int lfs2_bd_read(lfs2_t *lfs2,
         LFS2_ASSERT(block < lfs2->cfg->block_count);
         rcache->block = block;
         rcache->off = lfs2_aligndown(off, lfs2->cfg->read_size);
-        rcache->size = lfs2_min(lfs2_alignup(off+hint, lfs2->cfg->read_size),
-                lfs2_min(lfs2->cfg->block_size - rcache->off,
-                    lfs2->cfg->cache_size));
+        rcache->size = lfs2_min(
+                lfs2_min(
+                    lfs2_alignup(off+hint, lfs2->cfg->read_size),
+                    lfs2->cfg->block_size)
+                - rcache->off,
+                lfs2->cfg->cache_size);
         int err = lfs2->cfg->read(lfs2->cfg, rcache->block,
                 rcache->off, rcache->buffer, rcache->size);
         if (err) {
@@ -2734,7 +2737,7 @@ lfs2_ssize_t lfs2_file_write(lfs2_t *lfs2, lfs2_file_t *file,
 
     if ((file->flags & LFS2_F_INLINE) &&
             lfs2_max(file->pos+nsize, file->ctz.size) >
-            lfs2_min(LFS2_ATTR_MAX, lfs2_min(
+            lfs2_min(0x3fe, lfs2_min(
                 lfs2->cfg->cache_size, lfs2->cfg->block_size/8))) {
         // inline file doesn't fit anymore
         file->off = file->pos;
@@ -2864,13 +2867,14 @@ int lfs2_file_truncate(lfs2_t *lfs2, lfs2_file_t *file, lfs2_off_t size) {
         // lookup new head in ctz skip list
         err = lfs2_ctz_find(lfs2, NULL, &file->cache,
                 file->ctz.head, file->ctz.size,
-                size, &file->ctz.head, &(lfs2_off_t){0});
+                size, &file->block, &file->off);
         if (err) {
             return err;
         }
 
+        file->ctz.head = file->block;
         file->ctz.size = size;
-        file->flags |= LFS2_F_DIRTY;
+        file->flags |= LFS2_F_DIRTY | LFS2_F_READING;
     } else if (size > oldsize) {
         lfs2_off_t pos = file->pos;
 
@@ -3900,7 +3904,7 @@ typedef struct lfs21_superblock {
 
 
 /// Low-level wrappers v1->v2 ///
-void lfs21_crc(uint32_t *crc, const void *buffer, size_t size) {
+static void lfs21_crc(uint32_t *crc, const void *buffer, size_t size) {
     *crc = lfs2_crc(*crc, buffer, size);
 }
 
