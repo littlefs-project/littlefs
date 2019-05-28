@@ -3338,6 +3338,14 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         if (err) {
             goto cleanup;
         }
+
+        // force compaction to prevent accidentally mounting any
+        // older version of littlefs that may live on disk
+        root.erased = false;
+        err = lfs_dir_commit(lfs, &root, NULL, 0);
+        if (err) {
+            goto cleanup;
+        }
     }
 
 cleanup:
@@ -4444,6 +4452,13 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
         // sanity check that fetch works
         err = lfs_dir_fetch(lfs, &dir2, (const lfs_block_t[2]){0, 1});
+        if (err) {
+            goto cleanup;
+        }
+
+        // force compaction to prevent accidentally mounting v1
+        dir2.erased = false;
+        err = lfs_dir_commit(lfs, &dir2, NULL, 0);
         if (err) {
             goto cleanup;
         }
