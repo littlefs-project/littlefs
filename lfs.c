@@ -4399,6 +4399,11 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
                     goto cleanup;
                 }
             }
+
+            err = lfs_bd_flush(lfs, &lfs->pcache, &lfs->rcache, true);
+            if (err) {
+                goto cleanup;
+            }
         }
 
         // Create new superblock. This marks a successful migration!
