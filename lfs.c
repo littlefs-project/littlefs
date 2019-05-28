@@ -2548,7 +2548,7 @@ relocate:
                 }
             }
         } else {
-            file->ctz.size = lfs_max(file->pos, file->ctz.size);
+            file->pos = lfs_max(file->pos, file->ctz.size);
         }
 
         // actual file updates
