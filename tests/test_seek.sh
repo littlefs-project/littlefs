@@ -395,6 +395,16 @@ tests/test.py << TEST
         lfs_file_sync(&lfs, &file[0]) => 0;
         lfs_file_tell(&lfs, &file[0]) => i+1;
         lfs_file_size(&lfs, &file[0]) => $SIZE;
+        if (i < $SIZE-2) {
+            uint8_t c[3];
+            lfs_file_seek(&lfs, &file[0], -1, LFS_SEEK_CUR) => i;
+            lfs_file_read(&lfs, &file[0], &c, 3) => 3;
+            lfs_file_tell(&lfs, &file[0]) => i+3;
+            lfs_file_size(&lfs, &file[0]) => $SIZE;
+            lfs_file_seek(&lfs, &file[0], i+1, LFS_SEEK_SET) => i+1;
+            lfs_file_tell(&lfs, &file[0]) => i+1;
+            lfs_file_size(&lfs, &file[0]) => $SIZE;
+        }
     }
 
     lfs_file_seek(&lfs, &file[0], 0, LFS_SEEK_SET) => 0;

@@ -194,7 +194,7 @@ static int lfs_bd_prog(lfs_t *lfs,
             off += diff;
             size -= diff;
 
-            pcache->size = off - pcache->off;
+            pcache->size = lfs_max(pcache->size, off - pcache->off);
             if (pcache->size == lfs->cfg->cache_size) {
                 // eagerly flush out pcache if we fill up
                 int err = lfs_bd_flush(lfs, pcache, rcache, validate);
@@ -617,7 +617,7 @@ static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
                 lfs->cfg->cache_size);
         int err = lfs_dir_getslice(lfs, dir, gmask, gtag,
                 rcache->off, rcache->buffer, rcache->size);
-        if (err) {
+        if (err < 0) {
             return err;
         }
     }
