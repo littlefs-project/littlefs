@@ -1247,7 +1247,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
     // build crc tag
     bool reset = ~lfs_frombe32(tag) >> 31;
     tag = LFS_MKTAG(LFS_TYPE_CRC + reset, 0x3ff,
-        off - (commit->off+sizeof(lfs_tag_t)));
+            lfs_min(off - (commit->off+sizeof(lfs_tag_t)), 0x3fe));
 
     // write out crc
     uint32_t footer[2];
@@ -1760,6 +1760,8 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         // successful commit, update dir
         dir->off = commit.off;
         dir->etag = commit.ptag;
+        // workaround to handle prog_size >1024
+        dir->erased = (dir->off % lfs->cfg->prog_size == 0);
 
         // note we able to have already handled move here
         if (lfs_gstate_hasmovehere(&lfs->gpending, dir->pair)) {
