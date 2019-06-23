@@ -2397,6 +2397,10 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 }
 
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
+    if (file->flags & LFS_F_CLOSED) {
+        return LFS_ERR_BADF;
+    }
+
     int err = lfs_file_sync(lfs, file);
 
     // remove from list of mdirs
@@ -2412,10 +2416,16 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
         lfs_free(file->cache.buffer);
     }
 
+    file->flags = LFS_F_CLOSED;
+
     return err;
 }
 
 static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
+    if (file->flags & LFS_F_CLOSED) {
+        return LFS_ERR_BADF;
+    }
+
     while (true) {
         // just relocate what exists into new block
         lfs_block_t nblock;
@@ -2486,6 +2496,10 @@ relocate:
 }
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
+    if (file->flags & LFS_F_CLOSED) {
+        return LFS_ERR_BADF;
+    }
+
     if (file->flags & LFS_F_READING) {
         if (!(file->flags & LFS_F_INLINE)) {
             lfs_cache_drop(lfs, &file->cache);
@@ -2564,6 +2578,10 @@ relocate:
 }
 
 int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
+    if (file->flags & LFS_F_CLOSED) {
+        return LFS_ERR_BADF;
+    }
+
     while (true) {
         int err = lfs_file_flush(lfs, file);
         if (err) {
@@ -2625,6 +2643,10 @@ relocate:
 
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
+    if (file->flags & LFS_F_CLOSED) {
+        return LFS_ERR_BADF;
+    }
+
     uint8_t *data = buffer;
     lfs_size_t nsize = size;
 
@@ -2698,6 +2720,10 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 
 lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
+    if (file->flags & LFS_F_CLOSED) {
+        return LFS_ERR_BADF;
+    }
+
     const uint8_t *data = buffer;
     lfs_size_t nsize = size;
 
@@ -2821,6 +2847,10 @@ relocate:
 
 lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
+    if (file->flags & LFS_F_CLOSED) {
+        return LFS_ERR_BADF;
+    }
+
     // write out everything beforehand, may be noop if rdonly
     int err = lfs_file_flush(lfs, file);
     if (err) {
@@ -2848,6 +2878,10 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 }
 
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+    if (file->flags & LFS_F_CLOSED) {
+        return LFS_ERR_BADF;
+    }
+
     if ((file->flags & 3) == LFS_O_RDONLY) {
         return LFS_ERR_BADF;
     }
@@ -2906,6 +2940,9 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
 lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
     (void)lfs;
+    if (file->flags & LFS_F_CLOSED) {
+        return LFS_ERR_BADF;
+    }
     return file->pos;
 }
 
@@ -2920,6 +2957,9 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
 
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
     (void)lfs;
+    if (file->flags & LFS_F_CLOSED) {
+        return LFS_ERR_BADF;
+    }
     if (file->flags & LFS_F_WRITING) {
         return lfs_max(file->pos, file->ctz.size);
     } else {
