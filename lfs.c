@@ -2414,6 +2414,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     // clean up memory
     if (!file->cfg->buffer) {
         lfs_free(file->cache.buffer);
+        file->cache.buffer = NULL;
     }
 
     file->flags = LFS_F_CLOSED;
@@ -3326,6 +3327,8 @@ static int lfs_deinit(lfs_t *lfs) {
     if (!lfs->cfg->lookahead_buffer) {
         lfs_free(lfs->free.buffer);
     }
+
+    memset(lfs, 0, sizeof(*lfs));
 
     return 0;
 }
