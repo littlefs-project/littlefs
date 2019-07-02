@@ -66,7 +66,10 @@ jobs:
         - CC="arm-linux-gnueabi-gcc --static -mthumb"
         - EXEC="qemu-arm"
       install:
-        - sudo apt-get install gcc-arm-linux-gnueabi qemu-user
+        - sudo apt-get install
+              gcc-arm-linux-gnueabi
+              libc6-dev-armel-cross
+              qemu-user
         - arm-linux-gnueabi-gcc --version
         - qemu-arm -version
 
@@ -78,7 +81,10 @@ jobs:
         - CC="powerpc-linux-gnu-gcc --static"
         - EXEC="qemu-ppc"
       install:
-        - sudo apt-get install gcc-powerpc-linux-gnu qemu-user
+        - sudo apt-get install
+              gcc-powerpc-linux-gnu
+              libc6-dev-powerpc-cross
+              qemu-user
         - powerpc-linux-gnu-gcc --version
         - qemu-ppc -version
 
@@ -90,9 +96,10 @@ jobs:
         - CC="mips-linux-gnu-gcc --static"
         - EXEC="qemu-mips"
       install:
-        - sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ xenial main universe"
-        - sudo apt-get -qq update
-        - sudo apt-get install gcc-mips-linux-gnu qemu-user
+        - sudo apt-get install
+              gcc-mips-linux-gnu
+              libc6-dev-mips-cross
+              qemu-user
         - mips-linux-gnu-gcc --version
         - qemu-mips -version
 

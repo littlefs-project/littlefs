@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # This script replaces prefixes of files, and symbols in that file.
 # Useful for creating different versions of the codebase that don't

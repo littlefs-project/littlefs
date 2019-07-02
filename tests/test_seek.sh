@@ -357,5 +357,73 @@ tests/test.py << TEST
     lfs2_unmount(&lfs2) => 0;
 TEST
 
+echo "--- Inline write and seek ---"
+for SIZE in $SMALLSIZE $MEDIUMSIZE $LARGESIZE
+do
+tests/test.py << TEST
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_open(&lfs2, &file[0], "hello/tinykitty$SIZE",
+            LFS2_O_RDWR | LFS2_O_CREAT) => 0;
+    int j = 0;
+    int k = 0;
+
+    memcpy(buffer, "abcdefghijklmnopqrstuvwxyz", 26);
+    for (unsigned i = 0; i < $SIZE; i++) {
+        lfs2_file_write(&lfs2, &file[0], &buffer[j++ % 26], 1) => 1;
+        lfs2_file_tell(&lfs2, &file[0]) => i+1;
+        lfs2_file_size(&lfs2, &file[0]) => i+1;
+    }
+
+    lfs2_file_seek(&lfs2, &file[0], 0, LFS2_SEEK_SET) => 0;
+    lfs2_file_tell(&lfs2, &file[0]) => 0;
+    lfs2_file_size(&lfs2, &file[0]) => $SIZE;
+    for (unsigned i = 0; i < $SIZE; i++) {
+        uint8_t c;
+        lfs2_file_read(&lfs2, &file[0], &c, 1) => 1;
+        c => buffer[k++ % 26];
+    }
+
+    lfs2_file_sync(&lfs2, &file[0]) => 0;
+    lfs2_file_tell(&lfs2, &file[0]) => $SIZE;
+    lfs2_file_size(&lfs2, &file[0]) => $SIZE;
+
+    lfs2_file_seek(&lfs2, &file[0], 0, LFS2_SEEK_SET) => 0;
+    for (unsigned i = 0; i < $SIZE; i++) {
+        lfs2_file_write(&lfs2, &file[0], &buffer[j++ % 26], 1) => 1;
+        lfs2_file_tell(&lfs2, &file[0]) => i+1;
+        lfs2_file_size(&lfs2, &file[0]) => $SIZE;
+        lfs2_file_sync(&lfs2, &file[0]) => 0;
+        lfs2_file_tell(&lfs2, &file[0]) => i+1;
+        lfs2_file_size(&lfs2, &file[0]) => $SIZE;
+        if (i < $SIZE-2) {
+            uint8_t c[3];
+            lfs2_file_seek(&lfs2, &file[0], -1, LFS2_SEEK_CUR) => i;
+            lfs2_file_read(&lfs2, &file[0], &c, 3) => 3;
+            lfs2_file_tell(&lfs2, &file[0]) => i+3;
+            lfs2_file_size(&lfs2, &file[0]) => $SIZE;
+            lfs2_file_seek(&lfs2, &file[0], i+1, LFS2_SEEK_SET) => i+1;
+            lfs2_file_tell(&lfs2, &file[0]) => i+1;
+            lfs2_file_size(&lfs2, &file[0]) => $SIZE;
+        }
+    }
+
+    lfs2_file_seek(&lfs2, &file[0], 0, LFS2_SEEK_SET) => 0;
+    lfs2_file_tell(&lfs2, &file[0]) => 0;
+    lfs2_file_size(&lfs2, &file[0]) => $SIZE;
+    for (unsigned i = 0; i < $SIZE; i++) {
+        uint8_t c;
+        lfs2_file_read(&lfs2, &file[0], &c, 1) => 1;
+        c => buffer[k++ % 26];
+    }
+
+    lfs2_file_sync(&lfs2, &file[0]) => 0;
+    lfs2_file_tell(&lfs2, &file[0]) => $SIZE;
+    lfs2_file_size(&lfs2, &file[0]) => $SIZE;
+
+    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_unmount(&lfs2) => 0;
+TEST
+done
+
 echo "--- Results ---"
 tests/stats.py
