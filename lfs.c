@@ -84,9 +84,12 @@ static int lfs_bd_read(lfs_t *lfs,
         LFS_ASSERT(block < lfs->cfg->block_count);
         rcache->block = block;
         rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
-        rcache->size = lfs_min(lfs_alignup(off+hint, lfs->cfg->read_size),
-                lfs_min(lfs->cfg->block_size - rcache->off,
-                    lfs->cfg->cache_size));
+        rcache->size = lfs_min(
+                lfs_min(
+                    lfs_alignup(off+hint, lfs->cfg->read_size),
+                    lfs->cfg->block_size)
+                - rcache->off,
+                lfs->cfg->cache_size);
         int err = lfs->cfg->read(lfs->cfg, rcache->block,
                 rcache->off, rcache->buffer, rcache->size);
         if (err) {
@@ -191,7 +194,7 @@ static int lfs_bd_prog(lfs_t *lfs,
             off += diff;
             size -= diff;
 
-            pcache->size = off - pcache->off;
+            pcache->size = lfs_max(pcache->size, off - pcache->off);
             if (pcache->size == lfs->cfg->cache_size) {
                 // eagerly flush out pcache if we fill up
                 int err = lfs_bd_flush(lfs, pcache, rcache, validate);
@@ -614,7 +617,7 @@ static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
                 lfs->cfg->cache_size);
         int err = lfs_dir_getslice(lfs, dir, gmask, gtag,
                 rcache->off, rcache->buffer, rcache->size);
-        if (err) {
+        if (err < 0) {
             return err;
         }
     }
@@ -2545,7 +2548,7 @@ relocate:
                 }
             }
         } else {
-            file->ctz.size = lfs_max(file->pos, file->ctz.size);
+            file->pos = lfs_max(file->pos, file->ctz.size);
         }
 
         // actual file updates
@@ -2734,7 +2737,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
     if ((file->flags & LFS_F_INLINE) &&
             lfs_max(file->pos+nsize, file->ctz.size) >
-            lfs_min(LFS_ATTR_MAX, lfs_min(
+            lfs_min(0x3fe, lfs_min(
                 lfs->cfg->cache_size, lfs->cfg->block_size/8))) {
         // inline file doesn't fit anymore
         file->off = file->pos;
@@ -2864,13 +2867,14 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         // lookup new head in ctz skip list
         err = lfs_ctz_find(lfs, NULL, &file->cache,
                 file->ctz.head, file->ctz.size,
-                size, &file->ctz.head, &(lfs_off_t){0});
+                size, &file->block, &file->off);
         if (err) {
             return err;
         }
 
+        file->ctz.head = file->block;
         file->ctz.size = size;
-        file->flags |= LFS_F_DIRTY;
+        file->flags |= LFS_F_DIRTY | LFS_F_READING;
     } else if (size > oldsize) {
         lfs_off_t pos = file->pos;
 
@@ -3331,6 +3335,14 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
         // sanity check that fetch works
         err = lfs_dir_fetch(lfs, &root, (const lfs_block_t[2]){0, 1});
+        if (err) {
+            goto cleanup;
+        }
+
+        // force compaction to prevent accidentally mounting any
+        // older version of littlefs that may live on disk
+        root.erased = false;
+        err = lfs_dir_commit(lfs, &root, NULL, 0);
         if (err) {
             goto cleanup;
         }
@@ -3900,7 +3912,7 @@ typedef struct lfs1_superblock {
 
 
 /// Low-level wrappers v1->v2 ///
-void lfs1_crc(uint32_t *crc, const void *buffer, size_t size) {
+static void lfs1_crc(uint32_t *crc, const void *buffer, size_t size) {
     *crc = lfs_crc(*crc, buffer, size);
 }
 
@@ -4395,6 +4407,11 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
                     goto cleanup;
                 }
             }
+
+            err = lfs_bd_flush(lfs, &lfs->pcache, &lfs->rcache, true);
+            if (err) {
+                goto cleanup;
+            }
         }
 
         // Create new superblock. This marks a successful migration!
@@ -4435,6 +4452,13 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
         // sanity check that fetch works
         err = lfs_dir_fetch(lfs, &dir2, (const lfs_block_t[2]){0, 1});
+        if (err) {
+            goto cleanup;
+        }
+
+        // force compaction to prevent accidentally mounting v1
+        dir2.erased = false;
+        err = lfs_dir_commit(lfs, &dir2, NULL, 0);
         if (err) {
             goto cleanup;
         }
