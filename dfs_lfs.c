@@ -58,6 +58,10 @@ typedef struct _dfs_lfs_fd_s
 } dfs_lfs_fd_t;
 
 static struct _dfs_lfs_s* _lfs_mount_tbl[RT_DEF_LFS_DRIVERS] = {0};
+static struct rt_mutex _lfs_lock;
+
+#define lfs_dfs_lock()          rt_mutex_take(&_lfs_lock, RT_WAITING_FOREVER);
+#define lfs_dfs_unlock()        rt_mutex_release(&_lfs_lock);
 
 // Read a region in a block. Negative error codes are propogated
 // to the user.
@@ -259,10 +263,13 @@ static int _dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, cons
         return -EINVAL;
     }
 
+    lfs_dfs_lock();
+
     /* get an empty position */
     index = _get_disk(RT_NULL);
     if (index == -1)
     {
+        lfs_dfs_unlock();
         return -EIO;
     }
 
@@ -270,7 +277,8 @@ static int _dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, cons
     dfs_lfs = (dfs_lfs_t*)rt_malloc(sizeof(dfs_lfs_t));
     if (dfs_lfs == RT_NULL)
     {
-        rt_kprintf("ERROR:no memory!\n");
+        lfs_dfs_unlock();
+		rt_kprintf("ERROR:no memory!\n");
         return -ENOMEM;
     }
     rt_memset(dfs_lfs, 0, sizeof(dfs_lfs_t));
@@ -281,6 +289,7 @@ static int _dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, cons
     result = lfs_mount(&dfs_lfs->lfs, &dfs_lfs->cfg);
     if (result != LFS_ERR_OK)
     {
+	    lfs_dfs_unlock();
         /* release memory */
         rt_free(dfs_lfs);
 
@@ -290,7 +299,7 @@ static int _dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, cons
     /* mount succeed! */
     dfs->data = (void*)dfs_lfs;
     _lfs_mount_tbl[index] = dfs_lfs;
-
+    lfs_dfs_unlock();
     return RT_EOK;
 }
 
@@ -303,10 +312,12 @@ static int _dfs_lfs_unmount(struct dfs_filesystem* dfs)
     RT_ASSERT(dfs != RT_NULL);
     RT_ASSERT(dfs->data != RT_NULL);
 
+    lfs_dfs_lock();
     /* find the device index and then umount it */
     index = _get_disk(dfs->dev_id);
     if (index == -1)
     {
+        lfs_dfs_unlock();
         return -ENOENT;
     }
     _lfs_mount_tbl[index] = RT_NULL;
@@ -315,6 +326,7 @@ static int _dfs_lfs_unmount(struct dfs_filesystem* dfs)
     dfs->data = RT_NULL;
 
     result = lfs_unmount(&dfs_lfs->lfs);
+    lfs_dfs_unlock();
     rt_free(dfs_lfs);
 
     return _lfs_result_to_dfs(result);
@@ -331,9 +343,11 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
         return -EINVAL;
     }
 
+    lfs_dfs_lock();
     /* Check Device Type */
     if (dev_id->type != RT_Device_Class_MTD)
     {
+        lfs_dfs_unlock();
         rt_kprintf("The flash device type must be MTD!\n");
         return -EINVAL;
     }
@@ -345,8 +359,10 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
         index = _get_disk(RT_NULL);
         if (index == -1)
         {
+            lfs_dfs_unlock();
             /* no space to store an temp driver */
-            rt_kprintf("sorry, there is no space to do mkfs! \n");
+            rt_kprintf("sorry, there is no space to do mkfs!\n");
+
             return -ENOSPC;
         }
 
@@ -355,9 +371,10 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
 
         if (dfs_lfs == RT_NULL)
         {
+            _lfs_mount_tbl[index] = RT_NULL;
+            lfs_dfs_unlock();
             rt_kprintf("ERROR:no memory!\n");
 
-            _lfs_mount_tbl[index] = RT_NULL;
             return -ENOMEM;
         }
         rt_memset(dfs_lfs, 0, sizeof(dfs_lfs_t));
@@ -366,7 +383,7 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
 
         /* format flash device */
         result = lfs_format(&dfs_lfs->lfs, &dfs_lfs->cfg);
-
+        lfs_dfs_unlock();
         return _lfs_result_to_dfs(result);
     }
 
@@ -376,6 +393,7 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
     result = lfs_unmount(&dfs_lfs->lfs);
     if (result != LFS_ERR_OK)
     {
+        lfs_dfs_unlock();
         return _lfs_result_to_dfs(result);
     }
 
@@ -385,6 +403,7 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
     result = lfs_format(&dfs_lfs->lfs, &dfs_lfs->cfg);
     if (result != LFS_ERR_OK)
     {
+        lfs_dfs_unlock();
         return _lfs_result_to_dfs(result);
     }
 
@@ -397,6 +416,7 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
         _lfs_mount_tbl[index] = dfs_lfs;
     }
 
+    lfs_dfs_unlock();
     return _lfs_result_to_dfs(result);
 }
 
@@ -416,12 +436,14 @@ static int _dfs_lfs_statfs(struct dfs_filesystem* dfs, struct statfs* buf)
     RT_ASSERT(dfs != RT_NULL);
     RT_ASSERT(dfs->data != RT_NULL);
 
+    lfs_dfs_lock();
     dfs_lfs = (dfs_lfs_t*)dfs->data;
 
     /* Get total sectors and free sectors */
     result = lfs_fs_traverse(&dfs_lfs->lfs, _dfs_lfs_statfs_count, &in_use);
     if (result != LFS_ERR_OK)
     {
+        lfs_dfs_unlock();
         return _lfs_result_to_dfs(result);
     }
 
@@ -429,6 +451,7 @@ static int _dfs_lfs_statfs(struct dfs_filesystem* dfs, struct statfs* buf)
     buf->f_blocks = dfs_lfs->cfg.block_count;
     buf->f_bfree = dfs_lfs->cfg.block_count - in_use;
 
+    lfs_dfs_unlock();
     return RT_EOK;
 }
 
@@ -439,9 +462,13 @@ static int _dfs_lfs_unlink(struct dfs_filesystem* dfs, const char* path)
 
     RT_ASSERT(dfs != RT_NULL);
     RT_ASSERT(dfs->data != RT_NULL);
+
+    lfs_dfs_lock();
     dfs_lfs = (dfs_lfs_t*)dfs->data;
 
     result = lfs_remove(&dfs_lfs->lfs, path);
+    lfs_dfs_unlock();
+
     return _lfs_result_to_dfs(result);
 }
 
@@ -474,9 +501,13 @@ static int _dfs_lfs_stat(struct dfs_filesystem* dfs, const char* path, struct st
 
     RT_ASSERT(dfs != RT_NULL);
     RT_ASSERT(dfs->data != RT_NULL);
+
+    lfs_dfs_lock();
     dfs_lfs = (dfs_lfs_t*)dfs->data;
 
     result = lfs_stat(&dfs_lfs->lfs, path, &info);
+    lfs_dfs_unlock();
+
     if (result != LFS_ERR_OK)
     {
         return _lfs_result_to_dfs(result);
@@ -493,9 +524,13 @@ static int _dfs_lfs_rename(struct dfs_filesystem* dfs, const char* from, const c
 
     RT_ASSERT(dfs != RT_NULL);
     RT_ASSERT(dfs->data != RT_NULL);
+  
+    lfs_dfs_lock();
     dfs_lfs = (dfs_lfs_t*)dfs->data;
 
     result = lfs_rename(&dfs_lfs->lfs, from, to);
+    lfs_dfs_unlock();
+
     return _lfs_result_to_dfs(result);
 }
 
@@ -512,6 +547,7 @@ static int _dfs_lfs_open(struct dfs_fd* file)
     RT_ASSERT(file != RT_NULL);
     RT_ASSERT(file->data != RT_NULL);
 
+    lfs_dfs_lock();
     dfs = (struct dfs_filesystem*)file->data;
     dfs_lfs = (dfs_lfs_t*)dfs->data;
 
@@ -545,6 +581,7 @@ static int _dfs_lfs_open(struct dfs_fd* file)
         else
         {
             file->data = (void*)dfs_lfs_fd;
+            lfs_dfs_unlock();
             return RT_EOK;
         }
 
@@ -554,6 +591,7 @@ static int _dfs_lfs_open(struct dfs_fd* file)
             rt_free(dfs_lfs_fd);
         }
 
+        lfs_dfs_unlock();
         return _lfs_result_to_dfs(result);
     }
     else
@@ -594,6 +632,7 @@ static int _dfs_lfs_open(struct dfs_fd* file)
             file->data = (void*)dfs_lfs_fd;
             file->pos = dfs_lfs_fd->u.file.pos;
             file->size = dfs_lfs_fd->u.file.ctz.size;
+            lfs_dfs_unlock();
             return RT_EOK;
         }
 
@@ -603,6 +642,7 @@ static int _dfs_lfs_open(struct dfs_fd* file)
             rt_free(dfs_lfs_fd);
         }
 
+        lfs_dfs_unlock();
         return _lfs_result_to_dfs(result);
     }
 }
@@ -614,6 +654,7 @@ static int _dfs_lfs_close(struct dfs_fd* file)
     RT_ASSERT(file != RT_NULL);
     RT_ASSERT(file->data != RT_NULL);
 
+    lfs_dfs_lock();
     dfs_lfs_fd = (dfs_lfs_fd_t*)file->data;
 
     if (file->type == FT_DIRECTORY)
@@ -626,6 +667,7 @@ static int _dfs_lfs_close(struct dfs_fd* file)
     }
 
     rt_free(dfs_lfs_fd);
+    lfs_dfs_unlock();
 
     return _lfs_result_to_dfs(result);
 }
@@ -643,8 +685,11 @@ static int _dfs_lfs_read(struct dfs_fd* file, void* buf, size_t len)
     RT_ASSERT(file != RT_NULL);
     RT_ASSERT(file->data != RT_NULL);
 
+    lfs_dfs_lock();
+
     if (file->type == FT_DIRECTORY)
     {
+        lfs_dfs_unlock();
         return -EISDIR;
     }
 
@@ -656,6 +701,7 @@ static int _dfs_lfs_read(struct dfs_fd* file, void* buf, size_t len)
         lfs_soff_t soff = lfs_file_seek(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file, file->pos, LFS_SEEK_SET);
         if (soff < 0)
         {
+            lfs_dfs_unlock();
             return _lfs_result_to_dfs(soff);
         }
     }
@@ -664,12 +710,14 @@ static int _dfs_lfs_read(struct dfs_fd* file, void* buf, size_t len)
     ssize = lfs_file_read(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file, buf, len);
     if (ssize < 0)
     {
+        lfs_dfs_unlock();
         return _lfs_result_to_dfs(ssize);
     }
 
     /* update position */
     file->pos = dfs_lfs_fd->u.file.pos;
 
+    lfs_dfs_unlock();
     return ssize;
 }
 
@@ -680,8 +728,11 @@ static int _dfs_lfs_write(struct dfs_fd* file, const void* buf, size_t len)
     RT_ASSERT(file != RT_NULL);
     RT_ASSERT(file->data != RT_NULL);
 
+    lfs_dfs_lock();
+
     if (file->type == FT_DIRECTORY)
     {
+        lfs_dfs_unlock();
         return -EISDIR;
     }
 
@@ -693,6 +744,7 @@ static int _dfs_lfs_write(struct dfs_fd* file, const void* buf, size_t len)
         lfs_soff_t soff = lfs_file_seek(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file, file->pos, LFS_SEEK_SET);
         if (soff < 0)
         {
+            lfs_dfs_unlock();
             return _lfs_result_to_dfs(soff);
         }
     }
@@ -701,6 +753,7 @@ static int _dfs_lfs_write(struct dfs_fd* file, const void* buf, size_t len)
     ssize = lfs_file_write(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file, buf, len);
     if (ssize < 0)
     {
+        lfs_dfs_unlock();
         return _lfs_result_to_dfs(ssize);
     }
 
@@ -708,6 +761,7 @@ static int _dfs_lfs_write(struct dfs_fd* file, const void* buf, size_t len)
     file->pos = dfs_lfs_fd->u.file.pos;
     file->size = dfs_lfs_fd->u.file.ctz.size;
 
+    lfs_dfs_unlock();
     return ssize;
 }
 
@@ -719,9 +773,11 @@ static int _dfs_lfs_flush(struct dfs_fd* file)
     RT_ASSERT(file != RT_NULL);
     RT_ASSERT(file->data != RT_NULL);
 
+    lfs_dfs_lock();
     dfs_lfs_fd = (dfs_lfs_fd_t*)file->data;
 
     result = lfs_file_sync(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file);
+    lfs_dfs_unlock();
 
     return _lfs_result_to_dfs(result);
 }
@@ -733,6 +789,7 @@ static int _dfs_lfs_lseek(struct dfs_fd* file, rt_off_t offset)
     RT_ASSERT(file != RT_NULL);
     RT_ASSERT(file->data != RT_NULL);
 
+    lfs_dfs_lock();
     dfs_lfs_fd = (dfs_lfs_fd_t*)file->data;
 
     if (file->type == FT_REGULAR)
@@ -740,6 +797,7 @@ static int _dfs_lfs_lseek(struct dfs_fd* file, rt_off_t offset)
         lfs_soff_t soff = lfs_file_seek(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.file, offset, LFS_SEEK_SET);
         if (soff < 0)
         {
+            lfs_dfs_unlock();
             return _lfs_result_to_dfs(soff);
         }
 
@@ -750,12 +808,14 @@ static int _dfs_lfs_lseek(struct dfs_fd* file, rt_off_t offset)
         lfs_soff_t soff = lfs_dir_seek(dfs_lfs_fd->lfs, &dfs_lfs_fd->u.dir, offset);
         if (soff < 0)
         {
+            lfs_dfs_unlock();
             return _lfs_result_to_dfs(soff);
         }
 
         file->pos = dfs_lfs_fd->u.dir.pos;
     }
 
+    lfs_dfs_unlock();
     return (file->pos);
 }
 
@@ -769,12 +829,14 @@ static int _dfs_lfs_getdents(struct dfs_fd* file, struct dirent* dirp, uint32_t 
 
     RT_ASSERT(file->data != RT_NULL);
 
+    lfs_dfs_lock();
     dfs_lfs_fd = (dfs_lfs_fd_t*)(file->data);
 
     /* make integer count */
     count = (count / sizeof(struct dirent)) * sizeof(struct dirent);
     if (count == 0)
     {
+        lfs_dfs_unlock();
         return -EINVAL;
     }
 
@@ -824,11 +886,13 @@ static int _dfs_lfs_getdents(struct dfs_fd* file, struct dirent* dirp, uint32_t 
 
     if (index == 0)
     {
+        lfs_dfs_unlock();
         return _lfs_result_to_dfs(result);
     }
 
     file->pos += index * sizeof(struct dirent);
 
+    lfs_dfs_unlock();
     return index * sizeof(struct dirent);
 }
 
@@ -861,6 +925,8 @@ static const struct dfs_filesystem_ops _dfs_lfs_ops = {
 
 int dfs_lfs_init(void)
 {
+    /* init file system lock */
+    rt_mutex_init(&_lfs_lock, "lfsmtx", RT_IPC_FLAG_FIFO);
     /* register ram file system */
     return dfs_register(&_dfs_lfs_ops);
 }
