@@ -528,7 +528,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 // Change the position of the file
 //
 // The change in position is determined by the offset and whence flag.
-// Returns the old position of the file, or a negative error code on failure.
+// Returns the new position of the file, or a negative error code on failure.
 lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence);
 
@@ -545,7 +545,7 @@ lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file);
 
 // Change the position of the file to the beginning of the file
 //
-// Equivalent to lfs_file_seek(lfs, file, 0, LFS_SEEK_CUR)
+// Equivalent to lfs_file_seek(lfs, file, 0, LFS_SEEK_SET)
 // Returns a negative error code on failure.
 int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 
