@@ -278,7 +278,7 @@ static int _dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, cons
     if (dfs_lfs == RT_NULL)
     {
         lfs_dfs_unlock();
-		rt_kprintf("ERROR:no memory!\n");
+        rt_kprintf("ERROR:no memory!\n");
         return -ENOMEM;
     }
     rt_memset(dfs_lfs, 0, sizeof(dfs_lfs_t));
@@ -289,7 +289,7 @@ static int _dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, cons
     result = lfs_mount(&dfs_lfs->lfs, &dfs_lfs->cfg);
     if (result != LFS_ERR_OK)
     {
-	    lfs_dfs_unlock();
+        lfs_dfs_unlock();
         /* release memory */
         rt_free(dfs_lfs);
 
