@@ -403,7 +403,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
 static int lfs_dir_compact(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t begin, uint16_t end);
-static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file);
+static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file);
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file);
 static void lfs_fs_preporphans(lfs_t *lfs, int8_t orphans);
 static void lfs_fs_prepmove(lfs_t *lfs,
@@ -619,11 +619,17 @@ static int lfs_dir_traverse_filter(void *p,
     lfs_tag_t *filtertag = p;
     (void)buffer;
 
+    // which mask depends on unique bit in tag structure
+    uint32_t mask = (tag & LFS_MKTAG(0x100, 0, 0))
+            ? LFS_MKTAG(0x7ff, 0x3ff, 0)
+            : LFS_MKTAG(0x700, 0x3ff, 0);
+
     // check for redundancy
-    uint32_t mask = LFS_MKTAG(0x7ff, 0x3ff, 0);
     if ((mask & tag) == (mask & *filtertag) ||
-        (mask & tag) == (LFS_MKTAG(LFS_TYPE_DELETE, 0, 0) |
-            (LFS_MKTAG(0, 0x3ff, 0) & *filtertag))) {
+            lfs_tag_isdelete(*filtertag) ||
+            (LFS_MKTAG(0x7ff, 0x3ff, 0) & tag) == (
+                LFS_MKTAG(LFS_TYPE_DELETE, 0, 0) |
+                    (LFS_MKTAG(0, 0x3ff, 0) & *filtertag))) {
         return true;
     }
 
@@ -1632,11 +1638,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         if (dir != &f->m && lfs_pair_cmp(f->m.pair, dir->pair) == 0 &&
                 f->type == LFS_TYPE_REG && (f->flags & LFS_F_INLINE) &&
                 f->ctz.size > lfs->cfg->cache_size) {
-            f->flags &= ~LFS_F_READING;
-            f->off = 0;
-
-            lfs_alloc_ack(lfs);
-            int err = lfs_file_relocate(lfs, f);
+            int err = lfs_file_outline(lfs, f);
             if (err) {
                 return err;
             }
@@ -2471,7 +2473,6 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
         lfs_cache_zero(lfs, &lfs->pcache);
 
         file->block = nblock;
-        file->flags &= ~LFS_F_INLINE;
         file->flags |= LFS_F_WRITING;
         return 0;
 
@@ -2481,6 +2482,18 @@ relocate:
         // just clear cache and try a new block
         lfs_cache_drop(lfs, &lfs->pcache);
     }
+}
+
+static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
+    file->off = file->pos;
+    lfs_alloc_ack(lfs);
+    int err = lfs_file_relocate(lfs, file);
+    if (err) {
+        return err;
+    }
+
+    file->flags &= ~LFS_F_INLINE;
+    return 0;
 }
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
@@ -2616,8 +2629,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
 
 relocate:
         // inline file doesn't fit anymore
-        file->off = file->pos;
-        err = lfs_file_relocate(lfs, file);
+        err = lfs_file_outline(lfs, file);
         if (err) {
             file->flags |= LFS_F_ERRED;
             return err;
@@ -2740,9 +2752,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
             lfs_min(0x3fe, lfs_min(
                 lfs->cfg->cache_size, lfs->cfg->block_size/8))) {
         // inline file doesn't fit anymore
-        file->off = file->pos;
-        lfs_alloc_ack(lfs);
-        int err = lfs_file_relocate(lfs, file);
+        int err = lfs_file_outline(lfs, file);
         if (err) {
             file->flags |= LFS_F_ERRED;
             return err;
