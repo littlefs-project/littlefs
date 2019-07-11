@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
-#include <dirent.h>
+//#include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <assert.h>
