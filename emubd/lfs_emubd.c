@@ -215,7 +215,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
 
     // update history and stats
     if (block != emu->history.blocks[0]) {
-        memcpy(&emu->history.blocks[1], &emu->history.blocks[0],
+        memmove(&emu->history.blocks[1], &emu->history.blocks[0],
                 sizeof(emu->history) - sizeof(emu->history.blocks[0]));
         emu->history.blocks[0] = block;
     }
