@@ -471,7 +471,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
         // check if we have looked at all blocks since last ack
         if (lfs->free.ack == 0) {
-            LFS_WARN("No more free space %"PRIu32,
+            LFS_ERROR("No more free space %"PRIu32,
                     lfs->free.i + lfs->free.off);
             return LFS_ERR_NOSPC;
         }
