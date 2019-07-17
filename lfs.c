@@ -1453,7 +1453,7 @@ static int lfs_dir_compact(lfs_t *lfs,
 
     // increment revision count
     dir->rev += 1;
-    if (lfs->cfg->block_cycles &&
+    if (lfs->cfg->block_cycles > 0 &&
             (dir->rev % (lfs->cfg->block_cycles+1) == 0)) {
         if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
             // oh no! we're writing too much to the superblock,
@@ -3192,8 +3192,10 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
 
-    // we don't support some corner cases
-    LFS_ASSERT(lfs->cfg->block_cycles < 0xffffffff);
+    // block_cycles = 0 is no longer supported, must either set a number
+    // of erase cycles before moving logs to another block (~500 suggested),
+    // or explicitly disable wear-leveling with -1.
+    LFS_ASSERT(lfs->cfg->block_cycles != 0);
 
     // setup read cache
     if (lfs->cfg->read_buffer) {
