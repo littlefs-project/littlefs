@@ -3,14 +3,14 @@ set -eu
 
 echo "=== Allocator tests ==="
 rm -rf blocks
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 TEST
 
 SIZE=15000
 
 lfs_mkdir() {
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "$1") => 0;
     lfs_unmount(&lfs) => 0;
@@ -18,7 +18,7 @@ TEST
 }
 
 lfs_remove() {
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "$1/eggs") => 0;
     lfs_remove(&lfs, "$1/bacon") => 0;
@@ -29,7 +29,7 @@ TEST
 }
 
 lfs_alloc_singleproc() {
-tests/test.py << TEST
+scripts/test.py << TEST
     const char *names[] = {"bacon", "eggs", "pancakes"};
     lfs_mount(&lfs, &cfg) => 0;
     for (unsigned n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
@@ -53,7 +53,7 @@ TEST
 lfs_alloc_multiproc() {
 for name in bacon eggs pancakes
 do
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "$1/$name",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
@@ -71,7 +71,7 @@ done
 lfs_verify() {
 for name in bacon eggs pancakes
 do
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "$1/$name", LFS_O_RDONLY) => 0;
     size = strlen("$name");
@@ -115,7 +115,7 @@ lfs_remove multiprocreuse
 lfs_remove singleprocreuse
 
 echo "--- Exhaustion test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
     size = strlen("exhaustion");
@@ -139,7 +139,7 @@ tests/test.py << TEST
     lfs_file_close(&lfs, &file[0]) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_RDONLY);
     size = strlen("exhaustion");
@@ -151,7 +151,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Exhaustion wraparound test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "exhaustion") => 0;
 
@@ -186,7 +186,7 @@ tests/test.py << TEST
     lfs_file_close(&lfs, &file[0]) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "exhaustion", LFS_O_RDONLY);
     size = strlen("exhaustion");
@@ -199,7 +199,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Dir exhaustion test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
 
     // find out max file size
@@ -248,7 +248,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Chained dir exhaustion test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
 
     // find out max file size
@@ -317,10 +317,10 @@ TEST
 
 echo "--- Split dir test ---"
 rm -rf blocks
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
 
     // create one block hole for half a directory
@@ -362,7 +362,7 @@ TEST
 
 echo "--- Outdated lookahead test ---"
 rm -rf blocks
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -424,7 +424,7 @@ TEST
 
 echo "--- Outdated lookahead and split dir test ---"
 rm -rf blocks
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -482,4 +482,4 @@ tests/test.py << TEST
 TEST
 
 echo "--- Results ---"
-tests/stats.py
+scripts/stats.py

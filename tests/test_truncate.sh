@@ -7,12 +7,12 @@ LARGESIZE=8192
 
 echo "=== Truncate tests ==="
 rm -rf blocks
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 TEST
 
 echo "--- Simple truncate ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "baldynoop",
             LFS_O_WRONLY | LFS_O_CREAT) => 0;
@@ -27,7 +27,7 @@ tests/test.py << TEST
     lfs_file_close(&lfs, &file[0]) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "baldynoop", LFS_O_RDWR) => 0;
     lfs_file_size(&lfs, &file[0]) => $LARGESIZE;
@@ -38,7 +38,7 @@ tests/test.py << TEST
     lfs_file_close(&lfs, &file[0]) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "baldynoop", LFS_O_RDONLY) => 0;
     lfs_file_size(&lfs, &file[0]) => $MEDIUMSIZE;
@@ -55,7 +55,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Truncate and read ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "baldyread",
             LFS_O_WRONLY | LFS_O_CREAT) => 0;
@@ -70,7 +70,7 @@ tests/test.py << TEST
     lfs_file_close(&lfs, &file[0]) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "baldyread", LFS_O_RDWR) => 0;
     lfs_file_size(&lfs, &file[0]) => $LARGESIZE;
@@ -88,7 +88,7 @@ tests/test.py << TEST
     lfs_file_close(&lfs, &file[0]) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "baldyread", LFS_O_RDONLY) => 0;
     lfs_file_size(&lfs, &file[0]) => $MEDIUMSIZE;
@@ -105,7 +105,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Truncate and write ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "baldywrite",
             LFS_O_WRONLY | LFS_O_CREAT) => 0;
@@ -120,7 +120,7 @@ tests/test.py << TEST
     lfs_file_close(&lfs, &file[0]) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "baldywrite", LFS_O_RDWR) => 0;
     lfs_file_size(&lfs, &file[0]) => $LARGESIZE;
@@ -138,7 +138,7 @@ tests/test.py << TEST
     lfs_file_close(&lfs, &file[0]) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file[0], "baldywrite", LFS_O_RDONLY) => 0;
     lfs_file_size(&lfs, &file[0]) => $MEDIUMSIZE;
@@ -160,7 +160,7 @@ STARTSIZES="$1"
 STARTSEEKS="$2"
 HOTSIZES="$3"
 COLDSIZES="$4"
-tests/test.py << TEST
+scripts/test.py << TEST
     static const lfs_off_t startsizes[] = {$STARTSIZES};
     static const lfs_off_t startseeks[] = {$STARTSEEKS};
     static const lfs_off_t hotsizes[]   = {$HOTSIZES};
@@ -192,7 +192,7 @@ tests/test.py << TEST
 
     lfs_unmount(&lfs) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     static const lfs_off_t startsizes[] = {$STARTSIZES};
     static const lfs_off_t hotsizes[]   = {$HOTSIZES};
     static const lfs_off_t coldsizes[]  = {$COLDSIZES};
@@ -224,7 +224,7 @@ tests/test.py << TEST
 
     lfs_unmount(&lfs) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     static const lfs_off_t startsizes[] = {$STARTSIZES};
     static const lfs_off_t hotsizes[]   = {$HOTSIZES};
     static const lfs_off_t coldsizes[]  = {$COLDSIZES};
@@ -299,4 +299,4 @@ truncate_test \
     "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE"
 
 echo "--- Results ---"
-tests/stats.py
+scripts/stats.py

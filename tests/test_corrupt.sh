@@ -7,7 +7,7 @@ NAMEMULT=64
 FILEMULT=1
 
 lfs_mktree() {
-tests/test.py ${1:-} << TEST
+scripts/test.py ${1:-} << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -38,7 +38,7 @@ TEST
 }
 
 lfs_chktree() {
-tests/test.py ${1:-} << TEST
+scripts/test.py ${1:-} << TEST
     lfs_mount(&lfs, &cfg) => 0;
     for (int i = 1; i < 10; i++) {
         for (int j = 0; j < $NAMEMULT; j++) {
@@ -115,4 +115,4 @@ lfs_mktree
 lfs_chktree
 
 echo "--- Results ---"
-tests/stats.py
+scripts/stats.py

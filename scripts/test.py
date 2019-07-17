@@ -6,7 +6,7 @@ import subprocess
 import os
 
 def generate(test):
-    with open("tests/template.fmt") as file:
+    with open("scripts/template.fmt") as file:
         template = file.read()
 
     lines = []

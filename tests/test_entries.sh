@@ -30,7 +30,7 @@ TEST
 }
 
 echo "--- Entry grow test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -50,7 +50,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Entry shrink test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -70,7 +70,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Entry spill test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -87,7 +87,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Entry push spill test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -107,7 +107,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Entry push spill two test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -129,7 +129,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Entry drop test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -159,7 +159,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Create too big ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -182,7 +182,7 @@ tests/test.py << TEST
 TEST
 
 echo "--- Resize too big ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -218,4 +218,4 @@ tests/test.py << TEST
 TEST
 
 echo "--- Results ---"
-tests/stats.py
+scripts/stats.py
