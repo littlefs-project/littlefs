@@ -2262,7 +2262,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     // setup simple file details
     int err;
     file->cfg = cfg;
-    file->flags = flags;
+    file->flags = flags | LFS_F_OPENED;
     file->pos = 0;
     file->cache.buffer = NULL;
 
@@ -2383,8 +2383,6 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
             }
         }
     }
-
-    file->flags |= LFS_F_OPENED;
 
     return 0;
 
@@ -2514,7 +2512,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
             lfs_file_t orig = {
                 .ctz.head = file->ctz.head,
                 .ctz.size = file->ctz.size,
-                .flags = LFS_O_RDONLY,
+                .flags = LFS_O_RDONLY | LFS_F_OPENED,
                 .pos = file->pos,
                 .cache = lfs->rcache,
             };
