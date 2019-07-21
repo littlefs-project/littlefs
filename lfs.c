@@ -2248,6 +2248,9 @@ static int lfs_ctz_traverse(lfs_t *lfs,
 int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags,
         const struct lfs_file_config *cfg) {
+    // do not allow open for already opened file
+    LFS_ASSERT(0 == (file->flags & LFS_F_OPENED));
+
     // deorphan if we haven't yet, needed at most once after poweron
     if ((flags & 3) != LFS_O_RDONLY) {
         int err = lfs_fs_forceconsistency(lfs);
@@ -2381,6 +2384,8 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         }
     }
 
+    file->flags |= LFS_F_OPENED;
+
     return 0;
 
 cleanup:
@@ -2397,6 +2402,8 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 }
 
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
+    LFS_ASSERT(file->flags & LFS_F_OPENED);
+
     int err = lfs_file_sync(lfs, file);
 
     // remove from list of mdirs
@@ -2412,10 +2419,14 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
         lfs_free(file->cache.buffer);
     }
 
+    file->flags &= ~LFS_F_OPENED;
+
     return err;
 }
 
 static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
+    LFS_ASSERT(file->flags & LFS_F_OPENED);
+
     while (true) {
         // just relocate what exists into new block
         lfs_block_t nblock;
@@ -2486,6 +2497,8 @@ relocate:
 }
 
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
+    LFS_ASSERT(file->flags & LFS_F_OPENED);
+
     if (file->flags & LFS_F_READING) {
         if (!(file->flags & LFS_F_INLINE)) {
             lfs_cache_drop(lfs, &file->cache);
@@ -2564,6 +2577,8 @@ relocate:
 }
 
 int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
+    LFS_ASSERT(file->flags & LFS_F_OPENED);
+
     while (true) {
         int err = lfs_file_flush(lfs, file);
         if (err) {
@@ -2627,6 +2642,8 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
     lfs_size_t nsize = size;
+
+    LFS_ASSERT(file->flags & LFS_F_OPENED);
 
     if ((file->flags & 3) == LFS_O_WRONLY) {
         return LFS_ERR_BADF;
@@ -2700,6 +2717,8 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
     lfs_size_t nsize = size;
+
+    LFS_ASSERT(file->flags & LFS_F_OPENED);
 
     if ((file->flags & 3) == LFS_O_RDONLY) {
         return LFS_ERR_BADF;
@@ -2821,6 +2840,8 @@ relocate:
 
 lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
+    LFS_ASSERT(file->flags & LFS_F_OPENED);
+
     // write out everything beforehand, may be noop if rdonly
     int err = lfs_file_flush(lfs, file);
     if (err) {
@@ -2848,6 +2869,8 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 }
 
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+    LFS_ASSERT(file->flags & LFS_F_OPENED);
+
     if ((file->flags & 3) == LFS_O_RDONLY) {
         return LFS_ERR_BADF;
     }
@@ -2906,6 +2929,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
 lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
     (void)lfs;
+    LFS_ASSERT(file->flags & LFS_F_OPENED);
     return file->pos;
 }
 
@@ -2920,6 +2944,7 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
 
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
     (void)lfs;
+    LFS_ASSERT(file->flags & LFS_F_OPENED);
     if (file->flags & LFS_F_WRITING) {
         return lfs_max(file->pos, file->ctz.size);
     } else {
@@ -3324,7 +3349,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         };
 
         lfs_superblock_tole32(&superblock);
-        err = lfs_dir_commit(lfs, &root, LFS_MKATTRS( 
+        err = lfs_dir_commit(lfs, &root, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_CREATE, 0, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
                 {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
@@ -4311,7 +4336,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
                     entry1.d.type &= ~0x80;
                 }
-                
+
                 // also fetch name
                 char name[LFS_NAME_MAX+1];
                 memset(name, 0, sizeof(name));
