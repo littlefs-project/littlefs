@@ -2631,10 +2631,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     LFS_ASSERT(file->flags & LFS_F_OPENED);
-
-    if ((file->flags & 3) == LFS_O_WRONLY) {
-        return LFS_ERR_BADF;
-    }
+    LFS_ASSERT((file->flags & 3) != LFS_O_WRONLY);
 
     if (file->flags & LFS_F_WRITING) {
         // flush out any writes
@@ -2706,10 +2703,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     lfs_size_t nsize = size;
 
     LFS_ASSERT(file->flags & LFS_F_OPENED);
-
-    if ((file->flags & 3) == LFS_O_RDONLY) {
-        return LFS_ERR_BADF;
-    }
+    LFS_ASSERT((file->flags & 3) != LFS_O_RDONLY);
 
     if (file->flags & LFS_F_READING) {
         // drop any reads
@@ -2857,10 +2851,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_ASSERT(file->flags & LFS_F_OPENED);
-
-    if ((file->flags & 3) == LFS_O_RDONLY) {
-        return LFS_ERR_BADF;
-    }
+    LFS_ASSERT((file->flags & 3) != LFS_O_RDONLY);
 
     if (size > LFS_FILE_MAX) {
         return LFS_ERR_INVAL;
