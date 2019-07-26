@@ -10,14 +10,18 @@
 static void test_assert(const char *file, unsigned line,
         const char *s, uintmax_t v, uintmax_t e) {{
     if (v != e) {{
-        fprintf(stderr, "\033[31m%s:%u: assert %s failed with %jd, "
-                "expected %jd\033[0m\n", file, line, s, v, e);
+        fprintf(stderr, "\033[97m%s:%u: \033[91m"
+                "assert failed with %jd, expected %jd\033[0m\n"
+                "    %s\n\n", file, line, v, e, s);
         exit(-2);
     }}
 }}
 
-#define test_assert(s, v, e) test_assert(__FILE__, __LINE__, s, v, e)
+#define test_assert(v, e) \
+        test_assert(__FILE__, __LINE__, #v " => " #e, v, e)
 
+// implicit variable for asserts
+uintmax_t test;
 
 // utility functions for traversals
 static int __attribute__((used)) test_count(void *p, lfs_block_t b) {{
@@ -27,23 +31,17 @@ static int __attribute__((used)) test_count(void *p, lfs_block_t b) {{
     return 0;
 }}
 
-
 // lfs declarations
 lfs_t lfs;
 lfs_emubd_t bd;
-lfs_file_t file[4];
-lfs_dir_t dir[4];
+// other declarations for convenience
+lfs_file_t file;
+lfs_dir_t dir;
 struct lfs_info info;
-
 uint8_t buffer[1024];
-uint8_t wbuffer[1024];
-uint8_t rbuffer[1024];
-lfs_size_t size;
-lfs_size_t wsize;
-lfs_size_t rsize;
+char path[1024];
 
-uintmax_t test;
-
+// test configuration options
 #ifndef LFS_READ_SIZE
 #define LFS_READ_SIZE 16
 #endif
@@ -94,6 +92,5 @@ int main(void) {{
     lfs_emubd_create(&cfg, "blocks");
 
 {tests}
-
     lfs_emubd_destroy(&cfg);
 }}

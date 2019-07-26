@@ -1,5 +1,7 @@
 #!/bin/bash
 set -eu
+export TEST_FILE=$0
+trap 'export TEST_LINE=$LINENO' DEBUG
 
 echo "=== Corrupt tests ==="
 
@@ -23,15 +25,15 @@ scripts/test.py ${1:-} << TEST
             buffer[j+$NAMEMULT+1] = '0'+i;
         }
         buffer[2*$NAMEMULT+1] = '\0';
-        lfs_file_open(&lfs, &file[0], (char*)buffer,
+        lfs_file_open(&lfs, &file, (char*)buffer,
                 LFS_O_WRONLY | LFS_O_CREAT) => 0;
         
-        size = $NAMEMULT;
+        lfs_size_t size = $NAMEMULT;
         for (int j = 0; j < i*$FILEMULT; j++) {
-            lfs_file_write(&lfs, &file[0], buffer, size) => size;
+            lfs_file_write(&lfs, &file, buffer, size) => size;
         }
 
-        lfs_file_close(&lfs, &file[0]) => 0;
+        lfs_file_close(&lfs, &file) => 0;
     }
     lfs_unmount(&lfs) => 0;
 TEST
@@ -53,15 +55,16 @@ scripts/test.py ${1:-} << TEST
             buffer[j+$NAMEMULT+1] = '0'+i;
         }
         buffer[2*$NAMEMULT+1] = '\0';
-        lfs_file_open(&lfs, &file[0], (char*)buffer, LFS_O_RDONLY) => 0;
+        lfs_file_open(&lfs, &file, (char*)buffer, LFS_O_RDONLY) => 0;
         
-        size = $NAMEMULT;
+        lfs_size_t size = $NAMEMULT;
         for (int j = 0; j < i*$FILEMULT; j++) {
-            lfs_file_read(&lfs, &file[0], rbuffer, size) => size;
+            uint8_t rbuffer[1024];
+            lfs_file_read(&lfs, &file, rbuffer, size) => size;
             memcmp(buffer, rbuffer, size) => 0;
         }
 
-        lfs_file_close(&lfs, &file[0]) => 0;
+        lfs_file_close(&lfs, &file) => 0;
     }
     lfs_unmount(&lfs) => 0;
 TEST
@@ -114,5 +117,4 @@ done
 lfs_mktree
 lfs_chktree
 
-echo "--- Results ---"
-scripts/stats.py
+scripts/results.py

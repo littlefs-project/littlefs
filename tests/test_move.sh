@@ -1,5 +1,7 @@
 #!/bin/bash
 set -eu
+export TEST_FILE=$0
+trap 'export TEST_LINE=$LINENO' DEBUG
 
 echo "=== Move tests ==="
 rm -rf blocks
@@ -17,11 +19,11 @@ scripts/test.py << TEST
     lfs_mkdir(&lfs, "a/hi/bonjour") => 0;
     lfs_mkdir(&lfs, "a/hi/ohayo") => 0;
 
-    lfs_file_open(&lfs, &file[0], "a/hello", LFS_O_CREAT | LFS_O_WRONLY) => 0;
-    lfs_file_write(&lfs, &file[0], "hola\n", 5) => 5;
-    lfs_file_write(&lfs, &file[0], "bonjour\n", 8) => 8;
-    lfs_file_write(&lfs, &file[0], "ohayo\n", 6) => 6;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_open(&lfs, &file, "a/hello", LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "hola\n", 5) => 5;
+    lfs_file_write(&lfs, &file, "bonjour\n", 8) => 8;
+    lfs_file_write(&lfs, &file, "ohayo\n", 6) => 6;
+    lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -33,23 +35,23 @@ scripts/test.py << TEST
 TEST
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_dir_open(&lfs, &dir[0], "a") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "a") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hi") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
-    lfs_dir_open(&lfs, &dir[0], "b") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_dir_open(&lfs, &dir, "b") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hello") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -62,21 +64,21 @@ TEST
 scripts/corrupt.py -n 1
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_dir_open(&lfs, &dir[0], "b") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "b") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
-    lfs_dir_open(&lfs, &dir[0], "c") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_dir_open(&lfs, &dir, "c") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hello") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -89,21 +91,21 @@ TEST
 scripts/corrupt.py -n 2
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_dir_open(&lfs, &dir[0], "c") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "c") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hello") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
-    lfs_dir_open(&lfs, &dir[0], "d") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_dir_open(&lfs, &dir, "d") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -115,21 +117,21 @@ scripts/test.py << TEST
 TEST
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_dir_open(&lfs, &dir[0], "c") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "c") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
-    lfs_dir_open(&lfs, &dir[0], "d") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_dir_open(&lfs, &dir, "d") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hello") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -141,21 +143,21 @@ scripts/test.py << TEST
 TEST
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_dir_open(&lfs, &dir[0], "a") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "a") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
-    lfs_dir_open(&lfs, &dir[0], "b") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_dir_open(&lfs, &dir, "b") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hi") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -168,21 +170,21 @@ TEST
 scripts/corrupt.py -n 1
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_dir_open(&lfs, &dir[0], "b") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "b") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
-    lfs_dir_open(&lfs, &dir[0], "c") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_dir_open(&lfs, &dir, "c") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hi") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -195,23 +197,23 @@ TEST
 scripts/corrupt.py -n 2
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_dir_open(&lfs, &dir[0], "c") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "c") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hi") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
-    lfs_dir_open(&lfs, &dir[0], "d") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_dir_open(&lfs, &dir, "d") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hello") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -223,23 +225,23 @@ scripts/test.py << TEST
 TEST
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_dir_open(&lfs, &dir[0], "c") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "c") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
-    lfs_dir_open(&lfs, &dir[0], "d") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_dir_open(&lfs, &dir, "d") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hello") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hi") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -247,36 +249,36 @@ echo "--- Move check ---"
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
 
-    lfs_dir_open(&lfs, &dir[0], "a/hi") => LFS_ERR_NOENT;
-    lfs_dir_open(&lfs, &dir[0], "b/hi") => LFS_ERR_NOENT;
-    lfs_dir_open(&lfs, &dir[0], "c/hi") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "a/hi") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "b/hi") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "c/hi") => LFS_ERR_NOENT;
 
-    lfs_dir_open(&lfs, &dir[0], "d/hi") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "d/hi") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "bonjour") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hola") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "ohayo") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
 
-    lfs_dir_open(&lfs, &dir[0], "a/hello") => LFS_ERR_NOENT;
-    lfs_dir_open(&lfs, &dir[0], "b/hello") => LFS_ERR_NOENT;
-    lfs_dir_open(&lfs, &dir[0], "c/hello") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "a/hello") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "b/hello") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "c/hello") => LFS_ERR_NOENT;
 
-    lfs_file_open(&lfs, &file[0], "d/hello", LFS_O_RDONLY) => 0;
-    lfs_file_read(&lfs, &file[0], buffer, 5) => 5;
+    lfs_file_open(&lfs, &file, "d/hello", LFS_O_RDONLY) => 0;
+    lfs_file_read(&lfs, &file, buffer, 5) => 5;
     memcmp(buffer, "hola\n", 5) => 0;
-    lfs_file_read(&lfs, &file[0], buffer, 8) => 8;
+    lfs_file_read(&lfs, &file, buffer, 8) => 8;
     memcmp(buffer, "bonjour\n", 8) => 0;
-    lfs_file_read(&lfs, &file[0], buffer, 6) => 6;
+    lfs_file_read(&lfs, &file, buffer, 6) => 6;
     memcmp(buffer, "ohayo\n", 6) => 0;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_close(&lfs, &file) => 0;
 
     lfs_unmount(&lfs) => 0;
 TEST
@@ -293,40 +295,39 @@ TEST
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
 
-    lfs_dir_open(&lfs, &dir[0], "a/hi") => LFS_ERR_NOENT;
-    lfs_dir_open(&lfs, &dir[0], "b") => LFS_ERR_NOENT;
-    lfs_dir_open(&lfs, &dir[0], "c") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "a/hi") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "b") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "c") => LFS_ERR_NOENT;
 
-    lfs_dir_open(&lfs, &dir[0], "d/hi") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "d/hi") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, ".") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "..") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "bonjour") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hola") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "ohayo") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
 
-    lfs_dir_open(&lfs, &dir[0], "a/hello") => LFS_ERR_NOENT;
-    lfs_dir_open(&lfs, &dir[0], "b") => LFS_ERR_NOENT;
-    lfs_dir_open(&lfs, &dir[0], "c") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "a/hello") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "b") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "c") => LFS_ERR_NOENT;
 
-    lfs_file_open(&lfs, &file[0], "d/hello", LFS_O_RDONLY) => 0;
-    lfs_file_read(&lfs, &file[0], buffer, 5) => 5;
+    lfs_file_open(&lfs, &file, "d/hello", LFS_O_RDONLY) => 0;
+    lfs_file_read(&lfs, &file, buffer, 5) => 5;
     memcmp(buffer, "hola\n", 5) => 0;
-    lfs_file_read(&lfs, &file[0], buffer, 8) => 8;
+    lfs_file_read(&lfs, &file, buffer, 8) => 8;
     memcmp(buffer, "bonjour\n", 8) => 0;
-    lfs_file_read(&lfs, &file[0], buffer, 6) => 6;
+    lfs_file_read(&lfs, &file, buffer, 6) => 6;
     memcmp(buffer, "ohayo\n", 6) => 0;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_close(&lfs, &file) => 0;
 
     lfs_unmount(&lfs) => 0;
 TEST
 
 
-echo "--- Results ---"
-scripts/stats.py
+scripts/results.py

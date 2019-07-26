@@ -1,5 +1,7 @@
 #!/bin/bash
 set -eu
+export TEST_FILE=$0
+trap 'export TEST_LINE=$LINENO' DEBUG
 
 echo "=== Path tests ==="
 rm -rf blocks
@@ -126,7 +128,7 @@ scripts/test.py << TEST
     strcmp(info.name, "/") => 0;
 
     lfs_mkdir(&lfs, "/") => LFS_ERR_EXIST;
-    lfs_file_open(&lfs, &file[0], "/", LFS_O_WRONLY | LFS_O_CREAT)
+    lfs_file_open(&lfs, &file, "/", LFS_O_WRONLY | LFS_O_CREAT)
         => LFS_ERR_ISDIR;
 
     // more corner cases
@@ -158,17 +160,17 @@ TEST
 echo "--- Max path test ---"
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    memset(buffer, 'w', LFS_NAME_MAX+1);
-    buffer[LFS_NAME_MAX+2] = '\0';
-    lfs_mkdir(&lfs, (char*)buffer) => LFS_ERR_NAMETOOLONG;
-    lfs_file_open(&lfs, &file[0], (char*)buffer,
+    memset(path, 'w', LFS_NAME_MAX+1);
+    path[LFS_NAME_MAX+2] = '\0';
+    lfs_mkdir(&lfs, path) => LFS_ERR_NAMETOOLONG;
+    lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_NAMETOOLONG;
 
-    memcpy(buffer, "coffee/", strlen("coffee/"));
-    memset(buffer+strlen("coffee/"), 'w', LFS_NAME_MAX+1);
-    buffer[strlen("coffee/")+LFS_NAME_MAX+2] = '\0';
-    lfs_mkdir(&lfs, (char*)buffer) => LFS_ERR_NAMETOOLONG;
-    lfs_file_open(&lfs, &file[0], (char*)buffer,
+    memcpy(path, "coffee/", strlen("coffee/"));
+    memset(path+strlen("coffee/"), 'w', LFS_NAME_MAX+1);
+    path[strlen("coffee/")+LFS_NAME_MAX+2] = '\0';
+    lfs_mkdir(&lfs, path) => LFS_ERR_NAMETOOLONG;
+    lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_NAMETOOLONG;
     lfs_unmount(&lfs) => 0;
 TEST
@@ -176,26 +178,25 @@ TEST
 echo "--- Really big path test ---"
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    memset(buffer, 'w', LFS_NAME_MAX);
-    buffer[LFS_NAME_MAX+1] = '\0';
-    lfs_mkdir(&lfs, (char*)buffer) => 0;
-    lfs_remove(&lfs, (char*)buffer) => 0;
-    lfs_file_open(&lfs, &file[0], (char*)buffer,
+    memset(path, 'w', LFS_NAME_MAX);
+    path[LFS_NAME_MAX+1] = '\0';
+    lfs_mkdir(&lfs, path) => 0;
+    lfs_remove(&lfs, path) => 0;
+    lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT) => 0;
-    lfs_file_close(&lfs, &file[0]) => 0;
-    lfs_remove(&lfs, (char*)buffer) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_remove(&lfs, path) => 0;
 
-    memcpy(buffer, "coffee/", strlen("coffee/"));
-    memset(buffer+strlen("coffee/"), 'w', LFS_NAME_MAX);
-    buffer[strlen("coffee/")+LFS_NAME_MAX+1] = '\0';
-    lfs_mkdir(&lfs, (char*)buffer) => 0;
-    lfs_remove(&lfs, (char*)buffer) => 0;
-    lfs_file_open(&lfs, &file[0], (char*)buffer,
+    memcpy(path, "coffee/", strlen("coffee/"));
+    memset(path+strlen("coffee/"), 'w', LFS_NAME_MAX);
+    path[strlen("coffee/")+LFS_NAME_MAX+1] = '\0';
+    lfs_mkdir(&lfs, path) => 0;
+    lfs_remove(&lfs, path) => 0;
+    lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT) => 0;
-    lfs_file_close(&lfs, &file[0]) => 0;
-    lfs_remove(&lfs, (char*)buffer) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_remove(&lfs, path) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
-echo "--- Results ---"
-scripts/stats.py
+scripts/results.py

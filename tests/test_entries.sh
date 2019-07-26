@@ -1,19 +1,22 @@
 #!/bin/bash
 set -eu
+export TEST_FILE=$0
+trap 'export TEST_LINE=$LINENO' DEBUG
+
+echo "=== Entry tests ==="
 
 # Note: These tests are intended for 512 byte inline size at different
 # inline sizes they should still pass, but won't be testing anything
 
-echo "=== Entry tests ==="
 rm -rf blocks
 function read_file {
 cat << TEST
 
     size = $2;
-    lfs_file_open(&lfs, &file[0], "$1", LFS_O_RDONLY) => 0;
-    lfs_file_read(&lfs, &file[0], rbuffer, size) => size;
+    lfs_file_open(&lfs, &file, "$1", LFS_O_RDONLY) => 0;
+    lfs_file_read(&lfs, &file, rbuffer, size) => size;
     memcmp(rbuffer, wbuffer, size) => 0;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_close(&lfs, &file) => 0;
 TEST
 }
 
@@ -21,17 +24,21 @@ function write_file {
 cat << TEST
 
     size = $2;
-    lfs_file_open(&lfs, &file[0], "$1",
+    lfs_file_open(&lfs, &file, "$1",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     memset(wbuffer, 'c', size);
-    lfs_file_write(&lfs, &file[0], wbuffer, size) => size;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_write(&lfs, &file, wbuffer, size) => size;
+    lfs_file_close(&lfs, &file) => 0;
 TEST
 }
 
 echo "--- Entry grow test ---"
 scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
+
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs_size_t size;
 
     lfs_mount(&lfs, &cfg) => 0;
     $(write_file "hi0" 20)
@@ -53,6 +60,10 @@ echo "--- Entry shrink test ---"
 scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs_size_t size;
+
     lfs_mount(&lfs, &cfg) => 0;
     $(write_file "hi0" 20)
     $(write_file "hi1" 200)
@@ -73,6 +84,10 @@ echo "--- Entry spill test ---"
 scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs_size_t size;
+
     lfs_mount(&lfs, &cfg) => 0;
     $(write_file "hi0" 200)
     $(write_file "hi1" 200)
@@ -89,6 +104,10 @@ TEST
 echo "--- Entry push spill test ---"
 scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
+
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs_size_t size;
 
     lfs_mount(&lfs, &cfg) => 0;
     $(write_file "hi0" 200)
@@ -109,6 +128,10 @@ TEST
 echo "--- Entry push spill two test ---"
 scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
+
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs_size_t size;
 
     lfs_mount(&lfs, &cfg) => 0;
     $(write_file "hi0" 200)
@@ -131,6 +154,10 @@ TEST
 echo "--- Entry drop test ---"
 scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
+
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs_size_t size;
 
     lfs_mount(&lfs, &cfg) => 0;
     $(write_file "hi0" 200)
@@ -163,21 +190,23 @@ scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
-    memset(buffer, 'm', 200);
-    buffer[200] = '\0';
+    memset(path, 'm', 200);
+    path[200] = '\0';
 
-    size = 400;
-    lfs_file_open(&lfs, &file[0], (char*)buffer,
+    lfs_size_t size = 400;
+    lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+    uint8_t wbuffer[1024];
     memset(wbuffer, 'c', size);
-    lfs_file_write(&lfs, &file[0], wbuffer, size) => size;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_write(&lfs, &file, wbuffer, size) => size;
+    lfs_file_close(&lfs, &file) => 0;
 
     size = 400;
-    lfs_file_open(&lfs, &file[0], (char*)buffer, LFS_O_RDONLY) => 0;
-    lfs_file_read(&lfs, &file[0], rbuffer, size) => size;
+    lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
+    uint8_t rbuffer[1024];
+    lfs_file_read(&lfs, &file, rbuffer, size) => size;
     memcmp(rbuffer, wbuffer, size) => 0;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -186,36 +215,37 @@ scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
-    memset(buffer, 'm', 200);
-    buffer[200] = '\0';
+    memset(path, 'm', 200);
+    path[200] = '\0';
+
+    lfs_size_t size = 40;
+    lfs_file_open(&lfs, &file, path,
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+    uint8_t wbuffer[1024];
+    memset(wbuffer, 'c', size);
+    lfs_file_write(&lfs, &file, wbuffer, size) => size;
+    lfs_file_close(&lfs, &file) => 0;
 
     size = 40;
-    lfs_file_open(&lfs, &file[0], (char*)buffer,
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
-    memset(wbuffer, 'c', size);
-    lfs_file_write(&lfs, &file[0], wbuffer, size) => size;
-    lfs_file_close(&lfs, &file[0]) => 0;
-
-    size = 40;
-    lfs_file_open(&lfs, &file[0], (char*)buffer, LFS_O_RDONLY) => 0;
-    lfs_file_read(&lfs, &file[0], rbuffer, size) => size;
+    lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
+    uint8_t rbuffer[1024];
+    lfs_file_read(&lfs, &file, rbuffer, size) => size;
     memcmp(rbuffer, wbuffer, size) => 0;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_close(&lfs, &file) => 0;
 
     size = 400;
-    lfs_file_open(&lfs, &file[0], (char*)buffer,
+    lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     memset(wbuffer, 'c', size);
-    lfs_file_write(&lfs, &file[0], wbuffer, size) => size;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_write(&lfs, &file, wbuffer, size) => size;
+    lfs_file_close(&lfs, &file) => 0;
 
     size = 400;
-    lfs_file_open(&lfs, &file[0], (char*)buffer, LFS_O_RDONLY) => 0;
-    lfs_file_read(&lfs, &file[0], rbuffer, size) => size;
+    lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
+    lfs_file_read(&lfs, &file, rbuffer, size) => size;
     memcmp(rbuffer, wbuffer, size) => 0;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
-echo "--- Results ---"
-scripts/stats.py
+scripts/results.py

@@ -197,7 +197,7 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
         }
     }
 
-    emu->stats.read_count += 1;
+    emu->stats.read_count += size;
     LFS_TRACE("lfs_emubd_read -> %d", 0);
     return 0;
 }
@@ -270,7 +270,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
         emu->history.blocks[0] = block;
     }
 
-    emu->stats.prog_count += 1;
+    emu->stats.prog_count += size;
     LFS_TRACE("lfs_emubd_prog -> %d", 0);
     return 0;
 }
@@ -317,7 +317,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         }
     }
 
-    emu->stats.erase_count += 1;
+    emu->stats.erase_count += cfg->block_size;
     LFS_TRACE("lfs_emubd_erase -> %d", 0);
     return 0;
 }

@@ -1,11 +1,14 @@
 #!/bin/bash
 set -eu
+export TEST_FILE=$0
+trap 'export TEST_LINE=$LINENO' DEBUG
+
+echo "=== File tests ==="
 
 SMALLSIZE=32
 MEDIUMSIZE=8192
 LARGESIZE=262144
 
-echo "=== File tests ==="
 rm -rf blocks
 scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
@@ -14,58 +17,60 @@ TEST
 echo "--- Simple file test ---"
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_file_open(&lfs, &file[0], "hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
-    size = strlen("Hello World!\n");
+    lfs_file_open(&lfs, &file, "hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_size_t size = strlen("Hello World!\n");
+    uint8_t wbuffer[1024];
     memcpy(wbuffer, "Hello World!\n", size);
-    lfs_file_write(&lfs, &file[0], wbuffer, size) => size;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_write(&lfs, &file, wbuffer, size) => size;
+    lfs_file_close(&lfs, &file) => 0;
 
-    lfs_file_open(&lfs, &file[0], "hello", LFS_O_RDONLY) => 0;
+    lfs_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
     size = strlen("Hello World!\n");
-    lfs_file_read(&lfs, &file[0], rbuffer, size) => size;
+    uint8_t rbuffer[1024];
+    lfs_file_read(&lfs, &file, rbuffer, size) => size;
     memcmp(rbuffer, wbuffer, size) => 0;
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
 w_test() {
 scripts/test.py ${4:-} << TEST
-    size = $1;
+    lfs_size_t size = $1;
     lfs_size_t chunk = 31;
     srand(0);
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_file_open(&lfs, &file[0], "$2",
+    lfs_file_open(&lfs, &file, "$2",
         ${3:-LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC}) => 0;
     for (lfs_size_t i = 0; i < size; i += chunk) {
         chunk = (chunk < size - i) ? chunk : size - i;
         for (lfs_size_t b = 0; b < chunk; b++) {
             buffer[b] = rand() & 0xff;
         }
-        lfs_file_write(&lfs, &file[0], buffer, chunk) => chunk;
+        lfs_file_write(&lfs, &file, buffer, chunk) => chunk;
     }
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 }
 
 r_test() {
 scripts/test.py << TEST
-    size = $1;
+    lfs_size_t size = $1;
     lfs_size_t chunk = 29;
     srand(0);
     lfs_mount(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "$2", &info) => 0;
     info.type => LFS_TYPE_REG;
     info.size => size;
-    lfs_file_open(&lfs, &file[0], "$2", ${3:-LFS_O_RDONLY}) => 0;
+    lfs_file_open(&lfs, &file, "$2", ${3:-LFS_O_RDONLY}) => 0;
     for (lfs_size_t i = 0; i < size; i += chunk) {
         chunk = (chunk < size - i) ? chunk : size - i;
-        lfs_file_read(&lfs, &file[0], buffer, chunk) => chunk;
+        lfs_file_read(&lfs, &file, buffer, chunk) => chunk;
         for (lfs_size_t b = 0; b < chunk && i+b < size; b++) {
             buffer[b] => rand() & 0xff;
         }
     }
-    lfs_file_close(&lfs, &file[0]) => 0;
+    lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 }
@@ -107,31 +112,31 @@ r_test 0 noavacado
 echo "--- Dir check ---"
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_dir_open(&lfs, &dir[0], "/") => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "hello") => 0;
     info.type => LFS_TYPE_REG;
     info.size => strlen("Hello World!\n");
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "largeavacado") => 0;
     info.type => LFS_TYPE_REG;
     info.size => $LARGESIZE;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "mediumavacado") => 0;
     info.type => LFS_TYPE_REG;
     info.size => $MEDIUMSIZE;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "noavacado") => 0;
     info.type => LFS_TYPE_REG;
     info.size => 0;
-    lfs_dir_read(&lfs, &dir[0], &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
     strcmp(info.name, "smallavacado") => 0;
     info.type => LFS_TYPE_REG;
     info.size => $SMALLSIZE;
-    lfs_dir_read(&lfs, &dir[0], &info) => 0;
-    lfs_dir_close(&lfs, &dir[0]) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs) => 0;
 TEST
 
@@ -144,15 +149,14 @@ scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "directory") => 0;
     for (unsigned i = 0; i < 300; i++) {
-        snprintf((char*)buffer, sizeof(buffer), "file_%03d", i);
-        lfs_file_open(&lfs, &file[0], (char*)buffer, LFS_O_WRONLY | LFS_O_CREAT) => 0;
-        size = 6;
-        memcpy(wbuffer, "Hello", size);
-        lfs_file_write(&lfs, &file[0], wbuffer, size) => size;
-        lfs_file_close(&lfs, &file[0]) => 0;
+        sprintf(path, "file_%03d", i);
+        lfs_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfs_size_t size = 6;
+        memcpy(buffer, "Hello", size);
+        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_close(&lfs, &file) => 0;
     }
     lfs_unmount(&lfs) => 0;
 TEST
 
-echo "--- Results ---"
-scripts/stats.py
+scripts/results.py

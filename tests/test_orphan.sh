@@ -1,5 +1,7 @@
 #!/bin/bash
 set -eu
+export TEST_FILE=$0
+trap 'export TEST_LINE=$LINENO' DEBUG
 
 echo "=== Orphan tests ==="
 rm -rf blocks
@@ -41,5 +43,4 @@ scripts/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
-echo "--- Results ---"
-scripts/stats.py
+scripts/results.py
