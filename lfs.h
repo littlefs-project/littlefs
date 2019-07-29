@@ -191,9 +191,13 @@ struct lfs_config {
     // Number of erasable blocks on the device.
     lfs_size_t block_count;
 
-    // Number of erase cycles before we should move data to another block.
-    // May be zero, in which case no block-level wear-leveling is performed.
-    uint32_t block_cycles;
+    // Number of erase cycles before littlefs evicts metadata logs and moves 
+    // the metadata to another block. Suggested values are in the
+    // range 100-1000, with large values having better performance at the cost
+    // of less consistent wear distribution.
+    //
+    // Set to -1 to disable block-level wear-leveling.
+    int32_t block_cycles;
 
     // Size of block caches. Each cache buffers a portion of a block in RAM.
     // The littlefs needs a read cache, a program cache, and one additional

@@ -1468,7 +1468,7 @@ static int lfs_dir_compact(lfs_t *lfs,
 
     // increment revision count
     dir->rev += 1;
-    if (lfs->cfg->block_cycles &&
+    if (lfs->cfg->block_cycles > 0 &&
             (dir->rev % (lfs->cfg->block_cycles+1) == 0)) {
         if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
             // oh no! we're writing too much to the superblock,
@@ -3226,8 +3226,14 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
 
-    // we don't support some corner cases
-    LFS_ASSERT(lfs->cfg->block_cycles < 0xffffffff);
+    // block_cycles = 0 is no longer supported.
+    //
+    // block_cycles is the number of erase cycles before littlefs evicts
+    // metadata logs as a part of wear leveling. Suggested values are in the
+    // range of 100-1000, or set block_cycles to -1 to disable block-level
+    // wear-leveling.
+    LFS_ASSERT(lfs->cfg->block_cycles != 0);
+
 
     // setup read cache
     if (lfs->cfg->read_buffer) {
