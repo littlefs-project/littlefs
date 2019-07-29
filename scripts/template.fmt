@@ -63,7 +63,7 @@ char path[1024];
 #endif
 
 #ifndef LFS_CACHE_SIZE
-#define LFS_CACHE_SIZE 64
+#define LFS_CACHE_SIZE (64 % LFS_PROG_SIZE == 0 ? 64 : LFS_PROG_SIZE)
 #endif
 
 #ifndef LFS_LOOKAHEAD_SIZE

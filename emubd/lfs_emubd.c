@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
-#include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <assert.h>
@@ -96,7 +95,7 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
     snprintf(emu->child, LFS_NAME_MAX, ".stats");
     FILE *f = fopen(emu->path, "r");
     if (!f) {
-        memset(&emu->stats, 0, sizeof(emu->stats));
+        memset(&emu->stats, LFS_EMUBD_ERASE_VALUE, sizeof(emu->stats));
     } else {
         size_t res = fread(&emu->stats, sizeof(emu->stats), 1, f);
         lfs_emubd_fromle32(emu);
@@ -265,7 +264,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
 
     // update history and stats
     if (block != emu->history.blocks[0]) {
-        memcpy(&emu->history.blocks[1], &emu->history.blocks[0],
+        memmove(&emu->history.blocks[1], &emu->history.blocks[0],
                 sizeof(emu->history) - sizeof(emu->history.blocks[0]));
         emu->history.blocks[0] = block;
     }

@@ -140,20 +140,79 @@ scripts/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
-echo "--- Many file test ---"
+echo "--- Many files test ---"
 scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 TEST
 scripts/test.py << TEST
-    // Create 300 files of 6 bytes
+    // Create 300 files of 7 bytes
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_mkdir(&lfs, "directory") => 0;
     for (unsigned i = 0; i < 300; i++) {
         sprintf(path, "file_%03d", i);
-        lfs_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
-        lfs_size_t size = 6;
-        memcpy(buffer, "Hello", size);
-        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_open(&lfs, &file, path,
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_size_t size = 7;
+        uint8_t wbuffer[1024];
+        uint8_t rbuffer[1024];
+        snprintf((char*)wbuffer, size, "Hi %03d", i);
+        lfs_file_write(&lfs, &file, wbuffer, size) => size;
+        lfs_file_rewind(&lfs, &file) => 0;
+        lfs_file_read(&lfs, &file, rbuffer, size) => size;
+        memcmp(wbuffer, rbuffer, size) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Many files with flush test ---"
+scripts/test.py << TEST
+    lfs_format(&lfs, &cfg) => 0;
+TEST
+scripts/test.py << TEST
+    // Create 300 files of 7 bytes
+    lfs_mount(&lfs, &cfg) => 0;
+    for (unsigned i = 0; i < 300; i++) {
+        sprintf(path, "file_%03d", i);
+        lfs_file_open(&lfs, &file, path,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_size_t size = 7;
+        uint8_t wbuffer[1024];
+        uint8_t rbuffer[1024];
+        snprintf((char*)wbuffer, size, "Hi %03d", i);
+        lfs_file_write(&lfs, &file, wbuffer, size) => size;
+        lfs_file_close(&lfs, &file) => 0;
+
+        lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
+        lfs_file_read(&lfs, &file, rbuffer, size) => size;
+        memcmp(wbuffer, rbuffer, size) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+TEST
+
+echo "--- Many files with power cycle test ---"
+scripts/test.py << TEST
+    lfs_format(&lfs, &cfg) => 0;
+TEST
+scripts/test.py << TEST
+    // Create 300 files of 7 bytes
+    lfs_mount(&lfs, &cfg) => 0;
+    for (unsigned i = 0; i < 300; i++) {
+        sprintf(path, "file_%03d", i);
+        lfs_file_open(&lfs, &file, path,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_size_t size = 7;
+        uint8_t wbuffer[1024];
+        uint8_t rbuffer[1024];
+        snprintf((char*)wbuffer, size, "Hi %03d", i);
+        lfs_file_write(&lfs, &file, wbuffer, size) => size;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_unmount(&lfs) => 0;
+
+        lfs_mount(&lfs, &cfg) => 0;
+        lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
+        lfs_file_read(&lfs, &file, rbuffer, size) => size;
+        memcmp(wbuffer, rbuffer, size) => 0;
         lfs_file_close(&lfs, &file) => 0;
     }
     lfs_unmount(&lfs) => 0;

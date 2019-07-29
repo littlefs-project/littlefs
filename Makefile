@@ -60,7 +60,7 @@ test: \
 test_%: tests/test_%.sh
 
 ifdef QUIET
-	@./$< | sed -n '/^[-=]/p'
+	@./$< | sed -nu '/^[-=]/p'
 else
 	./$<
 endif

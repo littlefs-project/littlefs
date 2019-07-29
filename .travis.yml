@@ -23,7 +23,19 @@ script:
   - make test QUIET=1 CFLAGS+="-DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
 
   - make clean test QUIET=1 CFLAGS+="-DLFS_INLINE_MAX=0"
+  - make clean test QUIET=1 CFLAGS+="-DLFS_EMUBD_ERASE_VALUE=0xff"
   - make clean test QUIET=1 CFLAGS+="-DLFS_NO_INTRINSICS"
+
+  # additional configurations that don't support all tests (this should be
+  # fixed but at the moment it is what it is)
+  - make test_files QUIET=1
+        CFLAGS+="-DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096"
+  - make test_files QUIET=1
+        CFLAGS+="-DLFS_READ_SIZE=\(2*1024\) -DLFS_BLOCK_SIZE=\(64*1024\)"
+  - make test_files QUIET=1
+        CFLAGS+="-DLFS_READ_SIZE=\(8*1024\) -DLFS_BLOCK_SIZE=\(64*1024\)"
+  - make test_files QUIET=1
+        CFLAGS+="-DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
 
   # compile and find the code size with the smallest configuration
   - make clean size
@@ -111,7 +123,7 @@ jobs:
       if: branch !~ -prefix$
       install:
         - sudo apt-get install libfuse-dev
-        - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2-alpha
+        - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2
         - fusermount -V
         - gcc --version
       before_script:
@@ -146,7 +158,7 @@ jobs:
       if: branch !~ -prefix$
       install:
         - sudo apt-get install libfuse-dev
-        - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2-alpha v2
+        - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2 v2
         - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v1 v1
         - fusermount -V
         - gcc --version
