@@ -82,7 +82,7 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
     snprintf(emu->child, LFS_NAME_MAX, ".stats");
     FILE *f = fopen(emu->path, "r");
     if (!f) {
-        memset(&emu->stats, 0, sizeof(emu->stats));
+        memset(&emu->stats, LFS_EMUBD_ERASE_VALUE, sizeof(emu->stats));
     } else {
         size_t res = fread(&emu->stats, sizeof(emu->stats), 1, f);
         lfs_emubd_fromle32(emu);
