@@ -54,6 +54,15 @@ static inline void lfs_emubd_fromle32(lfs_emubd_t *emu) {
 
 // Block device emulated on existing filesystem
 int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
+    LFS_TRACE("lfs_emubd_create(%p {.context=%p, "
+                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
+                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
+                ".block_size=%"PRIu32", .block_count=%"PRIu32"}, \"%s\")",
+            (void*)cfg, cfg->context,
+            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
+            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
+            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
+            path);
     lfs_emubd_t *emu = cfg->context;
     emu->cfg.read_size   = cfg->read_size;
     emu->cfg.prog_size   = cfg->prog_size;
@@ -64,7 +73,9 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
     size_t pathlen = strlen(path);
     emu->path = malloc(pathlen + 1 + LFS_NAME_MAX + 1);
     if (!emu->path) {
-        return -ENOMEM;
+        int err = -ENOMEM;
+        LFS_TRACE("lfs_emubd_create -> %"PRId32, err);
+        return err;
     }
 
     strcpy(emu->path, path);
@@ -75,7 +86,9 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
     // Create directory if it doesn't exist
     int err = mkdir(path, 0777);
     if (err && errno != EEXIST) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_create -> %"PRId32, err);
+        return err;
     }
 
     // Load stats to continue incrementing
@@ -87,12 +100,16 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
         size_t res = fread(&emu->stats, sizeof(emu->stats), 1, f);
         lfs_emubd_fromle32(emu);
         if (res < 1) {
-            return -errno;
+            err = -errno;
+            LFS_TRACE("lfs_emubd_create -> %"PRId32, err);
+            return err;
         }
 
         err = fclose(f);
         if (err) {
-            return -errno;
+            err = -errno;
+            LFS_TRACE("lfs_emubd_create -> %"PRId32, err);
+            return err;
         }
     }
 
@@ -105,27 +122,36 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
         size_t res = fread(&emu->history, sizeof(emu->history), 1, f);
         lfs_emubd_fromle32(emu);
         if (res < 1) {
-            return -errno;
+            err = -errno;
+            LFS_TRACE("lfs_emubd_create -> %"PRId32, err);
+            return err;
         }
 
         err = fclose(f);
         if (err) {
-            return -errno;
+            err = -errno;
+            LFS_TRACE("lfs_emubd_create -> %"PRId32, err);
+            return err;
         }
     }
 
+    LFS_TRACE("lfs_emubd_create -> %"PRId32, 0);
     return 0;
 }
 
 void lfs_emubd_destroy(const struct lfs_config *cfg) {
+    LFS_TRACE("lfs_emubd_destroy(%p)", (void*)cfg);
     lfs_emubd_sync(cfg);
 
     lfs_emubd_t *emu = cfg->context;
     free(emu->path);
+    LFS_TRACE("lfs_emubd_destroy -> %s", "void");
 }
 
 int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
+    LFS_TRACE("lfs_emubd_read(%p, 0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
+            (void*)cfg, block, off, buffer, size);
     lfs_emubd_t *emu = cfg->context;
     uint8_t *data = buffer;
 
@@ -142,32 +168,43 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
 
     FILE *f = fopen(emu->path, "rb");
     if (!f && errno != ENOENT) {
-        return -errno;
+        int err = -errno;
+        LFS_TRACE("lfs_emubd_read -> %d", err);
+        return err;
     }
 
     if (f) {
         int err = fseek(f, off, SEEK_SET);
         if (err) {
-            return -errno;
+            err = -errno;
+            LFS_TRACE("lfs_emubd_read -> %d", err);
+            return err;
         }
 
         size_t res = fread(data, 1, size, f);
         if (res < size && !feof(f)) {
-            return -errno;
+            err = -errno;
+            LFS_TRACE("lfs_emubd_read -> %d", err);
+            return err;
         }
 
         err = fclose(f);
         if (err) {
-            return -errno;
+            err = -errno;
+            LFS_TRACE("lfs_emubd_read -> %d", err);
+            return err;
         }
     }
 
-    emu->stats.read_count += 1;
+    emu->stats.read_count += size;
+    LFS_TRACE("lfs_emubd_read -> %d", 0);
     return 0;
 }
 
 int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
+    LFS_TRACE("lfs_emubd_prog(%p, 0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
+            (void*)cfg, block, off, buffer, size);
     lfs_emubd_t *emu = cfg->context;
     const uint8_t *data = buffer;
 
@@ -181,7 +218,9 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
 
     FILE *f = fopen(emu->path, "r+b");
     if (!f) {
-        return (errno == EACCES) ? 0 : -errno;
+        int err = (errno == EACCES) ? 0 : -errno;
+        LFS_TRACE("lfs_emubd_prog -> %d", err);
+        return err;
     }
 
     // Check that file was erased
@@ -189,28 +228,38 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
 
     int err = fseek(f, off, SEEK_SET);
     if (err) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_prog -> %d", err);
+        return err;
     }
 
     size_t res = fwrite(data, 1, size, f);
     if (res < size) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_prog -> %d", err);
+        return err;
     }
 
     err = fseek(f, off, SEEK_SET);
     if (err) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_prog -> %d", err);
+        return err;
     }
 
     uint8_t dat;
     res = fread(&dat, 1, 1, f);
     if (res < 1) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_prog -> %d", err);
+        return err;
     }
 
     err = fclose(f);
     if (err) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_prog -> %d", err);
+        return err;
     }
 
     // update history and stats
@@ -220,11 +269,13 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
         emu->history.blocks[0] = block;
     }
 
-    emu->stats.prog_count += 1;
+    emu->stats.prog_count += size;
+    LFS_TRACE("lfs_emubd_prog -> %d", 0);
     return 0;
 }
 
 int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
+    LFS_TRACE("lfs_emubd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
     lfs_emubd_t *emu = cfg->context;
 
     // Check if erase is valid
@@ -235,89 +286,118 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     struct stat st;
     int err = stat(emu->path, &st);
     if (err && errno != ENOENT) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_erase -> %d", err);
+        return err;
     }
 
     if (!err && S_ISREG(st.st_mode) && (S_IWUSR & st.st_mode)) {
         err = unlink(emu->path);
         if (err) {
-            return -errno;
+            err = -errno;
+            LFS_TRACE("lfs_emubd_erase -> %d", err);
+            return err;
         }
     }
 
     if (err || (S_ISREG(st.st_mode) && (S_IWUSR & st.st_mode))) {
         FILE *f = fopen(emu->path, "w");
         if (!f) {
-            return -errno;
+            err = -errno;
+            LFS_TRACE("lfs_emubd_erase -> %d", err);
+            return err;
         }
 
         err = fclose(f);
         if (err) {
-            return -errno;
+            err = -errno;
+            LFS_TRACE("lfs_emubd_erase -> %d", err);
+            return err;
         }
     }
 
-    emu->stats.erase_count += 1;
+    emu->stats.erase_count += cfg->block_size;
+    LFS_TRACE("lfs_emubd_erase -> %d", 0);
     return 0;
 }
 
 int lfs_emubd_sync(const struct lfs_config *cfg) {
+    LFS_TRACE("lfs_emubd_sync(%p)", (void*)cfg);
     lfs_emubd_t *emu = cfg->context;
 
     // Just write out info/stats for later lookup
     snprintf(emu->child, LFS_NAME_MAX, ".config");
     FILE *f = fopen(emu->path, "w");
     if (!f) {
-        return -errno;
+        int err = -errno;
+        LFS_TRACE("lfs_emubd_sync -> %d", err);
+        return err;
     }
 
     lfs_emubd_tole32(emu);
     size_t res = fwrite(&emu->cfg, sizeof(emu->cfg), 1, f);
     lfs_emubd_fromle32(emu);
     if (res < 1) {
-        return -errno;
+        int err = -errno;
+        LFS_TRACE("lfs_emubd_sync -> %d", err);
+        return err;
     }
 
     int err = fclose(f);
     if (err) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_sync -> %d", err);
+        return err;
     }
 
     snprintf(emu->child, LFS_NAME_MAX, ".stats");
     f = fopen(emu->path, "w");
     if (!f) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_sync -> %d", err);
+        return err;
     }
 
     lfs_emubd_tole32(emu);
     res = fwrite(&emu->stats, sizeof(emu->stats), 1, f);
     lfs_emubd_fromle32(emu);
     if (res < 1) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_sync -> %d", err);
+        return err;
     }
 
     err = fclose(f);
     if (err) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_sync -> %d", err);
+        return err;
     }
 
     snprintf(emu->child, LFS_NAME_MAX, ".history");
     f = fopen(emu->path, "w");
     if (!f) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_sync -> %d", err);
+        return err;
     }
 
     lfs_emubd_tole32(emu);
     res = fwrite(&emu->history, sizeof(emu->history), 1, f);
     lfs_emubd_fromle32(emu);
     if (res < 1) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_sync -> %d", err);
+        return err;
     }
 
     err = fclose(f);
     if (err) {
-        return -errno;
+        err = -errno;
+        LFS_TRACE("lfs_emubd_sync -> %d", err);
+        return err;
     }
 
+    LFS_TRACE("lfs_emubd_sync -> %d", 0);
     return 0;
 }
