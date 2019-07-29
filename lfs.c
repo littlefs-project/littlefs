@@ -2308,9 +2308,6 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
             (void*)lfs, (void*)file, path, flags,
             (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
 
-    // do not allow open for already opened file
-    LFS_ASSERT(0 == (file->flags & LFS_F_OPENED));
-
     // deorphan if we haven't yet, needed at most once after poweron
     if ((flags & 3) != LFS_O_RDONLY) {
         int err = lfs_fs_forceconsistency(lfs);
