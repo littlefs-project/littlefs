@@ -3192,10 +3192,14 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
 
-    // block_cycles = 0 is no longer supported, must either set a number
-    // of erase cycles before moving logs to another block (~500 suggested),
-    // or explicitly disable wear-leveling with -1.
+    // block_cycles = 0 is no longer supported.
+    //
+    // block_cycles is the number of erase cycles before littlefs evicts
+    // metadata logs as a part of wear leveling. Suggested values are in the
+    // range of 100-1000, or set block_cycles to -1 to disable block-level
+    // wear-leveling.
     LFS_ASSERT(lfs->cfg->block_cycles != 0);
+
 
     // setup read cache
     if (lfs->cfg->read_buffer) {
