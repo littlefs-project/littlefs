@@ -204,7 +204,7 @@ struct lfs_config {
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
     // increases the number of blocks found during an allocation pass. The
     // lookahead buffer is stored as a compact bitmap, so each byte of RAM
-    // can track 8 blocks. Must be a multiple of 4.
+    // can track 8 blocks. Must be a multiple of 8.
     lfs_size_t lookahead_size;
 
     // Optional statically allocated read buffer. Must be cache_size.
@@ -216,7 +216,7 @@ struct lfs_config {
     void *prog_buffer;
 
     // Optional statically allocated lookahead buffer. Must be lookahead_size
-    // and aligned to a 64-bit boundary. By default lfs_malloc is used to
+    // and aligned to a 32-bit boundary. By default lfs_malloc is used to
     // allocate this buffer.
     void *lookahead_buffer;
 
