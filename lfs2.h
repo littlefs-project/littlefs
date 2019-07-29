@@ -21,7 +21,7 @@ extern "C"
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS2_VERSION 0x00020000
+#define LFS2_VERSION 0x00020001
 #define LFS2_VERSION_MAJOR (0xffff & (LFS2_VERSION >> 16))
 #define LFS2_VERSION_MINOR (0xffff & (LFS2_VERSION >>  0))
 
@@ -136,6 +136,7 @@ enum lfs2_open_flags {
     LFS2_F_READING = 0x040000, // File has been read since last flush
     LFS2_F_ERRED   = 0x080000, // An error occured during write
     LFS2_F_INLINE  = 0x100000, // Currently inlined in directory entry
+    LFS2_F_OPENED  = 0x200000, // File has been opened
 };
 
 // File seek flags
@@ -190,9 +191,13 @@ struct lfs2_config {
     // Number of erasable blocks on the device.
     lfs2_size_t block_count;
 
-    // Number of erase cycles before we should move data to another block.
-    // May be zero, in which case no block-level wear-leveling is performed.
-    uint32_t block_cycles;
+    // Number of erase cycles before littlefs evicts metadata logs and moves 
+    // the metadata to another block. Suggested values are in the
+    // range 100-1000, with large values having better performance at the cost
+    // of less consistent wear distribution.
+    //
+    // Set to -1 to disable block-level wear-leveling.
+    int32_t block_cycles;
 
     // Size of block caches. Each cache buffers a portion of a block in RAM.
     // The littlefs needs a read cache, a program cache, and one additional
@@ -204,7 +209,7 @@ struct lfs2_config {
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
     // increases the number of blocks found during an allocation pass. The
     // lookahead buffer is stored as a compact bitmap, so each byte of RAM
-    // can track 8 blocks. Must be a multiple of 4.
+    // can track 8 blocks. Must be a multiple of 8.
     lfs2_size_t lookahead_size;
 
     // Optional statically allocated read buffer. Must be cache_size.
@@ -216,7 +221,7 @@ struct lfs2_config {
     void *prog_buffer;
 
     // Optional statically allocated lookahead buffer. Must be lookahead_size
-    // and aligned to a 64-bit boundary. By default lfs2_malloc is used to
+    // and aligned to a 32-bit boundary. By default lfs2_malloc is used to
     // allocate this buffer.
     void *lookahead_buffer;
 
@@ -528,7 +533,7 @@ lfs2_ssize_t lfs2_file_write(lfs2_t *lfs2, lfs2_file_t *file,
 // Change the position of the file
 //
 // The change in position is determined by the offset and whence flag.
-// Returns the old position of the file, or a negative error code on failure.
+// Returns the new position of the file, or a negative error code on failure.
 lfs2_soff_t lfs2_file_seek(lfs2_t *lfs2, lfs2_file_t *file,
         lfs2_soff_t off, int whence);
 
@@ -545,7 +550,7 @@ lfs2_soff_t lfs2_file_tell(lfs2_t *lfs2, lfs2_file_t *file);
 
 // Change the position of the file to the beginning of the file
 //
-// Equivalent to lfs2_file_seek(lfs2, file, 0, LFS2_SEEK_CUR)
+// Equivalent to lfs2_file_seek(lfs2, file, 0, LFS2_SEEK_SET)
 // Returns a negative error code on failure.
 int lfs2_file_rewind(lfs2_t *lfs2, lfs2_file_t *file);
 

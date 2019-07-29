@@ -17,20 +17,8 @@ extern "C"
 
 
 // Config options
-#ifndef LFS2_EMUBD_READ_SIZE
-#define LFS2_EMUBD_READ_SIZE 1
-#endif
-
-#ifndef LFS2_EMUBD_PROG_SIZE
-#define LFS2_EMUBD_PROG_SIZE 1
-#endif
-
-#ifndef LFS2_EMUBD_ERASE_SIZE
-#define LFS2_EMUBD_ERASE_SIZE 512
-#endif
-
-#ifndef LFS2_EMUBD_TOTAL_SIZE
-#define LFS2_EMUBD_TOTAL_SIZE 524288
+#ifndef LFS2_EMUBD_ERASE_VALUE
+#define LFS2_EMUBD_ERASE_VALUE 0x00
 #endif
 
 

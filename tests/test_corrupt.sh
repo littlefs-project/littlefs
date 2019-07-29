@@ -1,5 +1,7 @@
 #!/bin/bash
 set -eu
+export TEST_FILE=$0
+trap 'export TEST_LINE=$LINENO' DEBUG
 
 echo "=== Corrupt tests ==="
 
@@ -7,7 +9,7 @@ NAMEMULT=64
 FILEMULT=1
 
 lfs2_mktree() {
-tests/test.py ${1:-} << TEST
+scripts/test.py ${1:-} << TEST
     lfs2_format(&lfs2, &cfg) => 0;
 
     lfs2_mount(&lfs2, &cfg) => 0;
@@ -23,22 +25,22 @@ tests/test.py ${1:-} << TEST
             buffer[j+$NAMEMULT+1] = '0'+i;
         }
         buffer[2*$NAMEMULT+1] = '\0';
-        lfs2_file_open(&lfs2, &file[0], (char*)buffer,
+        lfs2_file_open(&lfs2, &file, (char*)buffer,
                 LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
         
-        size = $NAMEMULT;
+        lfs2_size_t size = $NAMEMULT;
         for (int j = 0; j < i*$FILEMULT; j++) {
-            lfs2_file_write(&lfs2, &file[0], buffer, size) => size;
+            lfs2_file_write(&lfs2, &file, buffer, size) => size;
         }
 
-        lfs2_file_close(&lfs2, &file[0]) => 0;
+        lfs2_file_close(&lfs2, &file) => 0;
     }
     lfs2_unmount(&lfs2) => 0;
 TEST
 }
 
 lfs2_chktree() {
-tests/test.py ${1:-} << TEST
+scripts/test.py ${1:-} << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
     for (int i = 1; i < 10; i++) {
         for (int j = 0; j < $NAMEMULT; j++) {
@@ -53,15 +55,16 @@ tests/test.py ${1:-} << TEST
             buffer[j+$NAMEMULT+1] = '0'+i;
         }
         buffer[2*$NAMEMULT+1] = '\0';
-        lfs2_file_open(&lfs2, &file[0], (char*)buffer, LFS2_O_RDONLY) => 0;
+        lfs2_file_open(&lfs2, &file, (char*)buffer, LFS2_O_RDONLY) => 0;
         
-        size = $NAMEMULT;
+        lfs2_size_t size = $NAMEMULT;
         for (int j = 0; j < i*$FILEMULT; j++) {
-            lfs2_file_read(&lfs2, &file[0], rbuffer, size) => size;
+            uint8_t rbuffer[1024];
+            lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
             memcmp(buffer, rbuffer, size) => 0;
         }
 
-        lfs2_file_close(&lfs2, &file[0]) => 0;
+        lfs2_file_close(&lfs2, &file) => 0;
     }
     lfs2_unmount(&lfs2) => 0;
 TEST
@@ -114,5 +117,4 @@ done
 lfs2_mktree
 lfs2_chktree
 
-echo "--- Results ---"
-tests/stats.py
+scripts/results.py

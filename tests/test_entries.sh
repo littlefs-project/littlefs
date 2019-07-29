@@ -1,19 +1,22 @@
 #!/bin/bash
 set -eu
+export TEST_FILE=$0
+trap 'export TEST_LINE=$LINENO' DEBUG
+
+echo "=== Entry tests ==="
 
 # Note: These tests are intended for 512 byte inline size at different
 # inline sizes they should still pass, but won't be testing anything
 
-echo "=== Entry tests ==="
 rm -rf blocks
 function read_file {
 cat << TEST
 
     size = $2;
-    lfs2_file_open(&lfs2, &file[0], "$1", LFS2_O_RDONLY) => 0;
-    lfs2_file_read(&lfs2, &file[0], rbuffer, size) => size;
+    lfs2_file_open(&lfs2, &file, "$1", LFS2_O_RDONLY) => 0;
+    lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
     memcmp(rbuffer, wbuffer, size) => 0;
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
 TEST
 }
 
@@ -21,17 +24,21 @@ function write_file {
 cat << TEST
 
     size = $2;
-    lfs2_file_open(&lfs2, &file[0], "$1",
+    lfs2_file_open(&lfs2, &file, "$1",
             LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
     memset(wbuffer, 'c', size);
-    lfs2_file_write(&lfs2, &file[0], wbuffer, size) => size;
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_write(&lfs2, &file, wbuffer, size) => size;
+    lfs2_file_close(&lfs2, &file) => 0;
 TEST
 }
 
 echo "--- Entry grow test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_format(&lfs2, &cfg) => 0;
+
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs2_size_t size;
 
     lfs2_mount(&lfs2, &cfg) => 0;
     $(write_file "hi0" 20)
@@ -50,8 +57,12 @@ tests/test.py << TEST
 TEST
 
 echo "--- Entry shrink test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_format(&lfs2, &cfg) => 0;
+
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs2_size_t size;
 
     lfs2_mount(&lfs2, &cfg) => 0;
     $(write_file "hi0" 20)
@@ -70,8 +81,12 @@ tests/test.py << TEST
 TEST
 
 echo "--- Entry spill test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_format(&lfs2, &cfg) => 0;
+
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs2_size_t size;
 
     lfs2_mount(&lfs2, &cfg) => 0;
     $(write_file "hi0" 200)
@@ -87,8 +102,12 @@ tests/test.py << TEST
 TEST
 
 echo "--- Entry push spill test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_format(&lfs2, &cfg) => 0;
+
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs2_size_t size;
 
     lfs2_mount(&lfs2, &cfg) => 0;
     $(write_file "hi0" 200)
@@ -107,8 +126,12 @@ tests/test.py << TEST
 TEST
 
 echo "--- Entry push spill two test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_format(&lfs2, &cfg) => 0;
+
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs2_size_t size;
 
     lfs2_mount(&lfs2, &cfg) => 0;
     $(write_file "hi0" 200)
@@ -129,8 +152,12 @@ tests/test.py << TEST
 TEST
 
 echo "--- Entry drop test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_format(&lfs2, &cfg) => 0;
+
+    uint8_t wbuffer[1024];
+    uint8_t rbuffer[1024];
+    lfs2_size_t size;
 
     lfs2_mount(&lfs2, &cfg) => 0;
     $(write_file "hi0" 200)
@@ -159,63 +186,66 @@ tests/test.py << TEST
 TEST
 
 echo "--- Create too big ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_format(&lfs2, &cfg) => 0;
 
     lfs2_mount(&lfs2, &cfg) => 0;
-    memset(buffer, 'm', 200);
-    buffer[200] = '\0';
+    memset(path, 'm', 200);
+    path[200] = '\0';
 
-    size = 400;
-    lfs2_file_open(&lfs2, &file[0], (char*)buffer,
+    lfs2_size_t size = 400;
+    lfs2_file_open(&lfs2, &file, path,
             LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+    uint8_t wbuffer[1024];
     memset(wbuffer, 'c', size);
-    lfs2_file_write(&lfs2, &file[0], wbuffer, size) => size;
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_write(&lfs2, &file, wbuffer, size) => size;
+    lfs2_file_close(&lfs2, &file) => 0;
 
     size = 400;
-    lfs2_file_open(&lfs2, &file[0], (char*)buffer, LFS2_O_RDONLY) => 0;
-    lfs2_file_read(&lfs2, &file[0], rbuffer, size) => size;
+    lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+    uint8_t rbuffer[1024];
+    lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
     memcmp(rbuffer, wbuffer, size) => 0;
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Resize too big ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_format(&lfs2, &cfg) => 0;
 
     lfs2_mount(&lfs2, &cfg) => 0;
-    memset(buffer, 'm', 200);
-    buffer[200] = '\0';
+    memset(path, 'm', 200);
+    path[200] = '\0';
+
+    lfs2_size_t size = 40;
+    lfs2_file_open(&lfs2, &file, path,
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+    uint8_t wbuffer[1024];
+    memset(wbuffer, 'c', size);
+    lfs2_file_write(&lfs2, &file, wbuffer, size) => size;
+    lfs2_file_close(&lfs2, &file) => 0;
 
     size = 40;
-    lfs2_file_open(&lfs2, &file[0], (char*)buffer,
-            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
-    memset(wbuffer, 'c', size);
-    lfs2_file_write(&lfs2, &file[0], wbuffer, size) => size;
-    lfs2_file_close(&lfs2, &file[0]) => 0;
-
-    size = 40;
-    lfs2_file_open(&lfs2, &file[0], (char*)buffer, LFS2_O_RDONLY) => 0;
-    lfs2_file_read(&lfs2, &file[0], rbuffer, size) => size;
+    lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+    uint8_t rbuffer[1024];
+    lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
     memcmp(rbuffer, wbuffer, size) => 0;
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
 
     size = 400;
-    lfs2_file_open(&lfs2, &file[0], (char*)buffer,
+    lfs2_file_open(&lfs2, &file, path,
             LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
     memset(wbuffer, 'c', size);
-    lfs2_file_write(&lfs2, &file[0], wbuffer, size) => size;
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_write(&lfs2, &file, wbuffer, size) => size;
+    lfs2_file_close(&lfs2, &file) => 0;
 
     size = 400;
-    lfs2_file_open(&lfs2, &file[0], (char*)buffer, LFS2_O_RDONLY) => 0;
-    lfs2_file_read(&lfs2, &file[0], rbuffer, size) => size;
+    lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+    lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
     memcmp(rbuffer, wbuffer, size) => 0;
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
 
-echo "--- Results ---"
-tests/stats.py
+scripts/results.py

@@ -1,156 +1,159 @@
 #!/bin/bash
 set -eu
+export TEST_FILE=$0
+trap 'export TEST_LINE=$LINENO' DEBUG
+
+echo "=== Truncate tests ==="
 
 SMALLSIZE=32
 MEDIUMSIZE=2048
 LARGESIZE=8192
 
-echo "=== Truncate tests ==="
 rm -rf blocks
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_format(&lfs2, &cfg) => 0;
 TEST
 
 echo "--- Simple truncate ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file[0], "baldynoop",
+    lfs2_file_open(&lfs2, &file, "baldynoop",
             LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
 
     strcpy((char*)buffer, "hair");
-    size = strlen((char*)buffer);
+    lfs2_size_t size = strlen((char*)buffer);
     for (lfs2_off_t j = 0; j < $LARGESIZE; j += size) {
-        lfs2_file_write(&lfs2, &file[0], buffer, size) => size;
+        lfs2_file_write(&lfs2, &file, buffer, size) => size;
     }
-    lfs2_file_size(&lfs2, &file[0]) => $LARGESIZE;
+    lfs2_file_size(&lfs2, &file) => $LARGESIZE;
 
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file[0], "baldynoop", LFS2_O_RDWR) => 0;
-    lfs2_file_size(&lfs2, &file[0]) => $LARGESIZE;
+    lfs2_file_open(&lfs2, &file, "baldynoop", LFS2_O_RDWR) => 0;
+    lfs2_file_size(&lfs2, &file) => $LARGESIZE;
 
-    lfs2_file_truncate(&lfs2, &file[0], $MEDIUMSIZE) => 0;
-    lfs2_file_size(&lfs2, &file[0]) => $MEDIUMSIZE;
+    lfs2_file_truncate(&lfs2, &file, $MEDIUMSIZE) => 0;
+    lfs2_file_size(&lfs2, &file) => $MEDIUMSIZE;
 
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file[0], "baldynoop", LFS2_O_RDONLY) => 0;
-    lfs2_file_size(&lfs2, &file[0]) => $MEDIUMSIZE;
+    lfs2_file_open(&lfs2, &file, "baldynoop", LFS2_O_RDONLY) => 0;
+    lfs2_file_size(&lfs2, &file) => $MEDIUMSIZE;
 
-    size = strlen("hair");
+    lfs2_size_t size = strlen("hair");
     for (lfs2_off_t j = 0; j < $MEDIUMSIZE; j += size) {
-        lfs2_file_read(&lfs2, &file[0], buffer, size) => size;
+        lfs2_file_read(&lfs2, &file, buffer, size) => size;
         memcmp(buffer, "hair", size) => 0;
     }
-    lfs2_file_read(&lfs2, &file[0], buffer, size) => 0;
+    lfs2_file_read(&lfs2, &file, buffer, size) => 0;
 
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Truncate and read ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file[0], "baldyread",
+    lfs2_file_open(&lfs2, &file, "baldyread",
             LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
 
     strcpy((char*)buffer, "hair");
-    size = strlen((char*)buffer);
+    lfs2_size_t size = strlen((char*)buffer);
     for (lfs2_off_t j = 0; j < $LARGESIZE; j += size) {
-        lfs2_file_write(&lfs2, &file[0], buffer, size) => size;
+        lfs2_file_write(&lfs2, &file, buffer, size) => size;
     }
-    lfs2_file_size(&lfs2, &file[0]) => $LARGESIZE;
+    lfs2_file_size(&lfs2, &file) => $LARGESIZE;
 
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file[0], "baldyread", LFS2_O_RDWR) => 0;
-    lfs2_file_size(&lfs2, &file[0]) => $LARGESIZE;
+    lfs2_file_open(&lfs2, &file, "baldyread", LFS2_O_RDWR) => 0;
+    lfs2_file_size(&lfs2, &file) => $LARGESIZE;
 
-    lfs2_file_truncate(&lfs2, &file[0], $MEDIUMSIZE) => 0;
-    lfs2_file_size(&lfs2, &file[0]) => $MEDIUMSIZE;
+    lfs2_file_truncate(&lfs2, &file, $MEDIUMSIZE) => 0;
+    lfs2_file_size(&lfs2, &file) => $MEDIUMSIZE;
 
-    size = strlen("hair");
+    lfs2_size_t size = strlen("hair");
     for (lfs2_off_t j = 0; j < $MEDIUMSIZE; j += size) {
-        lfs2_file_read(&lfs2, &file[0], buffer, size) => size;
+        lfs2_file_read(&lfs2, &file, buffer, size) => size;
         memcmp(buffer, "hair", size) => 0;
     }
-    lfs2_file_read(&lfs2, &file[0], buffer, size) => 0;
+    lfs2_file_read(&lfs2, &file, buffer, size) => 0;
 
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file[0], "baldyread", LFS2_O_RDONLY) => 0;
-    lfs2_file_size(&lfs2, &file[0]) => $MEDIUMSIZE;
+    lfs2_file_open(&lfs2, &file, "baldyread", LFS2_O_RDONLY) => 0;
+    lfs2_file_size(&lfs2, &file) => $MEDIUMSIZE;
 
-    size = strlen("hair");
+    lfs2_size_t size = strlen("hair");
     for (lfs2_off_t j = 0; j < $MEDIUMSIZE; j += size) {
-        lfs2_file_read(&lfs2, &file[0], buffer, size) => size;
+        lfs2_file_read(&lfs2, &file, buffer, size) => size;
         memcmp(buffer, "hair", size) => 0;
     }
-    lfs2_file_read(&lfs2, &file[0], buffer, size) => 0;
+    lfs2_file_read(&lfs2, &file, buffer, size) => 0;
 
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
 
 echo "--- Truncate and write ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file[0], "baldywrite",
+    lfs2_file_open(&lfs2, &file, "baldywrite",
             LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
 
     strcpy((char*)buffer, "hair");
-    size = strlen((char*)buffer);
+    lfs2_size_t size = strlen((char*)buffer);
     for (lfs2_off_t j = 0; j < $LARGESIZE; j += size) {
-        lfs2_file_write(&lfs2, &file[0], buffer, size) => size;
+        lfs2_file_write(&lfs2, &file, buffer, size) => size;
     }
-    lfs2_file_size(&lfs2, &file[0]) => $LARGESIZE;
+    lfs2_file_size(&lfs2, &file) => $LARGESIZE;
 
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file[0], "baldywrite", LFS2_O_RDWR) => 0;
-    lfs2_file_size(&lfs2, &file[0]) => $LARGESIZE;
+    lfs2_file_open(&lfs2, &file, "baldywrite", LFS2_O_RDWR) => 0;
+    lfs2_file_size(&lfs2, &file) => $LARGESIZE;
 
-    lfs2_file_truncate(&lfs2, &file[0], $MEDIUMSIZE) => 0;
-    lfs2_file_size(&lfs2, &file[0]) => $MEDIUMSIZE;
+    lfs2_file_truncate(&lfs2, &file, $MEDIUMSIZE) => 0;
+    lfs2_file_size(&lfs2, &file) => $MEDIUMSIZE;
 
     strcpy((char*)buffer, "bald");
-    size = strlen((char*)buffer);
+    lfs2_size_t size = strlen((char*)buffer);
     for (lfs2_off_t j = 0; j < $MEDIUMSIZE; j += size) {
-        lfs2_file_write(&lfs2, &file[0], buffer, size) => size;
+        lfs2_file_write(&lfs2, &file, buffer, size) => size;
     }
-    lfs2_file_size(&lfs2, &file[0]) => $MEDIUMSIZE;
+    lfs2_file_size(&lfs2, &file) => $MEDIUMSIZE;
 
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file[0], "baldywrite", LFS2_O_RDONLY) => 0;
-    lfs2_file_size(&lfs2, &file[0]) => $MEDIUMSIZE;
+    lfs2_file_open(&lfs2, &file, "baldywrite", LFS2_O_RDONLY) => 0;
+    lfs2_file_size(&lfs2, &file) => $MEDIUMSIZE;
 
-    size = strlen("bald");
+    lfs2_size_t size = strlen("bald");
     for (lfs2_off_t j = 0; j < $MEDIUMSIZE; j += size) {
-        lfs2_file_read(&lfs2, &file[0], buffer, size) => size;
+        lfs2_file_read(&lfs2, &file, buffer, size) => size;
         memcmp(buffer, "bald", size) => 0;
     }
-    lfs2_file_read(&lfs2, &file[0], buffer, size) => 0;
+    lfs2_file_read(&lfs2, &file, buffer, size) => 0;
 
-    lfs2_file_close(&lfs2, &file[0]) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 TEST
 
@@ -160,7 +163,7 @@ STARTSIZES="$1"
 STARTSEEKS="$2"
 HOTSIZES="$3"
 COLDSIZES="$4"
-tests/test.py << TEST
+scripts/test.py << TEST
     static const lfs2_off_t startsizes[] = {$STARTSIZES};
     static const lfs2_off_t startseeks[] = {$STARTSEEKS};
     static const lfs2_off_t hotsizes[]   = {$HOTSIZES};
@@ -168,31 +171,31 @@ tests/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
 
     for (unsigned i = 0; i < sizeof(startsizes)/sizeof(startsizes[0]); i++) {
-        sprintf((char*)buffer, "hairyhead%d", i);
-        lfs2_file_open(&lfs2, &file[0], (const char*)buffer,
+        sprintf(path, "hairyhead%d", i);
+        lfs2_file_open(&lfs2, &file, path,
                 LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
 
         strcpy((char*)buffer, "hair");
-        size = strlen((char*)buffer);
+        lfs2_size_t size = strlen((char*)buffer);
         for (lfs2_off_t j = 0; j < startsizes[i]; j += size) {
-            lfs2_file_write(&lfs2, &file[0], buffer, size) => size;
+            lfs2_file_write(&lfs2, &file, buffer, size) => size;
         }
-        lfs2_file_size(&lfs2, &file[0]) => startsizes[i];
+        lfs2_file_size(&lfs2, &file) => startsizes[i];
 
         if (startseeks[i] != startsizes[i]) {
-            lfs2_file_seek(&lfs2, &file[0],
+            lfs2_file_seek(&lfs2, &file,
                     startseeks[i], LFS2_SEEK_SET) => startseeks[i];
         }
 
-        lfs2_file_truncate(&lfs2, &file[0], hotsizes[i]) => 0;
-        lfs2_file_size(&lfs2, &file[0]) => hotsizes[i];
+        lfs2_file_truncate(&lfs2, &file, hotsizes[i]) => 0;
+        lfs2_file_size(&lfs2, &file) => hotsizes[i];
 
-        lfs2_file_close(&lfs2, &file[0]) => 0;
+        lfs2_file_close(&lfs2, &file) => 0;
     }
 
     lfs2_unmount(&lfs2) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     static const lfs2_off_t startsizes[] = {$STARTSIZES};
     static const lfs2_off_t hotsizes[]   = {$HOTSIZES};
     static const lfs2_off_t coldsizes[]  = {$COLDSIZES};
@@ -200,31 +203,31 @@ tests/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
 
     for (unsigned i = 0; i < sizeof(startsizes)/sizeof(startsizes[0]); i++) {
-        sprintf((char*)buffer, "hairyhead%d", i);
-        lfs2_file_open(&lfs2, &file[0], (const char*)buffer, LFS2_O_RDWR) => 0;
-        lfs2_file_size(&lfs2, &file[0]) => hotsizes[i];
+        sprintf(path, "hairyhead%d", i);
+        lfs2_file_open(&lfs2, &file, path, LFS2_O_RDWR) => 0;
+        lfs2_file_size(&lfs2, &file) => hotsizes[i];
 
-        size = strlen("hair");
+        lfs2_size_t size = strlen("hair");
         lfs2_off_t j = 0;
         for (; j < startsizes[i] && j < hotsizes[i]; j += size) {
-            lfs2_file_read(&lfs2, &file[0], buffer, size) => size;
+            lfs2_file_read(&lfs2, &file, buffer, size) => size;
             memcmp(buffer, "hair", size) => 0;
         }
 
         for (; j < hotsizes[i]; j += size) {
-            lfs2_file_read(&lfs2, &file[0], buffer, size) => size;
+            lfs2_file_read(&lfs2, &file, buffer, size) => size;
             memcmp(buffer, "\0\0\0\0", size) => 0;
         }
 
-        lfs2_file_truncate(&lfs2, &file[0], coldsizes[i]) => 0;
-        lfs2_file_size(&lfs2, &file[0]) => coldsizes[i];
+        lfs2_file_truncate(&lfs2, &file, coldsizes[i]) => 0;
+        lfs2_file_size(&lfs2, &file) => coldsizes[i];
 
-        lfs2_file_close(&lfs2, &file[0]) => 0;
+        lfs2_file_close(&lfs2, &file) => 0;
     }
 
     lfs2_unmount(&lfs2) => 0;
 TEST
-tests/test.py << TEST
+scripts/test.py << TEST
     static const lfs2_off_t startsizes[] = {$STARTSIZES};
     static const lfs2_off_t hotsizes[]   = {$HOTSIZES};
     static const lfs2_off_t coldsizes[]  = {$COLDSIZES};
@@ -232,24 +235,24 @@ tests/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
 
     for (unsigned i = 0; i < sizeof(startsizes)/sizeof(startsizes[0]); i++) {
-        sprintf((char*)buffer, "hairyhead%d", i);
-        lfs2_file_open(&lfs2, &file[0], (const char*)buffer, LFS2_O_RDONLY) => 0;
-        lfs2_file_size(&lfs2, &file[0]) => coldsizes[i];
+        sprintf(path, "hairyhead%d", i);
+        lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+        lfs2_file_size(&lfs2, &file) => coldsizes[i];
 
-        size = strlen("hair");
+        lfs2_size_t size = strlen("hair");
         lfs2_off_t j = 0;
         for (; j < startsizes[i] && j < hotsizes[i] && j < coldsizes[i];
                 j += size) {
-            lfs2_file_read(&lfs2, &file[0], buffer, size) => size;
+            lfs2_file_read(&lfs2, &file, buffer, size) => size;
             memcmp(buffer, "hair", size) => 0;
         }
 
         for (; j < coldsizes[i]; j += size) {
-            lfs2_file_read(&lfs2, &file[0], buffer, size) => size;
+            lfs2_file_read(&lfs2, &file, buffer, size) => size;
             memcmp(buffer, "\0\0\0\0", size) => 0;
         }
 
-        lfs2_file_close(&lfs2, &file[0]) => 0;
+        lfs2_file_close(&lfs2, &file) => 0;
     }
 
     lfs2_unmount(&lfs2) => 0;
@@ -298,5 +301,4 @@ truncate_test \
     "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE" \
     "2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE, 2*$LARGESIZE"
 
-echo "--- Results ---"
-tests/stats.py
+scripts/results.py

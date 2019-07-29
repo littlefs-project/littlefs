@@ -31,7 +31,10 @@
 #ifndef LFS2_NO_ASSERT
 #include <assert.h>
 #endif
-#if !defined(LFS2_NO_DEBUG) || !defined(LFS2_NO_WARN) || !defined(LFS2_NO_ERROR)
+#if !defined(LFS2_NO_DEBUG) || \
+        !defined(LFS2_NO_WARN) || \
+        !defined(LFS2_NO_ERROR) || \
+        defined(LFS2_YES_TRACE)
 #include <stdio.h>
 #endif
 
@@ -46,23 +49,30 @@ extern "C"
 // code footprint
 
 // Logging functions
+#ifdef LFS2_YES_TRACE
+#define LFS2_TRACE(fmt, ...) \
+    printf("lfs2_trace:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+#else
+#define LFS2_TRACE(fmt, ...)
+#endif
+
 #ifndef LFS2_NO_DEBUG
 #define LFS2_DEBUG(fmt, ...) \
-    printf("lfs2 debug:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    printf("lfs2_debug:%d: " fmt "\n", __LINE__, __VA_ARGS__)
 #else
 #define LFS2_DEBUG(fmt, ...)
 #endif
 
 #ifndef LFS2_NO_WARN
 #define LFS2_WARN(fmt, ...) \
-    printf("lfs2 warn:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    printf("lfs2_warn:%d: " fmt "\n", __LINE__, __VA_ARGS__)
 #else
 #define LFS2_WARN(fmt, ...)
 #endif
 
 #ifndef LFS2_NO_ERROR
 #define LFS2_ERROR(fmt, ...) \
-    printf("lfs2 error:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    printf("lfs2_error:%d: " fmt "\n", __LINE__, __VA_ARGS__)
 #else
 #define LFS2_ERROR(fmt, ...)
 #endif
