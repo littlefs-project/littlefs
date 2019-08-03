@@ -2329,6 +2329,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     file->cfg = cfg;
     file->flags = flags | LFS_F_OPENED;
     file->pos = 0;
+    file->off = 0;
     file->cache.buffer = NULL;
 
     // allocate entry for file if it doesn't exist
