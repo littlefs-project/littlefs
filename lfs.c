@@ -2981,6 +2981,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         return LFS_ERR_INVAL;
     }
 
+    lfs_off_t pos = file->pos;
     lfs_off_t oldsize = lfs_file_size(lfs, file);
     if (size < oldsize) {
         // need to flush since directly changing metadata
@@ -3003,8 +3004,6 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         file->ctz.size = size;
         file->flags |= LFS_F_DIRTY | LFS_F_READING;
     } else if (size > oldsize) {
-        lfs_off_t pos = file->pos;
-
         // flush+seek if not already at end
         if (file->pos != oldsize) {
             int err = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
@@ -3022,13 +3021,13 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
                 return res;
             }
         }
+    }
 
-        // restore pos
-        int err = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
-        if (err < 0) {
-            LFS_TRACE("lfs_file_truncate -> %d", err);
-            return err;
-        }
+    // restore pos
+    int err = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
+    if (err < 0) {
+      LFS_TRACE("lfs_file_truncate -> %d", err);
+      return err;
     }
 
     LFS_TRACE("lfs_file_truncate -> %d", 0);
