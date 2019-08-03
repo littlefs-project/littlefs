@@ -7,19 +7,21 @@
 #include "lfs.h"
 #include "lfs_util.h"
 
+#define LFS_BLOCK_NULL ((lfs_block_t)-1)
+#define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
 /// Caching block device operations ///
 static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
     // written with identical data (during relocates)
     (void)lfs;
-    rcache->block = 0xffffffff;
+    rcache->block = LFS_BLOCK_NULL;
 }
 
 static inline void lfs_cache_zero(lfs_t *lfs, lfs_cache_t *pcache) {
     // zero to avoid information leak
     memset(pcache->buffer, 0xff, lfs->cfg->cache_size);
-    pcache->block = 0xffffffff;
+    pcache->block = LFS_BLOCK_NULL;
 }
 
 static int lfs_bd_read(lfs_t *lfs,
@@ -27,7 +29,7 @@ static int lfs_bd_read(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
-    LFS_ASSERT(block != 0xffffffff);
+    LFS_ASSERT(block != LFS_BLOCK_NULL);
     if (off+size > lfs->cfg->block_size) {
         return LFS_ERR_CORRUPT;
     }
@@ -121,7 +123,7 @@ static int lfs_bd_cmp(lfs_t *lfs,
 
 static int lfs_bd_flush(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate) {
-    if (pcache->block != 0xffffffff && pcache->block != 0xfffffffe) {
+    if (pcache->block != LFS_BLOCK_NULL && pcache->block != LFS_BLOCK_INLINE) {
         LFS_ASSERT(pcache->block < lfs->cfg->block_count);
         lfs_size_t diff = lfs_alignup(pcache->size, lfs->cfg->prog_size);
         int err = lfs->cfg->prog(lfs->cfg, pcache->block,
@@ -171,7 +173,7 @@ static int lfs_bd_prog(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
-    LFS_ASSERT(block != 0xffffffff);
+    LFS_ASSERT(block != LFS_BLOCK_NULL);
     LFS_ASSERT(off + size <= lfs->cfg->block_size);
 
     while (size > 0) {
@@ -201,7 +203,7 @@ static int lfs_bd_prog(lfs_t *lfs,
 
         // pcache must have been flushed, either by programming and
         // entire block or manually flushing the pcache
-        LFS_ASSERT(pcache->block == 0xffffffff);
+        LFS_ASSERT(pcache->block == LFS_BLOCK_NULL);
 
         // prepare pcache, first condition can no longer fail
         pcache->block = block;
@@ -229,7 +231,7 @@ static inline void lfs_pair_swap(lfs_block_t pair[2]) {
 }
 
 static inline bool lfs_pair_isnull(const lfs_block_t pair[2]) {
-    return pair[0] == 0xffffffff || pair[1] == 0xffffffff;
+    return pair[0] == LFS_BLOCK_NULL || pair[1] == LFS_BLOCK_NULL;
 }
 
 static inline int lfs_pair_cmp(
@@ -571,7 +573,7 @@ static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
     while (size > 0) {
         lfs_size_t diff = size;
 
-        if (pcache && pcache->block == 0xfffffffe &&
+        if (pcache && pcache->block == LFS_BLOCK_INLINE &&
                 off < pcache->off + pcache->size) {
             if (off >= pcache->off) {
                 // is already in pcache?
@@ -588,7 +590,7 @@ static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
             diff = lfs_min(diff, pcache->off-off);
         }
 
-        if (rcache->block == 0xfffffffe &&
+        if (rcache->block == LFS_BLOCK_INLINE &&
                 off < rcache->off + rcache->size) {
             if (off >= rcache->off) {
                 // is already in rcache?
@@ -606,7 +608,7 @@ static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
         }
 
         // load to cache, first condition can no longer fail
-        rcache->block = 0xfffffffe;
+        rcache->block = LFS_BLOCK_INLINE;
         rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
         rcache->size = lfs_min(lfs_alignup(off+hint, lfs->cfg->read_size),
                 lfs->cfg->cache_size);
@@ -723,7 +725,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
             uint16_t fromid = lfs_tag_size(tag);
             uint16_t toid = lfs_tag_id(tag);
             int err = lfs_dir_traverse(lfs,
-                    buffer, 0, 0xffffffff, NULL, 0, true,
+                    buffer, 0, LFS_BLOCK_NULL, NULL, 0, true,
                     LFS_MKTAG(0x600, 0x3ff, 0),
                     LFS_MKTAG(LFS_TYPE_STRUCT, 0, 0),
                     fromid, fromid+1, toid-fromid+diff,
@@ -783,15 +785,15 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
     // now scan tags to fetch the actual dir and find possible match
     for (int i = 0; i < 2; i++) {
         lfs_off_t off = 0;
-        lfs_tag_t ptag = 0xffffffff;
+        lfs_tag_t ptag = LFS_BLOCK_NULL;
 
         uint16_t tempcount = 0;
-        lfs_block_t temptail[2] = {0xffffffff, 0xffffffff};
+        lfs_block_t temptail[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
         bool tempsplit = false;
         lfs_stag_t tempbesttag = besttag;
 
         dir->rev = lfs_tole32(dir->rev);
-        uint32_t crc = lfs_crc(0xffffffff, &dir->rev, sizeof(dir->rev));
+        uint32_t crc = lfs_crc(LFS_BLOCK_NULL, &dir->rev, sizeof(dir->rev));
         dir->rev = lfs_fromle32(dir->rev);
 
         while (true) {
@@ -860,7 +862,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 dir->split = tempsplit;
 
                 // reset crc
-                crc = 0xffffffff;
+                crc = LFS_BLOCK_NULL;
                 continue;
             }
 
@@ -1248,7 +1250,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
         }
 
         // read erased state from next program unit
-        lfs_tag_t tag = 0xffffffff;
+        lfs_tag_t tag = LFS_BLOCK_NULL;
         int err = lfs_bd_read(lfs,
                 NULL, &lfs->rcache, sizeof(tag),
                 commit->block, noff, &tag, sizeof(tag));
@@ -1274,7 +1276,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
 
         commit->off += sizeof(tag)+lfs_tag_size(tag);
         commit->ptag = tag ^ (reset << 31);
-        commit->crc = 0xffffffff; // reset crc for next "commit"
+        commit->crc = LFS_BLOCK_NULL; // reset crc for next "commit"
     }
 
     // flush buffers
@@ -1287,7 +1289,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
     lfs_off_t off = commit->begin;
     lfs_off_t noff = off1;
     while (off < end) {
-        uint32_t crc = 0xffffffff;
+        uint32_t crc = LFS_BLOCK_NULL;
         for (lfs_off_t i = off; i < noff+sizeof(uint32_t); i++) {
             // leave it up to caching to make this efficient
             uint8_t dat;
@@ -1341,10 +1343,10 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
 
     // set defaults
     dir->off = sizeof(dir->rev);
-    dir->etag = 0xffffffff;
+    dir->etag = LFS_BLOCK_NULL;
     dir->count = 0;
-    dir->tail[0] = 0xffffffff;
-    dir->tail[1] = 0xffffffff;
+    dir->tail[0] = LFS_BLOCK_NULL;
+    dir->tail[1] = LFS_BLOCK_NULL;
     dir->erased = false;
     dir->split = false;
 
@@ -1434,7 +1436,7 @@ static int lfs_dir_compact(lfs_t *lfs,
         // find size
         lfs_size_t size = 0;
         int err = lfs_dir_traverse(lfs,
-                source, 0, 0xffffffff, attrs, attrcount, false,
+                source, 0, LFS_BLOCK_NULL, attrs, attrcount, false,
                 LFS_MKTAG(0x400, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_NAME, 0, 0),
                 begin, end, -begin,
@@ -1526,8 +1528,8 @@ static int lfs_dir_compact(lfs_t *lfs,
             struct lfs_commit commit = {
                 .block = dir->pair[1],
                 .off = 0,
-                .ptag = 0xffffffff,
-                .crc = 0xffffffff,
+                .ptag = LFS_BLOCK_NULL,
+                .crc = LFS_BLOCK_NULL,
 
                 .begin = 0,
                 .end = lfs->cfg->block_size - 8,
@@ -1556,7 +1558,7 @@ static int lfs_dir_compact(lfs_t *lfs,
 
             // traverse the directory, this time writing out all unique tags
             err = lfs_dir_traverse(lfs,
-                    source, 0, 0xffffffff, attrs, attrcount, false,
+                    source, 0, LFS_BLOCK_NULL, attrs, attrcount, false,
                     LFS_MKTAG(0x400, 0x3ff, 0),
                     LFS_MKTAG(LFS_TYPE_NAME, 0, 0),
                     begin, end, -begin,
@@ -1682,8 +1684,8 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
     }
 
     // calculate changes to the directory
-    lfs_tag_t deletetag = 0xffffffff;
-    lfs_tag_t createtag = 0xffffffff;
+    lfs_tag_t deletetag = LFS_BLOCK_NULL;
+    lfs_tag_t createtag = LFS_BLOCK_NULL;
     for (int i = 0; i < attrcount; i++) {
         if (lfs_tag_type3(attrs[i].tag) == LFS_TYPE_CREATE) {
             createtag = attrs[i].tag;
@@ -1729,7 +1731,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             .block = dir->pair[0],
             .off = dir->off,
             .ptag = dir->etag,
-            .crc = 0xffffffff,
+            .crc = LFS_BLOCK_NULL,
 
             .begin = dir->off,
             .end = lfs->cfg->block_size - 8,
@@ -1813,8 +1815,8 @@ compact:
         if (lfs_pair_cmp(d->m.pair, copy.pair) == 0) {
             d->m = *dir;
             if (d->id == lfs_tag_id(deletetag)) {
-                d->m.pair[0] = 0xffffffff;
-                d->m.pair[1] = 0xffffffff;
+                d->m.pair[0] = LFS_BLOCK_NULL;
+                d->m.pair[1] = LFS_BLOCK_NULL;
             } else if (d->id > lfs_tag_id(deletetag)) {
                 d->id -= 1;
                 if (d->type == LFS_TYPE_DIR) {
@@ -2129,7 +2131,7 @@ static int lfs_ctz_find(lfs_t *lfs,
         lfs_block_t head, lfs_size_t size,
         lfs_size_t pos, lfs_block_t *block, lfs_off_t *off) {
     if (size == 0) {
-        *block = 0xffffffff;
+        *block = LFS_BLOCK_NULL;
         *off = 0;
         return 0;
     }
@@ -2426,7 +2428,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
     if (lfs_tag_type3(tag) == LFS_TYPE_INLINESTRUCT) {
         // load inline files
-        file->ctz.head = 0xfffffffe;
+        file->ctz.head = LFS_BLOCK_INLINE;
         file->ctz.size = lfs_tag_size(tag);
         file->flags |= LFS_F_INLINE;
         file->cache.block = file->ctz.head;
@@ -2614,7 +2616,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
                 }
 
                 // keep our reference to the rcache in sync
-                if (lfs->rcache.block != 0xffffffff) {
+                if (lfs->rcache.block != LFS_BLOCK_NULL) {
                     lfs_cache_drop(lfs, &orig.cache);
                     lfs_cache_drop(lfs, &lfs->rcache);
                 }
@@ -2762,7 +2764,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
                     return err;
                 }
             } else {
-                file->block = 0xfffffffe;
+                file->block = LFS_BLOCK_INLINE;
                 file->off = file->pos;
             }
 
@@ -2888,7 +2890,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                     return err;
                 }
             } else {
-                file->block = 0xfffffffe;
+                file->block = LFS_BLOCK_INLINE;
                 file->off = file->pos;
             }
 
@@ -3374,7 +3376,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->cache_size == 0);
 
     // check that the block size is large enough to fit ctz pointers
-    LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
+    LFS_ASSERT(4*lfs_npw2(LFS_BLOCK_NULL / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
 
     // block_cycles = 0 is no longer supported.
@@ -3446,8 +3448,8 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // setup default state
-    lfs->root[0] = 0xffffffff;
-    lfs->root[1] = 0xffffffff;
+    lfs->root[0] = LFS_BLOCK_NULL;
+    lfs->root[1] = LFS_BLOCK_NULL;
     lfs->mlist = NULL;
     lfs->seed = 0;
     lfs->gstate = (struct lfs_gstate){0};
@@ -4250,7 +4252,7 @@ static int lfs1_dir_fetch(lfs_t *lfs,
             continue;
         }
 
-        uint32_t crc = 0xffffffff;
+        uint32_t crc = LFS_BLOCK_NULL;
         lfs1_dir_tole32(&test);
         lfs1_crc(&crc, &test, sizeof(test));
         lfs1_dir_fromle32(&test);
@@ -4435,8 +4437,8 @@ static int lfs1_mount(lfs_t *lfs, struct lfs1 *lfs1,
         }
 
         lfs->lfs1 = lfs1;
-        lfs->lfs1->root[0] = 0xffffffff;
-        lfs->lfs1->root[1] = 0xffffffff;
+        lfs->lfs1->root[0] = LFS_BLOCK_NULL;
+        lfs->lfs1->root[1] = LFS_BLOCK_NULL;
 
         // setup free lookahead
         lfs->free.off = 0;
@@ -4685,7 +4687,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
         dir2.pair[1] = dir1.pair[1];
         dir2.rev = dir1.d.rev;
         dir2.off = sizeof(dir2.rev);
-        dir2.etag = 0xffffffff;
+        dir2.etag = LFS_BLOCK_NULL;
         dir2.count = 0;
         dir2.tail[0] = lfs->lfs1->root[0];
         dir2.tail[1] = lfs->lfs1->root[1];
