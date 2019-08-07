@@ -9,7 +9,6 @@
 #define LFS_TESTBD_H
 
 #include "lfs.h"
-#include "lfs_util.h"
 #include "bd/lfs_rambd.h"
 #include "bd/lfs_filebd.h"
 

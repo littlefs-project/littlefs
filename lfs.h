@@ -7,12 +7,10 @@
 #ifndef LFS_H
 #define LFS_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "lfs_util.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 
@@ -65,26 +63,6 @@ typedef uint32_t lfs_block_t;
 #ifndef LFS_ATTR_MAX
 #define LFS_ATTR_MAX 1022
 #endif
-
-// Possible error codes, these are negative to allow
-// valid positive return values
-enum lfs_error {
-    LFS_ERR_OK          = 0,    // No error
-    LFS_ERR_IO          = -5,   // Error during device operation
-    LFS_ERR_CORRUPT     = -84,  // Corrupted
-    LFS_ERR_NOENT       = -2,   // No directory entry
-    LFS_ERR_EXIST       = -17,  // Entry already exists
-    LFS_ERR_NOTDIR      = -20,  // Entry is not a dir
-    LFS_ERR_ISDIR       = -21,  // Entry is a dir
-    LFS_ERR_NOTEMPTY    = -39,  // Dir is not empty
-    LFS_ERR_BADF        = -9,   // Bad file number
-    LFS_ERR_FBIG        = -27,  // File too large
-    LFS_ERR_INVAL       = -22,  // Invalid parameter
-    LFS_ERR_NOSPC       = -28,  // No space left on device
-    LFS_ERR_NOMEM       = -12,  // No more memory available
-    LFS_ERR_NOATTR      = -61,  // No data/attr available
-    LFS_ERR_NAMETOOLONG = -36,  // File name too long
-};
 
 // File types
 enum lfs_type {
@@ -649,7 +627,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
 
 
 #ifdef __cplusplus
-} /* extern "C" */
+}
 #endif
 
 #endif
