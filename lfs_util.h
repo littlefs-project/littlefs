@@ -3,20 +3,21 @@
  *
  * Copyright (c) 2017, Arm Limited. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Can be overridden by users with their own configuration by defining
+ * LFS_UTIL as a header file (-DLFS_UTIL=my_lfs_util.h)
+ *
+ * If LFS_UTIL is defined, none of the default definitions will be
+ * emitted and must be provided by the user's header file. To start, I would
+ * suggest copying lfs_util.h and modifying as needed.
  */
 #ifndef LFS_UTIL_H
 #define LFS_UTIL_H
 
-// Users can override lfs_util.h with their own configuration by defining
-// LFS_CONFIG as a header file to include (-DLFS_CONFIG=lfs_config.h).
-//
-// If LFS_CONFIG is used, none of the default utils will be emitted and must be
-// provided by the config file. To start, I would suggest copying lfs_util.h
-// and modifying as needed.
-#ifdef LFS_CONFIG
+#ifdef LFS_UTIL
 #define LFS_STRINGIZE(x) LFS_STRINGIZE2(x)
 #define LFS_STRINGIZE2(x) #x
-#include LFS_STRINGIZE(LFS_CONFIG)
+#include LFS_STRINGIZE(LFS_UTIL)
 #else
 
 // System includes
@@ -42,6 +43,28 @@
 extern "C"
 {
 #endif
+
+
+// Possible error codes, these are negative to allow valid positive
+// return values. May be redefined to system error codes as long as
+// they are negative.
+enum lfs_error {
+    LFS_ERR_OK          = 0,    // No error
+    LFS_ERR_IO          = -5,   // Error during device operation
+    LFS_ERR_CORRUPT     = -84,  // Corrupted
+    LFS_ERR_NOENT       = -2,   // No directory entry
+    LFS_ERR_EXIST       = -17,  // Entry already exists
+    LFS_ERR_NOTDIR      = -20,  // Entry is not a dir
+    LFS_ERR_ISDIR       = -21,  // Entry is a dir
+    LFS_ERR_NOTEMPTY    = -39,  // Dir is not empty
+    LFS_ERR_BADF        = -9,   // Bad file number
+    LFS_ERR_FBIG        = -27,  // File too large
+    LFS_ERR_INVAL       = -22,  // Invalid parameter
+    LFS_ERR_NOSPC       = -28,  // No space left on device
+    LFS_ERR_NOMEM       = -12,  // No more memory available
+    LFS_ERR_NOATTR      = -61,  // No data/attr available
+    LFS_ERR_NAMETOOLONG = -36,  // File name too long
+};
 
 
 // Macros, may be replaced by system specific wrappers. Arguments to these
@@ -146,8 +169,8 @@ static inline uint32_t lfs_popc(uint32_t a) {
 
 // Find the sequence comparison of a and b, this is the distance
 // between a and b ignoring overflow
-static inline int lfs_scmp(uint32_t a, uint32_t b) {
-    return (int)(unsigned)(a - b);
+static inline int32_t lfs_scmp(uint32_t a, uint32_t b) {
+    return (int32_t)(uint32_t)(a - b);
 }
 
 // Convert between 32-bit little-endian and native order

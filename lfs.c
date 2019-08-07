@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "lfs.h"
-#include "lfs_util.h"
 
 
 /// Caching block device operations ///
