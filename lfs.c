@@ -1502,7 +1502,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                     end = begin;
                 }
             }
-#if LFS_MIGRATE
+#ifdef LFS_MIGRATE
         } else if (lfs_pair_cmp(dir->pair, lfs->root) == 0 && lfs->lfs1) {
             // we can't relocate our root during migrations, as this would
             // cause the superblock to get updated, which would clobber v1
