@@ -107,6 +107,57 @@ scripts/test.py << TEST
     lfs2_unmount(&lfs2) => 0;
 TEST
 
+echo "--- Write, truncate, and read ---"
+scripts/test.py << TEST
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_open(&lfs2, &file, "sequence",
+            LFS2_O_RDWR | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+
+    lfs2_size_t size = lfs2.cfg->cache_size;
+    lfs2_size_t qsize = size / 4;
+    uint8_t *wb = buffer;
+    uint8_t *rb = buffer + size;
+    for (lfs2_off_t j = 0; j < size; ++j) {
+        wb[j] = j;
+    }
+
+    /* Spread sequence over size */
+    lfs2_file_write(&lfs2, &file, wb, size) => size;
+    lfs2_file_size(&lfs2, &file) => size;
+    lfs2_file_tell(&lfs2, &file) => size;
+
+    lfs2_file_seek(&lfs2, &file, 0, LFS2_SEEK_SET) => 0;
+    lfs2_file_tell(&lfs2, &file) => 0;
+
+    /* Chop off the last quarter */
+    lfs2_size_t trunc = size - qsize;
+    lfs2_file_truncate(&lfs2, &file, trunc) => 0;
+    lfs2_file_tell(&lfs2, &file) => 0;
+    lfs2_file_size(&lfs2, &file) => trunc;
+
+    /* Read should produce first 3/4 */
+    lfs2_file_read(&lfs2, &file, rb, size) => trunc;
+    memcmp(rb, wb, trunc) => 0;
+
+    /* Move to 1/4 */
+    lfs2_file_size(&lfs2, &file) => trunc;
+    lfs2_file_seek(&lfs2, &file, qsize, LFS2_SEEK_SET) => qsize;
+    lfs2_file_tell(&lfs2, &file) => qsize;
+
+    /* Chop to 1/2 */
+    trunc -= qsize;
+    lfs2_file_truncate(&lfs2, &file, trunc) => 0;
+    lfs2_file_tell(&lfs2, &file) => qsize;
+    lfs2_file_size(&lfs2, &file) => trunc;
+    
+    /* Read should produce second quarter */
+    lfs2_file_read(&lfs2, &file, rb, size) => trunc - qsize;
+    memcmp(rb, wb + qsize, trunc - qsize) => 0;
+
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+TEST
+
 echo "--- Truncate and write ---"
 scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;

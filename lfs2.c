@@ -7,19 +7,21 @@
 #include "lfs2.h"
 #include "lfs2_util.h"
 
+#define LFS2_BLOCK_NULL ((lfs2_block_t)-1)
+#define LFS2_BLOCK_INLINE ((lfs2_block_t)-2)
 
 /// Caching block device operations ///
 static inline void lfs2_cache_drop(lfs2_t *lfs2, lfs2_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
     // written with identical data (during relocates)
     (void)lfs2;
-    rcache->block = 0xffffffff;
+    rcache->block = LFS2_BLOCK_NULL;
 }
 
 static inline void lfs2_cache_zero(lfs2_t *lfs2, lfs2_cache_t *pcache) {
     // zero to avoid information leak
     memset(pcache->buffer, 0xff, lfs2->cfg->cache_size);
-    pcache->block = 0xffffffff;
+    pcache->block = LFS2_BLOCK_NULL;
 }
 
 static int lfs2_bd_read(lfs2_t *lfs2,
@@ -27,7 +29,7 @@ static int lfs2_bd_read(lfs2_t *lfs2,
         lfs2_block_t block, lfs2_off_t off,
         void *buffer, lfs2_size_t size) {
     uint8_t *data = buffer;
-    LFS2_ASSERT(block != 0xffffffff);
+    LFS2_ASSERT(block != LFS2_BLOCK_NULL);
     if (off+size > lfs2->cfg->block_size) {
         return LFS2_ERR_CORRUPT;
     }
@@ -121,7 +123,7 @@ static int lfs2_bd_cmp(lfs2_t *lfs2,
 
 static int lfs2_bd_flush(lfs2_t *lfs2,
         lfs2_cache_t *pcache, lfs2_cache_t *rcache, bool validate) {
-    if (pcache->block != 0xffffffff && pcache->block != 0xfffffffe) {
+    if (pcache->block != LFS2_BLOCK_NULL && pcache->block != LFS2_BLOCK_INLINE) {
         LFS2_ASSERT(pcache->block < lfs2->cfg->block_count);
         lfs2_size_t diff = lfs2_alignup(pcache->size, lfs2->cfg->prog_size);
         int err = lfs2->cfg->prog(lfs2->cfg, pcache->block,
@@ -171,7 +173,7 @@ static int lfs2_bd_prog(lfs2_t *lfs2,
         lfs2_block_t block, lfs2_off_t off,
         const void *buffer, lfs2_size_t size) {
     const uint8_t *data = buffer;
-    LFS2_ASSERT(block != 0xffffffff);
+    LFS2_ASSERT(block != LFS2_BLOCK_NULL);
     LFS2_ASSERT(off + size <= lfs2->cfg->block_size);
 
     while (size > 0) {
@@ -201,7 +203,7 @@ static int lfs2_bd_prog(lfs2_t *lfs2,
 
         // pcache must have been flushed, either by programming and
         // entire block or manually flushing the pcache
-        LFS2_ASSERT(pcache->block == 0xffffffff);
+        LFS2_ASSERT(pcache->block == LFS2_BLOCK_NULL);
 
         // prepare pcache, first condition can no longer fail
         pcache->block = block;
@@ -229,7 +231,7 @@ static inline void lfs2_pair_swap(lfs2_block_t pair[2]) {
 }
 
 static inline bool lfs2_pair_isnull(const lfs2_block_t pair[2]) {
-    return pair[0] == 0xffffffff || pair[1] == 0xffffffff;
+    return pair[0] == LFS2_BLOCK_NULL || pair[1] == LFS2_BLOCK_NULL;
 }
 
 static inline int lfs2_pair_cmp(
@@ -571,7 +573,7 @@ static int lfs2_dir_getread(lfs2_t *lfs2, const lfs2_mdir_t *dir,
     while (size > 0) {
         lfs2_size_t diff = size;
 
-        if (pcache && pcache->block == 0xfffffffe &&
+        if (pcache && pcache->block == LFS2_BLOCK_INLINE &&
                 off < pcache->off + pcache->size) {
             if (off >= pcache->off) {
                 // is already in pcache?
@@ -588,7 +590,7 @@ static int lfs2_dir_getread(lfs2_t *lfs2, const lfs2_mdir_t *dir,
             diff = lfs2_min(diff, pcache->off-off);
         }
 
-        if (rcache->block == 0xfffffffe &&
+        if (rcache->block == LFS2_BLOCK_INLINE &&
                 off < rcache->off + rcache->size) {
             if (off >= rcache->off) {
                 // is already in rcache?
@@ -606,7 +608,7 @@ static int lfs2_dir_getread(lfs2_t *lfs2, const lfs2_mdir_t *dir,
         }
 
         // load to cache, first condition can no longer fail
-        rcache->block = 0xfffffffe;
+        rcache->block = LFS2_BLOCK_INLINE;
         rcache->off = lfs2_aligndown(off, lfs2->cfg->read_size);
         rcache->size = lfs2_min(lfs2_alignup(off+hint, lfs2->cfg->read_size),
                 lfs2->cfg->cache_size);
@@ -723,7 +725,7 @@ static int lfs2_dir_traverse(lfs2_t *lfs2,
             uint16_t fromid = lfs2_tag_size(tag);
             uint16_t toid = lfs2_tag_id(tag);
             int err = lfs2_dir_traverse(lfs2,
-                    buffer, 0, 0xffffffff, NULL, 0, true,
+                    buffer, 0, LFS2_BLOCK_NULL, NULL, 0, true,
                     LFS2_MKTAG(0x600, 0x3ff, 0),
                     LFS2_MKTAG(LFS2_TYPE_STRUCT, 0, 0),
                     fromid, fromid+1, toid-fromid+diff,
@@ -783,15 +785,15 @@ static lfs2_stag_t lfs2_dir_fetchmatch(lfs2_t *lfs2,
     // now scan tags to fetch the actual dir and find possible match
     for (int i = 0; i < 2; i++) {
         lfs2_off_t off = 0;
-        lfs2_tag_t ptag = 0xffffffff;
+        lfs2_tag_t ptag = LFS2_BLOCK_NULL;
 
         uint16_t tempcount = 0;
-        lfs2_block_t temptail[2] = {0xffffffff, 0xffffffff};
+        lfs2_block_t temptail[2] = {LFS2_BLOCK_NULL, LFS2_BLOCK_NULL};
         bool tempsplit = false;
         lfs2_stag_t tempbesttag = besttag;
 
         dir->rev = lfs2_tole32(dir->rev);
-        uint32_t crc = lfs2_crc(0xffffffff, &dir->rev, sizeof(dir->rev));
+        uint32_t crc = lfs2_crc(LFS2_BLOCK_NULL, &dir->rev, sizeof(dir->rev));
         dir->rev = lfs2_fromle32(dir->rev);
 
         while (true) {
@@ -860,7 +862,7 @@ static lfs2_stag_t lfs2_dir_fetchmatch(lfs2_t *lfs2,
                 dir->split = tempsplit;
 
                 // reset crc
-                crc = 0xffffffff;
+                crc = LFS2_BLOCK_NULL;
                 continue;
             }
 
@@ -1248,7 +1250,7 @@ static int lfs2_dir_commitcrc(lfs2_t *lfs2, struct lfs2_commit *commit) {
         }
 
         // read erased state from next program unit
-        lfs2_tag_t tag = 0xffffffff;
+        lfs2_tag_t tag = LFS2_BLOCK_NULL;
         int err = lfs2_bd_read(lfs2,
                 NULL, &lfs2->rcache, sizeof(tag),
                 commit->block, noff, &tag, sizeof(tag));
@@ -1274,7 +1276,7 @@ static int lfs2_dir_commitcrc(lfs2_t *lfs2, struct lfs2_commit *commit) {
 
         commit->off += sizeof(tag)+lfs2_tag_size(tag);
         commit->ptag = tag ^ (reset << 31);
-        commit->crc = 0xffffffff; // reset crc for next "commit"
+        commit->crc = LFS2_BLOCK_NULL; // reset crc for next "commit"
     }
 
     // flush buffers
@@ -1287,7 +1289,7 @@ static int lfs2_dir_commitcrc(lfs2_t *lfs2, struct lfs2_commit *commit) {
     lfs2_off_t off = commit->begin;
     lfs2_off_t noff = off1;
     while (off < end) {
-        uint32_t crc = 0xffffffff;
+        uint32_t crc = LFS2_BLOCK_NULL;
         for (lfs2_off_t i = off; i < noff+sizeof(uint32_t); i++) {
             // leave it up to caching to make this efficient
             uint8_t dat;
@@ -1341,10 +1343,10 @@ static int lfs2_dir_alloc(lfs2_t *lfs2, lfs2_mdir_t *dir) {
 
     // set defaults
     dir->off = sizeof(dir->rev);
-    dir->etag = 0xffffffff;
+    dir->etag = LFS2_BLOCK_NULL;
     dir->count = 0;
-    dir->tail[0] = 0xffffffff;
-    dir->tail[1] = 0xffffffff;
+    dir->tail[0] = LFS2_BLOCK_NULL;
+    dir->tail[1] = LFS2_BLOCK_NULL;
     dir->erased = false;
     dir->split = false;
 
@@ -1434,7 +1436,7 @@ static int lfs2_dir_compact(lfs2_t *lfs2,
         // find size
         lfs2_size_t size = 0;
         int err = lfs2_dir_traverse(lfs2,
-                source, 0, 0xffffffff, attrs, attrcount, false,
+                source, 0, LFS2_BLOCK_NULL, attrs, attrcount, false,
                 LFS2_MKTAG(0x400, 0x3ff, 0),
                 LFS2_MKTAG(LFS2_TYPE_NAME, 0, 0),
                 begin, end, -begin,
@@ -1500,7 +1502,7 @@ static int lfs2_dir_compact(lfs2_t *lfs2,
                     end = begin;
                 }
             }
-#if LFS2_MIGRATE
+#ifdef LFS2_MIGRATE
         } else if (lfs2_pair_cmp(dir->pair, lfs2->root) == 0 && lfs2->lfs21) {
             // we can't relocate our root during migrations, as this would
             // cause the superblock to get updated, which would clobber v1
@@ -1526,8 +1528,8 @@ static int lfs2_dir_compact(lfs2_t *lfs2,
             struct lfs2_commit commit = {
                 .block = dir->pair[1],
                 .off = 0,
-                .ptag = 0xffffffff,
-                .crc = 0xffffffff,
+                .ptag = LFS2_BLOCK_NULL,
+                .crc = LFS2_BLOCK_NULL,
 
                 .begin = 0,
                 .end = lfs2->cfg->block_size - 8,
@@ -1556,7 +1558,7 @@ static int lfs2_dir_compact(lfs2_t *lfs2,
 
             // traverse the directory, this time writing out all unique tags
             err = lfs2_dir_traverse(lfs2,
-                    source, 0, 0xffffffff, attrs, attrcount, false,
+                    source, 0, LFS2_BLOCK_NULL, attrs, attrcount, false,
                     LFS2_MKTAG(0x400, 0x3ff, 0),
                     LFS2_MKTAG(LFS2_TYPE_NAME, 0, 0),
                     begin, end, -begin,
@@ -1682,8 +1684,8 @@ static int lfs2_dir_commit(lfs2_t *lfs2, lfs2_mdir_t *dir,
     }
 
     // calculate changes to the directory
-    lfs2_tag_t deletetag = 0xffffffff;
-    lfs2_tag_t createtag = 0xffffffff;
+    lfs2_tag_t deletetag = LFS2_BLOCK_NULL;
+    lfs2_tag_t createtag = LFS2_BLOCK_NULL;
     for (int i = 0; i < attrcount; i++) {
         if (lfs2_tag_type3(attrs[i].tag) == LFS2_TYPE_CREATE) {
             createtag = attrs[i].tag;
@@ -1729,7 +1731,7 @@ static int lfs2_dir_commit(lfs2_t *lfs2, lfs2_mdir_t *dir,
             .block = dir->pair[0],
             .off = dir->off,
             .ptag = dir->etag,
-            .crc = 0xffffffff,
+            .crc = LFS2_BLOCK_NULL,
 
             .begin = dir->off,
             .end = lfs2->cfg->block_size - 8,
@@ -1813,8 +1815,8 @@ compact:
         if (lfs2_pair_cmp(d->m.pair, copy.pair) == 0) {
             d->m = *dir;
             if (d->id == lfs2_tag_id(deletetag)) {
-                d->m.pair[0] = 0xffffffff;
-                d->m.pair[1] = 0xffffffff;
+                d->m.pair[0] = LFS2_BLOCK_NULL;
+                d->m.pair[1] = LFS2_BLOCK_NULL;
             } else if (d->id > lfs2_tag_id(deletetag)) {
                 d->id -= 1;
                 if (d->type == LFS2_TYPE_DIR) {
@@ -2129,7 +2131,7 @@ static int lfs2_ctz_find(lfs2_t *lfs2,
         lfs2_block_t head, lfs2_size_t size,
         lfs2_size_t pos, lfs2_block_t *block, lfs2_off_t *off) {
     if (size == 0) {
-        *block = 0xffffffff;
+        *block = LFS2_BLOCK_NULL;
         *off = 0;
         return 0;
     }
@@ -2327,6 +2329,7 @@ int lfs2_file_opencfg(lfs2_t *lfs2, lfs2_file_t *file,
     file->cfg = cfg;
     file->flags = flags | LFS2_F_OPENED;
     file->pos = 0;
+    file->off = 0;
     file->cache.buffer = NULL;
 
     // allocate entry for file if it doesn't exist
@@ -2426,7 +2429,7 @@ int lfs2_file_opencfg(lfs2_t *lfs2, lfs2_file_t *file,
 
     if (lfs2_tag_type3(tag) == LFS2_TYPE_INLINESTRUCT) {
         // load inline files
-        file->ctz.head = 0xfffffffe;
+        file->ctz.head = LFS2_BLOCK_INLINE;
         file->ctz.size = lfs2_tag_size(tag);
         file->flags |= LFS2_F_INLINE;
         file->cache.block = file->ctz.head;
@@ -2614,7 +2617,7 @@ static int lfs2_file_flush(lfs2_t *lfs2, lfs2_file_t *file) {
                 }
 
                 // keep our reference to the rcache in sync
-                if (lfs2->rcache.block != 0xffffffff) {
+                if (lfs2->rcache.block != LFS2_BLOCK_NULL) {
                     lfs2_cache_drop(lfs2, &orig.cache);
                     lfs2_cache_drop(lfs2, &lfs2->rcache);
                 }
@@ -2762,7 +2765,7 @@ lfs2_ssize_t lfs2_file_read(lfs2_t *lfs2, lfs2_file_t *file,
                     return err;
                 }
             } else {
-                file->block = 0xfffffffe;
+                file->block = LFS2_BLOCK_INLINE;
                 file->off = file->pos;
             }
 
@@ -2888,7 +2891,7 @@ lfs2_ssize_t lfs2_file_write(lfs2_t *lfs2, lfs2_file_t *file,
                     return err;
                 }
             } else {
-                file->block = 0xfffffffe;
+                file->block = LFS2_BLOCK_INLINE;
                 file->off = file->pos;
             }
 
@@ -2978,6 +2981,7 @@ int lfs2_file_truncate(lfs2_t *lfs2, lfs2_file_t *file, lfs2_off_t size) {
         return LFS2_ERR_INVAL;
     }
 
+    lfs2_off_t pos = file->pos;
     lfs2_off_t oldsize = lfs2_file_size(lfs2, file);
     if (size < oldsize) {
         // need to flush since directly changing metadata
@@ -3000,8 +3004,6 @@ int lfs2_file_truncate(lfs2_t *lfs2, lfs2_file_t *file, lfs2_off_t size) {
         file->ctz.size = size;
         file->flags |= LFS2_F_DIRTY | LFS2_F_READING;
     } else if (size > oldsize) {
-        lfs2_off_t pos = file->pos;
-
         // flush+seek if not already at end
         if (file->pos != oldsize) {
             int err = lfs2_file_seek(lfs2, file, 0, LFS2_SEEK_END);
@@ -3019,13 +3021,13 @@ int lfs2_file_truncate(lfs2_t *lfs2, lfs2_file_t *file, lfs2_off_t size) {
                 return res;
             }
         }
+    }
 
-        // restore pos
-        int err = lfs2_file_seek(lfs2, file, pos, LFS2_SEEK_SET);
-        if (err < 0) {
-            LFS2_TRACE("lfs2_file_truncate -> %d", err);
-            return err;
-        }
+    // restore pos
+    int err = lfs2_file_seek(lfs2, file, pos, LFS2_SEEK_SET);
+    if (err < 0) {
+      LFS2_TRACE("lfs2_file_truncate -> %d", err);
+      return err;
     }
 
     LFS2_TRACE("lfs2_file_truncate -> %d", 0);
@@ -3374,7 +3376,7 @@ static int lfs2_init(lfs2_t *lfs2, const struct lfs2_config *cfg) {
     LFS2_ASSERT(lfs2->cfg->block_size % lfs2->cfg->cache_size == 0);
 
     // check that the block size is large enough to fit ctz pointers
-    LFS2_ASSERT(4*lfs2_npw2(0xffffffff / (lfs2->cfg->block_size-2*4))
+    LFS2_ASSERT(4*lfs2_npw2(LFS2_BLOCK_NULL / (lfs2->cfg->block_size-2*4))
             <= lfs2->cfg->block_size);
 
     // block_cycles = 0 is no longer supported.
@@ -3412,10 +3414,10 @@ static int lfs2_init(lfs2_t *lfs2, const struct lfs2_config *cfg) {
     lfs2_cache_zero(lfs2, &lfs2->rcache);
     lfs2_cache_zero(lfs2, &lfs2->pcache);
 
-    // setup lookahead, must be multiple of 64-bits
+    // setup lookahead, must be multiple of 64-bits, 32-bit aligned
     LFS2_ASSERT(lfs2->cfg->lookahead_size > 0);
     LFS2_ASSERT(lfs2->cfg->lookahead_size % 8 == 0 &&
-            (uintptr_t)lfs2->cfg->lookahead_buffer % 8 == 0);
+            (uintptr_t)lfs2->cfg->lookahead_buffer % 4 == 0);
     if (lfs2->cfg->lookahead_buffer) {
         lfs2->free.buffer = lfs2->cfg->lookahead_buffer;
     } else {
@@ -3446,8 +3448,8 @@ static int lfs2_init(lfs2_t *lfs2, const struct lfs2_config *cfg) {
     }
 
     // setup default state
-    lfs2->root[0] = 0xffffffff;
-    lfs2->root[1] = 0xffffffff;
+    lfs2->root[0] = LFS2_BLOCK_NULL;
+    lfs2->root[1] = LFS2_BLOCK_NULL;
     lfs2->mlist = NULL;
     lfs2->seed = 0;
     lfs2->gstate = (struct lfs2_gstate){0};
@@ -4250,7 +4252,7 @@ static int lfs21_dir_fetch(lfs2_t *lfs2,
             continue;
         }
 
-        uint32_t crc = 0xffffffff;
+        uint32_t crc = LFS2_BLOCK_NULL;
         lfs21_dir_tole32(&test);
         lfs21_crc(&crc, &test, sizeof(test));
         lfs21_dir_fromle32(&test);
@@ -4435,8 +4437,8 @@ static int lfs21_mount(lfs2_t *lfs2, struct lfs21 *lfs21,
         }
 
         lfs2->lfs21 = lfs21;
-        lfs2->lfs21->root[0] = 0xffffffff;
-        lfs2->lfs21->root[1] = 0xffffffff;
+        lfs2->lfs21->root[0] = LFS2_BLOCK_NULL;
+        lfs2->lfs21->root[1] = LFS2_BLOCK_NULL;
 
         // setup free lookahead
         lfs2->free.off = 0;
@@ -4685,7 +4687,7 @@ int lfs2_migrate(lfs2_t *lfs2, const struct lfs2_config *cfg) {
         dir2.pair[1] = dir1.pair[1];
         dir2.rev = dir1.d.rev;
         dir2.off = sizeof(dir2.rev);
-        dir2.etag = 0xffffffff;
+        dir2.etag = LFS2_BLOCK_NULL;
         dir2.count = 0;
         dir2.tail[0] = lfs2->lfs21->root[0];
         dir2.tail[1] = lfs2->lfs21->root[1];
