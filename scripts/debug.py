@@ -95,7 +95,7 @@ def main(*blocks):
         print '%04x: %08x  %-15s %3s %4s  %-23s  %-8s' % (
             off, tag,
             typeof(type) + (' bad!' if iscrc and ~crc else ''),
-            id if id != 0x3ff else '.',
+            hex(id)[2:] if id != 0x3ff else '.',
             size if size != 0x3ff else 'x',
             ' '.join('%02x' % ord(c) for c in data[:8]),
             ''.join(c if c >= ' ' and c <= '~' else '.' for c in data[:8]))

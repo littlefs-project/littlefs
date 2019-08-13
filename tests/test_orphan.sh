@@ -1,14 +1,16 @@
 #!/bin/bash
 set -eu
+export TEST_FILE=$0
+trap 'export TEST_LINE=$LINENO' DEBUG
 
 echo "=== Orphan tests ==="
 rm -rf blocks
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_format(&lfs, &cfg) => 0;
 TEST
 
 echo "--- Orphan test ---"
-tests/test.py << TEST
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "parent") => 0;
     lfs_mkdir(&lfs, "parent/orphan") => 0;
@@ -17,8 +19,8 @@ tests/test.py << TEST
 TEST
 # corrupt most recent commit, this should be the update to the previous
 # linked-list entry and should orphan the child
-tests/corrupt.py
-tests/test.py << TEST
+scripts/corrupt.py
+scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
 
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
@@ -41,5 +43,4 @@ tests/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
-echo "--- Results ---"
-tests/stats.py
+scripts/results.py
