@@ -34,7 +34,7 @@
 #endif
 
 #ifndef LFS_BLOCK_CYCLES
-    #define LFS_BLOCK_CYCLES 0
+    #define LFS_BLOCK_CYCLES (-1)
 #endif
 
 #ifndef LFS_LOOKAHEAD_MAX
