@@ -3369,6 +3369,12 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->cfg = cfg;
     int err = 0;
 
+    // validate that the lfs-cfg sizes were initiated properly before
+    // performing any arithmetic logics with them
+    LFS_ASSERT(lfs->cfg->read_size != 0);
+    LFS_ASSERT(lfs->cfg->prog_size != 0);
+    LFS_ASSERT(lfs->cfg->cache_size != 0);
+
     // check that block size is a multiple of cache size is a multiple
     // of prog and read sizes
     LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->read_size == 0);
