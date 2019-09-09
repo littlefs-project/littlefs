@@ -352,7 +352,7 @@ static inline bool lfs_gstate_hasmovehere(const struct lfs_gstate *a,
 
 static inline void lfs_gstate_xororphans(struct lfs_gstate *a,
         const struct lfs_gstate *b, bool orphans) {
-    a->tag ^= LFS_MKTAG(0x800, 0, 0) & (b->tag ^ (orphans << 31));
+    a->tag ^= LFS_MKTAG(0x800, 0, 0) & (b->tag ^ ((uint32_t)orphans << 31));
 }
 
 static inline void lfs_gstate_xormove(struct lfs_gstate *a,
@@ -846,7 +846,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 }
 
                 // reset the next bit if we need to
-                ptag ^= (lfs_tag_chunk(tag) & 1U) << 31;
+                ptag ^= (lfs_tag_t)(lfs_tag_chunk(tag) & 1U) << 31;
 
                 // toss our crc into the filesystem seed for
                 // pseudorandom numbers
@@ -1275,7 +1275,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
         }
 
         commit->off += sizeof(tag)+lfs_tag_size(tag);
-        commit->ptag = tag ^ (reset << 31);
+        commit->ptag = tag ^ ((lfs_tag_t)reset << 31);
         commit->crc = LFS_BLOCK_NULL; // reset crc for next "commit"
     }
 
