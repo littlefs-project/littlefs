@@ -352,7 +352,7 @@ static inline bool lfs2_gstate_hasmovehere(const struct lfs2_gstate *a,
 
 static inline void lfs2_gstate_xororphans(struct lfs2_gstate *a,
         const struct lfs2_gstate *b, bool orphans) {
-    a->tag ^= LFS2_MKTAG(0x800, 0, 0) & (b->tag ^ (orphans << 31));
+    a->tag ^= LFS2_MKTAG(0x800, 0, 0) & (b->tag ^ ((uint32_t)orphans << 31));
 }
 
 static inline void lfs2_gstate_xormove(struct lfs2_gstate *a,
@@ -846,7 +846,7 @@ static lfs2_stag_t lfs2_dir_fetchmatch(lfs2_t *lfs2,
                 }
 
                 // reset the next bit if we need to
-                ptag ^= (lfs2_tag_chunk(tag) & 1U) << 31;
+                ptag ^= (lfs2_tag_t)(lfs2_tag_chunk(tag) & 1U) << 31;
 
                 // toss our crc into the filesystem seed for
                 // pseudorandom numbers
@@ -1275,7 +1275,7 @@ static int lfs2_dir_commitcrc(lfs2_t *lfs2, struct lfs2_commit *commit) {
         }
 
         commit->off += sizeof(tag)+lfs2_tag_size(tag);
-        commit->ptag = tag ^ (reset << 31);
+        commit->ptag = tag ^ ((lfs2_tag_t)reset << 31);
         commit->crc = LFS2_BLOCK_NULL; // reset crc for next "commit"
     }
 
@@ -3368,6 +3368,12 @@ int lfs2_removeattr(lfs2_t *lfs2, const char *path, uint8_t type) {
 static int lfs2_init(lfs2_t *lfs2, const struct lfs2_config *cfg) {
     lfs2->cfg = cfg;
     int err = 0;
+
+    // validate that the lfs2-cfg sizes were initiated properly before
+    // performing any arithmetic logics with them
+    LFS2_ASSERT(lfs2->cfg->read_size != 0);
+    LFS2_ASSERT(lfs2->cfg->prog_size != 0);
+    LFS2_ASSERT(lfs2->cfg->cache_size != 0);
 
     // check that block size is a multiple of cache size is a multiple
     // of prog and read sizes

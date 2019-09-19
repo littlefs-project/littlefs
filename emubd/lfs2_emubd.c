@@ -102,6 +102,7 @@ int lfs2_emubd_create(const struct lfs2_config *cfg, const char *path) {
         if (res < 1) {
             err = -errno;
             LFS2_TRACE("lfs2_emubd_create -> %"PRId32, err);
+            fclose(f);
             return err;
         }
 
@@ -124,6 +125,7 @@ int lfs2_emubd_create(const struct lfs2_config *cfg, const char *path) {
         if (res < 1) {
             err = -errno;
             LFS2_TRACE("lfs2_emubd_create -> %"PRId32, err);
+            fclose(f);
             return err;
         }
 
@@ -178,6 +180,7 @@ int lfs2_emubd_read(const struct lfs2_config *cfg, lfs2_block_t block,
         if (err) {
             err = -errno;
             LFS2_TRACE("lfs2_emubd_read -> %d", err);
+            fclose(f);
             return err;
         }
 
@@ -185,6 +188,7 @@ int lfs2_emubd_read(const struct lfs2_config *cfg, lfs2_block_t block,
         if (res < size && !feof(f)) {
             err = -errno;
             LFS2_TRACE("lfs2_emubd_read -> %d", err);
+            fclose(f);
             return err;
         }
 
@@ -230,6 +234,7 @@ int lfs2_emubd_prog(const struct lfs2_config *cfg, lfs2_block_t block,
     if (err) {
         err = -errno;
         LFS2_TRACE("lfs2_emubd_prog -> %d", err);
+        fclose(f);
         return err;
     }
 
@@ -237,6 +242,7 @@ int lfs2_emubd_prog(const struct lfs2_config *cfg, lfs2_block_t block,
     if (res < size) {
         err = -errno;
         LFS2_TRACE("lfs2_emubd_prog -> %d", err);
+        fclose(f);
         return err;
     }
 
@@ -244,6 +250,7 @@ int lfs2_emubd_prog(const struct lfs2_config *cfg, lfs2_block_t block,
     if (err) {
         err = -errno;
         LFS2_TRACE("lfs2_emubd_prog -> %d", err);
+        fclose(f);
         return err;
     }
 
@@ -252,6 +259,7 @@ int lfs2_emubd_prog(const struct lfs2_config *cfg, lfs2_block_t block,
     if (res < 1) {
         err = -errno;
         LFS2_TRACE("lfs2_emubd_prog -> %d", err);
+        fclose(f);
         return err;
     }
 
@@ -340,6 +348,7 @@ int lfs2_emubd_sync(const struct lfs2_config *cfg) {
     if (res < 1) {
         int err = -errno;
         LFS2_TRACE("lfs2_emubd_sync -> %d", err);
+        fclose(f);
         return err;
     }
 
@@ -364,6 +373,7 @@ int lfs2_emubd_sync(const struct lfs2_config *cfg) {
     if (res < 1) {
         err = -errno;
         LFS2_TRACE("lfs2_emubd_sync -> %d", err);
+        fclose(f);
         return err;
     }
 
@@ -388,6 +398,7 @@ int lfs2_emubd_sync(const struct lfs2_config *cfg) {
     if (res < 1) {
         err = -errno;
         LFS2_TRACE("lfs2_emubd_sync -> %d", err);
+        fclose(f);
         return err;
     }
 
