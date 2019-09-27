@@ -442,7 +442,7 @@ lfs_stag_t lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
 //
 // Fills out the info structure, based on the specified file or directory.
 // Returns a negative error code on failure.
-int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
+lfs_stag_t lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 
 // Get a custom attribute
 //

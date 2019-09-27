@@ -3069,7 +3069,7 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
 
 
 /// General fs operations ///
-int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
+lfs_stag_t lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     LFS_TRACE("lfs_stat(%p, \"%s\", %p)", (void*)lfs, path, (void*)info);
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
@@ -3078,7 +3078,7 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
         return tag;
     }
 
-    int err = lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info);
+    lfs_stag_t err = (lfs_stag_t)lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info);
     LFS_TRACE("lfs_stat -> %d", err);
     return err;
 }
