@@ -2815,7 +2815,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
     if (file->flags & LFS_F_READING) {
         // drop any reads
-        int err = lfs_file_flush(lfs, file);
+        lfs_ssize_t err = lfs_file_flush(lfs, file);
         if (err) {
             LFS_TRACE("lfs_file_write -> %"PRId32, err);
             return err;
@@ -2829,7 +2829,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     if (file->pos + size > lfs->file_max) {
         // Larger than file limit?
         LFS_TRACE("lfs_file_write -> %"PRId32, LFS_ERR_FBIG);
-        return LFS_ERR_FBIG;
+        return (lfs_ssize_t)LFS_ERR_FBIG;
     }
 
     if (!(file->flags & LFS_F_WRITING) && file->pos > file->ctz.size) {
@@ -2851,7 +2851,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
             lfs_min(0x3fe, lfs_min(
                 lfs->cfg->cache_size, lfs->cfg->block_size/8))) {
         // inline file doesn't fit anymore
-        int err = lfs_file_outline(lfs, file);
+        lfs_ssize_t err = (lfs_ssize_t)lfs_file_outline(lfs, file);
         if (err) {
             file->flags |= LFS_F_ERRED;
             LFS_TRACE("lfs_file_write -> %"PRId32, err);
@@ -2866,7 +2866,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
             if (!(file->flags & LFS_F_INLINE)) {
                 if (!(file->flags & LFS_F_WRITING) && file->pos > 0) {
                     // find out which block we're extending from
-                    int err = lfs_ctz_find(lfs, NULL, &file->cache,
+                    lfs_ssize_t err = (lfs_ssize_t)lfs_ctz_find(lfs, NULL, &file->cache,
                             file->ctz.head, file->ctz.size,
                             file->pos-1, &file->block, &file->off);
                     if (err) {
@@ -2881,7 +2881,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
                 // extend file with new blocks
                 lfs_alloc_ack(lfs);
-                int err = lfs_ctz_extend(lfs, &file->cache, &lfs->rcache,
+                lfs_ssize_t err = (lfs_ssize_t)lfs_ctz_extend(lfs, &file->cache, &lfs->rcache,
                         file->block, file->pos,
                         &file->block, &file->off);
                 if (err) {
@@ -2900,7 +2900,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         // program as much as we can in current block
         lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - file->off);
         while (true) {
-            int err = lfs_bd_prog(lfs, &file->cache, &lfs->rcache, true,
+            lfs_ssize_t err = (lfs_ssize_t)lfs_bd_prog(lfs, &file->cache, &lfs->rcache, true,
                     file->block, file->off, data, diff);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -2913,7 +2913,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
             break;
 relocate:
-            err = lfs_file_relocate(lfs, file);
+            err = (lfs_ssize_t)lfs_file_relocate(lfs, file);
             if (err) {
                 file->flags |= LFS_F_ERRED;
                 LFS_TRACE("lfs_file_write -> %"PRId32, err);
