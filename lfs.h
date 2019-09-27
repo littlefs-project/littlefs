@@ -554,7 +554,7 @@ lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file);
 //
 // Equivalent to lfs_file_seek(lfs, file, 0, LFS_SEEK_SET)
 // Returns a negative error code on failure.
-int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
+lfs_soff_t lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 
 // Return the size of the file
 //

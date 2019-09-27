@@ -3041,7 +3041,7 @@ lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
     return file->pos;
 }
 
-int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
+lfs_soff_t lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_rewind(%p, %p)", (void*)lfs, (void*)file);
     lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_SET);
     if (res < 0) {
@@ -3060,10 +3060,10 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
     if (file->flags & LFS_F_WRITING) {
         LFS_TRACE("lfs_file_size -> %"PRId32,
                 lfs_max(file->pos, file->ctz.size));
-        return lfs_max(file->pos, file->ctz.size);
+        return (lfs_soff_t)lfs_max(file->pos, file->ctz.size);
     } else {
         LFS_TRACE("lfs_file_size -> %"PRId32, file->ctz.size);
-        return file->ctz.size;
+        return (lfs_soff_t)file->ctz.size;
     }
 }
 
