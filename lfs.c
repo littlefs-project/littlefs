@@ -3155,11 +3155,11 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     return 0;
 }
 
-int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
+lfs_stag_t lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     LFS_TRACE("lfs_rename(%p, \"%s\", \"%s\")", (void*)lfs, oldpath, newpath);
 
     // deorphan if we haven't yet, needed at most once after poweron
-    int err = lfs_fs_forceconsistency(lfs);
+    lfs_stag_t err = (lfs_stag_t)lfs_fs_forceconsistency(lfs);
     if (err) {
         LFS_TRACE("lfs_rename -> %d", err);
         return err;
@@ -3170,7 +3170,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs_stag_t oldtag = lfs_dir_find(lfs, &oldcwd, &oldpath, NULL);
     if (oldtag < 0 || lfs_tag_id(oldtag) == 0x3ff) {
         LFS_TRACE("lfs_rename -> %d", (oldtag < 0) ? oldtag : LFS_ERR_INVAL);
-        return (oldtag < 0) ? oldtag : LFS_ERR_INVAL;
+        return (oldtag < 0) ? oldtag : (lfs_stag_t)LFS_ERR_INVAL;
     }
 
     // find new entry
@@ -3180,7 +3180,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     if ((prevtag < 0 || lfs_tag_id(prevtag) == 0x3ff) &&
             !(prevtag == LFS_ERR_NOENT && newid != 0x3ff)) {
         LFS_TRACE("lfs_rename -> %d", (prevtag < 0) ? prevtag : LFS_ERR_INVAL);
-        return (prevtag < 0) ? prevtag : LFS_ERR_INVAL;
+        return (prevtag < 0) ? prevtag : (lfs_stag_t)LFS_ERR_INVAL;
     }
 
     lfs_mdir_t prevdir;
@@ -3189,11 +3189,11 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         lfs_size_t nlen = strlen(newpath);
         if (nlen > lfs->name_max) {
             LFS_TRACE("lfs_rename -> %d", LFS_ERR_NAMETOOLONG);
-            return LFS_ERR_NAMETOOLONG;
+            return (lfs_stag_t)LFS_ERR_NAMETOOLONG;
         }
     } else if (lfs_tag_type3(prevtag) != lfs_tag_type3(oldtag)) {
         LFS_TRACE("lfs_rename -> %d", LFS_ERR_ISDIR);
-        return LFS_ERR_ISDIR;
+        return (lfs_stag_t)LFS_ERR_ISDIR;
     } else if (lfs_tag_type3(prevtag) == LFS_TYPE_DIR) {
         // must be empty before removal
         lfs_block_t prevpair[2];
@@ -3206,7 +3206,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         lfs_pair_fromle32(prevpair);
 
         // must be empty before removal
-        err = lfs_dir_fetch(lfs, &prevdir, prevpair);
+        err = (lfs_stag_t)lfs_dir_fetch(lfs, &prevdir, prevpair);
         if (err) {
             LFS_TRACE("lfs_rename -> %d", err);
             return err;
@@ -3214,7 +3214,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
         if (prevdir.count > 0 || prevdir.split) {
             LFS_TRACE("lfs_rename -> %d", LFS_ERR_NOTEMPTY);
-            return LFS_ERR_NOTEMPTY;
+            return (lfs_stag_t)LFS_ERR_NOTEMPTY;
         }
 
         // mark fs as orphaned
@@ -3234,7 +3234,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs_fs_prepmove(lfs, newoldtagid, oldcwd.pair);
 
     // move over all attributes
-    err = lfs_dir_commit(lfs, &newcwd, LFS_MKATTRS(
+    err = (lfs_stag_t)lfs_dir_commit(lfs, &newcwd, LFS_MKATTRS(
             {prevtag != LFS_ERR_NOENT
                 ? LFS_MKTAG(LFS_TYPE_DELETE, newid, 0)
                 : LFS_MKTAG(LFS_FROM_NOOP, 0, 0), NULL},
@@ -3250,7 +3250,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     // let commit clean up after move (if we're different! otherwise move
     // logic already fixed it for us)
     if (lfs_pair_cmp(oldcwd.pair, newcwd.pair) != 0) {
-        err = lfs_dir_commit(lfs, &oldcwd, NULL, 0);
+        err = (lfs_stag_t)lfs_dir_commit(lfs, &oldcwd, NULL, 0);
         if (err) {
             LFS_TRACE("lfs_rename -> %d", err);
             return err;
@@ -3261,13 +3261,13 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         // fix orphan
         lfs_fs_preporphans(lfs, -1);
 
-        err = lfs_fs_pred(lfs, prevdir.pair, &newcwd);
+        err = (lfs_stag_t)lfs_fs_pred(lfs, prevdir.pair, &newcwd);
         if (err) {
             LFS_TRACE("lfs_rename -> %d", err);
             return err;
         }
 
-        err = lfs_dir_drop(lfs, &newcwd, &prevdir);
+        err = (lfs_stag_t)lfs_dir_drop(lfs, &newcwd, &prevdir);
         if (err) {
             LFS_TRACE("lfs_rename -> %d", err);
             return err;

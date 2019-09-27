@@ -436,7 +436,7 @@ int lfs_remove(lfs_t *lfs, const char *path);
 // If the destination is a directory, the directory must be empty.
 //
 // Returns a negative error code on failure.
-int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
+lfs_stag_t lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
 
 // Find info about a file or directory
 //
