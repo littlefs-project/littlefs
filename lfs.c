@@ -3286,7 +3286,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0) {
         LFS_TRACE("lfs_getattr -> %"PRId32, tag);
-        return tag;
+        return (lfs_ssize_t)tag;
     }
 
     uint16_t id = lfs_tag_id(tag);
@@ -3296,7 +3296,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
         int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
         if (err) {
             LFS_TRACE("lfs_getattr -> %"PRId32, err);
-            return err;
+            return (lfs_ssize_t)err;
         }
     }
 
@@ -3307,11 +3307,11 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
     if (tag < 0) {
         if (tag == LFS_ERR_NOENT) {
             LFS_TRACE("lfs_getattr -> %"PRId32, LFS_ERR_NOATTR);
-            return LFS_ERR_NOATTR;
+            return (lfs_ssize_t)LFS_ERR_NOATTR;
         }
 
         LFS_TRACE("lfs_getattr -> %"PRId32, tag);
-        return tag;
+        return (lfs_ssize_t)tag;
     }
 
     size = lfs_tag_size(tag);
