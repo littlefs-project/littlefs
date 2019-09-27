@@ -513,7 +513,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
                 NULL, &lfs->rcache, sizeof(ntag),
                 dir->pair[0], off, &ntag, sizeof(ntag));
         if (err) {
-            return err;
+            return (lfs_stag_t)err;
         }
 
         ntag = (lfs_frombe32(ntag) ^ tag) & 0x7fffffff;
@@ -524,7 +524,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
             if (tag == (LFS_MKTAG(LFS_TYPE_CREATE, 0, 0) |
                     (LFS_MKTAG(0, 0x3ff, 0) & (gtag - gdiff)))) {
                 // found where we were created
-                return LFS_ERR_NOENT;
+                return (lfs_stag_t)LFS_ERR_NOENT;
             }
 
             // move around splices
@@ -533,7 +533,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
 
         if ((gmask & tag) == (gmask & (gtag - gdiff))) {
             if (lfs_tag_isdelete(tag)) {
-                return LFS_ERR_NOENT;
+                return (lfs_stag_t)LFS_ERR_NOENT;
             }
 
             lfs_size_t diff = lfs_min(lfs_tag_size(tag), gsize);
@@ -541,7 +541,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
                     NULL, &lfs->rcache, diff,
                     dir->pair[0], off+sizeof(tag)+goff, gbuffer, diff);
             if (err) {
-                return err;
+                return (lfs_stag_t)err;
             }
 
             memset((uint8_t*)gbuffer + diff, 0, gsize - diff);
@@ -550,7 +550,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
         }
     }
 
-    return LFS_ERR_NOENT;
+    return (lfs_stag_t)LFS_ERR_NOENT;
 }
 
 static lfs_stag_t lfs_dir_get(lfs_t *lfs, const lfs_mdir_t *dir,
