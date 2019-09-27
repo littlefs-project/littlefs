@@ -260,7 +260,6 @@ static inline void lfs_pair_tole32(lfs_block_t pair[2]) {
 
 // operations on 32-bit entry tags
 typedef uint32_t lfs_tag_t;
-typedef int32_t lfs_stag_t;
 
 #define LFS_MKTAG(type, id, size) \
     (((lfs_tag_t)(type) << 20) | ((lfs_tag_t)(id) << 10) | (lfs_tag_t)(size))

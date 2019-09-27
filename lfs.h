@@ -44,6 +44,8 @@ typedef int32_t  lfs_soff_t;
 
 typedef uint32_t lfs_block_t;
 
+typedef int32_t lfs_stag_t;
+
 // Maximum name size in bytes, may be redefined to reduce the size of the
 // info struct. Limited to <= 1022. Stored in superblock and must be
 // respected by other littlefs drivers.
