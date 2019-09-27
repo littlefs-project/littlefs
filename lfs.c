@@ -2969,7 +2969,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     return npos;
 }
 
-int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+lfs_soff_t lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_TRACE("lfs_file_truncate(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, size);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
@@ -2977,21 +2977,21 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
     if (size > LFS_FILE_MAX) {
         LFS_TRACE("lfs_file_truncate -> %d", LFS_ERR_INVAL);
-        return LFS_ERR_INVAL;
+        return (lfs_soff_t)LFS_ERR_INVAL;
     }
 
     lfs_off_t pos = file->pos;
     lfs_off_t oldsize = lfs_file_size(lfs, file);
     if (size < oldsize) {
         // need to flush since directly changing metadata
-        int err = lfs_file_flush(lfs, file);
+        lfs_soff_t err = (lfs_soff_t)lfs_file_flush(lfs, file);
         if (err) {
             LFS_TRACE("lfs_file_truncate -> %d", err);
             return err;
         }
 
         // lookup new head in ctz skip list
-        err = lfs_ctz_find(lfs, NULL, &file->cache,
+        err = (lfs_soff_t)lfs_ctz_find(lfs, NULL, &file->cache,
                 file->ctz.head, file->ctz.size,
                 size, &file->block, &file->off);
         if (err) {
@@ -3005,7 +3005,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     } else if (size > oldsize) {
         // flush+seek if not already at end
         if (file->pos != oldsize) {
-            int err = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
+            lfs_soff_t err = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
             if (err < 0) {
                 LFS_TRACE("lfs_file_truncate -> %d", err);
                 return err;
@@ -3017,13 +3017,13 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
             lfs_ssize_t res = lfs_file_write(lfs, file, &(uint8_t){0}, 1);
             if (res < 0) {
                 LFS_TRACE("lfs_file_truncate -> %d", res);
-                return res;
+                return (lfs_soff_t)res;
             }
         }
     }
 
     // restore pos
-    int err = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
+    lfs_soff_t err = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
     if (err < 0) {
       LFS_TRACE("lfs_file_truncate -> %d", err);
       return err;
