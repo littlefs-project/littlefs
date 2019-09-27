@@ -2941,7 +2941,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
     // write out everything beforehand, may be noop if rdonly
-    int err = lfs_file_flush(lfs, file);
+    lfs_soff_t err = (lfs_soff_t)lfs_file_flush(lfs, file);
     if (err) {
         LFS_TRACE("lfs_file_seek -> %"PRId32, err);
         return err;
@@ -2960,7 +2960,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     if (npos > lfs->file_max) {
         // file position out of range
         LFS_TRACE("lfs_file_seek -> %"PRId32, LFS_ERR_INVAL);
-        return LFS_ERR_INVAL;
+        return (lfs_soff_t)LFS_ERR_INVAL;
     }
 
     // update pos
