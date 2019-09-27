@@ -3083,10 +3083,10 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     return err;
 }
 
-int lfs_remove(lfs_t *lfs, const char *path) {
+lfs_stag_t lfs_remove(lfs_t *lfs, const char *path) {
     LFS_TRACE("lfs_remove(%p, \"%s\")", (void*)lfs, path);
     // deorphan if we haven't yet, needed at most once after poweron
-    int err = lfs_fs_forceconsistency(lfs);
+    lfs_stag_t err = (lfs_stag_t)lfs_fs_forceconsistency(lfs);
     if (err) {
         LFS_TRACE("lfs_remove -> %d", err);
         return err;
@@ -3096,7 +3096,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0 || lfs_tag_id(tag) == 0x3ff) {
         LFS_TRACE("lfs_remove -> %d", (tag < 0) ? tag : LFS_ERR_INVAL);
-        return (tag < 0) ? tag : LFS_ERR_INVAL;
+        return (tag < 0) ? tag : (lfs_stag_t)LFS_ERR_INVAL;
     }
 
     lfs_mdir_t dir;
@@ -3111,7 +3111,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         }
         lfs_pair_fromle32(pair);
 
-        err = lfs_dir_fetch(lfs, &dir, pair);
+        err = (lfs_stag_t)lfs_dir_fetch(lfs, &dir, pair);
         if (err) {
             LFS_TRACE("lfs_remove -> %d", err);
             return err;
@@ -3119,7 +3119,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 
         if (dir.count > 0 || dir.split) {
             LFS_TRACE("lfs_remove -> %d", LFS_ERR_NOTEMPTY);
-            return LFS_ERR_NOTEMPTY;
+            return (lfs_stag_t)LFS_ERR_NOTEMPTY;
         }
 
         // mark fs as orphaned
@@ -3127,7 +3127,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     }
 
     // delete the entry
-    err = lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
+    err = (lfs_stag_t)lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(tag), 0), NULL}));
     if (err) {
         LFS_TRACE("lfs_remove -> %d", err);
@@ -3138,13 +3138,13 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         // fix orphan
         lfs_fs_preporphans(lfs, -1);
 
-        err = lfs_fs_pred(lfs, dir.pair, &cwd);
+        err = (lfs_stag_t)lfs_fs_pred(lfs, dir.pair, &cwd);
         if (err) {
             LFS_TRACE("lfs_remove -> %d", err);
             return err;
         }
 
-        err = lfs_dir_drop(lfs, &cwd, &dir);
+        err = (lfs_stag_t)lfs_dir_drop(lfs, &cwd, &dir);
         if (err) {
             LFS_TRACE("lfs_remove -> %d", err);
             return err;
