@@ -560,13 +560,13 @@ static lfs_stag_t lfs_dir_get(lfs_t *lfs, const lfs_mdir_t *dir,
             0, buffer, lfs_tag_size(gtag));
 }
 
-static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
+static lfs_stag_t lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
         const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
         lfs_tag_t gmask, lfs_tag_t gtag,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
     if (off+size > lfs->cfg->block_size) {
-        return LFS_ERR_CORRUPT;
+        return (lfs_stag_t)LFS_ERR_CORRUPT;
     }
 
     while (size > 0) {
@@ -611,7 +611,7 @@ static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
         rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
         rcache->size = lfs_min(lfs_alignup(off+hint, lfs->cfg->read_size),
                 lfs->cfg->cache_size);
-        int err = lfs_dir_getslice(lfs, dir, gmask, gtag,
+        lfs_stag_t err = lfs_dir_getslice(lfs, dir, gmask, gtag,
                 rcache->off, rcache->buffer, rcache->size);
         if (err < 0) {
             return err;
