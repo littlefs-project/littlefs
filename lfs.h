@@ -574,7 +574,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path);
 //
 // Once open a directory can be used with read to iterate over files.
 // Returns a negative error code on failure.
-int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
+lfs_stag_t lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
 
 // Close a directory
 //

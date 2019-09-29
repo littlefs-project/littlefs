@@ -1931,7 +1931,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     return 0;
 }
 
-int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
+lfs_stag_t lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
     lfs_stag_t tag = lfs_dir_find(lfs, &dir->m, &path, NULL);
     if (tag < 0) {
@@ -1941,7 +1941,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
 
     if (lfs_tag_type3(tag) != LFS_TYPE_DIR) {
         LFS_TRACE("lfs_dir_open -> %d", LFS_ERR_NOTDIR);
-        return LFS_ERR_NOTDIR;
+        return (lfs_stag_t)LFS_ERR_NOTDIR;
     }
 
     lfs_block_t pair[2];
@@ -1964,7 +1964,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     int err = lfs_dir_fetch(lfs, &dir->m, pair);
     if (err) {
         LFS_TRACE("lfs_dir_open -> %d", err);
-        return err;
+        return (lfs_stag_t)err;
     }
 
     // setup entry
