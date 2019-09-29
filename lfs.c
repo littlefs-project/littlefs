@@ -410,8 +410,8 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
 static int lfs_dir_compact(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t begin, uint16_t end);
-static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file);
-static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file);
+static lfs_stag_t lfs_file_outline(lfs_t *lfs, lfs_file_t *file);
+static lfs_ssize_t lfs_file_flush(lfs_t *lfs, lfs_file_t *file);
 static void lfs_fs_preporphans(lfs_t *lfs, int8_t orphans);
 static void lfs_fs_prepmove(lfs_t *lfs,
         uint16_t id, const lfs_block_t pair[2]);
@@ -2494,18 +2494,18 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     return err;
 }
 
-static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
+static lfs_stag_t lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
     while (true) {
         // just relocate what exists into new block
         lfs_block_t nblock;
-        int err = lfs_alloc(lfs, &nblock);
+        lfs_stag_t err = (lfs_stag_t)lfs_alloc(lfs, &nblock);
         if (err) {
             return err;
         }
 
-        err = lfs_bd_erase(lfs, nblock);
+        err = (lfs_stag_t)lfs_bd_erase(lfs, nblock);
         if (err) {
             if (err == LFS_ERR_CORRUPT) {
                 goto relocate;
@@ -2527,7 +2527,7 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
                     return err;
                 }
             } else {
-                err = lfs_bd_read(lfs,
+                err = (lfs_stag_t)lfs_bd_read(lfs,
                         &file->cache, &lfs->rcache, file->off-i,
                         file->block, i, &data, 1);
                 if (err) {
@@ -2535,7 +2535,7 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
                 }
             }
 
-            err = lfs_bd_prog(lfs,
+            err = (lfs_stag_t)lfs_bd_prog(lfs,
                     &lfs->pcache, &lfs->rcache, true,
                     nblock, i, &data, 1);
             if (err) {
@@ -2565,10 +2565,10 @@ relocate:
     }
 }
 
-static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
+static lfs_stag_t lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
     file->off = file->pos;
     lfs_alloc_ack(lfs);
-    int err = lfs_file_relocate(lfs, file);
+    lfs_stag_t err = lfs_file_relocate(lfs, file);
     if (err) {
         return err;
     }
@@ -2577,7 +2577,7 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
     return 0;
 }
 
-static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
+static lfs_ssize_t lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
     if (file->flags & LFS_F_READING) {
@@ -2624,7 +2624,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
 
             // write out what we have
             while (true) {
-                int err = lfs_bd_flush(lfs, &file->cache, &lfs->rcache, true);
+                lfs_ssize_t err = (lfs_ssize_t)lfs_bd_flush(lfs, &file->cache, &lfs->rcache, true);
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
@@ -2636,7 +2636,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
 
 relocate:
                 LFS_DEBUG("Bad block at %"PRIx32, file->block);
-                err = lfs_file_relocate(lfs, file);
+                err = (lfs_ssize_t)lfs_file_relocate(lfs, file);
                 if (err) {
                     return err;
                 }
