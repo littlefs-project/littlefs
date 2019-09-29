@@ -2657,12 +2657,12 @@ relocate:
     return 0;
 }
 
-int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
+lfs_ssize_t lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
     while (true) {
-        int err = lfs_file_flush(lfs, file);
+        lfs_ssize_t err = lfs_file_flush(lfs, file);
         if (err) {
             file->flags |= LFS_F_ERRED;
             LFS_TRACE("lfs_file_sync -> %d", err);
@@ -2693,7 +2693,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
             }
 
             // commit file data and attributes
-            err = lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
+            err = (lfs_ssize_t)lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
                     {LFS_MKTAG(type, file->id, size), buffer},
                     {LFS_MKTAG(LFS_FROM_USERATTRS, file->id,
                         file->cfg->attr_count), file->cfg->attrs}));
@@ -2714,7 +2714,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
 
 relocate:
         // inline file doesn't fit anymore
-        err = lfs_file_outline(lfs, file);
+        err = (lfs_ssize_t)lfs_file_outline(lfs, file);
         if (err) {
             file->flags |= LFS_F_ERRED;
             LFS_TRACE("lfs_file_sync -> %d", err);
