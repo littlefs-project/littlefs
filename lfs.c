@@ -2112,7 +2112,7 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
 
 
 /// File index list operations ///
-static int lfs_ctz_index(lfs_t *lfs, lfs_off_t *off) {
+static lfs_off_t lfs_ctz_index(lfs_t *lfs, lfs_off_t *off) {
     lfs_off_t size = *off;
     lfs_off_t b = lfs->cfg->block_size - 2*4;
     lfs_off_t i = size / b;
