@@ -2735,7 +2735,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 
     if (file->flags & LFS_F_WRITING) {
         // flush out any writes
-        int err = lfs_file_flush(lfs, file);
+        lfs_ssize_t err = lfs_file_flush(lfs, file);
         if (err) {
             LFS_TRACE("lfs_file_read -> %"PRId32, err);
             return err;
@@ -2756,7 +2756,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         if (!(file->flags & LFS_F_READING) ||
                 file->off == lfs->cfg->block_size) {
             if (!(file->flags & LFS_F_INLINE)) {
-                int err = lfs_ctz_find(lfs, NULL, &file->cache,
+                lfs_ssize_t err = (lfs_ssize_t)lfs_ctz_find(lfs, NULL, &file->cache,
                         file->ctz.head, file->ctz.size,
                         file->pos, &file->block, &file->off);
                 if (err) {
@@ -2774,17 +2774,17 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         // read as much as we can in current block
         lfs_size_t diff = lfs_min(nsize, lfs->cfg->block_size - file->off);
         if (file->flags & LFS_F_INLINE) {
-            int err = lfs_dir_getread(lfs, &file->m,
+            lfs_stag_t err = lfs_dir_getread(lfs, &file->m,
                     NULL, &file->cache, lfs->cfg->block_size,
                     LFS_MKTAG(0xfff, 0x1ff, 0),
                     LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0),
                     file->off, data, diff);
             if (err) {
                 LFS_TRACE("lfs_file_read -> %"PRId32, err);
-                return err;
+                return (lfs_ssize_t)err;
             }
         } else {
-            int err = lfs_bd_read(lfs,
+            lfs_ssize_t err = (lfs_ssize_t)lfs_bd_read(lfs,
                     NULL, &file->cache, lfs->cfg->block_size,
                     file->block, file->off, data, diff);
             if (err) {
