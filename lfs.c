@@ -407,7 +407,7 @@ static inline void lfs_superblock_tole32(lfs_superblock_t *superblock) {
 /// Internal operations predeclared here ///
 static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         const struct lfs_mattr *attrs, int attrcount);
-static int lfs_dir_compact(lfs_t *lfs,
+static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t begin, uint16_t end);
 static lfs_stag_t lfs_file_outline(lfs_t *lfs, lfs_file_t *file);
@@ -1422,7 +1422,7 @@ static int lfs_dir_commit_commit(void *p, lfs_tag_t tag, const void *buffer) {
     return lfs_dir_commitattr(commit->lfs, commit->commit, tag, buffer);
 }
 
-static int lfs_dir_compact(lfs_t *lfs,
+static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t begin, uint16_t end) {
     // save some state in case block is bad
@@ -1441,7 +1441,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                 begin, end, -begin,
                 lfs_dir_commit_size, &size);
         if (err) {
-            return err;
+            return (lfs_ssize_t)err;
         }
 
         // space is complicated, we need room for tail, crc, gstate,
@@ -1467,7 +1467,7 @@ static int lfs_dir_compact(lfs_t *lfs,
             if (err == LFS_ERR_NOSPC && size <= lfs->cfg->block_size - 36) {
                 break;
             }
-            return err;
+            return (lfs_ssize_t)err;
         }
 
         end = begin + split;
@@ -1492,7 +1492,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                 int err = lfs_dir_split(lfs, dir, attrs, attrcount,
                         source, begin, end);
                 if (err && err != LFS_ERR_NOSPC) {
-                    return err;
+                    return (lfs_ssize_t)err;
                 }
 
                 // welp, we tried, if we ran out of space there's not much
@@ -1520,7 +1520,7 @@ static int lfs_dir_compact(lfs_t *lfs,
             // our local global delta
             int err = lfs_dir_getgstate(lfs, dir, &lfs->gdelta);
             if (err) {
-                return err;
+                return (lfs_ssize_t)err;
             }
 
             // setup commit state
@@ -1540,7 +1540,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
                 }
-                return err;
+                return (lfs_ssize_t)err;
             }
 
             // write out header
@@ -1552,7 +1552,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
                 }
-                return err;
+                return (lfs_ssize_t)err;
             }
 
             // traverse the directory, this time writing out all unique tags
@@ -1567,7 +1567,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
                 }
-                return err;
+                return (lfs_ssize_t)err;
             }
 
             // commit tail, which may be new after last size check
@@ -1581,7 +1581,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
                     }
-                    return err;
+                    return (lfs_ssize_t)err;
                 }
             }
 
@@ -1597,7 +1597,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
                     }
-                    return err;
+                    return (lfs_ssize_t)err;
                 }
             }
 
@@ -1606,7 +1606,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
                 }
-                return err;
+                return (lfs_ssize_t)err;
             }
 
             // successful compaction, swap dir pair to indicate most recent
@@ -1634,13 +1634,13 @@ relocate:
         // can't relocate superblock, filesystem is now frozen
         if (lfs_pair_cmp(oldpair, (const lfs_block_t[2]){0, 1}) == 0) {
             LFS_WARN("Superblock %"PRIx32" has become unwritable", oldpair[1]);
-            return LFS_ERR_NOSPC;
+            return (lfs_ssize_t)LFS_ERR_NOSPC;
         }
 
         // relocate half of pair
         int err = lfs_alloc(lfs, &dir->pair[1]);
         if (err && (err != LFS_ERR_NOSPC && !exhausted)) {
-            return err;
+            return (lfs_ssize_t)err;
         }
 
         continue;
@@ -1655,7 +1655,7 @@ relocate:
                 oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
         int err = lfs_fs_relocate(lfs, oldpair, dir->pair);
         if (err) {
-            return err;
+            return (lfs_ssize_t)err;
         }
     }
 
