@@ -2306,7 +2306,7 @@ static int lfs_ctz_traverse(lfs_t *lfs,
 
 
 /// Top level file operations ///
-int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
+lfs_stag_t lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags,
         const struct lfs_file_config *cfg) {
     LFS_TRACE("lfs_file_opencfg(%p, %p, \"%s\", %x, %p {"
@@ -2319,12 +2319,12 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         int err = lfs_fs_forceconsistency(lfs);
         if (err) {
             LFS_TRACE("lfs_file_opencfg -> %d", err);
-            return err;
+            return (lfs_stag_t)err;
         }
     }
 
     // setup simple file details
-    int err;
+    lfs_stag_t err;
     file->cfg = cfg;
     file->flags = flags | LFS_F_OPENED;
     file->pos = 0;
@@ -2357,7 +2357,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         }
 
         // get next slot and create entry to remember name
-        err = lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
+        err = (lfs_stag_t)lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_CREATE, file->id, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_REG, file->id, nlen), path},
                 {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0), NULL}));

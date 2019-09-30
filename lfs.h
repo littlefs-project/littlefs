@@ -498,7 +498,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 // config struct must be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
+lfs_stag_t lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags,
         const struct lfs_file_config *config);
 
