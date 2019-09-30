@@ -419,7 +419,7 @@ static lfs_stag_t lfs_fs_pred(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *pdir);
 static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
-static int lfs_fs_relocate(lfs_t *lfs,
+static lfs_stag_t lfs_fs_relocate(lfs_t *lfs,
         const lfs_block_t oldpair[2], lfs_block_t newpair[2]);
 static int lfs_fs_forceconsistency(lfs_t *lfs);
 static int lfs_deinit(lfs_t *lfs);
@@ -3870,7 +3870,7 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
     return LFS_ERR_NOENT;
 }
 
-static int lfs_fs_relocate(lfs_t *lfs,
+static lfs_stag_t lfs_fs_relocate(lfs_t *lfs,
         const lfs_block_t oldpair[2], lfs_block_t newpair[2]) {
     // update internal root
     if (lfs_pair_cmp(oldpair, lfs->root) == 0) {
@@ -3900,7 +3900,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
         lfs_fs_preporphans(lfs, +1);
 
         lfs_pair_tole32(newpair);
-        int err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS({tag, newpair}));
+        lfs_stag_t err = (lfs_stag_t)lfs_dir_commit(lfs, &parent, LFS_MKATTRS({tag, newpair}));
         lfs_pair_fromle32(newpair);
         if (err) {
             return err;
@@ -3911,7 +3911,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
     }
 
     // find pred
-    int err = lfs_fs_pred(lfs, oldpair, &parent);
+    lfs_stag_t err = lfs_fs_pred(lfs, oldpair, &parent);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
@@ -3920,7 +3920,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
     if (err != LFS_ERR_NOENT) {
         // replace bad pair, either we clean up desync, or no desync occured
         lfs_pair_tole32(newpair);
-        err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
+        err = (lfs_stag_t)lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_TAIL + parent.split, 0x3ff, 8), newpair}));
         lfs_pair_fromle32(newpair);
         if (err) {
@@ -3946,7 +3946,7 @@ static void lfs_fs_prepmove(lfs_t *lfs,
 }
 
 
-static int lfs_fs_demove(lfs_t *lfs) {
+static lfs_stag_t lfs_fs_demove(lfs_t *lfs) {
     if (!lfs_gstate_hasmove(&lfs->gstate)) {
         return 0;
     }
@@ -3959,13 +3959,13 @@ static int lfs_fs_demove(lfs_t *lfs) {
 
     // fetch and delete the moved entry
     lfs_mdir_t movedir;
-    int err = lfs_dir_fetch(lfs, &movedir, lfs->gstate.pair);
+    lfs_stag_t err = lfs_dir_fetch(lfs, &movedir, lfs->gstate.pair);
     if (err) {
         return err;
     }
 
     // rely on cancel logic inside commit
-    err = lfs_dir_commit(lfs, &movedir, NULL, 0);
+    err = (lfs_stag_t)lfs_dir_commit(lfs, &movedir, NULL, 0);
     if (err) {
         return err;
     }
