@@ -2160,21 +2160,21 @@ static int lfs_ctz_find(lfs_t *lfs,
     return 0;
 }
 
-static int lfs_ctz_extend(lfs_t *lfs,
+static lfs_stag_t lfs_ctz_extend(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache,
         lfs_block_t head, lfs_size_t size,
         lfs_block_t *block, lfs_off_t *off) {
     while (true) {
         // go ahead and grab a block
         lfs_block_t nblock;
-        int err = lfs_alloc(lfs, &nblock);
+        lfs_stag_t err = lfs_alloc(lfs, &nblock);
         if (err) {
             return err;
         }
         LFS_ASSERT(nblock >= 2 && nblock <= lfs->cfg->block_count);
 
         {
-            err = lfs_bd_erase(lfs, nblock);
+            err = (lfs_stag_t)lfs_bd_erase(lfs, nblock);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
@@ -2196,14 +2196,14 @@ static int lfs_ctz_extend(lfs_t *lfs,
             if (size != lfs->cfg->block_size) {
                 for (lfs_off_t i = 0; i < size; i++) {
                     uint8_t data;
-                    err = lfs_bd_read(lfs,
+                    err = (lfs_stag_t)lfs_bd_read(lfs,
                             NULL, rcache, size-i,
                             head, i, &data, 1);
                     if (err) {
                         return err;
                     }
 
-                    err = lfs_bd_prog(lfs,
+                    err = (lfs_stag_t)lfs_bd_prog(lfs,
                             pcache, rcache, true,
                             nblock, i, &data, 1);
                     if (err) {
@@ -2225,7 +2225,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
 
             for (lfs_off_t i = 0; i < skips; i++) {
                 head = lfs_tole32(head);
-                err = lfs_bd_prog(lfs, pcache, rcache, true,
+                err = (lfs_stag_t)lfs_bd_prog(lfs, pcache, rcache, true,
                         nblock, 4*i, &head, 4);
                 head = lfs_fromle32(head);
                 if (err) {
@@ -2236,7 +2236,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
                 }
 
                 if (i != skips-1) {
-                    err = lfs_bd_read(lfs,
+                    err = (lfs_stag_t)lfs_bd_read(lfs,
                             NULL, rcache, sizeof(head),
                             head, 4*i, &head, sizeof(head));
                     head = lfs_fromle32(head);
