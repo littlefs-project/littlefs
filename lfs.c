@@ -415,7 +415,7 @@ static lfs_ssize_t lfs_file_flush(lfs_t *lfs, lfs_file_t *file);
 static void lfs_fs_preporphans(lfs_t *lfs, int8_t orphans);
 static void lfs_fs_prepmove(lfs_t *lfs,
         uint16_t id, const lfs_block_t pair[2]);
-static int lfs_fs_pred(lfs_t *lfs, const lfs_block_t dir[2],
+static lfs_stag_t lfs_fs_pred(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *pdir);
 static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
@@ -3807,7 +3807,7 @@ lfs_stag_t lfs_fs_traverse(lfs_t *lfs,
     return 0;
 }
 
-static int lfs_fs_pred(lfs_t *lfs,
+static lfs_stag_t lfs_fs_pred(lfs_t *lfs,
         const lfs_block_t pair[2], lfs_mdir_t *pdir) {
     // iterate over all directory directory entries
     pdir->tail[0] = 0;
@@ -3817,7 +3817,7 @@ static int lfs_fs_pred(lfs_t *lfs,
             return 0;
         }
 
-        int err = lfs_dir_fetch(lfs, pdir, pdir->tail);
+        lfs_stag_t err = lfs_dir_fetch(lfs, pdir, pdir->tail);
         if (err) {
             return err;
         }
