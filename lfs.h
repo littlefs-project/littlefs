@@ -508,7 +508,7 @@ lfs_stag_t lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 // sync had been called and releases any allocated resources.
 //
 // Returns a negative error code on failure.
-int lfs_file_close(lfs_t *lfs, lfs_file_t *file);
+lfs_ssize_t lfs_file_close(lfs_t *lfs, lfs_file_t *file);
 
 // Synchronize a file on storage
 //

@@ -2470,11 +2470,11 @@ lfs_stag_t lfs_file_open(lfs_t *lfs, lfs_file_t *file,
     return err;
 }
 
-int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
+lfs_ssize_t lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_close(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
-    int err = lfs_file_sync(lfs, file);
+    lfs_ssize_t err = lfs_file_sync(lfs, file);
 
     // remove from list of mdirs
     for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
