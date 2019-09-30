@@ -1996,7 +1996,7 @@ int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
     return 0;
 }
 
-int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
+lfs_stag_t lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     LFS_TRACE("lfs_dir_read(%p, %p, %p)",
             (void*)lfs, (void*)dir, (void*)info);
     memset(info, 0, sizeof(*info));
@@ -2023,7 +2023,7 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
                 return false;
             }
 
-            int err = lfs_dir_fetch(lfs, &dir->m, dir->m.tail);
+            lfs_stag_t err = lfs_dir_fetch(lfs, &dir->m, dir->m.tail);
             if (err) {
                 LFS_TRACE("lfs_dir_read -> %d", err);
                 return err;
@@ -2032,7 +2032,7 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
             dir->id = 0;
         }
 
-        int err = lfs_dir_getinfo(lfs, &dir->m, dir->id, info);
+        lfs_stag_t err = lfs_dir_getinfo(lfs, &dir->m, dir->id, info);
         if (err && err != LFS_ERR_NOENT) {
             LFS_TRACE("lfs_dir_read -> %d", err);
             return err;
