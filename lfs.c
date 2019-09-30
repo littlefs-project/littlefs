@@ -1353,16 +1353,16 @@ static lfs_stag_t lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
     return 0;
 }
 
-static int lfs_dir_drop(lfs_t *lfs, lfs_mdir_t *dir, lfs_mdir_t *tail) {
+static lfs_stag_t lfs_dir_drop(lfs_t *lfs, lfs_mdir_t *dir, lfs_mdir_t *tail) {
     // steal state
-    int err = lfs_dir_getgstate(lfs, tail, &lfs->gdelta);
+    lfs_stag_t err = lfs_dir_getgstate(lfs, tail, &lfs->gdelta);
     if (err) {
         return err;
     }
 
     // steal tail
     lfs_pair_tole32(tail->tail);
-    err = lfs_dir_commit(lfs, dir, LFS_MKATTRS(
+    err = (lfs_stag_t)lfs_dir_commit(lfs, dir, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_TAIL + tail->split, 0x3ff, 8), tail->tail}));
     lfs_pair_fromle32(tail->tail);
     if (err) {
@@ -1720,7 +1720,7 @@ static lfs_ssize_t lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         }
 
         if (err != LFS_ERR_NOENT && pdir.split) {
-            return lfs_dir_drop(lfs, &pdir, dir);
+            return (lfs_ssize_t)lfs_dir_drop(lfs, &pdir, dir);
         }
     }
 
@@ -3144,7 +3144,7 @@ lfs_stag_t lfs_remove(lfs_t *lfs, const char *path) {
             return err;
         }
 
-        err = (lfs_stag_t)lfs_dir_drop(lfs, &cwd, &dir);
+        err = lfs_dir_drop(lfs, &cwd, &dir);
         if (err) {
             LFS_TRACE("lfs_remove -> %d", err);
             return err;
@@ -3267,7 +3267,7 @@ lfs_stag_t lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             return err;
         }
 
-        err = (lfs_stag_t)lfs_dir_drop(lfs, &newcwd, &prevdir);
+        err = lfs_dir_drop(lfs, &newcwd, &prevdir);
         if (err) {
             LFS_TRACE("lfs_rename -> %d", err);
             return err;
