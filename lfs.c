@@ -405,7 +405,7 @@ static inline void lfs_superblock_tole32(lfs_superblock_t *superblock) {
 
 
 /// Internal operations predeclared here ///
-static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
+static lfs_ssize_t lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         const struct lfs_mattr *attrs, int attrcount);
 static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
@@ -1662,7 +1662,7 @@ relocate:
     return 0;
 }
 
-static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
+static lfs_ssize_t lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         const struct lfs_mattr *attrs, int attrcount) {
     // check for any inline files that aren't RAM backed and
     // forcefully evict them, needed for filesystem consistency
@@ -1670,9 +1670,9 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         if (dir != &f->m && lfs_pair_cmp(f->m.pair, dir->pair) == 0 &&
                 f->type == LFS_TYPE_REG && (f->flags & LFS_F_INLINE) &&
                 f->ctz.size > lfs->cfg->cache_size) {
-            int err = lfs_file_outline(lfs, f);
+            lfs_ssize_t err = (lfs_ssize_t)lfs_file_outline(lfs, f);
             if (err) {
-                return err;
+                return (lfs_ssize_t) err;
             }
 
             err = lfs_file_flush(lfs, f);
@@ -1714,7 +1714,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
     // should we actually drop the directory block?
     if (lfs_tag_isvalid(deletetag) && dir->count == 0) {
         lfs_mdir_t pdir;
-        int err = lfs_fs_pred(lfs, dir->pair, &pdir);
+        lfs_ssize_t err = (lfs_ssize_t)lfs_fs_pred(lfs, dir->pair, &pdir);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -1798,7 +1798,7 @@ compact:
         // fall back to compaction
         lfs_cache_drop(lfs, &lfs->pcache);
 
-        int err = lfs_dir_compact(lfs, dir, attrs, attrcount,
+        lfs_ssize_t err = lfs_dir_compact(lfs, dir, attrs, attrcount,
                 dir, 0, dir->count);
         if (err) {
             return err;
@@ -1831,9 +1831,9 @@ compact:
             while (d->id >= d->m.count && d->m.split) {
                 // we split and id is on tail now
                 d->id -= d->m.count;
-                int err = lfs_dir_fetch(lfs, &d->m, d->m.tail);
+                lfs_stag_t err = lfs_dir_fetch(lfs, &d->m, d->m.tail);
                 if (err) {
-                    return err;
+                    return (lfs_ssize_t)err;
                 }
             }
         }
