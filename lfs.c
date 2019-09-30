@@ -3973,7 +3973,7 @@ static lfs_stag_t lfs_fs_demove(lfs_t *lfs) {
     return 0;
 }
 
-static int lfs_fs_deorphan(lfs_t *lfs) {
+static lfs_stag_t lfs_fs_deorphan(lfs_t *lfs) {
     if (!lfs_gstate_hasorphans(&lfs->gstate)) {
         return 0;
     }
@@ -3984,7 +3984,7 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
 
     // iterate over all directory directory entries
     while (!lfs_pair_isnull(dir.tail)) {
-        int err = lfs_dir_fetch(lfs, &dir, dir.tail);
+        lfs_stag_t err = lfs_dir_fetch(lfs, &dir, dir.tail);
         if (err) {
             return err;
         }
@@ -4025,7 +4025,7 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
                         pair[0], pair[1]);
 
                 lfs_pair_tole32(pair);
-                err = lfs_dir_commit(lfs, &pdir, LFS_MKATTRS(
+                err = (lfs_stag_t)lfs_dir_commit(lfs, &pdir, LFS_MKATTRS(
                         {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), pair}));
                 lfs_pair_fromle32(pair);
                 if (err) {
