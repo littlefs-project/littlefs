@@ -972,7 +972,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
     return LFS_ERR_CORRUPT;
 }
 
-static int lfs_dir_fetch(lfs_t *lfs,
+static lfs_stag_t lfs_dir_fetch(lfs_t *lfs,
         lfs_mdir_t *dir, const lfs_block_t pair[2]) {
     // note, mask=-1, tag=0 can never match a tag since this
     // pattern has the invalid bit set
