@@ -997,7 +997,7 @@ static lfs_stag_t lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
     return 0;
 }
 
-static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
+static lfs_stag_t lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
         uint16_t id, struct lfs_info *info) {
     if (id == 0x3ff) {
         // special case for root
