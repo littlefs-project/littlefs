@@ -3319,7 +3319,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
     return size;
 }
 
-static int lfs_commitattr(lfs_t *lfs, const char *path,
+static lfs_stag_t lfs_commitattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size) {
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
@@ -3331,17 +3331,17 @@ static int lfs_commitattr(lfs_t *lfs, const char *path,
     if (id == 0x3ff) {
         // special case for root
         id = 0;
-        int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
+        lfs_stag_t err = lfs_dir_fetch(lfs, &cwd, lfs->root);
         if (err) {
             return err;
         }
     }
 
-    return lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
+    return (lfs_stag_t)lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_USERATTR + type, id, size), buffer}));
 }
 
-int lfs_setattr(lfs_t *lfs, const char *path,
+lfs_stag_t lfs_setattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_setattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
             (void*)lfs, path, type, buffer, size);
@@ -3350,14 +3350,14 @@ int lfs_setattr(lfs_t *lfs, const char *path,
         return LFS_ERR_NOSPC;
     }
 
-    int err = lfs_commitattr(lfs, path, type, buffer, size);
+    lfs_stag_t err = lfs_commitattr(lfs, path, type, buffer, size);
     LFS_TRACE("lfs_setattr -> %d", err);
     return err;
 }
 
-int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
+lfs_stag_t lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
     LFS_TRACE("lfs_removeattr(%p, \"%s\", %"PRIu8")", (void*)lfs, path, type);
-    int err = lfs_commitattr(lfs, path, type, NULL, 0x3ff);
+    lfs_stag_t err = lfs_commitattr(lfs, path, type, NULL, 0x3ff);
     LFS_TRACE("lfs_removeattr -> %d", err);
     return err;
 }

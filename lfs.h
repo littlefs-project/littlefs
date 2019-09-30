@@ -466,7 +466,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
 // implicitly created.
 //
 // Returns a negative error code on failure.
-int lfs_setattr(lfs_t *lfs, const char *path,
+lfs_stag_t lfs_setattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size);
 
 // Removes a custom attribute
@@ -474,7 +474,7 @@ int lfs_setattr(lfs_t *lfs, const char *path,
 // If an attribute is not found, nothing happens.
 //
 // Returns a negative error code on failure.
-int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
+lfs_stag_t lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 
 
 /// File operations ///
