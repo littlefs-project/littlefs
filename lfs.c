@@ -2093,10 +2093,10 @@ lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir) {
     return dir->pos;
 }
 
-int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
+lfs_stag_t lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
     LFS_TRACE("lfs_dir_rewind(%p, %p)", (void*)lfs, (void*)dir);
     // reload the head dir
-    int err = lfs_dir_fetch(lfs, &dir->m, dir->head);
+    lfs_stag_t err = lfs_dir_fetch(lfs, &dir->m, dir->head);
     if (err) {
         LFS_TRACE("lfs_dir_rewind -> %d", err);
         return err;

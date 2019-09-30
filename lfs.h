@@ -608,7 +608,7 @@ lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir);
 // Change the position of the directory to the beginning of the directory
 //
 // Returns a negative error code on failure.
-int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
+lfs_stag_t lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 
 
 /// Filesystem-level filesystem operations
