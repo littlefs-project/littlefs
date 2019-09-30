@@ -3717,7 +3717,7 @@ int lfs_unmount(lfs_t *lfs) {
 
 
 /// Filesystem filesystem operations ///
-int lfs_fs_traverse(lfs_t *lfs,
+lfs_stag_t lfs_fs_traverse(lfs_t *lfs,
         int (*cb)(void *data, lfs_block_t block), void *data) {
     LFS_TRACE("lfs_fs_traverse(%p, %p, %p)",
             (void*)lfs, (void*)(uintptr_t)cb, data);
@@ -3730,7 +3730,7 @@ int lfs_fs_traverse(lfs_t *lfs,
         int err = lfs1_traverse(lfs, cb, data);
         if (err) {
             LFS_TRACE("lfs_fs_traverse -> %d", err);
-            return err;
+            return (lfs_stag_t)err;
         }
 
         dir.tail[0] = lfs->root[0];
@@ -3743,12 +3743,12 @@ int lfs_fs_traverse(lfs_t *lfs,
             int err = cb(data, dir.tail[i]);
             if (err) {
                 LFS_TRACE("lfs_fs_traverse -> %d", err);
-                return err;
+                return (lfs_stag_t)err;
             }
         }
 
         // iterate through ids in directory
-        int err = lfs_dir_fetch(lfs, &dir, dir.tail);
+        lfs_stag_t err = lfs_dir_fetch(lfs, &dir, dir.tail);
         if (err) {
             LFS_TRACE("lfs_fs_traverse -> %d", err);
             return err;
@@ -3772,7 +3772,7 @@ int lfs_fs_traverse(lfs_t *lfs,
                         ctz.head, ctz.size, cb, data);
                 if (err) {
                     LFS_TRACE("lfs_fs_traverse -> %d", err);
-                    return err;
+                    return (lfs_stag_t)err;
                 }
             }
         }
@@ -3789,7 +3789,7 @@ int lfs_fs_traverse(lfs_t *lfs,
                     f->ctz.head, f->ctz.size, cb, data);
             if (err) {
                 LFS_TRACE("lfs_fs_traverse -> %d", err);
-                return err;
+                return (lfs_stag_t)err;
             }
         }
 
@@ -3798,7 +3798,7 @@ int lfs_fs_traverse(lfs_t *lfs,
                     f->block, f->pos, cb, data);
             if (err) {
                 LFS_TRACE("lfs_fs_traverse -> %d", err);
-                return err;
+                return (lfs_stag_t)err;
             }
         }
     }
