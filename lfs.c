@@ -767,7 +767,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 pair[i], 0, &revs[i], sizeof(revs[i]));
         revs[i] = lfs_fromle32(revs[i]);
         if (err && err != LFS_ERR_CORRUPT) {
-            return err;
+            return (lfs_stag_t)err;
         }
 
         if (err != LFS_ERR_CORRUPT &&
@@ -808,7 +808,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                     dir->erased = false;
                     break;
                 }
-                return err;
+                return (lfs_stag_t)err;
             }
 
             crc = lfs_crc(crc, &tag, sizeof(tag));
@@ -835,7 +835,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                         dir->erased = false;
                         break;
                     }
-                    return err;
+                    return (lfs_stag_t)err;
                 }
                 dcrc = lfs_fromle32(dcrc);
 
@@ -876,7 +876,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                         dir->erased = false;
                         break;
                     }
-                    return err;
+                    return (lfs_stag_t)err;
                 }
 
                 crc = lfs_crc(crc, &dat, 1);
@@ -922,7 +922,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                         dir->erased = false;
                         break;
                     }
-                    return res;
+                    return (lfs_stag_t)res;
                 }
 
                 if (res == LFS_CMP_EQ) {
