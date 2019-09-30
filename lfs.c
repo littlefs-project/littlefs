@@ -3569,7 +3569,7 @@ cleanup:
     return err;
 }
 
-int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
+lfs_stag_t lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_mount(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -3586,7 +3586,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             cfg->block_cycles, cfg->cache_size, cfg->lookahead_size,
             cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
             cfg->name_max, cfg->file_max, cfg->attr_max);
-    int err = lfs_init(lfs, cfg);
+    lfs_stag_t err = (lfs_stag_t)lfs_init(lfs, cfg);
     if (err) {
         LFS_TRACE("lfs_mount -> %d", err);
         return err;

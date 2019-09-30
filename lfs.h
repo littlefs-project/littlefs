@@ -414,7 +414,7 @@ lfs_stag_t lfs_format(lfs_t *lfs, const struct lfs_config *config);
 // be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
+lfs_stag_t lfs_mount(lfs_t *lfs, const struct lfs_config *config);
 
 // Unmounts a littlefs
 //
