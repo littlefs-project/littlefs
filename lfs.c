@@ -1738,7 +1738,7 @@ static lfs_ssize_t lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
 
         // traverse attrs that need to be written out
         lfs_pair_tole32(dir->tail);
-        int err = lfs_dir_traverse(lfs,
+        lfs_ssize_t err = (lfs_ssize_t)lfs_dir_traverse(lfs,
                 dir, dir->off, dir->etag, attrs, attrcount, false,
                 0, 0, 0, 0, 0,
                 lfs_dir_commit_commit, &(struct lfs_dir_commit_commit){
@@ -1753,13 +1753,13 @@ static lfs_ssize_t lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
 
         // commit any global diffs if we have any
         if (!lfs_gstate_iszero(&lfs->gdelta)) {
-            err = lfs_dir_getgstate(lfs, dir, &lfs->gdelta);
+            err = (lfs_ssize_t)lfs_dir_getgstate(lfs, dir, &lfs->gdelta);
             if (err) {
                 return err;
             }
 
             lfs_gstate_tole32(&lfs->gdelta);
-            err = lfs_dir_commitattr(lfs, &commit,
+            err = (lfs_ssize_t)lfs_dir_commitattr(lfs, &commit,
                     LFS_MKTAG(LFS_TYPE_MOVESTATE, 0x3ff,
                         sizeof(lfs->gdelta)), &lfs->gdelta);
             lfs_gstate_fromle32(&lfs->gdelta);
@@ -1772,7 +1772,7 @@ static lfs_ssize_t lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         }
 
         // finalize commit with the crc
-        err = lfs_dir_commitcrc(lfs, &commit);
+        err = (lfs_ssize_t)lfs_dir_commitcrc(lfs, &commit);
         if (err) {
             if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
                 goto compact;
