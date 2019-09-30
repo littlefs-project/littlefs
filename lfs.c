@@ -1372,12 +1372,12 @@ static lfs_stag_t lfs_dir_drop(lfs_t *lfs, lfs_mdir_t *dir, lfs_mdir_t *tail) {
     return 0;
 }
 
-static int lfs_dir_split(lfs_t *lfs,
+static lfs_stag_t lfs_dir_split(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t split, uint16_t end) {
     // create tail directory
     lfs_mdir_t tail;
-    int err = lfs_dir_alloc(lfs, &tail);
+    lfs_stag_t err = lfs_dir_alloc(lfs, &tail);
     if (err) {
         return err;
     }
@@ -1386,7 +1386,7 @@ static int lfs_dir_split(lfs_t *lfs,
     tail.tail[0] = dir->tail[0];
     tail.tail[1] = dir->tail[1];
 
-    err = lfs_dir_compact(lfs, &tail, attrs, attrcount, source, split, end);
+    err = (lfs_stag_t)lfs_dir_compact(lfs, &tail, attrs, attrcount, source, split, end);
     if (err) {
         return err;
     }
@@ -1434,7 +1434,7 @@ static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
     while (end - begin > 1) {
         // find size
         lfs_size_t size = 0;
-        int err = lfs_dir_traverse(lfs,
+        lfs_size_t err = (lfs_size_t)lfs_dir_traverse(lfs,
                 source, 0, LFS_BLOCK_NULL, attrs, attrcount, false,
                 LFS_MKTAG(0x400, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_NAME, 0, 0),
@@ -1458,7 +1458,7 @@ static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
         // largest size that fits with a small binary search, but right now
         // it's not worth the code size
         uint16_t split = (end - begin) / 2;
-        err = lfs_dir_split(lfs, dir, attrs, attrcount,
+        err = (lfs_size_t)lfs_dir_split(lfs, dir, attrs, attrcount,
                 source, begin+split, end);
         if (err) {
             // if we fail to split, we may be able to overcompact, unless
@@ -1467,7 +1467,7 @@ static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
             if (err == LFS_ERR_NOSPC && size <= lfs->cfg->block_size - 36) {
                 break;
             }
-            return (lfs_ssize_t)err;
+            return err;
         }
 
         end = begin + split;
@@ -1489,10 +1489,10 @@ static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
             // by itself, so expand cautiously
             if ((lfs_size_t)res < lfs->cfg->block_count/2) {
                 LFS_DEBUG("Expanding superblock at rev %"PRIu32, dir->rev);
-                int err = lfs_dir_split(lfs, dir, attrs, attrcount,
+                lfs_ssize_t err = (lfs_ssize_t)lfs_dir_split(lfs, dir, attrs, attrcount,
                         source, begin, end);
                 if (err && err != LFS_ERR_NOSPC) {
-                    return (lfs_ssize_t)err;
+                    return err;
                 }
 
                 // welp, we tried, if we ran out of space there's not much
