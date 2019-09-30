@@ -4069,7 +4069,7 @@ static int lfs_fs_size_count(void *p, lfs_block_t block) {
 lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
     LFS_TRACE("lfs_fs_size(%p)", (void*)lfs);
     lfs_size_t size = 0;
-    int err = lfs_fs_traverse(lfs, lfs_fs_size_count, &size);
+    lfs_ssize_t err = (lfs_ssize_t)lfs_fs_traverse(lfs, lfs_fs_size_count, &size);
     if (err) {
         LFS_TRACE("lfs_fs_size -> %"PRId32, err);
         return err;
