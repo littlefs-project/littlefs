@@ -2460,12 +2460,12 @@ cleanup:
     return err;
 }
 
-int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
+lfs_stag_t lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags) {
     LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)",
             (void*)lfs, (void*)file, path, flags);
     static const struct lfs_file_config defaults = {0};
-    int err = lfs_file_opencfg(lfs, file, path, flags, &defaults);
+    lfs_stag_t err = lfs_file_opencfg(lfs, file, path, flags, &defaults);
     LFS_TRACE("lfs_file_open -> %d", err);
     return err;
 }

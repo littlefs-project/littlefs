@@ -485,7 +485,7 @@ int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 // are values from the enum lfs_open_flags that are bitwise-ored together.
 //
 // Returns a negative error code on failure.
-int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
+lfs_stag_t lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);
 
 // Open a file with extra configuration
