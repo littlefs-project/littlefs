@@ -441,7 +441,7 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     return 0;
 }
 
-static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
+static lfs_stag_t lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     while (true) {
         while (lfs->free.i != lfs->free.size) {
             lfs_block_t off = lfs->free.i;
@@ -479,7 +479,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
         // find mask of free blocks from tree
         memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
-        int err = lfs_fs_traverse(lfs, lfs_alloc_lookahead, lfs);
+        lfs_stag_t err = lfs_fs_traverse(lfs, lfs_alloc_lookahead, lfs);
         if (err) {
             return err;
         }
