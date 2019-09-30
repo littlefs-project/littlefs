@@ -2049,11 +2049,11 @@ lfs_stag_t lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     return true;
 }
 
-int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
+lfs_stag_t lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
     LFS_TRACE("lfs_dir_seek(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)dir, off);
     // simply walk from head dir
-    int err = lfs_dir_rewind(lfs, dir);
+    lfs_stag_t err = lfs_dir_rewind(lfs, dir);
     if (err) {
         LFS_TRACE("lfs_dir_seek -> %d", err);
         return err;

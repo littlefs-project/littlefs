@@ -595,7 +595,7 @@ lfs_stag_t lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
 // an absolute offset in the directory seek.
 //
 // Returns a negative error code on failure.
-int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off);
+lfs_stag_t lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off);
 
 // Return the position of the directory
 //
