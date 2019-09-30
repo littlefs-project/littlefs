@@ -3488,7 +3488,7 @@ static int lfs_deinit(lfs_t *lfs) {
     return 0;
 }
 
-int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
+lfs_stag_t lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_format(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -3505,9 +3505,9 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
             cfg->block_cycles, cfg->cache_size, cfg->lookahead_size,
             cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
             cfg->name_max, cfg->file_max, cfg->attr_max);
-    int err = 0;
+    lfs_stag_t err = 0;
     {
-        err = lfs_init(lfs, cfg);
+        err = (lfs_stag_t)lfs_init(lfs, cfg);
         if (err) {
             LFS_TRACE("lfs_format -> %d", err);
             return err;
@@ -3539,7 +3539,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         };
 
         lfs_superblock_tole32(&superblock);
-        err = lfs_dir_commit(lfs, &root, LFS_MKATTRS(
+        err = (lfs_stag_t)lfs_dir_commit(lfs, &root, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_CREATE, 0, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
                 {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
@@ -3557,7 +3557,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         // force compaction to prevent accidentally mounting any
         // older version of littlefs that may live on disk
         root.erased = false;
-        err = lfs_dir_commit(lfs, &root, NULL, 0);
+        err = (lfs_stag_t)lfs_dir_commit(lfs, &root, NULL, 0);
         if (err) {
             goto cleanup;
         }
