@@ -1518,9 +1518,9 @@ static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
         {
             // There's nothing special about our global delta, so feed it into
             // our local global delta
-            int err = lfs_dir_getgstate(lfs, dir, &lfs->gdelta);
+            lfs_ssize_t err = (lfs_ssize_t)lfs_dir_getgstate(lfs, dir, &lfs->gdelta);
             if (err) {
-                return (lfs_ssize_t)err;
+                return err;
             }
 
             // setup commit state
@@ -1535,28 +1535,28 @@ static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
             };
 
             // erase block to write to
-            err = lfs_bd_erase(lfs, dir->pair[1]);
+            err = (lfs_ssize_t)lfs_bd_erase(lfs, dir->pair[1]);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
                 }
-                return (lfs_ssize_t)err;
+                return err;
             }
 
             // write out header
             dir->rev = lfs_tole32(dir->rev);
-            err = lfs_dir_commitprog(lfs, &commit,
+            err = (lfs_ssize_t)lfs_dir_commitprog(lfs, &commit,
                     &dir->rev, sizeof(dir->rev));
             dir->rev = lfs_fromle32(dir->rev);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
                 }
-                return (lfs_ssize_t)err;
+                return err;
             }
 
             // traverse the directory, this time writing out all unique tags
-            err = lfs_dir_traverse(lfs,
+            err = (lfs_ssize_t)lfs_dir_traverse(lfs,
                     source, 0, LFS_BLOCK_NULL, attrs, attrcount, false,
                     LFS_MKTAG(0x400, 0x3ff, 0),
                     LFS_MKTAG(LFS_TYPE_NAME, 0, 0),
@@ -1567,13 +1567,13 @@ static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
                 }
-                return (lfs_ssize_t)err;
+                return err;
             }
 
             // commit tail, which may be new after last size check
             if (!lfs_pair_isnull(dir->tail)) {
                 lfs_pair_tole32(dir->tail);
-                err = lfs_dir_commitattr(lfs, &commit,
+                err = (lfs_ssize_t)lfs_dir_commitattr(lfs, &commit,
                         LFS_MKTAG(LFS_TYPE_TAIL + dir->split, 0x3ff, 8),
                         dir->tail);
                 lfs_pair_fromle32(dir->tail);
@@ -1581,7 +1581,7 @@ static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
                     }
-                    return (lfs_ssize_t)err;
+                    return err;
                 }
             }
 
@@ -1589,7 +1589,7 @@ static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
                 // commit any globals, unless we're relocating,
                 // in which case our parent will steal our globals
                 lfs_gstate_tole32(&lfs->gdelta);
-                err = lfs_dir_commitattr(lfs, &commit,
+                err = (lfs_ssize_t)lfs_dir_commitattr(lfs, &commit,
                         LFS_MKTAG(LFS_TYPE_MOVESTATE, 0x3ff,
                             sizeof(lfs->gdelta)), &lfs->gdelta);
                 lfs_gstate_fromle32(&lfs->gdelta);
@@ -1597,16 +1597,16 @@ static lfs_ssize_t lfs_dir_compact(lfs_t *lfs,
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
                     }
-                    return (lfs_ssize_t)err;
+                    return err;
                 }
             }
 
-            err = lfs_dir_commitcrc(lfs, &commit);
+            err = (lfs_ssize_t)lfs_dir_commitcrc(lfs, &commit);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
                 }
-                return (lfs_ssize_t)err;
+                return err;
             }
 
             // successful compaction, swap dir pair to indicate most recent
@@ -1638,9 +1638,9 @@ relocate:
         }
 
         // relocate half of pair
-        int err = lfs_alloc(lfs, &dir->pair[1]);
+        lfs_ssize_t err = (lfs_ssize_t)lfs_alloc(lfs, &dir->pair[1]);
         if (err && (err != LFS_ERR_NOSPC && !exhausted)) {
-            return (lfs_ssize_t)err;
+            return err;
         }
 
         continue;
