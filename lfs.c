@@ -979,7 +979,7 @@ static lfs_stag_t lfs_dir_fetch(lfs_t *lfs,
     return lfs_dir_fetchmatch(lfs, dir, pair, -1, 0, NULL, NULL, NULL);
 }
 
-static int lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
+static lfs_stag_t lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
         struct lfs_gstate *gstate) {
     struct lfs_gstate temp;
     lfs_stag_t res = lfs_dir_get(lfs, dir, LFS_MKTAG(0x7ff, 0, 0),
