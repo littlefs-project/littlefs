@@ -1318,10 +1318,10 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
     return 0;
 }
 
-static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
+static lfs_stag_t lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
     // allocate pair of dir blocks (backwards, so we write block 1 first)
     for (int i = 0; i < 2; i++) {
-        int err = lfs_alloc(lfs, &dir->pair[(i+1)%2]);
+        lfs_stag_t err = lfs_alloc(lfs, &dir->pair[(i+1)%2]);
         if (err) {
             return err;
         }
@@ -1334,7 +1334,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
             dir->pair[0], 0, &dir->rev, sizeof(dir->rev));
     dir->rev = lfs_fromle32(dir->rev);
     if (err && err != LFS_ERR_CORRUPT) {
-        return err;
+        return (lfs_stag_t)err;
     }
 
     // make sure we don't immediately evict
