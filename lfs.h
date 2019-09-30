@@ -568,7 +568,7 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 // Create a directory
 //
 // Returns a negative error code on failure.
-int lfs_mkdir(lfs_t *lfs, const char *path);
+lfs_stag_t lfs_mkdir(lfs_t *lfs, const char *path);
 
 // Open a directory
 //

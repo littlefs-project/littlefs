@@ -1844,10 +1844,10 @@ compact:
 
 
 /// Top level directory operations ///
-int lfs_mkdir(lfs_t *lfs, const char *path) {
+lfs_stag_t lfs_mkdir(lfs_t *lfs, const char *path) {
     LFS_TRACE("lfs_mkdir(%p, \"%s\")", (void*)lfs, path);
     // deorphan if we haven't yet, needed at most once after poweron
-    int err = lfs_fs_forceconsistency(lfs);
+    lfs_stag_t err = (lfs_stag_t)lfs_fs_forceconsistency(lfs);
     if (err) {
         LFS_TRACE("lfs_mkdir -> %d", err);
         return err;
@@ -1889,7 +1889,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     // setup dir
     lfs_pair_tole32(pred.tail);
-    err = lfs_dir_commit(lfs, &dir, LFS_MKATTRS(
+    err = (lfs_stag_t)lfs_dir_commit(lfs, &dir, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), pred.tail}));
     lfs_pair_fromle32(pred.tail);
     if (err) {
@@ -1902,7 +1902,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
         // update tails, this creates a desync
         lfs_fs_preporphans(lfs, +1);
         lfs_pair_tole32(dir.pair);
-        err = lfs_dir_commit(lfs, &pred, LFS_MKATTRS(
+        err = (lfs_stag_t)lfs_dir_commit(lfs, &pred, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), dir.pair}));
         lfs_pair_fromle32(dir.pair);
         if (err) {
@@ -1914,7 +1914,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     // now insert into our parent block
     lfs_pair_tole32(dir.pair);
-    err = lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
+    err = (lfs_stag_t)lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_CREATE, id, 0), NULL},
             {LFS_MKTAG(LFS_TYPE_DIR, id, nlen), path},
             {LFS_MKTAG(LFS_TYPE_DIRSTRUCT, id, 8), dir.pair},
