@@ -1961,10 +1961,10 @@ lfs_stag_t lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     }
 
     // fetch first pair
-    int err = lfs_dir_fetch(lfs, &dir->m, pair);
+    lfs_stag_t err = lfs_dir_fetch(lfs, &dir->m, pair);
     if (err) {
         LFS_TRACE("lfs_dir_open -> %d", err);
-        return (lfs_stag_t)err;
+        return err;
     }
 
     // setup entry
