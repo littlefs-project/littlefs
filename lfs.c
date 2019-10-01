@@ -3076,7 +3076,7 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0) {
         LFS_TRACE("lfs_stat -> %d", tag);
-        return tag;
+        return (int)tag;
     }
 
     int err = lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info);
