@@ -977,7 +977,7 @@ static int lfs_dir_fetch(lfs_t *lfs,
         lfs_mdir_t *dir, const lfs_block_t pair[2]) {
     // note, mask=-1, tag=0 can never match a tag since this
     // pattern has the invalid bit set
-    return lfs_dir_fetchmatch(lfs, dir, pair, -1, 0, NULL, NULL, NULL);
+    return (int)lfs_dir_fetchmatch(lfs, dir, pair, -1, 0, NULL, NULL, NULL);
 }
 
 static int lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
@@ -1010,7 +1010,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     lfs_stag_t tag = lfs_dir_get(lfs, dir, LFS_MKTAG(0x780, 0x3ff, 0),
             LFS_MKTAG(LFS_TYPE_NAME, id, lfs->name_max+1), info->name);
     if (tag < 0) {
-        return tag;
+        return (int)tag;
     }
 
     info->type = lfs_tag_type3(tag);
@@ -1019,7 +1019,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     tag = lfs_dir_get(lfs, dir, LFS_MKTAG(0x700, 0x3ff, 0),
             LFS_MKTAG(LFS_TYPE_STRUCT, id, sizeof(ctz)), &ctz);
     if (tag < 0) {
-        return tag;
+        return (int)tag;
     }
     lfs_ctz_fromle32(&ctz);
 
