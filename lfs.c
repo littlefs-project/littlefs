@@ -3047,7 +3047,7 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
     lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_SET);
     if (res < 0) {
         LFS_TRACE("lfs_file_rewind -> %d", res);
-        return res;
+        return (int)res;
     }
 
     LFS_TRACE("lfs_file_rewind -> %d", 0);
