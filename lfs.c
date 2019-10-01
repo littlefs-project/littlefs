@@ -3097,7 +3097,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0 || lfs_tag_id(tag) == 0x3ff) {
         LFS_TRACE("lfs_remove -> %d", (tag < 0) ? tag : LFS_ERR_INVAL);
-        return (tag < 0) ? tag : LFS_ERR_INVAL;
+        return (tag < 0) ? (int)tag : LFS_ERR_INVAL;
     }
 
     lfs_mdir_t dir;
@@ -3108,7 +3108,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
                 LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
         if (res < 0) {
             LFS_TRACE("lfs_remove -> %d", res);
-            return res;
+            return (int)res;
         }
         lfs_pair_fromle32(pair);
 
