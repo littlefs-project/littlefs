@@ -3006,10 +3006,10 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     } else if (size > oldsize) {
         // flush+seek if not already at end
         if (file->pos != oldsize) {
-            int err = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
-            if (err < 0) {
-                LFS_TRACE("lfs_file_truncate -> %d", err);
-                return err;
+            lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
+            if (res < 0) {
+                LFS_TRACE("lfs_file_truncate -> %d", res);
+                return (int)res;
             }
         }
 
@@ -3018,16 +3018,16 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
             lfs_ssize_t res = lfs_file_write(lfs, file, &(uint8_t){0}, 1);
             if (res < 0) {
                 LFS_TRACE("lfs_file_truncate -> %d", res);
-                return res;
+                return (int)res;
             }
         }
     }
 
     // restore pos
-    int err = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
-    if (err < 0) {
-      LFS_TRACE("lfs_file_truncate -> %d", err);
-      return err;
+    lfs_soff_t res = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
+    if (res < 0) {
+      LFS_TRACE("lfs_file_truncate -> %d", res);
+      return (int)res;
     }
 
     LFS_TRACE("lfs_file_truncate -> %d", 0);
