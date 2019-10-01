@@ -3171,7 +3171,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs_stag_t oldtag = lfs_dir_find(lfs, &oldcwd, &oldpath, NULL);
     if (oldtag < 0 || lfs_tag_id(oldtag) == 0x3ff) {
         LFS_TRACE("lfs_rename -> %d", (oldtag < 0) ? oldtag : LFS_ERR_INVAL);
-        return (oldtag < 0) ? oldtag : LFS_ERR_INVAL;
+        return (oldtag < 0) ? (int)oldtag : LFS_ERR_INVAL;
     }
 
     // find new entry
@@ -3181,7 +3181,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     if ((prevtag < 0 || lfs_tag_id(prevtag) == 0x3ff) &&
             !(prevtag == LFS_ERR_NOENT && newid != 0x3ff)) {
         LFS_TRACE("lfs_rename -> %d", (prevtag < 0) ? prevtag : LFS_ERR_INVAL);
-        return (prevtag < 0) ? prevtag : LFS_ERR_INVAL;
+        return (prevtag < 0) ? (int)prevtag : LFS_ERR_INVAL;
     }
 
     lfs_mdir_t prevdir;
@@ -3202,7 +3202,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
                 LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), prevpair);
         if (res < 0) {
             LFS_TRACE("lfs_rename -> %d", res);
-            return res;
+            return (int)res;
         }
         lfs_pair_fromle32(prevpair);
 
