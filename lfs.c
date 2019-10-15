@@ -977,7 +977,7 @@ static int lfs_dir_fetch(lfs_t *lfs,
         lfs_mdir_t *dir, const lfs_block_t pair[2]) {
     // note, mask=-1, tag=0 can never match a tag since this
     // pattern has the invalid bit set
-    return lfs_dir_fetchmatch(lfs, dir, pair, -1, 0, NULL, NULL, NULL);
+    return (int)lfs_dir_fetchmatch(lfs, dir, pair, -1, 0, NULL, NULL, NULL);
 }
 
 static int lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
@@ -1010,7 +1010,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     lfs_stag_t tag = lfs_dir_get(lfs, dir, LFS_MKTAG(0x780, 0x3ff, 0),
             LFS_MKTAG(LFS_TYPE_NAME, id, lfs->name_max+1), info->name);
     if (tag < 0) {
-        return tag;
+        return (int)tag;
     }
 
     info->type = lfs_tag_type3(tag);
@@ -1019,7 +1019,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     tag = lfs_dir_get(lfs, dir, LFS_MKTAG(0x700, 0x3ff, 0),
             LFS_MKTAG(LFS_TYPE_STRUCT, id, sizeof(ctz)), &ctz);
     if (tag < 0) {
-        return tag;
+        return (int)tag;
     }
     lfs_ctz_fromle32(&ctz);
 
@@ -1062,7 +1062,7 @@ static int lfs_dir_find_match(void *data,
     return LFS_CMP_EQ;
 }
 
-static int lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
+static lfs_stag_t lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
         const char **path, uint16_t *id) {
     // we reduce path to a single name if we can find it
     const char *name = *path;
@@ -3006,10 +3006,10 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     } else if (size > oldsize) {
         // flush+seek if not already at end
         if (file->pos != oldsize) {
-            int err = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
-            if (err < 0) {
-                LFS_TRACE("lfs_file_truncate -> %d", err);
-                return err;
+            lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
+            if (res < 0) {
+                LFS_TRACE("lfs_file_truncate -> %d", res);
+                return (int)res;
             }
         }
 
@@ -3018,16 +3018,16 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
             lfs_ssize_t res = lfs_file_write(lfs, file, &(uint8_t){0}, 1);
             if (res < 0) {
                 LFS_TRACE("lfs_file_truncate -> %d", res);
-                return res;
+                return (int)res;
             }
         }
     }
 
     // restore pos
-    int err = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
-    if (err < 0) {
-      LFS_TRACE("lfs_file_truncate -> %d", err);
-      return err;
+    lfs_soff_t res = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
+    if (res < 0) {
+      LFS_TRACE("lfs_file_truncate -> %d", res);
+      return (int)res;
     }
 
     LFS_TRACE("lfs_file_truncate -> %d", 0);
@@ -3047,7 +3047,7 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
     lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_SET);
     if (res < 0) {
         LFS_TRACE("lfs_file_rewind -> %d", res);
-        return res;
+        return (int)res;
     }
 
     LFS_TRACE("lfs_file_rewind -> %d", 0);
@@ -3076,7 +3076,7 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0) {
         LFS_TRACE("lfs_stat -> %d", tag);
-        return tag;
+        return (int)tag;
     }
 
     int err = lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info);
@@ -3097,7 +3097,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0 || lfs_tag_id(tag) == 0x3ff) {
         LFS_TRACE("lfs_remove -> %d", (tag < 0) ? tag : LFS_ERR_INVAL);
-        return (tag < 0) ? tag : LFS_ERR_INVAL;
+        return (tag < 0) ? (int)tag : LFS_ERR_INVAL;
     }
 
     lfs_mdir_t dir;
@@ -3108,7 +3108,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
                 LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
         if (res < 0) {
             LFS_TRACE("lfs_remove -> %d", res);
-            return res;
+            return (int)res;
         }
         lfs_pair_fromle32(pair);
 
@@ -3171,7 +3171,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs_stag_t oldtag = lfs_dir_find(lfs, &oldcwd, &oldpath, NULL);
     if (oldtag < 0 || lfs_tag_id(oldtag) == 0x3ff) {
         LFS_TRACE("lfs_rename -> %d", (oldtag < 0) ? oldtag : LFS_ERR_INVAL);
-        return (oldtag < 0) ? oldtag : LFS_ERR_INVAL;
+        return (oldtag < 0) ? (int)oldtag : LFS_ERR_INVAL;
     }
 
     // find new entry
@@ -3181,7 +3181,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     if ((prevtag < 0 || lfs_tag_id(prevtag) == 0x3ff) &&
             !(prevtag == LFS_ERR_NOENT && newid != 0x3ff)) {
         LFS_TRACE("lfs_rename -> %d", (prevtag < 0) ? prevtag : LFS_ERR_INVAL);
-        return (prevtag < 0) ? prevtag : LFS_ERR_INVAL;
+        return (prevtag < 0) ? (int)prevtag : LFS_ERR_INVAL;
     }
 
     lfs_mdir_t prevdir;
@@ -3202,7 +3202,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
                 LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), prevpair);
         if (res < 0) {
             LFS_TRACE("lfs_rename -> %d", res);
-            return res;
+            return (int)res;
         }
         lfs_pair_fromle32(prevpair);
 
