@@ -53,6 +53,7 @@ const struct lfs_config cfg = {
     .block_count = 128,
     .cache_size = 16,
     .lookahead_size = 16,
+    .block_cycles = 500,
 };
 
 // entry point
