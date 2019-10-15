@@ -179,7 +179,7 @@ echo "--- Really big path test ---"
 scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
     memset(path, 'w', LFS2_NAME_MAX);
-    path[LFS2_NAME_MAX+1] = '\0';
+    path[LFS2_NAME_MAX] = '\0';
     lfs2_mkdir(&lfs2, path) => 0;
     lfs2_remove(&lfs2, path) => 0;
     lfs2_file_open(&lfs2, &file, path,
@@ -189,7 +189,7 @@ scripts/test.py << TEST
 
     memcpy(path, "coffee/", strlen("coffee/"));
     memset(path+strlen("coffee/"), 'w', LFS2_NAME_MAX);
-    path[strlen("coffee/")+LFS2_NAME_MAX+1] = '\0';
+    path[strlen("coffee/")+LFS2_NAME_MAX] = '\0';
     lfs2_mkdir(&lfs2, path) => 0;
     lfs2_remove(&lfs2, path) => 0;
     lfs2_file_open(&lfs2, &file, path,
