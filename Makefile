@@ -27,6 +27,10 @@ endif
 ifdef TRACE
 override CFLAGS += -DLFS_YES_TRACE
 endif
+ifdef THREAD_SAFE
+override CFLAGS += -DLFS_THREAD_SAFE
+endif
+
 override CFLAGS += -I.
 override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef

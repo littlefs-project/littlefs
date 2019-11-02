@@ -2330,7 +2330,6 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     file->flags = flags | LFS_F_OPENED;
     file->pos = 0;
     file->off = 0;
-    file->cache.buffer = NULL;
 
     // allocate entry for file if it doesn't exist
     lfs_stag_t tag = lfs_dir_find(lfs, &file->m, &path, &file->id);
@@ -2338,6 +2337,22 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         err = tag;
         goto cleanup;
     }
+
+#ifdef LFS_THREAD_SAFE
+    // We don't want to peform memory allocation inside a spinlock context.
+    // Therefore, the user should provide an initialized configuration struct
+    // with an allocated buffer.
+    LFS_ASSERT(NULL != file->cfg->buffer);
+    file->cache.buffer = file->cfg->buffer;
+#else
+    file->cache.buffer = NULL != file->cfg->buffer ?
+        file->cfg->buffer : lfs_malloc(lfs->cfg->cache_size);
+
+    if (NULL == file->cache.buffer) {
+        err = LFS_ERR_NOMEM;
+        goto cleanup;
+    }
+#endif // LFS_THREAD_SAFE
 
     // get id, add to list of mdirs to catch update changes
     file->type = LFS_TYPE_REG;
@@ -2413,17 +2428,6 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         }
     }
 
-    // allocate buffer if needed
-    if (file->cfg->buffer) {
-        file->cache.buffer = file->cfg->buffer;
-    } else {
-        file->cache.buffer = lfs_malloc(lfs->cfg->cache_size);
-        if (!file->cache.buffer) {
-            err = LFS_ERR_NOMEM;
-            goto cleanup;
-        }
-    }
-
     // zero to avoid information leak
     lfs_cache_zero(lfs, &file->cache);
 
@@ -2485,10 +2489,12 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
         }
     }
 
+#ifndef LFS_THREAD_SAFE
     // clean up memory
     if (!file->cfg->buffer) {
         lfs_free(file->cache.buffer);
     }
+#endif
 
     file->flags &= ~LFS_F_OPENED;
     LFS_TRACE("lfs_file_close -> %d", err);
@@ -3083,6 +3089,20 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     LFS_TRACE("lfs_stat -> %d", err);
     return err;
 }
+
+#ifdef LFS_THREAD_SAFE
+int lfs_acquire_lock(lfs_t *lfs) {
+    LFS_TRACE("lfs_acquire_lock(%p)", (void*)lfs);
+
+    return lfs->cfg->spinlock_lock(lfs->cfg->lock);
+}
+
+void lfs_release_lock(lfs_t *lfs) {
+    LFS_TRACE("lfs_release_lock(%p)", (void*)lfs);
+
+    lfs->cfg->spinlock_unlock(lfs->cfg->lock);
+}
+#endif
 
 int lfs_remove(lfs_t *lfs, const char *path) {
     LFS_TRACE("lfs_remove(%p, \"%s\")", (void*)lfs, path);

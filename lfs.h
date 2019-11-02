@@ -174,6 +174,15 @@ struct lfs_config {
     // are propogated to the user.
     int (*sync)(const struct lfs_config *c);
 
+#ifdef LFS_THREAD_SAFE
+    void *lock;
+
+    // Continously tries to acquire the given lock
+    int (*spinlock_lock)(void *lock);
+    // Releases the given lock
+    int (*spinlock_unlock)(void *lock);
+#endif
+
     // Minimum size of a block read. All read operations will be a
     // multiple of this value.
     lfs_size_t read_size;
@@ -421,6 +430,21 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
 int lfs_unmount(lfs_t *lfs);
 
 /// General operations ///
+
+#ifdef LFS_THREAD_SAFE
+// Continously tries to acquire the lock of the given lfs instance.
+//
+// Basically a nice wrapper to the spinlock_lock function pointer
+// that was assigned previously.
+// Returns the error code of the spinlock_lock function.
+int lfs_acquire_lock(lfs_t *lfs);
+
+// Releases the lock of the given lfs instance.
+//
+// Basically a nice wrapper to the spinlock_unlock function pointer
+// that was assigned previously.
+void lfs_release_lock(lfs_t *lfs);
+#endif
 
 // Removes a file or directory
 //
