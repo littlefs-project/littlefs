@@ -254,7 +254,7 @@ have weaknesses that limit their usefulness. But if we merge the two they can
 mutually solve each other's limitations.
 
 This is the idea behind littlefs. At the sub-block level, littlefs is built
-out of small, two blocks logs that provide atomic updates to metadata anywhere
+out of small, two block logs that provide atomic updates to metadata anywhere
 on the filesystem. At the super-block level, littlefs is a CObW tree of blocks
 that can be evicted on demand.
 
@@ -676,7 +676,7 @@ block, this cost is fairly reasonable.
 ---
 
 This is a new data structure, so we still have several questions. What is the
-storage overage? Can the number of pointers exceed the size of a block? How do
+storage overhead? Can the number of pointers exceed the size of a block? How do
 we store a CTZ skip-list in our metadata pairs?
 
 To find the storage overhead, we can look at the data structure as multiple
@@ -742,8 +742,8 @@ where:
 2. popcount(![x]) = the number of bits that are 1 in ![x]
 
 Initial tests of this surprising property seem to hold. As ![n] approaches
-infinity, we end up with an average overhead of 2 pointers, which matches what
-our assumption from earlier. During iteration, the popcount function seems to
+infinity, we end up with an average overhead of 2 pointers, which matches our
+assumption from earlier. During iteration, the popcount function seems to
 handle deviations from this average. Of course, just to make sure I wrote a
 quick script that verified this property for all 32-bit integers.
 
@@ -767,7 +767,7 @@ overflow, but we can avoid this by rearranging the equation a bit:
 
 ![off = N - (B-2w/8)n - (w/8)popcount(n)][ctz-formula7]
 
-Our solution requires quite a bit of math, but computer are very good at math.
+Our solution requires quite a bit of math, but computers are very good at math.
 Now we can find both our block index and offset from a size in _O(1)_, letting
 us store CTZ skip-lists with only a pointer and size.
 
@@ -850,7 +850,7 @@ nearly every write to the filesystem.
 
 Normally, block allocation involves some sort of free list or bitmap stored on
 the filesystem that is updated with free blocks. However, with power
-resilience, keeping these structure consistent becomes difficult. It doesn't
+resilience, keeping these structures consistent becomes difficult. It doesn't
 help that any mistake in updating these structures can result in lost blocks
 that are impossible to recover.
 
@@ -894,9 +894,9 @@ high-risk error conditions.
 ---
 
 Our block allocator needs to find free blocks efficiently. You could traverse
-through every block on storage and check each one against our filesystem tree,
-however the runtime would be abhorrent. We need to somehow collect multiple
-blocks each traversal.
+through every block on storage and check each one against our filesystem tree;
+however, the runtime would be abhorrent. We need to somehow collect multiple
+blocks per traversal.
 
 Looking at existing designs, some larger filesystems that use a similar "drop
 it on the floor" strategy store a bitmap of the entire storage in [RAM]. This
@@ -920,8 +920,8 @@ a brute force traversal. Instead of a bitmap the size of storage, we keep track
 of a small, fixed-size bitmap called the lookahead buffer. During block
 allocation, we take blocks from the lookahead buffer. If the lookahead buffer
 is empty, we scan the filesystem for more free blocks, populating our lookahead
-buffer. Each scan we use an increasing offset, circling the storage as blocks
-are allocated.
+buffer. In each scan we use an increasing offset, circling the storage as
+blocks are allocated.
 
 Here's what it might look like to allocate 4 blocks on a decently busy
 filesystem with a 32 bit lookahead and a total of 128 blocks (512 KiB
@@ -950,7 +950,7 @@ alloc = 112     lookahead:                         ffff8000
 ```
 
 This lookahead approach has a runtime complexity of _O(n&sup2;)_ to completely
-scan storage, however, bitmaps are surprisingly compact, and in practice only
+scan storage; however, bitmaps are surprisingly compact, and in practice only
 one or two passes are usually needed to find free blocks. Additionally, the
 performance of the allocator can be optimized by adjusting the block size or
 size of the lookahead buffer, trading either write granularity or RAM for
@@ -1173,9 +1173,9 @@ We may find that the new block is also bad, but hopefully after repeating this
 cycle we'll eventually find a new block where a write succeeds. If we don't,
 that means that all blocks in our storage are bad, and we've reached the end of
 our device's usable life. At this point, littlefs will return an "out of space"
-error, which is technically true, there are no more good blocks, but as an
-added benefit also matches the error condition expected by users of dynamically
-sized data.
+error. This is technically true, as there are no more good blocks, but as an
+added benefit it also matches the error condition expected by users of
+dynamically sized data.
 
 ---
 
@@ -1187,7 +1187,7 @@ original data even after it has been corrupted. One such mechanism for this is
 ECC is an extension to the idea of a checksum. Where a checksum such as CRC can
 detect that an error has occurred in the data, ECC can detect and actually
 correct some amount of errors. However, there is a limit to how many errors ECC
-can detect, call the [Hamming bound][wikipedia-hamming-bound]. As the number of
+can detect: the [Hamming bound][wikipedia-hamming-bound]. As the number of
 errors approaches the Hamming bound, we may still be able to detect errors, but
 can no longer fix the data. If we've reached this point the block is
 unrecoverable.
@@ -1202,7 +1202,7 @@ chip itself.
 In littlefs, ECC is entirely optional. Read errors can instead be prevented
 proactively by wear leveling. But it's important to note that ECC can be used
 at the block device level to modestly extend the life of a device. littlefs
-respects any errors reported by the block device, allow a block device to
+respects any errors reported by the block device, allowing a block device to
 provide additional aggressive error detection.
 
 ---
@@ -1231,7 +1231,7 @@ Generally, wear leveling algorithms fall into one of two categories:
    we need to consider all blocks, including blocks that already contain data.
 
 As a tradeoff for code size and complexity, littlefs (currently) only provides
-dynamic wear leveling. This is a best efforts solution. Wear is not distributed
+dynamic wear leveling. This is a best effort solution. Wear is not distributed
 perfectly, but it is distributed among the free blocks and greatly extends the
 life of a device.
 
@@ -1378,7 +1378,7 @@ We can make several improvements. First, instead of giving each file its own
 metadata pair, we can store multiple files in a single metadata pair. One way
 to do this is to directly associate a directory with a metadata pair (or a
 linked list of metadata pairs). This makes it easy for multiple files to share
-the directory's metadata pair for logging and reduce the collective storage
+the directory's metadata pair for logging and reduces the collective storage
 overhead.
 
 The strict binding of metadata pairs and directories also gives users
@@ -1816,12 +1816,12 @@ while manipulating the directory tree (foreshadowing!).
 
 ## The move problem
 
-We have one last challenge. The move problem. Phrasing the problem is simple:
+We have one last challenge: the move problem. Phrasing the problem is simple:
 
 How do you atomically move a file between two directories?
 
 In littlefs we can atomically commit to directories, but we can't create
-an atomic commit that span multiple directories. The filesystem must go
+an atomic commit that spans multiple directories. The filesystem must go
 through a minimum of two distinct states to complete a move.
 
 To make matters worse, file moves are a common form of synchronization for
@@ -1831,13 +1831,13 @@ atomic moves right.
 So what can we do?
 
 - We definitely can't just let power-loss result in duplicated or lost files.
-  This could easily break user's code and would only reveal itself in extreme
+  This could easily break users' code and would only reveal itself in extreme
   cases. We were only able to be lazy about the threaded linked-list because
   it isn't user facing and we can handle the corner cases internally.
 
-- Some filesystems propagate COW operations up the tree until finding a common
-  parent. Unfortunately this interacts poorly with our threaded tree and brings
-  back the issue of upward propagation of wear.
+- Some filesystems propagate COW operations up the tree until a common parent
+  is found. Unfortunately this interacts poorly with our threaded tree and
+  brings back the issue of upward propagation of wear.
 
 - In a previous version of littlefs we tried to solve this problem by going
   back and forth between the source and destination, marking and unmarking the
@@ -1852,7 +1852,7 @@ introduction of a mechanism called "global state".
 ---
 
 Global state is a small set of state that can be updated from _any_ metadata
-pair. Combining global state with metadata pair's ability to update multiple
+pair. Combining global state with metadata pairs' ability to update multiple
 entries in one commit gives us a powerful tool for crafting complex atomic
 operations.
 
@@ -1910,7 +1910,7 @@ the filesystem is mounted.
 
 You may have noticed that global state is very expensive. We keep a copy in
 RAM and a delta in an unbounded number of metadata pairs. Even if we reset
-the global state to its initial value we can't easily clean up the deltas on
+the global state to its initial value, we can't easily clean up the deltas on
 disk. For this reason, it's very important that we keep the size of global
 state bounded and extremely small. But, even with a strict budget, global
 state is incredibly valuable.
