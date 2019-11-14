@@ -4622,7 +4622,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
                             id, entry1.d.nlen), name},
                         {LFS_MKTAG(
                             isdir ? LFS_TYPE_DIRSTRUCT : LFS_TYPE_CTZSTRUCT,
-                            id, sizeof(&entry1.d.u)), &entry1.d.u}));
+                            id, sizeof(entry1.d.u)), &entry1.d.u}));
                 lfs1_entry_fromle32(&entry1.d);
                 if (err) {
                     goto cleanup;
@@ -4645,7 +4645,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
                 lfs_pair_tole32(dir2.pair);
                 err = lfs_dir_commit(lfs, &dir2, LFS_MKATTRS(
-                        {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 0),
+                        {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8),
                             dir1.d.tail}));
                 lfs_pair_fromle32(dir2.pair);
                 if (err) {
