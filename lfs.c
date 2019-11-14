@@ -2103,8 +2103,6 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
         return err;
     }
 
-    dir->m.pair[0] = dir->head[0];
-    dir->m.pair[1] = dir->head[1];
     dir->id = 0;
     dir->pos = 0;
     LFS_TRACE("lfs_dir_rewind -> %d", 0);
@@ -3886,6 +3884,12 @@ static int lfs_fs_relocate(lfs_t *lfs,
         if (lfs_pair_cmp(oldpair, d->m.pair) == 0) {
             d->m.pair[0] = newpair[0];
             d->m.pair[1] = newpair[1];
+        }
+
+        if (d->type == LFS_TYPE_DIR &&
+                lfs_pair_cmp(oldpair, ((lfs_dir_t*)d)->head) == 0) {
+            ((lfs_dir_t*)d)->head[0] = newpair[0];
+            ((lfs_dir_t*)d)->head[1] = newpair[1];
         }
     }
 
