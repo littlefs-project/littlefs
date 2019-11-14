@@ -466,9 +466,15 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
             }
         }
 
+        // no free blocks in lookahead buffer, need to scan tree
+        LFS_DEBUG("Scanning for free blocks %"PRIx32"-%"PRIx32,
+                lfs->free.i + lfs->free.off,
+                (lfs->free.i + lfs->free.off + 8*lfs->cfg->lookahead_size)
+                    % lfs->cfg->block_count);
+
         // check if we have looked at all blocks since last ack
         if (lfs->free.ack == 0) {
-            LFS_ERROR("No more free space %"PRIu32,
+            LFS_ERROR("No more free space %"PRIx32,
                     lfs->free.i + lfs->free.off);
             return LFS_ERR_NOSPC;
         }
