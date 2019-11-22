@@ -1936,7 +1936,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
     lfs_stag_t tag = lfs_dir_find(lfs, &dir->m, &path, NULL);
     if (tag < 0) {
-        LFS_TRACE("lfs_dir_open -> %d", tag);
+        LFS_TRACE("lfs_dir_open -> %"PRId32, tag);
         return tag;
     }
 
@@ -1955,7 +1955,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
         lfs_stag_t res = lfs_dir_get(lfs, &dir->m, LFS_MKTAG(0x700, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
         if (res < 0) {
-            LFS_TRACE("lfs_dir_open -> %d", res);
+            LFS_TRACE("lfs_dir_open -> %"PRId32, res);
             return res;
         }
         lfs_pair_fromle32(pair);
@@ -2738,14 +2738,14 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         // flush out any writes
         int err = lfs_file_flush(lfs, file);
         if (err) {
-            LFS_TRACE("lfs_file_read -> %"PRId32, err);
+            LFS_TRACE("lfs_file_read -> %d", err);
             return err;
         }
     }
 
     if (file->pos >= file->ctz.size) {
         // eof if past end
-        LFS_TRACE("lfs_file_read -> %"PRId32, 0);
+        LFS_TRACE("lfs_file_read -> %d", 0);
         return 0;
     }
 
@@ -2761,7 +2761,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
                         file->ctz.head, file->ctz.size,
                         file->pos, &file->block, &file->off);
                 if (err) {
-                    LFS_TRACE("lfs_file_read -> %"PRId32, err);
+                    LFS_TRACE("lfs_file_read -> %d", err);
                     return err;
                 }
             } else {
@@ -2781,7 +2781,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
                     LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0),
                     file->off, data, diff);
             if (err) {
-                LFS_TRACE("lfs_file_read -> %"PRId32, err);
+                LFS_TRACE("lfs_file_read -> %d", err);
                 return err;
             }
         } else {
@@ -2789,7 +2789,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
                     NULL, &file->cache, lfs->cfg->block_size,
                     file->block, file->off, data, diff);
             if (err) {
-                LFS_TRACE("lfs_file_read -> %"PRId32, err);
+                LFS_TRACE("lfs_file_read -> %d", err);
                 return err;
             }
         }
@@ -2818,7 +2818,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         // drop any reads
         int err = lfs_file_flush(lfs, file);
         if (err) {
-            LFS_TRACE("lfs_file_write -> %"PRId32, err);
+            LFS_TRACE("lfs_file_write -> %d", err);
             return err;
         }
     }
@@ -2829,7 +2829,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
     if (file->pos + size > lfs->file_max) {
         // Larger than file limit?
-        LFS_TRACE("lfs_file_write -> %"PRId32, LFS_ERR_FBIG);
+        LFS_TRACE("lfs_file_write -> %d", LFS_ERR_FBIG);
         return LFS_ERR_FBIG;
     }
 
@@ -2855,7 +2855,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         int err = lfs_file_outline(lfs, file);
         if (err) {
             file->flags |= LFS_F_ERRED;
-            LFS_TRACE("lfs_file_write -> %"PRId32, err);
+            LFS_TRACE("lfs_file_write -> %d", err);
             return err;
         }
     }
@@ -2872,7 +2872,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                             file->pos-1, &file->block, &file->off);
                     if (err) {
                         file->flags |= LFS_F_ERRED;
-                        LFS_TRACE("lfs_file_write -> %"PRId32, err);
+                        LFS_TRACE("lfs_file_write -> %d", err);
                         return err;
                     }
 
@@ -2887,7 +2887,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                         &file->block, &file->off);
                 if (err) {
                     file->flags |= LFS_F_ERRED;
-                    LFS_TRACE("lfs_file_write -> %"PRId32, err);
+                    LFS_TRACE("lfs_file_write -> %d", err);
                     return err;
                 }
             } else {
@@ -2908,7 +2908,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                     goto relocate;
                 }
                 file->flags |= LFS_F_ERRED;
-                LFS_TRACE("lfs_file_write -> %"PRId32, err);
+                LFS_TRACE("lfs_file_write -> %d", err);
                 return err;
             }
 
@@ -2917,7 +2917,7 @@ relocate:
             err = lfs_file_relocate(lfs, file);
             if (err) {
                 file->flags |= LFS_F_ERRED;
-                LFS_TRACE("lfs_file_write -> %"PRId32, err);
+                LFS_TRACE("lfs_file_write -> %d", err);
                 return err;
             }
         }
@@ -2944,7 +2944,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     // write out everything beforehand, may be noop if rdonly
     int err = lfs_file_flush(lfs, file);
     if (err) {
-        LFS_TRACE("lfs_file_seek -> %"PRId32, err);
+        LFS_TRACE("lfs_file_seek -> %d", err);
         return err;
     }
 
@@ -2960,7 +2960,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 
     if (npos > lfs->file_max) {
         // file position out of range
-        LFS_TRACE("lfs_file_seek -> %"PRId32, LFS_ERR_INVAL);
+        LFS_TRACE("lfs_file_seek -> %d", LFS_ERR_INVAL);
         return LFS_ERR_INVAL;
     }
 
@@ -3008,7 +3008,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         if (file->pos != oldsize) {
             lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
             if (res < 0) {
-                LFS_TRACE("lfs_file_truncate -> %d", res);
+                LFS_TRACE("lfs_file_truncate -> %"PRId32, res);
                 return (int)res;
             }
         }
@@ -3017,7 +3017,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         while (file->pos < size) {
             lfs_ssize_t res = lfs_file_write(lfs, file, &(uint8_t){0}, 1);
             if (res < 0) {
-                LFS_TRACE("lfs_file_truncate -> %d", res);
+                LFS_TRACE("lfs_file_truncate -> %"PRId32, res);
                 return (int)res;
             }
         }
@@ -3026,7 +3026,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     // restore pos
     lfs_soff_t res = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
     if (res < 0) {
-      LFS_TRACE("lfs_file_truncate -> %d", res);
+      LFS_TRACE("lfs_file_truncate -> %"PRId32, res);
       return (int)res;
     }
 
@@ -3046,7 +3046,7 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_rewind(%p, %p)", (void*)lfs, (void*)file);
     lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_SET);
     if (res < 0) {
-        LFS_TRACE("lfs_file_rewind -> %d", res);
+        LFS_TRACE("lfs_file_rewind -> %"PRId32, res);
         return (int)res;
     }
 
@@ -3075,7 +3075,7 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0) {
-        LFS_TRACE("lfs_stat -> %d", tag);
+        LFS_TRACE("lfs_stat -> %"PRId32, tag);
         return (int)tag;
     }
 
@@ -3096,7 +3096,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0 || lfs_tag_id(tag) == 0x3ff) {
-        LFS_TRACE("lfs_remove -> %d", (tag < 0) ? tag : LFS_ERR_INVAL);
+        LFS_TRACE("lfs_remove -> %"PRId32, (tag < 0) ? tag : LFS_ERR_INVAL);
         return (tag < 0) ? (int)tag : LFS_ERR_INVAL;
     }
 
@@ -3107,7 +3107,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         lfs_stag_t res = lfs_dir_get(lfs, &cwd, LFS_MKTAG(0x700, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
         if (res < 0) {
-            LFS_TRACE("lfs_remove -> %d", res);
+            LFS_TRACE("lfs_remove -> %"PRId32, res);
             return (int)res;
         }
         lfs_pair_fromle32(pair);
@@ -3170,7 +3170,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs_mdir_t oldcwd;
     lfs_stag_t oldtag = lfs_dir_find(lfs, &oldcwd, &oldpath, NULL);
     if (oldtag < 0 || lfs_tag_id(oldtag) == 0x3ff) {
-        LFS_TRACE("lfs_rename -> %d", (oldtag < 0) ? oldtag : LFS_ERR_INVAL);
+        LFS_TRACE("lfs_rename -> %"PRId32, (oldtag < 0) ? oldtag : LFS_ERR_INVAL);
         return (oldtag < 0) ? (int)oldtag : LFS_ERR_INVAL;
     }
 
@@ -3180,7 +3180,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs_stag_t prevtag = lfs_dir_find(lfs, &newcwd, &newpath, &newid);
     if ((prevtag < 0 || lfs_tag_id(prevtag) == 0x3ff) &&
             !(prevtag == LFS_ERR_NOENT && newid != 0x3ff)) {
-        LFS_TRACE("lfs_rename -> %d", (prevtag < 0) ? prevtag : LFS_ERR_INVAL);
+        LFS_TRACE("lfs_rename -> %"PRId32, (prevtag < 0) ? prevtag : LFS_ERR_INVAL);
         return (prevtag < 0) ? (int)prevtag : LFS_ERR_INVAL;
     }
 
@@ -3201,7 +3201,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         lfs_stag_t res = lfs_dir_get(lfs, &newcwd, LFS_MKTAG(0x700, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), prevpair);
         if (res < 0) {
-            LFS_TRACE("lfs_rename -> %d", res);
+            LFS_TRACE("lfs_rename -> %"PRId32, res);
             return (int)res;
         }
         lfs_pair_fromle32(prevpair);
@@ -3296,7 +3296,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
         id = 0;
         int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
         if (err) {
-            LFS_TRACE("lfs_getattr -> %"PRId32, err);
+            LFS_TRACE("lfs_getattr -> %d", err);
             return err;
         }
     }
@@ -3307,7 +3307,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
             buffer);
     if (tag < 0) {
         if (tag == LFS_ERR_NOENT) {
-            LFS_TRACE("lfs_getattr -> %"PRId32, LFS_ERR_NOATTR);
+            LFS_TRACE("lfs_getattr -> %d", LFS_ERR_NOATTR);
             return LFS_ERR_NOATTR;
         }
 
@@ -3763,7 +3763,7 @@ int lfs_fs_traverse(lfs_t *lfs,
                 if (tag == LFS_ERR_NOENT) {
                     continue;
                 }
-                LFS_TRACE("lfs_fs_traverse -> %d", tag);
+                LFS_TRACE("lfs_fs_traverse -> %"PRId32, tag);
                 return tag;
             }
             lfs_ctz_fromle32(&ctz);
@@ -4072,11 +4072,11 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
     lfs_size_t size = 0;
     int err = lfs_fs_traverse(lfs, lfs_fs_size_count, &size);
     if (err) {
-        LFS_TRACE("lfs_fs_size -> %"PRId32, err);
+        LFS_TRACE("lfs_fs_size -> %d", err);
         return err;
     }
 
-    LFS_TRACE("lfs_fs_size -> %"PRId32, err);
+    LFS_TRACE("lfs_fs_size -> %d", err);
     return size;
 }
 
