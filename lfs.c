@@ -1503,9 +1503,13 @@ static int lfs_dir_compact(lfs_t *lfs,
                 }
             }
 #ifdef LFS_MIGRATE
-        } else if (lfs_pair_cmp(dir->pair, lfs->root) == 0 && lfs->lfs1) {
-            // we can't relocate our root during migrations, as this would
-            // cause the superblock to get updated, which would clobber v1
+        } else if (lfs->lfs1) {
+            // do not proactively relocate blocks during migrations, this
+            // can cause a number of failure states such: clobbering the
+            // v1 superblock if we relocate root, and invalidating directory
+            // pointers if we relocate the head of a directory. On top of
+            // this, relocations increase the overall complexity of
+            // lfs_migration, which is already a delicate operation.
 #endif
         } else {
             // we're writing too much, time to relocate
