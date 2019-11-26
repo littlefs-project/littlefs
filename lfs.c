@@ -929,6 +929,11 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (res == LFS_CMP_EQ) {
                     // found a match
                     tempbesttag = tag;
+                } else if ((LFS_MKTAG(0x7ff, 0x3ff, 0) & tag) ==
+                        (LFS_MKTAG(0x7ff, 0x3ff, 0) & tempbesttag)) {
+                    // found an identical tag, but contents didn't match
+                    // this must mean that our besttag has been overwritten
+                    tempbesttag = -1;
                 } else if (res == LFS_CMP_GT &&
                         lfs_tag_id(tag) <= lfs_tag_id(tempbesttag)) {
                     // found a greater match, keep track to keep things sorted
@@ -1378,6 +1383,7 @@ static int lfs_dir_split(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t split, uint16_t end) {
     // create tail directory
+    lfs_alloc_ack(lfs);
     lfs_mdir_t tail;
     int err = lfs_dir_alloc(lfs, &tail);
     if (err) {

@@ -250,6 +250,14 @@ scripts/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
+## Below, these tests depend _very_ heavily on the geometry of the
+## block device being tested, they should be removed and replaced
+## by generalized tests. For now we'll just skip if the geometry
+## is customized.
+
+if [[ ! $MAKEFLAGS =~ "LFS_BLOCK_CYCLES" ]]
+then
+
 echo "--- Chained dir exhaustion test ---"
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
@@ -480,5 +488,7 @@ scripts/test.py << TEST
 
     lfs_unmount(&lfs) => 0;
 TEST
+
+fi
 
 scripts/results.py
