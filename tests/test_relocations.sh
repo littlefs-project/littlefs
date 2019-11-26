@@ -23,6 +23,57 @@ scripts/test.py << TEST
     lfs_unmount(&lfs) => 0;
 TEST
 
+echo "--- Dangling split dir test ---"
+scripts/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int j = 0; j < $ITERATIONS; j++) {
+        for (int i = 0; i < $COUNT; i++) {
+            sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
+            lfs_file_open(&lfs, &file, path, LFS_O_CREAT | LFS_O_WRONLY) => 0;
+            lfs_file_close(&lfs, &file) => 0;
+        }
+
+        lfs_dir_open(&lfs, &dir, "child") => 0;
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        for (int i = 0; i < $COUNT; i++) {
+            sprintf(path, "test%03d_loooooooooooooooooong_name", i);
+            lfs_dir_read(&lfs, &dir, &info) => 1;
+            strcmp(info.name, path) => 0;
+        }
+        lfs_dir_read(&lfs, &dir, &info) => 0;
+        lfs_dir_close(&lfs, &dir) => 0;
+
+        if (j == $ITERATIONS-1) {
+            break;
+        }
+
+        for (int i = 0; i < $COUNT; i++) {
+            sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
+            lfs_remove(&lfs, path) => 0;
+        }
+    }
+    lfs_unmount(&lfs) => 0;
+TEST
+scripts/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "child") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    for (int i = 0; i < $COUNT; i++) {
+        sprintf(path, "test%03d_loooooooooooooooooong_name", i);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        strcmp(info.name, path) => 0;
+    }
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    for (int i = 0; i < $COUNT; i++) {
+        sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
+        lfs_remove(&lfs, path) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+TEST
+
 echo "--- Outdated head test ---"
 scripts/test.py << TEST
     lfs_mount(&lfs, &cfg) => 0;
