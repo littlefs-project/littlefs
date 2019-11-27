@@ -428,4 +428,78 @@ scripts/test.py << TEST
 TEST
 done
 
+echo "--- Root seek test ---"
+./scripts/test.py << TEST
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 3; i < $MEDIUMSIZE; i++) {
+        sprintf(path, "hi%03d", i);
+        lfs_mkdir(&lfs, path) => 0;
+    }
+
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    for (int i = 0; i < $MEDIUMSIZE; i++) {
+        if (i == 0) {
+            sprintf(path, ".");
+        } else if (i == 1) {
+            sprintf(path, "..");
+        } else if (i == 2) {
+            sprintf(path, "hello");
+        } else {
+            sprintf(path, "hi%03d", i);
+        }
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        strcmp(path, info.name) => 0;
+    }
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+
+    for (int j = 0; j < $MEDIUMSIZE; j++) {
+        lfs_soff_t off = -1;
+
+        lfs_dir_open(&lfs, &dir, "/") => 0;
+        for (int i = 0; i < $MEDIUMSIZE; i++) {
+            if (i == 0) {
+                sprintf(path, ".");
+            } else if (i == 1) {
+                sprintf(path, "..");
+            } else if (i == 2) {
+                sprintf(path, "hello");
+            } else {
+                sprintf(path, "hi%03d", i);
+            }
+
+            if (i == j) {
+                off = lfs_dir_tell(&lfs, &dir);
+                off >= 0 => true;
+            }
+
+            lfs_dir_read(&lfs, &dir, &info) => 1;
+            strcmp(path, info.name) => 0;
+        }
+        lfs_dir_read(&lfs, &dir, &info) => 0;
+        lfs_dir_close(&lfs, &dir) => 0;
+
+        lfs_dir_open(&lfs, &dir, "/") => 0;
+        lfs_dir_seek(&lfs, &dir, off) => 0;
+        for (int i = j; i < $MEDIUMSIZE; i++) {
+            if (i == 0) {
+                sprintf(path, ".");
+            } else if (i == 1) {
+                sprintf(path, "..");
+            } else if (i == 2) {
+                sprintf(path, "hello");
+            } else {
+                sprintf(path, "hi%03d", i);
+            }
+
+            lfs_dir_read(&lfs, &dir, &info) => 1;
+            strcmp(path, info.name) => 0;
+        }
+        lfs_dir_read(&lfs, &dir, &info) => 0;
+        lfs_dir_close(&lfs, &dir) => 0;
+    }
+
+    lfs_unmount(&lfs) => 0;
+TEST
+
 scripts/results.py
