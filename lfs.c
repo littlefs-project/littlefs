@@ -266,7 +266,7 @@ typedef int32_t lfs_stag_t;
     (((lfs_tag_t)(type) << 20) | ((lfs_tag_t)(id) << 10) | (lfs_tag_t)(size))
 
 static inline bool lfs_tag_isvalid(lfs_tag_t tag) {
-    return !(tag & 0x80000000);
+    return !(tag & 0x80000000) && tag;
 }
 
 static inline bool lfs_tag_isdelete(lfs_tag_t tag) {
