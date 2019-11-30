@@ -10,6 +10,11 @@
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
+#ifndef LFS_MAGIC
+#define LFS_MAGIC "littlefs"
+#endif
+
+
 /// Caching block device operations ///
 static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
@@ -3542,7 +3547,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs_superblock_tole32(&superblock);
         err = lfs_dir_commit(lfs, &root, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_CREATE, 0, 0), NULL},
-                {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
+                {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), LFS_MAGIC},
                 {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
                     &superblock}));
         if (err) {
@@ -3602,7 +3607,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
                 LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8),
                 NULL,
                 lfs_dir_find_match, &(struct lfs_dir_find_match){
-                    lfs, "littlefs", 8});
+                    lfs, LFS_MAGIC, 8});
         if (tag < 0) {
             err = tag;
             goto cleanup;
@@ -4472,7 +4477,7 @@ static int lfs1_mount(lfs_t *lfs, struct lfs1 *lfs1,
             lfs->lfs1->root[1] = superblock.d.root[1];
         }
 
-        if (err || memcmp(superblock.d.magic, "littlefs", 8) != 0) {
+        if (err || memcmp(superblock.d.magic, LFS_MAGIC, 8) != 0) {
             LFS_ERROR("Invalid superblock at %d %d", 0, 1);
             err = LFS_ERR_CORRUPT;
             goto cleanup;
@@ -4712,7 +4717,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs_superblock_tole32(&superblock);
         err = lfs_dir_commit(lfs, &dir2, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_CREATE, 0, 0), NULL},
-                {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
+                {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), LFS_MAGIC},
                 {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
                     &superblock}));
         if (err) {

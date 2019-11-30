@@ -27,6 +27,16 @@ endif
 ifdef TRACE
 override CFLAGS += -DLFS_YES_TRACE
 endif
+
+ifdef LFS_MAGIC
+MAGIC_LEN=$(shell echo -n $(LFS_MAGIC) | wc -c)
+ifeq ($(MAGIC_LEN), 8)
+override CFLAGS += -DLFS_MAGIC=\"$(LFS_MAGIC)\"
+else
+$(warning Invalid littlefs magic (length must be 8)! default littlefs magic will be used.)
+endif
+endif
+
 override CFLAGS += -I.
 override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
