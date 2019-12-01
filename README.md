@@ -110,7 +110,7 @@ directory functions, with the deviation that the allocation of filesystem
 structures must be provided by the user.
 
 All POSIX operations, such as remove and rename, are atomic, even in event
-of power-loss. Additionally, no file updates are not actually committed to
+of power-loss. Additionally, file updates are not actually committed to
 the filesystem until sync or close is called on the file.
 
 ## Other notes
