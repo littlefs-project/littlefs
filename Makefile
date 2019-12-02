@@ -55,6 +55,7 @@ test: \
 	test_attrs \
 	test_move \
 	test_orphan \
+	test_relocations \
 	test_corrupt
 	@rm test.c
 test_%: tests/test_%.sh

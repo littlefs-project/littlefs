@@ -428,4 +428,78 @@ scripts/test.py << TEST
 TEST
 done
 
+echo "--- Root seek test ---"
+./scripts/test.py << TEST
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 3; i < $MEDIUMSIZE; i++) {
+        sprintf(path, "hi%03d", i);
+        lfs2_mkdir(&lfs2, path) => 0;
+    }
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    for (int i = 0; i < $MEDIUMSIZE; i++) {
+        if (i == 0) {
+            sprintf(path, ".");
+        } else if (i == 1) {
+            sprintf(path, "..");
+        } else if (i == 2) {
+            sprintf(path, "hello");
+        } else {
+            sprintf(path, "hi%03d", i);
+        }
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        strcmp(path, info.name) => 0;
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    for (int j = 0; j < $MEDIUMSIZE; j++) {
+        lfs2_soff_t off = -1;
+
+        lfs2_dir_open(&lfs2, &dir, "/") => 0;
+        for (int i = 0; i < $MEDIUMSIZE; i++) {
+            if (i == 0) {
+                sprintf(path, ".");
+            } else if (i == 1) {
+                sprintf(path, "..");
+            } else if (i == 2) {
+                sprintf(path, "hello");
+            } else {
+                sprintf(path, "hi%03d", i);
+            }
+
+            if (i == j) {
+                off = lfs2_dir_tell(&lfs2, &dir);
+                off >= 0 => true;
+            }
+
+            lfs2_dir_read(&lfs2, &dir, &info) => 1;
+            strcmp(path, info.name) => 0;
+        }
+        lfs2_dir_read(&lfs2, &dir, &info) => 0;
+        lfs2_dir_close(&lfs2, &dir) => 0;
+
+        lfs2_dir_open(&lfs2, &dir, "/") => 0;
+        lfs2_dir_seek(&lfs2, &dir, off) => 0;
+        for (int i = j; i < $MEDIUMSIZE; i++) {
+            if (i == 0) {
+                sprintf(path, ".");
+            } else if (i == 1) {
+                sprintf(path, "..");
+            } else if (i == 2) {
+                sprintf(path, "hello");
+            } else {
+                sprintf(path, "hi%03d", i);
+            }
+
+            lfs2_dir_read(&lfs2, &dir, &info) => 1;
+            strcmp(path, info.name) => 0;
+        }
+        lfs2_dir_read(&lfs2, &dir, &info) => 0;
+        lfs2_dir_close(&lfs2, &dir) => 0;
+    }
+
+    lfs2_unmount(&lfs2) => 0;
+TEST
+
 scripts/results.py
