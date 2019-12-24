@@ -14,6 +14,13 @@
 // code footprint
 
 // Logging functions
+#ifdef LFS_YES_TRACE
+#define LFS_TRACE(fmt, ...) \
+    rt_kprintf("lfs_trace:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+#else
+#define LFS_TRACE(fmt, ...)
+#endif
+
 #ifndef LFS_NO_DEBUG
 #define LFS_DEBUG(fmt, ...) \
     rt_kprintf("lfs debug:%d: " fmt "\n", __LINE__, __VA_ARGS__)
