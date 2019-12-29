@@ -51,28 +51,28 @@ extern "C"
 // Logging functions
 #ifdef LFS_YES_TRACE
 #define LFS_TRACE(fmt, ...) \
-    printf("lfs_trace:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    printf("%s:%d:trace: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__)
 #else
 #define LFS_TRACE(fmt, ...)
 #endif
 
 #ifndef LFS_NO_DEBUG
 #define LFS_DEBUG(fmt, ...) \
-    printf("lfs_debug:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    printf("%s:%d:debug: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__)
 #else
 #define LFS_DEBUG(fmt, ...)
 #endif
 
 #ifndef LFS_NO_WARN
 #define LFS_WARN(fmt, ...) \
-    printf("lfs_warn:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    printf("%s:%d:warn: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__)
 #else
 #define LFS_WARN(fmt, ...)
 #endif
 
 #ifndef LFS_NO_ERROR
 #define LFS_ERROR(fmt, ...) \
-    printf("lfs_error:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    printf("%s:%d:error: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__)
 #else
 #define LFS_ERROR(fmt, ...)
 #endif

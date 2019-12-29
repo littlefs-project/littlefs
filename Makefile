@@ -59,14 +59,19 @@ test: \
 	test_corrupt
 	@rm test.c
 test_%: tests/test_%.sh
-
 ifdef QUIET
 	@./$< | sed -nu '/^[-=]/p'
 else
 	./$<
 endif
 
+test_:
+	./scripts/test_.py $(TFLAGS)
+
 -include $(DEP)
+
+%?:
+	@echo '$($*)'
 
 lfs: $(OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@

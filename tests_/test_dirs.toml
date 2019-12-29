@@ -1,0 +1,209 @@
+[[case]] # format
+code = """
+    lfs_format(&lfs, &cfg) => 0;
+"""
+
+[[case]] # mount/unmount
+code = """
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_unmount(&lfs) => 0;
+"""
+
+[[case]] # root
+code = """
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_unmount(&lfs) => 0;
+"""
+
+[[case]] # directory creation
+code = """
+    lfs_format(&lfs, &cfg) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "dir%03d", i);
+        lfs_mkdir(&lfs, path) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "dir%03d", i);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(info.type == LFS_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_unmount(&lfs);
+"""
+define.N = 'range(0, 100, 3)'
+
+[[case]] # directory removal
+code = """
+    lfs_format(&lfs, &cfg) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs_mkdir(&lfs, path) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(info.type == LFS_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_unmount(&lfs);
+
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs_remove(&lfs, path) => 0;
+    }
+    lfs_unmount(&lfs);
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_unmount(&lfs) => 0;
+"""
+define.N = 'range(3, 100, 11)'
+
+[[case]] # file creation
+code = """
+    lfs_format(&lfs, &cfg) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "file%03d", i);
+        lfs_file_open(&lfs, &file, path, LFS_O_CREAT | LFS_O_WRONLY) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+    }   
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "file%03d", i);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(info.type == LFS_TYPE_REG);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_unmount(&lfs);
+"""
+define.N = 'range(3, 100, 11)'
+
+[[case]] # file removal
+code = """
+    lfs_format(&lfs, &cfg) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs_file_open(&lfs, &file, path, LFS_O_CREAT | LFS_O_WRONLY) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(info.type == LFS_TYPE_REG);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_unmount(&lfs);
+
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs_remove(&lfs, path) => 0;
+    }
+    lfs_unmount(&lfs);
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_unmount(&lfs) => 0;
+"""
+define.N = 'range(0, 100, 3)'
+
+[[case]] # error cases
+code = """
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mkdir(&lfs, "potato") => 0;
+    lfs_file_open(&lfs, &file, "burito", LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mkdir(&lfs, "potato") => LFS_ERR_EXIST;
+    lfs_dir_open(&lfs, &dir, "tomato") => LFS_ERR_NOENT;
+    lfs_dir_open(&lfs, &dir, "burito") => LFS_ERR_NOTDIR;
+    lfs_file_open(&lfs, &file, "tomato", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfs_file_open(&lfs, &file, "potato", LFS_O_RDONLY) => LFS_ERR_ISDIR;
+    lfs_unmount(&lfs) => 0;
+"""

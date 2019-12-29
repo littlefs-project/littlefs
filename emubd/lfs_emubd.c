@@ -158,9 +158,9 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     uint8_t *data = buffer;
 
     // Check if read is valid
-    assert(off  % cfg->read_size == 0);
-    assert(size % cfg->read_size == 0);
-    assert(block < cfg->block_count);
+    LFS_ASSERT(off  % cfg->read_size == 0);
+    LFS_ASSERT(size % cfg->read_size == 0);
+    LFS_ASSERT(block < cfg->block_count);
 
     // Zero out buffer for debugging
     memset(data, 0, size);
@@ -213,9 +213,9 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     const uint8_t *data = buffer;
 
     // Check if write is valid
-    assert(off  % cfg->prog_size == 0);
-    assert(size % cfg->prog_size == 0);
-    assert(block < cfg->block_count);
+    LFS_ASSERT(off  % cfg->prog_size == 0);
+    LFS_ASSERT(size % cfg->prog_size == 0);
+    LFS_ASSERT(block < cfg->block_count);
 
     // Program data
     snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
@@ -228,7 +228,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     }
 
     // Check that file was erased
-    assert(f);
+    LFS_ASSERT(f);
 
     int err = fseek(f, off, SEEK_SET);
     if (err) {
@@ -287,7 +287,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     lfs_emubd_t *emu = cfg->context;
 
     // Check if erase is valid
-    assert(block < cfg->block_count);
+    LFS_ASSERT(block < cfg->block_count);
 
     // Erase the block
     snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
