@@ -90,3 +90,4 @@ clean:
 	rm -f $(OBJ)
 	rm -f $(DEP)
 	rm -f $(ASM)
+	rm -f tests_/test_*.toml.*

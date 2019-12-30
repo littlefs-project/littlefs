@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-# TODO
-# -v --verbose
-# --color
-# --gdb
-# --reentrant
+# This script manages littlefs tests, which are configured with
+# .toml files stored in the tests directory.
+#
 
 import toml
 import glob
@@ -17,6 +15,7 @@ import subprocess as sp
 import base64
 import sys
 import copy
+import shutil
 
 TEST_DIR = 'tests_'
 
@@ -118,22 +117,19 @@ class TestCase:
     def build(self, f, **_):
         # prologue
         f.write('void test_case%d(' % self.caseno)
-        defines = self.perms[0].defines
         first = True
-        for k, v in sorted(defines.items()):
-            if not all(perm.defines[k] == v for perm in self.perms):
+        for k, v in sorted(self.perms[0].defines.items()):
+            if k not in self.defines:
                 if not first:
                     f.write(',')
                 else:
                     first = False
                 f.write('\n')
-                f.write(8*' '+'int %s' % k)
+                f.write(8*' '+'__attribute__((unused)) intmax_t %s' % k)
         f.write(') {\n')
 
-        defines = self.perms[0].defines
-        for k, v in sorted(defines.items()):
-            if all(perm.defines[k] == v for perm in self.perms):
-                f.write(4*' '+'#define %s %s\n' % (k, v))
+        for k, v in sorted(self.defines.items()):
+            f.write(4*' '+'#define %s %s\n' % (k, v))
 
         f.write(PROLOGUE)
         f.write('\n')
@@ -147,14 +143,16 @@ class TestCase:
         f.write(EPILOGUE)
         f.write('\n')
 
-        defines = self.perms[0].defines
-        for k, v in sorted(defines.items()):
-            if all(perm.defines[k] == v for perm in self.perms):
-                f.write(4*' '+'#undef %s\n' % k)
+        for k, v in sorted(self.defines.items()):
+            f.write(4*' '+'#undef %s\n' % k)
 
         f.write('}\n')
 
     def test(self, **args):
+        # clear disk first
+        shutil.rmtree('blocks')
+
+        # build command
         cmd = ['./%s.test' % self.suite.path,
             repr(self.caseno), repr(self.permno)]
 
@@ -242,26 +240,31 @@ class TestSuite:
 
     def permute(self, defines={}, **args):
         for case in self.cases:
-            # lets find all parameterized definitions, in one of
-            # - args.D (defines)
-            # - suite.defines
-            # - case.defines
-            # - DEFINES
-            initial = {}
-            for define in it.chain(
-                    defines.items(),
-                    self.defines.items(),
-                    case.defines.items(),
-                    DEFINES.items()):
-                if define[0] not in initial:
-                    try:
-                        initial[define[0]] = eval(define[1])
-                    except:
-                        initial[define[0]] = define[1]
+            # lets find all parameterized definitions, in one of [args.D,
+            # suite.defines, case.defines, DEFINES]. Note that each of these
+            # can be either a dict of defines, or a list of dicts, expressing
+            # an initial set of permutations.
+            pending = [{}]
+            for inits in [defines, self.defines, case.defines, DEFINES]:
+                if not isinstance(inits, list):
+                    inits = [inits]
+
+                npending = []
+                for init, pinit in it.product(inits, pending):
+                    ninit = pinit.copy()
+                    for k, v in init.items():
+                        if k not in ninit:
+                            try:
+                                ninit[k] = eval(v)
+                            except:
+                                ninit[k] = v
+                    npending.append(ninit)
+
+                pending = npending
 
             # expand permutations
+            pending = list(reversed(pending))
             expanded = []
-            pending = [initial]
             while pending:
                 perm = pending.pop()
                 for k, v in sorted(perm.items()):
@@ -274,11 +277,27 @@ class TestSuite:
                 else:
                     expanded.append(perm)
 
+            # generate permutations
             case.perms = []
-            for i, defines in enumerate(expanded):
-                case.perms.append(case.permute(defines, permno=i, **args))
+            for i, perm in enumerate(expanded):
+                case.perms.append(case.permute(perm, permno=i, **args))
 
-        self.perms = [perm for case in self.cases for perm in case.perms]
+            # also track non-unique defines
+            case.defines = {}
+            for k, v in case.perms[0].defines.items():
+                if all(perm.defines[k] == v for perm in case.perms):
+                    case.defines[k] = v
+
+        # track all perms and non-unique defines
+        self.perms = []
+        for case in self.cases:
+            self.perms.extend(case.perms)
+
+        self.defines = {}
+        for k, v in self.perms[0].defines.items():
+            if all(perm.defines[k] == v for perm in self.perms):
+                self.defines[k] = v
+
         return self.perms
 
     def build(self, **args):
@@ -301,7 +320,7 @@ class TestSuite:
             f.write('test_case%d(' % perm.caseno)
             first = True
             for k, v in sorted(perm.defines.items()):
-                if not all(perm.defines[k] == v for perm in perm.case.perms):
+                if k not in perm.case.defines:
                     if not first:
                         f.write(', ')
                     else:
@@ -311,13 +330,18 @@ class TestSuite:
         f.write('}\n')
 
         # add test-related rules
-        rules = RULES
-        rules = rules.replace('    ', '\t')
+        rules = RULES.replace(4*' ', '\t')
 
         with open(self.path + '.test.mk', 'w') as mk:
             mk.write(rules)
             mk.write('\n')
 
+            # add truely global defines globally
+            for k, v in sorted(self.defines.items()):
+                mk.write('%s: override CFLAGS += -D%s=%r\n' % (
+                    self.path+'.test', k, v))
+
+            # write test.c in base64 so make can decide when to rebuild
             mk.write('%s: %s\n' % (self.path+'.test.t.c', self.path))
             mk.write('\tbase64 -d <<< ')
             mk.write(base64.b64encode(
@@ -484,8 +508,13 @@ if __name__ == "__main__":
         help="Overriding parameter definitions.")
     parser.add_argument('-v', '--verbose', action='store_true',
         help="Output everything that is happening.")
+    parser.add_argument('-t', '--trace', action='store_true',
+        help="Normally trace output is captured for internal usage, this \
+            enables forwarding trace output which is usually too verbose to \
+            be useful.")
     parser.add_argument('-k', '--keep-going', action='store_true',
         help="Run all tests instead of stopping on first error. Useful for CI.")
+# TODO
 #    parser.add_argument('--gdb', action='store_true',
 #        help="Run tests under gdb. Useful for debugging failures.")
     parser.add_argument('--valgrind', action='store_true',
