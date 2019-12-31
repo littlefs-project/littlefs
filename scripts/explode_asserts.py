@@ -16,7 +16,8 @@ ASSERT_TESTS = {
             printf("%s:%d:assert: "
                 "assert failed with %"PRIiMAX", expected {comp} %"PRIiMAX"\\n",
                 {file}, {line}, (intmax_t)_lh, (intmax_t)_rh);
-            exit(-2);
+            fflush(NULL);
+            raise(SIGABRT);
         }}
     """,
     'str': """
@@ -26,7 +27,8 @@ ASSERT_TESTS = {
             printf("%s:%d:assert: "
                 "assert failed with \\\"%s\\\", expected {comp} \\\"%s\\\"\\n",
                 {file}, {line}, _lh, _rh);
-            exit(-2);
+            fflush(NULL);
+            raise(SIGABRT);
         }}
     """,
     'bool': """
@@ -36,7 +38,8 @@ ASSERT_TESTS = {
             printf("%s:%d:assert: "
                 "assert failed with %s, expected {comp} %s\\n",
                 {file}, {line}, _lh ? "true" : "false", _rh ? "true" : "false");
-            exit(-2);
+            fflush(NULL);
+            raise(SIGABRT);
         }}
     """,
 }
@@ -180,6 +183,7 @@ def main(args):
     outf.write("#include <stdbool.h>\n")
     outf.write("#include <stdint.h>\n")
     outf.write("#include <inttypes.h>\n")
+    outf.write("#include <signal.h>\n")
     outf.write(mkdecl('int',  'eq', '=='))
     outf.write(mkdecl('int',  'ne', '!='))
     outf.write(mkdecl('int',  'lt', '<'))

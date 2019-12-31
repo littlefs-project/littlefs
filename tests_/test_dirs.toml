@@ -10,6 +10,17 @@ code = """
     lfs_unmount(&lfs) => 0;
 """
 
+[[case]] # reentrant format
+code = """
+    int err = lfs_mount(&lfs, &cfg);
+    if (err) {
+        lfs_format(&lfs, &cfg) => 0;
+        lfs_mount(&lfs, &cfg) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+"""
+reentrant = true
+
 [[case]] # root
 code = """
     lfs_format(&lfs, &cfg) => 0;
@@ -53,7 +64,7 @@ code = """
     }
     lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_dir_close(&lfs, &dir) => 0;
-    lfs_unmount(&lfs);
+    lfs_unmount(&lfs) => 0;
 """
 define.N = 'range(0, 100, 3)'
 

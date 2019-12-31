@@ -16,9 +16,9 @@ import base64
 import sys
 import copy
 import shutil
+import shlex
 
-TEST_DIR = 'tests_'
-
+TESTDIR = 'tests_'
 RULES = """
 define FLATTEN
 %$(subst /,.,$(target:.c=.t.c)): $(target)
@@ -28,9 +28,12 @@ $(foreach target,$(SRC),$(eval $(FLATTEN)))
 
 -include tests_/*.d
 
+.SECONDARY:
 %.c: %.t.c
     ./scripts/explode_asserts.py $< -o $@
 
+%.test: override CFLAGS += -fdiagnostics-color=always
+%.test: override CFLAGS += -ggdb
 %.test: %.test.o $(foreach f,$(subst /,.,$(SRC:.c=.o)),%.test.$f)
     $(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 """
@@ -60,18 +63,18 @@ PROLOGUE = """
     __attribute__((unused)) char path[1024];
 
     __attribute__((unused)) const struct lfs_config cfg = {
-        .context = &bd,                      
-        .read  = &lfs_emubd_read,            
-        .prog  = &lfs_emubd_prog,            
-        .erase = &lfs_emubd_erase,           
-        .sync  = &lfs_emubd_sync,            
-                                             
-        .read_size      = LFS_READ_SIZE,     
-        .prog_size      = LFS_PROG_SIZE,     
-        .block_size     = LFS_BLOCK_SIZE,    
-        .block_count    = LFS_BLOCK_COUNT,   
-        .block_cycles   = LFS_BLOCK_CYCLES,  
-        .cache_size     = LFS_CACHE_SIZE,    
+        .context = &bd,
+        .read  = &lfs_emubd_read,
+        .prog  = &lfs_emubd_prog,
+        .erase = &lfs_emubd_erase,
+        .sync  = &lfs_emubd_sync,
+
+        .read_size      = LFS_READ_SIZE,
+        .prog_size      = LFS_PROG_SIZE,
+        .block_size     = LFS_BLOCK_SIZE,
+        .block_count    = LFS_BLOCK_COUNT,
+        .block_cycles   = LFS_BLOCK_CYCLES,
+        .cache_size     = LFS_CACHE_SIZE,
         .lookahead_size = LFS_LOOKAHEAD_SIZE,
     };
 
@@ -85,13 +88,14 @@ PASS = '\033[32m✓\033[0m'
 FAIL = '\033[31m✗\033[0m'
 
 class TestFailure(Exception):
-    def __init__(self, case, stdout=None, assert_=None):
+    def __init__(self, case, returncode=None, stdout=None, assert_=None):
         self.case = case
+        self.returncode = returncode
         self.stdout = stdout
         self.assert_ = assert_
 
 class TestCase:
-    def __init__(self, suite, config, caseno=None, lineno=None, **_):
+    def __init__(self, config, suite=None, caseno=None, lineno=None, **_):
         self.suite = suite
         self.caseno = caseno
         self.lineno = lineno
@@ -148,25 +152,29 @@ class TestCase:
 
         f.write('}\n')
 
-    def test(self, **args):
+    def test(self, exec=[], persist=False, gdb=False, failure=None, **args):
         # clear disk first
-        shutil.rmtree('blocks')
+        if not persist:
+            shutil.rmtree('blocks', True)
 
         # build command
-        cmd = ['./%s.test' % self.suite.path,
+        cmd = exec + ['./%s.test' % self.suite.path,
             repr(self.caseno), repr(self.permno)]
 
-        # run in valgrind?
-        if args.get('valgrind', False) and not self.leaky:
-            cmd = ['valgrind',
-                '--leak-check=full',
-                '--error-exitcode=4',
-                '-q'] + cmd
+        # failed? drop into debugger?
+        if gdb and failure:
+            cmd = (['gdb', '-ex', 'r'
+                ] + (['-ex', 'up'] if failure.assert_ else []) + [
+                '--args'] + cmd)
+            if args.get('verbose', False):
+                print(' '.join(shlex.quote(c) for c in cmd))
+            sys.exit(sp.call(cmd))
 
         # run test case!
         stdout = []
+        assert_ = None
         if args.get('verbose', False):
-            print(' '.join(cmd))
+            print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
             universal_newlines=True,
             bufsize=1,
@@ -176,33 +184,84 @@ class TestCase:
             stdout.append(line)
             if args.get('verbose', False):
                 sys.stdout.write(line)
-        proc.wait()
-
-        if proc.returncode != 0:
-            # failed, try to parse assert?
-            assert_ = None
-            for line in stdout:
+            # intercept asserts
+            m = re.match('^([^:]+):([0-9]+):(assert): (.*)$', line)
+            if m and assert_ is None:
                 try:
-                    m = re.match('^([^:\\n]+):([0-9]+):assert: (.*)$', line)
-                    # found an assert, print info from file
                     with open(m.group(1)) as f:
                         lineno = int(m.group(2))
                         line = next(it.islice(f, lineno-1, None)).strip('\n')
-                        assert_ = {
-                            'path': m.group(1),
-                            'lineno': lineno,
-                            'line': line,
-                            'message': m.group(3),
-                        }
+                    assert_ = {
+                        'path': m.group(1),
+                        'line': line,
+                        'lineno': lineno,
+                        'message': m.group(4)}
                 except:
                     pass
+        proc.wait()
 
-            self.result = TestFailure(self, stdout, assert_)
-            raise self.result
-
+        # did we pass?
+        if proc.returncode != 0:
+            raise TestFailure(self, proc.returncode, stdout, assert_)
         else:
-            self.result = PASS
-            return self.result
+            return PASS
+
+class ValgrindTestCase(TestCase):
+    def __init__(self, config, **args):
+        self.leaky = config.get('leaky', False)
+        super().__init__(config, **args)
+
+    def test(self, exec=[], **args):
+        if self.leaky:
+            return
+
+        exec = exec + [
+            'valgrind',
+            '--leak-check=full',
+            '--error-exitcode=4',
+            '-q']
+        return super().test(exec=exec, **args)
+
+class ReentrantTestCase(TestCase):
+    def __init__(self, config, **args):
+        self.reentrant = config.get('reentrant', False)
+        super().__init__(config, **args)
+
+    def test(self, exec=[], persist=False, gdb=False, failure=None, **args):
+        if not self.reentrant:
+            return
+
+        for cycles in it.count(1):
+            npersist = persist or cycles > 1
+
+            # exact cycle we should drop into debugger?
+            if gdb and failure and failure.cycleno == cycles:
+                return super().test(exec=exec, persist=npersist,
+                    gdb=gdb, failure=failure, **args)
+
+            # run tests, but kill the program after lfs_emubd_prog/erase has
+            # been hit n cycles. We exit with a special return code if the
+            # program has not finished, since this isn't a test failure.
+            nexec = exec + [
+                'gdb', '-batch-silent',
+                '-ex', 'handle all nostop',
+                '-ex', 'b lfs_emubd_prog',
+                '-ex', 'b lfs_emubd_erase',
+                '-ex', 'r',
+                ] + cycles*['-ex', 'c'] + [
+                '-ex', 'q '
+                    '!$_isvoid($_exitsignal) ? $_exitsignal : '
+                    '!$_isvoid($_exitcode) ? $_exitcode : '
+                    '33',
+                '--args']
+            try:
+                return super().test(exec=nexec, persist=npersist, **args)
+            except TestFailure as nfailure:
+                if nfailure.returncode == 33:
+                    continue
+                else:
+                    nfailure.cycleno = cycles
+                    raise
 
 class TestSuite:
     def __init__(self, path, TestCase=TestCase, **args):
@@ -229,8 +288,8 @@ class TestSuite:
         # create initial test cases
         self.cases = []
         for i, (case, lineno) in enumerate(zip(config['case'], linenos)):
-            self.cases.append(self.TestCase(
-                self, case, caseno=i, lineno=lineno, **args))
+            self.cases.append(self.TestCase(case,
+                suite=self, caseno=i, lineno=lineno, **args))
 
     def __str__(self):
         return self.name
@@ -343,7 +402,7 @@ class TestSuite:
 
             # write test.c in base64 so make can decide when to rebuild
             mk.write('%s: %s\n' % (self.path+'.test.t.c', self.path))
-            mk.write('\tbase64 -d <<< ')
+            mk.write('\t@base64 -d <<< ')
             mk.write(base64.b64encode(
                 f.getvalue().encode('utf8')).decode('utf8'))
             mk.write(' > $@\n')
@@ -364,8 +423,9 @@ class TestSuite:
                 continue
 
             try:
-                perm.test(**args)
+                result = perm.test(**args)
             except TestFailure as failure:
+                perm.result = failure
                 if not args.get('verbose', True):
                     sys.stdout.write(FAIL)
                     sys.stdout.flush()
@@ -374,9 +434,11 @@ class TestSuite:
                         sys.stdout.write('\n')
                     raise
             else:
-                if not args.get('verbose', True):
-                    sys.stdout.write(PASS)
-                    sys.stdout.flush()
+                if result == PASS:
+                    perm.result = PASS
+                    if not args.get('verbose', True):
+                        sys.stdout.write(PASS)
+                        sys.stdout.flush()
 
         if not args.get('verbose', True):
             sys.stdout.write('\n')
@@ -400,14 +462,19 @@ def main(**args):
     elif os.path.isfile(testpath):
         testpath = testpath
     elif testpath.endswith('.toml'):
-        testpath = TEST_DIR + '/' + testpath
+        testpath = TESTDIR + '/' + testpath
     else:
-        testpath = TEST_DIR + '/' + testpath + '.toml'
+        testpath = TESTDIR + '/' + testpath + '.toml'
 
     # find tests
     suites = []
     for path in glob.glob(testpath):
-        suites.append(TestSuite(path, **args))
+        if args.get('valgrind', False):
+            suites.append(TestSuite(path, TestCase=ValgrindTestCase, **args))
+        elif args.get('reentrant', False):
+            suites.append(TestSuite(path, TestCase=ReentrantTestCase, **args))
+        else:
+            suites.append(TestSuite(path, **args))
 
     # sort for reproducability
     suites = sorted(suites)
@@ -432,11 +499,10 @@ def main(**args):
 
     cmd = (['make', '-f', 'Makefile'] +
         list(it.chain.from_iterable(['-f', m] for m in makefiles)) +
-        ['CFLAGS+=-fdiagnostics-color=always'] +
         [target for target in targets])
     stdout = []
     if args.get('verbose', False):
-        print(' '.join(cmd))
+        print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
         universal_newlines=True,
         bufsize=1,
@@ -465,6 +531,18 @@ def main(**args):
             suite.test(caseno, permno, **args)
     except TestFailure:
         pass
+
+    if args.get('gdb', False):
+        failure = None
+        for suite in suites:
+            for perm in suite.perms:
+                if getattr(perm, 'result', PASS) != PASS:
+                    failure = perm.result
+        if failure is not None:
+            print('======= gdb ======')
+            # drop into gdb
+            failure.case.test(failure=failure, **args)
+            sys.exit(0)
 
     print('====== results ======')
     passed = 0
@@ -498,26 +576,26 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(
         description="Run parameterized tests in various configurations.")
-    parser.add_argument('testpath', nargs='?', default=TEST_DIR,
+    parser.add_argument('testpath', nargs='?', default=TESTDIR,
         help="Description of test(s) to run. By default, this is all tests \
             found in the \"{0}\" directory. Here, you can specify a different \
             directory of tests, a specific file, a suite by name, and even a \
             specific test case by adding brackets. For example \
-            \"test_dirs[0]\" or \"{0}/test_dirs.toml[0]\".".format(TEST_DIR))
+            \"test_dirs[0]\" or \"{0}/test_dirs.toml[0]\".".format(TESTDIR))
     parser.add_argument('-D', action='append', default=[],
         help="Overriding parameter definitions.")
     parser.add_argument('-v', '--verbose', action='store_true',
         help="Output everything that is happening.")
-    parser.add_argument('-t', '--trace', action='store_true',
-        help="Normally trace output is captured for internal usage, this \
-            enables forwarding trace output which is usually too verbose to \
-            be useful.")
     parser.add_argument('-k', '--keep-going', action='store_true',
         help="Run all tests instead of stopping on first error. Useful for CI.")
-# TODO
-#    parser.add_argument('--gdb', action='store_true',
-#        help="Run tests under gdb. Useful for debugging failures.")
+    parser.add_argument('-p', '--persist', action='store_true',
+        help="Don't reset the tests disk before each test.")
+    parser.add_argument('-g', '--gdb', action='store_true',
+        help="Drop into gdb on failure.")
     parser.add_argument('--valgrind', action='store_true',
-        help="Run non-leaky tests under valgrind to check for memory leaks. \
-            Tests marked as \"leaky = true\" run normally.")
+        help="Run non-leaky tests under valgrind to check for memory leaks.")
+    parser.add_argument('--reentrant', action='store_true',
+        help="Run reentrant tests with simulated power-loss.")
+    parser.add_argument('-e', '--exec', default=[], type=lambda e: e.split(' '),
+        help="Run tests with another executable prefixed on the command line.")
     main(**vars(parser.parse_args()))
