@@ -107,7 +107,7 @@ static inline uint32_t lfs_alignup(uint32_t a, uint32_t alignment) {
     return lfs_aligndown(a + alignment-1, alignment);
 }
 
-// Find the next smallest power of 2 less than or equal to a
+// Find the smallest power of 2 greater than or equal to a
 static inline uint32_t lfs_npw2(uint32_t a) {
 #if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
     return 32 - __builtin_clz(a-1);
