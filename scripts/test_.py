@@ -62,8 +62,10 @@ PROLOGUE = """
     __attribute__((unused)) lfs_file_t file;
     __attribute__((unused)) lfs_dir_t dir;
     __attribute__((unused)) struct lfs_info info;
-    __attribute__((unused)) uint8_t buffer[1024];
     __attribute__((unused)) char path[1024];
+    __attribute__((unused)) uint8_t buffer[1024];
+    __attribute__((unused)) lfs_size_t size;
+    __attribute__((unused)) int err;
     
     __attribute__((unused)) const struct lfs_config cfg = {
         .context = LFS_DISK ? (void*)&filebd : (void*)&rambd,
@@ -124,9 +126,11 @@ class TestCase:
 
     def __str__(self):
         if hasattr(self, 'permno'):
-            return '%s[%d,%d]' % (self.suite.name, self.caseno, self.permno)
+            return '%s[%d,%d]' % (
+                self.suite.name, self.caseno, self.permno)
         else:
-            return '%s[%d]' % (self.suite.name, self.caseno)
+            return '%s[%d]' % (
+                self.suite.name, self.caseno)
 
     def permute(self, defines, permno=None, **_):
         ncase = copy.copy(self)
@@ -211,7 +215,10 @@ class TestCase:
             if args.get('verbose', False):
                 sys.stdout.write(line)
             # intercept asserts
-            m = re.match('^([^:]+):([0-9]+):(assert): (.*)$', line)
+            m = re.match(
+                '^{0}([^:]+):(\d+):(?:\d+:)?{0}{1}:{0}(.*)$'
+                .format('(?:\033\[[\d;]*.| )*', 'assert'),
+                line)
             if m and assert_ is None:
                 try:
                     with open(m.group(1)) as f:
@@ -221,7 +228,7 @@ class TestCase:
                         'path': m.group(1),
                         'line': line,
                         'lineno': lineno,
-                        'message': m.group(4)}
+                        'message': m.group(3)}
                 except:
                     pass
         proc.wait()
@@ -385,7 +392,7 @@ class TestSuite:
 
         self.defines = {}
         for k, v in self.perms[0].defines.items():
-            if all(perm.defines[k] == v for perm in self.perms):
+            if all(perm.defines.get(k, None) == v for perm in self.perms):
                 self.defines[k] = v
 
         return self.perms
@@ -401,7 +408,7 @@ class TestSuite:
 
         f.write('\n')
         f.write('int main(int argc, char **argv) {\n')
-        f.write(4*' '+'int case_ = (argc >= 3) ? atoi(argv[1]) : 0;\n')
+        f.write(4*' '+'int case_ = (argc >= 2) ? atoi(argv[1]) : 0;\n')
         f.write(4*' '+'int perm = (argc >= 3) ? atoi(argv[2]) : 0;\n')
         f.write(4*' '+'LFS_DISK = (argc >= 4) ? argv[3] : NULL;\n')
         for perm in self.perms:
@@ -544,6 +551,23 @@ def main(**args):
         stdout.append(line)
         if args.get('verbose', False):
             sys.stdout.write(line)
+        # intercept warnings
+        m = re.match(
+            '^{0}([^:]+):(\d+):(?:\d+:)?{0}{1}:{0}(.*)$'
+            .format('(?:\033\[[\d;]*.| )*', 'warning'),
+            line)
+        if m and not args.get('verbose', False):
+            try:
+                with open(m.group(1)) as f:
+                    lineno = int(m.group(2))
+                    line = next(it.islice(f, lineno-1, None)).strip('\n')
+                sys.stdout.write(
+                    "\033[01m{path}:{lineno}:\033[01;35mwarning:\033[m "
+                    "{message}\n{line}\n\n".format(
+                        path=m.group(1), line=line, lineno=lineno,
+                        message=m.group(3)))
+            except:
+                pass
     proc.wait()
 
     if proc.returncode != 0:
@@ -587,12 +611,20 @@ def main(**args):
             if perm.result == PASS:
                 passed += 1
             else:
-                sys.stdout.write("--- %s ---\n" % perm)
-                if perm.result.assert_:
-                    for line in perm.result.stdout[:-1]:
+                #sys.stdout.write("--- %s ---\n" % perm)
+                sys.stdout.write(
+                    "\033[01m{path}:{lineno}:\033[01;31mfailure:\033[m "
+                    "{perm} failed with {returncode}\n".format(
+                        perm=perm, path=perm.suite.path, lineno=perm.lineno-2,
+                        returncode=perm.result.returncode or 0))
+                if perm.result.stdout:
+                    for line in (perm.result.stdout
+                            if not perm.result.assert_
+                            else perm.result.stdout[:-1]):
                         sys.stdout.write(line)
+                if perm.result.assert_:
                     sys.stdout.write(
-                        "\033[97m{path}:{lineno}:\033[91massert:\033[0m "
+                        "\033[01m{path}:{lineno}:\033[01;31massert:\033[m "
                         "{message}\n{line}\n".format(
                             **perm.result.assert_))
                 else:
