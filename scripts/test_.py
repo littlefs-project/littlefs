@@ -4,6 +4,20 @@
 # .toml files stored in the tests directory.
 #
 
+# TODO
+# - nargs > 1?
+# x show perm config on failure
+# x filtering
+# n show perm config on verbose?
+# - better lineno tracking for cases?
+# n non-int perms?
+# - different path format?
+# - suite.prologue, suite.epilogue
+# - in
+# x change BLOCK_CYCLES to -1 by default
+# x change persist behaviour
+# x config chaining correct
+
 import toml
 import glob
 import re
@@ -20,7 +34,7 @@ import shlex
 TESTDIR = 'tests_'
 RULES = """
 define FLATTEN
-%$(subst /,.,$(target:.c=.t.c)): $(target)
+%$(subst /,.,$(target:.c=.tc)): $(target)
     cat <(echo '#line 1 "$$<"') $$< > $$@
 endef
 $(foreach target,$(SRC),$(eval $(FLATTEN)))
@@ -28,12 +42,12 @@ $(foreach target,$(SRC),$(eval $(FLATTEN)))
 -include tests_/*.d
 
 .SECONDARY:
-%.c: %.t.c
+%.c: %.tc
     ./scripts/explode_asserts.py $< -o $@
 
 %.test: override CFLAGS += -fdiagnostics-color=always
 %.test: override CFLAGS += -ggdb
-%.test: %.test.o $(foreach f,$(subst /,.,$(SRC:.c=.o)),%.test.$f)
+%.test: %.test.o $(foreach f,$(subst /,.,$(SRC:.c=.o)),%.$f)
     $(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 """
 GLOBALS = """
@@ -49,7 +63,7 @@ DEFINES = {
     "LFS_PROG_SIZE": "LFS_READ_SIZE",
     "LFS_BLOCK_SIZE": 512,
     "LFS_BLOCK_COUNT": 1024,
-    "LFS_BLOCK_CYCLES": 1024,
+    "LFS_BLOCK_CYCLES": -1,
     "LFS_CACHE_SIZE": "(64 % LFS_PROG_SIZE == 0 ? 64 : LFS_PROG_SIZE)",
     "LFS_LOOKAHEAD_SIZE": 16,
     "LFS_ERASE_VALUE": 0xff,
@@ -122,12 +136,19 @@ class TestCase:
 
         self.code = config['code']
         self.defines = config.get('define', {})
+        self.if_ = config.get('if', None)
         self.leaky = config.get('leaky', False)
 
     def __str__(self):
         if hasattr(self, 'permno'):
-            return '%s[%d,%d]' % (
-                self.suite.name, self.caseno, self.permno)
+            if any(k not in self.case.defines for k in self.defines):
+                return '%s[%d,%d] (%s)' % (
+                    self.suite.name, self.caseno, self.permno, ', '.join(
+                        '%s=%s' % (k, v) for k, v in self.defines.items()
+                        if k not in self.case.defines))
+            else:
+                return '%s[%d,%d]' % (
+                    self.suite.name, self.caseno, self.permno)
         else:
             return '%s[%d]' % (
                 self.suite.name, self.caseno)
@@ -176,12 +197,26 @@ class TestCase:
 
         f.write('}\n')
 
+    def shouldtest(self, **args):
+        if self.if_ is not None:
+            return eval(self.if_, None, self.defines.copy())
+        else:
+            return True
+
     def test(self, exec=[], persist=False, gdb=False, failure=None, **args):
         # build command
         cmd = exec + ['./%s.test' % self.suite.path,
             repr(self.caseno), repr(self.permno)]
+
+        # persist disk or keep in RAM for speed?
         if persist:
-            cmd.append(self.suite.path + '.test.disk')
+            if persist != 'noerase':
+                try:
+                    os.remove(self.suite.path + '.disk')
+                except FileNotFoundError:
+                    pass
+
+            cmd.append(self.suite.path + '.disk')
 
         # failed? drop into debugger?
         if gdb and failure:
@@ -244,10 +279,10 @@ class ValgrindTestCase(TestCase):
         self.leaky = config.get('leaky', False)
         super().__init__(config, **args)
 
-    def test(self, exec=[], **args):
-        if self.leaky:
-            return
+    def shouldtest(self, **args):
+        return not self.leaky and super().shouldtest(**args)
 
+    def test(self, exec=[], **args):
         exec = exec + [
             'valgrind',
             '--leak-check=full',
@@ -260,14 +295,14 @@ class ReentrantTestCase(TestCase):
         self.reentrant = config.get('reentrant', False)
         super().__init__(config, **args)
 
-    def test(self, exec=[], persist=False, gdb=False, failure=None, **args):
-        if not self.reentrant:
-            return
+    def shouldtest(self, **args):
+        return self.reentrant and super().shouldtest(**args)
 
+    def test(self, exec=[], persist=False, gdb=False, failure=None, **args):
         # clear disk first?
-        if not persist:
+        if persist != 'noerase':
             try:
-                os.remove(self.suite.path + '.test.disk')
+                os.remove(self.suite.path + '.disk')
             except FileNotFoundError:
                 pass
 
@@ -293,7 +328,7 @@ class ReentrantTestCase(TestCase):
                     '33',
                 '--args']
             try:
-                return super().test(exec=nexec, persist=True, **args)
+                return super().test(exec=nexec, persist='noerase', **args)
             except TestFailure as nfailure:
                 if nfailure.returncode == 33:
                     continue
@@ -326,6 +361,11 @@ class TestSuite:
         # create initial test cases
         self.cases = []
         for i, (case, lineno) in enumerate(zip(config['case'], linenos)):
+            # give our case's config a copy of our "global" config
+            for k, v in config.items():
+                if k not in case:
+                    case[k] = v
+            # initialize test case
             self.cases.append(self.TestCase(case,
                 suite=self, caseno=i, lineno=lineno, **args))
 
@@ -430,7 +470,7 @@ class TestSuite:
         # add test-related rules
         rules = RULES.replace(4*' ', '\t')
 
-        with open(self.path + '.test.mk', 'w') as mk:
+        with open(self.path + '.mk', 'w') as mk:
             mk.write(rules)
             mk.write('\n')
 
@@ -440,13 +480,13 @@ class TestSuite:
                     self.path+'.test', k, v))
 
             # write test.c in base64 so make can decide when to rebuild
-            mk.write('%s: %s\n' % (self.path+'.test.t.c', self.path))
+            mk.write('%s: %s\n' % (self.path+'.test.tc', self.path))
             mk.write('\t@base64 -d <<< ')
             mk.write(base64.b64encode(
                 f.getvalue().encode('utf8')).decode('utf8'))
             mk.write(' > $@\n')
 
-        self.makefile = self.path + '.test.mk'
+        self.makefile = self.path + '.mk'
         self.target = self.path + '.test'
         return self.makefile, self.target
 
@@ -459,6 +499,8 @@ class TestSuite:
             if caseno is not None and perm.caseno != caseno:
                 continue
             if permno is not None and perm.permno != permno:
+                continue
+            if not perm.shouldtest(**args):
                 continue
 
             try:
@@ -473,11 +515,10 @@ class TestSuite:
                         sys.stdout.write('\n')
                     raise
             else:
-                if result == PASS:
-                    perm.result = PASS
-                    if not args.get('verbose', True):
-                        sys.stdout.write(PASS)
-                        sys.stdout.flush()
+                perm.result = PASS
+                if not args.get('verbose', True):
+                    sys.stdout.write(PASS)
+                    sys.stdout.flush()
 
         if not args.get('verbose', True):
             sys.stdout.write('\n')
@@ -581,24 +622,19 @@ def main(**args):
         sum(len(suite.cases) for suite in suites),
         sum(len(suite.perms) for suite in suites)))
 
+    filtered = 0
+    for suite in suites:
+        for perm in suite.perms:
+            filtered += perm.shouldtest(**args)
+    if filtered != sum(len(suite.perms) for suite in suites):
+        print('filtered down to %d permutations' % filtered)
+
     print('====== testing ======')
     try:
         for suite in suites:
             suite.test(caseno, permno, **args)
     except TestFailure:
         pass
-
-    if args.get('gdb', False):
-        failure = None
-        for suite in suites:
-            for perm in suite.perms:
-                if getattr(perm, 'result', PASS) != PASS:
-                    failure = perm.result
-        if failure is not None:
-            print('======= gdb ======')
-            # drop into gdb
-            failure.case.test(failure=failure, **args)
-            sys.exit(0)
 
     print('====== results ======')
     passed = 0
@@ -633,6 +669,19 @@ def main(**args):
                 sys.stdout.write('\n')
                 failed += 1
 
+    if args.get('gdb', False):
+        failure = None
+        for suite in suites:
+            for perm in suite.perms:
+                if getattr(perm, 'result', PASS) != PASS:
+                    failure = perm.result
+        if failure is not None:
+            print('======= gdb ======')
+            # drop into gdb
+            failure.case.test(failure=failure, **args)
+            sys.exit(0)
+
+
     print('tests passed: %d' % passed)
     print('tests failed: %d' % failed)
 
@@ -652,8 +701,9 @@ if __name__ == "__main__":
         help="Output everything that is happening.")
     parser.add_argument('-k', '--keep-going', action='store_true',
         help="Run all tests instead of stopping on first error. Useful for CI.")
-    parser.add_argument('-p', '--persist', action='store_true',
-        help="Don't reset the tests disk before each test.")
+    parser.add_argument('-p', '--persist', choices=['erase', 'noerase'],
+        nargs='?', const='erase',
+        help="Store disk image in a file.")
     parser.add_argument('-g', '--gdb', choices=['init', 'start', 'assert'],
         nargs='?', const='assert',
         help="Drop into gdb on test failure.")

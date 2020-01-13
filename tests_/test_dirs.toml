@@ -714,3 +714,125 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+[[case]] # directory seek
+code = '''
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mkdir(&lfs, "hello") => 0;
+    for (int i = 0; i < COUNT; i++) {
+        sprintf(path, "hello/kitty%03d", i);
+        lfs_mkdir(&lfs, path) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    for (int j = 2; j < COUNT; j++) {
+        lfs_mount(&lfs, &cfg) => 0;
+        lfs_dir_open(&lfs, &dir, "hello") => 0;
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        lfs_soff_t pos;
+        for (int i = 0; i < j; i++) {
+            sprintf(path, "kitty%03d", i);
+            lfs_dir_read(&lfs, &dir, &info) => 1;
+            assert(strcmp(info.name, path) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            pos = lfs_dir_tell(&lfs, &dir);
+            assert(pos >= 0);
+        }
+
+        lfs_dir_seek(&lfs, &dir, pos) => 0;
+        sprintf(path, "kitty%03d", j);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        lfs_dir_rewind(&lfs, &dir) => 0;
+        sprintf(path, "kitty%03d", 0);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        lfs_dir_seek(&lfs, &dir, pos) => 0;
+        sprintf(path, "kitty%03d", j);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        lfs_dir_close(&lfs, &dir) => 0;
+        lfs_unmount(&lfs) => 0;
+    }
+'''
+define.COUNT = [4, 128, 132]
+
+[[case]] # root seek
+code = '''
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 0; i < COUNT; i++) {
+        sprintf(path, "hi%03d", i);
+        lfs_mkdir(&lfs, path) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    for (int j = 2; j < COUNT; j++) {
+        lfs_mount(&lfs, &cfg) => 0;
+        lfs_dir_open(&lfs, &dir, "/") => 0;
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        lfs_soff_t pos;
+        for (int i = 0; i < j; i++) {
+            sprintf(path, "hi%03d", i);
+            lfs_dir_read(&lfs, &dir, &info) => 1;
+            assert(strcmp(info.name, path) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            pos = lfs_dir_tell(&lfs, &dir);
+            assert(pos >= 0);
+        }
+
+        lfs_dir_seek(&lfs, &dir, pos) => 0;
+        sprintf(path, "hi%03d", j);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        lfs_dir_rewind(&lfs, &dir) => 0;
+        sprintf(path, "hi%03d", 0);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        lfs_dir_seek(&lfs, &dir, pos) => 0;
+        sprintf(path, "hi%03d", j);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        lfs_dir_close(&lfs, &dir) => 0;
+        lfs_unmount(&lfs) => 0;
+    }
+'''
+define.COUNT = [4, 128, 132]
+
