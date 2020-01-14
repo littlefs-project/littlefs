@@ -1,4 +1,6 @@
 [[case]] # simple truncate
+define.MEDIUMSIZE = [32, 2048]
+define.LARGESIZE = 8192
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -39,10 +41,10 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.MEDIUMSIZE = [32, 2048]
-define.LARGESIZE = 8192
 
 [[case]] # truncate and read
+define.MEDIUMSIZE = [32, 2048]
+define.LARGESIZE = 8192
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -90,8 +92,6 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.MEDIUMSIZE = [32, 2048]
-define.LARGESIZE = 8192
 
 [[case]] # write, truncate, and read
 code = '''
@@ -146,6 +146,8 @@ code = '''
 '''
 
 [[case]] # truncate and write
+define.MEDIUMSIZE = [32, 2048]
+define.LARGESIZE = 8192
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -193,10 +195,12 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.MEDIUMSIZE = [32, 2048]
-define.LARGESIZE = 8192
 
 [[case]] # truncate write under powerloss
+define.SMALLSIZE = [4, 512]
+define.MEDIUMSIZE = [32, 1024]
+define.LARGESIZE = 2048
+reentrant = true
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
@@ -257,12 +261,12 @@ code = '''
 
     lfs_unmount(&lfs) => 0;
 '''
-define.SMALLSIZE = [4, 512]
-define.MEDIUMSIZE = [32, 1024]
-define.LARGESIZE = 2048
-reentrant = true
 
 [[case]] # more aggressive general truncation tests
+define.CONFIG = 'range(6)'
+define.SMALLSIZE = 32
+define.MEDIUMSIZE = 2048
+define.LARGESIZE = 8192
 code = '''
     #define COUNT 5
     const struct {
@@ -388,8 +392,3 @@ code = '''
 
     lfs_unmount(&lfs) => 0;
 '''
-define.CONFIG = 'range(6)'
-define.SMALLSIZE = 32
-define.MEDIUMSIZE = 2048
-define.LARGESIZE = 8192
-

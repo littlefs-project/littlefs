@@ -15,6 +15,7 @@ code = '''
 '''
 
 [[case]] # many directory creation
+define.N = 'range(0, 100, 3)'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -43,9 +44,9 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.N = 'range(0, 100, 3)'
 
 [[case]] # many directory removal
+define.N = 'range(3, 100, 11)'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -93,9 +94,9 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.N = 'range(3, 100, 11)'
 
 [[case]] # many directory rename
+define.N = 'range(3, 100, 11)'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -152,9 +153,10 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs);
 '''
-define.N = 'range(3, 100, 11)'
 
 [[case]] # reentrant many directory creation/rename/removal
+define.N = [5, 25]
+reentrant = true
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
@@ -231,10 +233,9 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.N = [5, 25]
-reentrant = true
 
 [[case]] # file creation
+define.N = 'range(3, 100, 11)'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -265,9 +266,9 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs);
 '''
-define.N = 'range(3, 100, 11)'
 
 [[case]] # file removal
+define.N = 'range(0, 100, 3)'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -317,9 +318,9 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.N = 'range(0, 100, 3)'
 
 [[case]] # file rename
+define.N = 'range(0, 100, 3)'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -378,9 +379,10 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs);
 '''
-define.N = 'range(0, 100, 3)'
 
 [[case]] # reentrant file creation/rename/removal
+define.N = [5, 25]
+reentrant = true
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
@@ -457,8 +459,6 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.N = [5, 25]
-reentrant = true
 
 [[case]] # nested directories
 code = '''
@@ -585,6 +585,7 @@ code = '''
 '''
 
 [[case]] # recursive remove
+define.N = [10, 100]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -639,7 +640,6 @@ code = '''
     lfs_remove(&lfs, "prickly-pear") => LFS_ERR_NOENT;
     lfs_unmount(&lfs) => 0;
 '''
-define.N = [10, 100]
 
 [[case]] # other error cases
 code = '''
@@ -716,6 +716,7 @@ code = '''
 '''
 
 [[case]] # directory seek
+define.COUNT = [4, 128, 132]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -774,9 +775,9 @@ code = '''
         lfs_unmount(&lfs) => 0;
     }
 '''
-define.COUNT = [4, 128, 132]
 
 [[case]] # root seek
+define.COUNT = [4, 128, 132]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -834,5 +835,4 @@ code = '''
         lfs_unmount(&lfs) => 0;
     }
 '''
-define.COUNT = [4, 128, 132]
 

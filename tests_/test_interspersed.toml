@@ -1,5 +1,16 @@
 
 [[case]] # interspersed file test
+# TODO FILES=26 found bug
+#define.SIZE = [10, 100]
+#define.FILES = [4, 10, 26] 
+define = [
+    {SIZE=10, FILES=4},
+    {SIZE=10, FILES=10},
+    #{SIZE=10, FILES=26},
+    {SIZE=100, FILES=4},
+    {SIZE=100, FILES=10},
+    #{SIZE=100, FILES=26},
+]
 code = '''
     lfs_file_t files[FILES];
     const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
@@ -56,19 +67,10 @@ code = '''
     
     lfs_unmount(&lfs) => 0;
 '''
-# TODO FILES=26 found bug
-#define.SIZE = [10, 100]
-#define.FILES = [4, 10, 26] 
-define = [
-    {SIZE=10, FILES=4},
-    {SIZE=10, FILES=10},
-    #{SIZE=10, FILES=26},
-    {SIZE=100, FILES=4},
-    {SIZE=100, FILES=10},
-    #{SIZE=100, FILES=26},
-]
 
 [[case]] # interspersed remove file test
+define.SIZE = [10, 100]
+define.FILES = [4, 10, 26]
 code = '''
     const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
     lfs_format(&lfs, &cfg) => 0;
@@ -118,10 +120,9 @@ code = '''
     
     lfs_unmount(&lfs) => 0;
 '''
-define.SIZE = [10, 100]
-define.FILES = [4, 10, 26]
 
 [[case]] # remove inconveniently test
+define.SIZE = [10, 100]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -179,9 +180,20 @@ code = '''
     
     lfs_unmount(&lfs) => 0;
 '''
-define.SIZE = [10, 100]
 
 [[case]] # reentrant interspersed file test
+# TODO FILES=26 found bug
+#define.SIZE = [10, 100]
+#define.FILES = [4, 10, 26] 
+define = [
+    {SIZE=10, FILES=4},
+    {SIZE=10, FILES=10},
+    #{SIZE=10, FILES=26},
+    {SIZE=100, FILES=4},
+    #{SIZE=100, FILES=10},
+    #{SIZE=100, FILES=26},
+]
+reentrant = true
 code = '''
     lfs_file_t files[FILES];
     const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
@@ -248,15 +260,3 @@ code = '''
     
     lfs_unmount(&lfs) => 0;
 '''
-# TODO FILES=26 found bug
-#define.SIZE = [10, 100]
-#define.FILES = [4, 10, 26] 
-define = [
-    {SIZE=10, FILES=4},
-    {SIZE=10, FILES=10},
-    #{SIZE=10, FILES=26},
-    {SIZE=100, FILES=4},
-    #{SIZE=100, FILES=10},
-    #{SIZE=100, FILES=26},
-]
-reentrant = true

@@ -1,5 +1,13 @@
 
 [[case]] # simple file seek
+define = [
+    {COUNT=132, SKIP=4},
+    {COUNT=132, SKIP=128},
+    {COUNT=200, SKIP=10},
+    {COUNT=200, SKIP=100},
+    {COUNT=4,   SKIP=1},
+    {COUNT=4,   SKIP=2},
+]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -59,6 +67,8 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+[[case]] # simple file seek and write
 define = [
     {COUNT=132, SKIP=4},
     {COUNT=132, SKIP=128},
@@ -67,8 +77,6 @@ define = [
     {COUNT=4,   SKIP=1},
     {COUNT=4,   SKIP=2},
 ]
-
-[[case]] # simple file seek and write
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -120,16 +128,10 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define = [
-    {COUNT=132, SKIP=4},
-    {COUNT=132, SKIP=128},
-    {COUNT=200, SKIP=10},
-    {COUNT=200, SKIP=100},
-    {COUNT=4,   SKIP=1},
-    {COUNT=4,   SKIP=2},
-]
 
 [[case]] # boundary seek and writes
+define.COUNT = 132
+define.OFFSETS = '"{512, 1020, 513, 1021, 511, 1019, 1441}"'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -180,10 +182,16 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.COUNT = 132
-define.OFFSETS = '"{512, 1020, 513, 1021, 511, 1019, 1441}"'
 
 [[case]] # out of bounds seek
+define = [
+    {COUNT=132, SKIP=4},
+    {COUNT=132, SKIP=128},
+    {COUNT=200, SKIP=10},
+    {COUNT=200, SKIP=100},
+    {COUNT=4,   SKIP=2},
+    {COUNT=4,   SKIP=3},
+]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -229,16 +237,9 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define = [
-    {COUNT=132, SKIP=4},
-    {COUNT=132, SKIP=128},
-    {COUNT=200, SKIP=10},
-    {COUNT=200, SKIP=100},
-    {COUNT=4,   SKIP=2},
-    {COUNT=4,   SKIP=3},
-]
 
 [[case]] # inline write and seek
+define.SIZE = [2, 4, 128, 132]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -303,9 +304,11 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.SIZE = [2, 4, 128, 132]
 
 [[case]] # file seek and write with power-loss
+# must be power-of-2 for quadratic probing to be exhaustive
+define.COUNT = [4, 64, 128]
+reentrant = true
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
@@ -375,6 +378,3 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-# must be power-of-2 for quadratic probing to be exhaustive
-define.COUNT = [4, 64, 128]
-reentrant = true

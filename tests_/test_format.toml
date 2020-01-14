@@ -11,6 +11,7 @@ code = '''
 '''
 
 [[case]] # reentrant format
+reentrant = true
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
@@ -19,7 +20,6 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 '''
-reentrant = true
 
 [[case]] # invalid mount
 code = '''
@@ -29,6 +29,8 @@ code = '''
 # TODO invalid superblock? (corrupt 1, 0)
 
 [[case]] # expanding superblock
+define.BLOCK_CYCLES = [32, 33, 1]
+define.N = [10, 100, 1000]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -47,10 +49,10 @@ code = '''
     assert(strcmp(info.name, "dummy") == 0);
     lfs_unmount(&lfs) => 0;
 '''
-define.BLOCK_CYCLES = [32, 33, 1]
-define.N = [10, 100, 1000]
 
 [[case]] # expanding superblock with power cycle
+define.BLOCK_CYCLES = [32, 33, 1]
+define.N = [10, 100, 1000]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
@@ -71,10 +73,11 @@ code = '''
     assert(strcmp(info.name, "dummy") == 0);
     lfs_unmount(&lfs) => 0;
 '''
-define.BLOCK_CYCLES = [32, 33, 1]
-define.N = [10, 100, 1000]
 
 [[case]] # reentrant expanding superblock
+define.BLOCK_CYCLES = [2, 1]
+define.N = 24
+reentrant = true
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
@@ -100,6 +103,3 @@ code = '''
     assert(strcmp(info.name, "dummy") == 0);
     lfs_unmount(&lfs) => 0;
 '''
-define.BLOCK_CYCLES = [2, 1]
-define.N = 24
-reentrant = true

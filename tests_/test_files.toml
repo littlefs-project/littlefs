@@ -20,6 +20,8 @@ code = '''
 '''
 
 [[case]] # larger files
+define.SIZE = [32, 8192, 262144, 0, 7, 8193]
+define.CHUNKSIZE = [31, 16, 33, 1, 1023]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -54,10 +56,11 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.SIZE = [32, 8192, 262144, 0, 7, 8193]
-define.CHUNKSIZE = [31, 16, 33, 1, 1023]
 
 [[case]] # rewriting files
+define.SIZE1 = [32, 8192, 131072, 0, 7, 8193]
+define.SIZE2 = [32, 8192, 131072, 0, 7, 8193]
+define.CHUNKSIZE = [31, 16, 1, 1025]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -135,11 +138,11 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+[[case]] # appending files
 define.SIZE1 = [32, 8192, 131072, 0, 7, 8193]
 define.SIZE2 = [32, 8192, 131072, 0, 7, 8193]
 define.CHUNKSIZE = [31, 16, 1, 1025]
-
-[[case]] # appending files
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -212,11 +215,11 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+[[case]] # truncating files
 define.SIZE1 = [32, 8192, 131072, 0, 7, 8193]
 define.SIZE2 = [32, 8192, 131072, 0, 7, 8193]
 define.CHUNKSIZE = [31, 16, 1, 1025]
-
-[[case]] # truncating files
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -281,11 +284,11 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.SIZE1 = [32, 8192, 131072, 0, 7, 8193]
-define.SIZE2 = [32, 8192, 131072, 0, 7, 8193]
-define.CHUNKSIZE = [31, 16, 1, 1025]
 
 [[case]] # reentrant file writing
+define.SIZE = [32, 0, 7, 2049]
+define.CHUNKSIZE = [31, 16, 65]
+reentrant = true
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
@@ -329,11 +332,17 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.SIZE = [32, 0, 7, 2049]
-define.CHUNKSIZE = [31, 16, 65]
-reentrant = true
 
 [[case]] # reentrant file writing with syncs
+define = [
+    # append (O(n))
+    {MODE='LFS_O_APPEND',   SIZE=[32, 0, 7, 2049],  CHUNKSIZE=[31, 16, 65]},
+    # truncate (O(n^2))
+    {MODE='LFS_O_TRUNC',    SIZE=[32, 0, 7, 200],   CHUNKSIZE=[31, 16, 65]},
+    # rewrite (O(n^2))
+    {MODE=0,                SIZE=[32, 0, 7, 200],   CHUNKSIZE=[31, 16, 65]},
+]
+reentrant = true
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
@@ -393,17 +402,9 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define = [
-    # append (O(n))
-    {MODE='LFS_O_APPEND',   SIZE=[32, 0, 7, 2049],  CHUNKSIZE=[31, 16, 65]},
-    # truncate (O(n^2))
-    {MODE='LFS_O_TRUNC',    SIZE=[32, 0, 7, 200],   CHUNKSIZE=[31, 16, 65]},
-    # rewrite (O(n^2))
-    {MODE=0,                SIZE=[32, 0, 7, 200],   CHUNKSIZE=[31, 16, 65]},
-]
-reentrant = true
 
 [[case]] # many files
+define.N = 300
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     // create N files of 7 bytes
@@ -426,9 +427,9 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 '''
-define.N = 300
 
 [[case]] # many files with power cycle
+define.N = 300
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     // create N files of 7 bytes
@@ -453,9 +454,10 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 '''
-define.N = 300
 
 [[case]] # many files with power loss
+define.N = 300
+reentrant = true
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
@@ -482,5 +484,3 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 '''
-define.N = 300
-reentrant = true

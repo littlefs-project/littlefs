@@ -1,0 +1,56 @@
+[[case]] # orphan test
+in = "lfs.c"
+code = '''
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mkdir(&lfs, "parent") => 0;
+    lfs_mkdir(&lfs, "parent/orphan") => 0;
+    lfs_mkdir(&lfs, "parent/child") => 0;
+    lfs_remove(&lfs, "parent/orphan") => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // corrupt the child's most recent commit, this should be the update
+    // to the linked-list entry, which should orphan the orphan. Note this
+    // makes a lot of assumptions about the remove operation.
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "parent/child") => 0;
+    lfs_block_t block = dir.m.pair[0];
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_unmount(&lfs) => 0;
+    uint8_t bbuffer[LFS_BLOCK_SIZE];
+    cfg.read(&cfg, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
+    int off = LFS_BLOCK_SIZE-1;
+    while (off >= 0 && bbuffer[off] == LFS_ERASE_VALUE) {
+        off -= 1;
+    }
+    memset(&bbuffer[off-3], LFS_BLOCK_SIZE, 3);
+    cfg.erase(&cfg, block) => 0;
+    cfg.prog(&cfg, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
+    cfg.sync(&cfg) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "parent/child", &info) => 0;
+    lfs_fs_size(&lfs) => 8;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "parent/child", &info) => 0;
+    lfs_fs_size(&lfs) => 8;
+    // this mkdir should both create a dir and deorphan, so size
+    // should be unchanged
+    lfs_mkdir(&lfs, "parent/otherchild") => 0;
+    lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "parent/child", &info) => 0;
+    lfs_stat(&lfs, "parent/otherchild", &info) => 0;
+    lfs_fs_size(&lfs) => 8;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "parent/child", &info) => 0;
+    lfs_stat(&lfs, "parent/otherchild", &info) => 0;
+    lfs_fs_size(&lfs) => 8;
+    lfs_unmount(&lfs) => 0;
+'''

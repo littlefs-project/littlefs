@@ -5,18 +5,20 @@
 #
 
 # TODO
-# - nargs > 1?
+# x nargs > 1?
 # x show perm config on failure
 # x filtering
 # n show perm config on verbose?
-# - better lineno tracking for cases?
+# x better lineno tracking for cases?
 # n non-int perms?
-# - different path format?
+# x different path format?
 # - suite.prologue, suite.epilogue
-# - in
+# x in
 # x change BLOCK_CYCLES to -1 by default
 # x change persist behaviour
 # x config chaining correct
+# - why can't gdb see my defines?
+# - say no to internal?
 
 import toml
 import glob
@@ -34,17 +36,14 @@ import shlex
 TESTDIR = 'tests_'
 RULES = """
 define FLATTEN
-%$(subst /,.,$(target:.c=.tc)): $(target)
-    cat <(echo '#line 1 "$$<"') $$< > $$@
+tests_/%$(subst /,.,$(target)): $(target)
+    ./scripts/explode_asserts.py $$< -o $$@
 endef
 $(foreach target,$(SRC),$(eval $(FLATTEN)))
 
 -include tests_/*.d
 
 .SECONDARY:
-%.c: %.tc
-    ./scripts/explode_asserts.py $< -o $@
-
 %.test: override CFLAGS += -fdiagnostics-color=always
 %.test: override CFLAGS += -ggdb
 %.test: %.test.o $(foreach f,$(subst /,.,$(SRC:.c=.o)),%.$f)
@@ -56,7 +55,6 @@ GLOBALS = """
 #include "filebd/lfs_filebd.h"
 #include "rambd/lfs_rambd.h"
 #include <stdio.h>
-const char *LFS_DISK = NULL;
 """
 DEFINES = {
     "LFS_READ_SIZE": 16,
@@ -70,6 +68,8 @@ DEFINES = {
 }
 PROLOGUE = """
     // prologue
+    extern const char *LFS_DISK;
+
     __attribute__((unused)) lfs_t lfs;
     __attribute__((unused)) lfs_filebd_t filebd;
     __attribute__((unused)) lfs_rambd_t rambd;
@@ -129,28 +129,31 @@ class TestFailure(Exception):
         self.assert_ = assert_
 
 class TestCase:
-    def __init__(self, config, suite=None, caseno=None, lineno=None, **_):
+    def __init__(self, config, filter=filter,
+            suite=None, caseno=None, lineno=None, **_):
+        self.filter = filter
         self.suite = suite
         self.caseno = caseno
         self.lineno = lineno
 
         self.code = config['code']
+        self.code_lineno = config['code_lineno']
         self.defines = config.get('define', {})
         self.if_ = config.get('if', None)
-        self.leaky = config.get('leaky', False)
+        self.in_ = config.get('in', None)
 
     def __str__(self):
         if hasattr(self, 'permno'):
             if any(k not in self.case.defines for k in self.defines):
-                return '%s[%d,%d] (%s)' % (
+                return '%s#%d#%d (%s)' % (
                     self.suite.name, self.caseno, self.permno, ', '.join(
                         '%s=%s' % (k, v) for k, v in self.defines.items()
                         if k not in self.case.defines))
             else:
-                return '%s[%d,%d]' % (
+                return '%s#%d#%d' % (
                     self.suite.name, self.caseno, self.permno)
         else:
-            return '%s[%d]' % (
+            return '%s#%d' % (
                 self.suite.name, self.caseno)
 
     def permute(self, defines, permno=None, **_):
@@ -163,17 +166,10 @@ class TestCase:
 
     def build(self, f, **_):
         # prologue
-        f.write('void test_case%d(' % self.caseno)
-        first = True
-        for k, v in sorted(self.perms[0].defines.items()):
-            if k not in self.defines:
-                if not first:
-                    f.write(',')
-                else:
-                    first = False
-                f.write('\n')
-                f.write(8*' '+'__attribute__((unused)) intmax_t %s' % k)
-        f.write(') {\n')
+        f.write('void test_case%d(%s) {\n' % (self.caseno, ','.join(
+            '\n'+8*' '+'__attribute__((unused)) intmax_t %s' % k
+            for k in sorted(self.perms[0].defines)
+            if k not in self.defines)))
 
         for k, v in sorted(self.defines.items()):
             if k not in self.suite.defines:
@@ -182,7 +178,7 @@ class TestCase:
         f.write(PROLOGUE)
         f.write('\n')
         f.write(4*' '+'// test case %d\n' % self.caseno)
-        f.write(4*' '+'#line %d "%s"\n' % (self.lineno, self.suite.path))
+        f.write(4*' '+'#line %d "%s"\n' % (self.code_lineno, self.suite.path))
 
         # test case goes here
         f.write(self.code)
@@ -198,7 +194,15 @@ class TestCase:
         f.write('}\n')
 
     def shouldtest(self, **args):
-        if self.if_ is not None:
+        if (self.filter is not None and
+                len(self.filter) >= 1 and
+                self.filter[0] != self.caseno):
+            return False
+        elif (self.filter is not None and
+                len(self.filter) >= 2 and
+                self.filter[1] != self.permno):
+            return False
+        elif self.if_ is not None:
             return eval(self.if_, None, self.defines.copy())
         else:
             return True
@@ -227,7 +231,7 @@ class TestCase:
                     ncmd.extend(['-ex', 'up'])
             elif gdb == 'start':
                 ncmd.extend([
-                    '-ex', 'b %s:%d' % (self.suite.path, self.lineno),
+                    '-ex', 'b %s:%d' % (self.suite.path, self.code_lineno),
                     '-ex', 'r'])
             ncmd.extend(['--args'] + cmd)
 
@@ -309,7 +313,7 @@ class ReentrantTestCase(TestCase):
         for cycles in it.count(1):
             # exact cycle we should drop into debugger?
             if gdb and failure and failure.cycleno == cycles:
-                return super().test(exec=exec, persist=True,
+                return super().test(exec=exec, persist='noerase',
                     gdb=gdb, failure=failure, **args)
 
             # run tests, but kill the program after prog/erase has
@@ -337,11 +341,12 @@ class ReentrantTestCase(TestCase):
                     raise
 
 class TestSuite:
-    def __init__(self, path, TestCase=TestCase, **args):
+    def __init__(self, path, filter=None, TestCase=TestCase, **args):
         self.name = os.path.basename(path)
         if self.name.endswith('.toml'):
             self.name = self.name[:-len('.toml')]
         self.path = path
+        self.filter = filter
         self.TestCase = TestCase
 
         with open(path) as f:
@@ -351,9 +356,12 @@ class TestSuite:
             # find line numbers
             f.seek(0)
             linenos = []
+            code_linenos = []
             for i, line in enumerate(f):
-                if re.match(r'^\s*code\s*=\s*(\'\'\'|""")', line):
-                    linenos.append(i + 2)
+                if re.match(r'\[\[\s*case\s*\]\]', line):
+                    linenos.append(i+1)
+                if re.match(r'code\s*=\s*(\'\'\'|""")', line):
+                    code_linenos.append(i+2)
 
         # grab global config
         self.defines = config.get('define', {})
@@ -361,12 +369,15 @@ class TestSuite:
         # create initial test cases
         self.cases = []
         for i, (case, lineno) in enumerate(zip(config['case'], linenos)):
+            # code lineno?
+            if 'code' in case:
+                case['code_lineno'] = code_linenos.pop(0)
             # give our case's config a copy of our "global" config
             for k, v in config.items():
                 if k not in case:
                     case[k] = v
             # initialize test case
-            self.cases.append(self.TestCase(case,
+            self.cases.append(self.TestCase(case, filter=filter,
                 suite=self, caseno=i, lineno=lineno, **args))
 
     def __str__(self):
@@ -438,40 +449,52 @@ class TestSuite:
         return self.perms
 
     def build(self, **args):
-        # build test.c
-        f = io.StringIO()
-        f.write(GLOBALS)
+        # build test files
+        tf = open(self.path + '.test.c.t', 'w')
+        tf.write(GLOBALS)
+        tfs = {None: tf}
 
         for case in self.cases:
-            f.write('\n')
-            case.build(f, **args)
+            if case.in_ not in tfs:
+                tfs[case.in_] = open(self.path+'.'+
+                    case.in_.replace('/', '.')+'.t', 'w')
+                tfs[case.in_].write('#line 1 "%s"\n' % case.in_)
+                with open(case.in_) as f:
+                    for line in f:
+                        tfs[case.in_].write(line)
+                tfs[case.in_].write('\n')
+                tfs[case.in_].write(GLOBALS)
 
-        f.write('\n')
-        f.write('int main(int argc, char **argv) {\n')
-        f.write(4*' '+'int case_ = (argc >= 2) ? atoi(argv[1]) : 0;\n')
-        f.write(4*' '+'int perm = (argc >= 3) ? atoi(argv[2]) : 0;\n')
-        f.write(4*' '+'LFS_DISK = (argc >= 4) ? argv[3] : NULL;\n')
+            tfs[case.in_].write('\n')
+            case.build(tfs[case.in_], **args)
+
+        tf.write('\n')
+        tf.write('const char *LFS_DISK = NULL;\n')
+        tf.write('int main(int argc, char **argv) {\n')
+        tf.write(4*' '+'int case_ = (argc >= 2) ? atoi(argv[1]) : 0;\n')
+        tf.write(4*' '+'int perm = (argc >= 3) ? atoi(argv[2]) : 0;\n')
+        tf.write(4*' '+'LFS_DISK = (argc >= 4) ? argv[3] : NULL;\n')
         for perm in self.perms:
-            f.write(4*' '+'if (argc < 3 || '
-                '(case_ == %d && perm == %d)) { ' % (
-                    perm.caseno, perm.permno))
-            f.write('test_case%d(' % perm.caseno)
-            first = True
-            for k, v in sorted(perm.defines.items()):
-                if k not in perm.case.defines:
-                    if not first:
-                        f.write(', ')
-                    else:
-                        first = False
-                    f.write(str(v))
-            f.write('); }\n')
-        f.write('}\n')
+            # test declaration
+            tf.write(4*' '+'extern void test_case%d(%s);\n' % (
+                perm.caseno, ', '.join(
+                    'intmax_t %s' % k for k in sorted(perm.defines)
+                    if k not in perm.case.defines)))
+            # test call
+            tf.write(4*' '+
+                'if (argc < 3 || (case_ == %d && perm == %d)) {'
+                ' test_case%d(%s); '
+                '}\n' % (perm.caseno, perm.permno, perm.caseno, ', '.join(
+                    str(v) for k, v in sorted(perm.defines.items())
+                    if k not in perm.case.defines)))
+        tf.write('}\n')
 
-        # add test-related rules
-        rules = RULES.replace(4*' ', '\t')
+        for tf in tfs.values():
+            tf.close()
 
+        # write makefiles
         with open(self.path + '.mk', 'w') as mk:
-            mk.write(rules)
+            mk.write(RULES.replace(4*' ', '\t'))
             mk.write('\n')
 
             # add truely global defines globally
@@ -479,12 +502,18 @@ class TestSuite:
                 mk.write('%s: override CFLAGS += -D%s=%r\n' % (
                     self.path+'.test', k, v))
 
-            # write test.c in base64 so make can decide when to rebuild
-            mk.write('%s: %s\n' % (self.path+'.test.tc', self.path))
-            mk.write('\t@base64 -d <<< ')
-            mk.write(base64.b64encode(
-                f.getvalue().encode('utf8')).decode('utf8'))
-            mk.write(' > $@\n')
+            for path in tfs:
+                if path is None:
+                    mk.write('%s: %s | %s\n' % (
+                        self.path+'.test.c',
+                        self.path,
+                        self.path+'.test.c.t'))
+                else:
+                    mk.write('%s: %s %s | %s\n' % (
+                        self.path+'.'+path.replace('/', '.'),
+                        self.path, path,
+                        self.path+'.'+path.replace('/', '.')+'.t'))
+                mk.write('\t./scripts/explode_asserts.py $| -o $@\n')
 
         self.makefile = self.path + '.mk'
         self.target = self.path + '.test'
@@ -524,37 +553,33 @@ class TestSuite:
             sys.stdout.write('\n')
 
 def main(**args):
-    testpath = args['testpath']
-
-    # optional brackets for specific test
-    m = re.search(r'\[(\d+)(?:,(\d+))?\]$', testpath)
-    if m:
-        caseno = int(m.group(1))
-        permno = int(m.group(2)) if m.group(2) is not None else None
-        testpath = testpath[:m.start()]
-    else:
-        caseno = None
-        permno = None
-
-    # figure out the suite's toml file
-    if os.path.isdir(testpath):
-        testpath = testpath + '/test_*.toml'
-    elif os.path.isfile(testpath):
-        testpath = testpath
-    elif testpath.endswith('.toml'):
-        testpath = TESTDIR + '/' + testpath
-    else:
-        testpath = TESTDIR + '/' + testpath + '.toml'
-
-    # find tests
     suites = []
-    for path in glob.glob(testpath):
-        if args.get('valgrind', False):
-            suites.append(TestSuite(path, TestCase=ValgrindTestCase, **args))
-        elif args.get('reentrant', False):
-            suites.append(TestSuite(path, TestCase=ReentrantTestCase, **args))
+    for testpath in args['testpaths']:
+        # optionally specified test case/perm
+        testpath, *filter = testpath.split('#')
+        filter = [int(f) for f in filter]
+
+        # figure out the suite's toml file
+        if os.path.isdir(testpath):
+            testpath = testpath + '/test_*.toml'
+        elif os.path.isfile(testpath):
+            testpath = testpath
+        elif testpath.endswith('.toml'):
+            testpath = TESTDIR + '/' + testpath
         else:
-            suites.append(TestSuite(path, **args))
+            testpath = TESTDIR + '/' + testpath + '.toml'
+
+        # find tests
+        for path in glob.glob(testpath):
+            if args.get('valgrind', False):
+                TestCase_ = ValgrindTestCase
+            elif args.get('reentrant', False):
+                TestCase_ = ReentrantTestCase
+            else:
+                TestCase_ = TestCase
+
+            suites.append(TestSuite(path,
+                filter=filter, TestCase=TestCase_, **args))
 
     # sort for reproducability
     suites = sorted(suites)
@@ -632,7 +657,7 @@ def main(**args):
     print('====== testing ======')
     try:
         for suite in suites:
-            suite.test(caseno, permno, **args)
+            suite.test(**args)
     except TestFailure:
         pass
 
@@ -647,11 +672,10 @@ def main(**args):
             if perm.result == PASS:
                 passed += 1
             else:
-                #sys.stdout.write("--- %s ---\n" % perm)
                 sys.stdout.write(
                     "\033[01m{path}:{lineno}:\033[01;31mfailure:\033[m "
                     "{perm} failed with {returncode}\n".format(
-                        perm=perm, path=perm.suite.path, lineno=perm.lineno-2,
+                        perm=perm, path=perm.suite.path, lineno=perm.lineno,
                         returncode=perm.result.returncode or 0))
                 if perm.result.stdout:
                     for line in (perm.result.stdout
@@ -681,15 +705,15 @@ def main(**args):
             failure.case.test(failure=failure, **args)
             sys.exit(0)
 
-
     print('tests passed: %d' % passed)
     print('tests failed: %d' % failed)
+    return 1 if failed > 0 else 0
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(
         description="Run parameterized tests in various configurations.")
-    parser.add_argument('testpath', nargs='?', default=TESTDIR,
+    parser.add_argument('testpaths', nargs='*', default=[TESTDIR],
         help="Description of test(s) to run. By default, this is all tests \
             found in the \"{0}\" directory. Here, you can specify a different \
             directory of tests, a specific file, a suite by name, and even a \
@@ -713,4 +737,4 @@ if __name__ == "__main__":
         help="Run reentrant tests with simulated power-loss.")
     parser.add_argument('-e', '--exec', default=[], type=lambda e: e.split(' '),
         help="Run tests with another executable prefixed on the command line.")
-    main(**vars(parser.parse_args()))
+    sys.exit(main(**vars(parser.parse_args())))

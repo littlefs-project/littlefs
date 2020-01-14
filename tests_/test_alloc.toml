@@ -2,6 +2,8 @@
 # note for these to work there are many constraints on the device geometry
 
 [[case]] # parallel allocation test
+define.FILES = 3
+define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
 code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
     lfs_file_t files[FILES];
@@ -41,10 +43,10 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 '''
-define.FILES = 3
-define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
 
 [[case]] # serial allocation test
+define.FILES = 3
+define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
 code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
 
@@ -80,10 +82,11 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 '''
-define.FILES = 3
-define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
 
 [[case]] # parallel allocation reuse test
+define.FILES = 3
+define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
+define.CYCLES = [1, 10]
 code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
     lfs_file_t files[FILES];
@@ -134,11 +137,11 @@ code = '''
         lfs_unmount(&lfs) => 0;
     }
 '''
+
+[[case]] # serial allocation reuse test
 define.FILES = 3
 define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
 define.CYCLES = [1, 10]
-
-[[case]] # serial allocation reuse test
 code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
 
@@ -185,9 +188,6 @@ code = '''
         lfs_unmount(&lfs) => 0;
     }
 '''
-define.FILES = 3
-define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
-define.CYCLES = [1, 10]
 
 [[case]] # exhaustion test
 code = '''
@@ -226,6 +226,7 @@ code = '''
 '''
 
 [[case]] # exhaustion wraparound test
+define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / 3)'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -271,7 +272,6 @@ code = '''
     lfs_remove(&lfs, "exhaustion") => 0;
     lfs_unmount(&lfs) => 0;
 '''
-define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / 3)'
 
 [[case]] # dir exhaustion test
 code = '''
@@ -327,6 +327,9 @@ code = '''
 # should be removed and replaced with generalized tests.
 
 [[case]] # chained dir exhaustion test
+define.LFS_BLOCK_SIZE = 512
+define.LFS_BLOCK_COUNT = 1024
+if = 'LFS_BLOCK_SIZE == 512 and LFS_BLOCK_COUNT == 1024'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -393,11 +396,11 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+[[case]] # split dir test
 define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
 if = 'LFS_BLOCK_SIZE == 512 and LFS_BLOCK_COUNT == 1024'
-
-[[case]] # split dir test
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -438,11 +441,11 @@ code = '''
 
     lfs_unmount(&lfs) => 0;
 '''
+
+[[case]] # outdated lookahead test
 define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
 if = 'LFS_BLOCK_SIZE == 512 and LFS_BLOCK_COUNT == 1024'
-
-[[case]] # outdated lookahead test
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -501,11 +504,11 @@ code = '''
     }
     lfs_file_close(&lfs, &file) => 0;
 '''
+
+[[case]] # outdated lookahead and split dir test
 define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
 if = 'LFS_BLOCK_SIZE == 512 and LFS_BLOCK_COUNT == 1024'
-
-[[case]] # outdated lookahead and split dir test
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -561,6 +564,3 @@ code = '''
 
     lfs_unmount(&lfs) => 0;
 '''
-define.LFS_BLOCK_SIZE = 512
-define.LFS_BLOCK_COUNT = 1024
-if = 'LFS_BLOCK_SIZE == 512 and LFS_BLOCK_COUNT == 1024'
