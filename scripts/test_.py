@@ -19,6 +19,7 @@
 # x config chaining correct
 # - why can't gdb see my defines?
 # - say no to internal?
+# - buffering stdout issues?
 
 import toml
 import glob
@@ -55,8 +56,79 @@ GLOBALS = """
 #include "filebd/lfs_filebd.h"
 #include "rambd/lfs_rambd.h"
 #include <stdio.h>
+
+extern const char *lfs_testbd_disk;
+typedef union {
+    lfs_filebd_t filebd;
+    lfs_rambd_t rambd;
+} lfs_testbd_t; 
+struct lfs_testbd_config {
+    struct lfs_filebd_config filecfg;
+    struct lfs_rambd_config ramcfg;
+};
+
+__attribute__((unused))
+static int lfs_testbd_createcfg(const struct lfs_config *cfg,
+        const struct lfs_testbd_config *bdcfg) {
+    if (lfs_testbd_disk) {
+        return lfs_filebd_createcfg(cfg, lfs_testbd_disk, &bdcfg->filecfg);
+    } else {
+        return lfs_rambd_createcfg(cfg, &bdcfg->ramcfg);
+    }
+}
+
+__attribute__((unused))
+static void lfs_testbd_destroy(const struct lfs_config *cfg) {
+    if (lfs_testbd_disk) {
+        lfs_filebd_destroy(cfg);
+    } else {
+        lfs_rambd_destroy(cfg);
+    }
+}
+
+__attribute__((unused))
+static int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
+        lfs_off_t off, void *buffer, lfs_size_t size) {
+    if (lfs_testbd_disk) {
+        return lfs_filebd_read(cfg, block, off, buffer, size);
+    } else {
+        return lfs_rambd_read(cfg, block, off, buffer, size);
+    }
+}
+
+__attribute__((unused))
+static int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
+        lfs_off_t off, const void *buffer, lfs_size_t size) {
+    if (lfs_testbd_disk) {
+        return lfs_filebd_prog(cfg, block, off, buffer, size);
+    } else {
+        return lfs_rambd_prog(cfg, block, off, buffer, size);
+    }
+}
+
+__attribute__((unused))
+static int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
+    if (lfs_testbd_disk) {
+        return lfs_filebd_erase(cfg, block);
+    } else {
+        return lfs_rambd_erase(cfg, block);
+    }
+}
+
+__attribute__((unused))
+static int lfs_testbd_sync(const struct lfs_config *cfg) {
+    if (lfs_testbd_disk) {
+        return lfs_filebd_sync(cfg);
+    } else {
+        return lfs_rambd_sync(cfg);
+    }
+}
 """
 DEFINES = {
+    "LFS_BD_READ": "lfs_testbd_read",
+    "LFS_BD_PROG": "lfs_testbd_prog",
+    "LFS_BD_ERASE": "lfs_testbd_erase",
+    "LFS_BD_SYNC": "lfs_testbd_sync",
     "LFS_READ_SIZE": 16,
     "LFS_PROG_SIZE": "LFS_READ_SIZE",
     "LFS_BLOCK_SIZE": 512,
@@ -68,11 +140,8 @@ DEFINES = {
 }
 PROLOGUE = """
     // prologue
-    extern const char *LFS_DISK;
-
     __attribute__((unused)) lfs_t lfs;
-    __attribute__((unused)) lfs_filebd_t filebd;
-    __attribute__((unused)) lfs_rambd_t rambd;
+    __attribute__((unused)) lfs_testbd_t bd;
     __attribute__((unused)) lfs_file_t file;
     __attribute__((unused)) lfs_dir_t dir;
     __attribute__((unused)) struct lfs_info info;
@@ -82,12 +151,11 @@ PROLOGUE = """
     __attribute__((unused)) int err;
     
     __attribute__((unused)) const struct lfs_config cfg = {
-        .context = LFS_DISK ? (void*)&filebd : (void*)&rambd,
-        .read  = LFS_DISK ? &lfs_filebd_read  : &lfs_rambd_read,
-        .prog  = LFS_DISK ? &lfs_filebd_prog  : &lfs_rambd_prog,
-        .erase = LFS_DISK ? &lfs_filebd_erase : &lfs_rambd_erase,
-        .sync  = LFS_DISK ? &lfs_filebd_sync  : &lfs_rambd_sync,
-
+        .context        = &bd,
+        .read           = LFS_BD_READ,
+        .prog           = LFS_BD_PROG,
+        .erase          = LFS_BD_ERASE,
+        .sync           = LFS_BD_SYNC,
         .read_size      = LFS_READ_SIZE,
         .prog_size      = LFS_PROG_SIZE,
         .block_size     = LFS_BLOCK_SIZE,
@@ -97,26 +165,16 @@ PROLOGUE = """
         .lookahead_size = LFS_LOOKAHEAD_SIZE,
     };
 
-    __attribute__((unused)) const struct lfs_filebd_config filecfg = {
-        .erase_value = LFS_ERASE_VALUE,
-    };
-    __attribute__((unused)) const struct lfs_rambd_config ramcfg = {
-        .erase_value = LFS_ERASE_VALUE,
+    __attribute__((unused)) const struct lfs_testbd_config bdcfg = {
+        .filecfg.erase_value = LFS_ERASE_VALUE,
+        .ramcfg.erase_value = LFS_ERASE_VALUE,
     };
 
-    if (LFS_DISK) {
-        lfs_filebd_createcfg(&cfg, LFS_DISK, &filecfg);
-    } else {
-        lfs_rambd_createcfg(&cfg, &ramcfg);
-    }
+    lfs_testbd_createcfg(&cfg, &bdcfg) => 0;
 """
 EPILOGUE = """
     // epilogue
-    if (LFS_DISK) {
-        lfs_filebd_destroy(&cfg);
-    } else {
-        lfs_rambd_destroy(&cfg);
-    }
+    lfs_testbd_destroy(&cfg);
 """
 PASS = '\033[32m✓\033[0m'
 FAIL = '\033[31m✗\033[0m'
@@ -363,15 +421,20 @@ class TestSuite:
                 if re.match(r'code\s*=\s*(\'\'\'|""")', line):
                     code_linenos.append(i+2)
 
+            code_linenos.reverse()
+
         # grab global config
         self.defines = config.get('define', {})
+        self.code = config.get('code', None)
+        if self.code is not None:
+            self.code_lineno = code_linenos.pop()
 
         # create initial test cases
         self.cases = []
         for i, (case, lineno) in enumerate(zip(config['case'], linenos)):
             # code lineno?
             if 'code' in case:
-                case['code_lineno'] = code_linenos.pop(0)
+                case['code_lineno'] = code_linenos.pop()
             # give our case's config a copy of our "global" config
             for k, v in config.items():
                 if k not in case:
@@ -452,8 +515,11 @@ class TestSuite:
         # build test files
         tf = open(self.path + '.test.c.t', 'w')
         tf.write(GLOBALS)
-        tfs = {None: tf}
+        if self.code is not None:
+            tf.write('#line %d "%s"\n' % (self.code_lineno, self.path))
+            tf.write(self.code)
 
+        tfs = {None: tf}
         for case in self.cases:
             if case.in_ not in tfs:
                 tfs[case.in_] = open(self.path+'.'+
@@ -469,11 +535,11 @@ class TestSuite:
             case.build(tfs[case.in_], **args)
 
         tf.write('\n')
-        tf.write('const char *LFS_DISK = NULL;\n')
+        tf.write('const char *lfs_testbd_disk;\n')
         tf.write('int main(int argc, char **argv) {\n')
         tf.write(4*' '+'int case_ = (argc >= 2) ? atoi(argv[1]) : 0;\n')
         tf.write(4*' '+'int perm = (argc >= 3) ? atoi(argv[2]) : 0;\n')
-        tf.write(4*' '+'LFS_DISK = (argc >= 4) ? argv[3] : NULL;\n')
+        tf.write(4*' '+'lfs_testbd_disk = (argc >= 4) ? argv[3] : NULL;\n')
         for perm in self.perms:
             # test declaration
             tf.write(4*' '+'extern void test_case%d(%s);\n' % (

@@ -1,0 +1,375 @@
+# special bad-block block device hook for simulating blocks
+# that are no longer writable
+code = '''
+lfs_block_t *bbbd_badblocks;
+size_t bbbd_badblocks_count;
+
+int bbbd_read(const struct lfs_config *c, lfs_block_t block,
+        lfs_off_t off, void *buffer, lfs_size_t size) {
+    for (size_t i = 0; i < bbbd_badblocks_count; i++) {
+        if (bbbd_badblocks[i] == block) {
+            return LFS_ERR_CORRUPT;
+        }
+    }
+
+    return lfs_testbd_read(c, block, off, buffer, size);
+}
+
+int bbbd_prog(const struct lfs_config *c, lfs_block_t block,
+        lfs_off_t off, const void *buffer, lfs_size_t size) {
+    for (size_t i = 0; i < bbbd_badblocks_count; i++) {
+        if (bbbd_badblocks[i] == block) {
+            return LFS_ERR_CORRUPT;
+        }
+    }
+
+    return lfs_testbd_prog(c, block, off, buffer, size);
+}
+
+int bbbd_erase(const struct lfs_config *c, lfs_block_t block) {
+    for (size_t i = 0; i < bbbd_badblocks_count; i++) {
+        if (bbbd_badblocks[i] == block) {
+            return LFS_ERR_CORRUPT;
+        }
+    }
+
+    return lfs_testbd_erase(c, block);
+}
+'''
+
+[[case]] # single bad blocks
+define.LFS_BD_PROG = 'bbbd_prog'
+define.NAMEMULT = 64
+define.FILEMULT = 1
+code = '''
+    for (lfs_block_t badblock = 2; badblock < LFS_BLOCK_COUNT; badblock++) {
+        bbbd_badblocks = &(lfs_block_t){badblock};
+        bbbd_badblocks_count = 1;
+        
+        lfs_format(&lfs, &cfg) => 0;
+
+        lfs_mount(&lfs, &cfg) => 0;
+        for (int i = 1; i < 10; i++) {
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j] = '0'+i;
+            }
+            buffer[NAMEMULT] = '\0';
+            lfs_mkdir(&lfs, (char*)buffer) => 0;
+
+            buffer[NAMEMULT] = '/';
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j+NAMEMULT+1] = '0'+i;
+            }
+            buffer[2*NAMEMULT+1] = '\0';
+            lfs_file_open(&lfs, &file, (char*)buffer,
+                    LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            
+            size = NAMEMULT;
+            for (int j = 0; j < i*FILEMULT; j++) {
+                lfs_file_write(&lfs, &file, buffer, size) => size;
+            }
+
+            lfs_file_close(&lfs, &file) => 0;
+        }
+        lfs_unmount(&lfs) => 0;
+
+        lfs_mount(&lfs, &cfg) => 0;
+        for (int i = 1; i < 10; i++) {
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j] = '0'+i;
+            }
+            buffer[NAMEMULT] = '\0';
+            lfs_stat(&lfs, (char*)buffer, &info) => 0;
+            info.type => LFS_TYPE_DIR;
+
+            buffer[NAMEMULT] = '/';
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j+NAMEMULT+1] = '0'+i;
+            }
+            buffer[2*NAMEMULT+1] = '\0';
+            lfs_file_open(&lfs, &file, (char*)buffer, LFS_O_RDONLY) => 0;
+            
+            size = NAMEMULT;
+            for (int j = 0; j < i*FILEMULT; j++) {
+                uint8_t rbuffer[1024];
+                lfs_file_read(&lfs, &file, rbuffer, size) => size;
+                memcmp(buffer, rbuffer, size) => 0;
+            }
+
+            lfs_file_close(&lfs, &file) => 0;
+        }
+        lfs_unmount(&lfs) => 0;
+    }
+'''
+
+[[case]] # single persistent blocks (can't erase)
+define.LFS_BD_ERASE = 'bbbd_erase'
+define.NAMEMULT = 64
+define.FILEMULT = 1
+code = '''
+    for (lfs_block_t badblock = 2; badblock < LFS_BLOCK_COUNT; badblock++) {
+        bbbd_badblocks = &(lfs_block_t){badblock};
+        bbbd_badblocks_count = 1;
+        
+        lfs_format(&lfs, &cfg) => 0;
+
+        lfs_mount(&lfs, &cfg) => 0;
+        for (int i = 1; i < 10; i++) {
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j] = '0'+i;
+            }
+            buffer[NAMEMULT] = '\0';
+            lfs_mkdir(&lfs, (char*)buffer) => 0;
+
+            buffer[NAMEMULT] = '/';
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j+NAMEMULT+1] = '0'+i;
+            }
+            buffer[2*NAMEMULT+1] = '\0';
+            lfs_file_open(&lfs, &file, (char*)buffer,
+                    LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            
+            size = NAMEMULT;
+            for (int j = 0; j < i*FILEMULT; j++) {
+                lfs_file_write(&lfs, &file, buffer, size) => size;
+            }
+
+            lfs_file_close(&lfs, &file) => 0;
+        }
+        lfs_unmount(&lfs) => 0;
+
+        lfs_mount(&lfs, &cfg) => 0;
+        for (int i = 1; i < 10; i++) {
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j] = '0'+i;
+            }
+            buffer[NAMEMULT] = '\0';
+            lfs_stat(&lfs, (char*)buffer, &info) => 0;
+            info.type => LFS_TYPE_DIR;
+
+            buffer[NAMEMULT] = '/';
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j+NAMEMULT+1] = '0'+i;
+            }
+            buffer[2*NAMEMULT+1] = '\0';
+            lfs_file_open(&lfs, &file, (char*)buffer, LFS_O_RDONLY) => 0;
+            
+            size = NAMEMULT;
+            for (int j = 0; j < i*FILEMULT; j++) {
+                uint8_t rbuffer[1024];
+                lfs_file_read(&lfs, &file, rbuffer, size) => size;
+                memcmp(buffer, rbuffer, size) => 0;
+            }
+
+            lfs_file_close(&lfs, &file) => 0;
+        }
+        lfs_unmount(&lfs) => 0;
+    }
+'''
+
+[[case]] # single unreadable blocks (can't read)
+define.LFS_BD_READ = 'bbbd_read'
+define.NAMEMULT = 64
+define.FILEMULT = 1
+code = '''
+    for (lfs_block_t badblock = 2; badblock < LFS_BLOCK_COUNT; badblock++) {
+        bbbd_badblocks = &(lfs_block_t){badblock};
+        bbbd_badblocks_count = 1;
+        
+        lfs_format(&lfs, &cfg) => 0;
+
+        lfs_mount(&lfs, &cfg) => 0;
+        for (int i = 1; i < 10; i++) {
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j] = '0'+i;
+            }
+            buffer[NAMEMULT] = '\0';
+            lfs_mkdir(&lfs, (char*)buffer) => 0;
+
+            buffer[NAMEMULT] = '/';
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j+NAMEMULT+1] = '0'+i;
+            }
+            buffer[2*NAMEMULT+1] = '\0';
+            lfs_file_open(&lfs, &file, (char*)buffer,
+                    LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            
+            size = NAMEMULT;
+            for (int j = 0; j < i*FILEMULT; j++) {
+                lfs_file_write(&lfs, &file, buffer, size) => size;
+            }
+
+            lfs_file_close(&lfs, &file) => 0;
+        }
+        lfs_unmount(&lfs) => 0;
+
+        lfs_mount(&lfs, &cfg) => 0;
+        for (int i = 1; i < 10; i++) {
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j] = '0'+i;
+            }
+            buffer[NAMEMULT] = '\0';
+            lfs_stat(&lfs, (char*)buffer, &info) => 0;
+            info.type => LFS_TYPE_DIR;
+
+            buffer[NAMEMULT] = '/';
+            for (int j = 0; j < NAMEMULT; j++) {
+                buffer[j+NAMEMULT+1] = '0'+i;
+            }
+            buffer[2*NAMEMULT+1] = '\0';
+            lfs_file_open(&lfs, &file, (char*)buffer, LFS_O_RDONLY) => 0;
+            
+            size = NAMEMULT;
+            for (int j = 0; j < i*FILEMULT; j++) {
+                uint8_t rbuffer[1024];
+                lfs_file_read(&lfs, &file, rbuffer, size) => size;
+                memcmp(buffer, rbuffer, size) => 0;
+            }
+
+            lfs_file_close(&lfs, &file) => 0;
+        }
+        lfs_unmount(&lfs) => 0;
+    }
+'''
+
+[[case]] # region corruption (causes cascading failures)
+define.LFS_BD_PROG  = '"BADTYPE == 0 ? bbbd_prog  : lfs_testbd_prog "'
+define.LFS_BD_ERASE = '"BADTYPE == 1 ? bbbd_erase : lfs_testbd_erase"'
+define.LFS_BD_READ  = '"BADTYPE == 2 ? bbbd_read  : lfs_testbd_read "'
+define.BADTYPE = 'range(3)'
+define.NAMEMULT = 64
+define.FILEMULT = 1
+code = '''
+    bbbd_badblocks_count = LFS_BLOCK_COUNT/2;
+    bbbd_badblocks = malloc(bbbd_badblocks_count*sizeof(lfs_block_t));
+    for (size_t i = 0; i < bbbd_badblocks_count; i++) {
+        bbbd_badblocks[i] = i+2;
+    }
+    
+    lfs_format(&lfs, &cfg) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 1; i < 10; i++) {
+        for (int j = 0; j < NAMEMULT; j++) {
+            buffer[j] = '0'+i;
+        }
+        buffer[NAMEMULT] = '\0';
+        lfs_mkdir(&lfs, (char*)buffer) => 0;
+
+        buffer[NAMEMULT] = '/';
+        for (int j = 0; j < NAMEMULT; j++) {
+            buffer[j+NAMEMULT+1] = '0'+i;
+        }
+        buffer[2*NAMEMULT+1] = '\0';
+        lfs_file_open(&lfs, &file, (char*)buffer,
+                LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        
+        size = NAMEMULT;
+        for (int j = 0; j < i*FILEMULT; j++) {
+            lfs_file_write(&lfs, &file, buffer, size) => size;
+        }
+
+        lfs_file_close(&lfs, &file) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 1; i < 10; i++) {
+        for (int j = 0; j < NAMEMULT; j++) {
+            buffer[j] = '0'+i;
+        }
+        buffer[NAMEMULT] = '\0';
+        lfs_stat(&lfs, (char*)buffer, &info) => 0;
+        info.type => LFS_TYPE_DIR;
+
+        buffer[NAMEMULT] = '/';
+        for (int j = 0; j < NAMEMULT; j++) {
+            buffer[j+NAMEMULT+1] = '0'+i;
+        }
+        buffer[2*NAMEMULT+1] = '\0';
+        lfs_file_open(&lfs, &file, (char*)buffer, LFS_O_RDONLY) => 0;
+        
+        size = NAMEMULT;
+        for (int j = 0; j < i*FILEMULT; j++) {
+            uint8_t rbuffer[1024];
+            lfs_file_read(&lfs, &file, rbuffer, size) => size;
+            memcmp(buffer, rbuffer, size) => 0;
+        }
+
+        lfs_file_close(&lfs, &file) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    free(bbbd_badblocks);
+'''
+
+[[case]] # alternating corruption (causes cascading failures)
+define.LFS_BD_PROG  = '"BADTYPE == 0 ? bbbd_prog  : lfs_testbd_prog "'
+define.LFS_BD_ERASE = '"BADTYPE == 1 ? bbbd_erase : lfs_testbd_erase"'
+define.LFS_BD_READ  = '"BADTYPE == 2 ? bbbd_read  : lfs_testbd_read "'
+define.BADTYPE = 'range(3)'
+define.NAMEMULT = 64
+define.FILEMULT = 1
+code = '''
+    bbbd_badblocks_count = LFS_BLOCK_COUNT/2;
+    bbbd_badblocks = malloc(bbbd_badblocks_count*sizeof(lfs_block_t));
+    for (size_t i = 0; i < bbbd_badblocks_count; i++) {
+        bbbd_badblocks[i] = (2*i) + 2;
+    }
+    
+    lfs_format(&lfs, &cfg) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 1; i < 10; i++) {
+        for (int j = 0; j < NAMEMULT; j++) {
+            buffer[j] = '0'+i;
+        }
+        buffer[NAMEMULT] = '\0';
+        lfs_mkdir(&lfs, (char*)buffer) => 0;
+
+        buffer[NAMEMULT] = '/';
+        for (int j = 0; j < NAMEMULT; j++) {
+            buffer[j+NAMEMULT+1] = '0'+i;
+        }
+        buffer[2*NAMEMULT+1] = '\0';
+        lfs_file_open(&lfs, &file, (char*)buffer,
+                LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        
+        size = NAMEMULT;
+        for (int j = 0; j < i*FILEMULT; j++) {
+            lfs_file_write(&lfs, &file, buffer, size) => size;
+        }
+
+        lfs_file_close(&lfs, &file) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    for (int i = 1; i < 10; i++) {
+        for (int j = 0; j < NAMEMULT; j++) {
+            buffer[j] = '0'+i;
+        }
+        buffer[NAMEMULT] = '\0';
+        lfs_stat(&lfs, (char*)buffer, &info) => 0;
+        info.type => LFS_TYPE_DIR;
+
+        buffer[NAMEMULT] = '/';
+        for (int j = 0; j < NAMEMULT; j++) {
+            buffer[j+NAMEMULT+1] = '0'+i;
+        }
+        buffer[2*NAMEMULT+1] = '\0';
+        lfs_file_open(&lfs, &file, (char*)buffer, LFS_O_RDONLY) => 0;
+        
+        size = NAMEMULT;
+        for (int j = 0; j < i*FILEMULT; j++) {
+            uint8_t rbuffer[1024];
+            lfs_file_read(&lfs, &file, rbuffer, size) => size;
+            memcmp(buffer, rbuffer, size) => 0;
+        }
+
+        lfs_file_close(&lfs, &file) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    free(bbbd_badblocks);
+'''
