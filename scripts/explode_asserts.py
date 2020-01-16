@@ -146,7 +146,7 @@ def pnested():
 
 pexpr = (
     # shortcut for a bit better performance
-    p.regex('[^%s/#\'"();{}=><,&|-]+' % ASSERT_CHARS) |
+    p.regex('[^%s/#\'"():;{}=><,&|-]+' % ASSERT_CHARS) |
     pws |
     passert |
     pstring |
@@ -157,7 +157,7 @@ pexpr = (
 @p.generate
 def pstmt():
     ws = yield pws.many()
-    lh = yield pexpr.until(p.string('=>') | p.regex('[;{}]'))
+    lh = yield pexpr.until(p.string('=>') | p.regex('[:;{}]'))
     op = yield p.string('=>').optional()
     if op == '=>':
         rh = yield pstmt
@@ -168,7 +168,7 @@ def pstmt():
 @p.generate
 def pstmts():
     a = yield pstmt
-    b = yield (p.regex('[;{}]') + pstmt).many()
+    b = yield (p.regex('[:;{}]') + pstmt).many()
     return [a] + b
 
 def main(args):

@@ -503,6 +503,8 @@ code = '''
         lfs_file_write(&lfs, &file, buffer, size) => size;
     }
     lfs_file_close(&lfs, &file) => 0;
+
+    lfs_unmount(&lfs) => 0;
 '''
 
 [[case]] # outdated lookahead and split dir test

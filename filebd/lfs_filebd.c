@@ -11,7 +11,7 @@
 #include <errno.h>
 
 int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
-        const struct lfs_filebd_config *filecfg) {
+        const struct lfs_filebd_config *bdcfg) {
     LFS_TRACE("lfs_filebd_createcfg(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -22,9 +22,9 @@ int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
-            path, (void*)filecfg, filecfg->erase_value);
+            path, (void*)bdcfg, bdcfg->erase_value);
     lfs_filebd_t *bd = cfg->context;
-    bd->cfg = filecfg;
+    bd->cfg = bdcfg;
 
     // open file
     bd->fd = open(path, O_RDWR | O_CREAT, 0666);
@@ -55,11 +55,17 @@ int lfs_filebd_create(const struct lfs_config *cfg, const char *path) {
     return err;
 }
 
-void lfs_filebd_destroy(const struct lfs_config *cfg) {
+int lfs_filebd_destroy(const struct lfs_config *cfg) {
     LFS_TRACE("lfs_filebd_destroy(%p)", (void*)cfg);
     lfs_filebd_t *bd = cfg->context;
-    close(bd->fd);
-    LFS_TRACE("lfs_filebd_destroy -> %s", "void");
+    int err = close(bd->fd);
+    if (err < 0) {
+        err = -errno;
+        LFS_TRACE("lfs_filebd_destroy -> %d", err);
+        return err;
+    }
+    LFS_TRACE("lfs_filebd_destroy -> %d", 0);
+    return 0;
 }
 
 int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,

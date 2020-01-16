@@ -1651,9 +1651,11 @@ relocate:
 
         // relocate half of pair
         int err = lfs_alloc(lfs, &dir->pair[1]);
-        if (err && (err != LFS_ERR_NOSPC && !exhausted)) {
+        if (err && (err != LFS_ERR_NOSPC || !exhausted)) {
             return err;
         }
+
+        exhausted = false;
         continue;
     }
 

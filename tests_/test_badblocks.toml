@@ -1,50 +1,12 @@
-# special bad-block block device hook for simulating blocks
-# that are no longer writable
-code = '''
-lfs_block_t *bbbd_badblocks;
-size_t bbbd_badblocks_count;
-
-int bbbd_read(const struct lfs_config *c, lfs_block_t block,
-        lfs_off_t off, void *buffer, lfs_size_t size) {
-    for (size_t i = 0; i < bbbd_badblocks_count; i++) {
-        if (bbbd_badblocks[i] == block) {
-            return LFS_ERR_CORRUPT;
-        }
-    }
-
-    return lfs_testbd_read(c, block, off, buffer, size);
-}
-
-int bbbd_prog(const struct lfs_config *c, lfs_block_t block,
-        lfs_off_t off, const void *buffer, lfs_size_t size) {
-    for (size_t i = 0; i < bbbd_badblocks_count; i++) {
-        if (bbbd_badblocks[i] == block) {
-            return LFS_ERR_CORRUPT;
-        }
-    }
-
-    return lfs_testbd_prog(c, block, off, buffer, size);
-}
-
-int bbbd_erase(const struct lfs_config *c, lfs_block_t block) {
-    for (size_t i = 0; i < bbbd_badblocks_count; i++) {
-        if (bbbd_badblocks[i] == block) {
-            return LFS_ERR_CORRUPT;
-        }
-    }
-
-    return lfs_testbd_erase(c, block);
-}
-'''
-
 [[case]] # single bad blocks
-define.LFS_BD_PROG = 'bbbd_prog'
+define.LFS_ERASE_CYCLES = 0xffffffff
+define.LFS_BADBLOCK_BEHAVIOR = 'LFS_TESTBD_BADBLOCK_NOPROG'
 define.NAMEMULT = 64
 define.FILEMULT = 1
 code = '''
     for (lfs_block_t badblock = 2; badblock < LFS_BLOCK_COUNT; badblock++) {
-        bbbd_badblocks = &(lfs_block_t){badblock};
-        bbbd_badblocks_count = 1;
+        lfs_testbd_setwear(&cfg, badblock-1, 0) => 0;
+        lfs_testbd_setwear(&cfg, badblock, 0xffffffff) => 0;
         
         lfs_format(&lfs, &cfg) => 0;
 
@@ -103,13 +65,14 @@ code = '''
 '''
 
 [[case]] # single persistent blocks (can't erase)
-define.LFS_BD_ERASE = 'bbbd_erase'
+define.LFS_ERASE_CYCLES = 0xffffffff
+define.LFS_BADBLOCK_BEHAVIOR = 'LFS_TESTBD_BADBLOCK_NOERASE'
 define.NAMEMULT = 64
 define.FILEMULT = 1
 code = '''
     for (lfs_block_t badblock = 2; badblock < LFS_BLOCK_COUNT; badblock++) {
-        bbbd_badblocks = &(lfs_block_t){badblock};
-        bbbd_badblocks_count = 1;
+        lfs_testbd_setwear(&cfg, badblock-1, 0) => 0;
+        lfs_testbd_setwear(&cfg, badblock, 0xffffffff) => 0;
         
         lfs_format(&lfs, &cfg) => 0;
 
@@ -168,13 +131,14 @@ code = '''
 '''
 
 [[case]] # single unreadable blocks (can't read)
-define.LFS_BD_READ = 'bbbd_read'
+define.LFS_ERASE_CYCLES = 0xffffffff
+define.LFS_BADBLOCK_BEHAVIOR = 'LFS_TESTBD_BADBLOCK_NOREAD'
 define.NAMEMULT = 64
 define.FILEMULT = 1
 code = '''
-    for (lfs_block_t badblock = 2; badblock < LFS_BLOCK_COUNT; badblock++) {
-        bbbd_badblocks = &(lfs_block_t){badblock};
-        bbbd_badblocks_count = 1;
+    for (lfs_block_t badblock = 2; badblock < LFS_BLOCK_COUNT/2; badblock++) {
+        lfs_testbd_setwear(&cfg, badblock-1, 0) => 0;
+        lfs_testbd_setwear(&cfg, badblock, 0xffffffff) => 0;
         
         lfs_format(&lfs, &cfg) => 0;
 
@@ -233,17 +197,17 @@ code = '''
 '''
 
 [[case]] # region corruption (causes cascading failures)
-define.LFS_BD_PROG  = '"BADTYPE == 0 ? bbbd_prog  : lfs_testbd_prog "'
-define.LFS_BD_ERASE = '"BADTYPE == 1 ? bbbd_erase : lfs_testbd_erase"'
-define.LFS_BD_READ  = '"BADTYPE == 2 ? bbbd_read  : lfs_testbd_read "'
-define.BADTYPE = 'range(3)'
+define.LFS_ERASE_CYCLES = 0xffffffff
+define.LFS_BADBLOCK_BEHAVIOR = [
+    'LFS_TESTBD_BADBLOCK_NOPROG',
+    'LFS_TESTBD_BADBLOCK_NOERASE',
+    'LFS_TESTBD_BADBLOCK_NOREAD',
+]
 define.NAMEMULT = 64
 define.FILEMULT = 1
 code = '''
-    bbbd_badblocks_count = LFS_BLOCK_COUNT/2;
-    bbbd_badblocks = malloc(bbbd_badblocks_count*sizeof(lfs_block_t));
-    for (size_t i = 0; i < bbbd_badblocks_count; i++) {
-        bbbd_badblocks[i] = i+2;
+    for (lfs_block_t i = 0; i < (LFS_BLOCK_COUNT-2)/2; i++) {
+        lfs_testbd_setwear(&cfg, i+2, 0xffffffff) => 0;
     }
     
     lfs_format(&lfs, &cfg) => 0;
@@ -299,22 +263,20 @@ code = '''
         lfs_file_close(&lfs, &file) => 0;
     }
     lfs_unmount(&lfs) => 0;
-
-    free(bbbd_badblocks);
 '''
 
 [[case]] # alternating corruption (causes cascading failures)
-define.LFS_BD_PROG  = '"BADTYPE == 0 ? bbbd_prog  : lfs_testbd_prog "'
-define.LFS_BD_ERASE = '"BADTYPE == 1 ? bbbd_erase : lfs_testbd_erase"'
-define.LFS_BD_READ  = '"BADTYPE == 2 ? bbbd_read  : lfs_testbd_read "'
-define.BADTYPE = 'range(3)'
+define.LFS_ERASE_CYCLES = 0xffffffff
+define.LFS_BADBLOCK_BEHAVIOR = [
+    'LFS_TESTBD_BADBLOCK_NOPROG',
+    'LFS_TESTBD_BADBLOCK_NOERASE',
+    'LFS_TESTBD_BADBLOCK_NOREAD',
+]
 define.NAMEMULT = 64
 define.FILEMULT = 1
 code = '''
-    bbbd_badblocks_count = LFS_BLOCK_COUNT/2;
-    bbbd_badblocks = malloc(bbbd_badblocks_count*sizeof(lfs_block_t));
-    for (size_t i = 0; i < bbbd_badblocks_count; i++) {
-        bbbd_badblocks[i] = (2*i) + 2;
+    for (lfs_block_t i = 0; i < (LFS_BLOCK_COUNT-2)/2; i++) {
+        lfs_testbd_setwear(&cfg, (2*i) + 2, 0xffffffff) => 0;
     }
     
     lfs_format(&lfs, &cfg) => 0;
@@ -370,6 +332,20 @@ code = '''
         lfs_file_close(&lfs, &file) => 0;
     }
     lfs_unmount(&lfs) => 0;
+'''
 
-    free(bbbd_badblocks);
+# other corner cases
+[[case]] # bad superblocks (corrupt 1 or 0)
+define.LFS_ERASE_CYCLES = 0xffffffff
+define.LFS_BADBLOCK_BEHAVIOR = [
+    'LFS_TESTBD_BADBLOCK_NOPROG',
+    'LFS_TESTBD_BADBLOCK_NOERASE',
+    'LFS_TESTBD_BADBLOCK_NOREAD',
+]
+code = '''
+    lfs_testbd_setwear(&cfg, 0, 0xffffffff) => 0;
+    lfs_testbd_setwear(&cfg, 1, 0xffffffff) => 0;
+
+    lfs_format(&lfs, &cfg) => LFS_ERR_NOSPC;
+    lfs_mount(&lfs, &cfg) => LFS_ERR_CORRUPT;
 '''

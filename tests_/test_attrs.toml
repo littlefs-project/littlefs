@@ -85,8 +85,8 @@ code = '''
     lfs_file_write(&lfs, &file, "hello", strlen("hello")) => strlen("hello");
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
 
+    lfs_mount(&lfs, &cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     lfs_setattr(&lfs, "/", 'A', "aaaa",   4) => 0;
     lfs_setattr(&lfs, "/", 'B', "bbbbbb", 6) => 0;
@@ -162,7 +162,6 @@ code = '''
     lfs_file_write(&lfs, &file, "hello", strlen("hello")) => strlen("hello");
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
     memset(buffer, 0, sizeof(buffer));

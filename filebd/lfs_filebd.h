@@ -17,8 +17,9 @@ extern "C"
 
 // filebd config (optional)
 struct lfs_filebd_config {
-    // 8-bit erase value to simulate erasing with. -1 indicates no erase
-    // occurs, which is still a valid block device
+    // 8-bit erase value to use for simulating erases. -1 does not simulate
+    // erases, which can speed up testing by avoiding all the extra block-device
+    // operations to store the erase value.
     int32_t erase_value;
 };
 
@@ -32,10 +33,10 @@ typedef struct lfs_filebd {
 // Create a file block device using the geometry in lfs_config
 int lfs_filebd_create(const struct lfs_config *cfg, const char *path);
 int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
-        const struct lfs_filebd_config *ramcfg);
+        const struct lfs_filebd_config *bdcfg);
 
 // Clean up memory associated with block device
-void lfs_filebd_destroy(const struct lfs_config *cfg);
+int lfs_filebd_destroy(const struct lfs_config *cfg);
 
 // Read a block
 int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,

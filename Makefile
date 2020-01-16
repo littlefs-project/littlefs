@@ -7,7 +7,7 @@ CC ?= gcc
 AR ?= ar
 SIZE ?= size
 
-SRC += $(wildcard *.c rambd/*.c filebd/*.c)
+SRC += $(wildcard *.c rambd/*.c filebd/*.c testbd/*.c)
 OBJ := $(SRC:.c=.o)
 DEP := $(SRC:.c=.d)
 ASM := $(SRC:.c=.s)

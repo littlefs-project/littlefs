@@ -35,10 +35,10 @@ typedef struct lfs_rambd {
 // Create a RAM block device using the geometry in lfs_config
 int lfs_rambd_create(const struct lfs_config *cfg);
 int lfs_rambd_createcfg(const struct lfs_config *cfg,
-        const struct lfs_rambd_config *ramcfg);
+        const struct lfs_rambd_config *bdcfg);
 
 // Clean up memory associated with block device
-void lfs_rambd_destroy(const struct lfs_config *cfg);
+int lfs_rambd_destroy(const struct lfs_config *cfg);
 
 // Read a block
 int lfs_rambd_read(const struct lfs_config *cfg, lfs_block_t block,
