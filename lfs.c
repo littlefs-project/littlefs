@@ -1825,7 +1825,7 @@ compact:
     // for things that are
     for (struct lfs_mlist *d = lfs->mlist; d; d = d->next) {
         if (lfs_pair_cmp(d->m.pair, copy.pair) == 0) {
-            d->m = *dir;
+            d->m = copy;
             if (d->id == lfs_tag_id(deletetag)) {
                 d->m.pair[0] = LFS_BLOCK_NULL;
                 d->m.pair[1] = LFS_BLOCK_NULL;

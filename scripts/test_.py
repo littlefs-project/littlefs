@@ -20,6 +20,7 @@
 # - why can't gdb see my defines?
 # - say no to internal?
 # x buffering stdout issues?
+# - debug fast
 
 import toml
 import glob
@@ -48,9 +49,6 @@ $(foreach target,$(SRC),$(eval $(FLATTEN)))
 -include tests_/*.d
 
 .SECONDARY:
-%.test: override CFLAGS += -gdwarf-2
-%.test: override CFLAGS += -ggdb3
-%.test: override CFLAGS += -g3
 %.test: %.test.o $(foreach f,$(subst /,.,$(SRC:.c=.o)),%.$f)
     $(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 """

@@ -1,16 +1,7 @@
 
 [[case]] # interspersed file test
-# TODO FILES=26 found bug
-#define.SIZE = [10, 100]
-#define.FILES = [4, 10, 26] 
-define = [
-    {SIZE=10, FILES=4},
-    {SIZE=10, FILES=10},
-    #{SIZE=10, FILES=26},
-    {SIZE=100, FILES=4},
-    {SIZE=100, FILES=10},
-    #{SIZE=100, FILES=26},
-]
+define.SIZE = [10, 100]
+define.FILES = [4, 10, 26] 
 code = '''
     lfs_file_t files[FILES];
     const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
@@ -182,17 +173,8 @@ code = '''
 '''
 
 [[case]] # reentrant interspersed file test
-# TODO FILES=26 found bug
-#define.SIZE = [10, 100]
-#define.FILES = [4, 10, 26] 
-define = [
-    {SIZE=10, FILES=4},
-    {SIZE=10, FILES=10},
-    #{SIZE=10, FILES=26},
-    {SIZE=100, FILES=4},
-    #{SIZE=100, FILES=10},
-    #{SIZE=100, FILES=26},
-]
+define.SIZE = [10, 100]
+define.FILES = [4, 10, 26] 
 reentrant = true
 code = '''
     lfs_file_t files[FILES];

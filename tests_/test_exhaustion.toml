@@ -246,8 +246,8 @@ exhausted:
                 run_block_count[run], run_cycles[run]);
     }
 
-    // check we increased the lifetime by 2x with ~5% error
-    LFS_ASSERT(run_cycles[1] > 2*run_cycles[0]-run_cycles[0]/20);
+    // check we increased the lifetime by 2x with ~10% error
+    LFS_ASSERT(run_cycles[1] > 2*run_cycles[0]-run_cycles[0]/10);
 '''
 
 [[case]] # wear-level test + expanding superblock
@@ -336,6 +336,6 @@ exhausted:
                 run_block_count[run], run_cycles[run]);
     }
 
-    // check we increased the lifetime by 2x with ~5% error
-    LFS_ASSERT(run_cycles[1] > 2*run_cycles[0]-run_cycles[0]/20);
+    // check we increased the lifetime by 2x with ~10% error
+    LFS_ASSERT(run_cycles[1] > 2*run_cycles[0]-run_cycles[0]/10);
 '''

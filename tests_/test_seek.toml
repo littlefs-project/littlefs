@@ -24,14 +24,14 @@ code = '''
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "kitty", LFS_O_RDONLY) => 0;
 
-    lfs_soff_t pos;
+    lfs_soff_t pos = -1;
     size = strlen("kittycatcat");
     for (int i = 0; i < SKIP; i++) {
         lfs_file_read(&lfs, &file, buffer, size) => size;
         memcmp(buffer, "kittycatcat", size) => 0;
         pos = lfs_file_tell(&lfs, &file);
     }
-    pos >= 0 => 1;
+    assert(pos >= 0);
 
     lfs_file_seek(&lfs, &file, pos, LFS_SEEK_SET) => pos;
     lfs_file_read(&lfs, &file, buffer, size) => size;
@@ -93,14 +93,14 @@ code = '''
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "kitty", LFS_O_RDWR) => 0;
 
-    lfs_soff_t pos;
+    lfs_soff_t pos = -1;
     size = strlen("kittycatcat");
     for (int i = 0; i < SKIP; i++) {
         lfs_file_read(&lfs, &file, buffer, size) => size;
         memcmp(buffer, "kittycatcat", size) => 0;
         pos = lfs_file_tell(&lfs, &file);
     }
-    pos >= 0 => 1;
+    assert(pos >= 0);
 
     memcpy(buffer, "doggodogdog", size);
     lfs_file_seek(&lfs, &file, pos, LFS_SEEK_SET) => pos;
