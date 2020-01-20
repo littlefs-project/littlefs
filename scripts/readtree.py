@@ -38,6 +38,8 @@ def dumptags(args, mdir, f):
                 '<II', tag.data[:8].ljust(8, b'\xff')))
         if tag.is_('inlinestruct'):
             f.write(" inline size %d" % tag.size)
+        if tag.is_('gstate'):
+            f.write(" 0x%s" % ''.join('%02x' % c for c in tag.data))
         if tag.is_('tail'):
             f.write(" tail {%#x, %#x}" % struct.unpack(
                 '<II', tag.data[:8].ljust(8, b'\xff')))
@@ -56,7 +58,7 @@ def dumpentries(args, mdir, f):
         struct_ = mdir[Tag('struct', id_, 0)]
 
         f.write("id %d %s %s" % (
-            name.id, name.typerepr(),
+            id_, name.typerepr(),
             json.dumps(name.data.decode('utf8'))))
         if struct_.is_('dirstruct'):
             f.write(" dir {%#x, %#x}" % struct.unpack(
@@ -177,11 +179,14 @@ def main(args):
         for mdir in dir:
             for tag in mdir.tags:
                 if tag.is_('dir'):
-                    npath = tag.data.decode('utf8')
-                    dirstruct = mdir[Tag('dirstruct', tag.id, 0)]
-                    nblocks = struct.unpack('<II', dirstruct.data)
-                    nmdir = dirtable[tuple(sorted(nblocks))]
-                    pending.append(((path + '/' + npath), nmdir))
+                    try:
+                        npath = tag.data.decode('utf8')
+                        dirstruct = mdir[Tag('dirstruct', tag.id, 0)]
+                        nblocks = struct.unpack('<II', dirstruct.data)
+                        nmdir = dirtable[tuple(sorted(nblocks))]
+                        pending.append(((path + '/' + npath), nmdir))
+                    except KeyError:
+                        pass
 
         dir[0].path = path.replace('//', '/')
 
@@ -209,7 +214,7 @@ def main(args):
         blocks = struct.unpack('<II', gstate[4:4+8].ljust(8, b'\xff'))
         if tag.size:
             print("  orphans %d" % tag.size)
-        if not tag.isvalid:
+        if tag.type:
             print("  move dir {%#x, %#x} id %d" % (
                 blocks[0], blocks[1], tag.id))
 

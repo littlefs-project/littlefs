@@ -106,6 +106,13 @@ class Tag:
             0x3ff if self.isattr else 0,
             0)
 
+    def chid(self, nid):
+        ntag = Tag(self.type, nid, self.size)
+        if hasattr(self, 'off'):  ntag.off  = self.off
+        if hasattr(self, 'data'): ntag.data = self.data
+        if hasattr(self, 'crc'):  ntag.crc  = self.crc
+        return ntag
+
     def typerepr(self):
         if self.is_('crc') and getattr(self, 'crc', 0xffffffff) != 0xffffffff:
             return 'crc (bad)'
@@ -197,21 +204,28 @@ class MetadataPair:
                 crc = 0
                 tag = Tag(int(tag) ^ ((tag.type & 1) << 31))
 
+        # find active ids
+        self.ids = list(it.takewhile(
+            lambda id: Tag('name', id, 0) in self,
+            it.count()))
+
         # find most recent tags
         self.tags = []
         for tag in self.log:
             if tag.is_('crc') or tag.is_('splice'):
                 continue
-
-            if tag in self and self[tag] is tag:
-                self.tags.append(tag)
+            elif tag.id == 0x3ff:
+                if tag in self and self[tag] is tag:
+                    self.tags.append(tag)
+            else:
+                # id could have change, I know this is messy and slow
+                # but it works
+                for id in self.ids:
+                    ntag = tag.chid(id)
+                    if ntag in self and self[ntag] is tag:
+                        self.tags.append(ntag)
 
         self.tags = sorted(self.tags)
-
-        # and ids
-        self.ids = list(it.takewhile(
-            lambda id: Tag('name', id, 0) in self,
-            it.count()))
 
     def __bool__(self):
         return bool(self.log)
@@ -247,8 +261,8 @@ class MetadataPair:
 
                 gdiff += tag.schunk
 
-            if (int(gmask) & int(tag)) == (int(gmask) & int(
-                    Tag(gtag.type, gtag.id - gdiff, gtag.size))):
+            if ((int(gmask) & int(tag)) ==
+                    (int(gmask) & int(gtag.chid(gtag.id - gdiff)))):
                 if tag.size == 0x3ff:
                     # deleted
                     break
