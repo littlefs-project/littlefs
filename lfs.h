@@ -355,6 +355,11 @@ typedef struct lfs_superblock {
     lfs_size_t attr_max;
 } lfs_superblock_t;
 
+typedef struct lfs_gstate {
+    uint32_t tag;
+    lfs_block_t pair[2];
+} lfs_gstate_t;
+
 // The littlefs filesystem type
 typedef struct lfs {
     lfs_cache_t rcache;
@@ -369,10 +374,9 @@ typedef struct lfs {
     } *mlist;
     uint32_t seed;
 
-    struct lfs_gstate {
-        uint32_t tag;
-        lfs_block_t pair[2];
-    } gstate, gpending, gdelta;
+    lfs_gstate_t gstate;
+    lfs_gstate_t gdisk;
+    lfs_gstate_t gdelta;
 
     struct lfs_free {
         lfs_block_t off;

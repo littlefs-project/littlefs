@@ -197,16 +197,17 @@ def main(args):
         args.mdirs = True
 
     if args.superblock and superblock:
-        print("superblock %s" % json.dumps(superblock[0].data.decode('utf8')))
+        print("superblock %s v%d.%d" % (
+            json.dumps(superblock[0].data.decode('utf8')),
+            struct.unpack('<H', superblock[1].data[2:2+2])[0],
+            struct.unpack('<H', superblock[1].data[0:0+2])[0]))
         print(
-            "  version v{1}.{0}\n"
-            "  block_size {2}\n"
-            "  block_count {3}\n"
-            "  name_max {4}\n"
-            "  file_max {5}\n"
-            "  attr_max {6}"
-            .format(*struct.unpack(
-                '<HHIIIII', superblock[1].data[:24].ljust(24, b'\xff'))))
+            "  block_size %d\n"
+            "  block_count %d\n"
+            "  name_max %d\n"
+            "  file_max %d\n"
+            "  attr_max %d" % struct.unpack(
+                '<IIIII', superblock[1].data[4:4+20].ljust(20, b'\xff')))
 
     if args.gstate and gstate:
         print("gstate 0x%s" % ''.join('%02x' % c for c in gstate))

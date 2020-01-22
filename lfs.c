@@ -323,14 +323,13 @@ struct lfs_diskoff {
     sizeof((struct lfs_mattr[]){__VA_ARGS__}) / sizeof(struct lfs_mattr)
 
 // operations on global state
-static inline void lfs_gstate_xor(struct lfs_gstate *a,
-        const struct lfs_gstate *b) {
+static inline void lfs_gstate_xor(lfs_gstate_t *a, const lfs_gstate_t *b) {
     for (int i = 0; i < 3; i++) {
         ((uint32_t*)a)[i] ^= ((const uint32_t*)b)[i];
     }
 }
 
-static inline bool lfs_gstate_iszero(const struct lfs_gstate *a) {
+static inline bool lfs_gstate_iszero(const lfs_gstate_t *a) {
     for (int i = 0; i < 3; i++) {
         if (((uint32_t*)a)[i] != 0) {
             return false;
@@ -339,43 +338,30 @@ static inline bool lfs_gstate_iszero(const struct lfs_gstate *a) {
     return true;
 }
 
-static inline bool lfs_gstate_hasorphans(const struct lfs_gstate *a) {
+static inline bool lfs_gstate_hasorphans(const lfs_gstate_t *a) {
     return lfs_tag_size(a->tag);
 }
 
-static inline uint8_t lfs_gstate_getorphans(const struct lfs_gstate *a) {
+static inline uint8_t lfs_gstate_getorphans(const lfs_gstate_t *a) {
     return lfs_tag_size(a->tag);
 }
 
-static inline bool lfs_gstate_hasmove(const struct lfs_gstate *a) {
+static inline bool lfs_gstate_hasmove(const lfs_gstate_t *a) {
     return lfs_tag_type1(a->tag);
 }
 
-static inline bool lfs_gstate_hasmovehere(const struct lfs_gstate *a,
+static inline bool lfs_gstate_hasmovehere(const lfs_gstate_t *a,
         const lfs_block_t *pair) {
     return lfs_tag_type1(a->tag) && lfs_pair_cmp(a->pair, pair) == 0;
 }
 
-static inline void lfs_gstate_xororphans(struct lfs_gstate *a,
-        const struct lfs_gstate *b, bool orphans) {
-    a->tag ^= LFS_MKTAG(0x800, 0, 0) & (b->tag ^ ((uint32_t)orphans << 31));
-}
-
-static inline void lfs_gstate_xormove(struct lfs_gstate *a,
-        const struct lfs_gstate *b, uint16_t id, const lfs_block_t pair[2]) {
-    a->tag ^= LFS_MKTAG(0x7ff, 0x3ff, 0) & (b->tag ^ (
-            (id != 0x3ff) ? LFS_MKTAG(LFS_TYPE_DELETE, id, 0) : 0));
-    a->pair[0] ^= b->pair[0] ^ ((id != 0x3ff) ? pair[0] : 0);
-    a->pair[1] ^= b->pair[1] ^ ((id != 0x3ff) ? pair[1] : 0);
-}
-
-static inline void lfs_gstate_fromle32(struct lfs_gstate *a) {
+static inline void lfs_gstate_fromle32(lfs_gstate_t *a) {
     a->tag     = lfs_fromle32(a->tag);
     a->pair[0] = lfs_fromle32(a->pair[0]);
     a->pair[1] = lfs_fromle32(a->pair[1]);
 }
 
-static inline void lfs_gstate_tole32(struct lfs_gstate *a) {
+static inline void lfs_gstate_tole32(lfs_gstate_t *a) {
     a->tag     = lfs_tole32(a->tag);
     a->pair[0] = lfs_tole32(a->pair[0]);
     a->pair[1] = lfs_tole32(a->pair[1]);
@@ -506,8 +492,9 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
     lfs_tag_t ntag = dir->etag;
     lfs_stag_t gdiff = 0;
 
-    if (lfs_gstate_hasmovehere(&lfs->gstate, dir->pair) &&
-            lfs_tag_id(gtag) <= lfs_tag_id(lfs->gstate.tag)) {
+    if (lfs_gstate_hasmovehere(&lfs->gdisk, dir->pair) &&
+            lfs_tag_id(gmask) != 0 &&
+            lfs_tag_id(lfs->gdisk.tag) <= lfs_tag_id(gtag)) {
         // synthetic moves
         gdiff -= LFS_MKTAG(0, 1, 0);
     }
@@ -944,11 +931,11 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
         // consider what we have good enough
         if (dir->off > 0) {
             // synthetic move
-            if (lfs_gstate_hasmovehere(&lfs->gstate, dir->pair)) {
-                if (lfs_tag_id(lfs->gstate.tag) == lfs_tag_id(besttag)) {
+            if (lfs_gstate_hasmovehere(&lfs->gdisk, dir->pair)) {
+                if (lfs_tag_id(lfs->gdisk.tag) == lfs_tag_id(besttag)) {
                     besttag |= 0x80000000;
                 } else if (besttag != -1 &&
-                        lfs_tag_id(lfs->gstate.tag) < lfs_tag_id(besttag)) {
+                        lfs_tag_id(lfs->gdisk.tag) < lfs_tag_id(besttag)) {
                     besttag -= LFS_MKTAG(0, 1, 0);
                 }
             }
@@ -986,8 +973,8 @@ static int lfs_dir_fetch(lfs_t *lfs,
 }
 
 static int lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
-        struct lfs_gstate *gstate) {
-    struct lfs_gstate temp;
+        lfs_gstate_t *gstate) {
+    lfs_gstate_t temp;
     lfs_stag_t res = lfs_dir_get(lfs, dir, LFS_MKTAG(0x7ff, 0, 0),
             LFS_MKTAG(LFS_TYPE_MOVESTATE, 0, sizeof(temp)), &temp);
     if (res < 0 && res != LFS_ERR_NOENT) {
@@ -1527,13 +1514,6 @@ static int lfs_dir_compact(lfs_t *lfs,
     // begin loop to commit compaction to blocks until a compact sticks
     while (true) {
         {
-            // There's nothing special about our global delta, so feed it into
-            // our local global delta
-            int err = lfs_dir_getgstate(lfs, dir, &lfs->gdelta);
-            if (err) {
-                return err;
-            }
-
             // setup commit state
             struct lfs_commit commit = {
                 .block = dir->pair[1],
@@ -1546,7 +1526,7 @@ static int lfs_dir_compact(lfs_t *lfs,
             };
 
             // erase block to write to
-            err = lfs_bd_erase(lfs, dir->pair[1]);
+            int err = lfs_bd_erase(lfs, dir->pair[1]);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
@@ -1596,14 +1576,25 @@ static int lfs_dir_compact(lfs_t *lfs,
                 }
             }
 
-            if (!relocated && !lfs_gstate_iszero(&lfs->gdelta)) {
-                // commit any globals, unless we're relocating,
-                // in which case our parent will steal our globals
-                lfs_gstate_tole32(&lfs->gdelta);
+            // bring over gstate?
+            lfs_gstate_t delta = {0};
+            if (!relocated) {
+                lfs_gstate_xor(&delta, &lfs->gdisk);
+                lfs_gstate_xor(&delta, &lfs->gstate);
+            }
+            lfs_gstate_xor(&delta, &lfs->gdelta);
+            delta.tag &= ~LFS_MKTAG(0, 0, 0x3ff);
+
+            err = lfs_dir_getgstate(lfs, dir, &delta);
+            if (err) {
+                return err;
+            }
+
+            if (!lfs_gstate_iszero(&delta)) {
+                lfs_gstate_tole32(&delta);
                 err = lfs_dir_commitattr(lfs, &commit,
                         LFS_MKTAG(LFS_TYPE_MOVESTATE, 0x3ff,
-                            sizeof(lfs->gdelta)), &lfs->gdelta);
-                lfs_gstate_fromle32(&lfs->gdelta);
+                            sizeof(delta)), &delta);
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
@@ -1612,6 +1603,7 @@ static int lfs_dir_compact(lfs_t *lfs,
                 }
             }
 
+            // complete commit with crc
             err = lfs_dir_commitcrc(lfs, &commit);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -1626,6 +1618,11 @@ static int lfs_dir_compact(lfs_t *lfs,
             dir->count = end - begin;
             dir->off = commit.off;
             dir->etag = commit.ptag;
+            // update gstate
+            lfs->gdelta = (lfs_gstate_t){0};
+            if (!relocated) {
+                lfs->gdisk = lfs->gstate;
+            }
         }
         break;
 
@@ -1653,10 +1650,7 @@ relocate:
         continue;
     }
 
-    if (!relocated) {
-        lfs->gstate = lfs->gpending;
-        lfs->gdelta = (struct lfs_gstate){0};
-    } else {
+    if (relocated) {
         // update references if we relocated
         LFS_DEBUG("Relocating %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
                 oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
@@ -1747,17 +1741,21 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         }
 
         // commit any global diffs if we have any
-        if (!lfs_gstate_iszero(&lfs->gdelta)) {
-            err = lfs_dir_getgstate(lfs, dir, &lfs->gdelta);
+        lfs_gstate_t delta = {0};
+        lfs_gstate_xor(&delta, &lfs->gstate);
+        lfs_gstate_xor(&delta, &lfs->gdisk);
+        lfs_gstate_xor(&delta, &lfs->gdelta);
+        delta.tag &= ~LFS_MKTAG(0, 0, 0x3ff);
+        if (!lfs_gstate_iszero(&delta)) {
+            err = lfs_dir_getgstate(lfs, dir, &delta);
             if (err) {
                 return err;
             }
 
-            lfs_gstate_tole32(&lfs->gdelta);
+            lfs_gstate_tole32(&delta);
             err = lfs_dir_commitattr(lfs, &commit,
                     LFS_MKTAG(LFS_TYPE_MOVESTATE, 0x3ff,
-                        sizeof(lfs->gdelta)), &lfs->gdelta);
-            lfs_gstate_fromle32(&lfs->gdelta);
+                        sizeof(delta)), &delta);
             if (err) {
                 if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
                     goto compact;
@@ -1780,8 +1778,8 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         dir->off = commit.off;
         dir->etag = commit.ptag;
         // and update gstate
-        lfs->gstate = lfs->gpending;
-        lfs->gdelta = (struct lfs_gstate){0};
+        lfs->gdisk = lfs->gstate;
+        lfs->gdelta = (lfs_gstate_t){0};
     } else {
 compact:
         // fall back to compaction
@@ -1855,9 +1853,10 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
         return err;
     }
 
-    lfs_mdir_t cwd;
+    struct lfs_mlist cwd;
+    cwd.next = lfs->mlist;
     uint16_t id;
-    err = lfs_dir_find(lfs, &cwd, &path, &id);
+    err = lfs_dir_find(lfs, &cwd.m, &path, &id);
     if (!(err == LFS_ERR_NOENT && id != 0x3ff)) {
         LFS_TRACE("lfs_mkdir -> %d", (err < 0) ? err : LFS_ERR_EXIST);
         return (err < 0) ? err : LFS_ERR_EXIST;
@@ -1880,7 +1879,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // find end of list
-    lfs_mdir_t pred = cwd;
+    lfs_mdir_t pred = cwd.m;
     while (pred.split) {
         err = lfs_dir_fetch(lfs, &pred, pred.tail);
         if (err) {
@@ -1900,27 +1899,39 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // current block end of list?
-    if (cwd.split) {
+    if (cwd.m.split) {
         // update tails, this creates a desync
         lfs_fs_preporphans(lfs, +1);
+
+        // it's possible our predecessor has to be relocated, and if
+        // our parent is our predecessor's predecessor, this could have
+        // caused our parent to go out of date, fortunately we can hook
+        // ourselves into littlefs to catch this
+        cwd.type = 0;
+        cwd.id = 0;
+        lfs->mlist = &cwd;
+
         lfs_pair_tole32(dir.pair);
         err = lfs_dir_commit(lfs, &pred, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), dir.pair}));
         lfs_pair_fromle32(dir.pair);
         if (err) {
+            lfs->mlist = cwd.next;
             LFS_TRACE("lfs_mkdir -> %d", err);
             return err;
         }
+
+        lfs->mlist = cwd.next;
         lfs_fs_preporphans(lfs, -1);
     }
 
     // now insert into our parent block
     lfs_pair_tole32(dir.pair);
-    err = lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
+    err = lfs_dir_commit(lfs, &cwd.m, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_CREATE, id, 0), NULL},
             {LFS_MKTAG(LFS_TYPE_DIR, id, nlen), path},
             {LFS_MKTAG(LFS_TYPE_DIRSTRUCT, id, 8), dir.pair},
-            {LFS_MKTAG_IF(!cwd.split,
+            {LFS_MKTAG_IF(!cwd.m.split,
                 LFS_TYPE_SOFTTAIL, 0x3ff, 8), dir.pair}));
     lfs_pair_fromle32(dir.pair);
     if (err) {
@@ -3104,7 +3115,8 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         return (tag < 0) ? (int)tag : LFS_ERR_INVAL;
     }
 
-    lfs_mdir_t dir;
+    struct lfs_mlist dir;
+    dir.next = lfs->mlist;
     if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
         // must be empty before removal
         lfs_block_t pair[2];
@@ -3116,40 +3128,48 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         }
         lfs_pair_fromle32(pair);
 
-        err = lfs_dir_fetch(lfs, &dir, pair);
+        err = lfs_dir_fetch(lfs, &dir.m, pair);
         if (err) {
             LFS_TRACE("lfs_remove -> %d", err);
             return err;
         }
 
-        if (dir.count > 0 || dir.split) {
+        if (dir.m.count > 0 || dir.m.split) {
             LFS_TRACE("lfs_remove -> %d", LFS_ERR_NOTEMPTY);
             return LFS_ERR_NOTEMPTY;
         }
 
         // mark fs as orphaned
         lfs_fs_preporphans(lfs, +1);
+
+        // I know it's crazy but yes, dir can be changed by our parent's
+        // commit (if predecessor is child)
+        dir.type = 0;
+        dir.id = 0;
+        lfs->mlist = &dir;
     }
 
     // delete the entry
     err = lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(tag), 0)}));
     if (err) {
+        lfs->mlist = dir.next;
         LFS_TRACE("lfs_remove -> %d", err);
         return err;
     }
 
+    lfs->mlist = dir.next;
     if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
         // fix orphan
         lfs_fs_preporphans(lfs, -1);
 
-        err = lfs_fs_pred(lfs, dir.pair, &cwd);
+        err = lfs_fs_pred(lfs, dir.m.pair, &cwd);
         if (err) {
             LFS_TRACE("lfs_remove -> %d", err);
             return err;
         }
 
-        err = lfs_dir_drop(lfs, &cwd, &dir);
+        err = lfs_dir_drop(lfs, &cwd, &dir.m);
         if (err) {
             LFS_TRACE("lfs_remove -> %d", err);
             return err;
@@ -3190,7 +3210,12 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         return (prevtag < 0) ? (int)prevtag : LFS_ERR_INVAL;
     }
 
-    lfs_mdir_t prevdir;
+    // if we're in the same pair there's a few special cases...
+    bool samepair = (lfs_pair_cmp(oldcwd.pair, newcwd.pair) == 0);
+    uint16_t newoldid = lfs_tag_id(oldtag);
+
+    struct lfs_mlist prevdir;
+    prevdir.next = lfs->mlist;
     if (prevtag == LFS_ERR_NOENT) {
         // check that name fits
         lfs_size_t nlen = strlen(newpath);
@@ -3198,9 +3223,20 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             LFS_TRACE("lfs_rename -> %d", LFS_ERR_NAMETOOLONG);
             return LFS_ERR_NAMETOOLONG;
         }
+
+        // there is a small chance we are being renamed in the same
+        // directory/ to an id less than our old id, the global update
+        // to handle this is a bit messy
+        if (samepair && newid <= newoldid) {
+            newoldid += 1;
+        }
     } else if (lfs_tag_type3(prevtag) != lfs_tag_type3(oldtag)) {
         LFS_TRACE("lfs_rename -> %d", LFS_ERR_ISDIR);
         return LFS_ERR_ISDIR;
+    } else if (samepair && newid == newoldid) {
+        // we're renaming to ourselves??
+        LFS_TRACE("lfs_rename -> %d", 0);
+        return 0;
     } else if (lfs_tag_type3(prevtag) == LFS_TYPE_DIR) {
         // must be empty before removal
         lfs_block_t prevpair[2];
@@ -3213,33 +3249,29 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         lfs_pair_fromle32(prevpair);
 
         // must be empty before removal
-        err = lfs_dir_fetch(lfs, &prevdir, prevpair);
+        err = lfs_dir_fetch(lfs, &prevdir.m, prevpair);
         if (err) {
             LFS_TRACE("lfs_rename -> %d", err);
             return err;
         }
 
-        if (prevdir.count > 0 || prevdir.split) {
+        if (prevdir.m.count > 0 || prevdir.m.split) {
             LFS_TRACE("lfs_rename -> %d", LFS_ERR_NOTEMPTY);
             return LFS_ERR_NOTEMPTY;
         }
 
         // mark fs as orphaned
         lfs_fs_preporphans(lfs, +1);
+
+        // I know it's crazy but yes, dir can be changed by our parent's
+        // commit (if predecessor is child)
+        prevdir.type = 0;
+        prevdir.id = 0;
+        lfs->mlist = &prevdir;
     }
 
-    // create move to fix later
-    bool samepair = (lfs_pair_cmp(oldcwd.pair, newcwd.pair) == 0);
-    uint16_t newoldtagid = lfs_tag_id(oldtag);
-    if (samepair) {
-        // there is a small chance we are being renamed in the same
-        // directory/ to an id less than our old id, the global update
-        // to handle this is a bit messy
-        if (prevtag == LFS_ERR_NOENT && newid <= newoldtagid) {
-            newoldtagid += 1;
-        }
-    } else {
-        lfs_fs_prepmove(lfs, newoldtagid, oldcwd.pair);
+    if (!samepair) {
+        lfs_fs_prepmove(lfs, newoldid, oldcwd.pair);
     }
 
     // move over all attributes
@@ -3250,8 +3282,9 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             {LFS_MKTAG(lfs_tag_type3(oldtag), newid, strlen(newpath)), newpath},
             {LFS_MKTAG(LFS_FROM_MOVE, newid, lfs_tag_id(oldtag)), &oldcwd},
             {LFS_MKTAG_IF(samepair,
-                LFS_TYPE_DELETE, newoldtagid, 0)}));
+                LFS_TYPE_DELETE, newoldid, 0)}));
     if (err) {
+        lfs->mlist = prevdir.next;
         LFS_TRACE("lfs_rename -> %d", err);
         return err;
     }
@@ -3264,22 +3297,24 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         err = lfs_dir_commit(lfs, &oldcwd, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(oldtag), 0)}));
         if (err) {
+            lfs->mlist = prevdir.next;
             LFS_TRACE("lfs_rename -> %d", err);
             return err;
         }
     }
 
+    lfs->mlist = prevdir.next;
     if (prevtag != LFS_ERR_NOENT && lfs_tag_type3(prevtag) == LFS_TYPE_DIR) {
         // fix orphan
         lfs_fs_preporphans(lfs, -1);
 
-        err = lfs_fs_pred(lfs, prevdir.pair, &newcwd);
+        err = lfs_fs_pred(lfs, prevdir.m.pair, &newcwd);
         if (err) {
             LFS_TRACE("lfs_rename -> %d", err);
             return err;
         }
 
-        err = lfs_dir_drop(lfs, &newcwd, &prevdir);
+        err = lfs_dir_drop(lfs, &newcwd, &prevdir.m);
         if (err) {
             LFS_TRACE("lfs_rename -> %d", err);
             return err;
@@ -3469,9 +3504,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->root[1] = LFS_BLOCK_NULL;
     lfs->mlist = NULL;
     lfs->seed = 0;
-    lfs->gstate = (struct lfs_gstate){0};
-    lfs->gpending = (struct lfs_gstate){0};
-    lfs->gdelta = (struct lfs_gstate){0};
+    lfs->gdisk = (lfs_gstate_t){0};
+    lfs->gstate = (lfs_gstate_t){0};
+    lfs->gdelta = (lfs_gstate_t){0};
 #ifdef LFS_MIGRATE
     lfs->lfs1 = NULL;
 #endif
@@ -3683,7 +3718,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         }
 
         // has gstate?
-        err = lfs_dir_getgstate(lfs, &dir, &lfs->gpending);
+        err = lfs_dir_getgstate(lfs, &dir, &lfs->gstate);
         if (err) {
             goto cleanup;
         }
@@ -3696,14 +3731,14 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // update littlefs with gstate
-    lfs->gpending.tag += !lfs_tag_isvalid(lfs->gpending.tag);
-    lfs->gstate = lfs->gpending;
-    if (lfs_gstate_hasmove(&lfs->gstate)) {
-        LFS_DEBUG("Found move %"PRIx32" %"PRIx32" %"PRIx16,
+    if (!lfs_gstate_iszero(&lfs->gstate)) {
+        LFS_DEBUG("Found pending gstate %08"PRIx32" %08"PRIx32" %08"PRIx32,
+                lfs->gstate.tag,
                 lfs->gstate.pair[0],
-                lfs->gstate.pair[1],
-                lfs_tag_id(lfs->gstate.tag));
+                lfs->gstate.pair[1]);
     }
+    lfs->gstate.tag += !lfs_tag_isvalid(lfs->gstate.tag);
+    lfs->gdisk = lfs->gstate;
 
     // setup free lookahead
     lfs->free.off = lfs->seed % lfs->cfg->block_size;
@@ -3920,8 +3955,8 @@ static int lfs_fs_relocate(lfs_t *lfs,
         // fix pending move in this pair? this looks like an optimization but
         // is in fact _required_ since relocating may outdate the move.
         uint16_t moveid = 0x3ff;
-        if (lfs_gstate_hasmovehere(&lfs->gpending, parent.pair)) {
-            moveid = lfs_tag_id(lfs->gpending.tag);
+        if (lfs_gstate_hasmovehere(&lfs->gstate, parent.pair)) {
+            moveid = lfs_tag_id(lfs->gstate.tag);
             LFS_DEBUG("Fixing move while relocating "
                     "%"PRIx32" %"PRIx32" %"PRIx16"\n",
                     parent.pair[0], parent.pair[1], moveid);
@@ -3956,8 +3991,8 @@ static int lfs_fs_relocate(lfs_t *lfs,
         // fix pending move in this pair? this looks like an optimization but
         // is in fact _required_ since relocating may outdate the move.
         uint16_t moveid = 0x3ff;
-        if (lfs_gstate_hasmovehere(&lfs->gpending, parent.pair)) {
-            moveid = lfs_tag_id(lfs->gpending.tag);
+        if (lfs_gstate_hasmovehere(&lfs->gstate, parent.pair)) {
+            moveid = lfs_tag_id(lfs->gstate.tag);
             LFS_DEBUG("Fixing move while relocating "
                     "%"PRIx32" %"PRIx32" %"PRIx16"\n",
                     parent.pair[0], parent.pair[1], moveid);
@@ -3980,40 +4015,40 @@ static int lfs_fs_relocate(lfs_t *lfs,
 }
 
 static void lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
-    lfs->gpending.tag += orphans;
-    lfs_gstate_xororphans(&lfs->gdelta,   &lfs->gpending,
-            lfs_gstate_hasorphans(&lfs->gpending));
-    lfs_gstate_xororphans(&lfs->gpending, &lfs->gpending,
-            lfs_gstate_hasorphans(&lfs->gpending));
+    LFS_ASSERT(lfs_tag_size(lfs->gstate.tag) > 0 || orphans >= 0);
+    lfs->gstate.tag += orphans;
+    lfs->gstate.tag = ((lfs->gstate.tag & ~LFS_MKTAG(0x800, 0, 0)) |
+            ((uint32_t)lfs_gstate_hasorphans(&lfs->gstate) << 31));
 }
 
 static void lfs_fs_prepmove(lfs_t *lfs,
         uint16_t id, const lfs_block_t pair[2]) {
-    lfs_gstate_xormove(&lfs->gdelta,   &lfs->gpending, id, pair);
-    lfs_gstate_xormove(&lfs->gpending, &lfs->gpending, id, pair);
+    lfs->gstate.tag = ((lfs->gstate.tag & ~LFS_MKTAG(0x7ff, 0x3ff, 0)) |
+            ((id != 0x3ff) ? LFS_MKTAG(LFS_TYPE_DELETE, id, 0) : 0));
+    lfs->gstate.pair[0] = (id != 0x3ff) ? pair[0] : 0;
+    lfs->gstate.pair[1] = (id != 0x3ff) ? pair[1] : 0;
 }
 
-
 static int lfs_fs_demove(lfs_t *lfs) {
-    if (!lfs_gstate_hasmove(&lfs->gstate)) {
+    if (!lfs_gstate_hasmove(&lfs->gdisk)) {
         return 0;
     }
 
     // Fix bad moves
     LFS_DEBUG("Fixing move %"PRIx32" %"PRIx32" %"PRIx16,
-            lfs->gstate.pair[0],
-            lfs->gstate.pair[1],
-            lfs_tag_id(lfs->gstate.tag));
+            lfs->gdisk.pair[0],
+            lfs->gdisk.pair[1],
+            lfs_tag_id(lfs->gdisk.tag));
 
     // fetch and delete the moved entry
     lfs_mdir_t movedir;
-    int err = lfs_dir_fetch(lfs, &movedir, lfs->gstate.pair);
+    int err = lfs_dir_fetch(lfs, &movedir, lfs->gdisk.pair);
     if (err) {
         return err;
     }
 
     // prep gstate and delete move id
-    uint16_t moveid = lfs_tag_id(lfs->gstate.tag);
+    uint16_t moveid = lfs_tag_id(lfs->gdisk.tag);
     lfs_fs_prepmove(lfs, 0x3ff, NULL);
     err = lfs_dir_commit(lfs, &movedir, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_DELETE, moveid, 0)}));
@@ -4030,12 +4065,12 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
     }
 
     // Fix any orphans
-    lfs_mdir_t pdir = {.split = true};
-    lfs_mdir_t dir = {.tail = {0, 1}};
+    lfs_mdir_t pdir = {.split = true, .tail = {0, 1}};
+    lfs_mdir_t dir;
 
     // iterate over all directory directory entries
-    while (!lfs_pair_isnull(dir.tail)) {
-        int err = lfs_dir_fetch(lfs, &dir, dir.tail);
+    while (!lfs_pair_isnull(pdir.tail)) {
+        int err = lfs_dir_fetch(lfs, &dir, pdir.tail);
         if (err) {
             return err;
         }
@@ -4059,7 +4094,8 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
                     return err;
                 }
 
-                break;
+                // refetch tail
+                continue;
             }
 
             lfs_block_t pair[2];
@@ -4072,8 +4108,9 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
 
             if (!lfs_pair_sync(pair, pdir.tail)) {
                 // we have desynced
-                LFS_DEBUG("Fixing half-orphan %"PRIx32" %"PRIx32,
-                        pair[0], pair[1]);
+                LFS_DEBUG("Fixing half-orphan "
+                        "%"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
+                        pdir.tail[0], pdir.tail[1], pair[0], pair[1]);
 
                 lfs_pair_tole32(pair);
                 err = lfs_dir_commit(lfs, &pdir, LFS_MKATTRS(
@@ -4083,16 +4120,16 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
                     return err;
                 }
 
-                break;
+                // refetch tail
+                continue;
             }
         }
 
-        memcpy(&pdir, &dir, sizeof(pdir));
+        pdir = dir;
     }
 
     // mark orphans as fixed
     lfs_fs_preporphans(lfs, -lfs_gstate_getorphans(&lfs->gstate));
-    lfs->gstate = lfs->gpending;
     return 0;
 }
 

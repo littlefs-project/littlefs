@@ -55,6 +55,22 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
+[[case]] # noop move, yes this is legal
+code = '''
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mkdir(&lfs, "hi") => 0;
+    lfs_rename(&lfs, "hi", "hi") => 0;
+    lfs_mkdir(&lfs, "hi/hi") => 0;
+    lfs_rename(&lfs, "hi/hi", "hi/hi") => 0;
+    lfs_mkdir(&lfs, "hi/hi/hi") => 0;
+    lfs_rename(&lfs, "hi/hi/hi", "hi/hi/hi") => 0;
+    lfs_stat(&lfs, "hi/hi/hi", &info) => 0;
+    assert(strcmp(info.name, "hi") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfs_unmount(&lfs) => 0;
+'''
+
 [[case]] # move file corrupt source
 in = "lfs.c"
 code = '''
