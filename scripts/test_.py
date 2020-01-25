@@ -4,24 +4,6 @@
 # .toml files stored in the tests directory.
 #
 
-# TODO
-# x nargs > 1?
-# x show perm config on failure
-# x filtering
-# n show perm config on verbose?
-# x better lineno tracking for cases?
-# n non-int perms?
-# x different path format?
-# - suite.prologue, suite.epilogue
-# x in
-# x change BLOCK_CYCLES to -1 by default
-# x change persist behaviour
-# x config chaining correct
-# - why can't gdb see my defines?
-# - say no to internal?
-# x buffering stdout issues?
-# - debug fast
-
 import toml
 import glob
 import re
@@ -125,6 +107,7 @@ class TestFailure(Exception):
 class TestCase:
     def __init__(self, config, filter=filter,
             suite=None, caseno=None, lineno=None, **_):
+        self.config = config
         self.filter = filter
         self.suite = suite
         self.caseno = caseno
@@ -150,8 +133,10 @@ class TestCase:
             return '%s#%d' % (
                 self.suite.name, self.caseno)
 
-    def permute(self, defines, permno=None, **_):
-        ncase = copy.copy(self)
+    def permute(self, class_=None, defines={}, permno=None, **_):
+        ncase = (class_ or type(self))(self.config)
+        for k, v in self.__dict__.items():
+            setattr(ncase, k, v)
         ncase.case = self
         ncase.perms = [ncase]
         ncase.permno = permno
@@ -194,6 +179,8 @@ class TestCase:
                 len(self.filter) >= 2 and
                 self.filter[1] != self.permno):
             return False
+        elif args.get('no_internal', False) and self.in_ is not None:
+            return False
         elif self.if_ is not None:
             return eval(self.if_, None, self.defines.copy())
         else:
@@ -210,6 +197,8 @@ class TestCase:
             if persist != 'noerase':
                 try:
                     os.remove(self.suite.path + '.disk')
+                    if args.get('verbose', False):
+                        print('rm', self.suite.path + '.disk')
                 except FileNotFoundError:
                     pass
 
@@ -225,7 +214,7 @@ class TestCase:
             if gdb == 'assert':
                 ncmd.extend(['-ex', 'r'])
                 if failure.assert_:
-                    ncmd.extend(['-ex', 'up'])
+                    ncmd.extend(['-ex', 'up 2'])
             elif gdb == 'start':
                 ncmd.extend([
                     '-ex', 'b %s:%d' % (self.suite.path, self.code_lineno),
@@ -331,13 +320,15 @@ class ReentrantTestCase(TestCase):
                     raise
 
 class TestSuite:
-    def __init__(self, path, filter=None, TestCase=TestCase, **args):
+    def __init__(self, path, classes=[TestCase], defines={},
+            filter=None, **args):
         self.name = os.path.basename(path)
         if self.name.endswith('.toml'):
             self.name = self.name[:-len('.toml')]
         self.path = path
+        self.classes = classes
+        self.defines = defines
         self.filter = filter
-        self.TestCase = TestCase
 
         with open(path) as f:
             # load tests
@@ -356,7 +347,9 @@ class TestSuite:
             code_linenos.reverse()
 
         # grab global config
-        self.defines = config.get('define', {})
+        for k, v in config.get('define', {}).items():
+            if k not in self.defines:
+                self.defines[k] = v
         self.code = config.get('code', None)
         if self.code is not None:
             self.code_lineno = code_linenos.pop()
@@ -372,8 +365,8 @@ class TestSuite:
                 if k not in case:
                     case[k] = v
             # initialize test case
-            self.cases.append(self.TestCase(case, filter=filter,
-                suite=self, caseno=i, lineno=lineno, **args))
+            self.cases.append(TestCase(case, filter=filter,
+                suite=self, caseno=i+1, lineno=lineno, **args))
 
     def __str__(self):
         return self.name
@@ -381,14 +374,14 @@ class TestSuite:
     def __lt__(self, other):
         return self.name < other.name
 
-    def permute(self, defines={}, **args):
+    def permute(self, **args):
         for case in self.cases:
             # lets find all parameterized definitions, in one of [args.D,
             # suite.defines, case.defines, DEFINES]. Note that each of these
             # can be either a dict of defines, or a list of dicts, expressing
             # an initial set of permutations.
             pending = [{}]
-            for inits in [defines, self.defines, case.defines, DEFINES]:
+            for inits in [self.defines, case.defines, DEFINES]:
                 if not isinstance(inits, list):
                     inits = [inits]
 
@@ -422,8 +415,10 @@ class TestSuite:
 
             # generate permutations
             case.perms = []
-            for i, perm in enumerate(expanded):
-                case.perms.append(case.permute(perm, permno=i, **args))
+            for i, (class_, defines) in enumerate(
+                    it.product(self.classes, expanded)):
+                case.perms.append(case.permute(
+                    class_, defines, permno=i+1, **args))
 
             # also track non-unique defines
             case.defines = {}
@@ -519,16 +514,12 @@ class TestSuite:
         self.target = self.path + '.test'
         return self.makefile, self.target
 
-    def test(self, caseno=None, permno=None, **args):
+    def test(self, **args):
         # run test suite!
         if not args.get('verbose', True):
             sys.stdout.write(self.name + ' ')
             sys.stdout.flush()
         for perm in self.perms:
-            if caseno is not None and perm.caseno != caseno:
-                continue
-            if permno is not None and perm.permno != permno:
-                continue
             if not perm.shouldtest(**args):
                 continue
 
@@ -553,6 +544,23 @@ class TestSuite:
             sys.stdout.write('\n')
 
 def main(**args):
+    # figure out explicit defines
+    defines = {}
+    for define in args['D']:
+        k, v, *_ = define.split('=', 2) + ['']
+        defines[k] = v
+
+    # and what class of TestCase to run
+    classes = []
+    if args.get('normal', False):
+        classes.append(TestCase)
+    if args.get('reentrant', False):
+        classes.append(ReentrantTestCase)
+    if args.get('valgrind', False):
+        classes.append(ValgrindTestCase)
+    if not classes:
+        classes = [TestCase]
+
     suites = []
     for testpath in args['testpaths']:
         # optionally specified test case/perm
@@ -571,27 +579,14 @@ def main(**args):
 
         # find tests
         for path in glob.glob(testpath):
-            if args.get('valgrind', False):
-                TestCase_ = ValgrindTestCase
-            elif args.get('reentrant', False):
-                TestCase_ = ReentrantTestCase
-            else:
-                TestCase_ = TestCase
-
-            suites.append(TestSuite(path,
-                filter=filter, TestCase=TestCase_, **args))
+            suites.append(TestSuite(path, classes, defines, filter, **args))
 
     # sort for reproducability
     suites = sorted(suites)
 
     # generate permutations
-    defines = {}
-    for define in args['D']:
-        k, v, *_ = define.split('=', 2) + ['']
-        defines[k] = v
-
     for suite in suites:
-        suite.permute(defines, **args)
+        suite.permute(**args)
 
     # build tests in parallel
     print('====== building ======')
@@ -736,10 +731,14 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--gdb', choices=['init', 'start', 'assert'],
         nargs='?', const='assert',
         help="Drop into gdb on test failure.")
-    parser.add_argument('--valgrind', action='store_true',
-        help="Run non-leaky tests under valgrind to check for memory leaks.")
-    parser.add_argument('--reentrant', action='store_true',
+    parser.add_argument('--no-internal', action='store_true',
+        help="Don't run tests that require internal knowledge.")
+    parser.add_argument('-n', '--normal', action='store_true',
+        help="Run tests normally.")
+    parser.add_argument('-r', '--reentrant', action='store_true',
         help="Run reentrant tests with simulated power-loss.")
+    parser.add_argument('-V', '--valgrind', action='store_true',
+        help="Run non-leaky tests under valgrind to check for memory leaks.")
     parser.add_argument('-e', '--exec', default=[], type=lambda e: e.split(' '),
         help="Run tests with another executable prefixed on the command line.")
     sys.exit(main(**vars(parser.parse_args())))
