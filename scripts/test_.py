@@ -304,8 +304,8 @@ class ReentrantTestCase(TestCase):
 
             # exact cycle we should drop into debugger?
             if gdb and failure and failure.cycleno == cycles:
-                return super().test(gdb=gdb,
-                    persist=persist, failure=failure, **args)
+                return super().test(gdb=gdb, persist=persist, cycles=cycles,
+                    failure=failure, **args)
 
             # run tests, but kill the program after prog/erase has
             # been hit n cycles. We exit with a special return code if the
@@ -327,7 +327,7 @@ class TestSuite:
             self.name = self.name[:-len('.toml')]
         self.path = path
         self.classes = classes
-        self.defines = defines
+        self.defines = defines.copy()
         self.filter = filter
 
         with open(path) as f:

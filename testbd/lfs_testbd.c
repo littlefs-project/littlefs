@@ -199,7 +199,7 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
         bd->power_cycles -= 1;
         if (bd->power_cycles == 0) {
             // sync to make sure we persist the last changes
-            lfs_testbd_rawsync(cfg);
+            assert(lfs_testbd_rawsync(cfg) == 0);
             // simulate power loss
             exit(33);
         }
@@ -241,7 +241,7 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         bd->power_cycles -= 1;
         if (bd->power_cycles == 0) {
             // sync to make sure we persist the last changes
-            lfs_testbd_rawsync(cfg);
+            assert(lfs_testbd_rawsync(cfg) == 0);
             // simulate power loss
             exit(33);
         }

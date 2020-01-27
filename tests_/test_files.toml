@@ -60,7 +60,7 @@ code = '''
 [[case]] # rewriting files
 define.SIZE1 = [32, 8192, 131072, 0, 7, 8193]
 define.SIZE2 = [32, 8192, 131072, 0, 7, 8193]
-define.CHUNKSIZE = [31, 16, 1, 1025]
+define.CHUNKSIZE = [31, 16, 1]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -142,7 +142,7 @@ code = '''
 [[case]] # appending files
 define.SIZE1 = [32, 8192, 131072, 0, 7, 8193]
 define.SIZE2 = [32, 8192, 131072, 0, 7, 8193]
-define.CHUNKSIZE = [31, 16, 1, 1025]
+define.CHUNKSIZE = [31, 16, 1]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
@@ -219,7 +219,7 @@ code = '''
 [[case]] # truncating files
 define.SIZE1 = [32, 8192, 131072, 0, 7, 8193]
 define.SIZE2 = [32, 8192, 131072, 0, 7, 8193]
-define.CHUNKSIZE = [31, 16, 1, 1025]
+define.CHUNKSIZE = [31, 16, 1]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
 
