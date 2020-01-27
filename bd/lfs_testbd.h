@@ -10,8 +10,8 @@
 
 #include "lfs.h"
 #include "lfs_util.h"
-#include "rambd/lfs_rambd.h"
-#include "filebd/lfs_filebd.h"
+#include "bd/lfs_rambd.h"
+#include "bd/lfs_filebd.h"
 
 #ifdef __cplusplus
 extern "C"
