@@ -329,7 +329,7 @@ code = '''
 [[case]] # chained dir exhaustion test
 define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
-if = 'LFS_BLOCK_SIZE == 512 and LFS_BLOCK_COUNT == 1024'
+if = 'LFS_BLOCK_SIZE == 512 && LFS_BLOCK_COUNT == 1024'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -400,7 +400,7 @@ code = '''
 [[case]] # split dir test
 define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
-if = 'LFS_BLOCK_SIZE == 512 and LFS_BLOCK_COUNT == 1024'
+if = 'LFS_BLOCK_SIZE == 512 && LFS_BLOCK_COUNT == 1024'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -445,7 +445,7 @@ code = '''
 [[case]] # outdated lookahead test
 define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
-if = 'LFS_BLOCK_SIZE == 512 and LFS_BLOCK_COUNT == 1024'
+if = 'LFS_BLOCK_SIZE == 512 && LFS_BLOCK_COUNT == 1024'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -510,7 +510,7 @@ code = '''
 [[case]] # outdated lookahead and split dir test
 define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
-if = 'LFS_BLOCK_SIZE == 512 and LFS_BLOCK_COUNT == 1024'
+if = 'LFS_BLOCK_SIZE == 512 && LFS_BLOCK_COUNT == 1024'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;

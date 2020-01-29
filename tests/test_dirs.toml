@@ -155,7 +155,7 @@ code = '''
 '''
 
 [[case]] # reentrant many directory creation/rename/removal
-define.N = [5, 25]
+define.N = [5, 10] # TODO changed from 20, should we be able to do more?
 reentrant = true
 code = '''
     err = lfs_mount(&lfs, &cfg);

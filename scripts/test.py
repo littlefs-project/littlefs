@@ -182,7 +182,23 @@ class TestCase:
         elif args.get('no_internal', False) and self.in_ is not None:
             return False
         elif self.if_ is not None:
-            return eval(self.if_, None, self.defines.copy())
+            if_ = self.if_
+            print(if_)
+            while True:
+                for k, v in self.defines.items():
+                    if k in if_:
+                        if_ = if_.replace(k, '(%s)' % v)
+                        print(if_)
+                        break
+                else:
+                    break
+            if_ = (
+                re.sub('(\&\&|\?)', ' and ',
+                re.sub('(\|\||:)', ' or ',
+                re.sub('!(?!=)', ' not ', if_))))
+            print(if_)
+            print('---', eval(if_), '---')
+            return eval(if_)
         else:
             return True
 
@@ -235,33 +251,37 @@ class TestCase:
         mpty = os.fdopen(mpty, 'r', 1)
         stdout = []
         assert_ = None
-        while True:
-            try:
-                line = mpty.readline()
-            except OSError as e:
-                if e.errno == errno.EIO:
-                    break
-                raise
-            stdout.append(line)
-            if args.get('verbose', False):
-                sys.stdout.write(line)
-            # intercept asserts
-            m = re.match(
-                '^{0}([^:]+):(\d+):(?:\d+:)?{0}{1}:{0}(.*)$'
-                .format('(?:\033\[[\d;]*.| )*', 'assert'),
-                line)
-            if m and assert_ is None:
+        try:
+            while True:
                 try:
-                    with open(m.group(1)) as f:
-                        lineno = int(m.group(2))
-                        line = next(it.islice(f, lineno-1, None)).strip('\n')
-                    assert_ = {
-                        'path': m.group(1),
-                        'line': line,
-                        'lineno': lineno,
-                        'message': m.group(3)}
-                except:
-                    pass
+                    line = mpty.readline()
+                except OSError as e:
+                    if e.errno == errno.EIO:
+                        break
+                    raise
+                stdout.append(line)
+                if args.get('verbose', False):
+                    sys.stdout.write(line)
+                # intercept asserts
+                m = re.match(
+                    '^{0}([^:]+):(\d+):(?:\d+:)?{0}{1}:{0}(.*)$'
+                    .format('(?:\033\[[\d;]*.| )*', 'assert'),
+                    line)
+                if m and assert_ is None:
+                    try:
+                        with open(m.group(1)) as f:
+                            lineno = int(m.group(2))
+                            line = (next(it.islice(f, lineno-1, None))
+                                .strip('\n'))
+                        assert_ = {
+                            'path': m.group(1),
+                            'line': line,
+                            'lineno': lineno,
+                            'message': m.group(3)}
+                    except:
+                        pass
+        except KeyboardInterrupt:
+            raise TestFailure(self, 1, stdout, None)
         proc.wait()
 
         # did we pass?
@@ -654,6 +674,10 @@ def main(**args):
     if filtered != sum(len(suite.perms) for suite in suites):
         print('filtered down to %d permutations' % filtered)
 
+    # only requested to build?
+    if args.get('build', False):
+        return 0
+
     print('====== testing ======')
     try:
         for suite in suites:
@@ -678,18 +702,19 @@ def main(**args):
                         perm=perm, path=perm.suite.path, lineno=perm.lineno,
                         returncode=perm.result.returncode or 0))
                 if perm.result.stdout:
-                    for line in (perm.result.stdout
-                            if not perm.result.assert_
-                            else perm.result.stdout[:-1]):
+                    if perm.result.assert_:
+                        stdout = perm.result.stdout[:-1]
+                    else:
+                        stdout = perm.result.stdout
+                    if (not args.get('verbose', False) and len(stdout) > 5):
+                        sys.stdout.write('...\n')
+                    for line in stdout[-5:]:
                         sys.stdout.write(line)
                 if perm.result.assert_:
                     sys.stdout.write(
                         "\033[01m{path}:{lineno}:\033[01;31massert:\033[m "
                         "{message}\n{line}\n".format(
                             **perm.result.assert_))
-                else:
-                    for line in perm.result.stdout:
-                        sys.stdout.write(line)
                 sys.stdout.write('\n')
                 failed += 1
 
@@ -728,6 +753,8 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--persist', choices=['erase', 'noerase'],
         nargs='?', const='erase',
         help="Store disk image in a file.")
+    parser.add_argument('-b', '--build', action='store_true',
+        help="Only build the tests, do not execute.")
     parser.add_argument('-g', '--gdb', choices=['init', 'start', 'assert'],
         nargs='?', const='assert',
         help="Drop into gdb on test failure.")
