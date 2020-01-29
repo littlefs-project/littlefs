@@ -19,14 +19,18 @@ extern "C"
 #endif
 
 
-// Mode determining how "bad blocks" behave during testing. This
-// simulates some real-world circumstances such as writes not
-// going through (noprog), erases not sticking (noerase), and ECC
-// failures (noread).
+// Mode determining how "bad blocks" behave during testing. This simulates
+// some real-world circumstances such as progs not sticking (prog-noop),
+// a readonly disk (erase-noop), and ECC failures (read-error).
+//
+// Not that read-noop is not allowed. Read _must_ return a consistent (but
+// may be arbitrary) value on every read.
 enum lfs_testbd_badblock_behavior {
-    LFS_TESTBD_BADBLOCK_NOPROG  = 0,
-    LFS_TESTBD_BADBLOCK_NOERASE = 1,
-    LFS_TESTBD_BADBLOCK_NOREAD  = 2,
+    LFS_TESTBD_BADBLOCK_PROGERROR,
+    LFS_TESTBD_BADBLOCK_ERASEERROR,
+    LFS_TESTBD_BADBLOCK_READERROR,
+    LFS_TESTBD_BADBLOCK_PROGNOOP,
+    LFS_TESTBD_BADBLOCK_ERASENOOP,
 };
 
 // Type for measuring wear
@@ -82,7 +86,7 @@ typedef struct lfs_testbd {
 /// Block device API ///
 
 // Create a test block device using the geometry in lfs_config
-// 
+//
 // Note that filebd is used if a path is provided, if path is NULL
 // testbd will use rambd which can be much faster.
 int lfs_testbd_create(const struct lfs_config *cfg, const char *path);
