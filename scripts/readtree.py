@@ -118,9 +118,17 @@ def main(args):
         superblock = None
         gstate = b''
         mdirs = []
+        cycle = False
         tail = (args.block1, args.block2)
         hard = False
         while True:
+            for m in it.chain((m for d in dirs for m in d), mdirs):
+                if set(m.blocks) == set(tail):
+                    # cycle detected
+                    cycle = m.blocks
+            if cycle:
+                break
+
             # load mdir
             data = []
             blocks = {}
@@ -129,6 +137,7 @@ def main(args):
                 data.append(f.read(args.block_size)
                     .ljust(args.block_size, b'\xff'))
                 blocks[id(data[-1])] = block
+
             mdir = MetadataPair(data)
             mdir.blocks = tuple(blocks[id(p.data)] for p in mdir.pair)
 
@@ -171,7 +180,7 @@ def main(args):
     # find paths
     dirtable = {}
     for dir in dirs:
-        dirtable[tuple(sorted(dir[0].blocks))] = dir
+        dirtable[frozenset(dir[0].blocks)] = dir
 
     pending = [("/", dirs[0])]
     while pending:
@@ -183,7 +192,7 @@ def main(args):
                         npath = tag.data.decode('utf8')
                         dirstruct = mdir[Tag('dirstruct', tag.id, 0)]
                         nblocks = struct.unpack('<II', dirstruct.data)
-                        nmdir = dirtable[tuple(sorted(nblocks))]
+                        nmdir = dirtable[frozenset(nblocks)]
                         pending.append(((path + '/' + npath), nmdir))
                     except KeyError:
                         pass
@@ -243,7 +252,15 @@ def main(args):
                         '|',
                         line))
 
-    return 0 if all(mdir for dir in dirs for mdir in dir) else 1
+    if cycle:
+        print("*** cycle detected! -> {%#x, %#x} ***" % (cycle[0], cycle[1]))
+
+    if cycle:
+        return 2
+    elif not all(mdir for dir in dirs for mdir in dir):
+        return 1
+    else:
+        return 0;
 
 if __name__ == "__main__":
     import argparse

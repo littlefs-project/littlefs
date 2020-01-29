@@ -804,8 +804,11 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             // next commit not yet programmed or we're not in valid range
             if (!lfs_tag_isvalid(tag) ||
                     off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
+                //printf("read block %d valid %d ntag %08x ptag %08x off %d (off %d dsize %dblock %d)\n", dir->pair[0], lfs_tag_isvalid(tag), tag, ptag, dir->off, off, lfs_tag_dsize(tag), lfs->cfg->block_size);
+                //printf("read block %d erased = %d\n", dir->pair[0], (lfs_tag_type1(ptag) == LFS_TYPE_CRC && dir->off % lfs->cfg->prog_size == 0));
                 dir->erased = (lfs_tag_type1(ptag) == LFS_TYPE_CRC &&
-                        dir->off % lfs->cfg->prog_size == 0);
+                        dir->off % lfs->cfg->prog_size == 0 &&
+                        !lfs_tag_isvalid(tag));
                 break;
             }
 
@@ -1230,6 +1233,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
     const lfs_off_t off1 = commit->off + sizeof(lfs_tag_t);
     const lfs_off_t end = lfs_alignup(off1 + sizeof(uint32_t),
             lfs->cfg->prog_size);
+    uint32_t ncrc = commit->crc;
 
     // create crc tags to fill up remainder of commit, note that
     // padding is not crcd, which lets fetches skip padding but
@@ -1266,6 +1270,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
             return err;
         }
 
+        ncrc = commit->crc;
         commit->off += sizeof(tag)+lfs_tag_size(tag);
         commit->ptag = tag ^ ((lfs_tag_t)reset << 31);
         commit->crc = LFS_BLOCK_NULL; // reset crc for next "commit"
@@ -1291,6 +1296,13 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
             if (err) {
                 return err;
             }
+
+            // check against written crc to detect if block is readonly
+            // (we may pick up old commits)
+// TODO rm me?
+//            if (i == noff && crc != ncrc) {
+//                return LFS_ERR_CORRUPT;
+//            }
 
             crc = lfs_crc(crc, &dat, 1);
         }
@@ -1319,6 +1331,9 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
             return err;
         }
     }
+
+    // zero for reproducability in case initial block is unreadable
+    dir->rev = 0;
 
     // rather than clobbering one of the blocks we just pretend
     // the revision may be valid
@@ -1385,6 +1400,7 @@ static int lfs_dir_split(lfs_t *lfs,
         return err;
     }
 
+    //dir->rev += 1; // TODO really?
     dir->tail[0] = tail.pair[0];
     dir->tail[1] = tail.pair[1];
     dir->split = true;
@@ -1420,9 +1436,9 @@ static int lfs_dir_compact(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t begin, uint16_t end) {
     // save some state in case block is bad
-    const lfs_block_t oldpair[2] = {dir->pair[1], dir->pair[0]};
+    const lfs_block_t oldpair[2] = {dir->pair[0], dir->pair[1]};
     bool relocated = false;
-    bool exhausted = false;
+    bool tired = false;
 
     // should we split?
     while (end - begin > 1) {
@@ -1468,9 +1484,9 @@ static int lfs_dir_compact(lfs_t *lfs,
     }
 
     // increment revision count
-    dir->rev += 1;
+    uint32_t nrev = dir->rev + 1;
     if (lfs->cfg->block_cycles > 0 &&
-            (dir->rev % (lfs->cfg->block_cycles+1) == 0)) {
+            (nrev % (lfs->cfg->block_cycles+1) == 0)) {
         if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
             // oh no! we're writing too much to the superblock,
             // should we expand?
@@ -1482,7 +1498,8 @@ static int lfs_dir_compact(lfs_t *lfs,
             // do we have extra space? littlefs can't reclaim this space
             // by itself, so expand cautiously
             if ((lfs_size_t)res < lfs->cfg->block_count/2) {
-                LFS_DEBUG("Expanding superblock at rev %"PRIu32, dir->rev);
+                LFS_DEBUG("Expanding superblock at rev %"PRIu32, nrev);
+                //dir->rev += 1; // TODO hmm
                 int err = lfs_dir_split(lfs, dir, attrs, attrcount,
                         source, begin, end);
                 if (err && err != LFS_ERR_NOSPC) {
@@ -1506,7 +1523,7 @@ static int lfs_dir_compact(lfs_t *lfs,
 #endif
         } else {
             // we're writing too much, time to relocate
-            exhausted = true;
+            tired = true;
             goto relocate;
         }
     }
@@ -1535,10 +1552,10 @@ static int lfs_dir_compact(lfs_t *lfs,
             }
 
             // write out header
-            dir->rev = lfs_tole32(dir->rev);
+            nrev = lfs_tole32(nrev);
             err = lfs_dir_commitprog(lfs, &commit,
-                    &dir->rev, sizeof(dir->rev));
-            dir->rev = lfs_fromle32(dir->rev);
+                    &nrev, sizeof(nrev));
+            nrev = lfs_fromle32(nrev);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
@@ -1612,17 +1629,35 @@ static int lfs_dir_compact(lfs_t *lfs,
                 return err;
             }
 
-            // successful compaction, swap dir pair to indicate most recent
+            // TODO huh?
             LFS_ASSERT(commit.off % lfs->cfg->prog_size == 0);
-            lfs_pair_swap(dir->pair);
-            dir->count = end - begin;
-            dir->off = commit.off;
-            dir->etag = commit.ptag;
             // update gstate
             lfs->gdelta = (lfs_gstate_t){0};
             if (!relocated) {
                 lfs->gdisk = lfs->gstate;
             }
+
+            // TODO here??
+            if (relocated) {
+                // update references if we relocated
+                LFS_DEBUG("Relocating %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
+                        oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
+                err = lfs_fs_relocate(lfs, oldpair, dir->pair);
+                if (err) {
+                    // TODO make better
+                    dir->pair[1] = oldpair[1]; //
+                    return err;
+                }
+                LFS_DEBUG("Relocated %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
+                        oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
+            }
+
+            // successful compaction, swap dir pair to indicate most recent
+            lfs_pair_swap(dir->pair);
+            dir->rev = nrev;
+            dir->count = end - begin;
+            dir->off = commit.off;
+            dir->etag = commit.ptag;
         }
         break;
 
@@ -1630,34 +1665,24 @@ relocate:
         // commit was corrupted, drop caches and prepare to relocate block
         relocated = true;
         lfs_cache_drop(lfs, &lfs->pcache);
-        if (!exhausted) {
+        if (!tired) {
             LFS_DEBUG("Bad block at %"PRIx32, dir->pair[1]);
         }
 
         // can't relocate superblock, filesystem is now frozen
-        if (lfs_pair_cmp(oldpair, (const lfs_block_t[2]){0, 1}) == 0) {
-            LFS_WARN("Superblock %"PRIx32" has become unwritable", oldpair[1]);
+        if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
+            LFS_WARN("Superblock %"PRIx32" has become unwritable", dir->pair[1]);
             return LFS_ERR_NOSPC;
         }
 
         // relocate half of pair
         int err = lfs_alloc(lfs, &dir->pair[1]);
-        if (err && (err != LFS_ERR_NOSPC || !exhausted)) {
+        if (err && (err != LFS_ERR_NOSPC || !tired)) {
             return err;
         }
 
-        exhausted = false;
+        tired = false;
         continue;
-    }
-
-    if (relocated) {
-        // update references if we relocated
-        LFS_DEBUG("Relocating %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
-                oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
-        int err = lfs_fs_relocate(lfs, oldpair, dir->pair);
-        if (err) {
-            return err;
-        }
     }
 
     return 0;
@@ -2204,16 +2229,16 @@ static int lfs_ctz_extend(lfs_t *lfs,
                 return 0;
             }
 
-            size -= 1;
-            lfs_off_t index = lfs_ctz_index(lfs, &size);
-            size += 1;
+            lfs_size_t noff = size - 1;
+            lfs_off_t index = lfs_ctz_index(lfs, &noff);
+            noff = noff + 1;
 
             // just copy out the last block if it is incomplete
-            if (size != lfs->cfg->block_size) {
-                for (lfs_off_t i = 0; i < size; i++) {
+            if (noff != lfs->cfg->block_size) {
+                for (lfs_off_t i = 0; i < noff; i++) {
                     uint8_t data;
                     err = lfs_bd_read(lfs,
-                            NULL, rcache, size-i,
+                            NULL, rcache, noff-i,
                             head, i, &data, 1);
                     if (err) {
                         return err;
@@ -2231,19 +2256,19 @@ static int lfs_ctz_extend(lfs_t *lfs,
                 }
 
                 *block = nblock;
-                *off = size;
+                *off = noff;
                 return 0;
             }
 
             // append block
             index += 1;
             lfs_size_t skips = lfs_ctz(index) + 1;
-
+            lfs_block_t nhead = head;
             for (lfs_off_t i = 0; i < skips; i++) {
-                head = lfs_tole32(head);
+                nhead = lfs_tole32(nhead);
                 err = lfs_bd_prog(lfs, pcache, rcache, true,
-                        nblock, 4*i, &head, 4);
-                head = lfs_fromle32(head);
+                        nblock, 4*i, &nhead, 4);
+                nhead = lfs_fromle32(nhead);
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         goto relocate;
@@ -2253,15 +2278,15 @@ static int lfs_ctz_extend(lfs_t *lfs,
 
                 if (i != skips-1) {
                     err = lfs_bd_read(lfs,
-                            NULL, rcache, sizeof(head),
-                            head, 4*i, &head, sizeof(head));
-                    head = lfs_fromle32(head);
+                            NULL, rcache, sizeof(nhead),
+                            nhead, 4*i, &nhead, sizeof(nhead));
+                    nhead = lfs_fromle32(nhead);
                     if (err) {
                         return err;
                     }
                 }
 
-                LFS_ASSERT(head >= 2 && head <= lfs->cfg->block_count);
+                LFS_ASSERT(nhead >= 2 && nhead <= lfs->cfg->block_count);
             }
 
             *block = nblock;
@@ -3821,6 +3846,17 @@ int lfs_fs_traverse(lfs_t *lfs,
                     LFS_TRACE("lfs_fs_traverse -> %d", err);
                     return err;
                 }
+            } else if (lfs_gstate_hasorphans(&lfs->gstate) &&
+                    lfs_tag_type3(tag) == LFS_TYPE_DIRSTRUCT) {
+                // TODO HMMMMMM HMMMMMMMMMMMMMMMMMMM
+                for (int i = 0; i < 2; i++) {
+                    //printf("HMM %x\n", (&ctz.head)[i]);
+                    err = cb(data, (&ctz.head)[i]);
+                    if (err) {
+                        LFS_TRACE("lfs_fs_traverse -> %d", err);
+                        return err;
+                    }
+                }
             }
         }
     }
@@ -3902,7 +3938,9 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
     // use fetchmatch with callback to find pairs
     parent->tail[0] = 0;
     parent->tail[1] = 1;
+    int i = 0;
     while (!lfs_pair_isnull(parent->tail)) {
+        i += 1;
         lfs_stag_t tag = lfs_dir_fetchmatch(lfs, parent, parent->tail,
                 LFS_MKTAG(0x7ff, 0, 0x3ff),
                 LFS_MKTAG(LFS_TYPE_DIRSTRUCT, 0, 8),
@@ -3910,6 +3948,7 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
                 lfs_fs_parent_match, &(struct lfs_fs_parent_match){
                     lfs, {pair[0], pair[1]}});
         if (tag && tag != LFS_ERR_NOENT) {
+            //printf("PARENT %d\n", i);
             return tag;
         }
     }
@@ -3966,6 +4005,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
             }
         }
 
+        //printf("parent %x %x\n", parent.pair[0], parent.pair[1]);
         lfs_pair_tole32(newpair);
         int err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
                 {LFS_MKTAG_IF(moveid != 0x3ff,
@@ -4000,6 +4040,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
         }
 
         // replace bad pair, either we clean up desync, or no desync occured
+        //printf("pred %x %x\n", parent.pair[0], parent.pair[1]);
         lfs_pair_tole32(newpair);
         err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
                 {LFS_MKTAG_IF(moveid != 0x3ff,
