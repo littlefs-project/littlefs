@@ -47,7 +47,7 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
 
         memset(bd->wear, 0, sizeof(lfs_testbd_wear_t) * cfg->block_count);
     }
-    
+
     // create underlying block device
     if (bd->persist) {
         bd->u.file.cfg = (struct lfs_filebd_config){
@@ -155,9 +155,8 @@ int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
     LFS_ASSERT(block < cfg->block_count);
 
     // block bad?
-    if (bd->cfg->erase_cycles &&
-            bd->cfg->badblock_behavior == LFS_TESTBD_BADBLOCK_NOREAD &&
-            bd->wear[block] >= bd->cfg->erase_cycles) {
+    if (bd->cfg->erase_cycles && bd->wear[block] >= bd->cfg->erase_cycles &&
+            bd->cfg->badblock_behavior == LFS_TESTBD_BADBLOCK_READERROR) {
         LFS_TRACE("lfs_testbd_read -> %d", LFS_ERR_CORRUPT);
         return LFS_ERR_CORRUPT;
     }
@@ -180,11 +179,18 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
     LFS_ASSERT(block < cfg->block_count);
 
     // block bad?
-    if (bd->cfg->erase_cycles &&
-            bd->cfg->badblock_behavior == LFS_TESTBD_BADBLOCK_NOPROG &&
-            bd->wear[block] >= bd->cfg->erase_cycles) {
-        LFS_TRACE("lfs_testbd_prog -> %d", LFS_ERR_CORRUPT);
-        return LFS_ERR_CORRUPT;
+    if (bd->cfg->erase_cycles && bd->wear[block] >= bd->cfg->erase_cycles) {
+        if (bd->cfg->badblock_behavior ==
+                LFS_TESTBD_BADBLOCK_PROGERROR) {
+            LFS_TRACE("lfs_testbd_prog -> %d", LFS_ERR_CORRUPT);
+            return LFS_ERR_CORRUPT;
+        } else if (bd->cfg->badblock_behavior ==
+                LFS_TESTBD_BADBLOCK_PROGNOOP ||
+                bd->cfg->badblock_behavior ==
+                LFS_TESTBD_BADBLOCK_ERASENOOP) {
+            LFS_TRACE("lfs_testbd_prog -> %d", 0);
+            return 0;
+        }
     }
 
     // prog
@@ -219,9 +225,14 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     // block bad?
     if (bd->cfg->erase_cycles) {
         if (bd->wear[block] >= bd->cfg->erase_cycles) {
-            if (bd->cfg->badblock_behavior == LFS_TESTBD_BADBLOCK_NOERASE) {
+            if (bd->cfg->badblock_behavior ==
+                    LFS_TESTBD_BADBLOCK_ERASEERROR) {
                 LFS_TRACE("lfs_testbd_erase -> %d", LFS_ERR_CORRUPT);
                 return LFS_ERR_CORRUPT;
+            } else if (bd->cfg->badblock_behavior ==
+                    LFS_TESTBD_BADBLOCK_ERASENOOP) {
+                LFS_TRACE("lfs_testbd_erase -> %d", 0);
+                return 0;
             }
         } else {
             // mark wear

@@ -1300,9 +1300,9 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
             // check against written crc to detect if block is readonly
             // (we may pick up old commits)
 // TODO rm me?
-//            if (i == noff && crc != ncrc) {
-//                return LFS_ERR_CORRUPT;
-//            }
+            if (i == noff && crc != ncrc) {
+                return LFS_ERR_CORRUPT;
+            }
 
             crc = lfs_crc(crc, &dat, 1);
         }

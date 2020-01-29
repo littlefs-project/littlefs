@@ -1,11 +1,13 @@
 [[case]] # test running a filesystem to exhaustion
 define.LFS_ERASE_CYCLES = 10
-define.LFS_BLOCK_COUNT = 256 # small bd so it runs faster
+define.LFS_BLOCK_COUNT = 256 # small bd so test runs faster
 define.LFS_BLOCK_CYCLES = 'LFS_ERASE_CYCLES / 2'
 define.LFS_BADBLOCK_BEHAVIOR = [
-    'LFS_TESTBD_BADBLOCK_NOPROG',
-    'LFS_TESTBD_BADBLOCK_NOERASE',
-    'LFS_TESTBD_BADBLOCK_NOREAD',
+    'LFS_TESTBD_BADBLOCK_PROGERROR',
+    'LFS_TESTBD_BADBLOCK_ERASEERROR',
+    'LFS_TESTBD_BADBLOCK_READERROR',
+    'LFS_TESTBD_BADBLOCK_PROGNOOP',
+    'LFS_TESTBD_BADBLOCK_ERASENOOP',
 ]
 define.FILES = 10
 code = '''
@@ -79,12 +81,14 @@ exhausted:
 [[case]] # test running a filesystem to exhaustion
          # which also requires expanding superblocks
 define.LFS_ERASE_CYCLES = 10
-define.LFS_BLOCK_COUNT = 256 # small bd so it runs faster
+define.LFS_BLOCK_COUNT = 256 # small bd so test runs faster
 define.LFS_BLOCK_CYCLES = 'LFS_ERASE_CYCLES / 2'
 define.LFS_BADBLOCK_BEHAVIOR = [
-    'LFS_TESTBD_BADBLOCK_NOPROG',
-    'LFS_TESTBD_BADBLOCK_NOERASE',
-    'LFS_TESTBD_BADBLOCK_NOREAD',
+    'LFS_TESTBD_BADBLOCK_PROGERROR',
+    'LFS_TESTBD_BADBLOCK_ERASEERROR',
+    'LFS_TESTBD_BADBLOCK_READERROR',
+    'LFS_TESTBD_BADBLOCK_PROGNOOP',
+    'LFS_TESTBD_BADBLOCK_ERASENOOP',
 ]
 define.FILES = 10
 code = '''
@@ -159,13 +163,8 @@ exhausted:
 
 [[case]] # wear-level test running a filesystem to exhaustion
 define.LFS_ERASE_CYCLES = 20
-define.LFS_BLOCK_COUNT = 256 # small bd so it runs faster
+define.LFS_BLOCK_COUNT = 256 # small bd so test runs faster
 define.LFS_BLOCK_CYCLES = 'LFS_ERASE_CYCLES / 2'
-define.LFS_BADBLOCK_BEHAVIOR = [
-    'LFS_TESTBD_BADBLOCK_NOPROG',
-    'LFS_TESTBD_BADBLOCK_NOERASE',
-    'LFS_TESTBD_BADBLOCK_NOREAD',
-]
 define.FILES = 10
 code = '''
     uint32_t run_cycles[2];
@@ -252,13 +251,8 @@ exhausted:
 
 [[case]] # wear-level test + expanding superblock
 define.LFS_ERASE_CYCLES = 20
-define.LFS_BLOCK_COUNT = 256 # small bd so it runs faster
+define.LFS_BLOCK_COUNT = 256 # small bd so test runs faster
 define.LFS_BLOCK_CYCLES = 'LFS_ERASE_CYCLES / 2'
-define.LFS_BADBLOCK_BEHAVIOR = [
-    'LFS_TESTBD_BADBLOCK_NOPROG',
-    'LFS_TESTBD_BADBLOCK_NOERASE',
-    'LFS_TESTBD_BADBLOCK_NOREAD',
-]
 define.FILES = 10
 code = '''
     uint32_t run_cycles[2];

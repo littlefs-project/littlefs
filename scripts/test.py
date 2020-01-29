@@ -52,7 +52,7 @@ DEFINES = {
     'LFS_LOOKAHEAD_SIZE': 16,
     'LFS_ERASE_VALUE': 0xff,
     'LFS_ERASE_CYCLES': 0,
-    'LFS_BADBLOCK_BEHAVIOR': 'LFS_TESTBD_BADBLOCK_NOPROG',
+    'LFS_BADBLOCK_BEHAVIOR': 'LFS_TESTBD_BADBLOCK_PROGERROR',
 }
 PROLOGUE = """
     // prologue
@@ -183,12 +183,10 @@ class TestCase:
             return False
         elif self.if_ is not None:
             if_ = self.if_
-            print(if_)
             while True:
                 for k, v in self.defines.items():
                     if k in if_:
                         if_ = if_.replace(k, '(%s)' % v)
-                        print(if_)
                         break
                 else:
                     break
@@ -196,8 +194,6 @@ class TestCase:
                 re.sub('(\&\&|\?)', ' and ',
                 re.sub('(\|\||:)', ' or ',
                 re.sub('!(?!=)', ' not ', if_))))
-            print(if_)
-            print('---', eval(if_), '---')
             return eval(if_)
         else:
             return True
