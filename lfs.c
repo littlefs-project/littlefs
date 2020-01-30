@@ -1631,33 +1631,17 @@ static int lfs_dir_compact(lfs_t *lfs,
 
             // TODO huh?
             LFS_ASSERT(commit.off % lfs->cfg->prog_size == 0);
-            // update gstate
-            lfs->gdelta = (lfs_gstate_t){0};
-            if (!relocated) {
-                lfs->gdisk = lfs->gstate;
-            }
-
-            // TODO here??
-            if (relocated) {
-                // update references if we relocated
-                LFS_DEBUG("Relocating %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
-                        oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
-                err = lfs_fs_relocate(lfs, oldpair, dir->pair);
-                if (err) {
-                    // TODO make better
-                    dir->pair[1] = oldpair[1]; //
-                    return err;
-                }
-                LFS_DEBUG("Relocated %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
-                        oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
-            }
-
             // successful compaction, swap dir pair to indicate most recent
             lfs_pair_swap(dir->pair);
             dir->rev = nrev;
             dir->count = end - begin;
             dir->off = commit.off;
             dir->etag = commit.ptag;
+            // update gstate
+            lfs->gdelta = (lfs_gstate_t){0};
+            if (!relocated) {
+                lfs->gdisk = lfs->gstate;
+            }
         }
         break;
 
@@ -1683,6 +1667,21 @@ relocate:
 
         tired = false;
         continue;
+    }
+
+    // TODO here??
+    if (relocated) {
+        // update references if we relocated
+        LFS_DEBUG("Relocating %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
+                oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
+        int err = lfs_fs_relocate(lfs, oldpair, dir->pair);
+        if (err) {
+            // TODO make better
+            //dir->pair[1] = oldpair[1]; //
+            return err;
+        }
+        LFS_DEBUG("Relocated %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
+                oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
     }
 
     return 0;
@@ -2739,9 +2738,9 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
                     {LFS_MKTAG(LFS_FROM_USERATTRS, file->id,
                         file->cfg->attr_count), file->cfg->attrs}));
             if (err) {
-                if (err == LFS_ERR_NOSPC && (file->flags & LFS_F_INLINE)) {
-                    goto relocate;
-                }
+//                if (err == LFS_ERR_NOSPC && (file->flags & LFS_F_INLINE)) {
+//                    goto relocate;
+//                }
                 file->flags |= LFS_F_ERRED;
                 LFS_TRACE("lfs_file_sync -> %d", err);
                 return err;
