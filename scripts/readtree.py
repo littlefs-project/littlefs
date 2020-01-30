@@ -13,45 +13,6 @@ def popc(x):
 def ctz(x):
     return len(bin(x)) - len(bin(x).rstrip('0'))
 
-def dumptags(args, mdir, f):
-    if args.all:
-        tags = mdir.all_
-    elif args.log:
-        tags = mdir.log
-    else:
-        tags = mdir.tags
-
-    for k, tag in enumerate(tags):
-        f.write("tag %08x %s" % (tag, tag.typerepr()))
-        if tag.id != 0x3ff:
-            f.write(" id %d" % tag.id)
-        if tag.size != 0x3ff:
-            f.write(" size %d" % tag.size)
-        if tag.is_('name'):
-            f.write(" name %s" %
-                json.dumps(tag.data.decode('utf8')))
-        if tag.is_('dirstruct'):
-            f.write(" dir {%#x, %#x}" % struct.unpack(
-                '<II', tag.data[:8].ljust(8, b'\xff')))
-        if tag.is_('ctzstruct'):
-            f.write(" ctz {%#x} size %d" % struct.unpack(
-                '<II', tag.data[:8].ljust(8, b'\xff')))
-        if tag.is_('inlinestruct'):
-            f.write(" inline size %d" % tag.size)
-        if tag.is_('gstate'):
-            f.write(" 0x%s" % ''.join('%02x' % c for c in tag.data))
-        if tag.is_('tail'):
-            f.write(" tail {%#x, %#x}" % struct.unpack(
-                '<II', tag.data[:8].ljust(8, b'\xff')))
-        f.write("\n")
-
-        if args.data:
-            for i in range(0, len(tag.data), 16):
-                f.write("  %-47s  %-16s\n" % (
-                    ' '.join('%02x' % c for c in tag.data[i:i+16]),
-                    ''.join(c if c >= ' ' and c <= '~' else '.'
-                        for c in map(chr, tag.data[i:i+16]))))
-
 def dumpentries(args, mdir, f):
     for k, id_ in enumerate(mdir.ids):
         name = mdir[Tag('name', id_, 0)]
@@ -72,8 +33,8 @@ def dumpentries(args, mdir, f):
 
         if args.data and struct_.is_('inlinestruct'):
             for i in range(0, len(struct_.data), 16):
-                f.write("  %-47s  %-16s\n" % (
-                    ' '.join('%02x' % c for c in struct_.data[i:i+16]),
+                f.write("  %08x: %-47s  %-16s\n" % (
+                    i, ' '.join('%02x' % c for c in struct_.data[i:i+16]),
                     ''.join(c if c >= ' ' and c <= '~' else '.'
                         for c in map(chr, struct_.data[i:i+16]))))
         elif args.data and struct_.is_('ctzstruct'):
@@ -95,8 +56,8 @@ def dumpentries(args, mdir, f):
                 it.chain.from_iterable(reversed(data)), size))
             for i in range(0, min(len(data), 256)
                     if not args.no_truncate else len(data), 16):
-                f.write("  %-47s  %-16s\n" % (
-                    ' '.join('%02x' % c for c in data[i:i+16]),
+                f.write("  %08x: %-47s  %-16s\n" % (
+                    i, ' '.join('%02x' % c for c in data[i:i+16]),
                     ''.join(c if c >= ' ' and c <= '~' else '.'
                         for c in map(chr, data[i:i+16]))))
 
@@ -239,8 +200,12 @@ def main(args):
                     ' (corrupted)' if not mdir else ''))
 
                 f = io.StringIO()
-                if args.tags or args.all or args.log:
-                    dumptags(args, mdir, f)
+                if args.tags:
+                    mdir.dump_tags(f, truncate=not args.no_truncate)
+                elif args.log:
+                    mdir.dump_log(f, truncate=not args.no_truncate)
+                elif args.all:
+                    mdir.dump_all(f, truncate=not args.no_truncate)
                 else:
                     dumpentries(args, mdir, f)
 
@@ -285,12 +250,12 @@ if __name__ == "__main__":
         help="Show contents of metadata-pairs/directories.")
     parser.add_argument('-t', '--tags', action='store_true',
         help="Show metadata tags instead of reconstructing entries.")
-    parser.add_argument('-a', '--all', action='store_true',
-        help="Show all tags in log, included tags in corrupted commits.")
     parser.add_argument('-l', '--log', action='store_true',
         help="Show tags in log.")
+    parser.add_argument('-a', '--all', action='store_true',
+        help="Show all tags in log, included tags in corrupted commits.")
     parser.add_argument('-d', '--data', action='store_true',
         help="Also show the raw contents of files/attrs/tags.")
     parser.add_argument('-T', '--no-truncate', action='store_true',
-        help="Don't truncate large amounts of data in files.")
+        help="Don't truncate large amounts of data.")
     sys.exit(main(parser.parse_args()))

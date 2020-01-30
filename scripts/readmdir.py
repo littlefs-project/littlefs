@@ -2,6 +2,7 @@
 
 import struct
 import binascii
+import sys
 import itertools as it
 
 TAG_TYPES = {
@@ -271,37 +272,39 @@ class MetadataPair:
 
         raise KeyError(gmask, gtag)
 
-    def _dump_tags(self, tags, truncate=True):
-        sys.stdout.write("%-8s  %-8s  %-13s %4s %4s  %s\n" % (
-            'off', 'tag', 'type', 'id', 'len',
-            'data (truncated)' if truncate else 12*' '+'data'))
+    def _dump_tags(self, tags, f=sys.stdout, truncate=True):
+        f.write("%-8s  %-8s  %-13s %4s %4s" % (
+            'off', 'tag', 'type', 'id', 'len'))
+        if truncate:
+            f.write('  data (truncated)')
+        f.write('\n')
 
         for tag in tags:
-            sys.stdout.write("%08x: %08x  %-13s %4s %4s" % (
+            f.write("%08x: %08x  %-13s %4s %4s" % (
                 tag.off, tag,
                 tag.typerepr(), tag.idrepr(), tag.sizerepr()))
             if truncate:
-                sys.stdout.write("  %-23s  %-8s\n" % (
+                f.write("  %-23s  %-8s\n" % (
                     ' '.join('%02x' % c for c in tag.data[:8]),
                     ''.join(c if c >= ' ' and c <= '~' else '.'
                         for c in map(chr, tag.data[:8]))))
             else:
-                sys.stdout.write("\n")
+                f.write("\n")
                 for i in range(0, len(tag.data), 16):
-                    sys.stdout.write("%08x: %-47s  %-16s\n" % (
+                    f.write("  %08x: %-47s  %-16s\n" % (
                         tag.off+i,
                         ' '.join('%02x' % c for c in tag.data[i:i+16]),
                         ''.join(c if c >= ' ' and c <= '~' else '.'
                             for c in map(chr, tag.data[i:i+16]))))
 
-    def dump_tags(self, truncate=True):
-        self._dump_tags(self.tags, truncate=truncate)
+    def dump_tags(self, f=sys.stdout, truncate=True):
+        self._dump_tags(self.tags, f=f, truncate=truncate)
 
-    def dump_log(self, truncate=True):
-        self._dump_tags(self.log, truncate=truncate)
+    def dump_log(self, f=sys.stdout, truncate=True):
+        self._dump_tags(self.log, f=f, truncate=truncate)
 
-    def dump_all(self, truncate=True):
-        self._dump_tags(self.all_, truncate=truncate)
+    def dump_all(self, f=sys.stdout, truncate=True):
+        self._dump_tags(self.all_, f=f, truncate=truncate)
 
 def main(args):
     blocks = []
@@ -337,10 +340,10 @@ if __name__ == "__main__":
         help="First block address for finding the metadata pair.")
     parser.add_argument('block2', nargs='?', type=lambda x: int(x, 0),
         help="Second block address for finding the metadata pair.")
-    parser.add_argument('-a', '--all', action='store_true',
-        help="Show all tags in log, included tags in corrupted commits.")
     parser.add_argument('-l', '--log', action='store_true',
         help="Show tags in log.")
+    parser.add_argument('-a', '--all', action='store_true',
+        help="Show all tags in log, included tags in corrupted commits.")
     parser.add_argument('-T', '--no-truncate', action='store_true',
-        help="Don't truncate large amounts of data in tags.")
+        help="Don't truncate large amounts of data.")
     sys.exit(main(parser.parse_args()))
