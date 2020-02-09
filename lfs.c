@@ -1486,7 +1486,7 @@ static int lfs_dir_compact(lfs_t *lfs,
     // increment revision count
     uint32_t nrev = dir->rev + 1;
     if (lfs->cfg->block_cycles > 0 &&
-            (nrev % (lfs->cfg->block_cycles+1) == 0)) {
+            (nrev % ((lfs->cfg->block_cycles+1)|1) == 0)) {
         if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
             // oh no! we're writing too much to the superblock,
             // should we expand?
@@ -1524,6 +1524,7 @@ static int lfs_dir_compact(lfs_t *lfs,
         } else {
             // we're writing too much, time to relocate
             tired = true;
+            //nrev += 1;//lfs->cfg->block_cycles & 1; // TODO do this here?
             goto relocate;
         }
     }
@@ -1631,17 +1632,33 @@ static int lfs_dir_compact(lfs_t *lfs,
 
             // TODO huh?
             LFS_ASSERT(commit.off % lfs->cfg->prog_size == 0);
+            // update gstate
+            lfs->gdelta = (lfs_gstate_t){0};
+            if (!relocated) {
+                lfs->gdisk = lfs->gstate;
+            }
+
+    // TODO here??
+    if (relocated) {
+        // update references if we relocated
+        LFS_DEBUG("Relocating %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
+                oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
+        int err = lfs_fs_relocate(lfs, oldpair, dir->pair);
+        if (err) {
+            // TODO make better
+            //dir->pair[1] = oldpair[1]; //
+            return err;
+        }
+//        LFS_DEBUG("Relocated %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
+//                oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
+    }
+
             // successful compaction, swap dir pair to indicate most recent
             lfs_pair_swap(dir->pair);
             dir->rev = nrev;
             dir->count = end - begin;
             dir->off = commit.off;
             dir->etag = commit.ptag;
-            // update gstate
-            lfs->gdelta = (lfs_gstate_t){0};
-            if (!relocated) {
-                lfs->gdisk = lfs->gstate;
-            }
         }
         break;
 
@@ -1669,20 +1686,6 @@ relocate:
         continue;
     }
 
-    // TODO here??
-    if (relocated) {
-        // update references if we relocated
-        LFS_DEBUG("Relocating %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
-                oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
-        int err = lfs_fs_relocate(lfs, oldpair, dir->pair);
-        if (err) {
-            // TODO make better
-            //dir->pair[1] = oldpair[1]; //
-            return err;
-        }
-        LFS_DEBUG("Relocated %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
-                oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
-    }
 
     return 0;
 }
@@ -1709,6 +1712,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
 
     // calculate changes to the directory
     bool hasdelete = false;
+    lfs_mdir_t olddir = *dir; // TODO is this a good idea?
     for (int i = 0; i < attrcount; i++) {
         if (lfs_tag_type3(attrs[i].tag) == LFS_TYPE_CREATE) {
             dir->count += 1;
@@ -1729,6 +1733,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         lfs_mdir_t pdir;
         int err = lfs_fs_pred(lfs, dir->pair, &pdir);
         if (err && err != LFS_ERR_NOENT) {
+            *dir = olddir;
             return err;
         }
 
@@ -1761,6 +1766,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
                 goto compact;
             }
+            *dir = olddir;
             return err;
         }
 
@@ -1773,6 +1779,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         if (!lfs_gstate_iszero(&delta)) {
             err = lfs_dir_getgstate(lfs, dir, &delta);
             if (err) {
+                *dir = olddir;
                 return err;
             }
 
@@ -1784,6 +1791,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
                 if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
                     goto compact;
                 }
+                *dir = olddir;
                 return err;
             }
         }
@@ -1794,6 +1802,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
                 goto compact;
             }
+            *dir = olddir;
             return err;
         }
 
@@ -1812,6 +1821,7 @@ compact:
         int err = lfs_dir_compact(lfs, dir, attrs, attrcount,
                 dir, 0, dir->count);
         if (err) {
+            *dir = olddir;
             return err;
         }
     }
@@ -3845,7 +3855,7 @@ int lfs_fs_traverse(lfs_t *lfs,
                     LFS_TRACE("lfs_fs_traverse -> %d", err);
                     return err;
                 }
-            } else if (lfs_gstate_hasorphans(&lfs->gstate) &&
+            } else if (/*lfs_gstate_hasorphans(&lfs->gstate) && TODO maybe report size-dirs/2 ? */
                     lfs_tag_type3(tag) == LFS_TYPE_DIRSTRUCT) {
                 // TODO HMMMMMM HMMMMMMMMMMMMMMMMMMM
                 for (int i = 0; i < 2; i++) {
