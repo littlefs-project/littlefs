@@ -414,6 +414,9 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
 static int lfs_fs_relocate(lfs_t *lfs,
         const lfs_block_t oldpair[2], lfs_block_t newpair[2]);
+int lfs_fs_traverseraw(lfs_t *lfs,
+        int (*cb)(void *data, lfs_block_t block), void *data,
+        bool includeorphans);
 static int lfs_fs_forceconsistency(lfs_t *lfs);
 static int lfs_deinit(lfs_t *lfs);
 #ifdef LFS_MIGRATE
@@ -472,7 +475,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
         // find mask of free blocks from tree
         memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
-        int err = lfs_fs_traverse(lfs, lfs_alloc_lookahead, lfs);
+        int err = lfs_fs_traverseraw(lfs, lfs_alloc_lookahead, lfs, true);
         if (err) {
             return err;
         }
@@ -3798,10 +3801,9 @@ int lfs_unmount(lfs_t *lfs) {
 
 
 /// Filesystem filesystem operations ///
-int lfs_fs_traverse(lfs_t *lfs,
-        int (*cb)(void *data, lfs_block_t block), void *data) {
-    LFS_TRACE("lfs_fs_traverse(%p, %p, %p)",
-            (void*)lfs, (void*)(uintptr_t)cb, data);
+int lfs_fs_traverseraw(lfs_t *lfs,
+        int (*cb)(void *data, lfs_block_t block), void *data,
+        bool includeorphans) {
     // iterate over metadata pairs
     lfs_mdir_t dir = {.tail = {0, 1}};
 
@@ -3810,7 +3812,6 @@ int lfs_fs_traverse(lfs_t *lfs,
     if (lfs->lfs1) {
         int err = lfs1_traverse(lfs, cb, data);
         if (err) {
-            LFS_TRACE("lfs_fs_traverse -> %d", err);
             return err;
         }
 
@@ -3823,7 +3824,6 @@ int lfs_fs_traverse(lfs_t *lfs,
         for (int i = 0; i < 2; i++) {
             int err = cb(data, dir.tail[i]);
             if (err) {
-                LFS_TRACE("lfs_fs_traverse -> %d", err);
                 return err;
             }
         }
@@ -3831,7 +3831,6 @@ int lfs_fs_traverse(lfs_t *lfs,
         // iterate through ids in directory
         int err = lfs_dir_fetch(lfs, &dir, dir.tail);
         if (err) {
-            LFS_TRACE("lfs_fs_traverse -> %d", err);
             return err;
         }
 
@@ -3843,7 +3842,6 @@ int lfs_fs_traverse(lfs_t *lfs,
                 if (tag == LFS_ERR_NOENT) {
                     continue;
                 }
-                LFS_TRACE("lfs_fs_traverse -> %"PRId32, tag);
                 return tag;
             }
             lfs_ctz_fromle32(&ctz);
@@ -3852,17 +3850,13 @@ int lfs_fs_traverse(lfs_t *lfs,
                 err = lfs_ctz_traverse(lfs, NULL, &lfs->rcache,
                         ctz.head, ctz.size, cb, data);
                 if (err) {
-                    LFS_TRACE("lfs_fs_traverse -> %d", err);
                     return err;
                 }
-            } else if (/*lfs_gstate_hasorphans(&lfs->gstate) && TODO maybe report size-dirs/2 ? */
+            } else if (includeorphans && 
                     lfs_tag_type3(tag) == LFS_TYPE_DIRSTRUCT) {
-                // TODO HMMMMMM HMMMMMMMMMMMMMMMMMMM
                 for (int i = 0; i < 2; i++) {
-                    //printf("HMM %x\n", (&ctz.head)[i]);
                     err = cb(data, (&ctz.head)[i]);
                     if (err) {
-                        LFS_TRACE("lfs_fs_traverse -> %d", err);
                         return err;
                     }
                 }
@@ -3880,7 +3874,6 @@ int lfs_fs_traverse(lfs_t *lfs,
             int err = lfs_ctz_traverse(lfs, &f->cache, &lfs->rcache,
                     f->ctz.head, f->ctz.size, cb, data);
             if (err) {
-                LFS_TRACE("lfs_fs_traverse -> %d", err);
                 return err;
             }
         }
@@ -3889,14 +3882,21 @@ int lfs_fs_traverse(lfs_t *lfs,
             int err = lfs_ctz_traverse(lfs, &f->cache, &lfs->rcache,
                     f->block, f->pos, cb, data);
             if (err) {
-                LFS_TRACE("lfs_fs_traverse -> %d", err);
                 return err;
             }
         }
     }
 
-    LFS_TRACE("lfs_fs_traverse -> %d", 0);
     return 0;
+}
+
+int lfs_fs_traverse(lfs_t *lfs,
+        int (*cb)(void *data, lfs_block_t block), void *data) {
+    LFS_TRACE("lfs_fs_traverse(%p, %p, %p)",
+            (void*)lfs, (void*)(uintptr_t)cb, data);
+    int err = lfs_fs_traverseraw(lfs, cb, data, true);
+    LFS_TRACE("lfs_fs_traverse -> %d", 0);
+    return err;
 }
 
 static int lfs_fs_pred(lfs_t *lfs,
@@ -4207,7 +4207,7 @@ static int lfs_fs_size_count(void *p, lfs_block_t block) {
 lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
     LFS_TRACE("lfs_fs_size(%p)", (void*)lfs);
     lfs_size_t size = 0;
-    int err = lfs_fs_traverse(lfs, lfs_fs_size_count, &size);
+    int err = lfs_fs_traverseraw(lfs, lfs_fs_size_count, &size, false);
     if (err) {
         LFS_TRACE("lfs_fs_size -> %d", err);
         return err;
