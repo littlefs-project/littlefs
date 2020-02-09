@@ -31,13 +31,13 @@ code = '''
     lfs_mount(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
     lfs_stat(&lfs, "parent/child", &info) => 0;
-    lfs_fs_size(&lfs) => 12;
+    lfs_fs_size(&lfs) => 8;
     lfs_unmount(&lfs) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
     lfs_stat(&lfs, "parent/child", &info) => 0;
-    lfs_fs_size(&lfs) => 12;
+    lfs_fs_size(&lfs) => 8;
     // this mkdir should both create a dir and deorphan, so size
     // should be unchanged
     lfs_mkdir(&lfs, "parent/otherchild") => 0;
