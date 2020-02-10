@@ -148,6 +148,7 @@ code = '''
 
 [[case]] # move file corrupt source and dest
 in = "lfs.c"
+if = 'LFS_PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -239,6 +240,7 @@ code = '''
 
 [[case]] # move file after corrupt
 in = "lfs.c"
+if = 'LFS_PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -593,6 +595,7 @@ code = '''
 
 [[case]] # move dir corrupt source and dest
 in = "lfs.c"
+if = 'LFS_PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -692,6 +695,7 @@ code = '''
 
 [[case]] # move dir after corrupt
 in = "lfs.c"
+if = 'LFS_PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;

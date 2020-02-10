@@ -3,7 +3,7 @@
 # still pass with other inline sizes but wouldn't be testing anything.
 
 define.LFS_CACHE_SIZE = 512
-if = 'LFS_CACHE_SIZE == 512'
+if = 'LFS_CACHE_SIZE % LFS_PROG_SIZE == 0 && LFS_CACHE_SIZE == 512'
 
 [[case]] # entry grow test
 code = '''

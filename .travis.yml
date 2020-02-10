@@ -2,6 +2,7 @@
 env:
   global:
     - CFLAGS=-Werror
+    - MAKEFLAGS=-j
 
 # Common test script
 script:
@@ -15,32 +16,27 @@ script:
         -include stdio.h"
 
   # run tests
-  - make test QUIET=1
+  - make clean test TFLAGS+="-nrk"
 
-  # run tests with a few different configurations
-  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=1      -DLFS_CACHE_SIZE=4"
-  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=512    -DLFS_CACHE_SIZE=512 -DLFS_BLOCK_CYCLES=16"
-  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=8      -DLFS_CACHE_SIZE=16  -DLFS_BLOCK_CYCLES=2"
-  - make test QUIET=1 CFLAGS+="-DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
+  # common real-life geometries
+  # NOR flash: read/prog = 1 block = 4KiB
+  - make clean test TFLAGS+="-nrk -DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096"
+  # SD card: read/prog = 512 block = 512
+  - make clean test TFLAGS+="-nrk -DLFS_READ_SIZE=512 -DLFS_BLOCK_SIZE=512"
+  # NAND flash: read/prog = 4KiB block = 32KiB
+  - make clean test TFLAGS+="-nrk -DLFS_READ_SIZE=4096 -DLFS_BLOCK_SIZE=\(32*1024\)"
 
-  - make clean test QUIET=1 CFLAGS+="-DLFS_INLINE_MAX=0"
-  - make clean test QUIET=1 CFLAGS+="-DLFS_EMUBD_ERASE_VALUE=0xff"
-  - make clean test QUIET=1 CFLAGS+="-DLFS_NO_INTRINSICS"
-
-  # additional configurations that don't support all tests (this should be
-  # fixed but at the moment it is what it is)
-  - make test_files QUIET=1
-        CFLAGS+="-DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096"
-  - make test_files QUIET=1
-        CFLAGS+="-DLFS_READ_SIZE=\(2*1024\) -DLFS_BLOCK_SIZE=\(64*1024\)"
-  - make test_files QUIET=1
-        CFLAGS+="-DLFS_READ_SIZE=\(8*1024\) -DLFS_BLOCK_SIZE=\(64*1024\)"
-  - make test_files QUIET=1
-        CFLAGS+="-DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
+  # other extreme geometries for corner cases
+  - make clean test TFLAGS+="-nrk -DLFS_NO_INTRINSICS"
+  - make clean test TFLAGS+="-nrk -DLFS_INLINE_MAX=0"
+  - make clean test TFLAGS+="-nrk -DLFS_READ_SIZE=1 -DLFS_CACHE_SIZE=1"
+  - make clean test TFLAGS+="-nrk -DLFS_BLOCK_CYCLES=1"
+  - make clean test TFLAGS+="-nrk -DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
+  - make clean test TFLAGS+="-nrk -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
 
   # compile and find the code size with the smallest configuration
   - make clean size
-        OBJ="$(ls lfs*.o | tr '\n' ' ')"
+        OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
         CFLAGS+="-DLFS_NO_ASSERT -DLFS_NO_DEBUG -DLFS_NO_WARN -DLFS_NO_ERROR"
         | tee sizes
 
@@ -77,7 +73,7 @@ jobs:
         - STAGE=test
         - NAME=littlefs-arm
         - CC="arm-linux-gnueabi-gcc --static -mthumb"
-        - EXEC="qemu-arm"
+        - TFLAGS="-e qemu-arm"
       install:
         - sudo apt-get install
               gcc-arm-linux-gnueabi
@@ -92,7 +88,7 @@ jobs:
         - STAGE=test
         - NAME=littlefs-powerpc
         - CC="powerpc-linux-gnu-gcc --static"
-        - EXEC="qemu-ppc"
+        - TFLAGS="-e qemu-ppc"
       install:
         - sudo apt-get install
               gcc-powerpc-linux-gnu
@@ -107,7 +103,7 @@ jobs:
         - STAGE=test
         - NAME=littlefs-mips
         - CC="mips-linux-gnu-gcc --static"
-        - EXEC="qemu-mips"
+        - TFLAGS="-e qemu-mips"
       install:
         - sudo apt-get install
               gcc-mips-linux-gnu
@@ -115,6 +111,16 @@ jobs:
               qemu-user
         - mips-linux-gnu-gcc --version
         - qemu-mips -version
+
+    # test under valgrind, checking for memory errors
+    - stage: test
+      env:
+        - STAGE=test
+        - NAME=littlefs-valgrind
+        - TFLAGS="--valgrind"
+      install:
+        - sudo apt-get install valgrind
+        - valgrind --version
 
     # self-host with littlefs-fuse for fuzz test
     - stage: test
@@ -288,6 +294,9 @@ before_install:
             \"description\": \"${STATUS:-In progress}\",
             \"target_url\": \"https://travis-ci.org/$TRAVIS_REPO_SLUG/jobs/$TRAVIS_JOB_ID\"
         }"
+  - sudo apt-get install python3-pip
+  - sudo pip3 install toml
+  
 
 after_failure:
   - |

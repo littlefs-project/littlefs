@@ -100,7 +100,7 @@ code = '''
     lfs_file_open(&lfs, &file, "sequence",
             LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC) => 0;
 
-    size = lfs.cfg->cache_size;
+    size = lfs_min(lfs.cfg->cache_size, sizeof(buffer)/2);
     lfs_size_t qsize = size / 4;
     uint8_t *wb = buffer;
     uint8_t *rb = buffer + size;

@@ -184,7 +184,8 @@ class TestCase:
         elif self.if_ is not None:
             if_ = self.if_
             while True:
-                for k, v in self.defines.items():
+                for k, v in sorted(self.defines.items(),
+                        key=lambda x: len(x[0]), reverse=True):
                     if k in if_:
                         if_ = if_.replace(k, '(%s)' % v)
                         break
@@ -295,11 +296,11 @@ class ValgrindTestCase(TestCase):
         return not self.leaky and super().shouldtest(**args)
 
     def test(self, exec=[], **args):
-        exec = exec + [
+        exec = [
             'valgrind',
             '--leak-check=full',
             '--error-exitcode=4',
-            '-q']
+            '-q'] + exec
         return super().test(exec=exec, **args)
 
 class ReentrantTestCase(TestCase):
@@ -310,7 +311,7 @@ class ReentrantTestCase(TestCase):
     def shouldtest(self, **args):
         return self.reentrant and super().shouldtest(**args)
 
-    def test(self, exec=[], persist=False, gdb=False, failure=None, **args):
+    def test(self, persist=False, gdb=False, failure=None, **args):
         for cycles in it.count(1):
             # clear disk first?
             if cycles == 1 and persist != 'noerase':
@@ -376,10 +377,11 @@ class TestSuite:
             # code lineno?
             if 'code' in case:
                 case['code_lineno'] = code_linenos.pop()
-            # give our case's config a copy of our "global" config
-            for k, v in config.items():
-                if k not in case:
-                    case[k] = v
+            # merge conditions if necessary
+            if 'if' in config and 'if' in case:
+                case['if'] = '(%s) && (%s)' % (config['if'], case['if'])
+            elif 'if' in config:
+                case['if'] = config['if']
             # initialize test case
             self.cases.append(TestCase(case, filter=filter,
                 suite=self, caseno=i+1, lineno=lineno, **args))

@@ -340,6 +340,7 @@ define.LFS_BLOCK_COUNT = 256 # small bd so test runs faster
 define.LFS_BLOCK_CYCLES = [5, 4, 3, 2, 1]
 define.CYCLES = 100
 define.FILES = 10
+if = 'LFS_BLOCK_CYCLES < CYCLES/10'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;

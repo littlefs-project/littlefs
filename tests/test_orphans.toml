@@ -1,5 +1,6 @@
 [[case]] # orphan test
 in = "lfs.c"
+if = 'LFS_PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;

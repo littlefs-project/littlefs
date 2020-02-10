@@ -1,9 +1,10 @@
 # allocator tests
-# note for these to work there are many constraints on the device geometry
+# note for these to work there are a number constraints on the device geometry
+if = 'LFS_BLOCK_CYCLES == -1'
 
 [[case]] # parallel allocation test
 define.FILES = 3
-define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
+define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-6)) / FILES)'
 code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
     lfs_file_t files[FILES];
@@ -46,7 +47,7 @@ code = '''
 
 [[case]] # serial allocation test
 define.FILES = 3
-define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
+define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-6)) / FILES)'
 code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
 
@@ -85,7 +86,7 @@ code = '''
 
 [[case]] # parallel allocation reuse test
 define.FILES = 3
-define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
+define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-6)) / FILES)'
 define.CYCLES = [1, 10]
 code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
@@ -140,7 +141,7 @@ code = '''
 
 [[case]] # serial allocation reuse test
 define.FILES = 3
-define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / FILES)'
+define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-6)) / FILES)'
 define.CYCLES = [1, 10]
 code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};

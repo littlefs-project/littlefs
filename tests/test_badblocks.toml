@@ -1,3 +1,6 @@
+# bad blocks with block cycles should be tested in test_relocations
+if = 'LFS_BLOCK_CYCLES == -1'
+
 [[case]] # single bad blocks
 define.LFS_BLOCK_COUNT = 256 # small bd so test runs faster
 define.LFS_ERASE_CYCLES = 0xffffffff
