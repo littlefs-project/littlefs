@@ -714,7 +714,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
             uint16_t fromid = lfs_tag_size(tag);
             uint16_t toid = lfs_tag_id(tag);
             int err = lfs_dir_traverse(lfs,
-                    buffer, 0, LFS_BLOCK_NULL, NULL, 0,
+                    buffer, 0, 0xffffffff, NULL, 0,
                     LFS_MKTAG(0x600, 0x3ff, 0),
                     LFS_MKTAG(LFS_TYPE_STRUCT, 0, 0),
                     fromid, fromid+1, toid-fromid+diff,
@@ -774,7 +774,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
     // now scan tags to fetch the actual dir and find possible match
     for (int i = 0; i < 2; i++) {
         lfs_off_t off = 0;
-        lfs_tag_t ptag = LFS_BLOCK_NULL;
+        lfs_tag_t ptag = 0xffffffff;
 
         uint16_t tempcount = 0;
         lfs_block_t temptail[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
@@ -782,7 +782,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
         lfs_stag_t tempbesttag = besttag;
 
         dir->rev = lfs_tole32(dir->rev);
-        uint32_t crc = lfs_crc(LFS_BLOCK_NULL, &dir->rev, sizeof(dir->rev));
+        uint32_t crc = lfs_crc(0xffffffff, &dir->rev, sizeof(dir->rev));
         dir->rev = lfs_fromle32(dir->rev);
 
         while (true) {
@@ -853,7 +853,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 dir->split = tempsplit;
 
                 // reset crc
-                crc = LFS_BLOCK_NULL;
+                crc = 0xffffffff;
                 continue;
             }
 
@@ -1231,14 +1231,14 @@ static int lfs_dir_commitattr(lfs_t *lfs, struct lfs_commit *commit,
 }
 
 static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
+    const lfs_off_t off1 = commit->off;
+    const uint32_t crc1 = commit->crc;
     // align to program units
-    const lfs_off_t off1 = commit->off + sizeof(lfs_tag_t);
-    const lfs_off_t end = lfs_alignup(off1 + sizeof(uint32_t),
+    const lfs_off_t end = lfs_alignup(off1 + 2*sizeof(uint32_t),
             lfs->cfg->prog_size);
-    uint32_t ncrc = commit->crc;
 
     // create crc tags to fill up remainder of commit, note that
-    // padding is not crcd, which lets fetches skip padding but
+    // padding is not crced, which lets fetches skip padding but
     // makes committing a bit more complicated
     while (commit->off < end) {
         lfs_off_t off = commit->off + sizeof(lfs_tag_t);
@@ -1248,7 +1248,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
         }
 
         // read erased state from next program unit
-        lfs_tag_t tag = LFS_BLOCK_NULL;
+        lfs_tag_t tag = 0xffffffff;
         int err = lfs_bd_read(lfs,
                 NULL, &lfs->rcache, sizeof(tag),
                 commit->block, noff, &tag, sizeof(tag));
@@ -1272,10 +1272,9 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
             return err;
         }
 
-        ncrc = commit->crc;
         commit->off += sizeof(tag)+lfs_tag_size(tag);
         commit->ptag = tag ^ ((lfs_tag_t)reset << 31);
-        commit->crc = LFS_BLOCK_NULL; // reset crc for next "commit"
+        commit->crc = 0xffffffff; // reset crc for next "commit"
     }
 
     // flush buffers
@@ -1286,10 +1285,16 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
 
     // successful commit, check checksums to make sure
     lfs_off_t off = commit->begin;
-    lfs_off_t noff = off1;
+    lfs_off_t noff = off1 + sizeof(uint32_t);
     while (off < end) {
-        uint32_t crc = LFS_BLOCK_NULL;
+        uint32_t crc = 0xffffffff;
         for (lfs_off_t i = off; i < noff+sizeof(uint32_t); i++) {
+            // check against written crc, may catch blocks that
+            // become readonly and match our commit size exactly
+            if (i == off1 && crc != crc1) {
+                return LFS_ERR_CORRUPT;
+            }
+
             // leave it up to caching to make this efficient
             uint8_t dat;
             err = lfs_bd_read(lfs,
@@ -1297,12 +1302,6 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
                     commit->block, i, &dat, 1);
             if (err) {
                 return err;
-            }
-
-            // check against written crc to detect if block is readonly
-            // (we may pick up old commits)
-            if (i == noff && crc != ncrc) {
-                return LFS_ERR_CORRUPT;
             }
 
             crc = lfs_crc(crc, &dat, 1);
@@ -1351,7 +1350,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
 
     // set defaults
     dir->off = sizeof(dir->rev);
-    dir->etag = LFS_BLOCK_NULL;
+    dir->etag = 0xffffffff;
     dir->count = 0;
     dir->tail[0] = LFS_BLOCK_NULL;
     dir->tail[1] = LFS_BLOCK_NULL;
@@ -1445,7 +1444,7 @@ static int lfs_dir_compact(lfs_t *lfs,
         // find size
         lfs_size_t size = 0;
         int err = lfs_dir_traverse(lfs,
-                source, 0, LFS_BLOCK_NULL, attrs, attrcount,
+                source, 0, 0xffffffff, attrs, attrcount,
                 LFS_MKTAG(0x400, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_NAME, 0, 0),
                 begin, end, -begin,
@@ -1540,8 +1539,8 @@ static int lfs_dir_compact(lfs_t *lfs,
             struct lfs_commit commit = {
                 .block = dir->pair[1],
                 .off = 0,
-                .ptag = LFS_BLOCK_NULL,
-                .crc = LFS_BLOCK_NULL,
+                .ptag = 0xffffffff,
+                .crc = 0xffffffff,
 
                 .begin = 0,
                 .end = lfs->cfg->block_size - 8,
@@ -1570,7 +1569,7 @@ static int lfs_dir_compact(lfs_t *lfs,
 
             // traverse the directory, this time writing out all unique tags
             err = lfs_dir_traverse(lfs,
-                    source, 0, LFS_BLOCK_NULL, attrs, attrcount,
+                    source, 0, 0xffffffff, attrs, attrcount,
                     LFS_MKTAG(0x400, 0x3ff, 0),
                     LFS_MKTAG(LFS_TYPE_NAME, 0, 0),
                     begin, end, -begin,
@@ -1747,7 +1746,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             .block = dir->pair[0],
             .off = dir->off,
             .ptag = dir->etag,
-            .crc = LFS_BLOCK_NULL,
+            .crc = 0xffffffff,
 
             .begin = dir->off,
             .end = lfs->cfg->block_size - 8,
@@ -3445,7 +3444,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->cache_size == 0);
 
     // check that the block size is large enough to fit ctz pointers
-    LFS_ASSERT(4*lfs_npw2(LFS_BLOCK_NULL / (lfs->cfg->block_size-2*4))
+    LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
 
     // block_cycles = 0 is no longer supported.
@@ -4370,7 +4369,7 @@ static int lfs1_dir_fetch(lfs_t *lfs,
             continue;
         }
 
-        uint32_t crc = LFS_BLOCK_NULL;
+        uint32_t crc = 0xffffffff;
         lfs1_dir_tole32(&test);
         lfs1_crc(&crc, &test, sizeof(test));
         lfs1_dir_fromle32(&test);
@@ -4806,7 +4805,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
         dir2.pair[1] = dir1.pair[1];
         dir2.rev = dir1.d.rev;
         dir2.off = sizeof(dir2.rev);
-        dir2.etag = LFS_BLOCK_NULL;
+        dir2.etag = 0xffffffff;
         dir2.count = 0;
         dir2.tail[0] = lfs->lfs1->root[0];
         dir2.tail[1] = lfs->lfs1->root[1];
