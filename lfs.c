@@ -269,7 +269,7 @@ typedef int32_t lfs_stag_t;
     ((cond) ? LFS_MKTAG(type, id, size) : LFS_MKTAG(LFS_FROM_NOOP, 0, 0))
 
 #define LFS_MKTAG_IF_ELSE(cond, type1, id1, size1, type2, id2, size2) \
-    ((cond) ? LFS_MKTAG(type, id, size) : LFS_MKTAG(type2, id2, size2))
+    ((cond) ? LFS_MKTAG(type1, id1, size1) : LFS_MKTAG(type2, id2, size2))
 
 static inline bool lfs_tag_isvalid(lfs_tag_t tag) {
     return !(tag & 0x80000000);
