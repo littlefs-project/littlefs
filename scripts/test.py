@@ -200,22 +200,25 @@ class TestCase:
             return True
 
     def test(self, exec=[], persist=False, cycles=None,
-            gdb=False, failure=None, **args):
+            gdb=False, failure=None, disk=None, **args):
         # build command
         cmd = exec + ['./%s.test' % self.suite.path,
             repr(self.caseno), repr(self.permno)]
 
         # persist disk or keep in RAM for speed?
         if persist:
+            if not disk:
+                disk = self.suite.path + '.disk'
             if persist != 'noerase':
                 try:
-                    os.remove(self.suite.path + '.disk')
+                    with open(disk, 'w') as f:
+                        f.truncate(0)
                     if args.get('verbose', False):
-                        print('rm', self.suite.path + '.disk')
+                        print('truncate --size=0', disk)
                 except FileNotFoundError:
                     pass
 
-            cmd.append(self.suite.path + '.disk')
+            cmd.append(disk)
 
         # simulate power-loss after n cycles?
         if cycles:
@@ -704,8 +707,6 @@ def main(**args):
                         stdout = perm.result.stdout[:-1]
                     else:
                         stdout = perm.result.stdout
-                    if (not args.get('verbose', False) and len(stdout) > 5):
-                        sys.stdout.write('...\n')
                     for line in stdout[-5:]:
                         sys.stdout.write(line)
                 if perm.result.assert_:
@@ -766,4 +767,6 @@ if __name__ == "__main__":
         help="Run non-leaky tests under valgrind to check for memory leaks.")
     parser.add_argument('-e', '--exec', default=[], type=lambda e: e.split(' '),
         help="Run tests with another executable prefixed on the command line.")
+    parser.add_argument('-d', '--disk',
+        help="Specify a file to use for persistent/reentrant tests.")
     sys.exit(main(**vars(parser.parse_args())))

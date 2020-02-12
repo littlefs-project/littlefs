@@ -15,6 +15,12 @@ script:
         -Duser_provided_block_device_sync=NULL
         -include stdio.h"
 
+  # setup a ram-backed disk to speed up reentrant tests
+  - |
+    mkdir disks
+    sudo mount -t tmpfs -o size=100m tmpfs disks
+    export TFLAGS="$TFLAGS --disk=disks/disk"
+
   # run tests
   - make clean test TFLAGS+="-nrk"
 
