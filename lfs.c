@@ -2707,6 +2707,12 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
+    if (file->flags & LFS_F_ERRED) {
+        // it's not safe to do anything if our file errored
+        LFS_TRACE("lfs_file_sync -> %d", 0);
+        return 0;
+    }
+
     int err = lfs_file_flush(lfs, file);
     if (err) {
         file->flags |= LFS_F_ERRED;
@@ -2715,7 +2721,6 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     }
 
     if ((file->flags & LFS_F_DIRTY) &&
-            !(file->flags & LFS_F_ERRED) &&
             !lfs_pair_isnull(file->m.pair)) {
         // update dir entry
         uint16_t type;

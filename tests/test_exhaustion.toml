@@ -33,6 +33,9 @@ code = '''
                 lfs_ssize_t res = lfs_file_write(&lfs, &file, &c, 1);
                 assert(res == 1 || res == LFS_ERR_NOSPC);
                 if (res == LFS_ERR_NOSPC) {
+                    err = lfs_file_close(&lfs, &file);
+                    assert(err == 0 || err == LFS_ERR_NOSPC);
+                    lfs_unmount(&lfs) => 0;
                     goto exhausted;
                 }
             }
@@ -40,6 +43,7 @@ code = '''
             err = lfs_file_close(&lfs, &file);
             assert(err == 0 || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
+                lfs_unmount(&lfs) => 0;
                 goto exhausted;
             }
         }
@@ -111,6 +115,9 @@ code = '''
                 lfs_ssize_t res = lfs_file_write(&lfs, &file, &c, 1);
                 assert(res == 1 || res == LFS_ERR_NOSPC);
                 if (res == LFS_ERR_NOSPC) {
+                    err = lfs_file_close(&lfs, &file);
+                    assert(err == 0 || err == LFS_ERR_NOSPC);
+                    lfs_unmount(&lfs) => 0;
                     goto exhausted;
                 }
             }
@@ -118,6 +125,7 @@ code = '''
             err = lfs_file_close(&lfs, &file);
             assert(err == 0 || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
+                lfs_unmount(&lfs) => 0;
                 goto exhausted;
             }
         }
@@ -198,6 +206,9 @@ code = '''
                     lfs_ssize_t res = lfs_file_write(&lfs, &file, &c, 1);
                     assert(res == 1 || res == LFS_ERR_NOSPC);
                     if (res == LFS_ERR_NOSPC) {
+                        err = lfs_file_close(&lfs, &file);
+                        assert(err == 0 || err == LFS_ERR_NOSPC);
+                        lfs_unmount(&lfs) => 0;
                         goto exhausted;
                     }
                 }
@@ -205,6 +216,7 @@ code = '''
                 err = lfs_file_close(&lfs, &file);
                 assert(err == 0 || err == LFS_ERR_NOSPC);
                 if (err == LFS_ERR_NOSPC) {
+                    lfs_unmount(&lfs) => 0;
                     goto exhausted;
                 }
             }
@@ -283,6 +295,9 @@ code = '''
                     lfs_ssize_t res = lfs_file_write(&lfs, &file, &c, 1);
                     assert(res == 1 || res == LFS_ERR_NOSPC);
                     if (res == LFS_ERR_NOSPC) {
+                        err = lfs_file_close(&lfs, &file);
+                        assert(err == 0 || err == LFS_ERR_NOSPC);
+                        lfs_unmount(&lfs) => 0;
                         goto exhausted;
                     }
                 }
@@ -290,6 +305,7 @@ code = '''
                 err = lfs_file_close(&lfs, &file);
                 assert(err == 0 || err == LFS_ERR_NOSPC);
                 if (err == LFS_ERR_NOSPC) {
+                    lfs_unmount(&lfs) => 0;
                     goto exhausted;
                 }
             }
@@ -364,6 +380,9 @@ code = '''
                 lfs_ssize_t res = lfs_file_write(&lfs, &file, &c, 1);
                 assert(res == 1 || res == LFS_ERR_NOSPC);
                 if (res == LFS_ERR_NOSPC) {
+                    err = lfs_file_close(&lfs, &file);
+                    assert(err == 0 || err == LFS_ERR_NOSPC);
+                    lfs_unmount(&lfs) => 0;
                     goto exhausted;
                 }
             }
@@ -371,6 +390,7 @@ code = '''
             err = lfs_file_close(&lfs, &file);
             assert(err == 0 || err == LFS_ERR_NOSPC);
             if (err == LFS_ERR_NOSPC) {
+                lfs_unmount(&lfs) => 0;
                 goto exhausted;
             }
         }

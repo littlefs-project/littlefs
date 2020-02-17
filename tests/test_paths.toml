@@ -247,14 +247,14 @@ code = '''
     lfs_mkdir(&lfs, "coffee/coldcoffee") => 0;
 
     memset(path, 'w', LFS_NAME_MAX+1);
-    path[LFS_NAME_MAX+2] = '\0';
+    path[LFS_NAME_MAX+1] = '\0';
     lfs_mkdir(&lfs, path) => LFS_ERR_NAMETOOLONG;
     lfs_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT)
             => LFS_ERR_NAMETOOLONG;
 
     memcpy(path, "coffee/", strlen("coffee/"));
     memset(path+strlen("coffee/"), 'w', LFS_NAME_MAX+1);
-    path[strlen("coffee/")+LFS_NAME_MAX+2] = '\0';
+    path[strlen("coffee/")+LFS_NAME_MAX+1] = '\0';
     lfs_mkdir(&lfs, path) => LFS_ERR_NAMETOOLONG;
     lfs_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT)
             => LFS_ERR_NAMETOOLONG;
@@ -270,7 +270,6 @@ code = '''
     lfs_mkdir(&lfs, "coffee/warmcoffee") => 0;
     lfs_mkdir(&lfs, "coffee/coldcoffee") => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
     memset(path, 'w', LFS_NAME_MAX);
     path[LFS_NAME_MAX] = '\0';
     lfs_mkdir(&lfs, path) => 0;

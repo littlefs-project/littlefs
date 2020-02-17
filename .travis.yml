@@ -4,10 +4,16 @@ env:
     - CFLAGS=-Werror
     - MAKEFLAGS=-j
 
+# cache installation dirs
+cache:
+  pip: true
+  directories:
+    - $HOME/.cache/apt
+
 # common installation
 _: &install-common
   # need toml, also pip3 isn't installed by default?
-  - sudo apt-get install python3-pip
+  - sudo apt-get install python3 python3-pip
   - sudo pip3 install toml
   # setup a ram-backed disk to speed up reentrant tests
   - mkdir disks
@@ -189,22 +195,12 @@ jobs:
     stage: test
     env:
       - NAME=littlefs-valgrind
-      - TFLAGS="$TFLAGS --valgrind"
     install:
       - *install-common
       - sudo apt-get install valgrind
       - valgrind --version
-    script: *test-example
-  - {<<: *valgrind, script: *test-default}
-  - {<<: *valgrind, script: *test-nor}
-  - {<<: *valgrind, script: *test-emmc}
-  - {<<: *valgrind, script: *test-nand}
-  - {<<: *valgrind, script: *test-no-intrinsics}
-  - {<<: *valgrind, script: *test-no-inline}
-  - {<<: *valgrind, script: *test-byte-writes}
-  - {<<: *valgrind, script: *test-block-cycles}
-  - {<<: *valgrind, script: *test-odd-block-count}
-  - {<<: *valgrind, script: *test-odd-block-size}
+    script:
+      - make test TFLAGS+="-k --valgrind"
 
   # self-host with littlefs-fuse for fuzz test
   - stage: test
@@ -224,7 +220,7 @@ jobs:
 
       - mkdir mount
       - sudo chmod a+rw /dev/loop0
-      - dd if=/dev/zero bs=512 count=4096 of=disk
+      - dd if=/dev/zero bs=512 count=128K of=disk
       - losetup /dev/loop0 disk
     script:
       # self-host test
@@ -239,7 +235,7 @@ jobs:
       - cd mount/littlefs
       - stat .
       - ls -flh
-      - make -B test_dirs test_files QUIET=1
+      - make -B test
 
   # test migration using littlefs-fuse
   - stage: test
@@ -260,7 +256,7 @@ jobs:
 
       - mkdir mount
       - sudo chmod a+rw /dev/loop0
-      - dd if=/dev/zero bs=512 count=4096 of=disk
+      - dd if=/dev/zero bs=512 count=128K of=disk
       - losetup /dev/loop0 disk
     script:
       # compile v1 and v2
@@ -277,7 +273,7 @@ jobs:
       - cd mount/littlefs
       - stat .
       - ls -flh
-      - make -B test_dirs test_files QUIET=1
+      - make -B test
 
       # attempt to migrate
       - cd ../..
@@ -291,7 +287,7 @@ jobs:
       - cd mount/littlefs
       - stat .
       - ls -flh
-      - make -B test_dirs test_files QUIET=1
+      - make -B test
 
   # automatically create releases
   - stage: deploy

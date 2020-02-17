@@ -299,10 +299,16 @@ class ValgrindTestCase(TestCase):
         return not self.leaky and super().shouldtest(**args)
 
     def test(self, exec=[], **args):
+        verbose = args.get('verbose', False)
+        uninit = (self.defines.get('LFS_ERASE_VALUE', None) == -1)
         exec = [
             'valgrind',
             '--leak-check=full',
+            ] + (['--undef-value-errors=no'] if uninit else []) + [
+            ] + (['--track-origins=yes'] if not uninit else []) + [
             '--error-exitcode=4',
+            '--error-limit=no',
+            ] + (['--num-callers=1'] if not verbose else []) + [
             '-q'] + exec
         return super().test(exec=exec, **args)
 
