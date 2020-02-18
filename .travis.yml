@@ -115,7 +115,7 @@ jobs:
     env:
       - NAME=littlefs-arm
       - CC="arm-linux-gnueabi-gcc --static -mthumb"
-      - TFLAGS="$TFLAGS -e qemu-arm"
+      - TFLAGS="$TFLAGS --exec=qemu-arm"
     install:
       - *install-common
       - sudo apt-get install
@@ -131,7 +131,9 @@ jobs:
   - {<<: *arm, script: [*test-nand,             *report-size]}
   - {<<: *arm, script: [*test-no-intrinsics,    *report-size]}
   - {<<: *arm, script: [*test-no-inline,        *report-size]}
-  - {<<: *arm, script: [*test-byte-writes,      *report-size]}
+  # it just takes way to long to run byte-level writes in qemu,
+  # note this is still tested in the native tests
+  #- {<<: *arm, script: [*test-byte-writes,      *report-size]}
   - {<<: *arm, script: [*test-block-cycles,     *report-size]}
   - {<<: *arm, script: [*test-odd-block-count,  *report-size]}
   - {<<: *arm, script: [*test-odd-block-size,   *report-size]}
@@ -142,7 +144,7 @@ jobs:
     env:
       - NAME=littlefs-mips
       - CC="mips-linux-gnu-gcc --static"
-      - TFLAGS="$TFLAGS -e qemu-mips"
+      - TFLAGS="$TFLAGS --exec=qemu-mips"
     install:
       - *install-common
       - sudo apt-get install
@@ -158,7 +160,9 @@ jobs:
   - {<<: *mips, script: [*test-nand,             *report-size]}
   - {<<: *mips, script: [*test-no-intrinsics,    *report-size]}
   - {<<: *mips, script: [*test-no-inline,        *report-size]}
-  - {<<: *mips, script: [*test-byte-writes,      *report-size]}
+  # it just takes way to long to run byte-level writes in qemu,
+  # note this is still tested in the native tests
+  #- {<<: *mips, script: [*test-byte-writes,      *report-size]}
   - {<<: *mips, script: [*test-block-cycles,     *report-size]}
   - {<<: *mips, script: [*test-odd-block-count,  *report-size]}
   - {<<: *mips, script: [*test-odd-block-size,   *report-size]}
@@ -169,7 +173,7 @@ jobs:
     env:
       - NAME=littlefs-powerpc
       - CC="powerpc-linux-gnu-gcc --static"
-      - TFLAGS="$TFLAGS -e qemu-ppc"
+      - TFLAGS="$TFLAGS --exec=qemu-ppc"
     install:
       - *install-common
       - sudo apt-get install
@@ -185,7 +189,9 @@ jobs:
   - {<<: *powerpc, script: [*test-nand,             *report-size]}
   - {<<: *powerpc, script: [*test-no-intrinsics,    *report-size]}
   - {<<: *powerpc, script: [*test-no-inline,        *report-size]}
-  - {<<: *powerpc, script: [*test-byte-writes,      *report-size]}
+  # it just takes way to long to run byte-level writes in qemu,
+  # note this is still tested in the native tests
+  #- {<<: *powerpc, script: [*test-byte-writes,      *report-size]}
   - {<<: *powerpc, script: [*test-block-cycles,     *report-size]}
   - {<<: *powerpc, script: [*test-odd-block-count,  *report-size]}
   - {<<: *powerpc, script: [*test-odd-block-size,   *report-size]}

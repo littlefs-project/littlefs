@@ -157,7 +157,6 @@ code = '''
 [[case]] # reentrant many directory creation/rename/removal
 define.N = [5, 11]
 reentrant = true
-if = 'LFS_CACHE_SIZE >= 4' # these just take too long with byte-level writes
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
@@ -384,7 +383,6 @@ code = '''
 [[case]] # reentrant file creation/rename/removal
 define.N = [5, 25]
 reentrant = true
-if = 'LFS_CACHE_SIZE >= 4' # these just take too long with byte-level writes
 code = '''
     err = lfs_mount(&lfs, &cfg);
     if (err) {
