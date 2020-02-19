@@ -27,41 +27,55 @@ code = '''
 '''
 
 [[case]] # expanding superblock
-define.BLOCK_CYCLES = [32, 33, 1]
+define.LFS_BLOCK_CYCLES = [32, 33, 1]
 define.N = [10, 100, 1000]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
-        lfs_mkdir(&lfs, "dummy") => 0;
+        lfs_file_open(&lfs, &file, "dummy",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
         lfs_stat(&lfs, "dummy", &info) => 0;
         assert(strcmp(info.name, "dummy") == 0);
+        assert(info.type == LFS_TYPE_REG);
         lfs_remove(&lfs, "dummy") => 0;
     }
     lfs_unmount(&lfs) => 0;
 
     // one last check after power-cycle
     lfs_mount(&lfs, &cfg) => 0;
-    lfs_mkdir(&lfs, "dummy") => 0;
+    lfs_file_open(&lfs, &file, "dummy",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs_file_close(&lfs, &file) => 0;
     lfs_stat(&lfs, "dummy", &info) => 0;
     assert(strcmp(info.name, "dummy") == 0);
+    assert(info.type == LFS_TYPE_REG);
     lfs_unmount(&lfs) => 0;
 '''
 
 [[case]] # expanding superblock with power cycle
-define.BLOCK_CYCLES = [32, 33, 1]
+define.LFS_BLOCK_CYCLES = [32, 33, 1]
 define.N = [10, 100, 1000]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         lfs_mount(&lfs, &cfg) => 0;
         // remove lingering dummy?
-        err = lfs_remove(&lfs, "dummy");
+        err = lfs_stat(&lfs, "dummy", &info);
         assert(err == 0 || (err == LFS_ERR_NOENT && i == 0));
-        
-        lfs_mkdir(&lfs, "dummy") => 0;
+        if (!err) {
+            assert(strcmp(info.name, "dummy") == 0);
+            assert(info.type == LFS_TYPE_REG);
+            lfs_remove(&lfs, "dummy") => 0;
+        }
+
+        lfs_file_open(&lfs, &file, "dummy",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
         lfs_stat(&lfs, "dummy", &info) => 0;
         assert(strcmp(info.name, "dummy") == 0);
+        assert(info.type == LFS_TYPE_REG);
         lfs_unmount(&lfs) => 0;
     }
 
@@ -69,11 +83,12 @@ code = '''
     lfs_mount(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "dummy", &info) => 0;
     assert(strcmp(info.name, "dummy") == 0);
+    assert(info.type == LFS_TYPE_REG);
     lfs_unmount(&lfs) => 0;
 '''
 
 [[case]] # reentrant expanding superblock
-define.BLOCK_CYCLES = [2, 1]
+define.LFS_BLOCK_CYCLES = [2, 1]
 define.N = 24
 reentrant = true
 code = '''
@@ -85,12 +100,20 @@ code = '''
 
     for (int i = 0; i < N; i++) {
         // remove lingering dummy?
-        err = lfs_remove(&lfs, "dummy");
+        err = lfs_stat(&lfs, "dummy", &info);
         assert(err == 0 || (err == LFS_ERR_NOENT && i == 0));
-        
-        lfs_mkdir(&lfs, "dummy") => 0;
+        if (!err) {
+            assert(strcmp(info.name, "dummy") == 0);
+            assert(info.type == LFS_TYPE_REG);
+            lfs_remove(&lfs, "dummy") => 0;
+        }
+
+        lfs_file_open(&lfs, &file, "dummy",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
         lfs_stat(&lfs, "dummy", &info) => 0;
         assert(strcmp(info.name, "dummy") == 0);
+        assert(info.type == LFS_TYPE_REG);
     }
 
     lfs_unmount(&lfs) => 0;
@@ -99,5 +122,6 @@ code = '''
     lfs_mount(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "dummy", &info) => 0;
     assert(strcmp(info.name, "dummy") == 0);
+    assert(info.type == LFS_TYPE_REG);
     lfs_unmount(&lfs) => 0;
 '''
