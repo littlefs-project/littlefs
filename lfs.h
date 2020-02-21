@@ -32,7 +32,6 @@ extern "C"
 #define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
 #define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
 
-
 /// Definitions ///
 
 // Type definitions
@@ -240,6 +239,14 @@ struct lfs_config {
     // larger attributes size but must be <= LFS_ATTR_MAX. Defaults to
     // LFS_ATTR_MAX when zero.
     lfs_size_t attr_max;
+
+    // Whether read and validate after writing. The positive number means
+    // enable while the negative number means disable. The zero means
+    // enable for compatible. It can imporve write performance if no
+    // validation, but drivers must ensure data integrity.
+    int validate;
+#define LFS_ENABLE_VALIDATE 1
+#define LFS_DISABLE_VALIDATE -1
 };
 
 // File info structure
