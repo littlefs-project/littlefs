@@ -166,8 +166,8 @@ def mkassert(type, comp, lh, rh, size=None):
         'type': type.lower(), 'TYPE': type.upper(),
         'comp': comp.lower(), 'COMP': comp.upper(),
         'prefix': PREFIX.lower(), 'PREFIX': PREFIX.upper(),
-        'lh': lh.strip(),
-        'rh': rh.strip(),
+        'lh': lh.strip(' '),
+        'rh': rh.strip(' '),
         'size': size,
     }
     if size:

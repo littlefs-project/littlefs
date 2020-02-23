@@ -318,6 +318,14 @@ def main(args):
 
     # find most recent pair
     mdir = MetadataPair(blocks)
+    print("mdir {%s} rev %d%s%s" % (
+        ', '.join('%#x' % b
+            for b in [args.block1, args.block2]
+            if b is not None),
+        mdir.rev,
+        ' (was %s)' % ', '.join('%d' % m.rev for m in mdir.pair[1:])
+        if len(mdir.pair) > 1 else '',
+        ' (corrupted)' if not mdir else ''))
     if args.all:
         mdir.dump_all(truncate=not args.no_truncate)
     elif args.log:

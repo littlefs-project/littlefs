@@ -18,26 +18,22 @@ def dumpentries(args, mdir, f):
         name = mdir[Tag('name', id_, 0)]
         struct_ = mdir[Tag('struct', id_, 0)]
 
-        f.write("id %d %s %s" % (
+        desc = "id %d %s %s" % (
             id_, name.typerepr(),
-            json.dumps(name.data.decode('utf8'))))
+            json.dumps(name.data.decode('utf8')))
         if struct_.is_('dirstruct'):
-            f.write(" dir {%#x, %#x}" % struct.unpack(
-                '<II', struct_.data[:8].ljust(8, b'\xff')))
+            desc += " dir {%#x, %#x}" % struct.unpack(
+                '<II', struct_.data[:8].ljust(8, b'\xff'))
         if struct_.is_('ctzstruct'):
-            f.write(" ctz {%#x} size %d" % struct.unpack(
-                '<II', struct_.data[:8].ljust(8, b'\xff')))
+            desc += " ctz {%#x} size %d" % struct.unpack(
+                '<II', struct_.data[:8].ljust(8, b'\xff'))
         if struct_.is_('inlinestruct'):
-            f.write(" inline size %d" % struct_.size)
-        f.write("\n")
+            desc += " inline size %d" % struct_.size
 
-        if args.data and struct_.is_('inlinestruct'):
-            for i in range(0, len(struct_.data), 16):
-                f.write("  %08x: %-47s  %-16s\n" % (
-                    i, ' '.join('%02x' % c for c in struct_.data[i:i+16]),
-                    ''.join(c if c >= ' ' and c <= '~' else '.'
-                        for c in map(chr, struct_.data[i:i+16]))))
-        elif args.data and struct_.is_('ctzstruct'):
+        data = None
+        if struct_.is_('inlinestruct'):
+            data = struct_.data
+        elif struct_.is_('ctzstruct'):
             block, size = struct.unpack(
                 '<II', struct_.data[:8].ljust(8, b'\xff'))
             data = []
@@ -51,27 +47,49 @@ def dumpentries(args, mdir, f):
                     data.append(dat[4*(ctz(i)+1) if i != 0 else 0:])
                     block, = struct.unpack('<I', dat[:4].ljust(4, b'\xff'))
                     i -= 1
-
             data = bytes(it.islice(
                 it.chain.from_iterable(reversed(data)), size))
-            for i in range(0, min(len(data), 256)
-                    if not args.no_truncate else len(data), 16):
+
+        f.write("%-45s%s\n" % (desc,
+            "%-23s  %-8s" % (
+                ' '.join('%02x' % c for c in data[:8]),
+                ''.join(c if c >= ' ' and c <= '~' else '.'
+                    for c in map(chr, data[:8])))
+            if not args.no_truncate and len(desc) < 45
+                and data is not None else ""))
+
+        if name.is_('superblock') and struct_.is_('inlinestruct'):
+            f.write(
+                "  block_size %d\n"
+                "  block_count %d\n"
+                "  name_max %d\n"
+                "  file_max %d\n"
+                "  attr_max %d\n" % struct.unpack(
+                    '<IIIII', struct_.data[4:4+20].ljust(20, b'\xff')))
+
+        for tag in mdir.tags:
+            if tag.id==id_ and tag.is_('userattr'):
+                desc = "%s size %d" % (tag.typerepr(), tag.size)
+                f.write("  %-43s%s\n" % (desc,
+                    "%-23s  %-8s" % (
+                        ' '.join('%02x' % c for c in tag.data[:8]),
+                        ''.join(c if c >= ' ' and c <= '~' else '.'
+                            for c in map(chr, tag.data[:8])))
+                    if not args.no_truncate and len(desc) < 43 else ""))
+
+                if args.no_truncate:
+                    for i in range(0, len(tag.data), 16):
+                        f.write("    %08x: %-47s  %-16s\n" % (
+                            i, ' '.join('%02x' % c for c in tag.data[i:i+16]),
+                            ''.join(c if c >= ' ' and c <= '~' else '.'
+                                for c in map(chr, tag.data[i:i+16]))))
+
+        if args.no_truncate and data is not None:
+            for i in range(0, len(data), 16):
                 f.write("  %08x: %-47s  %-16s\n" % (
                     i, ' '.join('%02x' % c for c in data[i:i+16]),
                     ''.join(c if c >= ' ' and c <= '~' else '.'
                         for c in map(chr, data[i:i+16]))))
-
-        for tag in mdir.tags:
-            if tag.id==id_ and tag.is_('userattr'):
-                f.write("id %d %s size %d\n" % (
-                    id_, tag.typerepr(), tag.size))
-
-                if args.data:
-                    for i in range(0, len(tag.data), 16):
-                        f.write("  %-47s  %-16s\n" % (
-                            ' '.join('%02x' % c for c in tag.data[i:i+16]),
-                            ''.join(c if c >= ' ' and c <= '~' else '.'
-                                for c in map(chr, tag.data[i:i+16]))))
 
 def main(args):
     with open(args.disk, 'rb') as f:
@@ -161,61 +179,51 @@ def main(args):
         dir[0].path = path.replace('//', '/')
 
     # dump tree
-    if not args.superblock and not args.gstate and not args.mdirs:
-        args.superblock = True
-        args.gstate = True
-        args.mdirs = True
+    version = ('?', '?')
+    if superblock:
+        version = tuple(reversed(
+            struct.unpack('<HH', superblock[1].data[0:4].ljust(4, b'\xff'))))
+    print("%-47s%s" % ("littlefs v%s.%s" % version,
+        "data (truncated, if it fits)"
+        if not any([args.no_truncate, args.tags, args.log, args.all]) else ""))
 
-    if args.superblock and superblock:
-        print("superblock %s v%d.%d" % (
-            json.dumps(superblock[0].data.decode('utf8')),
-            struct.unpack('<H', superblock[1].data[2:2+2])[0],
-            struct.unpack('<H', superblock[1].data[0:0+2])[0]))
-        print(
-            "  block_size %d\n"
-            "  block_count %d\n"
-            "  name_max %d\n"
-            "  file_max %d\n"
-            "  attr_max %d" % struct.unpack(
-                '<IIIII', superblock[1].data[4:4+20].ljust(20, b'\xff')))
-
-    if args.gstate and gstate:
+    if gstate:
         print("gstate 0x%s" % ''.join('%02x' % c for c in gstate))
         tag = Tag(struct.unpack('<I', gstate[0:4].ljust(4, b'\xff'))[0])
         blocks = struct.unpack('<II', gstate[4:4+8].ljust(8, b'\xff'))
-        if tag.size:
-            print("  orphans %d" % tag.size)
+        if tag.size or not tag.isvalid:
+            print("  orphans >=%d" % max(tag.size, 1))
         if tag.type:
             print("  move dir {%#x, %#x} id %d" % (
                 blocks[0], blocks[1], tag.id))
 
-    if args.mdirs:
-        for i, dir in enumerate(dirs):
-            print("dir %s" % (json.dumps(dir[0].path)
-                if hasattr(dir[0], 'path') else '(orphan)'))
+    for i, dir in enumerate(dirs):
+        print("dir %s" % (json.dumps(dir[0].path)
+            if hasattr(dir[0], 'path') else '(orphan)'))
 
-            for j, mdir in enumerate(dir):
-                print("mdir {%#x, %#x} rev %d%s" % (
-                    mdir.blocks[0], mdir.blocks[1], mdir.rev,
-                    ' (corrupted)' if not mdir else ''))
+        for j, mdir in enumerate(dir):
+            print("mdir {%#x, %#x} rev %d%s" % (
+                mdir.blocks[0], mdir.blocks[1], mdir.rev,
+                ' (corrupted)' if not mdir else ''))
 
-                f = io.StringIO()
-                if args.tags:
-                    mdir.dump_tags(f, truncate=not args.no_truncate)
-                elif args.log:
-                    mdir.dump_log(f, truncate=not args.no_truncate)
-                elif args.all:
-                    mdir.dump_all(f, truncate=not args.no_truncate)
-                else:
-                    dumpentries(args, mdir, f)
+            f = io.StringIO()
+            if args.tags:
+                mdir.dump_tags(f, truncate=not args.no_truncate)
+            elif args.log:
+                mdir.dump_log(f, truncate=not args.no_truncate)
+            elif args.all:
+                mdir.dump_all(f, truncate=not args.no_truncate)
+            else:
+                dumpentries(args, mdir, f)
 
-                lines = list(filter(None, f.getvalue().split('\n')))
-                for k, line in enumerate(lines):
-                    print("%s %s" % (
-                        ' ' if j == len(dir)-1 else
-                        'v' if k == len(lines)-1 else
-                        '|',
-                        line))
+            lines = list(filter(None, f.getvalue().split('\n')))
+            for k, line in enumerate(lines):
+                print("%s %s" % (
+                    ' ' if i == len(dirs)-1 and j == len(dir)-1 else
+                    'v' if k == len(lines)-1 else
+                    '.' if j == len(dir)-1 else
+                    '|',
+                    line))
 
     if cycle:
         print("*** cycle detected! -> {%#x, %#x} ***" % (cycle[0], cycle[1]))
@@ -242,20 +250,12 @@ if __name__ == "__main__":
     parser.add_argument('block2', nargs='?', default=1,
         type=lambda x: int(x, 0),
         help="Optional second block address for finding the root.")
-    parser.add_argument('-s', '--superblock', action='store_true',
-        help="Show contents of the superblock.")
-    parser.add_argument('-g', '--gstate', action='store_true',
-        help="Show contents of global-state.")
-    parser.add_argument('-m', '--mdirs', action='store_true',
-        help="Show contents of metadata-pairs/directories.")
     parser.add_argument('-t', '--tags', action='store_true',
         help="Show metadata tags instead of reconstructing entries.")
     parser.add_argument('-l', '--log', action='store_true',
         help="Show tags in log.")
     parser.add_argument('-a', '--all', action='store_true',
         help="Show all tags in log, included tags in corrupted commits.")
-    parser.add_argument('-d', '--data', action='store_true',
-        help="Also show the raw contents of files/attrs/tags.")
     parser.add_argument('-T', '--no-truncate', action='store_true',
-        help="Don't truncate large amounts of data.")
+        help="Show the full contents of files/attrs/tags.")
     sys.exit(main(parser.parse_args()))
