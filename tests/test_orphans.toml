@@ -59,7 +59,7 @@ code = '''
 [[case]] # reentrant testing for orphans, basically just spam mkdir/remove
 reentrant = true
 # TODO fix this case, caused by non-DAG trees
-if = '!(DEPTH == 3 && LFS_CACHE_SIZE != 64)'
+#if = '!(DEPTH == 3 && LFS_CACHE_SIZE != 64)'
 define = [
     {FILES=6,  DEPTH=1, CYCLES=20},
     {FILES=26, DEPTH=1, CYCLES=20},

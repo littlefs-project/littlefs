@@ -418,6 +418,7 @@ int lfs_fs_traverseraw(lfs_t *lfs,
         int (*cb)(void *data, lfs_block_t block), void *data,
         bool includeorphans);
 static int lfs_fs_forceconsistency(lfs_t *lfs);
+static int lfs_fs_deorphan(lfs_t *lfs);
 static int lfs_deinit(lfs_t *lfs);
 #ifdef LFS_MIGRATE
 static int lfs1_traverse(lfs_t *lfs,
@@ -796,6 +797,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (err == LFS_ERR_CORRUPT) {
                     // can't continue?
                     dir->erased = false;
+                    dir->first = false;
                     break;
                 }
                 return err;
@@ -808,9 +810,11 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             if (!lfs_tag_isvalid(tag)) {
                 dir->erased = (lfs_tag_type1(ptag) == LFS_TYPE_CRC &&
                         dir->off % lfs->cfg->prog_size == 0);
+                dir->first = false;
                 break;
             } else if (off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
                 dir->erased = false;
+                dir->first = false;
                 break;
             }
 
@@ -825,6 +829,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         dir->erased = false;
+                        dir->first = false;
                         break;
                     }
                     return err;
@@ -833,6 +838,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
 
                 if (crc != dcrc) {
                     dir->erased = false;
+                    dir->first = false;
                     break;
                 }
 
@@ -866,6 +872,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         dir->erased = false;
+                        dir->first = false;
                         break;
                     }
                     return err;
@@ -899,6 +906,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         dir->erased = false;
+                        dir->first = false;
                         break;
                     }
                 }
@@ -912,6 +920,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (res < 0) {
                     if (res == LFS_ERR_CORRUPT) {
                         dir->erased = false;
+                        dir->first = false;
                         break;
                     }
                     return res;
@@ -1355,6 +1364,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
     dir->tail[0] = LFS_BLOCK_NULL;
     dir->tail[1] = LFS_BLOCK_NULL;
     dir->erased = false;
+    dir->first = true;
     dir->split = false;
 
     // don't write out yet, let caller take care of that
@@ -1491,7 +1501,7 @@ static int lfs_dir_compact(lfs_t *lfs,
     // 2. block_cycles = 2n, which, due to aliasing, would only ever relocate
     //    one metadata block in the pair, effectively making this useless
     if (lfs->cfg->block_cycles > 0 &&
-            (dir->rev % ((lfs->cfg->block_cycles+1)|1) == 0)) {
+            (dir->rev % ((lfs->cfg->block_cycles+4)/*|1*/) == 0)) { // TODO what
         if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
             // oh no! we're writing too much to the superblock,
             // should we expand?
@@ -1672,6 +1682,11 @@ relocate:
     }
 
     if (relocated) {
+        if (!dir->first) {
+            // TODO something funky!
+            dir->pair[0] = dir->pair[0];
+            dir->pair[1] = oldpair[1];
+        }
         // update references if we relocated
         LFS_DEBUG("Relocating %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
                 oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
@@ -3180,7 +3195,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     }
 
     lfs->mlist = dir.next;
-    if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
+    if (lfs_tag_type3(tag) == LFS_TYPE_DIR/* && lfs_tag_size(lfs->gstate.tag) > 0*/) {
         // fix orphan
         lfs_fs_preporphans(lfs, -1);
 
@@ -4009,6 +4024,12 @@ static int lfs_fs_relocate(lfs_t *lfs,
         lfs_fs_preporphans(lfs, -1);
     }
 
+#if 0
+    int err = lfs_fs_deorphan(lfs);
+    if (err) {
+        return err;
+    }
+#else
     // find pred
     int err = lfs_fs_pred(lfs, oldpair, &parent);
     if (err && err != LFS_ERR_NOENT) {
@@ -4039,6 +4060,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
             return err;
         }
     }
+#endif
 
     return 0;
 }

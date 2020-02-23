@@ -31,7 +31,7 @@ code = '''
         for (int i = 0; i < COUNT; i++) {
             sprintf(path, "test%03d_loooooooooooooooooong_name", i);
             lfs_dir_read(&lfs, &dir, &info) => 1;
-            strcmp(info.name, path) => 0;
+            assert(strcmp(info.name, path) == 0);
         }
         lfs_dir_read(&lfs, &dir, &info) => 0;
         lfs_dir_close(&lfs, &dir) => 0;
@@ -54,7 +54,7 @@ code = '''
     for (int i = 0; i < COUNT; i++) {
         sprintf(path, "test%03d_loooooooooooooooooong_name", i);
         lfs_dir_read(&lfs, &dir, &info) => 1;
-        strcmp(info.name, path) => 0;
+        assert(strcmp(info.name, path) == 0);
     }
     lfs_dir_read(&lfs, &dir, &info) => 0;
     lfs_dir_close(&lfs, &dir) => 0;
@@ -97,7 +97,7 @@ code = '''
         for (int i = 0; i < COUNT; i++) {
             sprintf(path, "test%03d_loooooooooooooooooong_name", i);
             lfs_dir_read(&lfs, &dir, &info) => 1;
-            strcmp(info.name, path) => 0;
+            assert(strcmp(info.name,  path) == 0);
             info.size => 0;
 
             sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
@@ -113,7 +113,7 @@ code = '''
         for (int i = 0; i < COUNT; i++) {
             sprintf(path, "test%03d_loooooooooooooooooong_name", i);
             lfs_dir_read(&lfs, &dir, &info) => 1;
-            strcmp(info.name, path) => 0;
+            assert(strcmp(info.name,  path) == 0);
             info.size => 2;
 
             sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
@@ -129,7 +129,7 @@ code = '''
         for (int i = 0; i < COUNT; i++) {
             sprintf(path, "test%03d_loooooooooooooooooong_name", i);
             lfs_dir_read(&lfs, &dir, &info) => 1;
-            strcmp(info.name, path) => 0;
+            assert(strcmp(info.name,  path) == 0);
             info.size => 2;
         }
         lfs_dir_read(&lfs, &dir, &info) => 0;
@@ -143,12 +143,90 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
+[[case]] # non-DAG tree test
+define.LFS_BLOCK_CYCLES = [8, 1]
+define.N = [10, 100, 1000]
+code = '''
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    // first create directories
+    lfs_mkdir(&lfs, "child_1") => 0;
+    lfs_mkdir(&lfs, "child_2") => 0;
+    // then move the second child under the first,
+    // this creates a cycle since the second child should have been
+    // inserted before the first
+    lfs_rename(&lfs, "child_2", "child_1/child_2") => 0;
+    // now try to force second child to relocate
+    lfs_file_open(&lfs, &file, "child_1/child_2/grandchild",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    size = 0;
+    for (int i = 0; i < N; i++) {
+        lfs_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+        sprintf((char*)buffer, "%d", i);
+        size = strlen((char*)buffer);
+        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_sync(&lfs, &file) => 0;
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs);
+
+    // check that nothing broke
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "child_1") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    
+    lfs_dir_open(&lfs, &dir, "/child_1") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "child_2") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+
+    lfs_dir_open(&lfs, &dir, "/child_1/child_2") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_REG);
+    assert(strcmp(info.name, "grandchild") == 0);
+    assert(info.size == size);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+
+    lfs_file_open(&lfs, &file, "child_1/child_2/grandchild",
+            LFS_O_RDONLY) => 0;
+    uint8_t rbuffer[1024];
+    lfs_file_read(&lfs, &file, rbuffer, sizeof(rbuffer)) => size;
+    assert(memcmp(rbuffer, buffer, size) == 0);
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
+
 [[case]] # reentrant testing for relocations, this is the same as the
          # orphan testing, except here we also set block_cycles so that
          # almost every tree operation needs a relocation
 reentrant = true
 # TODO fix this case, caused by non-DAG trees
-if = '!(DEPTH == 3 && LFS_CACHE_SIZE != 64)'
+#if = '!(DEPTH == 3 && LFS_CACHE_SIZE != 64)'
 define = [
     {FILES=6,  DEPTH=1, CYCLES=20, LFS_BLOCK_CYCLES=1},
     {FILES=26, DEPTH=1, CYCLES=20, LFS_BLOCK_CYCLES=1},
@@ -210,7 +288,7 @@ code = '''
 [[case]] # reentrant testing for relocations, but now with random renames!
 reentrant = true
 # TODO fix this case, caused by non-DAG trees
-if = '!(DEPTH == 3 && LFS_CACHE_SIZE != 64)'
+#if = '!(DEPTH == 3 && LFS_CACHE_SIZE != 64)'
 define = [
     {FILES=6,  DEPTH=1, CYCLES=20, LFS_BLOCK_CYCLES=1},
     {FILES=26, DEPTH=1, CYCLES=20, LFS_BLOCK_CYCLES=1},

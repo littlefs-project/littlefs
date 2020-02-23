@@ -311,6 +311,7 @@ typedef struct lfs_mdir {
     uint16_t count;
     bool erased;
     bool split;
+    bool first;
     lfs_block_t tail[2];
 } lfs_mdir_t;
 
