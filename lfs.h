@@ -111,6 +111,7 @@ enum lfs_type {
     LFS_TYPE_INLINESTRUCT   = 0x201,
     LFS_TYPE_SOFTTAIL       = 0x600,
     LFS_TYPE_HARDTAIL       = 0x601,
+    LFS_TYPE_BRANCH         = 0x681,
     LFS_TYPE_MOVESTATE      = 0x7ff,
 
     // internal chip sources

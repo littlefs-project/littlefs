@@ -279,6 +279,10 @@ static inline bool lfs_tag_isdelete(lfs_tag_t tag) {
     return ((int32_t)(tag << 22) >> 22) == -1;
 }
 
+static inline bool lfs_tag_isattr(lfs_tag_t tag) {
+    return !(tag & 0x40000000);
+}
+
 static inline uint16_t lfs_tag_type1(lfs_tag_t tag) {
     return (tag & 0x70000000) >> 20;
 }
@@ -411,8 +415,9 @@ static void lfs_fs_prepmove(lfs_t *lfs,
 static int lfs_fs_pred(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *pdir);
 static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
-        lfs_mdir_t *parent);
+        lfs_mdir_t *parent, bool mustbesync);
 static int lfs_fs_relocate(lfs_t *lfs,
+        lfs_stag_t ptag, lfs_mdir_t *parent,
         const lfs_block_t oldpair[2], lfs_block_t newpair[2]);
 int lfs_fs_traverseraw(lfs_t *lfs,
         int (*cb)(void *data, lfs_block_t block), void *data,
@@ -892,11 +897,11 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (tag == (LFS_MKTAG(LFS_TYPE_DELETE, 0, 0) |
                         (LFS_MKTAG(0, 0x3ff, 0) & tempbesttag))) {
                     tempbesttag |= 0x80000000;
-                } else if (tempbesttag != -1 &&
+                } else if (tempbesttag != -1 && lfs_tag_isattr(tempbesttag) &&
                         lfs_tag_id(tag) <= lfs_tag_id(tempbesttag)) {
                     tempbesttag += LFS_MKTAG(0, lfs_tag_splice(tag), 0);
                 }
-            } else if (lfs_tag_type1(tag) == LFS_TYPE_TAIL) {
+            } else if ((lfs_tag_type3(tag) & 0x7fe) == LFS_TYPE_TAIL) {
                 tempsplit = (lfs_tag_chunk(tag) & 1);
 
                 err = lfs_bd_read(lfs,
@@ -945,7 +950,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             if (lfs_gstate_hasmovehere(&lfs->gdisk, dir->pair)) {
                 if (lfs_tag_id(lfs->gdisk.tag) == lfs_tag_id(besttag)) {
                     besttag |= 0x80000000;
-                } else if (besttag != -1 &&
+                } else if (besttag != -1 && lfs_tag_isattr(besttag) &&
                         lfs_tag_id(lfs->gdisk.tag) < lfs_tag_id(besttag)) {
                     besttag -= LFS_MKTAG(0, 1, 0);
                 }
@@ -1075,8 +1080,7 @@ static lfs_stag_t lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
 
     // default to root dir
     lfs_stag_t tag = LFS_MKTAG(LFS_TYPE_DIR, 0x3ff, 0);
-    dir->tail[0] = lfs->root[0];
-    dir->tail[1] = lfs->root[1];
+    lfs_block_t npair[2] = {lfs->root[0], lfs->root[1]};
 
     while (true) {
 nextname:
@@ -1131,16 +1135,17 @@ nextname:
         // grab the entry data
         if (lfs_tag_id(tag) != 0x3ff) {
             lfs_stag_t res = lfs_dir_get(lfs, dir, LFS_MKTAG(0x700, 0x3ff, 0),
-                    LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), dir->tail);
+                    LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), npair);
             if (res < 0) {
                 return res;
             }
-            lfs_pair_fromle32(dir->tail);
+            lfs_pair_fromle32(npair);
         }
 
         // find entry matching name
         while (true) {
-            tag = lfs_dir_fetchmatch(lfs, dir, dir->tail,
+            // TODO also find tail?
+            tag = lfs_dir_fetchmatch(lfs, dir, npair,
                     LFS_MKTAG(0x780, 0, 0),
                     LFS_MKTAG(LFS_TYPE_NAME, 0, namelen),
                      // are we last name?
@@ -1155,7 +1160,23 @@ nextname:
                 break;
             }
 
+            // TODO compact npair -> dir->tail?
+            lfs_stag_t ttag = 0;
+            npair[0] = dir->tail[0];
+            npair[1] = dir->tail[1];
             if (!dir->split) {
+                ttag = lfs_dir_get(lfs, dir,
+                        LFS_MKTAG(0x7ff, 0, 0),
+                        LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(npair)),
+                        npair);
+                if (ttag < 0 && ttag != LFS_ERR_NOENT) {
+                    return ttag;
+                }
+                lfs_pair_fromle32(npair);
+            }
+
+            // ttag may be NOENT or may be marked null explicitly
+            if (ttag == LFS_ERR_NOENT || lfs_pair_isnull(npair)) {
                 return LFS_ERR_NOENT;
             }
         }
@@ -1374,11 +1395,71 @@ static int lfs_dir_drop(lfs_t *lfs, lfs_mdir_t *dir, lfs_mdir_t *tail) {
         return err;
     }
 
-    // steal tail
+    // steal tail's branch
+    lfs_block_t tbpair[2];
+    lfs_stag_t tbtag = lfs_dir_get(lfs, tail,
+            LFS_MKTAG(0x7ff, 0, 0),
+            LFS_MKTAG(LFS_TYPE_BRANCH, 0, 8), tbpair);
+    if (tbtag < 0 && tbtag != LFS_ERR_NOENT) {
+        return tbtag;
+    }
+
+    // steal tail's tail
     lfs_pair_tole32(tail->tail);
     err = lfs_dir_commit(lfs, dir, LFS_MKATTRS(
-            {LFS_MKTAG(LFS_TYPE_TAIL + tail->split, 0x3ff, 8), tail->tail}));
+            {LFS_MKTAG(LFS_TYPE_TAIL + tail->split, 0x3ff, 8), tail->tail},
+            {LFS_MKTAG_IF_ELSE(tbtag != LFS_ERR_NOENT,
+                LFS_TYPE_BRANCH, 0x3ff, sizeof(tbpair),
+                LFS_TYPE_BRANCH, 0x3ff, 0x3ff), tbpair}));
     lfs_pair_fromle32(tail->tail);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+
+// TODO consolidate?
+static int lfs_dir_dropbranch(lfs_t *lfs,
+        lfs_mdir_t *dir, lfs_stag_t btag, lfs_mdir_t *branch) {
+    // steal state
+    int err = lfs_dir_getgstate(lfs, branch, &lfs->gdelta);
+    if (err) {
+        return err;
+    }
+
+    // steal branch's branch
+    lfs_block_t bbpair[2];
+    lfs_stag_t bbtag = lfs_dir_get(lfs, branch,
+            LFS_MKTAG(0x7ff, 0, 0),
+            LFS_MKTAG(LFS_TYPE_BRANCH, 0, 8), bbpair);
+    if (bbtag < 0 && bbtag != LFS_ERR_NOENT) {
+        return bbtag;
+    }
+
+    // TODO need mlist?
+    // TODO endianness?
+    // mark fs as orphaned
+    lfs_fs_preporphans(lfs, +1);
+
+    // delete branch
+    err = lfs_dir_commit(lfs, dir, LFS_MKATTRS(
+            //{LFS_MKTAG(LFS_TYPE_TAIL + branch->split, 0x3ff, 8), branch->tail},
+            {LFS_MKTAG_IF_ELSE(bbtag != LFS_ERR_NOENT,
+                LFS_TYPE_BRANCH, 0x3ff, sizeof(bbpair),
+                LFS_TYPE_BRANCH, 0x3ff, 0x3ff), bbpair}));
+    if (err) {
+        return err;
+    }
+
+    // find and clean up orphan
+    err = lfs_fs_pred(lfs, branch->pair, dir);
+    if (err) {
+        return err;
+    }
+
+    lfs_fs_preporphans(lfs, -1);
+    err = lfs_dir_drop(lfs, dir, branch);
     if (err) {
         return err;
     }
@@ -1444,6 +1525,8 @@ static int lfs_dir_compact(lfs_t *lfs,
     const lfs_block_t oldpair[2] = {dir->pair[0], dir->pair[1]};
     bool relocated = false;
     bool tired = false;
+    lfs_stag_t ptag = LFS_ERR_NOENT;
+    lfs_mdir_t parent;
 
     // should we split?
     while (end - begin > 1) {
@@ -1592,7 +1675,7 @@ static int lfs_dir_compact(lfs_t *lfs,
             if (!lfs_pair_isnull(dir->tail)) {
                 lfs_pair_tole32(dir->tail);
                 err = lfs_dir_commitattr(lfs, &commit,
-                        LFS_MKTAG(LFS_TYPE_TAIL + dir->split, 0x3ff, 8),
+                        LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8),
                         dir->tail);
                 lfs_pair_fromle32(dir->tail);
                 if (err) {
@@ -1600,6 +1683,37 @@ static int lfs_dir_compact(lfs_t *lfs,
                         goto relocate;
                     }
                     return err;
+                }
+
+                // Also commit branch or turn branch+tail into explicit branch
+                // and tail. This helps handling of relocations. You may wonder
+                // why we even have the branch+tail type, and that is simply
+                // because of backwards compatibility.
+                //
+                // Note we don't need to convert to/from le32 because we commit
+                // it straight to disk
+                lfs_stag_t btag = 0;
+                lfs_block_t bpair[2] = {dir->tail[0], dir->tail[1]};
+                if (!dir->split) {
+                    btag = lfs_dir_get(lfs, source,
+                            LFS_MKTAG(0x7ff, 0, 0),
+                            LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(bpair)),
+                            bpair);
+                    if (btag < 0 && btag != LFS_ERR_NOENT) {
+                        return btag;
+                    }
+                }
+
+                if (btag != LFS_ERR_NOENT) {
+                    err = lfs_dir_commitattr(lfs, &commit,
+                            LFS_MKTAG(LFS_TYPE_BRANCH, 0x3ff, 8),
+                            bpair);
+                    if (err) {
+                        if (err == LFS_ERR_CORRUPT) {
+                            goto relocate;
+                        }
+                        return err;
+                    }
                 }
             }
 
@@ -1645,6 +1759,7 @@ static int lfs_dir_compact(lfs_t *lfs,
             dir->count = end - begin;
             dir->off = commit.off;
             dir->etag = commit.ptag;
+            dir->split = false; // converted to branch
             // update gstate
             lfs->gdelta = (lfs_gstate_t){0};
             if (!relocated) {
@@ -1663,15 +1778,85 @@ relocate:
 
         // can't relocate superblock, filesystem is now frozen
         if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
-            LFS_WARN("Superblock %"PRIx32" has become unwritable", dir->pair[1]);
+            LFS_WARN("Superblock %"PRIx32" has become unwritable",
+                    dir->pair[1]);
             return LFS_ERR_NOSPC;
         }
 
+#if 1
+        // find parent?
+        ptag = lfs_fs_parent(lfs, oldpair, &parent, false);
+        if (ptag < 0 && ptag != LFS_ERR_NOENT) {
+            return ptag;
+        }
+
+        // allocate new pair
+        int err = lfs_alloc(lfs, &dir->pair[1]);
+        if (err) {
+            if (err == LFS_ERR_NOSPC && tired) {
+                // fix pending move in this pair? t because of wear-leveling
+                relocated = false;
+                continue;
+            }
+            return err;
+        }
+
+        // Have parent? Didn't give up? This is when we need to reinsert
+        // ourself in the threaded linked-list. This evenutally creates an
+        // orphan, but we can clean that up. We need to reinsert to avoid
+        // issues with cycles in non-DAG trees.
+        //
+        // Note if parent's tail == us we can, and must, clean ourselves up
+        // without an orphan.
+        if (ptag != LFS_ERR_NOENT &&
+                lfs_pair_cmp(parent.tail, oldpair) != 0) {
+            dir->tail[0] = parent.tail[0];
+            dir->tail[1] = parent.tail[1];
+            printf("tail? %x %x\n", dir->tail[0], dir->tail[1]);
+        }
+#elif 0 // TODO rm me
+        // find parent?
+        ptag = lfs_fs_parent(lfs, oldpair, &parent);
+        if (ptag < 0 && ptag != LFS_ERR_NOENT) {
+            return ptag;
+        }
+
+        // allocate new pair
+        lfs_mdir_t temp;
+        int err = lfs_dir_alloc(lfs, &temp);
+        if (err) {
+            if (err == LFS_ERR_NOSPC && tired) {
+                // fix pending move in this pair? t because of wear-leveling
+                relocated = false;
+                continue;
+            }
+            return err;
+        }
+
+        dir->pair[0] = temp.pair[0];
+        dir->pair[1] = temp.pair[1];
+        dir->rev = temp.rev;
+
+        // Have parent? Didn't give up? This is when we need to reinsert
+        // ourself in the threaded linked-list. This evenutally creates an
+        // orphan, but we can clean that up. We need to reinsert to avoid
+        // issues with cycles in non-DAG trees.
+        //
+        // Note if parent's tail == us we can, and must, clean ourselves up
+        // without an orphan.
+        if (ptag != LFS_ERR_NOENT &&
+                lfs_pair_cmp(parent.tail, oldpair) != 0) {
+            dir->tail[0] = parent.tail[0];
+            dir->tail[1] = parent.tail[1];
+            printf("tail? %x %x\n", dir->tail[0], dir->tail[1]);
+        }
+#else
         // relocate half of pair
         int err = lfs_alloc(lfs, &dir->pair[1]);
         if (err && (err != LFS_ERR_NOSPC || !tired)) {
             return err;
         }
+#endif
 
         tired = false;
         continue;
@@ -1681,7 +1866,7 @@ relocate:
         // update references if we relocated
         LFS_DEBUG("Relocating %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
                 oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
-        int err = lfs_fs_relocate(lfs, oldpair, dir->pair);
+        int err = lfs_fs_relocate(lfs, ptag, &parent, oldpair, dir->pair);
         if (err) {
             return err;
         }
@@ -1720,7 +1905,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             LFS_ASSERT(dir->count > 0);
             dir->count -= 1;
             hasdelete = true;
-        } else if (lfs_tag_type1(attrs[i].tag) == LFS_TYPE_TAIL) {
+        } else if ((lfs_tag_type3(attrs[i].tag) & 0x7fe) == LFS_TYPE_TAIL) {
             dir->tail[0] = ((lfs_block_t*)attrs[i].buffer)[0];
             dir->tail[1] = ((lfs_block_t*)attrs[i].buffer)[1];
             dir->split = (lfs_tag_chunk(attrs[i].tag) & 1);
@@ -1730,6 +1915,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
 
     // should we actually drop the directory block?
     if (hasdelete && dir->count == 0) {
+        //printf("hit zero %x %x\n", dir->pair[0], dir->pair[1]);
         lfs_mdir_t pdir;
         int err = lfs_fs_pred(lfs, dir->pair, &pdir);
         if (err && err != LFS_ERR_NOENT) {
@@ -1737,12 +1923,36 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             return err;
         }
 
+        // TODO should this actually be handled in _lfs_remove_??
+        //printf("hmm1 %d %d\n", err, pdir.split);
         if (err != LFS_ERR_NOENT && pdir.split) {
-            err = lfs_dir_drop(lfs, &pdir, dir);
+            err = lfs_dir_drop(lfs, &pdir, dir); // TODO drop needs to handle branches
             if (err) {
                 *dir = olddir;
                 return err;
             }
+
+            return 0;
+        }
+
+        // ok, we couldn't find branch+tail combo, but what about explicit
+        // branch and tail?
+        lfs_stag_t ptag = lfs_fs_parent(lfs, dir->pair, &pdir, false);
+        if (ptag < 0 && ptag != LFS_ERR_NOENT) {
+            *dir = olddir;
+            return err;
+        }
+
+        //printf("hmm2 %x (%08x) %x %x\n", lfs_tag_type3(ptag), ptag, pdir.pair[0], pdir.pair[1]);
+        if (lfs_tag_type3(ptag) == LFS_TYPE_BRANCH) {
+            //printf("oh hey! it's a branch %x\n", ptag);
+            err = lfs_dir_dropbranch(lfs, &pdir, ptag, dir);
+            if (err) {
+                *dir = olddir;
+                return err;
+            }
+
+            return 0;
         }
     }
 
@@ -1822,8 +2032,11 @@ compact:
         // fall back to compaction
         lfs_cache_drop(lfs, &lfs->pcache);
 
+        // TODO do we need to copy olddir? we happen to have one handy, but is this ok?
+        // TODO should we just flatten dir_compact into here? this is complicated
+        lfs_mdir_t temp = *dir; // TODO rm me?
         int err = lfs_dir_compact(lfs, dir, attrs, attrcount,
-                dir, 0, dir->count);
+                &temp, 0, dir->count);
         if (err) {
             *dir = olddir;
             return err;
@@ -1864,10 +2077,30 @@ compact:
 
     for (struct lfs_mlist *d = lfs->mlist; d; d = d->next) {
         if (lfs_pair_cmp(d->m.pair, olddir.pair) == 0) {
-            while (d->id >= d->m.count && d->m.split) {
+            while (d->id >= d->m.count) {
                 // we split and id is on tail now
+                // TODO should I make this a common function?
+                // TODO use softtail?
+                lfs_stag_t ttag = 0;
+                lfs_block_t npair[2] = {d->m.tail[0], d->m.tail[1]};
+                if (!d->m.split) {
+                    ttag = lfs_dir_get(lfs, &d->m,
+                            LFS_MKTAG(0x7ff, 0, 0),
+                            LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(npair)),
+                            npair);
+                    if (ttag < 0 && ttag != LFS_ERR_NOENT) {
+                        return ttag;
+                    }
+                    lfs_pair_fromle32(npair);
+                }
+
+                // ttag may be NOENT or may be marked null explicitly
+                if (ttag == LFS_ERR_NOENT || lfs_pair_isnull(npair)) {
+                    break;
+                }
+
                 d->id -= d->m.count;
-                int err = lfs_dir_fetch(lfs, &d->m, d->m.tail);
+                int err = lfs_dir_fetch(lfs, &d->m, npair);
                 if (err) {
                     return err;
                 }
@@ -1914,61 +2147,65 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
         return err;
     }
 
-    // find end of list
-    lfs_mdir_t pred = cwd.m;
-    while (pred.split) {
-        err = lfs_dir_fetch(lfs, &pred, pred.tail);
-        if (err) {
-            LFS_TRACE("lfs_mkdir -> %d", err);
-            return err;
-        }
-    }
+//    // find end of list
+//    lfs_mdir_t pred = cwd.m;
+//    while (pred.split) {
+//        err = lfs_dir_fetch(lfs, &pred, pred.tail);
+//        if (err) {
+//            LFS_TRACE("lfs_mkdir -> %d", err);
+//            return err;
+//        }
+//    }
 
     // setup dir
-    lfs_pair_tole32(pred.tail);
+    lfs_pair_tole32(cwd.m.tail);
     err = lfs_dir_commit(lfs, &dir, LFS_MKATTRS(
-            {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), pred.tail}));
-    lfs_pair_fromle32(pred.tail);
+            {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), cwd.m.tail}));
+    lfs_pair_fromle32(cwd.m.tail);
     if (err) {
         LFS_TRACE("lfs_mkdir -> %d", err);
         return err;
     }
 
-    // current block end of list?
-    if (cwd.m.split) {
-        // update tails, this creates a desync
-        lfs_fs_preporphans(lfs, +1);
-
-        // it's possible our predecessor has to be relocated, and if
-        // our parent is our predecessor's predecessor, this could have
-        // caused our parent to go out of date, fortunately we can hook
-        // ourselves into littlefs to catch this
-        cwd.type = 0;
-        cwd.id = 0;
-        lfs->mlist = &cwd;
-
-        lfs_pair_tole32(dir.pair);
-        err = lfs_dir_commit(lfs, &pred, LFS_MKATTRS(
-                {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), dir.pair}));
-        lfs_pair_fromle32(dir.pair);
-        if (err) {
-            lfs->mlist = cwd.next;
-            LFS_TRACE("lfs_mkdir -> %d", err);
-            return err;
-        }
-
-        lfs->mlist = cwd.next;
-        lfs_fs_preporphans(lfs, -1);
-    }
+//    // current block end of list?
+//    if (cwd.m.split) {
+//        // update tails, this creates a desync
+//        lfs_fs_preporphans(lfs, +1);
+//
+//        // it's possible our predecessor has to be relocated, and if
+//        // our parent is our predecessor's predecessor, this could have
+//        // caused our parent to go out of date, fortunately we can hook
+//        // ourselves into littlefs to catch this
+//        cwd.type = 0;
+//        cwd.id = 0;
+//        lfs->mlist = &cwd;
+//
+//        lfs_pair_tole32(dir.pair);
+//        err = lfs_dir_commit(lfs, &pred, LFS_MKATTRS(
+//                {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), dir.pair}));
+//        lfs_pair_fromle32(dir.pair);
+//        if (err) {
+//            lfs->mlist = cwd.next;
+//            LFS_TRACE("lfs_mkdir -> %d", err);
+//            return err;
+//        }
+//
+//        lfs->mlist = cwd.next;
+//        lfs_fs_preporphans(lfs, -1);
+//    }
 
     // now insert into our parent block
+    lfs_block_t bpair[2] = {cwd.m.tail[0], cwd.m.tail[1]};
+    lfs_pair_tole32(bpair);
     lfs_pair_tole32(dir.pair);
+    // TODO need to change endianness of tail?
     err = lfs_dir_commit(lfs, &cwd.m, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_CREATE, id, 0), NULL},
             {LFS_MKTAG(LFS_TYPE_DIR, id, nlen), path},
             {LFS_MKTAG(LFS_TYPE_DIRSTRUCT, id, 8), dir.pair},
-            {LFS_MKTAG_IF(!cwd.m.split,
-                LFS_TYPE_SOFTTAIL, 0x3ff, 8), dir.pair}));
+            {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), dir.pair}, //TODO something with endianness?
+            {LFS_MKTAG_IF(cwd.m.split, // TODO split now means, _exclusively_, has branch+tail combo. Need to rename/redoc?
+                LFS_TYPE_BRANCH, 0x3ff, 8), bpair}));
     lfs_pair_fromle32(dir.pair);
     if (err) {
         LFS_TRACE("lfs_mkdir -> %d", err);
@@ -2066,12 +2303,28 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
 
     while (true) {
         if (dir->id == dir->m.count) {
+            lfs_stag_t ttag = 0;
+            lfs_block_t npair[2] = {dir->m.tail[0], dir->m.tail[1]};
+            // TODO remove mlist from mkdir!
             if (!dir->m.split) {
+                ttag = lfs_dir_get(lfs, &dir->m,
+                        LFS_MKTAG(0x7ff, 0, 0),
+                        LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(npair)),
+                        npair);
+                if (ttag < 0 && ttag != LFS_ERR_NOENT) {
+                    return ttag;
+                }
+                lfs_pair_fromle32(npair);
+            }
+
+            // ttag may be NOENT or may be marked null explicitly
+            if (ttag == LFS_ERR_NOENT || lfs_pair_isnull(npair)) {
                 LFS_TRACE("lfs_dir_read -> %d", false);
                 return false;
             }
 
-            int err = lfs_dir_fetch(lfs, &dir->m, dir->m.tail);
+            // fetch next dir
+            int err = lfs_dir_fetch(lfs, &dir->m, npair);
             if (err) {
                 LFS_TRACE("lfs_dir_read -> %d", err);
                 return err;
@@ -2121,12 +2374,26 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
         off -= diff;
 
         if (dir->id == dir->m.count) {
+            lfs_stag_t ttag = 0;
+            lfs_block_t npair[2] = {dir->m.tail[0], dir->m.tail[1]}; // TODO reuse dir tail?
             if (!dir->m.split) {
+                ttag = lfs_dir_get(lfs, &dir->m,
+                        LFS_MKTAG(0x7ff, 0, 0),
+                        LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(npair)),
+                        npair);
+                if (ttag < 0 && ttag != LFS_ERR_NOENT) {
+                    return ttag;
+                }
+                lfs_pair_fromle32(npair);
+            }
+
+            // ttag may be NOENT or may be marked null explicitly
+            if (ttag == LFS_ERR_NOENT || lfs_pair_isnull(npair)) {
                 LFS_TRACE("lfs_dir_seek -> %d", LFS_ERR_INVAL);
                 return LFS_ERR_INVAL;
             }
 
-            err = lfs_dir_fetch(lfs, &dir->m, dir->m.tail);
+            err = lfs_dir_fetch(lfs, &dir->m, npair);
             if (err) {
                 LFS_TRACE("lfs_dir_seek -> %d", err);
                 return err;
@@ -3929,6 +4196,7 @@ static int lfs_fs_pred(lfs_t *lfs,
 struct lfs_fs_parent_match {
     lfs_t *lfs;
     const lfs_block_t pair[2];
+    const bool mustbesync;
 };
 
 static int lfs_fs_parent_match(void *data,
@@ -3936,7 +4204,12 @@ static int lfs_fs_parent_match(void *data,
     struct lfs_fs_parent_match *find = data;
     lfs_t *lfs = find->lfs;
     const struct lfs_diskoff *disk = buffer;
-    (void)tag;
+
+    // is tag dirstruct or branch? can't check this with masking unfortunately
+    if (lfs_tag_type3(tag) != LFS_TYPE_DIRSTRUCT &&
+            lfs_tag_type3(tag) != LFS_TYPE_BRANCH) {
+        return LFS_CMP_LT;
+    }
 
     lfs_block_t child[2];
     int err = lfs_bd_read(lfs,
@@ -3947,11 +4220,11 @@ static int lfs_fs_parent_match(void *data,
     }
 
     lfs_pair_fromle32(child);
-    return (lfs_pair_cmp(child, find->pair) == 0) ? LFS_CMP_EQ : LFS_CMP_LT;
+    return (lfs_pair_cmp(child, find->pair) == 0 && !(find->mustbesync && !lfs_pair_sync(child, find->pair))) ? LFS_CMP_EQ : LFS_CMP_LT;
 }
 
 static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
-        lfs_mdir_t *parent) {
+        lfs_mdir_t *parent, bool mustbesync) {
     // use fetchmatch with callback to find pairs
     parent->tail[0] = 0;
     parent->tail[1] = 1;
@@ -3964,11 +4237,14 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
         cycle += 1;
 
         lfs_stag_t tag = lfs_dir_fetchmatch(lfs, parent, parent->tail,
-                LFS_MKTAG(0x7ff, 0, 0x3ff),
+                // we need to match both dirstruct and branch, which are
+                // unfortunately very far Hamming distance wise, so we basically
+                // just handle this in lfs_fs_parent_match
+                LFS_MKTAG(0x300, 0, 0x3ff),
                 LFS_MKTAG(LFS_TYPE_DIRSTRUCT, 0, 8),
                 NULL,
                 lfs_fs_parent_match, &(struct lfs_fs_parent_match){
-                    lfs, {pair[0], pair[1]}});
+                    lfs, {pair[0], pair[1]}, mustbesync});
         if (tag && tag != LFS_ERR_NOENT) {
             return tag;
         }
@@ -3978,6 +4254,7 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
 }
 
 static int lfs_fs_relocate(lfs_t *lfs,
+        lfs_stag_t ptag, lfs_mdir_t *parent,
         const lfs_block_t oldpair[2], lfs_block_t newpair[2]) {
     // update internal root
     if (lfs_pair_cmp(oldpair, lfs->root) == 0) {
@@ -4001,73 +4278,74 @@ static int lfs_fs_relocate(lfs_t *lfs,
         }
     }
 
-    // find parent
-    lfs_mdir_t parent;
-    lfs_stag_t tag = lfs_fs_parent(lfs, oldpair, &parent);
-    if (tag < 0 && tag != LFS_ERR_NOENT) {
-        return tag;
-    }
+    bool parentispred = (lfs_pair_cmp(parent->tail, oldpair) == 0);
 
-    if (tag != LFS_ERR_NOENT) {
-        // update disk, this creates a desync
-        lfs_fs_preporphans(lfs, +1);
+    // update parent if needed
+    if (ptag != LFS_ERR_NOENT) {
+        // update disk, this creates an orphan
+        lfs_fs_preporphans(lfs, +!parentispred);
 
         // fix pending move in this pair? this looks like an optimization but
         // is in fact _required_ since relocating may outdate the move.
         uint16_t moveid = 0x3ff;
-        if (lfs_gstate_hasmovehere(&lfs->gstate, parent.pair)) {
+        if (lfs_gstate_hasmovehere(&lfs->gstate, parent->pair)) {
             moveid = lfs_tag_id(lfs->gstate.tag);
             LFS_DEBUG("Fixing move while relocating "
                     "%"PRIx32" %"PRIx32" %"PRIx16"\n",
-                    parent.pair[0], parent.pair[1], moveid);
+                    parent->pair[0], parent->pair[1], moveid);
             lfs_fs_prepmove(lfs, 0x3ff, NULL);
-            if (moveid < lfs_tag_id(tag)) {
-                tag -= LFS_MKTAG(0, 1, 0);
+            if (moveid < lfs_tag_id(ptag)) {
+                ptag -= LFS_MKTAG(0, 1, 0);
             }
         }
 
+        // commit new parent and thread into linked-list atomically
         lfs_pair_tole32(newpair);
-        int err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
+        int err = lfs_dir_commit(lfs, parent, LFS_MKATTRS(
                 {LFS_MKTAG_IF(moveid != 0x3ff,
                     LFS_TYPE_DELETE, moveid, 0)},
-                {tag, newpair}));
+                {ptag, newpair},
+                {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), newpair}));
         lfs_pair_fromle32(newpair);
         if (err) {
             return err;
         }
 
         // next step, clean up orphans
-        lfs_fs_preporphans(lfs, -1);
+        lfs_fs_preporphans(lfs, -!parentispred);
     }
 
-    // find pred
-    int err = lfs_fs_pred(lfs, oldpair, &parent);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-
-    // if we can't find dir, it must be new
-    if (err != LFS_ERR_NOENT) {
-        // fix pending move in this pair? this looks like an optimization but
-        // is in fact _required_ since relocating may outdate the move.
-        uint16_t moveid = 0x3ff;
-        if (lfs_gstate_hasmovehere(&lfs->gstate, parent.pair)) {
-            moveid = lfs_tag_id(lfs->gstate.tag);
-            LFS_DEBUG("Fixing move while relocating "
-                    "%"PRIx32" %"PRIx32" %"PRIx16"\n",
-                    parent.pair[0], parent.pair[1], moveid);
-            lfs_fs_prepmove(lfs, 0x3ff, NULL);
+    if (!parentispred) {
+        // find pred
+        int err = lfs_fs_pred(lfs, oldpair, parent);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
         }
 
-        // replace bad pair, either we clean up desync, or no desync occured
-        lfs_pair_tole32(newpair);
-        err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
-                {LFS_MKTAG_IF(moveid != 0x3ff,
-                    LFS_TYPE_DELETE, moveid, 0)},
-                {LFS_MKTAG(LFS_TYPE_TAIL + parent.split, 0x3ff, 8), newpair}));
-        lfs_pair_fromle32(newpair);
-        if (err) {
-            return err;
+        // if we can't find dir, it must be new
+        if (err != LFS_ERR_NOENT) {
+            // fix pending move in this pair? this looks like an optimization
+            // but is in fact _required_ since relocating may outdate the move.
+            uint16_t moveid = 0x3ff;
+            if (lfs_gstate_hasmovehere(&lfs->gstate, parent->pair)) {
+                moveid = lfs_tag_id(lfs->gstate.tag);
+                LFS_DEBUG("Fixing move while relocating "
+                        "%"PRIx32" %"PRIx32" %"PRIx16"\n",
+                        parent->pair[0], parent->pair[1], moveid);
+                lfs_fs_prepmove(lfs, 0x3ff, NULL);
+            }
+
+            // replace bad pair, either we clean up desync, or no desync occured
+            lfs_pair_tole32(newpair);
+            err = lfs_dir_commit(lfs, parent, LFS_MKATTRS(
+                    {LFS_MKTAG_IF(moveid != 0x3ff,
+                        LFS_TYPE_DELETE, moveid, 0)},
+                    {LFS_MKTAG(LFS_TYPE_TAIL + parent->split, 0x3ff, 8),
+                        newpair}));
+            lfs_pair_fromle32(newpair);
+            if (err) {
+                return err;
+            }
         }
     }
 
@@ -4139,12 +4417,26 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
         if (!pdir.split) {
             // check if we have a parent
             lfs_mdir_t parent;
-            lfs_stag_t tag = lfs_fs_parent(lfs, pdir.tail, &parent);
+            lfs_stag_t tag = lfs_fs_parent(lfs, pdir.tail, &parent, true);
             if (tag < 0 && tag != LFS_ERR_NOENT) {
                 return tag;
             }
 
+            lfs_block_t pair[2];
+            lfs_stag_t res = lfs_dir_get(lfs, &parent,
+                    LFS_MKTAG(0x7ff, 0x3ff, 0), tag, pair);
+            if (res < 0) {
+                return res;
+            }
+            lfs_pair_fromle32(pair);
+
+            // Half-orphans can also be true orphans if there is a better
+            // child. Currently the child must be our successor.
             if (tag == LFS_ERR_NOENT) {
+// || !lfs_pair_sync(pair, pdir.tail)) {
+// TODO only do this if half-sync and found better pair?
+//                    (!lfs_pair_sync(pair, pdir.tail) &&
+//                        lfs_pair_cmp(pdir.tail, dir.tail) == 0)) {
                 // we are an orphan
                 LFS_DEBUG("Fixing orphan %"PRIx32" %"PRIx32,
                         pdir.tail[0], pdir.tail[1]);
@@ -4157,14 +4449,6 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
                 // refetch tail
                 continue;
             }
-
-            lfs_block_t pair[2];
-            lfs_stag_t res = lfs_dir_get(lfs, &parent,
-                    LFS_MKTAG(0x7ff, 0x3ff, 0), tag, pair);
-            if (res < 0) {
-                return res;
-            }
-            lfs_pair_fromle32(pair);
 
             if (!lfs_pair_sync(pair, pdir.tail)) {
                 // we have desynced

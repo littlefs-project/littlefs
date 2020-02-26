@@ -246,6 +246,8 @@ code = '''
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
         lfs_file_close(&lfs, &file) => 0;
     }
+    // TODO rm me
+    lfs_mkdir(&lfs, "a") => 0;
     lfs_unmount(&lfs) => 0;
 
     lfs_mount(&lfs, &cfg) => 0;
@@ -256,6 +258,9 @@ code = '''
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
     assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "a") == 0);
     for (int i = 0; i < N; i++) {
         sprintf(path, "file%03d", i);
         lfs_dir_read(&lfs, &dir, &info) => 1;

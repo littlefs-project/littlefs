@@ -18,9 +18,10 @@ TAG_TYPES = {
     'ctzstruct':    (0x7ff, 0x202),
     'inlinestruct': (0x7ff, 0x201),
     'userattr':     (0x700, 0x300),
-    'tail':         (0x700, 0x600),
+    'tail':         (0x700, 0x600), # TODO rename these?
     'softtail':     (0x7ff, 0x600),
     'hardtail':     (0x7ff, 0x601),
+    'branch':       (0x7ff, 0x681),
     'gstate':       (0x700, 0x700),
     'movestate':    (0x7ff, 0x7ff),
     'crc':          (0x700, 0x500),
@@ -103,7 +104,7 @@ class Tag:
 
     def mkmask(self):
         return Tag(
-            0x700 if self.isunique else 0x7ff,
+            0x780 if self.is_('tail') else 0x700 if self.isunique else 0x7ff, # TODO best way?
             0x3ff if self.isattr else 0,
             0)
 
