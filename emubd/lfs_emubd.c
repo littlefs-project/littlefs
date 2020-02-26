@@ -12,11 +12,25 @@
 #include <stdio.h>
 #include <limits.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <assert.h>
 #include <stdbool.h>
 #include <inttypes.h>
 
+#ifdef _MSC_VER
+
+#include <direct.h>
+
+#if !defined(S_ISREG)
+#define S_ISREG(r) (((r) & S_IFMT) == S_IFREG)
+#endif
+
+#ifndef S_IWUSR
+#define	S_IWUSR S_IWRITE
+#endif
+
+#else
+#include <unistd.h>
+#endif
 
 // Emulated block device utils
 static inline void lfs_emubd_tole32(lfs_emubd_t *emu) {
@@ -84,7 +98,11 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
     memset(emu->child, '\0', LFS_NAME_MAX+1);
 
     // Create directory if it doesn't exist
+#ifdef _MSC_VER
+    int err = mkdir(path);
+#else
     int err = mkdir(path, 0777);
+#endif
     if (err && errno != EEXIST) {
         err = -errno;
         LFS_TRACE("lfs_emubd_create -> %"PRId32, err);
