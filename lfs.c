@@ -1186,27 +1186,34 @@ nextname:
             }
 
             // TODO compact npair -> dir->tail?
-            lfs_stag_t ttag = 0;
-            npair[0] = dir->tail[0];
-            npair[1] = dir->tail[1];
-            if (!dir->split) {
-//                npair[0] = dir->branch[0];
-//                npair[1] = dir->branch[1];
-                ttag = lfs_dir_get(lfs, dir,
-                        LFS_MKTAG(0x7ff, 0, 0),
-                        LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(npair)),
-                        npair);
-                if (ttag < 0 && ttag != LFS_ERR_NOENT) {
-                    return ttag;
-                }
-                lfs_pair_fromle32(npair);
-                assert(ttag == LFS_ERR_NOENT || lfs_pair_cmp(npair, dir->branch) == 0);
-            }
-
-            // ttag may be NOENT or may be marked null explicitly
-            if (ttag == LFS_ERR_NOENT || lfs_pair_isnull(npair)) {
+            if (lfs_pair_isnull(dir->branch)) {
                 return LFS_ERR_NOENT;
             }
+
+            npair[0] = dir->branch[0];
+            npair[1] = dir->branch[1];
+
+//            lfs_stag_t ttag = 0;
+//            npair[0] = dir->tail[0];
+//            npair[1] = dir->tail[1];
+//            if (!dir->split) {
+////                npair[0] = dir->branch[0];
+////                npair[1] = dir->branch[1];
+//                ttag = lfs_dir_get(lfs, dir,
+//                        LFS_MKTAG(0x7ff, 0, 0),
+//                        LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(npair)),
+//                        npair);
+//                if (ttag < 0 && ttag != LFS_ERR_NOENT) {
+//                    return ttag;
+//                }
+//                lfs_pair_fromle32(npair);
+//                assert(ttag == LFS_ERR_NOENT || lfs_pair_cmp(npair, dir->branch) == 0);
+//            }
+//
+//            // ttag may be NOENT or may be marked null explicitly
+//            if (ttag == LFS_ERR_NOENT || lfs_pair_isnull(npair)) {
+//                return LFS_ERR_NOENT;
+//            }
         }
 
         // to next name
@@ -1418,29 +1425,29 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
     return 0;
 }
 
-static int lfs_dir_drop(lfs_t *lfs, lfs_mdir_t *dir, lfs_mdir_t *tail) {
+static int lfs_dir_droptail(lfs_t *lfs, lfs_mdir_t *dir, lfs_mdir_t *tail) {
     // steal state
     int err = lfs_dir_getgstate(lfs, tail, &lfs->gdelta);
     if (err) {
         return err;
     }
 
-    // steal tail's branch
-    lfs_block_t tbpair[2];
-    lfs_stag_t tbtag = lfs_dir_get(lfs, tail,
-            LFS_MKTAG(0x7ff, 0, 0),
-            LFS_MKTAG(LFS_TYPE_BRANCH, 0, 8), tbpair);
-    if (tbtag < 0 && tbtag != LFS_ERR_NOENT) {
-        return tbtag;
-    }
+//    // steal tail's branch
+//    lfs_block_t tbpair[2];
+//    lfs_stag_t tbtag = lfs_dir_get(lfs, tail,
+//            LFS_MKTAG(0x7ff, 0, 0),
+//            LFS_MKTAG(LFS_TYPE_BRANCH, 0, 8), tbpair);
+//    if (tbtag < 0 && tbtag != LFS_ERR_NOENT) {
+//        return tbtag;
+//    }
 
     // steal tail's tail
     lfs_pair_tole32(tail->tail);
     err = lfs_dir_commit(lfs, dir, LFS_MKATTRS(
-            {LFS_MKTAG(LFS_TYPE_TAIL + tail->split, 0x3ff, 8), tail->tail},
-            {LFS_MKTAG_IF_ELSE(tbtag != LFS_ERR_NOENT,
-                LFS_TYPE_BRANCH, 0x3ff, sizeof(tbpair),
-                LFS_TYPE_BRANCH, 0x3ff, 0x3ff), tbpair}));
+            {LFS_MKTAG(LFS_TYPE_TAIL + tail->split, 0x3ff, 8), tail->tail}));
+//            {LFS_MKTAG_IF_ELSE(tbtag != LFS_ERR_NOENT,
+//                LFS_TYPE_BRANCH, 0x3ff, sizeof(tbpair),
+//                LFS_TYPE_BRANCH, 0x3ff, 0x3ff), tbpair}));
     lfs_pair_fromle32(tail->tail);
     if (err) {
         return err;
@@ -1459,13 +1466,15 @@ static int lfs_dir_dropbranch(lfs_t *lfs,
     }
 
     // steal branch's branch
-    lfs_block_t bbpair[2];
-    lfs_stag_t bbtag = lfs_dir_get(lfs, branch,
-            LFS_MKTAG(0x7ff, 0, 0),
-            LFS_MKTAG(LFS_TYPE_BRANCH, 0, 8), bbpair);
-    if (bbtag < 0 && bbtag != LFS_ERR_NOENT) {
-        return bbtag;
-    }
+    dir->branch[0] = branch->branch[0];
+    dir->branch[1] = branch->branch[1];
+//    lfs_block_t bbpair[2];
+//    lfs_stag_t bbtag = lfs_dir_get(lfs, branch,
+//            LFS_MKTAG(0x7ff, 0, 0),
+//            LFS_MKTAG(LFS_TYPE_BRANCH, 0, 8), bbpair);
+//    if (bbtag < 0 && bbtag != LFS_ERR_NOENT) {
+//        return bbtag;
+//    }
 
     // TODO need mlist?
     // TODO endianness?
@@ -1473,11 +1482,12 @@ static int lfs_dir_dropbranch(lfs_t *lfs,
     lfs_fs_preporphans(lfs, +1);
 
     // delete branch
+    lfs_block_t branch_[2] = {dir->branch[0], dir->branch[1]}; // TODO need this?
     err = lfs_dir_commit(lfs, dir, LFS_MKATTRS(
             //{LFS_MKTAG(LFS_TYPE_TAIL + branch->split, 0x3ff, 8), branch->tail},
-            {LFS_MKTAG_IF_ELSE(bbtag != LFS_ERR_NOENT,
-                LFS_TYPE_BRANCH, 0x3ff, sizeof(bbpair),
-                LFS_TYPE_BRANCH, 0x3ff, 0x3ff), bbpair}));
+            {LFS_MKTAG_IF_ELSE(!lfs_pair_isnull(branch_), // bbtag != LFS_ERR_NOENT,
+                LFS_TYPE_BRANCH, 0x3ff, sizeof(branch_),
+                LFS_TYPE_BRANCH, 0x3ff, 0x3ff), branch_}));
     if (err) {
         return err;
     }
@@ -1488,8 +1498,9 @@ static int lfs_dir_dropbranch(lfs_t *lfs,
         return err;
     }
 
+    // TODO move this out?
     lfs_fs_preporphans(lfs, -1);
-    err = lfs_dir_drop(lfs, dir, branch);
+    err = lfs_dir_droptail(lfs, dir, branch);
     if (err) {
         return err;
     }
@@ -2007,7 +2018,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         // TODO should this actually be handled in _lfs_remove_??
         //printf("hmm1 %d %d\n", err, pdir.split);
         if (err != LFS_ERR_NOENT && pdir.split) {
-            err = lfs_dir_drop(lfs, &pdir, dir); // TODO drop needs to handle branches
+            err = lfs_dir_droptail(lfs, &pdir, dir); // TODO drop needs to handle branches
             if (err) {
                 *dir = olddir;
                 return err;
@@ -2386,28 +2397,33 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
 
     while (true) {
         if (dir->id == dir->m.count) {
-            lfs_stag_t ttag = 0;
-            lfs_block_t npair[2] = {dir->m.tail[0], dir->m.tail[1]};
-            // TODO remove mlist from mkdir!
-            if (!dir->m.split) {
-                ttag = lfs_dir_get(lfs, &dir->m,
-                        LFS_MKTAG(0x7ff, 0, 0),
-                        LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(npair)),
-                        npair);
-                if (ttag < 0 && ttag != LFS_ERR_NOENT) {
-                    return ttag;
-                }
-                lfs_pair_fromle32(npair);
-            }
+            
+
+//            lfs_stag_t ttag = 0;
+//            lfs_block_t npair[2] = {dir->m.tail[0], dir->m.tail[1]};
+//            // TODO remove mlist from mkdir!
+//            if (!dir->m.split) {
+//                ttag = lfs_dir_get(lfs, &dir->m,
+//                        LFS_MKTAG(0x7ff, 0, 0),
+//                        LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(npair)),
+//                        npair);
+//                if (ttag < 0 && ttag != LFS_ERR_NOENT) {
+//                    return ttag;
+//                }
+//                lfs_pair_fromle32(npair);
+//            }
 
             // ttag may be NOENT or may be marked null explicitly
-            if (ttag == LFS_ERR_NOENT || lfs_pair_isnull(npair)) {
+            //if (ttag == LFS_ERR_NOENT || lfs_pair_isnull(npair)) { // TODO rm me
+            if (lfs_pair_isnull(dir->m.branch)) {
                 LFS_TRACE("lfs_dir_read -> %d", false);
                 return false;
             }
 
             // fetch next dir
-            int err = lfs_dir_fetch(lfs, &dir->m, npair);
+            // TODO copy out branch in lfs_dir_fetch?
+            lfs_block_t branch[2] = {dir->m.branch[0], dir->m.branch[1]};
+            int err = lfs_dir_fetch(lfs, &dir->m, branch);
             if (err) {
                 LFS_TRACE("lfs_dir_read -> %d", err);
                 return err;
@@ -2457,26 +2473,28 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
         off -= diff;
 
         if (dir->id == dir->m.count) {
-            lfs_stag_t ttag = 0;
-            lfs_block_t npair[2] = {dir->m.tail[0], dir->m.tail[1]}; // TODO reuse dir tail?
-            if (!dir->m.split) {
-                ttag = lfs_dir_get(lfs, &dir->m,
-                        LFS_MKTAG(0x7ff, 0, 0),
-                        LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(npair)),
-                        npair);
-                if (ttag < 0 && ttag != LFS_ERR_NOENT) {
-                    return ttag;
-                }
-                lfs_pair_fromle32(npair);
-            }
+//            lfs_stag_t ttag = 0;
+//            lfs_block_t npair[2] = {dir->m.tail[0], dir->m.tail[1]}; // TODO reuse dir tail?
+//            if (!dir->m.split) {
+//                ttag = lfs_dir_get(lfs, &dir->m,
+//                        LFS_MKTAG(0x7ff, 0, 0),
+//                        LFS_MKTAG(LFS_TYPE_BRANCH, 0, sizeof(npair)),
+//                        npair);
+//                if (ttag < 0 && ttag != LFS_ERR_NOENT) {
+//                    return ttag;
+//                }
+//                lfs_pair_fromle32(npair);
+//            }
 
             // ttag may be NOENT or may be marked null explicitly
-            if (ttag == LFS_ERR_NOENT || lfs_pair_isnull(npair)) {
+            //if (ttag == LFS_ERR_NOENT || lfs_pair_isnull(npair)) { // TODO rm me
+            if (lfs_pair_isnull(dir->m.branch)) {
                 LFS_TRACE("lfs_dir_seek -> %d", LFS_ERR_INVAL);
                 return LFS_ERR_INVAL;
             }
 
-            err = lfs_dir_fetch(lfs, &dir->m, npair);
+            lfs_block_t branch[2] = {dir->m.branch[0], dir->m.branch[1]};
+            err = lfs_dir_fetch(lfs, &dir->m, branch);
             if (err) {
                 LFS_TRACE("lfs_dir_seek -> %d", err);
                 return err;
@@ -3542,7 +3560,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
             return err;
         }
 
-        err = lfs_dir_drop(lfs, &cwd, &dir.m);
+        err = lfs_dir_droptail(lfs, &cwd, &dir.m);
         if (err) {
             LFS_TRACE("lfs_remove -> %d", err);
             return err;
@@ -3687,7 +3705,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             return err;
         }
 
-        err = lfs_dir_drop(lfs, &newcwd, &prevdir.m);
+        err = lfs_dir_droptail(lfs, &newcwd, &prevdir.m);
         if (err) {
             LFS_TRACE("lfs_rename -> %d", err);
             return err;
@@ -4516,7 +4534,7 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
                 LFS_DEBUG("Fixing orphan %"PRIx32" %"PRIx32,
                         pdir.tail[0], pdir.tail[1]);
 
-                err = lfs_dir_drop(lfs, &pdir, &dir);
+                err = lfs_dir_droptail(lfs, &pdir, &dir);
                 if (err) {
                     return err;
                 }
@@ -4525,32 +4543,32 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
                 continue;
             }
 
-            lfs_block_t pair[2];
-            lfs_stag_t res = lfs_dir_get(lfs, &parent,
-                    LFS_MKTAG(0x7ff, 0x3ff, 0), tag, pair);
-            if (res < 0) {
-                return res;
-            }
-            lfs_pair_fromle32(pair);
-
-            if (!lfs_pair_sync(pair, pdir.tail)) {
-                assert(false);
-                // we have desynced
-                LFS_DEBUG("Fixing half-orphan "
-                        "%"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
-                        pdir.tail[0], pdir.tail[1], pair[0], pair[1]);
-
-                lfs_pair_tole32(pair);
-                err = lfs_dir_commit(lfs, &pdir, LFS_MKATTRS(
-                        {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), pair}));
-                lfs_pair_fromle32(pair);
-                if (err) {
-                    return err;
-                }
-
-                // refetch tail
-                continue;
-            }
+//            lfs_block_t pair[2];
+//            lfs_stag_t res = lfs_dir_get(lfs, &parent,
+//                    LFS_MKTAG(0x7ff, 0x3ff, 0), tag, pair);
+//            if (res < 0) {
+//                return res;
+//            }
+//            lfs_pair_fromle32(pair);
+//
+//            if (!lfs_pair_sync(pair, pdir.tail)) {
+//                assert(false);
+//                // we have desynced
+//                LFS_DEBUG("Fixing half-orphan "
+//                        "%"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
+//                        pdir.tail[0], pdir.tail[1], pair[0], pair[1]);
+//
+//                lfs_pair_tole32(pair);
+//                err = lfs_dir_commit(lfs, &pdir, LFS_MKATTRS(
+//                        {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), pair}));
+//                lfs_pair_fromle32(pair);
+//                if (err) {
+//                    return err;
+//                }
+//
+//                // refetch tail
+//                continue;
+//            }
         }
 
         pdir = dir;
