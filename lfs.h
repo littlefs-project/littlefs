@@ -313,6 +313,7 @@ typedef struct lfs_mdir {
     bool erased;
     bool split;
     lfs_block_t tail[2];
+    lfs_block_t branch[2];
 } lfs_mdir_t;
 
 // littlefs directory type
