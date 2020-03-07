@@ -326,7 +326,7 @@ def main(args):
         mdir.rev,
         ' (was %s)' % ', '.join('%d' % m.rev for m in mdir.pair[1:])
         if len(mdir.pair) > 1 else '',
-        ' (corrupted)' if not mdir else ''))
+        ' (corrupted!)' if not mdir else ''))
     if args.all:
         mdir.dump_all(truncate=not args.no_truncate)
     elif args.log:

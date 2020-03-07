@@ -241,6 +241,13 @@ static inline int lfs_pair_cmp(
              paira[0] == pairb[1] || paira[1] == pairb[0]);
 }
 
+static inline int lfs_pair_realcmp(
+        const lfs_block_t paira[2],
+        const lfs_block_t pairb[2]) {
+    return !((paira[0] == pairb[0] && paira[1] == pairb[1]) ||
+             (paira[0] == pairb[1] && paira[1] == pairb[0]));
+}
+
 static inline bool lfs_pair_sync(
         const lfs_block_t paira[2],
         const lfs_block_t pairb[2]) {
@@ -423,6 +430,7 @@ int lfs_fs_traverseraw(lfs_t *lfs,
         int (*cb)(void *data, lfs_block_t block), void *data,
         bool includeorphans);
 static int lfs_fs_forceconsistency(lfs_t *lfs);
+static int lfs_fs_deorphan(lfs_t *lfs);
 static int lfs_deinit(lfs_t *lfs);
 #ifdef LFS_MIGRATE
 static int lfs1_traverse(lfs_t *lfs,
@@ -808,6 +816,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (err == LFS_ERR_CORRUPT) {
                     // can't continue?
                     dir->erased = false;
+                    dir->first = false;
                     break;
                 }
                 return err;
@@ -820,9 +829,11 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             if (!lfs_tag_isvalid(tag)) {
                 dir->erased = (lfs_tag_type1(ptag) == LFS_TYPE_CRC &&
                         dir->off % lfs->cfg->prog_size == 0);
+                dir->first = false;
                 break;
             } else if (off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
                 dir->erased = false;
+                dir->first = false;
                 break;
             }
 
@@ -837,6 +848,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         dir->erased = false;
+                        dir->first = false;
                         break;
                     }
                     return err;
@@ -845,6 +857,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
 
                 if (crc != dcrc) {
                     dir->erased = false;
+                    dir->first = false;
                     break;
                 }
 
@@ -880,6 +893,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         dir->erased = false;
+                        dir->first = false;
                         break;
                     }
                     return err;
@@ -913,6 +927,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         dir->erased = false;
+                        dir->first = false;
                         break;
                     }
                 }
@@ -935,6 +950,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                     if (err) {
                         if (err == LFS_ERR_CORRUPT) {
                             dir->erased = false;
+                            dir->first = false;
                             break;
                         }
                     }
@@ -948,6 +964,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 if (res < 0) {
                     if (res == LFS_ERR_CORRUPT) {
                         dir->erased = false;
+                        dir->first = false;
                         break;
                     }
                     return res;
@@ -1419,6 +1436,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
     dir->branch[0] = LFS_BLOCK_NULL;
     dir->branch[1] = LFS_BLOCK_NULL;
     dir->erased = false;
+    dir->first = true;
     dir->split = false;
 
     // don't write out yet, let caller take care of that
@@ -1442,6 +1460,7 @@ static int lfs_dir_droptail(lfs_t *lfs, lfs_mdir_t *dir, lfs_mdir_t *tail) {
 //    }
 
     // steal tail's tail
+    // TODO does this tail update cause problems
     lfs_pair_tole32(tail->tail);
     err = lfs_dir_commit(lfs, dir, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_TAIL + tail->split, 0x3ff, 8), tail->tail}));
@@ -1863,6 +1882,7 @@ relocate:
 
 #if 1
         // find parent?
+        // TODO do we need this if parent.tail == oldpair? The answer is no but how to organize
         ptag = lfs_fs_parent(lfs, oldpair, &parent, false);
         if (ptag < 0 && ptag != LFS_ERR_NOENT) {
             return ptag;
@@ -1880,17 +1900,56 @@ relocate:
         }
 
         // Have parent? Didn't give up? This is when we need to reinsert
-        // ourself in the threaded linked-list. This evenutally creates an
+        // ourself in the threaded linked-list. This eventually creates an
         // orphan, but we can clean that up. We need to reinsert to avoid
         // issues with cycles in non-DAG trees.
         //
         // Note if parent's tail == us we can, and must, clean ourselves up
         // without an orphan.
         if (ptag != LFS_ERR_NOENT &&
-                lfs_pair_cmp(parent.tail, oldpair) != 0) {
-            dir->tail[0] = parent.tail[0];
-            dir->tail[1] = parent.tail[1];
-            printf("tail? %x %x\n", dir->tail[0], dir->tail[1]);
+                (lfs_pair_cmp(parent.tail, oldpair) != 0 || !lfs_pair_sync(parent.tail, oldpair))) { // TODO word this so much better
+            if (lfs_pair_isnull(lfs->relocate_tail)) {
+                // not relocating yet
+                dir->tail[0] = parent.tail[0];
+                dir->tail[1] = parent.tail[1];
+            } else {
+                printf("HEEEEEEEEEEEEY\n");
+                // already relocating, we need to update the last dir in our
+                // tail of new pairs
+                lfs_mdir_t relocatedir;
+                err = lfs_dir_fetch(lfs, &relocatedir, lfs->relocate_end);
+                if (err) {
+                    return err;
+                }
+
+                LFS_ASSERT(!lfs->relocate_do_hack);
+                bool oldhack = lfs->relocate_do_hack;
+                lfs->relocate_do_hack = true;
+                err = lfs_dir_commit(lfs, &relocatedir, LFS_MKATTRS(
+                        {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), parent.tail}));
+                lfs->relocate_do_hack = oldhack;
+                if (err) {
+                    // TODO do we need to clean up anything?
+                    return err;
+                }
+
+                dir->tail[0] = lfs->relocate_tail[0];
+                dir->tail[1] = lfs->relocate_tail[1];
+            }
+            
+
+
+//            // TODO implement this
+//            if (!lfs_pair_isnull(lfs->relocate_tail)) {
+//                printf("HEEEEEY\n");
+//            }
+//            //LFS_ASSERT(lfs->relocate_len == 0);
+//            // TODO AH BUT WHAT IF WE'RE RELOCATING ALREADY
+//            dir->tail[0] = parent.tail[0];
+//            dir->tail[1] = parent.tail[1];
+//            printf("tail? %x %x\n", dir->tail[0], dir->tail[1]);
+//            lfs->relocate_tail[0] = dir->pair[0];
+//            lfs->relocate_tail[1] = dir->pair[1];
         }
 #elif 0 // TODO rm me
         // find parent?
@@ -1941,10 +2000,36 @@ relocate:
     }
 
     if (relocated) {
+        // TODO hm
+        if (lfs_pair_isnull(lfs->relocate_tail)) {
+            // TODO do this before?
+            lfs->relocate_end[0] = dir->pair[0];
+            lfs->relocate_end[1] = dir->pair[1];
+        }
+        lfs->relocate_tail[0] = dir->pair[0];
+        lfs->relocate_tail[1] = dir->pair[1];
+
+//        if (!dir->first) {
+//            // TODO is this the best way to force dir updates to be on one block?
+//            dir->pair[0] = dir->pair[0];
+//            dir->pair[1] = oldpair[1];
+//        }
+//
         // update references if we relocated
         LFS_DEBUG("Relocating %"PRIx32" %"PRIx32" -> %"PRIx32" %"PRIx32,
                 oldpair[0], oldpair[1], dir->pair[0], dir->pair[1]);
         int err = lfs_fs_relocate(lfs, ptag, &parent, oldpair, dir->pair);
+        if (err) {
+            return err;
+        }
+
+        // TODO well this is the hackiest thing I've done in a while,
+        // needed because we may be changed during relocate (of course!)
+        //
+        // TODO we should be inserted into mlist
+        // TODO should mlist be reworked?
+        printf("refetch {%#x, %#x}\n", dir->pair[0], dir->pair[1]);
+        err = lfs_dir_fetch(lfs, dir, dir->pair);
         if (err) {
             return err;
         }
@@ -2135,6 +2220,12 @@ compact:
         }
     }
 
+//    printf("dir before: {%#x, %#x}, mlist before: ", olddir.pair[0], olddir.pair[1]);
+//    for (struct lfs_mlist *d = lfs->mlist; d; d = d->next) {
+//        printf("{%#x, %#x} ", d->m.pair[0], d->m.pair[1]);
+//    }
+//    printf("\n");
+
     // this complicated bit of logic is for fixing up any active
     // metadata-pairs that we may have affected
     //
@@ -2143,7 +2234,9 @@ compact:
     // we need to copy the pair so they don't get clobbered if we refetch
     // our mdir.
     for (struct lfs_mlist *d = lfs->mlist; d; d = d->next) {
-        if (&d->m != dir && lfs_pair_cmp(d->m.pair, olddir.pair) == 0) {
+        if (&d->m != dir && (lfs_pair_realcmp(d->m.pair, olddir.pair) == 0 ||
+                lfs_pair_realcmp(d->m.pair, dir->pair) == 0)) { // TODO hmm, this was updated in lfs_fs_relocate? is this double work? what do we do with olddir??
+            //printf("hey {%#x, %#x} -> {%#x, %#x}\n", d->m.pair[0], d->m.pair[1], dir->pair[0], dir->pair[1]);
             d->m = *dir;
             for (int i = 0; i < attrcount; i++) {
                 if (lfs_tag_type3(attrs[i].tag) == LFS_TYPE_DELETE &&
@@ -2168,7 +2261,8 @@ compact:
     }
 
     for (struct lfs_mlist *d = lfs->mlist; d; d = d->next) {
-        if (lfs_pair_cmp(d->m.pair, olddir.pair) == 0) {
+        if (lfs_pair_realcmp(d->m.pair, olddir.pair) == 0 ||
+                lfs_pair_realcmp(d->m.pair, dir->pair) == 0) { // TODO hm, see above
             while (d->id >= d->m.count && !lfs_pair_isnull(d->m.branch)) {
 //                
 //
@@ -2202,6 +2296,18 @@ compact:
         }
     }
 
+//    printf("dir after:  {%#x, %#x}, mlist after:  ", dir->pair[0], dir->pair[1]);
+//    for (struct lfs_mlist *d = lfs->mlist; d; d = d->next) {
+//        printf("{%#x, %#x} ", d->m.pair[0], d->m.pair[1]);
+//    }
+//    printf("\n");
+
+    if (!lfs->relocate_do_hack) {
+        lfs->relocate_tail[0] = LFS_BLOCK_NULL;
+        lfs->relocate_tail[1] = LFS_BLOCK_NULL;
+        lfs->relocate_end[0] = LFS_BLOCK_NULL; // TODO need these?
+        lfs->relocate_end[1] = LFS_BLOCK_NULL;
+    }
     return 0;
 }
 
@@ -2293,6 +2399,10 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     lfs_pair_tole32(bpair);
     lfs_pair_tole32(dir.pair);
     // TODO need to change endianness of tail?
+    lfs->relocate_tail[0] = dir.pair[0]; // TODO
+    lfs->relocate_tail[1] = dir.pair[1];
+    lfs->relocate_end[0] = dir.pair[0]; // TODO
+    lfs->relocate_end[1] = dir.pair[1];
     err = lfs_dir_commit(lfs, &cwd.m, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_CREATE, id, 0), NULL},
             {LFS_MKTAG(LFS_TYPE_DIR, id, nlen), path},
@@ -3683,6 +3793,15 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     // let commit clean up after move (if we're different! otherwise move
     // logic already fixed it for us)
     if (!samepair && lfs_gstate_hasmove(&lfs->gstate)) {
+        // fetch again
+        // TODO should this be in mlist?
+        err = lfs_dir_fetch(lfs, &oldcwd, oldcwd.pair);
+        if (err) {
+            lfs->mlist = prevdir.next;
+            LFS_TRACE("lfs_rename -> %d", err);
+            return err;
+        }
+
         // prep gstate and delete move id
         lfs_fs_prepmove(lfs, 0x3ff, NULL);
         err = lfs_dir_commit(lfs, &oldcwd, LFS_MKATTRS(
@@ -3893,6 +4012,11 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     // setup default state
     lfs->root[0] = LFS_BLOCK_NULL;
     lfs->root[1] = LFS_BLOCK_NULL;
+    lfs->relocate_tail[0] = LFS_BLOCK_NULL;
+    lfs->relocate_tail[1] = LFS_BLOCK_NULL;
+    lfs->relocate_end[0] = LFS_BLOCK_NULL;
+    lfs->relocate_end[1] = LFS_BLOCK_NULL;
+    lfs->relocate_do_hack = false;
     lfs->mlist = NULL;
     lfs->seed = 0;
     lfs->gdisk = (lfs_gstate_t){0};
@@ -4270,10 +4394,33 @@ int lfs_fs_traverse(lfs_t *lfs,
 
 static int lfs_fs_pred(lfs_t *lfs,
         const lfs_block_t pair[2], lfs_mdir_t *pdir) {
+    // iterate over our relocation chain
+    // TODO combine these loops?
+    pdir->tail[0] = lfs->relocate_tail[0];
+    pdir->tail[1] = lfs->relocate_tail[1];
+    lfs_block_t cycle = 0;
+    while (!lfs_pair_isnull(pdir->tail) &&
+            lfs_pair_cmp(pdir->tail, lfs->relocate_end) != 0) {
+        if (cycle >= lfs->cfg->block_count/2) {
+            // loop detected
+            return LFS_ERR_CORRUPT;
+        }
+        cycle += 1;
+
+        if (lfs_pair_cmp(pdir->tail, pair) == 0) {
+            return 0;
+        }
+
+        int err = lfs_dir_fetch(lfs, pdir, pdir->tail);
+        if (err) {
+            return err;
+        }
+    }
+
     // iterate over all directory directory entries
     pdir->tail[0] = 0;
     pdir->tail[1] = 1;
-    lfs_block_t cycle = 0;
+    cycle = 0;
     while (!lfs_pair_isnull(pdir->tail)) {
         if (cycle >= lfs->cfg->block_count/2) {
             // loop detected
@@ -4357,6 +4504,12 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
 static int lfs_fs_relocate(lfs_t *lfs,
         lfs_stag_t ptag, lfs_mdir_t *parent,
         const lfs_block_t oldpair[2], lfs_block_t newpair[2]) {
+    printf("mlist before: ");
+    for (struct lfs_mlist *d = lfs->mlist; d; d = d->next) {
+        printf("{%#x, %#x} ", d->m.pair[0], d->m.pair[1]);
+    }
+    printf("\n");
+
     // update internal root
     if (lfs_pair_cmp(oldpair, lfs->root) == 0) {
         LFS_DEBUG("Relocating root %"PRIx32" %"PRIx32,
@@ -4365,6 +4518,18 @@ static int lfs_fs_relocate(lfs_t *lfs,
         lfs->root[1] = newpair[1];
     }
 
+    // update relocate chain if needed
+    if (lfs_pair_cmp(oldpair, lfs->relocate_tail) == 0) {
+        lfs->relocate_tail[0] = newpair[0];
+        lfs->relocate_tail[1] = newpair[1];
+    }
+
+    if (lfs_pair_cmp(oldpair, lfs->relocate_end) == 0) {
+        lfs->relocate_end[0] = newpair[0];
+        lfs->relocate_end[1] = newpair[1];
+    }
+
+    // TODO is this doing double work????
     // update internally tracked dirs
     for (struct lfs_mlist *d = lfs->mlist; d; d = d->next) {
         if (lfs_pair_cmp(oldpair, d->m.pair) == 0) {
@@ -4378,6 +4543,12 @@ static int lfs_fs_relocate(lfs_t *lfs,
             ((lfs_dir_t*)d)->head[1] = newpair[1];
         }
     }
+
+    printf("mlist after: ");
+    for (struct lfs_mlist *d = lfs->mlist; d; d = d->next) {
+        printf("{%#x, %#x} ", d->m.pair[0], d->m.pair[1]);
+    }
+    printf("\n");
 
     bool parentispred = (lfs_pair_cmp(parent->tail, oldpair) == 0);
 
@@ -4413,42 +4584,52 @@ static int lfs_fs_relocate(lfs_t *lfs,
         }
 
         // next step, clean up orphans
-        lfs_fs_preporphans(lfs, -!parentispred);
+        // TODO hm
+        //lfs_fs_preporphans(lfs, -!parentispred);
     }
 
-    if (!parentispred) {
-        // find pred
-        int err = lfs_fs_pred(lfs, oldpair, parent);
-        if (err && err != LFS_ERR_NOENT) {
+    // TODO clean this up?
+    if (lfs_gstate_hasorphans(&lfs->gstate)) {
+        int err = lfs_fs_deorphan(lfs);
+        if (err) {
             return err;
         }
-
-        // if we can't find dir, it must be new
-        if (err != LFS_ERR_NOENT) {
-            // fix pending move in this pair? this looks like an optimization
-            // but is in fact _required_ since relocating may outdate the move.
-            uint16_t moveid = 0x3ff;
-            if (lfs_gstate_hasmovehere(&lfs->gstate, parent->pair)) {
-                moveid = lfs_tag_id(lfs->gstate.tag);
-                LFS_DEBUG("Fixing move while relocating "
-                        "%"PRIx32" %"PRIx32" %"PRIx16"\n",
-                        parent->pair[0], parent->pair[1], moveid);
-                lfs_fs_prepmove(lfs, 0x3ff, NULL);
-            }
-
-            // replace bad pair, either we clean up desync, or no desync occured
-            lfs_pair_tole32(newpair);
-            err = lfs_dir_commit(lfs, parent, LFS_MKATTRS(
-                    {LFS_MKTAG_IF(moveid != 0x3ff,
-                        LFS_TYPE_DELETE, moveid, 0)},
-                    {LFS_MKTAG(LFS_TYPE_TAIL + parent->split, 0x3ff, 8),
-                        newpair}));
-            lfs_pair_fromle32(newpair);
-            if (err) {
-                return err;
-            }
-        }
     }
+
+//
+//    if (!parentispred) {
+//        // find pred
+//        int err = lfs_fs_pred(lfs, oldpair, parent);
+//        if (err && err != LFS_ERR_NOENT) {
+//            return err;
+//        }
+//
+//        // if we can't find dir, it must be new
+//        if (err != LFS_ERR_NOENT) {
+//            // fix pending move in this pair? this looks like an optimization
+//            // but is in fact _required_ since relocating may outdate the move.
+//            uint16_t moveid = 0x3ff;
+//            if (lfs_gstate_hasmovehere(&lfs->gstate, parent->pair)) {
+//                moveid = lfs_tag_id(lfs->gstate.tag);
+//                LFS_DEBUG("Fixing move while relocating "
+//                        "%"PRIx32" %"PRIx32" %"PRIx16"\n",
+//                        parent->pair[0], parent->pair[1], moveid);
+//                lfs_fs_prepmove(lfs, 0x3ff, NULL);
+//            }
+//
+//            // replace bad pair, either we clean up desync, or no desync occured
+//            lfs_pair_tole32(newpair);
+//            err = lfs_dir_commit(lfs, parent, LFS_MKATTRS(
+//                    {LFS_MKTAG_IF(moveid != 0x3ff,
+//                        LFS_TYPE_DELETE, moveid, 0)},
+//                    {LFS_MKTAG(LFS_TYPE_TAIL + parent->split, 0x3ff, 8),
+//                        newpair}));
+//            lfs_pair_fromle32(newpair);
+//            if (err) {
+//                return err;
+//            }
+//        }
+//    }
 
     return 0;
 }
@@ -4503,12 +4684,16 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
         return 0;
     }
 
+    // TODO needme?
+    LFS_ASSERT(lfs_pair_isnull(lfs->relocate_tail));
+
     // Fix any orphans
     lfs_mdir_t pdir = {.split = true, .tail = {0, 1}};
     lfs_mdir_t dir;
 
     // iterate over all directory directory entries
-    while (!lfs_pair_isnull(pdir.tail)) {
+    // TODO handle this more gracefully
+    while (lfs_gstate_hasorphans(&lfs->gstate) && !lfs_pair_isnull(pdir.tail)) {
         int err = lfs_dir_fetch(lfs, &dir, pdir.tail);
         if (err) {
             return err;

@@ -231,7 +231,7 @@ class TestCase:
                 ncmd.extend(['-ex', 'r'])
                 if failure.assert_:
                     ncmd.extend(['-ex', 'up 2'])
-            elif gdb == 'start':
+            elif gdb == 'start' or isinstance(gdb, int):
                 ncmd.extend([
                     '-ex', 'b %s:%d' % (self.suite.path, self.code_lineno),
                     '-ex', 'r'])
@@ -329,7 +329,9 @@ class ReentrantTestCase(TestCase):
                 persist = 'noerase'
 
             # exact cycle we should drop into debugger?
-            if gdb and failure and failure.cycleno == cycles:
+            if gdb and failure and (
+                    failure.cycleno == cycles or
+                    (isinstance(gdb, int) and gdb == cycles)):
                 return super().test(gdb=gdb, persist=persist, cycles=cycles,
                     failure=failure, **args)
 
@@ -760,7 +762,8 @@ if __name__ == "__main__":
         help="Store disk image in a file.")
     parser.add_argument('-b', '--build', action='store_true',
         help="Only build the tests, do not execute.")
-    parser.add_argument('-g', '--gdb', choices=['init', 'start', 'assert'],
+    parser.add_argument('-g', '--gdb', metavar='{init,start,assert},CYCLE',
+        type=lambda n: n if n in {'init', 'start', 'assert'} else int(n, 0),
         nargs='?', const='assert',
         help="Drop into gdb on test failure.")
     parser.add_argument('--no-internal', action='store_true',

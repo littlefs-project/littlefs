@@ -5,6 +5,7 @@ import sys
 import json
 import io
 import itertools as it
+import collections as c
 from readmdir import Tag, MetadataPair
 
 def popc(x):
@@ -13,7 +14,7 @@ def popc(x):
 def ctz(x):
     return len(bin(x)) - len(bin(x).rstrip('0'))
 
-def dumpentries(args, mdir, f):
+def dumpentries(args, mdir, mdirs, f):
     for k, id_ in enumerate(mdir.ids):
         name = mdir[Tag('name', id_, 0)]
         struct_ = mdir[Tag('struct', id_, 0)]
@@ -22,8 +23,10 @@ def dumpentries(args, mdir, f):
             id_, name.typerepr(),
             json.dumps(name.data.decode('utf8')))
         if struct_.is_('dirstruct'):
-            desc += " dir {%#x, %#x}" % struct.unpack(
-                '<II', struct_.data[:8].ljust(8, b'\xff'))
+            pair = struct.unpack('<II', struct_.data[:8].ljust(8, b'\xff'))
+            desc += " dir {%#x, %#x}%s" % (
+                pair[0], pair[1],
+                '?' if frozenset(pair) not in mdirs else '')
         if struct_.is_('ctzstruct'):
             desc += " ctz {%#x} size %d" % struct.unpack(
                 '<II', struct_.data[:8].ljust(8, b'\xff'))
@@ -93,19 +96,15 @@ def dumpentries(args, mdir, f):
 
 def main(args):
     with open(args.disk, 'rb') as f:
-        dirs = []
         superblock = None
-        gstate = b''
-        mdirs = []
+        gstate = b'\0\0\0\0\0\0\0\0\0\0\0\0'
+        mdirs = c.OrderedDict()
         cycle = False
         tail = (args.block1, args.block2)
-        hard = False
-        while True:
-            for m in it.chain((m for d in dirs for m in d), mdirs):
-                if set(m.blocks) == set(tail):
-                    # cycle detected
-                    cycle = m.blocks
-            if cycle:
+        while tail:
+            if frozenset(tail) in mdirs:
+                # cycle detected
+                cycle = tail
                 break
 
             # load mdir
@@ -128,6 +127,13 @@ def main(args):
             except KeyError:
                 mdir.tail = None
 
+            try:
+                mdir.branch = mdir[Tag('branch', 0, 0)]
+                if mdir.branch.size != 8 or mdir.branch.data == 8*b'\xff':
+                    mdir.branch = None
+            except KeyError:
+                mdir.branch = None
+
             # have superblock?
             try:
                 nsuperblock = mdir[
@@ -144,41 +150,55 @@ def main(args):
             except KeyError:
                 pass
 
-            # add to directories
-            mdirs.append(mdir)
-            if mdir.tail is None or not mdir.tail.is_('hardtail'):
-                dirs.append(mdirs)
-                mdirs = []
+            # add to metadata-pairs
+            mdirs[frozenset(mdir.blocks)] = mdir
+            tail = (struct.unpack('<II', mdir.tail.data)
+                if mdir.tail else None)
 
-            if mdir.tail is None:
-                break
-
-            tail = struct.unpack('<II', mdir.tail.data)
-            hard = mdir.tail.is_('hardtail')
-
-    # find paths
-    dirtable = {}
-    for dir in dirs:
-        dirtable[frozenset(dir[0].blocks)] = dir
-
-    pending = [("/", dirs[0])]
+    # derive paths and build directories
+    dirs = {}
+    rogue = {}
+    pending = [('/', (args.block1, args.block2))]
     while pending:
-        path, dir = pending.pop(0)
-        for mdir in dir:
+        path, branch = pending.pop(0)
+        dir = []
+        while branch and frozenset(branch) in mdirs:
+            mdir = mdirs[frozenset(branch)]
+            dir.append(mdir)
+
             for tag in mdir.tags:
                 if tag.is_('dir'):
                     try:
-                        npath = tag.data.decode('utf8')
+                        npath = path + '/' + tag.data.decode('utf8')
+                        npath = npath.replace('//', '/')
                         dirstruct = mdir[Tag('dirstruct', tag.id, 0)]
-                        nblocks = struct.unpack('<II', dirstruct.data)
-                        nmdir = dirtable[frozenset(nblocks)]
-                        pending.append(((path + '/' + npath), nmdir))
+                        npair = struct.unpack('<II', dirstruct.data)
+                        pending.append((npath, npair))
                     except KeyError:
                         pass
 
-        dir[0].path = path.replace('//', '/')
+            branch = (struct.unpack('<II', mdir.branch.data)
+                if mdir.branch else None)
 
-    # dump tree
+        if not dir:
+            rogue[path] = branch
+        else:
+            dirs[path] = dir
+
+    # also find orphans
+    not_orphans = {frozenset(mdir.blocks)
+        for dir in dirs.values()
+        for mdir in dir}
+    orphans = []
+    for pair, mdir in mdirs.items():
+        if pair not in not_orphans:
+            if len(orphans) > 0 and (pair == frozenset(
+                    struct.unpack('<II', orphans[-1][-1].tail.data))):
+                orphans[-1].append(mdir)
+            else:
+                orphans.append([mdir])
+
+    # print littlefs + version info
     version = ('?', '?')
     if superblock:
         version = tuple(reversed(
@@ -187,24 +207,30 @@ def main(args):
         "data (truncated, if it fits)"
         if not any([args.no_truncate, args.tags, args.log, args.all]) else ""))
 
-    if gstate:
-        print("gstate 0x%s" % ''.join('%02x' % c for c in gstate))
-        tag = Tag(struct.unpack('<I', gstate[0:4].ljust(4, b'\xff'))[0])
-        blocks = struct.unpack('<II', gstate[4:4+8].ljust(8, b'\xff'))
-        if tag.size or not tag.isvalid:
-            print("  orphans >=%d" % max(tag.size, 1))
-        if tag.type:
-            print("  move dir {%#x, %#x} id %d" % (
-                blocks[0], blocks[1], tag.id))
+    # print gstate
+    print("gstate 0x%s" % ''.join('%02x' % c for c in gstate))
+    tag = Tag(struct.unpack('<I', gstate[0:4].ljust(4, b'\xff'))[0])
+    blocks = struct.unpack('<II', gstate[4:4+8].ljust(8, b'\xff'))
+    if tag.size or not tag.isvalid:
+        print("  orphans >=%d" % max(tag.size, 1))
+    if tag.type:
+        print("  move dir {%#x, %#x}%s id %d" % (
+            blocks[0], blocks[1],
+            '?' if frozenset(blocks) not in mdirs else '',
+            tag.id))
 
-    for i, dir in enumerate(dirs):
-        print("dir %s" % (json.dumps(dir[0].path)
-            if hasattr(dir[0], 'path') else '(orphan)'))
+    # print dir info
+    for path, dir in it.chain(
+            sorted(dirs.items()),
+            zip(it.repeat(None), orphans)):
+        print("dir %s" % json.dumps(path) if path else "orphaned")
 
         for j, mdir in enumerate(dir):
-            print("mdir {%#x, %#x} rev %d%s" % (
-                mdir.blocks[0], mdir.blocks[1], mdir.rev,
-                ' (corrupted)' if not mdir else ''))
+            print("mdir {%#x, %#x} rev %d (was %d)%s%s" % (
+                mdir.blocks[0], mdir.blocks[1], mdir.rev, mdir.pair[1].rev,
+                ' (corrupted!)' if not mdir else '',
+                ' -> {%#x, %#x}' % struct.unpack('<II', mdir.tail.data)
+                if mdir.tail else ''))
 
             f = io.StringIO()
             if args.tags:
@@ -214,21 +240,27 @@ def main(args):
             elif args.all:
                 mdir.dump_all(f, truncate=not args.no_truncate)
             else:
-                dumpentries(args, mdir, f)
+                dumpentries(args, mdir, mdirs, f)
 
             lines = list(filter(None, f.getvalue().split('\n')))
             for k, line in enumerate(lines):
                 print("%s %s" % (
-                    ' ' if i == len(dirs)-1 and j == len(dir)-1 else
+                    ' ' if j == len(dir)-1 else
                     'v' if k == len(lines)-1 else
-                    '.' if j == len(dir)-1 else
-                    '|',
+                    '|' if path else '.',
                     line))
 
-    if cycle:
-        print("*** cycle detected! -> {%#x, %#x} ***" % (cycle[0], cycle[1]))
+    for path, pair in rogue.items():
+        print("*** couldn't find dir %s {%#x, %#x}! ***" % (
+            json.dumps(path), pair[0], pair[1]))
 
     if cycle:
+        print("*** cycle detected {%#x, %#x}! ***" % (
+            cycle[0], cycle[1]))
+
+    if cycle:
+        return 3
+    elif rogue:
         return 2
     elif not all(mdir for dir in dirs for mdir in dir):
         return 1

@@ -117,7 +117,8 @@ enum lfs_type {
     // internal chip sources
     LFS_FROM_NOOP           = 0x000,
     LFS_FROM_MOVE           = 0x101,
-    LFS_FROM_USERATTRS      = 0x102,
+    LFS_FROM_DROP           = 0x102,
+    LFS_FROM_USERATTRS      = 0x103,
 };
 
 // File open flags
@@ -311,6 +312,7 @@ typedef struct lfs_mdir {
     uint32_t etag;
     uint16_t count;
     bool erased;
+    bool first; // TODO come on
     bool split;
     lfs_block_t tail[2];
     lfs_block_t branch[2];
@@ -368,6 +370,9 @@ typedef struct lfs {
     lfs_cache_t pcache;
 
     lfs_block_t root[2];
+    lfs_block_t relocate_tail[2];
+    lfs_block_t relocate_end[2];
+    bool relocate_do_hack; // TODO fixme
     struct lfs_mlist {
         struct lfs_mlist *next;
         uint16_t id;
