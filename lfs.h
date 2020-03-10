@@ -314,6 +314,7 @@ typedef struct lfs_mdir {
     bool erased;
     bool first; // TODO come on
     bool split;
+    bool mustrelocate; // TODO not great either
     lfs_block_t tail[2];
     lfs_block_t branch[2];
 } lfs_mdir_t;

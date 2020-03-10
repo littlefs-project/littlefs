@@ -234,8 +234,8 @@ class MetadataPair:
 
     def __lt__(self, other):
         # corrupt blocks don't count
-        if not self and other:
-            return True
+        if not self or not other:
+            return bool(other)
 
         # use sequence arithmetic to avoid overflow
         return not ((other.rev - self.rev) & 0x80000000)

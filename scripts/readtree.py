@@ -95,11 +95,12 @@ def dumpentries(args, mdir, mdirs, f):
                         for c in map(chr, data[i:i+16]))))
 
 def main(args):
+    superblock = None
+    gstate = b'\0\0\0\0\0\0\0\0\0\0\0\0'
+    mdirs = c.OrderedDict()
+    corrupted = []
+    cycle = False
     with open(args.disk, 'rb') as f:
-        superblock = None
-        gstate = b'\0\0\0\0\0\0\0\0\0\0\0\0'
-        mdirs = c.OrderedDict()
-        cycle = False
         tail = (args.block1, args.block2)
         while tail:
             if frozenset(tail) in mdirs:
@@ -149,6 +150,10 @@ def main(args):
                     for a,b in it.zip_longest(gstate, ngstate.data))
             except KeyError:
                 pass
+
+            # corrupted?
+            if not mdir:
+                corrupted.append(mdir)
 
             # add to metadata-pairs
             mdirs[frozenset(mdir.blocks)] = mdir
@@ -208,12 +213,15 @@ def main(args):
         if not any([args.no_truncate, args.tags, args.log, args.all]) else ""))
 
     # print gstate
+    badgstate = None
     print("gstate 0x%s" % ''.join('%02x' % c for c in gstate))
     tag = Tag(struct.unpack('<I', gstate[0:4].ljust(4, b'\xff'))[0])
     blocks = struct.unpack('<II', gstate[4:4+8].ljust(8, b'\xff'))
     if tag.size or not tag.isvalid:
         print("  orphans >=%d" % max(tag.size, 1))
     if tag.type:
+        if frozenset(blocks) not in mdirs:
+            badgstate = gstate
         print("  move dir {%#x, %#x}%s id %d" % (
             blocks[0], blocks[1],
             '?' if frozenset(blocks) not in mdirs else '',
@@ -250,22 +258,28 @@ def main(args):
                     '|' if path else '.',
                     line))
 
+    errcode = 0
+    for mdir in corrupted:
+        errcode = errcode or 1
+        print("*** corrupted mdir {%#x, %#x}! ***" % (
+            mdir.blocks[0], mdir.blocks[1]))
+
     for path, pair in rogue.items():
+        errcode = errcode or 2
         print("*** couldn't find dir %s {%#x, %#x}! ***" % (
             json.dumps(path), pair[0], pair[1]))
 
+    if badgstate:
+        errcode = errcode or 3
+        print("*** bad gstate 0x%s! ***" %
+            ''.join('%02x' % c for c in gstate))
+
     if cycle:
+        errcode = errcode or 4
         print("*** cycle detected {%#x, %#x}! ***" % (
             cycle[0], cycle[1]))
 
-    if cycle:
-        return 3
-    elif rogue:
-        return 2
-    elif not all(mdir for dir in dirs for mdir in dir):
-        return 1
-    else:
-        return 0;
+    return errcode
 
 if __name__ == "__main__":
     import argparse
