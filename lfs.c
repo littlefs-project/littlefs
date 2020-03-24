@@ -10,6 +10,8 @@
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
+static void lfs_alloc_ack(lfs_t *lfs);
+
 /// Caching block device operations ///
 static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
@@ -22,6 +24,15 @@ static inline void lfs_cache_zero(lfs_t *lfs, lfs_cache_t *pcache) {
     // zero to avoid information leak
     memset(pcache->buffer, 0xff, lfs->cfg->cache_size);
     pcache->block = LFS_BLOCK_NULL;
+}
+
+/// Invalidate the lookahead buffer. This is done during mounting and failed traversals ///
+static inline void lfs_setup_invalid_lookahead_buffer(lfs_t *lfs)
+{
+    lfs->free.off = lfs->seed % lfs->cfg->block_size;
+    lfs->free.size = 0;
+    lfs->free.i = 0;
+    lfs_alloc_ack(lfs);
 }
 
 static int lfs_bd_read(lfs_t *lfs,
@@ -477,6 +488,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
         int err = lfs_fs_traverseraw(lfs, lfs_alloc_lookahead, lfs, true);
         if (err) {
+            lfs_setup_invalid_lookahead_buffer(lfs);
             return err;
         }
     }
@@ -3772,10 +3784,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->gdisk = lfs->gstate;
 
     // setup free lookahead
-    lfs->free.off = lfs->seed % lfs->cfg->block_size;
-    lfs->free.size = 0;
-    lfs->free.i = 0;
-    lfs_alloc_ack(lfs);
+    lfs_setup_invalid_lookahead_buffer(lfs);
 
     LFS_TRACE("lfs_mount -> %d", 0);
     return 0;
@@ -4594,6 +4603,7 @@ static int lfs1_mount(lfs_t *lfs, struct lfs1 *lfs1,
         lfs->lfs1->root[1] = LFS_BLOCK_NULL;
 
         // setup free lookahead
+        // TODO should this also call lfs_setup_invalid_lookahead_buffer(lfs); the free.off is different in the current version of lfs
         lfs->free.off = 0;
         lfs->free.size = 0;
         lfs->free.i = 0;
