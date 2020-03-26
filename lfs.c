@@ -10,8 +10,6 @@
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
-static void lfs_alloc_ack(lfs_t *lfs);
-
 /// Caching block device operations ///
 static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
@@ -443,9 +441,9 @@ static void lfs_alloc_ack(lfs_t *lfs) {
     lfs->free.ack = lfs->cfg->block_count;
 }
 
-/// Invalidate the lookahead buffer. This is done during mounting and failed traversals ///
-static void lfs_alloc_reset(lfs_t *lfs)
-{
+// Invalidate the lookahead buffer. This is done during mounting and
+// failed traversals
+static void lfs_alloc_reset(lfs_t *lfs) {
     lfs->free.off = lfs->seed % lfs->cfg->block_size;
     lfs->free.size = 0;
     lfs->free.i = 0;
