@@ -26,15 +26,6 @@ static inline void lfs_cache_zero(lfs_t *lfs, lfs_cache_t *pcache) {
     pcache->block = LFS_BLOCK_NULL;
 }
 
-/// Invalidate the lookahead buffer. This is done during mounting and failed traversals ///
-static inline void lfs_setup_invalid_lookahead_buffer(lfs_t *lfs)
-{
-    lfs->free.off = lfs->seed % lfs->cfg->block_size;
-    lfs->free.size = 0;
-    lfs->free.i = 0;
-    lfs_alloc_ack(lfs);
-}
-
 static int lfs_bd_read(lfs_t *lfs,
         const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
         lfs_block_t block, lfs_off_t off,
@@ -448,6 +439,19 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     return 0;
 }
 
+static void lfs_alloc_ack(lfs_t *lfs) {
+    lfs->free.ack = lfs->cfg->block_count;
+}
+
+/// Invalidate the lookahead buffer. This is done during mounting and failed traversals ///
+static void lfs_alloc_reset(lfs_t *lfs)
+{
+    lfs->free.off = lfs->seed % lfs->cfg->block_size;
+    lfs->free.size = 0;
+    lfs->free.i = 0;
+    lfs_alloc_ack(lfs);
+}
+
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     while (true) {
         while (lfs->free.i != lfs->free.size) {
@@ -488,16 +492,11 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
         int err = lfs_fs_traverseraw(lfs, lfs_alloc_lookahead, lfs, true);
         if (err) {
-            lfs_setup_invalid_lookahead_buffer(lfs);
+            lfs_alloc_reset(lfs);
             return err;
         }
     }
 }
-
-static void lfs_alloc_ack(lfs_t *lfs) {
-    lfs->free.ack = lfs->cfg->block_count;
-}
-
 
 /// Metadata pair and directory operations ///
 static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
@@ -3784,7 +3783,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->gdisk = lfs->gstate;
 
     // setup free lookahead
-    lfs_setup_invalid_lookahead_buffer(lfs);
+    lfs_alloc_reset(lfs);
 
     LFS_TRACE("lfs_mount -> %d", 0);
     return 0;
@@ -4603,7 +4602,6 @@ static int lfs1_mount(lfs_t *lfs, struct lfs1 *lfs1,
         lfs->lfs1->root[1] = LFS_BLOCK_NULL;
 
         // setup free lookahead
-        // TODO should this also call lfs_setup_invalid_lookahead_buffer(lfs); the free.off is different in the current version of lfs
         lfs->free.off = 0;
         lfs->free.size = 0;
         lfs->free.i = 0;
