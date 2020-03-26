@@ -1,0 +1,85 @@
+
+#open(1, "5file5.xxxxxxxxxxxx", 0x503) -> 0
+#  write(1, , 2007)[^ 1499 us] -> 2007
+#  write(1, , 2007)[^ 1411 us] -> 2007
+#  write(1, , 2007)[^ 1390 us] -> 2007
+#  write(1, , 2007)[^ 1401 us] -> 2007
+#  close(1) -> 0
+#  open(1, "1file1.xxxx", 0x503) -> 0
+#  mount
+#  open(0, "5file5.xxxxxxxxxxxx", 0x3) -> 0
+#  open(1, "5file5.xxxxxxxxxxxx", 0x503) -> 0
+#  close(1) -> 0
+#  open(1, "1file1.xxxx", 0x2) -> 0
+#  write(0, , 63) -> 63
+#a.out: lfs.c:2169: lfs_ctz_find: Assertion `head >= 2 && head <= lfs->cfg->block_count' failed.
+#  close(0)Aborted
+
+[[case]]
+define.FILESIZE5 = '4*CHUNKSIZE5'
+define.FILESIZE1 = '4*CHUNKSIZE1'
+define.CHUNKSIZE5 = 2007
+define.CHUNKSIZE1 = 63
+code = '''
+    lfs_file_t files[2];
+    uint8_t chunk5[CHUNKSIZE5];
+    memset(chunk5, 'a', CHUNKSIZE5);
+    uint8_t chunk1[CHUNKSIZE1];
+    memset(chunk1, 'b', CHUNKSIZE1);
+
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &files[1], "5file5.xxxxxxxxxxxx",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+    for (int i = 0; i < FILESIZE5/CHUNKSIZE5; i++) {
+        lfs_file_write(&lfs, &files[1], chunk5, CHUNKSIZE5) => CHUNKSIZE5;
+    }
+    lfs_file_close(&lfs, &files[1]) => 0;
+    lfs_file_open(&lfs, &files[1], "1file1.xxxx",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+//  these should not change the result
+//    lfs_file_close(&lfs, &files[1]) => 0;
+//    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &files[0], "5file5.xxxxxxxxxxxx",
+            LFS_O_RDWR) => 0;
+
+    lfs_file_open(&lfs, &files[1], "5file5.xxxxxxxxxxxx",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+    lfs_file_close(&lfs, &files[1]) => 0;
+
+    lfs_file_open(&lfs, &files[1], "1file1.xxxx",
+            LFS_O_WRONLY) => 0;
+    for (int i = 0; i < FILESIZE1/CHUNKSIZE1; i++) {
+        lfs_file_write(&lfs, &files[1], chunk1, CHUNKSIZE1) => CHUNKSIZE1;
+    }
+    lfs_file_close(&lfs, &files[1]) => 0;
+
+    memset(chunk5, 'c', CHUNKSIZE5);
+    for (int i = 0; i < FILESIZE5/CHUNKSIZE5; i++) {
+        lfs_file_write(&lfs, &files[0], chunk5, CHUNKSIZE5) => CHUNKSIZE5;
+    }
+    lfs_file_close(&lfs, &files[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // check results
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &files[0], "5file5.xxxxxxxxxxxx",
+            LFS_O_RDONLY) => 0;
+    for (int i = 0; i < FILESIZE5/CHUNKSIZE5; i++) {
+        uint8_t rchunk[CHUNKSIZE5];
+        lfs_file_read(&lfs, &files[0], rchunk, CHUNKSIZE5) => CHUNKSIZE5;
+        assert(memcmp(rchunk, chunk5, CHUNKSIZE5) == 0);
+    }
+    lfs_file_close(&lfs, &files[0]) => 0;
+    lfs_file_open(&lfs, &files[0], "1file1.xxxx",
+            LFS_O_RDONLY) => 0;
+    for (int i = 0; i < FILESIZE1/CHUNKSIZE1; i++) {
+        uint8_t rchunk[CHUNKSIZE1];
+        lfs_file_read(&lfs, &files[0], rchunk, CHUNKSIZE1) => CHUNKSIZE1;
+        assert(memcmp(rchunk, chunk1, CHUNKSIZE1) == 0);
+    }
+    lfs_file_close(&lfs, &files[0]) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
