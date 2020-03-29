@@ -15,6 +15,14 @@ extern "C"
 {
 #endif
 
+
+// Block device specific tracing
+#ifdef LFS_FILEBD_YES_TRACE
+#define LFS_FILEBD_TRACE(...) LFS_TRACE(__VA_ARGS__)
+#else
+#define LFS_FILEBD_TRACE(...)
+#endif
+
 // filebd config (optional)
 struct lfs_filebd_config {
     // 8-bit erase value to use for simulating erases. -1 does not simulate

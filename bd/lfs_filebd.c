@@ -12,7 +12,7 @@
 
 int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
         const struct lfs_filebd_config *bdcfg) {
-    LFS_TRACE("lfs_filebd_createcfg(%p {.context=%p, "
+    LFS_FILEBD_TRACE("lfs_filebd_createcfg(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
@@ -30,16 +30,16 @@ int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
     bd->fd = open(path, O_RDWR | O_CREAT, 0666);
     if (bd->fd < 0) {
         int err = -errno;
-        LFS_TRACE("lfs_filebd_createcfg -> %d", err);
+        LFS_FILEBD_TRACE("lfs_filebd_createcfg -> %d", err);
         return err;
     }
 
-    LFS_TRACE("lfs_filebd_createcfg -> %d", 0);
+    LFS_FILEBD_TRACE("lfs_filebd_createcfg -> %d", 0);
     return 0;
 }
 
 int lfs_filebd_create(const struct lfs_config *cfg, const char *path) {
-    LFS_TRACE("lfs_filebd_create(%p {.context=%p, "
+    LFS_FILEBD_TRACE("lfs_filebd_create(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
@@ -51,26 +51,27 @@ int lfs_filebd_create(const struct lfs_config *cfg, const char *path) {
             path);
     static const struct lfs_filebd_config defaults = {.erase_value=-1};
     int err = lfs_filebd_createcfg(cfg, path, &defaults);
-    LFS_TRACE("lfs_filebd_create -> %d", err);
+    LFS_FILEBD_TRACE("lfs_filebd_create -> %d", err);
     return err;
 }
 
 int lfs_filebd_destroy(const struct lfs_config *cfg) {
-    LFS_TRACE("lfs_filebd_destroy(%p)", (void*)cfg);
+    LFS_FILEBD_TRACE("lfs_filebd_destroy(%p)", (void*)cfg);
     lfs_filebd_t *bd = cfg->context;
     int err = close(bd->fd);
     if (err < 0) {
         err = -errno;
-        LFS_TRACE("lfs_filebd_destroy -> %d", err);
+        LFS_FILEBD_TRACE("lfs_filebd_destroy -> %d", err);
         return err;
     }
-    LFS_TRACE("lfs_filebd_destroy -> %d", 0);
+    LFS_FILEBD_TRACE("lfs_filebd_destroy -> %d", 0);
     return 0;
 }
 
 int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
-    LFS_TRACE("lfs_filebd_read(%p, 0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
+    LFS_FILEBD_TRACE("lfs_filebd_read(%p, "
+                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
             (void*)cfg, block, off, buffer, size);
     lfs_filebd_t *bd = cfg->context;
 
@@ -89,24 +90,24 @@ int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,
             (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
     if (res1 < 0) {
         int err = -errno;
-        LFS_TRACE("lfs_filebd_read -> %d", err);
+        LFS_FILEBD_TRACE("lfs_filebd_read -> %d", err);
         return err;
     }
 
     ssize_t res2 = read(bd->fd, buffer, size);
     if (res2 < 0) {
         int err = -errno;
-        LFS_TRACE("lfs_filebd_read -> %d", err);
+        LFS_FILEBD_TRACE("lfs_filebd_read -> %d", err);
         return err;
     }
 
-    LFS_TRACE("lfs_filebd_read -> %d", 0);
+    LFS_FILEBD_TRACE("lfs_filebd_read -> %d", 0);
     return 0;
 }
 
 int lfs_filebd_prog(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
-    LFS_TRACE("lfs_filebd_prog(%p, 0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
+    LFS_FILEBD_TRACE("lfs_filebd_prog(%p, 0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
             (void*)cfg, block, off, buffer, size);
     lfs_filebd_t *bd = cfg->context;
 
@@ -121,7 +122,7 @@ int lfs_filebd_prog(const struct lfs_config *cfg, lfs_block_t block,
                 (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
         if (res1 < 0) {
             int err = -errno;
-            LFS_TRACE("lfs_filebd_prog -> %d", err);
+            LFS_FILEBD_TRACE("lfs_filebd_prog -> %d", err);
             return err;
         }
 
@@ -130,7 +131,7 @@ int lfs_filebd_prog(const struct lfs_config *cfg, lfs_block_t block,
             ssize_t res2 = read(bd->fd, &c, 1);
             if (res2 < 0) {
                 int err = -errno;
-                LFS_TRACE("lfs_filebd_prog -> %d", err);
+                LFS_FILEBD_TRACE("lfs_filebd_prog -> %d", err);
                 return err;
             }
 
@@ -143,23 +144,23 @@ int lfs_filebd_prog(const struct lfs_config *cfg, lfs_block_t block,
             (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
     if (res1 < 0) {
         int err = -errno;
-        LFS_TRACE("lfs_filebd_prog -> %d", err);
+        LFS_FILEBD_TRACE("lfs_filebd_prog -> %d", err);
         return err;
     }
 
     ssize_t res2 = write(bd->fd, buffer, size);
     if (res2 < 0) {
         int err = -errno;
-        LFS_TRACE("lfs_filebd_prog -> %d", err);
+        LFS_FILEBD_TRACE("lfs_filebd_prog -> %d", err);
         return err;
     }
 
-    LFS_TRACE("lfs_filebd_prog -> %d", 0);
+    LFS_FILEBD_TRACE("lfs_filebd_prog -> %d", 0);
     return 0;
 }
 
 int lfs_filebd_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    LFS_TRACE("lfs_filebd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
+    LFS_FILEBD_TRACE("lfs_filebd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
     lfs_filebd_t *bd = cfg->context;
 
     // check if erase is valid
@@ -170,7 +171,7 @@ int lfs_filebd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         off_t res1 = lseek(bd->fd, (off_t)block*cfg->block_size, SEEK_SET);
         if (res1 < 0) {
             int err = -errno;
-            LFS_TRACE("lfs_filebd_erase -> %d", err);
+            LFS_FILEBD_TRACE("lfs_filebd_erase -> %d", err);
             return err;
         }
 
@@ -178,27 +179,27 @@ int lfs_filebd_erase(const struct lfs_config *cfg, lfs_block_t block) {
             ssize_t res2 = write(bd->fd, &(uint8_t){bd->cfg->erase_value}, 1);
             if (res2 < 0) {
                 int err = -errno;
-                LFS_TRACE("lfs_filebd_erase -> %d", err);
+                LFS_FILEBD_TRACE("lfs_filebd_erase -> %d", err);
                 return err;
             }
         }
     }
 
-    LFS_TRACE("lfs_filebd_erase -> %d", 0);
+    LFS_FILEBD_TRACE("lfs_filebd_erase -> %d", 0);
     return 0;
 }
 
 int lfs_filebd_sync(const struct lfs_config *cfg) {
-    LFS_TRACE("lfs_filebd_sync(%p)", (void*)cfg);
+    LFS_FILEBD_TRACE("lfs_filebd_sync(%p)", (void*)cfg);
     // file sync
     lfs_filebd_t *bd = cfg->context;
     int err = fsync(bd->fd);
     if (err) {
         err = -errno;
-        LFS_TRACE("lfs_filebd_sync -> %d", 0);
+        LFS_FILEBD_TRACE("lfs_filebd_sync -> %d", 0);
         return err;
     }
 
-    LFS_TRACE("lfs_filebd_sync -> %d", 0);
+    LFS_FILEBD_TRACE("lfs_filebd_sync -> %d", 0);
     return 0;
 }

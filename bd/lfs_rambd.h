@@ -15,6 +15,14 @@ extern "C"
 {
 #endif
 
+
+// Block device specific tracing
+#ifdef LFS_RAMBD_YES_TRACE
+#define LFS_RAMBD_TRACE(...) LFS_TRACE(__VA_ARGS__)
+#else
+#define LFS_RAMBD_TRACE(...)
+#endif
+
 // rambd config (optional)
 struct lfs_rambd_config {
     // 8-bit erase value to simulate erasing with. -1 indicates no erase

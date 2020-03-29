@@ -19,6 +19,13 @@ extern "C"
 #endif
 
 
+// Block device specific tracing
+#ifdef LFS_TESTBD_YES_TRACE
+#define LFS_TESTBD_TRACE(...) LFS_TRACE(__VA_ARGS__)
+#else
+#define LFS_TESTBD_TRACE(...)
+#endif
+
 // Mode determining how "bad blocks" behave during testing. This simulates
 // some real-world circumstances such as progs not sticking (prog-noop),
 // a readonly disk (erase-noop), and ECC failures (read-error).

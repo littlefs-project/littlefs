@@ -12,7 +12,7 @@
 
 int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
         const struct lfs_testbd_config *bdcfg) {
-    LFS_TRACE("lfs_testbd_createcfg(%p {.context=%p, "
+    LFS_TESTBD_TRACE("lfs_testbd_createcfg(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
@@ -38,9 +38,9 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
         if (bd->cfg->wear_buffer) {
             bd->wear = bd->cfg->wear_buffer;
         } else {
-            bd->wear = lfs_malloc(sizeof(lfs_testbd_wear_t) * cfg->block_count);
+            bd->wear = lfs_malloc(sizeof(lfs_testbd_wear_t)*cfg->block_count);
             if (!bd->wear) {
-                LFS_TRACE("lfs_testbd_createcfg -> %d", LFS_ERR_NOMEM);
+                LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", LFS_ERR_NOMEM);
                 return LFS_ERR_NOMEM;
             }
         }
@@ -54,7 +54,7 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
             .erase_value = bd->cfg->erase_value,
         };
         int err = lfs_filebd_createcfg(cfg, path, &bd->u.file.cfg);
-        LFS_TRACE("lfs_testbd_createcfg -> %d", err);
+        LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", err);
         return err;
     } else {
         bd->u.ram.cfg = (struct lfs_rambd_config){
@@ -62,13 +62,13 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
             .buffer = bd->cfg->buffer,
         };
         int err = lfs_rambd_createcfg(cfg, &bd->u.ram.cfg);
-        LFS_TRACE("lfs_testbd_createcfg -> %d", err);
+        LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", err);
         return err;
     }
 }
 
 int lfs_testbd_create(const struct lfs_config *cfg, const char *path) {
-    LFS_TRACE("lfs_testbd_create(%p {.context=%p, "
+    LFS_TESTBD_TRACE("lfs_testbd_create(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
@@ -80,12 +80,12 @@ int lfs_testbd_create(const struct lfs_config *cfg, const char *path) {
             path);
     static const struct lfs_testbd_config defaults = {.erase_value=-1};
     int err = lfs_testbd_createcfg(cfg, path, &defaults);
-    LFS_TRACE("lfs_testbd_create -> %d", err);
+    LFS_TESTBD_TRACE("lfs_testbd_create -> %d", err);
     return err;
 }
 
 int lfs_testbd_destroy(const struct lfs_config *cfg) {
-    LFS_TRACE("lfs_testbd_destroy(%p)", (void*)cfg);
+    LFS_TESTBD_TRACE("lfs_testbd_destroy(%p)", (void*)cfg);
     lfs_testbd_t *bd = cfg->context;
     if (bd->cfg->erase_cycles && !bd->cfg->wear_buffer) {
         lfs_free(bd->wear);
@@ -93,11 +93,11 @@ int lfs_testbd_destroy(const struct lfs_config *cfg) {
 
     if (bd->persist) {
         int err = lfs_filebd_destroy(cfg);
-        LFS_TRACE("lfs_testbd_destroy -> %d", err);
+        LFS_TESTBD_TRACE("lfs_testbd_destroy -> %d", err);
         return err;
     } else {
         int err = lfs_rambd_destroy(cfg);
-        LFS_TRACE("lfs_testbd_destroy -> %d", err);
+        LFS_TESTBD_TRACE("lfs_testbd_destroy -> %d", err);
         return err;
     }
 }
@@ -145,7 +145,8 @@ static int lfs_testbd_rawsync(const struct lfs_config *cfg) {
 /// block device API ///
 int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
-    LFS_TRACE("lfs_testbd_read(%p, 0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
+    LFS_TESTBD_TRACE("lfs_testbd_read(%p, "
+                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
             (void*)cfg, block, off, buffer, size);
     lfs_testbd_t *bd = cfg->context;
 
@@ -157,19 +158,20 @@ int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
     // block bad?
     if (bd->cfg->erase_cycles && bd->wear[block] >= bd->cfg->erase_cycles &&
             bd->cfg->badblock_behavior == LFS_TESTBD_BADBLOCK_READERROR) {
-        LFS_TRACE("lfs_testbd_read -> %d", LFS_ERR_CORRUPT);
+        LFS_TESTBD_TRACE("lfs_testbd_read -> %d", LFS_ERR_CORRUPT);
         return LFS_ERR_CORRUPT;
     }
 
     // read
     int err = lfs_testbd_rawread(cfg, block, off, buffer, size);
-    LFS_TRACE("lfs_testbd_read -> %d", err);
+    LFS_TESTBD_TRACE("lfs_testbd_read -> %d", err);
     return err;
 }
 
 int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
-    LFS_TRACE("lfs_testbd_prog(%p, 0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
+    LFS_TESTBD_TRACE("lfs_testbd_prog(%p, "
+                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
             (void*)cfg, block, off, buffer, size);
     lfs_testbd_t *bd = cfg->context;
 
@@ -182,13 +184,13 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
     if (bd->cfg->erase_cycles && bd->wear[block] >= bd->cfg->erase_cycles) {
         if (bd->cfg->badblock_behavior ==
                 LFS_TESTBD_BADBLOCK_PROGERROR) {
-            LFS_TRACE("lfs_testbd_prog -> %d", LFS_ERR_CORRUPT);
+            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", LFS_ERR_CORRUPT);
             return LFS_ERR_CORRUPT;
         } else if (bd->cfg->badblock_behavior ==
                 LFS_TESTBD_BADBLOCK_PROGNOOP ||
                 bd->cfg->badblock_behavior ==
                 LFS_TESTBD_BADBLOCK_ERASENOOP) {
-            LFS_TRACE("lfs_testbd_prog -> %d", 0);
+            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", 0);
             return 0;
         }
     }
@@ -196,7 +198,7 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
     // prog
     int err = lfs_testbd_rawprog(cfg, block, off, buffer, size);
     if (err) {
-        LFS_TRACE("lfs_testbd_prog -> %d", err);
+        LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
         return err;
     }
 
@@ -211,12 +213,12 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
         }
     }
 
-    LFS_TRACE("lfs_testbd_prog -> %d", 0);
+    LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", 0);
     return 0;
 }
 
 int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    LFS_TRACE("lfs_testbd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
+    LFS_TESTBD_TRACE("lfs_testbd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
     lfs_testbd_t *bd = cfg->context;
 
     // check if erase is valid
@@ -227,11 +229,11 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         if (bd->wear[block] >= bd->cfg->erase_cycles) {
             if (bd->cfg->badblock_behavior ==
                     LFS_TESTBD_BADBLOCK_ERASEERROR) {
-                LFS_TRACE("lfs_testbd_erase -> %d", LFS_ERR_CORRUPT);
+                LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", LFS_ERR_CORRUPT);
                 return LFS_ERR_CORRUPT;
             } else if (bd->cfg->badblock_behavior ==
                     LFS_TESTBD_BADBLOCK_ERASENOOP) {
-                LFS_TRACE("lfs_testbd_erase -> %d", 0);
+                LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", 0);
                 return 0;
             }
         } else {
@@ -243,7 +245,7 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     // erase
     int err = lfs_testbd_rawerase(cfg, block);
     if (err) {
-        LFS_TRACE("lfs_testbd_erase -> %d", err);
+        LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
         return err;
     }
 
@@ -258,14 +260,14 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         }
     }
 
-    LFS_TRACE("lfs_testbd_prog -> %d", 0);
+    LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", 0);
     return 0;
 }
 
 int lfs_testbd_sync(const struct lfs_config *cfg) {
-    LFS_TRACE("lfs_testbd_sync(%p)", (void*)cfg);
+    LFS_TESTBD_TRACE("lfs_testbd_sync(%p)", (void*)cfg);
     int err = lfs_testbd_rawsync(cfg);
-    LFS_TRACE("lfs_testbd_sync -> %d", err);
+    LFS_TESTBD_TRACE("lfs_testbd_sync -> %d", err);
     return err;
 }
 
@@ -273,20 +275,20 @@ int lfs_testbd_sync(const struct lfs_config *cfg) {
 /// simulated wear operations ///
 lfs_testbd_swear_t lfs_testbd_getwear(const struct lfs_config *cfg,
         lfs_block_t block) {
-    LFS_TRACE("lfs_testbd_getwear(%p, %"PRIu32")", (void*)cfg, block);
+    LFS_TESTBD_TRACE("lfs_testbd_getwear(%p, %"PRIu32")", (void*)cfg, block);
     lfs_testbd_t *bd = cfg->context;
 
     // check if block is valid
     LFS_ASSERT(bd->cfg->erase_cycles);
     LFS_ASSERT(block < cfg->block_count);
 
-    LFS_TRACE("lfs_testbd_getwear -> %"PRIu32, bd->wear[block]);
+    LFS_TESTBD_TRACE("lfs_testbd_getwear -> %"PRIu32, bd->wear[block]);
     return bd->wear[block];
 }
 
 int lfs_testbd_setwear(const struct lfs_config *cfg,
         lfs_block_t block, lfs_testbd_wear_t wear) {
-    LFS_TRACE("lfs_testbd_setwear(%p, %"PRIu32")", (void*)cfg, block);
+    LFS_TESTBD_TRACE("lfs_testbd_setwear(%p, %"PRIu32")", (void*)cfg, block);
     lfs_testbd_t *bd = cfg->context;
 
     // check if block is valid
@@ -295,6 +297,6 @@ int lfs_testbd_setwear(const struct lfs_config *cfg,
 
     bd->wear[block] = wear;
 
-    LFS_TRACE("lfs_testbd_setwear -> %d", 0);
+    LFS_TESTBD_TRACE("lfs_testbd_setwear -> %d", 0);
     return 0;
 }
