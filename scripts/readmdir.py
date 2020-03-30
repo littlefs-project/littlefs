@@ -233,8 +233,8 @@ class MetadataPair:
 
     def __lt__(self, other):
         # corrupt blocks don't count
-        if not self and other:
-            return True
+        if not self or not other:
+            return bool(other)
 
         # use sequence arithmetic to avoid overflow
         return not ((other.rev - self.rev) & 0x80000000)
@@ -318,14 +318,24 @@ def main(args):
 
     # find most recent pair
     mdir = MetadataPair(blocks)
-    print("mdir {%s} rev %d%s%s" % (
+
+    try:
+        mdir.tail = mdir[Tag('tail', 0, 0)]
+        if mdir.tail.size != 8 or mdir.tail.data == 8*b'\xff':
+            mdir.tail = None
+    except KeyError:
+        mdir.tail = None
+
+    print("mdir {%s} rev %d%s%s%s" % (
         ', '.join('%#x' % b
             for b in [args.block1, args.block2]
             if b is not None),
         mdir.rev,
         ' (was %s)' % ', '.join('%d' % m.rev for m in mdir.pair[1:])
         if len(mdir.pair) > 1 else '',
-        ' (corrupted)' if not mdir else ''))
+        ' (corrupted!)' if not mdir else '',
+        ' -> {%#x, %#x}' % struct.unpack('<II', mdir.tail.data)
+        if mdir.tail else ''))
     if args.all:
         mdir.dump_all(truncate=not args.no_truncate)
     elif args.log:

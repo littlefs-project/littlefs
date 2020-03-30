@@ -231,7 +231,7 @@ class TestCase:
                 ncmd.extend(['-ex', 'r'])
                 if failure.assert_:
                     ncmd.extend(['-ex', 'up 2'])
-            elif gdb == 'start':
+            elif gdb == 'main':
                 ncmd.extend([
                     '-ex', 'b %s:%d' % (self.suite.path, self.code_lineno),
                     '-ex', 'r'])
@@ -760,7 +760,7 @@ if __name__ == "__main__":
         help="Store disk image in a file.")
     parser.add_argument('-b', '--build', action='store_true',
         help="Only build the tests, do not execute.")
-    parser.add_argument('-g', '--gdb', choices=['init', 'start', 'assert'],
+    parser.add_argument('-g', '--gdb', choices=['init', 'main', 'assert'],
         nargs='?', const='assert',
         help="Drop into gdb on test failure.")
     parser.add_argument('--no-internal', action='store_true',
