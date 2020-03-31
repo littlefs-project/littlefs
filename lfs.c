@@ -71,6 +71,21 @@ static int lfs_bd_read(lfs_t *lfs,
             diff = lfs_min(diff, rcache->off-off);
         }
 
+        if (size >= hint && off % lfs->cfg->read_size == 0 &&
+                size >= lfs->cfg->read_size) {
+            // bypass cache?
+            diff = lfs_aligndown(diff, lfs->cfg->read_size);
+            int err = lfs->cfg->read(lfs->cfg, block, off, data, diff);
+            if (err) {
+                return err;
+            }
+
+            data += diff;
+            off += diff;
+            size -= diff;
+            continue;
+        }
+
         // load to cache, first condition can no longer fail
         LFS_ASSERT(block < lfs->cfg->block_count);
         rcache->block = block;
