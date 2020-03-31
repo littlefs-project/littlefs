@@ -1,49 +1,70 @@
-# Environment variables
+# environment variables
 env:
   global:
     - CFLAGS=-Werror
+    - MAKEFLAGS=-j
 
-# Common test script
-script:
+# cache installation dirs
+cache:
+  pip: true
+  directories:
+    - $HOME/.cache/apt
+
+# common installation
+_: &install-common
+  # need toml, also pip3 isn't installed by default?
+  - sudo apt-get install python3 python3-pip
+  - sudo pip3 install toml
+  # setup a ram-backed disk to speed up reentrant tests
+  - mkdir disks
+  - sudo mount -t tmpfs -o size=100m tmpfs disks
+  - export TFLAGS="$TFLAGS --disk=disks/disk"
+
+# test cases
+_: &test-example
   # make sure example can at least compile
-  - sed -n '/``` c/,/```/{/```/d; p;}' README.md > test.c &&
+  - sed -n '/``` c/,/```/{/```/d; p}' README.md > test.c &&
     make all CFLAGS+="
         -Duser_provided_block_device_read=NULL
         -Duser_provided_block_device_prog=NULL
         -Duser_provided_block_device_erase=NULL
         -Duser_provided_block_device_sync=NULL
         -include stdio.h"
+# default tests
+_: &test-default
+  # normal+reentrant tests
+  - make test TFLAGS+="-nrk"
+# common real-life geometries
+_: &test-nor
+  # NOR flash: read/prog = 1 block = 4KiB
+  - make test TFLAGS+="-nrk -DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096"
+_: &test-emmc
+  # eMMC: read/prog = 512 block = 512
+  - make test TFLAGS+="-nrk -DLFS_READ_SIZE=512 -DLFS_BLOCK_SIZE=512"
+_: &test-nand
+  # NAND flash: read/prog = 4KiB block = 32KiB
+  - make test TFLAGS+="-nrk -DLFS_READ_SIZE=4096 -DLFS_BLOCK_SIZE=\(32*1024\)"
+# other extreme geometries that are useful for testing various corner cases
+_: &test-no-intrinsics
+  - make test TFLAGS+="-nrk -DLFS_NO_INTRINSICS"
+_: &test-no-inline
+  - make test TFLAGS+="-nrk -DLFS_INLINE_MAX=0"
+_: &test-byte-writes
+  - make test TFLAGS+="-nrk -DLFS_READ_SIZE=1 -DLFS_CACHE_SIZE=1"
+_: &test-block-cycles
+  - make test TFLAGS+="-nrk -DLFS_BLOCK_CYCLES=1"
+_: &test-odd-block-count
+  - make test TFLAGS+="-nrk -DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
+_: &test-odd-block-size
+  - make test TFLAGS+="-nrk -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
 
-  # run tests
-  - make test QUIET=1
-
-  # run tests with a few different configurations
-  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=1      -DLFS_CACHE_SIZE=4"
-  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=512    -DLFS_CACHE_SIZE=512 -DLFS_BLOCK_CYCLES=16"
-  - make test QUIET=1 CFLAGS+="-DLFS_READ_SIZE=8      -DLFS_CACHE_SIZE=16  -DLFS_BLOCK_CYCLES=2"
-  - make test QUIET=1 CFLAGS+="-DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
-
-  - make clean test QUIET=1 CFLAGS+="-DLFS_INLINE_MAX=0"
-  - make clean test QUIET=1 CFLAGS+="-DLFS_EMUBD_ERASE_VALUE=0xff"
-  - make clean test QUIET=1 CFLAGS+="-DLFS_NO_INTRINSICS"
-
-  # additional configurations that don't support all tests (this should be
-  # fixed but at the moment it is what it is)
-  - make test_files QUIET=1
-        CFLAGS+="-DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096"
-  - make test_files QUIET=1
-        CFLAGS+="-DLFS_READ_SIZE=\(2*1024\) -DLFS_BLOCK_SIZE=\(64*1024\)"
-  - make test_files QUIET=1
-        CFLAGS+="-DLFS_READ_SIZE=\(8*1024\) -DLFS_BLOCK_SIZE=\(64*1024\)"
-  - make test_files QUIET=1
-        CFLAGS+="-DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
-
+# report size 
+_: &report-size
   # compile and find the code size with the smallest configuration
-  - make clean size
-        OBJ="$(ls lfs*.o | tr '\n' ' ')"
+  - make -j1 clean size
+        OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
         CFLAGS+="-DLFS_NO_ASSERT -DLFS_NO_DEBUG -DLFS_NO_WARN -DLFS_NO_ERROR"
         | tee sizes
-
   # update status if we succeeded, compare with master if possible
   - |
     if [ "$TRAVIS_TEST_RESULT" -eq 0 ]
@@ -51,10 +72,10 @@ script:
         CURR=$(tail -n1 sizes | awk '{print $1}')
         PREV=$(curl -u "$GEKY_BOT_STATUSES" https://api.github.com/repos/$TRAVIS_REPO_SLUG/status/master \
             | jq -re "select(.sha != \"$TRAVIS_COMMIT\")
-                | .statuses[] | select(.context == \"$STAGE/$NAME\").description
+                | .statuses[] | select(.context == \"${TRAVIS_BUILD_STAGE_NAME,,}/$NAME\").description
                 | capture(\"code size is (?<size>[0-9]+)\").size" \
             || echo 0)
-
+  
         STATUS="Passed, code size is ${CURR}B"
         if [ "$PREV" -ne 0 ]
         then
@@ -62,257 +83,347 @@ script:
         fi
     fi
 
-# CI matrix
+# stage control
+stages:
+  - name: test
+  - name: deploy
+    if: branch = master AND type = push
+
+# job control
 jobs:
-  include:
-    # native testing
-    - stage: test
-      env:
-        - STAGE=test
-        - NAME=littlefs-x86
+  # native testing
+  - &x86
+    stage: test
+    env:
+      - NAME=littlefs-x86
+    install: *install-common
+    script: [*test-example, *report-size]
+  - {<<: *x86, script: [*test-default,          *report-size]}
+  - {<<: *x86, script: [*test-nor,              *report-size]}
+  - {<<: *x86, script: [*test-emmc,             *report-size]}
+  - {<<: *x86, script: [*test-nand,             *report-size]}
+  - {<<: *x86, script: [*test-no-intrinsics,    *report-size]}
+  - {<<: *x86, script: [*test-no-inline,        *report-size]}
+  - {<<: *x86, script: [*test-byte-writes,      *report-size]}
+  - {<<: *x86, script: [*test-block-cycles,     *report-size]}
+  - {<<: *x86, script: [*test-odd-block-count,  *report-size]}
+  - {<<: *x86, script: [*test-odd-block-size,   *report-size]}
 
-    # cross-compile with ARM (thumb mode)
-    - stage: test
-      env:
-        - STAGE=test
-        - NAME=littlefs-arm
-        - CC="arm-linux-gnueabi-gcc --static -mthumb"
-        - EXEC="qemu-arm"
-      install:
-        - sudo apt-get install
-              gcc-arm-linux-gnueabi
-              libc6-dev-armel-cross
-              qemu-user
-        - arm-linux-gnueabi-gcc --version
-        - qemu-arm -version
+  # cross-compile with ARM (thumb mode)
+  - &arm
+    stage: test
+    env:
+      - NAME=littlefs-arm
+      - CC="arm-linux-gnueabi-gcc --static -mthumb"
+      - TFLAGS="$TFLAGS --exec=qemu-arm"
+    install:
+      - *install-common
+      - sudo apt-get install
+            gcc-arm-linux-gnueabi
+            libc6-dev-armel-cross
+            qemu-user
+      - arm-linux-gnueabi-gcc --version
+      - qemu-arm -version
+    script: [*test-example, *report-size]
+  - {<<: *arm, script: [*test-default,          *report-size]}
+  - {<<: *arm, script: [*test-nor,              *report-size]}
+  - {<<: *arm, script: [*test-emmc,             *report-size]}
+  - {<<: *arm, script: [*test-nand,             *report-size]}
+  - {<<: *arm, script: [*test-no-intrinsics,    *report-size]}
+  - {<<: *arm, script: [*test-no-inline,        *report-size]}
+  # it just takes way to long to run byte-level writes in qemu,
+  # note this is still tested in the native tests
+  #- {<<: *arm, script: [*test-byte-writes,      *report-size]}
+  - {<<: *arm, script: [*test-block-cycles,     *report-size]}
+  - {<<: *arm, script: [*test-odd-block-count,  *report-size]}
+  - {<<: *arm, script: [*test-odd-block-size,   *report-size]}
 
-    # cross-compile with PowerPC
-    - stage: test
-      env:
-        - STAGE=test
-        - NAME=littlefs-powerpc
-        - CC="powerpc-linux-gnu-gcc --static"
-        - EXEC="qemu-ppc"
-      install:
-        - sudo apt-get install
-              gcc-powerpc-linux-gnu
-              libc6-dev-powerpc-cross
-              qemu-user
-        - powerpc-linux-gnu-gcc --version
-        - qemu-ppc -version
+  # cross-compile with MIPS
+  - &mips
+    stage: test
+    env:
+      - NAME=littlefs-mips
+      - CC="mips-linux-gnu-gcc --static"
+      - TFLAGS="$TFLAGS --exec=qemu-mips"
+    install:
+      - *install-common
+      - sudo apt-get install
+            gcc-mips-linux-gnu
+            libc6-dev-mips-cross
+            qemu-user
+      - mips-linux-gnu-gcc --version
+      - qemu-mips -version
+    script: [*test-example, *report-size]
+  - {<<: *mips, script: [*test-default,          *report-size]}
+  - {<<: *mips, script: [*test-nor,              *report-size]}
+  - {<<: *mips, script: [*test-emmc,             *report-size]}
+  - {<<: *mips, script: [*test-nand,             *report-size]}
+  - {<<: *mips, script: [*test-no-intrinsics,    *report-size]}
+  - {<<: *mips, script: [*test-no-inline,        *report-size]}
+  # it just takes way to long to run byte-level writes in qemu,
+  # note this is still tested in the native tests
+  #- {<<: *mips, script: [*test-byte-writes,      *report-size]}
+  - {<<: *mips, script: [*test-block-cycles,     *report-size]}
+  - {<<: *mips, script: [*test-odd-block-count,  *report-size]}
+  - {<<: *mips, script: [*test-odd-block-size,   *report-size]}
 
-    # cross-compile with MIPS
-    - stage: test
-      env:
-        - STAGE=test
-        - NAME=littlefs-mips
-        - CC="mips-linux-gnu-gcc --static"
-        - EXEC="qemu-mips"
-      install:
-        - sudo apt-get install
-              gcc-mips-linux-gnu
-              libc6-dev-mips-cross
-              qemu-user
-        - mips-linux-gnu-gcc --version
-        - qemu-mips -version
+  # cross-compile with PowerPC
+  - &powerpc
+    stage: test
+    env:
+      - NAME=littlefs-powerpc
+      - CC="powerpc-linux-gnu-gcc --static"
+      - TFLAGS="$TFLAGS --exec=qemu-ppc"
+    install:
+      - *install-common
+      - sudo apt-get install
+            gcc-powerpc-linux-gnu
+            libc6-dev-powerpc-cross
+            qemu-user
+      - powerpc-linux-gnu-gcc --version
+      - qemu-ppc -version
+    script: [*test-example, *report-size]
+  - {<<: *powerpc, script: [*test-default,          *report-size]}
+  - {<<: *powerpc, script: [*test-nor,              *report-size]}
+  - {<<: *powerpc, script: [*test-emmc,             *report-size]}
+  - {<<: *powerpc, script: [*test-nand,             *report-size]}
+  - {<<: *powerpc, script: [*test-no-intrinsics,    *report-size]}
+  - {<<: *powerpc, script: [*test-no-inline,        *report-size]}
+  # it just takes way to long to run byte-level writes in qemu,
+  # note this is still tested in the native tests
+  #- {<<: *powerpc, script: [*test-byte-writes,      *report-size]}
+  - {<<: *powerpc, script: [*test-block-cycles,     *report-size]}
+  - {<<: *powerpc, script: [*test-odd-block-count,  *report-size]}
+  - {<<: *powerpc, script: [*test-odd-block-size,   *report-size]}
 
-    # self-host with littlefs-fuse for fuzz test
-    - stage: test
-      env:
-        - STAGE=test
-        - NAME=littlefs-fuse
-      if: branch !~ -prefix$
-      install:
-        - sudo apt-get install libfuse-dev
-        - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2
-        - fusermount -V
-        - gcc --version
-      before_script:
-        # setup disk for littlefs-fuse
-        - rm -rf littlefs-fuse/littlefs/*
-        - cp -r $(git ls-tree --name-only HEAD) littlefs-fuse/littlefs
+  # test under valgrind, checking for memory errors
+  - &valgrind
+    stage: test
+    env:
+      - NAME=littlefs-valgrind
+    install:
+      - *install-common
+      - sudo apt-get install valgrind
+      - valgrind --version
+    script:
+      - make test TFLAGS+="-k --valgrind"
 
-        - mkdir mount
-        - sudo chmod a+rw /dev/loop0
-        - dd if=/dev/zero bs=512 count=4096 of=disk
-        - losetup /dev/loop0 disk
-      script:
-        # self-host test
-        - make -C littlefs-fuse
+  # self-host with littlefs-fuse for fuzz test
+  - stage: test
+    env:
+      - NAME=littlefs-fuse
+    if: branch !~ -prefix$
+    install:
+      - *install-common
+      - sudo apt-get install libfuse-dev
+      - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2
+      - fusermount -V
+      - gcc --version
 
-        - littlefs-fuse/lfs --format /dev/loop0
-        - littlefs-fuse/lfs /dev/loop0 mount
+      # setup disk for littlefs-fuse
+      - rm -rf littlefs-fuse/littlefs/*
+      - cp -r $(git ls-tree --name-only HEAD) littlefs-fuse/littlefs
 
-        - ls mount
-        - mkdir mount/littlefs
-        - cp -r $(git ls-tree --name-only HEAD) mount/littlefs
-        - cd mount/littlefs
-        - stat .
-        - ls -flh
-        - make -B test_dirs test_files QUIET=1
+      - mkdir mount
+      - sudo chmod a+rw /dev/loop0
+      - dd if=/dev/zero bs=512 count=128K of=disk
+      - losetup /dev/loop0 disk
+    script:
+      # self-host test
+      - make -C littlefs-fuse
 
-    # self-host with littlefs-fuse for fuzz test
-    - stage: test
-      env:
-        - STAGE=test
-        - NAME=littlefs-migration
-      if: branch !~ -prefix$
-      install:
-        - sudo apt-get install libfuse-dev
-        - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2 v2
-        - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v1 v1
-        - fusermount -V
-        - gcc --version
-      before_script:
-        # setup disk for littlefs-fuse
-        - rm -rf v2/littlefs/*
-        - cp -r $(git ls-tree --name-only HEAD) v2/littlefs
+      - littlefs-fuse/lfs --format /dev/loop0
+      - littlefs-fuse/lfs /dev/loop0 mount
 
-        - mkdir mount
-        - sudo chmod a+rw /dev/loop0
-        - dd if=/dev/zero bs=512 count=4096 of=disk
-        - losetup /dev/loop0 disk
-      script:
-        # compile v1 and v2
-        - make -C v1
-        - make -C v2
+      - ls mount
+      - mkdir mount/littlefs
+      - cp -r $(git ls-tree --name-only HEAD) mount/littlefs
+      - cd mount/littlefs
+      - stat .
+      - ls -flh
+      - make -B test
 
-        # run self-host test with v1
-        - v1/lfs --format /dev/loop0
-        - v1/lfs /dev/loop0 mount
+  # test migration using littlefs-fuse
+  - stage: test
+    env:
+      - NAME=littlefs-migration
+    if: branch !~ -prefix$
+    install:
+      - *install-common
+      - sudo apt-get install libfuse-dev
+      - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v2 v2
+      - git clone --depth 1 https://github.com/geky/littlefs-fuse -b v1 v1
+      - fusermount -V
+      - gcc --version
 
-        - ls mount
-        - mkdir mount/littlefs
-        - cp -r $(git ls-tree --name-only HEAD) mount/littlefs
-        - cd mount/littlefs
-        - stat .
-        - ls -flh
-        - make -B test_dirs test_files QUIET=1
+      # setup disk for littlefs-fuse
+      - rm -rf v2/littlefs/*
+      - cp -r $(git ls-tree --name-only HEAD) v2/littlefs
 
-        # attempt to migrate
-        - cd ../..
-        - fusermount -u mount
+      - mkdir mount
+      - sudo chmod a+rw /dev/loop0
+      - dd if=/dev/zero bs=512 count=128K of=disk
+      - losetup /dev/loop0 disk
+    script:
+      # compile v1 and v2
+      - make -C v1
+      - make -C v2
 
-        - v2/lfs --migrate /dev/loop0
-        - v2/lfs /dev/loop0 mount
+      # run self-host test with v1
+      - v1/lfs --format /dev/loop0
+      - v1/lfs /dev/loop0 mount
 
-        # run self-host test with v2 right where we left off
-        - ls mount
-        - cd mount/littlefs
-        - stat .
-        - ls -flh
-        - make -B test_dirs test_files QUIET=1
+      - ls mount
+      - mkdir mount/littlefs
+      - cp -r $(git ls-tree --name-only HEAD) mount/littlefs
+      - cd mount/littlefs
+      - stat .
+      - ls -flh
+      - make -B test
 
-    # Automatically create releases
-    - stage: deploy
-      env:
-        - STAGE=deploy
-        - NAME=deploy
-      script:
-        - |
-          bash << 'SCRIPT'
-          set -ev
-          # Find version defined in lfs.h
-          LFS_VERSION=$(grep -ox '#define LFS_VERSION .*' lfs.h | cut -d ' ' -f3)
-          LFS_VERSION_MAJOR=$((0xffff & ($LFS_VERSION >> 16)))
-          LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
-          # Grab latests patch from repo tags, default to 0, needs finagling
-          # to get past github's pagination api
-          PREV_URL=https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR.
-          PREV_URL=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL" -I \
-              | sed -n '/^Link/{s/.*<\(.*\)>; rel="last"/\1/;p;q0};$q1' \
-              || echo $PREV_URL)
-          LFS_VERSION_PATCH=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL" \
-              | jq 'map(.ref | match("\\bv.*\\..*\\.(.*)$";"g")
-                  .captures[].string | tonumber) | max + 1' \
-              || echo 0)
-          # We have our new version
-          LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR.$LFS_VERSION_PATCH"
-          echo "VERSION $LFS_VERSION"
-          # Check that we're the most recent commit
-          CURRENT_COMMIT=$(curl -f -u "$GEKY_BOT_RELEASES" \
-              https://api.github.com/repos/$TRAVIS_REPO_SLUG/commits/master \
-              | jq -re '.sha')
-          [ "$TRAVIS_COMMIT" == "$CURRENT_COMMIT" ] || exit 0
-          # Create major branch
-          git branch v$LFS_VERSION_MAJOR HEAD
-          # Create major prefix branch
-          git config user.name "geky bot"
-          git config user.email "bot@geky.net"
-          git fetch https://github.com/$TRAVIS_REPO_SLUG.git \
-              --depth=50 v$LFS_VERSION_MAJOR-prefix || true
-          ./scripts/prefix.py lfs$LFS_VERSION_MAJOR
-          git branch v$LFS_VERSION_MAJOR-prefix $( \
-              git commit-tree $(git write-tree) \
-                  $(git rev-parse --verify -q FETCH_HEAD | sed -e 's/^/-p /') \
-                  -p HEAD \
-                  -m "Generated v$LFS_VERSION_MAJOR prefixes")
-          git reset --hard
-          # Update major version branches (vN and vN-prefix)
-          git push --atomic https://$GEKY_BOT_RELEASES@github.com/$TRAVIS_REPO_SLUG.git \
-              v$LFS_VERSION_MAJOR \
-              v$LFS_VERSION_MAJOR-prefix
-          # Build release notes
-          PREV=$(git tag --sort=-v:refname -l "v*" | head -1)
-          if [ ! -z "$PREV" ]
-          then
-              echo "PREV $PREV"
-              CHANGES=$(git log --oneline $PREV.. --grep='^Merge' --invert-grep)
-              printf "CHANGES\n%s\n\n" "$CHANGES"
-          fi
-          case ${GEKY_BOT_DRAFT:-minor} in
-              true)  DRAFT=true ;;
-              minor) DRAFT=$(jq -R 'endswith(".0")' <<< "$LFS_VERSION") ;;
-              false) DRAFT=false ;;
-          esac
-          # Create the release and patch version tag (vN.N.N)
-          curl -f -u "$GEKY_BOT_RELEASES" -X POST \
-              https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases \
-              -d "{
-                  \"tag_name\": \"$LFS_VERSION\",
-                  \"name\": \"${LFS_VERSION%.0}\",
-                  \"target_commitish\": \"$TRAVIS_COMMIT\",
-                  \"draft\": $DRAFT,
-                  \"body\": $(jq -sR '.' <<< "$CHANGES")
-              }" #"
-          SCRIPT
+      # attempt to migrate
+      - cd ../..
+      - fusermount -u mount
 
-# Manage statuses
+      - v2/lfs --migrate /dev/loop0
+      - v2/lfs /dev/loop0 mount
+
+      # run self-host test with v2 right where we left off
+      - ls mount
+      - cd mount/littlefs
+      - stat .
+      - ls -flh
+      - make -B test
+
+  # automatically create releases
+  - stage: deploy
+    env:
+      - NAME=deploy
+    script:
+      - |
+        bash << 'SCRIPT'
+        set -ev
+        # Find version defined in lfs.h
+        LFS_VERSION=$(grep -ox '#define LFS_VERSION .*' lfs.h | cut -d ' ' -f3)
+        LFS_VERSION_MAJOR=$((0xffff & ($LFS_VERSION >> 16)))
+        LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
+        # Grab latests patch from repo tags, default to 0, needs finagling
+        # to get past github's pagination api
+        PREV_URL=https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR.
+        PREV_URL=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL" -I \
+            | sed -n '/^Link/{s/.*<\(.*\)>; rel="last"/\1/;p;q0};$q1' \
+            || echo $PREV_URL)
+        LFS_VERSION_PATCH=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL" \
+            | jq 'map(.ref | match("\\bv.*\\..*\\.(.*)$";"g")
+                .captures[].string | tonumber) | max + 1' \
+            || echo 0)
+        # We have our new version
+        LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR.$LFS_VERSION_PATCH"
+        echo "VERSION $LFS_VERSION"
+        # Check that we're the most recent commit
+        CURRENT_COMMIT=$(curl -f -u "$GEKY_BOT_RELEASES" \
+            https://api.github.com/repos/$TRAVIS_REPO_SLUG/commits/master \
+            | jq -re '.sha')
+        [ "$TRAVIS_COMMIT" == "$CURRENT_COMMIT" ] || exit 0
+        # Create major branch
+        git branch v$LFS_VERSION_MAJOR HEAD
+        # Create major prefix branch
+        git config user.name "geky bot"
+        git config user.email "bot@geky.net"
+        git fetch https://github.com/$TRAVIS_REPO_SLUG.git \
+            --depth=50 v$LFS_VERSION_MAJOR-prefix || true
+        ./scripts/prefix.py lfs$LFS_VERSION_MAJOR
+        git branch v$LFS_VERSION_MAJOR-prefix $( \
+            git commit-tree $(git write-tree) \
+                $(git rev-parse --verify -q FETCH_HEAD | sed -e 's/^/-p /') \
+                -p HEAD \
+                -m "Generated v$LFS_VERSION_MAJOR prefixes")
+        git reset --hard
+        # Update major version branches (vN and vN-prefix)
+        git push --atomic https://$GEKY_BOT_RELEASES@github.com/$TRAVIS_REPO_SLUG.git \
+            v$LFS_VERSION_MAJOR \
+            v$LFS_VERSION_MAJOR-prefix
+        # Build release notes
+        PREV=$(git tag --sort=-v:refname -l "v*" | head -1)
+        if [ ! -z "$PREV" ]
+        then
+            echo "PREV $PREV"
+            CHANGES=$(git log --oneline $PREV.. --grep='^Merge' --invert-grep)
+            printf "CHANGES\n%s\n\n" "$CHANGES"
+        fi
+        case ${GEKY_BOT_DRAFT:-minor} in
+            true)  DRAFT=true ;;
+            minor) DRAFT=$(jq -R 'endswith(".0")' <<< "$LFS_VERSION") ;;
+            false) DRAFT=false ;;
+        esac
+        # Create the release and patch version tag (vN.N.N)
+        curl -f -u "$GEKY_BOT_RELEASES" -X POST \
+            https://api.github.com/repos/$TRAVIS_REPO_SLUG/releases \
+            -d "{
+                \"tag_name\": \"$LFS_VERSION\",
+                \"name\": \"${LFS_VERSION%.0}\",
+                \"target_commitish\": \"$TRAVIS_COMMIT\",
+                \"draft\": $DRAFT,
+                \"body\": $(jq -sR '.' <<< "$CHANGES")
+            }" #"
+        SCRIPT
+
+# manage statuses
 before_install:
   - |
-    curl -u "$GEKY_BOT_STATUSES" -X POST \
-        https://api.github.com/repos/$TRAVIS_REPO_SLUG/statuses/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
-        -d "{
-            \"context\": \"$STAGE/$NAME\",
-            \"state\": \"pending\",
-            \"description\": \"${STATUS:-In progress}\",
-            \"target_url\": \"https://travis-ci.org/$TRAVIS_REPO_SLUG/jobs/$TRAVIS_JOB_ID\"
-        }"
+    # don't clobber other (not us) failures
+    if ! curl https://api.github.com/repos/$TRAVIS_REPO_SLUG/status/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
+        | jq -e ".statuses[] | select(
+            .context == \"${TRAVIS_BUILD_STAGE_NAME,,}/$NAME\" and
+            .state == \"failure\" and
+            (.target_url | endswith(\"$TRAVIS_JOB_NUMBER\") | not))"
+    then
+        curl -u "$GEKY_BOT_STATUSES" -X POST \
+            https://api.github.com/repos/$TRAVIS_REPO_SLUG/statuses/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
+            -d "{
+                \"context\": \"${TRAVIS_BUILD_STAGE_NAME,,}/$NAME\",
+                \"state\": \"pending\",
+                \"description\": \"${STATUS:-In progress}\",
+                \"target_url\": \"$TRAVIS_JOB_WEB_URL#$TRAVIS_JOB_NUMBER\"
+            }"
+    fi
 
 after_failure:
   - |
-    curl -u "$GEKY_BOT_STATUSES" -X POST \
-        https://api.github.com/repos/$TRAVIS_REPO_SLUG/statuses/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
-        -d "{
-            \"context\": \"$STAGE/$NAME\",
-            \"state\": \"failure\",
-            \"description\": \"${STATUS:-Failed}\",
-            \"target_url\": \"https://travis-ci.org/$TRAVIS_REPO_SLUG/jobs/$TRAVIS_JOB_ID\"
-        }"
+    # don't clobber other (not us) failures
+    if ! curl https://api.github.com/repos/$TRAVIS_REPO_SLUG/status/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
+        | jq -e ".statuses[] | select(
+            .context == \"${TRAVIS_BUILD_STAGE_NAME,,}/$NAME\" and
+            .state == \"failure\" and
+            (.target_url | endswith(\"$TRAVIS_JOB_NUMBER\") | not))"
+    then
+        curl -u "$GEKY_BOT_STATUSES" -X POST \
+            https://api.github.com/repos/$TRAVIS_REPO_SLUG/statuses/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
+            -d "{
+                \"context\": \"${TRAVIS_BUILD_STAGE_NAME,,}/$NAME\",
+                \"state\": \"failure\",
+                \"description\": \"${STATUS:-Failed}\",
+                \"target_url\": \"$TRAVIS_JOB_WEB_URL#$TRAVIS_JOB_NUMBER\"
+            }"
+    fi
 
 after_success:
   - |
-    curl -u "$GEKY_BOT_STATUSES" -X POST \
-        https://api.github.com/repos/$TRAVIS_REPO_SLUG/statuses/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
-        -d "{
-            \"context\": \"$STAGE/$NAME\",
-            \"state\": \"success\",
-            \"description\": \"${STATUS:-Passed}\",
-            \"target_url\": \"https://travis-ci.org/$TRAVIS_REPO_SLUG/jobs/$TRAVIS_JOB_ID\"
-        }"
-
-# Job control
-stages:
-    - name: test
-    - name: deploy
-      if: branch = master AND type = push
+    # don't clobber other (not us) failures
+    # only update if we were last job to mark in progress,
+    # this isn't perfect but is probably good enough
+    if ! curl https://api.github.com/repos/$TRAVIS_REPO_SLUG/status/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
+        | jq -e ".statuses[] | select(
+            .context == \"${TRAVIS_BUILD_STAGE_NAME,,}/$NAME\" and
+            (.state == \"failure\" or .state == \"pending\") and
+            (.target_url | endswith(\"$TRAVIS_JOB_NUMBER\") | not))"
+    then
+        curl -u "$GEKY_BOT_STATUSES" -X POST \
+            https://api.github.com/repos/$TRAVIS_REPO_SLUG/statuses/${TRAVIS_PULL_REQUEST_SHA:-$TRAVIS_COMMIT} \
+            -d "{
+                \"context\": \"${TRAVIS_BUILD_STAGE_NAME,,}/$NAME\",
+                \"state\": \"success\",
+                \"description\": \"${STATUS:-Passed}\",
+                \"target_url\": \"$TRAVIS_JOB_WEB_URL#$TRAVIS_JOB_NUMBER\"
+            }"
+    fi
