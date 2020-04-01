@@ -115,6 +115,9 @@ the filesystem until sync or close is called on the file.
 
 ## Other notes
 
+Littlefs is written in C, and specifically should compile with any compiler
+that conforms to the `C99` standard.
+
 All littlefs calls have the potential to return a negative error code. The
 errors can be either one of those found in the `enum lfs2_error` in
 [lfs2.h](lfs2.h), or an error returned by the user's block device operations.

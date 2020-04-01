@@ -1,127 +1,201 @@
-#!/bin/bash
-set -euE
-export TEST_FILE=$0
-trap 'export TEST_LINE=$LINENO' DEBUG
+# allocator tests
+# note for these to work there are a number constraints on the device geometry
+if = 'LFS2_BLOCK_CYCLES == -1'
 
-echo "=== Allocator tests ==="
-rm -rf blocks
-scripts/test.py << TEST
+[[case]] # parallel allocation test
+define.FILES = 3
+define.SIZE = '(((LFS2_BLOCK_SIZE-8)*(LFS2_BLOCK_COUNT-6)) / FILES)'
+code = '''
+    const char *names[FILES] = {"bacon", "eggs", "pancakes"};
+    lfs2_file_t files[FILES];
+
     lfs2_format(&lfs2, &cfg) => 0;
-TEST
-
-SIZE=15000
-
-lfs2_mkdir() {
-scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_mkdir(&lfs2, "$1") => 0;
+    lfs2_mkdir(&lfs2, "breakfast") => 0;
     lfs2_unmount(&lfs2) => 0;
-TEST
-}
 
-lfs2_remove() {
-scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_remove(&lfs2, "$1/eggs") => 0;
-    lfs2_remove(&lfs2, "$1/bacon") => 0;
-    lfs2_remove(&lfs2, "$1/pancakes") => 0;
-    lfs2_remove(&lfs2, "$1") => 0;
-    lfs2_unmount(&lfs2) => 0;
-TEST
-}
-
-lfs2_alloc_singleproc() {
-scripts/test.py << TEST
-    const char *names[] = {"bacon", "eggs", "pancakes"};
-    lfs2_file_t files[sizeof(names)/sizeof(names[0])];
-    lfs2_mount(&lfs2, &cfg) => 0;
-    for (unsigned n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
-        sprintf(path, "$1/%s", names[n]);
+    for (int n = 0; n < FILES; n++) {
+        sprintf(path, "breakfast/%s", names[n]);
         lfs2_file_open(&lfs2, &files[n], path,
                 LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
     }
-    for (unsigned n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
-        lfs2_size_t size = strlen(names[n]);
-        for (int i = 0; i < $SIZE; i++) {
+    for (int n = 0; n < FILES; n++) {
+        size = strlen(names[n]);
+        for (lfs2_size_t i = 0; i < SIZE; i += size) {
             lfs2_file_write(&lfs2, &files[n], names[n], size) => size;
         }
     }
-    for (unsigned n = 0; n < sizeof(names)/sizeof(names[0]); n++) {
+    for (int n = 0; n < FILES; n++) {
         lfs2_file_close(&lfs2, &files[n]) => 0;
     }
     lfs2_unmount(&lfs2) => 0;
-TEST
-}
 
-lfs2_alloc_multiproc() {
-for name in bacon eggs pancakes
-do
-scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file, "$1/$name",
-            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
-    lfs2_size_t size = strlen("$name");
-    memcpy(buffer, "$name", size);
-    for (int i = 0; i < $SIZE; i++) {
-        lfs2_file_write(&lfs2, &file, buffer, size) => size;
+    for (int n = 0; n < FILES; n++) {
+        sprintf(path, "breakfast/%s", names[n]);
+        lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+        size = strlen(names[n]);
+        for (lfs2_size_t i = 0; i < SIZE; i += size) {
+            lfs2_file_read(&lfs2, &file, buffer, size) => size;
+            assert(memcmp(buffer, names[n], size) == 0);
+        }
+        lfs2_file_close(&lfs2, &file) => 0;
     }
-    lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
-TEST
-done
-}
+'''
 
-lfs2_verify() {
-for name in bacon eggs pancakes
-do
-scripts/test.py << TEST
+[[case]] # serial allocation test
+define.FILES = 3
+define.SIZE = '(((LFS2_BLOCK_SIZE-8)*(LFS2_BLOCK_COUNT-6)) / FILES)'
+code = '''
+    const char *names[FILES] = {"bacon", "eggs", "pancakes"};
+
+    lfs2_format(&lfs2, &cfg) => 0;
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_file_open(&lfs2, &file, "$1/$name", LFS2_O_RDONLY) => 0;
-    lfs2_size_t size = strlen("$name");
-    for (int i = 0; i < $SIZE; i++) {
-        lfs2_file_read(&lfs2, &file, buffer, size) => size;
-        memcmp(buffer, "$name", size) => 0;
-    }
-    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_mkdir(&lfs2, "breakfast") => 0;
     lfs2_unmount(&lfs2) => 0;
-TEST
-done
-}
 
-echo "--- Single-process allocation test ---"
-lfs2_mkdir singleproc
-lfs2_alloc_singleproc singleproc
-lfs2_verify singleproc
+    for (int n = 0; n < FILES; n++) {
+        lfs2_mount(&lfs2, &cfg) => 0;
+        sprintf(path, "breakfast/%s", names[n]);
+        lfs2_file_open(&lfs2, &file, path,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
+        size = strlen(names[n]);
+        memcpy(buffer, names[n], size);
+        for (int i = 0; i < SIZE; i += size) {
+            lfs2_file_write(&lfs2, &file, buffer, size) => size;
+        }
+        lfs2_file_close(&lfs2, &file) => 0;
+        lfs2_unmount(&lfs2) => 0;
+    }
 
-echo "--- Multi-process allocation test ---"
-lfs2_mkdir multiproc
-lfs2_alloc_multiproc multiproc
-lfs2_verify multiproc
-lfs2_verify singleproc
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int n = 0; n < FILES; n++) {
+        sprintf(path, "breakfast/%s", names[n]);
+        lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+        size = strlen(names[n]);
+        for (int i = 0; i < SIZE; i += size) {
+            lfs2_file_read(&lfs2, &file, buffer, size) => size;
+            assert(memcmp(buffer, names[n], size) == 0);
+        }
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+'''
 
-echo "--- Single-process reuse test ---"
-lfs2_remove singleproc
-lfs2_mkdir singleprocreuse
-lfs2_alloc_singleproc singleprocreuse
-lfs2_verify singleprocreuse
-lfs2_verify multiproc
+[[case]] # parallel allocation reuse test
+define.FILES = 3
+define.SIZE = '(((LFS2_BLOCK_SIZE-8)*(LFS2_BLOCK_COUNT-6)) / FILES)'
+define.CYCLES = [1, 10]
+code = '''
+    const char *names[FILES] = {"bacon", "eggs", "pancakes"};
+    lfs2_file_t files[FILES];
 
-echo "--- Multi-process reuse test ---"
-lfs2_remove multiproc
-lfs2_mkdir multiprocreuse
-lfs2_alloc_singleproc multiprocreuse
-lfs2_verify multiprocreuse
-lfs2_verify singleprocreuse
+    lfs2_format(&lfs2, &cfg) => 0;
 
-echo "--- Cleanup ---"
-lfs2_remove multiprocreuse
-lfs2_remove singleprocreuse
+    for (int c = 0; c < CYCLES; c++) {
+        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_mkdir(&lfs2, "breakfast") => 0;
+        lfs2_unmount(&lfs2) => 0;
 
-echo "--- Exhaustion test ---"
-scripts/test.py << TEST
+        lfs2_mount(&lfs2, &cfg) => 0;
+        for (int n = 0; n < FILES; n++) {
+            sprintf(path, "breakfast/%s", names[n]);
+            lfs2_file_open(&lfs2, &files[n], path,
+                    LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
+        }
+        for (int n = 0; n < FILES; n++) {
+            size = strlen(names[n]);
+            for (int i = 0; i < SIZE; i += size) {
+                lfs2_file_write(&lfs2, &files[n], names[n], size) => size;
+            }
+        }
+        for (int n = 0; n < FILES; n++) {
+            lfs2_file_close(&lfs2, &files[n]) => 0;
+        }
+        lfs2_unmount(&lfs2) => 0;
+
+        lfs2_mount(&lfs2, &cfg) => 0;
+        for (int n = 0; n < FILES; n++) {
+            sprintf(path, "breakfast/%s", names[n]);
+            lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+            size = strlen(names[n]);
+            for (int i = 0; i < SIZE; i += size) {
+                lfs2_file_read(&lfs2, &file, buffer, size) => size;
+                assert(memcmp(buffer, names[n], size) == 0);
+            }
+            lfs2_file_close(&lfs2, &file) => 0;
+        }
+        lfs2_unmount(&lfs2) => 0;
+
+        lfs2_mount(&lfs2, &cfg) => 0;
+        for (int n = 0; n < FILES; n++) {
+            sprintf(path, "breakfast/%s", names[n]);
+            lfs2_remove(&lfs2, path) => 0;
+        }
+        lfs2_remove(&lfs2, "breakfast") => 0;
+        lfs2_unmount(&lfs2) => 0;
+    }
+'''
+
+[[case]] # serial allocation reuse test
+define.FILES = 3
+define.SIZE = '(((LFS2_BLOCK_SIZE-8)*(LFS2_BLOCK_COUNT-6)) / FILES)'
+define.CYCLES = [1, 10]
+code = '''
+    const char *names[FILES] = {"bacon", "eggs", "pancakes"};
+
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    for (int c = 0; c < CYCLES; c++) {
+        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_mkdir(&lfs2, "breakfast") => 0;
+        lfs2_unmount(&lfs2) => 0;
+
+        for (int n = 0; n < FILES; n++) {
+            lfs2_mount(&lfs2, &cfg) => 0;
+            sprintf(path, "breakfast/%s", names[n]);
+            lfs2_file_open(&lfs2, &file, path,
+                    LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
+            size = strlen(names[n]);
+            memcpy(buffer, names[n], size);
+            for (int i = 0; i < SIZE; i += size) {
+                lfs2_file_write(&lfs2, &file, buffer, size) => size;
+            }
+            lfs2_file_close(&lfs2, &file) => 0;
+            lfs2_unmount(&lfs2) => 0;
+        }
+
+        lfs2_mount(&lfs2, &cfg) => 0;
+        for (int n = 0; n < FILES; n++) {
+            sprintf(path, "breakfast/%s", names[n]);
+            lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+            size = strlen(names[n]);
+            for (int i = 0; i < SIZE; i += size) {
+                lfs2_file_read(&lfs2, &file, buffer, size) => size;
+                assert(memcmp(buffer, names[n], size) == 0);
+            }
+            lfs2_file_close(&lfs2, &file) => 0;
+        }
+        lfs2_unmount(&lfs2) => 0;
+
+        lfs2_mount(&lfs2, &cfg) => 0;
+        for (int n = 0; n < FILES; n++) {
+            sprintf(path, "breakfast/%s", names[n]);
+            lfs2_remove(&lfs2, path) => 0;
+        }
+        lfs2_remove(&lfs2, "breakfast") => 0;
+        lfs2_unmount(&lfs2) => 0;
+    }
+'''
+
+[[case]] # exhaustion test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
     lfs2_mount(&lfs2, &cfg) => 0;
     lfs2_file_open(&lfs2, &file, "exhaustion", LFS2_O_WRONLY | LFS2_O_CREAT);
-    lfs2_size_t size = strlen("exhaustion");
+    size = strlen("exhaustion");
     memcpy(buffer, "exhaustion", size);
     lfs2_file_write(&lfs2, &file, buffer, size) => size;
     lfs2_file_sync(&lfs2, &file) => 0;
@@ -141,27 +215,27 @@ scripts/test.py << TEST
 
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
-TEST
-scripts/test.py << TEST
+
     lfs2_mount(&lfs2, &cfg) => 0;
     lfs2_file_open(&lfs2, &file, "exhaustion", LFS2_O_RDONLY);
-    lfs2_size_t size = strlen("exhaustion");
+    size = strlen("exhaustion");
     lfs2_file_size(&lfs2, &file) => size;
     lfs2_file_read(&lfs2, &file, buffer, size) => size;
     memcmp(buffer, "exhaustion", size) => 0;
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
-TEST
+'''
 
-echo "--- Exhaustion wraparound test ---"
-scripts/test.py << TEST
+[[case]] # exhaustion wraparound test
+define.SIZE = '(((LFS2_BLOCK_SIZE-8)*(LFS2_BLOCK_COUNT-4)) / 3)'
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
     lfs2_mount(&lfs2, &cfg) => 0;
-    lfs2_remove(&lfs2, "exhaustion") => 0;
 
     lfs2_file_open(&lfs2, &file, "padding", LFS2_O_WRONLY | LFS2_O_CREAT);
-    lfs2_size_t size = strlen("buffering");
+    size = strlen("buffering");
     memcpy(buffer, "buffering", size);
-    for (int i = 0; i < $SIZE; i++) {
+    for (int i = 0; i < SIZE; i += size) {
         lfs2_file_write(&lfs2, &file, buffer, size) => size;
     }
     lfs2_file_close(&lfs2, &file) => 0;
@@ -188,30 +262,29 @@ scripts/test.py << TEST
 
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
-TEST
-scripts/test.py << TEST
+
     lfs2_mount(&lfs2, &cfg) => 0;
     lfs2_file_open(&lfs2, &file, "exhaustion", LFS2_O_RDONLY);
-    lfs2_size_t size = strlen("exhaustion");
+    size = strlen("exhaustion");
     lfs2_file_size(&lfs2, &file) => size;
     lfs2_file_read(&lfs2, &file, buffer, size) => size;
     memcmp(buffer, "exhaustion", size) => 0;
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_remove(&lfs2, "exhaustion") => 0;
     lfs2_unmount(&lfs2) => 0;
-TEST
+'''
 
-echo "--- Dir exhaustion test ---"
-scripts/test.py << TEST
+[[case]] # dir exhaustion test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
     lfs2_mount(&lfs2, &cfg) => 0;
 
     // find out max file size
     lfs2_mkdir(&lfs2, "exhaustiondir") => 0;
-    lfs2_size_t size = strlen("blahblahblahblah");
+    size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     lfs2_file_open(&lfs2, &file, "exhaustion", LFS2_O_WRONLY | LFS2_O_CREAT);
     int count = 0;
-    int err;
     while (true) {
         err = lfs2_file_write(&lfs2, &file, buffer, size);
         if (err < 0) {
@@ -248,18 +321,102 @@ scripts/test.py << TEST
 
     lfs2_remove(&lfs2, "exhaustion") => 0;
     lfs2_unmount(&lfs2) => 0;
-TEST
+'''
 
-## Below, these tests depend _very_ heavily on the geometry of the
-## block device being tested, they should be removed and replaced
-## by generalized tests. For now we'll just skip if the geometry
-## is customized.
+[[case]] # what if we have a bad block during an allocation scan?
+in = "lfs2.c"
+define.LFS2_ERASE_CYCLES = 0xffffffff
+define.LFS2_BADBLOCK_BEHAVIOR = 'LFS2_TESTBD_BADBLOCK_READERROR'
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    // first fill to exhaustion to find available space
+    lfs2_file_open(&lfs2, &file, "pacman", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    strcpy((char*)buffer, "waka");
+    size = strlen("waka");
+    lfs2_size_t filesize = 0;
+    while (true) {
+        lfs2_ssize_t res = lfs2_file_write(&lfs2, &file, buffer, size);
+        assert(res == (lfs2_ssize_t)size || res == LFS2_ERR_NOSPC);
+        if (res == LFS2_ERR_NOSPC) {
+            break;
+        }
+        filesize += size;
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+    // now fill all but a couple of blocks of the filesystem with data
+    filesize -= 3*LFS2_BLOCK_SIZE;
+    lfs2_file_open(&lfs2, &file, "pacman", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    strcpy((char*)buffer, "waka");
+    size = strlen("waka");
+    for (lfs2_size_t i = 0; i < filesize/size; i++) {
+        lfs2_file_write(&lfs2, &file, buffer, size) => size;
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+    // also save head of file so we can error during lookahead scan
+    lfs2_block_t fileblock = file.ctz.head;
+    lfs2_unmount(&lfs2) => 0;
 
-if [[ ! $MAKEFLAGS =~ "LFS2_BLOCK_CYCLES" ]]
-then
+    // remount to force an alloc scan
+    lfs2_mount(&lfs2, &cfg) => 0;
 
-echo "--- Chained dir exhaustion test ---"
-scripts/test.py << TEST
+    // but mark the head of our file as a "bad block", this is force our
+    // scan to bail early
+    lfs2_testbd_setwear(&cfg, fileblock, 0xffffffff) => 0;
+    lfs2_file_open(&lfs2, &file, "ghost", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    strcpy((char*)buffer, "chomp");
+    size = strlen("chomp");
+    while (true) {
+        lfs2_ssize_t res = lfs2_file_write(&lfs2, &file, buffer, size);
+        assert(res == (lfs2_ssize_t)size || res == LFS2_ERR_CORRUPT);
+        if (res == LFS2_ERR_CORRUPT) {
+            break;
+        }
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    // now reverse the "bad block" and try to write the file again until we
+    // run out of space
+    lfs2_testbd_setwear(&cfg, fileblock, 0) => 0;
+    lfs2_file_open(&lfs2, &file, "ghost", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    strcpy((char*)buffer, "chomp");
+    size = strlen("chomp");
+    while (true) {
+        lfs2_ssize_t res = lfs2_file_write(&lfs2, &file, buffer, size);
+        assert(res == (lfs2_ssize_t)size || res == LFS2_ERR_NOSPC);
+        if (res == LFS2_ERR_NOSPC) {
+            break;
+        }
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    lfs2_unmount(&lfs2) => 0;
+
+    // check that the disk isn't hurt
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_open(&lfs2, &file, "pacman", LFS2_O_RDONLY) => 0;
+    strcpy((char*)buffer, "waka");
+    size = strlen("waka");
+    for (lfs2_size_t i = 0; i < filesize/size; i++) {
+        uint8_t rbuffer[4];
+        lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
+        assert(memcmp(rbuffer, buffer, size) == 0);
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+
+# Below, I don't like these tests. They're fragile and depend _heavily_
+# on the geometry of the block device. But they are valuable. Eventually they
+# should be removed and replaced with generalized tests.
+
+[[case]] # chained dir exhaustion test
+define.LFS2_BLOCK_SIZE = 512
+define.LFS2_BLOCK_COUNT = 1024
+if = 'LFS2_BLOCK_SIZE == 512 && LFS2_BLOCK_COUNT == 1024'
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
     lfs2_mount(&lfs2, &cfg) => 0;
 
     // find out max file size
@@ -268,11 +425,10 @@ scripts/test.py << TEST
         sprintf(path, "dirwithanexhaustivelylongnameforpadding%d", i);
         lfs2_mkdir(&lfs2, path) => 0;
     }
-    lfs2_size_t size = strlen("blahblahblahblah");
+    size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     lfs2_file_open(&lfs2, &file, "exhaustion", LFS2_O_WRONLY | LFS2_O_CREAT);
     int count = 0;
-    int err;
     while (true) {
         err = lfs2_file_write(&lfs2, &file, buffer, size);
         if (err < 0) {
@@ -324,13 +480,14 @@ scripts/test.py << TEST
 
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
-TEST
+'''
 
-echo "--- Split dir test ---"
-scripts/test.py << TEST
+[[case]] # split dir test
+define.LFS2_BLOCK_SIZE = 512
+define.LFS2_BLOCK_COUNT = 1024
+if = 'LFS2_BLOCK_SIZE == 512 && LFS2_BLOCK_COUNT == 1024'
+code = '''
     lfs2_format(&lfs2, &cfg) => 0;
-TEST
-scripts/test.py << TEST
     lfs2_mount(&lfs2, &cfg) => 0;
 
     // create one block hole for half a directory
@@ -342,7 +499,7 @@ scripts/test.py << TEST
     lfs2_file_close(&lfs2, &file) => 0;
 
     lfs2_file_open(&lfs2, &file, "exhaustion", LFS2_O_WRONLY | LFS2_O_CREAT);
-    lfs2_size_t size = strlen("blahblahblahblah");
+    size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs2_size_t i = 0;
             i < (cfg.block_count-4)*(cfg.block_size-8);
@@ -368,18 +525,20 @@ scripts/test.py << TEST
     lfs2_file_close(&lfs2, &file) => 0;
 
     lfs2_unmount(&lfs2) => 0;
-TEST
+'''
 
-echo "--- Outdated lookahead test ---"
-scripts/test.py << TEST
+[[case]] # outdated lookahead test
+define.LFS2_BLOCK_SIZE = 512
+define.LFS2_BLOCK_COUNT = 1024
+if = 'LFS2_BLOCK_SIZE == 512 && LFS2_BLOCK_COUNT == 1024'
+code = '''
     lfs2_format(&lfs2, &cfg) => 0;
-
     lfs2_mount(&lfs2, &cfg) => 0;
 
     // fill completely with two files
     lfs2_file_open(&lfs2, &file, "exhaustion1",
             LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
-    lfs2_size_t size = strlen("blahblahblahblah");
+    size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs2_size_t i = 0;
             i < ((cfg.block_count-2)/2)*(cfg.block_size-8);
@@ -429,18 +588,22 @@ scripts/test.py << TEST
         lfs2_file_write(&lfs2, &file, buffer, size) => size;
     }
     lfs2_file_close(&lfs2, &file) => 0;
-TEST
 
-echo "--- Outdated lookahead and split dir test ---"
-scripts/test.py << TEST
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # outdated lookahead and split dir test
+define.LFS2_BLOCK_SIZE = 512
+define.LFS2_BLOCK_COUNT = 1024
+if = 'LFS2_BLOCK_SIZE == 512 && LFS2_BLOCK_COUNT == 1024'
+code = '''
     lfs2_format(&lfs2, &cfg) => 0;
-
     lfs2_mount(&lfs2, &cfg) => 0;
 
     // fill completely with two files
     lfs2_file_open(&lfs2, &file, "exhaustion1",
             LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
-    lfs2_size_t size = strlen("blahblahblahblah");
+    size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs2_size_t i = 0;
             i < ((cfg.block_count-2)/2)*(cfg.block_size-8);
@@ -487,8 +650,4 @@ scripts/test.py << TEST
     lfs2_file_close(&lfs2, &file) => 0;
 
     lfs2_unmount(&lfs2) => 0;
-TEST
-
-fi
-
-scripts/results.py
+'''

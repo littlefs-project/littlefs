@@ -1,0 +1,465 @@
+[[case]] # test running a filesystem to exhaustion
+define.LFS2_ERASE_CYCLES = 10
+define.LFS2_BLOCK_COUNT = 256 # small bd so test runs faster
+define.LFS2_BLOCK_CYCLES = 'LFS2_ERASE_CYCLES / 2'
+define.LFS2_BADBLOCK_BEHAVIOR = [
+    'LFS2_TESTBD_BADBLOCK_PROGERROR',
+    'LFS2_TESTBD_BADBLOCK_ERASEERROR',
+    'LFS2_TESTBD_BADBLOCK_READERROR',
+    'LFS2_TESTBD_BADBLOCK_PROGNOOP',
+    'LFS2_TESTBD_BADBLOCK_ERASENOOP',
+]
+define.FILES = 10
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "roadrunner") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    uint32_t cycle = 0;
+    while (true) {
+        lfs2_mount(&lfs2, &cfg) => 0;
+        for (uint32_t i = 0; i < FILES; i++) {
+            // chose name, roughly random seed, and random 2^n size
+            sprintf(path, "roadrunner/test%d", i);
+            srand(cycle * i);
+            size = 1 << ((rand() % 10)+2);
+
+            lfs2_file_open(&lfs2, &file, path,
+                    LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+
+            for (lfs2_size_t j = 0; j < size; j++) {
+                char c = 'a' + (rand() % 26);
+                lfs2_ssize_t res = lfs2_file_write(&lfs2, &file, &c, 1);
+                assert(res == 1 || res == LFS2_ERR_NOSPC);
+                if (res == LFS2_ERR_NOSPC) {
+                    err = lfs2_file_close(&lfs2, &file);
+                    assert(err == 0 || err == LFS2_ERR_NOSPC);
+                    lfs2_unmount(&lfs2) => 0;
+                    goto exhausted;
+                }
+            }
+
+            err = lfs2_file_close(&lfs2, &file);
+            assert(err == 0 || err == LFS2_ERR_NOSPC);
+            if (err == LFS2_ERR_NOSPC) {
+                lfs2_unmount(&lfs2) => 0;
+                goto exhausted;
+            }
+        }
+
+        for (uint32_t i = 0; i < FILES; i++) {
+            // check for errors
+            sprintf(path, "roadrunner/test%d", i);
+            srand(cycle * i);
+            size = 1 << ((rand() % 10)+2);
+
+            lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+            for (lfs2_size_t j = 0; j < size; j++) {
+                char c = 'a' + (rand() % 26);
+                char r;
+                lfs2_file_read(&lfs2, &file, &r, 1) => 1;
+                assert(r == c);
+            }
+
+            lfs2_file_close(&lfs2, &file) => 0;
+        }
+        lfs2_unmount(&lfs2) => 0;
+
+        cycle += 1;
+    }
+
+exhausted:
+    // should still be readable
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (uint32_t i = 0; i < FILES; i++) {
+        // check for errors
+        sprintf(path, "roadrunner/test%d", i);
+        lfs2_stat(&lfs2, path, &info) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    LFS2_WARN("completed %d cycles", cycle);
+'''
+
+[[case]] # test running a filesystem to exhaustion
+         # which also requires expanding superblocks
+define.LFS2_ERASE_CYCLES = 10
+define.LFS2_BLOCK_COUNT = 256 # small bd so test runs faster
+define.LFS2_BLOCK_CYCLES = 'LFS2_ERASE_CYCLES / 2'
+define.LFS2_BADBLOCK_BEHAVIOR = [
+    'LFS2_TESTBD_BADBLOCK_PROGERROR',
+    'LFS2_TESTBD_BADBLOCK_ERASEERROR',
+    'LFS2_TESTBD_BADBLOCK_READERROR',
+    'LFS2_TESTBD_BADBLOCK_PROGNOOP',
+    'LFS2_TESTBD_BADBLOCK_ERASENOOP',
+]
+define.FILES = 10
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    uint32_t cycle = 0;
+    while (true) {
+        lfs2_mount(&lfs2, &cfg) => 0;
+        for (uint32_t i = 0; i < FILES; i++) {
+            // chose name, roughly random seed, and random 2^n size
+            sprintf(path, "test%d", i);
+            srand(cycle * i);
+            size = 1 << ((rand() % 10)+2);
+
+            lfs2_file_open(&lfs2, &file, path,
+                    LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+
+            for (lfs2_size_t j = 0; j < size; j++) {
+                char c = 'a' + (rand() % 26);
+                lfs2_ssize_t res = lfs2_file_write(&lfs2, &file, &c, 1);
+                assert(res == 1 || res == LFS2_ERR_NOSPC);
+                if (res == LFS2_ERR_NOSPC) {
+                    err = lfs2_file_close(&lfs2, &file);
+                    assert(err == 0 || err == LFS2_ERR_NOSPC);
+                    lfs2_unmount(&lfs2) => 0;
+                    goto exhausted;
+                }
+            }
+
+            err = lfs2_file_close(&lfs2, &file);
+            assert(err == 0 || err == LFS2_ERR_NOSPC);
+            if (err == LFS2_ERR_NOSPC) {
+                lfs2_unmount(&lfs2) => 0;
+                goto exhausted;
+            }
+        }
+
+        for (uint32_t i = 0; i < FILES; i++) {
+            // check for errors
+            sprintf(path, "test%d", i);
+            srand(cycle * i);
+            size = 1 << ((rand() % 10)+2);
+
+            lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+            for (lfs2_size_t j = 0; j < size; j++) {
+                char c = 'a' + (rand() % 26);
+                char r;
+                lfs2_file_read(&lfs2, &file, &r, 1) => 1;
+                assert(r == c);
+            }
+
+            lfs2_file_close(&lfs2, &file) => 0;
+        }
+        lfs2_unmount(&lfs2) => 0;
+
+        cycle += 1;
+    }
+
+exhausted:
+    // should still be readable
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (uint32_t i = 0; i < FILES; i++) {
+        // check for errors
+        sprintf(path, "test%d", i);
+        lfs2_stat(&lfs2, path, &info) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    LFS2_WARN("completed %d cycles", cycle);
+'''
+
+# These are a sort of high-level litmus test for wear-leveling. One definition
+# of wear-leveling is that increasing a block device's space translates directly
+# into increasing the block devices lifetime. This is something we can actually
+# check for.
+
+[[case]] # wear-level test running a filesystem to exhaustion
+define.LFS2_ERASE_CYCLES = 20
+define.LFS2_BLOCK_COUNT = 256 # small bd so test runs faster
+define.LFS2_BLOCK_CYCLES = 'LFS2_ERASE_CYCLES / 2'
+define.FILES = 10
+code = '''
+    uint32_t run_cycles[2];
+    const uint32_t run_block_count[2] = {LFS2_BLOCK_COUNT/2, LFS2_BLOCK_COUNT};
+
+    for (int run = 0; run < 2; run++) {
+        for (lfs2_block_t b = 0; b < LFS2_BLOCK_COUNT; b++) {
+            lfs2_testbd_setwear(&cfg, b,
+                    (b < run_block_count[run]) ? 0 : LFS2_ERASE_CYCLES) => 0;
+        }
+
+        lfs2_format(&lfs2, &cfg) => 0;
+        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_mkdir(&lfs2, "roadrunner") => 0;
+        lfs2_unmount(&lfs2) => 0;
+
+        uint32_t cycle = 0;
+        while (true) {
+            lfs2_mount(&lfs2, &cfg) => 0;
+            for (uint32_t i = 0; i < FILES; i++) {
+                // chose name, roughly random seed, and random 2^n size
+                sprintf(path, "roadrunner/test%d", i);
+                srand(cycle * i);
+                size = 1 << ((rand() % 10)+2);
+
+                lfs2_file_open(&lfs2, &file, path,
+                        LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+
+                for (lfs2_size_t j = 0; j < size; j++) {
+                    char c = 'a' + (rand() % 26);
+                    lfs2_ssize_t res = lfs2_file_write(&lfs2, &file, &c, 1);
+                    assert(res == 1 || res == LFS2_ERR_NOSPC);
+                    if (res == LFS2_ERR_NOSPC) {
+                        err = lfs2_file_close(&lfs2, &file);
+                        assert(err == 0 || err == LFS2_ERR_NOSPC);
+                        lfs2_unmount(&lfs2) => 0;
+                        goto exhausted;
+                    }
+                }
+
+                err = lfs2_file_close(&lfs2, &file);
+                assert(err == 0 || err == LFS2_ERR_NOSPC);
+                if (err == LFS2_ERR_NOSPC) {
+                    lfs2_unmount(&lfs2) => 0;
+                    goto exhausted;
+                }
+            }
+
+            for (uint32_t i = 0; i < FILES; i++) {
+                // check for errors
+                sprintf(path, "roadrunner/test%d", i);
+                srand(cycle * i);
+                size = 1 << ((rand() % 10)+2);
+
+                lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+                for (lfs2_size_t j = 0; j < size; j++) {
+                    char c = 'a' + (rand() % 26);
+                    char r;
+                    lfs2_file_read(&lfs2, &file, &r, 1) => 1;
+                    assert(r == c);
+                }
+
+                lfs2_file_close(&lfs2, &file) => 0;
+            }
+            lfs2_unmount(&lfs2) => 0;
+
+            cycle += 1;
+        }
+
+exhausted:
+        // should still be readable
+        lfs2_mount(&lfs2, &cfg) => 0;
+        for (uint32_t i = 0; i < FILES; i++) {
+            // check for errors
+            sprintf(path, "roadrunner/test%d", i);
+            lfs2_stat(&lfs2, path, &info) => 0;
+        }
+        lfs2_unmount(&lfs2) => 0;
+
+        run_cycles[run] = cycle;
+        LFS2_WARN("completed %d blocks %d cycles",
+                run_block_count[run], run_cycles[run]);
+    }
+
+    // check we increased the lifetime by 2x with ~10% error
+    LFS2_ASSERT(run_cycles[1]*110/100 > 2*run_cycles[0]);
+'''
+
+[[case]] # wear-level test + expanding superblock
+define.LFS2_ERASE_CYCLES = 20
+define.LFS2_BLOCK_COUNT = 256 # small bd so test runs faster
+define.LFS2_BLOCK_CYCLES = 'LFS2_ERASE_CYCLES / 2'
+define.FILES = 10
+code = '''
+    uint32_t run_cycles[2];
+    const uint32_t run_block_count[2] = {LFS2_BLOCK_COUNT/2, LFS2_BLOCK_COUNT};
+
+    for (int run = 0; run < 2; run++) {
+        for (lfs2_block_t b = 0; b < LFS2_BLOCK_COUNT; b++) {
+            lfs2_testbd_setwear(&cfg, b,
+                    (b < run_block_count[run]) ? 0 : LFS2_ERASE_CYCLES) => 0;
+        }
+
+        lfs2_format(&lfs2, &cfg) => 0;
+
+        uint32_t cycle = 0;
+        while (true) {
+            lfs2_mount(&lfs2, &cfg) => 0;
+            for (uint32_t i = 0; i < FILES; i++) {
+                // chose name, roughly random seed, and random 2^n size
+                sprintf(path, "test%d", i);
+                srand(cycle * i);
+                size = 1 << ((rand() % 10)+2);
+
+                lfs2_file_open(&lfs2, &file, path,
+                        LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+
+                for (lfs2_size_t j = 0; j < size; j++) {
+                    char c = 'a' + (rand() % 26);
+                    lfs2_ssize_t res = lfs2_file_write(&lfs2, &file, &c, 1);
+                    assert(res == 1 || res == LFS2_ERR_NOSPC);
+                    if (res == LFS2_ERR_NOSPC) {
+                        err = lfs2_file_close(&lfs2, &file);
+                        assert(err == 0 || err == LFS2_ERR_NOSPC);
+                        lfs2_unmount(&lfs2) => 0;
+                        goto exhausted;
+                    }
+                }
+
+                err = lfs2_file_close(&lfs2, &file);
+                assert(err == 0 || err == LFS2_ERR_NOSPC);
+                if (err == LFS2_ERR_NOSPC) {
+                    lfs2_unmount(&lfs2) => 0;
+                    goto exhausted;
+                }
+            }
+
+            for (uint32_t i = 0; i < FILES; i++) {
+                // check for errors
+                sprintf(path, "test%d", i);
+                srand(cycle * i);
+                size = 1 << ((rand() % 10)+2);
+
+                lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+                for (lfs2_size_t j = 0; j < size; j++) {
+                    char c = 'a' + (rand() % 26);
+                    char r;
+                    lfs2_file_read(&lfs2, &file, &r, 1) => 1;
+                    assert(r == c);
+                }
+
+                lfs2_file_close(&lfs2, &file) => 0;
+            }
+            lfs2_unmount(&lfs2) => 0;
+
+            cycle += 1;
+        }
+
+exhausted:
+        // should still be readable
+        lfs2_mount(&lfs2, &cfg) => 0;
+        for (uint32_t i = 0; i < FILES; i++) {
+            // check for errors
+            sprintf(path, "test%d", i);
+            lfs2_stat(&lfs2, path, &info) => 0;
+        }
+        lfs2_unmount(&lfs2) => 0;
+
+        run_cycles[run] = cycle;
+        LFS2_WARN("completed %d blocks %d cycles",
+                run_block_count[run], run_cycles[run]);
+    }
+
+    // check we increased the lifetime by 2x with ~10% error
+    LFS2_ASSERT(run_cycles[1]*110/100 > 2*run_cycles[0]);
+'''
+
+[[case]] # test that we wear blocks roughly evenly
+define.LFS2_ERASE_CYCLES = 0xffffffff
+define.LFS2_BLOCK_COUNT = 256 # small bd so test runs faster
+define.LFS2_BLOCK_CYCLES = [5, 4, 3, 2, 1]
+define.CYCLES = 100
+define.FILES = 10
+if = 'LFS2_BLOCK_CYCLES < CYCLES/10'
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "roadrunner") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    uint32_t cycle = 0;
+    while (cycle < CYCLES) {
+        lfs2_mount(&lfs2, &cfg) => 0;
+        for (uint32_t i = 0; i < FILES; i++) {
+            // chose name, roughly random seed, and random 2^n size
+            sprintf(path, "roadrunner/test%d", i);
+            srand(cycle * i);
+            size = 1 << 4; //((rand() % 10)+2);
+
+            lfs2_file_open(&lfs2, &file, path,
+                    LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+
+            for (lfs2_size_t j = 0; j < size; j++) {
+                char c = 'a' + (rand() % 26);
+                lfs2_ssize_t res = lfs2_file_write(&lfs2, &file, &c, 1);
+                assert(res == 1 || res == LFS2_ERR_NOSPC);
+                if (res == LFS2_ERR_NOSPC) {
+                    err = lfs2_file_close(&lfs2, &file);
+                    assert(err == 0 || err == LFS2_ERR_NOSPC);
+                    lfs2_unmount(&lfs2) => 0;
+                    goto exhausted;
+                }
+            }
+
+            err = lfs2_file_close(&lfs2, &file);
+            assert(err == 0 || err == LFS2_ERR_NOSPC);
+            if (err == LFS2_ERR_NOSPC) {
+                lfs2_unmount(&lfs2) => 0;
+                goto exhausted;
+            }
+        }
+
+        for (uint32_t i = 0; i < FILES; i++) {
+            // check for errors
+            sprintf(path, "roadrunner/test%d", i);
+            srand(cycle * i);
+            size = 1 << 4; //((rand() % 10)+2);
+
+            lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+            for (lfs2_size_t j = 0; j < size; j++) {
+                char c = 'a' + (rand() % 26);
+                char r;
+                lfs2_file_read(&lfs2, &file, &r, 1) => 1;
+                assert(r == c);
+            }
+
+            lfs2_file_close(&lfs2, &file) => 0;
+        }
+        lfs2_unmount(&lfs2) => 0;
+
+        cycle += 1;
+    }
+
+exhausted:
+    // should still be readable
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (uint32_t i = 0; i < FILES; i++) {
+        // check for errors
+        sprintf(path, "roadrunner/test%d", i);
+        lfs2_stat(&lfs2, path, &info) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    LFS2_WARN("completed %d cycles", cycle);
+
+    // check the wear on our block device
+    lfs2_testbd_wear_t minwear = -1;
+    lfs2_testbd_wear_t totalwear = 0;
+    lfs2_testbd_wear_t maxwear = 0;
+    // skip 0 and 1 as superblock movement is intentionally avoided
+    for (lfs2_block_t b = 2; b < LFS2_BLOCK_COUNT; b++) {
+        lfs2_testbd_wear_t wear = lfs2_testbd_getwear(&cfg, b);
+        printf("%08x: wear %d\n", b, wear);
+        assert(wear >= 0);
+        if (wear < minwear) {
+            minwear = wear;
+        }
+        if (wear > maxwear) {
+            maxwear = wear;
+        }
+        totalwear += wear;
+    }
+    lfs2_testbd_wear_t avgwear = totalwear / LFS2_BLOCK_COUNT;
+    LFS2_WARN("max wear: %d cycles", maxwear);
+    LFS2_WARN("avg wear: %d cycles", totalwear / LFS2_BLOCK_COUNT);
+    LFS2_WARN("min wear: %d cycles", minwear);
+
+    // find standard deviation^2
+    lfs2_testbd_wear_t dev2 = 0;
+    for (lfs2_block_t b = 2; b < LFS2_BLOCK_COUNT; b++) {
+        lfs2_testbd_wear_t wear = lfs2_testbd_getwear(&cfg, b);
+        assert(wear >= 0);
+        lfs2_testbd_swear_t diff = wear - avgwear;
+        dev2 += diff*diff;
+    }
+    dev2 /= totalwear;
+    LFS2_WARN("std dev^2: %d", dev2);
+    assert(dev2 < 8);
+'''
+

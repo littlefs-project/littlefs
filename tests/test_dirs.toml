@@ -1,0 +1,838 @@
+[[case]] # root
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # many directory creation
+define.N = 'range(0, 100, 3)'
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "dir%03d", i);
+        lfs2_mkdir(&lfs2, path) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "dir%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # many directory removal
+define.N = 'range(3, 100, 11)'
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs2_mkdir(&lfs2, path) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2);
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs2_remove(&lfs2, path) => 0;
+    }
+    lfs2_unmount(&lfs2);
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # many directory rename
+define.N = 'range(3, 100, 11)'
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "test%03d", i);
+        lfs2_mkdir(&lfs2, path) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "test%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2);
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        char oldpath[128];
+        char newpath[128];
+        sprintf(oldpath, "test%03d", i);
+        sprintf(newpath, "tedd%03d", i);
+        lfs2_rename(&lfs2, oldpath, newpath) => 0;
+    }
+    lfs2_unmount(&lfs2);
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "tedd%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2);
+'''
+
+[[case]] # reentrant many directory creation/rename/removal
+define.N = [5, 11]
+reentrant = true
+code = '''
+    err = lfs2_mount(&lfs2, &cfg);
+    if (err) {
+        lfs2_format(&lfs2, &cfg) => 0;
+        lfs2_mount(&lfs2, &cfg) => 0;
+    }
+
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "hi%03d", i);
+        err = lfs2_mkdir(&lfs2, path);
+        assert(err == 0 || err == LFS2_ERR_EXIST);
+    }
+
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "hello%03d", i);
+        err = lfs2_remove(&lfs2, path);
+        assert(err == 0 || err == LFS2_ERR_NOENT);
+    }
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "hi%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    for (int i = 0; i < N; i++) {
+        char oldpath[128];
+        char newpath[128];
+        sprintf(oldpath, "hi%03d", i);
+        sprintf(newpath, "hello%03d", i);
+        // YES this can overwrite an existing newpath
+        lfs2_rename(&lfs2, oldpath, newpath) => 0;
+    }
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "hello%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "hello%03d", i);
+        lfs2_remove(&lfs2, path) => 0;
+    }
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # file creation
+define.N = 'range(3, 100, 11)'
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "file%03d", i);
+        lfs2_file_open(&lfs2, &file, path,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "file%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_REG);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2);
+'''
+
+[[case]] # file removal
+define.N = 'range(0, 100, 3)'
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs2_file_open(&lfs2, &file, path,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_REG);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2);
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "removeme%03d", i);
+        lfs2_remove(&lfs2, path) => 0;
+    }
+    lfs2_unmount(&lfs2);
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # file rename
+define.N = 'range(0, 100, 3)'
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "test%03d", i);
+        lfs2_file_open(&lfs2, &file, path,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "test%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_REG);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2);
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < N; i++) {
+        char oldpath[128];
+        char newpath[128];
+        sprintf(oldpath, "test%03d", i);
+        sprintf(newpath, "tedd%03d", i);
+        lfs2_rename(&lfs2, oldpath, newpath) => 0;
+    }
+    lfs2_unmount(&lfs2);
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "tedd%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_REG);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2);
+'''
+
+[[case]] # reentrant file creation/rename/removal
+define.N = [5, 25]
+reentrant = true
+code = '''
+    err = lfs2_mount(&lfs2, &cfg);
+    if (err) {
+        lfs2_format(&lfs2, &cfg) => 0;
+        lfs2_mount(&lfs2, &cfg) => 0;
+    }
+
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "hi%03d", i);
+        lfs2_file_open(&lfs2, &file, path, LFS2_O_CREAT | LFS2_O_WRONLY) => 0;
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "hello%03d", i);
+        err = lfs2_remove(&lfs2, path);
+        assert(err == 0 || err == LFS2_ERR_NOENT);
+    }
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "hi%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_REG);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    for (int i = 0; i < N; i++) {
+        char oldpath[128];
+        char newpath[128];
+        sprintf(oldpath, "hi%03d", i);
+        sprintf(newpath, "hello%03d", i);
+        // YES this can overwrite an existing newpath
+        lfs2_rename(&lfs2, oldpath, newpath) => 0;
+    }
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "hello%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_REG);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "hello%03d", i);
+        lfs2_remove(&lfs2, path) => 0;
+    }
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # nested directories
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "potato") => 0;
+    lfs2_file_open(&lfs2, &file, "burito",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "potato/baked") => 0;
+    lfs2_mkdir(&lfs2, "potato/sweet") => 0;
+    lfs2_mkdir(&lfs2, "potato/fried") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "potato") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, ".") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "..") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "baked") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "fried") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "sweet") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // try removing?
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_remove(&lfs2, "potato") => LFS2_ERR_NOTEMPTY;
+    lfs2_unmount(&lfs2) => 0;
+
+    // try renaming?
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_rename(&lfs2, "potato", "coldpotato") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_rename(&lfs2, "coldpotato", "warmpotato") => 0;
+    lfs2_rename(&lfs2, "warmpotato", "hotpotato") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_remove(&lfs2, "potato") => LFS2_ERR_NOENT;
+    lfs2_remove(&lfs2, "coldpotato") => LFS2_ERR_NOENT;
+    lfs2_remove(&lfs2, "warmpotato") => LFS2_ERR_NOENT;
+    lfs2_remove(&lfs2, "hotpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_unmount(&lfs2) => 0;
+
+    // try cross-directory renaming
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "coldpotato") => 0;
+    lfs2_rename(&lfs2, "hotpotato/baked", "coldpotato/baked") => 0;
+    lfs2_rename(&lfs2, "coldpotato", "hotpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_remove(&lfs2, "coldpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_remove(&lfs2, "hotpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_rename(&lfs2, "hotpotato/fried", "coldpotato/fried") => 0;
+    lfs2_rename(&lfs2, "coldpotato", "hotpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_remove(&lfs2, "coldpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_remove(&lfs2, "hotpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_rename(&lfs2, "hotpotato/sweet", "coldpotato/sweet") => 0;
+    lfs2_rename(&lfs2, "coldpotato", "hotpotato") => 0;
+    lfs2_remove(&lfs2, "coldpotato") => LFS2_ERR_NOENT;
+    lfs2_remove(&lfs2, "hotpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "hotpotato") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, ".") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "..") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "baked") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "fried") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "sweet") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+    
+    // final remove
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_remove(&lfs2, "hotpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_remove(&lfs2, "hotpotato/baked") => 0;
+    lfs2_remove(&lfs2, "hotpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_remove(&lfs2, "hotpotato/fried") => 0;
+    lfs2_remove(&lfs2, "hotpotato") => LFS2_ERR_NOTEMPTY;
+    lfs2_remove(&lfs2, "hotpotato/sweet") => 0;
+    lfs2_remove(&lfs2, "hotpotato") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, ".") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "..") == 0);
+    info.type => LFS2_TYPE_DIR;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "burito") == 0);
+    info.type => LFS2_TYPE_REG;
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # recursive remove
+define.N = [10, 100]
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "prickly-pear") => 0;
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "prickly-pear/cactus%03d", i);
+        lfs2_mkdir(&lfs2, path) => 0;
+    }
+    lfs2_dir_open(&lfs2, &dir, "prickly-pear") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "cactus%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2);
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_remove(&lfs2, "prickly-pear") => LFS2_ERR_NOTEMPTY;
+
+    lfs2_dir_open(&lfs2, &dir, "prickly-pear") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(path, "cactus%03d", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_DIR);
+        assert(strcmp(info.name, path) == 0);
+        sprintf(path, "prickly-pear/%s", info.name);
+        lfs2_remove(&lfs2, path) => 0;
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    lfs2_remove(&lfs2, "prickly-pear") => 0;
+    lfs2_remove(&lfs2, "prickly-pear") => LFS2_ERR_NOENT;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_remove(&lfs2, "prickly-pear") => LFS2_ERR_NOENT;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # other error cases
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "potato") => 0;
+    lfs2_file_open(&lfs2, &file, "burito",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+
+    lfs2_mkdir(&lfs2, "potato") => LFS2_ERR_EXIST;
+    lfs2_mkdir(&lfs2, "burito") => LFS2_ERR_EXIST;
+    lfs2_file_open(&lfs2, &file, "burito",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => LFS2_ERR_EXIST;
+    lfs2_file_open(&lfs2, &file, "potato",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => LFS2_ERR_EXIST;
+    lfs2_dir_open(&lfs2, &dir, "tomato") => LFS2_ERR_NOENT;
+    lfs2_dir_open(&lfs2, &dir, "burito") => LFS2_ERR_NOTDIR;
+    lfs2_file_open(&lfs2, &file, "tomato", LFS2_O_RDONLY) => LFS2_ERR_NOENT;
+    lfs2_file_open(&lfs2, &file, "potato", LFS2_O_RDONLY) => LFS2_ERR_ISDIR;
+    lfs2_file_open(&lfs2, &file, "tomato", LFS2_O_WRONLY) => LFS2_ERR_NOENT;
+    lfs2_file_open(&lfs2, &file, "potato", LFS2_O_WRONLY) => LFS2_ERR_ISDIR;
+    lfs2_file_open(&lfs2, &file, "potato",
+            LFS2_O_WRONLY | LFS2_O_CREAT) => LFS2_ERR_ISDIR;
+
+    lfs2_mkdir(&lfs2, "/") => LFS2_ERR_EXIST;
+    lfs2_file_open(&lfs2, &file, "/",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => LFS2_ERR_EXIST;
+    lfs2_file_open(&lfs2, &file, "/", LFS2_O_RDONLY) => LFS2_ERR_ISDIR;
+    lfs2_file_open(&lfs2, &file, "/", LFS2_O_WRONLY) => LFS2_ERR_ISDIR;
+    lfs2_file_open(&lfs2, &file, "/",
+            LFS2_O_WRONLY | LFS2_O_CREAT) => LFS2_ERR_ISDIR;
+
+    // check that errors did not corrupt directory
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_REG);
+    assert(strcmp(info.name, "burito") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "potato") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    lfs2_unmount(&lfs2) => 0;
+
+    // or on disk
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_REG);
+    assert(strcmp(info.name, "burito") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "potato") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # directory seek
+define.COUNT = [4, 128, 132]
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "hello") => 0;
+    for (int i = 0; i < COUNT; i++) {
+        sprintf(path, "hello/kitty%03d", i);
+        lfs2_mkdir(&lfs2, path) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    for (int j = 2; j < COUNT; j++) {
+        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_dir_open(&lfs2, &dir, "hello") => 0;
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+
+        lfs2_soff_t pos;
+        for (int i = 0; i < j; i++) {
+            sprintf(path, "kitty%03d", i);
+            lfs2_dir_read(&lfs2, &dir, &info) => 1;
+            assert(strcmp(info.name, path) == 0);
+            assert(info.type == LFS2_TYPE_DIR);
+            pos = lfs2_dir_tell(&lfs2, &dir);
+            assert(pos >= 0);
+        }
+
+        lfs2_dir_seek(&lfs2, &dir, pos) => 0;
+        sprintf(path, "kitty%03d", j);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+
+        lfs2_dir_rewind(&lfs2, &dir) => 0;
+        sprintf(path, "kitty%03d", 0);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+
+        lfs2_dir_seek(&lfs2, &dir, pos) => 0;
+        sprintf(path, "kitty%03d", j);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+
+        lfs2_dir_close(&lfs2, &dir) => 0;
+        lfs2_unmount(&lfs2) => 0;
+    }
+'''
+
+[[case]] # root seek
+define.COUNT = [4, 128, 132]
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int i = 0; i < COUNT; i++) {
+        sprintf(path, "hi%03d", i);
+        lfs2_mkdir(&lfs2, path) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    for (int j = 2; j < COUNT; j++) {
+        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_dir_open(&lfs2, &dir, "/") => 0;
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+
+        lfs2_soff_t pos;
+        for (int i = 0; i < j; i++) {
+            sprintf(path, "hi%03d", i);
+            lfs2_dir_read(&lfs2, &dir, &info) => 1;
+            assert(strcmp(info.name, path) == 0);
+            assert(info.type == LFS2_TYPE_DIR);
+            pos = lfs2_dir_tell(&lfs2, &dir);
+            assert(pos >= 0);
+        }
+
+        lfs2_dir_seek(&lfs2, &dir, pos) => 0;
+        sprintf(path, "hi%03d", j);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+
+        lfs2_dir_rewind(&lfs2, &dir) => 0;
+        sprintf(path, "hi%03d", 0);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+
+        lfs2_dir_seek(&lfs2, &dir, pos) => 0;
+        sprintf(path, "hi%03d", j);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS2_TYPE_DIR);
+
+        lfs2_dir_close(&lfs2, &dir) => 0;
+        lfs2_unmount(&lfs2) => 0;
+    }
+'''
+

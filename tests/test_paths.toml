@@ -1,0 +1,293 @@
+
+[[case]] # simple path test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "tea") => 0;
+    lfs2_mkdir(&lfs2, "tea/hottea") => 0;
+    lfs2_mkdir(&lfs2, "tea/warmtea") => 0;
+    lfs2_mkdir(&lfs2, "tea/coldtea") => 0;
+
+    lfs2_stat(&lfs2, "tea/hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "/tea/hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+
+    lfs2_mkdir(&lfs2, "/milk") => 0;
+    lfs2_stat(&lfs2, "/milk", &info) => 0;
+    assert(strcmp(info.name, "milk") == 0);
+    lfs2_stat(&lfs2, "milk", &info) => 0;
+    assert(strcmp(info.name, "milk") == 0);
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # redundant slashes
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "tea") => 0;
+    lfs2_mkdir(&lfs2, "tea/hottea") => 0;
+    lfs2_mkdir(&lfs2, "tea/warmtea") => 0;
+    lfs2_mkdir(&lfs2, "tea/coldtea") => 0;
+
+    lfs2_stat(&lfs2, "/tea/hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "//tea//hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "///tea///hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+
+    lfs2_mkdir(&lfs2, "////milk") => 0;
+    lfs2_stat(&lfs2, "////milk", &info) => 0;
+    assert(strcmp(info.name, "milk") == 0);
+    lfs2_stat(&lfs2, "milk", &info) => 0;
+    assert(strcmp(info.name, "milk") == 0);
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # dot path test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "tea") => 0;
+    lfs2_mkdir(&lfs2, "tea/hottea") => 0;
+    lfs2_mkdir(&lfs2, "tea/warmtea") => 0;
+    lfs2_mkdir(&lfs2, "tea/coldtea") => 0;
+
+    lfs2_stat(&lfs2, "./tea/hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "/./tea/hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "/././tea/hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "/./tea/./hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+
+    lfs2_mkdir(&lfs2, "/./milk") => 0;
+    lfs2_stat(&lfs2, "/./milk", &info) => 0;
+    assert(strcmp(info.name, "milk") == 0);
+    lfs2_stat(&lfs2, "milk", &info) => 0;
+    assert(strcmp(info.name, "milk") == 0);
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # dot dot path test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "tea") => 0;
+    lfs2_mkdir(&lfs2, "tea/hottea") => 0;
+    lfs2_mkdir(&lfs2, "tea/warmtea") => 0;
+    lfs2_mkdir(&lfs2, "tea/coldtea") => 0;
+    lfs2_mkdir(&lfs2, "coffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/hotcoffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/warmcoffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/coldcoffee") => 0;
+
+    lfs2_stat(&lfs2, "coffee/../tea/hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "tea/coldtea/../hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "coffee/coldcoffee/../../tea/hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "coffee/../coffee/../tea/hottea", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+
+    lfs2_mkdir(&lfs2, "coffee/../milk") => 0;
+    lfs2_stat(&lfs2, "coffee/../milk", &info) => 0;
+    strcmp(info.name, "milk") => 0;
+    lfs2_stat(&lfs2, "milk", &info) => 0;
+    strcmp(info.name, "milk") => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # trailing dot path test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "tea") => 0;
+    lfs2_mkdir(&lfs2, "tea/hottea") => 0;
+    lfs2_mkdir(&lfs2, "tea/warmtea") => 0;
+    lfs2_mkdir(&lfs2, "tea/coldtea") => 0;
+
+    lfs2_stat(&lfs2, "tea/hottea/", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "tea/hottea/.", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "tea/hottea/./.", &info) => 0;
+    assert(strcmp(info.name, "hottea") == 0);
+    lfs2_stat(&lfs2, "tea/hottea/..", &info) => 0;
+    assert(strcmp(info.name, "tea") == 0);
+    lfs2_stat(&lfs2, "tea/hottea/../.", &info) => 0;
+    assert(strcmp(info.name, "tea") == 0);
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # leading dot path test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, ".milk") => 0;
+    lfs2_stat(&lfs2, ".milk", &info) => 0;
+    strcmp(info.name, ".milk") => 0;
+    lfs2_stat(&lfs2, "tea/.././.milk", &info) => 0;
+    strcmp(info.name, ".milk") => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # root dot dot path test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "tea") => 0;
+    lfs2_mkdir(&lfs2, "tea/hottea") => 0;
+    lfs2_mkdir(&lfs2, "tea/warmtea") => 0;
+    lfs2_mkdir(&lfs2, "tea/coldtea") => 0;
+    lfs2_mkdir(&lfs2, "coffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/hotcoffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/warmcoffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/coldcoffee") => 0;
+
+    lfs2_stat(&lfs2, "coffee/../../../../../../tea/hottea", &info) => 0;
+    strcmp(info.name, "hottea") => 0;
+
+    lfs2_mkdir(&lfs2, "coffee/../../../../../../milk") => 0;
+    lfs2_stat(&lfs2, "coffee/../../../../../../milk", &info) => 0;
+    strcmp(info.name, "milk") => 0;
+    lfs2_stat(&lfs2, "milk", &info) => 0;
+    strcmp(info.name, "milk") => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # invalid path tests
+code = '''
+    lfs2_format(&lfs2, &cfg);
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "dirt", &info) => LFS2_ERR_NOENT;
+    lfs2_stat(&lfs2, "dirt/ground", &info) => LFS2_ERR_NOENT;
+    lfs2_stat(&lfs2, "dirt/ground/earth", &info) => LFS2_ERR_NOENT;
+
+    lfs2_remove(&lfs2, "dirt") => LFS2_ERR_NOENT;
+    lfs2_remove(&lfs2, "dirt/ground") => LFS2_ERR_NOENT;
+    lfs2_remove(&lfs2, "dirt/ground/earth") => LFS2_ERR_NOENT;
+
+    lfs2_mkdir(&lfs2, "dirt/ground") => LFS2_ERR_NOENT;
+    lfs2_file_open(&lfs2, &file, "dirt/ground", LFS2_O_WRONLY | LFS2_O_CREAT)
+            => LFS2_ERR_NOENT;
+    lfs2_mkdir(&lfs2, "dirt/ground/earth") => LFS2_ERR_NOENT;
+    lfs2_file_open(&lfs2, &file, "dirt/ground/earth", LFS2_O_WRONLY | LFS2_O_CREAT)
+            => LFS2_ERR_NOENT;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # root operations
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "/", &info) => 0;
+    assert(strcmp(info.name, "/") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+
+    lfs2_mkdir(&lfs2, "/") => LFS2_ERR_EXIST;
+    lfs2_file_open(&lfs2, &file, "/", LFS2_O_WRONLY | LFS2_O_CREAT)
+            => LFS2_ERR_ISDIR;
+
+    lfs2_remove(&lfs2, "/") => LFS2_ERR_INVAL;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # root representations
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "/", &info) => 0;
+    assert(strcmp(info.name, "/") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_stat(&lfs2, "", &info) => 0;
+    assert(strcmp(info.name, "/") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_stat(&lfs2, ".", &info) => 0;
+    assert(strcmp(info.name, "/") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_stat(&lfs2, "..", &info) => 0;
+    assert(strcmp(info.name, "/") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_stat(&lfs2, "//", &info) => 0;
+    assert(strcmp(info.name, "/") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_stat(&lfs2, "./", &info) => 0;
+    assert(strcmp(info.name, "/") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # superblock conflict test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "littlefs", &info) => LFS2_ERR_NOENT;
+    lfs2_remove(&lfs2, "littlefs") => LFS2_ERR_NOENT;
+
+    lfs2_mkdir(&lfs2, "littlefs") => 0;
+    lfs2_stat(&lfs2, "littlefs", &info) => 0;
+    assert(strcmp(info.name, "littlefs") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_remove(&lfs2, "littlefs") => 0;
+    lfs2_stat(&lfs2, "littlefs", &info) => LFS2_ERR_NOENT;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # max path test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "coffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/hotcoffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/warmcoffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/coldcoffee") => 0;
+
+    memset(path, 'w', LFS2_NAME_MAX+1);
+    path[LFS2_NAME_MAX+1] = '\0';
+    lfs2_mkdir(&lfs2, path) => LFS2_ERR_NAMETOOLONG;
+    lfs2_file_open(&lfs2, &file, path, LFS2_O_WRONLY | LFS2_O_CREAT)
+            => LFS2_ERR_NAMETOOLONG;
+
+    memcpy(path, "coffee/", strlen("coffee/"));
+    memset(path+strlen("coffee/"), 'w', LFS2_NAME_MAX+1);
+    path[strlen("coffee/")+LFS2_NAME_MAX+1] = '\0';
+    lfs2_mkdir(&lfs2, path) => LFS2_ERR_NAMETOOLONG;
+    lfs2_file_open(&lfs2, &file, path, LFS2_O_WRONLY | LFS2_O_CREAT)
+            => LFS2_ERR_NAMETOOLONG;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # really big path test
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "coffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/hotcoffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/warmcoffee") => 0;
+    lfs2_mkdir(&lfs2, "coffee/coldcoffee") => 0;
+
+    memset(path, 'w', LFS2_NAME_MAX);
+    path[LFS2_NAME_MAX] = '\0';
+    lfs2_mkdir(&lfs2, path) => 0;
+    lfs2_remove(&lfs2, path) => 0;
+    lfs2_file_open(&lfs2, &file, path,
+            LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_remove(&lfs2, path) => 0;
+
+    memcpy(path, "coffee/", strlen("coffee/"));
+    memset(path+strlen("coffee/"), 'w', LFS2_NAME_MAX);
+    path[strlen("coffee/")+LFS2_NAME_MAX] = '\0';
+    lfs2_mkdir(&lfs2, path) => 0;
+    lfs2_remove(&lfs2, path) => 0;
+    lfs2_file_open(&lfs2, &file, path,
+            LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_remove(&lfs2, path) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
+

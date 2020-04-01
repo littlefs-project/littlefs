@@ -1,0 +1,288 @@
+# Tests for recovering from conditions which shouldn't normally
+# happen during normal operation of littlefs
+
+# invalid pointer tests (outside of block_count)
+
+[[case]] # invalid tail-pointer test
+define.TAIL_TYPE = ['LFS2_TYPE_HARDTAIL', 'LFS2_TYPE_SOFTTAIL']
+define.INVALSET = [0x3, 0x1, 0x2]
+in = "lfs2.c"
+code = '''
+    // create littlefs
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    // change tail-pointer to invalid pointers
+    lfs2_init(&lfs2, &cfg) => 0;
+    lfs2_mdir_t mdir;
+    lfs2_dir_fetch(&lfs2, &mdir, (lfs2_block_t[2]){0, 1}) => 0;
+    lfs2_dir_commit(&lfs2, &mdir, LFS2_MKATTRS(
+            {LFS2_MKTAG(LFS2_TYPE_HARDTAIL, 0x3ff, 8),
+                (lfs2_block_t[2]){
+                    (INVALSET & 0x1) ? 0xcccccccc : 0,
+                    (INVALSET & 0x2) ? 0xcccccccc : 0}})) => 0;
+    lfs2_deinit(&lfs2) => 0;
+
+    // test that mount fails gracefully
+    lfs2_mount(&lfs2, &cfg) => LFS2_ERR_CORRUPT;
+'''
+
+[[case]] # invalid dir pointer test
+define.INVALSET = [0x3, 0x1, 0x2]
+in = "lfs2.c"
+code = '''
+    // create littlefs
+    lfs2_format(&lfs2, &cfg) => 0;
+    // make a dir
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "dir_here") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // change the dir pointer to be invalid
+    lfs2_init(&lfs2, &cfg) => 0;
+    lfs2_mdir_t mdir;
+    lfs2_dir_fetch(&lfs2, &mdir, (lfs2_block_t[2]){0, 1}) => 0;
+    // make sure id 1 == our directory
+    lfs2_dir_get(&lfs2, &mdir,
+            LFS2_MKTAG(0x700, 0x3ff, 0),
+            LFS2_MKTAG(LFS2_TYPE_NAME, 1, strlen("dir_here")), buffer)
+                => LFS2_MKTAG(LFS2_TYPE_DIR, 1, strlen("dir_here"));
+    assert(memcmp((char*)buffer, "dir_here", strlen("dir_here")) == 0);
+    // change dir pointer
+    lfs2_dir_commit(&lfs2, &mdir, LFS2_MKATTRS(
+            {LFS2_MKTAG(LFS2_TYPE_DIRSTRUCT, 1, 8),
+                (lfs2_block_t[2]){
+                    (INVALSET & 0x1) ? 0xcccccccc : 0,
+                    (INVALSET & 0x2) ? 0xcccccccc : 0}})) => 0;
+    lfs2_deinit(&lfs2) => 0;
+
+    // test that accessing our bad dir fails, note there's a number
+    // of ways to access the dir, some can fail, but some don't
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "dir_here", &info) => 0;
+    assert(strcmp(info.name, "dir_here") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+
+    lfs2_dir_open(&lfs2, &dir, "dir_here") => LFS2_ERR_CORRUPT;
+    lfs2_stat(&lfs2, "dir_here/file_here", &info) => LFS2_ERR_CORRUPT;
+    lfs2_dir_open(&lfs2, &dir, "dir_here/dir_here") => LFS2_ERR_CORRUPT;
+    lfs2_file_open(&lfs2, &file, "dir_here/file_here",
+            LFS2_O_RDONLY) => LFS2_ERR_CORRUPT;
+    lfs2_file_open(&lfs2, &file, "dir_here/file_here",
+            LFS2_O_WRONLY | LFS2_O_CREAT) => LFS2_ERR_CORRUPT;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # invalid file pointer test
+in = "lfs2.c"
+define.SIZE = [10, 1000, 100000] # faked file size
+code = '''
+    // create littlefs
+    lfs2_format(&lfs2, &cfg) => 0;
+    // make a file
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_open(&lfs2, &file, "file_here",
+            LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // change the file pointer to be invalid
+    lfs2_init(&lfs2, &cfg) => 0;
+    lfs2_mdir_t mdir;
+    lfs2_dir_fetch(&lfs2, &mdir, (lfs2_block_t[2]){0, 1}) => 0;
+    // make sure id 1 == our file
+    lfs2_dir_get(&lfs2, &mdir,
+            LFS2_MKTAG(0x700, 0x3ff, 0),
+            LFS2_MKTAG(LFS2_TYPE_NAME, 1, strlen("file_here")), buffer)
+                => LFS2_MKTAG(LFS2_TYPE_REG, 1, strlen("file_here"));
+    assert(memcmp((char*)buffer, "file_here", strlen("file_here")) == 0);
+    // change file pointer
+    lfs2_dir_commit(&lfs2, &mdir, LFS2_MKATTRS(
+            {LFS2_MKTAG(LFS2_TYPE_CTZSTRUCT, 1, sizeof(struct lfs2_ctz)),
+                &(struct lfs2_ctz){0xcccccccc, lfs2_tole32(SIZE)}})) => 0;
+    lfs2_deinit(&lfs2) => 0;
+
+    // test that accessing our bad file fails, note there's a number
+    // of ways to access the dir, some can fail, but some don't
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "file_here", &info) => 0;
+    assert(strcmp(info.name, "file_here") == 0);
+    assert(info.type == LFS2_TYPE_REG);
+    assert(info.size == SIZE);
+
+    lfs2_file_open(&lfs2, &file, "file_here", LFS2_O_RDONLY) => 0;
+    lfs2_file_read(&lfs2, &file, buffer, SIZE) => LFS2_ERR_CORRUPT;
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    // any allocs that traverse CTZ must unfortunately must fail
+    if (SIZE > 2*LFS2_BLOCK_SIZE) {
+        lfs2_mkdir(&lfs2, "dir_here") => LFS2_ERR_CORRUPT;
+    }
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # invalid pointer in CTZ skip-list test
+define.SIZE = ['2*LFS2_BLOCK_SIZE', '3*LFS2_BLOCK_SIZE', '4*LFS2_BLOCK_SIZE']
+in = "lfs2.c"
+code = '''
+    // create littlefs
+    lfs2_format(&lfs2, &cfg) => 0;
+    // make a file
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_open(&lfs2, &file, "file_here",
+            LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    for (int i = 0; i < SIZE; i++) {
+        char c = 'c';
+        lfs2_file_write(&lfs2, &file, &c, 1) => 1;
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+    // change pointer in CTZ skip-list to be invalid
+    lfs2_init(&lfs2, &cfg) => 0;
+    lfs2_mdir_t mdir;
+    lfs2_dir_fetch(&lfs2, &mdir, (lfs2_block_t[2]){0, 1}) => 0;
+    // make sure id 1 == our file and get our CTZ structure
+    lfs2_dir_get(&lfs2, &mdir,
+            LFS2_MKTAG(0x700, 0x3ff, 0),
+            LFS2_MKTAG(LFS2_TYPE_NAME, 1, strlen("file_here")), buffer)
+                => LFS2_MKTAG(LFS2_TYPE_REG, 1, strlen("file_here"));
+    assert(memcmp((char*)buffer, "file_here", strlen("file_here")) == 0);
+    struct lfs2_ctz ctz;
+    lfs2_dir_get(&lfs2, &mdir,
+            LFS2_MKTAG(0x700, 0x3ff, 0),
+            LFS2_MKTAG(LFS2_TYPE_STRUCT, 1, sizeof(struct lfs2_ctz)), &ctz)
+                => LFS2_MKTAG(LFS2_TYPE_CTZSTRUCT, 1, sizeof(struct lfs2_ctz));
+    lfs2_ctz_fromle32(&ctz);
+    // rewrite block to contain bad pointer
+    uint8_t bbuffer[LFS2_BLOCK_SIZE];
+    cfg.read(&cfg, ctz.head, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
+    uint32_t bad = lfs2_tole32(0xcccccccc);
+    memcpy(&bbuffer[0], &bad, sizeof(bad));
+    memcpy(&bbuffer[4], &bad, sizeof(bad));
+    cfg.erase(&cfg, ctz.head) => 0;
+    cfg.prog(&cfg, ctz.head, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
+    lfs2_deinit(&lfs2) => 0;
+
+    // test that accessing our bad file fails, note there's a number
+    // of ways to access the dir, some can fail, but some don't
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_stat(&lfs2, "file_here", &info) => 0;
+    assert(strcmp(info.name, "file_here") == 0);
+    assert(info.type == LFS2_TYPE_REG);
+    assert(info.size == SIZE);
+
+    lfs2_file_open(&lfs2, &file, "file_here", LFS2_O_RDONLY) => 0;
+    lfs2_file_read(&lfs2, &file, buffer, SIZE) => LFS2_ERR_CORRUPT;
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    // any allocs that traverse CTZ must unfortunately must fail
+    if (SIZE > 2*LFS2_BLOCK_SIZE) {
+        lfs2_mkdir(&lfs2, "dir_here") => LFS2_ERR_CORRUPT;
+    }
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+
+[[case]] # invalid gstate pointer
+define.INVALSET = [0x3, 0x1, 0x2]
+in = "lfs2.c"
+code = '''
+    // create littlefs
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    // create an invalid gstate
+    lfs2_init(&lfs2, &cfg) => 0;
+    lfs2_mdir_t mdir;
+    lfs2_dir_fetch(&lfs2, &mdir, (lfs2_block_t[2]){0, 1}) => 0;
+    lfs2_fs_prepmove(&lfs2, 1, (lfs2_block_t [2]){
+            (INVALSET & 0x1) ? 0xcccccccc : 0,
+            (INVALSET & 0x2) ? 0xcccccccc : 0});
+    lfs2_dir_commit(&lfs2, &mdir, NULL, 0) => 0;
+    lfs2_deinit(&lfs2) => 0;
+
+    // test that mount fails gracefully
+    // mount may not fail, but our first alloc should fail when
+    // we try to fix the gstate
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "should_fail") => LFS2_ERR_CORRUPT;
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+# cycle detection/recovery tests
+
+[[case]] # metadata-pair threaded-list loop test
+in = "lfs2.c"
+code = '''
+    // create littlefs
+    lfs2_format(&lfs2, &cfg) => 0;
+
+    // change tail-pointer to point to ourself
+    lfs2_init(&lfs2, &cfg) => 0;
+    lfs2_mdir_t mdir;
+    lfs2_dir_fetch(&lfs2, &mdir, (lfs2_block_t[2]){0, 1}) => 0;
+    lfs2_dir_commit(&lfs2, &mdir, LFS2_MKATTRS(
+            {LFS2_MKTAG(LFS2_TYPE_HARDTAIL, 0x3ff, 8),
+                (lfs2_block_t[2]){0, 1}})) => 0;
+    lfs2_deinit(&lfs2) => 0;
+
+    // test that mount fails gracefully
+    lfs2_mount(&lfs2, &cfg) => LFS2_ERR_CORRUPT;
+'''
+
+[[case]] # metadata-pair threaded-list 2-length loop test
+in = "lfs2.c"
+code = '''
+    // create littlefs with child dir
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "child") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // find child
+    lfs2_init(&lfs2, &cfg) => 0;
+    lfs2_mdir_t mdir;
+    lfs2_block_t pair[2];
+    lfs2_dir_fetch(&lfs2, &mdir, (lfs2_block_t[2]){0, 1}) => 0;
+    lfs2_dir_get(&lfs2, &mdir,
+            LFS2_MKTAG(0x7ff, 0x3ff, 0),
+            LFS2_MKTAG(LFS2_TYPE_DIRSTRUCT, 1, sizeof(pair)), pair)
+                => LFS2_MKTAG(LFS2_TYPE_DIRSTRUCT, 1, sizeof(pair));
+    lfs2_pair_fromle32(pair);
+    // change tail-pointer to point to root
+    lfs2_dir_fetch(&lfs2, &mdir, pair) => 0;
+    lfs2_dir_commit(&lfs2, &mdir, LFS2_MKATTRS(
+            {LFS2_MKTAG(LFS2_TYPE_HARDTAIL, 0x3ff, 8),
+                (lfs2_block_t[2]){0, 1}})) => 0;
+    lfs2_deinit(&lfs2) => 0;
+
+    // test that mount fails gracefully
+    lfs2_mount(&lfs2, &cfg) => LFS2_ERR_CORRUPT;
+'''
+
+[[case]] # metadata-pair threaded-list 1-length child loop test
+in = "lfs2.c"
+code = '''
+    // create littlefs with child dir
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mkdir(&lfs2, "child") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // find child
+    lfs2_init(&lfs2, &cfg) => 0;
+    lfs2_mdir_t mdir;
+    lfs2_block_t pair[2];
+    lfs2_dir_fetch(&lfs2, &mdir, (lfs2_block_t[2]){0, 1}) => 0;
+    lfs2_dir_get(&lfs2, &mdir,
+            LFS2_MKTAG(0x7ff, 0x3ff, 0),
+            LFS2_MKTAG(LFS2_TYPE_DIRSTRUCT, 1, sizeof(pair)), pair)
+                => LFS2_MKTAG(LFS2_TYPE_DIRSTRUCT, 1, sizeof(pair));
+    lfs2_pair_fromle32(pair);
+    // change tail-pointer to point to ourself
+    lfs2_dir_fetch(&lfs2, &mdir, pair) => 0;
+    lfs2_dir_commit(&lfs2, &mdir, LFS2_MKATTRS(
+            {LFS2_MKTAG(LFS2_TYPE_HARDTAIL, 0x3ff, 8), pair})) => 0;
+    lfs2_deinit(&lfs2) => 0;
+
+    // test that mount fails gracefully
+    lfs2_mount(&lfs2, &cfg) => LFS2_ERR_CORRUPT;
+'''

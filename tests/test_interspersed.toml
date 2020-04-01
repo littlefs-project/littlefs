@@ -1,0 +1,244 @@
+
+[[case]] # interspersed file test
+define.SIZE = [10, 100]
+define.FILES = [4, 10, 26] 
+code = '''
+    lfs2_file_t files[FILES];
+    const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int j = 0; j < FILES; j++) {
+        sprintf(path, "%c", alphas[j]);
+        lfs2_file_open(&lfs2, &files[j], path,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+    }
+
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < FILES; j++) {
+            lfs2_file_write(&lfs2, &files[j], &alphas[j], 1) => 1;
+        }
+    }
+
+    for (int j = 0; j < FILES; j++) {
+        lfs2_file_close(&lfs2, &files[j]);
+    }
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    for (int j = 0; j < FILES; j++) {
+        sprintf(path, "%c", alphas[j]);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS2_TYPE_REG);
+        assert(info.size == SIZE);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    for (int j = 0; j < FILES; j++) {
+        sprintf(path, "%c", alphas[j]);
+        lfs2_file_open(&lfs2, &files[j], path, LFS2_O_RDONLY) => 0;
+    }
+
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < FILES; j++) {
+            lfs2_file_read(&lfs2, &files[j], buffer, 1) => 1;
+            assert(buffer[0] == alphas[j]);
+        }
+    }
+
+    for (int j = 0; j < FILES; j++) {
+        lfs2_file_close(&lfs2, &files[j]);
+    }
+    
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # interspersed remove file test
+define.SIZE = [10, 100]
+define.FILES = [4, 10, 26]
+code = '''
+    const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int j = 0; j < FILES; j++) {
+        sprintf(path, "%c", alphas[j]);
+        lfs2_file_open(&lfs2, &file, path,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+        for (int i = 0; i < SIZE; i++) {
+            lfs2_file_write(&lfs2, &file, &alphas[j], 1) => 1;
+        }
+        lfs2_file_close(&lfs2, &file);
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_open(&lfs2, &file, "zzz", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    for (int j = 0; j < FILES; j++) {
+        lfs2_file_write(&lfs2, &file, (const void*)"~", 1) => 1;
+        lfs2_file_sync(&lfs2, &file) => 0;
+
+        sprintf(path, "%c", alphas[j]);
+        lfs2_remove(&lfs2, path) => 0;
+    }
+    lfs2_file_close(&lfs2, &file);
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "zzz") == 0);
+    assert(info.type == LFS2_TYPE_REG);
+    assert(info.size == FILES);
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    lfs2_file_open(&lfs2, &file, "zzz", LFS2_O_RDONLY) => 0;
+    for (int i = 0; i < FILES; i++) {
+        lfs2_file_read(&lfs2, &file, buffer, 1) => 1;
+        assert(buffer[0] == '~');
+    }
+    lfs2_file_close(&lfs2, &file);
+    
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # remove inconveniently test
+define.SIZE = [10, 100]
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_t files[3];
+    lfs2_file_open(&lfs2, &files[0], "e", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    lfs2_file_open(&lfs2, &files[1], "f", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+    lfs2_file_open(&lfs2, &files[2], "g", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
+
+    for (int i = 0; i < SIZE/2; i++) {
+        lfs2_file_write(&lfs2, &files[0], (const void*)"e", 1) => 1;
+        lfs2_file_write(&lfs2, &files[1], (const void*)"f", 1) => 1;
+        lfs2_file_write(&lfs2, &files[2], (const void*)"g", 1) => 1;
+    }
+
+    lfs2_remove(&lfs2, "f") => 0;
+
+    for (int i = 0; i < SIZE/2; i++) {
+        lfs2_file_write(&lfs2, &files[0], (const void*)"e", 1) => 1;
+        lfs2_file_write(&lfs2, &files[1], (const void*)"f", 1) => 1;
+        lfs2_file_write(&lfs2, &files[2], (const void*)"g", 1) => 1;
+    }
+
+    lfs2_file_close(&lfs2, &files[0]);
+    lfs2_file_close(&lfs2, &files[1]);
+    lfs2_file_close(&lfs2, &files[2]);
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "e") == 0);
+    assert(info.type == LFS2_TYPE_REG);
+    assert(info.size == SIZE);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "g") == 0);
+    assert(info.type == LFS2_TYPE_REG);
+    assert(info.size == SIZE);
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    lfs2_file_open(&lfs2, &files[0], "e", LFS2_O_RDONLY) => 0;
+    lfs2_file_open(&lfs2, &files[1], "g", LFS2_O_RDONLY) => 0;
+    for (int i = 0; i < SIZE; i++) {
+        lfs2_file_read(&lfs2, &files[0], buffer, 1) => 1;
+        assert(buffer[0] == 'e');
+        lfs2_file_read(&lfs2, &files[1], buffer, 1) => 1;
+        assert(buffer[0] == 'g');
+    }
+    lfs2_file_close(&lfs2, &files[0]);
+    lfs2_file_close(&lfs2, &files[1]);
+    
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # reentrant interspersed file test
+define.SIZE = [10, 100]
+define.FILES = [4, 10, 26] 
+reentrant = true
+code = '''
+    lfs2_file_t files[FILES];
+    const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
+
+    err = lfs2_mount(&lfs2, &cfg);
+    if (err) {
+        lfs2_format(&lfs2, &cfg) => 0;
+        lfs2_mount(&lfs2, &cfg) => 0;
+    }
+
+    for (int j = 0; j < FILES; j++) {
+        sprintf(path, "%c", alphas[j]);
+        lfs2_file_open(&lfs2, &files[j], path,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
+    }
+
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < FILES; j++) {
+            size = lfs2_file_size(&lfs2, &files[j]);
+            assert((int)size >= 0);
+            if ((int)size <= i) {
+                lfs2_file_write(&lfs2, &files[j], &alphas[j], 1) => 1;
+                lfs2_file_sync(&lfs2, &files[j]) => 0;
+            }
+        }
+    }
+
+    for (int j = 0; j < FILES; j++) {
+        lfs2_file_close(&lfs2, &files[j]);
+    }
+
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS2_TYPE_DIR);
+    for (int j = 0; j < FILES; j++) {
+        sprintf(path, "%c", alphas[j]);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(strcmp(info.name, path) == 0);
+        assert(info.type == LFS2_TYPE_REG);
+        assert(info.size == SIZE);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+
+    for (int j = 0; j < FILES; j++) {
+        sprintf(path, "%c", alphas[j]);
+        lfs2_file_open(&lfs2, &files[j], path, LFS2_O_RDONLY) => 0;
+    }
+
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < FILES; j++) {
+            lfs2_file_read(&lfs2, &files[j], buffer, 1) => 1;
+            assert(buffer[0] == alphas[j]);
+        }
+    }
+
+    for (int j = 0; j < FILES; j++) {
+        lfs2_file_close(&lfs2, &files[j]);
+    }
+    
+    lfs2_unmount(&lfs2) => 0;
+'''

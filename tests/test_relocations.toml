@@ -1,0 +1,305 @@
+# specific corner cases worth explicitly testing for
+[[case]] # dangling split dir test
+define.ITERATIONS = 20
+define.COUNT = 10
+define.LFS2_BLOCK_CYCLES = [8, 1]
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    // fill up filesystem so only ~16 blocks are left
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_open(&lfs2, &file, "padding", LFS2_O_CREAT | LFS2_O_WRONLY) => 0;
+    memset(buffer, 0, 512);
+    while (LFS2_BLOCK_COUNT - lfs2_fs_size(&lfs2) > 16) {
+        lfs2_file_write(&lfs2, &file, buffer, 512) => 512;
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+    // make a child dir to use in bounded space
+    lfs2_mkdir(&lfs2, "child") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int j = 0; j < ITERATIONS; j++) {
+        for (int i = 0; i < COUNT; i++) {
+            sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
+            lfs2_file_open(&lfs2, &file, path, LFS2_O_CREAT | LFS2_O_WRONLY) => 0;
+            lfs2_file_close(&lfs2, &file) => 0;
+        }
+
+        lfs2_dir_open(&lfs2, &dir, "child") => 0;
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        for (int i = 0; i < COUNT; i++) {
+            sprintf(path, "test%03d_loooooooooooooooooong_name", i);
+            lfs2_dir_read(&lfs2, &dir, &info) => 1;
+            strcmp(info.name, path) => 0;
+        }
+        lfs2_dir_read(&lfs2, &dir, &info) => 0;
+        lfs2_dir_close(&lfs2, &dir) => 0;
+
+        if (j == ITERATIONS-1) {
+            break;
+        }
+
+        for (int i = 0; i < COUNT; i++) {
+            sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
+            lfs2_remove(&lfs2, path) => 0;
+        }
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_dir_open(&lfs2, &dir, "child") => 0;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    for (int i = 0; i < COUNT; i++) {
+        sprintf(path, "test%03d_loooooooooooooooooong_name", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        strcmp(info.name, path) => 0;
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    for (int i = 0; i < COUNT; i++) {
+        sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
+        lfs2_remove(&lfs2, path) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # outdated head test
+define.ITERATIONS = 20
+define.COUNT = 10
+define.LFS2_BLOCK_CYCLES = [8, 1]
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    // fill up filesystem so only ~16 blocks are left
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_open(&lfs2, &file, "padding", LFS2_O_CREAT | LFS2_O_WRONLY) => 0;
+    memset(buffer, 0, 512);
+    while (LFS2_BLOCK_COUNT - lfs2_fs_size(&lfs2) > 16) {
+        lfs2_file_write(&lfs2, &file, buffer, 512) => 512;
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+    // make a child dir to use in bounded space
+    lfs2_mkdir(&lfs2, "child") => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, &cfg) => 0;
+    for (int j = 0; j < ITERATIONS; j++) {
+        for (int i = 0; i < COUNT; i++) {
+            sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
+            lfs2_file_open(&lfs2, &file, path, LFS2_O_CREAT | LFS2_O_WRONLY) => 0;
+            lfs2_file_close(&lfs2, &file) => 0;
+        }
+
+        lfs2_dir_open(&lfs2, &dir, "child") => 0;
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        for (int i = 0; i < COUNT; i++) {
+            sprintf(path, "test%03d_loooooooooooooooooong_name", i);
+            lfs2_dir_read(&lfs2, &dir, &info) => 1;
+            strcmp(info.name, path) => 0;
+            info.size => 0;
+
+            sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
+            lfs2_file_open(&lfs2, &file, path, LFS2_O_WRONLY) => 0;
+            lfs2_file_write(&lfs2, &file, "hi", 2) => 2;
+            lfs2_file_close(&lfs2, &file) => 0;
+        }
+        lfs2_dir_read(&lfs2, &dir, &info) => 0;
+
+        lfs2_dir_rewind(&lfs2, &dir) => 0;
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        for (int i = 0; i < COUNT; i++) {
+            sprintf(path, "test%03d_loooooooooooooooooong_name", i);
+            lfs2_dir_read(&lfs2, &dir, &info) => 1;
+            strcmp(info.name, path) => 0;
+            info.size => 2;
+
+            sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
+            lfs2_file_open(&lfs2, &file, path, LFS2_O_WRONLY) => 0;
+            lfs2_file_write(&lfs2, &file, "hi", 2) => 2;
+            lfs2_file_close(&lfs2, &file) => 0;
+        }
+        lfs2_dir_read(&lfs2, &dir, &info) => 0;
+
+        lfs2_dir_rewind(&lfs2, &dir) => 0;
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        for (int i = 0; i < COUNT; i++) {
+            sprintf(path, "test%03d_loooooooooooooooooong_name", i);
+            lfs2_dir_read(&lfs2, &dir, &info) => 1;
+            strcmp(info.name, path) => 0;
+            info.size => 2;
+        }
+        lfs2_dir_read(&lfs2, &dir, &info) => 0;
+        lfs2_dir_close(&lfs2, &dir) => 0;
+
+        for (int i = 0; i < COUNT; i++) {
+            sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
+            lfs2_remove(&lfs2, path) => 0;
+        }
+    }
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # reentrant testing for relocations, this is the same as the
+         # orphan testing, except here we also set block_cycles so that
+         # almost every tree operation needs a relocation
+reentrant = true
+# TODO fix this case, caused by non-DAG trees
+if = '!(DEPTH == 3 && LFS2_CACHE_SIZE != 64)'
+define = [
+    {FILES=6,  DEPTH=1, CYCLES=20, LFS2_BLOCK_CYCLES=1},
+    {FILES=26, DEPTH=1, CYCLES=20, LFS2_BLOCK_CYCLES=1},
+    {FILES=3,  DEPTH=3, CYCLES=20, LFS2_BLOCK_CYCLES=1},
+]
+code = '''
+    err = lfs2_mount(&lfs2, &cfg);
+    if (err) {
+        lfs2_format(&lfs2, &cfg) => 0;
+        lfs2_mount(&lfs2, &cfg) => 0;
+    }
+
+    srand(1);
+    const char alpha[] = "abcdefghijklmnopqrstuvwxyz";
+    for (int i = 0; i < CYCLES; i++) {
+        // create random path
+        char full_path[256];
+        for (int d = 0; d < DEPTH; d++) {
+            sprintf(&full_path[2*d], "/%c", alpha[rand() % FILES]);
+        }
+
+        // if it does not exist, we create it, else we destroy
+        int res = lfs2_stat(&lfs2, full_path, &info);
+        if (res == LFS2_ERR_NOENT) {
+            // create each directory in turn, ignore if dir already exists
+            for (int d = 0; d < DEPTH; d++) {
+                strcpy(path, full_path);
+                path[2*d+2] = '\0';
+                err = lfs2_mkdir(&lfs2, path);
+                assert(!err || err == LFS2_ERR_EXIST);
+            }
+
+            for (int d = 0; d < DEPTH; d++) {
+                strcpy(path, full_path);
+                path[2*d+2] = '\0';
+                lfs2_stat(&lfs2, path, &info) => 0;
+                assert(strcmp(info.name, &path[2*d+1]) == 0);
+                assert(info.type == LFS2_TYPE_DIR);
+            }
+        } else {
+            // is valid dir?
+            assert(strcmp(info.name, &full_path[2*(DEPTH-1)+1]) == 0);
+            assert(info.type == LFS2_TYPE_DIR);
+
+            // try to delete path in reverse order, ignore if dir is not empty
+            for (int d = DEPTH-1; d >= 0; d--) {
+                strcpy(path, full_path);
+                path[2*d+2] = '\0';
+                err = lfs2_remove(&lfs2, path);
+                assert(!err || err == LFS2_ERR_NOTEMPTY);
+            }
+
+            lfs2_stat(&lfs2, full_path, &info) => LFS2_ERR_NOENT;
+        }
+    }
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[[case]] # reentrant testing for relocations, but now with random renames!
+reentrant = true
+# TODO fix this case, caused by non-DAG trees
+if = '!(DEPTH == 3 && LFS2_CACHE_SIZE != 64)'
+define = [
+    {FILES=6,  DEPTH=1, CYCLES=20, LFS2_BLOCK_CYCLES=1},
+    {FILES=26, DEPTH=1, CYCLES=20, LFS2_BLOCK_CYCLES=1},
+    {FILES=3,  DEPTH=3, CYCLES=20, LFS2_BLOCK_CYCLES=1},
+]
+code = '''
+    err = lfs2_mount(&lfs2, &cfg);
+    if (err) {
+        lfs2_format(&lfs2, &cfg) => 0;
+        lfs2_mount(&lfs2, &cfg) => 0;
+    }
+
+    srand(1);
+    const char alpha[] = "abcdefghijklmnopqrstuvwxyz";
+    for (int i = 0; i < CYCLES; i++) {
+        // create random path
+        char full_path[256];
+        for (int d = 0; d < DEPTH; d++) {
+            sprintf(&full_path[2*d], "/%c", alpha[rand() % FILES]);
+        }
+
+        // if it does not exist, we create it, else we destroy
+        int res = lfs2_stat(&lfs2, full_path, &info);
+        assert(!res || res == LFS2_ERR_NOENT);
+        if (res == LFS2_ERR_NOENT) {
+            // create each directory in turn, ignore if dir already exists
+            for (int d = 0; d < DEPTH; d++) {
+                strcpy(path, full_path);
+                path[2*d+2] = '\0';
+                err = lfs2_mkdir(&lfs2, path);
+                assert(!err || err == LFS2_ERR_EXIST);
+            }
+
+            for (int d = 0; d < DEPTH; d++) {
+                strcpy(path, full_path);
+                path[2*d+2] = '\0';
+                lfs2_stat(&lfs2, path, &info) => 0;
+                assert(strcmp(info.name, &path[2*d+1]) == 0);
+                assert(info.type == LFS2_TYPE_DIR);
+            }
+        } else {
+            assert(strcmp(info.name, &full_path[2*(DEPTH-1)+1]) == 0);
+            assert(info.type == LFS2_TYPE_DIR);
+
+            // create new random path
+            char new_path[256];
+            for (int d = 0; d < DEPTH; d++) {
+                sprintf(&new_path[2*d], "/%c", alpha[rand() % FILES]);
+            }
+
+            // if new path does not exist, rename, otherwise destroy
+            res = lfs2_stat(&lfs2, new_path, &info);
+            assert(!res || res == LFS2_ERR_NOENT);
+            if (res == LFS2_ERR_NOENT) {
+                // stop once some dir is renamed
+                for (int d = 0; d < DEPTH; d++) {
+                    strcpy(&path[2*d], &full_path[2*d]);
+                    path[2*d+2] = '\0';
+                    strcpy(&path[128+2*d], &new_path[2*d]);
+                    path[128+2*d+2] = '\0';
+                    err = lfs2_rename(&lfs2, path, path+128);
+                    assert(!err || err == LFS2_ERR_NOTEMPTY);
+                    if (!err) {
+                        strcpy(path, path+128);
+                    }
+                }
+
+                for (int d = 0; d < DEPTH; d++) {
+                    strcpy(path, new_path);
+                    path[2*d+2] = '\0';
+                    lfs2_stat(&lfs2, path, &info) => 0;
+                    assert(strcmp(info.name, &path[2*d+1]) == 0);
+                    assert(info.type == LFS2_TYPE_DIR);
+                }
+                
+                lfs2_stat(&lfs2, full_path, &info) => LFS2_ERR_NOENT;
+            } else {
+                // try to delete path in reverse order,
+                // ignore if dir is not empty
+                for (int d = DEPTH-1; d >= 0; d--) {
+                    strcpy(path, full_path);
+                    path[2*d+2] = '\0';
+                    err = lfs2_remove(&lfs2, path);
+                    assert(!err || err == LFS2_ERR_NOTEMPTY);
+                }
+
+                lfs2_stat(&lfs2, full_path, &info) => LFS2_ERR_NOENT;
+            }
+        }
+    }
+    lfs2_unmount(&lfs2) => 0;
+'''

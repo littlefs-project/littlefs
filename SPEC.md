@@ -289,8 +289,8 @@ Layout of the name tag:
 ```
         tag                          data
 [--      32      --][---        variable length        ---]
-[1| 3| 8 | 10 | 10 ][---            (size)             ---]
- ^  ^  ^    ^    ^- size               ^- file name
+[1| 3| 8 | 10 | 10 ][---          (size * 8)           ---]
+ ^  ^  ^    ^    ^- size                   ^- file name
  |  |  |    '------ id
  |  |  '----------- file type
  |  '-------------- type1 (0x0)
@@ -470,8 +470,8 @@ Layout of the inline-struct tag:
 ```
         tag                          data
 [--      32      --][---        variable length        ---]
-[1|- 11 -| 10 | 10 ][---            (size)             ---]
- ^    ^     ^    ^- size               ^- inline data
+[1|- 11 -| 10 | 10 ][---           (size * 8)          ---]
+ ^    ^     ^    ^- size                    ^- inline data
  |    |     '------ id
  |    '------------ type (0x201)
  '----------------- valid bit
@@ -556,8 +556,8 @@ Layout of the user-attr tag:
 ```
         tag                          data
 [--      32      --][---        variable length        ---]
-[1| 3| 8 | 10 | 10 ][---            (size)             ---]
- ^  ^  ^    ^    ^- size               ^- attr data
+[1| 3| 8 | 10 | 10 ][---           (size * 8)          ---]
+ ^  ^  ^    ^    ^- size                    ^- attr data
  |  |  |    '------ id
  |  |  '----------- attr type
  |  '-------------- type1 (0x3)
@@ -764,9 +764,9 @@ Layout of the CRC tag:
 ```
         tag                                    data
 [--      32      --][--      32      --|---        variable length        ---]
-[1| 3| 8 | 10 | 10 ][--      32      --|---            (size)             ---]
- ^  ^  ^    ^    ^            ^- crc                      ^- padding
- |  |  |    |    '- size (12)
+[1| 3| 8 | 10 | 10 ][--      32      --|---        (size * 8 - 32)        ---]
+ ^  ^  ^    ^    ^            ^- crc                             ^- padding
+ |  |  |    |    '- size
  |  |  |    '------ id (0x3ff)
  |  |  '----------- valid state
  |  '-------------- type1 (0x5)
