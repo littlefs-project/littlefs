@@ -2432,9 +2432,9 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
         // get next slot and create entry to remember name
         err = lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
-                {LFS_MKTAG(LFS_TYPE_CREATE, file->id, 0)},
+                {LFS_MKTAG(LFS_TYPE_CREATE, file->id, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_REG, file->id, nlen), path},
-                {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0)}));
+                {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0), NULL}));
         if (err) {
             err = LFS_ERR_NAMETOOLONG;
             goto cleanup;
@@ -3200,7 +3200,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 
     // delete the entry
     err = lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
-            {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(tag), 0)}));
+            {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(tag), 0), NULL}));
     if (err) {
         lfs->mlist = dir.next;
         LFS_TRACE("lfs_remove -> %d", err);
@@ -3326,12 +3326,12 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     // move over all attributes
     err = lfs_dir_commit(lfs, &newcwd, LFS_MKATTRS(
             {LFS_MKTAG_IF(prevtag != LFS_ERR_NOENT,
-                LFS_TYPE_DELETE, newid, 0)},
-            {LFS_MKTAG(LFS_TYPE_CREATE, newid, 0)},
+                LFS_TYPE_DELETE, newid, 0), NULL},
+            {LFS_MKTAG(LFS_TYPE_CREATE, newid, 0), NULL},
             {LFS_MKTAG(lfs_tag_type3(oldtag), newid, strlen(newpath)), newpath},
             {LFS_MKTAG(LFS_FROM_MOVE, newid, lfs_tag_id(oldtag)), &oldcwd},
             {LFS_MKTAG_IF(samepair,
-                LFS_TYPE_DELETE, newoldid, 0)}));
+                LFS_TYPE_DELETE, newoldid, 0), NULL}));
     if (err) {
         lfs->mlist = prevdir.next;
         LFS_TRACE("lfs_rename -> %d", err);
@@ -3344,7 +3344,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         // prep gstate and delete move id
         lfs_fs_prepmove(lfs, 0x3ff, NULL);
         err = lfs_dir_commit(lfs, &oldcwd, LFS_MKATTRS(
-                {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(oldtag), 0)}));
+                {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(oldtag), 0), NULL}));
         if (err) {
             lfs->mlist = prevdir.next;
             LFS_TRACE("lfs_rename -> %d", err);
@@ -3636,7 +3636,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
         lfs_superblock_tole32(&superblock);
         err = lfs_dir_commit(lfs, &root, LFS_MKATTRS(
-                {LFS_MKTAG(LFS_TYPE_CREATE, 0, 0)},
+                {LFS_MKTAG(LFS_TYPE_CREATE, 0, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
                 {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
                     &superblock}));
@@ -4050,7 +4050,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
         lfs_pair_tole32(newpair);
         int err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
                 {LFS_MKTAG_IF(moveid != 0x3ff,
-                    LFS_TYPE_DELETE, moveid, 0)},
+                    LFS_TYPE_DELETE, moveid, 0), NULL},
                 {tag, newpair}));
         lfs_pair_fromle32(newpair);
         if (err) {
@@ -4084,7 +4084,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
         lfs_pair_tole32(newpair);
         err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
                 {LFS_MKTAG_IF(moveid != 0x3ff,
-                    LFS_TYPE_DELETE, moveid, 0)},
+                    LFS_TYPE_DELETE, moveid, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_TAIL + parent.split, 0x3ff, 8), newpair}));
         lfs_pair_fromle32(newpair);
         if (err) {
@@ -4132,7 +4132,7 @@ static int lfs_fs_demove(lfs_t *lfs) {
     uint16_t moveid = lfs_tag_id(lfs->gdisk.tag);
     lfs_fs_prepmove(lfs, 0x3ff, NULL);
     err = lfs_dir_commit(lfs, &movedir, LFS_MKATTRS(
-            {LFS_MKTAG(LFS_TYPE_DELETE, moveid, 0)}));
+            {LFS_MKTAG(LFS_TYPE_DELETE, moveid, 0), NULL}));
     if (err) {
         return err;
     }
