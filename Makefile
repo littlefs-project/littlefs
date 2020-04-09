@@ -26,8 +26,6 @@ endif
 override CFLAGS += -I.
 override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
-# Remove missing-field-initializers because of GCC bug
-override CFLAGS += -Wno-missing-field-initializers
 
 ifdef VERBOSE
 override TFLAGS += -v
