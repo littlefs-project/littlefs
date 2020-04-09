@@ -2432,9 +2432,9 @@ int lfs2_file_opencfg(lfs2_t *lfs2, lfs2_file_t *file,
 
         // get next slot and create entry to remember name
         err = lfs2_dir_commit(lfs2, &file->m, LFS2_MKATTRS(
-                {LFS2_MKTAG(LFS2_TYPE_CREATE, file->id, 0)},
+                {LFS2_MKTAG(LFS2_TYPE_CREATE, file->id, 0), NULL},
                 {LFS2_MKTAG(LFS2_TYPE_REG, file->id, nlen), path},
-                {LFS2_MKTAG(LFS2_TYPE_INLINESTRUCT, file->id, 0)}));
+                {LFS2_MKTAG(LFS2_TYPE_INLINESTRUCT, file->id, 0), NULL}));
         if (err) {
             err = LFS2_ERR_NAMETOOLONG;
             goto cleanup;
@@ -3200,7 +3200,7 @@ int lfs2_remove(lfs2_t *lfs2, const char *path) {
 
     // delete the entry
     err = lfs2_dir_commit(lfs2, &cwd, LFS2_MKATTRS(
-            {LFS2_MKTAG(LFS2_TYPE_DELETE, lfs2_tag_id(tag), 0)}));
+            {LFS2_MKTAG(LFS2_TYPE_DELETE, lfs2_tag_id(tag), 0), NULL}));
     if (err) {
         lfs2->mlist = dir.next;
         LFS2_TRACE("lfs2_remove -> %d", err);
@@ -3326,12 +3326,12 @@ int lfs2_rename(lfs2_t *lfs2, const char *oldpath, const char *newpath) {
     // move over all attributes
     err = lfs2_dir_commit(lfs2, &newcwd, LFS2_MKATTRS(
             {LFS2_MKTAG_IF(prevtag != LFS2_ERR_NOENT,
-                LFS2_TYPE_DELETE, newid, 0)},
-            {LFS2_MKTAG(LFS2_TYPE_CREATE, newid, 0)},
+                LFS2_TYPE_DELETE, newid, 0), NULL},
+            {LFS2_MKTAG(LFS2_TYPE_CREATE, newid, 0), NULL},
             {LFS2_MKTAG(lfs2_tag_type3(oldtag), newid, strlen(newpath)), newpath},
             {LFS2_MKTAG(LFS2_FROM_MOVE, newid, lfs2_tag_id(oldtag)), &oldcwd},
             {LFS2_MKTAG_IF(samepair,
-                LFS2_TYPE_DELETE, newoldid, 0)}));
+                LFS2_TYPE_DELETE, newoldid, 0), NULL}));
     if (err) {
         lfs2->mlist = prevdir.next;
         LFS2_TRACE("lfs2_rename -> %d", err);
@@ -3344,7 +3344,7 @@ int lfs2_rename(lfs2_t *lfs2, const char *oldpath, const char *newpath) {
         // prep gstate and delete move id
         lfs2_fs_prepmove(lfs2, 0x3ff, NULL);
         err = lfs2_dir_commit(lfs2, &oldcwd, LFS2_MKATTRS(
-                {LFS2_MKTAG(LFS2_TYPE_DELETE, lfs2_tag_id(oldtag), 0)}));
+                {LFS2_MKTAG(LFS2_TYPE_DELETE, lfs2_tag_id(oldtag), 0), NULL}));
         if (err) {
             lfs2->mlist = prevdir.next;
             LFS2_TRACE("lfs2_rename -> %d", err);
@@ -3636,7 +3636,7 @@ int lfs2_format(lfs2_t *lfs2, const struct lfs2_config *cfg) {
 
         lfs2_superblock_tole32(&superblock);
         err = lfs2_dir_commit(lfs2, &root, LFS2_MKATTRS(
-                {LFS2_MKTAG(LFS2_TYPE_CREATE, 0, 0)},
+                {LFS2_MKTAG(LFS2_TYPE_CREATE, 0, 0), NULL},
                 {LFS2_MKTAG(LFS2_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
                 {LFS2_MKTAG(LFS2_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
                     &superblock}));
@@ -4050,7 +4050,7 @@ static int lfs2_fs_relocate(lfs2_t *lfs2,
         lfs2_pair_tole32(newpair);
         int err = lfs2_dir_commit(lfs2, &parent, LFS2_MKATTRS(
                 {LFS2_MKTAG_IF(moveid != 0x3ff,
-                    LFS2_TYPE_DELETE, moveid, 0)},
+                    LFS2_TYPE_DELETE, moveid, 0), NULL},
                 {tag, newpair}));
         lfs2_pair_fromle32(newpair);
         if (err) {
@@ -4084,7 +4084,7 @@ static int lfs2_fs_relocate(lfs2_t *lfs2,
         lfs2_pair_tole32(newpair);
         err = lfs2_dir_commit(lfs2, &parent, LFS2_MKATTRS(
                 {LFS2_MKTAG_IF(moveid != 0x3ff,
-                    LFS2_TYPE_DELETE, moveid, 0)},
+                    LFS2_TYPE_DELETE, moveid, 0), NULL},
                 {LFS2_MKTAG(LFS2_TYPE_TAIL + parent.split, 0x3ff, 8), newpair}));
         lfs2_pair_fromle32(newpair);
         if (err) {
@@ -4132,7 +4132,7 @@ static int lfs2_fs_demove(lfs2_t *lfs2) {
     uint16_t moveid = lfs2_tag_id(lfs2->gdisk.tag);
     lfs2_fs_prepmove(lfs2, 0x3ff, NULL);
     err = lfs2_dir_commit(lfs2, &movedir, LFS2_MKATTRS(
-            {LFS2_MKTAG(LFS2_TYPE_DELETE, moveid, 0)}));
+            {LFS2_MKTAG(LFS2_TYPE_DELETE, moveid, 0), NULL}));
     if (err) {
         return err;
     }
