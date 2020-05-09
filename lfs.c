@@ -1925,7 +1925,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // check that name fits
-    lfs_size_t nlen = strlen(path);
+    lfs_size_t nlen = strnlen(path, 1+(size_t)lfs->name_max);
     if (nlen > lfs->name_max) {
         LFS_TRACE("lfs_mkdir -> %d", LFS_ERR_NAMETOOLONG);
         return LFS_ERR_NAMETOOLONG;
@@ -2424,7 +2424,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         }
 
         // check that name fits
-        lfs_size_t nlen = strlen(path);
+        lfs_size_t nlen = strnlen(path, 1+(size_t)lfs->name_max);
         if (nlen > lfs->name_max) {
             err = LFS_ERR_NAMETOOLONG;
             goto cleanup;
@@ -3267,7 +3267,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     prevdir.next = lfs->mlist;
     if (prevtag == LFS_ERR_NOENT) {
         // check that name fits
-        lfs_size_t nlen = strlen(newpath);
+        lfs_size_t nlen = strnlen(newpath, 1+(size_t)lfs->name_max);
         if (nlen > lfs->name_max) {
             LFS_TRACE("lfs_rename -> %d", LFS_ERR_NAMETOOLONG);
             return LFS_ERR_NAMETOOLONG;
