@@ -524,7 +524,7 @@ static int _dfs_lfs_rename(struct dfs_filesystem* dfs, const char* from, const c
 
     RT_ASSERT(dfs != RT_NULL);
     RT_ASSERT(dfs->data != RT_NULL);
-  
+
     lfs_dfs_lock();
     dfs_lfs = (dfs_lfs_t*)dfs->data;
 
