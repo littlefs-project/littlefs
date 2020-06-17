@@ -411,6 +411,17 @@ static inline void lfs_superblock_tole32(lfs_superblock_t *superblock) {
     superblock->attr_max    = lfs_tole32(superblock->attr_max);
 }
 
+static inline bool lfs_mlist_isopen(struct lfs_mlist *head,
+        struct lfs_mlist *node) {
+    for (struct lfs_mlist **p = &head; *p; p = &(*p)->next) {
+        if (*p == (struct lfs_mlist*)node) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
 /// Internal operations predeclared here ///
 static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
@@ -2007,6 +2018,8 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
+    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)dir));
+
     lfs_stag_t tag = lfs_dir_find(lfs, &dir->m, &path, NULL);
     if (tag < 0) {
         LFS_TRACE("lfs_dir_open -> %"PRId32, tag);
@@ -2387,6 +2400,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
                  ".buffer=%p, .attrs=%p, .attr_count=%"PRIu32"})",
             (void*)lfs, (void*)file, path, flags,
             (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
+    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     // deorphan if we haven't yet, needed at most once after poweron
     if ((flags & 3) != LFS_O_RDONLY) {
