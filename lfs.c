@@ -2418,7 +2418,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     // deorphan if we haven't yet, needed at most once after poweron
-    if ((flags & 3) != LFS_O_RDONLY) {
+    if ((flags & LFS_O_RDWR) != LFS_O_RDONLY) {
         int err = lfs_fs_forceconsistency(lfs);
         if (err) {
             LFS_TRACE("lfs_file_opencfg -> %d", err);
@@ -2493,7 +2493,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
     // fetch attrs
     for (unsigned i = 0; i < file->cfg->attr_count; i++) {
-        if ((file->flags & 3) != LFS_O_WRONLY) {
+        if ((file->flags & LFS_O_RDWR) != LFS_O_WRONLY) {
             lfs_stag_t res = lfs_dir_get(lfs, &file->m,
                     LFS_MKTAG(0x7ff, 0x3ff, 0),
                     LFS_MKTAG(LFS_TYPE_USERATTR + file->cfg->attrs[i].type,
@@ -2505,7 +2505,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
             }
         }
 
-        if ((file->flags & 3) != LFS_O_RDONLY) {
+        if ((file->flags & LFS_O_RDWR) != LFS_O_RDONLY) {
             if (file->cfg->attrs[i].size > lfs->attr_max) {
                 err = LFS_ERR_NOSPC;
                 goto cleanup;
@@ -2822,7 +2822,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     LFS_TRACE("lfs_file_read(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
-    LFS_ASSERT((file->flags & 3) != LFS_O_WRONLY);
+    LFS_ASSERT((file->flags & LFS_O_RDWR) != LFS_O_WRONLY);
 
     uint8_t *data = buffer;
     lfs_size_t nsize = size;
@@ -2902,7 +2902,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     LFS_TRACE("lfs_file_write(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
-    LFS_ASSERT((file->flags & 3) != LFS_O_RDONLY);
+    LFS_ASSERT((file->flags & LFS_O_RDWR) != LFS_O_RDONLY);
 
     const uint8_t *data = buffer;
     lfs_size_t nsize = size;
@@ -3067,7 +3067,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_TRACE("lfs_file_truncate(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, size);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
-    LFS_ASSERT((file->flags & 3) != LFS_O_RDONLY);
+    LFS_ASSERT((file->flags & LFS_O_RDWR) != LFS_O_RDONLY);
 
     if (size > LFS_FILE_MAX) {
         LFS_TRACE("lfs_file_truncate -> %d", LFS_ERR_INVAL);
