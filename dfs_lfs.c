@@ -236,7 +236,7 @@ static void _lfs_load_config(struct lfs_config* lfs_cfg, struct rt_mtd_nor_devic
     lfs_cfg->cache_size = LFS_CACHE_SIZE;
     lfs_cfg->block_cycles = LFS_BLOCK_CYCLES;
 
-    lfs_cfg->block_count = mtd_nor->block_end - mtd_nor->block_start;
+    lfs_cfg->block_count = (mtd_nor->block_end - mtd_nor->block_start) * mtd_nor->block_size / lfs_cfg->block_size;
 
     lfs_cfg->lookahead_size = 32 * ((lfs_cfg->block_count + 31) / 32);
     if (lfs_cfg->lookahead_size > LFS_LOOKAHEAD_MAX)
@@ -524,7 +524,7 @@ static int _dfs_lfs_rename(struct dfs_filesystem* dfs, const char* from, const c
 
     RT_ASSERT(dfs != RT_NULL);
     RT_ASSERT(dfs->data != RT_NULL);
-  
+
     lfs_dfs_lock();
     dfs_lfs = (dfs_lfs_t*)dfs->data;
 
