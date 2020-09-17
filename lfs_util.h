@@ -43,6 +43,9 @@ extern "C"
 {
 #endif
 
+#ifndef LFS_THREAD_SAFE
+#define LFS_THREAD_SAFE 0
+#endif
 
 // Macros, may be replaced by system specific wrappers. Arguments to these
 // macros must not have side-effects as the macros can be removed for a smaller

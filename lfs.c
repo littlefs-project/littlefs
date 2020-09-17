@@ -1525,7 +1525,7 @@ static int lfs_dir_compact(lfs_t *lfs,
         if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
             // oh no! we're writing too much to the superblock,
             // should we expand?
-            lfs_ssize_t res = lfs_fs_size(lfs);
+            lfs_ssize_t res = _lfs_fs_size(lfs);
             if (res < 0) {
                 return res;
             }
@@ -1906,7 +1906,7 @@ compact:
 
 
 /// Top level directory operations ///
-int lfs_mkdir(lfs_t *lfs, const char *path) {
+int _lfs_mkdir(lfs_t *lfs, const char *path) {
     LFS_TRACE("lfs_mkdir(%p, \"%s\")", (void*)lfs, path);
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
@@ -2005,7 +2005,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     return 0;
 }
 
-int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
+int _lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
     lfs_stag_t tag = lfs_dir_find(lfs, &dir->m, &path, NULL);
     if (tag < 0) {
@@ -2056,7 +2056,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     return 0;
 }
 
-int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
+int _lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
     LFS_TRACE("lfs_dir_close(%p, %p)", (void*)lfs, (void*)dir);
     // remove from list of mdirs
     for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
@@ -2070,7 +2070,7 @@ int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
     return 0;
 }
 
-int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
+int _lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     LFS_TRACE("lfs_dir_read(%p, %p, %p)",
             (void*)lfs, (void*)dir, (void*)info);
     memset(info, 0, sizeof(*info));
@@ -2123,11 +2123,11 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     return true;
 }
 
-int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
+int _lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
     LFS_TRACE("lfs_dir_seek(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)dir, off);
     // simply walk from head dir
-    int err = lfs_dir_rewind(lfs, dir);
+    int err = _lfs_dir_rewind(lfs, dir);
     if (err) {
         LFS_TRACE("lfs_dir_seek -> %d", err);
         return err;
@@ -2166,14 +2166,14 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
     return 0;
 }
 
-lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir) {
+lfs_soff_t _lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir) {
     LFS_TRACE("lfs_dir_tell(%p, %p)", (void*)lfs, (void*)dir);
     (void)lfs;
     LFS_TRACE("lfs_dir_tell -> %"PRId32, dir->pos);
     return dir->pos;
 }
 
-int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
+int _lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
     LFS_TRACE("lfs_dir_rewind(%p, %p)", (void*)lfs, (void*)dir);
     // reload the head dir
     int err = lfs_dir_fetch(lfs, &dir->m, dir->head);
@@ -2380,7 +2380,7 @@ static int lfs_ctz_traverse(lfs_t *lfs,
 
 
 /// Top level file operations ///
-int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
+int _lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags,
         const struct lfs_file_config *cfg) {
     LFS_TRACE("lfs_file_opencfg(%p, %p, \"%s\", %x, %p {"
@@ -2529,26 +2529,26 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 cleanup:
     // clean up lingering resources
     file->flags |= LFS_F_ERRED;
-    lfs_file_close(lfs, file);
+    _lfs_file_close(lfs, file);
     LFS_TRACE("lfs_file_opencfg -> %d", err);
     return err;
 }
 
-int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
+int _lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags) {
     LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)",
             (void*)lfs, (void*)file, path, flags);
     static const struct lfs_file_config defaults = {0};
-    int err = lfs_file_opencfg(lfs, file, path, flags, &defaults);
+    int err = _lfs_file_opencfg(lfs, file, path, flags, &defaults);
     LFS_TRACE("lfs_file_open -> %d", err);
     return err;
 }
 
-int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
+int _lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_close(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
-    int err = lfs_file_sync(lfs, file);
+    int err = _lfs_file_sync(lfs, file);
 
     // remove from list of mdirs
     for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
@@ -2679,12 +2679,12 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
                 // copy over a byte at a time, leave it up to caching
                 // to make this efficient
                 uint8_t data;
-                lfs_ssize_t res = lfs_file_read(lfs, &orig, &data, 1);
+                lfs_ssize_t res = _lfs_file_read(lfs, &orig, &data, 1);
                 if (res < 0) {
                     return res;
                 }
 
-                res = lfs_file_write(lfs, file, &data, 1);
+                res = _lfs_file_write(lfs, file, &data, 1);
                 if (res < 0) {
                     return res;
                 }
@@ -2731,7 +2731,7 @@ relocate:
     return 0;
 }
 
-int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
+int _lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
@@ -2788,7 +2788,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     return 0;
 }
 
-lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
+lfs_ssize_t _lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_file_read(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
@@ -2868,7 +2868,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     return size;
 }
 
-lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
+lfs_ssize_t _lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_file_write(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
@@ -2903,7 +2903,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         file->pos = file->ctz.size;
 
         while (file->pos < pos) {
-            lfs_ssize_t res = lfs_file_write(lfs, file, &(uint8_t){0}, 1);
+            lfs_ssize_t res = _lfs_file_write(lfs, file, &(uint8_t){0}, 1);
             if (res < 0) {
                 LFS_TRACE("lfs_file_write -> %"PRId32, res);
                 return res;
@@ -2999,7 +2999,7 @@ relocate:
     return size;
 }
 
-lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
+lfs_soff_t _lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
     LFS_TRACE("lfs_file_seek(%p, %p, %"PRId32", %d)",
             (void*)lfs, (void*)file, off, whence);
@@ -3034,7 +3034,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     return npos;
 }
 
-int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+int _lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_TRACE("lfs_file_truncate(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, size);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
@@ -3046,7 +3046,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     }
 
     lfs_off_t pos = file->pos;
-    lfs_off_t oldsize = lfs_file_size(lfs, file);
+    lfs_off_t oldsize = _lfs_file_size(lfs, file);
     if (size < oldsize) {
         // need to flush since directly changing metadata
         int err = lfs_file_flush(lfs, file);
@@ -3070,7 +3070,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     } else if (size > oldsize) {
         // flush+seek if not already at end
         if (file->pos != oldsize) {
-            lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
+            lfs_soff_t res = _lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
             if (res < 0) {
                 LFS_TRACE("lfs_file_truncate -> %"PRId32, res);
                 return (int)res;
@@ -3079,7 +3079,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
         // fill with zeros
         while (file->pos < size) {
-            lfs_ssize_t res = lfs_file_write(lfs, file, &(uint8_t){0}, 1);
+            lfs_ssize_t res = _lfs_file_write(lfs, file, &(uint8_t){0}, 1);
             if (res < 0) {
                 LFS_TRACE("lfs_file_truncate -> %"PRId32, res);
                 return (int)res;
@@ -3088,7 +3088,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     }
 
     // restore pos
-    lfs_soff_t res = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
+    lfs_soff_t res = _lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
     if (res < 0) {
       LFS_TRACE("lfs_file_truncate -> %"PRId32, res);
       return (int)res;
@@ -3098,7 +3098,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     return 0;
 }
 
-lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
+lfs_soff_t _lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_tell(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
     (void)lfs;
@@ -3106,9 +3106,9 @@ lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
     return file->pos;
 }
 
-int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
+int _lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_rewind(%p, %p)", (void*)lfs, (void*)file);
-    lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_SET);
+    lfs_soff_t res = _lfs_file_seek(lfs, file, 0, LFS_SEEK_SET);
     if (res < 0) {
         LFS_TRACE("lfs_file_rewind -> %"PRId32, res);
         return (int)res;
@@ -3118,7 +3118,7 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
     return 0;
 }
 
-lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
+lfs_soff_t _lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_size(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
     (void)lfs;
@@ -3134,7 +3134,7 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
 
 
 /// General fs operations ///
-int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
+int _lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     LFS_TRACE("lfs_stat(%p, \"%s\", %p)", (void*)lfs, path, (void*)info);
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
@@ -3148,7 +3148,7 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     return err;
 }
 
-int lfs_remove(lfs_t *lfs, const char *path) {
+int _lfs_remove(lfs_t *lfs, const char *path) {
     LFS_TRACE("lfs_remove(%p, \"%s\")", (void*)lfs, path);
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
@@ -3229,7 +3229,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     return 0;
 }
 
-int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
+int _lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     LFS_TRACE("lfs_rename(%p, \"%s\", \"%s\")", (void*)lfs, oldpath, newpath);
 
     // deorphan if we haven't yet, needed at most once after poweron
@@ -3374,7 +3374,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     return 0;
 }
 
-lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
+lfs_ssize_t _lfs_getattr(lfs_t *lfs, const char *path,
         uint8_t type, void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_getattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
             (void*)lfs, path, type, buffer, size);
@@ -3437,7 +3437,7 @@ static int lfs_commitattr(lfs_t *lfs, const char *path,
             {LFS_MKTAG(LFS_TYPE_USERATTR + type, id, size), buffer}));
 }
 
-int lfs_setattr(lfs_t *lfs, const char *path,
+int _lfs_setattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_setattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
             (void*)lfs, path, type, buffer, size);
@@ -3451,7 +3451,7 @@ int lfs_setattr(lfs_t *lfs, const char *path,
     return err;
 }
 
-int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
+int _lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
     LFS_TRACE("lfs_removeattr(%p, \"%s\", %"PRIu8")", (void*)lfs, path, type);
     int err = lfs_commitattr(lfs, path, type, NULL, 0x3ff);
     LFS_TRACE("lfs_removeattr -> %d", err);
@@ -3584,7 +3584,7 @@ static int lfs_deinit(lfs_t *lfs) {
     return 0;
 }
 
-int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
+int _lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_format(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -3665,7 +3665,7 @@ cleanup:
     return err;
 }
 
-int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
+int _lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_mount(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -3804,12 +3804,12 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     return 0;
 
 cleanup:
-    lfs_unmount(lfs);
+    _lfs_unmount(lfs);
     LFS_TRACE("lfs_mount -> %d", err);
     return err;
 }
 
-int lfs_unmount(lfs_t *lfs) {
+int _lfs_unmount(lfs_t *lfs) {
     LFS_TRACE("lfs_unmount(%p)", (void*)lfs);
     int err = lfs_deinit(lfs);
     LFS_TRACE("lfs_unmount -> %d", err);
@@ -3914,7 +3914,7 @@ int lfs_fs_traverseraw(lfs_t *lfs,
     return 0;
 }
 
-int lfs_fs_traverse(lfs_t *lfs,
+int _lfs_fs_traverse(lfs_t *lfs,
         int (*cb)(void *data, lfs_block_t block), void *data) {
     LFS_TRACE("lfs_fs_traverse(%p, %p, %p)",
             (void*)lfs, (void*)(uintptr_t)cb, data);
@@ -4235,7 +4235,7 @@ static int lfs_fs_size_count(void *p, lfs_block_t block) {
     return 0;
 }
 
-lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
+lfs_ssize_t _lfs_fs_size(lfs_t *lfs) {
     LFS_TRACE("lfs_fs_size(%p)", (void*)lfs);
     lfs_size_t size = 0;
     int err = lfs_fs_traverseraw(lfs, lfs_fs_size_count, &size, false);
@@ -4669,7 +4669,7 @@ static int lfs1_unmount(lfs_t *lfs) {
 }
 
 /// v1 migration ///
-int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
+int _lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_migrate(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -4910,4 +4910,125 @@ cleanup:
     return err;
 }
 
+#endif
+
+#if LFS_THREAD_SAFE
+
+#define CREATE_LFS_TS_1(ret, function, b_type, b) \
+    ret _ts ## function(b_type b)                 \
+    {                                             \
+        int err = lfs->cfg->lock(lfs->cfg);       \
+        if (err)                                  \
+        {                                         \
+            return err;                           \
+        }                                         \
+        err = function(b);                        \
+        lfs->cfg->unlock(lfs->cfg);               \
+        return err;                               \
+    }
+#define CREATE_LFS_TS_2(ret, function, b_type, b, c_type, c) \
+    ret _ts ## function(b_type b, c_type c)                  \
+    {                                                        \
+        int err = lfs->cfg->lock(lfs->cfg);                  \
+        if (err)                                             \
+        {                                                    \
+            return err;                                      \
+        }                                                    \
+        err = function(b, c);                                \
+        lfs->cfg->unlock(lfs->cfg);                          \
+        return err;                                          \
+    }
+#define CREATE_LFS_TS_2_CFG(ret, function, b_type, b, c_type, cfg) \
+    ret _ts ## function(b_type b, c_type cfg)                      \
+    {                                                              \
+        int err = cfg->lock(cfg);                                  \
+        if (err)                                                   \
+        {                                                          \
+            return err;                                            \
+        }                                                          \
+        err = function(b, cfg);                                    \
+        cfg->unlock(cfg);                                          \
+        return err;                                                \
+    }
+#define CREATE_LFS_TS_3(ret, function, b_type, b, c_type, c, d_type, d) \
+    ret _ts ## function(b_type b, c_type c, d_type d)                   \
+    {                                                                   \
+        int err = lfs->cfg->lock(lfs->cfg);                             \
+        if (err)                                                        \
+        {                                                               \
+            return err;                                                 \
+        }                                                               \
+        err = function(b, c, d);                                        \
+        lfs->cfg->unlock(lfs->cfg);                                     \
+        return err;                                                     \
+    }
+#define CREATE_LFS_TS_4(ret, function, b_type, b, c_type, c, d_type, d, e_type, e) \
+    ret _ts ## function(b_type b, c_type c, d_type d, e_type e)                    \
+    {                                                                              \
+        int err = lfs->cfg->lock(lfs->cfg);                                        \
+        if (err)                                                                   \
+        {                                                                          \
+            return err;                                                            \
+        }                                                                          \
+        err = function(b, c, d, e);                                                \
+        lfs->cfg->unlock(lfs->cfg);                                                \
+        return err;                                                                \
+    }
+#define CREATE_LFS_TS_5(ret, function, b_type, b, c_type, c, d_type, d, e_type, e, f_type, f) \
+    ret _ts ## function(b_type b, c_type c, d_type d, e_type e, f_type f)                     \
+    {                                                                                         \
+        int err = lfs->cfg->lock(lfs->cfg);                                                   \
+        if (err)                                                                              \
+        {                                                                                     \
+            return err;                                                                       \
+        }                                                                                     \
+        err = function(b, c, d, e, f);                                                        \
+        lfs->cfg->unlock(lfs->cfg);                                                           \
+        return err;                                                                           \
+    }
+
+int _ts_lfs_fs_traverse (lfs_t * lfs, int (* cb)(void * data, lfs_block_t block), void * data) {
+    int err = lfs->cfg->lock(lfs->cfg);
+    if (err)
+    {
+        return err;
+    }
+
+    err = _lfs_fs_traverse(lfs, cb, data);
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+
+CREATE_LFS_TS_2_CFG(int, _lfs_format,lfs_t *, lfs, const struct lfs_config *, config)
+CREATE_LFS_TS_2_CFG(int, _lfs_mount,lfs_t *, lfs, const struct lfs_config *, config)
+CREATE_LFS_TS_1(int, _lfs_unmount,lfs_t *, lfs)
+CREATE_LFS_TS_2(int, _lfs_remove,lfs_t *, lfs, const char *, path)
+CREATE_LFS_TS_3(int, _lfs_rename, lfs_t *, lfs, const char *, oldpath, const char *, newpath)
+CREATE_LFS_TS_3(int, _lfs_stat, lfs_t *, lfs, const char *, path, struct lfs_info *, info)
+CREATE_LFS_TS_5(lfs_ssize_t, _lfs_getattr, lfs_t *, lfs, const char *, path, uint8_t, type, void *, buffer, lfs_size_t, size)
+CREATE_LFS_TS_5(int, _lfs_setattr, lfs_t *, lfs, const char *, path, uint8_t, type, const void *, buffer, lfs_size_t, size)
+CREATE_LFS_TS_3(int, _lfs_removeattr, lfs_t *, lfs, const char *, path, uint8_t, type)
+CREATE_LFS_TS_4(int, _lfs_file_open, lfs_t *, lfs, lfs_file_t *, file, const char *, path, int, flags)
+CREATE_LFS_TS_5(int, _lfs_file_opencfg, lfs_t *, lfs, lfs_file_t *, file, const char *, path, int, flags, const struct lfs_file_config *, config)
+CREATE_LFS_TS_2(int, _lfs_file_close, lfs_t *, lfs, lfs_file_t *, file)
+CREATE_LFS_TS_2(int, _lfs_file_sync, lfs_t *, lfs, lfs_file_t *, file)
+CREATE_LFS_TS_4(lfs_ssize_t, _lfs_file_read, lfs_t *, lfs, lfs_file_t *, file, void *, buffer, lfs_size_t, size)
+CREATE_LFS_TS_4(lfs_ssize_t, _lfs_file_write, lfs_t *, lfs, lfs_file_t *, file, const void *, buffer, lfs_size_t, size)
+CREATE_LFS_TS_4(lfs_soff_t, _lfs_file_seek, lfs_t *, lfs, lfs_file_t *, file, lfs_soff_t, off, int, whence)
+CREATE_LFS_TS_3(int, _lfs_file_truncate, lfs_t *, lfs, lfs_file_t *, file, lfs_off_t, size)
+CREATE_LFS_TS_2(lfs_soff_t, _lfs_file_tell, lfs_t *, lfs, lfs_file_t *, file)
+CREATE_LFS_TS_2(int, _lfs_file_rewind, lfs_t *, lfs, lfs_file_t *, file)
+CREATE_LFS_TS_2(lfs_soff_t, _lfs_file_size, lfs_t *, lfs, lfs_file_t *, file)
+CREATE_LFS_TS_2(int, _lfs_mkdir, lfs_t *, lfs, const char *, path)
+CREATE_LFS_TS_3(int, _lfs_dir_open, lfs_t *, lfs, lfs_dir_t *, dir, const char *, path)
+CREATE_LFS_TS_2(int, _lfs_dir_close, lfs_t *, lfs, lfs_dir_t *, dir)
+CREATE_LFS_TS_3(int, _lfs_dir_read, lfs_t *, lfs, lfs_dir_t *, dir, struct lfs_info *, info)
+CREATE_LFS_TS_3(int, _lfs_dir_seek, lfs_t *, lfs, lfs_dir_t *, dir, lfs_off_t, off)
+CREATE_LFS_TS_2(lfs_soff_t, _lfs_dir_tell, lfs_t *, lfs, lfs_dir_t *, dir)
+CREATE_LFS_TS_2(int, _lfs_dir_rewind, lfs_t *, lfs, lfs_dir_t *, dir)
+CREATE_LFS_TS_1(lfs_ssize_t, _lfs_fs_size, lfs_t *, lfs)
+#ifdef LFS_MIGRATE
+CREATE_LFS_TS_2_CFG(int, _lfs_migrate, lfs_t *, lfs, const struct lfs_config *, cfg)
+#endif
 #endif
