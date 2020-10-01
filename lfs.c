@@ -4914,121 +4914,390 @@ cleanup:
 
 #if LFS_THREAD_SAFE
 
-#define CREATE_LFS_TS_1(ret, function, b_type, b) \
-    ret _ts ## function(b_type b)                 \
-    {                                             \
-        int err = lfs->cfg->lock(lfs->cfg);       \
-        if (err)                                  \
-        {                                         \
-            return err;                           \
-        }                                         \
-        err = function(b);                        \
-        lfs->cfg->unlock(lfs->cfg);               \
-        return err;                               \
-    }
-#define CREATE_LFS_TS_2(ret, function, b_type, b, c_type, c) \
-    ret _ts ## function(b_type b, c_type c)                  \
-    {                                                        \
-        int err = lfs->cfg->lock(lfs->cfg);                  \
-        if (err)                                             \
-        {                                                    \
-            return err;                                      \
-        }                                                    \
-        err = function(b, c);                                \
-        lfs->cfg->unlock(lfs->cfg);                          \
-        return err;                                          \
-    }
-#define CREATE_LFS_TS_2_CFG(ret, function, b_type, b, c_type, cfg) \
-    ret _ts ## function(b_type b, c_type cfg)                      \
-    {                                                              \
-        int err = cfg->lock(cfg);                                  \
-        if (err)                                                   \
-        {                                                          \
-            return err;                                            \
-        }                                                          \
-        err = function(b, cfg);                                    \
-        cfg->unlock(cfg);                                          \
-        return err;                                                \
-    }
-#define CREATE_LFS_TS_3(ret, function, b_type, b, c_type, c, d_type, d) \
-    ret _ts ## function(b_type b, c_type c, d_type d)                   \
-    {                                                                   \
-        int err = lfs->cfg->lock(lfs->cfg);                             \
-        if (err)                                                        \
-        {                                                               \
-            return err;                                                 \
-        }                                                               \
-        err = function(b, c, d);                                        \
-        lfs->cfg->unlock(lfs->cfg);                                     \
-        return err;                                                     \
-    }
-#define CREATE_LFS_TS_4(ret, function, b_type, b, c_type, c, d_type, d, e_type, e) \
-    ret _ts ## function(b_type b, c_type c, d_type d, e_type e)                    \
-    {                                                                              \
-        int err = lfs->cfg->lock(lfs->cfg);                                        \
-        if (err)                                                                   \
-        {                                                                          \
-            return err;                                                            \
-        }                                                                          \
-        err = function(b, c, d, e);                                                \
-        lfs->cfg->unlock(lfs->cfg);                                                \
-        return err;                                                                \
-    }
-#define CREATE_LFS_TS_5(ret, function, b_type, b, c_type, c, d_type, d, e_type, e, f_type, f) \
-    ret _ts ## function(b_type b, c_type c, d_type d, e_type e, f_type f)                     \
-    {                                                                                         \
-        int err = lfs->cfg->lock(lfs->cfg);                                                   \
-        if (err)                                                                              \
-        {                                                                                     \
-            return err;                                                                       \
-        }                                                                                     \
-        err = function(b, c, d, e, f);                                                        \
-        lfs->cfg->unlock(lfs->cfg);                                                           \
-        return err;                                                                           \
-    }
-
-int _ts_lfs_fs_traverse (lfs_t * lfs, int (* cb)(void * data, lfs_block_t block), void * data) {
-    int err = lfs->cfg->lock(lfs->cfg);
-    if (err)
+int _ts_lfs_format(lfs_t *lfs, const struct lfs_config *config)
+{
+    int err = config->lock(lfs->cfg);
+    if(err)
     {
         return err;
     }
+    err = lfs_format(lfs, config);
+    config->unlock(lfs->cfg);
 
-    err = _lfs_fs_traverse(lfs, cb, data);
+    return err;
+}
+int _ts_lfs_mount(lfs_t *lfs, const struct lfs_config *config)
+{
+    int err = config->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_mount(lfs, config);
+    config->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_unmount(lfs_t *lfs)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_unmount(lfs);
     lfs->cfg->unlock(lfs->cfg);
 
     return err;
 }
+int _ts_lfs_remove(lfs_t *lfs, const char *path)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_remove(lfs, path);
+    lfs->cfg->unlock(lfs->cfg);
 
-CREATE_LFS_TS_2_CFG(int, _lfs_format,lfs_t *, lfs, const struct lfs_config *, config)
-CREATE_LFS_TS_2_CFG(int, _lfs_mount,lfs_t *, lfs, const struct lfs_config *, config)
-CREATE_LFS_TS_1(int, _lfs_unmount,lfs_t *, lfs)
-CREATE_LFS_TS_2(int, _lfs_remove,lfs_t *, lfs, const char *, path)
-CREATE_LFS_TS_3(int, _lfs_rename, lfs_t *, lfs, const char *, oldpath, const char *, newpath)
-CREATE_LFS_TS_3(int, _lfs_stat, lfs_t *, lfs, const char *, path, struct lfs_info *, info)
-CREATE_LFS_TS_5(lfs_ssize_t, _lfs_getattr, lfs_t *, lfs, const char *, path, uint8_t, type, void *, buffer, lfs_size_t, size)
-CREATE_LFS_TS_5(int, _lfs_setattr, lfs_t *, lfs, const char *, path, uint8_t, type, const void *, buffer, lfs_size_t, size)
-CREATE_LFS_TS_3(int, _lfs_removeattr, lfs_t *, lfs, const char *, path, uint8_t, type)
-CREATE_LFS_TS_4(int, _lfs_file_open, lfs_t *, lfs, lfs_file_t *, file, const char *, path, int, flags)
-CREATE_LFS_TS_5(int, _lfs_file_opencfg, lfs_t *, lfs, lfs_file_t *, file, const char *, path, int, flags, const struct lfs_file_config *, config)
-CREATE_LFS_TS_2(int, _lfs_file_close, lfs_t *, lfs, lfs_file_t *, file)
-CREATE_LFS_TS_2(int, _lfs_file_sync, lfs_t *, lfs, lfs_file_t *, file)
-CREATE_LFS_TS_4(lfs_ssize_t, _lfs_file_read, lfs_t *, lfs, lfs_file_t *, file, void *, buffer, lfs_size_t, size)
-CREATE_LFS_TS_4(lfs_ssize_t, _lfs_file_write, lfs_t *, lfs, lfs_file_t *, file, const void *, buffer, lfs_size_t, size)
-CREATE_LFS_TS_4(lfs_soff_t, _lfs_file_seek, lfs_t *, lfs, lfs_file_t *, file, lfs_soff_t, off, int, whence)
-CREATE_LFS_TS_3(int, _lfs_file_truncate, lfs_t *, lfs, lfs_file_t *, file, lfs_off_t, size)
-CREATE_LFS_TS_2(lfs_soff_t, _lfs_file_tell, lfs_t *, lfs, lfs_file_t *, file)
-CREATE_LFS_TS_2(int, _lfs_file_rewind, lfs_t *, lfs, lfs_file_t *, file)
-CREATE_LFS_TS_2(lfs_soff_t, _lfs_file_size, lfs_t *, lfs, lfs_file_t *, file)
-CREATE_LFS_TS_2(int, _lfs_mkdir, lfs_t *, lfs, const char *, path)
-CREATE_LFS_TS_3(int, _lfs_dir_open, lfs_t *, lfs, lfs_dir_t *, dir, const char *, path)
-CREATE_LFS_TS_2(int, _lfs_dir_close, lfs_t *, lfs, lfs_dir_t *, dir)
-CREATE_LFS_TS_3(int, _lfs_dir_read, lfs_t *, lfs, lfs_dir_t *, dir, struct lfs_info *, info)
-CREATE_LFS_TS_3(int, _lfs_dir_seek, lfs_t *, lfs, lfs_dir_t *, dir, lfs_off_t, off)
-CREATE_LFS_TS_2(lfs_soff_t, _lfs_dir_tell, lfs_t *, lfs, lfs_dir_t *, dir)
-CREATE_LFS_TS_2(int, _lfs_dir_rewind, lfs_t *, lfs, lfs_dir_t *, dir)
-CREATE_LFS_TS_1(lfs_ssize_t, _lfs_fs_size, lfs_t *, lfs)
-#ifdef LFS_MIGRATE
-CREATE_LFS_TS_2_CFG(int, _lfs_migrate, lfs_t *, lfs, const struct lfs_config *, cfg)
-#endif
+    return err;
+}
+int _ts_lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_rename(lfs, oldpath, newpath);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_stat(lfs, path, info);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+lfs_ssize_t _ts_lfs_getattr(lfs_t *lfs, const char *path, uint8_t type, void *buffer, lfs_size_t size)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_getattr(lfs, path, type, buffer, size);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_setattr(lfs_t *lfs, const char *path, uint8_t type, const void *buffer, lfs_size_t size)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_setattr(lfs, path, type, buffer, size);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_removeattr(lfs, path, type);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_file_open(lfs_t *lfs, lfs_file_t *file, const char *path, int flags)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_open(lfs, file, path, flags);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file, const char *path, int flags, const struct lfs_file_config *config)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_opencfg(lfs, file, path, flags, config);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_file_close(lfs_t *lfs, lfs_file_t *file)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_close(lfs, file);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_file_sync(lfs_t *lfs, lfs_file_t *file)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_sync(lfs, file);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+lfs_ssize_t _ts_lfs_file_read(lfs_t *lfs, lfs_file_t *file, void *buffer, lfs_size_t size)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_read(lfs, file, buffer, size);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+lfs_ssize_t _ts_lfs_file_write(lfs_t *lfs, lfs_file_t *file, const void *buffer, lfs_size_t size)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_write(lfs, file, buffer, size);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+lfs_soff_t _ts_lfs_file_seek(lfs_t *lfs, lfs_file_t *file, lfs_soff_t off, int whence)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_seek(lfs, file, off, whence);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_truncate(lfs, file, size);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+lfs_soff_t _ts_lfs_file_tell(lfs_t *lfs, lfs_file_t *file)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_tell(lfs, file);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_file_rewind(lfs_t *lfs, lfs_file_t *file)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_rewind(lfs, file);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+lfs_soff_t _ts_lfs_file_size(lfs_t *lfs, lfs_file_t *file)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_file_size(lfs, file);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_mkdir(lfs_t *lfs, const char *path)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_mkdir(lfs, path);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_dir_open(lfs, dir, path);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_dir_close(lfs, dir);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_dir_read(lfs, dir, info);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_dir_seek(lfs, dir, off);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+lfs_soff_t _ts_lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_dir_tell(lfs, dir);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_dir_rewind(lfs, dir);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+lfs_ssize_t _ts_lfs_fs_size(lfs_t *lfs)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_fs_size(lfs);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_fs_traverse(lfs, cb, data);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
+int _ts_lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg)
+{
+    int err = lfs->cfg->lock(lfs->cfg);
+    if(err)
+    {
+        return err;
+    }
+    err = lfs_migrate(lfs, cfg);
+    
+    lfs->cfg->unlock(lfs->cfg);
+
+    return err;
+}
 #endif

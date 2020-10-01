@@ -43,6 +43,7 @@ extern "C"
 {
 #endif
 
+// Enables thread-safe wrappers using the lock/unlock callbacks in lfs_config
 #ifndef LFS_THREAD_SAFE
 #define LFS_THREAD_SAFE 0
 #endif
