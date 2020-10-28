@@ -4916,25 +4916,25 @@ cleanup:
 
 int lfs_format_ts(lfs_t *lfs, const struct lfs_config *config)
 {
-    int err = config->lock(lfs->cfg);
+    int err = config->lock(config);
     if(err)
     {
         return err;
     }
     err = lfs_format_raw(lfs, config);
-    config->unlock(lfs->cfg);
+    config->unlock(config);
 
     return err;
 }
 int lfs_mount_ts(lfs_t *lfs, const struct lfs_config *config)
 {
-    int err = config->lock(lfs->cfg);
+    int err = config->lock(config);
     if(err)
     {
         return err;
     }
     err = lfs_mount_raw(lfs, config);
-    config->unlock(lfs->cfg);
+    config->unlock(config);
 
     return err;
 }
