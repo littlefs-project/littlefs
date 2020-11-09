@@ -5287,6 +5287,9 @@ int lfs_fs_traverse_ts(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data)
 
     return err;
 }
+
+#ifdef LFS_MIGRATE
+
 int lfs_migrate_ts(lfs_t *lfs, const struct lfs_config *cfg)
 {
     int err = lfs->cfg->lock(lfs->cfg);
@@ -5300,4 +5303,6 @@ int lfs_migrate_ts(lfs_t *lfs, const struct lfs_config *cfg)
 
     return err;
 }
+
+#endif
 #endif
