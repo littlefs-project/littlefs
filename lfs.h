@@ -85,9 +85,6 @@ enum lfs_error {
     LFS_ERR_NOMEM       = -12,  // No more memory available
     LFS_ERR_NOATTR      = -61,  // No data/attr available
     LFS_ERR_NAMETOOLONG = -36,  // File name too long
-#if LFS_THREAD_SAFE
-    LFS_ERR_LOCK        = -23,  // Failed to aquire lock
-#endif
 };
 
 // File types
