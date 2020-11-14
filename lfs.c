@@ -459,7 +459,7 @@ static void lfs_alloc_ack(lfs_t *lfs) {
 // Invalidate the lookahead buffer. This is done during mounting and
 // failed traversals
 static void lfs_alloc_reset(lfs_t *lfs) {
-    lfs->free.off = lfs->seed % lfs->cfg->block_size;
+    lfs->free.off = lfs->seed % lfs->cfg->block_count;
     lfs->free.size = 0;
     lfs->free.i = 0;
     lfs_alloc_ack(lfs);
