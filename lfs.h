@@ -76,7 +76,7 @@ enum lfs_error {
     LFS_ERR_EXIST       = -17,  // Entry already exists
     LFS_ERR_NOTDIR      = -20,  // Entry is not a dir
     LFS_ERR_ISDIR       = -21,  // Entry is a dir
-    LFS_ERR_NOSYS       = -38,  // Function not implemened
+    LFS_ERR_ROFS        = -30,  // Read-only file system
     LFS_ERR_NOTEMPTY    = -39,  // Dir is not empty
     LFS_ERR_BADF        = -9,   // Bad file number
     LFS_ERR_FBIG        = -27,  // File too large
@@ -407,7 +407,9 @@ typedef struct lfs {
 // be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
+#ifndef LFS_READONLY
 int lfs_format(lfs_t *lfs, const struct lfs_config *config);
+#endif
 
 // Mounts a littlefs
 //
@@ -431,7 +433,9 @@ int lfs_unmount(lfs_t *lfs);
 //
 // If removing a directory, the directory must be empty.
 // Returns a negative error code on failure.
+#ifndef LFS_READONLY
 int lfs_remove(lfs_t *lfs, const char *path);
+#endif
 
 // Rename or move a file or directory
 //
@@ -439,7 +443,9 @@ int lfs_remove(lfs_t *lfs, const char *path);
 // If the destination is a directory, the directory must be empty.
 //
 // Returns a negative error code on failure.
+#ifndef LFS_READONLY
 int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
+#endif
 
 // Find info about a file or directory
 //
@@ -469,15 +475,19 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
 // implicitly created.
 //
 // Returns a negative error code on failure.
+#ifndef LFS_READONLY
 int lfs_setattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size);
+#endif
 
 // Removes a custom attribute
 //
 // If an attribute is not found, nothing happens.
 //
 // Returns a negative error code on failure.
+#ifndef LFS_READONLY
 int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
+#endif
 
 
 /// File operations ///
@@ -532,8 +542,10 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 // actually be updated on the storage until either sync or close is called.
 //
 // Returns the number of bytes written, or a negative error code on failure.
+#ifndef LFS_READONLY
 lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size);
+#endif
 
 // Change the position of the file
 //
@@ -545,7 +557,9 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 // Truncates the size of the file to the specified size
 //
 // Returns a negative error code on failure.
+#ifndef LFS_READONLY
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
+#endif
 
 // Return the position of the file
 //
@@ -571,7 +585,9 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 // Create a directory
 //
 // Returns a negative error code on failure.
+#ifndef LFS_READONLY
 int lfs_mkdir(lfs_t *lfs, const char *path);
+#endif
 
 // Open a directory
 //
