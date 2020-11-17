@@ -1950,10 +1950,8 @@ compact:
 
 
 /// Top level directory operations ///
+#ifndef LFS_READONLY
 int lfs_mkdir(lfs_t *lfs, const char *path) {
-#ifdef LFS_READONLY
-    return LFS_ERR_NOSYS;
-#else
     LFS_TRACE("lfs_mkdir(%p, \"%s\")", (void*)lfs, path);
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
@@ -2050,8 +2048,8 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     LFS_TRACE("lfs_mkdir -> %d", 0);
     return 0;
-#endif
 }
+#endif
 
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
@@ -2438,18 +2436,18 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
             (void*)lfs, (void*)file, path, flags,
             (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
 
+#ifdef LFS_READONLY
+    LFS_ASSERT((flags & 3) == LFS_O_RDONLY);
+#else
     // deorphan if we haven't yet, needed at most once after poweron
     if ((flags & 3) != LFS_O_RDONLY) {
-#ifdef LFS_READONLY
-        return LFS_ERR_INVAL;
-#else
         int err = lfs_fs_forceconsistency(lfs);
         if (err) {
             LFS_TRACE("lfs_file_opencfg -> %d", err);
             return err;
         }
-#endif
     }
+#endif
 
     // setup simple file details
     int err;
@@ -2471,11 +2469,12 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     file->next = (lfs_file_t*)lfs->mlist;
     lfs->mlist = (struct lfs_mlist*)file;
 
-    if (tag == LFS_ERR_NOENT) {
 #ifdef LFS_READONLY
+    if (tag == LFS_ERR_NOENT) {
         err = LFS_ERR_NOENT;
         goto cleanup;
 #else
+    if (tag == LFS_ERR_NOENT) {
         if (!(flags & LFS_O_CREAT)) {
             err = LFS_ERR_NOENT;
             goto cleanup;
@@ -2499,17 +2498,19 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         }
 
         tag = LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, 0);
-#endif
     } else if (flags & LFS_O_EXCL) {
         err = LFS_ERR_EXIST;
         goto cleanup;
+#endif
     } else if (lfs_tag_type3(tag) != LFS_TYPE_REG) {
         err = LFS_ERR_ISDIR;
         goto cleanup;
+#ifndef LFS_READONLY
     } else if (flags & LFS_O_TRUNC) {
         // truncate if requested
         tag = LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0);
         file->flags |= LFS_F_DIRTY;
+#endif
     } else {
         // try to load what's on disk, if it's inlined we'll fix it later
         tag = lfs_dir_get(lfs, &file->m, LFS_MKTAG(0x700, 0x3ff, 0),
@@ -2523,7 +2524,8 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
     // fetch attrs
     for (unsigned i = 0; i < file->cfg->attr_count; i++) {
-        if ((file->flags & 3) != LFS_O_WRONLY) {
+        // if opened for read / read-write operations
+        if ((file->flags & LFS_O_RDONLY) == LFS_O_RDONLY) {
             lfs_stag_t res = lfs_dir_get(lfs, &file->m,
                     LFS_MKTAG(0x7ff, 0x3ff, 0),
                     LFS_MKTAG(LFS_TYPE_USERATTR + file->cfg->attrs[i].type,
@@ -2535,7 +2537,9 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
             }
         }
 
-        if ((file->flags & 3) != LFS_O_RDONLY) {
+#ifndef LFS_READONLY
+        // if opened for write / read-write operations
+        if ((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY) {
             if (file->cfg->attrs[i].size > lfs->attr_max) {
                 err = LFS_ERR_NOSPC;
                 goto cleanup;
@@ -2543,6 +2547,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
             file->flags |= LFS_F_DIRTY;
         }
+#endif
     }
 
     // allocate buffer if needed
@@ -2587,7 +2592,9 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
 cleanup:
     // clean up lingering resources
+#ifndef LFS_READONLY
     file->flags |= LFS_F_ERRED;
+#endif
     lfs_file_close(lfs, file);
     LFS_TRACE("lfs_file_opencfg -> %d", err);
     return err;
@@ -2607,7 +2614,11 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_close(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
+#ifdef LFS_READONLY
+    int err = 0;
+#else
     int err = lfs_file_sync(lfs, file);
+#endif
 
     // remove from list of mdirs
     for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
@@ -2715,6 +2726,7 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
 }
 #endif
 
+#ifndef LFS_READONLY
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
@@ -2725,7 +2737,6 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
         file->flags &= ~LFS_F_READING;
     }
 
-#ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {
         lfs_off_t pos = file->pos;
 
@@ -2792,11 +2803,12 @@ relocate:
 
         file->pos = pos;
     }
-#endif
 
     return 0;
 }
+#endif
 
+#ifndef LFS_READONLY
 int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
@@ -2815,7 +2827,6 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     }
 
 
-#ifndef LFS_READONLY
     if ((file->flags & LFS_F_DIRTY) &&
             !lfs_pair_isnull(file->m.pair)) {
         // update dir entry
@@ -2851,18 +2862,22 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
 
         file->flags &= ~LFS_F_DIRTY;
     }
-#endif
 
     LFS_TRACE("lfs_file_sync -> %d", 0);
     return 0;
 }
+#endif
 
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_file_read(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
+#ifdef LFS_READONLY
+    // always LFS_O_RDONLY
+#else
     LFS_ASSERT((file->flags & 3) != LFS_O_WRONLY);
+#endif
 
     uint8_t *data = buffer;
     lfs_size_t nsize = size;
@@ -2939,6 +2954,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     return size;
 }
 
+#ifndef LFS_READONLY
 lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_file_write(%p, %p, %p, %"PRIu32")",
@@ -2946,10 +2962,6 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     LFS_ASSERT(file->flags & LFS_F_OPENED);
     LFS_ASSERT((file->flags & 3) != LFS_O_RDONLY);
 
-
-#ifdef LFS_READONLY
-    return LFS_ERR_NOSYS;
-#else
     const uint8_t *data = buffer;
     lfs_size_t nsize = size;
 
@@ -3072,8 +3084,8 @@ relocate:
     file->flags &= ~LFS_F_ERRED;
     LFS_TRACE("lfs_file_write -> %"PRId32, size);
     return size;
-#endif
 }
+#endif
 
 lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
@@ -3081,12 +3093,14 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
             (void*)lfs, (void*)file, off, whence);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
+#ifndef LFS_READONLY
     // write out everything beforehand, may be noop if rdonly
     int err = lfs_file_flush(lfs, file);
     if (err) {
         LFS_TRACE("lfs_file_seek -> %d", err);
         return err;
     }
+#endif
 
     // find new pos
     lfs_off_t npos = file->pos;
@@ -3110,6 +3124,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     return npos;
 }
 
+#ifndef LFS_READONLY
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_TRACE("lfs_file_truncate(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, size);
@@ -3121,9 +3136,6 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         return LFS_ERR_INVAL;
     }
 
-#ifdef LFS_READONLY
-    return LFS_ERR_NOSYS;
-#else
     lfs_off_t pos = file->pos;
     lfs_off_t oldsize = lfs_file_size(lfs, file);
     if (size < oldsize) {
@@ -3175,8 +3187,8 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
     LFS_TRACE("lfs_file_truncate -> %d", 0);
     return 0;
-#endif
 }
+#endif
 
 lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_tell(%p, %p)", (void*)lfs, (void*)file);
@@ -3208,12 +3220,10 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
         LFS_TRACE("lfs_file_size -> %"PRId32,
                 lfs_max(file->pos, file->ctz.size));
         return lfs_max(file->pos, file->ctz.size);
-    } else
-#endif
-    {
-        LFS_TRACE("lfs_file_size -> %"PRId32, file->ctz.size);
-        return file->ctz.size;
     }
+#endif
+    LFS_TRACE("lfs_file_size -> %"PRId32, file->ctz.size);
+    return file->ctz.size;
 }
 
 
@@ -3232,12 +3242,10 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     return err;
 }
 
+#ifndef LFS_READONLY
 int lfs_remove(lfs_t *lfs, const char *path) {
     LFS_TRACE("lfs_remove(%p, \"%s\")", (void*)lfs, path);
 
-#ifdef LFS_READONLY
-    return LFS_ERR_NOSYS;
-#else
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
     if (err) {
@@ -3315,15 +3323,13 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 
     LFS_TRACE("lfs_remove -> %d", 0);
     return 0;
-#endif
 }
+#endif
 
+#ifndef LFS_READONLY
 int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     LFS_TRACE("lfs_rename(%p, \"%s\", \"%s\")", (void*)lfs, oldpath, newpath);
 
-#ifdef LFS_READONLY
-    return LFS_ERR_NOSYS;
-#else
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
     if (err) {
@@ -3464,8 +3470,8 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
     LFS_TRACE("lfs_rename -> %d", 0);
     return 0;
-#endif
 }
+#endif
 
 lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
         uint8_t type, void *buffer, lfs_size_t size) {
@@ -3532,13 +3538,11 @@ static int lfs_commitattr(lfs_t *lfs, const char *path,
 }
 #endif
 
+#ifndef LFS_READONLY
 int lfs_setattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_setattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
             (void*)lfs, path, type, buffer, size);
-#ifdef LFS_READONLY
-    return LFS_ERR_NOSYS;
-#else
     if (size > lfs->attr_max) {
         LFS_TRACE("lfs_setattr -> %d", LFS_ERR_NOSPC);
         return LFS_ERR_NOSPC;
@@ -3547,19 +3551,17 @@ int lfs_setattr(lfs_t *lfs, const char *path,
     int err = lfs_commitattr(lfs, path, type, buffer, size);
     LFS_TRACE("lfs_setattr -> %d", err);
     return err;
-#endif
 }
+#endif
 
+#ifndef LFS_READONLY
 int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
     LFS_TRACE("lfs_removeattr(%p, \"%s\", %"PRIu8")", (void*)lfs, path, type);
-#ifdef LFS_READONLY
-    return LFS_ERR_NOSYS;
-#else
     int err = lfs_commitattr(lfs, path, type, NULL, 0x3ff);
     LFS_TRACE("lfs_removeattr -> %d", err);
     return err;
-#endif
 }
+#endif
 
 
 /// Filesystem operations ///
@@ -3687,6 +3689,7 @@ static int lfs_deinit(lfs_t *lfs) {
     return 0;
 }
 
+#ifndef LFS_READONLY
 int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_format(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
@@ -3705,9 +3708,6 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
             cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
             cfg->name_max, cfg->file_max, cfg->attr_max);
 
-#ifdef LFS_READONLY
-    return LFS_ERR_NOSYS;
-#else
     int err = 0;
     {
         err = lfs_init(lfs, cfg);
@@ -3771,8 +3771,8 @@ cleanup:
     LFS_TRACE("lfs_format -> %d", err);
     return err;
 
-#endif
 }
+#endif
 
 int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_mount(%p, %p {.context=%p, "
@@ -3997,6 +3997,7 @@ int lfs_fs_traverseraw(lfs_t *lfs,
         }
     }
 
+#ifndef LFS_READONLY
     // iterate over any open files
     for (lfs_file_t *f = (lfs_file_t*)lfs->mlist; f; f = f->next) {
         if (f->type != LFS_TYPE_REG) {
@@ -4011,7 +4012,6 @@ int lfs_fs_traverseraw(lfs_t *lfs,
             }
         }
 
-#ifndef LFS_READONLY
         if ((f->flags & LFS_F_WRITING) && !(f->flags & LFS_F_INLINE)) {
             int err = lfs_ctz_traverse(lfs, &f->cache, &lfs->rcache,
                     f->block, f->pos, cb, data);
@@ -4019,8 +4019,8 @@ int lfs_fs_traverseraw(lfs_t *lfs,
                 return err;
             }
         }
-#endif
     }
+#endif
 
     return 0;
 }
