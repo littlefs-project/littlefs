@@ -2462,7 +2462,7 @@ static int lfs_file_opencfgraw(lfs_t *lfs, lfs_file_t *file,
     // setup simple file details
     int err;
     file->cfg = cfg;
-    file->flags = flags | LFS_F_OPENED;
+    file->flags = flags;
     file->pos = 0;
     file->off = 0;
     file->cache.buffer = NULL;
@@ -2615,7 +2615,7 @@ static int lfs_file_openraw(lfs_t *lfs, lfs_file_t *file,
 }
 
 static int lfs_file_closeraw(lfs_t *lfs, lfs_file_t *file) {
-    LFS_ASSERT(file->flags & LFS_F_OPENED);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
 #ifdef LFS_READONLY
     int err = 0;
@@ -2631,14 +2631,13 @@ static int lfs_file_closeraw(lfs_t *lfs, lfs_file_t *file) {
         lfs_free(file->cache.buffer);
     }
 
-    file->flags &= ~LFS_F_OPENED;
     return err;
 }
 
 
 #ifndef LFS_READONLY
 static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
-    LFS_ASSERT(file->flags & LFS_F_OPENED);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     while (true) {
         // just relocate what exists into new block
@@ -2725,7 +2724,7 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
 
 #ifndef LFS_READONLY
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
-    LFS_ASSERT(file->flags & LFS_F_OPENED);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     if (file->flags & LFS_F_READING) {
         if (!(file->flags & LFS_F_INLINE)) {
@@ -2742,7 +2741,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
             lfs_file_t orig = {
                 .ctz.head = file->ctz.head,
                 .ctz.size = file->ctz.size,
-                .flags = LFS_O_RDONLY | LFS_F_OPENED,
+                .flags = LFS_O_RDONLY,
                 .pos = file->pos,
                 .cache = lfs->rcache,
             };
@@ -2807,7 +2806,7 @@ relocate:
 
 #ifndef LFS_READONLY
 static int lfs_file_syncraw(lfs_t *lfs, lfs_file_t *file) {
-    LFS_ASSERT(file->flags & LFS_F_OPENED);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     if (file->flags & LFS_F_ERRED) {
         // it's not safe to do anything if our file errored
@@ -2862,7 +2861,7 @@ static int lfs_file_syncraw(lfs_t *lfs, lfs_file_t *file) {
 
 static lfs_ssize_t lfs_file_readraw(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
-    LFS_ASSERT(file->flags & LFS_F_OPENED);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 #ifndef LFS_READONLY
     LFS_ASSERT((file->flags & LFS_O_RDWR) != LFS_O_WRONLY);
 #endif
@@ -2939,7 +2938,7 @@ static lfs_ssize_t lfs_file_readraw(lfs_t *lfs, lfs_file_t *file,
 #ifndef LFS_READONLY
 static lfs_ssize_t lfs_file_writeraw(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
-    LFS_ASSERT(file->flags & LFS_F_OPENED);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
     LFS_ASSERT((file->flags & LFS_O_RDWR) != LFS_O_RDONLY);
 
     const uint8_t *data = buffer;
@@ -3060,7 +3059,7 @@ relocate:
 
 static lfs_soff_t lfs_file_seekraw(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
-    LFS_ASSERT(file->flags & LFS_F_OPENED);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
 #ifndef LFS_READONLY
     // write out everything beforehand, may be noop if rdonly
@@ -3092,7 +3091,7 @@ static lfs_soff_t lfs_file_seekraw(lfs_t *lfs, lfs_file_t *file,
 
 #ifndef LFS_READONLY
 static int lfs_file_truncateraw(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
-    LFS_ASSERT(file->flags & LFS_F_OPENED);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
     LFS_ASSERT((file->flags & LFS_O_RDWR) != LFS_O_RDONLY);
 
     if (size > LFS_FILE_MAX) {
@@ -3148,7 +3147,7 @@ static int lfs_file_truncateraw(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 #endif
 
 static lfs_soff_t lfs_file_tellraw(lfs_t *lfs, lfs_file_t *file) {
-    LFS_ASSERT(file->flags & LFS_F_OPENED);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
     (void)lfs;
     return file->pos;
 }
@@ -3163,7 +3162,7 @@ static int lfs_file_rewindraw(lfs_t *lfs, lfs_file_t *file) {
 }
 
 static lfs_soff_t lfs_file_sizeraw(lfs_t *lfs, lfs_file_t *file) {
-    LFS_ASSERT(file->flags & LFS_F_OPENED);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
     (void)lfs;
 
 #ifndef LFS_READONLY
