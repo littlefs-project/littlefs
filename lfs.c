@@ -422,6 +422,15 @@ static inline bool lfs_mlist_isopen(struct lfs_mlist *head,
     return false;
 }
 
+static inline void lfs_mlist_remove(lfs_t *lfs, struct lfs_mlist *mlist) {
+    for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
+        if (*p == mlist) {
+            *p = (*p)->next;
+            break;
+        }
+    }
+}
+
 static inline void lfs_mlist_append(lfs_t *lfs, struct lfs_mlist *mlist) {
     mlist->next = lfs->mlist;
     lfs->mlist = mlist;
@@ -2076,12 +2085,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
 int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
     LFS_TRACE("lfs_dir_close(%p, %p)", (void*)lfs, (void*)dir);
     // remove from list of mdirs
-    for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
-        if (*p == (struct lfs_mlist*)dir) {
-            *p = (*p)->next;
-            break;
-        }
-    }
+    lfs_mlist_remove(lfs, (struct lfs_mlist *)dir);
 
     LFS_TRACE("lfs_dir_close -> %d", 0);
     return 0;
@@ -2568,12 +2572,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     int err = lfs_file_sync(lfs, file);
 
     // remove from list of mdirs
-    for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
-        if (*p == (struct lfs_mlist*)file) {
-            *p = (*p)->next;
-            break;
-        }
-    }
+    lfs_mlist_remove(lfs, (struct lfs_mlist*)file);
 
     // clean up memory
     if (!file->cfg->buffer) {
