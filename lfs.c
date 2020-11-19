@@ -2436,18 +2436,18 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
             (void*)lfs, (void*)file, path, flags,
             (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
 
+#ifdef LFS_READONLY
+    LFS_ASSERT((flags & 3) == LFS_O_RDONLY);
+#else
     // deorphan if we haven't yet, needed at most once after poweron
     if ((flags & 3) != LFS_O_RDONLY) {
-#ifdef LFS_READONLY
-        return LFS_ERR_ROFS;
-#else
         int err = lfs_fs_forceconsistency(lfs);
         if (err) {
             LFS_TRACE("lfs_file_opencfg -> %d", err);
             return err;
         }
-#endif
     }
+#endif
 
     // setup simple file details
     int err;
@@ -2504,10 +2504,12 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     } else if (lfs_tag_type3(tag) != LFS_TYPE_REG) {
         err = LFS_ERR_ISDIR;
         goto cleanup;
+#ifndef LFS_READONLY
     } else if (flags & LFS_O_TRUNC) {
         // truncate if requested
         tag = LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0);
         file->flags |= LFS_F_DIRTY;
+#endif
     } else {
         // try to load what's on disk, if it's inlined we'll fix it later
         tag = lfs_dir_get(lfs, &file->m, LFS_MKTAG(0x700, 0x3ff, 0),
@@ -2533,6 +2535,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
             }
         }
 
+#ifndef LFS_READONLY
         if ((file->flags & 3) != LFS_O_RDONLY) {
             if (file->cfg->attrs[i].size > lfs->attr_max) {
                 err = LFS_ERR_NOSPC;
@@ -2541,6 +2544,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
             file->flags |= LFS_F_DIRTY;
         }
+#endif
     }
 
     // allocate buffer if needed
@@ -2605,7 +2609,11 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_close(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
+#ifdef LFS_READONLY
+    int err = 0;
+#else
     int err = lfs_file_sync(lfs, file);
+#endif
 
     // remove from list of mdirs
     for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
@@ -2713,6 +2721,7 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
 }
 #endif
 
+#ifndef LFS_READONLY
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
@@ -2723,7 +2732,6 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
         file->flags &= ~LFS_F_READING;
     }
 
-#ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {
         lfs_off_t pos = file->pos;
 
@@ -2790,11 +2798,12 @@ relocate:
 
         file->pos = pos;
     }
-#endif
 
     return 0;
 }
+#endif
 
+#ifndef LFS_READONLY
 int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
@@ -2813,7 +2822,6 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     }
 
 
-#ifndef LFS_READONLY
     if ((file->flags & LFS_F_DIRTY) &&
             !lfs_pair_isnull(file->m.pair)) {
         // update dir entry
@@ -2849,11 +2857,11 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
 
         file->flags &= ~LFS_F_DIRTY;
     }
-#endif
 
     LFS_TRACE("lfs_file_sync -> %d", 0);
     return 0;
 }
+#endif
 
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
@@ -3076,12 +3084,14 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
             (void*)lfs, (void*)file, off, whence);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
+#ifndef LFS_READONLY
     // write out everything beforehand, may be noop if rdonly
     int err = lfs_file_flush(lfs, file);
     if (err) {
         LFS_TRACE("lfs_file_seek -> %d", err);
         return err;
     }
+#endif
 
     // find new pos
     lfs_off_t npos = file->pos;
