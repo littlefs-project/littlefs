@@ -5050,11 +5050,7 @@ int lfs_file_open (lfs_t * lfs, lfs_file_t * file, const char * path, int flags)
     return err;
 }
 
-int lfs_file_opencfg (lfs_t                        * lfs,
-                      lfs_file_t                   * file,
-                      const char                   * path,
-                      int                            flags,
-                      const struct lfs_file_config * config) {
+int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file, const char *path, int flags, const struct lfs_file_config *config) {
     int err = lfs->cfg->lock(lfs->cfg);
     if (err)
     {
@@ -5379,11 +5375,7 @@ int lfs_file_open (lfs_t * lfs, lfs_file_t * file, const char * path, int flags)
     return lfs_file_open_raw(lfs, file, path, flags);
 }
 
-int lfs_file_opencfg (lfs_t                        * lfs,
-                         lfs_file_t                   * file,
-                         const char                   * path,
-                         int                            flags,
-                         const struct lfs_file_config * config) {
+int lfs_file_opencfg_ts(lfs_t *lfs, lfs_file_t *file, const char *path, int flags, const struct lfs_file_config *config) {
     return lfs_file_opencfg_raw(lfs, file, path, flags, config);
 }
 
