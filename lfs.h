@@ -123,12 +123,14 @@ enum lfs_type {
 enum lfs_open_flags {
     // open flags
     LFS_O_RDONLY = 1,         // Open a file as read only
+#ifndef LFS_READONLY
     LFS_O_WRONLY = 2,         // Open a file as write only
     LFS_O_RDWR   = 3,         // Open a file as read and write
     LFS_O_CREAT  = 0x0100,    // Create a file if it does not exist
     LFS_O_EXCL   = 0x0200,    // Fail if a file already exists
     LFS_O_TRUNC  = 0x0400,    // Truncate the existing file to zero size
     LFS_O_APPEND = 0x0800,    // Move to end of file on every write
+#endif
 
     // internally used flags
     LFS_F_DIRTY   = 0x010000, // File does not match storage
@@ -648,6 +650,7 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 // Returns a negative error code on failure.
 int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 
+#ifndef LFS_READONLY
 #ifdef LFS_MIGRATE
 // Attempts to migrate a previous version of littlefs
 //
@@ -661,7 +664,8 @@ int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 //
 // Returns a negative error code on failure.
 int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
-#endif
+#endif /* LFS_MIGRATE */
+#endif /* LFS_READONLY */
 
 
 #ifdef __cplusplus
