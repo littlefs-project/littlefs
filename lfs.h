@@ -681,37 +681,6 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
 #endif
 #endif
 
-int lfs_format_raw(lfs_t *lfs, const struct lfs_config *config);
-int lfs_mount_raw(lfs_t *lfs, const struct lfs_config *config);
-int lfs_unmount_raw(lfs_t *lfs);
-int lfs_remove_raw(lfs_t *lfs, const char *path);
-int lfs_rename_raw(lfs_t *lfs, const char *oldpath, const char *newpath);
-int lfs_stat_raw(lfs_t *lfs, const char *path, struct lfs_info *info);
-lfs_ssize_t lfs_getattr_raw(lfs_t *lfs, const char *path, uint8_t type, void *buffer, lfs_size_t size);
-int lfs_setattr_raw(lfs_t *lfs, const char *path, uint8_t type, const void *buffer, lfs_size_t size);
-int lfs_removeattr_raw(lfs_t *lfs, const char *path, uint8_t type);
-int lfs_file_open_raw(lfs_t *lfs, lfs_file_t *file, const char *path, int flags);
-int lfs_file_opencfg_raw(lfs_t *lfs, lfs_file_t *file, const char *path, int flags, const struct lfs_file_config *config);
-int lfs_file_close_raw(lfs_t *lfs, lfs_file_t *file);
-int lfs_file_sync_raw(lfs_t *lfs, lfs_file_t *file);
-lfs_ssize_t lfs_file_read_raw(lfs_t *lfs, lfs_file_t *file, void *buffer, lfs_size_t size);
-lfs_ssize_t lfs_file_write_raw(lfs_t *lfs, lfs_file_t *file, const void *buffer, lfs_size_t size);
-lfs_soff_t lfs_file_seek_raw(lfs_t *lfs, lfs_file_t *file, lfs_soff_t off, int whence);
-int lfs_file_truncate_raw(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
-lfs_soff_t lfs_file_tell_raw(lfs_t *lfs, lfs_file_t *file);
-int lfs_file_rewind_raw(lfs_t *lfs, lfs_file_t *file);
-lfs_soff_t lfs_file_size_raw(lfs_t *lfs, lfs_file_t *file);
-int lfs_mkdir_raw(lfs_t *lfs, const char *path);
-int lfs_dir_open_raw(lfs_t *lfs, lfs_dir_t *dir, const char *path);
-int lfs_dir_close_raw(lfs_t *lfs, lfs_dir_t *dir);
-int lfs_dir_read_raw(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
-int lfs_dir_seek_raw(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off);
-lfs_soff_t lfs_dir_tell_raw(lfs_t *lfs, lfs_dir_t *dir);
-int lfs_dir_rewind_raw(lfs_t *lfs, lfs_dir_t *dir);
-lfs_ssize_t lfs_fs_size_raw(lfs_t *lfs);
-int lfs_fs_traverse_raw(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
-int lfs_migrate_raw(lfs_t *lfs, const struct lfs_config *cfg);
-
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
