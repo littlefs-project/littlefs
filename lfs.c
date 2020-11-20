@@ -10,36 +10,14 @@
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
-static int lfs_format_raw(lfs_t *lfs, const struct lfs_config *config);
-static int lfs_mount_raw(lfs_t *lfs, const struct lfs_config *config);
-static int lfs_unmount_raw(lfs_t *lfs);
-static int lfs_remove_raw(lfs_t *lfs, const char *path);
-static int lfs_rename_raw(lfs_t *lfs, const char *oldpath, const char *newpath);
-static int lfs_stat_raw(lfs_t *lfs, const char *path, struct lfs_info *info);
-static lfs_ssize_t lfs_getattr_raw(lfs_t *lfs, const char *path, uint8_t type, void *buffer, lfs_size_t size);
-static int lfs_setattr_raw(lfs_t *lfs, const char *path, uint8_t type, const void *buffer, lfs_size_t size);
-static int lfs_removeattr_raw(lfs_t *lfs, const char *path, uint8_t type);
-static int lfs_file_open_raw(lfs_t *lfs, lfs_file_t *file, const char *path, int flags);
-static int lfs_file_opencfg_raw(lfs_t *lfs, lfs_file_t *file, const char *path, int flags, const struct lfs_file_config *config);
-static int lfs_file_close_raw(lfs_t *lfs, lfs_file_t *file);
-static int lfs_file_sync_raw(lfs_t *lfs, lfs_file_t *file);
-static lfs_ssize_t lfs_file_read_raw(lfs_t *lfs, lfs_file_t *file, void *buffer, lfs_size_t size);
-static lfs_ssize_t lfs_file_write_raw(lfs_t *lfs, lfs_file_t *file, const void *buffer, lfs_size_t size);
-static lfs_soff_t lfs_file_seek_raw(lfs_t *lfs, lfs_file_t *file, lfs_soff_t off, int whence);
-static int lfs_file_truncate_raw(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
-static lfs_soff_t lfs_file_tell_raw(lfs_t *lfs, lfs_file_t *file);
-static int lfs_file_rewind_raw(lfs_t *lfs, lfs_file_t *file);
-static lfs_soff_t lfs_file_size_raw(lfs_t *lfs, lfs_file_t *file);
-static int lfs_mkdir_raw(lfs_t *lfs, const char *path);
-static int lfs_dir_open_raw(lfs_t *lfs, lfs_dir_t *dir, const char *path);
-static int lfs_dir_close_raw(lfs_t *lfs, lfs_dir_t *dir);
-static int lfs_dir_read_raw(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
-static int lfs_dir_seek_raw(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off);
-static lfs_soff_t lfs_dir_tell_raw(lfs_t *lfs, lfs_dir_t *dir);
 static int lfs_dir_rewind_raw(lfs_t *lfs, lfs_dir_t *dir);
+static int lfs_file_close_raw(lfs_t *lfs, lfs_file_t *file);
+static lfs_ssize_t lfs_file_read_raw(lfs_t *lfs, lfs_file_t *file, void *buffer, lfs_size_t size);
+static lfs_soff_t lfs_file_size_raw(lfs_t *lfs, lfs_file_t *file);
+static int lfs_file_sync_raw(lfs_t *lfs, lfs_file_t *file);
+static lfs_ssize_t lfs_file_write_raw(lfs_t *lfs, lfs_file_t *file, const void *buffer, lfs_size_t size);
 static lfs_ssize_t lfs_fs_size_raw(lfs_t *lfs);
-static int lfs_fs_traverse_raw(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
-static int lfs_migrate_raw(lfs_t *lfs, const struct lfs_config *cfg);
+static int lfs_unmount_raw(lfs_t *lfs);
 
 /// Caching block device operations ///
 static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
@@ -1937,7 +1915,7 @@ compact:
 
 
 /// Top level directory operations ///
-int lfs_mkdir_raw(lfs_t *lfs, const char *path) {
+static int lfs_mkdir_raw(lfs_t *lfs, const char *path) {
     LFS_TRACE("lfs_mkdir(%p, \"%s\")", (void*)lfs, path);
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
@@ -2036,7 +2014,7 @@ int lfs_mkdir_raw(lfs_t *lfs, const char *path) {
     return 0;
 }
 
-int lfs_dir_open_raw(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
+static int lfs_dir_open_raw(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
     lfs_stag_t tag = lfs_dir_find(lfs, &dir->m, &path, NULL);
     if (tag < 0) {
@@ -2087,7 +2065,7 @@ int lfs_dir_open_raw(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     return 0;
 }
 
-int lfs_dir_close_raw(lfs_t *lfs, lfs_dir_t *dir) {
+static int lfs_dir_close_raw(lfs_t *lfs, lfs_dir_t *dir) {
     LFS_TRACE("lfs_dir_close(%p, %p)", (void*)lfs, (void*)dir);
     // remove from list of mdirs
     for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
@@ -2101,7 +2079,7 @@ int lfs_dir_close_raw(lfs_t *lfs, lfs_dir_t *dir) {
     return 0;
 }
 
-int lfs_dir_read_raw(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
+static int lfs_dir_read_raw(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     LFS_TRACE("lfs_dir_read(%p, %p, %p)",
             (void*)lfs, (void*)dir, (void*)info);
     memset(info, 0, sizeof(*info));
@@ -2154,7 +2132,7 @@ int lfs_dir_read_raw(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     return true;
 }
 
-int lfs_dir_seek_raw(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
+static int lfs_dir_seek_raw(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
     LFS_TRACE("lfs_dir_seek(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)dir, off);
     // simply walk from head dir
@@ -2197,14 +2175,14 @@ int lfs_dir_seek_raw(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
     return 0;
 }
 
-lfs_soff_t lfs_dir_tell_raw(lfs_t *lfs, lfs_dir_t *dir) {
+static lfs_soff_t lfs_dir_tell_raw(lfs_t *lfs, lfs_dir_t *dir) {
     LFS_TRACE("lfs_dir_tell(%p, %p)", (void*)lfs, (void*)dir);
     (void)lfs;
     LFS_TRACE("lfs_dir_tell -> %"PRId32, dir->pos);
     return dir->pos;
 }
 
-int lfs_dir_rewind_raw(lfs_t *lfs, lfs_dir_t *dir) {
+static int lfs_dir_rewind_raw(lfs_t *lfs, lfs_dir_t *dir) {
     LFS_TRACE("lfs_dir_rewind(%p, %p)", (void*)lfs, (void*)dir);
     // reload the head dir
     int err = lfs_dir_fetch(lfs, &dir->m, dir->head);
@@ -2411,7 +2389,7 @@ static int lfs_ctz_traverse(lfs_t *lfs,
 
 
 /// Top level file operations ///
-int lfs_file_opencfg_raw(lfs_t *lfs, lfs_file_t *file,
+static int lfs_file_opencfg_raw(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags,
         const struct lfs_file_config *cfg) {
     LFS_TRACE("lfs_file_opencfg(%p, %p, \"%s\", %x, %p {"
@@ -2565,7 +2543,7 @@ cleanup:
     return err;
 }
 
-int lfs_file_open_raw(lfs_t *lfs, lfs_file_t *file,
+static int lfs_file_open_raw(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags) {
     LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)",
             (void*)lfs, (void*)file, path, flags);
@@ -2575,7 +2553,7 @@ int lfs_file_open_raw(lfs_t *lfs, lfs_file_t *file,
     return err;
 }
 
-int lfs_file_close_raw(lfs_t *lfs, lfs_file_t *file) {
+static int lfs_file_close_raw(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_close(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
@@ -2762,7 +2740,7 @@ relocate:
     return 0;
 }
 
-int lfs_file_sync_raw(lfs_t *lfs, lfs_file_t *file) {
+static int lfs_file_sync_raw(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
@@ -2819,7 +2797,7 @@ int lfs_file_sync_raw(lfs_t *lfs, lfs_file_t *file) {
     return 0;
 }
 
-lfs_ssize_t lfs_file_read_raw(lfs_t *lfs, lfs_file_t *file,
+static lfs_ssize_t lfs_file_read_raw(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_file_read(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
@@ -2899,7 +2877,7 @@ lfs_ssize_t lfs_file_read_raw(lfs_t *lfs, lfs_file_t *file,
     return size;
 }
 
-lfs_ssize_t lfs_file_write_raw(lfs_t *lfs, lfs_file_t *file,
+static lfs_ssize_t lfs_file_write_raw(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_file_write(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
@@ -3030,7 +3008,7 @@ relocate:
     return size;
 }
 
-lfs_soff_t lfs_file_seek_raw(lfs_t *lfs, lfs_file_t *file,
+static lfs_soff_t lfs_file_seek_raw(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
     LFS_TRACE("lfs_file_seek(%p, %p, %"PRId32", %d)",
             (void*)lfs, (void*)file, off, whence);
@@ -3065,7 +3043,7 @@ lfs_soff_t lfs_file_seek_raw(lfs_t *lfs, lfs_file_t *file,
     return npos;
 }
 
-int lfs_file_truncate_raw(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+static int lfs_file_truncate_raw(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_TRACE("lfs_file_truncate(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, size);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
@@ -3129,7 +3107,7 @@ int lfs_file_truncate_raw(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     return 0;
 }
 
-lfs_soff_t lfs_file_tell_raw(lfs_t *lfs, lfs_file_t *file) {
+static lfs_soff_t lfs_file_tell_raw(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_tell(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
     (void)lfs;
@@ -3137,7 +3115,7 @@ lfs_soff_t lfs_file_tell_raw(lfs_t *lfs, lfs_file_t *file) {
     return file->pos;
 }
 
-int lfs_file_rewind_raw(lfs_t *lfs, lfs_file_t *file) {
+static int lfs_file_rewind_raw(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_rewind(%p, %p)", (void*)lfs, (void*)file);
     lfs_soff_t res = lfs_file_seek_raw(lfs, file, 0, LFS_SEEK_SET);
     if (res < 0) {
@@ -3149,7 +3127,7 @@ int lfs_file_rewind_raw(lfs_t *lfs, lfs_file_t *file) {
     return 0;
 }
 
-lfs_soff_t lfs_file_size_raw(lfs_t *lfs, lfs_file_t *file) {
+static lfs_soff_t lfs_file_size_raw(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_size(%p, %p)", (void*)lfs, (void*)file);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
     (void)lfs;
@@ -3165,7 +3143,7 @@ lfs_soff_t lfs_file_size_raw(lfs_t *lfs, lfs_file_t *file) {
 
 
 /// General fs operations ///
-int lfs_stat_raw(lfs_t *lfs, const char *path, struct lfs_info *info) {
+static int lfs_stat_raw(lfs_t *lfs, const char *path, struct lfs_info *info) {
     LFS_TRACE("lfs_stat(%p, \"%s\", %p)", (void*)lfs, path, (void*)info);
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
@@ -3179,7 +3157,7 @@ int lfs_stat_raw(lfs_t *lfs, const char *path, struct lfs_info *info) {
     return err;
 }
 
-int lfs_remove_raw(lfs_t *lfs, const char *path) {
+static int lfs_remove_raw(lfs_t *lfs, const char *path) {
     LFS_TRACE("lfs_remove(%p, \"%s\")", (void*)lfs, path);
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
@@ -3260,7 +3238,7 @@ int lfs_remove_raw(lfs_t *lfs, const char *path) {
     return 0;
 }
 
-int lfs_rename_raw(lfs_t *lfs, const char *oldpath, const char *newpath) {
+static int lfs_rename_raw(lfs_t *lfs, const char *oldpath, const char *newpath) {
     LFS_TRACE("lfs_rename(%p, \"%s\", \"%s\")", (void*)lfs, oldpath, newpath);
 
     // deorphan if we haven't yet, needed at most once after poweron
@@ -3405,7 +3383,7 @@ int lfs_rename_raw(lfs_t *lfs, const char *oldpath, const char *newpath) {
     return 0;
 }
 
-lfs_ssize_t lfs_getattr_raw(lfs_t *lfs, const char *path,
+static lfs_ssize_t lfs_getattr_raw(lfs_t *lfs, const char *path,
         uint8_t type, void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_getattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
             (void*)lfs, path, type, buffer, size);
@@ -3468,7 +3446,7 @@ static int lfs_commitattr(lfs_t *lfs, const char *path,
             {LFS_MKTAG(LFS_TYPE_USERATTR + type, id, size), buffer}));
 }
 
-int lfs_setattr_raw(lfs_t *lfs, const char *path,
+static int lfs_setattr_raw(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_setattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
             (void*)lfs, path, type, buffer, size);
@@ -3482,7 +3460,7 @@ int lfs_setattr_raw(lfs_t *lfs, const char *path,
     return err;
 }
 
-int lfs_removeattr_raw(lfs_t *lfs, const char *path, uint8_t type) {
+static int lfs_removeattr_raw(lfs_t *lfs, const char *path, uint8_t type) {
     LFS_TRACE("lfs_removeattr(%p, \"%s\", %"PRIu8")", (void*)lfs, path, type);
     int err = lfs_commitattr(lfs, path, type, NULL, 0x3ff);
     LFS_TRACE("lfs_removeattr -> %d", err);
@@ -3615,7 +3593,7 @@ static int lfs_deinit(lfs_t *lfs) {
     return 0;
 }
 
-int lfs_format_raw(lfs_t *lfs, const struct lfs_config *cfg) {
+static int lfs_format_raw(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_format(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -3696,7 +3674,7 @@ cleanup:
     return err;
 }
 
-int lfs_mount_raw(lfs_t *lfs, const struct lfs_config *cfg) {
+static int lfs_mount_raw(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_mount(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -3840,7 +3818,7 @@ cleanup:
     return err;
 }
 
-int lfs_unmount_raw(lfs_t *lfs) {
+static int lfs_unmount_raw(lfs_t *lfs) {
     LFS_TRACE("lfs_unmount(%p)", (void*)lfs);
     int err = lfs_deinit(lfs);
     LFS_TRACE("lfs_unmount -> %d", err);
@@ -3945,7 +3923,7 @@ int lfs_fs_traverseraw(lfs_t *lfs,
     return 0;
 }
 
-int lfs_fs_traverse_raw(lfs_t *lfs,
+static int lfs_fs_traverse_raw(lfs_t *lfs,
         int (*cb)(void *data, lfs_block_t block), void *data) {
     LFS_TRACE("lfs_fs_traverse(%p, %p, %p)",
             (void*)lfs, (void*)(uintptr_t)cb, data);
@@ -4266,7 +4244,7 @@ static int lfs_fs_size_count(void *p, lfs_block_t block) {
     return 0;
 }
 
-lfs_ssize_t lfs_fs_size_raw(lfs_t *lfs) {
+static lfs_ssize_t lfs_fs_size_raw(lfs_t *lfs) {
     LFS_TRACE("lfs_fs_size(%p)", (void*)lfs);
     lfs_size_t size = 0;
     int err = lfs_fs_traverseraw(lfs, lfs_fs_size_count, &size, false);
@@ -4700,7 +4678,7 @@ static int lfs1_unmount(lfs_t *lfs) {
 }
 
 /// v1 migration ///
-int lfs_migrate_raw(lfs_t *lfs, const struct lfs_config *cfg) {
+static int lfs_migrate_raw(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_migrate(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
