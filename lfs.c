@@ -452,14 +452,16 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     return 0;
 }
 
+// indicate allocated blocks have been committed into the filesystem, this
+// is to prevent blocks from being garbage collected in the middle of a
+// commit operation
 static void lfs_alloc_ack(lfs_t *lfs) {
     lfs->free.ack = lfs->cfg->block_count;
 }
 
-// Invalidate the lookahead buffer. This is done during mounting and
-// failed traversals
-static void lfs_alloc_reset(lfs_t *lfs) {
-    lfs->free.off = lfs->seed % lfs->cfg->block_count;
+// drop the lookahead buffer, this is done during mounting and failed
+// traversals in order to avoid invalid lookahead state
+static void lfs_alloc_drop(lfs_t *lfs) {
     lfs->free.size = 0;
     lfs->free.i = 0;
     lfs_alloc_ack(lfs);
@@ -505,7 +507,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
         int err = lfs_fs_traverseraw(lfs, lfs_alloc_lookahead, lfs, true);
         if (err) {
-            lfs_alloc_reset(lfs);
+            lfs_alloc_drop(lfs);
             return err;
         }
     }
@@ -3797,8 +3799,10 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->gstate.tag += !lfs_tag_isvalid(lfs->gstate.tag);
     lfs->gdisk = lfs->gstate;
 
-    // setup free lookahead
-    lfs_alloc_reset(lfs);
+    // setup free lookahead, to distribute allocations uniformly across
+    // boots, we start the allocator at a random location
+    lfs->free.off = lfs->seed % lfs->cfg->block_count;
+    lfs_alloc_drop(lfs);
 
     LFS_TRACE("lfs_mount -> %d", 0);
     return 0;
