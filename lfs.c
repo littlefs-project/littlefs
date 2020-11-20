@@ -872,8 +872,10 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 ptag ^= (lfs_tag_t)(lfs_tag_chunk(tag) & 1U) << 31;
 
                 // toss our crc into the filesystem seed for
-                // pseudorandom numbers
-                lfs->seed ^= crc;
+                // pseudorandom numbers, note we use another crc here
+                // as a collection function because it is sufficiently
+                // random and convenient
+                lfs->seed = lfs_crc(lfs->seed, &crc, sizeof(crc));
 
                 // update with what's found so far
                 besttag = tempbesttag;
