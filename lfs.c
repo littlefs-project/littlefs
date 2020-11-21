@@ -2469,11 +2469,12 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     file->next = (lfs_file_t*)lfs->mlist;
     lfs->mlist = (struct lfs_mlist*)file;
 
-    if (tag == LFS_ERR_NOENT) {
 #ifdef LFS_READONLY
+    if (tag == LFS_ERR_NOENT) {
         err = LFS_ERR_NOENT;
         goto cleanup;
 #else
+    if (tag == LFS_ERR_NOENT) {
         if (!(flags & LFS_O_CREAT)) {
             err = LFS_ERR_NOENT;
             goto cleanup;
@@ -2871,7 +2872,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
             (void*)lfs, (void*)file, buffer, size);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 #ifdef LFS_READONLY
-    /* always LFS_O_RDONLY */
+    // always LFS_O_RDONLY
 #else
     LFS_ASSERT((file->flags & 3) != LFS_O_WRONLY);
 #endif
@@ -3217,12 +3218,10 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
         LFS_TRACE("lfs_file_size -> %"PRId32,
                 lfs_max(file->pos, file->ctz.size));
         return lfs_max(file->pos, file->ctz.size);
-    } else
-#endif
-    {
-        LFS_TRACE("lfs_file_size -> %"PRId32, file->ctz.size);
-        return file->ctz.size;
     }
+#endif
+    LFS_TRACE("lfs_file_size -> %"PRId32, file->ctz.size);
+    return file->ctz.size;
 }
 
 
