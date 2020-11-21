@@ -2523,12 +2523,8 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
     // fetch attrs
     for (unsigned i = 0; i < file->cfg->attr_count; i++) {
-#ifdef LFS_READONLY
-        /* always LFS_O_RDONLY */
-#else
-        if ((file->flags & 3) != LFS_O_WRONLY)
-#endif
-        {
+        // if opened for read / read-write operations
+        if ((file->flags & LFS_O_RDONLY) == LFS_O_RDONLY) {
             lfs_stag_t res = lfs_dir_get(lfs, &file->m,
                     LFS_MKTAG(0x7ff, 0x3ff, 0),
                     LFS_MKTAG(LFS_TYPE_USERATTR + file->cfg->attrs[i].type,
@@ -2541,7 +2537,8 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         }
 
 #ifndef LFS_READONLY
-        if ((file->flags & 3) != LFS_O_RDONLY) {
+        // if opened for write / read-write operations
+        if ((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY) {
             if (file->cfg->attrs[i].size > lfs->attr_max) {
                 err = LFS_ERR_NOSPC;
                 goto cleanup;
