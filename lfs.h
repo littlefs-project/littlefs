@@ -664,8 +664,8 @@ int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 //
 // Returns a negative error code on failure.
 int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
-#endif /* LFS_MIGRATE */
-#endif /* LFS_READONLY */
+#endif
+#endif
 
 
 #ifdef __cplusplus

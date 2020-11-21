@@ -169,7 +169,7 @@ static int lfs_bd_flush(lfs_t *lfs,
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_bd_sync(lfs_t *lfs,
@@ -185,7 +185,7 @@ static int lfs_bd_sync(lfs_t *lfs,
     LFS_ASSERT(err <= 0);
     return err;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_bd_prog(lfs_t *lfs,
@@ -233,7 +233,7 @@ static int lfs_bd_prog(lfs_t *lfs,
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
@@ -242,7 +242,7 @@ static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
     LFS_ASSERT(err <= 0);
     return err;
 }
-#endif /* LFS_READONLY */
+#endif
 
 
 /// Small type-level utilities ///
@@ -401,7 +401,7 @@ static void lfs_ctz_tole32(struct lfs_ctz *ctz) {
     ctz->head = lfs_tole32(ctz->head);
     ctz->size = lfs_tole32(ctz->size);
 }
-#endif /* LFS_READONLY */
+#endif
 
 static inline void lfs_superblock_fromle32(lfs_superblock_t *superblock) {
     superblock->version     = lfs_fromle32(superblock->version);
@@ -440,18 +440,18 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
 static int lfs_fs_relocate(lfs_t *lfs,
         const lfs_block_t oldpair[2], lfs_block_t newpair[2]);
-#endif /* LFS_READONLY */
+#endif
 int lfs_fs_traverseraw(lfs_t *lfs,
         int (*cb)(void *data, lfs_block_t block), void *data,
         bool includeorphans);
 #ifndef LFS_READONLY
 static int lfs_fs_forceconsistency(lfs_t *lfs);
-#endif /* LFS_READONLY */
+#endif
 static int lfs_deinit(lfs_t *lfs);
 #ifdef LFS_MIGRATE
 static int lfs1_traverse(lfs_t *lfs,
         int (*cb)(void*, lfs_block_t), void *data);
-#endif /* LFS_MIGRATE */
+#endif
 
 /// Block allocator ///
 #ifndef LFS_READONLY
@@ -466,7 +466,7 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 static void lfs_alloc_ack(lfs_t *lfs) {
     lfs->free.ack = lfs->cfg->block_count;
@@ -527,7 +527,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         }
     }
 }
-#endif /* LFS_READONLY */
+#endif
 
 /// Metadata pair and directory operations ///
 static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
@@ -688,7 +688,7 @@ static int lfs_dir_traverse_filter(void *p,
 
     return false;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_dir_traverse(lfs_t *lfs,
@@ -784,7 +784,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
         }
     }
 }
-#endif /* LFS_READONLY */
+#endif
 
 static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
         lfs_mdir_t *dir, const lfs_block_t pair[2],
@@ -1237,7 +1237,7 @@ static int lfs_dir_commitprog(lfs_t *lfs, struct lfs_commit *commit,
     commit->off += size;
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_dir_commitattr(lfs_t *lfs, struct lfs_commit *commit,
@@ -1284,7 +1284,7 @@ static int lfs_dir_commitattr(lfs_t *lfs, struct lfs_commit *commit,
     commit->ptag = tag & 0x7fffffff;
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
@@ -1379,7 +1379,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
@@ -1419,7 +1419,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
     // don't write out yet, let caller take care of that
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_dir_drop(lfs_t *lfs, lfs_mdir_t *dir, lfs_mdir_t *tail) {
@@ -1440,7 +1440,7 @@ static int lfs_dir_drop(lfs_t *lfs, lfs_mdir_t *dir, lfs_mdir_t *tail) {
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_dir_split(lfs_t *lfs,
@@ -1475,7 +1475,7 @@ static int lfs_dir_split(lfs_t *lfs,
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_dir_commit_size(void *p, lfs_tag_t tag, const void *buffer) {
@@ -1485,21 +1485,21 @@ static int lfs_dir_commit_size(void *p, lfs_tag_t tag, const void *buffer) {
     *size += lfs_tag_dsize(tag);
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 struct lfs_dir_commit_commit {
     lfs_t *lfs;
     struct lfs_commit *commit;
 };
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_dir_commit_commit(void *p, lfs_tag_t tag, const void *buffer) {
     struct lfs_dir_commit_commit *commit = p;
     return lfs_dir_commitattr(commit->lfs, commit->commit, tag, buffer);
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_dir_compact(lfs_t *lfs,
@@ -1595,7 +1595,7 @@ static int lfs_dir_compact(lfs_t *lfs,
             // pointers if we relocate the head of a directory. On top of
             // this, relocations increase the overall complexity of
             // lfs_migration, which is already a delicate operation.
-#endif /* LFS_MIGRATE */
+#endif
         } else {
             // we're writing too much, time to relocate
             tired = true;
@@ -1756,7 +1756,7 @@ relocate:
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
@@ -1946,7 +1946,7 @@ compact:
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 
 /// Top level directory operations ///
@@ -2049,7 +2049,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     LFS_TRACE("lfs_mkdir -> %d", 0);
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
@@ -2381,7 +2381,7 @@ relocate:
         lfs_cache_drop(lfs, pcache);
     }
 }
-#endif /* LFS_READONLY */
+#endif
 
 static int lfs_ctz_traverse(lfs_t *lfs,
         const lfs_cache_t *pcache, lfs_cache_t *rcache,
@@ -2447,7 +2447,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
             return err;
         }
     }
-#endif /* LFS_READONLY */
+#endif
 
     // setup simple file details
     int err;
@@ -2500,7 +2500,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     } else if (flags & LFS_O_EXCL) {
         err = LFS_ERR_EXIST;
         goto cleanup;
-#endif /* LFS_READONLY */
+#endif
     } else if (lfs_tag_type3(tag) != LFS_TYPE_REG) {
         err = LFS_ERR_ISDIR;
         goto cleanup;
@@ -2509,7 +2509,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         // truncate if requested
         tag = LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0);
         file->flags |= LFS_F_DIRTY;
-#endif /* LFS_READONLY */
+#endif
     } else {
         // try to load what's on disk, if it's inlined we'll fix it later
         tag = lfs_dir_get(lfs, &file->m, LFS_MKTAG(0x700, 0x3ff, 0),
@@ -2527,7 +2527,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         /* always LFS_O_RDONLY */
 #else
         if ((file->flags & 3) != LFS_O_WRONLY)
-#endif /* LFS_READONLY */
+#endif
         {
             lfs_stag_t res = lfs_dir_get(lfs, &file->m,
                     LFS_MKTAG(0x7ff, 0x3ff, 0),
@@ -2549,7 +2549,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
             file->flags |= LFS_F_DIRTY;
         }
-#endif /* LFS_READONLY */
+#endif
     }
 
     // allocate buffer if needed
@@ -2618,7 +2618,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     int err = 0;
 #else
     int err = lfs_file_sync(lfs, file);
-#endif /* LFS_READONLY */
+#endif
 
     // remove from list of mdirs
     for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
@@ -2710,7 +2710,7 @@ relocate:
         lfs_cache_drop(lfs, &lfs->pcache);
     }
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
@@ -2724,7 +2724,7 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
     file->flags &= ~LFS_F_INLINE;
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
@@ -2806,7 +2806,7 @@ relocate:
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
@@ -2866,7 +2866,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_sync -> %d", 0);
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
@@ -2877,7 +2877,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     /* always LFS_O_RDONLY */
 #else
     LFS_ASSERT((file->flags & 3) != LFS_O_WRONLY);
-#endif /* LFS_READONLY */
+#endif
 
     uint8_t *data = buffer;
     lfs_size_t nsize = size;
@@ -2891,7 +2891,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
             return err;
         }
     }
-#endif /* LFS_READONLY */
+#endif
 
     if (file->pos >= file->ctz.size) {
         // eof if past end
@@ -3085,7 +3085,7 @@ relocate:
     LFS_TRACE("lfs_file_write -> %"PRId32, size);
     return size;
 }
-#endif /* LFS_READONLY */
+#endif
 
 lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
@@ -3100,7 +3100,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         LFS_TRACE("lfs_file_seek -> %d", err);
         return err;
     }
-#endif /* LFS_READONLY */
+#endif
 
     // find new pos
     lfs_off_t npos = file->pos;
@@ -3188,7 +3188,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_TRACE("lfs_file_truncate -> %d", 0);
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_tell(%p, %p)", (void*)lfs, (void*)file);
@@ -3221,7 +3221,7 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
                 lfs_max(file->pos, file->ctz.size));
         return lfs_max(file->pos, file->ctz.size);
     } else
-#endif /* LFS_READONLY */
+#endif
     {
         LFS_TRACE("lfs_file_size -> %"PRId32, file->ctz.size);
         return file->ctz.size;
@@ -3326,7 +3326,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     LFS_TRACE("lfs_remove -> %d", 0);
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
@@ -3473,7 +3473,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     LFS_TRACE("lfs_rename -> %d", 0);
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
         uint8_t type, void *buffer, lfs_size_t size) {
@@ -3538,7 +3538,7 @@ static int lfs_commitattr(lfs_t *lfs, const char *path,
     return lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_USERATTR + type, id, size), buffer}));
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 int lfs_setattr(lfs_t *lfs, const char *path,
@@ -3554,7 +3554,7 @@ int lfs_setattr(lfs_t *lfs, const char *path,
     LFS_TRACE("lfs_setattr -> %d", err);
     return err;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
@@ -3563,7 +3563,7 @@ int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
     LFS_TRACE("lfs_removeattr -> %d", err);
     return err;
 }
-#endif /* LFS_READONLY */
+#endif
 
 
 /// Filesystem operations ///
@@ -3665,7 +3665,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->gdelta = (lfs_gstate_t){0};
 #ifdef LFS_MIGRATE
     lfs->lfs1 = NULL;
-#endif /* LFS_MIGRATE */
+#endif
 
     return 0;
 
@@ -3774,7 +3774,7 @@ cleanup:
     return err;
 
 }
-#endif /* LFS_READONLY */
+#endif
 
 int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_mount(%p, %p {.context=%p, "
@@ -3946,7 +3946,7 @@ int lfs_fs_traverseraw(lfs_t *lfs,
         dir.tail[0] = lfs->root[0];
         dir.tail[1] = lfs->root[1];
     }
-#endif /* LFS_MIGRATE */
+#endif
 
     lfs_block_t cycle = 0;
     while (!lfs_pair_isnull(dir.tail)) {
@@ -4021,7 +4021,7 @@ int lfs_fs_traverseraw(lfs_t *lfs,
                 return err;
             }
         }
-#endif /* LFS_READONLY */
+#endif
     }
 
     return 0;
@@ -4062,14 +4062,14 @@ static int lfs_fs_pred(lfs_t *lfs,
 
     return LFS_ERR_NOENT;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 struct lfs_fs_parent_match {
     lfs_t *lfs;
     const lfs_block_t pair[2];
 };
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_fs_parent_match(void *data,
@@ -4090,7 +4090,7 @@ static int lfs_fs_parent_match(void *data,
     lfs_pair_fromle32(child);
     return (lfs_pair_cmp(child, find->pair) == 0) ? LFS_CMP_EQ : LFS_CMP_LT;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
@@ -4119,7 +4119,7 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
 
     return LFS_ERR_NOENT;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_fs_relocate(lfs_t *lfs,
@@ -4216,7 +4216,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static void lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
@@ -4225,7 +4225,7 @@ static void lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
     lfs->gstate.tag = ((lfs->gstate.tag & ~LFS_MKTAG(0x800, 0, 0)) |
             ((uint32_t)lfs_gstate_hasorphans(&lfs->gstate) << 31));
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static void lfs_fs_prepmove(lfs_t *lfs,
@@ -4235,7 +4235,7 @@ static void lfs_fs_prepmove(lfs_t *lfs,
     lfs->gstate.pair[0] = (id != 0x3ff) ? pair[0] : 0;
     lfs->gstate.pair[1] = (id != 0x3ff) ? pair[1] : 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_fs_demove(lfs_t *lfs) {
@@ -4267,7 +4267,7 @@ static int lfs_fs_demove(lfs_t *lfs) {
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_fs_deorphan(lfs_t *lfs) {
@@ -4343,7 +4343,7 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
     lfs_fs_preporphans(lfs, -lfs_gstate_getorphans(&lfs->gstate));
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 #ifndef LFS_READONLY
 static int lfs_fs_forceconsistency(lfs_t *lfs) {
@@ -4359,7 +4359,7 @@ static int lfs_fs_forceconsistency(lfs_t *lfs) {
 
     return 0;
 }
-#endif /* LFS_READONLY */
+#endif
 
 static int lfs_fs_size_count(void *p, lfs_block_t block) {
     (void)block;
@@ -5043,4 +5043,4 @@ cleanup:
     return err;
 }
 
-#endif /* LFS_MIGRATE */
+#endif
