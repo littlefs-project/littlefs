@@ -133,10 +133,12 @@ enum lfs_open_flags {
 #endif
 
     // internally used flags
+#ifndef LFS_READONLY
     LFS_F_DIRTY   = 0x010000, // File does not match storage
     LFS_F_WRITING = 0x020000, // File has been written since last flush
+#endif
     LFS_F_READING = 0x040000, // File has been read since last flush
-    LFS_F_ERRED   = 0x080000, // An error occured during write
+    LFS_F_ERRED   = 0x080000, // An error occurred during write
     LFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
     LFS_F_OPENED  = 0x200000, // File has been opened
 };

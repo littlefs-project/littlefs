@@ -3996,6 +3996,7 @@ int lfs_fs_traverseraw(lfs_t *lfs,
         }
     }
 
+#ifndef LFS_READONLY
     // iterate over any open files
     for (lfs_file_t *f = (lfs_file_t*)lfs->mlist; f; f = f->next) {
         if (f->type != LFS_TYPE_REG) {
@@ -4010,7 +4011,6 @@ int lfs_fs_traverseraw(lfs_t *lfs,
             }
         }
 
-#ifndef LFS_READONLY
         if ((f->flags & LFS_F_WRITING) && !(f->flags & LFS_F_INLINE)) {
             int err = lfs_ctz_traverse(lfs, &f->cache, &lfs->rcache,
                     f->block, f->pos, cb, data);
@@ -4018,8 +4018,8 @@ int lfs_fs_traverseraw(lfs_t *lfs,
                 return err;
             }
         }
-#endif
     }
+#endif
 
     return 0;
 }
