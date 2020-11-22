@@ -1460,8 +1460,12 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
         return err;
     }
 
-    // make sure we don't immediately evict
-    dir->rev += dir->rev & 1;
+    // make sure we don't immediately evict, see lfs_dir_compact for why
+    // this check is so complicated
+    if (lfs->cfg->block_cycles > 0 &&
+            (dir->rev + 1) % ((lfs->cfg->block_cycles+1)|1) == 0) {
+        dir->rev += 1;
+    }
 
     // set defaults
     dir->off = sizeof(dir->rev);
