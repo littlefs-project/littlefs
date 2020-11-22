@@ -106,7 +106,7 @@ def main(args):
             struct.unpack('<HH', superblock[1].data[0:4].ljust(4, b'\xff'))))
     print("%-47s%s" % ("littlefs v%s.%s" % version,
         "data (truncated, if it fits)"
-        if not any([args.no_truncate, args.tags, args.log, args.all]) else ""))
+        if not any([args.no_truncate, args.log, args.all]) else ""))
 
     # print gstate
     print("gstate 0x%s" % ''.join('%02x' % c for c in gstate))
