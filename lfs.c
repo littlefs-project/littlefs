@@ -2592,7 +2592,9 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 
 cleanup:
     // clean up lingering resources
+#ifndef LFS_READONLY
     file->flags |= LFS_F_ERRED;
+#endif
     lfs_file_close(lfs, file);
     LFS_TRACE("lfs_file_opencfg -> %d", err);
     return err;
