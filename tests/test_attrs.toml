@@ -1,14 +1,14 @@
 [[case]] # set/get attribute
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "hello") => 0;
     lfs_file_open(&lfs, &file, "hello/hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_write(&lfs, &file, "hello", strlen("hello")) => strlen("hello");
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     lfs_setattr(&lfs, "hello", 'A', "aaaa",   4) => 0;
     lfs_setattr(&lfs, "hello", 'B', "bbbbbb", 6) => 0;
@@ -60,7 +60,7 @@ code = '''
 
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     lfs_getattr(&lfs, "hello", 'A', buffer,    4) => 4;
     lfs_getattr(&lfs, "hello", 'B', buffer+4,  9) => 9;
@@ -78,15 +78,15 @@ code = '''
 
 [[case]] # set/get root attribute
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "hello") => 0;
     lfs_file_open(&lfs, &file, "hello/hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_write(&lfs, &file, "hello", strlen("hello")) => strlen("hello");
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     lfs_setattr(&lfs, "/", 'A', "aaaa",   4) => 0;
     lfs_setattr(&lfs, "/", 'B', "bbbbbb", 6) => 0;
@@ -137,7 +137,7 @@ code = '''
     lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
     lfs_getattr(&lfs, "/", 'B', buffer+4,  9) => 9;
@@ -155,15 +155,15 @@ code = '''
 
 [[case]] # set/get file attribute
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "hello") => 0;
     lfs_file_open(&lfs, &file, "hello/hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_write(&lfs, &file, "hello", strlen("hello")) => strlen("hello");
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     struct lfs_attr attrs1[] = {
         {'A', buffer,    4},
@@ -238,7 +238,7 @@ code = '''
 
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     struct lfs_attr attrs3[] = {
         {'A', buffer,    4},
@@ -262,15 +262,15 @@ code = '''
 
 [[case]] # deferred file attributes
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "hello") => 0;
     lfs_file_open(&lfs, &file, "hello/hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_write(&lfs, &file, "hello", strlen("hello")) => strlen("hello");
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_setattr(&lfs, "hello/hello", 'B', "fffffffff",  9) => 0;
     lfs_setattr(&lfs, "hello/hello", 'C', "ccccc",      5) => 0;
 

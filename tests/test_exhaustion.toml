@@ -11,14 +11,14 @@ define.LFS_BADBLOCK_BEHAVIOR = [
 ]
 define.FILES = 10
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "roadrunner") => 0;
     lfs_unmount(&lfs) => 0;
 
     uint32_t cycle = 0;
     while (true) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (uint32_t i = 0; i < FILES; i++) {
             // chose name, roughly random seed, and random 2^n size
             sprintf(path, "roadrunner/test%d", i);
@@ -71,7 +71,7 @@ code = '''
 
 exhausted:
     // should still be readable
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (uint32_t i = 0; i < FILES; i++) {
         // check for errors
         sprintf(path, "roadrunner/test%d", i);
@@ -96,11 +96,11 @@ define.LFS_BADBLOCK_BEHAVIOR = [
 ]
 define.FILES = 10
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
     uint32_t cycle = 0;
     while (true) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (uint32_t i = 0; i < FILES; i++) {
             // chose name, roughly random seed, and random 2^n size
             sprintf(path, "test%d", i);
@@ -153,7 +153,7 @@ code = '''
 
 exhausted:
     // should still be readable
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (uint32_t i = 0; i < FILES; i++) {
         // check for errors
         sprintf(path, "test%d", i);
@@ -184,14 +184,14 @@ code = '''
                     (b < run_block_count[run]) ? 0 : LFS_ERASE_CYCLES) => 0;
         }
 
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         lfs_mkdir(&lfs, "roadrunner") => 0;
         lfs_unmount(&lfs) => 0;
 
         uint32_t cycle = 0;
         while (true) {
-            lfs_mount(&lfs, &cfg) => 0;
+            lfs_mountcfg(&lfs, &cfg) => 0;
             for (uint32_t i = 0; i < FILES; i++) {
                 // chose name, roughly random seed, and random 2^n size
                 sprintf(path, "roadrunner/test%d", i);
@@ -244,7 +244,7 @@ code = '''
 
 exhausted:
         // should still be readable
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (uint32_t i = 0; i < FILES; i++) {
             // check for errors
             sprintf(path, "roadrunner/test%d", i);
@@ -276,11 +276,11 @@ code = '''
                     (b < run_block_count[run]) ? 0 : LFS_ERASE_CYCLES) => 0;
         }
 
-        lfs_format(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
 
         uint32_t cycle = 0;
         while (true) {
-            lfs_mount(&lfs, &cfg) => 0;
+            lfs_mountcfg(&lfs, &cfg) => 0;
             for (uint32_t i = 0; i < FILES; i++) {
                 // chose name, roughly random seed, and random 2^n size
                 sprintf(path, "test%d", i);
@@ -333,7 +333,7 @@ code = '''
 
 exhausted:
         // should still be readable
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (uint32_t i = 0; i < FILES; i++) {
             // check for errors
             sprintf(path, "test%d", i);
@@ -358,14 +358,14 @@ define.CYCLES = 100
 define.FILES = 10
 if = 'LFS_BLOCK_CYCLES < CYCLES/10'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "roadrunner") => 0;
     lfs_unmount(&lfs) => 0;
 
     uint32_t cycle = 0;
     while (cycle < CYCLES) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (uint32_t i = 0; i < FILES; i++) {
             // chose name, roughly random seed, and random 2^n size
             sprintf(path, "roadrunner/test%d", i);
@@ -418,7 +418,7 @@ code = '''
 
 exhausted:
     // should still be readable
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (uint32_t i = 0; i < FILES; i++) {
         // check for errors
         sprintf(path, "roadrunner/test%d", i);

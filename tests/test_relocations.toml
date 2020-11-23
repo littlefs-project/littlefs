@@ -4,9 +4,9 @@ define.ITERATIONS = 20
 define.COUNT = 10
 define.LFS_BLOCK_CYCLES = [8, 1]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
     // fill up filesystem so only ~16 blocks are left
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "padding", LFS_O_CREAT | LFS_O_WRONLY) => 0;
     memset(buffer, 0, 512);
     while (LFS_BLOCK_COUNT - lfs_fs_size(&lfs) > 16) {
@@ -17,7 +17,7 @@ code = '''
     lfs_mkdir(&lfs, "child") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int j = 0; j < ITERATIONS; j++) {
         for (int i = 0; i < COUNT; i++) {
             sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
@@ -47,7 +47,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "child") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     lfs_dir_read(&lfs, &dir, &info) => 1;
@@ -70,9 +70,9 @@ define.ITERATIONS = 20
 define.COUNT = 10
 define.LFS_BLOCK_CYCLES = [8, 1]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
     // fill up filesystem so only ~16 blocks are left
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "padding", LFS_O_CREAT | LFS_O_WRONLY) => 0;
     memset(buffer, 0, 512);
     while (LFS_BLOCK_COUNT - lfs_fs_size(&lfs) > 16) {
@@ -83,7 +83,7 @@ code = '''
     lfs_mkdir(&lfs, "child") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int j = 0; j < ITERATIONS; j++) {
         for (int i = 0; i < COUNT; i++) {
             sprintf(path, "child/test%03d_loooooooooooooooooong_name", i);
@@ -155,10 +155,10 @@ define = [
     {FILES=3,  DEPTH=3, CYCLES=20, LFS_BLOCK_CYCLES=1},
 ]
 code = '''
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
 
     srand(1);
@@ -217,10 +217,10 @@ define = [
     {FILES=3,  DEPTH=3, CYCLES=20, LFS_BLOCK_CYCLES=1},
 ]
 code = '''
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
 
     srand(1);

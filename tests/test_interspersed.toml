@@ -5,8 +5,8 @@ define.FILES = [4, 10, 26]
 code = '''
     lfs_file_t files[FILES];
     const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int j = 0; j < FILES; j++) {
         sprintf(path, "%c", alphas[j]);
         lfs_file_open(&lfs, &files[j], path,
@@ -64,8 +64,8 @@ define.SIZE = [10, 100]
 define.FILES = [4, 10, 26]
 code = '''
     const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int j = 0; j < FILES; j++) {
         sprintf(path, "%c", alphas[j]);
         lfs_file_open(&lfs, &file, path,
@@ -77,7 +77,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "zzz", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     for (int j = 0; j < FILES; j++) {
         lfs_file_write(&lfs, &file, (const void*)"~", 1) => 1;
@@ -115,8 +115,8 @@ code = '''
 [[case]] # remove inconveniently test
 define.SIZE = [10, 100]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_t files[3];
     lfs_file_open(&lfs, &files[0], "e", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_open(&lfs, &files[1], "f", LFS_O_WRONLY | LFS_O_CREAT) => 0;
@@ -180,10 +180,10 @@ code = '''
     lfs_file_t files[FILES];
     const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
 
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
 
     for (int j = 0; j < FILES; j++) {

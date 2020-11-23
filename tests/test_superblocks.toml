@@ -1,37 +1,37 @@
 [[case]] # simple formatting test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 '''
 
 [[case]] # mount/unmount
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_unmount(&lfs) => 0;
 '''
 
 [[case]] # reentrant format
 reentrant = true
 code = '''
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
     lfs_unmount(&lfs) => 0;
 '''
 
 [[case]] # invalid mount
 code = '''
-    lfs_mount(&lfs, &cfg) => LFS_ERR_CORRUPT;
+    lfs_mountcfg(&lfs, &cfg) => LFS_ERR_CORRUPT;
 '''
 
 [[case]] # expanding superblock
 define.LFS_BLOCK_CYCLES = [32, 33, 1]
 define.N = [10, 100, 1000]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         lfs_file_open(&lfs, &file, "dummy",
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
@@ -44,7 +44,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // one last check after power-cycle
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "dummy",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     lfs_file_close(&lfs, &file) => 0;
@@ -58,9 +58,9 @@ code = '''
 define.LFS_BLOCK_CYCLES = [32, 33, 1]
 define.N = [10, 100, 1000]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         // remove lingering dummy?
         err = lfs_stat(&lfs, "dummy", &info);
         assert(err == 0 || (err == LFS_ERR_NOENT && i == 0));
@@ -80,7 +80,7 @@ code = '''
     }
 
     // one last check after power-cycle
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "dummy", &info) => 0;
     assert(strcmp(info.name, "dummy") == 0);
     assert(info.type == LFS_TYPE_REG);
@@ -92,10 +92,10 @@ define.LFS_BLOCK_CYCLES = [2, 1]
 define.N = 24
 reentrant = true
 code = '''
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
 
     for (int i = 0; i < N; i++) {
@@ -119,7 +119,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // one last check after power-cycle
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "dummy", &info) => 0;
     assert(strcmp(info.name, "dummy") == 0);
     assert(info.type == LFS_TYPE_REG);

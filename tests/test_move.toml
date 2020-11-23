@@ -1,7 +1,7 @@
 [[case]] # move file
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "a") => 0;
     lfs_mkdir(&lfs, "b") => 0;
     lfs_mkdir(&lfs, "c") => 0;
@@ -13,11 +13,11 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hello", "c/hello") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -57,8 +57,8 @@ code = '''
 
 [[case]] # noop move, yes this is legal
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "hi") => 0;
     lfs_rename(&lfs, "hi", "hi") => 0;
     lfs_mkdir(&lfs, "hi/hi") => 0;
@@ -74,8 +74,8 @@ code = '''
 [[case]] # move file corrupt source
 in = "lfs.c"
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "a") => 0;
     lfs_mkdir(&lfs, "b") => 0;
     lfs_mkdir(&lfs, "c") => 0;
@@ -87,12 +87,12 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hello", "c/hello") => 0;
     lfs_unmount(&lfs) => 0;
 
     // corrupt the source
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_block_t block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -108,7 +108,7 @@ code = '''
     cfg.prog(&cfg, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
     cfg.sync(&cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -150,8 +150,8 @@ code = '''
 in = "lfs.c"
 if = 'LFS_PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "a") => 0;
     lfs_mkdir(&lfs, "b") => 0;
     lfs_mkdir(&lfs, "c") => 0;
@@ -163,12 +163,12 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hello", "c/hello") => 0;
     lfs_unmount(&lfs) => 0;
 
     // corrupt the source
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_block_t block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -185,7 +185,7 @@ code = '''
     cfg.sync(&cfg) => 0;
 
     // corrupt the destination
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "c") => 0;
     block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -200,7 +200,7 @@ code = '''
     cfg.prog(&cfg, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
     cfg.sync(&cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -242,8 +242,8 @@ code = '''
 in = "lfs.c"
 if = 'LFS_PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "a") => 0;
     lfs_mkdir(&lfs, "b") => 0;
     lfs_mkdir(&lfs, "c") => 0;
@@ -255,12 +255,12 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hello", "c/hello") => 0;
     lfs_unmount(&lfs) => 0;
 
     // corrupt the source
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_block_t block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -277,7 +277,7 @@ code = '''
     cfg.sync(&cfg) => 0;
 
     // corrupt the destination
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "c") => 0;
     block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -293,11 +293,11 @@ code = '''
     cfg.sync(&cfg) => 0;
 
     // continue move
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hello", "c/hello") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -338,10 +338,10 @@ code = '''
 [[case]] # simple reentrant move file
 reentrant = true
 code = '''
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
     err = lfs_mkdir(&lfs, "a");
     assert(!err || err == LFS_ERR_EXIST);
@@ -354,7 +354,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     while (true) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         // there should never exist _2_ hello files
         int count = 0;
         if (lfs_stat(&lfs, "a/hello", &info) == 0) {
@@ -384,7 +384,7 @@ code = '''
         assert(count <= 1);
         lfs_unmount(&lfs) => 0;
 
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         if (lfs_stat(&lfs, "a/hello", &info) == 0 && info.size > 0) {
             lfs_rename(&lfs, "a/hello", "b/hello") => 0;
         } else if (lfs_stat(&lfs, "b/hello", &info) == 0) {
@@ -407,7 +407,7 @@ code = '''
         lfs_unmount(&lfs) => 0;
     }
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -447,8 +447,8 @@ code = '''
 
 [[case]] # move dir
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "a") => 0;
     lfs_mkdir(&lfs, "b") => 0;
     lfs_mkdir(&lfs, "c") => 0;
@@ -459,11 +459,11 @@ code = '''
     lfs_mkdir(&lfs, "a/hi/ohayo") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hi", "c/hi") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -513,8 +513,8 @@ code = '''
 [[case]] # move dir corrupt source
 in = "lfs.c"
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "a") => 0;
     lfs_mkdir(&lfs, "b") => 0;
     lfs_mkdir(&lfs, "c") => 0;
@@ -525,12 +525,12 @@ code = '''
     lfs_mkdir(&lfs, "a/hi/ohayo") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hi", "c/hi") => 0;
     lfs_unmount(&lfs) => 0;
 
     // corrupt the source
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_block_t block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -546,7 +546,7 @@ code = '''
     cfg.prog(&cfg, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
     cfg.sync(&cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -597,8 +597,8 @@ code = '''
 in = "lfs.c"
 if = 'LFS_PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "a") => 0;
     lfs_mkdir(&lfs, "b") => 0;
     lfs_mkdir(&lfs, "c") => 0;
@@ -609,12 +609,12 @@ code = '''
     lfs_mkdir(&lfs, "a/hi/ohayo") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hi", "c/hi") => 0;
     lfs_unmount(&lfs) => 0;
 
     // corrupt the source
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_block_t block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -631,7 +631,7 @@ code = '''
     cfg.sync(&cfg) => 0;
 
     // corrupt the destination
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "c") => 0;
     block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -646,7 +646,7 @@ code = '''
     cfg.prog(&cfg, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
     cfg.sync(&cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -697,8 +697,8 @@ code = '''
 in = "lfs.c"
 if = 'LFS_PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "a") => 0;
     lfs_mkdir(&lfs, "b") => 0;
     lfs_mkdir(&lfs, "c") => 0;
@@ -709,12 +709,12 @@ code = '''
     lfs_mkdir(&lfs, "a/hi/ohayo") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hi", "c/hi") => 0;
     lfs_unmount(&lfs) => 0;
 
     // corrupt the source
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_block_t block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -731,7 +731,7 @@ code = '''
     cfg.sync(&cfg) => 0;
 
     // corrupt the destination
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "c") => 0;
     block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -747,11 +747,11 @@ code = '''
     cfg.sync(&cfg) => 0;
 
     // continue move
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hi", "c/hi") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -801,10 +801,10 @@ code = '''
 [[case]] # simple reentrant move dir
 reentrant = true
 code = '''
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
     err = lfs_mkdir(&lfs, "a");
     assert(!err || err == LFS_ERR_EXIST);
@@ -817,7 +817,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     while (true) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         // there should never exist _2_ hi directories
         int count = 0;
         if (lfs_stat(&lfs, "a/hi", &info) == 0) {
@@ -843,7 +843,7 @@ code = '''
         assert(count <= 1);
         lfs_unmount(&lfs) => 0;
 
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         if (lfs_stat(&lfs, "a/hi", &info) == 0) {
             lfs_rename(&lfs, "a/hi", "b/hi") => 0;
         } else if (lfs_stat(&lfs, "b/hi", &info) == 0) {
@@ -868,7 +868,7 @@ code = '''
         lfs_unmount(&lfs) => 0;
     }
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "a") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -917,8 +917,8 @@ code = '''
 
 [[case]] # move state stealing
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "a") => 0;
     lfs_mkdir(&lfs, "b") => 0;
     lfs_mkdir(&lfs, "c") => 0;
@@ -930,17 +930,17 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "a/hello", "b/hello") => 0;
     lfs_unmount(&lfs) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "b/hello", "c/hello") => 0;
     lfs_unmount(&lfs) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "c/hello", "d/hello") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "a/hello", LFS_O_RDONLY) => LFS_ERR_NOENT;
     lfs_file_open(&lfs, &file, "b/hello", LFS_O_RDONLY) => LFS_ERR_NOENT;
     lfs_file_open(&lfs, &file, "c/hello", LFS_O_RDONLY) => LFS_ERR_NOENT;
@@ -954,12 +954,12 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "b") => 0;
     lfs_remove(&lfs, "c") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "a", &info) => 0;
     lfs_stat(&lfs, "b", &info) => LFS_ERR_NOENT;
     lfs_stat(&lfs, "c", &info) => LFS_ERR_NOENT;
@@ -981,8 +981,8 @@ code = '''
 # Other specific corner cases
 [[case]] # create + delete in same commit with neighbors
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // littlefs keeps files sorted, so we know the order these will be in
     lfs_file_open(&lfs, &file, "/1.move_me",
@@ -1127,8 +1127,8 @@ code = '''
 # Other specific corner cases
 [[case]] # create + delete + delete in same commit with neighbors
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // littlefs keeps files sorted, so we know the order these will be in
     lfs_file_open(&lfs, &file, "/1.move_me",
@@ -1283,8 +1283,8 @@ code = '''
 
 [[case]] # create + delete in different dirs with neighbors
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // littlefs keeps files sorted, so we know the order these will be in
     lfs_mkdir(&lfs, "/dir.1") => 0;
@@ -1523,8 +1523,8 @@ in = "lfs.c"
 define.RELOCATIONS = 'range(0x3+1)'
 define.LFS_ERASE_CYCLES = 0xffffffff
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     lfs_mkdir(&lfs, "/parent") => 0;
     lfs_mkdir(&lfs, "/parent/child") => 0;
@@ -1660,8 +1660,8 @@ in = "lfs.c"
 define.RELOCATIONS = 'range(0x7+1)'
 define.LFS_ERASE_CYCLES = 0xffffffff
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     lfs_mkdir(&lfs, "/parent") => 0;
     lfs_mkdir(&lfs, "/parent/child") => 0;

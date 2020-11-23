@@ -2,8 +2,8 @@
 in = "lfs.c"
 if = 'LFS_PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "parent") => 0;
     lfs_mkdir(&lfs, "parent/orphan") => 0;
     lfs_mkdir(&lfs, "parent/child") => 0;
@@ -13,7 +13,7 @@ code = '''
     // corrupt the child's most recent commit, this should be the update
     // to the linked-list entry, which should orphan the orphan. Note this
     // makes a lot of assumptions about the remove operation.
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "parent/child") => 0;
     lfs_block_t block = dir.m.pair[0];
     lfs_dir_close(&lfs, &dir) => 0;
@@ -29,13 +29,13 @@ code = '''
     cfg.prog(&cfg, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
     cfg.sync(&cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
     lfs_stat(&lfs, "parent/child", &info) => 0;
     lfs_fs_size(&lfs) => 8;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
     lfs_stat(&lfs, "parent/child", &info) => 0;
     lfs_fs_size(&lfs) => 8;
@@ -48,7 +48,7 @@ code = '''
     lfs_fs_size(&lfs) => 8;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;
     lfs_stat(&lfs, "parent/child", &info) => 0;
     lfs_stat(&lfs, "parent/otherchild", &info) => 0;
@@ -66,10 +66,10 @@ define = [
     {FILES=3,  DEPTH=3, CYCLES=20},
 ]
 code = '''
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
 
     srand(1);

@@ -9,8 +9,8 @@ define = [
     {COUNT=4,   SKIP=2},
 ]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "kitty",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
     size = strlen("kittycatcat");
@@ -21,7 +21,7 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "kitty", LFS_O_RDONLY) => 0;
 
     lfs_soff_t pos = -1;
@@ -78,8 +78,8 @@ define = [
     {COUNT=4,   SKIP=2},
 ]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "kitty",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
     size = strlen("kittycatcat");
@@ -90,7 +90,7 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "kitty", LFS_O_RDWR) => 0;
 
     lfs_soff_t pos = -1;
@@ -133,8 +133,8 @@ code = '''
 define.COUNT = 132
 define.OFFSETS = '"{512, 1020, 513, 1021, 511, 1019, 1441}"'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "kitty",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
     size = strlen("kittycatcat");
@@ -145,7 +145,7 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "kitty", LFS_O_RDWR) => 0;
 
     size = strlen("hedgehoghog");
@@ -193,8 +193,8 @@ define = [
     {COUNT=4,   SKIP=3},
 ]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "kitty",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
     size = strlen("kittycatcat");
@@ -204,7 +204,7 @@ code = '''
     }
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "kitty", LFS_O_RDWR) => 0;
 
     size = strlen("kittycatcat");
@@ -241,8 +241,8 @@ code = '''
 [[case]] # inline write and seek
 define.SIZE = [2, 4, 128, 132]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "tinykitty",
             LFS_O_RDWR | LFS_O_CREAT) => 0;
     int j = 0;
@@ -310,10 +310,10 @@ code = '''
 define.COUNT = [4, 64, 128]
 reentrant = true
 code = '''
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
     err = lfs_file_open(&lfs, &file, "kitty", LFS_O_RDONLY);
     assert(!err || err == LFS_ERR_NOENT);

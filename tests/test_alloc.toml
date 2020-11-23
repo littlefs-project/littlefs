@@ -9,12 +9,12 @@ code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
     lfs_file_t files[FILES];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "breakfast") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int n = 0; n < FILES; n++) {
         sprintf(path, "breakfast/%s", names[n]);
         lfs_file_open(&lfs, &files[n], path,
@@ -31,7 +31,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int n = 0; n < FILES; n++) {
         sprintf(path, "breakfast/%s", names[n]);
         lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
@@ -51,13 +51,13 @@ define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-6)) / FILES)'
 code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "breakfast") => 0;
     lfs_unmount(&lfs) => 0;
 
     for (int n = 0; n < FILES; n++) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         sprintf(path, "breakfast/%s", names[n]);
         lfs_file_open(&lfs, &file, path,
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
@@ -70,7 +70,7 @@ code = '''
         lfs_unmount(&lfs) => 0;
     }
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int n = 0; n < FILES; n++) {
         sprintf(path, "breakfast/%s", names[n]);
         lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
@@ -92,14 +92,14 @@ code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
     lfs_file_t files[FILES];
 
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
     for (int c = 0; c < CYCLES; c++) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         lfs_mkdir(&lfs, "breakfast") => 0;
         lfs_unmount(&lfs) => 0;
 
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (int n = 0; n < FILES; n++) {
             sprintf(path, "breakfast/%s", names[n]);
             lfs_file_open(&lfs, &files[n], path,
@@ -116,7 +116,7 @@ code = '''
         }
         lfs_unmount(&lfs) => 0;
 
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (int n = 0; n < FILES; n++) {
             sprintf(path, "breakfast/%s", names[n]);
             lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
@@ -129,7 +129,7 @@ code = '''
         }
         lfs_unmount(&lfs) => 0;
 
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (int n = 0; n < FILES; n++) {
             sprintf(path, "breakfast/%s", names[n]);
             lfs_remove(&lfs, path) => 0;
@@ -146,15 +146,15 @@ define.CYCLES = [1, 10]
 code = '''
     const char *names[FILES] = {"bacon", "eggs", "pancakes"};
 
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
     for (int c = 0; c < CYCLES; c++) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         lfs_mkdir(&lfs, "breakfast") => 0;
         lfs_unmount(&lfs) => 0;
 
         for (int n = 0; n < FILES; n++) {
-            lfs_mount(&lfs, &cfg) => 0;
+            lfs_mountcfg(&lfs, &cfg) => 0;
             sprintf(path, "breakfast/%s", names[n]);
             lfs_file_open(&lfs, &file, path,
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
@@ -167,7 +167,7 @@ code = '''
             lfs_unmount(&lfs) => 0;
         }
 
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (int n = 0; n < FILES; n++) {
             sprintf(path, "breakfast/%s", names[n]);
             lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
@@ -180,7 +180,7 @@ code = '''
         }
         lfs_unmount(&lfs) => 0;
 
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (int n = 0; n < FILES; n++) {
             sprintf(path, "breakfast/%s", names[n]);
             lfs_remove(&lfs, path) => 0;
@@ -192,8 +192,8 @@ code = '''
 
 [[case]] # exhaustion test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
     size = strlen("exhaustion");
     memcpy(buffer, "exhaustion", size);
@@ -216,7 +216,7 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "exhaustion", LFS_O_RDONLY);
     size = strlen("exhaustion");
     lfs_file_size(&lfs, &file) => size;
@@ -229,8 +229,8 @@ code = '''
 [[case]] # exhaustion wraparound test
 define.SIZE = '(((LFS_BLOCK_SIZE-8)*(LFS_BLOCK_COUNT-4)) / 3)'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     lfs_file_open(&lfs, &file, "padding", LFS_O_WRONLY | LFS_O_CREAT);
     size = strlen("buffering");
@@ -263,7 +263,7 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "exhaustion", LFS_O_RDONLY);
     size = strlen("exhaustion");
     lfs_file_size(&lfs, &file) => size;
@@ -276,8 +276,8 @@ code = '''
 
 [[case]] # dir exhaustion test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // find out max file size
     lfs_mkdir(&lfs, "exhaustiondir") => 0;
@@ -328,8 +328,8 @@ in = "lfs.c"
 define.LFS_ERASE_CYCLES = 0xffffffff
 define.LFS_BADBLOCK_BEHAVIOR = 'LFS_TESTBD_BADBLOCK_READERROR'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     // first fill to exhaustion to find available space
     lfs_file_open(&lfs, &file, "pacman", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     strcpy((char*)buffer, "waka");
@@ -358,7 +358,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // remount to force an alloc scan
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // but mark the head of our file as a "bad block", this is force our
     // scan to bail early
@@ -393,7 +393,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // check that the disk isn't hurt
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "pacman", LFS_O_RDONLY) => 0;
     strcpy((char*)buffer, "waka");
     size = strlen("waka");
@@ -416,8 +416,8 @@ define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
 if = 'LFS_BLOCK_SIZE == 512 && LFS_BLOCK_COUNT == 1024'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // find out max file size
     lfs_mkdir(&lfs, "exhaustiondir") => 0;
@@ -487,8 +487,8 @@ define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
 if = 'LFS_BLOCK_SIZE == 512 && LFS_BLOCK_COUNT == 1024'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // create one block hole for half a directory
     lfs_file_open(&lfs, &file, "bump", LFS_O_WRONLY | LFS_O_CREAT) => 0;
@@ -510,7 +510,7 @@ code = '''
 
     // remount to force reset of lookahead
     lfs_unmount(&lfs) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // open hole
     lfs_remove(&lfs, "bump") => 0;
@@ -532,8 +532,8 @@ define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
 if = 'LFS_BLOCK_SIZE == 512 && LFS_BLOCK_COUNT == 1024'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // fill completely with two files
     lfs_file_open(&lfs, &file, "exhaustion1",
@@ -560,7 +560,7 @@ code = '''
 
     // remount to force reset of lookahead
     lfs_unmount(&lfs) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // rewrite one file
     lfs_file_open(&lfs, &file, "exhaustion1",
@@ -597,8 +597,8 @@ define.LFS_BLOCK_SIZE = 512
 define.LFS_BLOCK_COUNT = 1024
 if = 'LFS_BLOCK_SIZE == 512 && LFS_BLOCK_COUNT == 1024'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // fill completely with two files
     lfs_file_open(&lfs, &file, "exhaustion1",
@@ -625,7 +625,7 @@ code = '''
 
     // remount to force reset of lookahead
     lfs_unmount(&lfs) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // rewrite one file with a hole of one block
     lfs_file_open(&lfs, &file, "exhaustion1",

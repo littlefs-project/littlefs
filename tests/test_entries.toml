@@ -10,8 +10,8 @@ code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // write hi0 20
     sprintf(path, "hi0"); size = 20;
@@ -99,8 +99,8 @@ code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // write hi0 20
     sprintf(path, "hi0"); size = 20;
@@ -188,8 +188,8 @@ code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // write hi0 200
     sprintf(path, "hi0"); size = 200;
@@ -261,8 +261,8 @@ code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // write hi0 200
     sprintf(path, "hi0"); size = 200;
@@ -350,8 +350,8 @@ code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // write hi0 200
     sprintf(path, "hi0"); size = 200;
@@ -454,8 +454,8 @@ code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     // write hi0 200
     sprintf(path, "hi0"); size = 200;
@@ -549,9 +549,9 @@ code = '''
 
 [[case]] # create too big
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     memset(path, 'm', 200);
     path[200] = '\0';
 
@@ -574,9 +574,9 @@ code = '''
 
 [[case]] # resize too big
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     memset(path, 'm', 200);
     path[200] = '\0';
 
