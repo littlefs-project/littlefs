@@ -127,31 +127,31 @@ enum lfs_whence_flags {
 
 #if !defined(LFS_STATICCFG)
 // Configuration provided during initialization of the littlefs
-struct lfs_config {
+struct lfs_cfg {
     // Opaque user provided context that can be used to pass
     // information to the block device operations
     void *context;
 
     // Read a region in a block. Negative error codes are propogated
     // to the user.
-    int (*read)(const struct lfs_config *c, lfs_block_t block,
+    int (*read)(const struct lfs_cfg *c, lfs_block_t block,
             lfs_off_t off, void *buffer, lfs_size_t size);
 
     // Program a region in a block. The block must have previously
     // been erased. Negative error codes are propogated to the user.
     // May return LFS_ERR_CORRUPT if the block should be considered bad.
-    int (*prog)(const struct lfs_config *c, lfs_block_t block,
+    int (*prog)(const struct lfs_cfg *c, lfs_block_t block,
             lfs_off_t off, const void *buffer, lfs_size_t size);
 
     // Erase a block. A block must be erased before being programmed.
     // The state of an erased block is undefined. Negative error codes
     // are propogated to the user.
     // May return LFS_ERR_CORRUPT if the block should be considered bad.
-    int (*erase)(const struct lfs_config *c, lfs_block_t block);
+    int (*erase)(const struct lfs_cfg *c, lfs_block_t block);
 
     // Sync the state of the underlying block device. Negative error codes
     // are propogated to the user.
-    int (*sync)(const struct lfs_config *c);
+    int (*sync)(const struct lfs_cfg *c);
 
     // Minimum size of a block read. All read operations will be a
     // multiple of this value.
@@ -223,7 +223,7 @@ struct lfs_config {
 #else
 // Static configuration if LFS_STATICCFG is defined, there are defaults
 // for some of these, but some are required. For full documentation, see
-// the lfs_config struct above.
+// the lfs_cfg struct above.
 
 // Block device operations
 int lfs_read(lfs_block_t block,
@@ -279,7 +279,7 @@ int lfs_sync(void);
 
 #if !defined(LFS_FILE_STATICCFG)
 // Optional configuration provided during lfs_file_opencfg
-struct lfs_file_config {
+struct lfs_file_cfg {
     // Optional statically allocated file buffer. Must be cache_size.
     // By default lfs_malloc is used to allocate this buffer.
     void *buffer;
@@ -302,7 +302,7 @@ struct lfs_file_config {
 };
 #else
 // Static configuration if LFS_FILE_STATICCFG is defined. For full
-// documentation, see the lfs_file_config struct above.
+// documentation, see the lfs_file_cfg struct above.
 #ifndef LFS_FILE_BUFFER
 #define LFS_FILE_BUFFER NULL
 #endif
@@ -393,7 +393,7 @@ typedef struct lfs_file {
     lfs_cache_t cache;
 
 #ifndef LFS_FILE_STATICCFG
-    const struct lfs_file_config *cfg;
+    const struct lfs_file_cfg *cfg;
 #endif
 } lfs_file_t;
 
@@ -438,7 +438,7 @@ typedef struct lfs {
     } free;
 
 #ifndef LFS_STATICCFG
-    const struct lfs_config *cfg;
+    const struct lfs_cfg *cfg;
 #endif
     lfs_size_t name_max;
     lfs_size_t file_max;
@@ -470,7 +470,7 @@ int lfs_format(lfs_t *lfs);
 // be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-int lfs_formatcfg(lfs_t *lfs, const struct lfs_config *config);
+int lfs_formatcfg(lfs_t *lfs, const struct lfs_cfg *config);
 #endif
 
 #if defined(LFS_STATICCFG)
@@ -491,7 +491,7 @@ int lfs_mount(lfs_t *lfs);
 // be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-int lfs_mountcfg(lfs_t *lfs, const struct lfs_config *config);
+int lfs_mountcfg(lfs_t *lfs, const struct lfs_cfg *config);
 #endif
 
 // Unmounts a littlefs
@@ -579,7 +579,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 // Returns a negative error code on failure.
 int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags,
-        const struct lfs_file_config *config);
+        const struct lfs_file_cfg *config);
 #endif
 
 // Close a file
@@ -721,7 +721,7 @@ int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 // not leave the filesystem mounted.
 //
 // Returns a negative error code on failure.
-int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
+int lfs_migrate(lfs_t *lfs, const struct lfs_cfg *cfg);
 #endif
 
 #if defined(LFS_MIGRATE) && !defined(LFS_STATICCFG)
@@ -737,7 +737,7 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
 // be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-int lfs_migratecfg(lfs_t *lfs, const struct lfs_config *cfg);
+int lfs_migratecfg(lfs_t *lfs, const struct lfs_cfg *cfg);
 #endif
 
 

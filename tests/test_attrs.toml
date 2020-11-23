@@ -170,7 +170,7 @@ code = '''
         {'B', buffer+4,  6},
         {'C', buffer+10, 5},
     };
-    struct lfs_file_config cfg1 = {.attrs=attrs1, .attr_count=3};
+    struct lfs_file_cfg cfg1 = {.attrs=attrs1, .attr_count=3};
 
     lfs_file_opencfg(&lfs, &file, "hello/hello", LFS_O_WRONLY, &cfg1) => 0;
     memcpy(buffer,    "aaaa",   4);
@@ -228,7 +228,7 @@ code = '''
         {'B', buffer+4,  9},
         {'C', buffer+13, 5},
     };
-    struct lfs_file_config cfg2 = {.attrs=attrs2, .attr_count=3};
+    struct lfs_file_cfg cfg2 = {.attrs=attrs2, .attr_count=3};
     lfs_file_opencfg(&lfs, &file, "hello/hello", LFS_O_RDWR, &cfg2) => 0;
     memcpy(buffer+4,  "fffffffff", 9);
     lfs_file_close(&lfs, &file) => 0;
@@ -245,7 +245,7 @@ code = '''
         {'B', buffer+4,  9},
         {'C', buffer+13, 5},
     };
-    struct lfs_file_config cfg3 = {.attrs=attrs3, .attr_count=3};
+    struct lfs_file_cfg cfg3 = {.attrs=attrs3, .attr_count=3};
 
     lfs_file_opencfg(&lfs, &file, "hello/hello", LFS_O_RDONLY, &cfg3) => 0;
     lfs_file_close(&lfs, &file) => 0;
@@ -280,7 +280,7 @@ code = '''
         {'C', "",     0},
         {'D', "hhhh", 4},
     };
-    struct lfs_file_config cfg1 = {.attrs=attrs1, .attr_count=3};
+    struct lfs_file_cfg cfg1 = {.attrs=attrs1, .attr_count=3};
 
     lfs_file_opencfg(&lfs, &file, "hello/hello", LFS_O_WRONLY, &cfg1) => 0;
 

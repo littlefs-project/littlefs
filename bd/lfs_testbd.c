@@ -10,8 +10,8 @@
 #include <stdlib.h>
 
 
-int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
-        const struct lfs_testbd_config *bdcfg) {
+int lfs_testbd_createcfg(const struct lfs_cfg *cfg, const char *path,
+        const struct lfs_testbd_cfg *bdcfg) {
     LFS_TESTBD_TRACE("lfs_testbd_createcfg(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -50,14 +50,14 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
 
     // create underlying block device
     if (bd->persist) {
-        bd->u.file.cfg = (struct lfs_filebd_config){
+        bd->u.file.cfg = (struct lfs_filebd_cfg){
             .erase_value = bd->cfg->erase_value,
         };
         int err = lfs_filebd_createcfg(cfg, path, &bd->u.file.cfg);
         LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", err);
         return err;
     } else {
-        bd->u.ram.cfg = (struct lfs_rambd_config){
+        bd->u.ram.cfg = (struct lfs_rambd_cfg){
             .erase_value = bd->cfg->erase_value,
             .buffer = bd->cfg->buffer,
         };
@@ -67,7 +67,7 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
     }
 }
 
-int lfs_testbd_create(const struct lfs_config *cfg, const char *path) {
+int lfs_testbd_create(const struct lfs_cfg *cfg, const char *path) {
     LFS_TESTBD_TRACE("lfs_testbd_create(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -78,13 +78,13 @@ int lfs_testbd_create(const struct lfs_config *cfg, const char *path) {
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
             path);
-    static const struct lfs_testbd_config defaults = {.erase_value=-1};
+    static const struct lfs_testbd_cfg defaults = {.erase_value=-1};
     int err = lfs_testbd_createcfg(cfg, path, &defaults);
     LFS_TESTBD_TRACE("lfs_testbd_create -> %d", err);
     return err;
 }
 
-int lfs_testbd_destroy(const struct lfs_config *cfg) {
+int lfs_testbd_destroy(const struct lfs_cfg *cfg) {
     LFS_TESTBD_TRACE("lfs_testbd_destroy(%p)", (void*)cfg);
     lfs_testbd_t *bd = cfg->context;
     if (bd->cfg->erase_cycles && !bd->cfg->wear_buffer) {
@@ -103,7 +103,7 @@ int lfs_testbd_destroy(const struct lfs_config *cfg) {
 }
 
 /// Internal mapping to block devices ///
-static int lfs_testbd_rawread(const struct lfs_config *cfg, lfs_block_t block,
+static int lfs_testbd_rawread(const struct lfs_cfg *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     lfs_testbd_t *bd = cfg->context;
     if (bd->persist) {
@@ -113,7 +113,7 @@ static int lfs_testbd_rawread(const struct lfs_config *cfg, lfs_block_t block,
     }
 }
 
-static int lfs_testbd_rawprog(const struct lfs_config *cfg, lfs_block_t block,
+static int lfs_testbd_rawprog(const struct lfs_cfg *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
     lfs_testbd_t *bd = cfg->context;
     if (bd->persist) {
@@ -123,7 +123,7 @@ static int lfs_testbd_rawprog(const struct lfs_config *cfg, lfs_block_t block,
     }
 }
 
-static int lfs_testbd_rawerase(const struct lfs_config *cfg,
+static int lfs_testbd_rawerase(const struct lfs_cfg *cfg,
         lfs_block_t block) {
     lfs_testbd_t *bd = cfg->context;
     if (bd->persist) {
@@ -133,7 +133,7 @@ static int lfs_testbd_rawerase(const struct lfs_config *cfg,
     }
 }
 
-static int lfs_testbd_rawsync(const struct lfs_config *cfg) {
+static int lfs_testbd_rawsync(const struct lfs_cfg *cfg) {
     lfs_testbd_t *bd = cfg->context;
     if (bd->persist) {
         return lfs_filebd_sync(cfg);
@@ -143,7 +143,7 @@ static int lfs_testbd_rawsync(const struct lfs_config *cfg) {
 }
 
 /// block device API ///
-int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_testbd_read(const struct lfs_cfg *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     LFS_TESTBD_TRACE("lfs_testbd_read(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
@@ -168,7 +168,7 @@ int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
     return err;
 }
 
-int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_testbd_prog(const struct lfs_cfg *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
     LFS_TESTBD_TRACE("lfs_testbd_prog(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
@@ -217,7 +217,7 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
     return 0;
 }
 
-int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
+int lfs_testbd_erase(const struct lfs_cfg *cfg, lfs_block_t block) {
     LFS_TESTBD_TRACE("lfs_testbd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
     lfs_testbd_t *bd = cfg->context;
 
@@ -264,7 +264,7 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     return 0;
 }
 
-int lfs_testbd_sync(const struct lfs_config *cfg) {
+int lfs_testbd_sync(const struct lfs_cfg *cfg) {
     LFS_TESTBD_TRACE("lfs_testbd_sync(%p)", (void*)cfg);
     int err = lfs_testbd_rawsync(cfg);
     LFS_TESTBD_TRACE("lfs_testbd_sync -> %d", err);
@@ -273,7 +273,7 @@ int lfs_testbd_sync(const struct lfs_config *cfg) {
 
 
 /// simulated wear operations ///
-lfs_testbd_swear_t lfs_testbd_getwear(const struct lfs_config *cfg,
+lfs_testbd_swear_t lfs_testbd_getwear(const struct lfs_cfg *cfg,
         lfs_block_t block) {
     LFS_TESTBD_TRACE("lfs_testbd_getwear(%p, %"PRIu32")", (void*)cfg, block);
     lfs_testbd_t *bd = cfg->context;
@@ -286,7 +286,7 @@ lfs_testbd_swear_t lfs_testbd_getwear(const struct lfs_config *cfg,
     return bd->wear[block];
 }
 
-int lfs_testbd_setwear(const struct lfs_config *cfg,
+int lfs_testbd_setwear(const struct lfs_cfg *cfg,
         lfs_block_t block, lfs_testbd_wear_t wear) {
     LFS_TESTBD_TRACE("lfs_testbd_setwear(%p, %"PRIu32")", (void*)cfg, block);
     lfs_testbd_t *bd = cfg->context;

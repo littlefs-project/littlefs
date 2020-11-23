@@ -10,8 +10,8 @@
 #include <unistd.h>
 #include <errno.h>
 
-int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
-        const struct lfs_filebd_config *bdcfg) {
+int lfs_filebd_createcfg(const struct lfs_cfg *cfg, const char *path,
+        const struct lfs_filebd_cfg *bdcfg) {
     LFS_FILEBD_TRACE("lfs_filebd_createcfg(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -38,7 +38,7 @@ int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
     return 0;
 }
 
-int lfs_filebd_create(const struct lfs_config *cfg, const char *path) {
+int lfs_filebd_create(const struct lfs_cfg *cfg, const char *path) {
     LFS_FILEBD_TRACE("lfs_filebd_create(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -49,13 +49,13 @@ int lfs_filebd_create(const struct lfs_config *cfg, const char *path) {
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
             path);
-    static const struct lfs_filebd_config defaults = {.erase_value=-1};
+    static const struct lfs_filebd_cfg defaults = {.erase_value=-1};
     int err = lfs_filebd_createcfg(cfg, path, &defaults);
     LFS_FILEBD_TRACE("lfs_filebd_create -> %d", err);
     return err;
 }
 
-int lfs_filebd_destroy(const struct lfs_config *cfg) {
+int lfs_filebd_destroy(const struct lfs_cfg *cfg) {
     LFS_FILEBD_TRACE("lfs_filebd_destroy(%p)", (void*)cfg);
     lfs_filebd_t *bd = cfg->context;
     int err = close(bd->fd);
@@ -68,7 +68,7 @@ int lfs_filebd_destroy(const struct lfs_config *cfg) {
     return 0;
 }
 
-int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_filebd_read(const struct lfs_cfg *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     LFS_FILEBD_TRACE("lfs_filebd_read(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
@@ -105,7 +105,7 @@ int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,
     return 0;
 }
 
-int lfs_filebd_prog(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_filebd_prog(const struct lfs_cfg *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
     LFS_FILEBD_TRACE("lfs_filebd_prog(%p, 0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
             (void*)cfg, block, off, buffer, size);
@@ -159,7 +159,7 @@ int lfs_filebd_prog(const struct lfs_config *cfg, lfs_block_t block,
     return 0;
 }
 
-int lfs_filebd_erase(const struct lfs_config *cfg, lfs_block_t block) {
+int lfs_filebd_erase(const struct lfs_cfg *cfg, lfs_block_t block) {
     LFS_FILEBD_TRACE("lfs_filebd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
     lfs_filebd_t *bd = cfg->context;
 
@@ -189,7 +189,7 @@ int lfs_filebd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     return 0;
 }
 
-int lfs_filebd_sync(const struct lfs_config *cfg) {
+int lfs_filebd_sync(const struct lfs_cfg *cfg) {
     LFS_FILEBD_TRACE("lfs_filebd_sync(%p)", (void*)cfg);
     // file sync
     lfs_filebd_t *bd = cfg->context;

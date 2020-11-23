@@ -23,7 +23,7 @@ extern "C"
 #endif
 
 // rambd config (optional)
-struct lfs_rambd_config {
+struct lfs_rambd_cfg {
     // 8-bit erase value to simulate erasing with. -1 indicates no erase
     // occurs, which is still a valid block device
     int32_t erase_value;
@@ -35,36 +35,36 @@ struct lfs_rambd_config {
 // rambd state
 typedef struct lfs_rambd {
     uint8_t *buffer;
-    const struct lfs_rambd_config *cfg;
+    const struct lfs_rambd_cfg *cfg;
 } lfs_rambd_t;
 
 
-// Create a RAM block device using the geometry in lfs_config
-int lfs_rambd_create(const struct lfs_config *cfg);
-int lfs_rambd_createcfg(const struct lfs_config *cfg,
-        const struct lfs_rambd_config *bdcfg);
+// Create a RAM block device using the geometry in lfs_cfg
+int lfs_rambd_create(const struct lfs_cfg *cfg);
+int lfs_rambd_createcfg(const struct lfs_cfg *cfg,
+        const struct lfs_rambd_cfg *bdcfg);
 
 // Clean up memory associated with block device
-int lfs_rambd_destroy(const struct lfs_config *cfg);
+int lfs_rambd_destroy(const struct lfs_cfg *cfg);
 
 // Read a block
-int lfs_rambd_read(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_rambd_read(const struct lfs_cfg *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size);
 
 // Program a block
 //
 // The block must have previously been erased.
-int lfs_rambd_prog(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_rambd_prog(const struct lfs_cfg *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size);
 
 // Erase a block
 //
 // A block must be erased before being programmed. The
 // state of an erased block is undefined.
-int lfs_rambd_erase(const struct lfs_config *cfg, lfs_block_t block);
+int lfs_rambd_erase(const struct lfs_cfg *cfg, lfs_block_t block);
 
 // Sync the block device
-int lfs_rambd_sync(const struct lfs_config *cfg);
+int lfs_rambd_sync(const struct lfs_cfg *cfg);
 
 
 #ifdef __cplusplus

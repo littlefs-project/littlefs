@@ -6,8 +6,8 @@
  */
 #include "bd/lfs_rambd.h"
 
-int lfs_rambd_createcfg(const struct lfs_config *cfg,
-        const struct lfs_rambd_config *bdcfg) {
+int lfs_rambd_createcfg(const struct lfs_cfg *cfg,
+        const struct lfs_rambd_cfg *bdcfg) {
     LFS_RAMBD_TRACE("lfs_rambd_createcfg(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -42,7 +42,7 @@ int lfs_rambd_createcfg(const struct lfs_config *cfg,
     return 0;
 }
 
-int lfs_rambd_create(const struct lfs_config *cfg) {
+int lfs_rambd_create(const struct lfs_cfg *cfg) {
     LFS_RAMBD_TRACE("lfs_rambd_create(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -51,13 +51,13 @@ int lfs_rambd_create(const struct lfs_config *cfg) {
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count);
-    static const struct lfs_rambd_config defaults = {.erase_value=-1};
+    static const struct lfs_rambd_cfg defaults = {.erase_value=-1};
     int err = lfs_rambd_createcfg(cfg, &defaults);
     LFS_RAMBD_TRACE("lfs_rambd_create -> %d", err);
     return err;
 }
 
-int lfs_rambd_destroy(const struct lfs_config *cfg) {
+int lfs_rambd_destroy(const struct lfs_cfg *cfg) {
     LFS_RAMBD_TRACE("lfs_rambd_destroy(%p)", (void*)cfg);
     // clean up memory
     lfs_rambd_t *bd = cfg->context;
@@ -68,7 +68,7 @@ int lfs_rambd_destroy(const struct lfs_config *cfg) {
     return 0;
 }
 
-int lfs_rambd_read(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_rambd_read(const struct lfs_cfg *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     LFS_RAMBD_TRACE("lfs_rambd_read(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
@@ -87,7 +87,7 @@ int lfs_rambd_read(const struct lfs_config *cfg, lfs_block_t block,
     return 0;
 }
 
-int lfs_rambd_prog(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_rambd_prog(const struct lfs_cfg *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
     LFS_RAMBD_TRACE("lfs_rambd_prog(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
@@ -114,7 +114,7 @@ int lfs_rambd_prog(const struct lfs_config *cfg, lfs_block_t block,
     return 0;
 }
 
-int lfs_rambd_erase(const struct lfs_config *cfg, lfs_block_t block) {
+int lfs_rambd_erase(const struct lfs_cfg *cfg, lfs_block_t block) {
     LFS_RAMBD_TRACE("lfs_rambd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
     lfs_rambd_t *bd = cfg->context;
 
@@ -131,7 +131,7 @@ int lfs_rambd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     return 0;
 }
 
-int lfs_rambd_sync(const struct lfs_config *cfg) {
+int lfs_rambd_sync(const struct lfs_cfg *cfg) {
     LFS_RAMBD_TRACE("lfs_rambd_sync(%p)", (void*)cfg);
     // sync does nothing because we aren't backed by anything real
     (void)cfg;

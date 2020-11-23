@@ -66,7 +66,7 @@ PROLOGUE = """
     __attribute__((unused)) lfs_size_t size;
     __attribute__((unused)) int err;
     
-    __attribute__((unused)) const struct lfs_config cfg = {
+    __attribute__((unused)) const struct lfs_cfg cfg = {
         .context        = &bd,
         .read           = lfs_testbd_read,
         .prog           = lfs_testbd_prog,
@@ -81,7 +81,7 @@ PROLOGUE = """
         .lookahead_size = LFS_LOOKAHEAD_SIZE,
     };
 
-    __attribute__((unused)) const struct lfs_testbd_config bdcfg = {
+    __attribute__((unused)) const struct lfs_testbd_cfg bdcfg = {
         .erase_value        = LFS_ERASE_VALUE,
         .erase_cycles       = LFS_ERASE_CYCLES,
         .badblock_behavior  = LFS_BADBLOCK_BEHAVIOR,
