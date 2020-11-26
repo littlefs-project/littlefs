@@ -97,11 +97,11 @@ PROLOGUE = """
     __attribute__((unused)) int err;
     
     __attribute__((unused)) const struct lfs_cfg cfg = {
-        .ctx            = &bd,
-        .read           = lfs_testbd_readctx,
-        .prog           = lfs_testbd_progctx,
-        .erase          = lfs_testbd_erasectx,
-        .sync           = lfs_testbd_syncctx,
+        .bd_ctx         = &bd,
+        .bd_read        = lfs_testbd_readctx,
+        .bd_prog        = lfs_testbd_progctx,
+        .bd_erase       = lfs_testbd_erasectx,
+        .bd_sync        = lfs_testbd_syncctx,
         .read_size      = LFS_READ_SIZE,
         .prog_size      = LFS_PROG_SIZE,
         .block_size     = LFS_BLOCK_SIZE,
