@@ -211,6 +211,7 @@ class TestCase:
         f.write(self.code)
 
         # epilogue
+        f.write(4*' '+'#line %d "%s"\n' % (f.lineno+1, f.path))
         f.write(EPILOGUE)
         f.write('}\n')
 
@@ -514,18 +515,32 @@ class TestSuite:
         return self.perms
 
     def build(self, **args):
+        # intercept writes to keep track of linenos
+        def lineno_open(path, flags):
+            f = open(path, flags)
+            f.path = path
+            f.lineno = 1
+            write = f.write
+
+            def lineno_write(s):
+                f.lineno += s.count('\n')
+                write(s)
+            f.write = lineno_write
+            return f
+
         # build test files
-        tf = open(self.path + '.test.c.t', 'w')
+        tf = lineno_open(self.path + '.test.tc', 'w')
         tf.write(BEFORE_TESTS)
         if self.code is not None:
             tf.write('#line %d "%s"\n' % (self.code_lineno, self.path))
             tf.write(self.code)
+            tf.write('#line %d "%s"\n' % (tf.lineno+1, tf.path))
 
         tfs = {None: tf}
         for case in self.cases:
             if case.in_ not in tfs:
-                tfs[case.in_] = open(self.path+'.'+
-                    case.in_.replace('/', '.')+'.t', 'w')
+                tfs[case.in_] = lineno_open(self.path+'.'+
+                    case.in_.replace('/', '.')[:-2]+'.tc', 'w')
                 tfs[case.in_].write('#line 1 "%s"\n' % case.in_)
                 with open(case.in_) as f:
                     for line in f:
@@ -576,12 +591,12 @@ class TestSuite:
                     mk.write('%s: %s | %s\n' % (
                         self.path+'.test.c',
                         self.path,
-                        self.path+'.test.c.t'))
+                        self.path+'.test.tc'))
                 else:
                     mk.write('%s: %s %s | %s\n' % (
                         self.path+'.'+path.replace('/', '.'),
                         self.path, path,
-                        self.path+'.'+path.replace('/', '.')+'.t'))
+                        self.path+'.'+path.replace('/', '.')[:-2]+'.tc'))
                 mk.write('\t./scripts/explode_asserts.py $| -o $@\n')
 
         self.makefile = self.path + '.mk'
