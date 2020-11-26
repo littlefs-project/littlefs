@@ -37,8 +37,9 @@ struct lfs_rambd_cfg {
     // Number of erasable blocks on the device.
     lfs_size_t erase_count;
 
-    // 8-bit erase value to simulate erasing with. -1 indicates no erase
-    // occurs, which is still a valid block device
+    // 8-bit erase value to use for simulating erases. -1 does not simulate
+    // erases, which can speed up testing by avoiding all the extra block-device
+    // operations to store the erase value.
     int32_t erase_value;
 
     // Optional statically allocated buffer for the block device.
@@ -48,7 +49,7 @@ struct lfs_rambd_cfg {
 // rambd state
 typedef struct lfs_rambd {
     uint8_t *buffer;
-    struct lfs_rambd_cfg cfg;
+    const struct lfs_rambd_cfg *cfg;
 } lfs_rambd_t;
 
 

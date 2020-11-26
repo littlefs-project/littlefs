@@ -44,6 +44,11 @@ typedef int32_t  lfs_testbd_swear_t;
 
 // testbd config, this is required for testing
 struct lfs_testbd_cfg {
+    // Block device specific configuration, see the related config structs.
+    // May be NULL if the underlying implementation goes unused.
+    const struct lfs_rambd_cfg *rambd_cfg;
+    const struct lfs_filebd_cfg *filebd_cfg;
+
     // Minimum size of block read. All read operations must be a
     // multiple of this value.
     lfs_size_t read_size;
@@ -74,9 +79,6 @@ struct lfs_testbd_cfg {
     // the program with exit. Simulates power-loss. 0 disables.
     uint32_t power_cycles;
 
-    // Optional buffer for RAM block device.
-    void *buffer;
-
     // Optional buffer for wear
     void *wear_buffer;
 };
@@ -92,7 +94,7 @@ typedef struct lfs_testbd {
     uint32_t power_cycles;
     lfs_testbd_wear_t *wear;
 
-    struct lfs_testbd_cfg cfg;
+    const struct lfs_testbd_cfg *cfg;
 } lfs_testbd_t;
 
 

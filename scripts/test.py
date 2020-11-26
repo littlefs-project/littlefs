@@ -112,6 +112,20 @@ PROLOGUE = """
     };
 
     __attribute__((unused)) const struct lfs_testbd_cfg bdcfg = {
+        .rambd_cfg = &(const struct lfs_rambd_cfg){
+            .read_size      = LFS_READ_SIZE,
+            .prog_size      = LFS_PROG_SIZE,
+            .erase_size     = LFS_BLOCK_SIZE,
+            .erase_count    = LFS_BLOCK_COUNT,
+            .erase_value    = LFS_ERASE_VALUE,
+        },
+        .filebd_cfg = &(const struct lfs_filebd_cfg){
+            .read_size      = LFS_READ_SIZE,
+            .prog_size      = LFS_PROG_SIZE,
+            .erase_size     = LFS_BLOCK_SIZE,
+            .erase_count    = LFS_BLOCK_COUNT,
+            .erase_value    = LFS_ERASE_VALUE,
+        },
         .read_size          = LFS_READ_SIZE,
         .prog_size          = LFS_PROG_SIZE,
         .erase_size         = LFS_BLOCK_SIZE,

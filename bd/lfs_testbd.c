@@ -23,17 +23,15 @@ int lfs_testbd_createcfg(lfs_testbd_t *bd, const char *path,
             cfg->erase_value, cfg->erase_cycles,
             cfg->badblock_behavior, cfg->power_cycles,
             cfg->buffer, cfg->wear_buffer);
-
-    // copy over config
-    bd->cfg = *cfg;
+    bd->cfg = cfg;
 
     // setup testing things
     bd->persist = path;
-    bd->power_cycles = bd->cfg.power_cycles;
+    bd->power_cycles = bd->cfg->power_cycles;
 
-    if (bd->cfg.erase_cycles) {
-        if (bd->cfg.wear_buffer) {
-            bd->wear = bd->cfg.wear_buffer;
+    if (bd->cfg->erase_cycles) {
+        if (bd->cfg->wear_buffer) {
+            bd->wear = bd->cfg->wear_buffer;
         } else {
             bd->wear = lfs_malloc(sizeof(lfs_testbd_wear_t)*cfg->erase_count);
             if (!bd->wear) {
@@ -42,29 +40,18 @@ int lfs_testbd_createcfg(lfs_testbd_t *bd, const char *path,
             }
         }
 
-        memset(bd->wear, 0, sizeof(lfs_testbd_wear_t) * bd->cfg.erase_count);
+        memset(bd->wear, 0, sizeof(lfs_testbd_wear_t) * bd->cfg->erase_count);
     }
 
     // create underlying block device
     if (bd->persist) {
         int err = lfs_filebd_createcfg(&bd->impl.filebd, path,
-                &(struct lfs_filebd_cfg){
-                    .read_size=bd->cfg.read_size,
-                    .prog_size=bd->cfg.prog_size,
-                    .erase_size=bd->cfg.erase_size,
-                    .erase_count=bd->cfg.erase_count,
-                    .erase_value=bd->cfg.erase_value});
+                bd->cfg->filebd_cfg);
         LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", err);
         return err;
     } else {
         int err = lfs_rambd_createcfg(&bd->impl.rambd,
-                &(struct lfs_rambd_cfg){
-                    .read_size=bd->cfg.read_size,
-                    .prog_size=bd->cfg.prog_size,
-                    .erase_size=bd->cfg.erase_size,
-                    .erase_count=bd->cfg.erase_count,
-                    .erase_value=bd->cfg.erase_value,
-                    .buffer=bd->cfg.buffer});
+                bd->cfg->rambd_cfg);
         LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", err);
         return err;
     }
@@ -72,7 +59,7 @@ int lfs_testbd_createcfg(lfs_testbd_t *bd, const char *path,
 
 int lfs_testbd_destroy(lfs_testbd_t *bd) {
     LFS_TESTBD_TRACE("lfs_testbd_destroy(%p)", (void*)bd);
-    if (bd->cfg.erase_cycles && !bd->cfg.wear_buffer) {
+    if (bd->cfg->erase_cycles && !bd->cfg->wear_buffer) {
         lfs_free(bd->wear);
     }
 
@@ -131,13 +118,13 @@ int lfs_testbd_read(lfs_testbd_t *bd, lfs_block_t block,
             (void*)bd, block, off, buffer, size);
 
     // check if read is valid
-    LFS_ASSERT(off  % bd->cfg.read_size == 0);
-    LFS_ASSERT(size % bd->cfg.read_size == 0);
-    LFS_ASSERT(block < bd->cfg.erase_count);
+    LFS_ASSERT(off  % bd->cfg->read_size == 0);
+    LFS_ASSERT(size % bd->cfg->read_size == 0);
+    LFS_ASSERT(block < bd->cfg->erase_count);
 
     // block bad?
-    if (bd->cfg.erase_cycles && bd->wear[block] >= bd->cfg.erase_cycles &&
-            bd->cfg.badblock_behavior == LFS_TESTBD_BADBLOCK_READERROR) {
+    if (bd->cfg->erase_cycles && bd->wear[block] >= bd->cfg->erase_cycles &&
+            bd->cfg->badblock_behavior == LFS_TESTBD_BADBLOCK_READERROR) {
         LFS_TESTBD_TRACE("lfs_testbd_read -> %d", LFS_ERR_CORRUPT);
         return LFS_ERR_CORRUPT;
     }
@@ -155,19 +142,19 @@ int lfs_testbd_prog(lfs_testbd_t *bd, lfs_block_t block,
             (void*)bd, block, off, buffer, size);
 
     // check if write is valid
-    LFS_ASSERT(off  % bd->cfg.prog_size == 0);
-    LFS_ASSERT(size % bd->cfg.prog_size == 0);
-    LFS_ASSERT(block < bd->cfg.erase_count);
+    LFS_ASSERT(off  % bd->cfg->prog_size == 0);
+    LFS_ASSERT(size % bd->cfg->prog_size == 0);
+    LFS_ASSERT(block < bd->cfg->erase_count);
 
     // block bad?
-    if (bd->cfg.erase_cycles && bd->wear[block] >= bd->cfg.erase_cycles) {
-        if (bd->cfg.badblock_behavior ==
+    if (bd->cfg->erase_cycles && bd->wear[block] >= bd->cfg->erase_cycles) {
+        if (bd->cfg->badblock_behavior ==
                 LFS_TESTBD_BADBLOCK_PROGERROR) {
             LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", LFS_ERR_CORRUPT);
             return LFS_ERR_CORRUPT;
-        } else if (bd->cfg.badblock_behavior ==
+        } else if (bd->cfg->badblock_behavior ==
                 LFS_TESTBD_BADBLOCK_PROGNOOP ||
-                bd->cfg.badblock_behavior ==
+                bd->cfg->badblock_behavior ==
                 LFS_TESTBD_BADBLOCK_ERASENOOP) {
             LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", 0);
             return 0;
@@ -200,16 +187,16 @@ int lfs_testbd_erase(lfs_testbd_t *bd, lfs_block_t block) {
     LFS_TESTBD_TRACE("lfs_testbd_erase(%p, 0x%"PRIx32")", (void*)bd, block);
 
     // check if erase is valid
-    LFS_ASSERT(block < bd->cfg.erase_count);
+    LFS_ASSERT(block < bd->cfg->erase_count);
 
     // block bad?
-    if (bd->cfg.erase_cycles) {
-        if (bd->wear[block] >= bd->cfg.erase_cycles) {
-            if (bd->cfg.badblock_behavior ==
+    if (bd->cfg->erase_cycles) {
+        if (bd->wear[block] >= bd->cfg->erase_cycles) {
+            if (bd->cfg->badblock_behavior ==
                     LFS_TESTBD_BADBLOCK_ERASEERROR) {
                 LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", LFS_ERR_CORRUPT);
                 return LFS_ERR_CORRUPT;
-            } else if (bd->cfg.badblock_behavior ==
+            } else if (bd->cfg->badblock_behavior ==
                     LFS_TESTBD_BADBLOCK_ERASENOOP) {
                 LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", 0);
                 return 0;
@@ -256,8 +243,8 @@ lfs_testbd_swear_t lfs_testbd_getwear(lfs_testbd_t *bd,
     LFS_TESTBD_TRACE("lfs_testbd_getwear(%p, %"PRIu32")", (void*)bd, block);
 
     // check if block is valid
-    LFS_ASSERT(bd->cfg.erase_cycles);
-    LFS_ASSERT(block < bd->cfg.erase_count);
+    LFS_ASSERT(bd->cfg->erase_cycles);
+    LFS_ASSERT(block < bd->cfg->erase_count);
 
     LFS_TESTBD_TRACE("lfs_testbd_getwear -> %"PRIu32, bd->wear[block]);
     return bd->wear[block];
@@ -268,8 +255,8 @@ int lfs_testbd_setwear(lfs_testbd_t *bd,
     LFS_TESTBD_TRACE("lfs_testbd_setwear(%p, %"PRIu32")", (void*)bd, block);
 
     // check if block is valid
-    LFS_ASSERT(bd->cfg.erase_cycles);
-    LFS_ASSERT(block < bd->cfg.erase_count);
+    LFS_ASSERT(bd->cfg->erase_cycles);
+    LFS_ASSERT(block < bd->cfg->erase_count);
 
     bd->wear[block] = wear;
 

@@ -46,7 +46,7 @@ struct lfs_filebd_cfg {
 // filebd state
 typedef struct lfs_filebd {
     int fd;
-    struct lfs_filebd_cfg cfg;
+    const struct lfs_filebd_cfg *cfg;
 } lfs_filebd_t;
 
 
