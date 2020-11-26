@@ -362,7 +362,7 @@ code = '''
 
     // but mark the head of our file as a "bad block", this is force our
     // scan to bail early
-    lfs_testbd_setwear(&cfg, fileblock, 0xffffffff) => 0;
+    lfs_testbd_setwear(&bd, fileblock, 0xffffffff) => 0;
     lfs_file_open(&lfs, &file, "ghost", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     strcpy((char*)buffer, "chomp");
     size = strlen("chomp");
@@ -377,7 +377,7 @@ code = '''
 
     // now reverse the "bad block" and try to write the file again until we
     // run out of space
-    lfs_testbd_setwear(&cfg, fileblock, 0) => 0;
+    lfs_testbd_setwear(&bd, fileblock, 0) => 0;
     lfs_file_open(&lfs, &file, "ghost", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     strcpy((char*)buffer, "chomp");
     size = strlen("chomp");

@@ -19,15 +19,15 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs) => 0;
     uint8_t bbuffer[LFS_BLOCK_SIZE];
-    cfg.read(&cfg, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
+    lfs_testbd_read(&bd, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
     int off = LFS_BLOCK_SIZE-1;
     while (off >= 0 && bbuffer[off] == LFS_ERASE_VALUE) {
         off -= 1;
     }
     memset(&bbuffer[off-3], LFS_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    lfs_testbd_erase(&bd, block) => 0;
+    lfs_testbd_prog(&bd, block, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
+    lfs_testbd_sync(&bd) => 0;
 
     lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "parent/orphan", &info) => LFS_ERR_NOENT;

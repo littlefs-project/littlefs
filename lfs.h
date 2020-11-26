@@ -130,28 +130,28 @@ enum lfs_whence_flags {
 struct lfs_cfg {
     // Opaque user provided context that can be used to pass
     // information to the block device operations
-    void *context;
+    void *ctx;
 
     // Read a region in a block. Negative error codes are propogated
     // to the user.
-    int (*read)(const struct lfs_cfg *c, lfs_block_t block,
+    int (*read)(void *ctx, lfs_block_t block,
             lfs_off_t off, void *buffer, lfs_size_t size);
 
     // Program a region in a block. The block must have previously
     // been erased. Negative error codes are propogated to the user.
     // May return LFS_ERR_CORRUPT if the block should be considered bad.
-    int (*prog)(const struct lfs_cfg *c, lfs_block_t block,
+    int (*prog)(void *ctx, lfs_block_t block,
             lfs_off_t off, const void *buffer, lfs_size_t size);
 
     // Erase a block. A block must be erased before being programmed.
     // The state of an erased block is undefined. Negative error codes
     // are propogated to the user.
     // May return LFS_ERR_CORRUPT if the block should be considered bad.
-    int (*erase)(const struct lfs_cfg *c, lfs_block_t block);
+    int (*erase)(void *ctx, lfs_block_t block);
 
     // Sync the state of the underlying block device. Negative error codes
     // are propogated to the user.
-    int (*sync)(const struct lfs_cfg *c);
+    int (*sync)(void *ctx);
 
     // Minimum size of a block read. All read operations will be a
     // multiple of this value.
@@ -265,15 +265,6 @@ int lfs_sync(void);
 #endif
 #ifndef LFS_LOOKAHEAD_BUFFER
 #define LFS_LOOKAHEAD_BUFFER NULL
-#endif
-#ifndef LFS_NAME_MAX
-#define LFS_NAME_MAX 0
-#endif
-#ifndef LFS_FILE_MAX
-#define LFS_FILE_MAX 0
-#endif
-#ifndef LFS_ATTR_MAX
-#define LFS_ATTR_MAX 0
 #endif
 #endif
 

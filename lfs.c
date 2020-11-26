@@ -34,13 +34,13 @@
 #else
 // direct config towards dynamic lfs_cfg struct
 #define LFS_CFG_READ(lfs, block, off, buffer, size) \
-    lfs->cfg->read(lfs->cfg, block, off, buffer, size)
+    lfs->cfg->read(lfs->cfg->ctx, block, off, buffer, size)
 #define LFS_CFG_PROG(lfs, block, off, buffer, size) \
-    lfs->cfg->prog(lfs->cfg, block, off, buffer, size)
+    lfs->cfg->prog(lfs->cfg->ctx, block, off, buffer, size)
 #define LFS_CFG_ERASE(lfs, block) \
-    lfs->cfg->erase(lfs->cfg, block)
+    lfs->cfg->erase(lfs->cfg->ctx, block)
 #define LFS_CFG_SYNC(lfs) \
-    lfs->cfg->sync(lfs->cfg)
+    lfs->cfg->sync(lfs->cfg->ctx)
 #define LFS_CFG_READ_SIZE(lfs)          lfs->cfg->read_size
 #define LFS_CFG_PROG_SIZE(lfs)          lfs->cfg->prog_size
 #define LFS_CFG_BLOCK_SIZE(lfs)         lfs->cfg->block_size
@@ -3732,7 +3732,7 @@ int lfs_format(lfs_t *lfs) {
 
 #if !defined(LFS_STATICCFG)
 int lfs_formatcfg(lfs_t *lfs, const struct lfs_cfg *cfg) {
-    LFS_TRACE("lfs_formatcfg(%p, %p {.context=%p, "
+    LFS_TRACE("lfs_formatcfg(%p, %p {.ctx=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32", "
@@ -3741,7 +3741,7 @@ int lfs_formatcfg(lfs_t *lfs, const struct lfs_cfg *cfg) {
                 ".prog_buffer=%p, .lookahead_buffer=%p, "
                 ".name_max=%"PRIu32", .file_max=%"PRIu32", "
                 ".attr_max=%"PRIu32"})",
-            (void*)lfs, (void*)cfg, cfg->context,
+            (void*)lfs, (void*)cfg, cfg->ctx,
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
@@ -3893,7 +3893,7 @@ int lfs_mount(lfs_t *lfs) {
 
 #if !defined(LFS_STATICCFG)
 int lfs_mountcfg(lfs_t *lfs, const struct lfs_cfg *cfg) {
-    LFS_TRACE("lfs_mountcfg(%p, %p {.context=%p, "
+    LFS_TRACE("lfs_mountcfg(%p, %p {.ctx=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32", "
@@ -3902,7 +3902,7 @@ int lfs_mountcfg(lfs_t *lfs, const struct lfs_cfg *cfg) {
                 ".prog_buffer=%p, .lookahead_buffer=%p, "
                 ".name_max=%"PRIu32", .file_max=%"PRIu32", "
                 ".attr_max=%"PRIu32"})",
-            (void*)lfs, (void*)cfg, cfg->context,
+            (void*)lfs, (void*)cfg, cfg->ctx,
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
@@ -5009,7 +5009,7 @@ int lfs_migrate(lfs_t *lfs) {
 
 #if !defined(LFS_STATICCFG)
 int lfs_migratecfg(lfs_t *lfs, const struct lfs_cfg *cfg) {
-    LFS_TRACE("lfs_migratecfg(%p, %p {.context=%p, "
+    LFS_TRACE("lfs_migratecfg(%p, %p {.ctx=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32", "
@@ -5018,7 +5018,7 @@ int lfs_migratecfg(lfs_t *lfs, const struct lfs_cfg *cfg) {
                 ".prog_buffer=%p, .lookahead_buffer=%p, "
                 ".name_max=%"PRIu32", .file_max=%"PRIu32", "
                 ".attr_max=%"PRIu32"})",
-            (void*)lfs, (void*)cfg, cfg->context,
+            (void*)lfs, (void*)cfg, cfg->ctx,
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,

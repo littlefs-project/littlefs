@@ -158,12 +158,12 @@ code = '''
     lfs_ctz_fromle32(&ctz);
     // rewrite block to contain bad pointer
     uint8_t bbuffer[LFS_BLOCK_SIZE];
-    cfg.read(&cfg, ctz.head, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
+    lfs_testbd_read(&bd, ctz.head, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
     uint32_t bad = lfs_tole32(0xcccccccc);
     memcpy(&bbuffer[0], &bad, sizeof(bad));
     memcpy(&bbuffer[4], &bad, sizeof(bad));
-    cfg.erase(&cfg, ctz.head) => 0;
-    cfg.prog(&cfg, ctz.head, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
+    lfs_testbd_erase(&bd, ctz.head) => 0;
+    lfs_testbd_prog(&bd, ctz.head, 0, bbuffer, LFS_BLOCK_SIZE) => 0;
     lfs_deinit(&lfs) => 0;
 
     // test that accessing our bad file fails, note there's a number
