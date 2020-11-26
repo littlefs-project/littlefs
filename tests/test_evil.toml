@@ -12,8 +12,7 @@ code = '''
     lfs_formatcfg(&lfs, &cfg) => 0;
 
     // change tail-pointer to invalid pointers
-    lfs.cfg = &cfg;
-    lfs_initcommon(&lfs) => 0;
+    lfs_initcommon(&lfs, &cfg) => 0;
     lfs_mdir_t mdir;
     lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
     lfs_dir_commit(&lfs, &mdir, LFS_MKATTRS(
@@ -39,8 +38,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // change the dir pointer to be invalid
-    lfs.cfg = &cfg;
-    lfs_initcommon(&lfs) => 0;
+    lfs_initcommon(&lfs, &cfg) => 0;
     lfs_mdir_t mdir;
     lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
     // make sure id 1 == our directory
@@ -88,8 +86,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // change the file pointer to be invalid
-    lfs.cfg = &cfg;
-    lfs_initcommon(&lfs) => 0;
+    lfs_initcommon(&lfs, &cfg) => 0;
     lfs_mdir_t mdir;
     lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
     // make sure id 1 == our file
@@ -140,8 +137,7 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
     // change pointer in CTZ skip-list to be invalid
-    lfs.cfg = &cfg;
-    lfs_initcommon(&lfs) => 0;
+    lfs_initcommon(&lfs, &cfg) => 0;
     lfs_mdir_t mdir;
     lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
     // make sure id 1 == our file and get our CTZ structure
@@ -194,8 +190,7 @@ code = '''
     lfs_formatcfg(&lfs, &cfg) => 0;
 
     // create an invalid gstate
-    lfs.cfg = &cfg;
-    lfs_initcommon(&lfs) => 0;
+    lfs_initcommon(&lfs, &cfg) => 0;
     lfs_mdir_t mdir;
     lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
     lfs_fs_prepmove(&lfs, 1, (lfs_block_t [2]){
@@ -221,8 +216,7 @@ code = '''
     lfs_formatcfg(&lfs, &cfg) => 0;
 
     // change tail-pointer to point to ourself
-    lfs.cfg = &cfg;
-    lfs_initcommon(&lfs) => 0;
+    lfs_initcommon(&lfs, &cfg) => 0;
     lfs_mdir_t mdir;
     lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
     lfs_dir_commit(&lfs, &mdir, LFS_MKATTRS(
@@ -244,8 +238,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // find child
-    lfs.cfg = &cfg;
-    lfs_initcommon(&lfs) => 0;
+    lfs_initcommon(&lfs, &cfg) => 0;
     lfs_mdir_t mdir;
     lfs_block_t pair[2];
     lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
@@ -275,8 +268,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // find child
-    lfs.cfg = &cfg;
-    lfs_initcommon(&lfs) => 0;
+    lfs_initcommon(&lfs, &cfg) => 0;
     lfs_mdir_t mdir;
     lfs_block_t pair[2];
     lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;

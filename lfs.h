@@ -384,7 +384,7 @@ typedef struct lfs_file {
     lfs_cache_t cache;
 
 #ifndef LFS_FILE_STATICCFG
-    const struct lfs_file_cfg *cfg;
+    struct lfs_file_cfg cfg;
 #endif
 } lfs_file_t;
 
@@ -429,11 +429,8 @@ typedef struct lfs {
     } free;
 
 #ifndef LFS_STATICCFG
-    const struct lfs_cfg *cfg;
+    struct lfs_cfg cfg;
 #endif
-    lfs_size_t name_max;
-    lfs_size_t file_max;
-    lfs_size_t attr_max;
 
 #ifdef LFS_MIGRATE
     struct lfs1 *lfs1;

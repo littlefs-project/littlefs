@@ -34,26 +34,26 @@
 #else
 // direct config towards dynamic lfs_cfg struct
 #define LFS_CFG_READ(lfs, block, off, buffer, size) \
-    lfs->cfg->read(lfs->cfg->ctx, block, off, buffer, size)
+    lfs->cfg.read(lfs->cfg.ctx, block, off, buffer, size)
 #define LFS_CFG_PROG(lfs, block, off, buffer, size) \
-    lfs->cfg->prog(lfs->cfg->ctx, block, off, buffer, size)
+    lfs->cfg.prog(lfs->cfg.ctx, block, off, buffer, size)
 #define LFS_CFG_ERASE(lfs, block) \
-    lfs->cfg->erase(lfs->cfg->ctx, block)
+    lfs->cfg.erase(lfs->cfg.ctx, block)
 #define LFS_CFG_SYNC(lfs) \
-    lfs->cfg->sync(lfs->cfg->ctx)
-#define LFS_CFG_READ_SIZE(lfs)          lfs->cfg->read_size
-#define LFS_CFG_PROG_SIZE(lfs)          lfs->cfg->prog_size
-#define LFS_CFG_BLOCK_SIZE(lfs)         lfs->cfg->block_size
-#define LFS_CFG_BLOCK_COUNT(lfs)        lfs->cfg->block_count
-#define LFS_CFG_BLOCK_CYCLES(lfs)       lfs->cfg->block_cycles
-#define LFS_CFG_CACHE_SIZE(lfs)         lfs->cfg->cache_size
-#define LFS_CFG_LOOKAHEAD_SIZE(lfs)     lfs->cfg->lookahead_size
-#define LFS_CFG_READ_BUFFER(lfs)        lfs->cfg->read_buffer
-#define LFS_CFG_PROG_BUFFER(lfs)        lfs->cfg->prog_buffer
-#define LFS_CFG_LOOKAHEAD_BUFFER(lfs)   lfs->cfg->lookahead_buffer
-#define LFS_CFG_NAME_MAX(lfs)           lfs->cfg->name_max
-#define LFS_CFG_FILE_MAX(lfs)           lfs->cfg->file_max
-#define LFS_CFG_ATTR_MAX(lfs)           lfs->cfg->attr_max
+    lfs->cfg.sync(lfs->cfg.ctx)
+#define LFS_CFG_READ_SIZE(lfs)          lfs->cfg.read_size
+#define LFS_CFG_PROG_SIZE(lfs)          lfs->cfg.prog_size
+#define LFS_CFG_BLOCK_SIZE(lfs)         lfs->cfg.block_size
+#define LFS_CFG_BLOCK_COUNT(lfs)        lfs->cfg.block_count
+#define LFS_CFG_BLOCK_CYCLES(lfs)       lfs->cfg.block_cycles
+#define LFS_CFG_CACHE_SIZE(lfs)         lfs->cfg.cache_size
+#define LFS_CFG_LOOKAHEAD_SIZE(lfs)     lfs->cfg.lookahead_size
+#define LFS_CFG_READ_BUFFER(lfs)        lfs->cfg.read_buffer
+#define LFS_CFG_PROG_BUFFER(lfs)        lfs->cfg.prog_buffer
+#define LFS_CFG_LOOKAHEAD_BUFFER(lfs)   lfs->cfg.lookahead_buffer
+#define LFS_CFG_NAME_MAX(lfs)           lfs->cfg.name_max
+#define LFS_CFG_FILE_MAX(lfs)           lfs->cfg.file_max
+#define LFS_CFG_ATTR_MAX(lfs)           lfs->cfg.attr_max
 #endif
 
 #ifdef LFS_FILE_STATICCFG
@@ -63,9 +63,9 @@
 #define LFS_FILE_CFG_ATTR_COUNT(file)   LFS_FILE_ATTR_COUNT
 #else
 // direct config towards dynamic lfs_cfg struct
-#define LFS_FILE_CFG_BUFFER(file)       file->cfg->buffer
-#define LFS_FILE_CFG_ATTRS(file)        file->cfg->attrs
-#define LFS_FILE_CFG_ATTR_COUNT(file)   file->cfg->attr_count
+#define LFS_FILE_CFG_BUFFER(file)       file->cfg.buffer
+#define LFS_FILE_CFG_ATTRS(file)        file->cfg.attrs
+#define LFS_FILE_CFG_ATTR_COUNT(file)   file->cfg.attr_count
 #endif
 
 
@@ -1099,7 +1099,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     }
 
     lfs_stag_t tag = lfs_dir_get(lfs, dir, LFS_MKTAG(0x780, 0x3ff, 0),
-            LFS_MKTAG(LFS_TYPE_NAME, id, lfs->name_max+1), info->name);
+            LFS_MKTAG(LFS_TYPE_NAME, id, LFS_CFG_NAME_MAX(lfs)+1), info->name);
     if (tag < 0) {
         return (int)tag;
     }
@@ -1990,7 +1990,7 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
 
     // check that name fits
     lfs_size_t nlen = strlen(path);
-    if (nlen > lfs->name_max) {
+    if (nlen > LFS_CFG_NAME_MAX(lfs)) {
         LFS_TRACE("lfs_mkdir -> %d", LFS_ERR_NAMETOOLONG);
         return LFS_ERR_NAMETOOLONG;
     }
@@ -2445,7 +2445,11 @@ static int lfs_ctz_traverse(lfs_t *lfs,
 
 /// Top level file operations ///
 static int lfs_file_opencommon(lfs_t *lfs, lfs_file_t *file,
-        const char *path, int flags) {
+        const char *path, int flags
+#ifndef LFS_FILE_STATICCFG
+        , const struct lfs_file_cfg *cfg
+#endif
+        ) {
     // deorphan if we haven't yet, needed at most once after poweron
     if ((flags & 3) != LFS_O_RDONLY) {
         int err = lfs_fs_forceconsistency(lfs);
@@ -2453,6 +2457,9 @@ static int lfs_file_opencommon(lfs_t *lfs, lfs_file_t *file,
             return err;
         }
     }
+
+    // copy over config
+    file->cfg = *cfg;
 
     // setup simple file details
     int err;
@@ -2481,7 +2488,7 @@ static int lfs_file_opencommon(lfs_t *lfs, lfs_file_t *file,
 
         // check that name fits
         lfs_size_t nlen = strlen(path);
-        if (nlen > lfs->name_max) {
+        if (nlen > LFS_CFG_NAME_MAX(lfs)) {
             err = LFS_ERR_NAMETOOLONG;
             goto cleanup;
         }
@@ -2535,7 +2542,7 @@ static int lfs_file_opencommon(lfs_t *lfs, lfs_file_t *file,
         }
 
         if ((file->flags & 3) != LFS_O_RDONLY) {
-            if (LFS_FILE_CFG_ATTRS(file)[i].size > lfs->attr_max) {
+            if (LFS_FILE_CFG_ATTRS(file)[i].size > LFS_CFG_ATTR_MAX(lfs)) {
                 err = LFS_ERR_NOSPC;
                 goto cleanup;
             }
@@ -2595,11 +2602,12 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags) {
     LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)",
             (void*)lfs, (void*)file, path, flags);
-#ifndef LFS_FILE_STATICCFG
-    static const struct lfs_file_cfg defaults = {0};
-    file->cfg = &defaults;
-#endif
+#ifdef LFS_FILE_STATICCFG
     int err = lfs_file_opencommon(lfs, file, path, flags);
+#else
+    int err = lfs_file_opencommon(lfs, file, path, flags,
+            &(struct lfs_file_cfg){0});
+#endif
     LFS_TRACE("lfs_file_open -> %d", err);
     return err;
 }
@@ -2612,8 +2620,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
                  ".buffer=%p, .attrs=%p, .attr_count=%"PRIu32"})",
             (void*)lfs, (void*)file, path, flags,
             (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
-    file->cfg = cfg;
-    int err = lfs_file_opencommon(lfs, file, path, flags);
+    int err = lfs_file_opencommon(lfs, file, path, flags, cfg);
     LFS_TRACE("lfs_file_opencfg -> %d", err);
     return err;
 }
@@ -2966,7 +2973,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         file->pos = file->ctz.size;
     }
 
-    if (file->pos + size > lfs->file_max) {
+    if (file->pos + size > LFS_CFG_FILE_MAX(lfs)) {
         // Larger than file limit?
         LFS_TRACE("lfs_file_write -> %d", LFS_ERR_FBIG);
         return LFS_ERR_FBIG;
@@ -3097,7 +3104,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
         npos = file->ctz.size + off;
     }
 
-    if (npos > lfs->file_max) {
+    if (npos > LFS_CFG_FILE_MAX(lfs)) {
         // file position out of range
         LFS_TRACE("lfs_file_seek -> %d", LFS_ERR_INVAL);
         return LFS_ERR_INVAL;
@@ -3343,7 +3350,7 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     if (prevtag == LFS_ERR_NOENT) {
         // check that name fits
         lfs_size_t nlen = strlen(newpath);
-        if (nlen > lfs->name_max) {
+        if (nlen > LFS_CFG_NAME_MAX(lfs)) {
             LFS_TRACE("lfs_rename -> %d", LFS_ERR_NAMETOOLONG);
             return LFS_ERR_NAMETOOLONG;
         }
@@ -3473,7 +3480,7 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
 
     tag = lfs_dir_get(lfs, &cwd, LFS_MKTAG(0x7ff, 0x3ff, 0),
             LFS_MKTAG(LFS_TYPE_USERATTR + type,
-                id, lfs_min(size, lfs->attr_max)),
+                id, lfs_min(size, LFS_CFG_ATTR_MAX(lfs))),
             buffer);
     if (tag < 0) {
         if (tag == LFS_ERR_NOENT) {
@@ -3516,7 +3523,7 @@ int lfs_setattr(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size) {
     LFS_TRACE("lfs_setattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
             (void*)lfs, path, type, buffer, size);
-    if (size > lfs->attr_max) {
+    if (size > LFS_CFG_ATTR_MAX(lfs)) {
         LFS_TRACE("lfs_setattr -> %d", LFS_ERR_NOSPC);
         return LFS_ERR_NOSPC;
     }
@@ -3535,8 +3542,15 @@ int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
 
 
 /// Filesystem operations ///
-static int lfs_initcommon(lfs_t *lfs) {
+static int lfs_initcommon(lfs_t *lfs
+#ifndef LFS_STATICCFG
+        , const struct lfs_cfg *cfg
+#endif
+        ) {
     int err = 0;
+
+    // copy over config
+    lfs->cfg = *cfg;
 
     // validate that the lfs-cfg sizes were initiated properly before
     // performing any arithmetic logics with them
@@ -3605,22 +3619,28 @@ static int lfs_initcommon(lfs_t *lfs) {
 
     // check that the size limits are sane
     LFS_ASSERT(LFS_CFG_NAME_MAX(lfs) <= LFS_NAME_MAX);
-    lfs->name_max = LFS_CFG_NAME_MAX(lfs);
-    if (!lfs->name_max) {
-        lfs->name_max = LFS_NAME_MAX;
+    //lfs->name_max = LFS_CFG_NAME_MAX(lfs);
+#ifndef LFS_STATICCFG
+    if (!lfs->cfg.name_max) {
+        lfs->cfg.name_max = LFS_NAME_MAX;
     }
+#endif
 
     LFS_ASSERT(LFS_CFG_FILE_MAX(lfs) <= LFS_FILE_MAX);
-    lfs->file_max = LFS_CFG_FILE_MAX(lfs);
-    if (!lfs->file_max) {
-        lfs->file_max = LFS_FILE_MAX;
+    //lfs->file_max = LFS_CFG_FILE_MAX(lfs);
+#ifndef LFS_STATICCFG
+    if (!lfs->cfg.file_max) {
+        lfs->cfg.file_max = LFS_FILE_MAX;
     }
+#endif
 
     LFS_ASSERT(LFS_CFG_ATTR_MAX(lfs) <= LFS_ATTR_MAX);
-    lfs->attr_max = LFS_CFG_ATTR_MAX(lfs);
-    if (!lfs->attr_max) {
-        lfs->attr_max = LFS_ATTR_MAX;
+    //lfs->attr_max = LFS_CFG_ATTR_MAX(lfs);
+#ifndef LFS_STATICCFG
+    if (!lfs->cfg.attr_max) {
+        lfs->cfg.attr_max = LFS_ATTR_MAX;
     }
+#endif
 
     // setup default state
     lfs->root[0] = LFS_BLOCK_NULL;
@@ -3658,10 +3678,18 @@ static int lfs_deinit(lfs_t *lfs) {
     return 0;
 }
 
-static int lfs_formatcommon(lfs_t *lfs) {
+static int lfs_formatcommon(lfs_t *lfs
+#ifndef LFS_STATICCFG
+        , const struct lfs_cfg *cfg
+#endif
+        ) {
     int err = 0;
     {
+#ifdef LFS_STATICCFG
         err = lfs_initcommon(lfs);
+#else
+        err = lfs_initcommon(lfs, cfg);
+#endif
         if (err) {
             return err;
         }
@@ -3686,9 +3714,9 @@ static int lfs_formatcommon(lfs_t *lfs) {
             .version     = LFS_DISK_VERSION,
             .block_size  = LFS_CFG_BLOCK_SIZE(lfs),
             .block_count = LFS_CFG_BLOCK_COUNT(lfs),
-            .name_max    = lfs->name_max,
-            .file_max    = lfs->file_max,
-            .attr_max    = lfs->attr_max,
+            .name_max    = LFS_CFG_NAME_MAX(lfs),
+            .file_max    = LFS_CFG_FILE_MAX(lfs),
+            .attr_max    = LFS_CFG_ATTR_MAX(lfs),
         };
 
         lfs_superblock_tole32(&superblock);
@@ -3748,15 +3776,22 @@ int lfs_formatcfg(lfs_t *lfs, const struct lfs_cfg *cfg) {
             cfg->block_cycles, cfg->cache_size, cfg->lookahead_size,
             cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
             cfg->name_max, cfg->file_max, cfg->attr_max);
-    lfs->cfg = cfg;
-    int err = lfs_formatcommon(lfs);
+    int err = lfs_formatcommon(lfs, cfg);
     LFS_TRACE("lfs_formatcfg -> %d", err);
     return err;
 }
 #endif
 
-static int lfs_mountcommon(lfs_t *lfs) {
+static int lfs_mountcommon(lfs_t *lfs
+#ifndef LFS_STATICCFG
+        , const struct lfs_cfg *cfg
+#endif
+        ) {
+#ifdef LFS_STATICCFG
     int err = lfs_initcommon(lfs);
+#else
+    int err = lfs_initcommon(lfs, cfg);
+#endif
     if (err) {
         return err;
     }
@@ -3814,36 +3849,36 @@ static int lfs_mountcommon(lfs_t *lfs) {
 
             // check superblock configuration
             if (superblock.name_max) {
-                if (superblock.name_max > lfs->name_max) {
+                if (superblock.name_max > LFS_CFG_NAME_MAX(lfs)) {
                     LFS_ERROR("Unsupported name_max (%"PRIu32" > %"PRIu32")",
-                            superblock.name_max, lfs->name_max);
+                            superblock.name_max, LFS_CFG_NAME_MAX(lfs));
                     err = LFS_ERR_INVAL;
                     goto cleanup;
                 }
 
-                lfs->name_max = superblock.name_max;
+                lfs->cfg.name_max = superblock.name_max;
             }
 
             if (superblock.file_max) {
-                if (superblock.file_max > lfs->file_max) {
+                if (superblock.file_max > LFS_CFG_FILE_MAX(lfs)) {
                     LFS_ERROR("Unsupported file_max (%"PRIu32" > %"PRIu32")",
-                            superblock.file_max, lfs->file_max);
+                            superblock.file_max, LFS_CFG_FILE_MAX(lfs));
                     err = LFS_ERR_INVAL;
                     goto cleanup;
                 }
 
-                lfs->file_max = superblock.file_max;
+                lfs->cfg.file_max = superblock.file_max;
             }
 
             if (superblock.attr_max) {
-                if (superblock.attr_max > lfs->attr_max) {
+                if (superblock.attr_max > LFS_CFG_ATTR_MAX(lfs)) {
                     LFS_ERROR("Unsupported attr_max (%"PRIu32" > %"PRIu32")",
-                            superblock.attr_max, lfs->attr_max);
+                            superblock.attr_max, LFS_CFG_ATTR_MAX(lfs));
                     err = LFS_ERR_INVAL;
                     goto cleanup;
                 }
 
-                lfs->attr_max = superblock.attr_max;
+                lfs->cfg.attr_max = superblock.attr_max;
             }
         }
 
@@ -3909,8 +3944,7 @@ int lfs_mountcfg(lfs_t *lfs, const struct lfs_cfg *cfg) {
             cfg->block_cycles, cfg->cache_size, cfg->lookahead_size,
             cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
             cfg->name_max, cfg->file_max, cfg->attr_max);
-    lfs->cfg = cfg;
-    int err = lfs_mountcommon(lfs);
+    int err = lfs_mountcommon(lfs, cfg);
     LFS_TRACE("lfs_mountcfg -> %d", err);
     return err;
 }
@@ -4964,9 +4998,9 @@ static int lfs_migratecommon(lfs_t *lfs) {
             .version     = LFS_DISK_VERSION,
             .block_size  = LFS_CFG_BLOCK_SIZE(lfs),
             .block_count = LFS_CFG_BLOCK_COUNT(lfs),
-            .name_max    = lfs->name_max,
-            .file_max    = lfs->file_max,
-            .attr_max    = lfs->attr_max,
+            .name_max    = LFS_CFG_NAME_MAX(lfs),
+            .file_max    = LFS_CFG_FILE_MAX(lfs),
+            .attr_max    = LFS_CFG_ATTR_MAX(lfs),
         };
 
         lfs_superblock_tole32(&superblock);
