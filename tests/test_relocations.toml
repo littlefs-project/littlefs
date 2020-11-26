@@ -148,7 +148,7 @@ code = '''
          # almost every tree operation needs a relocation
 reentrant = true
 # TODO fix this case, caused by non-DAG trees
-if = '!(DEPTH == 3 && LFS_CACHE_SIZE != 64)'
+if = '!(DEPTH == 3 && LFS_BUFFER_SIZE != 64)'
 define = [
     {FILES=6,  DEPTH=1, CYCLES=20, LFS_BLOCK_CYCLES=1},
     {FILES=26, DEPTH=1, CYCLES=20, LFS_BLOCK_CYCLES=1},
@@ -210,7 +210,7 @@ code = '''
 [[case]] # reentrant testing for relocations, but now with random renames!
 reentrant = true
 # TODO fix this case, caused by non-DAG trees
-if = '!(DEPTH == 3 && LFS_CACHE_SIZE != 64)'
+if = '!(DEPTH == 3 && LFS_BUFFER_SIZE != 64)'
 define = [
     {FILES=6,  DEPTH=1, CYCLES=20, LFS_BLOCK_CYCLES=1},
     {FILES=26, DEPTH=1, CYCLES=20, LFS_BLOCK_CYCLES=1},

@@ -78,7 +78,7 @@ DEFINES = {
     'LFS_BLOCK_SIZE': 512,
     'LFS_BLOCK_COUNT': 1024,
     'LFS_BLOCK_CYCLES': -1,
-    'LFS_CACHE_SIZE': '(64 % LFS_PROG_SIZE == 0 ? 64 : LFS_PROG_SIZE)',
+    'LFS_BUFFER_SIZE': '(64 % LFS_PROG_SIZE == 0 ? 64 : LFS_PROG_SIZE)',
     'LFS_LOOKAHEAD_SIZE': 16,
     'LFS_ERASE_VALUE': 0xff,
     'LFS_ERASE_CYCLES': 0,
@@ -107,7 +107,7 @@ PROLOGUE = """
         .block_size     = LFS_BLOCK_SIZE,
         .block_count    = LFS_BLOCK_COUNT,
         .block_cycles   = LFS_BLOCK_CYCLES,
-        .cache_size     = LFS_CACHE_SIZE,
+        .buffer_size    = LFS_BUFFER_SIZE,
         .lookahead_size = LFS_LOOKAHEAD_SIZE,
     };
 

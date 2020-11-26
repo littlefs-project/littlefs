@@ -178,12 +178,12 @@ struct lfs_cfg {
     // Set to -1 to disable block-level wear-leveling.
     int32_t block_cycles;
 
-    // Size of block caches. Each cache buffers a portion of a block in RAM.
-    // The littlefs needs a read cache, a program cache, and one additional
-    // cache per file. Larger caches can improve performance by storing more
+    // Size of internal buffers used to cache slices of blocks in RAM.
+    // The littlefs needs a read buffer, a program buffer, and one additional
+    // buffer per file. Larger buffers can improve performance by storing more
     // data and reducing the number of disk accesses. Must be a multiple of
     // the read and program sizes, and a factor of the block size.
-    lfs_size_t cache_size;
+    lfs_size_t buffer_size;
 
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
     // increases the number of blocks found during an allocation pass. The
@@ -249,8 +249,8 @@ int lfs_bd_sync(void);
 #ifndef LFS_BLOCK_CYCLES
 #error "LFS_STATICCFG requires LFS_BLOCK_CYCLES"
 #endif
-#ifndef LFS_CACHE_SIZE
-#error "LFS_STATICCFG requires LFS_CACHE_SIZE"
+#ifndef LFS_BUFFER_SIZE
+#error "LFS_STATICCFG requires LFS_BUFFER_SIZE"
 #endif
 #ifndef LFS_LOOKAHEAD_SIZE
 #error "LFS_STATICCFG requires LFS_LOOKAHEAD_SIZE"

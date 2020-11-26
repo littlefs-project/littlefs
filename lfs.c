@@ -23,7 +23,7 @@
 #define LFS_CFG_BLOCK_SIZE(lfs)         ((void)lfs, LFS_BLOCK_SIZE)
 #define LFS_CFG_BLOCK_COUNT(lfs)        ((void)lfs, LFS_BLOCK_COUNT)
 #define LFS_CFG_BLOCK_CYCLES(lfs)       ((void)lfs, LFS_BLOCK_CYCLES)
-#define LFS_CFG_CACHE_SIZE(lfs)         ((void)lfs, LFS_CACHE_SIZE)
+#define LFS_CFG_BUFFER_SIZE(lfs)        ((void)lfs, LFS_BUFFER_SIZE)
 #define LFS_CFG_LOOKAHEAD_SIZE(lfs)     ((void)lfs, LFS_LOOKAHEAD_SIZE)
 #define LFS_CFG_READ_BUFFER(lfs)        ((void)lfs, LFS_READ_BUFFER)
 #define LFS_CFG_PROG_BUFFER(lfs)        ((void)lfs, LFS_PROG_BUFFER)
@@ -46,7 +46,7 @@
 #define LFS_CFG_BLOCK_SIZE(lfs)         lfs->cfg->block_size
 #define LFS_CFG_BLOCK_COUNT(lfs)        lfs->cfg->block_count
 #define LFS_CFG_BLOCK_CYCLES(lfs)       lfs->cfg->block_cycles
-#define LFS_CFG_CACHE_SIZE(lfs)         lfs->cfg->cache_size
+#define LFS_CFG_BUFFER_SIZE(lfs)        lfs->cfg->buffer_size
 #define LFS_CFG_LOOKAHEAD_SIZE(lfs)     lfs->cfg->lookahead_size
 #define LFS_CFG_READ_BUFFER(lfs)        lfs->cfg->read_buffer
 #define LFS_CFG_PROG_BUFFER(lfs)        lfs->cfg->prog_buffer
@@ -83,7 +83,7 @@ static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
 
 static inline void lfs_cache_zero(lfs_t *lfs, lfs_cache_t *pcache) {
     // zero to avoid information leak
-    memset(pcache->buffer, 0xff, LFS_CFG_CACHE_SIZE(lfs));
+    memset(pcache->buffer, 0xff, LFS_CFG_BUFFER_SIZE(lfs));
     pcache->block = LFS_BLOCK_NULL;
 }
 
@@ -158,7 +158,7 @@ static int lfs_cache_read(lfs_t *lfs,
                     lfs_alignup(off+hint, LFS_CFG_READ_SIZE(lfs)),
                     LFS_CFG_BLOCK_SIZE(lfs))
                 - rcache->off,
-                LFS_CFG_CACHE_SIZE(lfs));
+                LFS_CFG_BUFFER_SIZE(lfs));
         int err = LFS_CFG_BD_READ(lfs, rcache->block,
                 rcache->off, rcache->buffer, rcache->size);
         LFS_ASSERT(err <= 0);
@@ -257,10 +257,10 @@ static int lfs_cache_prog(lfs_t *lfs,
     while (size > 0) {
         if (block == pcache->block &&
                 off >= pcache->off &&
-                off < pcache->off + LFS_CFG_CACHE_SIZE(lfs)) {
+                off < pcache->off + LFS_CFG_BUFFER_SIZE(lfs)) {
             // already fits in pcache?
             lfs_size_t diff = lfs_min(size,
-                    LFS_CFG_CACHE_SIZE(lfs) - (off-pcache->off));
+                    LFS_CFG_BUFFER_SIZE(lfs) - (off-pcache->off));
             memcpy(&pcache->buffer[off-pcache->off], data, diff);
 
             data += diff;
@@ -268,7 +268,7 @@ static int lfs_cache_prog(lfs_t *lfs,
             size -= diff;
 
             pcache->size = lfs_max(pcache->size, off - pcache->off);
-            if (pcache->size == LFS_CFG_CACHE_SIZE(lfs)) {
+            if (pcache->size == LFS_CFG_BUFFER_SIZE(lfs)) {
                 // eagerly flush out pcache if we fill up
                 int err = lfs_cache_flush(lfs, pcache, rcache, validate);
                 if (err) {
@@ -694,7 +694,7 @@ static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
         rcache->block = LFS_BLOCK_INLINE;
         rcache->off = lfs_aligndown(off, LFS_CFG_READ_SIZE(lfs));
         rcache->size = lfs_min(lfs_alignup(off+hint, LFS_CFG_READ_SIZE(lfs)),
-                LFS_CFG_CACHE_SIZE(lfs));
+                LFS_CFG_BUFFER_SIZE(lfs));
         int err = lfs_dir_getslice(lfs, dir, gmask, gtag,
                 rcache->off, rcache->buffer, rcache->size);
         if (err < 0) {
@@ -1787,7 +1787,7 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
     for (lfs_file_t *f = (lfs_file_t*)lfs->mlist; f; f = f->next) {
         if (dir != &f->m && lfs_pair_cmp(f->m.pair, dir->pair) == 0 &&
                 f->type == LFS_TYPE_REG && (f->flags & LFS_F_INLINE) &&
-                f->ctz.size > LFS_CFG_CACHE_SIZE(lfs)) {
+                f->ctz.size > LFS_CFG_BUFFER_SIZE(lfs)) {
             int err = lfs_file_outline(lfs, f);
             if (err) {
                 return err;
@@ -2549,7 +2549,7 @@ static int lfs_file_opencommon(lfs_t *lfs, lfs_file_t *file,
     if (LFS_FILE_CFG_BUFFER(file)) {
         file->cache.buffer = LFS_FILE_CFG_BUFFER(file);
     } else {
-        file->cache.buffer = lfs_malloc(LFS_CFG_CACHE_SIZE(lfs));
+        file->cache.buffer = lfs_malloc(LFS_CFG_BUFFER_SIZE(lfs));
         if (!file->cache.buffer) {
             err = LFS_ERR_NOMEM;
             goto cleanup;
@@ -2566,7 +2566,7 @@ static int lfs_file_opencommon(lfs_t *lfs, lfs_file_t *file,
         file->flags |= LFS_F_INLINE;
         file->cache.block = file->ctz.head;
         file->cache.off = 0;
-        file->cache.size = LFS_CFG_CACHE_SIZE(lfs);
+        file->cache.size = LFS_CFG_BUFFER_SIZE(lfs);
 
         // don't always read (may be new/trunc file)
         if (file->ctz.size > 0) {
@@ -2696,7 +2696,7 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
         }
 
         // copy over new state of file
-        memcpy(file->cache.buffer, lfs->pcache.buffer, LFS_CFG_CACHE_SIZE(lfs));
+        memcpy(file->cache.buffer, lfs->pcache.buffer, LFS_CFG_BUFFER_SIZE(lfs));
         file->cache.block = lfs->pcache.block;
         file->cache.off = lfs->pcache.off;
         file->cache.size = lfs->pcache.size;
@@ -2989,7 +2989,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     if ((file->flags & LFS_F_INLINE) &&
             lfs_max(file->pos+nsize, file->ctz.size) >
             lfs_min(0x3fe, lfs_min(
-                LFS_CFG_CACHE_SIZE(lfs), LFS_CFG_BLOCK_SIZE(lfs)/8))) {
+                LFS_CFG_BUFFER_SIZE(lfs), LFS_CFG_BLOCK_SIZE(lfs)/8))) {
         // inline file doesn't fit anymore
         int err = lfs_file_outline(lfs, file);
         if (err) {
@@ -3542,13 +3542,13 @@ static int lfs_initcommon(lfs_t *lfs) {
     // performing any arithmetic logics with them
     LFS_ASSERT(LFS_CFG_READ_SIZE(lfs) != 0);
     LFS_ASSERT(LFS_CFG_PROG_SIZE(lfs) != 0);
-    LFS_ASSERT(LFS_CFG_CACHE_SIZE(lfs) != 0);
+    LFS_ASSERT(LFS_CFG_BUFFER_SIZE(lfs) != 0);
 
     // check that block size is a multiple of cache size is a multiple
     // of prog and read sizes
-    LFS_ASSERT(LFS_CFG_CACHE_SIZE(lfs) % LFS_CFG_READ_SIZE(lfs) == 0);
-    LFS_ASSERT(LFS_CFG_CACHE_SIZE(lfs) % LFS_CFG_PROG_SIZE(lfs) == 0);
-    LFS_ASSERT(LFS_CFG_BLOCK_SIZE(lfs) % LFS_CFG_CACHE_SIZE(lfs) == 0);
+    LFS_ASSERT(LFS_CFG_BUFFER_SIZE(lfs) % LFS_CFG_READ_SIZE(lfs) == 0);
+    LFS_ASSERT(LFS_CFG_BUFFER_SIZE(lfs) % LFS_CFG_PROG_SIZE(lfs) == 0);
+    LFS_ASSERT(LFS_CFG_BLOCK_SIZE(lfs) % LFS_CFG_BUFFER_SIZE(lfs) == 0);
 
     // check that the block size is large enough to fit ctz pointers
     LFS_ASSERT(4*lfs_npw2(0xffffffff / (LFS_CFG_BLOCK_SIZE(lfs)-2*4))
@@ -3567,7 +3567,7 @@ static int lfs_initcommon(lfs_t *lfs) {
     if (LFS_CFG_READ_BUFFER(lfs)) {
         lfs->rcache.buffer = LFS_CFG_READ_BUFFER(lfs);
     } else {
-        lfs->rcache.buffer = lfs_malloc(LFS_CFG_CACHE_SIZE(lfs));
+        lfs->rcache.buffer = lfs_malloc(LFS_CFG_BUFFER_SIZE(lfs));
         if (!lfs->rcache.buffer) {
             err = LFS_ERR_NOMEM;
             goto cleanup;
@@ -3578,7 +3578,7 @@ static int lfs_initcommon(lfs_t *lfs) {
     if (LFS_CFG_PROG_BUFFER(lfs)) {
         lfs->pcache.buffer = LFS_CFG_PROG_BUFFER(lfs);
     } else {
-        lfs->pcache.buffer = lfs_malloc(LFS_CFG_CACHE_SIZE(lfs));
+        lfs->pcache.buffer = lfs_malloc(LFS_CFG_BUFFER_SIZE(lfs));
         if (!lfs->pcache.buffer) {
             err = LFS_ERR_NOMEM;
             goto cleanup;
