@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <lfs_util.h>
+#include "lfs_util.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -174,7 +174,7 @@ struct lfs_config {
     // are propogated to the user.
     int (*sync)(const struct lfs_config *c);
 
-#if LFS_THREADSAFE
+#ifdef LFS_THREADSAFE
     // Lock the underlying block device. Negative error codes
     // are propogated to the user.
     int (*lock)(const struct lfs_config *c);
