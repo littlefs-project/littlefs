@@ -208,6 +208,22 @@ jobs:
     script:
       - make test TFLAGS+="-k --valgrind"
 
+  # test compilation in thread-safe mode
+  - stage: test
+    env:
+      - NAME=littlefs-threadsafe
+      - CC="arm-linux-gnueabi-gcc --static -mthumb"
+      - CFLAGS="-Werror -DLFS_THREADSAFE"
+    if: branch !~ -prefix$
+    install:
+      - *install-common
+      - sudo apt-get install
+            gcc-arm-linux-gnueabi
+            libc6-dev-armel-cross
+      - arm-linux-gnueabi-gcc --version
+    # report-size will compile littlefs and report the size
+    script: [*report-size]
+
   # self-host with littlefs-fuse for fuzz test
   - stage: test
     env:
