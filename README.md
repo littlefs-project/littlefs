@@ -39,7 +39,7 @@ lfs_t lfs;
 lfs_file_t file;
 
 // configuration of the filesystem is provided by this struct
-const struct lfs_config cfg = {
+const struct lfs_cfg cfg = {
     // block device operations
     .read  = user_provided_block_device_read,
     .prog  = user_provided_block_device_prog,

@@ -7,12 +7,10 @@
 #ifndef LFS_H
 #define LFS_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "lfs_util.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 
@@ -65,26 +63,6 @@ typedef uint32_t lfs_block_t;
 #ifndef LFS_ATTR_MAX
 #define LFS_ATTR_MAX 1022
 #endif
-
-// Possible error codes, these are negative to allow
-// valid positive return values
-enum lfs_error {
-    LFS_ERR_OK          = 0,    // No error
-    LFS_ERR_IO          = -5,   // Error during device operation
-    LFS_ERR_CORRUPT     = -84,  // Corrupted
-    LFS_ERR_NOENT       = -2,   // No directory entry
-    LFS_ERR_EXIST       = -17,  // Entry already exists
-    LFS_ERR_NOTDIR      = -20,  // Entry is not a dir
-    LFS_ERR_ISDIR       = -21,  // Entry is a dir
-    LFS_ERR_NOTEMPTY    = -39,  // Dir is not empty
-    LFS_ERR_BADF        = -9,   // Bad file number
-    LFS_ERR_FBIG        = -27,  // File too large
-    LFS_ERR_INVAL       = -22,  // Invalid parameter
-    LFS_ERR_NOSPC       = -28,  // No space left on device
-    LFS_ERR_NOMEM       = -12,  // No more memory available
-    LFS_ERR_NOATTR      = -61,  // No data/attr available
-    LFS_ERR_NAMETOOLONG = -36,  // File name too long
-};
 
 // File types
 enum lfs_type {
@@ -147,32 +125,33 @@ enum lfs_whence_flags {
 };
 
 
+#if !defined(LFS_STATICCFG)
 // Configuration provided during initialization of the littlefs
-struct lfs_config {
+struct lfs_cfg {
     // Opaque user provided context that can be used to pass
     // information to the block device operations
-    void *context;
+    void *bd_ctx;
 
     // Read a region in a block. Negative error codes are propogated
     // to the user.
-    int (*read)(const struct lfs_config *c, lfs_block_t block,
+    int (*bd_read)(void *ctx, lfs_block_t block,
             lfs_off_t off, void *buffer, lfs_size_t size);
 
     // Program a region in a block. The block must have previously
     // been erased. Negative error codes are propogated to the user.
     // May return LFS_ERR_CORRUPT if the block should be considered bad.
-    int (*prog)(const struct lfs_config *c, lfs_block_t block,
+    int (*bd_prog)(void *ctx, lfs_block_t block,
             lfs_off_t off, const void *buffer, lfs_size_t size);
 
     // Erase a block. A block must be erased before being programmed.
     // The state of an erased block is undefined. Negative error codes
     // are propogated to the user.
     // May return LFS_ERR_CORRUPT if the block should be considered bad.
-    int (*erase)(const struct lfs_config *c, lfs_block_t block);
+    int (*bd_erase)(void *ctx, lfs_block_t block);
 
     // Sync the state of the underlying block device. Negative error codes
     // are propogated to the user.
-    int (*sync)(const struct lfs_config *c);
+    int (*bd_sync)(void *ctx);
 
     // Minimum size of a block read. All read operations will be a
     // multiple of this value.
@@ -199,12 +178,12 @@ struct lfs_config {
     // Set to -1 to disable block-level wear-leveling.
     int32_t block_cycles;
 
-    // Size of block caches. Each cache buffers a portion of a block in RAM.
-    // The littlefs needs a read cache, a program cache, and one additional
-    // cache per file. Larger caches can improve performance by storing more
+    // Size of internal buffers used to cache slices of blocks in RAM.
+    // The littlefs needs a read buffer, a program buffer, and one additional
+    // buffer per file. Larger buffers can improve performance by storing more
     // data and reducing the number of disk accesses. Must be a multiple of
     // the read and program sizes, and a factor of the block size.
-    lfs_size_t cache_size;
+    lfs_size_t buffer_size;
 
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
     // increases the number of blocks found during an allocation pass. The
@@ -241,6 +220,90 @@ struct lfs_config {
     // LFS_ATTR_MAX when zero.
     lfs_size_t attr_max;
 };
+#else
+// Static configuration if LFS_STATICCFG is defined, there are defaults
+// for some of these, but some are required. For full documentation, see
+// the lfs_cfg struct above.
+
+// Block device operations
+int lfs_bd_read(lfs_block_t block,
+        lfs_off_t off, void *buffer, lfs_size_t size);
+int lfs_bd_prog(lfs_block_t block,
+        lfs_off_t off, const void *buffer, lfs_size_t size);
+int lfs_bd_erase(lfs_block_t block);
+int lfs_bd_sync(void);
+
+// Required configuration
+#ifndef LFS_READ_SIZE
+#error "LFS_STATICCFG requires LFS_READ_SIZE"
+#endif
+#ifndef LFS_PROG_SIZE
+#error "LFS_STATICCFG requires LFS_PROG_SIZE"
+#endif
+#ifndef LFS_BLOCK_SIZE
+#error "LFS_STATICCFG requires LFS_BLOCK_SIZE"
+#endif
+#ifndef LFS_BLOCK_COUNT
+#error "LFS_STATICCFG requires LFS_BLOCK_COUNT"
+#endif
+#ifndef LFS_BLOCK_CYCLES
+#error "LFS_STATICCFG requires LFS_BLOCK_CYCLES"
+#endif
+#ifndef LFS_BUFFER_SIZE
+#error "LFS_STATICCFG requires LFS_BUFFER_SIZE"
+#endif
+#ifndef LFS_LOOKAHEAD_SIZE
+#error "LFS_STATICCFG requires LFS_LOOKAHEAD_SIZE"
+#endif
+
+// Optional configuration
+#ifndef LFS_READ_BUFFER
+#define LFS_READ_BUFFER NULL
+#endif
+#ifndef LFS_PROG_BUFFER
+#define LFS_PROG_BUFFER NULL
+#endif
+#ifndef LFS_LOOKAHEAD_BUFFER
+#define LFS_LOOKAHEAD_BUFFER NULL
+#endif
+#endif
+
+#if !defined(LFS_FILE_STATICCFG)
+// Optional configuration provided during lfs_file_opencfg
+struct lfs_file_cfg {
+    // Optional statically allocated file buffer. Must be cache_size.
+    // By default lfs_malloc is used to allocate this buffer.
+    void *buffer;
+
+    // Optional list of custom attributes related to the file. If the file
+    // is opened with read access, these attributes will be read from disk
+    // during the open call. If the file is opened with write access, the
+    // attributes will be written to disk every file sync or close. This
+    // write occurs atomically with update to the file's contents.
+    //
+    // Custom attributes are uniquely identified by an 8-bit type and limited
+    // to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller
+    // than the buffer, it will be padded with zeros. If the stored attribute
+    // is larger, then it will be silently truncated. If the attribute is not
+    // found, it will be created implicitly.
+    struct lfs_attr *attrs;
+
+    // Number of custom attributes in the list
+    lfs_size_t attr_count;
+};
+#else
+// Static configuration if LFS_FILE_STATICCFG is defined. For full
+// documentation, see the lfs_file_cfg struct above.
+#ifndef LFS_FILE_BUFFER
+#define LFS_FILE_BUFFER NULL
+#endif
+#ifndef LFS_FILE_ATTRS
+#define LFS_FILE_ATTRS ((struct lfs_attr*)NULL)
+#endif
+#ifndef LFS_FILE_ATTR_COUNT
+#define LFS_FILE_ATTR_COUNT 0
+#endif
+#endif
 
 // File info structure
 struct lfs_info {
@@ -269,29 +332,6 @@ struct lfs_attr {
 
     // Size of attribute in bytes, limited to LFS_ATTR_MAX
     lfs_size_t size;
-};
-
-// Optional configuration provided during lfs_file_opencfg
-struct lfs_file_config {
-    // Optional statically allocated file buffer. Must be cache_size.
-    // By default lfs_malloc is used to allocate this buffer.
-    void *buffer;
-
-    // Optional list of custom attributes related to the file. If the file
-    // is opened with read access, these attributes will be read from disk
-    // during the open call. If the file is opened with write access, the
-    // attributes will be written to disk every file sync or close. This
-    // write occurs atomically with update to the file's contents.
-    //
-    // Custom attributes are uniquely identified by an 8-bit type and limited
-    // to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller
-    // than the buffer, it will be padded with zeros. If the stored attribute
-    // is larger, then it will be silently truncated. If the attribute is not
-    // found, it will be created implicitly.
-    struct lfs_attr *attrs;
-
-    // Number of custom attributes in the list
-    lfs_size_t attr_count;
 };
 
 
@@ -343,7 +383,9 @@ typedef struct lfs_file {
     lfs_off_t off;
     lfs_cache_t cache;
 
-    const struct lfs_file_config *cfg;
+#ifndef LFS_FILE_STATICCFG
+    const struct lfs_file_cfg *cfg;
+#endif
 } lfs_file_t;
 
 typedef struct lfs_superblock {
@@ -386,7 +428,9 @@ typedef struct lfs {
         uint32_t *buffer;
     } free;
 
-    const struct lfs_config *cfg;
+#ifndef LFS_STATICCFG
+    const struct lfs_cfg *cfg;
+#endif
     lfs_size_t name_max;
     lfs_size_t file_max;
     lfs_size_t attr_max;
@@ -399,16 +443,38 @@ typedef struct lfs {
 
 /// Filesystem functions ///
 
-// Format a block device with the littlefs
+#if defined(LFS_STATICCFG)
+// Format a block device with littlefs
+//
+// Requires a littlefs object. This clobbers the littlefs object, and does
+// not leave the filesystem mounted.
+//
+// Returns a negative error code on failure.
+int lfs_format(lfs_t *lfs);
+#endif
+
+#if !defined(LFS_STATICCFG)
+// Format a block device with littlefs with per-filesystem configuration
 //
 // Requires a littlefs object and config struct. This clobbers the littlefs
 // object, and does not leave the filesystem mounted. The config struct must
 // be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-int lfs_format(lfs_t *lfs, const struct lfs_config *config);
+int lfs_formatcfg(lfs_t *lfs, const struct lfs_cfg *config);
+#endif
 
-// Mounts a littlefs
+#if defined(LFS_STATICCFG)
+// Mounts littlefs
+//
+// Requires a littlefs object and static configuration.
+//
+// Returns a negative error code on failure.
+int lfs_mount(lfs_t *lfs);
+#endif
+
+#if !defined(LFS_STATICCFG)
+// Mounts a littlefs with per-filesystem configuration
 //
 // Requires a littlefs object and config struct. Multiple filesystems
 // may be mounted simultaneously with multiple littlefs objects. Both
@@ -416,7 +482,8 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *config);
 // be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
+int lfs_mountcfg(lfs_t *lfs, const struct lfs_cfg *config);
+#endif
 
 // Unmounts a littlefs
 //
@@ -490,7 +557,8 @@ int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);
 
-// Open a file with extra configuration
+#if !defined(LFS_FILE_STATICCFG)
+// Open a file with per-file configuration
 //
 // The mode that the file is opened in is determined by the flags, which
 // are values from the enum lfs_open_flags that are bitwise-ored together.
@@ -502,7 +570,8 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 // Returns a negative error code on failure.
 int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags,
-        const struct lfs_file_config *config);
+        const struct lfs_file_cfg *config);
+#endif
 
 // Close a file
 //
@@ -632,8 +701,23 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 // Returns a negative error code on failure.
 int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 
-#ifdef LFS_MIGRATE
+#if defined(LFS_MIGRATE) && defined(LFS_STATICCFG)
 // Attempts to migrate a previous version of littlefs
+//
+// Behaves similarly to the lfs_format function. Attempts to mount
+// the previous version of littlefs and update the filesystem so it can be
+// mounted with the current version of littlefs.
+//
+// Requires a littlefs object. This clobbers the littlefs object, and does
+// not leave the filesystem mounted.
+//
+// Returns a negative error code on failure.
+int lfs_migrate(lfs_t *lfs, const struct lfs_cfg *cfg);
+#endif
+
+#if defined(LFS_MIGRATE) && !defined(LFS_STATICCFG)
+// Attempts to migrate a previous version of littlefs with per-filesystem
+// configuration
 //
 // Behaves similarly to the lfs_format function. Attempts to mount
 // the previous version of littlefs and update the filesystem so it can be
@@ -644,12 +728,12 @@ int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 // be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
+int lfs_migratecfg(lfs_t *lfs, const struct lfs_cfg *cfg);
 #endif
 
 
 #ifdef __cplusplus
-} /* extern "C" */
+}
 #endif
 
 #endif

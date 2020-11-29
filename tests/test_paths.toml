@@ -1,8 +1,8 @@
 
 [[case]] # simple path test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
@@ -23,8 +23,8 @@ code = '''
 
 [[case]] # redundant slashes
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
@@ -47,8 +47,8 @@ code = '''
 
 [[case]] # dot path test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
@@ -73,8 +73,8 @@ code = '''
 
 [[case]] # dot dot path test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
@@ -103,8 +103,8 @@ code = '''
 
 [[case]] # trailing dot path test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
@@ -125,8 +125,8 @@ code = '''
 
 [[case]] # leading dot path test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, ".milk") => 0;
     lfs_stat(&lfs, ".milk", &info) => 0;
     strcmp(info.name, ".milk") => 0;
@@ -137,8 +137,8 @@ code = '''
 
 [[case]] # root dot dot path test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
@@ -161,8 +161,8 @@ code = '''
 
 [[case]] # invalid path tests
 code = '''
-    lfs_format(&lfs, &cfg);
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg);
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "dirt", &info) => LFS_ERR_NOENT;
     lfs_stat(&lfs, "dirt/ground", &info) => LFS_ERR_NOENT;
     lfs_stat(&lfs, "dirt/ground/earth", &info) => LFS_ERR_NOENT;
@@ -182,8 +182,8 @@ code = '''
 
 [[case]] # root operations
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "/", &info) => 0;
     assert(strcmp(info.name, "/") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -198,8 +198,8 @@ code = '''
 
 [[case]] # root representations
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "/", &info) => 0;
     assert(strcmp(info.name, "/") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -223,8 +223,8 @@ code = '''
 
 [[case]] # superblock conflict test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_stat(&lfs, "littlefs", &info) => LFS_ERR_NOENT;
     lfs_remove(&lfs, "littlefs") => LFS_ERR_NOENT;
 
@@ -239,8 +239,8 @@ code = '''
 
 [[case]] # max path test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "coffee") => 0;
     lfs_mkdir(&lfs, "coffee/hotcoffee") => 0;
     lfs_mkdir(&lfs, "coffee/warmcoffee") => 0;
@@ -263,8 +263,8 @@ code = '''
 
 [[case]] # really big path test
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "coffee") => 0;
     lfs_mkdir(&lfs, "coffee/hotcoffee") => 0;
     lfs_mkdir(&lfs, "coffee/warmcoffee") => 0;

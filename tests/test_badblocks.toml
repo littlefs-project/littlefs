@@ -16,12 +16,12 @@ define.NAMEMULT = 64
 define.FILEMULT = 1
 code = '''
     for (lfs_block_t badblock = 2; badblock < LFS_BLOCK_COUNT; badblock++) {
-        lfs_testbd_setwear(&cfg, badblock-1, 0) => 0;
-        lfs_testbd_setwear(&cfg, badblock, 0xffffffff) => 0;
+        lfs_testbd_setwear(&bd, badblock-1, 0) => 0;
+        lfs_testbd_setwear(&bd, badblock, 0xffffffff) => 0;
         
-        lfs_format(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
 
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (int i = 1; i < 10; i++) {
             for (int j = 0; j < NAMEMULT; j++) {
                 buffer[j] = '0'+i;
@@ -46,7 +46,7 @@ code = '''
         }
         lfs_unmount(&lfs) => 0;
 
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (int i = 1; i < 10; i++) {
             for (int j = 0; j < NAMEMULT; j++) {
                 buffer[j] = '0'+i;
@@ -90,12 +90,12 @@ define.NAMEMULT = 64
 define.FILEMULT = 1
 code = '''
     for (lfs_block_t i = 0; i < (LFS_BLOCK_COUNT-2)/2; i++) {
-        lfs_testbd_setwear(&cfg, i+2, 0xffffffff) => 0;
+        lfs_testbd_setwear(&bd, i+2, 0xffffffff) => 0;
     }
     
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 1; i < 10; i++) {
         for (int j = 0; j < NAMEMULT; j++) {
             buffer[j] = '0'+i;
@@ -120,7 +120,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 1; i < 10; i++) {
         for (int j = 0; j < NAMEMULT; j++) {
             buffer[j] = '0'+i;
@@ -163,12 +163,12 @@ define.NAMEMULT = 64
 define.FILEMULT = 1
 code = '''
     for (lfs_block_t i = 0; i < (LFS_BLOCK_COUNT-2)/2; i++) {
-        lfs_testbd_setwear(&cfg, (2*i) + 2, 0xffffffff) => 0;
+        lfs_testbd_setwear(&bd, (2*i) + 2, 0xffffffff) => 0;
     }
     
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 1; i < 10; i++) {
         for (int j = 0; j < NAMEMULT; j++) {
             buffer[j] = '0'+i;
@@ -193,7 +193,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 1; i < 10; i++) {
         for (int j = 0; j < NAMEMULT; j++) {
             buffer[j] = '0'+i;
@@ -233,9 +233,9 @@ define.LFS_BADBLOCK_BEHAVIOR = [
     'LFS_TESTBD_BADBLOCK_ERASENOOP',
 ]
 code = '''
-    lfs_testbd_setwear(&cfg, 0, 0xffffffff) => 0;
-    lfs_testbd_setwear(&cfg, 1, 0xffffffff) => 0;
+    lfs_testbd_setwear(&bd, 0, 0xffffffff) => 0;
+    lfs_testbd_setwear(&bd, 1, 0xffffffff) => 0;
 
-    lfs_format(&lfs, &cfg) => LFS_ERR_NOSPC;
-    lfs_mount(&lfs, &cfg) => LFS_ERR_CORRUPT;
+    lfs_formatcfg(&lfs, &cfg) => LFS_ERR_NOSPC;
+    lfs_mountcfg(&lfs, &cfg) => LFS_ERR_CORRUPT;
 '''

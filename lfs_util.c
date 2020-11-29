@@ -7,7 +7,7 @@
 #include "lfs_util.h"
 
 // Only compile if user does not provide custom config
-#ifndef LFS_CONFIG
+#ifndef LFS_UTIL
 
 
 // Software CRC implementation with small lookup table

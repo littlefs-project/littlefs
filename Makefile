@@ -32,7 +32,7 @@ override TFLAGS += -v
 endif
 
 
-all: $(TARGET)
+all build: $(TARGET)
 
 asm: $(ASM)
 

@@ -8,11 +8,9 @@
 #define LFS_FILEBD_H
 
 #include "lfs.h"
-#include "lfs_util.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 
@@ -24,7 +22,21 @@ extern "C"
 #endif
 
 // filebd config (optional)
-struct lfs_filebd_config {
+struct lfs_filebd_cfg {
+    // Minimum size of block read. All read operations must be a
+    // multiple of this value.
+    lfs_size_t read_size;
+
+    // Minimum size of block program. All program operations must be a
+    // multiple of this value.
+    lfs_size_t prog_size;
+
+    // Size of an erasable block.
+    lfs_size_t erase_size;
+
+    // Number of erasable blocks on the device.
+    lfs_size_t erase_count;
+
     // 8-bit erase value to use for simulating erases. -1 does not simulate
     // erases, which can speed up testing by avoiding all the extra block-device
     // operations to store the erase value.
@@ -34,40 +46,39 @@ struct lfs_filebd_config {
 // filebd state
 typedef struct lfs_filebd {
     int fd;
-    const struct lfs_filebd_config *cfg;
+    const struct lfs_filebd_cfg *cfg;
 } lfs_filebd_t;
 
 
-// Create a file block device using the geometry in lfs_config
-int lfs_filebd_create(const struct lfs_config *cfg, const char *path);
-int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
-        const struct lfs_filebd_config *bdcfg);
+// Create a file block device using the geometry in lfs_filebd_cfg
+int lfs_filebd_createcfg(lfs_filebd_t *bd, const char *path,
+        const struct lfs_filebd_cfg *cfg);
 
 // Clean up memory associated with block device
-int lfs_filebd_destroy(const struct lfs_config *cfg);
+int lfs_filebd_destroy(lfs_filebd_t *bd);
 
 // Read a block
-int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_filebd_read(lfs_filebd_t *bd, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size);
 
 // Program a block
 //
 // The block must have previously been erased.
-int lfs_filebd_prog(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_filebd_prog(lfs_filebd_t *bd, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size);
 
 // Erase a block
 //
 // A block must be erased before being programmed. The
 // state of an erased block is undefined.
-int lfs_filebd_erase(const struct lfs_config *cfg, lfs_block_t block);
+int lfs_filebd_erase(lfs_filebd_t *bd, lfs_block_t block);
 
 // Sync the block device
-int lfs_filebd_sync(const struct lfs_config *cfg);
+int lfs_filebd_sync(lfs_filebd_t *bd);
 
 
 #ifdef __cplusplus
-} /* extern "C" */
+}
 #endif
 
 #endif

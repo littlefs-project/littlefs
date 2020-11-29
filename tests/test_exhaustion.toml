@@ -11,14 +11,14 @@ define.LFS_BADBLOCK_BEHAVIOR = [
 ]
 define.FILES = 10
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "roadrunner") => 0;
     lfs_unmount(&lfs) => 0;
 
     uint32_t cycle = 0;
     while (true) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (uint32_t i = 0; i < FILES; i++) {
             // chose name, roughly random seed, and random 2^n size
             sprintf(path, "roadrunner/test%d", i);
@@ -71,7 +71,7 @@ code = '''
 
 exhausted:
     // should still be readable
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (uint32_t i = 0; i < FILES; i++) {
         // check for errors
         sprintf(path, "roadrunner/test%d", i);
@@ -96,11 +96,11 @@ define.LFS_BADBLOCK_BEHAVIOR = [
 ]
 define.FILES = 10
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
     uint32_t cycle = 0;
     while (true) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (uint32_t i = 0; i < FILES; i++) {
             // chose name, roughly random seed, and random 2^n size
             sprintf(path, "test%d", i);
@@ -153,7 +153,7 @@ code = '''
 
 exhausted:
     // should still be readable
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (uint32_t i = 0; i < FILES; i++) {
         // check for errors
         sprintf(path, "test%d", i);
@@ -180,18 +180,18 @@ code = '''
 
     for (int run = 0; run < 2; run++) {
         for (lfs_block_t b = 0; b < LFS_BLOCK_COUNT; b++) {
-            lfs_testbd_setwear(&cfg, b,
+            lfs_testbd_setwear(&bd, b,
                     (b < run_block_count[run]) ? 0 : LFS_ERASE_CYCLES) => 0;
         }
 
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         lfs_mkdir(&lfs, "roadrunner") => 0;
         lfs_unmount(&lfs) => 0;
 
         uint32_t cycle = 0;
         while (true) {
-            lfs_mount(&lfs, &cfg) => 0;
+            lfs_mountcfg(&lfs, &cfg) => 0;
             for (uint32_t i = 0; i < FILES; i++) {
                 // chose name, roughly random seed, and random 2^n size
                 sprintf(path, "roadrunner/test%d", i);
@@ -244,7 +244,7 @@ code = '''
 
 exhausted:
         // should still be readable
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (uint32_t i = 0; i < FILES; i++) {
             // check for errors
             sprintf(path, "roadrunner/test%d", i);
@@ -272,15 +272,15 @@ code = '''
 
     for (int run = 0; run < 2; run++) {
         for (lfs_block_t b = 0; b < LFS_BLOCK_COUNT; b++) {
-            lfs_testbd_setwear(&cfg, b,
+            lfs_testbd_setwear(&bd, b,
                     (b < run_block_count[run]) ? 0 : LFS_ERASE_CYCLES) => 0;
         }
 
-        lfs_format(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
 
         uint32_t cycle = 0;
         while (true) {
-            lfs_mount(&lfs, &cfg) => 0;
+            lfs_mountcfg(&lfs, &cfg) => 0;
             for (uint32_t i = 0; i < FILES; i++) {
                 // chose name, roughly random seed, and random 2^n size
                 sprintf(path, "test%d", i);
@@ -333,7 +333,7 @@ code = '''
 
 exhausted:
         // should still be readable
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (uint32_t i = 0; i < FILES; i++) {
             // check for errors
             sprintf(path, "test%d", i);
@@ -358,14 +358,14 @@ define.CYCLES = 100
 define.FILES = 10
 if = 'LFS_BLOCK_CYCLES < CYCLES/10'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "roadrunner") => 0;
     lfs_unmount(&lfs) => 0;
 
     uint32_t cycle = 0;
     while (cycle < CYCLES) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         for (uint32_t i = 0; i < FILES; i++) {
             // chose name, roughly random seed, and random 2^n size
             sprintf(path, "roadrunner/test%d", i);
@@ -418,7 +418,7 @@ code = '''
 
 exhausted:
     // should still be readable
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (uint32_t i = 0; i < FILES; i++) {
         // check for errors
         sprintf(path, "roadrunner/test%d", i);
@@ -434,7 +434,7 @@ exhausted:
     lfs_testbd_wear_t maxwear = 0;
     // skip 0 and 1 as superblock movement is intentionally avoided
     for (lfs_block_t b = 2; b < LFS_BLOCK_COUNT; b++) {
-        lfs_testbd_wear_t wear = lfs_testbd_getwear(&cfg, b);
+        lfs_testbd_wear_t wear = lfs_testbd_getwear(&bd, b);
         printf("%08x: wear %d\n", b, wear);
         assert(wear >= 0);
         if (wear < minwear) {
@@ -453,7 +453,7 @@ exhausted:
     // find standard deviation^2
     lfs_testbd_wear_t dev2 = 0;
     for (lfs_block_t b = 2; b < LFS_BLOCK_COUNT; b++) {
-        lfs_testbd_wear_t wear = lfs_testbd_getwear(&cfg, b);
+        lfs_testbd_wear_t wear = lfs_testbd_getwear(&bd, b);
         assert(wear >= 0);
         lfs_testbd_swear_t diff = wear - avgwear;
         dev2 += diff*diff;

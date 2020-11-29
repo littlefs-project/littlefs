@@ -1,7 +1,7 @@
 [[case]] # root
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -17,16 +17,16 @@ code = '''
 [[case]] # many directory creation
 define.N = 'range(0, 100, 3)'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         sprintf(path, "dir%03d", i);
         lfs_mkdir(&lfs, path) => 0;
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -48,16 +48,16 @@ code = '''
 [[case]] # many directory removal
 define.N = 'range(3, 100, 11)'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         sprintf(path, "removeme%03d", i);
         lfs_mkdir(&lfs, path) => 0;
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -75,14 +75,14 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs);
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         sprintf(path, "removeme%03d", i);
         lfs_remove(&lfs, path) => 0;
     }
     lfs_unmount(&lfs);
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -98,16 +98,16 @@ code = '''
 [[case]] # many directory rename
 define.N = 'range(3, 100, 11)'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         sprintf(path, "test%03d", i);
         lfs_mkdir(&lfs, path) => 0;
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -125,7 +125,7 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs);
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         char oldpath[128];
         char newpath[128];
@@ -135,7 +135,7 @@ code = '''
     }
     lfs_unmount(&lfs);
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -158,10 +158,10 @@ code = '''
 define.N = [5, 11]
 reentrant = true
 code = '''
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
 
     for (int i = 0; i < N; i++) {
@@ -237,9 +237,9 @@ code = '''
 [[case]] # file creation
 define.N = 'range(3, 100, 11)'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         sprintf(path, "file%03d", i);
         lfs_file_open(&lfs, &file, path,
@@ -248,7 +248,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -270,9 +270,9 @@ code = '''
 [[case]] # file removal
 define.N = 'range(0, 100, 3)'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         sprintf(path, "removeme%03d", i);
         lfs_file_open(&lfs, &file, path,
@@ -281,7 +281,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -299,14 +299,14 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs);
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         sprintf(path, "removeme%03d", i);
         lfs_remove(&lfs, path) => 0;
     }
     lfs_unmount(&lfs);
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -322,9 +322,9 @@ code = '''
 [[case]] # file rename
 define.N = 'range(0, 100, 3)'
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         sprintf(path, "test%03d", i);
         lfs_file_open(&lfs, &file, path,
@@ -333,7 +333,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -351,7 +351,7 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs);
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < N; i++) {
         char oldpath[128];
         char newpath[128];
@@ -361,7 +361,7 @@ code = '''
     }
     lfs_unmount(&lfs);
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -384,10 +384,10 @@ code = '''
 define.N = [5, 25]
 reentrant = true
 code = '''
-    err = lfs_mount(&lfs, &cfg);
+    err = lfs_mountcfg(&lfs, &cfg);
     if (err) {
-        lfs_format(&lfs, &cfg) => 0;
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_formatcfg(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
     }
 
     for (int i = 0; i < N; i++) {
@@ -462,21 +462,21 @@ code = '''
 
 [[case]] # nested directories
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "potato") => 0;
     lfs_file_open(&lfs, &file, "burito",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "potato/baked") => 0;
     lfs_mkdir(&lfs, "potato/sweet") => 0;
     lfs_mkdir(&lfs, "potato/fried") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "potato") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -498,21 +498,21 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // try removing?
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "potato") => LFS_ERR_NOTEMPTY;
     lfs_unmount(&lfs) => 0;
 
     // try renaming?
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "potato", "coldpotato") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_rename(&lfs, "coldpotato", "warmpotato") => 0;
     lfs_rename(&lfs, "warmpotato", "hotpotato") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "potato") => LFS_ERR_NOENT;
     lfs_remove(&lfs, "coldpotato") => LFS_ERR_NOENT;
     lfs_remove(&lfs, "warmpotato") => LFS_ERR_NOENT;
@@ -520,7 +520,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // try cross-directory renaming
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "coldpotato") => 0;
     lfs_rename(&lfs, "hotpotato/baked", "coldpotato/baked") => 0;
     lfs_rename(&lfs, "coldpotato", "hotpotato") => LFS_ERR_NOTEMPTY;
@@ -536,7 +536,7 @@ code = '''
     lfs_remove(&lfs, "hotpotato") => LFS_ERR_NOTEMPTY;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "hotpotato") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -558,7 +558,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
     
     // final remove
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "hotpotato") => LFS_ERR_NOTEMPTY;
     lfs_remove(&lfs, "hotpotato/baked") => 0;
     lfs_remove(&lfs, "hotpotato") => LFS_ERR_NOTEMPTY;
@@ -568,7 +568,7 @@ code = '''
     lfs_remove(&lfs, "hotpotato") => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -587,8 +587,8 @@ code = '''
 [[case]] # recursive remove
 define.N = [10, 100]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "prickly-pear") => 0;
     for (int i = 0; i < N; i++) {
         sprintf(path, "prickly-pear/cactus%03d", i);
@@ -611,7 +611,7 @@ code = '''
     lfs_dir_close(&lfs, &dir) => 0;
     lfs_unmount(&lfs);
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "prickly-pear") => LFS_ERR_NOTEMPTY;
 
     lfs_dir_open(&lfs, &dir, "prickly-pear") => 0;
@@ -636,22 +636,22 @@ code = '''
     lfs_remove(&lfs, "prickly-pear") => LFS_ERR_NOENT;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_remove(&lfs, "prickly-pear") => LFS_ERR_NOENT;
     lfs_unmount(&lfs) => 0;
 '''
 
 [[case]] # other error cases
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "potato") => 0;
     lfs_file_open(&lfs, &file, "burito",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
 
     lfs_mkdir(&lfs, "potato") => LFS_ERR_EXIST;
     lfs_mkdir(&lfs, "burito") => LFS_ERR_EXIST;
@@ -696,7 +696,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     // or on disk
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_dir_open(&lfs, &dir, "/") => 0;
     lfs_dir_read(&lfs, &dir, &info) => 1;
     assert(info.type == LFS_TYPE_DIR);
@@ -718,8 +718,8 @@ code = '''
 [[case]] # directory seek
 define.COUNT = [4, 128, 132]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, "hello") => 0;
     for (int i = 0; i < COUNT; i++) {
         sprintf(path, "hello/kitty%03d", i);
@@ -728,7 +728,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     for (int j = 2; j < COUNT; j++) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         lfs_dir_open(&lfs, &dir, "hello") => 0;
         lfs_dir_read(&lfs, &dir, &info) => 1;
         assert(strcmp(info.name, ".") == 0);
@@ -779,8 +779,8 @@ code = '''
 [[case]] # root seek
 define.COUNT = [4, 128, 132]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_formatcfg(&lfs, &cfg) => 0;
+    lfs_mountcfg(&lfs, &cfg) => 0;
     for (int i = 0; i < COUNT; i++) {
         sprintf(path, "hi%03d", i);
         lfs_mkdir(&lfs, path) => 0;
@@ -788,7 +788,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     for (int j = 2; j < COUNT; j++) {
-        lfs_mount(&lfs, &cfg) => 0;
+        lfs_mountcfg(&lfs, &cfg) => 0;
         lfs_dir_open(&lfs, &dir, "/") => 0;
         lfs_dir_read(&lfs, &dir, &info) => 1;
         assert(strcmp(info.name, ".") == 0);
