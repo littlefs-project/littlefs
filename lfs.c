@@ -1375,11 +1375,11 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
         return err;
     }
 
-    // make sure we don't immediately evict, see lfs_dir_compact for why
-    // this check is so complicated
-    if (lfs->cfg->block_cycles > 0 &&
-            (dir->rev + 1) % ((lfs->cfg->block_cycles+1)|1) == 0) {
-        dir->rev += 1;
+    // to make sure we don't immediately evict, align the new revision count
+    // to our block_cycles modulus, see lfs_dir_compact for why our modulus
+    // is tweaked this way
+    if (lfs->cfg->block_cycles > 0) {
+        dir->rev = lfs_alignup(dir->rev, ((lfs->cfg->block_cycles+1)|1));
     }
 
     // set defaults
