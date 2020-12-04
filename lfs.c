@@ -452,14 +452,16 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     return 0;
 }
 
+// indicate allocated blocks have been committed into the filesystem, this
+// is to prevent blocks from being garbage collected in the middle of a
+// commit operation
 static void lfs_alloc_ack(lfs_t *lfs) {
     lfs->free.ack = lfs->cfg->block_count;
 }
 
-// Invalidate the lookahead buffer. This is done during mounting and
-// failed traversals
-static void lfs_alloc_reset(lfs_t *lfs) {
-    lfs->free.off = lfs->seed % lfs->cfg->block_size;
+// drop the lookahead buffer, this is done during mounting and failed
+// traversals in order to avoid invalid lookahead state
+static void lfs_alloc_drop(lfs_t *lfs) {
     lfs->free.size = 0;
     lfs->free.i = 0;
     lfs_alloc_ack(lfs);
@@ -505,7 +507,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
         int err = lfs_fs_traverseraw(lfs, lfs_alloc_lookahead, lfs, true);
         if (err) {
-            lfs_alloc_reset(lfs);
+            lfs_alloc_drop(lfs);
             return err;
         }
     }
@@ -870,8 +872,10 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 ptag ^= (lfs_tag_t)(lfs_tag_chunk(tag) & 1U) << 31;
 
                 // toss our crc into the filesystem seed for
-                // pseudorandom numbers
-                lfs->seed ^= crc;
+                // pseudorandom numbers, note we use another crc here
+                // as a collection function because it is sufficiently
+                // random and convenient
+                lfs->seed = lfs_crc(lfs->seed, &crc, sizeof(crc));
 
                 // update with what's found so far
                 besttag = tempbesttag;
@@ -1261,11 +1265,12 @@ static int lfs_dir_commitattr(lfs_t *lfs, struct lfs_commit *commit,
 }
 
 static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
-    const lfs_off_t off1 = commit->off;
-    const uint32_t crc1 = commit->crc;
     // align to program units
-    const lfs_off_t end = lfs_alignup(off1 + 2*sizeof(uint32_t),
+    const lfs_off_t end = lfs_alignup(commit->off + 2*sizeof(uint32_t),
             lfs->cfg->prog_size);
+
+    lfs_off_t off1 = 0;
+    uint32_t crc1 = 0;
 
     // create crc tags to fill up remainder of commit, note that
     // padding is not crced, which lets fetches skip padding but
@@ -1302,6 +1307,12 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
             return err;
         }
 
+        // keep track of non-padding checksum to verify
+        if (off1 == 0) {
+            off1 = commit->off + sizeof(uint32_t);
+            crc1 = commit->crc;
+        }
+
         commit->off += sizeof(tag)+lfs_tag_size(tag);
         commit->ptag = tag ^ ((lfs_tag_t)reset << 31);
         commit->crc = 0xffffffff; // reset crc for next "commit"
@@ -1315,7 +1326,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
 
     // successful commit, check checksums to make sure
     lfs_off_t off = commit->begin;
-    lfs_off_t noff = off1 + sizeof(uint32_t);
+    lfs_off_t noff = off1;
     while (off < end) {
         uint32_t crc = 0xffffffff;
         for (lfs_off_t i = off; i < noff+sizeof(uint32_t); i++) {
@@ -3797,8 +3808,10 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->gstate.tag += !lfs_tag_isvalid(lfs->gstate.tag);
     lfs->gdisk = lfs->gstate;
 
-    // setup free lookahead
-    lfs_alloc_reset(lfs);
+    // setup free lookahead, to distribute allocations uniformly across
+    // boots, we start the allocator at a random location
+    lfs->free.off = lfs->seed % lfs->cfg->block_count;
+    lfs_alloc_drop(lfs);
 
     LFS_TRACE("lfs_mount -> %d", 0);
     return 0;
