@@ -118,18 +118,22 @@ static int lfs_bd_cmp(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
+    lfs_size_t diff = 0;
 
-    for (lfs_off_t i = 0; i < size; i++) {
-        uint8_t dat;
-        int err = lfs_bd_read(lfs,
+    for (lfs_off_t i = 0; i < size; i += diff) {
+        uint8_t dat[8];
+
+        diff = lfs_min(size-i, sizeof(dat));
+        int res = lfs_bd_read(lfs,
                 pcache, rcache, hint-i,
-                block, off+i, &dat, 1);
-        if (err) {
-            return err;
+                block, off+i, &dat, diff);
+        if (res) {
+            return res;
         }
 
-        if (dat != data[i]) {
-            return (dat < data[i]) ? LFS_CMP_LT : LFS_CMP_GT;
+        res = memcmp(dat, data + i, diff);
+        if (res) {
+            return res < 0 ? LFS_CMP_LT : LFS_CMP_GT;
         }
     }
 
