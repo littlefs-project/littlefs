@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "lfs_util.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -179,6 +180,16 @@ struct lfs_config {
     // Sync the state of the underlying block device. Negative error codes
     // are propogated to the user.
     int (*sync)(const struct lfs_config *c);
+
+#ifdef LFS_THREADSAFE
+    // Lock the underlying block device. Negative error codes
+    // are propogated to the user.
+    int (*lock)(const struct lfs_config *c);
+
+    // Unlock the underlying block device. Negative error codes
+    // are propogated to the user.
+    int (*unlock)(const struct lfs_config *c);
+#endif
 
     // Minimum size of a block read. All read operations will be a
     // multiple of this value.

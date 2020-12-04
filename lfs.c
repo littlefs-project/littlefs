@@ -458,8 +458,13 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
 static int lfs_dir_compact(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t begin, uint16_t end);
+
+static lfs_ssize_t lfs_file_writeraw(lfs_t *lfs, lfs_file_t *file,
+        const void *buffer, lfs_size_t size);
+static int lfs_file_syncraw(lfs_t *lfs, lfs_file_t *file);
 static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file);
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file);
+
 static void lfs_fs_preporphans(lfs_t *lfs, int8_t orphans);
 static void lfs_fs_prepmove(lfs_t *lfs,
         uint16_t id, const lfs_block_t pair[2]);
@@ -469,18 +474,29 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
 static int lfs_fs_relocate(lfs_t *lfs,
         const lfs_block_t oldpair[2], lfs_block_t newpair[2]);
-#endif
-int lfs_fs_traverseraw(lfs_t *lfs,
-        int (*cb)(void *data, lfs_block_t block), void *data,
-        bool includeorphans);
-#ifndef LFS_READONLY
 static int lfs_fs_forceconsistency(lfs_t *lfs);
 #endif
-static int lfs_deinit(lfs_t *lfs);
+
 #ifdef LFS_MIGRATE
 static int lfs1_traverse(lfs_t *lfs,
         int (*cb)(void*, lfs_block_t), void *data);
 #endif
+
+static int lfs_dir_rewindraw(lfs_t *lfs, lfs_dir_t *dir);
+
+static lfs_ssize_t lfs_file_readraw(lfs_t *lfs, lfs_file_t *file,
+        void *buffer, lfs_size_t size);
+static int lfs_file_closeraw(lfs_t *lfs, lfs_file_t *file);
+static lfs_soff_t lfs_file_sizeraw(lfs_t *lfs, lfs_file_t *file);
+
+static lfs_ssize_t lfs_fs_sizeraw(lfs_t *lfs);
+static int lfs_fs_traverseraw(lfs_t *lfs,
+        int (*cb)(void *data, lfs_block_t block), void *data,
+        bool includeorphans);
+
+static int lfs_deinit(lfs_t *lfs);
+static int lfs_unmountraw(lfs_t *lfs);
+
 
 /// Block allocator ///
 #ifndef LFS_READONLY
@@ -1606,7 +1622,7 @@ static int lfs_dir_compact(lfs_t *lfs,
         if (lfs_pair_cmp(dir->pair, (const lfs_block_t[2]){0, 1}) == 0) {
             // oh no! we're writing too much to the superblock,
             // should we expand?
-            lfs_ssize_t res = lfs_fs_size(lfs);
+            lfs_ssize_t res = lfs_fs_sizeraw(lfs);
             if (res < 0) {
                 return res;
             }
@@ -1991,12 +2007,10 @@ compact:
 
 /// Top level directory operations ///
 #ifndef LFS_READONLY
-int lfs_mkdir(lfs_t *lfs, const char *path) {
-    LFS_TRACE("lfs_mkdir(%p, \"%s\")", (void*)lfs, path);
+static int lfs_mkdirraw(lfs_t *lfs, const char *path) {
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
     if (err) {
-        LFS_TRACE("lfs_mkdir -> %d", err);
         return err;
     }
 
@@ -2005,14 +2019,12 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     uint16_t id;
     err = lfs_dir_find(lfs, &cwd.m, &path, &id);
     if (!(err == LFS_ERR_NOENT && id != 0x3ff)) {
-        LFS_TRACE("lfs_mkdir -> %d", (err < 0) ? err : LFS_ERR_EXIST);
         return (err < 0) ? err : LFS_ERR_EXIST;
     }
 
     // check that name fits
     lfs_size_t nlen = strlen(path);
     if (nlen > lfs->name_max) {
-        LFS_TRACE("lfs_mkdir -> %d", LFS_ERR_NAMETOOLONG);
         return LFS_ERR_NAMETOOLONG;
     }
 
@@ -2021,7 +2033,6 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     lfs_mdir_t dir;
     err = lfs_dir_alloc(lfs, &dir);
     if (err) {
-        LFS_TRACE("lfs_mkdir -> %d", err);
         return err;
     }
 
@@ -2030,7 +2041,6 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
     while (pred.split) {
         err = lfs_dir_fetch(lfs, &pred, pred.tail);
         if (err) {
-            LFS_TRACE("lfs_mkdir -> %d", err);
             return err;
         }
     }
@@ -2041,7 +2051,6 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
             {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), pred.tail}));
     lfs_pair_fromle32(pred.tail);
     if (err) {
-        LFS_TRACE("lfs_mkdir -> %d", err);
         return err;
     }
 
@@ -2064,7 +2073,6 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
         lfs_pair_fromle32(dir.pair);
         if (err) {
             lfs->mlist = cwd.next;
-            LFS_TRACE("lfs_mkdir -> %d", err);
             return err;
         }
 
@@ -2082,27 +2090,22 @@ int lfs_mkdir(lfs_t *lfs, const char *path) {
                 LFS_TYPE_SOFTTAIL, 0x3ff, 8), dir.pair}));
     lfs_pair_fromle32(dir.pair);
     if (err) {
-        LFS_TRACE("lfs_mkdir -> %d", err);
         return err;
     }
 
-    LFS_TRACE("lfs_mkdir -> %d", 0);
     return 0;
 }
 #endif
 
-int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
-    LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
+static int lfs_dir_openraw(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)dir));
 
     lfs_stag_t tag = lfs_dir_find(lfs, &dir->m, &path, NULL);
     if (tag < 0) {
-        LFS_TRACE("lfs_dir_open -> %"PRId32, tag);
         return tag;
     }
 
     if (lfs_tag_type3(tag) != LFS_TYPE_DIR) {
-        LFS_TRACE("lfs_dir_open -> %d", LFS_ERR_NOTDIR);
         return LFS_ERR_NOTDIR;
     }
 
@@ -2116,7 +2119,6 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
         lfs_stag_t res = lfs_dir_get(lfs, &dir->m, LFS_MKTAG(0x700, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
         if (res < 0) {
-            LFS_TRACE("lfs_dir_open -> %"PRId32, res);
             return res;
         }
         lfs_pair_fromle32(pair);
@@ -2125,7 +2127,6 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     // fetch first pair
     int err = lfs_dir_fetch(lfs, &dir->m, pair);
     if (err) {
-        LFS_TRACE("lfs_dir_open -> %d", err);
         return err;
     }
 
@@ -2139,22 +2140,17 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
     dir->type = LFS_TYPE_DIR;
     lfs_mlist_append(lfs, (struct lfs_mlist *)dir);
 
-    LFS_TRACE("lfs_dir_open -> %d", 0);
     return 0;
 }
 
-int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
-    LFS_TRACE("lfs_dir_close(%p, %p)", (void*)lfs, (void*)dir);
+static int lfs_dir_closeraw(lfs_t *lfs, lfs_dir_t *dir) {
     // remove from list of mdirs
     lfs_mlist_remove(lfs, (struct lfs_mlist *)dir);
 
-    LFS_TRACE("lfs_dir_close -> %d", 0);
     return 0;
 }
 
-int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
-    LFS_TRACE("lfs_dir_read(%p, %p, %p)",
-            (void*)lfs, (void*)dir, (void*)info);
+static int lfs_dir_readraw(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     memset(info, 0, sizeof(*info));
 
     // special offset for '.' and '..'
@@ -2162,26 +2158,22 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
         info->type = LFS_TYPE_DIR;
         strcpy(info->name, ".");
         dir->pos += 1;
-        LFS_TRACE("lfs_dir_read -> %d", true);
         return true;
     } else if (dir->pos == 1) {
         info->type = LFS_TYPE_DIR;
         strcpy(info->name, "..");
         dir->pos += 1;
-        LFS_TRACE("lfs_dir_read -> %d", true);
         return true;
     }
 
     while (true) {
         if (dir->id == dir->m.count) {
             if (!dir->m.split) {
-                LFS_TRACE("lfs_dir_read -> %d", false);
                 return false;
             }
 
             int err = lfs_dir_fetch(lfs, &dir->m, dir->m.tail);
             if (err) {
-                LFS_TRACE("lfs_dir_read -> %d", err);
                 return err;
             }
 
@@ -2190,7 +2182,6 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
 
         int err = lfs_dir_getinfo(lfs, &dir->m, dir->id, info);
         if (err && err != LFS_ERR_NOENT) {
-            LFS_TRACE("lfs_dir_read -> %d", err);
             return err;
         }
 
@@ -2201,17 +2192,13 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     }
 
     dir->pos += 1;
-    LFS_TRACE("lfs_dir_read -> %d", true);
     return true;
 }
 
-int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
-    LFS_TRACE("lfs_dir_seek(%p, %p, %"PRIu32")",
-            (void*)lfs, (void*)dir, off);
+static int lfs_dir_seekraw(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
     // simply walk from head dir
-    int err = lfs_dir_rewind(lfs, dir);
+    int err = lfs_dir_rewindraw(lfs, dir);
     if (err) {
-        LFS_TRACE("lfs_dir_seek -> %d", err);
         return err;
     }
 
@@ -2230,13 +2217,11 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
 
         if (dir->id == dir->m.count) {
             if (!dir->m.split) {
-                LFS_TRACE("lfs_dir_seek -> %d", LFS_ERR_INVAL);
                 return LFS_ERR_INVAL;
             }
 
             err = lfs_dir_fetch(lfs, &dir->m, dir->m.tail);
             if (err) {
-                LFS_TRACE("lfs_dir_seek -> %d", err);
                 return err;
             }
 
@@ -2244,29 +2229,23 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
         }
     }
 
-    LFS_TRACE("lfs_dir_seek -> %d", 0);
     return 0;
 }
 
-lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir) {
-    LFS_TRACE("lfs_dir_tell(%p, %p)", (void*)lfs, (void*)dir);
+static lfs_soff_t lfs_dir_tellraw(lfs_t *lfs, lfs_dir_t *dir) {
     (void)lfs;
-    LFS_TRACE("lfs_dir_tell -> %"PRId32, dir->pos);
     return dir->pos;
 }
 
-int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
-    LFS_TRACE("lfs_dir_rewind(%p, %p)", (void*)lfs, (void*)dir);
+static int lfs_dir_rewindraw(lfs_t *lfs, lfs_dir_t *dir) {
     // reload the head dir
     int err = lfs_dir_fetch(lfs, &dir->m, dir->head);
     if (err) {
-        LFS_TRACE("lfs_dir_rewind -> %d", err);
         return err;
     }
 
     dir->id = 0;
     dir->pos = 0;
-    LFS_TRACE("lfs_dir_rewind -> %d", 0);
     return 0;
 }
 
@@ -2464,15 +2443,10 @@ static int lfs_ctz_traverse(lfs_t *lfs,
 
 
 /// Top level file operations ///
-int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
+static int lfs_file_opencfgraw(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags,
         const struct lfs_file_config *cfg) {
-    LFS_TRACE("lfs_file_opencfg(%p, %p, \"%s\", %x, %p {"
-                 ".buffer=%p, .attrs=%p, .attr_count=%"PRIu32"})",
-            (void*)lfs, (void*)file, path, flags,
-            (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
     LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
-
 #ifdef LFS_READONLY
     LFS_ASSERT((flags & 3) == LFS_O_RDONLY);
 #else
@@ -2480,7 +2454,6 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
     if ((flags & LFS_O_RDWR) != LFS_O_RDONLY) {
         int err = lfs_fs_forceconsistency(lfs);
         if (err) {
-            LFS_TRACE("lfs_file_opencfg -> %d", err);
             return err;
         }
     }
@@ -2623,7 +2596,6 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         }
     }
 
-    LFS_TRACE("lfs_file_opencfg -> %d", 0);
     return 0;
 
 cleanup:
@@ -2631,29 +2603,24 @@ cleanup:
 #ifndef LFS_READONLY
     file->flags |= LFS_F_ERRED;
 #endif
-    lfs_file_close(lfs, file);
-    LFS_TRACE("lfs_file_opencfg -> %d", err);
+    lfs_file_closeraw(lfs, file);
     return err;
 }
 
-int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
+static int lfs_file_openraw(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags) {
-    LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)",
-            (void*)lfs, (void*)file, path, flags);
     static const struct lfs_file_config defaults = {0};
-    int err = lfs_file_opencfg(lfs, file, path, flags, &defaults);
-    LFS_TRACE("lfs_file_open -> %d", err);
+    int err = lfs_file_opencfgraw(lfs, file, path, flags, &defaults);
     return err;
 }
 
-int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
-    LFS_TRACE("lfs_file_close(%p, %p)", (void*)lfs, (void*)file);
+static int lfs_file_closeraw(lfs_t *lfs, lfs_file_t *file) {
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
 #ifdef LFS_READONLY
     int err = 0;
 #else
-    int err = lfs_file_sync(lfs, file);
+    int err = lfs_file_syncraw(lfs, file);
 #endif
 
     // remove from list of mdirs
@@ -2665,7 +2632,6 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
     }
 
     file->flags &= ~LFS_F_OPENED;
-    LFS_TRACE("lfs_file_close -> %d", err);
     return err;
 }
 
@@ -2786,12 +2752,12 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
                 // copy over a byte at a time, leave it up to caching
                 // to make this efficient
                 uint8_t data;
-                lfs_ssize_t res = lfs_file_read(lfs, &orig, &data, 1);
+                lfs_ssize_t res = lfs_file_readraw(lfs, &orig, &data, 1);
                 if (res < 0) {
                     return res;
                 }
 
-                res = lfs_file_write(lfs, file, &data, 1);
+                res = lfs_file_writeraw(lfs, file, &data, 1);
                 if (res < 0) {
                     return res;
                 }
@@ -2840,20 +2806,17 @@ relocate:
 #endif
 
 #ifndef LFS_READONLY
-int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
-    LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
+static int lfs_file_syncraw(lfs_t *lfs, lfs_file_t *file) {
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
     if (file->flags & LFS_F_ERRED) {
         // it's not safe to do anything if our file errored
-        LFS_TRACE("lfs_file_sync -> %d", 0);
         return 0;
     }
 
     int err = lfs_file_flush(lfs, file);
     if (err) {
         file->flags |= LFS_F_ERRED;
-        LFS_TRACE("lfs_file_sync -> %d", err);
         return err;
     }
 
@@ -2887,22 +2850,18 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
                     file->cfg->attr_count), file->cfg->attrs}));
         if (err) {
             file->flags |= LFS_F_ERRED;
-            LFS_TRACE("lfs_file_sync -> %d", err);
             return err;
         }
 
         file->flags &= ~LFS_F_DIRTY;
     }
 
-    LFS_TRACE("lfs_file_sync -> %d", 0);
     return 0;
 }
 #endif
 
-lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
+static lfs_ssize_t lfs_file_readraw(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
-    LFS_TRACE("lfs_file_read(%p, %p, %p, %"PRIu32")",
-            (void*)lfs, (void*)file, buffer, size);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 #ifndef LFS_READONLY
     LFS_ASSERT((file->flags & LFS_O_RDWR) != LFS_O_WRONLY);
@@ -2916,7 +2875,6 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         // flush out any writes
         int err = lfs_file_flush(lfs, file);
         if (err) {
-            LFS_TRACE("lfs_file_read -> %d", err);
             return err;
         }
     }
@@ -2924,7 +2882,6 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 
     if (file->pos >= file->ctz.size) {
         // eof if past end
-        LFS_TRACE("lfs_file_read -> %d", 0);
         return 0;
     }
 
@@ -2940,7 +2897,6 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
                         file->ctz.head, file->ctz.size,
                         file->pos, &file->block, &file->off);
                 if (err) {
-                    LFS_TRACE("lfs_file_read -> %d", err);
                     return err;
                 }
             } else {
@@ -2960,7 +2916,6 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
                     LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0),
                     file->off, data, diff);
             if (err) {
-                LFS_TRACE("lfs_file_read -> %d", err);
                 return err;
             }
         } else {
@@ -2968,7 +2923,6 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
                     NULL, &file->cache, lfs->cfg->block_size,
                     file->block, file->off, data, diff);
             if (err) {
-                LFS_TRACE("lfs_file_read -> %d", err);
                 return err;
             }
         }
@@ -2979,15 +2933,12 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
         nsize -= diff;
     }
 
-    LFS_TRACE("lfs_file_read -> %"PRId32, size);
     return size;
 }
 
 #ifndef LFS_READONLY
-lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
+static lfs_ssize_t lfs_file_writeraw(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
-    LFS_TRACE("lfs_file_write(%p, %p, %p, %"PRIu32")",
-            (void*)lfs, (void*)file, buffer, size);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
     LFS_ASSERT((file->flags & LFS_O_RDWR) != LFS_O_RDONLY);
 
@@ -2998,7 +2949,6 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         // drop any reads
         int err = lfs_file_flush(lfs, file);
         if (err) {
-            LFS_TRACE("lfs_file_write -> %d", err);
             return err;
         }
     }
@@ -3009,7 +2959,6 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
 
     if (file->pos + size > lfs->file_max) {
         // Larger than file limit?
-        LFS_TRACE("lfs_file_write -> %d", LFS_ERR_FBIG);
         return LFS_ERR_FBIG;
     }
 
@@ -3019,9 +2968,8 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         file->pos = file->ctz.size;
 
         while (file->pos < pos) {
-            lfs_ssize_t res = lfs_file_write(lfs, file, &(uint8_t){0}, 1);
+            lfs_ssize_t res = lfs_file_writeraw(lfs, file, &(uint8_t){0}, 1);
             if (res < 0) {
-                LFS_TRACE("lfs_file_write -> %"PRId32, res);
                 return res;
             }
         }
@@ -3035,7 +2983,6 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
         int err = lfs_file_outline(lfs, file);
         if (err) {
             file->flags |= LFS_F_ERRED;
-            LFS_TRACE("lfs_file_write -> %d", err);
             return err;
         }
     }
@@ -3052,7 +2999,6 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                             file->pos-1, &file->block, &file->off);
                     if (err) {
                         file->flags |= LFS_F_ERRED;
-                        LFS_TRACE("lfs_file_write -> %d", err);
                         return err;
                     }
 
@@ -3067,7 +3013,6 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                         &file->block, &file->off);
                 if (err) {
                     file->flags |= LFS_F_ERRED;
-                    LFS_TRACE("lfs_file_write -> %d", err);
                     return err;
                 }
             } else {
@@ -3088,7 +3033,6 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
                     goto relocate;
                 }
                 file->flags |= LFS_F_ERRED;
-                LFS_TRACE("lfs_file_write -> %d", err);
                 return err;
             }
 
@@ -3097,7 +3041,6 @@ relocate:
             err = lfs_file_relocate(lfs, file);
             if (err) {
                 file->flags |= LFS_F_ERRED;
-                LFS_TRACE("lfs_file_write -> %d", err);
                 return err;
             }
         }
@@ -3111,22 +3054,18 @@ relocate:
     }
 
     file->flags &= ~LFS_F_ERRED;
-    LFS_TRACE("lfs_file_write -> %"PRId32, size);
     return size;
 }
 #endif
 
-lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
+static lfs_soff_t lfs_file_seekraw(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
-    LFS_TRACE("lfs_file_seek(%p, %p, %"PRId32", %d)",
-            (void*)lfs, (void*)file, off, whence);
     LFS_ASSERT(file->flags & LFS_F_OPENED);
 
 #ifndef LFS_READONLY
     // write out everything beforehand, may be noop if rdonly
     int err = lfs_file_flush(lfs, file);
     if (err) {
-        LFS_TRACE("lfs_file_seek -> %d", err);
         return err;
     }
 #endif
@@ -3143,35 +3082,29 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 
     if (npos > lfs->file_max) {
         // file position out of range
-        LFS_TRACE("lfs_file_seek -> %d", LFS_ERR_INVAL);
         return LFS_ERR_INVAL;
     }
 
     // update pos
     file->pos = npos;
-    LFS_TRACE("lfs_file_seek -> %"PRId32, npos);
     return npos;
 }
 
 #ifndef LFS_READONLY
-int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
-    LFS_TRACE("lfs_file_truncate(%p, %p, %"PRIu32")",
-            (void*)lfs, (void*)file, size);
+static int lfs_file_truncateraw(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_ASSERT(file->flags & LFS_F_OPENED);
     LFS_ASSERT((file->flags & LFS_O_RDWR) != LFS_O_RDONLY);
 
     if (size > LFS_FILE_MAX) {
-        LFS_TRACE("lfs_file_truncate -> %d", LFS_ERR_INVAL);
         return LFS_ERR_INVAL;
     }
 
     lfs_off_t pos = file->pos;
-    lfs_off_t oldsize = lfs_file_size(lfs, file);
+    lfs_off_t oldsize = lfs_file_sizeraw(lfs, file);
     if (size < oldsize) {
         // need to flush since directly changing metadata
         int err = lfs_file_flush(lfs, file);
         if (err) {
-            LFS_TRACE("lfs_file_truncate -> %d", err);
             return err;
         }
 
@@ -3180,7 +3113,6 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
                 file->ctz.head, file->ctz.size,
                 size, &file->block, &file->off);
         if (err) {
-            LFS_TRACE("lfs_file_truncate -> %d", err);
             return err;
         }
 
@@ -3190,102 +3122,82 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     } else if (size > oldsize) {
         // flush+seek if not already at end
         if (file->pos != oldsize) {
-            lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_END);
+            lfs_soff_t res = lfs_file_seekraw(lfs, file, 0, LFS_SEEK_END);
             if (res < 0) {
-                LFS_TRACE("lfs_file_truncate -> %"PRId32, res);
                 return (int)res;
             }
         }
 
         // fill with zeros
         while (file->pos < size) {
-            lfs_ssize_t res = lfs_file_write(lfs, file, &(uint8_t){0}, 1);
+            lfs_ssize_t res = lfs_file_writeraw(lfs, file, &(uint8_t){0}, 1);
             if (res < 0) {
-                LFS_TRACE("lfs_file_truncate -> %"PRId32, res);
                 return (int)res;
             }
         }
     }
 
     // restore pos
-    lfs_soff_t res = lfs_file_seek(lfs, file, pos, LFS_SEEK_SET);
+    lfs_soff_t res = lfs_file_seekraw(lfs, file, pos, LFS_SEEK_SET);
     if (res < 0) {
-      LFS_TRACE("lfs_file_truncate -> %"PRId32, res);
       return (int)res;
     }
 
-    LFS_TRACE("lfs_file_truncate -> %d", 0);
     return 0;
 }
 #endif
 
-lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
-    LFS_TRACE("lfs_file_tell(%p, %p)", (void*)lfs, (void*)file);
+static lfs_soff_t lfs_file_tellraw(lfs_t *lfs, lfs_file_t *file) {
     LFS_ASSERT(file->flags & LFS_F_OPENED);
     (void)lfs;
-    LFS_TRACE("lfs_file_tell -> %"PRId32, file->pos);
     return file->pos;
 }
 
-int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
-    LFS_TRACE("lfs_file_rewind(%p, %p)", (void*)lfs, (void*)file);
-    lfs_soff_t res = lfs_file_seek(lfs, file, 0, LFS_SEEK_SET);
+static int lfs_file_rewindraw(lfs_t *lfs, lfs_file_t *file) {
+    lfs_soff_t res = lfs_file_seekraw(lfs, file, 0, LFS_SEEK_SET);
     if (res < 0) {
-        LFS_TRACE("lfs_file_rewind -> %"PRId32, res);
         return (int)res;
     }
 
-    LFS_TRACE("lfs_file_rewind -> %d", 0);
     return 0;
 }
 
-lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
-    LFS_TRACE("lfs_file_size(%p, %p)", (void*)lfs, (void*)file);
+static lfs_soff_t lfs_file_sizeraw(lfs_t *lfs, lfs_file_t *file) {
     LFS_ASSERT(file->flags & LFS_F_OPENED);
     (void)lfs;
 
 #ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {
-        LFS_TRACE("lfs_file_size -> %"PRId32,
-                lfs_max(file->pos, file->ctz.size));
         return lfs_max(file->pos, file->ctz.size);
     }
 #endif
-    LFS_TRACE("lfs_file_size -> %"PRId32, file->ctz.size);
+
     return file->ctz.size;
 }
 
 
 /// General fs operations ///
-int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
-    LFS_TRACE("lfs_stat(%p, \"%s\", %p)", (void*)lfs, path, (void*)info);
+static int lfs_statraw(lfs_t *lfs, const char *path, struct lfs_info *info) {
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0) {
-        LFS_TRACE("lfs_stat -> %"PRId32, tag);
         return (int)tag;
     }
 
-    int err = lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info);
-    LFS_TRACE("lfs_stat -> %d", err);
-    return err;
+    return lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info);
 }
 
 #ifndef LFS_READONLY
-int lfs_remove(lfs_t *lfs, const char *path) {
-    LFS_TRACE("lfs_remove(%p, \"%s\")", (void*)lfs, path);
-
+static int lfs_removeraw(lfs_t *lfs, const char *path) {
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
     if (err) {
-        LFS_TRACE("lfs_remove -> %d", err);
         return err;
     }
 
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0 || lfs_tag_id(tag) == 0x3ff) {
-        LFS_TRACE("lfs_remove -> %"PRId32, (tag < 0) ? tag : LFS_ERR_INVAL);
         return (tag < 0) ? (int)tag : LFS_ERR_INVAL;
     }
 
@@ -3297,19 +3209,16 @@ int lfs_remove(lfs_t *lfs, const char *path) {
         lfs_stag_t res = lfs_dir_get(lfs, &cwd, LFS_MKTAG(0x700, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(tag), 8), pair);
         if (res < 0) {
-            LFS_TRACE("lfs_remove -> %"PRId32, res);
             return (int)res;
         }
         lfs_pair_fromle32(pair);
 
         err = lfs_dir_fetch(lfs, &dir.m, pair);
         if (err) {
-            LFS_TRACE("lfs_remove -> %d", err);
             return err;
         }
 
         if (dir.m.count > 0 || dir.m.split) {
-            LFS_TRACE("lfs_remove -> %d", LFS_ERR_NOTEMPTY);
             return LFS_ERR_NOTEMPTY;
         }
 
@@ -3328,7 +3237,6 @@ int lfs_remove(lfs_t *lfs, const char *path) {
             {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(tag), 0), NULL}));
     if (err) {
         lfs->mlist = dir.next;
-        LFS_TRACE("lfs_remove -> %d", err);
         return err;
     }
 
@@ -3339,30 +3247,24 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 
         err = lfs_fs_pred(lfs, dir.m.pair, &cwd);
         if (err) {
-            LFS_TRACE("lfs_remove -> %d", err);
             return err;
         }
 
         err = lfs_dir_drop(lfs, &cwd, &dir.m);
         if (err) {
-            LFS_TRACE("lfs_remove -> %d", err);
             return err;
         }
     }
 
-    LFS_TRACE("lfs_remove -> %d", 0);
     return 0;
 }
 #endif
 
 #ifndef LFS_READONLY
-int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
-    LFS_TRACE("lfs_rename(%p, \"%s\", \"%s\")", (void*)lfs, oldpath, newpath);
-
+static int lfs_renameraw(lfs_t *lfs, const char *oldpath, const char *newpath) {
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
     if (err) {
-        LFS_TRACE("lfs_rename -> %d", err);
         return err;
     }
 
@@ -3370,8 +3272,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs_mdir_t oldcwd;
     lfs_stag_t oldtag = lfs_dir_find(lfs, &oldcwd, &oldpath, NULL);
     if (oldtag < 0 || lfs_tag_id(oldtag) == 0x3ff) {
-        LFS_TRACE("lfs_rename -> %"PRId32,
-                (oldtag < 0) ? oldtag : LFS_ERR_INVAL);
         return (oldtag < 0) ? (int)oldtag : LFS_ERR_INVAL;
     }
 
@@ -3381,8 +3281,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs_stag_t prevtag = lfs_dir_find(lfs, &newcwd, &newpath, &newid);
     if ((prevtag < 0 || lfs_tag_id(prevtag) == 0x3ff) &&
             !(prevtag == LFS_ERR_NOENT && newid != 0x3ff)) {
-        LFS_TRACE("lfs_rename -> %"PRId32,
-            (prevtag < 0) ? prevtag : LFS_ERR_INVAL);
         return (prevtag < 0) ? (int)prevtag : LFS_ERR_INVAL;
     }
 
@@ -3396,7 +3294,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         // check that name fits
         lfs_size_t nlen = strlen(newpath);
         if (nlen > lfs->name_max) {
-            LFS_TRACE("lfs_rename -> %d", LFS_ERR_NAMETOOLONG);
             return LFS_ERR_NAMETOOLONG;
         }
 
@@ -3407,11 +3304,9 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             newoldid += 1;
         }
     } else if (lfs_tag_type3(prevtag) != lfs_tag_type3(oldtag)) {
-        LFS_TRACE("lfs_rename -> %d", LFS_ERR_ISDIR);
         return LFS_ERR_ISDIR;
     } else if (samepair && newid == newoldid) {
         // we're renaming to ourselves??
-        LFS_TRACE("lfs_rename -> %d", 0);
         return 0;
     } else if (lfs_tag_type3(prevtag) == LFS_TYPE_DIR) {
         // must be empty before removal
@@ -3419,7 +3314,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         lfs_stag_t res = lfs_dir_get(lfs, &newcwd, LFS_MKTAG(0x700, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), prevpair);
         if (res < 0) {
-            LFS_TRACE("lfs_rename -> %"PRId32, res);
             return (int)res;
         }
         lfs_pair_fromle32(prevpair);
@@ -3427,12 +3321,10 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         // must be empty before removal
         err = lfs_dir_fetch(lfs, &prevdir.m, prevpair);
         if (err) {
-            LFS_TRACE("lfs_rename -> %d", err);
             return err;
         }
 
         if (prevdir.m.count > 0 || prevdir.m.split) {
-            LFS_TRACE("lfs_rename -> %d", LFS_ERR_NOTEMPTY);
             return LFS_ERR_NOTEMPTY;
         }
 
@@ -3461,7 +3353,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
                 LFS_TYPE_DELETE, newoldid, 0), NULL}));
     if (err) {
         lfs->mlist = prevdir.next;
-        LFS_TRACE("lfs_rename -> %d", err);
         return err;
     }
 
@@ -3474,7 +3365,6 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
                 {LFS_MKTAG(LFS_TYPE_DELETE, lfs_tag_id(oldtag), 0), NULL}));
         if (err) {
             lfs->mlist = prevdir.next;
-            LFS_TRACE("lfs_rename -> %d", err);
             return err;
         }
     }
@@ -3486,30 +3376,24 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
         err = lfs_fs_pred(lfs, prevdir.m.pair, &newcwd);
         if (err) {
-            LFS_TRACE("lfs_rename -> %d", err);
             return err;
         }
 
         err = lfs_dir_drop(lfs, &newcwd, &prevdir.m);
         if (err) {
-            LFS_TRACE("lfs_rename -> %d", err);
             return err;
         }
     }
 
-    LFS_TRACE("lfs_rename -> %d", 0);
     return 0;
 }
 #endif
 
-lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
+static lfs_ssize_t lfs_getattrraw(lfs_t *lfs, const char *path,
         uint8_t type, void *buffer, lfs_size_t size) {
-    LFS_TRACE("lfs_getattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
-            (void*)lfs, path, type, buffer, size);
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0) {
-        LFS_TRACE("lfs_getattr -> %"PRId32, tag);
         return tag;
     }
 
@@ -3519,7 +3403,6 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
         id = 0;
         int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
         if (err) {
-            LFS_TRACE("lfs_getattr -> %d", err);
             return err;
         }
     }
@@ -3530,17 +3413,13 @@ lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
             buffer);
     if (tag < 0) {
         if (tag == LFS_ERR_NOENT) {
-            LFS_TRACE("lfs_getattr -> %d", LFS_ERR_NOATTR);
             return LFS_ERR_NOATTR;
         }
 
-        LFS_TRACE("lfs_getattr -> %"PRId32, tag);
         return tag;
     }
 
-    size = lfs_tag_size(tag);
-    LFS_TRACE("lfs_getattr -> %"PRId32, size);
-    return size;
+    return lfs_tag_size(tag);
 }
 
 #ifndef LFS_READONLY
@@ -3568,27 +3447,19 @@ static int lfs_commitattr(lfs_t *lfs, const char *path,
 #endif
 
 #ifndef LFS_READONLY
-int lfs_setattr(lfs_t *lfs, const char *path,
+static int lfs_setattrraw(lfs_t *lfs, const char *path,
         uint8_t type, const void *buffer, lfs_size_t size) {
-    LFS_TRACE("lfs_setattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
-            (void*)lfs, path, type, buffer, size);
     if (size > lfs->attr_max) {
-        LFS_TRACE("lfs_setattr -> %d", LFS_ERR_NOSPC);
         return LFS_ERR_NOSPC;
     }
 
-    int err = lfs_commitattr(lfs, path, type, buffer, size);
-    LFS_TRACE("lfs_setattr -> %d", err);
-    return err;
+    return lfs_commitattr(lfs, path, type, buffer, size);
 }
 #endif
 
 #ifndef LFS_READONLY
-int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
-    LFS_TRACE("lfs_removeattr(%p, \"%s\", %"PRIu8")", (void*)lfs, path, type);
-    int err = lfs_commitattr(lfs, path, type, NULL, 0x3ff);
-    LFS_TRACE("lfs_removeattr -> %d", err);
-    return err;
+static int lfs_removeattrraw(lfs_t *lfs, const char *path, uint8_t type) {
+    return lfs_commitattr(lfs, path, type, NULL, 0x3ff);
 }
 #endif
 
@@ -3719,29 +3590,11 @@ static int lfs_deinit(lfs_t *lfs) {
 }
 
 #ifndef LFS_READONLY
-int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
-    LFS_TRACE("lfs_format(%p, %p {.context=%p, "
-                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
-                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".block_size=%"PRIu32", .block_count=%"PRIu32", "
-                ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
-                ".lookahead_size=%"PRIu32", .read_buffer=%p, "
-                ".prog_buffer=%p, .lookahead_buffer=%p, "
-                ".name_max=%"PRIu32", .file_max=%"PRIu32", "
-                ".attr_max=%"PRIu32"})",
-            (void*)lfs, (void*)cfg, cfg->context,
-            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
-            cfg->block_cycles, cfg->cache_size, cfg->lookahead_size,
-            cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
-            cfg->name_max, cfg->file_max, cfg->attr_max);
-
+static int lfs_formatraw(lfs_t *lfs, const struct lfs_config *cfg) {
     int err = 0;
     {
         err = lfs_init(lfs, cfg);
         if (err) {
-            LFS_TRACE("lfs_format -> %d", err);
             return err;
         }
 
@@ -3797,32 +3650,14 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
 
 cleanup:
     lfs_deinit(lfs);
-    LFS_TRACE("lfs_format -> %d", err);
     return err;
 
 }
 #endif
 
-int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
-    LFS_TRACE("lfs_mount(%p, %p {.context=%p, "
-                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
-                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".block_size=%"PRIu32", .block_count=%"PRIu32", "
-                ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
-                ".lookahead_size=%"PRIu32", .read_buffer=%p, "
-                ".prog_buffer=%p, .lookahead_buffer=%p, "
-                ".name_max=%"PRIu32", .file_max=%"PRIu32", "
-                ".attr_max=%"PRIu32"})",
-            (void*)lfs, (void*)cfg, cfg->context,
-            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
-            cfg->block_cycles, cfg->cache_size, cfg->lookahead_size,
-            cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
-            cfg->name_max, cfg->file_max, cfg->attr_max);
+static int lfs_mountraw(lfs_t *lfs, const struct lfs_config *cfg) {
     int err = lfs_init(lfs, cfg);
     if (err) {
-        LFS_TRACE("lfs_mount -> %d", err);
         return err;
     }
 
@@ -3940,20 +3775,15 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->free.off = lfs->seed % lfs->cfg->block_count;
     lfs_alloc_drop(lfs);
 
-    LFS_TRACE("lfs_mount -> %d", 0);
     return 0;
 
 cleanup:
-    lfs_unmount(lfs);
-    LFS_TRACE("lfs_mount -> %d", err);
+    lfs_unmountraw(lfs);
     return err;
 }
 
-int lfs_unmount(lfs_t *lfs) {
-    LFS_TRACE("lfs_unmount(%p)", (void*)lfs);
-    int err = lfs_deinit(lfs);
-    LFS_TRACE("lfs_unmount -> %d", err);
-    return err;
+static int lfs_unmountraw(lfs_t *lfs) {
+    return lfs_deinit(lfs);
 }
 
 
@@ -4054,15 +3884,6 @@ int lfs_fs_traverseraw(lfs_t *lfs,
 #endif
 
     return 0;
-}
-
-int lfs_fs_traverse(lfs_t *lfs,
-        int (*cb)(void *data, lfs_block_t block), void *data) {
-    LFS_TRACE("lfs_fs_traverse(%p, %p, %p)",
-            (void*)lfs, (void*)(uintptr_t)cb, data);
-    int err = lfs_fs_traverseraw(lfs, cb, data, true);
-    LFS_TRACE("lfs_fs_traverse -> %d", 0);
-    return err;
 }
 
 #ifndef LFS_READONLY
@@ -4397,16 +4218,13 @@ static int lfs_fs_size_count(void *p, lfs_block_t block) {
     return 0;
 }
 
-lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
-    LFS_TRACE("lfs_fs_size(%p)", (void*)lfs);
+static lfs_ssize_t lfs_fs_sizeraw(lfs_t *lfs) {
     lfs_size_t size = 0;
     int err = lfs_fs_traverseraw(lfs, lfs_fs_size_count, &size, false);
     if (err) {
-        LFS_TRACE("lfs_fs_size -> %d", err);
         return err;
     }
 
-    LFS_TRACE("lfs_fs_size -> %d", err);
     return size;
 }
 
@@ -4831,27 +4649,10 @@ static int lfs1_unmount(lfs_t *lfs) {
 }
 
 /// v1 migration ///
-int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
-    LFS_TRACE("lfs_migrate(%p, %p {.context=%p, "
-                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
-                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".block_size=%"PRIu32", .block_count=%"PRIu32", "
-                ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
-                ".lookahead_size=%"PRIu32", .read_buffer=%p, "
-                ".prog_buffer=%p, .lookahead_buffer=%p, "
-                ".name_max=%"PRIu32", .file_max=%"PRIu32", "
-                ".attr_max=%"PRIu32"})",
-            (void*)lfs, (void*)cfg, cfg->context,
-            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
-            cfg->block_cycles, cfg->cache_size, cfg->lookahead_size,
-            cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
-            cfg->name_max, cfg->file_max, cfg->attr_max);
+static int lfs_migrateraw(lfs_t *lfs, const struct lfs_config *cfg) {
     struct lfs1 lfs1;
     int err = lfs1_mount(lfs, &lfs1, cfg);
     if (err) {
-        LFS_TRACE("lfs_migrate -> %d", err);
         return err;
     }
 
@@ -5068,8 +4869,528 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
 cleanup:
     lfs1_unmount(lfs);
-    LFS_TRACE("lfs_migrate -> %d", err);
     return err;
 }
 
 #endif
+
+
+/// Public API wrappers ///
+
+// Here we can add tracing/thread safety easily
+
+// Thread-safe wrappers if enabled
+#ifdef LFS_THREADSAFE
+#define LFS_LOCK(cfg)   cfg->lock(cfg)
+#define LFS_UNLOCK(cfg) cfg->unlock(cfg)
+#else
+#define LFS_LOCK(cfg)   ((void)cfg, 0)
+#define LFS_UNLOCK(cfg) ((void)cfg)
+#endif
+
+// Public API
+#ifndef LFS_READONLY
+int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
+    int err = LFS_LOCK(cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_format(%p, %p {.context=%p, "
+                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
+                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
+                ".block_size=%"PRIu32", .block_count=%"PRIu32", "
+                ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
+                ".lookahead_size=%"PRIu32", .read_buffer=%p, "
+                ".prog_buffer=%p, .lookahead_buffer=%p, "
+                ".name_max=%"PRIu32", .file_max=%"PRIu32", "
+                ".attr_max=%"PRIu32"})",
+            (void*)lfs, (void*)cfg, cfg->context,
+            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
+            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
+            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
+            cfg->block_cycles, cfg->cache_size, cfg->lookahead_size,
+            cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
+            cfg->name_max, cfg->file_max, cfg->attr_max);
+    err = lfs_formatraw(lfs, cfg);
+    LFS_TRACE("lfs_format -> %d", err);
+
+    LFS_UNLOCK(cfg);
+    return err;
+}
+#endif
+
+int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
+    int err = LFS_LOCK(cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_mount(%p, %p {.context=%p, "
+                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
+                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
+                ".block_size=%"PRIu32", .block_count=%"PRIu32", "
+                ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
+                ".lookahead_size=%"PRIu32", .read_buffer=%p, "
+                ".prog_buffer=%p, .lookahead_buffer=%p, "
+                ".name_max=%"PRIu32", .file_max=%"PRIu32", "
+                ".attr_max=%"PRIu32"})",
+            (void*)lfs, (void*)cfg, cfg->context,
+            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
+            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
+            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
+            cfg->block_cycles, cfg->cache_size, cfg->lookahead_size,
+            cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
+            cfg->name_max, cfg->file_max, cfg->attr_max);
+    err = lfs_mountraw(lfs, cfg);
+    LFS_TRACE("lfs_mount -> %d", err);
+
+    LFS_UNLOCK(cfg);
+    return err;
+}
+
+int lfs_unmount(lfs_t *lfs) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_unmount(%p)", (void*)lfs);
+    err = lfs_unmountraw(lfs);
+    LFS_TRACE("lfs_unmount -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+#ifndef LFS_READONLY
+int lfs_remove(lfs_t *lfs, const char *path) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_remove(%p, \"%s\")", (void*)lfs, path);
+    err = lfs_removeraw(lfs, path);
+    LFS_TRACE("lfs_remove -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_rename(%p, \"%s\", \"%s\")", (void*)lfs, oldpath, newpath);
+    err = lfs_renameraw(lfs, oldpath, newpath);
+    LFS_TRACE("lfs_rename -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_stat(%p, \"%s\", %p)", (void*)lfs, path, (void*)info);
+    err = lfs_statraw(lfs, path, info);
+    LFS_TRACE("lfs_stat -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
+        uint8_t type, void *buffer, lfs_size_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_getattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
+            (void*)lfs, path, type, buffer, size);
+    lfs_ssize_t res = lfs_getattrraw(lfs, path, type, buffer, size);
+    LFS_TRACE("lfs_getattr -> %"PRId32, res);
+
+    LFS_UNLOCK(lfs->cfg);
+    return res;
+}
+
+#ifndef LFS_READONLY
+int lfs_setattr(lfs_t *lfs, const char *path,
+        uint8_t type, const void *buffer, lfs_size_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_setattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
+            (void*)lfs, path, type, buffer, size);
+    err = lfs_setattrraw(lfs, path, type, buffer, size);
+    LFS_TRACE("lfs_setattr -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_removeattr(%p, \"%s\", %"PRIu8")", (void*)lfs, path, type);
+    err = lfs_removeattrraw(lfs, path, type);
+    LFS_TRACE("lfs_removeattr -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+int lfs_file_open(lfs_t *lfs, lfs_file_t *file, const char *path, int flags) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)",
+            (void*)lfs, (void*)file, path, flags);
+    err = lfs_file_openraw(lfs, file, path, flags);
+    LFS_TRACE("lfs_file_open -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
+        const char *path, int flags,
+        const struct lfs_file_config *cfg) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_opencfg(%p, %p, \"%s\", %x, %p {"
+                 ".buffer=%p, .attrs=%p, .attr_count=%"PRIu32"})",
+            (void*)lfs, (void*)file, path, flags,
+            (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
+    err = lfs_file_opencfgraw(lfs, file, path, flags, cfg);
+    LFS_TRACE("lfs_file_opencfg -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_close(%p, %p)", (void*)lfs, (void*)file);
+    err = lfs_file_closeraw(lfs, file);
+    LFS_TRACE("lfs_file_close -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+#ifndef LFS_READONLY
+int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
+    err = lfs_file_syncraw(lfs, file);
+    LFS_TRACE("lfs_file_sync -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
+        void *buffer, lfs_size_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_read(%p, %p, %p, %"PRIu32")",
+            (void*)lfs, (void*)file, buffer, size);
+    lfs_ssize_t res = lfs_file_readraw(lfs, file, buffer, size);
+    LFS_TRACE("lfs_file_read -> %"PRId32, res);
+
+    LFS_UNLOCK(lfs->cfg);
+    return res;
+}
+
+#ifndef LFS_READONLY
+lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
+        const void *buffer, lfs_size_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_write(%p, %p, %p, %"PRIu32")",
+            (void*)lfs, (void*)file, buffer, size);
+    lfs_ssize_t res = lfs_file_writeraw(lfs, file, buffer, size);
+    LFS_TRACE("lfs_file_write -> %"PRId32, res);
+
+    LFS_UNLOCK(lfs->cfg);
+    return res;
+}
+#endif
+
+lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
+        lfs_soff_t off, int whence) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_seek(%p, %p, %"PRId32", %d)",
+            (void*)lfs, (void*)file, off, whence);
+    lfs_soff_t res = lfs_file_seekraw(lfs, file, off, whence);
+    LFS_TRACE("lfs_file_seek -> %"PRId32, res);
+
+    LFS_UNLOCK(lfs->cfg);
+    return res;
+}
+
+#ifndef LFS_READONLY
+int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_truncate(%p, %p, %"PRIu32")",
+            (void*)lfs, (void*)file, size);
+    err = lfs_file_truncateraw(lfs, file, size);
+    LFS_TRACE("lfs_file_truncate -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_tell(%p, %p)", (void*)lfs, (void*)file);
+    lfs_soff_t res = lfs_file_tellraw(lfs, file);
+    LFS_TRACE("lfs_file_tell -> %"PRId32, res);
+
+    LFS_UNLOCK(lfs->cfg);
+    return res;
+}
+
+int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_rewind(%p, %p)", (void*)lfs, (void*)file);
+    err = lfs_file_rewindraw(lfs, file);
+    LFS_TRACE("lfs_file_rewind -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_file_size(%p, %p)", (void*)lfs, (void*)file);
+    lfs_soff_t res = lfs_file_sizeraw(lfs, file);
+    LFS_TRACE("lfs_file_size -> %"PRId32, res);
+
+    LFS_UNLOCK(lfs->cfg);
+    return res;
+}
+
+#ifndef LFS_READONLY
+int lfs_mkdir(lfs_t *lfs, const char *path) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_mkdir(%p, \"%s\")", (void*)lfs, path);
+    err = lfs_mkdirraw(lfs, path);
+    LFS_TRACE("lfs_mkdir -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
+    err = lfs_dir_openraw(lfs, dir, path);
+    LFS_TRACE("lfs_dir_open -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_dir_close(%p, %p)", (void*)lfs, (void*)dir);
+    err = lfs_dir_closeraw(lfs, dir);
+    LFS_TRACE("lfs_dir_close -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_dir_read(%p, %p, %p)",
+            (void*)lfs, (void*)dir, (void*)info);
+    err = lfs_dir_readraw(lfs, dir, info);
+    LFS_TRACE("lfs_dir_read -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_dir_seek(%p, %p, %"PRIu32")",
+            (void*)lfs, (void*)dir, off);
+    err = lfs_dir_seekraw(lfs, dir, off);
+    LFS_TRACE("lfs_dir_seek -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_dir_tell(%p, %p)", (void*)lfs, (void*)dir);
+    lfs_soff_t res = lfs_dir_tellraw(lfs, dir);
+    LFS_TRACE("lfs_dir_tell -> %"PRId32, res);
+
+    LFS_UNLOCK(lfs->cfg);
+    return res;
+}
+
+int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_dir_rewind(%p, %p)", (void*)lfs, (void*)dir);
+    err = lfs_dir_rewindraw(lfs, dir);
+    LFS_TRACE("lfs_dir_rewind -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+lfs_ssize_t lfs_fs_size(lfs_t *lfs) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_fs_size(%p)", (void*)lfs);
+    lfs_ssize_t res = lfs_fs_sizeraw(lfs);
+    LFS_TRACE("lfs_fs_size -> %"PRId32, res);
+
+    LFS_UNLOCK(lfs->cfg);
+    return res;
+}
+
+int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void *, lfs_block_t), void *data) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_fs_traverse(%p, %p, %p)",
+            (void*)lfs, (void*)(uintptr_t)cb, data);
+    err = lfs_fs_traverseraw(lfs, cb, data, true);
+    LFS_TRACE("lfs_fs_traverse -> %d", err);
+
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+#ifdef LFS_MIGRATE
+int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
+    int err = LFS_LOCK(cfg);
+    if (err) {
+        return err;
+    }
+
+    LFS_TRACE("lfs_migrate(%p, %p {.context=%p, "
+                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
+                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
+                ".block_size=%"PRIu32", .block_count=%"PRIu32", "
+                ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
+                ".lookahead_size=%"PRIu32", .read_buffer=%p, "
+                ".prog_buffer=%p, .lookahead_buffer=%p, "
+                ".name_max=%"PRIu32", .file_max=%"PRIu32", "
+                ".attr_max=%"PRIu32"})",
+            (void*)lfs, (void*)cfg, cfg->context,
+            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
+            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
+            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
+            cfg->block_cycles, cfg->cache_size, cfg->lookahead_size,
+            cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
+            cfg->name_max, cfg->file_max, cfg->attr_max);
+    err = lfs_migrateraw(lfs, cfg);
+    LFS_TRACE("lfs_migrate -> %d", err);
+
+    LFS_UNLOCK(cfg);
+    return err;
+}
+#endif
+
