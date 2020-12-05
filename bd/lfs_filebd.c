@@ -80,11 +80,6 @@ int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,
     LFS_ASSERT(size % cfg->read_size == 0);
     LFS_ASSERT(block < cfg->block_count);
 
-    // zero for reproducability (in case file is truncated)
-    if (bd->cfg->erase_value != -1) {
-        memset(buffer, bd->cfg->erase_value, size);
-    }
-
     // read
     off_t res1 = lseek(bd->fd,
             (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
@@ -99,6 +94,11 @@ int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,
         int err = -errno;
         LFS_FILEBD_TRACE("lfs_filebd_read -> %d", err);
         return err;
+    }
+
+    // file truncated? zero for reproducability
+    if (res2 < size) {
+        memset((uint8_t*)buffer + res2, 0, size-res2);
     }
 
     LFS_FILEBD_TRACE("lfs_filebd_read -> %d", 0);

@@ -99,7 +99,16 @@ class Tag:
         return struct.unpack('b', struct.pack('B', self.chunk))[0]
 
     def is_(self, type):
-        return (self.type & TAG_TYPES[type][0]) == TAG_TYPES[type][1]
+        try:
+            if ' ' in type:
+                type1, type3 = type.split()
+                return (self.is_(type1) and
+                    (self.type & ~TAG_TYPES[type1][0]) == int(type3, 0))
+
+            return self.type == int(type, 0)
+
+        except (ValueError, KeyError):
+            return (self.type & TAG_TYPES[type][0]) == TAG_TYPES[type][1]
 
     def mkmask(self):
         return Tag(
@@ -109,14 +118,19 @@ class Tag:
 
     def chid(self, nid):
         ntag = Tag(self.type, nid, self.size)
-        if hasattr(self, 'off'):  ntag.off  = self.off
-        if hasattr(self, 'data'): ntag.data = self.data
-        if hasattr(self, 'crc'):  ntag.crc  = self.crc
+        if hasattr(self, 'off'):    ntag.off    = self.off
+        if hasattr(self, 'data'):   ntag.data   = self.data
+        if hasattr(self, 'crc'):    ntag.crc    = self.crc
+        if hasattr(self, 'erased'): ntag.erased = self.erased
         return ntag
 
     def typerepr(self):
         if self.is_('crc') and getattr(self, 'crc', 0xffffffff) != 0xffffffff:
-            return 'crc (bad)'
+            crc_status = ' (bad)'
+        elif self.is_('crc') and getattr(self, 'erased', False):
+            crc_status = ' (era)'
+        else:
+            crc_status = ''
 
         reverse_types = {v: k for k, v in TAG_TYPES.items()}
         for prefix in range(12):
@@ -124,12 +138,12 @@ class Tag:
             if (mask, self.type & mask) in reverse_types:
                 type = reverse_types[mask, self.type & mask]
                 if prefix > 0:
-                    return '%s %#0*x' % (
-                        type, prefix//4, self.type & ((1 << prefix)-1))
+                    return '%s %#x%s' % (
+                        type, self.type & ((1 << prefix)-1), crc_status)
                 else:
-                    return type
+                    return '%s%s' % (type, crc_status)
         else:
-            return '%02x' % self.type
+            return '%02x%s' % (self.type, crc_status)
 
     def idrepr(self):
         return repr(self.id) if self.id != 0x3ff else '.'
@@ -182,11 +196,13 @@ class MetadataPair:
         while len(block) - off >= 4:
             ntag, = struct.unpack('>I', block[off:off+4])
 
-            tag = Tag(int(tag) ^ ntag)
+            tag = Tag((int(tag) ^ ntag) & 0x7fffffff)
             tag.off = off + 4
             tag.data = block[off+4:off+tag.dsize]
-            if tag.is_('crc'):
-                crc = binascii.crc32(block[off:off+4+4], crc)
+            if tag.is_('crc 0x3'):
+                crc = binascii.crc32(block[off:off+4*4], crc)
+            elif tag.is_('crc'):
+                crc = binascii.crc32(block[off:off+2*4], crc)
             else:
                 crc = binascii.crc32(block[off:off+tag.dsize], crc)
             tag.crc = crc
@@ -201,9 +217,18 @@ class MetadataPair:
                 if not corrupt:
                     self.log = self.all_.copy()
 
+                    # end of commit?
+                    if tag.is_('crc 0x3'):
+                        esize, ecrc = struct.unpack('<II', tag.data[:8])
+                        dcrc = 0xffffffff ^ binascii.crc32(block[off:off+esize])
+                        if ecrc == dcrc:
+                            tag.erased = True
+                            corrupt = True
+                    elif tag.is_('crc 0x2'):
+                        corrupt = True
+
                 # reset tag parsing
                 crc = 0
-                tag = Tag(int(tag) ^ ((tag.type & 1) << 31))
 
         # find active ids
         self.ids = list(it.takewhile(
