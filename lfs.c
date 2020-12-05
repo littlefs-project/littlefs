@@ -133,22 +133,42 @@ static int lfs_bd_cmp(lfs_t *lfs,
 
     for (lfs_off_t i = 0; i < size; i += diff) {
         uint8_t dat[8];
-
         diff = lfs_min(size-i, sizeof(dat));
-        int res = lfs_bd_read(lfs,
+        int err = lfs_bd_read(lfs,
                 pcache, rcache, hint-i,
                 block, off+i, &dat, diff);
-        if (res) {
-            return res;
+        if (err) {
+            return err;
         }
 
-        res = memcmp(dat, data + i, diff);
+        int res = memcmp(dat, data + i, diff);
         if (res) {
             return res < 0 ? LFS_CMP_LT : LFS_CMP_GT;
         }
     }
 
     return LFS_CMP_EQ;
+}
+
+static int lfs_bd_crc(lfs_t *lfs,
+        const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
+        lfs_block_t block, lfs_off_t off, lfs_size_t size, uint32_t *crc) {
+    lfs_size_t diff = 0;
+
+    for (lfs_off_t i = 0; i < size; i += diff) {
+        uint8_t dat[8];
+        diff = lfs_min(size-i, sizeof(dat));
+        int err = lfs_bd_read(lfs,
+                pcache, rcache, hint-i,
+                block, off+i, &dat, diff);
+        if (err) {
+            return err;
+        }
+
+        *crc = lfs_crc(*crc, &dat, diff);
+    }
+
+    return 0;
 }
 
 #ifndef LFS_READONLY
@@ -412,6 +432,22 @@ static inline void lfs_gstate_tole32(lfs_gstate_t *a) {
     a->pair[1] = lfs_tole32(a->pair[1]);
 }
 #endif
+
+// operations on estate in CRC tags
+struct lfs_estate {
+    lfs_size_t size;
+    uint32_t crc;
+};
+
+static void lfs_estate_fromle32(struct lfs_estate *estate) {
+    estate->size = lfs_fromle32(estate->size);
+    estate->crc = lfs_fromle32(estate->crc);
+}
+
+static void lfs_estate_tole32(struct lfs_estate *estate) {
+    estate->size = lfs_tole32(estate->size);
+    estate->crc = lfs_tole32(estate->crc);
+}
 
 // other endianness operations
 static void lfs_ctz_fromle32(struct lfs_ctz *ctz) {
@@ -1056,14 +1092,10 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             }
 
             crc = lfs_crc(crc, &tag, sizeof(tag));
-            tag = lfs_frombe32(tag) ^ ptag;
+            tag = (lfs_frombe32(tag) ^ ptag) & 0x7fffffff;
 
-            // next commit not yet programmed or we're not in valid range
-            if (!lfs_tag_isvalid(tag)) {
-                dir->erased = (lfs_tag_type1(ptag) == LFS_TYPE_CRC &&
-                        dir->off % lfs->cfg->prog_size == 0);
-                break;
-            } else if (off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
+            // out of range?
+            if (off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
                 dir->erased = false;
                 break;
             }
@@ -1071,11 +1103,31 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             ptag = tag;
 
             if (lfs_tag_type1(tag) == LFS_TYPE_CRC) {
+                lfs_off_t noff = off + sizeof(tag);
+                struct lfs_estate estate;
+
+                if (lfs_tag_chunk(tag) == 3) {
+                    err = lfs_bd_read(lfs,
+                            NULL, &lfs->rcache, lfs->cfg->block_size,
+                            dir->pair[0], noff, &estate, sizeof(estate));
+                    if (err) {
+                        if (err == LFS_ERR_CORRUPT) {
+                            dir->erased = false;
+                            break;
+                        }
+                        return err;
+                    }
+
+                    crc = lfs_crc(crc, &estate, sizeof(estate));
+                    lfs_estate_fromle32(&estate);
+                    noff += sizeof(estate);
+                }
+
                 // check the crc attr
                 uint32_t dcrc;
                 err = lfs_bd_read(lfs,
                         NULL, &lfs->rcache, lfs->cfg->block_size,
-                        dir->pair[0], off+sizeof(tag), &dcrc, sizeof(dcrc));
+                        dir->pair[0], noff, &dcrc, sizeof(dcrc));
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         dir->erased = false;
@@ -1089,9 +1141,6 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                     dir->erased = false;
                     break;
                 }
-
-                // reset the next bit if we need to
-                ptag ^= (lfs_tag_t)(lfs_tag_chunk(tag) & 1U) << 31;
 
                 // toss our crc into the filesystem seed for
                 // pseudorandom numbers, note we use another crc here
@@ -1110,24 +1159,72 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
 
                 // reset crc
                 crc = 0xffffffff;
+
+                // check if the next page is erased
+                //
+                // this may look inefficient, but it's surprisingly efficient
+                // since cache_size is probably > prog_size, so the data will
+                // always remain in cache for the next iteration
+                if (lfs_tag_chunk(tag) == 3) {
+                    // first we get a tag-worth of bits, this is so we can
+                    // tweak our current tag to force future writes to be
+                    // different than the erased state
+                    lfs_tag_t etag;
+                    err = lfs_bd_read(lfs,
+                            NULL, &lfs->rcache, lfs->cfg->block_size,
+                            dir->pair[0], dir->off, &etag, sizeof(etag));
+                    if (err) {
+                        // TODO can we stop duplicating this error condition?
+                        if (err == LFS_ERR_CORRUPT) {
+                            dir->erased = false;
+                            break;
+                        }
+                        return err;
+                    }
+
+                    // perturb valid bit?
+                    dir->etag |= 0x80000000 & ~lfs_frombe32(etag);
+
+                    // crc the rest the full prog_size, including etag in case
+                    // the actual esize is < tag size (though this shouldn't
+                    // happen normally)
+                    uint32_t tcrc = 0xffffffff;
+                    err = lfs_bd_crc(lfs,
+                            NULL, &lfs->rcache, lfs->cfg->block_size,
+                            dir->pair[0], dir->off, estate.size, &tcrc);
+                    if (err) {
+                        if (err == LFS_ERR_CORRUPT) {
+                            dir->erased = false;
+                            break;
+                        }
+                        return err;
+                    }
+
+                    if (tcrc == estate.crc) {
+                        dir->erased = true;
+                        break;
+                    }
+                } else {
+                    // end of block commit
+                    // TODO handle backwards compat?
+                    dir->erased = false;
+                    break;
+                }
+
                 continue;
             }
 
             // crc the entry first, hopefully leaving it in the cache
-            for (lfs_off_t j = sizeof(tag); j < lfs_tag_dsize(tag); j++) {
-                uint8_t dat;
-                err = lfs_bd_read(lfs,
-                        NULL, &lfs->rcache, lfs->cfg->block_size,
-                        dir->pair[0], off+j, &dat, 1);
-                if (err) {
-                    if (err == LFS_ERR_CORRUPT) {
-                        dir->erased = false;
-                        break;
-                    }
-                    return err;
+            err = lfs_bd_crc(lfs,
+                    NULL, &lfs->rcache, lfs->cfg->block_size,
+                    dir->pair[0], off+sizeof(tag),
+                    lfs_tag_dsize(tag)-sizeof(tag), &crc);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    dir->erased = false;
+                    break;
                 }
-
-                crc = lfs_crc(crc, &dat, 1);
+                return err;
             }
 
             // directory modification tags?
@@ -1494,8 +1591,17 @@ static int lfs_dir_commitattr(lfs_t *lfs, struct lfs_commit *commit,
 #ifndef LFS_READONLY
 static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
     // align to program units
-    const lfs_off_t end = lfs_alignup(commit->off + 2*sizeof(uint32_t),
+    //
+    // this gets a bit complex as we have two types of crcs:
+    // - 4-word crc with estate to check following prog (middle of block)
+    // - 2-word crc with no following prog (end of block)
+    const lfs_off_t end = lfs_alignup(
+            lfs_min(commit->off + 4*sizeof(uint32_t), lfs->cfg->block_size),
             lfs->cfg->prog_size);
+
+    // clamp erase size to tag size, this gives us the full tag as potential
+    // to intentionally invalidate erase CRCs
+    const lfs_size_t esize = lfs_max(lfs->cfg->prog_size, sizeof(lfs_tag_t));
 
     lfs_off_t off1 = 0;
     uint32_t crc1 = 0;
@@ -1510,40 +1616,77 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
             noff = lfs_min(noff, end - 2*sizeof(uint32_t));
         }
 
-        // read erased state from next program unit
-        lfs_tag_t tag = 0xffffffff;
-        int err = lfs_bd_read(lfs,
-                NULL, &lfs->rcache, sizeof(tag),
-                commit->block, noff, &tag, sizeof(tag));
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
+        // build crc tag
+        lfs_tag_t etag = 0;
+        lfs_tag_t tag = LFS_MKTAG(LFS_TYPE_CRC + 2, 0x3ff, noff - off);
+        lfs_size_t size = 2*sizeof(uint32_t);
+        struct {
+            lfs_tag_t tag;
+            union {
+                struct {
+                    uint32_t crc;
+                } crc2;
+                struct {
+                    struct lfs_estate estate;
+                    uint32_t crc;
+                } crc3;
+            } u;
+        } data;
+
+        if (noff <= lfs->cfg->block_size - esize) {
+            // first we get a tag-worth of bits, this is so we can
+            // tweak our current tag to force future writes to be
+            // different than the erased state
+            int err = lfs_bd_read(lfs,
+                    NULL, &lfs->rcache, esize,
+                    commit->block, noff, &etag, sizeof(etag));
+            // TODO handle erased-as-corrupt correctly?
+            if (err && err != LFS_ERR_CORRUPT) {
+                return err;
+            }
+
+            // find expected erased state
+            uint32_t ecrc = 0xffffffff;
+            err = lfs_bd_crc(lfs,
+                    NULL, &lfs->rcache, esize,
+                    commit->block, noff, esize, &ecrc);
+            // TODO handle erased-as-corrupt correctly?
+            if (err && err != LFS_ERR_CORRUPT) {
+                return err;
+            }
+
+            data.u.crc3.estate.size = esize;
+            data.u.crc3.estate.crc = ecrc;
+            lfs_estate_tole32(&data.u.crc3.estate);
+
+            // indicate we include estate
+            tag |= LFS_MKTAG(1, 0, 0);
+            size += sizeof(struct lfs_estate);
         }
 
-        // build crc tag
-        bool reset = ~lfs_frombe32(tag) >> 31;
-        tag = LFS_MKTAG(LFS_TYPE_CRC + reset, 0x3ff, noff - off);
+        data.tag = lfs_tobe32(tag ^ commit->ptag);
+        commit->crc = lfs_crc(commit->crc, &data, size-sizeof(uint32_t));
+        ((uint32_t*)&data)[size/sizeof(uint32_t) - 1] = lfs_tole32(commit->crc);
 
-        // write out crc
-        uint32_t footer[2];
-        footer[0] = lfs_tobe32(tag ^ commit->ptag);
-        commit->crc = lfs_crc(commit->crc, &footer[0], sizeof(footer[0]));
-        footer[1] = lfs_tole32(commit->crc);
-        err = lfs_bd_prog(lfs,
+        int err = lfs_bd_prog(lfs,
                 &lfs->pcache, &lfs->rcache, false,
-                commit->block, commit->off, &footer, sizeof(footer));
+                commit->block, commit->off, &data, size);
         if (err) {
             return err;
         }
 
         // keep track of non-padding checksum to verify
         if (off1 == 0) {
-            off1 = commit->off + sizeof(uint32_t);
+            //off1 = commit->off + sizeof(uint32_t);
+            off1 = commit->off + size-sizeof(uint32_t);
             crc1 = commit->crc;
         }
 
         commit->off += sizeof(tag)+lfs_tag_size(tag);
-        commit->ptag = tag ^ ((lfs_tag_t)reset << 31);
-        commit->crc = 0xffffffff; // reset crc for next "commit"
+        // perturb valid bit?
+        commit->ptag = tag | (0x80000000 & ~lfs_frombe32(etag));
+        // reset crc for next commit
+        commit->crc = 0xffffffff;
     }
 
     // flush buffers
@@ -1556,6 +1699,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
     lfs_off_t off = commit->begin;
     lfs_off_t noff = off1;
     while (off < end) {
+        // TODO restructure to use lfs_bd_crc?
         uint32_t crc = 0xffffffff;
         for (lfs_off_t i = off; i < noff+sizeof(uint32_t); i++) {
             // check against written crc, may catch blocks that
@@ -1564,7 +1708,6 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
                 return LFS_ERR_CORRUPT;
             }
 
-            // leave it up to caching to make this efficient
             uint8_t dat;
             err = lfs_bd_read(lfs,
                     NULL, &lfs->rcache, noff+sizeof(uint32_t)-i,
@@ -1581,12 +1724,16 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
             return LFS_ERR_CORRUPT;
         }
 
-        // skip padding
-        off = lfs_min(end - noff, 0x3fe) + noff;
+        // skip padding, note that these always contain estate
+        off = noff - 3*sizeof(uint32_t);
+        off = lfs_min(end - off, 0x3fe) + off;
         if (off < end) {
             off = lfs_min(off, end - 2*sizeof(uint32_t));
         }
         noff = off + sizeof(uint32_t);
+        if (noff <= lfs->cfg->block_size - esize) {
+            noff += 2*sizeof(uint32_t);
+        }
     }
 
     return 0;
