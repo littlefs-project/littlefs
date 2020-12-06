@@ -97,7 +97,7 @@ int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,
     }
 
     // file truncated? zero for reproducability
-    if (res2 < size) {
+    if ((lfs_size_t)res2 < size) {
         memset((uint8_t*)buffer + res2, 0, size-res2);
     }
 

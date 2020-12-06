@@ -84,6 +84,7 @@ code = '''
 '''
 
 [[case]] # partial prog, may not be byte in order!
+if = "LFS_PROG_SIZE < LFS_BLOCK_SIZE"
 define.BYTE_OFF = ["0", "LFS_PROG_SIZE-1", "LFS_PROG_SIZE/2"]
 define.BYTE_VALUE = [0x33, 0xcc]
 in = "lfs.c"
