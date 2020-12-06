@@ -90,6 +90,7 @@ code = '''
 
 # partial prog, may not be byte in order!
 [cases.test_powerloss_partial_prog]
+if = "PROG_SIZE < BLOCK_SIZE"
 defines.BYTE_OFF = ["0", "PROG_SIZE-1", "PROG_SIZE/2"]
 defines.BYTE_VALUE = [0x33, 0xcc]
 in = "lfs.c"
