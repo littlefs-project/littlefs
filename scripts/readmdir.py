@@ -24,6 +24,7 @@ TAG_TYPES = {
     'gstate':       (0x700, 0x700),
     'movestate':    (0x7ff, 0x7ff),
     'crc':          (0x700, 0x500),
+    'nprogcrc':     (0x7ff, 0x5ff),
 }
 
 class Tag:
@@ -125,9 +126,10 @@ class Tag:
         return ntag
 
     def typerepr(self):
-        if self.is_('crc') and getattr(self, 'crc', 0xffffffff) != 0xffffffff:
+        if (self.is_('crc') and not self.is_('nprogcrc') and
+                getattr(self, 'crc', 0xffffffff) != 0xffffffff):
             crc_status = ' (bad)'
-        elif self.is_('crc') and getattr(self, 'erased', False):
+        elif self.is_('nprogcrc') and getattr(self, 'erased', False):
             crc_status = ' (era)'
         else:
             crc_status = ''
@@ -186,6 +188,8 @@ class MetadataPair:
 
         self.rev, = struct.unpack('<I', block[0:4])
         crc = binascii.crc32(block[0:4])
+        etag = None
+        estate = None
 
         # parse tags
         corrupt = False
@@ -199,9 +203,7 @@ class MetadataPair:
             tag = Tag((int(tag) ^ ntag) & 0x7fffffff)
             tag.off = off + 4
             tag.data = block[off+4:off+tag.dsize]
-            if tag.is_('crc 0x3'):
-                crc = binascii.crc32(block[off:off+4*4], crc)
-            elif tag.is_('crc'):
+            if tag.is_('crc') and not tag.is_('nprogcrc'):
                 crc = binascii.crc32(block[off:off+2*4], crc)
             else:
                 crc = binascii.crc32(block[off:off+tag.dsize], crc)
@@ -210,25 +212,29 @@ class MetadataPair:
 
             self.all_.append(tag)
 
-            if tag.is_('crc'):
+            if tag.is_('nprogcrc') and len(tag.data) == 8:
+                etag = tag
+                estate = struct.unpack('<II', tag.data)
+            elif tag.is_('crc'):
                 # is valid commit?
                 if crc != 0xffffffff:
                     corrupt = True
                 if not corrupt:
                     self.log = self.all_.copy()
-
                     # end of commit?
-                    if tag.is_('crc 0x3'):
-                        esize, ecrc = struct.unpack('<II', tag.data[:8])
+                    if estate:
+                        esize, ecrc = estate
                         dcrc = 0xffffffff ^ binascii.crc32(block[off:off+esize])
                         if ecrc == dcrc:
-                            tag.erased = True
+                            etag.erased = True
                             corrupt = True
-                    elif tag.is_('crc 0x2'):
+                    elif not (tag.is_('crc 0x0') or tag.is_('crc 0x1')):
                         corrupt = True
 
                 # reset tag parsing
                 crc = 0
+                etag = None
+                estate = None
 
         # find active ids
         self.ids = list(it.takewhile(
@@ -305,7 +311,7 @@ class MetadataPair:
         f.write('\n')
 
         for tag in tags:
-            f.write("%08x: %08x  %-13s %4s %4s" % (
+            f.write("%08x: %08x  %-14s %3s %4s" % (
                 tag.off, tag,
                 tag.typerepr(), tag.idrepr(), tag.sizerepr()))
             if truncate:
