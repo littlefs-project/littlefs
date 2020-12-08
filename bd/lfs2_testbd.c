@@ -207,7 +207,7 @@ int lfs2_testbd_prog(const struct lfs2_config *cfg, lfs2_block_t block,
         bd->power_cycles -= 1;
         if (bd->power_cycles == 0) {
             // sync to make sure we persist the last changes
-            assert(lfs2_testbd_rawsync(cfg) == 0);
+            LFS2_ASSERT(lfs2_testbd_rawsync(cfg) == 0);
             // simulate power loss
             exit(33);
         }
@@ -254,7 +254,7 @@ int lfs2_testbd_erase(const struct lfs2_config *cfg, lfs2_block_t block) {
         bd->power_cycles -= 1;
         if (bd->power_cycles == 0) {
             // sync to make sure we persist the last changes
-            assert(lfs2_testbd_rawsync(cfg) == 0);
+            LFS2_ASSERT(lfs2_testbd_rawsync(cfg) == 0);
             // simulate power loss
             exit(33);
         }
