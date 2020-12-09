@@ -1,6 +1,7 @@
-TARGET = lfs.a
-ifneq ($(wildcard test.c main.c),)
-override TARGET = lfs
+TARGET = lfs
+
+ifeq ($(MAKECMDGOALS), lfs.a)
+override TARGET = lfs.a
 endif
 
 CC ?= gcc
@@ -16,6 +17,17 @@ ifdef DEBUG
 override CFLAGS += -O0 -g3
 else
 override CFLAGS += -Os
+ifeq ($(TARGET), lfs)
+	ifndef SIZE_TEST
+		override CFLAGS += -fdata-sections --function-sections
+		override LFLAGS += -Wl,--gc-sections
+	endif
+endif
+ifeq ($(TARGET), lfs.a)
+	ifdef AR_SECTIONS
+		override CFLAGS += -fdata-sections --function-sections
+	endif
+endif
 endif
 ifdef WORD
 override CFLAGS += -m$(WORD)

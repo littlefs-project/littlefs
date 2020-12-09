@@ -64,6 +64,7 @@ _: &report-size
   - make -j1 clean size
         OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
         CFLAGS+="-DLFS_NO_ASSERT -DLFS_NO_DEBUG -DLFS_NO_WARN -DLFS_NO_ERROR"
+        SIZE_TEST=1
         | tee sizes
   # update status if we succeeded, compare with master if possible
   - |
