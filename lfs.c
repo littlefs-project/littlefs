@@ -425,7 +425,8 @@ static inline void lfs_superblock_tole32(lfs_superblock_t *superblock) {
     superblock->attr_max    = lfs_tole32(superblock->attr_max);
 }
 
-static inline bool lfs_mlist_isopen(struct lfs_mlist *head,
+#ifndef LFS_NO_ASSERT
+static bool lfs_mlist_isopen(struct lfs_mlist *head,
         struct lfs_mlist *node) {
     for (struct lfs_mlist **p = &head; *p; p = &(*p)->next) {
         if (*p == (struct lfs_mlist*)node) {
@@ -435,8 +436,9 @@ static inline bool lfs_mlist_isopen(struct lfs_mlist *head,
 
     return false;
 }
+#endif
 
-static inline void lfs_mlist_remove(lfs_t *lfs, struct lfs_mlist *mlist) {
+static void lfs_mlist_remove(lfs_t *lfs, struct lfs_mlist *mlist) {
     for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
         if (*p == mlist) {
             *p = (*p)->next;
@@ -445,7 +447,7 @@ static inline void lfs_mlist_remove(lfs_t *lfs, struct lfs_mlist *mlist) {
     }
 }
 
-static inline void lfs_mlist_append(lfs_t *lfs, struct lfs_mlist *mlist) {
+static void lfs_mlist_append(lfs_t *lfs, struct lfs_mlist *mlist) {
     mlist->next = lfs->mlist;
     lfs->mlist = mlist;
 }
