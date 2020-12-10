@@ -85,6 +85,7 @@ enum lfs_error {
     LFS_ERR_NOMEM       = -12,  // No more memory available
     LFS_ERR_NOATTR      = -61,  // No data/attr available
     LFS_ERR_NAMETOOLONG = -36,  // File name too long
+    LFS_ERR_OVERFLOW    = -75,  // Value too large for defined data type
 };
 
 // File types
@@ -120,6 +121,13 @@ enum lfs_type {
     LFS_FROM_NOOP           = 0x000,
     LFS_FROM_MOVE           = 0x101,
     LFS_FROM_USERATTRS      = 0x102,
+
+    // internally used tag-types
+    LFS_T_CRC               = 0xc,
+    LFS_T_USERATTR          = 0x2,
+
+    // internally used tag-subtypes
+    LFS_S_NPROG             = 0x01,
 };
 
 // File open flags
@@ -320,6 +328,19 @@ typedef struct lfs_cache {
     lfs_size_t size;
     uint8_t *buffer;
 } lfs_cache_t;
+
+typedef struct lfs_mdir_ {
+    lfs_block_t pair[2];
+    uint32_t rev;
+    lfs_off_t roff;
+    lfs_off_t eoff;
+    uint16_t count;
+
+    //bool erased;
+    bool split;
+    bool eperturb;
+    lfs_block_t tail[2];
+} lfs_mdir__t;
 
 typedef struct lfs_mdir {
     lfs_block_t pair[2];

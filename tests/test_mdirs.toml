@@ -1,0 +1,38 @@
+# Test internal operations of metadata-pairs
+
+[[case]] 
+in = "lfs.c"
+code = '''
+    lfs_init(&lfs, &cfg) => 0;
+    lfs_mdir__t mdir = {
+        .pair = {0, 1},
+        .rev = 0,
+        .roff = 0,
+        .eoff = 0,
+        .count = 0,
+        .split = false,
+        .eperturb = false,
+        .tail = {0xffffffff, 0xffffffff},
+    };
+
+    lfs_dir_compact_(&lfs, &mdir, LFS_MKATTRS_(
+            {LFS_MKTAG_(LFS_T_USERATTR,  0, 0), "0000", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR, 01, 0), "0001", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR,  2, 0), "0002", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR,  3, 0), "0003", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR,  4, 0), "0004", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR,  5, 0), "0005", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR,  6, 0), "0006", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR,  7, 0), "0007", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR,  8, 0), "0008", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR,  9, 0), "0009", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR, 10, 0), "0010", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR, 11, 0), "0011", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR, 12, 0), "0012", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR, 13, 0), "0013", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR, 14, 0), "0014", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR, 15, 0), "0015", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR, 0xaa, 0xaaaa), "0015", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR, 0xcc, 0xcccc), "0015", 4},
+            {LFS_MKTAG_(LFS_T_USERATTR, 0xff, 0xffff), "0016", 4})) => 0;
+'''

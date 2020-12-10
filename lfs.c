@@ -257,6 +257,65 @@ static int lfs_bd_prog(lfs_t *lfs,
 
     return 0;
 }
+
+int lfs_bd_prog_(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache,
+        lfs_off_t limit, uint32_t *crc,
+        lfs_block_t block, lfs_off_t off,
+        const void *buffer, lfs_size_t size) {
+    const uint8_t *data = buffer;
+    LFS_ASSERT(block == LFS_BLOCK_INLINE || block < lfs->cfg->block_count);
+    LFS_ASSERT(limit <= lfs->cfg->block_size);
+
+    // past the end of block?
+    if (off + size > limit) {
+        return LFS_ERR_NOSPC;
+    }
+
+    // crc data as a convenience
+    if (crc) {
+        *crc = lfs_crc(*crc, buffer, size);
+    }
+
+    while (size > 0) {
+        if (block == pcache->block &&
+                off >= pcache->off &&
+                off < pcache->off + lfs->cfg->cache_size) {
+            // already fits in pcache?
+            lfs_size_t diff = lfs_min(size,
+                    lfs->cfg->cache_size - (off-pcache->off));
+            memcpy(&pcache->buffer[off-pcache->off], data, diff);
+
+            data += diff;
+            off += diff;
+            size -= diff;
+
+            pcache->size = lfs_max(pcache->size, off - pcache->off);
+            if (pcache->size == lfs->cfg->cache_size) {
+                // eagerly flush out pcache if we fill up, manually validate if
+                // we aren't CRCing the data we write (when we CRC we will
+                // always validate via CRC)
+                int err = lfs_bd_flush(lfs, pcache, rcache, (crc == NULL));
+                if (err) {
+                    return err;
+                }
+            }
+
+            continue;
+        }
+
+        // pcache must have been flushed, either by programming and
+        // entire block or manually flushing the pcache
+        LFS_ASSERT(pcache->block == LFS_BLOCK_NULL);
+
+        // prepare pcache, first condition can no longer fail
+        pcache->block = block;
+        pcache->off = lfs_aligndown(off, lfs->cfg->prog_size);
+        pcache->size = 0;
+    }
+
+    return 0;
+}
 #endif
 
 #ifndef LFS_READONLY
@@ -268,6 +327,101 @@ static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
 }
 #endif
 
+// leb128 conversion functions, note buffer size expects word-size-bytes
+// TODO should these go in lfs_util.h?
+lfs_ssize_t lfs_fromleb128_(uint32_t *pword, const void *buffer) {
+    const uint8_t *bytes = buffer;
+    uint32_t word = 0;
+    for (lfs_size_t i = 0; i < 4; i++) {
+        word |= (bytes[i] & 0x7f) << 7*i;
+        if (!(bytes[i] & 0x80)) {
+            *pword = word;
+            return i+1;
+        }
+    }
+
+    LFS_ASSERT(false);
+    return LFS_ERR_OVERFLOW;
+}
+
+lfs_size_t lfs_toleb128_(void *buffer, uint32_t word) {
+    uint8_t *bytes = buffer;
+    for (int i = 0; true; i++) {
+        uint8_t byte = word & 0x7f;
+        word >>= 7;
+        if (word != 0) {
+            bytes[i] = byte | 0x80;
+        } else {
+            bytes[i] = byte | 0x00;
+            return i+1;
+        }
+    }
+}
+
+// TODO is this costly?
+uint32_t lfs_fromle32_(const void *buffer) {
+    uint32_t word;
+    memcpy(&word, buffer, sizeof(uint32_t));
+    return lfs_fromle32(word);
+}
+
+void lfs_tole32_(void *buffer, uint32_t word) {
+    word = lfs_tole32(word);
+    memcpy(buffer, &word, sizeof(uint32_t));
+}
+
+// encode/decode leb128 integers
+// TODO modify *off in place instead of returning diff?
+// TODO make these static
+lfs_ssize_t lfs_bd_readleb128_(lfs_t *lfs,
+        const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
+        lfs_block_t block, lfs_off_t off, uint32_t *pword) {
+    uint32_t word = 0;
+    for (int i = 0; true; i++) {
+        uint8_t byte;
+        // TODO would making hint = absolute offset make more sense
+        // with these layers?
+        int err = lfs_bd_read(lfs, pcache, rcache, hint-i,
+                block, off+i, &byte, 1);
+        if (err) {
+            return err;
+        }
+
+        // check for overflow
+        if (i > 4 && (byte & 0x7f) > 0xf) {
+            return LFS_ERR_OVERFLOW;
+        }
+
+        word |= (byte & 0x7f) << 7*i;
+        if (byte & 0x80) {
+            *pword = word;
+            return i+1;
+        }
+    }
+}
+
+lfs_ssize_t lfs_bd_progleb128_(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache,
+        lfs_off_t limit, uint32_t *crc,
+        lfs_block_t block, lfs_off_t off, uint32_t word) {
+    for (int i = 0; true; i++) {
+        uint8_t byte = word & 0x7f;
+        word >>= 7;
+        if (word != 0) {
+            byte |= 0x80;
+        }
+
+        int err = lfs_bd_prog_(lfs, pcache, rcache, limit, crc,
+                block, off+i, &byte, 1);
+        if (err) {
+            return err;
+        }
+
+        if (word == 0) {
+            return i+1;
+        }
+    }
+}
 
 /// Small type-level utilities ///
 // operations on block pairs
@@ -358,10 +512,58 @@ static inline lfs_size_t lfs_tag_dsize(lfs_tag_t tag) {
     return sizeof(tag) + lfs_tag_size(tag + lfs_tag_isdelete(tag));
 }
 
+#define LFS_MKTAG_(type, subtype, id) \
+    (((lfs_tag_t)(id) << 12) | ((lfs_tag_t)(subtype) << 4) | (lfs_tag_t)(type))
+
+#define LFS_MKALT_(bit) \
+    (((lfs_tag_t)(bit) << 1) | 1)
+
+static inline bool lfs_tag_isvalid_(lfs_tag_t tag) {
+    return !(tag & 0x80000000);
+}
+
+static inline bool lfs_tag_isalt_(lfs_tag_t tag) {
+    return (tag & 0x00000001);
+}
+
+static inline bool lfs_tag_isradix_(lfs_tag_t tag) {
+    return (tag & 0x00000002);
+}
+
+static inline bool lfs_tag_isided_(lfs_tag_t tag) {
+    return (tag & 0x00000004);
+}
+
+static inline uint8_t lfs_tag_type_(lfs_tag_t tag) {
+    return tag & 0x0000000f;
+}
+
+static inline uint8_t lfs_tag_subtype_(lfs_tag_t tag) {
+    return (tag & 0x00000ff0) >> 4;
+}
+
+static inline uint16_t lfs_tag_id_(lfs_tag_t tag) {
+    return (tag & 0x0ffff000) >> 12;
+}
+
+static inline uint8_t lfs_tag_alt_(lfs_tag_t tag) {
+    return (tag & 0x0000003e) >> 1;
+}
+
+static inline int16_t lfs_tag_delta_(lfs_tag_t tag) {
+    return (tag & 0x003fffc0) >> 6;
+}
+
 // operations on attributes in attribute lists
 struct lfs_mattr {
     lfs_tag_t tag;
     const void *buffer;
+};
+
+struct lfs_mattr_ {
+    lfs_tag_t tag;
+    const void *buffer;
+    lfs_size_t size;
 };
 
 struct lfs_diskoff {
@@ -372,6 +574,10 @@ struct lfs_diskoff {
 #define LFS_MKATTRS(...) \
     (struct lfs_mattr[]){__VA_ARGS__}, \
     sizeof((struct lfs_mattr[]){__VA_ARGS__}) / sizeof(struct lfs_mattr)
+
+#define LFS_MKATTRS_(...) \
+    (struct lfs_mattr_[]){__VA_ARGS__}, \
+    sizeof((struct lfs_mattr_[]){__VA_ARGS__}) / sizeof(struct lfs_mattr_)
 
 // operations on global state
 static inline void lfs_gstate_xor(lfs_gstate_t *a, const lfs_gstate_t *b) {
@@ -2130,6 +2336,573 @@ compact:
     return 0;
 }
 #endif
+
+//int lfs_dir_fetch_(lfs_t *lfs, lfs_mdir__t *mdir,
+//        const lfs_block_t pair[2]) {
+//    // find the block with the most recent revision
+//    uint32_t revs[2] = {0, 0};
+//    int r = 0;
+//    for (int i = 0; i < 2; i++) {
+//        int err = lfs_bd_read(lfs,
+//                NULL, &lfs->rcache, sizeof(revs[i]),
+//                pair[i], 0, &revs[i], sizeof(revs[i]));
+//        revs[i] = lfs_fromle32_(&revs[i]);
+//        if (err && err != LFS_ERR_CORRUPT) {
+//            return err;
+//        }
+//
+//        if (err != LFS_ERR_CORRUPT &&
+//                lfs_scmp(revs[i], revs[(i+1)%2]) > 0) {
+//            r = i;
+//        }
+//        
+//    }
+//}
+
+//// find first different bit
+//lfs_tag_t delta = (tag ^ rtag) & ((1 << (28-i))-1);
+//printf("tag 0x%08x rtag 0x%08x mask 0x%08x delta 0x%08x\n", tag, rtag, ((1 << (28-i))-1), delta);
+//if (delta == 0) {
+//    break;
+//}
+//
+//i = 28-lfs_npw2(delta+1);
+
+// TODO should we just take mdir pointer? to a copy? we're carrying
+// around a lot of state
+lfs_ssize_t lfs_dir_commitattr_(lfs_t *lfs, lfs_off_t *proff,
+        lfs_off_t limit, uint32_t *crc, lfs_block_t block, lfs_off_t off,
+        lfs_tag_t tag, const void *buffer, lfs_size_t size) {
+    lfs_size_t diff = 0;
+    bool fromdisk = tag & 0x80000000;
+    tag = tag & 0x7fffffff;
+
+    // write out tag+size
+    uint8_t header[8];
+    lfs_size_t hdiff = 0;
+    hdiff += lfs_toleb128_(&header[hdiff], tag);
+    hdiff += lfs_toleb128_(&header[hdiff], size);
+    int err = lfs_bd_prog_(lfs,
+            &lfs->pcache, &lfs->rcache, limit, crc,
+            block, off+diff, &header, hdiff);
+    if (err) {
+        return err;
+    }
+    diff += hdiff;
+
+    if (!fromdisk) {
+        // from memory
+        err = lfs_bd_prog_(lfs,
+                &lfs->pcache, &lfs->rcache, limit, crc,
+                block, off+diff, buffer, size);
+        if (err) {
+            return err;
+        }
+        diff += size;
+    } else {
+        // from disk
+        const struct lfs_diskoff *disk = buffer;
+        for (lfs_off_t i = 0; i < size; i++) {
+            // rely on caching to make this efficient
+            uint8_t dat;
+            err = lfs_bd_read(lfs,
+                    NULL, &lfs->rcache, size-i,
+                    disk->block, disk->off+i, &dat, 1);
+            if (err) {
+                return err;
+            }
+
+            // TODO do we still need to invalidate rcache during
+            // commit process?
+            err = lfs_bd_prog_(lfs,
+                    &lfs->pcache, &lfs->rcache, limit, crc,
+                    block, off+diff+i, &dat, 1);
+            if (err) {
+                return err;
+            }
+        }
+        diff += size;
+    }
+
+    // perform radix walk for alt-pointers?
+    if (lfs_tag_isradix_(tag)) {
+        printf("finding radices for 0x%08x!\n", tag);
+
+        lfs_off_t roff = *proff;
+        // tags use only the lower 28-bits
+        for (int i = 0; i < 28 && roff; i++) {
+            // first get tag
+            // TODO consolidate into function
+            hdiff = 0;
+            err = lfs_bd_read(lfs,
+                    &lfs->pcache, &lfs->rcache, sizeof(header),
+                    block, roff, &header, sizeof(header));
+            if (err) {
+                return err;
+            }
+
+            lfs_tag_t rtag;
+            lfs_ssize_t res = lfs_fromleb128_(&rtag, &header[0]);
+            if (res < 0) {
+                return res;
+            }
+            hdiff += res;
+
+            lfs_tag_t rsize;
+            res = lfs_fromleb128_(&rsize, &header[hdiff]);
+            if (res < 0) {
+                return res;
+            }
+            hdiff += res;
+            lfs_size_t rdiff = hdiff + rsize;
+
+            while (true) {
+                // and alt-pointer
+                hdiff = 0;
+                err = lfs_bd_read(lfs,
+                        &lfs->pcache, &lfs->rcache, sizeof(header),
+                        block, roff+rdiff, &header, sizeof(header));
+                if (err) {
+                    return err;
+                }
+
+                lfs_tag_t ralt;
+                res = lfs_fromleb128_(&ralt, &header[0]);
+                if (res < 0) {
+                    return res;
+                }
+                hdiff += res;
+
+                lfs_tag_t nroff;
+                res = lfs_fromleb128_(&nroff, &header[hdiff]);
+                if (res < 0) {
+                    return res;
+                }
+                hdiff += res;
+                rdiff += hdiff;
+
+                // iterate through bits
+                for (; i < 28; i++) {
+                    if ((tag ^ rtag) & (1 << (28-i))) {
+                        // different bit, new alt-pointer
+                        hdiff = 0;
+                        hdiff += lfs_toleb128_(
+                                &header[hdiff], LFS_MKALT_(28-i));
+                        hdiff += lfs_toleb128_(
+                                &header[hdiff], roff);
+                        printf("new alt 0x%08x 0x%08x\n", LFS_MKALT_(28-i), roff);
+                        err = lfs_bd_prog_(lfs,
+                                &lfs->pcache, &lfs->rcache, limit, crc,
+                                block, off+diff, &header, hdiff);
+                        if (err) {
+                            return err;
+                        }
+                        diff += hdiff;
+
+                        // follow alt-pointer?
+                        if (lfs_tag_isalt_(ralt) &&
+                                lfs_tag_alt_(ralt) == 28-i) {
+                            roff = nroff;
+                            goto next_tag;
+                        } else {
+                            roff = 0;
+                            goto next_tag;
+                        }
+                    } else {
+                        // same bit, copy alt-pointer
+                        if (lfs_tag_isalt_(ralt) &&
+                                lfs_tag_alt_(ralt) == 28-i) {
+                            printf("copy alt 0x%08x 0x%08x\n", LFS_MKALT_(28-i), roff);
+                            err = lfs_bd_prog_(lfs,
+                                    &lfs->pcache, &lfs->rcache, limit, crc,
+                                    block, off+diff, &header, hdiff);
+                            if (err) {
+                                return err;
+                            }
+                            diff += hdiff;
+                        }
+
+                        if (lfs_tag_isalt_(ralt) &&
+                                lfs_tag_alt_(ralt) > 28-i) {
+                            // need new alt-pointer
+                            goto next_alt;
+                        }
+                    }
+                }
+next_alt:;
+            }
+next_tag:;
+        }
+
+        *proff = off;
+    }
+
+    return diff;
+}
+
+//int lfs_dir_commitattr_(lfs_t *lfs, struct lfs_commit *commit,
+//        lfs_tag_t tag, const void *buffer, lfs_size_t size) {
+//    bool fromdisk = 0x80000000;
+//    tag &= 0x7fffffff;
+//
+//    // write out tag+size
+//    lfs_ssize_t res = lfs_bd_progleb128_(lfs,
+//            &lfs->pcache, &lfs->rcache, commit->end, &commit->crc,
+//            commit->block, commit->off, tag);
+//    if (res < 0) {
+//        return res;
+//    }
+//    commit->off += res;
+//
+//    res = lfs_bd_progleb128_(lfs,
+//            &lfs->pcache, &lfs->rcache, commit->end, &commit->crc,
+//            commit->block, commit->off, size);
+//    if (res < 0) {
+//        return res;
+//    }
+//    commit->off += res;
+//
+//    if (!fromdisk) {
+//        // from memory
+//        int err = lfs_bd_prog_(lfs,
+//                &lfs->pcache, &lfs->rcache, commit->end, &commit->crc,
+//                commit->block, commit->off, buffer, size);
+//        if (err) {
+//            return err;
+//        }
+//        commit->off += size;
+//    } else {
+//        // from disk
+//        const struct lfs_diskoff *disk = buffer;
+//        for (lfs_off_t i = 0; i < size; i++) {
+//            // rely on caching to make this efficient
+//            uint8_t dat;
+//            int err = lfs_bd_read(lfs,
+//                    NULL, &lfs->rcache, size-i,
+//                    disk->block, disk->off+i, &dat, 1);
+//            if (err) {
+//                return err;
+//            }
+//
+//            err = lfs_bd_prog_(lfs,
+//                    &lfs->pcache, &lfs->rcache, commit->end, &commit->crc,
+//                    commit->block, commit->off+i, &dat, 1);
+//            if (err) {
+//                return err;
+//            }
+//        }
+//        commit->off += size;
+//    }
+//
+//    return 0;
+//}
+
+// TODO better arg order?
+static lfs_ssize_t lfs_dir_commitattrs_(lfs_t *lfs, lfs_off_t *roff,
+        lfs_off_t limit, uint32_t *crc, lfs_block_t block, lfs_off_t off,
+        const struct lfs_mattr_ *attrs, lfs_size_t attr_count) {
+    lfs_size_t diff = 0;
+    
+    // iterate over tags
+    // TODO handle internal "from" tags
+    for (lfs_size_t i = 0; i < attr_count; i++) {
+        lfs_ssize_t res = lfs_dir_commitattr_(lfs, roff,
+                limit, crc, block, off+diff,
+                attrs[i].tag, attrs[i].buffer, attrs[i].size);
+        if (res < 0) {
+            return res;
+        }
+        diff += res;
+    }
+
+    return diff;
+}
+
+static int lfs_dir_commitfinalize_(lfs_t *lfs, lfs_mdir__t *mdir,
+        lfs_off_t *roff, lfs_off_t limit, uint32_t crc,
+        lfs_block_t block, lfs_off_t off) {
+    // align to program units
+    //
+    // this gets a bit complex as we have two types of commits:
+    // - commit with estate to check the next prog (middle of block)
+    // - commit without estate (end of block)
+    //
+    // sizeof(nprogcrc tag) = 6+log128(prog_size)
+    // sizeof(crc tag)      = 5+log128(prog_size)
+    uint8_t estate[2*sizeof(uint32_t)];
+    lfs_size_t ediff = lfs_toleb128_(&estate[0], lfs->cfg->prog_size);
+    lfs_size_t csize = lfs->cfg->block_size - limit;
+    lfs_off_t eoff = lfs_alignup(
+            lfs_min(off + 6+ediff + csize, lfs->cfg->block_size),
+            lfs->cfg->prog_size);
+
+    bool eperturb = false;
+    // space for estate?
+    if (eoff <= lfs->cfg->block_size - lfs->cfg->prog_size) {
+        // first we check that next byte to see if we need to
+        // perturb our directory's next commit to avoid issues
+        // where the data we want to write matches the erase-state
+        uint8_t ebyte;
+        int err = lfs_bd_read(lfs,
+                NULL, &lfs->rcache, lfs->cfg->prog_size,
+                block, eoff, &ebyte, sizeof(ebyte));
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+        eperturb = ~(ebyte & 0x1);
+
+        // find expected erase-state
+        uint32_t ecrc = 0xffffffff;
+        err = lfs_bd_crc(lfs,
+                NULL, &lfs->rcache, lfs->cfg->prog_size,
+                block, eoff, lfs->cfg->prog_size, &ecrc);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+
+        lfs_tole32_(&estate[ediff], ecrc);
+        ediff += sizeof(uint32_t);
+        lfs_ssize_t res = lfs_dir_commitattr_(lfs,
+                roff, limit, &crc, block, off,
+                LFS_MKTAG_(LFS_T_CRC, LFS_S_NPROG, 0), estate, ediff);
+        if (res < 0) {
+            return res;
+        }
+        off += res;
+    }
+
+    // build CRC tag, don't go through commitattr because we don't want
+    // to CRC padding
+    // TODO wait a sec, cyclic reference because of leb-size?
+    uint8_t cstate[9];
+    cstate[0] = (uint8_t)LFS_MKTAG_(LFS_T_CRC, 0, 0);
+
+    // manually write prog_size leb128 to avoid issues with
+    // off-by-1 padding
+    lfs_size_t padding = eoff - (off+csize-4);
+    for (lfs_size_t i = 1; i < csize-4-1; i++) {
+        cstate[i] = 0x80 | (padding & 0x7f);
+        padding >>= 7;
+    }
+    cstate[csize-4-1] = padding;
+    LFS_ASSERT(padding <= 0x7f);
+
+    crc = lfs_crc(crc, &cstate[0], csize-4);
+    lfs_tole32_(&cstate[csize-4], crc);
+
+    // TODO ugh, need to signal no validate without signalling crc...
+    // should use different API? separate lfs_bd_progcrc_?
+    int err = lfs_bd_prog_(lfs, &lfs->pcache, &lfs->rcache,
+            lfs->cfg->block_size, &(uint32_t){0}, block, off,
+            &cstate, csize);
+    if (err) {
+        return err;
+    }
+    off += csize;
+
+    // flush buffers
+    err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
+    if (err) {
+        return err;
+    }
+
+    // successful commit, check checksums to make sure
+    uint32_t dcrc = 0xffffffff;
+    lfs_bd_crc(lfs,
+            NULL, &lfs->rcache, off-mdir->eoff,
+            block, mdir->eoff, off-mdir->eoff-sizeof(uint32_t), &dcrc);
+    if (err) {
+        return err;
+    }
+
+    // check against known good CRC to avoid finding an
+    // unrelated CRC on a bad block
+    if (dcrc != crc) {
+        return LFS_ERR_CORRUPT;
+    }
+
+    // make sure to check the CRC was written correctly as well
+    err = lfs_bd_crc(lfs, 
+            NULL, &lfs->rcache, sizeof(uint32_t),
+            block, off-sizeof(uint32_t), sizeof(uint32_t), &crc);
+    if (err) {
+        return err;
+    }
+
+    if (crc != 0) {
+        return LFS_ERR_CORRUPT;
+    }
+
+    // update our metadata-pair struct
+    mdir->roff = *roff;
+    mdir->eoff = eoff;
+    mdir->eperturb = eperturb;
+
+    return 0;
+}
+
+
+int lfs_dir_compact_(lfs_t *lfs, lfs_mdir__t *mdir,
+        const struct lfs_mattr_ *attrs, lfs_size_t attr_count) {
+    // increment revision count
+    mdir->rev += 1;
+
+    // begin loop to commit compaction to blocks until a compact sticks
+    while (true) {
+        {
+            // setup commit state
+            lfs_block_t block = mdir->pair[1];
+            lfs_off_t off = 0;
+            // need 5 bytes + leb128 of padding for CRC tag on end-of-commit,
+            // we use worst-case padding (prog_size) to avoid off-by-1 issues
+            // with leb128 encoding
+            lfs_off_t limit = lfs->cfg->block_size
+                    - (5 + ((lfs_npw2(lfs->cfg->prog_size)+7-1)/7));
+            lfs_off_t roff = mdir->roff;
+            uint32_t crc = 0xffffffff;
+
+            // erase block to write to
+            int err = lfs_bd_erase(lfs, mdir->pair[1]);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
+            }
+
+            // write out header
+            err = lfs_bd_prog_(lfs,
+                    &lfs->pcache, &lfs->rcache, limit, &crc,
+                    block, off,
+                    &(uint32_t){lfs_tole32(mdir->rev)}, sizeof(uint32_t));
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
+            }
+            off += sizeof(uint32_t);
+
+            // write out tags
+            // TODO argument order nonsense? this order seems wrong
+            int res = lfs_dir_commitattrs_(lfs,
+                    &roff, limit, &crc, block, off,
+                    attrs, attr_count);
+            if (res < 0) {
+                if (res == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return res;
+            }
+            off += res;
+
+            // finalize commit
+            res = lfs_dir_commitfinalize_(lfs, mdir,
+                    &roff, limit, crc, block, off);
+            if (res < 0) {
+                if (res == LFS_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return res;
+            }
+
+            break;
+        }
+
+relocate:
+            LFS_ASSERT(false); // TODO
+    }
+
+    return 0;
+}
+        
+
+
+
+//static int lfs_dir_rawcommit_(lfs_t *lfs, lfs_mdir_t *mdir,
+//        const struct lfs_mattr_ *attrs, int attrcount) {
+//    if (mdir->eoff != 0xffffffff) {
+//
+//    }
+//
+
+//    // TODO can use dir->noff for this?
+//    if (dir->erased) {
+//        // try to commit
+//        struct lfs_commit commit = {
+//            .block = dir->pair[0],
+//            .off = dir->off,
+//            .ptag = dir->etag,
+//            .crc = 0xffffffff,
+//
+//            .begin = dir->off,
+//            .end = lfs->cfg->block_size - 8,
+//        };
+//
+//        // traverse attrs that need to be written out
+//        lfs_pair_tole32(dir->tail);
+//        int err = lfs_dir_traverse(lfs,
+//                dir, dir->off, dir->etag, attrs, attrcount,
+//                0, 0, 0, 0, 0,
+//                lfs_dir_commit_commit, &(struct lfs_dir_commit_commit){
+//                    lfs, &commit});
+//        lfs_pair_fromle32(dir->tail);
+//        if (err) {
+//            if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
+//                goto compact;
+//            }
+//            *dir = olddir;
+//            return err;
+//        }
+//
+//        // commit any global diffs if we have any
+//        lfs_gstate_t delta = {0};
+//        lfs_gstate_xor(&delta, &lfs->gstate);
+//        lfs_gstate_xor(&delta, &lfs->gdisk);
+//        lfs_gstate_xor(&delta, &lfs->gdelta);
+//        delta.tag &= ~LFS_MKTAG(0, 0, 0x3ff);
+//        if (!lfs_gstate_iszero(&delta)) {
+//            err = lfs_dir_getgstate(lfs, dir, &delta);
+//            if (err) {
+//                *dir = olddir;
+//                return err;
+//            }
+//
+//            lfs_gstate_tole32(&delta);
+//            err = lfs_dir_commitattr(lfs, &commit,
+//                    LFS_MKTAG(LFS_TYPE_MOVESTATE, 0x3ff,
+//                        sizeof(delta)), &delta);
+//            if (err) {
+//                if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
+//                    goto compact;
+//                }
+//                *dir = olddir;
+//                return err;
+//            }
+//        }
+//
+//        // finalize commit with the crc
+//        err = lfs_dir_commitcrc(lfs, &commit);
+//        if (err) {
+//            if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
+//                goto compact;
+//            }
+//            *dir = olddir;
+//            return err;
+//        }
+//
+//        // successful commit, update dir
+//        LFS_ASSERT(commit.off % lfs->cfg->prog_size == 0);
+//        dir->off = commit.off;
+//        dir->etag = commit.ptag;
+//        // and update gstate
+//        lfs->gdisk = lfs->gstate;
+//        lfs->gdelta = (lfs_gstate_t){0};
+//    } else {
+
+
+//}
+
 
 
 /// Top level directory operations ///
