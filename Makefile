@@ -6,6 +6,7 @@ endif
 CC ?= gcc
 AR ?= ar
 SIZE ?= size
+NM ?= nm
 
 SRC += $(wildcard *.c bd/*.c)
 OBJ := $(SRC:.c=.o)
@@ -29,6 +30,7 @@ override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
 
 ifdef VERBOSE
 override TFLAGS += -v
+override SFLAGS += -v
 endif
 
 
@@ -38,6 +40,9 @@ asm: $(ASM)
 
 size: $(OBJ)
 	$(SIZE) -t $^
+
+code_size:
+	./scripts/code_size.py $(SFLAGS)
 
 test:
 	./scripts/test.py $(TFLAGS)
@@ -65,3 +70,4 @@ clean:
 	rm -f $(DEP)
 	rm -f $(ASM)
 	rm -f tests/*.toml.*
+	rm -f sizes/*
