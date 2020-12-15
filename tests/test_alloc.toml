@@ -492,17 +492,17 @@ code = '''
 
     // create one block hole for half a directory
     lfs_file_open(&lfs, &file, "bump", LFS_O_WRONLY | LFS_O_CREAT) => 0;
-    for (lfs_size_t i = 0; i < cfg.block_size; i += 2) {
+    for (lfs_size_t i = 0; i < LFS_BLOCK_SIZE; i += 2) {
         memcpy(&buffer[i], "hi", 2);
     }
-    lfs_file_write(&lfs, &file, buffer, cfg.block_size) => cfg.block_size;
+    lfs_file_write(&lfs, &file, buffer, LFS_BLOCK_SIZE) => LFS_BLOCK_SIZE;
     lfs_file_close(&lfs, &file) => 0;
 
     lfs_file_open(&lfs, &file, "exhaustion", LFS_O_WRONLY | LFS_O_CREAT);
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < (cfg.block_count-4)*(cfg.block_size-8);
+            i < (LFS_BLOCK_COUNT-4)*(LFS_BLOCK_SIZE-8);
             i += size) {
         lfs_file_write(&lfs, &file, buffer, size) => size;
     }
@@ -518,10 +518,10 @@ code = '''
     lfs_mkdir(&lfs, "splitdir") => 0;
     lfs_file_open(&lfs, &file, "splitdir/bump",
             LFS_O_WRONLY | LFS_O_CREAT) => 0;
-    for (lfs_size_t i = 0; i < cfg.block_size; i += 2) {
+    for (lfs_size_t i = 0; i < LFS_BLOCK_SIZE; i += 2) {
         memcpy(&buffer[i], "hi", 2);
     }
-    lfs_file_write(&lfs, &file, buffer, 2*cfg.block_size) => LFS_ERR_NOSPC;
+    lfs_file_write(&lfs, &file, buffer, 2*LFS_BLOCK_SIZE) => LFS_ERR_NOSPC;
     lfs_file_close(&lfs, &file) => 0;
 
     lfs_unmount(&lfs) => 0;
@@ -541,7 +541,7 @@ code = '''
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-2)/2)*(cfg.block_size-8);
+            i < ((LFS_BLOCK_COUNT-2)/2)*(LFS_BLOCK_SIZE-8);
             i += size) {
         lfs_file_write(&lfs, &file, buffer, size) => size;
     }
@@ -552,7 +552,7 @@ code = '''
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-2+1)/2)*(cfg.block_size-8);
+            i < ((LFS_BLOCK_COUNT-2+1)/2)*(LFS_BLOCK_SIZE-8);
             i += size) {
         lfs_file_write(&lfs, &file, buffer, size) => size;
     }
@@ -569,7 +569,7 @@ code = '''
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-2)/2)*(cfg.block_size-8);
+            i < ((LFS_BLOCK_COUNT-2)/2)*(LFS_BLOCK_SIZE-8);
             i += size) {
         lfs_file_write(&lfs, &file, buffer, size) => size;
     }
@@ -583,7 +583,7 @@ code = '''
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-2+1)/2)*(cfg.block_size-8);
+            i < ((LFS_BLOCK_COUNT-2+1)/2)*(LFS_BLOCK_SIZE-8);
             i += size) {
         lfs_file_write(&lfs, &file, buffer, size) => size;
     }
@@ -606,7 +606,7 @@ code = '''
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-2)/2)*(cfg.block_size-8);
+            i < ((LFS_BLOCK_COUNT-2)/2)*(LFS_BLOCK_SIZE-8);
             i += size) {
         lfs_file_write(&lfs, &file, buffer, size) => size;
     }
@@ -617,7 +617,7 @@ code = '''
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-2+1)/2)*(cfg.block_size-8);
+            i < ((LFS_BLOCK_COUNT-2+1)/2)*(LFS_BLOCK_SIZE-8);
             i += size) {
         lfs_file_write(&lfs, &file, buffer, size) => size;
     }
@@ -634,7 +634,7 @@ code = '''
     size = strlen("blahblahblahblah");
     memcpy(buffer, "blahblahblahblah", size);
     for (lfs_size_t i = 0;
-            i < ((cfg.block_count-2)/2 - 1)*(cfg.block_size-8);
+            i < ((LFS_BLOCK_COUNT-2)/2 - 1)*(LFS_BLOCK_SIZE-8);
             i += size) {
         lfs_file_write(&lfs, &file, buffer, size) => size;
     }

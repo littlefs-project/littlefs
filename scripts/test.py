@@ -84,6 +84,17 @@ DEFINES = {
     'LFS_ERASE_CYCLES': 0,
     'LFS_BADBLOCK_BEHAVIOR': 'LFS_TESTBD_BADBLOCK_PROGERROR',
 }
+CFG = {
+    'read_size':        'LFS_READ_SIZE',
+    'prog_size':        'LFS_PROG_SIZE',
+    'read_size':        'LFS_READ_SIZE',
+    'prog_size':        'LFS_PROG_SIZE',
+    'block_size':       'LFS_BLOCK_SIZE',
+    'block_count':      'LFS_BLOCK_COUNT',
+    'block_cycles':     'LFS_BLOCK_CYCLES',
+    'buffer_size':      'LFS_BUFFER_SIZE',
+    'lookahead_size':   'LFS_LOOKAHEAD_SIZE',
+}
 PROLOGUE = """
     // prologue
     __attribute__((unused)) lfs_t lfs;
@@ -97,18 +108,12 @@ PROLOGUE = """
     __attribute__((unused)) int err;
     
     __attribute__((unused)) const struct lfs_cfg cfg = {
-        .bd_ctx         = &bd,
-        .bd_read        = lfs_testbd_readctx,
-        .bd_prog        = lfs_testbd_progctx,
-        .bd_erase       = lfs_testbd_erasectx,
-        .bd_sync        = lfs_testbd_syncctx,
-        .read_size      = LFS_READ_SIZE,
-        .prog_size      = LFS_PROG_SIZE,
-        .block_size     = LFS_BLOCK_SIZE,
-        .block_count    = LFS_BLOCK_COUNT,
-        .block_cycles   = LFS_BLOCK_CYCLES,
-        .buffer_size    = LFS_BUFFER_SIZE,
-        .lookahead_size = LFS_LOOKAHEAD_SIZE,
+        .bd_ctx     = &bd,
+        .bd_read    = lfs_testbd_readctx,
+        .bd_prog    = lfs_testbd_progctx,
+        .bd_erase   = lfs_testbd_erasectx,
+        .bd_sync    = lfs_testbd_syncctx,
+%(cfg)s
     };
 
     __attribute__((unused)) const struct lfs_testbd_cfg bdcfg = {
@@ -202,7 +207,11 @@ class TestCase:
             for k in sorted(self.perms[0].defines)
             if k not in self.defines)))
 
-        f.write(PROLOGUE)
+        f.write(PROLOGUE % dict(
+            cfg='\n'.join(
+                8*' '+'.%s = %s,\n' % (k, d)
+                for k, d in sorted(CFG.items())
+                if d not in self.suite.defines)))
         f.write('\n')
         f.write(4*' '+'// test case %d\n' % self.caseno)
         f.write(4*' '+'#line %d "%s"\n' % (self.code_lineno, self.suite.path))

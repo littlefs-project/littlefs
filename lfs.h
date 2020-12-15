@@ -46,7 +46,12 @@ typedef uint32_t lfs_block_t;
 // info struct. Limited to <= 1022. Stored in superblock and must be
 // respected by other littlefs drivers.
 #ifndef LFS_NAME_MAX
+#if defined(LFS_NAME_LIMIT) && \
+        LFS_NAME_LIMIT > 0 && LFS_NAME_MAX <= 1022
+#define LFS_NAME_MAX LFS_NAME_LIMIT
+#else
 #define LFS_NAME_MAX 255
+#endif
 #endif
 
 // Maximum size of a file in bytes, may be redefined to limit to support other
@@ -55,13 +60,23 @@ typedef uint32_t lfs_block_t;
 // incorrect values due to using signed integers. Stored in superblock and
 // must be respected by other littlefs drivers.
 #ifndef LFS_FILE_MAX
+#if defined(LFS_FILE_LIMIT) && \
+        LFS_FILE_LIMIT > 0 && LFS_FILE_LIMIT <= 4294967296
+#define LFS_FILE_MAX LFS_FILE_LIMIT
+#else
 #define LFS_FILE_MAX 2147483647
+#endif
 #endif
 
 // Maximum size of custom attributes in bytes, may be redefined, but there is
 // no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022.
 #ifndef LFS_ATTR_MAX
+#if defined(LFS_ATTR_LIMIT) && \
+        LFS_ATTR_LIMIT > 0 && LFS_ATTR_LIMIT <= 1022
+#define LFS_ATTR_MAX LFS_FILE_LIMIT
+#else
 #define LFS_ATTR_MAX 1022
+#endif
 #endif
 
 // File types
@@ -125,50 +140,129 @@ enum lfs_whence_flags {
 };
 
 
-#if !defined(LFS_STATICCFG)
 // Configuration provided during initialization of the littlefs
+
+// If every config option is provided at compile time, littlefs switches
+// to "LFS_STATICCFG" mode. The dynamic lfs_cfg struct is not included in
+// the lfs_t struct, and *cfg functions are no longer available.
+#if defined(LFS_BD_READ) && \
+        defined(LFS_BD_PROG) && \
+        defined(LFS_BD_ERASE) && \
+        defined(LFS_BD_SYNC) && \
+        defined(LFS_READ_SIZE) && \
+        defined(LFS_PROG_SIZE) && \
+        defined(LFS_BLOCK_SIZE) && \
+        defined(LFS_BLOCK_COUNT) && \
+        defined(LFS_BLOCK_CYCLES) && \
+        defined(LFS_BUFFER_SIZE) && \
+        defined(LFS_LOOKAHEAD_SIZE) && \
+        defined(LFS_READ_BUFFER) && \
+        defined(LFS_PROG_BUFFER) && \
+        defined(LFS_LOOKAHEAD_BUFFER) && \
+        defined(LFS_NAME_LIMIT) && \
+        defined(LFS_FILE_LIMIT) && \
+        defined(LFS_ATTR_LIMIT)
+#define LFS_STATICCFG
+#endif
+
+// Dynamic config struct
+#ifndef LFS_STATICCFG
 struct lfs_cfg {
+#endif
     // Opaque user provided context that can be used to pass
     // information to the block device operations
+    #if !(defined(LFS_BD_READ) && \
+            defined(LFS_BD_PROG) && \
+            defined(LFS_BD_ERASE) && \
+            defined(LFS_BD_SYNC))
     void *bd_ctx;
+    #endif
 
     // Read a region in a block. Negative error codes are propogated
     // to the user.
+    #ifndef LFS_BD_READ
     int (*bd_read)(void *ctx, lfs_block_t block,
             lfs_off_t off, void *buffer, lfs_size_t size);
+    #define LFS_CFG_BD_READ(cfg, block, off, buffer, size) \
+            (cfg)->bd_read((cfg)->bd_ctx, block, off, buffer, size)
+    #else
+    #define LFS_CFG_BD_READ(cfg, block, off, buffer, size) \
+            lfs_bd_read(block, off, buffer, size)
+    #endif
 
     // Program a region in a block. The block must have previously
     // been erased. Negative error codes are propogated to the user.
     // May return LFS_ERR_CORRUPT if the block should be considered bad.
+    #ifndef LFS_BD_PROG
     int (*bd_prog)(void *ctx, lfs_block_t block,
             lfs_off_t off, const void *buffer, lfs_size_t size);
+    #define LFS_CFG_BD_PROG(cfg, block, off, buffer, size) \
+            (cfg)->bd_prog((cfg)->bd_ctx, block, off, buffer, size)
+    #else
+    #define LFS_CFG_BD_PROG(cfg, block, off, buffer, size) \
+            lfs_bd_prog(block, off, buffer, size)
+    #endif
 
     // Erase a block. A block must be erased before being programmed.
     // The state of an erased block is undefined. Negative error codes
     // are propogated to the user.
     // May return LFS_ERR_CORRUPT if the block should be considered bad.
+    #ifndef LFS_BD_ERASE
     int (*bd_erase)(void *ctx, lfs_block_t block);
+    #define LFS_CFG_BD_ERASE(cfg, block) \
+            (cfg)->bd_erase((cfg)->bd_ctx, block)
+    #else
+    #define LFS_CFG_BD_ERASE(cfg, block) \
+            lfs_bd_erase(block)
+    #endif
 
     // Sync the state of the underlying block device. Negative error codes
     // are propogated to the user.
+    #ifndef LFS_BD_SYNC
     int (*bd_sync)(void *ctx);
+    #define LFS_CFG_BD_SYNC(cfg) \
+            (cfg)->bd_sync((cfg)->bd_ctx)
+    #else
+    #define LFS_CFG_BD_SYNC(cfg) \
+            lfs_bd_sync()
+    #endif
 
     // Minimum size of a block read. All read operations will be a
     // multiple of this value.
+    #ifndef LFS_READ_SIZE
     lfs_size_t read_size;
+    #define LFS_CFG_READ_SIZE(cfg) (cfg)->read_size
+    #else
+    #define LFS_CFG_READ_SIZE(cfg) LFS_READ_SIZE
+    #endif
 
     // Minimum size of a block program. All program operations will be a
     // multiple of this value.
+    #ifndef LFS_PROG_SIZE
     lfs_size_t prog_size;
+    #define LFS_CFG_PROG_SIZE(cfg) (cfg)->prog_size
+    #else
+    #define LFS_CFG_PROG_SIZE(cfg) LFS_PROG_SIZE
+    #endif
 
     // Size of an erasable block. This does not impact ram consumption and
     // may be larger than the physical erase size. However, non-inlined files
     // take up at minimum one block. Must be a multiple of the read
     // and program sizes.
+    #ifndef LFS_BLOCK_SIZE
     lfs_size_t block_size;
+    #define LFS_CFG_BLOCK_SIZE(cfg) (cfg)->block_size
+    #else
+    #define LFS_CFG_BLOCK_SIZE(cfg) LFS_BLOCK_SIZE
+    #endif
 
     // Number of erasable blocks on the device.
+    #ifndef LFS_BLOCK_COUNT
     lfs_size_t block_count;
+    #define LFS_CFG_BLOCK_COUNT(cfg) (cfg)->block_count
+    #else
+    #define LFS_CFG_BLOCK_COUNT(cfg) LFS_BLOCK_COUNT
+    #endif
 
     // Number of erase cycles before littlefs evicts metadata logs and moves 
     // the metadata to another block. Suggested values are in the
@@ -176,104 +270,139 @@ struct lfs_cfg {
     // of less consistent wear distribution.
     //
     // Set to -1 to disable block-level wear-leveling.
+    #ifndef LFS_BLOCK_CYCLES
     int32_t block_cycles;
+    #define LFS_CFG_BLOCK_CYCLES(cfg) (cfg)->block_cycles
+    #else
+    #define LFS_CFG_BLOCK_CYCLES(cfg) LFS_BLOCK_CYCLES
+    #endif
 
     // Size of internal buffers used to cache slices of blocks in RAM.
     // The littlefs needs a read buffer, a program buffer, and one additional
     // buffer per file. Larger buffers can improve performance by storing more
     // data and reducing the number of disk accesses. Must be a multiple of
     // the read and program sizes, and a factor of the block size.
+    #ifndef LFS_BUFFER_SIZE
     lfs_size_t buffer_size;
+    #define LFS_CFG_BUFFER_SIZE(cfg) (cfg)->buffer_size
+    #else
+    #define LFS_CFG_BUFFER_SIZE(cfg) LFS_BUFFER_SIZE
+    #endif
 
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
     // increases the number of blocks found during an allocation pass. The
     // lookahead buffer is stored as a compact bitmap, so each byte of RAM
     // can track 8 blocks. Must be a multiple of 8.
+    #ifndef LFS_LOOKAHEAD_SIZE
     lfs_size_t lookahead_size;
+    #define LFS_CFG_LOOKAHEAD_SIZE(cfg) (cfg)->lookahead_size
+    #else
+    #define LFS_CFG_LOOKAHEAD_SIZE(cfg) LFS_LOOKAHEAD_SIZE
+    #endif
 
     // Optional statically allocated read buffer. Must be cache_size.
     // By default lfs_malloc is used to allocate this buffer.
+    #ifndef LFS_READ_BUFFER
     void *read_buffer;
+    #define LFS_CFG_READ_BUFFER(cfg) (cfg)->read_buffer
+    #else
+    #define LFS_CFG_READ_BUFFER(cfg) LFS_READ_BUFFER
+    #endif
 
     // Optional statically allocated program buffer. Must be cache_size.
     // By default lfs_malloc is used to allocate this buffer.
+    #ifndef LFS_PROG_BUFFER
     void *prog_buffer;
+    #define LFS_CFG_PROG_BUFFER(cfg) (cfg)->prog_buffer
+    #else
+    #define LFS_CFG_PROG_BUFFER(cfg) LFS_PROG_BUFFER
+    #endif
 
     // Optional statically allocated lookahead buffer. Must be lookahead_size
     // and aligned to a 32-bit boundary. By default lfs_malloc is used to
     // allocate this buffer.
+    #ifndef LFS_LOOKAHEAD_BUFFER
     void *lookahead_buffer;
+    #define LFS_CFG_LOOKAHEAD_BUFFER(cfg) (cfg)->lookahead_buffer
+    #else
+    #define LFS_CFG_LOOKAHEAD_BUFFER(cfg) LFS_LOOKAHEAD_BUFFER
+    #endif
 
     // Optional upper limit on length of file names in bytes. No downside for
     // larger names except the size of the info struct which is controlled by
     // the LFS_NAME_MAX define. Defaults to LFS_NAME_MAX when zero. Stored in
     // superblock and must be respected by other littlefs drivers.
-    lfs_size_t name_max;
+    #ifndef LFS_NAME_LIMIT
+    lfs_size_t name_limit;
+    #define LFS_CFG_NAME_LIMIT(cfg) (cfg)->name_limit
+    #else
+    #define LFS_CFG_NAME_LIMIT(cfg) LFS_NAME_LIMIT
+    #endif
 
     // Optional upper limit on files in bytes. No downside for larger files
     // but must be <= LFS_FILE_MAX. Defaults to LFS_FILE_MAX when zero. Stored
     // in superblock and must be respected by other littlefs drivers.
-    lfs_size_t file_max;
+    #ifndef LFS_FILE_LIMIT
+    lfs_size_t file_limit;
+    #define LFS_CFG_FILE_LIMIT(cfg) (cfg)->file_limit
+    #else
+    #define LFS_CFG_FILE_LIMIT(cfg) LFS_FILE_LIMIT
+    #endif
 
     // Optional upper limit on custom attributes in bytes. No downside for
     // larger attributes size but must be <= LFS_ATTR_MAX. Defaults to
     // LFS_ATTR_MAX when zero.
-    lfs_size_t attr_max;
+    #ifndef LFS_ATTR_LIMIT
+    lfs_size_t attr_limit;
+    #define LFS_CFG_ATTR_LIMIT(cfg) (cfg)->attr_limit
+    #else
+    #define LFS_CFG_ATTR_LIMIT(cfg) LFS_ATTR_LIMIT
+    #endif
+#ifndef LFS_STATICCFG
 };
-#else
-// Static configuration if LFS_STATICCFG is defined, there are defaults
-// for some of these, but some are required. For full documentation, see
-// the lfs_cfg struct above.
+#endif
 
-// Block device operations
-int lfs_bd_read(lfs_block_t block,
+// Configurable callbacks are a bit special, when LFS_BD_* is defined,
+// LFS_CFG_* instead expands into a call to an extern lfs_bd_*, which
+// must be defined by the user. This preserves type-safety of the
+// callbacks.
+#ifdef LFS_BD_READ
+extern int lfs_bd_read(lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size);
-int lfs_bd_prog(lfs_block_t block,
+#endif
+#ifdef LFS_BD_PROG
+extern int lfs_bd_prog(lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size);
-int lfs_bd_erase(lfs_block_t block);
-int lfs_bd_sync(void);
-
-// Required configuration
-#ifndef LFS_READ_SIZE
-#error "LFS_STATICCFG requires LFS_READ_SIZE"
 #endif
-#ifndef LFS_PROG_SIZE
-#error "LFS_STATICCFG requires LFS_PROG_SIZE"
+#ifdef LFS_BD_ERASE
+extern int lfs_bd_erase(lfs_block_t block);
 #endif
-#ifndef LFS_BLOCK_SIZE
-#error "LFS_STATICCFG requires LFS_BLOCK_SIZE"
-#endif
-#ifndef LFS_BLOCK_COUNT
-#error "LFS_STATICCFG requires LFS_BLOCK_COUNT"
-#endif
-#ifndef LFS_BLOCK_CYCLES
-#error "LFS_STATICCFG requires LFS_BLOCK_CYCLES"
-#endif
-#ifndef LFS_BUFFER_SIZE
-#error "LFS_STATICCFG requires LFS_BUFFER_SIZE"
-#endif
-#ifndef LFS_LOOKAHEAD_SIZE
-#error "LFS_STATICCFG requires LFS_LOOKAHEAD_SIZE"
+#ifdef LFS_BD_SYNC
+extern int lfs_bd_sync(void);
 #endif
 
-// Optional configuration
-#ifndef LFS_READ_BUFFER
-#define LFS_READ_BUFFER NULL
-#endif
-#ifndef LFS_PROG_BUFFER
-#define LFS_PROG_BUFFER NULL
-#endif
-#ifndef LFS_LOOKAHEAD_BUFFER
-#define LFS_LOOKAHEAD_BUFFER NULL
-#endif
+// If every config option is provided at compile time, littlefs switches
+// to "LFS_FILE_STATICCFG" mode. The dynamic lfs_file_cfg struct is not
+// included in the lfs_file_t struct, and *cfg functions are no longer
+// available.
+#if defined(LFS_FILE_BUFFER) && \
+        defined(LFS_FILE_ATTRS) && \
+        defined(LFS_FILE_ATTR_COUNT)
+#define LFS_STATICCFG
 #endif
 
-#if !defined(LFS_FILE_STATICCFG)
+#ifndef LFS_FILE_STATICCFG
 // Optional configuration provided during lfs_file_opencfg
 struct lfs_file_cfg {
+#endif
     // Optional statically allocated file buffer. Must be cache_size.
     // By default lfs_malloc is used to allocate this buffer.
+    #ifndef LFS_FILE_BUFFER
     void *buffer;
+    #define LFS_FILE_CFG_BUFFER(cfg) (cfg)->buffer
+    #else
+    #define LFS_FILE_CFG_BUFFER(cfg) LFS_FILE_BUFFER
+    #endif
 
     // Optional list of custom attributes related to the file. If the file
     // is opened with read access, these attributes will be read from disk
@@ -286,23 +415,22 @@ struct lfs_file_cfg {
     // than the buffer, it will be padded with zeros. If the stored attribute
     // is larger, then it will be silently truncated. If the attribute is not
     // found, it will be created implicitly.
+    #ifndef LFS_FILE_ATTRS
     struct lfs_attr *attrs;
+    #define LFS_FILE_CFG_ATTRS(cfg) (cfg)->attrs
+    #else
+    #define LFS_FILE_CFG_ATTRS(cfg) LFS_FILE_ATTRS
+    #endif
 
     // Number of custom attributes in the list
+    #ifndef LFS_FILE_ATTR_COUNT
     lfs_size_t attr_count;
+    #define LFS_FILE_CFG_ATTR_COUNT(cfg) (cfg)->attr_count
+    #else
+    #define LFS_FILE_CFG_ATTR_COUNT(cfg) LFS_FILE_ATTR_COUNT
+    #endif
+#ifndef LFS_FILE_STATICCFG
 };
-#else
-// Static configuration if LFS_FILE_STATICCFG is defined. For full
-// documentation, see the lfs_file_cfg struct above.
-#ifndef LFS_FILE_BUFFER
-#define LFS_FILE_BUFFER NULL
-#endif
-#ifndef LFS_FILE_ATTRS
-#define LFS_FILE_ATTRS ((struct lfs_attr*)NULL)
-#endif
-#ifndef LFS_FILE_ATTR_COUNT
-#define LFS_FILE_ATTR_COUNT 0
-#endif
 #endif
 
 // File info structure
@@ -392,9 +520,9 @@ typedef struct lfs_superblock {
     uint32_t version;
     lfs_size_t block_size;
     lfs_size_t block_count;
-    lfs_size_t name_max;
-    lfs_size_t file_max;
-    lfs_size_t attr_max;
+    lfs_size_t name_limit;
+    lfs_size_t file_limit;
+    lfs_size_t attr_limit;
 } lfs_superblock_t;
 
 typedef struct lfs_gstate {
@@ -431,9 +559,9 @@ typedef struct lfs {
 #ifndef LFS_STATICCFG
     const struct lfs_cfg *cfg;
 #endif
-    lfs_size_t name_max;
-    lfs_size_t file_max;
-    lfs_size_t attr_max;
+    lfs_size_t name_limit;
+    lfs_size_t file_limit;
+    lfs_size_t attr_limit;
 
 #ifdef LFS_MIGRATE
     struct lfs1 *lfs1;
