@@ -2506,11 +2506,12 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
         }
 
         // get next slot and create entry to remember name
-        // TODO commit with attrs?
         err = lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_CREATE, file->id, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_REG, file->id, nlen), path},
-                {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0), NULL}));
+                {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0), NULL},
+                {LFS_MKTAG(LFS_FROM_USERATTRS, file->id,
+                    file->cfg->attr_count), file->cfg->attrs}));
         if (err) {
             err = LFS_ERR_NAMETOOLONG;
             goto cleanup;
@@ -2563,9 +2564,6 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
                 err = LFS_ERR_NOSPC;
                 goto cleanup;
             }
-
-            // TODO remove this?
-            file->flags |= LFS_F_DIRTY;
         }
 #endif
     }
