@@ -24,6 +24,14 @@ static inline void lfs_cache_zero(lfs_t *lfs, lfs_cache_t *pcache) {
     pcache->block = LFS_BLOCK_NULL;
 }
 
+static inline void lfs_cache_copy(lfs_t *lfs,
+        lfs_cache_t *dcache, const lfs_cache_t *scache) {
+    memcpy(dcache->buffer, scache->buffer, lfs->cfg->cache_size);
+    dcache->block = scache->block;
+    dcache->off   = scache->off;
+    dcache->size  = scache->size;
+}
+
 static int lfs_bd_read(lfs_t *lfs,
         const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
         lfs_block_t block, lfs_off_t off,
@@ -1821,7 +1829,7 @@ relocate:
 #ifndef LFS_READONLY
 static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
         const struct lfs_mattr *attrs, int attrcount) {
-    // check for any inline files that aren't RAM backed and
+    // check for any open inline files that aren't RAM backed and
     // forcefully evict them, needed for filesystem consistency
     for (lfs_file_t *f = (lfs_file_t*)lfs->mlist; f; f = f->next) {
         if (dir != &f->m && lfs_pair_cmp(f->m.pair, dir->pair) == 0 &&
@@ -2498,6 +2506,7 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
         }
 
         // get next slot and create entry to remember name
+        // TODO commit with attrs?
         err = lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
                 {LFS_MKTAG(LFS_TYPE_CREATE, file->id, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_REG, file->id, nlen), path},
@@ -2533,7 +2542,7 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
     }
 
     // fetch attrs
-    for (unsigned i = 0; i < file->cfg->attr_count; i++) {
+    for (lfs_size_t i = 0; i < file->cfg->attr_count; i++) {
         // if opened for read / read-write operations
         if ((file->flags & LFS_O_RDONLY) == LFS_O_RDONLY) {
             lfs_stag_t res = lfs_dir_get(lfs, &file->m,
@@ -2555,6 +2564,7 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
                 goto cleanup;
             }
 
+            // TODO remove this?
             file->flags |= LFS_F_DIRTY;
         }
 #endif
@@ -2812,7 +2822,6 @@ static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
 
-
     if ((file->flags & LFS_F_DIRTY) &&
             !lfs_pair_isnull(file->m.pair)) {
         // update dir entry
@@ -2843,6 +2852,40 @@ static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
         if (err) {
             file->flags |= LFS_F_ERRED;
             return err;
+        }
+
+        // update readable handles referencing this file device-side
+        for (lfs_file_t *f = (lfs_file_t*)lfs->mlist; f; f = f->next) {
+            if (f != file &&
+                    f->type == LFS_TYPE_REG &&
+                    lfs_pair_cmp(f->m.pair, file->m.pair) == 0 &&
+                    f->id == file->id &&
+                    // only readable handles because wronly files
+                    // may reference attributes in ROM
+                    (f->flags & LFS_O_RDONLY) == LFS_O_RDONLY) {
+                // sync disk structure
+                f->ctz = file->ctz;
+                // copying the cache is required for inline files
+                lfs_cache_copy(lfs, &f->cache, &file->cache);
+
+                // sync attrs
+                for (lfs_size_t i = 0; i < f->cfg->attr_count; i++) {
+                    for (lfs_size_t j = 0; j < file->cfg->attr_count; j++) {
+                        if (f->cfg->attrs[i].type == file->cfg->attrs[i].type) {
+                            lfs_size_t diff = lfs_min(
+                                f->cfg->attrs[i].size,
+                                file->cfg->attrs[i].size);
+                            memcpy(f->cfg->attrs[i].buffer,
+                                    file->cfg->attrs[i].buffer,
+                                    diff);
+                            memset((uint8_t*)f->cfg->attrs[i].buffer + diff,
+                                    0, f->cfg->attrs[i].size - diff);
+                        }
+                    }
+                }
+
+                file->flags &= ~(LFS_F_DIRTY | LFS_F_WRITING | LFS_F_READING);
+            }
         }
 
         file->flags &= ~LFS_F_DIRTY;
@@ -3424,8 +3467,37 @@ static int lfs_commitattr(lfs_t *lfs, const char *path,
         }
     }
 
-    return lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
+    int err = lfs_dir_commit(lfs, &cwd, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_USERATTR + type, id, size), buffer}));
+    if (err) {
+        return err;
+    }
+
+    if (lfs_tag_type3(tag) == LFS_TYPE_REG && size != 0x3ff) {
+        // sync attrs with any files open for reading, this follows
+        // the behavior of lfs_file_sync with attributes
+        for (lfs_file_t *f = (lfs_file_t*)lfs->mlist; f; f = f->next) {
+            if (f->type == LFS_TYPE_REG &&
+                    lfs_pair_cmp(f->m.pair, cwd.pair) == 0 &&
+                    f->id == id &&
+                    // only readable handles because wronly files
+                    // may reference attributes in ROM
+                    (f->flags & LFS_O_RDONLY) == LFS_O_RDONLY) {
+                // sync attrs
+                for (lfs_size_t i = 0; i < f->cfg->attr_count; i++) {
+                    if (f->cfg->attrs[i].type == type) {
+                        // TODO should this zero trailing bytes?
+                        lfs_size_t diff = lfs_min(f->cfg->attrs[i].size, size);
+                        memcpy(f->cfg->attrs[i].buffer, buffer, diff);
+                        memset((uint8_t*)f->cfg->attrs[i].buffer + diff,
+                                0, f->cfg->attrs[i].size - diff);
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
 }
 #endif
 
