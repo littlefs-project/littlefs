@@ -638,8 +638,6 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
                 return err;
             }
 
-            memset((uint8_t*)gbuffer + diff, 0, gsize - diff);
-
             return tag + gdiff;
         }
     }
@@ -1088,7 +1086,7 @@ static int lfs_dir_fetch(lfs_t *lfs,
 
 static int lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
         lfs_gstate_t *gstate) {
-    lfs_gstate_t temp;
+    lfs_gstate_t temp = {0};
     lfs_stag_t res = lfs_dir_get(lfs, dir, LFS_MKTAG(0x7ff, 0, 0),
             LFS_MKTAG(LFS_TYPE_MOVESTATE, 0, sizeof(temp)), &temp);
     if (res < 0 && res != LFS_ERR_NOENT) {
@@ -1114,10 +1112,11 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     }
 
     lfs_stag_t tag = lfs_dir_get(lfs, dir, LFS_MKTAG(0x780, 0x3ff, 0),
-            LFS_MKTAG(LFS_TYPE_NAME, id, lfs->name_max+1), info->name);
+            LFS_MKTAG(LFS_TYPE_NAME, id, lfs->name_max), info->name);
     if (tag < 0) {
         return (int)tag;
     }
+    info->name[lfs_tag_size(tag)] = '\0';
 
     info->type = lfs_tag_type3(tag);
 
@@ -2870,14 +2869,11 @@ static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
                 for (lfs_size_t i = 0; i < f->cfg->attr_count; i++) {
                     for (lfs_size_t j = 0; j < file->cfg->attr_count; j++) {
                         if (f->cfg->attrs[i].type == file->cfg->attrs[i].type) {
-                            lfs_size_t diff = lfs_min(
-                                f->cfg->attrs[i].size,
-                                file->cfg->attrs[i].size);
                             memcpy(f->cfg->attrs[i].buffer,
                                     file->cfg->attrs[i].buffer,
-                                    diff);
-                            memset((uint8_t*)f->cfg->attrs[i].buffer + diff,
-                                    0, f->cfg->attrs[i].size - diff);
+                                    lfs_min(
+                                        f->cfg->attrs[i].size,
+                                        file->cfg->attrs[i].size));
                         }
                     }
                 }
@@ -3484,11 +3480,8 @@ static int lfs_commitattr(lfs_t *lfs, const char *path,
                 // sync attrs
                 for (lfs_size_t i = 0; i < f->cfg->attr_count; i++) {
                     if (f->cfg->attrs[i].type == type) {
-                        // TODO should this zero trailing bytes?
-                        lfs_size_t diff = lfs_min(f->cfg->attrs[i].size, size);
-                        memcpy(f->cfg->attrs[i].buffer, buffer, diff);
-                        memset((uint8_t*)f->cfg->attrs[i].buffer + diff,
-                                0, f->cfg->attrs[i].size - diff);
+                        memcpy(f->cfg->attrs[i].buffer, buffer,
+                                lfs_min(f->cfg->attrs[i].size, size));
                     }
                 }
             }

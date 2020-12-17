@@ -300,10 +300,9 @@ struct lfs_file_config {
     // write occurs atomically with update to the file's contents.
     //
     // Custom attributes are uniquely identified by an 8-bit type and limited
-    // to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller
-    // than the buffer, it will be padded with zeros. If the stored attribute
-    // is larger, then it will be silently truncated. If the attribute is not
-    // found, it will be created implicitly.
+    // to LFS_ATTR_MAX bytes. If the stored attribute is larger than the
+    // provided buffer, it will be silently truncated. If no attribute is
+    // found, and the file is open for writing, it will be created implicitly.
     struct lfs_attr *attrs;
 
     // Number of custom attributes in the list
@@ -471,10 +470,9 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 // Get a custom attribute
 //
 // Custom attributes are uniquely identified by an 8-bit type and limited
-// to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller than
-// the buffer, it will be padded with zeros. If the stored attribute is larger,
-// then it will be silently truncated. If no attribute is found, the error
-// LFS_ERR_NOATTR is returned and the buffer is filled with zeros.
+// to LFS_ATTR_MAX bytes. If the stored attribute is larger than the
+// provided buffer, it will be silently truncated. If no attribute is found,
+// the error LFS_ERR_NOATTR is returned and the buffer is filled with zeros.
 //
 // Returns the size of the attribute, or a negative error code on failure.
 // Note, the returned size is the size of the attribute on disk, irrespective

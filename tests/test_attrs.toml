@@ -25,7 +25,6 @@ code = '''
     lfs_getattr(&lfs, "hello", 'B', buffer+4,  6) => 0;
     lfs_getattr(&lfs, "hello", 'C', buffer+10, 5) => 5;
     assert(memcmp(buffer,    "aaaa",         4) == 0);
-    assert(memcmp(buffer+4,  "\0\0\0\0\0\0", 6) == 0);
     assert(memcmp(buffer+10, "ccccc",        5) == 0);
 
     lfs_removeattr(&lfs, "hello", 'B') => 0;
@@ -33,7 +32,6 @@ code = '''
     lfs_getattr(&lfs, "hello", 'B', buffer+4,  6) => LFS_ERR_NOATTR;
     lfs_getattr(&lfs, "hello", 'C', buffer+10, 5) => 5;
     assert(memcmp(buffer,    "aaaa",         4) == 0);
-    assert(memcmp(buffer+4,  "\0\0\0\0\0\0", 6) == 0);
     assert(memcmp(buffer+10, "ccccc",        5) == 0);
 
     lfs_setattr(&lfs, "hello", 'B', "dddddd", 6) => 0;
@@ -48,9 +46,9 @@ code = '''
     lfs_getattr(&lfs, "hello", 'A', buffer,    4) => 4;
     lfs_getattr(&lfs, "hello", 'B', buffer+4,  6) => 3;
     lfs_getattr(&lfs, "hello", 'C', buffer+10, 5) => 5;
-    assert(memcmp(buffer,    "aaaa",      4) == 0);
-    assert(memcmp(buffer+4,  "eee\0\0\0", 6) == 0);
-    assert(memcmp(buffer+10, "ccccc",     5) == 0);
+    assert(memcmp(buffer,    "aaaa",  4) == 0);
+    assert(memcmp(buffer+4,  "eee",   3) == 0);
+    assert(memcmp(buffer+10, "ccccc", 5) == 0);
 
     lfs_setattr(&lfs, "hello", 'A', buffer, LFS_ATTR_MAX+1) => LFS_ERR_NOSPC;
     lfs_setattr(&lfs, "hello", 'B', "fffffffff", 9) => 0;
@@ -102,17 +100,15 @@ code = '''
     lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
     lfs_getattr(&lfs, "/", 'B', buffer+4,  6) => 0;
     lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
-    assert(memcmp(buffer,    "aaaa",         4) == 0);
-    assert(memcmp(buffer+4,  "\0\0\0\0\0\0", 6) == 0);
-    assert(memcmp(buffer+10, "ccccc",        5) == 0);
+    assert(memcmp(buffer,    "aaaa",  4) == 0);
+    assert(memcmp(buffer+10, "ccccc", 5) == 0);
 
     lfs_removeattr(&lfs, "/", 'B') => 0;
     lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
     lfs_getattr(&lfs, "/", 'B', buffer+4,  6) => LFS_ERR_NOATTR;
     lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
-    assert(memcmp(buffer,    "aaaa",         4) == 0);
-    assert(memcmp(buffer+4,  "\0\0\0\0\0\0", 6) == 0);
-    assert(memcmp(buffer+10, "ccccc",        5) == 0);
+    assert(memcmp(buffer,    "aaaa",  4) == 0);
+    assert(memcmp(buffer+10, "ccccc", 5) == 0);
 
     lfs_setattr(&lfs, "/", 'B', "dddddd", 6) => 0;
     lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
@@ -126,9 +122,9 @@ code = '''
     lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
     lfs_getattr(&lfs, "/", 'B', buffer+4,  6) => 3;
     lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
-    assert(memcmp(buffer,    "aaaa",      4) == 0);
-    assert(memcmp(buffer+4,  "eee\0\0\0", 6) == 0);
-    assert(memcmp(buffer+10, "ccccc",     5) == 0);
+    assert(memcmp(buffer,    "aaaa",  4) == 0);
+    assert(memcmp(buffer+4,  "eee",   3) == 0);
+    assert(memcmp(buffer+10, "ccccc", 5) == 0);
 
     lfs_setattr(&lfs, "/", 'A', buffer, LFS_ATTR_MAX+1) => LFS_ERR_NOSPC;
     lfs_setattr(&lfs, "/", 'B', "fffffffff", 9) => 0;
@@ -193,9 +189,8 @@ code = '''
     attrs1[1].size = 6;
     lfs_file_opencfg(&lfs, &file, "hello/hello", LFS_O_RDONLY, &cfg1) => 0;
     lfs_file_close(&lfs, &file) => 0;
-    assert(memcmp(buffer,    "aaaa",         4) == 0);
-    assert(memcmp(buffer+4,  "\0\0\0\0\0\0", 6) == 0);
-    assert(memcmp(buffer+10, "ccccc",        5) == 0);
+    assert(memcmp(buffer,    "aaaa",  4) == 0);
+    assert(memcmp(buffer+10, "ccccc", 5) == 0);
 
     attrs1[1].size = 6;
     lfs_file_opencfg(&lfs, &file, "hello/hello", LFS_O_WRONLY, &cfg1) => 0;
@@ -219,9 +214,9 @@ code = '''
     attrs1[1].size = 6;
     lfs_file_opencfg(&lfs, &file, "hello/hello", LFS_O_RDONLY, &cfg1) => 0;
     lfs_file_close(&lfs, &file) => 0;
-    assert(memcmp(buffer,    "aaaa",      4) == 0);
-    assert(memcmp(buffer+4,  "eee\0\0\0", 6) == 0);
-    assert(memcmp(buffer+10, "ccccc",     5) == 0);
+    assert(memcmp(buffer,    "aaaa",  4) == 0);
+    assert(memcmp(buffer+4,  "eee",   3) == 0);
+    assert(memcmp(buffer+10, "ccccc", 5) == 0);
 
     attrs1[0].size = LFS_ATTR_MAX+1;
     lfs_file_opencfg(&lfs, &file, "hello/hello", LFS_O_WRONLY, &cfg1)
@@ -292,18 +287,16 @@ code = '''
     lfs_getattr(&lfs, "hello/hello", 'B', buffer,    9) => 9;
     lfs_getattr(&lfs, "hello/hello", 'C', buffer+9,  9) => 5;
     lfs_getattr(&lfs, "hello/hello", 'D', buffer+18, 9) => LFS_ERR_NOATTR;
-    assert(memcmp(buffer,    "fffffffff",          9) == 0);
-    assert(memcmp(buffer+9,  "ccccc\0\0\0\0",      9) == 0);
-    assert(memcmp(buffer+18, "\0\0\0\0\0\0\0\0\0", 9) == 0);
+    assert(memcmp(buffer,    "fffffffff", 9) == 0);
+    assert(memcmp(buffer+9,  "ccccc",     5) == 0);
 
     lfs_file_write(&lfs, &file, "hi", 2) => 2;
     lfs_file_sync(&lfs, &file) => 0;
     lfs_getattr(&lfs, "hello/hello", 'B', buffer,    9) => 4;
     lfs_getattr(&lfs, "hello/hello", 'C', buffer+9,  9) => 0;
     lfs_getattr(&lfs, "hello/hello", 'D', buffer+18, 9) => 4;
-    assert(memcmp(buffer,    "gggg\0\0\0\0\0",     9) == 0);
-    assert(memcmp(buffer+9,  "\0\0\0\0\0\0\0\0\0", 9) == 0);
-    assert(memcmp(buffer+18, "hhhh\0\0\0\0\0",     9) == 0);
+    assert(memcmp(buffer,    "gggg", 4) == 0);
+    assert(memcmp(buffer+18, "hhhh", 4) == 0);
 
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;

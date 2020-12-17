@@ -95,9 +95,9 @@ code = '''
 
     lfs_mkdir(&lfs, "coffee/../milk") => 0;
     lfs_stat(&lfs, "coffee/../milk", &info) => 0;
-    strcmp(info.name, "milk") => 0;
+    assert(strcmp(info.name, "milk") == 0);
     lfs_stat(&lfs, "milk", &info) => 0;
-    strcmp(info.name, "milk") => 0;
+    assert(strcmp(info.name, "milk") == 0);
     lfs_unmount(&lfs) => 0;
 '''
 
@@ -129,9 +129,9 @@ code = '''
     lfs_mount(&lfs, &cfg) => 0;
     lfs_mkdir(&lfs, ".milk") => 0;
     lfs_stat(&lfs, ".milk", &info) => 0;
-    strcmp(info.name, ".milk") => 0;
+    assert(strcmp(info.name, ".milk") == 0);
     lfs_stat(&lfs, "tea/.././.milk", &info) => 0;
-    strcmp(info.name, ".milk") => 0;
+    assert(strcmp(info.name, ".milk") == 0);
     lfs_unmount(&lfs) => 0;
 '''
 
@@ -149,13 +149,13 @@ code = '''
     lfs_mkdir(&lfs, "coffee/coldcoffee") => 0;
 
     lfs_stat(&lfs, "coffee/../../../../../../tea/hottea", &info) => 0;
-    strcmp(info.name, "hottea") => 0;
+    assert(strcmp(info.name, "hottea") == 0);
 
     lfs_mkdir(&lfs, "coffee/../../../../../../milk") => 0;
     lfs_stat(&lfs, "coffee/../../../../../../milk", &info) => 0;
-    strcmp(info.name, "milk") => 0;
+    assert(strcmp(info.name, "milk") == 0);
     lfs_stat(&lfs, "milk", &info) => 0;
-    strcmp(info.name, "milk") => 0;
+    assert(strcmp(info.name, "milk") == 0);
     lfs_unmount(&lfs) => 0;
 '''
 
