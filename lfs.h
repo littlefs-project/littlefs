@@ -262,14 +262,6 @@ struct lfs_config {
     // can help bound the metadata compaction time. Must be <= block_size.
     // Defaults to block_size when zero.
     lfs_size_t metadata_max;
-
-    // Optional upper limit on inline files in bytes. On devices with large
-    // blocks (e.g. 128kB) setting this to a low size or disabling inline files
-    // can help bound file read overhead. Must be <= LFS_FILE_MAX. Defaults to
-    // block_size/8 when zero.
-    //
-    // Set to -1 to disable inline files.
-    lfs_ssize_t inline_file_max;
 };
 
 // File info structure
@@ -420,8 +412,6 @@ typedef struct lfs {
     lfs_size_t name_max;
     lfs_size_t file_max;
     lfs_size_t attr_max;
-    lfs_size_t metadata_max;
-    lfs_ssize_t inline_file_max;
 
 #ifdef LFS_MIGRATE
     struct lfs1 *lfs1;
