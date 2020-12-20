@@ -1,0 +1,97 @@
+name: status
+on:
+  workflow_run:
+    workflows: test
+    types: completed
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - run: echo "${{toJSON(github.event.workflow_run)}}"
+
+      # custom statuses?
+      - uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: ${{github.event.workflow_run.name}}
+          run_id: ${{github.event.workflow_run.id}}
+          name: status
+          path: status
+      - name: update-status
+        run: |
+          # TODO remove this
+          ls status
+          for f in status/*.json
+          do
+            cat $f
+          done
+
+          shopt -s nullglob
+          for s in status/*.json
+          do
+            # parse requested status
+            export STATE="$(jq -er '.state' $s)"
+            export CONTEXT="$(jq -er '.context' $s)"
+            export DESCRIPTION="$(jq -er '.description' $s)"
+            # help lookup URL for job/steps because GitHub makes
+            # it VERY HARD to link to specific jobs
+            export TARGET_URL="$(
+              jq -er '.target_url // empty' $s || (
+                export TARGET_JOB="$(jq -er '.target_job' $s)"
+                export TARGET_STEP="$(jq -er '.target_step // ""' $s)"
+                curl -sS -H "authorization: token ${{secrets.GITHUB_TOKEN}}" \
+                  "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/`
+                  `${{github.event.workflow_run.id}}/jobs" \
+                  | jq -er '.jobs[]
+                    | select(.name == env.TARGET_JOB)
+                    | .html_url + ((.steps[]
+                      | select(.name == env.TARGET_STEP)
+                      | "#step:\(.number):0") // "")'
+              )
+            )"
+            # TODO remove this
+            # print for debugging
+            echo "$(jq -nc '{
+                state: env.STATE,
+                context: env.CONTEXT,
+                description: env.DESCRIPTION,
+                target_url: env.TARGET_URL}')"
+            # update status
+            curl -sS -H "authorization: token ${{secrets.GITHUB_TOKEN}}" \
+              -X POST \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/statuses/`
+              `${{github.event.workflow_run.head_sha}}" \
+              -d "$(jq -nc '{
+                state: env.STATE,
+                context: env.CONTEXT,
+                description: env.DESCRIPTION,
+                target_url: env.TARGET_URL}')"
+
+            #if jq -er '.target_url' $s
+            #then
+            #  export TARGET_URL="$(jq -er '.target_url' $s)"
+            #elif jq -er '.target_job' $s
+            #then
+            #  
+            #fi
+            
+          done
+
+        
+
+
+#      - id: status
+#        run: |
+#          echo "::set-output name=description::$(cat statuses/x86_64.txt | tr '\n' ' ')"
+#      - uses: octokit/request-action@v2.x
+#        with:
+#          route: POST /repos/{repo}/status/{sha}
+#          repo: ${{github.repository}}
+#          sha: ${{github.event.status.sha}}
+#          context: ${{github.event.status.context}}
+#          state: ${{github.event.status.state}}
+#          description: ${{steps.status.outputs.description}}
+#          target_url: ${{github.event.status.target_url}}
+#    

@@ -4723,7 +4723,7 @@ static int lfs_rawmigrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
                 lfs1_entry_tole32(&entry1.d);
                 err = lfs_dir_commit(lfs, &dir2, LFS_MKATTRS(
-                        {LFS_MKTAG(LFS_TYPE_CREATE, id, 0)},
+                        {LFS_MKTAG(LFS_TYPE_CREATE, id, 0), NULL},
                         {LFS_MKTAG_IF_ELSE(isdir,
                             LFS_TYPE_DIR, id, entry1.d.nlen,
                             LFS_TYPE_REG, id, entry1.d.nlen),
@@ -4828,7 +4828,7 @@ static int lfs_rawmigrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
         lfs_superblock_tole32(&superblock);
         err = lfs_dir_commit(lfs, &dir2, LFS_MKATTRS(
-                {LFS_MKTAG(LFS_TYPE_CREATE, 0, 0)},
+                {LFS_MKTAG(LFS_TYPE_CREATE, 0, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
                 {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
                     &superblock}));

@@ -1,0 +1,238 @@
+name: test
+on: [push, pull_request]
+
+env:
+  CFLAGS: -Werror
+  MAKEFLAGS: -j
+
+jobs:
+  # run tests
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, thumb, mips, powerpc]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          # need toml, also pip3 isn't installed by default?
+          sudo apt-get update
+          sudo apt-get install python3 python3-pip
+          sudo pip3 install toml
+          mkdir status
+      # cross-compile with ARM Thumb (32-bit, little-endian)
+      - name: install-thumb
+        if: matrix.arch == 'thumb'
+        run: |
+          sudo apt-get install \
+            gcc-arm-linux-gnueabi \
+            libc6-dev-armel-cross \
+            qemu-user
+          echo "CC=arm-linux-gnueabi-gcc -mthumb --static" >> $GITHUB_ENV
+          echo "EXEC=qemu-arm" >> $GITHUB_ENV
+          arm-linux-gnueabi-gcc --version
+          qemu-arm -version
+      # cross-compile with MIPS (32-bit, big-endian)
+      - name: install-mips
+        if: matrix.arch == 'mips'
+        run: |
+          sudo apt-get install \
+            gcc-mips-linux-gnu \
+            libc6-dev-mips-cross \
+            qemu-user
+          echo "CC=mips-linux-gnu-gcc --static" >> $GITHUB_ENV
+          echo "EXEC=qemu-mips" >> $GITHUB_ENV
+          mips-linux-gnu-gcc --version
+          qemu-mips -version
+      # cross-compile with PowerPC (32-bit, big-endian)
+      - name: install-powerpc
+        if: matrix.arch == 'powerpc'
+        run: |
+          sudo apt-get install \
+            gcc-powerpc-linux-gnu \
+            libc6-dev-powerpc-cross \
+            qemu-user
+          echo "CC=powerpc-linux-gnu-gcc --static" >> $GITHUB_ENV
+          echo "EXEC=qemu-ppc" >> $GITHUB_ENV
+          powerpc-linux-gnu-gcc --version
+          qemu-ppc -version
+      # test configurations
+      # make sure example can at least compile
+      - name: test-example
+        run: |
+          sed -n '/``` c/,/```/{/```/d; p}' README.md > test.c && \
+          make all CFLAGS+=" \
+            -Duser_provided_block_device_read=NULL \
+            -Duser_provided_block_device_prog=NULL \
+            -Duser_provided_block_device_erase=NULL \
+            -Duser_provided_block_device_sync=NULL \
+            -include stdio.h"
+#      # normal+reentrant tests
+#      - name: test-default
+#        run: make test SCRIPTFLAGS+="-nrk"
+#      # NOR flash: read/prog = 1 block = 4KiB
+#      - name: test-nor
+#        run: make test SCRIPTFLAGS+="-nrk
+#          -DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096"
+#      # SD/eMMC: read/prog = 512 block = 512
+#      - name: test-emmc
+#        run: make test SCRIPTFLAGS+="-nrk
+#          -DLFS_READ_SIZE=512 -DLFS_BLOCK_SIZE=512"
+#      # NAND flash: read/prog = 4KiB block = 32KiB
+#      - name: test-nand
+#        run: make test SCRIPTFLAGS+="-nrk
+#          -DLFS_READ_SIZE=4096 -DLFS_BLOCK_SIZE=\(32*1024\)"
+#      # other extreme geometries that are useful for various corner cases
+#      - name: test-no-intrinsics
+#        run: make test SCRIPTFLAGS+="-nrk
+#          -DLFS_NO_INTRINSICS"
+#      - name: test-byte-writes
+#        run: make test SCRIPTFLAGS+="-nrk
+#          -DLFS_READ_SIZE=1 -DLFS_CACHE_SIZE=1"
+#      - name: test-block-cycles
+#        run: make test SCRIPTFLAGS+="-nrk
+#          -DLFS_BLOCK_CYCLES=1"
+#      - name: test-odd-block-count
+#        run: make test SCRIPTFLAGS+="-nrk
+#          -DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
+#      - name: test-odd-block-size
+#        run: make test SCRIPTFLAGS+="-nrk
+#          -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
+
+      # update results
+      - uses: actions/checkout@v2
+        if: github.ref != 'refs/heads/master'
+        continue-on-error: true
+        with:
+          ref: master
+          path: master
+
+      - name: results-code
+        continue-on-error: true
+        run: |
+          export OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
+          export CFLAGS+=" \
+            -DLFS_NO_ASSERT \
+            -DLFS_NO_DEBUG \
+            -DLFS_NO_WARN \
+            -DLFS_NO_ERROR"
+          if [ -d master ]
+          then
+            make -C master clean code OBJ="$OBJ" \
+              SCRIPTFLAGS+="-qo code.csv" \
+              && export SCRIPTFLAGS+="-d master/code.csv"
+          fi
+          make clean code OBJ="$OBJ" \
+            SCRIPTFLAGS+="-o code.csv"
+      - name: results-code-readonly
+        continue-on-error: true
+        run: |
+          export OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
+          export CFLAGS+=" \
+            -DLFS_NO_ASSERT \
+            -DLFS_NO_DEBUG \
+            -DLFS_NO_WARN \
+            -DLFS_NO_ERROR \
+            -DLFS_READONLY"
+          if [ -d master ]
+          then
+            make -C master clean code OBJ="$OBJ" \
+              SCRIPTFLAGS+="-qo code-readonly.csv" \
+              && export SCRIPTFLAGS+="-d master/code-readonly.csv"
+          fi
+          # TODO remove this OBJ
+          make clean code OBJ="$OBJ" \
+            SCRIPTFLAGS+="-o code-readonly.csv"
+      - name: results-code-threadsafe
+        continue-on-error: true
+        run: |
+          export OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
+          export CFLAGS+=" \
+            -DLFS_NO_ASSERT \
+            -DLFS_NO_DEBUG \
+            -DLFS_NO_WARN \
+            -DLFS_NO_ERROR \
+            -DLFS_THREADSAFE"
+          if [ -d master ]
+          then
+            make -C master clean code OBJ="$OBJ" \
+              SCRIPTFLAGS+="-qo code-threadsafe.csv" \
+              && export SCRIPTFLAGS+="-d master/code-threadsafe.csv"
+          fi
+          make clean code OBJ="$OBJ" \
+            SCRIPTFLAGS+="-o code-threadsafe.csv"
+      - name: results-code-migrate
+        continue-on-error: true
+        run: |
+          export OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
+          export CFLAGS+=" \
+            -DLFS_NO_ASSERT \
+            -DLFS_NO_DEBUG \
+            -DLFS_NO_WARN \
+            -DLFS_NO_ERROR \
+            -DLFS_MIGRATE"
+          if [ -d master ]
+          then
+            make -C master clean code OBJ="$OBJ" \
+              SCRIPTFLAGS+="-qo code-migrate.csv" \
+              && export SCRIPTFLAGS+="-d master/code-migrate.csv"
+          fi
+          make clean code OBJ="$OBJ" \
+            SCRIPTFLAGS+="-o code-migrate.csv"
+      # limit reporting to Thumb, otherwise there would be too many numbers
+      # flying around for the results to be easily readable
+      - name: collect-status
+        continue-on-error: true
+        if: matrix.arch == 'thumb'
+        run: |
+          mkdir -p status
+          shopt -s nullglob
+          for f in code*.csv
+          do
+              export STEP="results-code$(
+                echo $f | sed -n 's/code-\(.*\).csv/-\1/p')"
+              export CONTEXT="results / code$(
+                echo $f | sed -n 's/code-\(.*\).csv/ (\1)/p')"
+              export DESCRIPTION="Code size is $(
+                ./scripts/code.py -i $f -S $(
+                  [ -e master/$f ] && echo "-d master/$f"))"
+              jq -nc '{
+                state: "success",
+                context: env.CONTEXT,
+                description: env.DESCRIPTION,
+                target_job: "test (${{matrix.arch}})",
+                target_step: env.STEP}' \
+                > status/code$(echo $f | sed -n 's/code-\(.*\).csv/-\1/p').json
+          done
+      - name: upload-status
+        continue-on-error: true
+        if: matrix.arch == 'thumb'
+        uses: actions/upload-artifact@v2
+        with:
+          name: status
+          path: status
+          retention-days: 1
+
+  # run under Valgrind to check for memory errors
+  valgrind:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          # need toml, also pip3 isn't installed by default?
+          sudo apt-get update
+          sudo apt-get install python3 python3-pip
+          sudo pip3 install toml
+      - name: install-valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install valgrind
+          valgrind --version
+#      # normal tests, we don't need to test all geometries
+#      - name: test-valgrind
+#        run: make test SCRIPTFLAGS+="-k --valgrind"

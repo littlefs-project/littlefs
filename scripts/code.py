@@ -40,7 +40,7 @@ $(foreach target,$(SRC),$(eval $(FLATTEN)))
 -include %(sizedir)s/*.d
 .SECONDARY:
 
-%%.size: $(foreach t,$(subst /,.,$(SRC:.c=.size)),%%.$t)
+%%.size: $(foreach t,$(subst /,.,$(OBJ:.o=.size)),%%.$t)
     cat $^ > $@
 """
 CATS = {

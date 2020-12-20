@@ -29,8 +29,7 @@ override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
 
 ifdef VERBOSE
-override TFLAGS += -v
-override SFLAGS += -v
+override SCRIPTFLAGS += -v
 endif
 
 
@@ -41,14 +40,14 @@ asm: $(ASM)
 size: $(OBJ)
 	$(SIZE) -t $^
 
-code_size:
-	./scripts/code_size.py $(SFLAGS)
+code:
+	./scripts/code.py $(SCRIPTFLAGS)
 
 test:
-	./scripts/test.py $(TFLAGS)
+	./scripts/test.py $(EXEC:%=--exec=%) $(SCRIPTFLAGS)
 .SECONDEXPANSION:
 test%: tests/test$$(firstword $$(subst \#, ,%)).toml
-	./scripts/test.py $@ $(TFLAGS)
+	./scripts/test.py $@ $(EXEC:%=--exec=%) $(SCRIPTFLAGS)
 
 -include $(DEP)
 
