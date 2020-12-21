@@ -24,20 +24,20 @@ code = '''
     }
 
     lfs_dir_open(&lfs, &dir, "/") => 0;
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     for (int j = 0; j < FILES; j++) {
         sprintf(path, "%c", alphas[j]);
-        lfs_dir_read(&lfs, &dir, &info) => 1;
+        lfs_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, path) == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
     }
-    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfs_dir_close(&lfs, &dir) => 0;
 
     for (int j = 0; j < FILES; j++) {
@@ -89,17 +89,17 @@ code = '''
     lfs_file_close(&lfs, &file);
 
     lfs_dir_open(&lfs, &dir, "/") => 0;
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "zzz") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == FILES);
-    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfs_dir_close(&lfs, &dir) => 0;
 
     lfs_file_open(&lfs, &file, "zzz", LFS_O_RDONLY) => 0;
@@ -141,21 +141,21 @@ code = '''
     lfs_file_close(&lfs, &files[2]);
 
     lfs_dir_open(&lfs, &dir, "/") => 0;
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "e") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "g") == 0);
     assert(info.type == LFS_TYPE_REG);
     assert(info.size == SIZE);
-    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfs_dir_close(&lfs, &dir) => 0;
 
     lfs_file_open(&lfs, &files[0], "e", LFS_O_RDONLY) => 0;
@@ -208,20 +208,20 @@ code = '''
     }
 
     lfs_dir_open(&lfs, &dir, "/") => 0;
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfs_dir_read(&lfs, &dir, &info) => 1;
+    lfs_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     for (int j = 0; j < FILES; j++) {
         sprintf(path, "%c", alphas[j]);
-        lfs_dir_read(&lfs, &dir, &info) => 1;
+        lfs_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, path) == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == SIZE);
     }
-    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfs_dir_close(&lfs, &dir) => 0;
 
     for (int j = 0; j < FILES; j++) {

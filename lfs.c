@@ -2160,18 +2160,19 @@ static int lfs_dir_rawread(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
         info->type = LFS_TYPE_DIR;
         strcpy(info->name, ".");
         dir->pos += 1;
-        return true;
+        return 0;
     } else if (dir->pos == 1) {
         info->type = LFS_TYPE_DIR;
         strcpy(info->name, "..");
         dir->pos += 1;
-        return true;
+        return 0;
     }
 
     while (true) {
         if (dir->id == dir->m.count) {
             if (!dir->m.split) {
-                return false;
+                // reached end of traversal
+                return LFS_ERR_NOENT;
             }
 
             int err = lfs_dir_fetch(lfs, &dir->m, dir->m.tail);
@@ -2194,7 +2195,7 @@ static int lfs_dir_rawread(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     }
 
     dir->pos += 1;
-    return true;
+    return 0;
 }
 
 static int lfs_dir_rawseek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
