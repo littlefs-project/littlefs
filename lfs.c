@@ -2527,6 +2527,7 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
 #ifndef LFS_READONLY
     } else if (flags & LFS_O_TRUNC) {
         // truncate if requested
+        // always mark dirty in case we have custom attributes
         tag = LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0);
         file->flags |= LFS_F_DIRTY;
 #endif
@@ -2878,7 +2879,7 @@ static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
                     }
                 }
 
-                file->flags &= ~(LFS_F_DIRTY | LFS_F_WRITING | LFS_F_READING);
+                f->flags &= ~(LFS_F_DIRTY | LFS_F_WRITING | LFS_F_READING);
             }
         }
 

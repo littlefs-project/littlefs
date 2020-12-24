@@ -294,10 +294,10 @@ struct lfs_file_config {
     void *buffer;
 
     // Optional list of custom attributes related to the file. If the file
-    // is opened with read access, these attributes will be read from disk
-    // during the open call. If the file is opened with write access, the
-    // attributes will be written to disk every file sync or close. This
-    // write occurs atomically with update to the file's contents.
+    // is opened for reading, these attributes will be read from disk during
+    // open. If the file is open for writing, these attribute will be atomically
+    // written to disk when the file is written to disk. Note that these
+    // attributes are not written unless the file is modified.
     //
     // Custom attributes are uniquely identified by an 8-bit type and limited
     // to LFS_ATTR_MAX bytes. If the stored attribute is larger than the
