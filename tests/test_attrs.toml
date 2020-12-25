@@ -219,8 +219,8 @@ code = '''
     assert(memcmp(buffer+10, "ccccc", 5) == 0);
 
     attrs1[0].size = LFS_ATTR_MAX+1;
-    lfs_file_opencfg(&lfs, &file, "hello/hello", LFS_O_WRONLY, &cfg1)
-        => LFS_ERR_NOSPC;
+    lfs_file_opencfg(&lfs, &file, "hello/hello2",
+            LFS_O_WRONLY | LFS_O_CREAT, &cfg1) => LFS_ERR_NOSPC;
 
     struct lfs_attr attrs2[] = {
         {'A', buffer,    4},
