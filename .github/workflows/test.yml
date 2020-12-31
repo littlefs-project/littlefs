@@ -4,6 +4,7 @@ on: [push, pull_request]
 env:
   CFLAGS: -Werror
   MAKEFLAGS: -j
+  COVERAGE: 1
 
 jobs:
   # run tests
@@ -70,9 +71,10 @@ jobs:
             -Duser_provided_block_device_erase=NULL \
             -Duser_provided_block_device_sync=NULL \
             -include stdio.h"
-#      # normal+reentrant tests
-#      - name: test-default
-#        run: make test SCRIPTFLAGS+="-nrk"
+      # normal+reentrant tests
+      - name: test-default
+        continue-on-error: true
+        run: make test SCRIPTFLAGS+="-nrk"
 #      # NOR flash: read/prog = 1 block = 4KiB
 #      - name: test-nor
 #        run: make test SCRIPTFLAGS+="-nrk
@@ -101,6 +103,29 @@ jobs:
 #      - name: test-odd-block-size
 #        run: make test SCRIPTFLAGS+="-nrk
 #          -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
+
+      - name: test-default-what
+        run: |
+            echo "version"
+            gcov --version
+            echo "tests"
+            ls tests
+            echo "hmm"
+            cat tests/*.gcov
+            echo "woah"
+
+      # collect coverage
+      - name: collect-coverage
+        continue-on-error: true
+        run: |
+          mkdir -p coverage
+          mv results/coverage.gcov coverage/${{github.job}}.gcov
+      - name: upload-coverage
+        continue-on-error: true
+        uses: actions/upload-artifact@v2
+        with:
+          name: coverage
+          path: coverage
 
       # update results
       - uses: actions/checkout@v2

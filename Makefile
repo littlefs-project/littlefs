@@ -7,6 +7,7 @@ CC ?= gcc
 AR ?= ar
 SIZE ?= size
 NM ?= nm
+GCOV ?= gcov
 
 SRC += $(wildcard *.c bd/*.c)
 OBJ := $(SRC:.c=.o)
@@ -31,6 +32,12 @@ override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
 ifdef VERBOSE
 override SCRIPTFLAGS += -v
 endif
+ifdef EXEC
+override TESTFLAGS += $(patsubst %,--exec=%,$(EXEC))
+endif
+ifdef COVERAGE
+override TESTFLAGS += --coverage
+endif
 
 
 all: $(TARGET)
@@ -43,11 +50,14 @@ size: $(OBJ)
 code:
 	./scripts/code.py $(SCRIPTFLAGS)
 
+coverage:
+	./scripts/coverage.py $(SCRIPTFLAGS)
+
 test:
-	./scripts/test.py $(EXEC:%=--exec=%) $(SCRIPTFLAGS)
+	./scripts/test.py $(TESTFLAGS) $(SCRIPTFLAGS)
 .SECONDEXPANSION:
 test%: tests/test$$(firstword $$(subst \#, ,%)).toml
-	./scripts/test.py $@ $(EXEC:%=--exec=%) $(SCRIPTFLAGS)
+	./scripts/test.py $@ $(TESTFLAGS) $(SCRIPTFLAGS)
 
 -include $(DEP)
 
@@ -63,6 +73,9 @@ lfs: $(OBJ)
 %.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
+%.gcda.gcov: %.gcda
+	( cd $(dir $@) ; $(GCOV) -ri $(notdir $<) )
+
 clean:
 	rm -f $(TARGET)
 	rm -f $(OBJ)
@@ -70,3 +83,4 @@ clean:
 	rm -f $(ASM)
 	rm -f tests/*.toml.*
 	rm -f sizes/*
+	rm -f results/*
