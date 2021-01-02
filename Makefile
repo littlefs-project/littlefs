@@ -8,6 +8,7 @@ AR ?= ar
 SIZE ?= size
 NM ?= nm
 GCOV ?= gcov
+LCOV ?= lcov
 
 SRC += $(wildcard *.c bd/*.c)
 OBJ := $(SRC:.c=.o)
@@ -35,24 +36,27 @@ endif
 ifdef EXEC
 override TESTFLAGS += $(patsubst %,--exec=%,$(EXEC))
 endif
-ifdef COVERAGE
-override TESTFLAGS += --coverage
-endif
 
 
-all: $(TARGET)
+.PHONY: all build
+all build: $(TARGET)
 
+.PHONY: asm
 asm: $(ASM)
 
+.PHONY: size
 size: $(OBJ)
 	$(SIZE) -t $^
 
+.PHONY: code
 code:
 	./scripts/code.py $(SCRIPTFLAGS)
 
+.PHONY: coverage
 coverage:
 	./scripts/coverage.py $(SCRIPTFLAGS)
 
+.PHONY: test
 test:
 	./scripts/test.py $(TESTFLAGS) $(SCRIPTFLAGS)
 .SECONDEXPANSION:
@@ -76,6 +80,7 @@ lfs: $(OBJ)
 %.gcda.gcov: %.gcda
 	( cd $(dir $@) ; $(GCOV) -ri $(notdir $<) )
 
+.PHONY: clean
 clean:
 	rm -f $(TARGET)
 	rm -f $(OBJ)
