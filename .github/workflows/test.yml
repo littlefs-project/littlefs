@@ -4,7 +4,6 @@ on: [push, pull_request]
 env:
   CFLAGS: -Werror
   MAKEFLAGS: -j
-  COVERAGE: 1
 
 jobs:
   # run tests
@@ -14,21 +13,22 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, thumb, mips, powerpc]
+    env:
+      TESTFLAGS: --coverage
 
     steps:
       - uses: actions/checkout@v2
       - name: install
         run: |
           # need toml, also pip3 isn't installed by default?
-          sudo apt-get update
-          sudo apt-get install python3 python3-pip
+          sudo apt-get update -qq
+          sudo apt-get install -qq python3 python3-pip lcov
           sudo pip3 install toml
-          mkdir status
       # cross-compile with ARM Thumb (32-bit, little-endian)
       - name: install-thumb
         if: matrix.arch == 'thumb'
         run: |
-          sudo apt-get install \
+          sudo apt-get install -qq \
             gcc-arm-linux-gnueabi \
             libc6-dev-armel-cross \
             qemu-user
@@ -40,7 +40,7 @@ jobs:
       - name: install-mips
         if: matrix.arch == 'mips'
         run: |
-          sudo apt-get install \
+          sudo apt-get install -qq \
             gcc-mips-linux-gnu \
             libc6-dev-mips-cross \
             qemu-user
@@ -52,7 +52,7 @@ jobs:
       - name: install-powerpc
         if: matrix.arch == 'powerpc'
         run: |
-          sudo apt-get install \
+          sudo apt-get install -qq \
             gcc-powerpc-linux-gnu \
             libc6-dev-powerpc-cross \
             qemu-user
@@ -73,140 +73,118 @@ jobs:
             -include stdio.h"
       # normal+reentrant tests
       - name: test-default
-        continue-on-error: true
-        run: make test SCRIPTFLAGS+="-nrk"
-#      # NOR flash: read/prog = 1 block = 4KiB
-#      - name: test-nor
-#        run: make test SCRIPTFLAGS+="-nrk
-#          -DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096"
-#      # SD/eMMC: read/prog = 512 block = 512
-#      - name: test-emmc
-#        run: make test SCRIPTFLAGS+="-nrk
-#          -DLFS_READ_SIZE=512 -DLFS_BLOCK_SIZE=512"
-#      # NAND flash: read/prog = 4KiB block = 32KiB
-#      - name: test-nand
-#        run: make test SCRIPTFLAGS+="-nrk
-#          -DLFS_READ_SIZE=4096 -DLFS_BLOCK_SIZE=\(32*1024\)"
-#      # other extreme geometries that are useful for various corner cases
-#      - name: test-no-intrinsics
-#        run: make test SCRIPTFLAGS+="-nrk
-#          -DLFS_NO_INTRINSICS"
-#      - name: test-byte-writes
-#        run: make test SCRIPTFLAGS+="-nrk
-#          -DLFS_READ_SIZE=1 -DLFS_CACHE_SIZE=1"
-#      - name: test-block-cycles
-#        run: make test SCRIPTFLAGS+="-nrk
-#          -DLFS_BLOCK_CYCLES=1"
-#      - name: test-odd-block-count
-#        run: make test SCRIPTFLAGS+="-nrk
-#          -DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
-#      - name: test-odd-block-size
-#        run: make test SCRIPTFLAGS+="-nrk
-#          -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
-
-      - name: test-default-what
-        run: |
-            echo "version"
-            gcov --version
-            echo "tests"
-            ls tests
-            echo "hmm"
-            cat tests/*.gcov
-            echo "woah"
+        run: make test_dirs TESTFLAGS+="-nrk"
+      # NOR flash: read/prog = 1 block = 4KiB
+      - name: test-nor
+        run: make test TESTFLAGS+="-nrk
+          -DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096" VERBOSE=1
+      # SD/eMMC: read/prog = 512 block = 512
+      - name: test-emmc
+        run: make test TESTFLAGS+="-nrk
+          -DLFS_READ_SIZE=512 -DLFS_BLOCK_SIZE=512"
+      # NAND flash: read/prog = 4KiB block = 32KiB
+      - name: test-nand
+        run: make test TESTFLAGS+="-nrk
+          -DLFS_READ_SIZE=4096 -DLFS_BLOCK_SIZE=\(32*1024\)"
+      # other extreme geometries that are useful for various corner cases
+      - name: test-no-intrinsics
+        run: make test TESTFLAGS+="-nrk
+          -DLFS_NO_INTRINSICS"
+      - name: test-byte-writes
+        run: make test TESTFLAGS+="-nrk
+          -DLFS_READ_SIZE=1 -DLFS_CACHE_SIZE=1"
+      - name: test-block-cycles
+        run: make test TESTFLAGS+="-nrk
+          -DLFS_BLOCK_CYCLES=1"
+      - name: test-odd-block-count
+        run: make test TESTFLAGS+="-nrk
+          -DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
+      - name: test-odd-block-size
+        run: make test TESTFLAGS+="-nrk
+          -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
 
       # collect coverage
       - name: collect-coverage
         continue-on-error: true
         run: |
           mkdir -p coverage
-          mv results/coverage.gcov coverage/${{github.job}}.gcov
+          lcov $(for f in tests/*.toml.cumul.info ; do echo "-a $f" ; done) \
+            -o coverage/${{github.job}}-${{matrix.arch}}.info
+          # we only care about littlefs's actual source
+          lcov -e coverage/${{github.job}}-${{matrix.arch}}.info \
+            $(for f in lfs*.c ; do echo "/$f" ; done) \
+            -o coverage/${{github.job}}-${{matrix.arch}}.info
       - name: upload-coverage
         continue-on-error: true
         uses: actions/upload-artifact@v2
         with:
           name: coverage
           path: coverage
+          retention-days: 1
 
       # update results
-      - uses: actions/checkout@v2
-        if: github.ref != 'refs/heads/master'
-        continue-on-error: true
-        with:
-          ref: master
-          path: master
-
       - name: results-code
         continue-on-error: true
         run: |
-          export OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
-          export CFLAGS+=" \
-            -DLFS_NO_ASSERT \
-            -DLFS_NO_DEBUG \
-            -DLFS_NO_WARN \
-            -DLFS_NO_ERROR"
-          if [ -d master ]
-          then
-            make -C master clean code OBJ="$OBJ" \
-              SCRIPTFLAGS+="-qo code.csv" \
-              && export SCRIPTFLAGS+="-d master/code.csv"
-          fi
-          make clean code OBJ="$OBJ" \
-            SCRIPTFLAGS+="-o code.csv"
+          mkdir -p results
+          # TODO remove the need for OBJ
+          make clean
+          make code \
+            OBJ="$(echo lfs*.c | sed 's/\.c/\.o/g')" \
+            CFLAGS+=" \
+              -DLFS_NO_ASSERT \
+              -DLFS_NO_DEBUG \
+              -DLFS_NO_WARN \
+              -DLFS_NO_ERROR" \
+            CODEFLAGS+="-o results/code.csv"
       - name: results-code-readonly
         continue-on-error: true
         run: |
-          export OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
-          export CFLAGS+=" \
-            -DLFS_NO_ASSERT \
-            -DLFS_NO_DEBUG \
-            -DLFS_NO_WARN \
-            -DLFS_NO_ERROR \
-            -DLFS_READONLY"
-          if [ -d master ]
-          then
-            make -C master clean code OBJ="$OBJ" \
-              SCRIPTFLAGS+="-qo code-readonly.csv" \
-              && export SCRIPTFLAGS+="-d master/code-readonly.csv"
-          fi
-          # TODO remove this OBJ
-          make clean code OBJ="$OBJ" \
-            SCRIPTFLAGS+="-o code-readonly.csv"
+          mkdir -p results
+          make clean
+          make code \
+            OBJ="$(echo lfs*.c | sed 's/\.c/\.o/g')" \
+            CFLAGS+=" \
+              -DLFS_NO_ASSERT \
+              -DLFS_NO_DEBUG \
+              -DLFS_NO_WARN \
+              -DLFS_NO_ERROR \
+              -DLFS_READONLY" \
+            CODEFLAGS+="-o results/code-readonly.csv"
       - name: results-code-threadsafe
         continue-on-error: true
         run: |
-          export OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
-          export CFLAGS+=" \
-            -DLFS_NO_ASSERT \
-            -DLFS_NO_DEBUG \
-            -DLFS_NO_WARN \
-            -DLFS_NO_ERROR \
-            -DLFS_THREADSAFE"
-          if [ -d master ]
-          then
-            make -C master clean code OBJ="$OBJ" \
-              SCRIPTFLAGS+="-qo code-threadsafe.csv" \
-              && export SCRIPTFLAGS+="-d master/code-threadsafe.csv"
-          fi
-          make clean code OBJ="$OBJ" \
-            SCRIPTFLAGS+="-o code-threadsafe.csv"
+          mkdir -p results
+          make clean
+          make code \
+            OBJ="$(echo lfs*.c | sed 's/\.c/\.o/g')" \
+            CFLAGS+=" \
+              -DLFS_NO_ASSERT \
+              -DLFS_NO_DEBUG \
+              -DLFS_NO_WARN \
+              -DLFS_NO_ERROR \
+              -DLFS_THREADSAFE" \
+            CODEFLAGS+="-o results/code-threadsafe.csv"
       - name: results-code-migrate
         continue-on-error: true
         run: |
-          export OBJ="$(ls lfs*.c | sed 's/\.c/\.o/' | tr '\n' ' ')"
-          export CFLAGS+=" \
-            -DLFS_NO_ASSERT \
-            -DLFS_NO_DEBUG \
-            -DLFS_NO_WARN \
-            -DLFS_NO_ERROR \
-            -DLFS_MIGRATE"
-          if [ -d master ]
-          then
-            make -C master clean code OBJ="$OBJ" \
-              SCRIPTFLAGS+="-qo code-migrate.csv" \
-              && export SCRIPTFLAGS+="-d master/code-migrate.csv"
-          fi
-          make clean code OBJ="$OBJ" \
-            SCRIPTFLAGS+="-o code-migrate.csv"
+          mkdir -p results
+          make clean
+          make code \
+            OBJ="$(echo lfs*.c | sed 's/\.c/\.o/g')" \
+            CFLAGS+=" \
+              -DLFS_NO_ASSERT \
+              -DLFS_NO_DEBUG \
+              -DLFS_NO_WARN \
+              -DLFS_NO_ERROR \
+              -DLFS_MIGRATE" \
+            CODEFLAGS+="-o results/code-migrate.csv"
+      - name: upload-results
+        continue-on-error: true
+        uses: actions/upload-artifact@v2
+        with:
+          name: results
+          path: results
       # limit reporting to Thumb, otherwise there would be too many numbers
       # flying around for the results to be easily readable
       - name: collect-status
@@ -214,23 +192,31 @@ jobs:
         if: matrix.arch == 'thumb'
         run: |
           mkdir -p status
-          shopt -s nullglob
-          for f in code*.csv
+          for f in results/code*.csv
           do
               export STEP="results-code$(
-                echo $f | sed -n 's/code-\(.*\).csv/-\1/p')"
+                echo $f | sed -n 's/.*code-\(.*\).csv/-\1/p')"
               export CONTEXT="results / code$(
-                echo $f | sed -n 's/code-\(.*\).csv/ (\1)/p')"
-              export DESCRIPTION="Code size is $(
-                ./scripts/code.py -i $f -S $(
-                  [ -e master/$f ] && echo "-d master/$f"))"
-              jq -nc '{
+                echo $f | sed -n 's/.*code-\(.*\).csv/ (\1)/p')"
+              export PREV="$(curl -sS \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/master" \
+                | jq -re "select(.sha != env.GITHUB_SHA) | .statuses[]
+                  | select(.context == env.CONTEXT).description
+                  | capture(\"Code size is (?<result>[0-9]+)\").result" \
+                || echo 0)"
+              echo $PREV
+              export DESCRIPTION="$(./scripts/code.py -u $f -s | awk '
+                NR==2 {printf "Code size is %d B",$2}
+                NR==2 && ENVIRON["PREV"] != 0 {
+                  printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/$2}')"
+              jq -n '{
                 state: "success",
                 context: env.CONTEXT,
                 description: env.DESCRIPTION,
-                target_job: "test (${{matrix.arch}})",
+                target_job: "${{github.job}} (${{matrix.arch}})",
                 target_step: env.STEP}' \
-                > status/code$(echo $f | sed -n 's/code-\(.*\).csv/-\1/p').json
+                | tee status/code$(
+                  echo $f | sed -n 's/.*code-\(.*\).csv/-\1/p').json
           done
       - name: upload-status
         continue-on-error: true
@@ -244,20 +230,190 @@ jobs:
   # run under Valgrind to check for memory errors
   valgrind:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v2
       - name: install
         run: |
           # need toml, also pip3 isn't installed by default?
-          sudo apt-get update
-          sudo apt-get install python3 python3-pip
+          sudo apt-get update -qq
+          sudo apt-get install -qq python3 python3-pip
           sudo pip3 install toml
       - name: install-valgrind
         run: |
-          sudo apt-get update
-          sudo apt-get install valgrind
+          sudo apt-get update -qq
+          sudo apt-get install -qq valgrind
           valgrind --version
-#      # normal tests, we don't need to test all geometries
-#      - name: test-valgrind
-#        run: make test SCRIPTFLAGS+="-k --valgrind"
+      # normal tests, we don't need to test all geometries
+      - name: test-valgrind
+        run: make test TESTFLAGS+="-k --valgrind"
+
+  # self-host with littlefs-fuse for a fuzz-like test
+  fuse:
+    runs-on: ubuntu-latest
+    if: ${{!endsWith(github.ref, '-prefix')}}
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          # need toml, also pip3 isn't installed by default?
+          sudo apt-get update -qq
+          sudo apt-get install -qq python3 python3-pip libfuse-dev
+          sudo pip3 install toml
+          fusermount -V
+          gcc --version
+      - uses: actions/checkout@v2
+        with:
+          repository: littlefs-project/littlefs-fuse
+          ref: v2
+          path: littlefs-fuse
+      - name: setup
+        run: |
+          # copy our new version into littlefs-fuse
+          rm -rf littlefs-fuse/littlefs/*
+          cp -r $(git ls-tree --name-only HEAD) littlefs-fuse/littlefs
+
+          # setup disk for littlefs-fuse
+          mkdir mount
+          sudo chmod a+rw /dev/loop0
+          dd if=/dev/zero bs=512 count=128K of=disk
+          losetup /dev/loop0 disk
+      - name: test
+        run: |
+          # self-host test
+          make -C littlefs-fuse
+
+          littlefs-fuse/lfs --format /dev/loop0
+          littlefs-fuse/lfs /dev/loop0 mount
+
+          ls mount
+          mkdir mount/littlefs
+          cp -r $(git ls-tree --name-only HEAD) mount/littlefs
+          cd mount/littlefs
+          stat .
+          ls -flh
+          make -B test
+
+  # test migration using littlefs-fuse
+  migrate:
+    runs-on: ubuntu-latest
+    if: ${{!endsWith(github.ref, '-prefix')}}
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          # need toml, also pip3 isn't installed by default?
+          sudo apt-get update -qq
+          sudo apt-get install -qq python3 python3-pip libfuse-dev
+          sudo pip3 install toml
+          fusermount -V
+          gcc --version
+      - uses: actions/checkout@v2
+        with:
+          repository: littlefs-project/littlefs-fuse
+          ref: v2
+          path: v2
+      - uses: actions/checkout@v2
+        with:
+          repository: littlefs-project/littlefs-fuse
+          ref: v1
+          path: v1
+      - name: setup
+        run: |
+          # copy our new version into littlefs-fuse
+          rm -rf v2/littlefs/*
+          cp -r $(git ls-tree --name-only HEAD) v2/littlefs
+
+          # setup disk for littlefs-fuse
+          mkdir mount
+          sudo chmod a+rw /dev/loop0
+          dd if=/dev/zero bs=512 count=128K of=disk
+          losetup /dev/loop0 disk
+      - name: test
+        run: |
+          # compile v1 and v2
+          make -C v1
+          make -C v2
+
+          # run self-host test with v1
+          v1/lfs --format /dev/loop0
+          v1/lfs /dev/loop0 mount
+
+          ls mount
+          mkdir mount/littlefs
+          cp -r $(git ls-tree --name-only HEAD) mount/littlefs
+          cd mount/littlefs
+          stat .
+          ls -flh
+          make -B test
+
+          # attempt to migrate
+          cd ../..
+          fusermount -u mount
+
+          v2/lfs --migrate /dev/loop0
+          v2/lfs /dev/loop0 mount
+
+          # run self-host test with v2 right where we left off
+          ls mount
+          cd mount/littlefs
+          stat .
+          ls -flh
+          make -B test
+
+  # collect coverage info
+  coverage:
+    runs-on: ubuntu-latest
+    needs: [test]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq python3 python3-pip lcov
+          sudo pip3 install toml
+      - uses: actions/download-artifact@v2
+        with:
+          name: coverage
+          path: coverage
+      - name: results-coverage
+        run: |
+          mkdir -p results
+          lcov $(for f in coverage/*.info ; do echo "-a $f" ; done) \
+            -o results/coverage.info
+          ./scripts/coverage.py results/coverage.info -o results/coverage.csv
+      - name: upload-results
+        continue-on-error: true
+        uses: actions/upload-artifact@v2
+        with:
+          name: results
+          path: results
+      - name: collect-status
+        run: |
+          mkdir -p status
+          export STEP="results-coverage"
+          export CONTEXT="results / coverage"
+          export PREV="$(curl -sS \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/master" \
+            | jq -re "select(.sha != env.GITHUB_SHA) | .statuses[]
+              | select(.context == env.CONTEXT).description
+              | capture(\"Coverage is (?<result>[0-9\\\\.]+)\").result" \
+            || echo 0)"
+          export DESCRIPTION="$(
+            ./scripts/coverage.py -u results/coverage.csv -s | awk -F '[ /%]+' '
+              NR==2 {printf "Coverage is %.1f%% of %d lines",$4,$3}
+              NR==2 && ENVIRON["PREV"] != 0 {
+                printf " (%+.1f%%)",$4-ENVIRON["PREV"]}')"
+          jq -n '{
+            state: "success",
+            context: env.CONTEXT,
+            description: env.DESCRIPTION,
+            target_job: "${{github.job}}",
+            target_step: env.STEP}' \
+            | tee status/coverage.json
+      - name: upload-status
+        uses: actions/upload-artifact@v2
+        with:
+          name: status
+          path: status
+          retention-days: 1
