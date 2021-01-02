@@ -46,11 +46,11 @@ jobs:
                   `${{github.event.workflow_run.id}}/jobs" \
                   | jq -er '.jobs[]
                     | select(.name == env.TARGET_JOB)
-                    | .html_url + ((.steps[]
-                      | select(.name == env.TARGET_STEP)
-                      | "#step:\(.number):0") // "")'
-              )
-            )"
+                    | .html_url
+                      + "?check_suite_focus=true"
+                      + ((.steps[]
+                        | select(.name == env.TARGET_STEP)
+                        | "#step:\(.number):0") // "")'))"
             # TODO remove this
             # print for debugging
             echo "$(jq -nc '{

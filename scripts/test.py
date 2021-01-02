@@ -20,7 +20,7 @@ import pty
 import errno
 import signal
 
-TESTDIR = 'tests'
+TEST_PATHS = 'tests'
 RULES = """
 define FLATTEN
 %(path)s%%$(subst /,.,$(target)): $(target)
@@ -31,14 +31,15 @@ $(foreach target,$(SRC),$(eval $(FLATTEN)))
 -include %(path)s*.d
 .SECONDARY:
 
-%(path)s.test: %(path)s.test.o $(foreach t,$(subst /,.,$(OBJ)),%(path)s.$t)
+%(path)s.test: %(path)s.test.o \\
+        $(foreach t,$(subst /,.,$(SRC:.c=.o)),%(path)s.$t)
     $(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 """
 COVERAGE_RULES = """
 %(path)s.test: override CFLAGS += -fprofile-arcs -ftest-coverage
 
 # delete lingering coverage
-%(path)s.test: | %(path)s.info.clean
+%(path)s.test: | %(path)s.clean
 .PHONY: %(path)s.clean
 %(path)s.clean:
     rm -f %(path)s*.gcda
@@ -373,12 +374,17 @@ class TestSuite:
         self.name = os.path.basename(path)
         if self.name.endswith('.toml'):
             self.name = self.name[:-len('.toml')]
-        self.path = path
+        if args.get('build_dir'):
+            self.toml = path
+            self.path = args['build_dir'] + '/' + path
+        else:
+            self.toml = path
+            self.path = path
         self.classes = classes
         self.defines = defines.copy()
         self.filter = filter
 
-        with open(path) as f:
+        with open(self.toml) as f:
             # load tests
             config = toml.load(f)
 
@@ -489,7 +495,7 @@ class TestSuite:
 
     def build(self, **args):
         # build test files
-        tf = open(self.path + '.test.c.t', 'w')
+        tf = open(self.path + '.test.tc', 'w')
         tf.write(GLOBALS)
         if self.code is not None:
             tf.write('#line %d "%s"\n' % (self.code_lineno, self.path))
@@ -499,7 +505,7 @@ class TestSuite:
         for case in self.cases:
             if case.in_ not in tfs:
                 tfs[case.in_] = open(self.path+'.'+
-                    case.in_.replace('/', '.')+'.t', 'w')
+                    re.sub('(\.c)?$', '.tc', case.in_.replace('/', '.')), 'w')
                 tfs[case.in_].write('#line 1 "%s"\n' % case.in_)
                 with open(case.in_) as f:
                     for line in f:
@@ -556,13 +562,15 @@ class TestSuite:
                 if path is None:
                     mk.write('%s: %s | %s\n' % (
                         self.path+'.test.c',
-                        self.path,
-                        self.path+'.test.c.t'))
+                        self.toml,
+                        self.path+'.test.tc'))
                 else:
                     mk.write('%s: %s %s | %s\n' % (
                         self.path+'.'+path.replace('/', '.'),
-                        self.path, path,
-                        self.path+'.'+path.replace('/', '.')+'.t'))
+                        self.toml,
+                        path,
+                        self.path+'.'+re.sub('(\.c)?$', '.tc',
+                            path.replace('/', '.'))))
                 mk.write('\t./scripts/explode_asserts.py $| -o $@\n')
 
         self.makefile = self.path + '.mk'
@@ -617,7 +625,7 @@ def main(**args):
         classes = [TestCase]
 
     suites = []
-    for testpath in args['testpaths']:
+    for testpath in args['test_paths']:
         # optionally specified test case/perm
         testpath, *filter = testpath.split('#')
         filter = [int(f) for f in filter]
@@ -628,9 +636,9 @@ def main(**args):
         elif os.path.isfile(testpath):
             testpath = testpath
         elif testpath.endswith('.toml'):
-            testpath = TESTDIR + '/' + testpath
+            testpath = TEST_PATHS + '/' + testpath
         else:
-            testpath = TESTDIR + '/' + testpath + '.toml'
+            testpath = TEST_PATHS + '/' + testpath + '.toml'
 
         # find tests
         for path in glob.glob(testpath):
@@ -695,7 +703,7 @@ def main(**args):
         if not args.get('verbose', False):
             for line in stdout:
                 sys.stdout.write(line)
-        sys.exit(-3)
+        sys.exit(-1)
 
     print('built %d test suites, %d test cases, %d permutations' % (
         len(suites),
@@ -707,7 +715,7 @@ def main(**args):
         for perm in suite.perms:
             total += perm.shouldtest(**args)
     if total != sum(len(suite.perms) for suite in suites):
-        print('total down to %d permutations' % total)
+        print('filtered down to %d permutations' % total)
 
     # only requested to build?
     if args.get('build', False):
@@ -733,7 +741,7 @@ def main(**args):
             else:
                 sys.stdout.write(
                     "\033[01m{path}:{lineno}:\033[01;31mfailure:\033[m "
-                    "{perm} failed with {returncode}\n".format(
+                    "{perm} failed\n".format(
                         perm=perm, path=perm.suite.path, lineno=perm.lineno,
                         returncode=perm.result.returncode or 0))
                 if perm.result.stdout:
@@ -753,7 +761,8 @@ def main(**args):
 
     if args.get('coverage', False):
         # collect coverage info
-        cmd = (['make', '-f', 'Makefile'] +
+        # why -j1? lcov doesn't work in parallel because of gcov issues
+        cmd = (['make', '-j1', '-f', 'Makefile'] +
             list(it.chain.from_iterable(['-f', m] for m in makefiles)) +
             [re.sub('\.test$', '.cumul.info', target) for target in targets])
         if args.get('verbose', False):
@@ -762,7 +771,7 @@ def main(**args):
             stdout=sp.DEVNULL if not args.get('verbose', False) else None)
         proc.wait()
         if proc.returncode != 0:
-            sys.exit(-3)
+            sys.exit(-1)
 
     if args.get('gdb', False):
         failure = None
@@ -786,12 +795,12 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(
         description="Run parameterized tests in various configurations.")
-    parser.add_argument('testpaths', nargs='*', default=[TESTDIR],
+    parser.add_argument('test_paths', nargs='*', default=[TEST_PATHS],
         help="Description of test(s) to run. By default, this is all tests \
             found in the \"{0}\" directory. Here, you can specify a different \
             directory of tests, a specific file, a suite by name, and even a \
             specific test case by adding brackets. For example \
-            \"test_dirs[0]\" or \"{0}/test_dirs.toml[0]\".".format(TESTDIR))
+            \"test_dirs[0]\" or \"{0}/test_dirs.toml[0]\".".format(TEST_PATHS))
     parser.add_argument('-D', action='append', default=[],
         help="Overriding parameter definitions.")
     parser.add_argument('-v', '--verbose', action='store_true',
@@ -823,4 +832,8 @@ if __name__ == "__main__":
             to accumulate coverage information into *.info files. Note \
             coverage is not reset between runs, allowing multiple runs to \
             contribute to coverage.")
+    parser.add_argument('--build-dir',
+        help="Build relative to the specified directory instead of the \
+            current directory.")
+
     sys.exit(main(**vars(parser.parse_args())))
