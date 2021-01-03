@@ -28,11 +28,20 @@ def collect(paths, **args):
         cmd = args['nm_tool'] + ['--size-sort', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
-        proc = sp.Popen(cmd, stdout=sp.PIPE, universal_newlines=True)
+        proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            stderr=sp.PIPE if not args.get('verbose') else None,
+            universal_newlines=True)
         for line in proc.stdout:
             m = pattern.match(line)
             if m:
                 results[(path, m.group('func'))] += int(m.group('size'), 16)
+        proc.wait()
+        if proc.returncode != 0:
+            if not args.get('verbose'):
+                for line in proc.stderr:
+                    sys.stdout.write(line)
+            sys.exit(-1)
 
     flat_results = []
     for (file, func), size in results.items():
