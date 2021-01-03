@@ -13,8 +13,6 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, thumb, mips, powerpc]
-    env:
-      TESTFLAGS: --coverage
 
     steps:
       - uses: actions/checkout@v2
@@ -24,6 +22,13 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -qq python3 python3-pip lcov
           sudo pip3 install toml
+          gcc --version
+
+          # collect coverage
+          mkdir -p coverage
+          echo "TESTFLAGS=$TESTFLAGS --coverage=`
+            `coverage/${{github.job}}-${{matrix.arch}}.info" >> $GITHUB_ENV
+
       # cross-compile with ARM Thumb (32-bit, little-endian)
       - name: install-thumb
         if: matrix.arch == 'thumb'
@@ -60,7 +65,7 @@ jobs:
           echo "EXEC=qemu-ppc" >> $GITHUB_ENV
           powerpc-linux-gnu-gcc --version
           qemu-ppc -version
-      # test configurations
+
       # make sure example can at least compile
       - name: test-example
         run: |
@@ -71,45 +76,65 @@ jobs:
             -Duser_provided_block_device_erase=NULL \
             -Duser_provided_block_device_sync=NULL \
             -include stdio.h"
+
+      # test configurations
       # normal+reentrant tests
       - name: test-default
-        run: make test_dirs TESTFLAGS+="-nrk"
+        run: |
+          make clean
+          make test TESTFLAGS+="-nrk"
       # NOR flash: read/prog = 1 block = 4KiB
       - name: test-nor
-        run: make test TESTFLAGS+="-nrk
-          -DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096" VERBOSE=1
+        run: |
+          make clean
+          make test TESTFLAGS+="-nrk \
+            -DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096"
       # SD/eMMC: read/prog = 512 block = 512
       - name: test-emmc
-        run: make test TESTFLAGS+="-nrk
-          -DLFS_READ_SIZE=512 -DLFS_BLOCK_SIZE=512"
+        run: |
+          make clean
+          make test TESTFLAGS+="-nrk \
+            -DLFS_READ_SIZE=512 -DLFS_BLOCK_SIZE=512"
       # NAND flash: read/prog = 4KiB block = 32KiB
       - name: test-nand
-        run: make test TESTFLAGS+="-nrk
-          -DLFS_READ_SIZE=4096 -DLFS_BLOCK_SIZE=\(32*1024\)"
+        run: |
+          make clean
+          make test TESTFLAGS+="-nrk \
+            -DLFS_READ_SIZE=4096 -DLFS_BLOCK_SIZE=\(32*1024\)"
       # other extreme geometries that are useful for various corner cases
       - name: test-no-intrinsics
-        run: make test TESTFLAGS+="-nrk
-          -DLFS_NO_INTRINSICS"
+        run: |
+          make clean
+          make test TESTFLAGS+="-nrk \
+            -DLFS_NO_INTRINSICS"
       - name: test-byte-writes
-        run: make test TESTFLAGS+="-nrk
-          -DLFS_READ_SIZE=1 -DLFS_CACHE_SIZE=1"
+        # it just takes too long to test byte-level writes when in qemu,
+        # should be plenty covered by the other configurations
+        if: matrix.arch == 'x86_64'
+        run: |
+          make clean
+          make test TESTFLAGS+="-nrk \
+            -DLFS_READ_SIZE=1 -DLFS_CACHE_SIZE=1"
       - name: test-block-cycles
-        run: make test TESTFLAGS+="-nrk
-          -DLFS_BLOCK_CYCLES=1"
+        run: |
+          make clean
+          make test TESTFLAGS+="-nrk \
+            -DLFS_BLOCK_CYCLES=1"
       - name: test-odd-block-count
-        run: make test TESTFLAGS+="-nrk
-          -DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
+        run: |
+          make clean
+          make test TESTFLAGS+="-nrk \
+            -DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
       - name: test-odd-block-size
-        run: make test TESTFLAGS+="-nrk
-          -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
+        run: |
+          make clean
+          make test TESTFLAGS+="-nrk \
+            -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
 
       # collect coverage
       - name: collect-coverage
         continue-on-error: true
         run: |
-          mkdir -p coverage
-          lcov $(for f in tests/*.toml.cumul.info ; do echo "-a $f" ; done) \
-            -o coverage/${{github.job}}-${{matrix.arch}}.info
           # we only care about littlefs's actual source
           lcov -e coverage/${{github.job}}-${{matrix.arch}}.info \
             $(for f in lfs*.c ; do echo "/$f" ; done) \
@@ -127,10 +152,10 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p results
-          # TODO remove the need for OBJ
+          # TODO remove the need for SRC
           make clean
           make code \
-            OBJ="$(echo lfs*.c | sed 's/\.c/\.o/g')" \
+            SRC="$(echo lfs*.c)" \
             CFLAGS+=" \
               -DLFS_NO_ASSERT \
               -DLFS_NO_DEBUG \
@@ -143,7 +168,7 @@ jobs:
           mkdir -p results
           make clean
           make code \
-            OBJ="$(echo lfs*.c | sed 's/\.c/\.o/g')" \
+            SRC="$(echo lfs*.c)" \
             CFLAGS+=" \
               -DLFS_NO_ASSERT \
               -DLFS_NO_DEBUG \
@@ -157,7 +182,7 @@ jobs:
           mkdir -p results
           make clean
           make code \
-            OBJ="$(echo lfs*.c | sed 's/\.c/\.o/g')" \
+            SRC="$(echo lfs*.c)" \
             CFLAGS+=" \
               -DLFS_NO_ASSERT \
               -DLFS_NO_DEBUG \
@@ -171,7 +196,7 @@ jobs:
           mkdir -p results
           make clean
           make code \
-            OBJ="$(echo lfs*.c | sed 's/\.c/\.o/g')" \
+            SRC="$(echo lfs*.c)" \
             CFLAGS+=" \
               -DLFS_NO_ASSERT \
               -DLFS_NO_DEBUG \

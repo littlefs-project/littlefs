@@ -16,6 +16,7 @@ else
 TARGET ?= $(BUILDDIR)lfs.a
 endif
 
+
 CC ?= gcc
 AR ?= ar
 SIZE ?= size
@@ -24,14 +25,9 @@ NM ?= nm
 LCOV ?= lcov
 
 SRC ?= $(wildcard *.c bd/*.c)
-OBJ := $(SRC:%.c=%.o)
-DEP := $(SRC:%.c=%.d)
-ASM := $(SRC:%.c=%.s)
-ifdef BUILDDIR
-override OBJ := $(addprefix $(BUILDDIR),$(OBJ))
-override DEP := $(addprefix $(BUILDDIR),$(DEP))
-override ASM := $(addprefix $(BUILDDIR),$(ASM))
-endif
+OBJ := $(SRC:%.c=$(BUILDDIR)%.o)
+DEP := $(SRC:%.c=$(BUILDDIR)%.d)
+ASM := $(SRC:%.c=$(BUILDDIR)%.s)
 
 ifdef DEBUG
 override CFLAGS += -O0 -g3
@@ -81,16 +77,16 @@ tags:
 code: $(OBJ)
 	./scripts/code.py $^ $(CODEFLAGS)
 
-.PHONY: coverage
-coverage:
-	./scripts/coverage.py $(BUILDDIR)tests/*.toml.info $(COVERAGEFLAGS)
-
 .PHONY: test
 test:
 	./scripts/test.py $(TESTFLAGS)
 .SECONDEXPANSION:
 test%: tests/test$$(firstword $$(subst \#, ,%)).toml
 	./scripts/test.py $@ $(TESTFLAGS)
+
+.PHONY: coverage
+coverage:
+	./scripts/coverage.py $(BUILDDIR)tests/*.toml.info $(COVERAGEFLAGS)
 
 # rules
 -include $(DEP)
