@@ -465,7 +465,7 @@ static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file);
 static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file);
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file);
 
-static void lfs_fs_preporphans(lfs_t *lfs, int8_t orphans);
+static int lfs_fs_preporphans(lfs_t *lfs, int8_t orphans);
 static void lfs_fs_prepmove(lfs_t *lfs,
         uint16_t id, const lfs_block_t pair[2]);
 static int lfs_fs_pred(lfs_t *lfs, const lfs_block_t dir[2],
@@ -2061,7 +2061,10 @@ static int lfs_rawmkdir(lfs_t *lfs, const char *path) {
     // current block end of list?
     if (cwd.m.split) {
         // update tails, this creates a desync
-        lfs_fs_preporphans(lfs, +1);
+        err = lfs_fs_preporphans(lfs, +1);
+        if (err) {
+            return err;
+        }
 
         // it's possible our predecessor has to be relocated, and if
         // our parent is our predecessor's predecessor, this could have
@@ -2081,7 +2084,10 @@ static int lfs_rawmkdir(lfs_t *lfs, const char *path) {
         }
 
         lfs->mlist = cwd.next;
-        lfs_fs_preporphans(lfs, -1);
+        err = lfs_fs_preporphans(lfs, -1);
+        if (err) {
+            return err;
+        }
     }
 
     // now insert into our parent block
@@ -3206,7 +3212,10 @@ static int lfs_rawremove(lfs_t *lfs, const char *path) {
         }
 
         // mark fs as orphaned
-        lfs_fs_preporphans(lfs, +1);
+        err = lfs_fs_preporphans(lfs, +1);
+        if (err) {
+            return err;
+        }
 
         // I know it's crazy but yes, dir can be changed by our parent's
         // commit (if predecessor is child)
@@ -3226,7 +3235,10 @@ static int lfs_rawremove(lfs_t *lfs, const char *path) {
     lfs->mlist = dir.next;
     if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
         // fix orphan
-        lfs_fs_preporphans(lfs, -1);
+        err = lfs_fs_preporphans(lfs, -1);
+        if (err) {
+            return err;
+        }
 
         err = lfs_fs_pred(lfs, dir.m.pair, &cwd);
         if (err) {
@@ -3312,7 +3324,10 @@ static int lfs_rawrename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         }
 
         // mark fs as orphaned
-        lfs_fs_preporphans(lfs, +1);
+        err = lfs_fs_preporphans(lfs, +1);
+        if (err) {
+            return err;
+        }
 
         // I know it's crazy but yes, dir can be changed by our parent's
         // commit (if predecessor is child)
@@ -3355,7 +3370,10 @@ static int lfs_rawrename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs->mlist = prevdir.next;
     if (prevtag != LFS_ERR_NOENT && lfs_tag_type3(prevtag) == LFS_TYPE_DIR) {
         // fix orphan
-        lfs_fs_preporphans(lfs, -1);
+        err = lfs_fs_preporphans(lfs, -1);
+        if (err) {
+            return err;
+        }
 
         err = lfs_fs_pred(lfs, prevdir.m.pair, &newcwd);
         if (err) {
@@ -3829,7 +3847,7 @@ int lfs_fs_rawtraverse(lfs_t *lfs,
                 if (err) {
                     return err;
                 }
-            } else if (includeorphans && 
+            } else if (includeorphans &&
                     lfs_tag_type3(tag) == LFS_TYPE_DIRSTRUCT) {
                 for (int i = 0; i < 2; i++) {
                     err = cb(data, (&ctz.head)[i]);
@@ -3986,7 +4004,10 @@ static int lfs_fs_relocate(lfs_t *lfs,
 
     if (tag != LFS_ERR_NOENT) {
         // update disk, this creates a desync
-        lfs_fs_preporphans(lfs, +1);
+        int err = lfs_fs_preporphans(lfs, +1);
+        if (err) {
+            return err;
+        }
 
         // fix pending move in this pair? this looks like an optimization but
         // is in fact _required_ since relocating may outdate the move.
@@ -4003,7 +4024,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
         }
 
         lfs_pair_tole32(newpair);
-        int err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
+        err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
                 {LFS_MKTAG_IF(moveid != 0x3ff,
                     LFS_TYPE_DELETE, moveid, 0), NULL},
                 {tag, newpair}));
@@ -4013,7 +4034,10 @@ static int lfs_fs_relocate(lfs_t *lfs,
         }
 
         // next step, clean up orphans
-        lfs_fs_preporphans(lfs, -1);
+        err = lfs_fs_preporphans(lfs, -1);
+        if (err) {
+            return err;
+        }
     }
 
     // find pred
@@ -4052,11 +4076,13 @@ static int lfs_fs_relocate(lfs_t *lfs,
 #endif
 
 #ifndef LFS_READONLY
-static void lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
+static int lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
     LFS_ASSERT(lfs_tag_size(lfs->gstate.tag) > 0 || orphans >= 0);
     lfs->gstate.tag += orphans;
     lfs->gstate.tag = ((lfs->gstate.tag & ~LFS_MKTAG(0x800, 0, 0)) |
             ((uint32_t)lfs_gstate_hasorphans(&lfs->gstate) << 31));
+
+    return 0;
 }
 #endif
 
@@ -4173,8 +4199,7 @@ static int lfs_fs_deorphan(lfs_t *lfs) {
     }
 
     // mark orphans as fixed
-    lfs_fs_preporphans(lfs, -lfs_gstate_getorphans(&lfs->gstate));
-    return 0;
+    return lfs_fs_preporphans(lfs, -lfs_gstate_getorphans(&lfs->gstate));
 }
 #endif
 
