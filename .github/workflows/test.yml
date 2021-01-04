@@ -24,10 +24,17 @@ jobs:
           sudo pip3 install toml
           gcc --version
 
+          # setup a ram-backed disk to speed up reentrant tests
+          mkdir disks
+          sudo mount -t tmpfs -o size=100m tmpfs disks
+          TESTFLAGS="$TESTFLAGS --disk=disks/disk"
+
           # collect coverage
           mkdir -p coverage
-          echo "TESTFLAGS=$TESTFLAGS --coverage=`
-            `coverage/${{github.job}}-${{matrix.arch}}.info" >> $GITHUB_ENV
+          TESTFLAGS="$TESTFLAGS --coverage=`
+            `coverage/${{github.job}}-${{matrix.arch}}.info"
+
+          echo "TESTFLAGS=$TESTFLAGS" >> $GITHUB_ENV
 
       # cross-compile with ARM Thumb (32-bit, little-endian)
       - name: install-thumb
@@ -77,59 +84,59 @@ jobs:
             -Duser_provided_block_device_sync=NULL \
             -include stdio.h"
 
-      # test configurations
-      # normal+reentrant tests
-      - name: test-default
-        run: |
-          make clean
-          make test TESTFLAGS+="-nrk"
-      # NOR flash: read/prog = 1 block = 4KiB
-      - name: test-nor
-        run: |
-          make clean
-          make test TESTFLAGS+="-nrk \
-            -DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096"
-      # SD/eMMC: read/prog = 512 block = 512
-      - name: test-emmc
-        run: |
-          make clean
-          make test TESTFLAGS+="-nrk \
-            -DLFS_READ_SIZE=512 -DLFS_BLOCK_SIZE=512"
-      # NAND flash: read/prog = 4KiB block = 32KiB
-      - name: test-nand
-        run: |
-          make clean
-          make test TESTFLAGS+="-nrk \
-            -DLFS_READ_SIZE=4096 -DLFS_BLOCK_SIZE=\(32*1024\)"
-      # other extreme geometries that are useful for various corner cases
-      - name: test-no-intrinsics
-        run: |
-          make clean
-          make test TESTFLAGS+="-nrk \
-            -DLFS_NO_INTRINSICS"
-      - name: test-byte-writes
-        # it just takes too long to test byte-level writes when in qemu,
-        # should be plenty covered by the other configurations
-        if: matrix.arch == 'x86_64'
-        run: |
-          make clean
-          make test TESTFLAGS+="-nrk \
-            -DLFS_READ_SIZE=1 -DLFS_CACHE_SIZE=1"
-      - name: test-block-cycles
-        run: |
-          make clean
-          make test TESTFLAGS+="-nrk \
-            -DLFS_BLOCK_CYCLES=1"
-      - name: test-odd-block-count
-        run: |
-          make clean
-          make test TESTFLAGS+="-nrk \
-            -DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
-      - name: test-odd-block-size
-        run: |
-          make clean
-          make test TESTFLAGS+="-nrk \
-            -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
+#      # test configurations
+#      # normal+reentrant tests
+#      - name: test-default
+#        run: |
+#          make clean
+#          make test TESTFLAGS+="-nrk"
+#      # NOR flash: read/prog = 1 block = 4KiB
+#      - name: test-nor
+#        run: |
+#          make clean
+#          make test TESTFLAGS+="-nrk \
+#            -DLFS_READ_SIZE=1 -DLFS_BLOCK_SIZE=4096"
+#      # SD/eMMC: read/prog = 512 block = 512
+#      - name: test-emmc
+#        run: |
+#          make clean
+#          make test TESTFLAGS+="-nrk \
+#            -DLFS_READ_SIZE=512 -DLFS_BLOCK_SIZE=512"
+#      # NAND flash: read/prog = 4KiB block = 32KiB
+#      - name: test-nand
+#        run: |
+#          make clean
+#          make test TESTFLAGS+="-nrk \
+#            -DLFS_READ_SIZE=4096 -DLFS_BLOCK_SIZE=\(32*1024\)"
+#      # other extreme geometries that are useful for various corner cases
+#      - name: test-no-intrinsics
+#        run: |
+#          make clean
+#          make test TESTFLAGS+="-nrk \
+#            -DLFS_NO_INTRINSICS"
+#      - name: test-byte-writes
+#        # it just takes too long to test byte-level writes when in qemu,
+#        # should be plenty covered by the other configurations
+#        if: matrix.arch == 'x86_64'
+#        run: |
+#          make clean
+#          make test TESTFLAGS+="-nrk \
+#            -DLFS_READ_SIZE=1 -DLFS_CACHE_SIZE=1"
+#      - name: test-block-cycles
+#        run: |
+#          make clean
+#          make test TESTFLAGS+="-nrk \
+#            -DLFS_BLOCK_CYCLES=1"
+#      - name: test-odd-block-count
+#        run: |
+#          make clean
+#          make test TESTFLAGS+="-nrk \
+#            -DLFS_BLOCK_COUNT=1023 -DLFS_LOOKAHEAD_SIZE=256"
+#      - name: test-odd-block-size
+#        run: |
+#          make clean
+#          make test TESTFLAGS+="-nrk \
+#            -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
 
       # collect coverage
       - name: collect-coverage
@@ -161,7 +168,7 @@ jobs:
               -DLFS_NO_DEBUG \
               -DLFS_NO_WARN \
               -DLFS_NO_ERROR" \
-            CODEFLAGS+="-o results/code.csv"
+            CODEFLAGS+="-o results/code-${{matrix.arch}}.csv"
       - name: results-code-readonly
         continue-on-error: true
         run: |
@@ -175,7 +182,7 @@ jobs:
               -DLFS_NO_WARN \
               -DLFS_NO_ERROR \
               -DLFS_READONLY" \
-            CODEFLAGS+="-o results/code-readonly.csv"
+            CODEFLAGS+="-o results/code-${{matrix.arch}}-readonly.csv"
       - name: results-code-threadsafe
         continue-on-error: true
         run: |
@@ -189,7 +196,7 @@ jobs:
               -DLFS_NO_WARN \
               -DLFS_NO_ERROR \
               -DLFS_THREADSAFE" \
-            CODEFLAGS+="-o results/code-threadsafe.csv"
+            CODEFLAGS+="-o results/code-${{matrix.arch}}-threadsafe.csv"
       - name: results-code-migrate
         continue-on-error: true
         run: |
@@ -203,7 +210,7 @@ jobs:
               -DLFS_NO_WARN \
               -DLFS_NO_ERROR \
               -DLFS_MIGRATE" \
-            CODEFLAGS+="-o results/code-migrate.csv"
+            CODEFLAGS+="-o results/code-${{matrix.arch}}-migrate.csv"
       - name: upload-results
         continue-on-error: true
         uses: actions/upload-artifact@v2
@@ -219,29 +226,30 @@ jobs:
           mkdir -p status
           for f in results/code*.csv
           do
-              export STEP="results-code$(
-                echo $f | sed -n 's/.*code-\(.*\).csv/-\1/p')"
-              export CONTEXT="results / code$(
-                echo $f | sed -n 's/.*code-\(.*\).csv/ (\1)/p')"
-              export PREV="$(curl -sS \
-                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/master" \
-                | jq -re "select(.sha != env.GITHUB_SHA) | .statuses[]
-                  | select(.context == env.CONTEXT).description
-                  | capture(\"Code size is (?<result>[0-9]+)\").result" \
-                || echo 0)"
-              echo $PREV
-              export DESCRIPTION="$(./scripts/code.py -u $f -s | awk '
-                NR==2 {printf "Code size is %d B",$2}
-                NR==2 && ENVIRON["PREV"] != 0 {
-                  printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/$2}')"
-              jq -n '{
-                state: "success",
-                context: env.CONTEXT,
-                description: env.DESCRIPTION,
-                target_job: "${{github.job}} (${{matrix.arch}})",
-                target_step: env.STEP}' \
-                | tee status/code$(
-                  echo $f | sed -n 's/.*code-\(.*\).csv/-\1/p').json
+            [ -e "$f" ] || continue
+            export STEP="results-code$(
+              echo $f | sed -n 's/.*code-.*-\(.*\).csv/-\1/p')"
+            export CONTEXT="results / code$(
+              echo $f | sed -n 's/.*code-.*-\(.*\).csv/ (\1)/p')"
+            export PREV="$(curl -sS \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/master" \
+              | jq -re "select(.sha != env.GITHUB_SHA) | .statuses[]
+                | select(.context == env.CONTEXT).description
+                | capture(\"Code size is (?<result>[0-9]+)\").result" \
+              || echo 0)"
+            echo $PREV
+            export DESCRIPTION="$(./scripts/code.py -u $f -s | awk '
+              NR==2 {printf "Code size is %d B",$2}
+              NR==2 && ENVIRON["PREV"] != 0 {
+                printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/$2}')"
+            jq -n '{
+              state: "success",
+              context: env.CONTEXT,
+              description: env.DESCRIPTION,
+              target_job: "${{github.job}} (${{matrix.arch}})",
+              target_step: env.STEP}' \
+              | tee status/code$(
+                echo $f | sed -n 's/.*code-.*-\(.*\).csv/-\1/p').json
           done
       - name: upload-status
         continue-on-error: true
@@ -268,14 +276,14 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -qq valgrind
           valgrind --version
-      # normal tests, we don't need to test all geometries
-      - name: test-valgrind
-        run: make test TESTFLAGS+="-k --valgrind"
+#      # normal tests, we don't need to test all geometries
+#      - name: test-valgrind
+#        run: make test TESTFLAGS+="-k --valgrind"
 
   # self-host with littlefs-fuse for a fuzz-like test
   fuse:
     runs-on: ubuntu-latest
-    if: ${{!endsWith(github.ref, '-prefix')}}
+    if: "!endsWith(github.ref, '-prefix')"
     steps:
       - uses: actions/checkout@v2
       - name: install
@@ -321,7 +329,7 @@ jobs:
   # test migration using littlefs-fuse
   migrate:
     runs-on: ubuntu-latest
-    if: ${{!endsWith(github.ref, '-prefix')}}
+    if: "!endsWith(github.ref, '-prefix')"
     steps:
       - uses: actions/checkout@v2
       - name: install
@@ -397,25 +405,32 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -qq python3 python3-pip lcov
           sudo pip3 install toml
+      # yes we continue-on-error on every step, continue-on-error
+      # at job level apparently still marks a job as failed, which isn't
+      # what we want
       - uses: actions/download-artifact@v2
+        continue-on-error: true
         with:
           name: coverage
           path: coverage
       - name: results-coverage
+        continue-on-error: true
         run: |
           mkdir -p results
           lcov $(for f in coverage/*.info ; do echo "-a $f" ; done) \
             -o results/coverage.info
           ./scripts/coverage.py results/coverage.info -o results/coverage.csv
       - name: upload-results
-        continue-on-error: true
         uses: actions/upload-artifact@v2
+        continue-on-error: true
         with:
           name: results
           path: results
       - name: collect-status
+        continue-on-error: true
         run: |
           mkdir -p status
+          [ -e results/coverage.csv ] || exit 0
           export STEP="results-coverage"
           export CONTEXT="results / coverage"
           export PREV="$(curl -sS \
@@ -425,7 +440,8 @@ jobs:
               | capture(\"Coverage is (?<result>[0-9\\\\.]+)\").result" \
             || echo 0)"
           export DESCRIPTION="$(
-            ./scripts/coverage.py -u results/coverage.csv -s | awk -F '[ /%]+' '
+            ./scripts/coverage.py -u results/coverage.csv -s \
+            | awk -F '[ /%]+' '
               NR==2 {printf "Coverage is %.1f%% of %d lines",$4,$3}
               NR==2 && ENVIRON["PREV"] != 0 {
                 printf " (%+.1f%%)",$4-ENVIRON["PREV"]}')"
@@ -438,6 +454,7 @@ jobs:
             | tee status/coverage.json
       - name: upload-status
         uses: actions/upload-artifact@v2
+        continue-on-error: true
         with:
           name: status
           path: status

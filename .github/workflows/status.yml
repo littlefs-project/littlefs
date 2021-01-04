@@ -1,8 +1,8 @@
 name: status
 on:
   workflow_run:
-    workflows: test
-    types: completed
+    workflows: [test]
+    types: [completed]
 
 jobs:
   status:
@@ -41,7 +41,7 @@ jobs:
               jq -er '.target_url // empty' $s || (
                 export TARGET_JOB="$(jq -er '.target_job' $s)"
                 export TARGET_STEP="$(jq -er '.target_step // ""' $s)"
-                curl -sS -H "authorization: token ${{secrets.GITHUB_TOKEN}}" \
+                curl -sS -H "authorization: token ${{secrets.BOT_TOKEN}}" \
                   "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/`
                   `${{github.event.workflow_run.id}}/jobs" \
                   | jq -er '.jobs[]
@@ -59,10 +59,9 @@ jobs:
                 description: env.DESCRIPTION,
                 target_url: env.TARGET_URL}')"
             # update status
-            curl -sS -H "authorization: token ${{secrets.GITHUB_TOKEN}}" \
-              -X POST \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/statuses/`
-              `${{github.event.workflow_run.head_sha}}" \
+            curl -sS -H "authorization: token ${{secrets.BOT_TOKEN}}" \
+              -X POST "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/statuses/`
+                `${{github.event.workflow_run.head_sha}}" \
               -d "$(jq -nc '{
                 state: env.STATE,
                 context: env.CONTEXT,
