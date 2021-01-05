@@ -24,7 +24,7 @@ CTAGS ?= ctags
 NM ?= nm
 LCOV ?= lcov
 
-SRC ?= $(wildcard *.c bd/*.c)
+SRC ?= $(wildcard *.c)
 OBJ := $(SRC:%.c=$(BUILDDIR)%.o)
 DEP := $(SRC:%.c=$(BUILDDIR)%.d)
 ASM := $(SRC:%.c=$(BUILDDIR)%.s)
@@ -71,7 +71,7 @@ size: $(OBJ)
 
 .PHONY: tags
 tags:
-	$(CTAGS) --totals --c-types=+p $(shell find -name '*.h') $(SRC)
+	$(CTAGS) --totals --c-types=+p $(shell find -H -name '*.h') $(SRC)
 
 .PHONY: code
 code: $(OBJ)
