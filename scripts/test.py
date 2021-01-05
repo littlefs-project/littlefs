@@ -22,17 +22,20 @@ import signal
 
 TEST_PATHS = 'tests'
 RULES = """
+# add block devices to sources
+TESTSRC ?= $(SRC) $(wildcard bd/*.c)
+
 define FLATTEN
 %(path)s%%$(subst /,.,$(target)): $(target)
     ./scripts/explode_asserts.py $$< -o $$@
 endef
-$(foreach target,$(SRC),$(eval $(FLATTEN)))
+$(foreach target,$(TESTSRC),$(eval $(FLATTEN)))
 
 -include %(path)s*.d
 .SECONDARY:
 
 %(path)s.test: %(path)s.test.o \\
-        $(foreach t,$(subst /,.,$(SRC:.c=.o)),%(path)s.$t)
+        $(foreach t,$(subst /,.,$(TESTSRC:.c=.o)),%(path)s.$t)
     $(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
 # needed in case builddir is different

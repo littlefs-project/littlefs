@@ -138,14 +138,7 @@ jobs:
 #          make test TESTFLAGS+="-nrk \
 #            -DLFS_READ_SIZE=11 -DLFS_BLOCK_SIZE=704"
 
-      # collect coverage
-      - name: collect-coverage
-        continue-on-error: true
-        run: |
-          # we only care about littlefs's actual source
-          lcov -e coverage/${{github.job}}-${{matrix.arch}}.info \
-            $(for f in lfs*.c ; do echo "/$f" ; done) \
-            -o coverage/${{github.job}}-${{matrix.arch}}.info
+      # upload coveragefor later coverage
       - name: upload-coverage
         continue-on-error: true
         uses: actions/upload-artifact@v2
@@ -159,10 +152,8 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p results
-          # TODO remove the need for SRC
           make clean
           make code \
-            SRC="$(echo lfs*.c)" \
             CFLAGS+=" \
               -DLFS_NO_ASSERT \
               -DLFS_NO_DEBUG \
@@ -175,7 +166,6 @@ jobs:
           mkdir -p results
           make clean
           make code \
-            SRC="$(echo lfs*.c)" \
             CFLAGS+=" \
               -DLFS_NO_ASSERT \
               -DLFS_NO_DEBUG \
@@ -189,7 +179,6 @@ jobs:
           mkdir -p results
           make clean
           make code \
-            SRC="$(echo lfs*.c)" \
             CFLAGS+=" \
               -DLFS_NO_ASSERT \
               -DLFS_NO_DEBUG \
@@ -203,7 +192,6 @@ jobs:
           mkdir -p results
           make clean
           make code \
-            SRC="$(echo lfs*.c)" \
             CFLAGS+=" \
               -DLFS_NO_ASSERT \
               -DLFS_NO_DEBUG \
