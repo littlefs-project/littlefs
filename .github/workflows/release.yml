@@ -7,14 +7,13 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
 
     # need to manually check for a couple things
     # - tests passed?
     # - we are the most recent commit on master?
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_sha == github.sha
+    if: ${{github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_sha == github.sha}}
 
     steps:
       - uses: actions/checkout@v2
@@ -71,33 +70,78 @@ jobs:
       # try to find results from tests
       - name: collect-results
         run: |
-          [ -e results/code-thumb.csv ] && \
-            ./scripts/code.py -u results/code-thumb.csv -s \
-            | awk 'NR==2 {printf "Code size,%d B\n",$2}' \
-            >> results.csv
-          [ -e results/code-thumb-readonly.csv ] && \
-            ./scripts/code.py -u results/code-thumb-readonly.csv -s \
-            | awk 'NR==2 {printf "Code size (readonly),%d B\n",$2}' \
-            >> results.csv
-          [ -e results/code-thumb-threadsafe.csv ] && \
-            ./scripts/code.py -u results/code-thumb-threadsafe.csv -s \
-            | awk 'NR==2 {printf "Code size (threadsafe),%d B\n",$2}' \
-            >> results.csv
-          [ -e results/code-thumb-migrate.csv ] && \
-            ./scripts/code.py -u results/code-thumb-migrate.csv -s \
-            | awk 'NR==2 {printf "Code size (migrate),%d B\n",$2}' \
-            >> results.csv
-          [ -e results/coverage.csv ] && \
-            ./scripts/coverage.py -u results/coverage.csv -s \
-            | awk 'NR==2 {printf "Coverage,%.1f%% of %d lines\n",$4,$3}' \
-            >> results.csv
+          # previous results to compare against?
+          [ -n "$LFS_PREV_VERSION" ] && curl -sS \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/`
+              `status/$LFS_PREV_VERSION" \
+            | jq -re 'select(.sha != env.GITHUB_SHA) | .statuses[]' \
+            >> prev-results.json \
+            || true
 
+          # unfortunately these each have their own format
+          [ -e results/code-thumb.csv ] && ( \
+            export PREV="$(jq -re '
+                  select(.context == "results / code").description
+                  | capture("Code size is (?<result>[0-9]+)").result' \
+                prev-results.json || echo 0)"
+            ./scripts/code.py -u results/code-thumb.csv -s | awk '
+              NR==2 {printf "Code size,%d B",$2}
+              NR==2 && ENVIRON["PREV"]+0 != 0 {
+                printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}
+              NR==2 {printf "\n"}' \
+            >> results.csv)
+          [ -e results/code-thumb-readonly.csv ] && ( \
+            export PREV="$(jq -re '
+                  select(.context == "results / code (readonly)").description
+                  | capture("Code size is (?<result>[0-9]+)").result' \
+                prev-results.json || echo 0)"
+            ./scripts/code.py -u results/code-thumb-readonly.csv -s | awk '
+              NR==2 {printf "Code size (readonly),%d B",$2}
+              NR==2 && ENVIRON["PREV"]+0 != 0 {
+                printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}
+              NR==2 {printf "\n"}' \
+            >> results.csv)
+          [ -e results/code-thumb-threadsafe.csv ] && ( \
+            export PREV="$(jq -re '
+                  select(.context == "results / code (threadsafe)").description
+                  | capture("Code size is (?<result>[0-9]+)").result' \
+                prev-results.json || echo 0)"
+            ./scripts/code.py -u results/code-thumb-threadsafe.csv -s | awk '
+              NR==2 {printf "Code size (threadsafe),%d B",$2}
+              NR==2 && ENVIRON["PREV"]+0 != 0 {
+                printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}
+              NR==2 {printf "\n"}' \
+            >> results.csv)
+          [ -e results/code-thumb-migrate.csv ] && ( \
+            export PREV="$(jq -re '
+                  select(.context == "results / code (migrate)").description
+                  | capture("Code size is (?<result>[0-9]+)").result' \
+                prev-results.json || echo 0)"
+            ./scripts/code.py -u results/code-thumb-migrate.csv -s | awk '
+              NR==2 {printf "Code size (migrate),%d B",$2}
+              NR==2 && ENVIRON["PREV"]+0 != 0 {
+                printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}
+              NR==2 {printf "\n"}' \
+            >> results.csv)
+          [ -e results/coverage.csv ] && ( \
+            export PREV="$(jq -re '
+                  select(.context == "results / coverage").description
+                  | capture("Coverage is (?<result>[0-9\\.]+)").result' \
+                prev-results.json || echo 0)"
+            ./scripts/coverage.py -u results/coverage.csv -s | awk -F '[ /%]+' '
+              NR==2 {printf "Coverage,%.1f%% of %d lines",$4,$3}
+              NR==2 && ENVIRON["PREV"]+0 != 0 {
+                printf " (%+.1f%%)",$4-ENVIRON["PREV"]}
+              NR==2 {printf "\n"}' \
+            >> results.csv)
+
+          # transpose to GitHub table
           [ -e results.csv ] || exit 0
           awk -F ',' '
             {label[NR]=$1; value[NR]=$2}
             END {
               for (r=1; r<=NR; r++) {printf "| %s ",label[r]}; printf "|\n";
-              for (r=1; r<=NR; r++) {printf "|--:"}; printf "|\n";
+              for (r=1; r<=NR; r++) {printf "|:--"}; printf "|\n";
               for (r=1; r<=NR; r++) {printf "| %s ",value[r]}; printf "|\n"}' \
             results.csv > results.txt
           echo "RESULTS:"
@@ -106,20 +150,25 @@ jobs:
       # find changes from history
       - name: collect-changes
         run: |
-          [ ! -z "$LFS_PREV_VERSION" ] || exit 0
-          git log --oneline "$LFS_PREV_VERSION.." \
-            --grep='^Merge' --invert-grep > changes.txt
+          [ -n "$LFS_PREV_VERSION" ] || exit 0
+          # use explicit link to github commit so that release notes can
+          # be copied elsewhere
+          git log "$LFS_PREV_VERSION.." \
+            --grep='^Merge' --invert-grep \
+            --format="format:[\`%h\`](`
+              `https://github.com/$GITHUB_REPOSITORY/commit/%h) %s" \
+            > changes.txt
           echo "CHANGES:"
           cat changes.txt
-        
+
       # create and update major branches (vN and vN-prefix)
-      - name: build-major-branches
+      - name: create-major-branches
         run: |
           # create major branch
           git branch "v$LFS_VERSION_MAJOR" HEAD
 
           # create major prefix branch
-          git config user.name ${{secrets.BOT_USERNAME}}
+          git config user.name ${{secrets.BOT_USER}}
           git config user.email ${{secrets.BOT_EMAIL}}
           git fetch "https://github.com/$GITHUB_REPOSITORY.git" \
             "v$LFS_VERSION_MAJOR-prefix" || true
@@ -137,27 +186,19 @@ jobs:
             "v$LFS_VERSION_MAJOR-prefix"
 
       # build release notes
-      - name: build-release
+      - name: create-release
         run: |
-          # find changes since last release
-          #if [ ! -z "$LFS_PREV_VERSION" ]
-          #then
-          #  export CHANGES="$(git log --oneline "$LFS_PREV_VERSION.." \
-          #    --grep='^Merge' --invert-grep)"
-          #  printf "CHANGES\n%s\n\n" "$CHANGES"
-          #fi
-
           # create release and patch version tag (vN.N.N)
           # only draft if not a patch release
           [ -e results.txt ] && export RESULTS="$(cat results.txt)"
           [ -e changes.txt ] && export CHANGES="$(cat changes.txt)"
-          curl -sS -H "authorization: token ${{secrets.BOT_TOKEN}}" \
+          curl -sS -X POST -H "authorization: token ${{secrets.BOT_TOKEN}}" \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases" \
-            -d "$(jq -sR '{
+            -d "$(jq -n '{
               tag_name: env.LFS_VERSION,
               name: env.LFS_VERSION | rtrimstr(".0"),
               target_commitish: "${{github.event.workflow_run.head_sha}}",
               draft: env.LFS_VERSION | endswith(".0"),
               body: [env.RESULTS, env.CHANGES | select(.)] | join("\n\n")}' \
-              | tee /dev/stderr)" > /dev/null
+              | tee /dev/stderr)"
 
