@@ -3062,7 +3062,7 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
     } else if (whence == LFS_SEEK_CUR) {
         npos = file->pos + off;
     } else if (whence == LFS_SEEK_END) {
-        npos = file->ctz.size + off;
+        npos = lfs_file_rawsize(lfs, file) + off;
     }
 
     if (npos > lfs->file_max) {
