@@ -3113,6 +3113,9 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
             return err;
         }
 
+        // need to set pos/block/off consistently so seeking back to
+        // the old position does not get confused
+        file->pos = size;
         file->ctz.head = file->block;
         file->ctz.size = size;
         file->flags |= LFS_F_DIRTY | LFS_F_READING;
