@@ -15,6 +15,7 @@ static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
     // written with identical data (during relocates)
     (void)lfs;
+    int heh;
     rcache->block = LFS_BLOCK_NULL;
 }
 
@@ -33,6 +34,94 @@ static int lfs_bd_read(lfs_t *lfs,
             off+size > lfs->cfg->block_size) {
         return LFS_ERR_CORRUPT;
     }
+
+    while (size > 0) {
+        lfs_size_t diff = size;
+
+        if (pcache && block == pcache->block &&
+                off < pcache->off + pcache->size) {
+            if (off >= pcache->off) {
+                // is already in pcache?
+                diff = lfs_min(diff, pcache->size - (off-pcache->off));
+                memcpy(data, &pcache->buffer[off-pcache->off], diff);
+
+                data += diff;
+                off += diff;
+                size -= diff;
+                continue;
+            }
+
+            // pcache takes priority
+            diff = lfs_min(diff, pcache->off-off);
+        }
+
+        if (block == rcache->block &&
+                off < rcache->off + rcache->size) {
+            if (off >= rcache->off) {
+                // is already in rcache?
+                diff = lfs_min(diff, rcache->size - (off-rcache->off));
+                memcpy(data, &rcache->buffer[off-rcache->off], diff);
+
+                data += diff;
+                off += diff;
+                size -= diff;
+                continue;
+            }
+
+            // rcache takes priority
+            diff = lfs_min(diff, rcache->off-off);
+        }
+
+        if (size >= hint && off % lfs->cfg->read_size == 0 &&
+                size >= lfs->cfg->read_size) {
+            // bypass cache?
+            diff = lfs_aligndown(diff, lfs->cfg->read_size);
+            int err = lfs->cfg->read(lfs->cfg, block, off, data, diff);
+            if (err) {
+                return err;
+            }
+
+            data += diff;
+            off += diff;
+            size -= diff;
+            continue;
+        }
+
+        // load to cache, first condition can no longer fail
+        LFS_ASSERT(block < lfs->cfg->block_count);
+        rcache->block = block;
+        rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
+        rcache->size = lfs_min(
+                lfs_min(
+                    lfs_alignup(off+hint, lfs->cfg->read_size),
+                    lfs->cfg->block_size)
+                - rcache->off,
+                lfs->cfg->cache_size);
+        int err = lfs->cfg->read(lfs->cfg, rcache->block,
+                rcache->off, rcache->buffer, rcache->size);
+        LFS_ASSERT(err <= 0);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+
+int lfs_bd_read_(lfs_t *lfs,
+        const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
+        lfs_block_t block, lfs_off_t off,
+        void *buffer, lfs_size_t size) {
+    uint8_t *data = buffer;
+    if (block >= lfs->cfg->block_count) {
+        return LFS_ERR_CORRUPT;
+    }
+
+    // clamp reads to block size, this simplifies checks for
+    // variable sized reads (leb)
+    lfs_size_t overrun = off+size - lfs->cfg->block_size;
+    memset(data + (size - overrun), 0, overrun);
+    size -= overrun;
 
     while (size > 0) {
         lfs_size_t diff = size;
@@ -373,55 +462,55 @@ void lfs_tole32_(void *buffer, uint32_t word) {
 // encode/decode leb128 integers
 // TODO modify *off in place instead of returning diff?
 // TODO make these static
-lfs_ssize_t lfs_bd_readleb128_(lfs_t *lfs,
-        const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
-        lfs_block_t block, lfs_off_t off, uint32_t *pword) {
-    uint32_t word = 0;
-    for (int i = 0; true; i++) {
-        uint8_t byte;
-        // TODO would making hint = absolute offset make more sense
-        // with these layers?
-        int err = lfs_bd_read(lfs, pcache, rcache, hint-i,
-                block, off+i, &byte, 1);
-        if (err) {
-            return err;
-        }
-
-        // check for overflow
-        if (i > 4 && (byte & 0x7f) > 0xf) {
-            return LFS_ERR_OVERFLOW;
-        }
-
-        word |= (byte & 0x7f) << 7*i;
-        if (byte & 0x80) {
-            *pword = word;
-            return i+1;
-        }
-    }
-}
-
-lfs_ssize_t lfs_bd_progleb128_(lfs_t *lfs,
-        lfs_cache_t *pcache, lfs_cache_t *rcache,
-        lfs_off_t limit, uint32_t *crc,
-        lfs_block_t block, lfs_off_t off, uint32_t word) {
-    for (int i = 0; true; i++) {
-        uint8_t byte = word & 0x7f;
-        word >>= 7;
-        if (word != 0) {
-            byte |= 0x80;
-        }
-
-        int err = lfs_bd_prog_(lfs, pcache, rcache, limit, crc,
-                block, off+i, &byte, 1);
-        if (err) {
-            return err;
-        }
-
-        if (word == 0) {
-            return i+1;
-        }
-    }
-}
+//lfs_ssize_t lfs_bd_readleb128_(lfs_t *lfs,
+//        const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
+//        lfs_block_t block, lfs_off_t off, uint32_t *pword) {
+//    uint32_t word = 0;
+//    for (int i = 0; true; i++) {
+//        uint8_t byte;
+//        // TODO would making hint = absolute offset make more sense
+//        // with these layers?
+//        int err = lfs_bd_read(lfs, pcache, rcache, hint-i,
+//                block, off+i, &byte, 1);
+//        if (err) {
+//            return err;
+//        }
+//
+//        // check for overflow
+//        if (i > 4 && (byte & 0x7f) > 0xf) {
+//            return LFS_ERR_OVERFLOW;
+//        }
+//
+//        word |= (byte & 0x7f) << 7*i;
+//        if (byte & 0x80) {
+//            *pword = word;
+//            return i+1;
+//        }
+//    }
+//}
+//
+//lfs_ssize_t lfs_bd_progleb128_(lfs_t *lfs,
+//        lfs_cache_t *pcache, lfs_cache_t *rcache,
+//        lfs_off_t limit, uint32_t *crc,
+//        lfs_block_t block, lfs_off_t off, uint32_t word) {
+//    for (int i = 0; true; i++) {
+//        uint8_t byte = word & 0x7f;
+//        word >>= 7;
+//        if (word != 0) {
+//            byte |= 0x80;
+//        }
+//
+//        int err = lfs_bd_prog_(lfs, pcache, rcache, limit, crc,
+//                block, off+i, &byte, 1);
+//        if (err) {
+//            return err;
+//        }
+//
+//        if (word == 0) {
+//            return i+1;
+//        }
+//    }
+//}
 
 /// Small type-level utilities ///
 // operations on block pairs
@@ -2368,6 +2457,100 @@ compact:
 //
 //i = 28-lfs_npw2(delta+1);
 
+// convenience functions for reading/writing leb128 encodings
+// TODO move these?
+lfs_ssize_t lfs_bd_readleb128_(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
+        lfs_block_t block, lfs_off_t off, uint32_t *pword) {
+    int err = lfs_bd_read(lfs,
+            pcache, rcache, hint,
+            block, off, pword, sizeof(uint32_t));
+    if (err) {
+        return err;
+    }
+
+    return lfs_fromleb128_(pword, pword);
+}
+
+lfs_ssize_t lfs_bd_progleb128_(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache,
+        lfs_off_t limit, uint32_t *crc,
+        lfs_block_t block, lfs_off_t off,
+        uint32_t word) {
+    lfs_ssize_t diff = lfs_toleb128_(&word, word);
+    if (diff < 0) {
+        return diff;
+    }
+
+    int err = lfs_bd_prog_(lfs,
+            pcache, rcache, limit, crc,
+            block, off, &word, diff);
+    if (err) {
+        return err;
+    }
+
+    return diff;
+}
+
+lfs_ssize_t lfs_bd_readtag_(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
+        lfs_block_t block, lfs_off_t off, lfs_tag_t *tag, lfs_size_t *size) {
+    uint8_t header[2*sizeof(uint32_t)];
+    lfs_size_t hdiff = 0;
+
+    int err = lfs_bd_read(lfs,
+            pcache, rcache, hint,
+            block, off, &header, sizeof(header));
+    if (err) {
+        return err;
+    }
+
+    lfs_ssize_t res = lfs_fromleb128_(tag, &header[hdiff]);
+    if (res < 0) {
+        return res;
+    }
+    hdiff += res;
+
+    res = lfs_fromleb128_(size, &header[hdiff]);
+    if (res < 0) {
+        return res;
+    }
+    hdiff += res;
+
+    return hdiff;
+}
+
+lfs_ssize_t lfs_bd_progtag_(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache,
+        lfs_off_t limit, uint32_t *crc,
+        lfs_block_t block, lfs_off_t off,
+        lfs_tag_t tag, lfs_size_t size) {
+    uint8_t header[2*sizeof(uint32_t)];
+    lfs_size_t hdiff = 0;
+
+    lfs_ssize_t res = lfs_toleb128_(&header[hdiff], tag);
+    if (res < 0) {
+        return res;
+    }
+    hdiff += res;
+
+    res = lfs_toleb128_(&header[hdiff], size);
+    if (res < 0) {
+        return res;
+    }
+    hdiff += res;
+
+    int err = lfs_bd_prog_(lfs,
+            pcache, rcache, limit, crc,
+            block, off, &header, hdiff);
+    if (err) {
+        return err;
+    }
+
+    return hdiff;
+}
+
+
 // TODO should we just take mdir pointer? to a copy? we're carrying
 // around a lot of state
 lfs_ssize_t lfs_dir_commitattr_(lfs_t *lfs, lfs_off_t *proff,
@@ -2426,78 +2609,45 @@ lfs_ssize_t lfs_dir_commitattr_(lfs_t *lfs, lfs_off_t *proff,
 
     // perform radix walk for alt-pointers?
     if (lfs_tag_isradix_(tag)) {
-        printf("finding radices for 0x%08x!\n", tag);
+        //printf("finding radices for 0x%08x!\n", tag);
 
         lfs_off_t roff = *proff;
         // tags use only the lower 28-bits
         for (int i = 0; i < 28 && roff; i++) {
             // first get tag
-            // TODO consolidate into function
-            hdiff = 0;
-            err = lfs_bd_read(lfs,
-                    &lfs->pcache, &lfs->rcache, sizeof(header),
-                    block, roff, &header, sizeof(header));
-            if (err) {
-                return err;
-            }
-
             lfs_tag_t rtag;
-            lfs_ssize_t res = lfs_fromleb128_(&rtag, &header[0]);
+            lfs_off_t rsize;
+            lfs_ssize_t res = lfs_bd_readtag_(lfs,
+                    &lfs->pcache, &lfs->rcache, 2*sizeof(uint32_t),
+                    block, roff, &rtag, &rsize);
             if (res < 0) {
                 return res;
             }
-            hdiff += res;
-
-            lfs_tag_t rsize;
-            res = lfs_fromleb128_(&rsize, &header[hdiff]);
-            if (res < 0) {
-                return res;
-            }
-            hdiff += res;
-            lfs_size_t rdiff = hdiff + rsize;
+            lfs_ssize_t rdiff = res + rsize;
 
             while (true) {
                 // and alt-pointer
-                hdiff = 0;
-                err = lfs_bd_read(lfs,
-                        &lfs->pcache, &lfs->rcache, sizeof(header),
-                        block, roff+rdiff, &header, sizeof(header));
-                if (err) {
-                    return err;
-                }
-
                 lfs_tag_t ralt;
-                res = lfs_fromleb128_(&ralt, &header[0]);
+                lfs_off_t nroff;
+                res = lfs_bd_readtag_(lfs,
+                        &lfs->pcache, &lfs->rcache, 2*sizeof(uint32_t),
+                        block, roff+rdiff, &ralt, &nroff);
                 if (res < 0) {
                     return res;
                 }
-                hdiff += res;
-
-                lfs_tag_t nroff;
-                res = lfs_fromleb128_(&nroff, &header[hdiff]);
-                if (res < 0) {
-                    return res;
-                }
-                hdiff += res;
-                rdiff += hdiff;
+                rdiff += res;
 
                 // iterate through bits
                 for (; i < 28; i++) {
                     if ((tag ^ rtag) & (1 << (28-i))) {
                         // different bit, new alt-pointer
-                        hdiff = 0;
-                        hdiff += lfs_toleb128_(
-                                &header[hdiff], LFS_MKALT_(28-i));
-                        hdiff += lfs_toleb128_(
-                                &header[hdiff], roff);
-                        printf("new alt 0x%08x 0x%08x\n", LFS_MKALT_(28-i), roff);
-                        err = lfs_bd_prog_(lfs,
+                        res = lfs_bd_progtag_(lfs,
                                 &lfs->pcache, &lfs->rcache, limit, crc,
-                                block, off+diff, &header, hdiff);
-                        if (err) {
-                            return err;
+                                block, off+diff, LFS_MKALT_(28-i), roff);
+                        if (res < 0) {
+                            return res;
                         }
-                        diff += hdiff;
+                        diff += res;
 
                         // follow alt-pointer?
                         if (lfs_tag_isalt_(ralt) &&
@@ -2512,14 +2662,15 @@ lfs_ssize_t lfs_dir_commitattr_(lfs_t *lfs, lfs_off_t *proff,
                         // same bit, copy alt-pointer
                         if (lfs_tag_isalt_(ralt) &&
                                 lfs_tag_alt_(ralt) == 28-i) {
-                            printf("copy alt 0x%08x 0x%08x\n", LFS_MKALT_(28-i), roff);
-                            err = lfs_bd_prog_(lfs,
+                            //printf("copy alt 0x%08x 0x%08x\n", LFS_MKALT_(28-i), roff);
+
+                            res = lfs_bd_progtag_(lfs,
                                     &lfs->pcache, &lfs->rcache, limit, crc,
-                                    block, off+diff, &header, hdiff);
-                            if (err) {
-                                return err;
+                                    block, off+diff, ralt, nroff);
+                            if (res < 0) {
+                                return res;
                             }
-                            diff += hdiff;
+                            diff += res;
                         }
 
                         if (lfs_tag_isalt_(ralt) &&
@@ -2618,7 +2769,7 @@ static lfs_ssize_t lfs_dir_commitattrs_(lfs_t *lfs, lfs_off_t *roff,
     return diff;
 }
 
-static int lfs_dir_commitfinalize_(lfs_t *lfs, lfs_mdir__t *mdir,
+int lfs_dir_commitfinalize_(lfs_t *lfs, lfs_mdir__t *mdir,
         lfs_off_t *roff, lfs_off_t limit, uint32_t crc,
         lfs_block_t block, lfs_off_t off) {
     // align to program units
@@ -2671,30 +2822,34 @@ static int lfs_dir_commitfinalize_(lfs_t *lfs, lfs_mdir__t *mdir,
         off += res;
     }
 
-    // build CRC tag, don't go through commitattr because we don't want
-    // to CRC padding
-    // TODO wait a sec, cyclic reference because of leb-size?
+    // build CRC tag, don't go through commitattr because we want
+    // to avoid CRCing our padding
     uint8_t cstate[9];
-    cstate[0] = (uint8_t)LFS_MKTAG_(LFS_T_CRC, 0, 0);
+    lfs_size_t cdiff = 0;
+    cstate[cdiff] = (uint8_t)LFS_MKTAG_(LFS_T_CRC, 0, 0);
+    cdiff += 1;
 
-    // manually write prog_size leb128 to avoid issues with
-    // off-by-1 padding
-    lfs_size_t padding = eoff - (off+csize-4);
-    for (lfs_size_t i = 1; i < csize-4-1; i++) {
-        cstate[i] = 0x80 | (padding & 0x7f);
-        padding >>= 7;
+    lfs_size_t cpadding = eoff - (off+csize-4);
+    lfs_ssize_t res = lfs_toleb128_(&cstate[cdiff], cpadding);
+    if (res < 0) {
+        return res;
     }
-    cstate[csize-4-1] = padding;
-    LFS_ASSERT(padding <= 0x7f);
+    cdiff += res;
 
-    crc = lfs_crc(crc, &cstate[0], csize-4);
-    lfs_tole32_(&cstate[csize-4], crc);
+    // pad written cpadding to avoid circularly dependent sizes
+    for (; cdiff < csize-4; cdiff++) {
+        cstate[cdiff] = 0x80;
+    }
+    
+    crc = lfs_crc(crc, &cstate, cdiff);
+    lfs_tole32_(&cstate[cdiff], crc);
+    cdiff += sizeof(uint32_t);
 
     // TODO ugh, need to signal no validate without signalling crc...
     // should use different API? separate lfs_bd_progcrc_?
     int err = lfs_bd_prog_(lfs, &lfs->pcache, &lfs->rcache,
             lfs->cfg->block_size, &(uint32_t){0}, block, off,
-            &cstate, csize);
+            &cstate, cdiff);
     if (err) {
         return err;
     }
