@@ -15,7 +15,6 @@ static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
     // written with identical data (during relocates)
     (void)lfs;
-    int heh;
     rcache->block = LFS_BLOCK_NULL;
 }
 
@@ -2550,6 +2549,105 @@ lfs_ssize_t lfs_bd_progtag_(lfs_t *lfs,
     return hdiff;
 }
 
+// TODO name dir->mdir for these low-level operations?
+// TODO I don't think a mask works anymore, do we need this?
+lfs_stag_t lfs_dir_getattrslice_(lfs_t *lfs, lfs_mdir__t *mdir,
+        lfs_tag_t tag, lfs_off_t off, void *buffer, lfs_size_t size,
+        lfs_size_t *pnsize) {
+    // it doesn't make sense to look up a non-radix-tree tag
+    LFS_ASSERT(lfs_tag_isradix_(tag));
+
+    // TODO handle synthetic move
+
+    lfs_off_t roff = mdir->roff;
+    int bit = 28; // tag only uses the lower 28-bits
+    // iterate through tags
+    while (bit >= 0) {
+        lfs_tag_t rtag;
+        lfs_off_t rsize;
+        lfs_ssize_t rdiff = lfs_bd_readtag_(lfs,
+                NULL, &lfs->rcache, 2*sizeof(uint32_t),
+                mdir->pair[0], roff, &rtag, &rsize);
+        if (rdiff < 0) {
+            return rdiff;
+        }
+
+        // TODO handle splices
+
+        printf("%08x: rtag %08x %08x %08x\n", roff, rtag, (1 << bit), rsize);
+
+        // found tag?
+        if (tag == rtag) {
+            lfs_size_t diff = 0;
+            if (off < rsize) {
+                diff = lfs_min(size, rsize-off);
+                int err = lfs_bd_read(lfs,
+                        NULL, &lfs->rcache, diff,
+                        mdir->pair[0], roff+rdiff+off, buffer, diff);
+                if (err) {
+                    return err;
+                }
+            }
+
+            if (pnsize) {
+                *pnsize = diff;
+            }
+            return rtag;
+        }
+
+        // TODO better way to handle offsets?
+        rdiff += rsize;
+
+        // iterate through alt-pointers
+        while (bit >= 0) {
+            lfs_tag_t ralt;
+            lfs_off_t nroff;
+            // TODO are hints correct both here and commit?
+            lfs_soff_t res = lfs_bd_readtag_(lfs,
+                    NULL, &lfs->rcache, 2*sizeof(uint32_t),
+                    mdir->pair[0], roff+rdiff, &ralt, &nroff);
+            if (res < 0) {
+                return res;
+            }
+            rdiff += res;
+
+            // iterate through bits
+            while (bit >= 0) {
+                if (lfs_tag_isalt_(ralt) &&
+                        lfs_tag_alt_(ralt) > bit) {
+                    // need new alt-pointer
+                    goto next_alt;
+                }
+
+                if ((tag ^ rtag) & (1 << bit)) {
+                    if (lfs_tag_isalt_(ralt) &&
+                            lfs_tag_alt_(ralt) == bit) {
+                        // follow alt-pointer
+                        roff = nroff;
+                        bit -= 1;
+                        goto next_tag;
+                    } else {
+                        goto done;
+                    }
+                }
+
+                // next bit
+                bit -= 1;
+            }
+next_alt:;
+        }
+next_tag:;
+    }
+done:;
+
+    // not found
+    return LFS_ERR_NOENT;
+}
+
+lfs_ssize_t lfs_dir_getattr_(lfs_t *lfs, lfs_mdir__t *mdir,
+        lfs_tag_t tag, void *buffer, lfs_size_t size, lfs_size_t *nsize) {
+    return lfs_dir_getattrslice_(lfs, mdir, tag, 0, buffer, size, nsize);
+}
 
 // TODO should we just take mdir pointer? to a copy? we're carrying
 // around a lot of state
@@ -2612,9 +2710,9 @@ lfs_ssize_t lfs_dir_commitattr_(lfs_t *lfs, lfs_off_t *proff,
         //printf("finding radices for 0x%08x!\n", tag);
 
         lfs_off_t roff = *proff;
-        // tags use only the lower 28-bits
-        for (int i = 0; i < 28 && roff; i++) {
-            // first get tag
+        int bit = 28; // tags use only the lower 28-bits
+        // iterate through tags
+        while (bit >= 0) {
             lfs_tag_t rtag;
             lfs_off_t rsize;
             lfs_ssize_t res = lfs_bd_readtag_(lfs,
@@ -2625,8 +2723,8 @@ lfs_ssize_t lfs_dir_commitattr_(lfs_t *lfs, lfs_off_t *proff,
             }
             lfs_ssize_t rdiff = res + rsize;
 
-            while (true) {
-                // and alt-pointer
+            // iterate through alt-pointers
+            while (bit >= 0) {
                 lfs_tag_t ralt;
                 lfs_off_t nroff;
                 res = lfs_bd_readtag_(lfs,
@@ -2638,53 +2736,54 @@ lfs_ssize_t lfs_dir_commitattr_(lfs_t *lfs, lfs_off_t *proff,
                 rdiff += res;
 
                 // iterate through bits
-                for (; i < 28; i++) {
-                    if ((tag ^ rtag) & (1 << (28-i))) {
+                while (bit >= 0) {
+                    if ((tag ^ rtag) & (1 << bit)) {
                         // different bit, new alt-pointer
                         res = lfs_bd_progtag_(lfs,
                                 &lfs->pcache, &lfs->rcache, limit, crc,
-                                block, off+diff, LFS_MKALT_(28-i), roff);
+                                block, off+diff, LFS_MKALT_(bit), roff);
                         if (res < 0) {
                             return res;
                         }
                         diff += res;
+                    } else if (lfs_tag_isalt_(ralt) &&
+                            lfs_tag_alt_(ralt) == bit) {
+                        // same bit, copy alt-pointer
+                        res = lfs_bd_progtag_(lfs,
+                                &lfs->pcache, &lfs->rcache, limit, crc,
+                                block, off+diff, ralt, nroff);
+                        if (res < 0) {
+                            return res;
+                        }
+                        diff += res;
+                    }
 
-                        // follow alt-pointer?
+                    if (lfs_tag_isalt_(ralt) &&
+                            lfs_tag_alt_(ralt) > bit) {
+                        // need new alt-pointer
+                        goto next_alt;
+                    }
+
+                    if ((tag ^ rtag) & (1 << bit)) {
                         if (lfs_tag_isalt_(ralt) &&
-                                lfs_tag_alt_(ralt) == 28-i) {
+                                lfs_tag_alt_(ralt) == bit) {
+                            // follow alt-pointer
                             roff = nroff;
+                            bit -= 1;
                             goto next_tag;
                         } else {
-                            roff = 0;
-                            goto next_tag;
-                        }
-                    } else {
-                        // same bit, copy alt-pointer
-                        if (lfs_tag_isalt_(ralt) &&
-                                lfs_tag_alt_(ralt) == 28-i) {
-                            //printf("copy alt 0x%08x 0x%08x\n", LFS_MKALT_(28-i), roff);
-
-                            res = lfs_bd_progtag_(lfs,
-                                    &lfs->pcache, &lfs->rcache, limit, crc,
-                                    block, off+diff, ralt, nroff);
-                            if (res < 0) {
-                                return res;
-                            }
-                            diff += res;
-                        }
-
-                        if (lfs_tag_isalt_(ralt) &&
-                                lfs_tag_alt_(ralt) > 28-i) {
-                            // need new alt-pointer
-                            goto next_alt;
+                            goto done;
                         }
                     }
+
+                    // next bit
+                    bit -= 1;
                 }
 next_alt:;
             }
 next_tag:;
         }
-
+done:;
         *proff = off;
     }
 
@@ -2967,6 +3066,9 @@ int lfs_dir_compact_(lfs_t *lfs, lfs_mdir__t *mdir,
 relocate:
             LFS_ASSERT(false); // TODO
     }
+
+    // TODO finish commit?
+    lfs_pair_swap(mdir->pair);
 
     return 0;
 }

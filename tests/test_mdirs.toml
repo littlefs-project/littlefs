@@ -15,24 +15,37 @@ code = '''
         .tail = {0xffffffff, 0xffffffff},
     };
 
-    lfs_dir_compact_(&lfs, &mdir, LFS_MKATTRS_(
-            {LFS_MKTAG_(LFS_T_USERATTR,  0, 0), "0000", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR, 01, 0), "0001", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR,  2, 0), "0002", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR,  3, 0), "0003", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR,  4, 0), "0004", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR,  5, 0), "0005", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR,  6, 0), "0006", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR,  7, 0), "0007", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR,  8, 0), "0008", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR,  9, 0), "0009", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR, 10, 0), "0010", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR, 11, 0), "0011", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR, 12, 0), "0012", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR, 13, 0), "0013", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR, 14, 0), "0014", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR, 15, 0), "0015", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR, 0xaa, 0xaaaa), "0015", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR, 0xcc, 0xcccc), "0015", 4},
-            {LFS_MKTAG_(LFS_T_USERATTR, 0xff, 0xffff), "0016", 4})) => 0;
+
+    struct lfs_mattr_ attrs[] = {
+        {LFS_MKTAG_(LFS_T_USERATTR,  0, 0), "0000", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR,  1, 0), "0001", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR,  2, 0), "0002", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR,  3, 0), "0003", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR,  4, 0), "0004", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR,  5, 0), "0005", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR,  6, 0), "0006", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR,  7, 0), "0007", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR,  8, 0), "0008", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR,  9, 0), "0009", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR, 10, 0), "0010", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR, 11, 0), "0011", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR, 12, 0), "0012", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR, 13, 0), "0013", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR, 14, 0), "0014", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR, 15, 0), "0015", 4},
+        {LFS_MKTAG_(LFS_T_USERATTR, 16, 0), "0016", 4}
+    };
+    lfs_size_t attr_count = sizeof(attrs)/sizeof(attrs[0]);
+
+    lfs_dir_compact_(&lfs, &mdir, attrs, attr_count) => 0;
+
+    for (lfs_size_t i = 0; i < attr_count; i++) {
+        printf("looking up %08x\n", attrs[i].tag);
+        lfs_size_t nsize;
+        lfs_dir_getattr_(&lfs, &mdir,
+                attrs[i].tag,
+                buffer, sizeof(buffer), &nsize) => attrs[i].tag;
+        assert(nsize == attrs[i].size);
+        assert(memcmp(buffer, attrs[i].buffer, attrs[i].size) == 0);
+    }
 '''
