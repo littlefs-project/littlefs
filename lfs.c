@@ -1591,7 +1591,8 @@ static int lfs_dir_compact(lfs_t *lfs,
         // for metadata updates.
         if (end - begin < 0xff &&
                 size <= lfs_min(lfs->cfg->block_size - 36,
-                    lfs_alignup(lfs->cfg->block_size/2,
+                    lfs_alignup((lfs->cfg->metadata_max ?
+                            lfs->cfg->metadata_max : lfs->cfg->block_size)/2,
                         lfs->cfg->prog_size))) {
             break;
         }
@@ -1676,7 +1677,8 @@ static int lfs_dir_compact(lfs_t *lfs,
                 .crc = 0xffffffff,
 
                 .begin = 0,
-                .end = lfs->cfg->block_size - 8,
+                .end = (lfs->cfg->metadata_max ?
+                    lfs->cfg->metadata_max : lfs->cfg->block_size) - 8,
             };
 
             // erase block to write to
@@ -1886,7 +1888,8 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
             .crc = 0xffffffff,
 
             .begin = dir->off,
-            .end = lfs->cfg->block_size - 8,
+            .end = (lfs->cfg->metadata_max ?
+                lfs->cfg->metadata_max : lfs->cfg->block_size) - 8,
         };
 
         // traverse attrs that need to be written out
@@ -2968,7 +2971,9 @@ static lfs_ssize_t lfs_file_rawwrite(lfs_t *lfs, lfs_file_t *file,
     if ((file->flags & LFS_F_INLINE) &&
             lfs_max(file->pos+nsize, file->ctz.size) >
             lfs_min(0x3fe, lfs_min(
-                lfs->cfg->cache_size, lfs->cfg->block_size/8))) {
+                lfs->cfg->cache_size,
+                (lfs->cfg->metadata_max ?
+                    lfs->cfg->metadata_max : lfs->cfg->block_size) / 8))) {
         // inline file doesn't fit anymore
         int err = lfs_file_outline(lfs, file);
         if (err) {
@@ -3538,6 +3543,8 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->attr_max = LFS_ATTR_MAX;
     }
 
+    LFS_ASSERT(lfs->cfg->metadata_max <= lfs->cfg->block_size);
+
     // setup default state
     lfs->root[0] = LFS_BLOCK_NULL;
     lfs->root[1] = LFS_BLOCK_NULL;
@@ -3831,7 +3838,7 @@ int lfs_fs_rawtraverse(lfs_t *lfs,
                 if (err) {
                     return err;
                 }
-            } else if (includeorphans && 
+            } else if (includeorphans &&
                     lfs_tag_type3(tag) == LFS_TYPE_DIRSTRUCT) {
                 for (int i = 0; i < 2; i++) {
                     err = cb(data, (&ctz.head)[i]);
