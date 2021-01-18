@@ -3625,16 +3625,16 @@ static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
             goto cleanup;
         }
 
-        // sanity check that fetch works
-        err = lfs_dir_fetch(lfs, &root, (const lfs_block_t[2]){0, 1});
-        if (err) {
-            goto cleanup;
-        }
-
         // force compaction to prevent accidentally mounting any
         // older version of littlefs that may live on disk
         root.erased = false;
         err = lfs_dir_commit(lfs, &root, NULL, 0);
+        if (err) {
+            goto cleanup;
+        }
+
+        // sanity check that fetch works
+        err = lfs_dir_fetch(lfs, &root, (const lfs_block_t[2]){0, 1});
         if (err) {
             goto cleanup;
         }
