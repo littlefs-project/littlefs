@@ -3055,14 +3055,6 @@ relocate:
 
 static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
         lfs_soff_t off, int whence) {
-#ifndef LFS_READONLY
-    // write out everything beforehand, may be noop if rdonly
-    int err = lfs_file_flush(lfs, file);
-    if (err) {
-        return err;
-    }
-#endif
-
     // find new pos
     lfs_off_t npos = file->pos;
     if (whence == LFS_SEEK_SET) {
@@ -3070,13 +3062,26 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
     } else if (whence == LFS_SEEK_CUR) {
         npos = file->pos + off;
     } else if (whence == LFS_SEEK_END) {
-        npos = file->ctz.size + off;
+        npos = lfs_file_rawsize(lfs, file) + off;
     }
 
     if (npos > lfs->file_max) {
         // file position out of range
         return LFS_ERR_INVAL;
     }
+
+    if (file->pos == npos) {
+        // noop - position has not changed
+        return npos;
+    }
+
+#ifndef LFS_READONLY
+    // write out everything beforehand, may be noop if rdonly
+    int err = lfs_file_flush(lfs, file);
+    if (err) {
+        return err;
+    }
+#endif
 
     // update pos
     file->pos = npos;
@@ -3108,21 +3113,22 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
             return err;
         }
 
+        // need to set pos/block/off consistently so seeking back to
+        // the old position does not get confused
+        file->pos = size;
         file->ctz.head = file->block;
         file->ctz.size = size;
         file->flags |= LFS_F_DIRTY | LFS_F_READING;
     } else if (size > oldsize) {
         // flush+seek if not already at end
-        if (file->pos != oldsize) {
-            lfs_soff_t res = lfs_file_rawseek(lfs, file, 0, LFS_SEEK_END);
-            if (res < 0) {
-                return (int)res;
-            }
+        lfs_soff_t res = lfs_file_rawseek(lfs, file, 0, LFS_SEEK_END);
+        if (res < 0) {
+            return (int)res;
         }
 
         // fill with zeros
         while (file->pos < size) {
-            lfs_ssize_t res = lfs_file_rawwrite(lfs, file, &(uint8_t){0}, 1);
+            res = lfs_file_rawwrite(lfs, file, &(uint8_t){0}, 1);
             if (res < 0) {
                 return (int)res;
             }
