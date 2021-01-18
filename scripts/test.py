@@ -812,9 +812,9 @@ if __name__ == "__main__":
     parser.add_argument('test_paths', nargs='*', default=[TEST_PATHS],
         help="Description of test(s) to run. By default, this is all tests \
             found in the \"{0}\" directory. Here, you can specify a different \
-            directory of tests, a specific file, a suite by name, and even a \
-            specific test case by adding brackets. For example \
-            \"test_dirs[0]\" or \"{0}/test_dirs.toml[0]\".".format(TEST_PATHS))
+            directory of tests, a specific file, a suite by name, and even \
+            specific test cases and permutations. For example \
+            \"test_dirs#1\" or \"{0}/test_dirs.toml#1#1\".".format(TEST_PATHS))
     parser.add_argument('-D', action='append', default=[],
         help="Overriding parameter definitions.")
     parser.add_argument('-v', '--verbose', action='store_true',
