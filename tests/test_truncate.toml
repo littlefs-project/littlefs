@@ -392,3 +392,48 @@ code = '''
 
     lfs2_unmount(&lfs2) => 0;
 '''
+
+[[case]] # noop truncate
+define.MEDIUMSIZE = [32, 2048]
+code = '''
+    lfs2_format(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_open(&lfs2, &file, "baldynoop",
+            LFS2_O_RDWR | LFS2_O_CREAT) => 0;
+
+    strcpy((char*)buffer, "hair");
+    size = strlen((char*)buffer);
+    for (lfs2_off_t j = 0; j < MEDIUMSIZE; j += size) {
+        lfs2_file_write(&lfs2, &file, buffer, size) => size;
+
+        // this truncate should do nothing
+        lfs2_file_truncate(&lfs2, &file, j+size) => 0;
+    }
+    lfs2_file_size(&lfs2, &file) => MEDIUMSIZE;
+
+    lfs2_file_seek(&lfs2, &file, 0, LFS2_SEEK_SET) => 0;
+    // should do nothing again
+    lfs2_file_truncate(&lfs2, &file, MEDIUMSIZE) => 0;
+    lfs2_file_size(&lfs2, &file) => MEDIUMSIZE;
+
+    for (lfs2_off_t j = 0; j < MEDIUMSIZE; j += size) {
+        lfs2_file_read(&lfs2, &file, buffer, size) => size;
+        memcmp(buffer, "hair", size) => 0;
+    }
+    lfs2_file_read(&lfs2, &file, buffer, size) => 0;
+
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // still there after reboot?
+    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_file_open(&lfs2, &file, "baldynoop", LFS2_O_RDWR) => 0;
+    lfs2_file_size(&lfs2, &file) => MEDIUMSIZE;
+    for (lfs2_off_t j = 0; j < MEDIUMSIZE; j += size) {
+        lfs2_file_read(&lfs2, &file, buffer, size) => size;
+        memcmp(buffer, "hair", size) => 0;
+    }
+    lfs2_file_read(&lfs2, &file, buffer, size) => 0;
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+'''
