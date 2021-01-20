@@ -392,3 +392,48 @@ code = '''
 
     lfs_unmount(&lfs) => 0;
 '''
+
+[[case]] # noop truncate
+define.MEDIUMSIZE = [32, 2048]
+code = '''
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file, "baldynoop",
+            LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+    strcpy((char*)buffer, "hair");
+    size = strlen((char*)buffer);
+    for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
+        lfs_file_write(&lfs, &file, buffer, size) => size;
+
+        // this truncate should do nothing
+        lfs_file_truncate(&lfs, &file, j+size) => 0;
+    }
+    lfs_file_size(&lfs, &file) => MEDIUMSIZE;
+
+    lfs_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+    // should do nothing again
+    lfs_file_truncate(&lfs, &file, MEDIUMSIZE) => 0;
+    lfs_file_size(&lfs, &file) => MEDIUMSIZE;
+
+    for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer, "hair", size) => 0;
+    }
+    lfs_file_read(&lfs, &file, buffer, size) => 0;
+
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // still there after reboot?
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file, "baldynoop", LFS_O_RDWR) => 0;
+    lfs_file_size(&lfs, &file) => MEDIUMSIZE;
+    for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
+        lfs_file_read(&lfs, &file, buffer, size) => size;
+        memcmp(buffer, "hair", size) => 0;
+    }
+    lfs_file_read(&lfs, &file, buffer, size) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
