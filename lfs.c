@@ -452,20 +452,6 @@ static void lfs_mlist_append(lfs_t *lfs, struct lfs_mlist *mlist) {
     lfs->mlist = mlist;
 }
 
-static inline void lfs_mlist_remove(lfs_t *lfs, struct lfs_mlist *mlist) {
-    for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
-        if (*p == mlist) {
-            *p = (*p)->next;
-            break;
-        }
-    }
-}
-
-static inline void lfs_mlist_append(lfs_t *lfs, struct lfs_mlist *mlist) {
-    mlist->next = lfs->mlist;
-    lfs->mlist = mlist;
-}
-
 
 /// Internal operations predeclared here ///
 #ifndef LFS_READONLY

@@ -195,6 +195,17 @@ jobs:
               -DLFS_NO_ERROR \
               -DLFS_MIGRATE" \
             CODEFLAGS+="-o results/code-${{matrix.arch}}-migrate.csv"
+      - name: results-code-error-asserts
+        run: |
+          mkdir -p results
+          make clean
+          make code \
+            CFLAGS+=" \
+              -DLFS_NO_DEBUG \
+              -DLFS_NO_WARN \
+              -DLFS_NO_ERROR \
+              -D'LFS_ASSERT(test)=do {if(!(test)) {return -1;}} while(0)'" \
+            CODEFLAGS+="-o results/code-${{matrix.arch}}-error-asserts.csv"
       - name: upload-results
         uses: actions/upload-artifact@v2
         with:
