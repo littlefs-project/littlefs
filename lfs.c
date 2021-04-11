@@ -3848,6 +3848,77 @@ static lfs_soff_t lfs_file_size_(lfs_t *lfs, lfs_file_t *file) {
     return file->ctz.size;
 }
 
+static lfs_ssize_t lfs_file_getattr_(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, void *buffer, lfs_size_t size) {
+    // If attribute is registered then retrieve cached value
+    for (unsigned i = 0; i < file->cfg->attr_count; i++) {
+        struct lfs_attr* const attr = &file->cfg->attrs[i];
+        if(type == attr->type) {
+            LFS_ASSERT(size <= attr->size);
+            memcpy(buffer, attr->buffer, size);
+            return attr->size;
+        }
+    }
+
+    lfs_stag_t tag = lfs_dir_get(lfs, &file->m, LFS_MKTAG(0x7ff, 0x3ff, 0),
+            LFS_MKTAG(LFS_TYPE_USERATTR + type,
+                file->id, lfs_min(size, lfs->attr_max)),
+            buffer);
+    if (tag < 0) {
+        if (tag == LFS_ERR_NOENT) {
+            return LFS_ERR_NOATTR;
+        }
+
+        return tag;
+    }
+
+    return lfs_tag_size(tag);
+}
+
+#ifndef LFS_READONLY
+static int lfs_file_setattr_(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, const void *buffer, lfs_size_t size) {
+    if (size > lfs->attr_max) {
+        return LFS_ERR_NOSPC;
+    }
+    LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+
+    // If attribute is registered then set cached value for consistency
+    for (unsigned i = 0; i < file->cfg->attr_count; i++) {
+        struct lfs_attr* const attr = &file->cfg->attrs[i];
+        if(type == attr->type) {
+            LFS_ASSERT(size == attr->size);
+            // Little cost here to check if value is different
+            if(memcmp(attr->buffer, buffer, size) != 0) {
+                memcpy(attr->buffer, buffer, size);
+                file->flags |= LFS_F_DIRTY;
+            }
+            return 0;
+        }
+    }
+
+    // Otherwise commit attribute to storage
+    return lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
+            {LFS_MKTAG(LFS_TYPE_USERATTR + type, file->id, size), buffer}));
+}
+#endif
+
+#ifndef LFS_READONLY
+static int lfs_file_removeattr_(lfs_t *lfs, lfs_file_t* file, uint8_t type) {
+    // Cannot remove registered attributes
+    for (unsigned i = 0; i < file->cfg->attr_count; i++) {
+        struct lfs_attr* const attr = &file->cfg->attrs[i];
+        LFS_ASSERT(type != attr->type);
+        if(type == attr->type) {
+            return LFS_ERR_EXIST;
+        }
+    }
+
+    return lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
+            {LFS_MKTAG(LFS_TYPE_USERATTR + type, file->id, 0x3ff), NULL}));
+}
+#endif
+
 
 /// General fs operations ///
 static int lfs_stat_(lfs_t *lfs, const char *path, struct lfs_info *info,
@@ -6251,6 +6322,58 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
     LFS_UNLOCK(lfs->cfg);
     return res;
 }
+
+lfs_ssize_t lfs_file_getattr(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, void *buffer, lfs_size_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_getattr(%p, %p, %"PRIu8", %p, %"PRIu32")",
+            (void*)lfs, (void*)file, type, buffer, size);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    lfs_ssize_t res = lfs_file_getattr_(lfs, file, type, buffer, size);
+
+    LFS_TRACE("lfs_file_getattr -> %"PRId32, res);
+    LFS_UNLOCK(lfs->cfg);
+    return res;
+}
+
+#ifndef LFS_READONLY
+int lfs_file_setattr(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, const void *buffer, lfs_size_t size) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_setattr(%p, %p, %"PRIu8", %p, %"PRIu32")",
+            (void*)lfs, (void*)file, type, buffer, size);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    err = lfs_file_setattr_(lfs, file, type, buffer, size);
+
+    LFS_TRACE("lfs_file_setattr -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_file_removeattr(lfs_t *lfs, lfs_file_t* file, uint8_t type) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_removeattr(%p, %p, %"PRIu8")", (void*)lfs, (void*)file, type);
+
+    err = lfs_file_removeattr_(lfs, file, type);
+
+    LFS_TRACE("lfs_file_removeattr -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
 
 #ifndef LFS_READONLY
 int lfs_mkdir(lfs_t *lfs, const char *path) {

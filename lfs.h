@@ -670,6 +670,25 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 // Returns the size of the file, or a negative error code on failure.
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 
+// Read attribute from open file
+//
+// See lfs_getattr.
+lfs_ssize_t lfs_file_getattr(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, void *buffer, lfs_size_t size);
+
+// Set attribute on open file
+//
+// See lfs_setattr.
+// Note that if attribute is cached it won't be written to disk
+// until flushed or closed.
+int lfs_file_setattr(lfs_t *lfs, lfs_file_t* file,
+        uint8_t type, const void *buffer, lfs_size_t size);
+
+// Remove attribute from open file
+//
+// See lfs_removeattr. Fails if attribute is cached.
+int lfs_file_removeattr(lfs_t *lfs, lfs_file_t* file, uint8_t type);
+
 
 /// Directory operations ///
 
