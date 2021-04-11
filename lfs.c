@@ -1099,7 +1099,7 @@ static int lfs_dir_getgstate(lfs_t *lfs, const lfs_mdir_t *dir,
 }
 
 static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
-        uint16_t id, struct lfs_info *info) {
+        uint16_t id, struct lfs_info *info, const struct lfs_stat_config* config) {
     if (id == 0x3ff) {
         // special case for root
         strcpy(info->name, "/");
@@ -1127,6 +1127,20 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
         info->size = ctz.size;
     } else if (lfs_tag_type3(tag) == LFS_TYPE_INLINESTRUCT) {
         info->size = lfs_tag_size(tag);
+    }
+
+    // fetch attrs
+    if(config != NULL) {
+        for (unsigned i = 0; i < config->attr_count; i++) {
+            lfs_stag_t res = lfs_dir_get(lfs, dir,
+                    LFS_MKTAG(0x7ff, 0x3ff, 0),
+                    LFS_MKTAG(LFS_TYPE_USERATTR + config->attrs[i].type,
+                        id, config->attrs[i].size),
+                        config->attrs[i].buffer);
+            if (res < 0 && res != LFS_ERR_NOENT) {
+                return res;
+            }
+        }
     }
 
     return 0;
@@ -2163,7 +2177,8 @@ static int lfs_dir_rawclose(lfs_t *lfs, lfs_dir_t *dir) {
     return 0;
 }
 
-static int lfs_dir_rawread(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
+static int lfs_dir_rawread(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info,
+        const struct lfs_stat_config* config) {
     memset(info, 0, sizeof(*info));
 
     // special offset for '.' and '..'
@@ -2193,7 +2208,7 @@ static int lfs_dir_rawread(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
             dir->id = 0;
         }
 
-        int err = lfs_dir_getinfo(lfs, &dir->m, dir->id, info);
+        int err = lfs_dir_getinfo(lfs, &dir->m, dir->id, info, config);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -3179,14 +3194,15 @@ static lfs_soff_t lfs_file_rawsize(lfs_t *lfs, lfs_file_t *file) {
 
 
 /// General fs operations ///
-static int lfs_rawstat(lfs_t *lfs, const char *path, struct lfs_info *info) {
+static int lfs_rawstat(lfs_t *lfs, const char *path, struct lfs_info *info,
+        const struct lfs_stat_config* config) {
     lfs_mdir_t cwd;
     lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
     if (tag < 0) {
         return (int)tag;
     }
 
-    return lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info);
+    return lfs_dir_getinfo(lfs, &cwd, lfs_tag_id(tag), info, config);
 }
 
 #ifndef LFS_READONLY
@@ -5018,14 +5034,15 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
 }
 #endif
 
-int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
+int lfs_statcfg(lfs_t *lfs, const char *path, struct lfs_info *info,
+        const struct lfs_stat_config* config) {
     int err = LFS_LOCK(lfs->cfg);
     if (err) {
         return err;
     }
     LFS_TRACE("lfs_stat(%p, \"%s\", %p)", (void*)lfs, path, (void*)info);
 
-    err = lfs_rawstat(lfs, path, info);
+    err = lfs_rawstat(lfs, path, info, config);
 
     LFS_TRACE("lfs_stat -> %d", err);
     LFS_UNLOCK(lfs->cfg);
@@ -5310,7 +5327,8 @@ int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir) {
     return err;
 }
 
-int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
+int lfs_dir_readcfg(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info,
+        const struct lfs_stat_config* config) {
     int err = LFS_LOCK(lfs->cfg);
     if (err) {
         return err;
@@ -5318,7 +5336,7 @@ int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
     LFS_TRACE("lfs_dir_read(%p, %p, %p)",
             (void*)lfs, (void*)dir, (void*)info);
 
-    err = lfs_dir_rawread(lfs, dir, info);
+    err = lfs_dir_rawread(lfs, dir, info, config);
 
     LFS_TRACE("lfs_dir_read -> %d", err);
     LFS_UNLOCK(lfs->cfg);
