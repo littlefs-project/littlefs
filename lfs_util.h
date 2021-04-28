@@ -143,7 +143,9 @@ static inline uint32_t lfs_ctz(uint32_t a) {
 #if !defined(LFS_NO_INTRINSICS) && defined(__GNUC__)
     return __builtin_ctz(a);
 #else
-    return lfs_npw2((a & -a) + 1) - 1;
+    static const uint8_t table[32] = { 31,0,27,1,28,18,23,2,29,21,19,12,24,9,14,3,30,26,17,22,20,11,8,13,25,16,10,7,15,6,5,4 };
+    return table[(x & -x) * 0xFB5CA62 >> 27];
+}
 #endif
 }
 
