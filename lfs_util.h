@@ -121,22 +121,6 @@ static inline uint32_t lfs_alignup(uint32_t a, uint32_t alignment) {
     return lfs_aligndown(a + alignment-1, alignment);
 }
 
-// Find the smallest power of 2 greater than or equal to a
-static inline uint32_t lfs_npw2(uint32_t a) {
-#if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
-    return 32 - __builtin_clz(a-1);
-#else
-    uint32_t r = 0;
-    uint32_t s;
-    a -= 1;
-    s = (a > 0xffff) << 4; a >>= s; r |= s;
-    s = (a > 0xff  ) << 3; a >>= s; r |= s;
-    s = (a > 0xf   ) << 2; a >>= s; r |= s;
-    s = (a > 0x3   ) << 1; a >>= s; r |= s;
-    return (r | (a >> 1)) + 1;
-#endif
-}
-
 // Count the number of trailing binary zeros in a
 // lfs_ctz(0) may be undefined
 static inline uint32_t lfs_ctz(uint32_t a) {
@@ -145,6 +129,22 @@ static inline uint32_t lfs_ctz(uint32_t a) {
 #else
     static const uint8_t table[32] = { 0,1,10,2,11,14,22,3,30,12,15,17,19,23,26,4,31,9,13,21,29,16,18,25,8,20,28,24,7,27,6,5 };
     return table[(a & -a) * 0x07C4ACDD >> 27];
+#endif
+}
+
+// Find the smallest power of 2 greater than or equal to a
+static inline uint32_t lfs_npw2(uint32_t a) {
+#if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
+    return 32 - __builtin_clz(a-1);
+#else
+    a--;
+    a |= a >> 1;
+    a |= a >> 2;
+    a |= a >> 4;
+    a |= a >> 8;
+    a |= a >> 16;
+    a++;
+    return lfs_ctz(a);
 #endif
 }
 
