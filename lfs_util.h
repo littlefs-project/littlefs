@@ -121,14 +121,19 @@ static inline uint32_t lfs_alignup(uint32_t a, uint32_t alignment) {
     return lfs_aligndown(a + alignment-1, alignment);
 }
 
+//only used for a is power of 2
+static inline uint32_t lfs_log2(uint32_t a) {
+    static const uint8_t table[32] = { 0,1,10,2,11,14,22,3,30,12,15,17,19,23,26,4,31,9,13,21,29,16,18,25,8,20,28,24,7,27,6,5 };
+    return table[a * 0x07C4ACDD >> 27];
+}
+
 // Count the number of trailing binary zeros in a
 // lfs_ctz(0) may be undefined
 static inline uint32_t lfs_ctz(uint32_t a) {
 #if !defined(LFS_NO_INTRINSICS) && defined(__GNUC__)
     return __builtin_ctz(a);
 #else
-    static const uint8_t table[32] = { 0,1,10,2,11,14,22,3,30,12,15,17,19,23,26,4,31,9,13,21,29,16,18,25,8,20,28,24,7,27,6,5 };
-    return table[(a & -a) * 0x07C4ACDD >> 27];
+    return lfs_log2(a & -a);
 #endif
 }
 
@@ -144,7 +149,7 @@ static inline uint32_t lfs_npw2(uint32_t a) {
     a |= a >> 8;
     a |= a >> 16;
     a++;
-    return lfs_ctz(a);
+    return lfs_log2(a);
 #endif
 }
 
