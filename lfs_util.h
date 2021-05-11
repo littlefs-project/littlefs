@@ -127,16 +127,6 @@ static inline uint32_t lfs_log2(uint32_t a) {
     return table[a * 0x07C4ACDD >> 27];
 }
 
-// Count the number of trailing binary zeros in a
-// lfs_ctz(0) may be undefined
-static inline uint32_t lfs_ctz(uint32_t a) {
-#if !defined(LFS_NO_INTRINSICS) && defined(__GNUC__)
-    return __builtin_ctz(a);
-#else
-    return lfs_log2(a & -a);
-#endif
-}
-
 // Find the smallest power of 2 greater than or equal to a
 static inline uint32_t lfs_npw2(uint32_t a) {
 #if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
@@ -150,6 +140,16 @@ static inline uint32_t lfs_npw2(uint32_t a) {
     a |= a >> 16;
     a++;
     return lfs_log2(a);
+#endif
+}
+
+// Count the number of trailing binary zeros in a
+// lfs_ctz(0) may be undefined
+static inline uint32_t lfs_ctz(uint32_t a) {
+#if !defined(LFS_NO_INTRINSICS) && defined(__GNUC__)
+    return __builtin_ctz(a);
+#else
+    return lfs_log2(a & -a);
 #endif
 }
 
