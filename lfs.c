@@ -3190,9 +3190,10 @@ static int lfs_rawstat(lfs_t *lfs, const char *path, struct lfs_info *info) {
 }
 
 #ifndef LFS_READONLY
-static int lfs_dir_prep_dirremoval(lfs_t *lfs, struct lfs_mlist *dir, lfs_mdir_t *newcwd, uint16_t newid)
+static int lfs_dir_prep_removal(lfs_t *lfs, struct lfs_mlist *dir,
+        lfs_mdir_t *newcwd, uint16_t newid, lfs_block_t *pair,
+        lfs_gstate_t *tmp_gstate)
 {
-    lfs_block_t pair[2];
     lfs_stag_t res = lfs_dir_get(lfs, newcwd, LFS_MKTAG(0x700, 0x3ff, 0),
             LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), pair);
     if (res < 0) {
@@ -3206,7 +3207,46 @@ static int lfs_dir_prep_dirremoval(lfs_t *lfs, struct lfs_mlist *dir, lfs_mdir_t
     }
 
     if (dir->m.count > 0 || dir->m.split) {
-        return LFS_ERR_NOTEMPTY;
+        uint16_t id = 0;
+
+        // Walk tags stored in this directory and check for any directory
+        // tags.  Removal of directories with a directory in them can lead
+        // to additional orphans in the filesystem, so we return
+        // LFS_ERR_NOTEMPTY in this case.  Otherwise, leave the loaded
+        // directory for the tail end of the directory split to leave a proper
+        // view of the filesystem after removal.
+        while (true) {
+            if (dir->m.count == id) {
+                if (!dir->m.split) {
+                    // We have iterated through the folder to the last
+                    // tag.
+                    break;
+                }
+
+                // Before we fetch the next block, update our fetched gstate xor
+                lfs_dir_getgstate(lfs, &dir->m, tmp_gstate);
+
+                err = lfs_dir_fetch(lfs, &dir->m, dir->m.tail);
+                if (err) {
+                    return err;
+                }
+
+                id = 0;
+            }
+
+            lfs_stag_t tag = lfs_dir_get(lfs, &dir->m, LFS_MKTAG(0x780, 0x3ff, 0),
+                    LFS_MKTAG(LFS_TYPE_NAME, id, 0), NULL);
+
+            if (tag < 0) {
+                return tag;
+            }
+
+            if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
+                return LFS_ERR_NOTEMPTY;
+            }
+
+            id += 1;
+        }
     }
 
     // mark fs as orphaned
@@ -3240,10 +3280,12 @@ static int lfs_rawremove(lfs_t *lfs, const char *path) {
     }
 
     struct lfs_mlist dir;
+    lfs_block_t pair[2];
+    lfs_gstate_t tmp_gstate;
     dir.next = lfs->mlist;
     if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
         // must be empty before removal to prevent orphans
-        err = lfs_dir_prep_dirremoval(lfs, &dir, &cwd, lfs_tag_id(tag));
+        err = lfs_dir_prep_removal(lfs, &dir, &cwd, lfs_tag_id(tag), pair, &tmp_gstate);
         if (err < 0) {
             return err;
         }
@@ -3265,10 +3307,14 @@ static int lfs_rawremove(lfs_t *lfs, const char *path) {
             return err;
         }
 
-        err = lfs_fs_pred(lfs, dir.m.pair, &cwd);
+        err = lfs_fs_pred(lfs, pair, &cwd);
         if (err) {
             return err;
         }
+
+        // Merge in gstate from first block splits within the directory;
+        // lfs_dir_drop will pick up the last gstate entry.
+        lfs_gstate_xor(&lfs->gdelta, &tmp_gstate);
 
         err = lfs_dir_drop(lfs, &cwd, &dir.m);
         if (err) {
@@ -3309,6 +3355,8 @@ static int lfs_rawrename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     uint16_t newoldid = lfs_tag_id(oldtag);
 
     struct lfs_mlist prevdir;
+    lfs_block_t dir_pair[2];
+    lfs_gstate_t tmp_gstate;
     prevdir.next = lfs->mlist;
     if (prevtag == LFS_ERR_NOENT) {
         // check that name fits
@@ -3330,7 +3378,7 @@ static int lfs_rawrename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         return 0;
     } else if (lfs_tag_type3(prevtag) == LFS_TYPE_DIR) {
         // must be empty before removal to prevent orphans
-        err = lfs_dir_prep_dirremoval(lfs, &prevdir, &newcwd, newid);
+        err = lfs_dir_prep_removal(lfs, &prevdir, &newcwd, newid, dir_pair, &tmp_gstate);
         if (err) {
             return err;
         }
@@ -3375,10 +3423,14 @@ static int lfs_rawrename(lfs_t *lfs, const char *oldpath, const char *newpath) {
             return err;
         }
 
-        err = lfs_fs_pred(lfs, prevdir.m.pair, &newcwd);
+        err = lfs_fs_pred(lfs, dir_pair, &newcwd);
         if (err) {
             return err;
         }
+
+        // Merge in gstate from first split blocks in the directory;
+        // lfs_dir_drop will pick up the other gstate entries.
+        lfs_gstate_xor(&lfs->gdelta, &tmp_gstate);
 
         err = lfs_dir_drop(lfs, &newcwd, &prevdir.m);
         if (err) {
