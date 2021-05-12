@@ -3895,6 +3895,63 @@ struct lfs_remove_state
 #endif
 
 #ifndef LFS_READONLY
+static int lfs_dir_prep_removal(lfs_t *lfs, struct lfs_remove_state *p) {
+    lfs_stag_t res = lfs_dir_get(lfs, &p->cwd, LFS_MKTAG(0x700, 0x3ff, 0),
+            LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(p->tag), 8), p->dir_head);
+    if (res < 0) {
+        return (int)res;
+    }
+    lfs_pair_fromle32(p->dir_head);
+
+    int err = lfs_dir_fetch(lfs, &p->dir.m, p->dir_head);
+    if (err) {
+        return err;
+    }
+
+    if (p->dir.m.count > 0 || p->dir.m.split) {
+        return LFS_ERR_NOTEMPTY;
+    }
+
+    // mark fs as orphaned
+    err = lfs_fs_preporphans(lfs, +1);
+    if (err) {
+        return err;
+    }
+
+    // I know it's crazy but yes, dir can be changed by our parent's
+    // commit (if predecessor is child)
+    p->dir.type = 0;
+    p->dir.id = 0;
+    lfs->mlist = &p->dir;
+
+    return 0;
+}
+#endif
+
+#ifndef LFS_READONLY
+static int lfs_dir_finish_removal(lfs_t *lfs, struct lfs_remove_state *p)
+{
+    // fix orphan
+    int err = lfs_fs_preporphans(lfs, -1);
+    if (err) {
+        return err;
+    }
+
+    err = lfs_fs_pred(lfs, p->dir.m.pair, &p->cwd);
+    if (err) {
+        return err;
+    }
+
+    err = lfs_dir_drop(lfs, &p->cwd, &p->dir.m);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+#endif
+
+#ifndef LFS_READONLY
 static int lfs_remove_(lfs_t *lfs, const char *path) {
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
@@ -3910,34 +3967,10 @@ static int lfs_remove_(lfs_t *lfs, const char *path) {
 
     s.dir.next = lfs->mlist;
     if (lfs_tag_type3(s.tag) == LFS_TYPE_DIR) {
-        // must be empty before removal
-        lfs_stag_t res = lfs_dir_get(lfs, &s.cwd, LFS_MKTAG(0x700, 0x3ff, 0),
-                LFS_MKTAG(LFS_TYPE_STRUCT, lfs_tag_id(s.tag), 8), s.dir_head);
-        if (res < 0) {
-            return (int)res;
-        }
-        lfs_pair_fromle32(s.dir_head);
-
-        err = lfs_dir_fetch(lfs, &s.dir.m, s.dir_head);
-        if (err) {
+        err = lfs_dir_prep_removal(lfs, &s);
+        if (err < 0) {
             return err;
         }
-
-        if (s.dir.m.count > 0 || s.dir.m.split) {
-            return LFS_ERR_NOTEMPTY;
-        }
-
-        // mark fs as orphaned
-        err = lfs_fs_preporphans(lfs, +1);
-        if (err) {
-            return err;
-        }
-
-        // I know it's crazy but yes, dir can be changed by our parent's
-        // commit (if predecessor is child)
-        s.dir.type = 0;
-        s.dir.id = 0;
-        lfs->mlist = &s.dir;
     }
 
     // delete the entry
@@ -3950,18 +3983,7 @@ static int lfs_remove_(lfs_t *lfs, const char *path) {
 
     lfs->mlist = s.dir.next;
     if (lfs_tag_type3(s.tag) == LFS_TYPE_DIR) {
-        // fix orphan
-        err = lfs_fs_preporphans(lfs, -1);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_fs_pred(lfs, s.dir.m.pair, &s.cwd);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_dir_drop(lfs, &s.cwd, &s.dir.m);
+        err = lfs_dir_finish_removal(lfs, &s);
         if (err) {
             return err;
         }
@@ -4027,34 +4049,10 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
         // we're renaming to ourselves??
         return 0;
     } else if (lfs_tag_type3(n.tag) == LFS_TYPE_DIR) {
-        lfs_stag_t res = lfs_dir_get(lfs, &n.cwd, LFS_MKTAG(0x700, 0x3ff, 0),
-                LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), n.dir_head);
-        if (res < 0) {
-            return (int)res;
-        }
-        lfs_pair_fromle32(n.dir_head);
-
-        // must be empty before removal
-        err = lfs_dir_fetch(lfs, &n.dir.m, n.dir_head);
+        err = lfs_dir_prep_removal(lfs, &n);
         if (err) {
             return err;
         }
-
-        if (n.dir.m.count > 0 || n.dir.m.split) {
-            return LFS_ERR_NOTEMPTY;
-        }
-
-        // mark fs as orphaned
-        err = lfs_fs_preporphans(lfs, +1);
-        if (err) {
-            return err;
-        }
-
-        // I know it's crazy but yes, dir can be changed by our parent's
-        // commit (if predecessor is child)
-        n.dir.type = 0;
-        n.dir.id = 0;
-        lfs->mlist = &n.dir;
     }
 
     if (!samepair) {
@@ -4092,18 +4090,7 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
     lfs->mlist = n.dir.next;
     if (n.tag != LFS_ERR_NOENT
             && lfs_tag_type3(n.tag) == LFS_TYPE_DIR) {
-        // fix orphan
-        err = lfs_fs_preporphans(lfs, -1);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_fs_pred(lfs, n.dir.m.pair, &n.cwd);
-        if (err) {
-            return err;
-        }
-
-        err = lfs_dir_drop(lfs, &n.cwd, &n.dir.m);
+        err = lfs_dir_finish_removal(lfs, &n);
         if (err) {
             return err;
         }
