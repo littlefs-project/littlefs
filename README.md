@@ -192,7 +192,7 @@ More details on how littlefs works can be found in [DESIGN.md](DESIGN.md) and
 ## Testing
 
 The littlefs comes with a test suite designed to run on a PC using the
-[emulated block device](emubd/lfs_emubd.h) found in the emubd directory.
+[emulated block device](bd/lfs_testbd.h) found in the `bd` directory.
 The tests assume a Linux environment and can be started with make:
 
 ``` bash
