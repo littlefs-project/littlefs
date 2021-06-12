@@ -292,6 +292,8 @@ class TestCase:
                     if e.errno == errno.EIO:
                         break
                     raise
+                if not line:
+                    break;
                 stdout.append(line)
                 if args.get('verbose'):
                     sys.stdout.write(line)
@@ -687,6 +689,8 @@ def main(**args):
             if e.errno == errno.EIO:
                 break
             raise
+        if not line:
+            break;
         stdout.append(line)
         if args.get('verbose'):
             sys.stdout.write(line)
