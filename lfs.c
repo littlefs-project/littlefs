@@ -5068,6 +5068,24 @@ int lfs_remove(lfs_t *lfs, const char *path) {
 #endif
 
 #ifndef LFS_READONLY
+int lfs_removeall(lfs_t *lfs, const char *path) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_removeall(%p, \"%s\")", (void*)lfs, path);
+
+    // Note: We pass in a helper pointer here so that this extra
+    //       logic can be dropped if it is never referenced
+    err = lfs_rawremove(lfs, path, lfs_dir_prep_remove_nonempty_folders);
+
+    LFS_TRACE("lfs_removeall -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
 int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     int err = LFS_LOCK(lfs->cfg);
     if (err) {
@@ -5076,6 +5094,24 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath) {
     LFS_TRACE("lfs_rename(%p, \"%s\", \"%s\")", (void*)lfs, oldpath, newpath);
 
     err = lfs_rawrename(lfs, oldpath, newpath, NULL);
+
+    LFS_TRACE("lfs_rename -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_rename_with_removeall(lfs_t *lfs, const char *oldpath, const char *newpath) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_rename(%p, \"%s\", \"%s\")", (void*)lfs, oldpath, newpath);
+
+    // Note: We pass in a helper pointer here so that this extra
+    //       logic can be dropped if it is never referenced
+    err = lfs_rawrename(lfs, oldpath, newpath, lfs_dir_prep_remove_nonempty_folders);
 
     LFS_TRACE("lfs_rename -> %d", err);
     LFS_UNLOCK(lfs->cfg);

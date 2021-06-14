@@ -459,6 +459,17 @@ int lfs_remove(lfs_t *lfs, const char *path);
 #endif
 
 #ifndef LFS_READONLY
+// Removes a file or directory
+//
+// If removing a directory, the directory must not have
+// any directories but it may contain files.  This is
+// non-POSIX behavior, and thus is a different call
+// than lfs_remove(...)
+// Returns a negative error code on failure.
+int lfs_removeall(lfs_t *lfs, const char *path);
+#endif
+
+#ifndef LFS_READONLY
 // Rename or move a file or directory
 //
 // If the destination exists, it must match the source in type.
@@ -466,6 +477,19 @@ int lfs_remove(lfs_t *lfs, const char *path);
 //
 // Returns a negative error code on failure.
 int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
+#endif
+
+#ifndef LFS_READONLY
+// Rename or move a file or directory
+//
+// If the destination exists, it must match the source in type.
+// If the destination is a directory, it may not contain
+// any directories but it may contain files.  This is
+// non-POSIX behavior, and thus is a different call
+// than lfs_rename(...)
+//
+// Returns a negative error code on failure.
+int lfs_rename_with_removeall(lfs_t *lfs, const char *oldpath, const char *newpath);
 #endif
 
 // Find info about a file or directory
