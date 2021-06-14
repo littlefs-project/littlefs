@@ -3192,7 +3192,7 @@ static int lfs_rawstat(lfs_t *lfs, const char *path, struct lfs_info *info) {
 #ifndef LFS_READONLY
 static int lfs_dir_prep_removal(lfs_t *lfs, struct lfs_mlist *dir,
         lfs_mdir_t *newcwd, uint16_t newid, lfs_block_t *pair,
-        lfs_gstate_t *tmp_gstate)
+        lfs_gstate_t *tmp_gstate, bool allow_nonempty_folder)
 {
     lfs_gstate_t split_gstate;
     lfs_stag_t res = lfs_dir_get(lfs, newcwd, LFS_MKTAG(0x700, 0x3ff, 0),
@@ -3210,6 +3210,12 @@ static int lfs_dir_prep_removal(lfs_t *lfs, struct lfs_mlist *dir,
     }
 
     if (dir->m.count > 0 || dir->m.split) {
+        // Normal POSIX behavior wouldn't allow a non-empty
+        // folder to be removed/renamed into in this manner
+        if (!allow_nonempty_folder) {
+            return LFS_ERR_NOTEMPTY;
+        }
+
         uint16_t id = 0;
 
         // Walk tags stored in this directory and check for any directory
@@ -3270,7 +3276,7 @@ static int lfs_dir_prep_removal(lfs_t *lfs, struct lfs_mlist *dir,
 #endif
 
 #ifndef LFS_READONLY
-static int lfs_rawremove(lfs_t *lfs, const char *path) {
+static int lfs_rawremove(lfs_t *lfs, const char *path, bool allow_nonempty_folder) {
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
     if (err) {
@@ -3289,7 +3295,8 @@ static int lfs_rawremove(lfs_t *lfs, const char *path) {
     dir.next = lfs->mlist;
     if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
         // must be empty before removal to prevent orphans
-        err = lfs_dir_prep_removal(lfs, &dir, &cwd, lfs_tag_id(tag), pair, &tmp_gstate);
+        err = lfs_dir_prep_removal(lfs, &dir, &cwd, lfs_tag_id(tag),
+                pair, &tmp_gstate, allow_nonempty_folder);
         if (err < 0) {
             return err;
         }
@@ -3331,7 +3338,8 @@ static int lfs_rawremove(lfs_t *lfs, const char *path) {
 #endif
 
 #ifndef LFS_READONLY
-static int lfs_rawrename(lfs_t *lfs, const char *oldpath, const char *newpath) {
+static int lfs_rawrename(lfs_t *lfs, const char *oldpath,
+        const char *newpath, bool allow_nonempty_folder) {
     // deorphan if we haven't yet, needed at most once after poweron
     int err = lfs_fs_forceconsistency(lfs);
     if (err) {
@@ -3382,7 +3390,8 @@ static int lfs_rawrename(lfs_t *lfs, const char *oldpath, const char *newpath) {
         return 0;
     } else if (lfs_tag_type3(prevtag) == LFS_TYPE_DIR) {
         // must be empty before removal to prevent orphans
-        err = lfs_dir_prep_removal(lfs, &prevdir, &newcwd, newid, dir_pair, &tmp_gstate);
+        err = lfs_dir_prep_removal(lfs, &prevdir, &newcwd, newid,
+                dir_pair, &tmp_gstate, allow_nonempty_folder);
         if (err) {
             return err;
         }
@@ -5037,7 +5046,7 @@ int lfs_remove(lfs_t *lfs, const char *path) {
     }
     LFS_TRACE("lfs_remove(%p, \"%s\")", (void*)lfs, path);
 
-    err = lfs_rawremove(lfs, path);
+    err = lfs_rawremove(lfs, path, false);
 
     LFS_TRACE("lfs_remove -> %d", err);
     LFS_UNLOCK(lfs->cfg);
