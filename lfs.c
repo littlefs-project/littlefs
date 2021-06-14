@@ -3194,12 +3194,15 @@ static int lfs_dir_prep_removal(lfs_t *lfs, struct lfs_mlist *dir,
         lfs_mdir_t *newcwd, uint16_t newid, lfs_block_t *pair,
         lfs_gstate_t *tmp_gstate)
 {
+    lfs_gstate_t split_gstate;
     lfs_stag_t res = lfs_dir_get(lfs, newcwd, LFS_MKTAG(0x700, 0x3ff, 0),
             LFS_MKTAG(LFS_TYPE_STRUCT, newid, 8), pair);
     if (res < 0) {
         return (int)res;
     }
     lfs_pair_fromle32(pair);
+
+    memset(tmp_gstate, 0, sizeof(*tmp_gstate));
 
     int err = lfs_dir_fetch(lfs, &dir->m, pair);
     if (err) {
@@ -3224,7 +3227,8 @@ static int lfs_dir_prep_removal(lfs_t *lfs, struct lfs_mlist *dir,
                 }
 
                 // Before we fetch the next block, update our fetched gstate xor
-                lfs_dir_getgstate(lfs, &dir->m, tmp_gstate);
+                lfs_dir_getgstate(lfs, &dir->m, &split_gstate);
+                lfs_gstate_xor(tmp_gstate, &split_gstate);
 
                 err = lfs_dir_fetch(lfs, &dir->m, dir->m.tail);
                 if (err) {
