@@ -510,6 +510,18 @@ int lfs_remove(lfs_t *lfs, const char *path);
 #endif
 
 #ifndef LFS_READONLY
+// Removes a file or directory recursively
+//
+// Note: If power is interrupted, you might end up with
+//       a partially emptied folder.  This routine removes
+//       a leaf at a time atomically and will eventually
+//       remove the only leaf left (the top leaf).
+//
+// Returns a negative error code on failure.
+int lfs_remove_recursive(lfs_t *lfs, const char *path);
+#endif
+
+#ifndef LFS_READONLY
 // Removes a file or directory
 //
 // If removing a directory, the directory must not have
