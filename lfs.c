@@ -5265,6 +5265,58 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
     return res;
 }
 
+lfs_ssize_t lfs_file_getattr(lfs_t *lfs, lfs_file_t *file,
+        uint8_t type, void *buffer, lfs_size_t size)
+{
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_setattr(%p, %p)", (void*)lfs, (void*)file);
+    LFS_TRACE("lfs_file_setattr(%"PRIu8", %p, %"PRIu32")",
+            type, buffer, size);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    return lfs_dir_get(lfs, &file->m, LFS_MKTAG(0x7ff, 0x3ff, 0),
+            LFS_MKTAG(LFS_TYPE_USERATTR + type,
+                file->id, lfs_min(size, lfs->attr_max)), buffer);
+}
+
+#ifndef LFS_READONLY
+int lfs_file_setattr(lfs_t *lfs, lfs_file_t *file,
+        uint8_t type, const void *buffer, lfs_size_t size)
+{
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_getattr(%p, %p)", (void*)lfs, (void*)file);
+    LFS_TRACE("lfs_file_getattr(%"PRIu8", %p, %"PRIu32")",
+            type, buffer, size);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    return lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
+            {LFS_MKTAG(LFS_TYPE_USERATTR + type, file->id, size), buffer}));
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_file_removeattr(lfs_t *lfs, lfs_file_t *file, uint8_t type)
+{
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_removeattr(%p, %p)", (void*)lfs, (void*)file);
+    LFS_TRACE("lfs_file_removeattr(%"PRIu8", %p, %"PRIu32")", type);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    return lfs_dir_commit(lfs, &file->m, LFS_MKATTRS(
+            {LFS_MKTAG(LFS_TYPE_USERATTR + type, file->id, 0x3ff), NULL}));
+}
+#endif
+
+
 #ifndef LFS_READONLY
 int lfs_mkdir(lfs_t *lfs, const char *path) {
     int err = LFS_LOCK(lfs->cfg);
