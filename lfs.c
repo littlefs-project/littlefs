@@ -3762,7 +3762,8 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
                 lfs->attr_max = superblock.attr_max;
             }
 
-            if (superblock.block_count != lfs->cfg->block_count)
+            if ((superblock.block_count != lfs->cfg->block_count) ||
+                (superblock.block_size != lfs->cfg->block_size))
             {
                 err = LFS_ERR_CORRUPT;
                 goto cleanup;
