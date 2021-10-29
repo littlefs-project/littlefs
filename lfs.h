@@ -190,18 +190,18 @@ struct lfs_config {
     int (*unlock)(const struct lfs_config *c);
 #endif
 
-    // Minimum size of a block read. All read operations will be a
+    // Minimum size of a block read in bytes. All read operations will be a
     // multiple of this value.
     lfs_size_t read_size;
 
-    // Minimum size of a block program. All program operations will be a
-    // multiple of this value.
+    // Minimum size of a block program in bytes. All program operations will be
+    // a multiple of this value.
     lfs_size_t prog_size;
 
-    // Size of an erasable block. This does not impact ram consumption and
-    // may be larger than the physical erase size. However, non-inlined files
-    // take up at minimum one block. Must be a multiple of the read
-    // and program sizes.
+    // Size of an erasable block in bytes. This does not impact ram consumption
+    // and may be larger than the physical erase size. However, non-inlined
+    // files take up at minimum one block. Must be a multiple of the read and
+    // program sizes.
     lfs_size_t block_size;
 
     // Number of erasable blocks on the device.
@@ -215,11 +215,11 @@ struct lfs_config {
     // Set to -1 to disable block-level wear-leveling.
     int32_t block_cycles;
 
-    // Size of block caches. Each cache buffers a portion of a block in RAM.
-    // The littlefs needs a read cache, a program cache, and one additional
+    // Size of block caches in bytes. Each cache buffers a portion of a block in
+    // RAM. The littlefs needs a read cache, a program cache, and one additional
     // cache per file. Larger caches can improve performance by storing more
-    // data and reducing the number of disk accesses. Must be a multiple of
-    // the read and program sizes, and a factor of the block size.
+    // data and reducing the number of disk accesses. Must be a multiple of the
+    // read and program sizes, and a factor of the block size.
     lfs_size_t cache_size;
 
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
