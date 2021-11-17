@@ -2571,6 +2571,7 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
 #endif
     }
 
+#ifndef LFS_NO_MALLOC
     // allocate buffer if needed
     if (file->cfg->buffer) {
         file->cache.buffer = file->cfg->buffer;
@@ -2584,6 +2585,12 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
 
     // zero to avoid information leak
     lfs_cache_zero(lfs, &file->cache);
+#else
+   // local buffer to be shared among all calls
+   static uint8_t no_malloc_buffer[1024];
+
+   file->cache.buffer = no_malloc_buffer;
+#endif  // LFS_NO_MALLOC
 
     if (lfs_tag_type3(tag) == LFS_TYPE_INLINESTRUCT) {
         // load inline files
@@ -2615,6 +2622,12 @@ cleanup:
 #ifndef LFS_READONLY
     file->flags |= LFS_F_ERRED;
 #endif
+
+#ifdef LFS_NO_MALLOC
+    // prevent a free() on the static buffer
+    file->cache.buffer = NULL;
+#endif  // LFS_NO_MALLOC
+
     lfs_file_rawclose(lfs, file);
     return err;
 }
