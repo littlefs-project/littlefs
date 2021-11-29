@@ -88,14 +88,30 @@ static int lfs_bd_read(lfs_t *lfs,
 
         // load to cache, first condition can no longer fail
         LFS_ASSERT(block < lfs->cfg->block_count);
+        lfs_off_t continuation_off;
+        if (rcache->block == block) {
+            continuation_off = rcache->off + rcache->size;
+        } else {
+            continuation_off = (lfs_off_t)-1;
+        }
         rcache->block = block;
         rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
-        rcache->size = lfs_min(
-                lfs_min(
-                    lfs_alignup(off+hint, lfs->cfg->read_size),
-                    lfs->cfg->block_size)
-                - rcache->off,
-                lfs->cfg->cache_size);
+
+        if (continuation_off == rcache->off) {
+            /* reading in continuation of the previous cache.
+             * try to read more in advance
+             */
+            rcache->size = lfs_min(rcache->size*4, lfs->cfg->cache_size);
+            if (rcache->size + rcache->off > lfs->cfg->block_size)
+                rcache->size = lfs->cfg->block_size - rcache->off;
+        } else {
+            rcache->size = lfs_min(
+                    lfs_min(
+                        lfs_alignup(off+hint, lfs->cfg->read_size),
+                        lfs->cfg->block_size)
+                    - rcache->off,
+                    lfs->cfg->cache_size);
+        }
         int err = lfs->cfg->read(lfs->cfg, rcache->block,
                 rcache->off, rcache->buffer, rcache->size);
         LFS_ASSERT(err <= 0);
