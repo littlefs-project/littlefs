@@ -6,6 +6,11 @@
  */
 #include "lfs_util.h"
 
+#ifdef LFS_PERF_STATS
+struct lfs_perf_stats lfs_perf_stats = {0};
+#endif
+
+
 // Only compile if user does not provide custom config
 #ifndef LFS_CONFIG
 

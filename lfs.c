@@ -48,6 +48,9 @@ static int lfs_bd_read(lfs_t *lfs,
         return LFS_ERR_CORRUPT;
     }
 
+    LFS_PERF_STATS_INCR(bd_read_calls, 1);
+    LFS_PERF_STATS_INCR(bd_read_bytes, size);
+
     while (size > 0) {
         lfs_size_t diff = size;
 
@@ -98,6 +101,8 @@ static int lfs_bd_read(lfs_t *lfs,
                 size >= lfs->cfg->read_size) {
             // bypass cache?
             diff = lfs_aligndown(diff, lfs->cfg->read_size);
+            LFS_PERF_STATS_INCR(io_read_calls, 1);
+            LFS_PERF_STATS_INCR(io_read_bytes, diff);
             int err = lfs->cfg->read(lfs->cfg, block, off, data, diff);
             if (err) {
                 return err;
@@ -135,6 +140,8 @@ static int lfs_bd_read(lfs_t *lfs,
                 lfs->dyn_rcache.buffer = lfs_malloc(lfs->cfg->block_size);
             }
             if (lfs->dyn_rcache.buffer) {
+                LFS_PERF_STATS_INCR(io_read_calls, 1);
+                LFS_PERF_STATS_INCR(io_read_bytes, lfs->cfg->block_size);
                 int err = lfs->cfg->read(lfs->cfg, rcache->block,
                         0, lfs->dyn_rcache.buffer, lfs->cfg->block_size);
                 LFS_ASSERT(err <= 0);
@@ -163,6 +170,8 @@ static int lfs_bd_read(lfs_t *lfs,
                     - rcache->off,
                     lfs->cfg->cache_size);
         }
+        LFS_PERF_STATS_INCR(io_read_calls, 1);
+        LFS_PERF_STATS_INCR(io_read_bytes, rcache->size);
         int err = lfs->cfg->read(lfs->cfg, rcache->block,
                 rcache->off, rcache->buffer, rcache->size);
         LFS_ASSERT(err <= 0);
@@ -214,6 +223,8 @@ static int lfs_bd_flush(lfs_t *lfs,
     if (pcache->block != LFS_BLOCK_NULL && pcache->block != LFS_BLOCK_INLINE) {
         LFS_ASSERT(pcache->block < lfs->cfg->block_count);
         lfs_size_t diff = lfs_alignup(pcache->size, lfs->cfg->prog_size);
+        LFS_PERF_STATS_INCR(io_prog_calls, 1);
+        LFS_PERF_STATS_INCR(io_prog_bytes, diff);
         int err = lfs->cfg->prog(lfs->cfg, pcache->block,
                 pcache->off, pcache->buffer, diff);
         LFS_ASSERT(err <= 0);
@@ -310,6 +321,7 @@ static int lfs_bd_prog(lfs_t *lfs,
 #ifndef LFS_READONLY
 static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
     LFS_ASSERT(block < lfs->cfg->block_count);
+    LFS_PERF_STATS_INCR(io_erase_calls, 1);
     int err = lfs->cfg->erase(lfs->cfg, block);
     LFS_ASSERT(err <= 0);
     return err;
@@ -815,6 +827,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
         uint16_t begin, uint16_t end, int16_t diff,
         int (*cb)(void *data, lfs_tag_t tag, const void *buffer), void *data) {
     // iterate over directory and attrs
+    LFS_PERF_STATS_INCR(dir_traverse_calls, 1);
     while (true) {
         lfs_tag_t tag;
         const void *buffer;
@@ -1639,6 +1652,8 @@ static int lfs_dir_compact(lfs_t *lfs,
     const lfs_block_t oldpair[2] = {dir->pair[0], dir->pair[1]};
     bool relocated = false;
     bool tired = false;
+
+    LFS_PERF_STATS_INCR(dir_compact_calls, 1);
 
     // should we split?
     while (end - begin > 1) {

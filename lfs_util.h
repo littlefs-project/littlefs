@@ -235,6 +235,31 @@ static inline void lfs_free(void *p) {
 #endif
 }
 
+#ifdef LFS_PERF_STATS
+struct lfs_perf_stats {
+	unsigned bd_read_calls;
+	unsigned bd_read_bytes;
+
+	unsigned io_read_calls;
+	unsigned io_read_bytes;
+
+	unsigned io_erase_calls;
+	unsigned io_prog_calls;
+	unsigned io_prog_bytes;
+
+	unsigned dir_compact_calls;
+	unsigned dir_traverse_calls;
+};
+
+extern struct lfs_perf_stats lfs_perf_stats;
+#define LFS_PERF_STATS_INCR(counter, count)  lfs_perf_stats.counter += (count)
+#define LFS_PERF_STATS_RESET()  memset(&lfs_perf_stats, 0, sizeof(lfs_perf_stats));
+#define LFS_PERF_STATS_GET(counter) (lfs_perf_stats.counter)
+#else
+#define LFS_PERF_STATS_INCR(counter, count)
+#define LFS_PERF_STATS_RESET()
+#define LFS_PERF_STATS_GET(counter) (0)
+#endif
 
 #ifdef __cplusplus
 } /* extern "C" */
