@@ -1509,7 +1509,6 @@ static int lfs_dir_split(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t split, uint16_t end) {
     // create tail directory
-    lfs_alloc_ack(lfs);
     lfs_mdir_t tail;
     int err = lfs_dir_alloc(lfs, &tail);
     if (err) {
