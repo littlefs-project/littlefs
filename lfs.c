@@ -911,7 +911,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
              *   lfs_dir_traverse_filter with LFS_TYPE_STRUCT attr wheras
              *   lfs_dir_traverse_filter only modify tag on CREATE or DELETE.
              *   Consequently, cb called from [4] will never stop the search from [2]
-             * - [4] may call lfs_dir_traverse_filter, but with action on a tag[3] pointer
+             * - [4] may call lfs_dir_traverse_filter, but with action on a tag [3] pointer
              *   completely different from tag[1]
              */
             if (cb == lfs_dir_traverse_filter) {
