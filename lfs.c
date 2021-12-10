@@ -1449,7 +1449,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
         }
     }
 
-    // zero for reproducability in case initial block is unreadable
+    // zero for reproducibility in case initial block is unreadable
     dir->rev = 0;
 
     // rather than clobbering one of the blocks we just pretend
@@ -4074,7 +4074,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
             lfs_fs_prepmove(lfs, 0x3ff, NULL);
         }
 
-        // replace bad pair, either we clean up desync, or no desync occured
+        // replace bad pair, either we clean up desync, or no desync occurred
         lfs_pair_tole32(newpair);
         err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
                 {LFS_MKTAG_IF(moveid != 0x3ff,
