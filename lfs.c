@@ -3066,9 +3066,18 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
     if (whence == LFS_SEEK_SET) {
         npos = off;
     } else if (whence == LFS_SEEK_CUR) {
-        npos = file->pos + off;
+        if ((lfs_soff_t)file->pos + off < 0) {
+            return LFS_ERR_INVAL;
+        } else {
+            npos = file->pos + off;
+        }
     } else if (whence == LFS_SEEK_END) {
-        npos = lfs_file_rawsize(lfs, file) + off;
+        lfs_soff_t res = lfs_file_rawsize(lfs, file) + off;
+        if (res < 0) {
+            return LFS_ERR_INVAL;
+        } else {
+            npos = res;
+        }
     }
 
     if (npos > lfs->file_max) {
