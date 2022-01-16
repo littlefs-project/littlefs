@@ -3091,6 +3091,21 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
         return npos;
     }
 
+    // Get the difference between new and current file position
+    // If new position is after the current file position
+    // If new position belongs to the currently cached data
+    // Set new file position,
+    // and update also the block related position
+    int offset = npos - file->pos;
+    if (offset > 0) {
+        if ((file->off + offset) < lfs->cfg->block_size) {
+            file->pos  = npos;
+            file->off += offset;
+
+            return npos;
+        }
+    }
+
     // write out everything beforehand, may be noop if rdonly
     int err = lfs_file_flush(lfs, file);
     if (err) {
