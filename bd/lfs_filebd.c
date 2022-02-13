@@ -10,6 +10,15 @@
 #include <unistd.h>
 #include <errno.h>
 
+#ifdef _WIN32
+// Map fsync to FlushFileBuffers on Windows
+#include <windows.h>
+#define fsync(fd) (FlushFileBuffers ((HANDLE) _get_osfhandle(fd)) ? 0 : -1)
+#else
+// O_BINARY is required and exists for Windows platforms.
+// For Linux it is not needed thus 0
+#define O_BINARY 0
+#endif
 int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
         const struct lfs_filebd_config *bdcfg) {
     LFS_FILEBD_TRACE("lfs_filebd_createcfg(%p {.context=%p, "
@@ -27,7 +36,7 @@ int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
     bd->cfg = bdcfg;
 
     // open file
-    bd->fd = open(path, O_RDWR | O_CREAT, 0666);
+    bd->fd = open(path, O_RDWR | O_CREAT | O_BINARY, 0666);
     if (bd->fd < 0) {
         int err = -errno;
         LFS_FILEBD_TRACE("lfs_filebd_createcfg -> %d", err);
