@@ -229,7 +229,7 @@ jobs:
                 | select(.context == env.CONTEXT).description
                 | capture("Code size is (?<result>[0-9]+)").result' \
               || echo 0)"
-            export DESCRIPTION="$(./scripts/code.py -u $f -s | awk '
+            export DESCRIPTION="$(./scripts/code.py -u $f --summary | awk '
               NR==2 {printf "Code size is %d B",$2}
               NR==2 && ENVIRON["PREV"]+0 != 0 {
                 printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}')"
@@ -427,7 +427,7 @@ jobs:
               | capture("Coverage is (?<result>[0-9\\.]+)").result' \
             || echo 0)"
           export DESCRIPTION="$(
-            ./scripts/coverage.py -u results/coverage.csv -s | awk -F '[ /%]+' '
+            ./scripts/coverage.py -u results/coverage.csv --summary | awk -F '[ /%]+' '
               NR==2 {printf "Coverage is %.1f%% of %d lines",$4,$3}
               NR==2 && ENVIRON["PREV"]+0 != 0 {
                 printf " (%+.1f%%)",$4-ENVIRON["PREV"]}')"

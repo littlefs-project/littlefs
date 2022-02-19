@@ -126,6 +126,22 @@ def main(**args):
             diff[name] = (old, new, new-old, (new-old)/old if old else 1.0)
         return diff
 
+    def sorted_entries(entries):
+        if args.get('size_sort'):
+            return sorted(entries.items(), key=lambda x: (-x[1], x))
+        elif args.get('reverse_size_sort'):
+            return sorted(entries.items(), key=lambda x: (+x[1], x))
+        else:
+            return sorted(entries.items())
+
+    def sorted_diff_entries(entries):
+        if args.get('size_sort'):
+            return sorted(entries.items(), key=lambda x: (-x[1][1], x))
+        elif args.get('reverse_size_sort'):
+            return sorted(entries.items(), key=lambda x: (+x[1][1], x))
+        else:
+            return sorted(entries.items(), key=lambda x: (-x[1][3], x))
+
     def print_header(by=''):
         if not args.get('diff'):
             print('%-36s %7s' % (by, 'size'))
@@ -137,7 +153,7 @@ def main(**args):
 
         if not args.get('diff'):
             print_header(by=by)
-            for name, size in sorted(entries.items()):
+            for name, size in sorted_entries(entries):
                 print("%-36s %7d" % (name, size))
         else:
             prev_entries = dedup_entries(prev_results, by=by)
@@ -145,8 +161,7 @@ def main(**args):
             print_header(by='%s (%d added, %d removed)' % (by,
                 sum(1 for old, _, _, _ in diff.values() if not old),
                 sum(1 for _, new, _, _ in diff.values() if not new)))
-            for name, (old, new, diff, ratio) in sorted(diff.items(),
-                    key=lambda x: (-x[1][3], x)):
+            for name, (old, new, diff, ratio) in sorted_diff_entries(diff):
                 if ratio or args.get('all'):
                     print("%-36s %7s %7s %+7d%s" % (name,
                         old or "-",
@@ -196,10 +211,14 @@ if __name__ == "__main__":
         help="Specify CSV file to diff code size against.")
     parser.add_argument('-a', '--all', action='store_true',
         help="Show all functions, not just the ones that changed.")
+    parser.add_argument('-s', '--size-sort', action='store_true',
+        help="Sort by size.")
+    parser.add_argument('-S', '--reverse-size-sort', action='store_true',
+        help="Sort by size, but backwards.")
     parser.add_argument('--files', action='store_true',
         help="Show file-level code sizes. Note this does not include padding! "
             "So sizes may differ from other tools.")
-    parser.add_argument('-s', '--summary', action='store_true',
+    parser.add_argument('--summary', action='store_true',
         help="Only show the total code size.")
     parser.add_argument('-q', '--quiet', action='store_true',
         help="Don't show anything, useful with -o.")

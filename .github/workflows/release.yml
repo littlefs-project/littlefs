@@ -84,7 +84,7 @@ jobs:
                   select(.context == "results / code").description
                   | capture("Code size is (?<result>[0-9]+)").result' \
                 prev-results.json || echo 0)"
-            ./scripts/code.py -u results/code-thumb.csv -s | awk '
+            ./scripts/code.py -u results/code-thumb.csv --summary | awk '
               NR==2 {printf "Code size,%d B",$2}
               NR==2 && ENVIRON["PREV"]+0 != 0 {
                 printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}
@@ -95,7 +95,7 @@ jobs:
                   select(.context == "results / code (readonly)").description
                   | capture("Code size is (?<result>[0-9]+)").result' \
                 prev-results.json || echo 0)"
-            ./scripts/code.py -u results/code-thumb-readonly.csv -s | awk '
+            ./scripts/code.py -u results/code-thumb-readonly.csv --summary | awk '
               NR==2 {printf "Code size<br/>(readonly),%d B",$2}
               NR==2 && ENVIRON["PREV"]+0 != 0 {
                 printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}
@@ -106,7 +106,7 @@ jobs:
                   select(.context == "results / code (threadsafe)").description
                   | capture("Code size is (?<result>[0-9]+)").result' \
                 prev-results.json || echo 0)"
-            ./scripts/code.py -u results/code-thumb-threadsafe.csv -s | awk '
+            ./scripts/code.py -u results/code-thumb-threadsafe.csv --summary | awk '
               NR==2 {printf "Code size<br/>(threadsafe),%d B",$2}
               NR==2 && ENVIRON["PREV"]+0 != 0 {
                 printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}
@@ -117,7 +117,7 @@ jobs:
                   select(.context == "results / code (migrate)").description
                   | capture("Code size is (?<result>[0-9]+)").result' \
                 prev-results.json || echo 0)"
-            ./scripts/code.py -u results/code-thumb-migrate.csv -s | awk '
+            ./scripts/code.py -u results/code-thumb-migrate.csv --summary | awk '
               NR==2 {printf "Code size<br/>(migrate),%d B",$2}
               NR==2 && ENVIRON["PREV"]+0 != 0 {
                 printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}
@@ -128,7 +128,7 @@ jobs:
                   select(.context == "results / code (error-asserts)").description
                   | capture("Code size is (?<result>[0-9]+)").result' \
                 prev-results.json || echo 0)"
-            ./scripts/code.py -u results/code-thumb-error-asserts.csv -s | awk '
+            ./scripts/code.py -u results/code-thumb-error-asserts.csv --summary | awk '
               NR==2 {printf "Code size<br/>(error-asserts),%d B",$2}
               NR==2 && ENVIRON["PREV"]+0 != 0 {
                 printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}
@@ -139,7 +139,7 @@ jobs:
                   select(.context == "results / coverage").description
                   | capture("Coverage is (?<result>[0-9\\.]+)").result' \
                 prev-results.json || echo 0)"
-            ./scripts/coverage.py -u results/coverage.csv -s | awk -F '[ /%]+' '
+            ./scripts/coverage.py -u results/coverage.csv --summary | awk -F '[ /%]+' '
               NR==2 {printf "Coverage,%.1f%% of %d lines",$4,$3}
               NR==2 && ENVIRON["PREV"]+0 != 0 {
                 printf " (%+.1f%%)",$4-ENVIRON["PREV"]}

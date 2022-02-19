@@ -247,7 +247,7 @@ if __name__ == "__main__":
         help="Show all functions, not just the ones that changed.")
     parser.add_argument('--files', action='store_true',
         help="Show file-level coverage.")
-    parser.add_argument('-s', '--summary', action='store_true',
+    parser.add_argument('--summary', action='store_true',
         help="Only show the total coverage.")
     parser.add_argument('-q', '--quiet', action='store_true',
         help="Don't show anything, useful with -o.")

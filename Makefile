@@ -75,7 +75,7 @@ tags:
 
 .PHONY: code
 code: $(OBJ)
-	./scripts/code.py $^ $(CODEFLAGS)
+	./scripts/code.py -S $^ $(CODEFLAGS)
 
 .PHONY: test
 test:
