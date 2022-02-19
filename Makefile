@@ -28,6 +28,7 @@ SRC ?= $(wildcard *.c)
 OBJ := $(SRC:%.c=$(BUILDDIR)%.o)
 DEP := $(SRC:%.c=$(BUILDDIR)%.d)
 ASM := $(SRC:%.c=$(BUILDDIR)%.s)
+CGI := $(SRC:%.c=$(BUILDDIR)%.ci)
 
 ifdef DEBUG
 override CFLAGS += -O0 -g3
@@ -54,6 +55,7 @@ ifdef BUILDDIR
 override TESTFLAGS += --build-dir="$(BUILDDIR:/=)"
 override CODEFLAGS += --build-dir="$(BUILDDIR:/=)"
 override DATAFLAGS += --build-dir="$(BUILDDIR:/=)"
+override CALLSFLAGS += --build-dir="$(BUILDDIR:/=)"
 endif
 ifneq ($(NM),nm)
 override CODEFLAGS += --nm-tool="$(NM)"
@@ -84,6 +86,10 @@ code: $(OBJ)
 data: $(OBJ)
 	./scripts/data.py -S $^ $(DATAFLAGS)
 
+.PHONY: calls
+calls: $(CGI)
+	./scripts/calls.py $^ $(CALLSFLAGS)
+
 .PHONY: test
 test:
 	./scripts/test.py $(TESTFLAGS)
@@ -111,11 +117,15 @@ $(BUILDDIR)%.o: %.c
 $(BUILDDIR)%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
+$(BUILDDIR)%.ci: %.c
+	$(CC) -c -MMD -fcallgraph-info=su $(CFLAGS) $< -o $(@:.ci=.o)
+
 # clean everything
 .PHONY: clean
 clean:
 	rm -f $(TARGET)
 	rm -f $(OBJ)
+	rm -f $(CGI)
 	rm -f $(DEP)
 	rm -f $(ASM)
 	rm -f $(BUILDDIR)tests/*.toml.*

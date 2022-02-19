@@ -55,8 +55,9 @@ def collect(paths, **args):
     for (file, func), (hits, count) in reduced_funcs.items():
         # discard internal/testing functions (test_* injected with
         # internal testing)
-        if func.startswith('__') or func.startswith('test_'):
-            continue
+        if not args.get('everything'):
+            if func.startswith('__') or func.startswith('test_'):
+                continue
         # discard .8449 suffixes created by optimizer
         func = re.sub('\.[0-9]+', '', func)
         results.append((file, func, hits, count))
@@ -245,6 +246,8 @@ if __name__ == "__main__":
         help="Specify CSV file to diff code size against.")
     parser.add_argument('-a', '--all', action='store_true',
         help="Show all functions, not just the ones that changed.")
+    parser.add_argument('-A', '--everything', action='store_true',
+        help="Include builtin and libc specific symbols.")
     parser.add_argument('--files', action='store_true',
         help="Show file-level coverage.")
     parser.add_argument('--summary', action='store_true',

@@ -49,8 +49,9 @@ def collect(paths, **args):
         if args.get('build_dir'):
             file = re.sub('%s/*' % re.escape(args['build_dir']), '', file)
         # discard internal functions
-        if func.startswith('__'):
-            continue
+        if not args.get('everything'):
+            if func.startswith('__'):
+                continue
         # discard .8449 suffixes created by optimizer
         func = re.sub('\.[0-9]+', '', func)
         flat_results.append((file, func, size))
@@ -128,19 +129,19 @@ def main(**args):
 
     def sorted_entries(entries):
         if args.get('size_sort'):
-            return sorted(entries.items(), key=lambda x: (-x[1], x))
+            return sorted(entries, key=lambda x: (-x[1], x))
         elif args.get('reverse_size_sort'):
-            return sorted(entries.items(), key=lambda x: (+x[1], x))
+            return sorted(entries, key=lambda x: (+x[1], x))
         else:
-            return sorted(entries.items())
+            return sorted(entries)
 
     def sorted_diff_entries(entries):
         if args.get('size_sort'):
-            return sorted(entries.items(), key=lambda x: (-x[1][1], x))
+            return sorted(entries, key=lambda x: (-x[1][1], x))
         elif args.get('reverse_size_sort'):
-            return sorted(entries.items(), key=lambda x: (+x[1][1], x))
+            return sorted(entries, key=lambda x: (+x[1][1], x))
         else:
-            return sorted(entries.items(), key=lambda x: (-x[1][3], x))
+            return sorted(entries, key=lambda x: (-x[1][3], x))
 
     def print_header(by=''):
         if not args.get('diff'):
@@ -153,7 +154,7 @@ def main(**args):
 
         if not args.get('diff'):
             print_header(by=by)
-            for name, size in sorted_entries(entries):
+            for name, size in sorted_entries(entries.items()):
                 print("%-36s %7d" % (name, size))
         else:
             prev_entries = dedup_entries(prev_results, by=by)
@@ -161,7 +162,7 @@ def main(**args):
             print_header(by='%s (%d added, %d removed)' % (by,
                 sum(1 for old, _, _, _ in diff.values() if not old),
                 sum(1 for _, new, _, _ in diff.values() if not new)))
-            for name, (old, new, diff, ratio) in sorted_diff_entries(diff):
+            for name, (old, new, diff, ratio) in sorted_diff_entries(diff.items()):
                 if ratio or args.get('all'):
                     print("%-36s %7s %7s %+7d%s" % (name,
                         old or "-",
@@ -211,6 +212,8 @@ if __name__ == "__main__":
         help="Specify CSV file to diff data size against.")
     parser.add_argument('-a', '--all', action='store_true',
         help="Show all functions, not just the ones that changed.")
+    parser.add_argument('-A', '--everything', action='store_true',
+        help="Include builtin and libc specific symbols.")
     parser.add_argument('-s', '--size-sort', action='store_true',
         help="Sort by size.")
     parser.add_argument('-S', '--reverse-size-sort', action='store_true',
