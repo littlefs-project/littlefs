@@ -44,6 +44,7 @@ override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
 ifdef VERBOSE
 override TESTFLAGS += -v
 override CODEFLAGS += -v
+override DATAFLAGS += -v
 override COVERAGEFLAGS += -v
 endif
 ifdef EXEC
@@ -52,9 +53,11 @@ endif
 ifdef BUILDDIR
 override TESTFLAGS += --build-dir="$(BUILDDIR:/=)"
 override CODEFLAGS += --build-dir="$(BUILDDIR:/=)"
+override DATAFLAGS += --build-dir="$(BUILDDIR:/=)"
 endif
 ifneq ($(NM),nm)
 override CODEFLAGS += --nm-tool="$(NM)"
+override DATAFLAGS += --nm-tool="$(NM)"
 endif
 
 
@@ -76,6 +79,10 @@ tags:
 .PHONY: code
 code: $(OBJ)
 	./scripts/code.py -S $^ $(CODEFLAGS)
+
+.PHONY: data
+data: $(OBJ)
+	./scripts/data.py -S $^ $(DATAFLAGS)
 
 .PHONY: test
 test:

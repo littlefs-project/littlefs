@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Script to find code size at the function level. Basically just a bit wrapper
+# Script to find data size at the function level. Basically just a bit wrapper
 # around nm with some extra conveniences for comparing builds. Heavily inspired
 # by Linux's Bloat-O-Meter.
 #
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Find code size at the function level.")
+        description="Find data size at the function level.")
     parser.add_argument('obj_paths', nargs='*', default=OBJ_PATHS,
         help="Description of where to find *.o files. May be a directory \
             or a list of paths. Defaults to %r." % OBJ_PATHS)
@@ -206,9 +206,9 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output',
         help="Specify CSV file to store results.")
     parser.add_argument('-u', '--use',
-        help="Don't compile and find code sizes, instead use this CSV file.")
+        help="Don't compile and find data sizes, instead use this CSV file.")
     parser.add_argument('-d', '--diff',
-        help="Specify CSV file to diff code size against.")
+        help="Specify CSV file to diff data size against.")
     parser.add_argument('-a', '--all', action='store_true',
         help="Show all functions, not just the ones that changed.")
     parser.add_argument('-s', '--size-sort', action='store_true',
@@ -216,13 +216,13 @@ if __name__ == "__main__":
     parser.add_argument('-S', '--reverse-size-sort', action='store_true',
         help="Sort by size, but backwards.")
     parser.add_argument('--files', action='store_true',
-        help="Show file-level code sizes. Note this does not include padding! "
+        help="Show file-level data sizes. Note this does not include padding! "
             "So sizes may differ from other tools.")
     parser.add_argument('--summary', action='store_true',
-        help="Only show the total code size.")
+        help="Only show the total data size.")
     parser.add_argument('-q', '--quiet', action='store_true',
         help="Don't show anything, useful with -o.")
-    parser.add_argument('--type', default='tTrRdD',
+    parser.add_argument('--type', default='dDbB',
         help="Type of symbols to report, this uses the same single-character "
             "type-names emitted by nm. Defaults to %(default)r.")
     parser.add_argument('--nm-tool', default=['nm'], type=lambda x: x.split(),
