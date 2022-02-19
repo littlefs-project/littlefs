@@ -44,6 +44,7 @@ override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
 
 ifdef VERBOSE
 override TESTFLAGS += -v
+override CALLSFLAGS += -v
 override CODEFLAGS += -v
 override DATAFLAGS += -v
 override COVERAGEFLAGS += -v
@@ -53,14 +54,18 @@ override TESTFLAGS += --exec="$(EXEC)"
 endif
 ifdef BUILDDIR
 override TESTFLAGS += --build-dir="$(BUILDDIR:/=)"
+override CALLSFLAGS += --build-dir="$(BUILDDIR:/=)"
 override CODEFLAGS += --build-dir="$(BUILDDIR:/=)"
 override DATAFLAGS += --build-dir="$(BUILDDIR:/=)"
-override CALLSFLAGS += --build-dir="$(BUILDDIR:/=)"
+override COVERAGEFLAGS += --build-dir="$(BUILDDIR:/=)"
 endif
 ifneq ($(NM),nm)
 override CODEFLAGS += --nm-tool="$(NM)"
 override DATAFLAGS += --nm-tool="$(NM)"
 endif
+override CODEFLAGS += -S
+override DATAFLAGS += -S
+override COVERAGEFLAGS += -s
 
 
 # commands
@@ -80,11 +85,11 @@ tags:
 
 .PHONY: code
 code: $(OBJ)
-	./scripts/code.py -S $^ $(CODEFLAGS)
+	./scripts/code.py $^ $(CODEFLAGS)
 
 .PHONY: data
 data: $(OBJ)
-	./scripts/data.py -S $^ $(DATAFLAGS)
+	./scripts/data.py $^ $(DATAFLAGS)
 
 .PHONY: calls
 calls: $(CGI)

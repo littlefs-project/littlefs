@@ -148,6 +148,22 @@ def main(**args):
                     - (old_hits/old_count if old_count else 1.0)))
         return diff
 
+    def sorted_entries(entries):
+        if args.get('coverage_sort'):
+            return sorted(entries, key=lambda x: (-(x[1][0]/x[1][1] if x[1][1] else -1), x))
+        elif args.get('reverse_coverage_sort'):
+            return sorted(entries, key=lambda x: (+(x[1][0]/x[1][1] if x[1][1] else -1), x))
+        else:
+            return sorted(entries)
+
+    def sorted_diff_entries(entries):
+        if args.get('coverage_sort'):
+            return sorted(entries, key=lambda x: (-(x[1][2]/x[1][3] if x[1][3] else -1), x))
+        elif args.get('reverse_coverage_sort'):
+            return sorted(entries, key=lambda x: (+(x[1][2]/x[1][3] if x[1][3] else -1), x))
+        else:
+            return sorted(entries, key=lambda x: (-x[1][6], x))
+
     def print_header(by=''):
         if not args.get('diff'):
             print('%-36s %19s' % (by, 'hits/line'))
@@ -159,7 +175,7 @@ def main(**args):
 
         if not args.get('diff'):
             print_header(by=by)
-            for name, (hits, count) in sorted(entries.items()):
+            for name, (hits, count) in sorted_entries(entries.items()):
                 print("%-36s %11s %7s" % (name,
                     '%d/%d' % (hits, count)
                         if count else '-',
@@ -174,8 +190,7 @@ def main(**args):
             for name, (
                     old_hits, old_count,
                     new_hits, new_count,
-                    diff_hits, diff_count, ratio) in sorted(diff.items(),
-                        key=lambda x: (-x[1][6], x)):
+                    diff_hits, diff_count, ratio) in sorted_diff_entries(diff.items()):
                 if ratio or args.get('all'):
                     print("%-36s %11s %7s %11s %7s %11s%s" % (name,
                         '%d/%d' % (old_hits, old_count)
@@ -248,10 +263,17 @@ if __name__ == "__main__":
         help="Show all functions, not just the ones that changed.")
     parser.add_argument('-A', '--everything', action='store_true',
         help="Include builtin and libc specific symbols.")
+    parser.add_argument('-s', '--coverage-sort', action='store_true',
+        help="Sort by coverage.")
+    parser.add_argument('-S', '--reverse-coverage-sort', action='store_true',
+        help="Sort by coverage, but backwards.")
     parser.add_argument('--files', action='store_true',
         help="Show file-level coverage.")
     parser.add_argument('--summary', action='store_true',
         help="Only show the total coverage.")
     parser.add_argument('-q', '--quiet', action='store_true',
         help="Don't show anything, useful with -o.")
+    parser.add_argument('--build-dir',
+        help="Specify the relative build directory. Used to map object files \
+            to the correct source files.")
     sys.exit(main(**vars(parser.parse_args())))
