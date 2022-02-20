@@ -162,7 +162,8 @@ def main(**args):
             print_header(by='%s (%d added, %d removed)' % (by,
                 sum(1 for old, _, _, _ in diff.values() if not old),
                 sum(1 for _, new, _, _ in diff.values() if not new)))
-            for name, (old, new, diff, ratio) in sorted_diff_entries(diff.items()):
+            for name, (old, new, diff, ratio) in sorted_diff_entries(
+                    diff.items()):
                 if ratio or args.get('all'):
                     print("%-36s %7s %7s %+7d%s" % (name,
                         old or "-",

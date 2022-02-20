@@ -148,7 +148,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Find code size at the function level.")
+        description="Find and show callgraph.")
     parser.add_argument('ci_paths', nargs='*', default=CI_PATHS,
         help="Description of where to find *.ci files. May be a directory \
             or a list of paths. Defaults to %r." % CI_PATHS)

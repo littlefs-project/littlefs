@@ -190,7 +190,8 @@ def main(**args):
             for name, (
                     old_hits, old_count,
                     new_hits, new_count,
-                    diff_hits, diff_count, ratio) in sorted_diff_entries(diff.items()):
+                    diff_hits, diff_count, ratio) in sorted_diff_entries(
+                        diff.items()):
                 if ratio or args.get('all'):
                     print("%-36s %11s %7s %11s %7s %11s%s" % (name,
                         '%d/%d' % (old_hits, old_count)

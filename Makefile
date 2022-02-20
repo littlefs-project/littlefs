@@ -43,20 +43,22 @@ override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
 
 ifdef VERBOSE
-override TESTFLAGS += -v
-override CALLSFLAGS += -v
-override CODEFLAGS += -v
-override DATAFLAGS += -v
+override TESTFLAGS     += -v
+override CALLSFLAGS    += -v
+override CODEFLAGS     += -v
+override DATAFLAGS     += -v
+override STACKFLAGS    += -v
 override COVERAGEFLAGS += -v
 endif
 ifdef EXEC
 override TESTFLAGS += --exec="$(EXEC)"
 endif
 ifdef BUILDDIR
-override TESTFLAGS += --build-dir="$(BUILDDIR:/=)"
-override CALLSFLAGS += --build-dir="$(BUILDDIR:/=)"
-override CODEFLAGS += --build-dir="$(BUILDDIR:/=)"
-override DATAFLAGS += --build-dir="$(BUILDDIR:/=)"
+override TESTFLAGS     += --build-dir="$(BUILDDIR:/=)"
+override CALLSFLAGS    += --build-dir="$(BUILDDIR:/=)"
+override CODEFLAGS     += --build-dir="$(BUILDDIR:/=)"
+override DATAFLAGS     += --build-dir="$(BUILDDIR:/=)"
+override STACKFLAGS    += --build-dir="$(BUILDDIR:/=)"
 override COVERAGEFLAGS += --build-dir="$(BUILDDIR:/=)"
 endif
 ifneq ($(NM),nm)
@@ -65,6 +67,7 @@ override DATAFLAGS += --nm-tool="$(NM)"
 endif
 override CODEFLAGS += -S
 override DATAFLAGS += -S
+override STACKFLAGS += -S
 override COVERAGEFLAGS += -s
 
 
@@ -94,6 +97,10 @@ data: $(OBJ)
 .PHONY: calls
 calls: $(CGI)
 	./scripts/calls.py $^ $(CALLSFLAGS)
+
+.PHONY: stack
+stack: $(CGI)
+	./scripts/stack.py $^ $(STACKFLAGS)
 
 .PHONY: test
 test:
