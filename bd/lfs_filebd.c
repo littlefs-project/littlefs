@@ -11,9 +11,7 @@
 #include <errno.h>
 
 #ifdef _WIN32
-// Map fsync to FlushFileBuffers on Windows
 #include <windows.h>
-#define fsync(fd) (FlushFileBuffers ((HANDLE) _get_osfhandle(fd)) ? 0 : -1)
 #endif
 
 int lfs_filebd_createcfg(const struct lfs_config *cfg, const char *path,
@@ -204,7 +202,11 @@ int lfs_filebd_sync(const struct lfs_config *cfg) {
     LFS_FILEBD_TRACE("lfs_filebd_sync(%p)", (void*)cfg);
     // file sync
     lfs_filebd_t *bd = cfg->context;
+    #ifdef _WIN32
+    int err = FlushFileBuffers((HANDLE) _get_osfhandle(fd)) ? 0 : -1;
+    #else
     int err = fsync(bd->fd);
+    #endif
     if (err) {
         err = -errno;
         LFS_FILEBD_TRACE("lfs_filebd_sync -> %d", 0);
