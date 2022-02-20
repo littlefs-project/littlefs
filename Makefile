@@ -17,12 +17,13 @@ TARGET ?= $(BUILDDIR)lfs.a
 endif
 
 
-CC ?= gcc
-AR ?= ar
-SIZE ?= size
-CTAGS ?= ctags
-NM ?= nm
-LCOV ?= lcov
+CC      ?= gcc
+AR      ?= ar
+SIZE    ?= size
+CTAGS   ?= ctags
+NM      ?= nm
+OBJDUMP ?= objdump
+LCOV    ?= lcov
 
 SRC ?= $(wildcard *.c)
 OBJ := $(SRC:%.c=$(BUILDDIR)%.o)
@@ -31,13 +32,14 @@ ASM := $(SRC:%.c=$(BUILDDIR)%.s)
 CGI := $(SRC:%.c=$(BUILDDIR)%.ci)
 
 ifdef DEBUG
-override CFLAGS += -O0 -g3
+override CFLAGS += -O0
 else
 override CFLAGS += -Os
 endif
 ifdef TRACE
 override CFLAGS += -DLFS_YES_TRACE
 endif
+override CFLAGS += -g3
 override CFLAGS += -I.
 override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
@@ -48,6 +50,7 @@ override CALLSFLAGS    += -v
 override CODEFLAGS     += -v
 override DATAFLAGS     += -v
 override STACKFLAGS    += -v
+override STRUCTSFLAGS  += -v
 override COVERAGEFLAGS += -v
 endif
 ifdef EXEC
@@ -59,15 +62,20 @@ override CALLSFLAGS    += --build-dir="$(BUILDDIR:/=)"
 override CODEFLAGS     += --build-dir="$(BUILDDIR:/=)"
 override DATAFLAGS     += --build-dir="$(BUILDDIR:/=)"
 override STACKFLAGS    += --build-dir="$(BUILDDIR:/=)"
+override STRUCTSFLAGS  += --build-dir="$(BUILDDIR:/=)"
 override COVERAGEFLAGS += --build-dir="$(BUILDDIR:/=)"
 endif
 ifneq ($(NM),nm)
 override CODEFLAGS += --nm-tool="$(NM)"
 override DATAFLAGS += --nm-tool="$(NM)"
 endif
+ifneq ($(OBJDUMP),objdump)
+override STRUCTSFLAGS += --objdump-tool="$(OBJDUMP)"
+endif
 override CODEFLAGS += -S
 override DATAFLAGS += -S
 override STACKFLAGS += -S
+override STRUCTSFLAGS += -S
 override COVERAGEFLAGS += -s
 
 
@@ -101,6 +109,10 @@ calls: $(CGI)
 .PHONY: stack
 stack: $(CGI)
 	./scripts/stack.py $^ $(STACKFLAGS)
+
+.PHONY: structs
+structs: $(OBJ)
+	./scripts/structs.py $^ $(STRUCTSFLAGS)
 
 .PHONY: test
 test:
