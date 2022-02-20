@@ -81,7 +81,7 @@ def main(**args):
             results = [
                 (   result['file'],
                     result['function'],
-                    int(result['size']))
+                    int(result['data_size']))
                 for result in r]
 
     total = 0
@@ -95,7 +95,7 @@ def main(**args):
             prev_results = [
                 (   result['file'],
                     result['function'],
-                    int(result['size']))
+                    int(result['data_size']))
                 for result in r]
 
         prev_total = 0
@@ -106,7 +106,7 @@ def main(**args):
     if args.get('output'):
         with open(args['output'], 'w') as f:
             w = csv.writer(f)
-            w.writerow(['file', 'function', 'size'])
+            w.writerow(['file', 'function', 'data_size'])
             for file, func, size in sorted(results):
                 w.writerow((file, func, size))
 

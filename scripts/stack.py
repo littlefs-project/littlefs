@@ -129,8 +129,8 @@ def main(**args):
             results = [
                 (   result['file'],
                     result['function'],
-                    int(result['frame']),
-                    float(result['limit'])) # note limit can be inf
+                    int(result['stack_frame']),
+                    float(result['stack_limit'])) # note limit can be inf
                 for result in r]
 
     total_frame = 0
@@ -146,8 +146,8 @@ def main(**args):
             prev_results = [
                 (   result['file'],
                     result['function'],
-                    int(result['frame']),
-                    float(result['limit']))
+                    int(result['stack_frame']),
+                    float(result['stack_limit']))
                 for result in r]
 
         prev_total_frame = 0
@@ -160,7 +160,7 @@ def main(**args):
     if args.get('output'):
         with open(args['output'], 'w') as f:
             w = csv.writer(f)
-            w.writerow(['file', 'function', 'frame', 'limit'])
+            w.writerow(['file', 'function', 'stack_frame', 'stack_limit'])
             for file, func, frame, limit in sorted(results):
                 w.writerow((file, func, frame, limit))
 

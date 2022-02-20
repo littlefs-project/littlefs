@@ -88,8 +88,8 @@ def main(**args):
             results = [
                 (   result['file'],
                     result['function'],
-                    int(result['hits']),
-                    int(result['count']))
+                    int(result['coverage_hits']),
+                    int(result['coverage_count']))
                 for result in r]
 
     total_hits, total_count = 0, 0
@@ -104,8 +104,8 @@ def main(**args):
             prev_results = [
                 (   result['file'],
                     result['function'],
-                    int(result['hits']),
-                    int(result['count']))
+                    int(result['coverage_hits']),
+                    int(result['coverage_count']))
                 for result in r]
 
         prev_total_hits, prev_total_count = 0, 0
@@ -117,7 +117,7 @@ def main(**args):
     if args.get('output'):
         with open(args['output'], 'w') as f:
             w = csv.writer(f)
-            w.writerow(['file', 'function', 'hits', 'count'])
+            w.writerow(['file', 'function', 'coverage_hits', 'coverage_count'])
             for file, func, hits, count in sorted(results):
                 w.writerow((file, func, hits, count))
 
