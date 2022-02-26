@@ -90,13 +90,16 @@ def main(**args):
 
     # find previous results?
     if args.get('diff'):
-        with open(args['diff']) as f:
-            r = csv.DictReader(f)
-            prev_results = [
-                (   result['file'],
-                    result['function'],
-                    int(result['code_size']))
-                for result in r]
+        try:
+            with open(args['diff']) as f:
+                r = csv.DictReader(f)
+                prev_results = [
+                    (   result['file'],
+                        result['function'],
+                        int(result['code_size']))
+                    for result in r]
+        except FileNotFoundError:
+            prev_results = []
 
         prev_total = 0
         for _, _, size in prev_results:

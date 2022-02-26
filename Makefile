@@ -72,11 +72,6 @@ endif
 ifneq ($(OBJDUMP),objdump)
 override STRUCTSFLAGS += --objdump-tool="$(OBJDUMP)"
 endif
-override CODEFLAGS += -S
-override DATAFLAGS += -S
-override STACKFLAGS += -S
-override STRUCTSFLAGS += -S
-override COVERAGEFLAGS += -s
 
 
 # commands
@@ -94,25 +89,9 @@ size: $(OBJ)
 tags:
 	$(CTAGS) --totals --c-types=+p $(shell find -H -name '*.h') $(SRC)
 
-.PHONY: code
-code: $(OBJ)
-	./scripts/code.py $^ $(CODEFLAGS)
-
-.PHONY: data
-data: $(OBJ)
-	./scripts/data.py $^ $(DATAFLAGS)
-
 .PHONY: calls
 calls: $(CGI)
 	./scripts/calls.py $^ $(CALLSFLAGS)
-
-.PHONY: stack
-stack: $(CGI)
-	./scripts/stack.py $^ $(STACKFLAGS)
-
-.PHONY: structs
-structs: $(OBJ)
-	./scripts/structs.py $^ $(STRUCTSFLAGS)
 
 .PHONY: test
 test:
@@ -121,8 +100,44 @@ test:
 test%: tests/test$$(firstword $$(subst \#, ,%)).toml
 	./scripts/test.py $@ $(TESTFLAGS)
 
+.PHONY: code
+code: $(OBJ)
+	./scripts/code.py $^ -S $(CODEFLAGS)
+
+.PHONY: code-diff
+code-diff: $(OBJ)
+	./scripts/code.py $^ -d $(TARGET).code.csv -o $(TARGET).code.csv $(CODEFLAGS)
+
+.PHONY: data
+data: $(OBJ)
+	./scripts/data.py $^ -S $(DATAFLAGS)
+
+.PHONY: data-diff
+data-diff: $(OBJ)
+	./scripts/data.py $^ -d $(TARGET).data.csv -o $(TARGET).data.csv $(DATAFLAGS)
+
+.PHONY: stack
+stack: $(CGI)
+	./scripts/stack.py $^ -S $(STACKFLAGS)
+
+.PHONY: stack-diff
+stack-diff: $(CGI)
+	./scripts/stack.py $^ -d $(TARGET).stack.csv -o $(TARGET).stack.csv $(STACKFLAGS)
+
+.PHONY: structs
+structs: $(OBJ)
+	./scripts/structs.py $^ -S $(STRUCTSFLAGS)
+
+.PHONY: structs-diff
+structs-diff: $(OBJ)
+	./scripts/structs.py $^ -d $(TARGET).structs.csv -o $(TARGET).structs.csv $(STRUCTSFLAGS)
+
 .PHONY: coverage
 coverage:
+	./scripts/coverage.py $(BUILDDIR)tests/*.toml.info -s $(COVERAGEFLAGS)
+
+.PHONY: coverage-diff
+coverage-diff:
 	./scripts/coverage.py $(BUILDDIR)tests/*.toml.info $(COVERAGEFLAGS)
 
 # rules
@@ -148,6 +163,7 @@ $(BUILDDIR)%.ci: %.c
 .PHONY: clean
 clean:
 	rm -f $(TARGET)
+	rm -f $(TARGET).*.csv
 	rm -f $(OBJ)
 	rm -f $(CGI)
 	rm -f $(DEP)

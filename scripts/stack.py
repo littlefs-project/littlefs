@@ -141,14 +141,17 @@ def main(**args):
 
     # find previous results?
     if args.get('diff'):
-        with open(args['diff']) as f:
-            r = csv.DictReader(f)
-            prev_results = [
-                (   result['file'],
-                    result['function'],
-                    int(result['stack_frame']),
-                    float(result['stack_limit']))
-                for result in r]
+        try:
+            with open(args['diff']) as f:
+                r = csv.DictReader(f)
+                prev_results = [
+                    (   result['file'],
+                        result['function'],
+                        int(result['stack_frame']),
+                        float(result['stack_limit']))
+                    for result in r]
+        except FileNotFoundError:
+            prev_results = []
 
         prev_total_frame = 0
         prev_total_limit = 0
