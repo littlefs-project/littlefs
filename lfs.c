@@ -737,6 +737,7 @@ static int lfs_dir_traverse_filter(void *p,
             (LFS_MKTAG(0x7ff, 0x3ff, 0) & tag) == (
                 LFS_MKTAG(LFS_TYPE_DELETE, 0, 0) |
                     (LFS_MKTAG(0, 0x3ff, 0) & *filtertag))) {
+        *filtertag = LFS_MKTAG(LFS_FROM_NOOP, 0, 0);
         return true;
     }
 
@@ -751,97 +752,212 @@ static int lfs_dir_traverse_filter(void *p,
 #endif
 
 #ifndef LFS_READONLY
+// maximum recursive depth of lfs_dir_traverse, the deepest call:
+//
+// traverse with commit
+// '-> traverse with filter
+//     '-> traverse with move
+//         ' traverse with filter
+//
+#define LFS_DIR_TRAVERSE_DEPTH 4
+
+struct lfs_dir_traverse {
+    const lfs_mdir_t *dir;
+    lfs_off_t off;
+    lfs_tag_t ptag;
+    const struct lfs_mattr *attrs;
+    int attrcount;
+
+    lfs_tag_t tmask;
+    lfs_tag_t ttag;
+    uint16_t begin;
+    uint16_t end;
+    int16_t diff;
+
+    int (*cb)(void *data, lfs_tag_t tag, const void *buffer);
+    void *data;
+
+    lfs_tag_t tag;
+    const void *buffer;
+    struct lfs_diskoff disk;
+};
+
 static int lfs_dir_traverse(lfs_t *lfs,
         const lfs_mdir_t *dir, lfs_off_t off, lfs_tag_t ptag,
         const struct lfs_mattr *attrs, int attrcount,
         lfs_tag_t tmask, lfs_tag_t ttag,
         uint16_t begin, uint16_t end, int16_t diff,
         int (*cb)(void *data, lfs_tag_t tag, const void *buffer), void *data) {
+    // This function in inherently recursive, but bounded. To allow tool-based
+    // analysis without unnecessary code-cost we use an explicit stack
+    struct lfs_dir_traverse stack[LFS_DIR_TRAVERSE_DEPTH-1];
+    unsigned sp = 0;
+    int res;
+
     // iterate over directory and attrs
+    lfs_tag_t tag;
+    const void *buffer;
+    struct lfs_diskoff disk;
     while (true) {
-        lfs_tag_t tag;
-        const void *buffer;
-        struct lfs_diskoff disk;
-        if (off+lfs_tag_dsize(ptag) < dir->off) {
-            off += lfs_tag_dsize(ptag);
-            int err = lfs_bd_read(lfs,
-                    NULL, &lfs->rcache, sizeof(tag),
-                    dir->pair[0], off, &tag, sizeof(tag));
-            if (err) {
-                return err;
+        {
+            if (off+lfs_tag_dsize(ptag) < dir->off) {
+                off += lfs_tag_dsize(ptag);
+                int err = lfs_bd_read(lfs,
+                        NULL, &lfs->rcache, sizeof(tag),
+                        dir->pair[0], off, &tag, sizeof(tag));
+                if (err) {
+                    return err;
+                }
+
+                tag = (lfs_frombe32(tag) ^ ptag) | 0x80000000;
+                disk.block = dir->pair[0];
+                disk.off = off+sizeof(lfs_tag_t);
+                buffer = &disk;
+                ptag = tag;
+            } else if (attrcount > 0) {
+                tag = attrs[0].tag;
+                buffer = attrs[0].buffer;
+                attrs += 1;
+                attrcount -= 1;
+            } else {
+                // finished traversal, pop from stack?
+                res = 0;
+                break;
             }
 
-            tag = (lfs_frombe32(tag) ^ ptag) | 0x80000000;
-            disk.block = dir->pair[0];
-            disk.off = off+sizeof(lfs_tag_t);
-            buffer = &disk;
-            ptag = tag;
-        } else if (attrcount > 0) {
-            tag = attrs[0].tag;
-            buffer = attrs[0].buffer;
-            attrs += 1;
-            attrcount -= 1;
-        } else {
-            return 0;
+            // do we need to filter?
+            lfs_tag_t mask = LFS_MKTAG(0x7ff, 0, 0);
+            if ((mask & tmask & tag) != (mask & tmask & ttag)) {
+                continue;
+            }
+
+            if (lfs_tag_id(tmask) != 0) {
+                LFS_ASSERT(sp < LFS_DIR_TRAVERSE_DEPTH);
+                // recurse, scan for duplicates, and update tag based on
+                // creates/deletes
+                stack[sp] = (struct lfs_dir_traverse){
+                    .dir        = dir,
+                    .off        = off,
+                    .ptag       = ptag,
+                    .attrs      = attrs,
+                    .attrcount  = attrcount,
+                    .tmask      = tmask,
+                    .ttag       = ttag,
+                    .begin      = begin,
+                    .end        = end,
+                    .diff       = diff,
+                    .cb         = cb,
+                    .data       = data,
+                    .tag        = tag,
+                    .buffer     = buffer,
+                    .disk       = disk,
+                };
+                sp += 1;
+
+                dir = dir;
+                off = off;
+                ptag = ptag;
+                attrs = attrs;
+                attrcount = attrcount;
+                tmask = 0;
+                ttag = 0;
+                begin = 0;
+                end = 0;
+                diff = 0;
+                cb = lfs_dir_traverse_filter;
+                data = &stack[sp-1].tag;
+                continue;
+            }
         }
 
-        lfs_tag_t mask = LFS_MKTAG(0x7ff, 0, 0);
-        if ((mask & tmask & tag) != (mask & tmask & ttag)) {
+popped:
+        // in filter range?
+        if (lfs_tag_id(tmask) != 0 &&
+                !(lfs_tag_id(tag) >= begin && lfs_tag_id(tag) < end)) {
             continue;
-        }
-
-        // do we need to filter? inlining the filtering logic here allows
-        // for some minor optimizations
-        if (lfs_tag_id(tmask) != 0) {
-            // scan for duplicates and update tag based on creates/deletes
-            int filter = lfs_dir_traverse(lfs,
-                    dir, off, ptag, attrs, attrcount,
-                    0, 0, 0, 0, 0,
-                    lfs_dir_traverse_filter, &tag);
-            if (filter < 0) {
-                return filter;
-            }
-
-            if (filter) {
-                continue;
-            }
-
-            // in filter range?
-            if (!(lfs_tag_id(tag) >= begin && lfs_tag_id(tag) < end)) {
-                continue;
-            }
         }
 
         // handle special cases for mcu-side operations
         if (lfs_tag_type3(tag) == LFS_FROM_NOOP) {
             // do nothing
         } else if (lfs_tag_type3(tag) == LFS_FROM_MOVE) {
+            // recurse into move
+            stack[sp] = (struct lfs_dir_traverse){
+                .dir        = dir,
+                .off        = off,
+                .ptag       = ptag,
+                .attrs      = attrs,
+                .attrcount  = attrcount,
+                .tmask      = tmask,
+                .ttag       = ttag,
+                .begin      = begin,
+                .end        = end,
+                .diff       = diff,
+                .cb         = cb,
+                .data       = data,
+                .tag        = LFS_MKTAG(LFS_FROM_NOOP, 0, 0),
+            };
+            sp += 1;
+
             uint16_t fromid = lfs_tag_size(tag);
             uint16_t toid = lfs_tag_id(tag);
-            int err = lfs_dir_traverse(lfs,
-                    buffer, 0, 0xffffffff, NULL, 0,
-                    LFS_MKTAG(0x600, 0x3ff, 0),
-                    LFS_MKTAG(LFS_TYPE_STRUCT, 0, 0),
-                    fromid, fromid+1, toid-fromid+diff,
-                    cb, data);
-            if (err) {
-                return err;
-            }
+            dir = buffer;
+            off = 0;
+            ptag = 0xffffffff;
+            attrs = NULL;
+            attrcount = 0;
+            tmask = LFS_MKTAG(0x600, 0x3ff, 0);
+            ttag = LFS_MKTAG(LFS_TYPE_STRUCT, 0, 0);
+            begin = fromid;
+            end = fromid+1;
+            diff = toid-fromid+diff;
         } else if (lfs_tag_type3(tag) == LFS_FROM_USERATTRS) {
             for (unsigned i = 0; i < lfs_tag_size(tag); i++) {
                 const struct lfs_attr *a = buffer;
-                int err = cb(data, LFS_MKTAG(LFS_TYPE_USERATTR + a[i].type,
+                res = cb(data, LFS_MKTAG(LFS_TYPE_USERATTR + a[i].type,
                         lfs_tag_id(tag) + diff, a[i].size), a[i].buffer);
-                if (err) {
-                    return err;
+                if (res < 0) {
+                    return res;
+                }
+
+                if (res) {
+                    break;
                 }
             }
         } else {
-            int err = cb(data, tag + LFS_MKTAG(0, diff, 0), buffer);
-            if (err) {
-                return err;
+            res = cb(data, tag + LFS_MKTAG(0, diff, 0), buffer);
+            if (res < 0) {
+                return res;
+            }
+
+            if (res) {
+                break;
             }
         }
+    }
+
+    if (sp > 0) {
+        // pop from the stack and return, fortunately all pops share
+        // a destination
+        dir         = stack[sp-1].dir;
+        off         = stack[sp-1].off;
+        ptag        = stack[sp-1].ptag;
+        attrs       = stack[sp-1].attrs;
+        attrcount   = stack[sp-1].attrcount;
+        tmask       = stack[sp-1].tmask;
+        ttag        = stack[sp-1].ttag;
+        begin       = stack[sp-1].begin;
+        end         = stack[sp-1].end;
+        diff        = stack[sp-1].diff;
+        cb          = stack[sp-1].cb;
+        data        = stack[sp-1].data;
+        tag         = stack[sp-1].tag;
+        buffer      = stack[sp-1].buffer;
+        disk        = stack[sp-1].disk;
+        sp -= 1;
+        goto popped;
+    } else {
+        return res;
     }
 }
 #endif
