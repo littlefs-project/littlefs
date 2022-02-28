@@ -469,7 +469,8 @@ static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
 static int lfs_dir_compact(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t begin, uint16_t end);
-
+static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
+        const void *buffer, lfs_size_t size);
 static lfs_ssize_t lfs_file_rawwrite(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size);
 static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file);
@@ -494,6 +495,8 @@ static int lfs1_traverse(lfs_t *lfs,
 
 static int lfs_dir_rawrewind(lfs_t *lfs, lfs_dir_t *dir);
 
+static lfs_ssize_t lfs_file_flushedread(lfs_t *lfs, lfs_file_t *file,
+        void *buffer, lfs_size_t size);
 static lfs_ssize_t lfs_file_rawread(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size);
 static int lfs_file_rawclose(lfs_t *lfs, lfs_file_t *file);
@@ -2983,12 +2986,12 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
                 // copy over a byte at a time, leave it up to caching
                 // to make this efficient
                 uint8_t data;
-                lfs_ssize_t res = lfs_file_rawread(lfs, &orig, &data, 1);
+                lfs_ssize_t res = lfs_file_flushedread(lfs, &orig, &data, 1);
                 if (res < 0) {
                     return res;
                 }
 
-                res = lfs_file_rawwrite(lfs, file, &data, 1);
+                res = lfs_file_flushedwrite(lfs, file, &data, 1);
                 if (res < 0) {
                     return res;
                 }
@@ -3089,22 +3092,10 @@ static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
 }
 #endif
 
-static lfs_ssize_t lfs_file_rawread(lfs_t *lfs, lfs_file_t *file,
+static lfs_ssize_t lfs_file_flushedread(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
-    LFS_ASSERT((file->flags & LFS_O_RDONLY) == LFS_O_RDONLY);
-
     uint8_t *data = buffer;
     lfs_size_t nsize = size;
-
-#ifndef LFS_READONLY
-    if (file->flags & LFS_F_WRITING) {
-        // flush out any writes
-        int err = lfs_file_flush(lfs, file);
-        if (err) {
-            return err;
-        }
-    }
-#endif
 
     if (file->pos >= file->ctz.size) {
         // eof if past end
@@ -3162,43 +3153,29 @@ static lfs_ssize_t lfs_file_rawread(lfs_t *lfs, lfs_file_t *file,
     return size;
 }
 
+static lfs_ssize_t lfs_file_rawread(lfs_t *lfs, lfs_file_t *file,
+        void *buffer, lfs_size_t size) {
+    LFS_ASSERT((file->flags & LFS_O_RDONLY) == LFS_O_RDONLY);
+
 #ifndef LFS_READONLY
-static lfs_ssize_t lfs_file_rawwrite(lfs_t *lfs, lfs_file_t *file,
-        const void *buffer, lfs_size_t size) {
-    LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
-
-    const uint8_t *data = buffer;
-    lfs_size_t nsize = size;
-
-    if (file->flags & LFS_F_READING) {
-        // drop any reads
+    if (file->flags & LFS_F_WRITING) {
+        // flush out any writes
         int err = lfs_file_flush(lfs, file);
         if (err) {
             return err;
         }
     }
+#endif
 
-    if ((file->flags & LFS_O_APPEND) && file->pos < file->ctz.size) {
-        file->pos = file->ctz.size;
-    }
+    return lfs_file_flushedread(lfs, file, buffer, size);
+}
 
-    if (file->pos + size > lfs->file_max) {
-        // Larger than file limit?
-        return LFS_ERR_FBIG;
-    }
 
-    if (!(file->flags & LFS_F_WRITING) && file->pos > file->ctz.size) {
-        // fill with zeros
-        lfs_off_t pos = file->pos;
-        file->pos = file->ctz.size;
-
-        while (file->pos < pos) {
-            lfs_ssize_t res = lfs_file_rawwrite(lfs, file, &(uint8_t){0}, 1);
-            if (res < 0) {
-                return res;
-            }
-        }
-    }
+#ifndef LFS_READONLY
+static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
+        const void *buffer, lfs_size_t size) {
+    const uint8_t *data = buffer;
+    lfs_size_t nsize = size;
 
     if ((file->flags & LFS_F_INLINE) &&
             lfs_max(file->pos+nsize, file->ctz.size) >
@@ -3280,8 +3257,50 @@ relocate:
         lfs_alloc_ack(lfs);
     }
 
-    file->flags &= ~LFS_F_ERRED;
     return size;
+}
+
+static lfs_ssize_t lfs_file_rawwrite(lfs_t *lfs, lfs_file_t *file,
+        const void *buffer, lfs_size_t size) {
+    LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+
+    if (file->flags & LFS_F_READING) {
+        // drop any reads
+        int err = lfs_file_flush(lfs, file);
+        if (err) {
+            return err;
+        }
+    }
+
+    if ((file->flags & LFS_O_APPEND) && file->pos < file->ctz.size) {
+        file->pos = file->ctz.size;
+    }
+
+    if (file->pos + size > lfs->file_max) {
+        // Larger than file limit?
+        return LFS_ERR_FBIG;
+    }
+
+    if (!(file->flags & LFS_F_WRITING) && file->pos > file->ctz.size) {
+        // fill with zeros
+        lfs_off_t pos = file->pos;
+        file->pos = file->ctz.size;
+
+        while (file->pos < pos) {
+            lfs_ssize_t res = lfs_file_flushedwrite(lfs, file, &(uint8_t){0}, 1);
+            if (res < 0) {
+                return res;
+            }
+        }
+    }
+
+    lfs_ssize_t nsize = lfs_file_flushedwrite(lfs, file, buffer, size);
+    if (nsize < 0) {
+        return nsize;
+    }
+
+    file->flags &= ~LFS_F_ERRED;
+    return nsize;
 }
 #endif
 
