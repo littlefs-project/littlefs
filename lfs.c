@@ -10,6 +10,10 @@
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
+// create a string out of the character
+static const char lsf_path_delimiter[2] = {LSF_PATH_DELIMITER, '\0'};
+#define LSF_PATH_DELIMITER_STR (&lsf_path_delimiter[0])
+
 /// Caching block device operations ///
 static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
@@ -1102,7 +1106,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
         uint16_t id, struct lfs_info *info) {
     if (id == 0x3ff) {
         // special case for root
-        strcpy(info->name, "/");
+        strcpy(info->name, LSF_PATH_DELIMITER_STR);
         info->type = LFS_TYPE_DIR;
         return 0;
     }
@@ -1178,8 +1182,8 @@ static lfs_stag_t lfs_dir_find(lfs_t *lfs, lfs_mdir_t *dir,
     while (true) {
 nextname:
         // skip slashes
-        name += strspn(name, "/");
-        lfs_size_t namelen = strcspn(name, "/");
+        name += strspn(name, LSF_PATH_DELIMITER_STR);
+        lfs_size_t namelen = strcspn(name, LSF_PATH_DELIMITER_STR);
 
         // skip '.' and root '..'
         if ((namelen == 1 && memcmp(name, ".", 1) == 0) ||
@@ -1193,8 +1197,8 @@ nextname:
         lfs_size_t sufflen;
         int depth = 1;
         while (true) {
-            suffix += strspn(suffix, "/");
-            sufflen = strcspn(suffix, "/");
+            suffix += strspn(suffix, LSF_PATH_DELIMITER_STR);
+            sufflen = strcspn(suffix, LSF_PATH_DELIMITER_STR);
             if (sufflen == 0) {
                 break;
             }
@@ -1241,7 +1245,7 @@ nextname:
                     LFS_MKTAG(0x780, 0, 0),
                     LFS_MKTAG(LFS_TYPE_NAME, 0, namelen),
                      // are we last name?
-                    (strchr(name, '/') == NULL) ? id : NULL,
+                    (strchr(name, LSF_PATH_DELIMITER) == NULL) ? id : NULL,
                     lfs_dir_find_match, &(struct lfs_dir_find_match){
                         lfs, name, namelen});
             if (tag < 0) {
