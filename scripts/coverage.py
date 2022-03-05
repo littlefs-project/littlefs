@@ -173,17 +173,37 @@ def main(**args):
         else:
             print('%-36s %19s %19s %11s' % (by, 'old', 'new', 'diff'))
 
+    def print_entry(name, hits, count):
+        print("%-36s %11s %7s" % (name,
+            '%d/%d' % (hits, count)
+                if count else '-',
+            '%.1f%%' % (100*hits/count)
+                if count else '-'))
+
+    def print_diff_entry(name,
+            old_hits, old_count,
+            new_hits, new_count,
+            diff_hits, diff_count,
+            ratio):
+        print("%-36s %11s %7s %11s %7s %11s%s" % (name,
+            '%d/%d' % (old_hits, old_count)
+                if old_count else '-',
+            '%.1f%%' % (100*old_hits/old_count)
+                if old_count else '-',
+            '%d/%d' % (new_hits, new_count)
+                if new_count else '-',
+            '%.1f%%' % (100*new_hits/new_count)
+                if new_count else '-',
+            '%+d/%+d' % (diff_hits, diff_count),
+            ' (%+.1f%%)' % (100*ratio) if ratio else ''))
+
     def print_entries(by='function'):
         entries = dedup_entries(results, by=by)
 
         if not args.get('diff'):
             print_header(by=by)
             for name, (hits, count) in sorted_entries(entries.items()):
-                print("%-36s %11s %7s" % (name,
-                    '%d/%d' % (hits, count)
-                        if count else '-',
-                    '%.1f%%' % (100*hits/count)
-                        if count else '-'))
+                print_entry(name, hits, count)
         else:
             prev_entries = dedup_entries(prev_results, by=by)
             diff = diff_entries(prev_entries, entries)
@@ -196,42 +216,25 @@ def main(**args):
                     diff_hits, diff_count, ratio) in sorted_diff_entries(
                         diff.items()):
                 if ratio or args.get('all'):
-                    print("%-36s %11s %7s %11s %7s %11s%s" % (name,
-                        '%d/%d' % (old_hits, old_count)
-                            if old_count else '-',
-                        '%.1f%%' % (100*old_hits/old_count)
-                            if old_count else '-',
-                        '%d/%d' % (new_hits, new_count)
-                            if new_count else '-',
-                        '%.1f%%' % (100*new_hits/new_count)
-                            if new_count else '-',
-                        '%+d/%+d' % (diff_hits, diff_count),
-                        ' (%+.1f%%)' % (100*ratio) if ratio else ''))
+                    print_diff_entry(name,
+                        old_hits, old_count,
+                        new_hits, new_count,
+                        diff_hits, diff_count,
+                        ratio)
 
     def print_totals():
         if not args.get('diff'):
-            print("%-36s %11s %7s" % ('TOTAL',
-                '%d/%d' % (total_hits, total_count)
-                    if total_count else '-',
-                '%.1f%%' % (100*total_hits/total_count)
-                    if total_count else '-'))
+            print_entry('TOTAL', total_hits, total_count)
         else:
             ratio = ((total_hits/total_count
                     if total_count else 1.0)
                 - (prev_total_hits/prev_total_count
                     if prev_total_count else 1.0))
-            print("%-36s %11s %7s %11s %7s %11s%s" % ('TOTAL',
-                '%d/%d' % (prev_total_hits, prev_total_count)
-                    if prev_total_count else '-',
-                '%.1f%%' % (100*prev_total_hits/prev_total_count)
-                    if prev_total_count else '-',
-                '%d/%d' % (total_hits, total_count)
-                    if total_count else '-',
-                '%.1f%%' % (100*total_hits/total_count)
-                    if total_count else '-',
-                '%+d/%+d' % (total_hits-prev_total_hits,
-                    total_count-prev_total_count),
-                ' (%+.1f%%)' % (100*ratio) if ratio else ''))
+            print_diff_entry('TOTAL',
+                prev_total_hits, prev_total_count,
+                total_hits, total_count,
+                total_hits-prev_total_hits, total_count-prev_total_count,
+                ratio)
 
     if args.get('quiet'):
         pass

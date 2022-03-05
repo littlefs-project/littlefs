@@ -82,7 +82,7 @@ def collect(paths, **args):
 
     # find maximum stack size recursively, this requires also detecting cycles
     # (in case of recursion)
-    def stack_limit(source, seen=None):
+    def find_limit(source, seen=None):
         seen = seen or set()
         if source not in results:
             return 0
@@ -93,16 +93,25 @@ def collect(paths, **args):
             if target in seen:
                 # found a cycle
                 return float('inf')
-            limit_ = stack_limit(target, seen | {target})
+            limit_ = find_limit(target, seen | {target})
             limit = max(limit, limit_)
 
         return frame + limit
 
+    def find_deps(targets):
+        deps = set()
+        for target in targets:
+            if target in results:
+                t_file, t_function, _, _ = results[target]
+                deps.add((t_file, t_function))
+        return deps
+
     # flatten into a list
     flat_results = []
     for source, (s_file, s_function, frame, targets) in results.items():
-        limit = stack_limit(source)
-        flat_results.append((s_file, s_function, frame, limit))
+        limit = find_limit(source)
+        deps = find_deps(targets)
+        flat_results.append((s_file, s_function, frame, limit, deps))
 
     return flat_results
 
@@ -130,12 +139,13 @@ def main(**args):
                 (   result['file'],
                     result['function'],
                     int(result['stack_frame']),
-                    float(result['stack_limit'])) # note limit can be inf
+                    float(result['stack_limit']), # note limit can be inf
+                    set())
                 for result in r]
 
     total_frame = 0
     total_limit = 0
-    for _, _, frame, limit in results:
+    for _, _, frame, limit, _ in results:
         total_frame += frame
         total_limit = max(total_limit, limit)
 
@@ -148,14 +158,15 @@ def main(**args):
                     (   result['file'],
                         result['function'],
                         int(result['stack_frame']),
-                        float(result['stack_limit']))
+                        float(result['stack_limit']),
+                        set())
                     for result in r]
         except FileNotFoundError:
             prev_results = []
 
         prev_total_frame = 0
         prev_total_limit = 0
-        for _, _, frame, limit in prev_results:
+        for _, _, frame, limit, _ in prev_results:
             prev_total_frame += frame
             prev_total_limit = max(prev_total_limit, limit)
 
@@ -164,28 +175,33 @@ def main(**args):
         with open(args['output'], 'w') as f:
             w = csv.writer(f)
             w.writerow(['file', 'function', 'stack_frame', 'stack_limit'])
-            for file, func, frame, limit in sorted(results):
+            for file, func, frame, limit, _ in sorted(results):
                 w.writerow((file, func, frame, limit))
 
     # print results
     def dedup_entries(results, by='function'):
-        entries = co.defaultdict(lambda: (0, 0))
-        for file, func, frame, limit in results:
+        entries = co.defaultdict(lambda: (0, 0, set()))
+        for file, func, frame, limit, deps in results:
             entry = (file if by == 'file' else func)
-            entry_frame, entry_limit = entries[entry]
-            entries[entry] = (entry_frame + frame, max(entry_limit, limit))
+            entry_frame, entry_limit, entry_deps = entries[entry]
+            entries[entry] = (
+                entry_frame + frame,
+                max(entry_limit, limit),
+                entry_deps | {file if by == 'file' else func
+                    for file, func in deps})
         return entries
 
     def diff_entries(olds, news):
-        diff = co.defaultdict(lambda: (None, None, None, None, 0, 0, 0))
-        for name, (new_frame, new_limit) in news.items():
+        diff = co.defaultdict(lambda: (None, None, None, None, 0, 0, 0, set()))
+        for name, (new_frame, new_limit, deps) in news.items():
             diff[name] = (
                 None, None,
                 new_frame, new_limit,
                 new_frame, new_limit,
-                1.0)
-        for name, (old_frame, old_limit) in olds.items():
-            _, _, new_frame, new_limit, _, _, _ = diff[name]
+                1.0,
+                deps)
+        for name, (old_frame, old_limit, _) in olds.items():
+            _, _, new_frame, new_limit, _, _, _, deps = diff[name]
             diff[name] = (
                 old_frame, old_limit,
                 new_frame, new_limit,
@@ -197,7 +213,8 @@ def main(**args):
                     else -float('inf') if m.isinf(old_limit or 0)
                     else +0.0 if not old_limit and not new_limit
                     else +1.0 if not old_limit
-                    else ((new_limit or 0) - (old_limit or 0))/(old_limit or 0))
+                    else ((new_limit or 0) - (old_limit or 0))/(old_limit or 0),
+                deps)
         return diff
 
     def sorted_entries(entries):
@@ -230,46 +247,78 @@ def main(**args):
         else:
             print('%-36s %15s %15s %15s' % (by, 'old', 'new', 'diff'))
 
+    def print_entry(name, frame, limit):
+        print("%-36s %7d %7s" % (name,
+            frame, '∞' if m.isinf(limit) else int(limit)))
+
+    def print_diff_entry(name,
+            old_frame, old_limit,
+            new_frame, new_limit,
+            diff_frame, diff_limit,
+            ratio):
+        print('%-36s %7s %7s %7s %7s %+7d %7s%s' % (name,
+            old_frame if old_frame is not None else "-",
+            ('∞' if m.isinf(old_limit) else int(old_limit))
+                if old_limit is not None else "-",
+            new_frame if new_frame is not None else "-",
+            ('∞' if m.isinf(new_limit) else int(new_limit))
+                if new_limit is not None else "-",
+            diff_frame,
+            ('+∞' if diff_limit > 0 and m.isinf(diff_limit)
+                else '-∞' if diff_limit < 0 and m.isinf(diff_limit)
+                else '%+d' % diff_limit),
+            '' if not ratio
+                else ' (+∞%)' if ratio > 0 and m.isinf(ratio)
+                else ' (-∞%)' if ratio < 0 and m.isinf(ratio)
+                else ' (%+.1f%%)' % (100*ratio)))
+
     def print_entries(by='function'):
+        # build optional tree of dependencies
+        def print_deps(entries, depth, print,
+                filter=lambda _: True,
+                prefixes=('', '', '', '')):
+            entries = entries if isinstance(entries, list) else list(entries)
+            filtered_entries = [(name, entry)
+                for name, entry in entries
+                if filter(name)]
+            for i, (name, entry) in enumerate(filtered_entries):
+                last = (i == len(filtered_entries)-1)
+                print(prefixes[0+last] + name, entry)
+
+                if depth > 0:
+                    deps = entry[-1]
+                    print_deps(entries, depth-1, print,
+                        lambda name: name in deps,
+                        (   prefixes[2+last] + "|-> ",
+                            prefixes[2+last] + "'-> ",
+                            prefixes[2+last] + "|   ",
+                            prefixes[2+last] + "    "))
+
         entries = dedup_entries(results, by=by)
 
         if not args.get('diff'):
             print_header(by=by)
-            for name, (frame, limit) in sorted_entries(entries.items()):
-                print("%-36s %7d %7s" % (name,
-                    frame, '∞' if m.isinf(limit) else int(limit)))
+            print_deps(
+                sorted_entries(entries.items()),
+                args.get('depth') or 0,
+                lambda name, entry: print_entry(name, *entry[:-1]))
         else:
             prev_entries = dedup_entries(prev_results, by=by)
             diff = diff_entries(prev_entries, entries)
+
             print_header(by='%s (%d added, %d removed)' % (by,
-                sum(1 for _, old, _, _, _, _, _ in diff.values() if old is None),
-                sum(1 for _, _, _, new, _, _, _ in diff.values() if new is None)))
-            for name, (
-                    old_frame, old_limit,
-                    new_frame, new_limit,
-                    diff_frame, diff_limit, ratio) in sorted_diff_entries(
-                        diff.items()):
-                if ratio or args.get('all'):
-                    print("%-36s %7s %7s %7s %7s %+7d %7s%s" % (name,
-                        old_frame if old_frame is not None else "-",
-                        ('∞' if m.isinf(old_limit) else int(old_limit))
-                            if old_limit is not None else "-",
-                        new_frame if new_frame is not None else "-",
-                        ('∞' if m.isinf(new_limit) else int(new_limit))
-                            if new_limit is not None else "-",
-                        diff_frame,
-                        ('+∞' if diff_limit > 0 and m.isinf(diff_limit)
-                            else '-∞' if diff_limit < 0 and m.isinf(diff_limit)
-                            else '%+d' % diff_limit),
-                        '' if not ratio
-                            else ' (+∞%)' if ratio > 0 and m.isinf(ratio)
-                            else ' (-∞%)' if ratio < 0 and m.isinf(ratio)
-                            else ' (%+.1f%%)' % (100*ratio)))
+                sum(1 for _, old, _, _, _, _, _, _ in diff.values() if old is None),
+                sum(1 for _, _, _, new, _, _, _, _ in diff.values() if new is None)))
+            print_deps(
+                filter(
+                    lambda x: x[1][6] or args.get('all'),
+                    sorted_diff_entries(diff.items())),
+                args.get('depth') or 0,
+                lambda name, entry: print_diff_entry(name, *entry[:-1]))
 
     def print_totals():
         if not args.get('diff'):
-            print("%-36s %7d %7s" % ('TOTAL',
-                total_frame, '∞' if m.isinf(total_limit) else int(total_limit)))
+            print_entry('TOTAL', total_frame, total_limit)
         else:
             diff_frame = total_frame - prev_total_frame
             diff_limit = (
@@ -279,25 +328,14 @@ def main(**args):
                 0.0 if m.isinf(total_limit or 0) and m.isinf(prev_total_limit or 0)
                     else +float('inf') if m.isinf(total_limit or 0)
                     else -float('inf') if m.isinf(prev_total_limit or 0)
-                    else +0.0 if not prev_total_limit and not total_limit
-                    else +1.0 if not prev_total_limit
+                    else 0.0 if not prev_total_limit and not total_limit
+                    else 1.0 if not prev_total_limit
                     else ((total_limit or 0) - (prev_total_limit or 0))/(prev_total_limit or 0))
-            print("%-36s %7s %7s %7s %7s %+7d %7s%s" % ('TOTAL',
-                prev_total_frame if prev_total_frame is not None else '-',
-                ('∞' if m.isinf(prev_total_limit) else int(prev_total_limit))
-                    if prev_total_limit is not None else '-',
-                total_frame if total_frame is not None else '-',
-                ('∞' if m.isinf(total_limit) else int(total_limit))
-                    if total_limit is not None else '-',
-                diff_frame,
-                ('+∞' if diff_limit > 0 and m.isinf(diff_limit)
-                    else '-∞' if diff_limit < 0 and m.isinf(diff_limit)
-                    else '%+d' % diff_limit),
-                '' if not ratio
-                    else ' (+∞%)' if ratio > 0 and m.isinf(ratio)
-                    else ' (-∞%)' if ratio < 0 and m.isinf(ratio)
-                    else ' (%+.1f%%)' % (100*ratio)))
-
+            print_diff_entry('TOTAL',
+                prev_total_frame, prev_total_limit,
+                total_frame, total_limit,
+                diff_frame, diff_limit,
+                ratio)
 
     if args.get('quiet'):
         pass
@@ -310,6 +348,7 @@ def main(**args):
     else:
         print_entries(by='function')
         print_totals()
+
 
 if __name__ == "__main__":
     import argparse
@@ -339,6 +378,9 @@ if __name__ == "__main__":
         help="Sort by stack frame size.")
     parser.add_argument('-F', '--reverse-frame-sort', action='store_true',
         help="Sort by stack frame size, but backwards.")
+    parser.add_argument('-L', '--depth', default=0, type=lambda x: int(x, 0),
+        nargs='?', const=float('inf'),
+        help="Depth of dependencies to show.")
     parser.add_argument('--files', action='store_true',
         help="Show file-level calls.")
     parser.add_argument('--summary', action='store_true',

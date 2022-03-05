@@ -160,13 +160,23 @@ def main(**args):
         else:
             print('%-36s %7s %7s %7s' % (by, 'old', 'new', 'diff'))
 
+    def print_entry(name, size):
+        print("%-36s %7d" % (name, size))
+
+    def print_diff_entry(name, old, new, diff, ratio):
+        print("%-36s %7s %7s %+7d%s" % (name,
+            old or "-",
+            new or "-",
+            diff,
+            ' (%+.1f%%)' % (100*ratio) if ratio else ''))
+
     def print_entries(by='struct'):
         entries = dedup_entries(results, by=by)
 
         if not args.get('diff'):
             print_header(by=by)
             for name, size in sorted_entries(entries.items()):
-                print("%-36s %7d" % (name, size))
+                print_entry(name, size)
         else:
             prev_entries = dedup_entries(prev_results, by=by)
             diff = diff_entries(prev_entries, entries)
@@ -176,23 +186,19 @@ def main(**args):
             for name, (old, new, diff, ratio) in sorted_diff_entries(
                     diff.items()):
                 if ratio or args.get('all'):
-                    print("%-36s %7s %7s %+7d%s" % (name,
-                        old or "-",
-                        new or "-",
-                        diff,
-                        ' (%+.1f%%)' % (100*ratio) if ratio else ''))
+                    print_diff_entry(name, old, new, diff, ratio)
 
     def print_totals():
         if not args.get('diff'):
-            print("%-36s %7d" % ('TOTAL', total))
+            print_entry('TOTAL', total)
         else:
-            ratio = (total-prev_total)/prev_total if prev_total else 1.0
-            print("%-36s %7s %7s %+7d%s" % (
-                'TOTAL',
-                prev_total if prev_total else '-',
-                total if total else '-',
+            ratio = (0.0 if not prev_total and not total
+                else 1.0 if not prev_total
+                else (total-prev_total)/prev_total)
+            print_diff_entry('TOTAL',
+                prev_total, total,
                 total-prev_total,
-                ' (%+.1f%%)' % (100*ratio) if ratio else ''))
+                ratio)
 
     if args.get('quiet'):
         pass
