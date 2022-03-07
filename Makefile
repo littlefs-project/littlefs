@@ -56,6 +56,9 @@ endif
 ifdef EXEC
 override TESTFLAGS += --exec="$(EXEC)"
 endif
+ifdef COVERAGE
+override TESTFLAGS += --coverage
+endif
 ifdef BUILDDIR
 override TESTFLAGS     += --build-dir="$(BUILDDIR:/=)"
 override CALLSFLAGS    += --build-dir="$(BUILDDIR:/=)"
@@ -104,41 +107,34 @@ test%: tests/test$$(firstword $$(subst \#, ,%)).toml
 code: $(OBJ)
 	./scripts/code.py $^ -S $(CODEFLAGS)
 
-.PHONY: code-diff
-code-diff: $(OBJ)
-	./scripts/code.py $^ -d $(TARGET).code.csv -o $(TARGET).code.csv $(CODEFLAGS)
-
 .PHONY: data
 data: $(OBJ)
 	./scripts/data.py $^ -S $(DATAFLAGS)
-
-.PHONY: data-diff
-data-diff: $(OBJ)
-	./scripts/data.py $^ -d $(TARGET).data.csv -o $(TARGET).data.csv $(DATAFLAGS)
 
 .PHONY: stack
 stack: $(CGI)
 	./scripts/stack.py $^ -S $(STACKFLAGS)
 
-.PHONY: stack-diff
-stack-diff: $(CGI)
-	./scripts/stack.py $^ -d $(TARGET).stack.csv -o $(TARGET).stack.csv $(STACKFLAGS)
-
 .PHONY: structs
 structs: $(OBJ)
 	./scripts/structs.py $^ -S $(STRUCTSFLAGS)
-
-.PHONY: structs-diff
-structs-diff: $(OBJ)
-	./scripts/structs.py $^ -d $(TARGET).structs.csv -o $(TARGET).structs.csv $(STRUCTSFLAGS)
 
 .PHONY: coverage
 coverage:
 	./scripts/coverage.py $(BUILDDIR)tests/*.toml.info -s $(COVERAGEFLAGS)
 
-.PHONY: coverage-diff
-coverage-diff:
-	./scripts/coverage.py $(BUILDDIR)tests/*.toml.info $(COVERAGEFLAGS)
+.PHONY: summary
+summary: $(OBJ) $(CGI)
+	$(strip \
+		  ./scripts/code.py    $(OBJ) -q      -o - $(CODEFLAGS) \
+		| ./scripts/data.py    $(OBJ) -q -m - -o - $(DATAFLAGS) \
+		| ./scripts/stack.py   $(CGI) -q -m - -o - $(STACKFLAGS) \
+		| ./scripts/structs.py $(OBJ) -q -m - -o - $(STRUCTFLAGS) \
+		$(if $(COVERAGE),\
+			| ./scripts/coverage.py $(BUILDDIR)tests/*.toml.info \
+				-q -m - -o - $(COVERAGEFLAGS)) \
+		| ./scripts/summary.py $(SUMMARYFLAGS))
+
 
 # rules
 -include $(DEP)

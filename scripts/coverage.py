@@ -66,6 +66,15 @@ def collect(paths, **args):
 
 
 def main(**args):
+    def openio(path, mode='r'):
+        if path == '-':
+            if 'r' in mode:
+                return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+            else:
+                return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+        else:
+            return open(path, mode)
+
     # find coverage
     if not args.get('use'):
         # find *.info files
@@ -83,14 +92,16 @@ def main(**args):
 
         results = collect(paths, **args)
     else:
-        with open(args['use']) as f:
+        with openio(args['use']) as f:
             r = csv.DictReader(f)
             results = [
                 (   result['file'],
-                    result['function'],
+                    result['name'],
                     int(result['coverage_hits']),
                     int(result['coverage_count']))
-                for result in r]
+                for result in r
+                if result.get('coverage_hits') not in {None, ''}
+                if result.get('coverage_count') not in {None, ''}]
 
     total_hits, total_count = 0, 0
     for _, _, hits, count in results:
@@ -100,14 +111,16 @@ def main(**args):
     # find previous results?
     if args.get('diff'):
         try:
-            with open(args['diff']) as f:
+            with openio(args['diff']) as f:
                 r = csv.DictReader(f)
                 prev_results = [
                     (   result['file'],
-                        result['function'],
+                        result['name'],
                         int(result['coverage_hits']),
                         int(result['coverage_count']))
-                    for result in r]
+                    for result in r
+                    if result.get('coverage_hits') not in {None, ''}
+                    if result.get('coverage_count') not in {None, ''}]
         except FileNotFoundError:
             prev_results = []
 
@@ -118,14 +131,36 @@ def main(**args):
 
     # write results to CSV
     if args.get('output'):
-        with open(args['output'], 'w') as f:
-            w = csv.writer(f)
-            w.writerow(['file', 'function', 'coverage_hits', 'coverage_count'])
-            for file, func, hits, count in sorted(results):
-                w.writerow((file, func, hits, count))
+        merged_results = co.defaultdict(lambda: {})
+        other_fields = []
+
+        # merge?
+        if args.get('merge'):
+            try:
+                with openio(args['merge']) as f:
+                    r = csv.DictReader(f)
+                    for result in r:
+                        file = result.pop('file', '')
+                        func = result.pop('name', '')
+                        result.pop('coverage_hits', None)
+                        result.pop('coverage_count', None)
+                        merged_results[(file, func)] = result
+                        other_fields = result.keys()
+            except FileNotFoundError:
+                pass
+
+        for file, func, hits, count in results:
+            merged_results[(file, func)]['coverage_hits'] = hits
+            merged_results[(file, func)]['coverage_count'] = count
+
+        with openio(args['output'], 'w') as f:
+            w = csv.DictWriter(f, ['file', 'name', *other_fields, 'coverage_hits', 'coverage_count'])
+            w.writeheader()
+            for (file, func), result in sorted(merged_results.items()):
+                w.writerow({'file': file, 'name': func, **result})
 
     # print results
-    def dedup_entries(results, by='function'):
+    def dedup_entries(results, by='name'):
         entries = co.defaultdict(lambda: (0, 0))
         for file, func, hits, count in results:
             entry = (file if by == 'file' else func)
@@ -197,7 +232,7 @@ def main(**args):
             '%+d/%+d' % (diff_hits, diff_count),
             ' (%+.1f%%)' % (100*ratio) if ratio else ''))
 
-    def print_entries(by='function'):
+    def print_entries(by='name'):
         entries = dedup_entries(results, by=by)
 
         if not args.get('diff'):
@@ -245,7 +280,7 @@ def main(**args):
         print_entries(by='file')
         print_totals()
     else:
-        print_entries(by='function')
+        print_entries(by='name')
         print_totals()
 
 if __name__ == "__main__":
@@ -266,6 +301,8 @@ if __name__ == "__main__":
         help="Don't do any work, instead use this CSV file.")
     parser.add_argument('-d', '--diff',
         help="Specify CSV file to diff code size against.")
+    parser.add_argument('-m', '--merge',
+        help="Merge with an existing CSV file when writing to output.")
     parser.add_argument('-a', '--all', action='store_true',
         help="Show all functions, not just the ones that changed.")
     parser.add_argument('-A', '--everything', action='store_true',
@@ -274,9 +311,9 @@ if __name__ == "__main__":
         help="Sort by coverage.")
     parser.add_argument('-S', '--reverse-coverage-sort', action='store_true',
         help="Sort by coverage, but backwards.")
-    parser.add_argument('--files', action='store_true',
+    parser.add_argument('-F', '--files', action='store_true',
         help="Show file-level coverage.")
-    parser.add_argument('--summary', action='store_true',
+    parser.add_argument('-Y', '--summary', action='store_true',
         help="Only show the total coverage.")
     parser.add_argument('-q', '--quiet', action='store_true',
         help="Don't show anything, useful with -o.")

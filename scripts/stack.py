@@ -116,6 +116,15 @@ def collect(paths, **args):
     return flat_results
 
 def main(**args):
+    def openio(path, mode='r'):
+        if path == '-':
+            if 'r' in mode:
+                return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+            else:
+                return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+        else:
+            return open(path, mode)
+
     # find sizes
     if not args.get('use', None):
         # find .ci files
@@ -133,15 +142,17 @@ def main(**args):
 
         results = collect(paths, **args)
     else:
-        with open(args['use']) as f:
+        with openio(args['use']) as f:
             r = csv.DictReader(f)
             results = [
                 (   result['file'],
-                    result['function'],
+                    result['name'],
                     int(result['stack_frame']),
                     float(result['stack_limit']), # note limit can be inf
                     set())
-                for result in r]
+                for result in r
+                if result.get('stack_frame') not in {None, ''}
+                if result.get('stack_limit') not in {None, ''}]
 
     total_frame = 0
     total_limit = 0
@@ -152,15 +163,17 @@ def main(**args):
     # find previous results?
     if args.get('diff'):
         try:
-            with open(args['diff']) as f:
+            with openio(args['diff']) as f:
                 r = csv.DictReader(f)
                 prev_results = [
                     (   result['file'],
-                        result['function'],
+                        result['name'],
                         int(result['stack_frame']),
                         float(result['stack_limit']),
                         set())
-                    for result in r]
+                    for result in r
+                    if result.get('stack_frame') not in {None, ''}
+                    if result.get('stack_limit') not in {None, ''}]
         except FileNotFoundError:
             prev_results = []
 
@@ -172,14 +185,36 @@ def main(**args):
 
     # write results to CSV
     if args.get('output'):
-        with open(args['output'], 'w') as f:
-            w = csv.writer(f)
-            w.writerow(['file', 'function', 'stack_frame', 'stack_limit'])
-            for file, func, frame, limit, _ in sorted(results):
-                w.writerow((file, func, frame, limit))
+        merged_results = co.defaultdict(lambda: {})
+        other_fields = []
+
+        # merge?
+        if args.get('merge'):
+            try:
+                with openio(args['merge']) as f:
+                    r = csv.DictReader(f)
+                    for result in r:
+                        file = result.pop('file', '')
+                        func = result.pop('name', '')
+                        result.pop('stack_frame', None)
+                        result.pop('stack_limit', None)
+                        merged_results[(file, func)] = result
+                        other_fields = result.keys()
+            except FileNotFoundError:
+                pass
+
+        for file, func, frame, limit, _ in results:
+            merged_results[(file, func)]['stack_frame'] = frame
+            merged_results[(file, func)]['stack_limit'] = limit
+
+        with openio(args['output'], 'w') as f:
+            w = csv.DictWriter(f, ['file', 'name', *other_fields, 'stack_frame', 'stack_limit'])
+            w.writeheader()
+            for (file, func), result in sorted(merged_results.items()):
+                w.writerow({'file': file, 'name': func, **result})
 
     # print results
-    def dedup_entries(results, by='function'):
+    def dedup_entries(results, by='name'):
         entries = co.defaultdict(lambda: (0, 0, set()))
         for file, func, frame, limit, deps in results:
             entry = (file if by == 'file' else func)
@@ -272,7 +307,7 @@ def main(**args):
                 else ' (-∞%)' if ratio < 0 and m.isinf(ratio)
                 else ' (%+.1f%%)' % (100*ratio)))
 
-    def print_entries(by='function'):
+    def print_entries(by='name'):
         # build optional tree of dependencies
         def print_deps(entries, depth, print,
                 filter=lambda _: True,
@@ -346,7 +381,7 @@ def main(**args):
         print_entries(by='file')
         print_totals()
     else:
-        print_entries(by='function')
+        print_entries(by='name')
         print_totals()
 
 
@@ -360,12 +395,16 @@ if __name__ == "__main__":
             or a list of paths. Defaults to %r." % CI_PATHS)
     parser.add_argument('-v', '--verbose', action='store_true',
         help="Output commands that run behind the scenes.")
+    parser.add_argument('-q', '--quiet', action='store_true',
+        help="Don't show anything, useful with -o.")
     parser.add_argument('-o', '--output',
         help="Specify CSV file to store results.")
     parser.add_argument('-u', '--use',
         help="Don't parse callgraph files, instead use this CSV file.")
     parser.add_argument('-d', '--diff',
         help="Specify CSV file to diff against.")
+    parser.add_argument('-m', '--merge',
+        help="Merge with an existing CSV file when writing to output.")
     parser.add_argument('-a', '--all', action='store_true',
         help="Show all functions, not just the ones that changed.")
     parser.add_argument('-A', '--everything', action='store_true',
@@ -374,19 +413,17 @@ if __name__ == "__main__":
         help="Sort by stack limit.")
     parser.add_argument('-S', '--reverse-limit-sort', action='store_true',
         help="Sort by stack limit, but backwards.")
-    parser.add_argument('-f', '--frame-sort', action='store_true',
+    parser.add_argument('--frame-sort', action='store_true',
         help="Sort by stack frame size.")
-    parser.add_argument('-F', '--reverse-frame-sort', action='store_true',
+    parser.add_argument('--reverse-frame-sort', action='store_true',
         help="Sort by stack frame size, but backwards.")
     parser.add_argument('-L', '--depth', default=0, type=lambda x: int(x, 0),
         nargs='?', const=float('inf'),
         help="Depth of dependencies to show.")
-    parser.add_argument('--files', action='store_true',
+    parser.add_argument('-F', '--files', action='store_true',
         help="Show file-level calls.")
-    parser.add_argument('--summary', action='store_true',
+    parser.add_argument('-Y', '--summary', action='store_true',
         help="Only show the total stack size.")
-    parser.add_argument('-q', '--quiet', action='store_true',
-        help="Don't show anything, useful with -o.")
     parser.add_argument('--build-dir',
         help="Specify the relative build directory. Used to map object files \
             to the correct source files.")
