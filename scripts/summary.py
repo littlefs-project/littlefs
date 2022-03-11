@@ -135,17 +135,6 @@ def main(**args):
         except FileNotFoundError:
             pass
 
-        if args.get('all_fields'):
-            fields = FIELDS
-        elif args.get('fields') is not None:
-            fields_dict = {field.name: field for field in FIELDS}
-            fields = [fields_dict[f] for f in args['fields']]
-        else:
-            fields = []
-            for field in FIELDS:
-                if any(field.name in result for result in prev_results.values()):
-                    fields.append(field)
-
         prev_total = {}
         for result in prev_results.values():
             for field in fields:

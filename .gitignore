@@ -2,6 +2,8 @@
 *.o
 *.d
 *.a
+*.ci
+*.csv
 
 # Testing things
 blocks/

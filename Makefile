@@ -133,7 +133,7 @@ summary: $(OBJ) $(CGI)
 		$(if $(COVERAGE),\
 			| ./scripts/coverage.py $(BUILDDIR)tests/*.toml.info \
 				-q -m - -o - $(COVERAGEFLAGS)) \
-		| ./scripts/summary.py $(SUMMARYFLAGS))
+		| ./scripts/summary.py -Y $(SUMMARYFLAGS))
 
 
 # rules
@@ -143,8 +143,19 @@ summary: $(OBJ) $(CGI)
 $(BUILDDIR)lfs: $(OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
-$(BUILDDIR)%.a: $(OBJ)
+$(BUILDDIR)lfs.a: $(OBJ)
 	$(AR) rcs $@ $^
+
+$(BUILDDIR)lfs.csv: $(OBJ) $(CGI)
+	$(strip \
+		  ./scripts/code.py    $(OBJ) -q      -o - $(CODEFLAGS) \
+		| ./scripts/data.py    $(OBJ) -q -m - -o - $(DATAFLAGS) \
+		| ./scripts/stack.py   $(CGI) -q -m - -o - $(STACKFLAGS) \
+		| ./scripts/structs.py $(OBJ) -q -m - -o - $(STRUCTFLAGS) \
+		$(if $(COVERAGE),\
+			| ./scripts/coverage.py $(BUILDDIR)tests/*.toml.info \
+				-q -m - -o - $(COVERAGEFLAGS)) \
+		> $@)
 
 $(BUILDDIR)%.o: %.c
 	$(CC) -c -MMD $(CFLAGS) $< -o $@
