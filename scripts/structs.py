@@ -35,7 +35,8 @@ def collect(paths, **args):
         proc = sp.Popen(cmd,
             stdout=sp.PIPE,
             stderr=sp.PIPE if not args.get('verbose') else None,
-            universal_newlines=True)
+            universal_newlines=True,
+            errors='replace')
         for line in proc.stdout:
             # state machine here to find structs
             m = pattern.match(line)
