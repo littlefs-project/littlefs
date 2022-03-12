@@ -124,16 +124,8 @@ coverage:
 	./scripts/coverage.py $(BUILDDIR)tests/*.toml.info -s $(COVERAGEFLAGS)
 
 .PHONY: summary
-summary: $(OBJ) $(CGI)
-	$(strip \
-		  ./scripts/code.py    $(OBJ) -q      -o - $(CODEFLAGS) \
-		| ./scripts/data.py    $(OBJ) -q -m - -o - $(DATAFLAGS) \
-		| ./scripts/stack.py   $(CGI) -q -m - -o - $(STACKFLAGS) \
-		| ./scripts/structs.py $(OBJ) -q -m - -o - $(STRUCTFLAGS) \
-		$(if $(COVERAGE),\
-			| ./scripts/coverage.py $(BUILDDIR)tests/*.toml.info \
-				-q -m - -o - $(COVERAGEFLAGS)) \
-		| ./scripts/summary.py -Y $(SUMMARYFLAGS))
+summary: $(BUILDDIR)lfs.csv
+	./scripts/summary.py -Y $^ $(SUMMARYFLAGS)
 
 
 # rules
@@ -147,15 +139,13 @@ $(BUILDDIR)lfs.a: $(OBJ)
 	$(AR) rcs $@ $^
 
 $(BUILDDIR)lfs.csv: $(OBJ) $(CGI)
-	$(strip \
-		  ./scripts/code.py    $(OBJ) -q      -o - $(CODEFLAGS) \
-		| ./scripts/data.py    $(OBJ) -q -m - -o - $(DATAFLAGS) \
-		| ./scripts/stack.py   $(CGI) -q -m - -o - $(STACKFLAGS) \
-		| ./scripts/structs.py $(OBJ) -q -m - -o - $(STRUCTFLAGS) \
-		$(if $(COVERAGE),\
-			| ./scripts/coverage.py $(BUILDDIR)tests/*.toml.info \
-				-q -m - -o - $(COVERAGEFLAGS)) \
-		> $@)
+	./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o $@
+	./scripts/data.py $(OBJ) -q -m $@ $(DATAFLAGS) -o $@
+	./scripts/stack.py $(CGI) -q -m $@ $(STACKFLAGS) -o $@
+	./scripts/structs.py $(OBJ) -q -m $@ $(STRUCTSFLAGS) -o $@
+	$(if $(COVERAGE),\
+		./scripts/coverage.py $(BUILDDIR)tests/*.toml.info \
+			-q -m $@ $(COVERAGEFLAGS) -o $@)
 
 $(BUILDDIR)%.o: %.c
 	$(CC) -c -MMD $(CFLAGS) $< -o $@
@@ -163,8 +153,12 @@ $(BUILDDIR)%.o: %.c
 $(BUILDDIR)%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
-$(BUILDDIR)%.ci: %.c
-	$(CC) -c -MMD -fcallgraph-info=su $(CFLAGS) $< -o $(@:.ci=.o)
+# gcc depends on the output file for intermediate file names, so
+# we can't omit to .o output. We also need to serialize with the
+# normal .o rule because otherwise we can end up with multiprocess
+# problems with two instances of gcc modifying the same .o
+$(BUILDDIR)%.ci: %.c | $(BUILDDIR)%.o
+	$(CC) -c -MMD -fcallgraph-info=su $(CFLAGS) $< -o $|
 
 # clean everything
 .PHONY: clean
