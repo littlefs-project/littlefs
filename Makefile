@@ -163,8 +163,9 @@ $(BUILDDIR)%.ci: %.c | $(BUILDDIR)%.o
 # clean everything
 .PHONY: clean
 clean:
-	rm -f $(TARGET)
-	rm -f $(TARGET).*.csv
+	rm -f $(BUILDDIR)lfs
+	rm -f $(BUILDDIR)lfs.a
+	rm -f $(BUILDDIR)lfs.csv
 	rm -f $(OBJ)
 	rm -f $(CGI)
 	rm -f $(DEP)
