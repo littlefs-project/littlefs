@@ -311,16 +311,18 @@ jobs:
 
           # setup disk for littlefs-fuse
           mkdir mount
-          sudo chmod a+rw /dev/loop0
+          LOOP=$(sudo losetup -f)
+          sudo chmod a+rw $LOOP
           dd if=/dev/zero bs=512 count=128K of=disk
-          losetup /dev/loop0 disk
+          losetup $LOOP disk
+          echo "LOOP=$LOOP" >> $GITHUB_ENV
       - name: test
         run: |
           # self-host test
           make -C littlefs-fuse
 
-          littlefs-fuse/lfs --format /dev/loop0
-          littlefs-fuse/lfs /dev/loop0 mount
+          littlefs-fuse/lfs --format $LOOP
+          littlefs-fuse/lfs $LOOP mount
 
           ls mount
           mkdir mount/littlefs
@@ -362,9 +364,11 @@ jobs:
 
           # setup disk for littlefs-fuse
           mkdir mount
-          sudo chmod a+rw /dev/loop0
+          LOOP=$(sudo losetup -f)
+          sudo chmod a+rw $LOOP
           dd if=/dev/zero bs=512 count=128K of=disk
-          losetup /dev/loop0 disk
+          losetup $LOOP disk
+          echo "LOOP=$LOOP" >> $GITHUB_ENV
       - name: test
         run: |
           # compile v1 and v2
@@ -372,8 +376,8 @@ jobs:
           make -C v2
 
           # run self-host test with v1
-          v1/lfs --format /dev/loop0
-          v1/lfs /dev/loop0 mount
+          v1/lfs --format $LOOP
+          v1/lfs $LOOP mount
 
           ls mount
           mkdir mount/littlefs
@@ -387,8 +391,8 @@ jobs:
           cd ../..
           fusermount -u mount
 
-          v2/lfs --migrate /dev/loop0
-          v2/lfs /dev/loop0 mount
+          v2/lfs --migrate $LOOP
+          v2/lfs $LOOP mount
 
           # run self-host test with v2 right where we left off
           ls mount
