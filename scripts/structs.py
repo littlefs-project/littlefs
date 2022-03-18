@@ -44,9 +44,7 @@ def collect(paths, **args):
             # find file numbers
             m = decl_pattern.match(line)
             if m:
-                decls[int(m.group('no'))] = (
-                    m.group('file'),
-                    int(m.group('dir')))
+                decls[int(m.group('no'))] = m.group('file')
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
@@ -77,8 +75,8 @@ def collect(paths, **args):
                     if (name is not None
                             and decl is not None
                             and size is not None):
-                        decl_file, decl_dir = decls.get(decl, ('', 0))
-                        results[(path, name)] = (size, decl_file, decl_dir)
+                        decl = decls.get(decl, '?')
+                        results[(decl, name)] = size
                     found = (m.group('tag') == 'structure_type')
                     name = None
                     decl = None
@@ -97,21 +95,21 @@ def collect(paths, **args):
             sys.exit(-1)
 
     flat_results = []
-    for (path, struct), (size, decl_file, decl_dir) in results.items():
+    for (file, struct), size in results.items():
         # map to source files
         if args.get('build_dir'):
-            path = re.sub('%s/*' % re.escape(args['build_dir']), '', path)
+            file = re.sub('%s/*' % re.escape(args['build_dir']), '', file)
         # only include structs declared in header files in the current
         # directory, ignore internal-only # structs (these are represented
         # in other measurements)
         if not args.get('everything'):
-            if not (decl_file.endswith('.h') and decl_dir == 0):
+            if not file.endswith('.h'):
                 continue
         # replace .o with .c, different scripts report .o/.c, we need to
         # choose one if we want to deduplicate csv files
-        path = re.sub('\.o$', '.c', path)
+        file = re.sub('\.o$', '.c', file)
 
-        flat_results.append((path, struct, size))
+        flat_results.append((file, struct, size))
 
     return flat_results
 
