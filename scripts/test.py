@@ -784,10 +784,13 @@ def main(**args):
             stdout=sp.PIPE if not args.get('verbose') else None,
             stderr=sp.STDOUT if not args.get('verbose') else None,
             universal_newlines=True)
+        stdout = []
+        for line in proc.stdout:
+            stdout.append(line)
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
-                for line in proc.stdout:
+                for line in stdout:
                     sys.stdout.write(line)
             sys.exit(-1)
 

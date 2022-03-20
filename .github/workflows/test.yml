@@ -19,10 +19,26 @@ jobs:
       - name: install
         run: |
           # need a few additional tools
+          #
+          # note this includes gcc-10, which is required for -fcallgraph-info=su
           sudo apt-get update -qq
-          sudo apt-get install -qq python3 python3-pip lcov
+          sudo apt-get install -qq gcc-10 python3 python3-pip lcov
           sudo pip3 install toml
+          echo "CC=gcc-10" >> $GITHUB_ENV
+          gcc-10 --version
+          lcov --version
           python3 --version
+
+          # need newer lcov version for gcc-10
+          #sudo apt-get remove lcov
+          #wget https://launchpad.net/ubuntu/+archive/primary/+files/lcov_1.15-1_all.deb
+          #sudo apt install ./lcov_1.15-1_all.deb
+          #lcov --version
+          #which lcov
+          #ls -lha /usr/bin/lcov
+          wget https://github.com/linux-test-project/lcov/releases/download/v1.15/lcov-1.15.tar.gz
+          tar xf lcov-1.15.tar.gz
+          sudo make -C lcov-1.15 install
 
           # setup a ram-backed disk to speed up reentrant tests
           mkdir disks
@@ -36,14 +52,6 @@ jobs:
 
           echo "TESTFLAGS=$TESTFLAGS" >> $GITHUB_ENV
 
-      # we're not cross-compiling with x86, but we do need the newest
-      # version of gcc for the -fcallgraph-info=su flag
-      - name: install-x86_64
-        if: ${{matrix.arch == 'x86_64'}}
-        run: |
-          sudo apt-get install -qq gcc-10
-          echo "CC=gcc-10" >> $GITHUB_ENV
-          gcc-10 --version
       # cross-compile with ARM Thumb (32-bit, little-endian)
       - name: install-thumb
         if: ${{matrix.arch == 'thumb'}}
