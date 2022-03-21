@@ -2742,7 +2742,6 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
 }
 #endif
 
-#ifndef LFS_READONLY
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     if (file->flags & LFS_F_READING) {
         if (!(file->flags & LFS_F_INLINE)) {
@@ -2751,6 +2750,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
         file->flags &= ~LFS_F_READING;
     }
 
+#ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {
         lfs_off_t pos = file->pos;
 
@@ -2817,10 +2817,10 @@ relocate:
 
         file->pos = pos;
     }
+#endif
 
     return 0;
 }
-#endif
 
 #ifndef LFS_READONLY
 static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
@@ -3093,13 +3093,11 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
         return npos;
     }
 
-#ifndef LFS_READONLY
     // write out everything beforehand, may be noop if rdonly
     int err = lfs_file_flush(lfs, file);
     if (err) {
         return err;
     }
-#endif
 
     // update pos
     file->pos = npos;
