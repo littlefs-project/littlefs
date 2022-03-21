@@ -2730,19 +2730,15 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
 }
 #endif
 
-static void lfs_file_invalidate_reading_flag(lfs_t *lfs, lfs_file_t *file) {
+static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     if (file->flags & LFS_F_READING) {
         if (!(file->flags & LFS_F_INLINE)) {
             lfs_cache_drop(lfs, &file->cache);
         }
         file->flags &= ~LFS_F_READING;
     }
-}
 
 #ifndef LFS_READONLY
-static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
-    lfs_file_invalidate_reading_flag(lfs, file);
-
     if (file->flags & LFS_F_WRITING) {
         lfs_off_t pos = file->pos;
 
@@ -2809,10 +2805,10 @@ relocate:
 
         file->pos = pos;
     }
+#endif
 
     return 0;
 }
-#endif
 
 #ifndef LFS_READONLY
 static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
@@ -3085,17 +3081,11 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
         return npos;
     }
 
-#ifndef LFS_READONLY
     // write out everything beforehand, may be noop if rdonly
     int err = lfs_file_flush(lfs, file);
     if (err) {
         return err;
     }
-#else
-    // Seek doesn't update cache parameters properly.
-    // It has to be invalidated otherwise next read will return incorrect values.
-    lfs_file_invalidate_reading_flag(lfs,file);
-#endif
 
     // update pos
     file->pos = npos;
