@@ -565,7 +565,7 @@ class TestSuite:
                     path=self.path))
                 mk.write('\n')
 
-            # add truely global defines globally
+            # add truly global defines globally
             for k, v in sorted(self.defines.items()):
                 mk.write('%s.test: override CFLAGS += -D%s=%r\n'
                     % (self.path, k, v))
@@ -656,7 +656,7 @@ def main(**args):
         for path in glob.glob(testpath):
             suites.append(TestSuite(path, classes, defines, filter, **args))
 
-    # sort for reproducability
+    # sort for reproducibility
     suites = sorted(suites)
 
     # generate permutations
