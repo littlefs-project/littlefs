@@ -233,19 +233,19 @@ Metadata tag fields:
    into a 3-bit abstract type and an 8-bit chunk field. Note that the value
    `0x000` is invalid and not assigned a type.
 
-3. **Type1 (3-bits)** - Abstract type of the tag. Groups the tags into
-   8 categories that facilitate bitmasked lookups.
+    1. **Type1 (3-bits)** - Abstract type of the tag. Groups the tags into
+       8 categories that facilitate bitmasked lookups.
 
-4. **Chunk (8-bits)** - Chunk field used for various purposes by the different
-   abstract types.  type1+chunk+id form a unique identifier for each tag in the
-   metadata block.
+    2. **Chunk (8-bits)** - Chunk field used for various purposes by the different
+       abstract types.  type1+chunk+id form a unique identifier for each tag in the
+       metadata block.
 
-5. **Id (10-bits)** - File id associated with the tag. Each file in a metadata
+3. **Id (10-bits)** - File id associated with the tag. Each file in a metadata
    block gets a unique id which is used to associate tags with that file. The
    special value `0x3ff` is used for any tags that are not associated with a
    file, such as directory and global metadata.
 
-6. **Length (10-bits)** - Length of the data in bytes. The special value
+4. **Length (10-bits)** - Length of the data in bytes. The special value
    `0x3ff` indicates that this tag has been deleted.
 
 ## Metadata types
