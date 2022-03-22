@@ -12,14 +12,12 @@
 
 /// Caching block device operations ///
 
-#ifndef LFS_READONLY
 static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
     // written with identical data (during relocates)
     (void)lfs;
     rcache->block = LFS_BLOCK_NULL;
 }
-#endif
 
 static inline void lfs_cache_zero(lfs_t *lfs, lfs_cache_t *pcache) {
     // zero to avoid information leak
