@@ -32,10 +32,12 @@ int lfs2_rambd_createcfg(const struct lfs2_config *cfg,
         }
     }
 
-    // zero for reproducability?
+    // zero for reproducibility?
     if (bd->cfg->erase_value != -1) {
         memset(bd->buffer, bd->cfg->erase_value,
                 cfg->block_size * cfg->block_count);
+    } else {
+        memset(bd->buffer, 0, cfg->block_size * cfg->block_count);
     }
 
     LFS2_RAMBD_TRACE("lfs2_rambd_createcfg -> %d", 0);

@@ -80,7 +80,7 @@ int lfs2_filebd_read(const struct lfs2_config *cfg, lfs2_block_t block,
     LFS2_ASSERT(size % cfg->read_size == 0);
     LFS2_ASSERT(block < cfg->block_count);
 
-    // zero for reproducability (in case file is truncated)
+    // zero for reproducibility (in case file is truncated)
     if (bd->cfg->erase_value != -1) {
         memset(buffer, bd->cfg->erase_value, size);
     }
