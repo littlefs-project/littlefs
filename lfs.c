@@ -3696,6 +3696,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 #endif
 #ifdef LFS_DYN_CACHE
     lfs->dyn_rcache.block = LFS_BLOCK_NULL;
+    lfs->dyn_rcache.buffer = NULL;
 #endif
 
     return 0;
