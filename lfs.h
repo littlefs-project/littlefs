@@ -322,8 +322,19 @@ typedef struct lfs_cache {
     lfs_block_t block;
     lfs_off_t off;
     lfs_size_t size;
+#ifdef LFS_DYN_CACHE
+    uint16_t block_match_count;
+#endif
     uint8_t *buffer;
 } lfs_cache_t;
+
+
+#ifdef LFS_DYN_CACHE
+typedef struct lfs_dyn_cache {
+    lfs_block_t block;
+    uint8_t *buffer;
+} lfs_dyn_cache_t;
+#endif
 
 typedef struct lfs_mdir {
     lfs_block_t pair[2];
@@ -386,6 +397,9 @@ typedef struct lfs_gstate {
 typedef struct lfs {
     lfs_cache_t rcache;
     lfs_cache_t pcache;
+#ifdef LFS_DYN_CACHE
+    lfs_dyn_cache_t dyn_rcache;
+#endif
 
     lfs_block_t root[2];
     struct lfs_mlist {
