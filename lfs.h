@@ -22,7 +22,7 @@ extern "C"
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_VERSION 0x00020004
+#define LFS_VERSION 0x00020005
 #define LFS_VERSION_MAJOR (0xffff & (LFS_VERSION >> 16))
 #define LFS_VERSION_MINOR (0xffff & (LFS_VERSION >>  0))
 
@@ -65,6 +65,12 @@ typedef uint32_t lfs_block_t;
 // no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022.
 #ifndef LFS_ATTR_MAX
 #define LFS_ATTR_MAX 1022
+#endif
+
+// Path delimiter used to separate path tokens
+// Default : POSIX like slash
+#ifndef LSF_PATH_DELIMITER
+#define LSF_PATH_DELIMITER '/'
 #endif
 
 // Possible error codes, these are negative to allow
