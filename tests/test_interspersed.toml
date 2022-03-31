@@ -1,7 +1,7 @@
 
 [[case]] # interspersed file test
 define.SIZE = [10, 100]
-define.FILES = [4, 10, 26] 
+define.FILES = [4, 10, 26]
 code = '''
     lfs_file_t files[FILES];
     const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
@@ -55,7 +55,7 @@ code = '''
     for (int j = 0; j < FILES; j++) {
         lfs_file_close(&lfs, &files[j]);
     }
-    
+
     lfs_unmount(&lfs) => 0;
 '''
 
@@ -108,7 +108,7 @@ code = '''
         assert(buffer[0] == '~');
     }
     lfs_file_close(&lfs, &file);
-    
+
     lfs_unmount(&lfs) => 0;
 '''
 
@@ -168,13 +168,13 @@ code = '''
     }
     lfs_file_close(&lfs, &files[0]);
     lfs_file_close(&lfs, &files[1]);
-    
+
     lfs_unmount(&lfs) => 0;
 '''
 
 [[case]] # reentrant interspersed file test
 define.SIZE = [10, 100]
-define.FILES = [4, 10, 26] 
+define.FILES = [4, 10, 26]
 reentrant = true
 code = '''
     lfs_file_t files[FILES];
@@ -239,6 +239,698 @@ code = '''
     for (int j = 0; j < FILES; j++) {
         lfs_file_close(&lfs, &files[j]);
     }
-    
+
+    lfs_unmount(&lfs) => 0;
+'''
+
+[[case]] # open same file reading from separate file handles
+define.READERS = 3
+define.SIZE = [10, 100, 1000, 10000]
+define.RDMODE = ['LFS_O_RDONLY', 'LFS_O_RDWR']
+code = '''
+    const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file, "shared", LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &file, &alphas[j % 26], 1) => 1;
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // open all files
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_t readers[READERS];
+    for (int i = 0; i < READERS; i++) {
+        lfs_file_open(&lfs, &readers[i], "shared", RDMODE) => 0;
+    }
+
+    // perform operations while all readers are open
+    for (int i = 0; i < READERS; i++) {
+        for (int j = 0; j < SIZE; j++) {
+            lfs_file_read(&lfs, &readers[i], buffer, 1) => 1;
+            assert(buffer[0] == alphas[j % 26]);
+        }
+    }
+
+    for (int i = 0; i < READERS; i++) {
+        lfs_file_close(&lfs, &readers[i]) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+'''
+
+[[case]] # open same file reading and writing from separate file handles
+define.READERS = 3
+define.SIZE = [10, 100, 1000, 10000]
+define.RDMODE = ['LFS_O_RDONLY', 'LFS_O_RDWR']
+define.WRMODE = ['LFS_O_WRONLY', 'LFS_O_RDWR']
+code = '''
+    const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
+    const char nums[] = "0123456789";
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file, "shared", LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &file, &alphas[j % 26], 1) => 1;
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // open all files
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_t writer;
+    lfs_file_t readers[READERS];
+    lfs_file_open(&lfs, &writer, "shared", WRMODE) => 0;
+    for (int i = 0; i < READERS; i++) {
+        lfs_file_open(&lfs, &readers[i], "shared", RDMODE) => 0;
+    }
+
+    // perform operations while all readers are open
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &writer, &nums[j % 10], 1) => 1;
+    }
+
+    for (int i = 0; i < READERS; i++) {
+        for (int j = 0; j < SIZE/2; j++) {
+            lfs_file_read(&lfs, &readers[i], buffer, 1) => 1;
+            assert(buffer[0] == alphas[j % 26]);
+        }
+    }
+
+    // sync, now write should reflect in all open files
+    lfs_file_sync(&lfs, &writer) => 0;
+
+    for (int i = 0; i < READERS; i++) {
+        for (int j = SIZE/2; j < SIZE; j++) {
+            lfs_file_read(&lfs, &readers[i], buffer, 1) => 1;
+            assert(buffer[0] == nums[j % 10]);
+        }
+    }
+
+    // double check our writer reflects its own changes
+    if (WRMODE == LFS_O_RDWR) {
+        lfs_file_rewind(&lfs, &writer) => 0;
+        for (int j = 0; j < SIZE; j++) {
+            lfs_file_read(&lfs, &writer, buffer, 1) => 1;
+            assert(buffer[0] == nums[j % 10]);
+        }
+    }
+
+    for (int i = 0; i < READERS; i++) {
+        lfs_file_close(&lfs, &readers[i]) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+'''
+
+[[case]] # check that attributes are updated in open files
+define.READERS = 3
+define.SIZE = 10
+define.RDMODE = ['LFS_O_RDONLY', 'LFS_O_RDWR']
+define.WRMODE = ['LFS_O_WRONLY', 'LFS_O_RDWR']
+code = '''
+    const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
+    const char nums[] = "0123456789";
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    const struct lfs_file_config filecfg = {
+        .attr_count = 3,
+        .attrs = (struct lfs_attr[]){
+            {'A', "a",   1},
+            {'B', "bb",  2},
+            {'C', "ccc", 3},
+        },
+    };
+    lfs_file_opencfg(&lfs, &file, "shared",
+            LFS_O_CREAT | LFS_O_WRONLY, &filecfg) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &file, &alphas[j % 26], 1) => 1;
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // open all files
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_t writer;
+    const struct lfs_file_config writercfg = {
+        .attr_count = 3,
+        .attrs = (struct lfs_attr[]){
+            {'A', &(uint8_t[1]){0}, 1},
+            {'B', &(uint8_t[2]){0}, 2},
+            {'C', &(uint8_t[3]){0}, 3}}};
+    lfs_file_t readers[READERS];
+    const struct lfs_file_config readercfgs[READERS] = {
+        {   .attr_count = 3,
+            .attrs = (struct lfs_attr[]){
+                {'A', &(uint8_t[1]){0}, 1},
+                {'B', &(uint8_t[2]){0}, 2},
+                {'C', &(uint8_t[3]){0}, 3}}},
+        {   .attr_count = 3,
+            .attrs = (struct lfs_attr[]){
+                {'A', &(uint8_t[1]){0}, 1},
+                {'B', &(uint8_t[2]){0}, 2},
+                {'C', &(uint8_t[3]){0}, 3}}},
+        {   .attr_count = 3,
+            .attrs = (struct lfs_attr[]){
+                {'A', &(uint8_t[1]){0}, 1},
+                {'B', &(uint8_t[2]){0}, 2},
+                {'C', &(uint8_t[3]){0}, 3}}}};
+    lfs_file_opencfg(&lfs, &writer, "shared",
+            WRMODE, &writercfg) => 0;
+    for (int i = 0; i < READERS; i++) {
+        lfs_file_opencfg(&lfs, &readers[i], "shared",
+                RDMODE, &readercfgs[i]) => 0;
+    }
+
+    // perform operations while all readers are open
+    writercfg.attrs[0].size = 1;
+    memcpy(writercfg.attrs[0].buffer, "0", 1);
+    writercfg.attrs[1].size = 2;
+    memcpy(writercfg.attrs[1].buffer, "11", 2);
+    writercfg.attrs[2].size = 3;
+    memcpy(writercfg.attrs[2].buffer, "222", 3);
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &writer, &nums[j % 10], 1) => 1;
+    }
+
+    for (int i = 0; i < READERS; i++) {
+        assert(readercfgs[i].attrs[0].size == 1);
+        assert(memcmp(readercfgs[i].attrs[0].buffer, "a", 1) == 0);
+        assert(readercfgs[i].attrs[1].size == 2);
+        assert(memcmp(readercfgs[i].attrs[1].buffer, "bb", 2) == 0);
+        assert(readercfgs[i].attrs[2].size == 3);
+        assert(memcmp(readercfgs[i].attrs[2].buffer, "ccc", 3) == 0);
+        for (int j = 0; j < SIZE; j++) {
+            lfs_file_read(&lfs, &readers[i], buffer, 1) => 1;
+            assert(buffer[0] == alphas[j % 26]);
+        }
+    }
+
+    // sync, now write should reflect in all open files
+    lfs_file_sync(&lfs, &writer) => 0;
+
+    for (int i = 0; i < READERS; i++) {
+        assert(readercfgs[i].attrs[0].size == 1);
+        assert(memcmp(readercfgs[i].attrs[0].buffer, "0", 1) == 0);
+        assert(readercfgs[i].attrs[1].size == 2);
+        assert(memcmp(readercfgs[i].attrs[1].buffer, "11", 2) == 0);
+        assert(readercfgs[i].attrs[2].size == 3);
+        assert(memcmp(readercfgs[i].attrs[2].buffer, "222", 3) == 0);
+        lfs_file_rewind(&lfs, &readers[i]) => 0;
+        for (int j = 0; j < SIZE; j++) {
+            lfs_file_read(&lfs, &readers[i], buffer, 1) => 1;
+            assert(buffer[0] == nums[j % 10]);
+        }
+    }
+
+    // double check our writer reflects its own changes
+    if (WRMODE == LFS_O_RDWR) {
+        assert(writercfg.attrs[0].size == 1);
+        assert(memcmp(writercfg.attrs[0].buffer, "0", 1) == 0);
+        assert(writercfg.attrs[1].size == 2);
+        assert(memcmp(writercfg.attrs[1].buffer, "11", 2) == 0);
+        assert(writercfg.attrs[2].size == 3);
+        assert(memcmp(writercfg.attrs[2].buffer, "222", 3) == 0);
+        lfs_file_rewind(&lfs, &writer) => 0;
+        for (int j = 0; j < SIZE; j++) {
+            lfs_file_read(&lfs, &writer, buffer, 1) => 1;
+            assert(buffer[0] == nums[j % 10]);
+        }
+    }
+
+    // now try explicit lfs_setattr calls, this should still update open files
+    lfs_setattr(&lfs, "shared", 'A', "A",   1) => 0;
+    lfs_setattr(&lfs, "shared", 'B', "BB",  2) => 0;
+    lfs_setattr(&lfs, "shared", 'C', "CCC", 3) => 0;
+
+    for (int i = 0; i < READERS; i++) {
+        assert(readercfgs[i].attrs[0].size == 1);
+        assert(memcmp(readercfgs[i].attrs[0].buffer, "A", 1) == 0);
+        assert(readercfgs[i].attrs[1].size == 2);
+        assert(memcmp(readercfgs[i].attrs[1].buffer, "BB", 2) == 0);
+        assert(readercfgs[i].attrs[2].size == 3);
+        assert(memcmp(readercfgs[i].attrs[2].buffer, "CCC", 3) == 0);
+        lfs_file_rewind(&lfs, &readers[i]) => 0;
+        for (int j = 0; j < SIZE; j++) {
+            lfs_file_read(&lfs, &readers[i], buffer, 1) => 1;
+            assert(buffer[0] == nums[j % 10]);
+        }
+    }
+
+    if (WRMODE == LFS_O_RDWR) {
+        assert(writercfg.attrs[0].size == 1);
+        assert(memcmp(writercfg.attrs[0].buffer, "A", 1) == 0);
+        assert(writercfg.attrs[1].size == 2);
+        assert(memcmp(writercfg.attrs[1].buffer, "BB", 2) == 0);
+        assert(writercfg.attrs[2].size == 3);
+        assert(memcmp(writercfg.attrs[2].buffer, "CCC", 3) == 0);
+        lfs_file_rewind(&lfs, &writer) => 0;
+        for (int j = 0; j < SIZE; j++) {
+            lfs_file_read(&lfs, &writer, buffer, 1) => 1;
+            assert(buffer[0] == nums[j % 10]);
+        }
+    } else if (WRMODE == LFS_O_WRONLY) {
+        // this should NOT update wronly attributes, these may be
+        // stored in read-only memory
+        assert(writercfg.attrs[0].size == 1);
+        assert(memcmp(writercfg.attrs[0].buffer, "0", 1) == 0);
+        assert(writercfg.attrs[1].size == 2);
+        assert(memcmp(writercfg.attrs[1].buffer, "11", 2) == 0);
+        assert(writercfg.attrs[2].size == 3);
+        assert(memcmp(writercfg.attrs[2].buffer, "222", 3) == 0);
+    }
+
+    for (int i = 0; i < READERS; i++) {
+        lfs_file_close(&lfs, &readers[i]) => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+'''
+
+[[case]] # simple snapshot for reading
+define.SIZE = [10, 100, 1000, 10000]
+code = '''
+    const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
+    const char nums[] = "0123456789";
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    const struct lfs_file_config filecfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', "abcd", 4},
+        },
+    };
+    lfs_file_opencfg(&lfs, &file, "open_me",
+            LFS_O_CREAT | LFS_O_WRONLY, &filecfg) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &file, &alphas[j % 26], 1) => 1;
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // open reader/writer/snapshot
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_t reader;
+    const struct lfs_file_config readercfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', &(uint8_t[4]){0}, 4}
+        },
+    };
+    lfs_file_t writer;
+    const struct lfs_file_config writercfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', &(uint8_t[4]){0}, 4}
+        },
+    };
+    lfs_file_t snapshot;
+    const struct lfs_file_config snapshotcfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', &(uint8_t[4]){0}, 4}
+        },
+    };
+    lfs_file_opencfg(&lfs, &reader, "open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    lfs_file_opencfg(&lfs, &writer, "open_me",
+            LFS_O_WRONLY, &writercfg) => 0;
+    lfs_file_opencfg(&lfs, &snapshot, "open_me",
+            LFS_O_RDONLY | LFS_O_SNAPSHOT, &snapshotcfg) => 0;
+
+    assert(memcmp(readercfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = 0; j < SIZE/2; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+
+    assert(memcmp(snapshotcfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = 0; j < SIZE/2; j++) {
+        lfs_file_read(&lfs, &snapshot, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+
+    // write file
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &writer, &nums[j % 10], 1) => 1;
+    }
+    memcpy(writercfg.attrs[0].buffer, "0123", 4);
+    lfs_file_sync(&lfs, &writer) => 0;
+
+    // reader should change
+    assert(memcmp(readercfg.attrs[0].buffer, "0123", 4) == 0);
+    for (int j = SIZE/2; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == nums[j % 10]);
+    }
+
+    // snapshot should remain unchanged
+    assert(memcmp(snapshotcfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = SIZE/2; j < SIZE; j++) {
+        lfs_file_read(&lfs, &snapshot, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_file_close(&lfs, &writer) => 0;
+    lfs_file_close(&lfs, &snapshot) => 0;
+
+    // disk should change
+    lfs_file_opencfg(&lfs, &reader, "open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    assert(memcmp(readercfg.attrs[0].buffer, "0123", 4) == 0);
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == nums[j % 10]);
+    }
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_opencfg(&lfs, &reader, "open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    assert(memcmp(readercfg.attrs[0].buffer, "0123", 4) == 0);
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == nums[j % 10]);
+    }
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
+
+[[case]] # simple snapshot for writing
+define.SIZE = [10, 100, 1000, 10000]
+code = '''
+    const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
+    const char nums[] = "0123456789";
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    const struct lfs_file_config filecfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', "abcd", 4},
+        },
+    };
+    lfs_file_opencfg(&lfs, &file, "open_me",
+            LFS_O_CREAT | LFS_O_WRONLY, &filecfg) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &file, &alphas[j % 26], 1) => 1;
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // open reader/snapshot
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_t reader;
+    const struct lfs_file_config readercfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', &(uint8_t[4]){0}, 4}
+        },
+    };
+    lfs_file_t snapshot;
+    const struct lfs_file_config snapshotcfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', &(uint8_t[4]){0}, 4}
+        },
+    };
+    lfs_file_opencfg(&lfs, &reader, "open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    lfs_file_opencfg(&lfs, &snapshot, "open_me",
+            LFS_O_RDWR | LFS_O_SNAPSHOT, &snapshotcfg) => 0;
+
+    assert(memcmp(readercfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = 0; j < SIZE/2; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+
+    assert(memcmp(snapshotcfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &snapshot, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+
+    // modify snapshot
+    lfs_file_rewind(&lfs, &snapshot) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &snapshot, &nums[j % 10], 1) => 1;
+    }
+    memcpy(snapshotcfg.attrs[0].buffer, "0123", 4);
+
+    lfs_file_rewind(&lfs, &snapshot) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &snapshot, buffer, 1) => 1;
+        assert(buffer[0] == nums[j % 10]);
+    }
+
+    lfs_file_sync(&lfs, &snapshot) => 0;
+
+    // reader should not change
+    assert(memcmp(readercfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = SIZE/2; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+
+    // snapshot should changed
+    assert(memcmp(snapshotcfg.attrs[0].buffer, "0123", 4) == 0);
+    lfs_file_rewind(&lfs, &snapshot) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &snapshot, buffer, 1) => 1;
+        assert(buffer[0] == nums[j % 10]);
+    }
+
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_file_close(&lfs, &snapshot) => 0;
+
+    // disk should not change
+    lfs_file_opencfg(&lfs, &reader, "open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    assert(memcmp(readercfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_opencfg(&lfs, &reader, "open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    assert(memcmp(readercfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
+
+[[case]] # temporary files
+define.SIZE = [10, 100, 1000, 10000]
+define.TMP_PATH = 'range(4)'
+code = '''
+    const char alphas[] = "abcdefghijklmnopqrstuvwxyz";
+    const char nums[] = "0123456789";
+    const char caps[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    const struct lfs_file_config filecfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', "abcd", 4},
+        },
+    };
+    lfs_file_opencfg(&lfs, &file, "open_me",
+            LFS_O_CREAT | LFS_O_WRONLY, &filecfg) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &file, &alphas[j % 26], 1) => 1;
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_file_opencfg(&lfs, &file, "dont_open_me",
+            LFS_O_CREAT | LFS_O_WRONLY, &filecfg) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &file, &alphas[j % 26], 1) => 1;
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // open reader/writer/temp
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_t reader;
+    const struct lfs_file_config readercfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', &(uint8_t[4]){0}, 4}
+        },
+    };
+    lfs_file_t writer;
+    const struct lfs_file_config writercfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', &(uint8_t[4]){0}, 4}
+        },
+    };
+    lfs_file_t tmp;
+    const struct lfs_file_config tmpcfg = {
+        .attr_count = 1,
+        .attrs = (struct lfs_attr[]){
+            {'A', &(uint8_t[4]){0}, 4}
+        },
+    };
+    lfs_file_opencfg(&lfs, &reader, "open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    lfs_file_opencfg(&lfs, &writer, "open_me",
+            LFS_O_WRONLY, &writercfg) => 0;
+    const char *tmp_paths[] = {NULL, "/", "/tmp", "/open_me.tmp"};
+    lfs_file_opencfg(&lfs, &tmp, tmp_paths[TMP_PATH],
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_SNAPSHOT, &tmpcfg) => 0;
+
+    assert(memcmp(readercfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = 0; j < SIZE/3; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+
+    assert(memcmp(tmpcfg.attrs[0].buffer, "\0\0\0\0", 4) == 0);
+    assert(lfs_file_size(&lfs, &tmp) == 0);
+
+    // write to tmp
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &tmp, &nums[j % 10], 1) => 1;
+    }
+    memcpy(tmpcfg.attrs[0].buffer, "0123", 4);
+
+    lfs_file_rewind(&lfs, &tmp) => 0;
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &tmp, buffer, 1) => 1;
+        assert(buffer[0] == nums[j % 10]);
+    }
+
+    lfs_file_sync(&lfs, &tmp) => 0;
+
+    // reader should not change
+    assert(memcmp(readercfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = SIZE/3; j < 2*SIZE/3; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+
+    // tmp should change
+    assert(memcmp(tmpcfg.attrs[0].buffer, "0123", 4) == 0);
+    lfs_file_rewind(&lfs, &tmp) => 0;
+    for (int j = 0; j < SIZE/2; j++) {
+        lfs_file_read(&lfs, &tmp, buffer, 1) => 1;
+        assert(buffer[0] == nums[j % 10]);
+    }
+
+    // write to file
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_write(&lfs, &writer, &caps[j % 26], 1) => 1;
+    }
+    memcpy(writercfg.attrs[0].buffer, "ABCD", 4);
+    lfs_file_sync(&lfs, &writer) => 0;
+
+    // reader should change
+    assert(memcmp(readercfg.attrs[0].buffer, "ABCD", 4) == 0);
+    for (int j = 2*SIZE/3; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == caps[j % 26]);
+    }
+
+    // tmp should not change
+    assert(memcmp(tmpcfg.attrs[0].buffer, "0123", 4) == 0);
+    for (int j = SIZE/2; j < SIZE; j++) {
+        lfs_file_read(&lfs, &tmp, buffer, 1) => 1;
+        assert(buffer[0] == nums[j % 10]);
+    }
+
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_file_close(&lfs, &writer) => 0;
+    lfs_file_close(&lfs, &tmp) => 0;
+
+    // tmp should not appear on disk
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_REG);
+    assert(strcmp(info.name, "dont_open_me") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_REG);
+    assert(strcmp(info.name, "open_me") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_file_opencfg(&lfs, &reader, "open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    assert(memcmp(readercfg.attrs[0].buffer, "ABCD", 4) == 0);
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == caps[j % 26]);
+    }
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_file_opencfg(&lfs, &reader, "dont_open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    assert(memcmp(readercfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_dir_open(&lfs, &dir, "/") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_REG);
+    assert(strcmp(info.name, "dont_open_me") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(info.type == LFS_TYPE_REG);
+    assert(strcmp(info.name, "open_me") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_file_opencfg(&lfs, &reader, "open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    assert(memcmp(readercfg.attrs[0].buffer, "ABCD", 4) == 0);
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == caps[j % 26]);
+    }
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_file_opencfg(&lfs, &reader, "dont_open_me",
+            LFS_O_RDONLY, &readercfg) => 0;
+    assert(memcmp(readercfg.attrs[0].buffer, "abcd", 4) == 0);
+    for (int j = 0; j < SIZE; j++) {
+        lfs_file_read(&lfs, &reader, buffer, 1) => 1;
+        assert(buffer[0] == alphas[j % 26]);
+    }
+    lfs_file_close(&lfs, &reader) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
+
+[[case]] # test snapshot open errors
+code = '''
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file, NULL,
+            LFS_O_RDWR | LFS_O_SNAPSHOT) => LFS_ERR_ISDIR;
+    lfs_file_open(&lfs, &file, "/",
+            LFS_O_RDWR | LFS_O_SNAPSHOT) => LFS_ERR_ISDIR;
+    lfs_file_open(&lfs, &file, "/tmp",
+            LFS_O_RDWR | LFS_O_SNAPSHOT) => LFS_ERR_NOENT;
+    lfs_file_open(&lfs, &file, "/tmp/",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_SNAPSHOT) => LFS_ERR_NOENT;
+    lfs_file_open(&lfs, &file, "/tmp/tmp",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_SNAPSHOT) => LFS_ERR_NOENT;
     lfs_unmount(&lfs) => 0;
 '''

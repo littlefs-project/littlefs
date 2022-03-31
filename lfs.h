@@ -123,26 +123,30 @@ enum lfs_type {
 // File open flags
 enum lfs_open_flags {
     // open flags
-    LFS_O_RDONLY = 1,         // Open a file as read only
+    LFS_O_RDONLY    = 1,        // Open a file as read only
 #ifndef LFS_READONLY
-    LFS_O_WRONLY = 2,         // Open a file as write only
-    LFS_O_RDWR   = 3,         // Open a file as read and write
-    LFS_O_CREAT  = 0x0100,    // Create a file if it does not exist
-    LFS_O_EXCL   = 0x0200,    // Fail if a file already exists
-    LFS_O_TRUNC  = 0x0400,    // Truncate the existing file to zero size
-    LFS_O_APPEND = 0x0800,    // Move to end of file on every write
+    LFS_O_WRONLY    = 2,        // Open a file as write only
+    LFS_O_RDWR      = 3,        // Open a file as read and write
+#endif
+
+#ifndef LFS_READONLY
+    LFS_O_CREAT     = 0x0100,   // Create a file if it does not exist
+    LFS_O_EXCL      = 0x0200,   // Fail if a file already exists
+    LFS_O_TRUNC     = 0x0400,   // Truncate the existing file to zero size
+    LFS_O_APPEND    = 0x0800,   // Move to end of file on every write
+    LFS_O_SNAPSHOT  = 0x1000,   // Open a temporary snapshot, ignore changes
 #endif
 
     // internally used flags
 #ifndef LFS_READONLY
-    LFS_F_DIRTY   = 0x010000, // File does not match storage
-    LFS_F_WRITING = 0x020000, // File has been written since last flush
+    LFS_F_DIRTY     = 0x010000, // File does not match storage
 #endif
-    LFS_F_READING = 0x040000, // File has been read since last flush
+    LFS_F_READING   = 0x020000, // File has been read since last flush
 #ifndef LFS_READONLY
-    LFS_F_ERRED   = 0x080000, // An error occurred during write
+    LFS_F_WRITING   = 0x040000, // File has been written since last flush
+    LFS_F_ZOMBIE    = 0x080000, // An error occurred during write
 #endif
-    LFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
+    LFS_F_INLINE    = 0x100000, // Currently inlined in directory entry
 };
 
 // File seek flags
@@ -300,16 +304,15 @@ struct lfs_file_config {
     void *buffer;
 
     // Optional list of custom attributes related to the file. If the file
-    // is opened with read access, these attributes will be read from disk
-    // during the open call. If the file is opened with write access, the
-    // attributes will be written to disk every file sync or close. This
-    // write occurs atomically with update to the file's contents.
+    // is opened for reading, these attributes will be read from disk during
+    // open. If the file is open for writing, these attribute will be atomically
+    // written to disk when the file is written to disk. Note that these
+    // attributes are not written unless the file is modified.
     //
     // Custom attributes are uniquely identified by an 8-bit type and limited
-    // to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller
-    // than the buffer, it will be padded with zeros. If the stored attribute
-    // is larger, then it will be silently truncated. If the attribute is not
-    // found, it will be created implicitly.
+    // to LFS_ATTR_MAX bytes. If the stored attribute is larger than the
+    // provided buffer, it will be silently truncated. If no attribute is
+    // found, and the file is open for writing, it will be created implicitly.
     struct lfs_attr *attrs;
 
     // Number of custom attributes in the list
@@ -477,10 +480,9 @@ int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 // Get a custom attribute
 //
 // Custom attributes are uniquely identified by an 8-bit type and limited
-// to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller than
-// the buffer, it will be padded with zeros. If the stored attribute is larger,
-// then it will be silently truncated. If no attribute is found, the error
-// LFS_ERR_NOATTR is returned and the buffer is filled with zeros.
+// to LFS_ATTR_MAX bytes. If the stored attribute is larger than the
+// provided buffer, it will be silently truncated. If no attribute is found,
+// the error LFS_ERR_NOATTR is returned and the buffer is filled with zeros.
 //
 // Returns the size of the attribute, or a negative error code on failure.
 // Note, the returned size is the size of the attribute on disk, irrespective
