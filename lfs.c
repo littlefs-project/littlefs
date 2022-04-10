@@ -3091,17 +3091,23 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
         return npos;
     }
 
-    // Get the difference between new and current file position
-    // If new position is after the current file position
-    // If new position belongs to the currently cached data
-    // Set new file position,
-    // and update also the block related position
-    int offset = npos - file->pos;
-    if (offset > 0) {
-        if ((file->off + offset) < lfs->cfg->block_size) {
-            file->pos  = npos;
-            file->off += offset;
-
+    // if we're only reading and our new offset is still in the file's cache
+    // we can avoid flushing and needing to reread the data
+    if (
+#ifndef LFS_READONLY
+        !(file->flags & LFS_F_WRITING)
+#else
+        true
+#endif
+            ) {
+        int oindex = lfs_ctz_index(lfs, &(lfs_off_t){file->pos});
+        lfs_off_t noff = npos;
+        int nindex = lfs_ctz_index(lfs, &noff);
+        if (oindex == nindex
+                && noff >= file->cache.off
+                && noff < file->cache.off + file->cache.size) {
+            file->pos = npos;
+            file->off = noff;
             return npos;
         }
     }
