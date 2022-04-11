@@ -767,11 +767,10 @@ static int lfs_dir_traverse_filter(void *p,
 // maximum recursive depth of lfs_dir_traverse, the deepest call:
 //
 // traverse with commit
-// '-> traverse with filter
-//     '-> traverse with move
-//         ' traverse with filter
+// '-> traverse with move
+//     '-> traverse with filter
 //
-#define LFS_DIR_TRAVERSE_DEPTH 4
+#define LFS_DIR_TRAVERSE_DEPTH 3
 
 struct lfs_dir_traverse {
     const lfs_mdir_t *dir;
