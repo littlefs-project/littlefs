@@ -819,6 +819,39 @@ static int lfs_dir_traverse(lfs_t *lfs,
         } else if (lfs_tag_type3(tag) == LFS_FROM_MOVE) {
             uint16_t fromid = lfs_tag_size(tag);
             uint16_t toid = lfs_tag_id(tag);
+            // There is a huge room for simple optimization for the rename case
+            // where we can see up to 4 levels of lfs_dir_traverse recursions
+            // when compaction happened (for example):
+            //
+            // >lfs_dir_compact
+            //  [1] lfs_dir_traverse(cb=lfs_dir_commit_size)
+            //      - do 'duplicates and tag update'
+            //    [2] lfs_dir_traverse(cb=lfs_dir_traverse_filter, data=tag[1])
+            //        - Reaching a LFS_FROM_MOVE tag (here)
+            //      [3] lfs_dir_traverse(cb=lfs_dir_traverse_filter,
+            //                data=tag[1]) <= on 'from' dir
+            //          - do 'duplicates and tag update'
+            //        [4] lfs_dir_traverse(cb=lfs_dir_traverse_filter,
+            //                    data=tag[3])
+            //
+            // Yet, for LFS_FROM_MOVE when cb == lfs_dir_traverse_filter
+            // traverse [3] and [4] don't do anything:
+            // - if [2] is supposed to match 'toid' for duplication, a preceding
+            //   ERASE or CREATE with the same tag id will already have stopped
+            //   the search.
+            // - if [2] is here to update tag value of CREATE/DELETE attr found
+            //   during the scan, since [3] is looking for LFS_TYPE_STRUCT only
+            //   and call lfs_dir_traverse_filter with LFS_TYPE_STRUCT attr
+            //   wheras lfs_dir_traverse_filter only modify tag on CREATE or
+            //   DELETE. Consequently, cb called from [4] will never stop the
+            //   search from [2].
+            // - [4] may call lfs_dir_traverse_filter, but with action on a
+            //   tag[3] pointer completely different from tag[1]
+            if (cb == lfs_dir_traverse_filter) {
+                continue;
+            }
+
+            // note: buffer = oldcwd dir
             int err = lfs_dir_traverse(lfs,
                     buffer, 0, 0xffffffff, NULL, 0,
                     LFS_MKTAG(0x600, 0x3ff, 0),
