@@ -2523,8 +2523,11 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
                 {LFS_MKTAG(LFS_TYPE_CREATE, file->id, 0), NULL},
                 {LFS_MKTAG(LFS_TYPE_REG, file->id, nlen), path},
                 {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0), NULL}));
+
+        // it may happen that the file name doesn't fit in the metadata blocks, e.g., a 256 byte file name will
+        // not fit in a 128 byte block.
+        err = (err == LFS_ERR_NOSPC) ? LFS_ERR_NAMETOOLONG : err;
         if (err) {
-            err = LFS_ERR_NAMETOOLONG;
             goto cleanup;
         }
 
