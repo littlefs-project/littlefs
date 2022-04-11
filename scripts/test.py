@@ -784,10 +784,13 @@ def main(**args):
             stdout=sp.PIPE if not args.get('verbose') else None,
             stderr=sp.STDOUT if not args.get('verbose') else None,
             universal_newlines=True)
+        stdout = []
+        for line in proc.stdout:
+            stdout.append(line)
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
-                for line in proc.stdout:
+                for line in stdout:
                     sys.stdout.write(line)
             sys.exit(-1)
 
@@ -803,9 +806,9 @@ def main(**args):
             failure.case.test(failure=failure, **args)
             sys.exit(0)
 
-    print('tests passed %d/%d (%.2f%%)' % (passed, total,
+    print('tests passed %d/%d (%.1f%%)' % (passed, total,
         100*(passed/total if total else 1.0)))
-    print('tests failed %d/%d (%.2f%%)' % (failed, total,
+    print('tests failed %d/%d (%.1f%%)' % (failed, total,
         100*(failed/total if total else 1.0)))
     return 1 if failed > 0 else 0
 

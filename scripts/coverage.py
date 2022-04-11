@@ -55,8 +55,9 @@ def collect(paths, **args):
     for (file, func), (hits, count) in reduced_funcs.items():
         # discard internal/testing functions (test_* injected with
         # internal testing)
-        if func.startswith('__') or func.startswith('test_'):
-            continue
+        if not args.get('everything'):
+            if func.startswith('__') or func.startswith('test_'):
+                continue
         # discard .8449 suffixes created by optimizer
         func = re.sub('\.[0-9]+', '', func)
         results.append((file, func, hits, count))
@@ -65,6 +66,15 @@ def collect(paths, **args):
 
 
 def main(**args):
+    def openio(path, mode='r'):
+        if path == '-':
+            if 'r' in mode:
+                return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+            else:
+                return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+        else:
+            return open(path, mode)
+
     # find coverage
     if not args.get('use'):
         # find *.info files
@@ -82,14 +92,16 @@ def main(**args):
 
         results = collect(paths, **args)
     else:
-        with open(args['use']) as f:
+        with openio(args['use']) as f:
             r = csv.DictReader(f)
             results = [
                 (   result['file'],
-                    result['function'],
-                    int(result['hits']),
-                    int(result['count']))
-                for result in r]
+                    result['name'],
+                    int(result['coverage_hits']),
+                    int(result['coverage_count']))
+                for result in r
+                if result.get('coverage_hits') not in {None, ''}
+                if result.get('coverage_count') not in {None, ''}]
 
     total_hits, total_count = 0, 0
     for _, _, hits, count in results:
@@ -98,14 +110,19 @@ def main(**args):
 
     # find previous results?
     if args.get('diff'):
-        with open(args['diff']) as f:
-            r = csv.DictReader(f)
-            prev_results = [
-                (   result['file'],
-                    result['function'],
-                    int(result['hits']),
-                    int(result['count']))
-                for result in r]
+        try:
+            with openio(args['diff']) as f:
+                r = csv.DictReader(f)
+                prev_results = [
+                    (   result['file'],
+                        result['name'],
+                        int(result['coverage_hits']),
+                        int(result['coverage_count']))
+                    for result in r
+                    if result.get('coverage_hits') not in {None, ''}
+                    if result.get('coverage_count') not in {None, ''}]
+        except FileNotFoundError:
+            prev_results = []
 
         prev_total_hits, prev_total_count = 0, 0
         for _, _, hits, count in prev_results:
@@ -114,14 +131,36 @@ def main(**args):
 
     # write results to CSV
     if args.get('output'):
-        with open(args['output'], 'w') as f:
-            w = csv.writer(f)
-            w.writerow(['file', 'function', 'hits', 'count'])
-            for file, func, hits, count in sorted(results):
-                w.writerow((file, func, hits, count))
+        merged_results = co.defaultdict(lambda: {})
+        other_fields = []
+
+        # merge?
+        if args.get('merge'):
+            try:
+                with openio(args['merge']) as f:
+                    r = csv.DictReader(f)
+                    for result in r:
+                        file = result.pop('file', '')
+                        func = result.pop('name', '')
+                        result.pop('coverage_hits', None)
+                        result.pop('coverage_count', None)
+                        merged_results[(file, func)] = result
+                        other_fields = result.keys()
+            except FileNotFoundError:
+                pass
+
+        for file, func, hits, count in results:
+            merged_results[(file, func)]['coverage_hits'] = hits
+            merged_results[(file, func)]['coverage_count'] = count
+
+        with openio(args['output'], 'w') as f:
+            w = csv.DictWriter(f, ['file', 'name', *other_fields, 'coverage_hits', 'coverage_count'])
+            w.writeheader()
+            for (file, func), result in sorted(merged_results.items()):
+                w.writerow({'file': file, 'name': func, **result})
 
     # print results
-    def dedup_entries(results, by='function'):
+    def dedup_entries(results, by='name'):
         entries = co.defaultdict(lambda: (0, 0))
         for file, func, hits, count in results:
             entry = (file if by == 'file' else func)
@@ -147,23 +186,59 @@ def main(**args):
                     - (old_hits/old_count if old_count else 1.0)))
         return diff
 
+    def sorted_entries(entries):
+        if args.get('coverage_sort'):
+            return sorted(entries, key=lambda x: (-(x[1][0]/x[1][1] if x[1][1] else -1), x))
+        elif args.get('reverse_coverage_sort'):
+            return sorted(entries, key=lambda x: (+(x[1][0]/x[1][1] if x[1][1] else -1), x))
+        else:
+            return sorted(entries)
+
+    def sorted_diff_entries(entries):
+        if args.get('coverage_sort'):
+            return sorted(entries, key=lambda x: (-(x[1][2]/x[1][3] if x[1][3] else -1), x))
+        elif args.get('reverse_coverage_sort'):
+            return sorted(entries, key=lambda x: (+(x[1][2]/x[1][3] if x[1][3] else -1), x))
+        else:
+            return sorted(entries, key=lambda x: (-x[1][6], x))
+
     def print_header(by=''):
         if not args.get('diff'):
             print('%-36s %19s' % (by, 'hits/line'))
         else:
             print('%-36s %19s %19s %11s' % (by, 'old', 'new', 'diff'))
 
-    def print_entries(by='function'):
+    def print_entry(name, hits, count):
+        print("%-36s %11s %7s" % (name,
+            '%d/%d' % (hits, count)
+                if count else '-',
+            '%.1f%%' % (100*hits/count)
+                if count else '-'))
+
+    def print_diff_entry(name,
+            old_hits, old_count,
+            new_hits, new_count,
+            diff_hits, diff_count,
+            ratio):
+        print("%-36s %11s %7s %11s %7s %11s%s" % (name,
+            '%d/%d' % (old_hits, old_count)
+                if old_count else '-',
+            '%.1f%%' % (100*old_hits/old_count)
+                if old_count else '-',
+            '%d/%d' % (new_hits, new_count)
+                if new_count else '-',
+            '%.1f%%' % (100*new_hits/new_count)
+                if new_count else '-',
+            '%+d/%+d' % (diff_hits, diff_count),
+            ' (%+.1f%%)' % (100*ratio) if ratio else ''))
+
+    def print_entries(by='name'):
         entries = dedup_entries(results, by=by)
 
         if not args.get('diff'):
             print_header(by=by)
-            for name, (hits, count) in sorted(entries.items()):
-                print("%-36s %11s %7s" % (name,
-                    '%d/%d' % (hits, count)
-                        if count else '-',
-                    '%.1f%%' % (100*hits/count)
-                        if count else '-'))
+            for name, (hits, count) in sorted_entries(entries.items()):
+                print_entry(name, hits, count)
         else:
             prev_entries = dedup_entries(prev_results, by=by)
             diff = diff_entries(prev_entries, entries)
@@ -173,45 +248,28 @@ def main(**args):
             for name, (
                     old_hits, old_count,
                     new_hits, new_count,
-                    diff_hits, diff_count, ratio) in sorted(diff.items(),
-                        key=lambda x: (-x[1][6], x)):
+                    diff_hits, diff_count, ratio) in sorted_diff_entries(
+                        diff.items()):
                 if ratio or args.get('all'):
-                    print("%-36s %11s %7s %11s %7s %11s%s" % (name,
-                        '%d/%d' % (old_hits, old_count)
-                            if old_count else '-',
-                        '%.1f%%' % (100*old_hits/old_count)
-                            if old_count else '-',
-                        '%d/%d' % (new_hits, new_count)
-                            if new_count else '-',
-                        '%.1f%%' % (100*new_hits/new_count)
-                            if new_count else '-',
-                        '%+d/%+d' % (diff_hits, diff_count),
-                        ' (%+.1f%%)' % (100*ratio) if ratio else ''))
+                    print_diff_entry(name,
+                        old_hits, old_count,
+                        new_hits, new_count,
+                        diff_hits, diff_count,
+                        ratio)
 
     def print_totals():
         if not args.get('diff'):
-            print("%-36s %11s %7s" % ('TOTAL',
-                '%d/%d' % (total_hits, total_count)
-                    if total_count else '-',
-                '%.1f%%' % (100*total_hits/total_count)
-                    if total_count else '-'))
+            print_entry('TOTAL', total_hits, total_count)
         else:
             ratio = ((total_hits/total_count
                     if total_count else 1.0)
                 - (prev_total_hits/prev_total_count
                     if prev_total_count else 1.0))
-            print("%-36s %11s %7s %11s %7s %11s%s" % ('TOTAL',
-                '%d/%d' % (prev_total_hits, prev_total_count)
-                    if prev_total_count else '-',
-                '%.1f%%' % (100*prev_total_hits/prev_total_count)
-                    if prev_total_count else '-',
-                '%d/%d' % (total_hits, total_count)
-                    if total_count else '-',
-                '%.1f%%' % (100*total_hits/total_count)
-                    if total_count else '-',
-                '%+d/%+d' % (total_hits-prev_total_hits,
-                    total_count-prev_total_count),
-                ' (%+.1f%%)' % (100*ratio) if ratio else ''))
+            print_diff_entry('TOTAL',
+                prev_total_hits, prev_total_count,
+                total_hits, total_count,
+                total_hits-prev_total_hits, total_count-prev_total_count,
+                ratio)
 
     if args.get('quiet'):
         pass
@@ -222,7 +280,7 @@ def main(**args):
         print_entries(by='file')
         print_totals()
     else:
-        print_entries(by='function')
+        print_entries(by='name')
         print_totals()
 
 if __name__ == "__main__":
@@ -243,12 +301,23 @@ if __name__ == "__main__":
         help="Don't do any work, instead use this CSV file.")
     parser.add_argument('-d', '--diff',
         help="Specify CSV file to diff code size against.")
+    parser.add_argument('-m', '--merge',
+        help="Merge with an existing CSV file when writing to output.")
     parser.add_argument('-a', '--all', action='store_true',
         help="Show all functions, not just the ones that changed.")
-    parser.add_argument('--files', action='store_true',
+    parser.add_argument('-A', '--everything', action='store_true',
+        help="Include builtin and libc specific symbols.")
+    parser.add_argument('-s', '--coverage-sort', action='store_true',
+        help="Sort by coverage.")
+    parser.add_argument('-S', '--reverse-coverage-sort', action='store_true',
+        help="Sort by coverage, but backwards.")
+    parser.add_argument('-F', '--files', action='store_true',
         help="Show file-level coverage.")
-    parser.add_argument('-s', '--summary', action='store_true',
+    parser.add_argument('-Y', '--summary', action='store_true',
         help="Only show the total coverage.")
     parser.add_argument('-q', '--quiet', action='store_true',
         help="Don't show anything, useful with -o.")
+    parser.add_argument('--build-dir',
+        help="Specify the relative build directory. Used to map object files \
+            to the correct source files.")
     sys.exit(main(**vars(parser.parse_args())))

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 #
-# Script to find code size at the function level. Basically just a bit wrapper
-# around nm with some extra conveniences for comparing builds. Heavily inspired
-# by Linux's Bloat-O-Meter.
+# Script to find struct sizes.
 #
 
 import os
@@ -18,14 +16,23 @@ import collections as co
 OBJ_PATHS = ['*.o']
 
 def collect(paths, **args):
+    decl_pattern = re.compile(
+        '^\s+(?P<no>[0-9]+)'
+            '\s+(?P<dir>[0-9]+)'
+            '\s+.*'
+            '\s+(?P<file>[^\s]+)$')
+    struct_pattern = re.compile(
+        '^(?:.*DW_TAG_(?P<tag>[a-z_]+).*'
+            '|^.*DW_AT_name.*:\s*(?P<name>[^:\s]+)\s*'
+            '|^.*DW_AT_decl_file.*:\s*(?P<decl>[0-9]+)\s*'
+            '|^.*DW_AT_byte_size.*:\s*(?P<size>[0-9]+)\s*)$')
+
     results = co.defaultdict(lambda: 0)
-    pattern = re.compile(
-        '^(?P<size>[0-9a-fA-F]+)' +
-        ' (?P<type>[%s])' % re.escape(args['type']) +
-        ' (?P<func>.+?)$')
     for path in paths:
-        # note nm-tool may contain extra args
-        cmd = args['nm_tool'] + ['--size-sort', path]
+        # find decl, we want to filter by structs in .h files
+        decls = {}
+        # note objdump-tool may contain extra args
+        cmd = args['objdump_tool'] + ['--dwarf=rawline', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -34,9 +41,52 @@ def collect(paths, **args):
             universal_newlines=True,
             errors='replace')
         for line in proc.stdout:
-            m = pattern.match(line)
+            # find file numbers
+            m = decl_pattern.match(line)
             if m:
-                results[(path, m.group('func'))] += int(m.group('size'), 16)
+                decls[int(m.group('no'))] = m.group('file')
+        proc.wait()
+        if proc.returncode != 0:
+            if not args.get('verbose'):
+                for line in proc.stderr:
+                    sys.stdout.write(line)
+            sys.exit(-1)
+
+        # collect structs as we parse dwarf info
+        found = False
+        name = None
+        decl = None
+        size = None
+
+        # note objdump-tool may contain extra args
+        cmd = args['objdump_tool'] + ['--dwarf=info', path]
+        if args.get('verbose'):
+            print(' '.join(shlex.quote(c) for c in cmd))
+        proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            stderr=sp.PIPE if not args.get('verbose') else None,
+            universal_newlines=True,
+            errors='replace')
+        for line in proc.stdout:
+            # state machine here to find structs
+            m = struct_pattern.match(line)
+            if m:
+                if m.group('tag'):
+                    if (name is not None
+                            and decl is not None
+                            and size is not None):
+                        decl = decls.get(decl, '?')
+                        results[(decl, name)] = size
+                    found = (m.group('tag') == 'structure_type')
+                    name = None
+                    decl = None
+                    size = None
+                elif found and m.group('name'):
+                    name = m.group('name')
+                elif found and name and m.group('decl'):
+                    decl = int(m.group('decl'))
+                elif found and name and m.group('size'):
+                    size = int(m.group('size'))
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
@@ -45,23 +95,24 @@ def collect(paths, **args):
             sys.exit(-1)
 
     flat_results = []
-    for (file, func), size in results.items():
+    for (file, struct), size in results.items():
         # map to source files
         if args.get('build_dir'):
             file = re.sub('%s/*' % re.escape(args['build_dir']), '', file)
+        # only include structs declared in header files in the current
+        # directory, ignore internal-only # structs (these are represented
+        # in other measurements)
+        if not args.get('everything'):
+            if not file.endswith('.h'):
+                continue
         # replace .o with .c, different scripts report .o/.c, we need to
         # choose one if we want to deduplicate csv files
         file = re.sub('\.o$', '.c', file)
-        # discard internal functions
-        if not args.get('everything'):
-            if func.startswith('__'):
-                continue
-        # discard .8449 suffixes created by optimizer
-        func = re.sub('\.[0-9]+', '', func)
 
-        flat_results.append((file, func, size))
+        flat_results.append((file, struct, size))
 
     return flat_results
+
 
 def main(**args):
     def openio(path, mode='r'):
@@ -95,9 +146,9 @@ def main(**args):
             results = [
                 (   result['file'],
                     result['name'],
-                    int(result['code_size']))
+                    int(result['struct_size']))
                 for result in r
-                if result.get('code_size') not in {None, ''}]
+                if result.get('struct_size') not in {None, ''}]
 
     total = 0
     for _, _, size in results:
@@ -111,9 +162,9 @@ def main(**args):
                 prev_results = [
                     (   result['file'],
                         result['name'],
-                        int(result['code_size']))
+                        int(result['struct_size']))
                     for result in r
-                    if result.get('code_size') not in {None, ''}]
+                    if result.get('struct_size') not in {None, ''}]
         except FileNotFoundError:
             prev_results = []
 
@@ -133,27 +184,27 @@ def main(**args):
                     r = csv.DictReader(f)
                     for result in r:
                         file = result.pop('file', '')
-                        func = result.pop('name', '')
-                        result.pop('code_size', None)
-                        merged_results[(file, func)] = result
+                        struct = result.pop('name', '')
+                        result.pop('struct_size', None)
+                        merged_results[(file, struct)] = result
                         other_fields = result.keys()
             except FileNotFoundError:
                 pass
 
-        for file, func, size in results:
-            merged_results[(file, func)]['code_size'] = size
+        for file, struct, size in results:
+            merged_results[(file, struct)]['struct_size'] = size
 
         with openio(args['output'], 'w') as f:
-            w = csv.DictWriter(f, ['file', 'name', *other_fields, 'code_size'])
+            w = csv.DictWriter(f, ['file', 'name', *other_fields, 'struct_size'])
             w.writeheader()
-            for (file, func), result in sorted(merged_results.items()):
-                w.writerow({'file': file, 'name': func, **result})
+            for (file, struct), result in sorted(merged_results.items()):
+                w.writerow({'file': file, 'name': struct, **result})
 
     # print results
     def dedup_entries(results, by='name'):
         entries = co.defaultdict(lambda: 0)
-        for file, func, size in results:
-            entry = (file if by == 'file' else func)
+        for file, struct, size in results:
+            entry = (file if by == 'file' else struct)
             entries[entry] += size
         return entries
 
@@ -244,7 +295,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Find code size at the function level.")
+        description="Find struct sizes.")
     parser.add_argument('obj_paths', nargs='*', default=OBJ_PATHS,
         help="Description of where to find *.o files. May be a directory \
             or a list of paths. Defaults to %r." % OBJ_PATHS)
@@ -255,9 +306,9 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output',
         help="Specify CSV file to store results.")
     parser.add_argument('-u', '--use',
-        help="Don't compile and find code sizes, instead use this CSV file.")
+        help="Don't compile and find struct sizes, instead use this CSV file.")
     parser.add_argument('-d', '--diff',
-        help="Specify CSV file to diff code size against.")
+        help="Specify CSV file to diff struct size against.")
     parser.add_argument('-m', '--merge',
         help="Merge with an existing CSV file when writing to output.")
     parser.add_argument('-a', '--all', action='store_true',
@@ -269,15 +320,11 @@ if __name__ == "__main__":
     parser.add_argument('-S', '--reverse-size-sort', action='store_true',
         help="Sort by size, but backwards.")
     parser.add_argument('-F', '--files', action='store_true',
-        help="Show file-level code sizes. Note this does not include padding! "
-            "So sizes may differ from other tools.")
+        help="Show file-level struct sizes.")
     parser.add_argument('-Y', '--summary', action='store_true',
-        help="Only show the total code size.")
-    parser.add_argument('--type', default='tTrRdD',
-        help="Type of symbols to report, this uses the same single-character "
-            "type-names emitted by nm. Defaults to %(default)r.")
-    parser.add_argument('--nm-tool', default=['nm'], type=lambda x: x.split(),
-        help="Path to the nm tool to use.")
+        help="Only show the total struct size.")
+    parser.add_argument('--objdump-tool', default=['objdump'], type=lambda x: x.split(),
+        help="Path to the objdump tool to use.")
     parser.add_argument('--build-dir',
         help="Specify the relative build directory. Used to map object files \
             to the correct source files.")
