@@ -1,6 +1,7 @@
 /*
  * The little filesystem
  *
+ * Copyright (c) 2022, The littlefs authors.
  * Copyright (c) 2017, Arm Limited. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -22,7 +23,7 @@ extern "C"
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS2_VERSION 0x00020004
+#define LFS2_VERSION 0x00020005
 #define LFS2_VERSION_MAJOR (0xffff & (LFS2_VERSION >> 16))
 #define LFS2_VERSION_MINOR (0xffff & (LFS2_VERSION >>  0))
 
@@ -513,6 +514,7 @@ int lfs2_removeattr(lfs2_t *lfs2, const char *path, uint8_t type);
 
 /// File operations ///
 
+#ifndef LFS2_NO_MALLOC
 // Open a file
 //
 // The mode that the file is opened in is determined by the flags, which
@@ -521,6 +523,10 @@ int lfs2_removeattr(lfs2_t *lfs2, const char *path, uint8_t type);
 // Returns a negative error code on failure.
 int lfs2_file_open(lfs2_t *lfs2, lfs2_file_t *file,
         const char *path, int flags);
+
+// if LFS2_NO_MALLOC is defined, lfs2_file_open() will fail with LFS2_ERR_NOMEM
+// thus use lfs2_file_opencfg() with config.buffer set.
+#endif
 
 // Open a file with extra configuration
 //

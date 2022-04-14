@@ -1,6 +1,7 @@
 /*
  * Block device emulated in a file
  *
+ * Copyright (c) 2022, The littlefs authors.
  * Copyright (c) 2017, Arm Limited. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,6 +10,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 int lfs2_filebd_createcfg(const struct lfs2_config *cfg, const char *path,
         const struct lfs2_filebd_config *bdcfg) {
@@ -27,7 +32,12 @@ int lfs2_filebd_createcfg(const struct lfs2_config *cfg, const char *path,
     bd->cfg = bdcfg;
 
     // open file
+    #ifdef _WIN32
+    bd->fd = open(path, O_RDWR | O_CREAT | O_BINARY, 0666);
+    #else
     bd->fd = open(path, O_RDWR | O_CREAT, 0666);
+    #endif
+
     if (bd->fd < 0) {
         int err = -errno;
         LFS2_FILEBD_TRACE("lfs2_filebd_createcfg -> %d", err);
@@ -193,7 +203,11 @@ int lfs2_filebd_sync(const struct lfs2_config *cfg) {
     LFS2_FILEBD_TRACE("lfs2_filebd_sync(%p)", (void*)cfg);
     // file sync
     lfs2_filebd_t *bd = cfg->context;
+    #ifdef _WIN32
+    int err = FlushFileBuffers((HANDLE) _get_osfhandle(fd)) ? 0 : -1;
+    #else
     int err = fsync(bd->fd);
+    #endif
     if (err) {
         err = -errno;
         LFS2_FILEBD_TRACE("lfs2_filebd_sync -> %d", 0);

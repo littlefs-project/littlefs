@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Script to find code size at the function level. Basically just a bit wrapper
+# Script to find data size at the function level. Basically just a bit wrapper
 # around nm with some extra conveniences for comparing builds. Heavily inspired
 # by Linux's Bloat-O-Meter.
 #
@@ -58,7 +58,6 @@ def collect(paths, **args):
                 continue
         # discard .8449 suffixes created by optimizer
         func = re.sub('\.[0-9]+', '', func)
-
         flat_results.append((file, func, size))
 
     return flat_results
@@ -95,9 +94,9 @@ def main(**args):
             results = [
                 (   result['file'],
                     result['name'],
-                    int(result['code_size']))
+                    int(result['data_size']))
                 for result in r
-                if result.get('code_size') not in {None, ''}]
+                if result.get('data_size') not in {None, ''}]
 
     total = 0
     for _, _, size in results:
@@ -111,9 +110,9 @@ def main(**args):
                 prev_results = [
                     (   result['file'],
                         result['name'],
-                        int(result['code_size']))
+                        int(result['data_size']))
                     for result in r
-                    if result.get('code_size') not in {None, ''}]
+                    if result.get('data_size') not in {None, ''}]
         except FileNotFoundError:
             prev_results = []
 
@@ -134,17 +133,17 @@ def main(**args):
                     for result in r:
                         file = result.pop('file', '')
                         func = result.pop('name', '')
-                        result.pop('code_size', None)
+                        result.pop('data_size', None)
                         merged_results[(file, func)] = result
                         other_fields = result.keys()
             except FileNotFoundError:
                 pass
 
         for file, func, size in results:
-            merged_results[(file, func)]['code_size'] = size
+            merged_results[(file, func)]['data_size'] = size
 
         with openio(args['output'], 'w') as f:
-            w = csv.DictWriter(f, ['file', 'name', *other_fields, 'code_size'])
+            w = csv.DictWriter(f, ['file', 'name', *other_fields, 'data_size'])
             w.writeheader()
             for (file, func), result in sorted(merged_results.items()):
                 w.writerow({'file': file, 'name': func, **result})
@@ -244,7 +243,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Find code size at the function level.")
+        description="Find data size at the function level.")
     parser.add_argument('obj_paths', nargs='*', default=OBJ_PATHS,
         help="Description of where to find *.o files. May be a directory \
             or a list of paths. Defaults to %r." % OBJ_PATHS)
@@ -255,9 +254,9 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output',
         help="Specify CSV file to store results.")
     parser.add_argument('-u', '--use',
-        help="Don't compile and find code sizes, instead use this CSV file.")
+        help="Don't compile and find data sizes, instead use this CSV file.")
     parser.add_argument('-d', '--diff',
-        help="Specify CSV file to diff code size against.")
+        help="Specify CSV file to diff data size against.")
     parser.add_argument('-m', '--merge',
         help="Merge with an existing CSV file when writing to output.")
     parser.add_argument('-a', '--all', action='store_true',
@@ -269,11 +268,11 @@ if __name__ == "__main__":
     parser.add_argument('-S', '--reverse-size-sort', action='store_true',
         help="Sort by size, but backwards.")
     parser.add_argument('-F', '--files', action='store_true',
-        help="Show file-level code sizes. Note this does not include padding! "
+        help="Show file-level data sizes. Note this does not include padding! "
             "So sizes may differ from other tools.")
     parser.add_argument('-Y', '--summary', action='store_true',
-        help="Only show the total code size.")
-    parser.add_argument('--type', default='tTrRdD',
+        help="Only show the total data size.")
+    parser.add_argument('--type', default='dDbB',
         help="Type of symbols to report, this uses the same single-character "
             "type-names emitted by nm. Defaults to %(default)r.")
     parser.add_argument('--nm-tool', default=['nm'], type=lambda x: x.split(),
