@@ -6,7 +6,7 @@ on:
 
 jobs:
   post-release:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       # trigger post-release in dependency repo, this indirection allows the
       # dependency repo to be updated often without affecting this repo. At
