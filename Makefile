@@ -6,6 +6,7 @@ override BUILDDIR := $(BUILDDIR)/
 $(if $(findstring n,$(MAKEFLAGS)),, $(shell mkdir -p \
 	$(BUILDDIR) \
 	$(BUILDDIR)bd \
+	$(BUILDDIR)runners \
 	$(BUILDDIR)tests))
 endif
 
@@ -25,11 +26,18 @@ NM      ?= nm
 OBJDUMP ?= objdump
 LCOV    ?= lcov
 
-SRC ?= $(wildcard *.c)
+SRC ?= $(filter-out $(wildcard *.*.c),$(wildcard *.c))
 OBJ := $(SRC:%.c=$(BUILDDIR)%.o)
 DEP := $(SRC:%.c=$(BUILDDIR)%.d)
 ASM := $(SRC:%.c=$(BUILDDIR)%.s)
 CGI := $(SRC:%.c=$(BUILDDIR)%.ci)
+
+TESTS ?= $(wildcard tests_/*.toml)
+TEST_TSRC := $(TESTS:%.toml=$(BUILDDIR)%.t.c) \
+	$(SRC:%.c=$(BUILDDIR)%.t.c) \
+	$(BUILDDIR)runners/test_runner.t.c
+TEST_TASRC := $(TEST_TSRC:%.t.c=%.t.a.c)
+TEST_TAOBJ := $(TEST_TASRC:%.t.a.c=%.t.a.o)
 
 ifdef DEBUG
 override CFLAGS += -O0
@@ -103,6 +111,9 @@ test:
 test%: tests/test$$(firstword $$(subst \#, ,%)).toml
 	./scripts/test.py $@ $(TESTFLAGS)
 
+.PHONY: test_
+test_: $(BUILDDIR)runners/test_runner
+
 .PHONY: code
 code: $(OBJ)
 	./scripts/code.py $^ -S $(CODEFLAGS)
@@ -131,6 +142,7 @@ summary: $(BUILDDIR)lfs.csv
 # rules
 -include $(DEP)
 .SUFFIXES:
+.SECONDARY:
 
 $(BUILDDIR)lfs: $(OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
@@ -147,6 +159,9 @@ $(BUILDDIR)lfs.csv: $(OBJ) $(CGI)
 		./scripts/coverage.py $(BUILDDIR)tests/*.toml.info \
 			-q -m $@ $(COVERAGEFLAGS) -o $@)
 
+$(BUILDDIR)runners/test_runner: $(TEST_TAOBJ)
+	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
+
 $(BUILDDIR)%.o: %.c
 	$(CC) -c -MMD $(CFLAGS) $< -o $@
 
@@ -160,14 +175,30 @@ $(BUILDDIR)%.s: %.c
 $(BUILDDIR)%.ci: %.c | $(BUILDDIR)%.o
 	$(CC) -c -MMD -fcallgraph-info=su $(CFLAGS) $< -o $|
 
+$(BUILDDIR)%.a.c: %.c
+	./scripts/explode_asserts.py $< -o $@
+
+$(BUILDDIR)%.a.c: $(BUILDDIR)%.c
+	./scripts/explode_asserts.py $< -o $@
+
+$(BUILDDIR)%.t.c: %.toml
+	./scripts/test_.py -c $< -o $@
+
+$(BUILDDIR)%.t.c: %.c $(TESTS)
+	./scripts/test_.py -c $(TESTS) -s $< -o $@
+
 # clean everything
 .PHONY: clean
 clean:
 	rm -f $(BUILDDIR)lfs
 	rm -f $(BUILDDIR)lfs.a
 	rm -f $(BUILDDIR)lfs.csv
+	rm -f $(BUILDDIR)runners/test_runner
 	rm -f $(OBJ)
 	rm -f $(CGI)
 	rm -f $(DEP)
 	rm -f $(ASM)
 	rm -f $(BUILDDIR)tests/*.toml.*
+	rm -f $(TEST_TSRC)
+	rm -f $(TEST_TASRC)
+	rm -f $(TEST_TAOBJ)
