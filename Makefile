@@ -33,11 +33,13 @@ ASM := $(SRC:%.c=$(BUILDDIR)%.s)
 CGI := $(SRC:%.c=$(BUILDDIR)%.ci)
 
 TESTS ?= $(wildcard tests_/*.toml)
-TEST_TSRC := $(TESTS:%.toml=$(BUILDDIR)%.t.c) \
-	$(SRC:%.c=$(BUILDDIR)%.t.c) \
-	$(BUILDDIR)runners/test_runner.t.c
+TEST_SRC ?= $(SRC) \
+		$(filter-out $(wildcard bd/*.*.c),$(wildcard bd/*.c)) \
+		runners/test_runner.c
+TEST_TSRC := $(TESTS:%.toml=$(BUILDDIR)%.t.c) $(TEST_SRC:%.c=$(BUILDDIR)%.t.c)
 TEST_TASRC := $(TEST_TSRC:%.t.c=%.t.a.c)
 TEST_TAOBJ := $(TEST_TASRC:%.t.a.c=%.t.a.o)
+TEST_TADEP := $(TEST_TASRC:%.t.a.c=%.t.a.d)
 
 ifdef DEBUG
 override CFLAGS += -O0
@@ -141,6 +143,7 @@ summary: $(BUILDDIR)lfs.csv
 
 # rules
 -include $(DEP)
+-include $(TEST_TADEP)
 .SUFFIXES:
 .SECONDARY:
 
@@ -202,3 +205,4 @@ clean:
 	rm -f $(TEST_TSRC)
 	rm -f $(TEST_TASRC)
 	rm -f $(TEST_TAOBJ)
+	rm -f $(TEST_TADEP)

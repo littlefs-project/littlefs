@@ -5,6 +5,7 @@
 
 import glob
 import itertools as it
+import math as m
 import os
 import re
 import shutil
@@ -17,14 +18,24 @@ SUITE_PROLOGUE = """
 #include "runners/test_runner.h"
 #include <stdio.h>
 """
-# TODO handle indention implicity?
-# TODO change cfg to be not by value? maybe not?
 CASE_PROLOGUE = """
-    lfs_t lfs;
-    struct lfs_config cfg = *cfg_;
+lfs_t lfs;
 """
 CASE_EPILOGUE = """
 """
+
+PRE_DEFINES = [
+    'READ_SIZE',
+    'PROG_SIZE',
+    'BLOCK_SIZE',
+    'BLOCK_COUNT',
+    'BLOCK_CYCLES',
+    'CACHE_SIZE',
+    'LOOKAHEAD_SIZE',
+    'ERASE_VALUE',
+    'ERASE_CYCLES',
+    'BADBLOCK_BEHAVIOR',
+]
 
 
 # TODO
@@ -58,7 +69,25 @@ class TestCase:
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
 
-        self.permutations = 1
+        # figure out defines and the number of resulting permutations
+        self.defines = {}
+        for k, v in config.pop('defines', {}).items():
+            try:
+                v = eval(v)
+            except:
+                v = v
+
+            if not isinstance(v, str):
+                try:
+                    v = list(v)
+                except:
+                    v = [v]
+            else:
+                v = [v]
+
+            self.defines[k] = v
+
+        self.permutations = m.prod(len(v) for v in self.defines.values())
 
         for k in config.keys():
             print('warning: in %s, found unused key %r' % (self.id(), k),
@@ -122,12 +151,18 @@ class TestSuite:
                     'suite': self.name,
                     **case}))
 
+            # combine pre-defines and per-case defines
+            self.defines = PRE_DEFINES + sorted(
+                set.union(*(set(case.defines) for case in self.cases)))
+
         for k in config.keys():
             print('warning: in %s, found unused key %r' % (self.id(), k),
                 file=sys.stderr)
 
     def id(self):
         return self.name
+            
+            
             
 
 
@@ -164,13 +199,62 @@ def compile(**args):
                     f.write(suite.code)
                     f.write('\n')
 
-                # create test functions and case structs
+                for i, define in it.islice(
+                        enumerate(suite.defines),
+                        len(PRE_DEFINES), None):
+                    f.write('#define %-24s test_define(%d)\n' % (define, i))
+                f.write('\n')
+
                 for case in suite.cases:
-                    f.write('void __test__%s__%s('
-                        '__attribute__((unused)) struct lfs_config *cfg_, '
+                    # create case defines
+                    if case.defines:
+                        for perm, defines in enumerate(
+                                it.product(*(
+                                    [(k, v) for v in vs]
+                                    for k, vs in case.defines.items()))):
+                            f.write('const uintmax_t '
+                                '__test__%s__%s__%d__defines[] = {\n'
+                                % (suite.name, case.name, perm))
+                            for k, v in sorted(defines):
+                                f.write(4*' '+'[%d] = %s,\n'
+                                    % (suite.defines.index(k), v))
+                            f.write('};\n')
+                            f.write('\n')
+
+                        f.write('const uintmax_t *const '
+                            '__test__%s__%s__defines[] = {\n'
+                            % (suite.name, case.name))
+                        for perm in range(case.permutations):
+                            f.write(4*' '+'__test__%s__%s__%d__defines,\n'
+                                % (suite.name, case.name, perm))
+                        f.write('};\n')
+                        f.write('\n')
+
+                        f.write('const bool '
+                            '__test__%s__%s__define_mask[] = {\n'
+                            % (suite.name, case.name))
+                        for i, k in enumerate(suite.defines):
+                            f.write(4*' '+'%s,\n'
+                                % ('true' if k in case.defines else 'false'))
+                        f.write('};\n')
+                        f.write('\n')
+
+                    # create case filter function
+                    f.write('bool __test__%s__%s__filter('
+                        '__attribute__((unused)) struct lfs_config *cfg, '
                         '__attribute__((unused)) uint32_t perm) {\n'
                         % (suite.name, case.name))
-                    f.write(CASE_PROLOGUE)
+                    f.write(4*' '+'return true;\n')
+                    f.write('}\n')
+                    f.write('\n')
+
+                    # create case run function
+                    f.write('void __test__%s__%s__run('
+                        '__attribute__((unused)) struct lfs_config *cfg, '
+                        '__attribute__((unused)) uint32_t perm) {\n'
+                        % (suite.name, case.name))
+                    f.write(4*' '+'%s\n'
+                        % CASE_PROLOGUE.strip().replace('\n', '\n'+4*' '))
                     f.write('\n')
                     f.write(4*' '+'// test case %s\n' % case.id())
                     if case.code_lineno is not None:
@@ -178,27 +262,49 @@ def compile(**args):
                             % (case.code_lineno, suite.path))
                     f.write(case.code)
                     f.write('\n')
-                    f.write(CASE_EPILOGUE)
+                    f.write(4*' '+'%s\n'
+                        % CASE_EPILOGUE.strip().replace('\n', '\n'+4*' '))
                     f.write('}\n')
                     f.write('\n')
 
+                    # create case struct
                     f.write('const struct test_case __test__%s__%s__case = {\n'
                         % (suite.name, case.name))
                     f.write(4*' '+'.id = "%s",\n' % case.id())
                     f.write(4*' '+'.name = "%s",\n' % case.name)
                     f.write(4*' '+'.path = "%s",\n' % case.path)
+                    f.write(4*' '+'.types = TEST_NORMAL,\n')
                     f.write(4*' '+'.permutations = %d,\n' % case.permutations)
-                    f.write(4*' '+'.run = __test__%s__%s,\n'
+                    if case.defines:
+                        f.write(4*' '+'.defines = __test__%s__%s__defines,\n'
+                            % (suite.name, case.name))
+                        f.write(4*' '+'.define_mask = '
+                            '__test__%s__%s__define_mask,\n'
+                            % (suite.name, case.name))
+                    f.write(4*' '+'.filter = __test__%s__%s__filter,\n'
+                        % (suite.name, case.name))
+                    f.write(4*' '+'.run = __test__%s__%s__run,\n'
                         % (suite.name, case.name))
                     f.write('};\n')
                     f.write('\n')
 
+                # create suite define names
+                f.write('const char *const __test__%s__define_names[] = {\n'
+                    % suite.name)
+                for k in suite.defines:
+                    f.write(4*' '+'"%s",\n' % k)
+                f.write('};\n')
+                f.write('\n')
+
                 # create suite struct
                 f.write('const struct test_suite __test__%s__suite = {\n'
-                    % (suite.name))
+                    % suite.name)
                 f.write(4*' '+'.id = "%s",\n' % suite.id())
                 f.write(4*' '+'.name = "%s",\n' % suite.name)
                 f.write(4*' '+'.path = "%s",\n' % suite.path)
+                f.write(4*' '+'.define_names = __test__%s__define_names,\n'
+                    % suite.name)
+                f.write(4*' '+'.define_count = %d,\n' % len(suite.defines))
                 f.write(4*' '+'.cases = (const struct test_case *const []){\n')
                 for case in suite.cases:
                     f.write(8*' '+'&__test__%s__%s__case,\n'
@@ -216,11 +322,13 @@ def compile(**args):
         # write out a test source
         if 'output' in args:
             with openio(args['output'], 'w') as f:
-                f.write(SUITE_PROLOGUE)
-                f.write('\n')
                 f.write('#line 1 "%s"\n' % args['source'])
                 with open(args['source']) as sf:
                     shutil.copyfileobj(sf, f)
+                f.write('\n')
+
+                f.write(SUITE_PROLOGUE)
+                f.write('\n')
 
                 # add suite info to test_runner.c
                 if args['source'] == 'runners/test_runner.c':
