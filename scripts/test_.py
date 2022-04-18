@@ -24,7 +24,7 @@ lfs_t lfs;
 CASE_EPILOGUE = """
 """
 
-PRE_DEFINES = [
+TEST_PREDEFINES = [
     'READ_SIZE',
     'PROG_SIZE',
     'BLOCK_SIZE',
@@ -72,6 +72,13 @@ class TestCase:
         self.if_lineno = config.pop('if_lineno', None)
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
+
+        self.normal = config.pop('normal',
+                config.pop('suite_normal', True))
+        self.reentrant = config.pop('reentrant',
+                config.pop('suite_reentrant', False))
+        self.valgrind = config.pop('valgrind',
+                config.pop('suite_valgrind', True))
 
         # figure out defines and the number of resulting permutations
         self.defines = {}
@@ -155,6 +162,9 @@ class TestSuite:
 
             # a couple of these we just forward to all cases
             defines = config.pop('defines', {})
+            normal = config.pop('normal', True)
+            reentrant = config.pop('reentrant', False)
+            valgrind = config.pop('valgrind', True)
 
             self.cases = []
             for name, case in sorted(cases.items(),
@@ -165,11 +175,19 @@ class TestSuite:
                         if 'lineno' in case else ''),
                     'suite': self.name,
                     'suite_defines': defines,
+                    'suite_normal': normal,
+                    'suite_reentrant': reentrant,
+                    'suite_valgrind': valgrind,
                     **case}))
 
             # combine pre-defines and per-case defines
-            self.defines = PRE_DEFINES + sorted(
+            self.defines = TEST_PREDEFINES + sorted(
                 set.union(*(set(case.defines) for case in self.cases)))
+
+            # combine other per-case things
+            self.normal = any(case.normal for case in self.cases)
+            self.reentrant = any(case.reentrant for case in self.cases)
+            self.valgrind = any(case.valgrind for case in self.cases)
 
         for k in config.keys():
             print('warning: in %s, found unused key %r' % (self.id(), k),
@@ -215,7 +233,7 @@ def compile(**args):
 
                 for i, define in it.islice(
                         enumerate(suite.defines),
-                        len(PRE_DEFINES), None):
+                        len(TEST_PREDEFINES), None):
                     f.write('#define %-24s test_define(%d)\n' % (define, i))
                 f.write('\n')
 
@@ -258,7 +276,6 @@ def compile(**args):
                     # create case filter function
                     if suite.if_ is not None or case.if_ is not None:
                         f.write('bool __test__%s__%s__filter('
-                            '__attribute__((unused)) struct lfs_config *cfg, '
                             '__attribute__((unused)) uint32_t perm) {\n'
                             % (suite.name, case.name))
                         if suite.if_ is not None:
@@ -304,7 +321,11 @@ def compile(**args):
                     f.write(4*' '+'.id = "%s",\n' % case.id())
                     f.write(4*' '+'.name = "%s",\n' % case.name)
                     f.write(4*' '+'.path = "%s",\n' % case.path)
-                    f.write(4*' '+'.types = TEST_NORMAL,\n')
+                    f.write(4*' '+'.types = %s,\n'
+                        % ' | '.join(filter(None, [
+                            'TEST_NORMAL' if case.normal else None,
+                            'TEST_REENTRANT' if case.reentrant else None,
+                            'TEST_VALGRIND' if case.valgrind else None])))
                     f.write(4*' '+'.permutations = %d,\n' % case.permutations)
                     if case.defines:
                         f.write(4*' '+'.defines = __test__%s__%s__defines,\n'
@@ -334,6 +355,11 @@ def compile(**args):
                 f.write(4*' '+'.id = "%s",\n' % suite.id())
                 f.write(4*' '+'.name = "%s",\n' % suite.name)
                 f.write(4*' '+'.path = "%s",\n' % suite.path)
+                f.write(4*' '+'.types = %s,\n'
+                    % ' | '.join(filter(None, [
+                        'TEST_NORMAL' if suite.normal else None,
+                        'TEST_REENTRANT' if suite.reentrant else None,
+                        'TEST_VALGRIND' if suite.valgrind else None])))
                 f.write(4*' '+'.define_names = __test__%s__define_names,\n'
                     % suite.name)
                 f.write(4*' '+'.define_count = %d,\n' % len(suite.defines))

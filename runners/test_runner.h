@@ -24,7 +24,7 @@ struct test_case {
     const test_define_t *const *defines;
     const uint8_t *define_map;
 
-    bool (*filter)(struct lfs_config *cfg, uint32_t perm);
+    bool (*filter)(uint32_t perm);
     void (*run)(struct lfs_config *cfg, uint32_t perm);
 };
 
@@ -32,6 +32,7 @@ struct test_suite {
     const char *id;
     const char *name;
     const char *path;
+    test_types_t types;
 
     const char *const *define_names;
     size_t define_count;
@@ -59,6 +60,8 @@ test_define_t test_define(size_t define);
 #define ERASE_VALUE         test_define(7)
 #define ERASE_CYCLES        test_define(8)
 #define BADBLOCK_BEHAVIOR   test_define(9)
+
+#define TEST_PREDEFINE_COUNT 10
 
 
 #endif
