@@ -66,23 +66,19 @@ class TestCase:
         self.path = config.pop('path')
         self.suite = config.pop('suite')
         self.lineno = config.pop('lineno', None)
+        self.if_ = config.pop('if', None)
+        if isinstance(self.if_, bool):
+            self.if_ = 'true' if self.if_ else 'false'
+        self.if_lineno = config.pop('if_lineno', None)
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
 
         # figure out defines and the number of resulting permutations
         self.defines = {}
-        for k, v in config.pop('defines', {}).items():
-            try:
-                v = eval(v)
-            except:
-                v = v
-
-            if not isinstance(v, str):
-                try:
-                    v = list(v)
-                except:
-                    v = [v]
-            else:
+        for k, v in (
+                config.pop('suite_defines', {})
+                | config.pop('defines', {})).items():
+            if not isinstance(v, list):
                 v = [v]
 
             self.defines[k] = v
@@ -111,14 +107,18 @@ class TestSuite:
             # find line numbers
             f.seek(0)
             case_linenos = []
+            if_linenos = []
             code_linenos = []
             for i, line in enumerate(f):
                 match = re.match(
                     '(?P<case>\[\s*cases\s*\.\s*(?P<name>\w+)\s*\])' +
-                    '|(?P<code>code\s*=\s*(?:\'\'\'|"""))',
+                    '|(?P<if>if\s*=)'
+                    '|(?P<code>code\s*=)',
                     line)
                 if match and match.group('case'):
                     case_linenos.append((i+1, match.group('name')))
+                elif match and match.group('if'):
+                    if_linenos.append(i+1)
                 elif match and match.group('code'):
                     code_linenos.append(i+2)
 
@@ -129,17 +129,32 @@ class TestSuite:
             for (lineno, name), (nlineno, _) in it.zip_longest(
                     case_linenos, case_linenos[1:],
                     fillvalue=(float('inf'), None)):
+                if_lineno = min(
+                    (l for l in if_linenos if l >= lineno and l < nlineno),
+                    default=None)
                 code_lineno = min(
                     (l for l in code_linenos if l >= lineno and l < nlineno),
                     default=None)
                 cases[name]['lineno'] = lineno
+                cases[name]['if_lineno'] = if_lineno
                 cases[name]['code_lineno'] = code_lineno
+
+            self.if_ = config.pop('if', None)
+            if isinstance(self.if_, bool):
+                self.if_ = 'true' if self.if_ else 'false'
+            self.if_lineno = min(
+                (l for l in if_linenos
+                    if not case_linenos or l < case_linenos[0][0]),
+                default=None)
 
             self.code = config.pop('code', None)
             self.code_lineno = min(
                 (l for l in code_linenos
                     if not case_linenos or l < case_linenos[0][0]),
                 default=None)
+
+            # a couple of these we just forward to all cases
+            defines = config.pop('defines', {})
 
             self.cases = []
             for name, case in sorted(cases.items(),
@@ -149,6 +164,7 @@ class TestSuite:
                     'path': path + (':%d' % case['lineno']
                         if 'lineno' in case else ''),
                     'suite': self.name,
+                    'suite_defines': defines,
                     **case}))
 
             # combine pre-defines and per-case defines
@@ -161,8 +177,6 @@ class TestSuite:
 
     def id(self):
         return self.name
-            
-            
             
 
 
@@ -208,20 +222,21 @@ def compile(**args):
                 for case in suite.cases:
                     # create case defines
                     if case.defines:
+                        sorted_defines = sorted(case.defines.items())
+
                         for perm, defines in enumerate(
                                 it.product(*(
                                     [(k, v) for v in vs]
-                                    for k, vs in case.defines.items()))):
-                            f.write('const uintmax_t '
+                                    for k, vs in sorted_defines))):
+                            f.write('const test_define_t '
                                 '__test__%s__%s__%d__defines[] = {\n'
                                 % (suite.name, case.name, perm))
-                            for k, v in sorted(defines):
-                                f.write(4*' '+'[%d] = %s,\n'
-                                    % (suite.defines.index(k), v))
+                            for k, v in defines:
+                                f.write(4*' '+'%s,\n' % v)
                             f.write('};\n')
                             f.write('\n')
 
-                        f.write('const uintmax_t *const '
+                        f.write('const test_define_t *const '
                             '__test__%s__%s__defines[] = {\n'
                             % (suite.name, case.name))
                         for perm in range(case.permutations):
@@ -230,23 +245,39 @@ def compile(**args):
                         f.write('};\n')
                         f.write('\n')
 
-                        f.write('const bool '
-                            '__test__%s__%s__define_mask[] = {\n'
+                        f.write('const uint8_t '
+                            '__test__%s__%s__define_map[] = {\n'
                             % (suite.name, case.name))
-                        for i, k in enumerate(suite.defines):
+                        for k in suite.defines:
                             f.write(4*' '+'%s,\n'
-                                % ('true' if k in case.defines else 'false'))
+                                % ([k for k, _ in sorted_defines].index(k)
+                                    if k in case.defines else '0xff'))
                         f.write('};\n')
                         f.write('\n')
 
                     # create case filter function
-                    f.write('bool __test__%s__%s__filter('
-                        '__attribute__((unused)) struct lfs_config *cfg, '
-                        '__attribute__((unused)) uint32_t perm) {\n'
-                        % (suite.name, case.name))
-                    f.write(4*' '+'return true;\n')
-                    f.write('}\n')
-                    f.write('\n')
+                    if suite.if_ is not None or case.if_ is not None:
+                        f.write('bool __test__%s__%s__filter('
+                            '__attribute__((unused)) struct lfs_config *cfg, '
+                            '__attribute__((unused)) uint32_t perm) {\n'
+                            % (suite.name, case.name))
+                        if suite.if_ is not None:
+                            f.write(4*' '+'#line %d "%s"\n'
+                                % (suite.if_lineno, suite.path))
+                            f.write(4*' '+'if (!(%s)) {\n' % suite.if_)
+                            f.write(8*' '+'return false;\n')
+                            f.write(4*' '+'}\n')
+                            f.write('\n')
+                        if case.if_ is not None:
+                            f.write(4*' '+'#line %d "%s"\n'
+                                % (case.if_lineno, suite.path))
+                            f.write(4*' '+'if (!(%s)) {\n' % case.if_)
+                            f.write(8*' '+'return false;\n')
+                            f.write(4*' '+'}\n')
+                            f.write('\n')
+                        f.write(4*' '+'return true;\n')
+                        f.write('}\n')
+                        f.write('\n')
 
                     # create case run function
                     f.write('void __test__%s__%s__run('
@@ -278,11 +309,12 @@ def compile(**args):
                     if case.defines:
                         f.write(4*' '+'.defines = __test__%s__%s__defines,\n'
                             % (suite.name, case.name))
-                        f.write(4*' '+'.define_mask = '
-                            '__test__%s__%s__define_mask,\n'
+                        f.write(4*' '+'.define_map = '
+                            '__test__%s__%s__define_map,\n'
                             % (suite.name, case.name))
-                    f.write(4*' '+'.filter = __test__%s__%s__filter,\n'
-                        % (suite.name, case.name))
+                    if suite.if_ is not None or case.if_ is not None:
+                        f.write(4*' '+'.filter = __test__%s__%s__filter,\n'
+                            % (suite.name, case.name))
                     f.write(4*' '+'.run = __test__%s__%s__run,\n'
                         % (suite.name, case.name))
                     f.write('};\n')

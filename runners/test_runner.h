@@ -5,21 +5,24 @@
 
 
 // generated test configurations
-enum test_type {
+enum test_types {
     TEST_NORMAL    = 0x1,
     TEST_REENTRANT = 0x2,
     TEST_VALGRIND  = 0x4,
 };
 
+typedef uint8_t test_types_t;
+typedef uintmax_t test_define_t;
+
 struct test_case {
     const char *id;
     const char *name;
     const char *path;
-    uint8_t types;
+    test_types_t types;
     size_t permutations;
 
-    const uintmax_t *const *defines;
-    const bool *define_mask;
+    const test_define_t *const *defines;
+    const uint8_t *define_map;
 
     bool (*filter)(struct lfs_config *cfg, uint32_t perm);
     void (*run)(struct lfs_config *cfg, uint32_t perm);
@@ -43,7 +46,7 @@ extern const size_t test_suite_count;
 
 
 // access generated test defines
-uintmax_t test_define(size_t define);
+test_define_t test_define(size_t define);
 
 // a few preconfigured defines that control how tests run
 #define READ_SIZE           test_define(0)

@@ -8,12 +8,12 @@
 // disk geometries
 struct test_geometry {
     const char *name;
-    const uintmax_t *defines;
+    const test_define_t *defines;
 };
 
 // Note this includes the default configuration for test pre-defines
 #define TEST_GEOMETRY(name, read, prog, erase, count) \
-    {name, (const uintmax_t[]){ \
+    {name, (const test_define_t[]){ \
         /* READ_SIZE */         read, \
         /* PROG_SIZE */         prog, \
         /* BLOCK_SIZE */        erase, \
@@ -46,14 +46,14 @@ const size_t test_geometry_count = (
 
 
 // test define lookup and management
-const uintmax_t *test_defines[3] = {NULL};
-const bool *test_define_masks[2] = {NULL};
+const test_define_t *test_defines[3] = {NULL};
+const uint8_t *test_define_maps[2] = {NULL};
 
-uintmax_t test_define(size_t define) {
-    if (test_define_masks[0] && test_define_masks[0][define]) {
-        return test_defines[0][define];
-    } else if (test_define_masks[1] && test_define_masks[1][define]) {
-        return test_defines[1][define];
+test_define_t test_define(size_t define) {
+    if (test_define_maps[0] && test_define_maps[0][define] != 0xff) {
+        return test_defines[0][test_define_maps[0][define]];
+    } else if (test_define_maps[1] && test_define_maps[1][define] != 0xff) {
+        return test_defines[1][test_define_maps[1][define]];
     } else {
         return test_defines[2][define];
     }
@@ -70,61 +70,54 @@ void test_define_geometry(const struct test_geometry *geometry) {
 void test_define_case(const struct test_case *case_, size_t perm) {
     if (case_ && case_->defines) {
         test_defines[1] = case_->defines[perm];
-        test_define_masks[1] = case_->define_mask;
+        test_define_maps[1] = case_->define_map;
     } else {
         test_defines[1] = NULL;
-        test_define_masks[1] = NULL;
+        test_define_maps[1] = NULL;
     }
 }
 
-struct override {
-    const char *name;
-    uintmax_t override;
-};
-
 void test_define_overrides(
         const struct test_suite *suite,
-        const struct override *overrides,
+        const char *const *override_names,
+        const test_define_t *override_defines,
         size_t override_count) {
-    if (overrides && override_count > 0) {
-        uintmax_t *defines = malloc(suite->define_count * sizeof(uintmax_t));
-        memset(defines, 0, suite->define_count * sizeof(uintmax_t));
-        bool *define_mask = malloc(suite->define_count * sizeof(bool));
-        memset(define_mask, 0, suite->define_count * sizeof(bool));
+    if (override_names && override_defines && override_count > 0) {
+        uint8_t *define_map = malloc(suite->define_count * sizeof(uint8_t));
+        memset(define_map, 0xff, suite->define_count * sizeof(bool));
 
         // lookup each override in the suite defines, they may have a
         // different index in each suite
         for (size_t i = 0; i < override_count; i++) {
-            ssize_t index = -1;
-            for (size_t j = 0; j < suite->define_count; j++) {
-                if (strcmp(overrides[i].name, suite->define_names[j]) == 0) {
-                    index = j;
+            size_t j = 0;
+            for (; j < suite->define_count; j++) {
+                if (strcmp(override_names[i], suite->define_names[j]) == 0) {
                     break;
                 }
             }
 
-            if (index >= 0) {
-                defines[index] = overrides[i].override;
-                define_mask[index] = true;
+            if (j < suite->define_count) {
+                define_map[j] = i;
             }
         }
 
-        test_defines[0] = defines;
-        test_define_masks[0] = define_mask;
+        test_defines[0] = override_defines;
+        test_define_maps[0] = define_map;
     } else {
-        free((uintmax_t *)test_defines[0]);
         test_defines[0] = NULL;
-        free((bool *)test_define_masks[0]);
-        test_define_masks[0] = NULL;
+        free((uint8_t *)test_define_maps[0]);
+        test_define_maps[0] = NULL;
     }
 }
 
 
 // operations we can do
 void summary(
-        struct override *overrides,
+        const char *const *override_names,
+        const test_define_t *override_defines,
         size_t override_count) {
-    (void)overrides;
+    (void)override_names;
+    (void)override_defines;
     (void)override_count;
     printf("%-36s %7s %7s %7s %7s\n",
             "", "geoms", "suites", "cases", "perms");
@@ -147,9 +140,11 @@ void summary(
 }
 
 void list_suites(
-        struct override *overrides,
+        const char *const *override_names,
+        const test_define_t *override_defines,
         size_t override_count) {
-    (void)overrides;
+    (void)override_names;
+    (void)override_defines;
     (void)override_count;
     printf("%-36s %-12s %7s %7s %7s\n",
             "id", "suite", "types", "cases", "perms");
@@ -169,9 +164,11 @@ void list_suites(
 }
 
 void list_cases(
-        struct override *overrides,
+        const char *const *override_names,
+        const test_define_t *override_defines,
         size_t override_count) {
-    (void)overrides;
+    (void)override_names;
+    (void)override_defines;
     (void)override_count;
     printf("%-36s %-12s %-12s %7s %7s\n",
             "id", "suite", "case", "types", "perms");
@@ -189,9 +186,11 @@ void list_cases(
 }
 
 void list_paths(
-        struct override *overrides,
+        const char *const *override_names,
+        const test_define_t *override_defines,
         size_t override_count) {
-    (void)overrides;
+    (void)override_names;
+    (void)override_defines;
     (void)override_count;
     printf("%-36s %-36s\n", "id", "path");
     for (size_t i = 0; i < test_suite_count; i++) {
@@ -204,17 +203,21 @@ void list_paths(
 }
 
 void list_defines(
-        struct override *overrides,
+        const char *const *override_names,
+        const test_define_t *override_defines,
         size_t override_count) {
-    (void)overrides;
+    (void)override_names;
+    (void)override_defines;
     (void)override_count;
     // TODO
 }
 
 void list_geometries(
-        struct override *overrides,
+        const char *const *override_names,
+        const test_define_t *override_defines,
         size_t override_count) {
-    (void)overrides;
+    (void)override_names;
+    (void)override_defines;
     (void)override_count;
     printf("%-36s %7s %7s %7s %7s %7s\n",
             "name", "read", "prog", "erase", "count", "size");
@@ -232,10 +235,13 @@ void list_geometries(
 }
 
 void run(
-        struct override *overrides,
+        const char *const *override_names,
+        const test_define_t *override_defines,
         size_t override_count) {
     for (size_t i = 0; i < test_suite_count; i++) {
-        test_define_overrides(test_suites[i], overrides, override_count);
+        test_define_overrides(
+                test_suites[i],
+                override_names, override_defines, override_count);
 
         for (size_t j = 0; j < test_suites[i]->case_count; j++) {
             for (size_t perm = 0;
@@ -303,7 +309,7 @@ void run(
             }
         }
 
-        test_define_overrides(NULL, NULL, 0);
+        test_define_overrides(NULL, NULL, NULL, 0);
     }
 }
 
@@ -349,9 +355,11 @@ const char *const help_text[] = {
 
 int main(int argc, char **argv) {
     void (*op)(
-            struct override *overrides,
+            const char *const *override_names,
+            const test_define_t *override_defines,
             size_t override_count) = run;
-    struct override *overrides = NULL;
+    const char **override_names = NULL;
+    test_define_t *override_defines = NULL;
     size_t override_count = 0;
     size_t override_cap = 0;
 
@@ -422,24 +430,26 @@ int main(int argc, char **argv) {
                 override_count += 1;
                 if (override_count > override_cap) {
                     override_cap = (2*override_cap > 4) ? 2*override_cap : 4;
-                    overrides = realloc(overrides, override_cap
-                            * sizeof(struct override));
+                    override_names = realloc(override_names, override_cap
+                            * sizeof(const char *));
+                    override_defines = realloc(override_defines, override_cap
+                            * sizeof(test_define_t));
                 }
 
-                // parse into string key/uintmax_t value, cannibalizing the
+                // parse into string key/test_define_t value, cannibalizing the
                 // arg in the process
                 char *sep = strchr(optarg, '=');
                 char *parsed = NULL;
                 if (!sep) {
                     goto invalid_define;
                 }
-                overrides[override_count-1].override
+                override_defines[override_count-1]
                         = strtoumax(sep+1, &parsed, 0);
                 if (parsed == sep+1) {
                     goto invalid_define;
                 }
 
-                overrides[override_count-1].name = optarg;
+                override_names[override_count-1] = optarg;
                 *sep = '\0';
                 break;
 
@@ -458,15 +468,16 @@ invalid_define:
 getopt_done:
 
     for (size_t i = 0; i < override_count; i++) {
-        printf("define: %s %ju\n", overrides[i].name, overrides[i].override);
+        printf("define: %s %ju\n", override_names[i], override_defines[i]);
     }
 
     // do the thing
     op(
-            overrides,
+            override_names,
+            override_defines,
             override_count);
 
     // cleanup (need to be done for valgrind testing)
-    free(overrides);
-}
+    free(override_names);
+    free(override_defines);}
 
