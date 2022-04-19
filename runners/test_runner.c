@@ -4,6 +4,7 @@
 
 #include <getopt.h>
 #include <sys/types.h>
+#include <errno.h>
 
 // disk geometries
 struct test_geometry {
@@ -125,6 +126,9 @@ static const char **override_names = NULL;
 static test_define_t *override_defines = NULL;
 static size_t override_count = 0;
 static size_t override_cap = 0;
+
+static const char *test_persist = NULL;
+FILE *test_trace = NULL;
 
 // note, these skips are different than filtered tests
 static bool test_suite_skip(const struct test_suite *suite) {
@@ -491,7 +495,12 @@ static void run(void) {
                     .power_cycles       = 0,
                 };
 
-                lfs_testbd_createcfg(&cfg, NULL, &bdcfg) => 0;
+                int err = lfs_testbd_createcfg(&cfg, test_persist, &bdcfg);
+                if (err) {
+                    fprintf(stderr, "error: "
+                            "could not create block device: %d\n", err);
+                    exit(-1);
+                }
 
                 // run the test
                 printf("running %s#%zu\n", test_suites[i]->cases[j]->id, perm);
@@ -501,7 +510,12 @@ static void run(void) {
                 printf("finished %s#%zu\n", test_suites[i]->cases[j]->id, perm);
 
                 // cleanup
-                lfs_testbd_destroy(&cfg) => 0;
+                err = lfs_testbd_destroy(&cfg);
+                if (err) {
+                    fprintf(stderr, "error: "
+                            "could not destroy block device: %d\n", err);
+                    exit(-1);
+                }
 
                 test_define_geometry(NULL);
                 test_define_case(NULL, 0);
@@ -532,9 +546,11 @@ enum opt_flags {
     OPT_SKIP            = 4,
     OPT_COUNT           = 5,
     OPT_EVERY           = 6,
+    OPT_PERSIST         = 'p',
+    OPT_TRACE           = 't',
 };
 
-const char *short_opts = "hYlLD:G:nrV";
+const char *short_opts = "hYlLD:G:nrVp:t:";
 
 const struct option long_opts[] = {
     {"help",            no_argument,       NULL, OPT_HELP},
@@ -552,6 +568,8 @@ const struct option long_opts[] = {
     {"skip",            required_argument, NULL, OPT_SKIP},
     {"count",           required_argument, NULL, OPT_COUNT},
     {"every",           required_argument, NULL, OPT_EVERY},
+    {"persist",         required_argument, NULL, OPT_PERSIST},
+    {"trace",           required_argument, NULL, OPT_TRACE},
     {NULL, 0, NULL, 0},
 };
 
@@ -571,6 +589,8 @@ const char *const help_text[] = {
     "Skip the first n tests.",
     "Stop after n tests.",
     "Only run every n tests, calculated after --skip and --stop.",
+    "Persist the disk to this file.",
+    "Redirect trace output to this file.",
 };
 
 int main(int argc, char **argv) {
@@ -727,6 +747,21 @@ invalid_define:
                 }
                 break;
             }
+            case OPT_PERSIST:
+                test_persist = optarg;
+                break;
+            case OPT_TRACE:
+                if (strcmp(optarg, "-") == 0) {
+                    test_trace = stdout;
+                } else {
+                    test_trace = fopen(optarg, "w");
+                    if (!test_trace) {
+                        fprintf(stderr, "error: could not open for trace: %d\n",
+                                -errno);
+                        exit(-1);
+                    }
+                }
+                break;
             // done parsing
             case -1:
                 goto getopt_done;

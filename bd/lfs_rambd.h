@@ -18,10 +18,12 @@ extern "C"
 
 
 // Block device specific tracing
+#ifndef LFS_RAMBD_TRACE
 #ifdef LFS_RAMBD_YES_TRACE
 #define LFS_RAMBD_TRACE(...) LFS_TRACE(__VA_ARGS__)
 #else
 #define LFS_RAMBD_TRACE(...)
+#endif
 #endif
 
 // rambd config (optional)

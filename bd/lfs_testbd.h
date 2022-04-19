@@ -21,10 +21,12 @@ extern "C"
 
 
 // Block device specific tracing
+#ifndef LFS_TESTBD_TRACE
 #ifdef LFS_TESTBD_YES_TRACE
 #define LFS_TESTBD_TRACE(...) LFS_TRACE(__VA_ARGS__)
 #else
 #define LFS_TESTBD_TRACE(...)
+#endif
 #endif
 
 // Mode determining how "bad blocks" behave during testing. This simulates
