@@ -62,12 +62,15 @@ override DATAFLAGS     += -v
 override STACKFLAGS    += -v
 override STRUCTSFLAGS  += -v
 override COVERAGEFLAGS += -v
+override TESTFLAGS_     += -v
+override TESTCFLAGS_    += -v
 endif
 ifdef EXEC
-override TESTFLAGS += --exec="$(EXEC)"
+override TESTFLAGS_ += --exec="$(EXEC)"
 endif
 ifdef COVERAGE
 override TESTFLAGS += --coverage
+override TESTFLAGS_ += --coverage
 endif
 ifdef BUILDDIR
 override TESTFLAGS     += --build-dir="$(BUILDDIR:/=)"
@@ -85,6 +88,8 @@ endif
 ifneq ($(OBJDUMP),objdump)
 override STRUCTSFLAGS += --objdump-tool="$(OBJDUMP)"
 endif
+# forward -j flag
+override TESTFLAGS_ += $(filter -j%,$(MAKEFLAGS))
 
 
 # commands
@@ -115,6 +120,7 @@ test%: tests/test$$(firstword $$(subst \#, ,%)).toml
 
 .PHONY: test_
 test_: $(BUILDDIR)runners/test_runner
+	./scripts/test_.py --runner=$< $(TESTFLAGS_)
 
 .PHONY: code
 code: $(OBJ)
@@ -185,10 +191,10 @@ $(BUILDDIR)%.a.c: $(BUILDDIR)%.c
 	./scripts/explode_asserts.py $< -o $@
 
 $(BUILDDIR)%.t.c: %.toml
-	./scripts/test_.py -c $< -o $@
+	./scripts/test_.py -c $< $(TESTCFLAGS_) -o $@
 
 $(BUILDDIR)%.t.c: %.c $(TESTS)
-	./scripts/test_.py -c $(TESTS) -s $< -o $@
+	./scripts/test_.py -c $(TESTS) -s $< $(TESTCFLAGS_) -o $@
 
 # clean everything
 .PHONY: clean

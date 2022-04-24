@@ -29,9 +29,7 @@ struct test_geometry {
 
 const struct test_geometry test_geometries[] = {
     // Made up geometry that works well for testing
-    TEST_GEOMETRY("small",    16,   16,     512, (1024*1024)/512),
-    TEST_GEOMETRY("medium",   16,   16,    4096, (1024*1024)/4096),
-    TEST_GEOMETRY("big",      16,   16, 32*1024, (1024*1024)/(32*1024)),
+    TEST_GEOMETRY("test",     16,   16,     512, (1024*1024)/512),
     // EEPROM/NVRAM
     TEST_GEOMETRY("eeprom",    1,    1,     512, (1024*1024)/512),
     // SD/eMMC
@@ -585,7 +583,7 @@ const char *const help_text[] = {
     "Filter by geometry.",
     "Filter for normal tests. Can be combined.",
     "Filter for reentrant tests. Can be combined.",
-    "Filter for valgrind tests. Can be combined.",
+    "Filter for Valgrind tests. Can be combined.",
     "Skip the first n tests.",
     "Stop after n tests.",
     "Only run every n tests, calculated after --skip and --stop.",

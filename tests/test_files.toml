@@ -65,7 +65,7 @@ code = '''
     lfs_format(&lfs, &cfg) => 0;
 
     // write
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 1;
     lfs_file_open(&lfs, &file, "avacado",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     srand(1);

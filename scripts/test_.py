@@ -3,22 +3,30 @@
 # Script to compile and runs tests.
 #
 
+import collections as co
+import errno
 import glob
 import itertools as it
 import math as m
 import os
+import pty
 import re
+import shlex
 import shutil
+import subprocess as sp
+import threading as th
+import time
 import toml
 
+
 TEST_PATHS = ['tests_']
+RUNNER_PATH = './runners/test_runner'
 
 SUITE_PROLOGUE = """
 #include "runners/test_runner.h"
 #include <stdio.h>
 """
 CASE_PROLOGUE = """
-lfs_t lfs;
 """
 CASE_EPILOGUE = """
 """
@@ -194,13 +202,13 @@ class TestSuite:
 
     def id(self):
         return self.name
-            
+
 
 
 def compile(**args):
     # find .toml files
     paths = []
-    for path in args['test_paths']:
+    for path in args.get('test_paths', TEST_PATHS):
         if os.path.isdir(path):
             path = path + '/*.toml'
 
@@ -429,14 +437,359 @@ def compile(**args):
                     f.write('const size_t test_suite_count = %d;\n'
                         % len(suites))
 
+def runner(**args):
+    cmd = args['runner'].copy()
+    # TODO multiple paths?
+    if 'test_paths' in args:
+        cmd.extend(args.get('test_paths'))
+
+    if args.get('normal'):    cmd.append('-n')
+    if args.get('reentrant'): cmd.append('-r')
+    if args.get('valgrind'):  cmd.append('-V')
+    if args.get('geometry'):
+        cmd.append('-G%s' % args.get('geometry'))
+    if args.get('define'):
+        for define in args.get('define'):
+            cmd.append('-D%s' % define)
+
+    return cmd
+
+def list_(**args):
+    cmd = runner(**args)
+    if args.get('summary'):         cmd.append('--summary')
+    if args.get('list_suites'):     cmd.append('--list-suites')
+    if args.get('list_cases'):      cmd.append('--list-cases')
+    if args.get('list_paths'):      cmd.append('--list-paths')
+    if args.get('list_defines'):    cmd.append('--list-defines')
+    if args.get('list_geometries'): cmd.append('--list-geometries')
+
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    sys.exit(sp.call(cmd))
+
+
+def find_cases(runner_, **args):
+    # first get suite/case/perm counts
+    cmd = runner_ + ['--list-cases']
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE if not args.get('verbose') else None,
+        universal_newlines=True,
+        errors='replace')
+    expected_suite_perms = co.defaultdict(lambda: 0)
+    expected_case_perms = co.defaultdict(lambda: 0)
+    expected_perms = 0
+    total_perms = 0
+    pattern = re.compile(
+        '^(?P<id>(?P<suite>[^#]+)#[^ #]+) +'
+            '[^ ]+ +[^ ]+ +[^ ]+ +'
+            '(?P<filtered>[0-9]+)/(?P<perms>[0-9]+)$')
+    # skip the first line
+    next(proc.stdout)
+    for line in proc.stdout:
+        m = pattern.match(line)
+        if m:
+            filtered = int(m.group('filtered'))
+            expected_suite_perms[m.group('suite')] += filtered
+            expected_case_perms[m.group('id')] += filtered
+            expected_perms += filtered
+            total_perms += int(m.group('perms'))
+    proc.wait()
+    if proc.returncode != 0:
+        if not args.get('verbose'):
+            for line in proc.stderr:
+                sys.stdout.write(line)
+        sys.exit(-1)
+
+    return (
+        expected_suite_perms,
+        expected_case_perms,
+        expected_perms,
+        total_perms)
+
+class TestFailure(Exception):
+    def __init__(self, id, returncode, stdout, assert_=None):
+        self.id = id
+        self.returncode = returncode
+        self.stdout = stdout
+        self.assert_ = assert_
+
+def run_step(name, runner_, **args):
+    # get expected suite/case/perm counts
+    expected_suite_perms, expected_case_perms, expected_perms, total_perms = (
+        find_cases(runner_, **args))
+
+    # TODO persist/trace
+    # TODO valgrind/gdb/exec
+    passed_suite_perms = co.defaultdict(lambda: 0)
+    passed_case_perms = co.defaultdict(lambda: 0)
+    passed_perms = 0
+    failures = []
+
+    pattern = re.compile('^(?:'
+            '(?P<op>running|finished|skipped) '
+                '(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)'
+            '|' '(?P<path>[^:]+):(?P<lineno>[0-9]+):(?P<op_>assert):'
+                ' *(?P<message>.*)' ')$')
+    locals = th.local()
+    # TODO use process group instead of this set?
+    children = set()
+
+    def run_runner(runner_):
+        nonlocal passed_suite_perms
+        nonlocal passed_case_perms
+        nonlocal passed_perms
+        nonlocal locals
+
+        # run the tests!
+        cmd = runner_
+        if args.get('verbose'):
+            print(' '.join(shlex.quote(c) for c in cmd))
+        mpty, spty = pty.openpty()
+        proc = sp.Popen(cmd, stdout=spty, stderr=spty)
+        os.close(spty)
+        mpty = os.fdopen(mpty, 'r', 1)
+        children.add(proc)
+
+        last_id = None
+        last_stdout = []
+        last_assert = None
+        try:
+            while True:
+                # parse a line for state changes
+                try:
+                    line = mpty.readline()
+                except OSError as e:
+                    if e.errno == errno.EIO:
+                        break
+                    raise
+                if not line:
+                    break
+                last_stdout.append(line)
+                if args.get('verbose'):
+                    sys.stdout.write(line)
+
+                m = pattern.match(line)
+                if m:
+                    op = m.group('op') or m.group('op_')
+                    if op == 'running':
+                        locals.seen_perms += 1
+                        last_id = m.group('id')
+                        last_stdout = []
+                        last_assert = None
+                    elif op == 'finished':
+                        passed_suite_perms[m.group('suite')] += 1
+                        passed_case_perms[m.group('case')] += 1
+                        passed_perms += 1
+                    elif op == 'skipped':
+                        locals.seen_perms += 1
+                    elif op == 'assert':
+                        last_assert = (
+                            m.group('path'),
+                            int(m.group('lineno')),
+                            m.group('message'))
+                        # TODO why is kill _so_ much faster than terminate?
+                        proc.kill()
+        except KeyboardInterrupt:
+            raise TestFailure(last_id, 1, last_stdout)
+        finally:
+            children.remove(proc)
+            mpty.close()
+
+        proc.wait()
+        if proc.returncode != 0:
+            raise TestFailure(
+                last_id,
+                proc.returncode,
+                last_stdout,
+                last_assert)
+
+    def run_job(runner, skip=None, every=None):
+        nonlocal failures
+        nonlocal locals
+
+        while (skip or 0) < total_perms:
+            runner_ = runner.copy()
+            if skip is not None:
+                runner_.append('--skip=%d' % skip)
+            if every is not None:
+                runner_.append('--every=%d' % every)
+
+            try:
+                # run the tests
+                locals.seen_perms = 0
+                run_runner(runner_)
+
+            except TestFailure as failure:
+                # race condition for multiple failures?
+                if failures and not args.get('keep_going'):
+                    break
+
+                failures.append(failure)
+
+                if args.get('keep_going'):
+                    # resume after failed test
+                    skip = (skip or 0) + locals.seen_perms*(every or 1)
+                    continue
+                else:
+                    # stop other tests
+                    for child in children:
+                        # TODO why is kill _so_ much faster than terminate?
+                        child.kill()
+
+            break
+    
+
+    # parallel jobs?
+    runners = []
+    if 'jobs' in args:
+        for job in range(args['jobs']):
+            runners.append(th.Thread(
+                target=run_job, args=(runner_, job, args['jobs'])))
+    else:
+        runners.append(th.Thread(
+            target=run_job, args=(runner_, None, None)))
+
+    for r in runners:
+        r.start()
+
+    needs_newline = False
+    try:
+        while any(r.is_alive() for r in runners):
+            time.sleep(0.01)
+
+            if not args.get('verbose'):
+                sys.stdout.write('\r\x1b[K'
+                    'running \x1b[%dm%s\x1b[m: '
+                    '%d/%d suites, %d/%d cases, %d/%d perms%s '
+                    % (32 if not failures else 31,
+                        name,
+                        sum(passed_suite_perms[k] == v
+                            for k, v in expected_suite_perms.items()),
+                        len(expected_suite_perms),
+                        sum(passed_case_perms[k] == v
+                            for k, v in expected_case_perms.items()),
+                        len(expected_case_perms),
+                        passed_perms,
+                        expected_perms,
+                        ', \x1b[31m%d/%d failures\x1b[m'
+                            % (len(failures), expected_perms)
+                            if failures else ''))
+                sys.stdout.flush()
+                needs_newline = True
+    finally:
+        if needs_newline:
+            print()
+
+    for r in runners:
+        r.join()
+
+    return (
+        expected_perms,
+        passed_perms,
+        failures)
+    
+
 def run(**args):
-    pass
+    start = time.time()
+
+    runner_ = runner(**args)
+    print('using runner `%s`'
+        % ' '.join(shlex.quote(c) for c in runner_))
+    expected_suite_perms, expected_case_perms, expected_perms, total_perms = (
+        find_cases(runner_, **args))
+    print('found %d suites, %d cases, %d/%d permutations'
+        % (len(expected_suite_perms),
+            len(expected_case_perms),
+            expected_perms,
+            total_perms))
+    print()
+
+    expected = 0
+    passed = 0
+    failures = []
+    if args.get('by_suites'):
+        for type in ['normal', 'reentrant', 'valgrind']:
+            for suite in expected_suite_perms.keys():
+                expected_, passed_, failures_ = run_step(
+                    '%s %s' % (type, suite),
+                    runner_ + ['--%s' % type, suite],
+                    **args)
+                expected += expected_
+                passed += passed_
+                failures.extend(failures_)
+                if failures and not args.get('keep_going'):
+                    break
+            if failures and not args.get('keep_going'):
+                break
+    elif args.get('by_cases'):
+        for type in ['normal', 'reentrant', 'valgrind']:
+            for case in expected_case_perms.keys():
+                expected_, passed_, failures_ = run_step(
+                    '%s %s' % (type, case),
+                    runner_ + ['--%s' % type, case],
+                    **args)
+                expected += expected_
+                passed += passed_
+                failures.extend(failures_)
+                if failures and not args.get('keep_going'):
+                    break
+            if failures and not args.get('keep_going'):
+                break
+    else:
+        for type in ['normal', 'reentrant', 'valgrind']:
+            expected_, passed_, failures_ = run_step(
+                '%s tests' % type,
+                runner_ + ['--%s' % type],
+                **args)
+            expected += expected_
+            passed += passed_
+            failures.extend(failures_)
+            if failures and not args.get('keep_going'):
+                break
+
+    # show summary
+    print()
+    print('\x1b[%dmdone\x1b[m: %d/%d passed, %d/%d failed, in %.2fs'
+        % (32 if not failures else 31,
+            passed, expected, len(failures), expected,
+            time.time()-start))
+    print()
+
+    # print each failure
+    # TODO get line, defines, path
+    for failure in failures:
+#        print('\x1b[01m%s:%d:\x1b[01;31mfailure:\x1b[m %s failed'
+#            # TODO this should be the suite path and lineno
+#            % (failure.assert
+
+        if failure.assert_ is not None:
+            path, lineno, message = failure.assert_
+            print('\x1b[01m%s:%d:\x1b[01;31massert:\x1b[m %s'
+                % (path, lineno, message))
+            with open(path) as f:
+                line = next(it.islice(f, lineno-1, None)).strip('\n')
+                print(line)
+        print()
+
+    return 1 if failures else 0
+
 
 def main(**args):
     if args.get('compile'):
         compile(**args)
+    elif (args.get('summary')
+            or args.get('list_suites')
+            or args.get('list_cases')
+            or args.get('list_paths')
+            or args.get('list_defines')
+            or args.get('list_geometries')):
+        list_(**args)
     else:
         run(**args)
+
 
 if __name__ == "__main__":
     import argparse
@@ -444,11 +797,51 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Build and run tests.")
     # TODO document test case/perm specifier
-    parser.add_argument('test_paths', nargs='*', default=TEST_PATHS,
-        help="Description of test(s) to run. May be a directory, a path, or \
-            test identifier. Defaults to all tests in %r." % TEST_PATHS)
+    parser.add_argument('test_paths', nargs='*',
+        help="Description of testis to run. May be a directory, path, or \
+            test identifier. Defaults to %r." % TEST_PATHS)
+    parser.add_argument('-v', '--verbose', action='store_true',
+        help="Output commands that run behind the scenes.")
     # test flags
     test_parser = parser.add_argument_group('test options')
+    test_parser.add_argument('-Y', '--summary', action='store_true',
+        help="Show quick summary.")
+    test_parser.add_argument('-l', '--list-suites', action='store_true',
+        help="List test suites.")
+    test_parser.add_argument('-L', '--list-cases', action='store_true',
+        help="List test cases.")
+    test_parser.add_argument('--list-paths', action='store_true',
+        help="List the path for each test case.")
+    test_parser.add_argument('--list-defines', action='store_true',
+        help="List the defines for each test permutation.")
+    test_parser.add_argument('--list-geometries', action='store_true',
+        help="List the disk geometries used for testing.")
+    test_parser.add_argument('-D', '--define', action='append',
+        help="Override a test define.")
+    test_parser.add_argument('-G', '--geometry',
+        help="Filter by geometry.")
+    test_parser.add_argument('-n', '--normal', action='store_true',
+        help="Filter for normal tests. Can be combined.")
+    test_parser.add_argument('-r', '--reentrant', action='store_true',
+        help="Filter for reentrant tests. Can be combined.")
+    test_parser.add_argument('-V', '--valgrind', action='store_true',
+        help="Filter for Valgrind tests. Can be combined.")
+    test_parser.add_argument('-p', '--persist',
+        help="Persist the disk to this file.")
+    test_parser.add_argument('-t', '--trace',
+        help="Redirect trace output to this file.")
+    test_parser.add_argument('--runner', default=[RUNNER_PATH],
+        type=lambda x: x.split(),
+        help="Path to runner, defaults to %r" % RUNNER_PATH)
+    test_parser.add_argument('-j', '--jobs', nargs='?', type=int,
+        const=len(os.sched_getaffinity(0)),
+        help="Number of parallel runners to run.")
+    test_parser.add_argument('-k', '--keep-going', action='store_true',
+        help="Don't stop on first error.")
+    test_parser.add_argument('-b', '--by-suites', action='store_true',
+        help="Step through tests by suite.")
+    test_parser.add_argument('-B', '--by-cases', action='store_true',
+        help="Step through tests by case.")
     # compilation flags
     comp_parser = parser.add_argument_group('compilation options')
     comp_parser.add_argument('-c', '--compile', action='store_true',
