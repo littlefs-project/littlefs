@@ -54,6 +54,9 @@ override CFLAGS += -I.
 override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
 
+override TESTFLAGS_ += -b
+# forward -j flag
+override TESTFLAGS_ += $(filter -j%,$(MAKEFLAGS))
 ifdef VERBOSE
 override TESTFLAGS     += -v
 override CALLSFLAGS    += -v
@@ -88,8 +91,6 @@ endif
 ifneq ($(OBJDUMP),objdump)
 override STRUCTSFLAGS += --objdump-tool="$(OBJDUMP)"
 endif
-# forward -j flag
-override TESTFLAGS_ += $(filter -j%,$(MAKEFLAGS))
 
 
 # commands

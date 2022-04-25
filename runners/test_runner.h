@@ -41,27 +41,68 @@ struct test_suite {
     size_t case_count;
 };
 
-// TODO remove this indirection
 extern const struct test_suite *test_suites[];
 extern const size_t test_suite_count;
 
 
 // access generated test defines
+test_define_t test_predefine(size_t define);
 test_define_t test_define(size_t define);
 
 // a few preconfigured defines that control how tests run
-#define READ_SIZE           test_define(0)
-#define PROG_SIZE           test_define(1)
-#define BLOCK_SIZE          test_define(2)
-#define BLOCK_COUNT         test_define(3)
-#define BLOCK_CYCLES        test_define(4)
-#define CACHE_SIZE          test_define(5)
-#define LOOKAHEAD_SIZE      test_define(6)
-#define ERASE_VALUE         test_define(7)
-#define ERASE_CYCLES        test_define(8)
-#define BADBLOCK_BEHAVIOR   test_define(9)
+#define READ_SIZE           test_predefine(0)
+#define PROG_SIZE           test_predefine(1)
+#define BLOCK_SIZE          test_predefine(2)
+#define BLOCK_COUNT         test_predefine(3)
+#define CACHE_SIZE          test_predefine(4)
+#define LOOKAHEAD_SIZE      test_predefine(5)
+#define BLOCK_CYCLES        test_predefine(6)
+#define ERASE_VALUE         test_predefine(7)
+#define ERASE_CYCLES        test_predefine(8)
+#define BADBLOCK_BEHAVIOR   test_predefine(9)
 
+#define TEST_PREDEFINE_NAMES { \
+    "READ_SIZE", \
+    "PROG_SIZE", \
+    "BLOCK_SIZE", \
+    "BLOCK_COUNT", \
+    "CACHE_SIZE", \
+    "LOOKAHEAD_SIZE", \
+    "BLOCK_CYCLES", \
+    "ERASE_VALUE", \
+    "ERASE_CYCLES", \
+    "BADBLOCK_BEHAVIOR", \
+}
 #define TEST_PREDEFINE_COUNT 10
+
+
+// default predefines
+#define TEST_DEFAULTS { \
+    /* LOOKAHEAD_SIZE */    16, \
+    /* BLOCK_CYCLES */      -1, \
+    /* ERASE_VALUE */       0xff, \
+    /* ERASE_CYCLES */      0, \
+    /* BADBLOCK_BEHAVIOR */ LFS_TESTBD_BADBLOCK_PROGERROR, \
+}
+#define TEST_DEFAULT_COUNT 5
+#define TEST_DEFAULT_MAP { \
+    0xff, 0xff, 0xff, 0xff, 0xff, 0, 1, 2, 3, 4 \
+}
+
+// test geometries
+#define TEST_GEOMETRIES { \
+    /*geometry, read, write,    erase,                 count, cache */ \
+    {"test",   {  16,    16,      512,       (1024*1024)/512,    64}}, \
+    {"eeprom", {   1,     1,      512,       (1024*1024)/512,    64}}, \
+    {"emmc",   { 512,   512,      512,       (1024*1024)/512,   512}}, \
+    {"nor",    {   1,     1,     4096,      (1024*1024)/4096,    64}}, \
+    {"nand",   {4096,  4096,  32*1024, (1024*1024)/(32*1024),  4096}}, \
+}
+#define TEST_GEOMETRY_COUNT 5
+#define TEST_GEOMETRY_DEFINE_COUNT 5
+#define TEST_GEOMETRY_DEFINE_MAP { \
+    0, 1, 2, 3, 4, 0xff, 0xff, 0xff, 0xff, 0xff \
+}
 
 
 #endif
