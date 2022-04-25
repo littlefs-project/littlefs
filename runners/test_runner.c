@@ -161,11 +161,11 @@ static const char *test_case = NULL;
 static size_t test_perm = -1;
 static const char *test_geometry = NULL;
 static test_types_t test_types = 0;
-static size_t test_skip = 0;
-static size_t test_count = -1;
-static size_t test_every = 1;
+static size_t test_start = 0;
+static size_t test_stop = -1;
+static size_t test_step = 1;
 
-static const char *test_persist = NULL;
+static const char *test_disk = NULL;
 FILE *test_trace = NULL;
 
 // note, these skips are different than filtered tests
@@ -188,9 +188,9 @@ static bool test_perm_skip(size_t perm) {
 }
 
 static bool test_step_skip(size_t step) {
-    return !(step >= test_skip
-            && (step-test_skip) < test_count
-            && (step-test_skip) % test_every == 0);
+    return !(step >= test_start
+            && step < test_stop
+            && (step-test_start) % test_step == 0);
 }
 
 static void test_case_permcount(
@@ -528,7 +528,7 @@ static void run(void) {
                     .power_cycles       = 0,
                 };
 
-                int err = lfs_testbd_createcfg(&cfg, test_persist, &bdcfg);
+                int err = lfs_testbd_createcfg(&cfg, test_disk, &bdcfg);
                 if (err) {
                     fprintf(stderr, "error: "
                             "could not create block device: %d\n", err);
@@ -572,10 +572,10 @@ enum opt_flags {
     OPT_NORMAL          = 'n',
     OPT_REENTRANT       = 'r',
     OPT_VALGRIND        = 'V',
-    OPT_SKIP            = 5,
-    OPT_COUNT           = 6,
-    OPT_EVERY           = 7,
-    OPT_PERSIST         = 'p',
+    OPT_START           = 5,
+    OPT_STEP            = 6,
+    OPT_STOP            = 7,
+    OPT_DISK            = 'd',
     OPT_TRACE           = 't',
 };
 
@@ -595,10 +595,10 @@ const struct option long_opts[] = {
     {"normal",          no_argument,       NULL, OPT_NORMAL},
     {"reentrant",       no_argument,       NULL, OPT_REENTRANT},
     {"valgrind",        no_argument,       NULL, OPT_VALGRIND},
-    {"skip",            required_argument, NULL, OPT_SKIP},
-    {"count",           required_argument, NULL, OPT_COUNT},
-    {"every",           required_argument, NULL, OPT_EVERY},
-    {"persist",         required_argument, NULL, OPT_PERSIST},
+    {"start",           required_argument, NULL, OPT_START},
+    {"stop",            required_argument, NULL, OPT_STOP},
+    {"step",            required_argument, NULL, OPT_STEP},
+    {"disk",            required_argument, NULL, OPT_DISK},
     {"trace",           required_argument, NULL, OPT_TRACE},
     {NULL, 0, NULL, 0},
 };
@@ -617,10 +617,10 @@ const char *const help_text[] = {
     "Filter for normal tests. Can be combined.",
     "Filter for reentrant tests. Can be combined.",
     "Filter for Valgrind tests. Can be combined.",
-    "Skip the first n tests.",
-    "Stop after n tests.",
-    "Only run every n tests, calculated after --skip and --stop.",
-    "Persist the disk to this file.",
+    "Start at the nth test.",
+    "Stop before the nth test.",
+    "Only run every n tests, calculated after --start and --stop.",
+    "Use this file as the disk.",
     "Redirect trace output to this file.",
 };
 
@@ -766,35 +766,35 @@ invalid_define:
             case OPT_VALGRIND:
                 test_types |= TEST_VALGRIND;
                 break;
-            case OPT_SKIP: {
+            case OPT_START: {
                 char *parsed = NULL;
-                test_skip = strtoumax(optarg, &parsed, 0);
+                test_start = strtoumax(optarg, &parsed, 0);
                 if (parsed == optarg) {
                     fprintf(stderr, "error: invalid skip: %s\n", optarg);
                     exit(-1);
                 }
                 break;
             }
-            case OPT_COUNT: {
+            case OPT_STOP: {
                 char *parsed = NULL;
-                test_count = strtoumax(optarg, &parsed, 0);
+                test_stop = strtoumax(optarg, &parsed, 0);
                 if (parsed == optarg) {
                     fprintf(stderr, "error: invalid count: %s\n", optarg);
                     exit(-1);
                 }
                 break;
             }
-            case OPT_EVERY: {
+            case OPT_STEP: {
                 char *parsed = NULL;
-                test_every = strtoumax(optarg, &parsed, 0);
+                test_step = strtoumax(optarg, &parsed, 0);
                 if (parsed == optarg) {
                     fprintf(stderr, "error: invalid every: %s\n", optarg);
                     exit(-1);
                 }
                 break;
             }
-            case OPT_PERSIST:
-                test_persist = optarg;
+            case OPT_DISK:
+                test_disk = optarg;
                 break;
             case OPT_TRACE:
                 if (strcmp(optarg, "-") == 0) {

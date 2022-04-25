@@ -570,17 +570,17 @@ class TestFailure(Exception):
         self.output = output
         self.assert_ = assert_
 
-def run_step(name, runner_, **args):
+def run_stage(name, runner_, **args):
     # get expected suite/case/perm counts
     expected_suite_perms, expected_case_perms, expected_perms, total_perms = (
         find_cases(runner_, **args))
 
-    # TODO persist/trace
     # TODO valgrind/gdb/exec
     passed_suite_perms = co.defaultdict(lambda: 0)
     passed_case_perms = co.defaultdict(lambda: 0)
     passed_perms = 0
     failures = []
+    killed = False
 
     pattern = re.compile('^(?:'
             '(?P<op>running|finished|skipped) '
@@ -598,14 +598,20 @@ def run_step(name, runner_, **args):
         nonlocal locals
 
         # run the tests!
-        cmd = runner_
+        cmd = runner_.copy()
+        if args.get('disk'):
+            cmd.append('--disk=%s' % args['disk'])
+        if args.get('trace'):
+            cmd.append('--trace=%s' % args['trace'])
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         mpty, spty = pty.openpty()
         proc = sp.Popen(cmd, stdout=spty, stderr=spty)
         os.close(spty)
-        mpty = os.fdopen(mpty, 'r', 1)
         children.add(proc)
+        mpty = os.fdopen(mpty, 'r', 1)
+        if args.get('output'):
+            output = openio(args['output'], 'w')
 
         last_id = None
         last_output = []
@@ -622,7 +628,9 @@ def run_step(name, runner_, **args):
                 if not line:
                     break
                 last_output.append(line)
-                if args.get('verbose'):
+                if args.get('output'):
+                    output.write(line)
+                elif args.get('verbose'):
                     sys.stdout.write(line)
 
                 m = pattern.match(line)
@@ -652,6 +660,8 @@ def run_step(name, runner_, **args):
         finally:
             children.remove(proc)
             mpty.close()
+            if args.get('output'):
+                output.close()
 
         proc.wait()
         if proc.returncode != 0:
@@ -661,16 +671,16 @@ def run_step(name, runner_, **args):
                 last_output,
                 last_assert)
 
-    def run_job(runner, skip=None, every=None):
+    def run_job(runner, start=None, step=None):
         nonlocal failures
         nonlocal locals
 
-        while (skip or 0) < total_perms:
+        while (start or 0) < total_perms:
             runner_ = runner.copy()
-            if skip is not None:
-                runner_.append('--skip=%d' % skip)
-            if every is not None:
-                runner_.append('--every=%d' % every)
+            if start is not None:
+                runner_.append('--start=%d' % start)
+            if step is not None:
+                runner_.append('--step=%d' % step)
 
             try:
                 # run the tests
@@ -684,13 +694,13 @@ def run_step(name, runner_, **args):
 
                 failures.append(failure)
 
-                if args.get('keep_going'):
+                if args.get('keep_going') and not killed:
                     # resume after failed test
-                    skip = (skip or 0) + locals.seen_perms*(every or 1)
+                    start = (start or 0) + locals.seen_perms*(step or 1)
                     continue
                 else:
                     # stop other tests
-                    for child in children:
+                    for child in children.copy():
                         child.kill()
 
             break
@@ -733,6 +743,10 @@ def run_step(name, runner_, **args):
                             if failures else ''))
                 sys.stdout.flush()
                 needs_newline = True
+    except KeyboardInterrupt:
+        # this is handled by the runner threads, we just
+        # need to not abort here
+        killed = True
     finally:
         if needs_newline:
             print()
@@ -743,7 +757,8 @@ def run_step(name, runner_, **args):
     return (
         expected_perms,
         passed_perms,
-        failures)
+        failures,
+        killed)
     
 
 def run(**args):
@@ -767,41 +782,41 @@ def run(**args):
     if args.get('by_suites'):
         for type in ['normal', 'reentrant', 'valgrind']:
             for suite in expected_suite_perms.keys():
-                expected_, passed_, failures_ = run_step(
+                expected_, passed_, failures_, killed = run_stage(
                     '%s %s' % (type, suite),
                     runner_ + ['--%s' % type, suite],
                     **args)
                 expected += expected_
                 passed += passed_
                 failures.extend(failures_)
-                if failures and not args.get('keep_going'):
+                if (failures and not args.get('keep_going')) or killed:
                     break
-            if failures and not args.get('keep_going'):
+            if (failures and not args.get('keep_going')) or killed:
                 break
     elif args.get('by_cases'):
         for type in ['normal', 'reentrant', 'valgrind']:
             for case in expected_case_perms.keys():
-                expected_, passed_, failures_ = run_step(
+                expected_, passed_, failures_, killed = run_stage(
                     '%s %s' % (type, case),
                     runner_ + ['--%s' % type, case],
                     **args)
                 expected += expected_
                 passed += passed_
                 failures.extend(failures_)
-                if failures and not args.get('keep_going'):
+                if (failures and not args.get('keep_going')) or killed:
                     break
-            if failures and not args.get('keep_going'):
+            if (failures and not args.get('keep_going')) or killed:
                 break
     else:
         for type in ['normal', 'reentrant', 'valgrind']:
-            expected_, passed_, failures_ = run_step(
+            expected_, passed_, failures_, killed = run_stage(
                 '%s tests' % type,
                 runner_ + ['--%s' % type],
                 **args)
             expected += expected_
             passed += passed_
             failures.extend(failures_)
-            if failures and not args.get('keep_going'):
+            if (failures and not args.get('keep_going')) or killed:
                 break
 
     # show summary
@@ -867,7 +882,8 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Build and run tests.")
+        description="Build and run tests.",
+        conflict_handler='resolve')
     # TODO document test case/perm specifier
     parser.add_argument('test_paths', nargs='*',
         help="Description of testis to run. May be a directory, path, or \
@@ -900,10 +916,12 @@ if __name__ == "__main__":
         help="Filter for reentrant tests. Can be combined.")
     test_parser.add_argument('-V', '--valgrind', action='store_true',
         help="Filter for Valgrind tests. Can be combined.")
-    test_parser.add_argument('-p', '--persist',
-        help="Persist the disk to this file.")
+    test_parser.add_argument('-d', '--disk',
+        help="Use this file as the disk.")
     test_parser.add_argument('-t', '--trace',
         help="Redirect trace output to this file.")
+    test_parser.add_argument('-o', '--output',
+        help="Redirect stdout and stderr to this file.")
     test_parser.add_argument('--runner', default=[RUNNER_PATH],
         type=lambda x: x.split(),
         help="Path to runner, defaults to %r" % RUNNER_PATH)
