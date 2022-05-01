@@ -134,6 +134,15 @@ TYPE = {
     }
 }
 
+def openio(path, mode='r'):
+    if path == '-':
+        if 'r' in mode:
+            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+        else:
+            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+    else:
+        return open(path, mode)
+
 def mkdecls(outf, maxwidth=16):
     outf.write("#include <stdio.h>\n")
     outf.write("#include <stdbool.h>\n")
@@ -341,32 +350,31 @@ def pstmt(p):
 
 
 def main(args):
-    inf = open(args.input, 'r') if args.input else sys.stdin
-    outf = open(args.output, 'w') if args.output else sys.stdout
+    with openio(args.input or '-', 'r') as inf:
+        with openio(args.output or '-', 'w') as outf:
+            lexemes = LEX.copy()
+            if args.pattern:
+                lexemes['assert'] = args.pattern
+            p = Parse(inf, lexemes)
 
-    lexemes = LEX.copy()
-    if args.pattern:
-        lexemes['assert'] = args.pattern
-    p = Parse(inf, lexemes)
+            # write extra verbose asserts
+            mkdecls(outf, maxwidth=args.maxwidth)
+            if args.input:
+                outf.write("#line %d \"%s\"\n" % (1, args.input))
 
-    # write extra verbose asserts
-    mkdecls(outf, maxwidth=args.maxwidth)
-    if args.input:
-        outf.write("#line %d \"%s\"\n" % (1, args.input))
+            # parse and write out stmt at a time
+            try:
+                while True:
+                    outf.write(pstmt(p))
+                    if p.accept('sep'):
+                        outf.write(p.m)
+                    else:
+                        break
+            except ParseFailure as f:
+                pass
 
-    # parse and write out stmt at a time
-    try:
-        while True:
-            outf.write(pstmt(p))
-            if p.accept('sep'):
-                outf.write(p.m)
-            else:
-                break
-    except ParseFailure as f:
-        pass
-
-    for i in range(p.off, len(p.tokens)):
-        outf.write(p.tokens[i][1])
+            for i in range(p.off, len(p.tokens)):
+                outf.write(p.tokens[i][1])
 
 if __name__ == "__main__":
     import argparse

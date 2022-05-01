@@ -119,9 +119,16 @@ test:
 test%: tests/test$$(firstword $$(subst \#, ,%)).toml
 	./scripts/test.py $@ $(TESTFLAGS)
 
+.PHONY: test_runner
+test_runner: $(BUILDDIR)runners/test_runner
+
 .PHONY: test_
-test_: $(BUILDDIR)runners/test_runner
-	./scripts/test_.py --runner=$< $(TESTFLAGS_)
+test_: test_runner
+	./scripts/test_.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS_)
+
+.PHONY: test_list
+test_list: test_runner
+	./scripts/test_.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS_) -l
 
 .PHONY: code
 code: $(OBJ)

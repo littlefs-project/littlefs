@@ -24,6 +24,7 @@ RUNNER_PATH = './runners/test_runner'
 
 SUITE_PROLOGUE = """
 #include "runners/test_runner.h"
+#include "bd/lfs_testbd.h"
 #include <stdio.h>
 """
 CASE_PROLOGUE = """
@@ -78,20 +79,30 @@ class TestCase:
         self.valgrind = config.pop('valgrind',
                 config.pop('suite_valgrind', True))
 
-        # figure out defines and the number of resulting permutations
-        self.defines = {}
-        for k, v in (
-                config.pop('suite_defines', {})
-                | config.pop('defines', {})).items():
-            if not isinstance(v, list):
-                v = [v]
+        # figure out defines and build possible permutations
+        self.defines = set()
+        self.permutations = []
 
-            self.defines[k] = v
+        suite_defines = config.pop('suite_defines', {})
+        if not isinstance(suite_defines, list):
+            suite_defines = [suite_defines]
+        defines = config.pop('defines', {})
+        if not isinstance(defines, list):
+            defines = [defines]
 
-        self.permutations = m.prod(len(v) for v in self.defines.values())
+        # build possible permutations
+        for suite_defines_ in suite_defines:
+            self.defines |= suite_defines_.keys()
+            for defines_ in defines:
+                self.defines |= defines_.keys()
+                self.permutations.extend(map(dict, it.product(*(
+                    [(k, v) for v in (vs if isinstance(vs, list) else [vs])]
+                    for k, vs in sorted(
+                        (suite_defines_ | defines_).items())))))
 
         for k in config.keys():
-            print('warning: in %s, found unused key %r' % (self.id(), k),
+            print('\x1b[01;33mwarning:\x1b[m in %s, found unused key %r'
+                % (self.id(), k),
                 file=sys.stderr)
 
     def id(self):
@@ -130,7 +141,7 @@ class TestSuite:
             # sort in case toml parsing did not retain order
             case_linenos.sort()
 
-            cases = config.pop('cases', [])
+            cases = config.pop('cases')
             for (lineno, name), (nlineno, _) in it.zip_longest(
                     case_linenos, case_linenos[1:],
                     fillvalue=(float('inf'), None)):
@@ -179,8 +190,8 @@ class TestSuite:
                     **case}))
 
             # combine per-case defines
-            self.defines = sorted(
-                set.union(*(set(case.defines) for case in self.cases)))
+            self.defines = set.union(*(
+                set(case.defines) for case in self.cases))
 
             # combine other per-case things
             self.normal = any(case.normal for case in self.cases)
@@ -188,7 +199,8 @@ class TestSuite:
             self.valgrind = any(case.valgrind for case in self.cases)
 
         for k in config.keys():
-            print('warning: in %s, found unused key %r' % (self.id(), k),
+            print('\x1b[01;33mwarning:\x1b[m in %s, found unused key %r'
+                % (self.id(), k),
                 file=sys.stderr)
 
     def id(self):
@@ -266,7 +278,7 @@ def compile(**args):
                             % (f.lineno+1, args['output']))
                     f.writeln()
 
-                for i, define in enumerate(suite.defines):
+                for i, define in enumerate(sorted(suite.defines)):
                     f.writeln('#ifndef %s' % define)
                     f.writeln('#define %-24s test_define(%d)' % (define, i))
                     f.writeln('#endif')
@@ -275,16 +287,13 @@ def compile(**args):
                 for case in suite.cases:
                     # create case defines
                     if case.defines:
-                        sorted_defines = sorted(case.defines.items())
-
                         f.writeln('const test_define_t *const '
                             '__test__%s__%s__defines[] = {'
                             % (suite.name, case.name))
-                        for defines in it.product(*(
-                                [(k, v) for v in vs]
-                                for k, vs in sorted_defines)):
+                        for permutation in case.permutations:
                             f.writeln(4*' '+'(const test_define_t[]){%s},'
-                                % ', '.join('%s' % v for _, v in defines)) 
+                                % ', '.join(str(v) for _, v in sorted(
+                                    permutation.items())))
                         f.writeln('};')
                         f.writeln()
 
@@ -293,9 +302,9 @@ def compile(**args):
                             % (suite.name, case.name))
                         f.writeln(4*' '+'%s,'
                             % ', '.join(
-                                '%s' % [k for k, _ in sorted_defines].index(k)
+                                str(sorted(case.defines).index(k))
                                 if k in case.defines else '0xff'
-                                for k in suite.defines))
+                                for k in sorted(suite.defines)))
                         f.writeln('};')
                         f.writeln()
 
@@ -365,7 +374,8 @@ def compile(**args):
                             'TEST_NORMAL' if case.normal else None,
                             'TEST_REENTRANT' if case.reentrant else None,
                             'TEST_VALGRIND' if case.valgrind else None])))
-                    f.writeln(4*' '+'.permutations = %d,' % case.permutations)
+                    f.writeln(4*' '+'.permutations = %d,'
+                        % len(case.permutations))
                     if case.defines:
                         f.writeln(4*' '+'.defines = __test__%s__%s__defines,'
                             % (suite.name, case.name))
@@ -381,12 +391,13 @@ def compile(**args):
                     f.writeln()
 
                 # create suite define names
-                f.writeln('const char *const __test__%s__define_names[] = {'
-                    % suite.name)
-                for k in suite.defines:
-                    f.writeln(4*' '+'"%s",' % k)
-                f.writeln('};')
-                f.writeln()
+                if suite.defines:
+                    f.writeln('const char *const __test__%s__define_names[] = {'
+                        % suite.name)
+                    for k in sorted(suite.defines):
+                        f.writeln(4*' '+'"%s",' % k)
+                    f.writeln('};')
+                    f.writeln()
 
                 # create suite struct
                 f.writeln('const struct test_suite __test__%s__suite = {'
@@ -399,8 +410,9 @@ def compile(**args):
                         'TEST_NORMAL' if suite.normal else None,
                         'TEST_REENTRANT' if suite.reentrant else None,
                         'TEST_VALGRIND' if suite.valgrind else None])))
-                f.writeln(4*' '+'.define_names = __test__%s__define_names,'
-                    % suite.name)
+                if suite.defines:
+                    f.writeln(4*' '+'.define_names = __test__%s__define_names,'
+                        % suite.name)
                 f.writeln(4*' '+'.define_count = %d,' % len(suite.defines))
                 f.writeln(4*' '+'.cases = (const struct test_case *const []){')
                 for case in suite.cases:
@@ -726,7 +738,7 @@ def run_stage(name, runner_, **args):
 
             if not args.get('verbose'):
                 sys.stdout.write('\r\x1b[K'
-                    'running \x1b[%dm%s\x1b[m: '
+                    'running \x1b[%dm%s:\x1b[m '
                     '%d/%d suites, %d/%d cases, %d/%d perms%s '
                     % (32 if not failures else 31,
                         name,
@@ -779,12 +791,12 @@ def run(**args):
     expected = 0
     passed = 0
     failures = []
-    if args.get('by_suites'):
+    if args.get('by_cases'):
         for type in ['normal', 'reentrant', 'valgrind']:
-            for suite in expected_suite_perms.keys():
+            for case in expected_case_perms.keys():
                 expected_, passed_, failures_, killed = run_stage(
-                    '%s %s' % (type, suite),
-                    runner_ + ['--%s' % type, suite],
+                    '%s %s' % (type, case),
+                    runner_ + ['--%s' % type, case],
                     **args)
                 expected += expected_
                 passed += passed_
@@ -793,12 +805,12 @@ def run(**args):
                     break
             if (failures and not args.get('keep_going')) or killed:
                 break
-    elif args.get('by_cases'):
+    elif args.get('by_suites'):
         for type in ['normal', 'reentrant', 'valgrind']:
-            for case in expected_case_perms.keys():
+            for suite in expected_suite_perms.keys():
                 expected_, passed_, failures_, killed = run_stage(
-                    '%s %s' % (type, case),
-                    runner_ + ['--%s' % type, case],
+                    '%s %s' % (type, suite),
+                    runner_ + ['--%s' % type, suite],
                     **args)
                 expected += expected_
                 passed += passed_
@@ -821,7 +833,7 @@ def run(**args):
 
     # show summary
     print()
-    print('\x1b[%dmdone\x1b[m: %d/%d passed, %d/%d failed, in %.2fs'
+    print('\x1b[%dmdone:\x1b[m %d/%d passed, %d/%d failed, in %.2fs'
         % (32 if not failures else 31,
             passed, expected, len(failures), expected,
             time.time()-start))
