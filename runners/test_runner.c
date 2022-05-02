@@ -218,7 +218,7 @@ static void test_case_permcount(
         test_define_geometry(&test_geometries[geom_perm]);
 
         if (case_->filter) {
-            if (!case_->filter(case_perm)) {
+            if (!case_->filter()) {
                 continue;
             }
         }
@@ -495,7 +495,7 @@ static void run(void) {
 
                 // filter?
                 if (test_suites[i]->cases[j]->filter) {
-                    if (!test_suites[i]->cases[j]->filter(case_perm)) {
+                    if (!test_suites[i]->cases[j]->filter()) {
                         printf("skipped %s#%zu\n",
                                 test_suites[i]->cases[j]->id,
                                 perm);
@@ -538,7 +538,7 @@ static void run(void) {
                 // run the test
                 printf("running %s#%zu\n", test_suites[i]->cases[j]->id, perm);
 
-                test_suites[i]->cases[j]->run(&cfg, case_perm);
+                test_suites[i]->cases[j]->run(&cfg);
 
                 printf("finished %s#%zu\n", test_suites[i]->cases[j]->id, perm);
 

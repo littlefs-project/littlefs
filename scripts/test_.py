@@ -71,13 +71,15 @@ class TestCase:
         self.if_lineno = config.pop('if_lineno', None)
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
+        self.in_ = config.pop('in',
+            config.pop('suite_in', None))
 
         self.normal = config.pop('normal',
-                config.pop('suite_normal', True))
+            config.pop('suite_normal', True))
         self.reentrant = config.pop('reentrant',
-                config.pop('suite_reentrant', False))
+            config.pop('suite_reentrant', False))
         self.valgrind = config.pop('valgrind',
-                config.pop('suite_valgrind', True))
+            config.pop('suite_valgrind', True))
 
         # figure out defines and build possible permutations
         self.defines = set()
@@ -171,6 +173,7 @@ class TestSuite:
 
             # a couple of these we just forward to all cases
             defines = config.pop('defines', {})
+            in_ = config.pop('in', None)
             normal = config.pop('normal', True)
             reentrant = config.pop('reentrant', False)
             valgrind = config.pop('valgrind', True)
@@ -184,6 +187,7 @@ class TestSuite:
                         if 'lineno' in case else ''),
                     'suite': self.name,
                     'suite_defines': defines,
+                    'suite_in': in_,
                     'suite_normal': normal,
                     'suite_reentrant': reentrant,
                     'suite_valgrind': valgrind,
@@ -264,54 +268,15 @@ def compile(**args):
                 'LFS_TRACE_(__VA_ARGS__, "")')
             f.writeln()
 
-            if not args.get('source'):
-                # write test suite prologue
-                f.writeln('%s' % SUITE_PROLOGUE.strip())
-                f.writeln()
-                if suite.code is not None:
-                    if suite.code_lineno is not None:
-                        f.writeln('#line %d "%s"'
-                            % (suite.code_lineno, suite.path))
-                    f.write(suite.code)
-                    if suite.code_lineno is not None:
-                        f.writeln('#line %d "%s"'
-                            % (f.lineno+1, args['output']))
-                    f.writeln()
-
-                for i, define in enumerate(sorted(suite.defines)):
-                    f.writeln('#ifndef %s' % define)
-                    f.writeln('#define %-24s test_define(%d)' % (define, i))
-                    f.writeln('#endif')
-                f.writeln()
-
-                for case in suite.cases:
-                    # create case defines
-                    if case.defines:
-                        f.writeln('const test_define_t *const '
-                            '__test__%s__%s__defines[] = {'
-                            % (suite.name, case.name))
-                        for permutation in case.permutations:
-                            f.writeln(4*' '+'(const test_define_t[]){%s},'
-                                % ', '.join(str(v) for _, v in sorted(
-                                    permutation.items())))
-                        f.writeln('};')
-                        f.writeln()
-
-                        f.writeln('const uint8_t '
-                            '__test__%s__%s__define_map[] = {'
-                            % (suite.name, case.name))
-                        f.writeln(4*' '+'%s,'
-                            % ', '.join(
-                                str(sorted(case.defines).index(k))
-                                if k in case.defines else '0xff'
-                                for k in sorted(suite.defines)))
-                        f.writeln('};')
-                        f.writeln()
-
+            # write out generated functions, this can end up in different
+            # files depending on the "in" attribute
+            #
+            # note it's up to the specific generated file to declare
+            # the test defines
+            def write_case_functions(f, suite, case):
                     # create case filter function
                     if suite.if_ is not None or case.if_ is not None:
-                        f.writeln('bool __test__%s__%s__filter('
-                            '__attribute__((unused)) uint32_t perm) {'
+                        f.writeln('bool __test__%s__%s__filter(void) {'
                             % (suite.name, case.name))
                         if suite.if_ is not None:
                             if suite.if_lineno is not None:
@@ -341,8 +306,7 @@ def compile(**args):
 
                     # create case run function
                     f.writeln('void __test__%s__%s__run('
-                        '__attribute__((unused)) struct lfs_config *cfg, '
-                        '__attribute__((unused)) uint32_t perm) {'
+                        '__attribute__((unused)) struct lfs_config *cfg) {'
                         % (suite.name, case.name))
                     if CASE_PROLOGUE.strip():
                         f.writeln(4*' '+'%s'
@@ -362,6 +326,65 @@ def compile(**args):
                             % CASE_EPILOGUE.strip().replace('\n', '\n'+4*' '))
                     f.writeln('}')
                     f.writeln()
+
+            if not args.get('source'):
+                # write test suite prologue
+                f.writeln('%s' % SUITE_PROLOGUE.strip())
+                f.writeln()
+                if suite.code is not None:
+                    if suite.code_lineno is not None:
+                        f.writeln('#line %d "%s"'
+                            % (suite.code_lineno, suite.path))
+                    f.write(suite.code)
+                    if suite.code_lineno is not None:
+                        f.writeln('#line %d "%s"'
+                            % (f.lineno+1, args['output']))
+                    f.writeln()
+
+                if suite.defines:
+                    for i, define in enumerate(sorted(suite.defines)):
+                        f.writeln('#ifndef %s' % define)
+                        f.writeln('#define %-24s test_define(%d)'
+                            % (define, i))
+                        f.writeln('#endif')
+                    f.writeln()
+
+                for case in suite.cases:
+                    # create case defines
+                    if case.defines:
+                        f.writeln('const test_define_t *const '
+                            '__test__%s__%s__defines[] = {'
+                            % (suite.name, case.name))
+                        for permutation in case.permutations:
+                            f.writeln(4*' '+'(const test_define_t[]){%s},'
+                                % ', '.join(str(v) for _, v in sorted(
+                                    permutation.items())))
+                        f.writeln('};')
+                        f.writeln()
+
+                        f.writeln('const uint8_t '
+                            '__test__%s__%s__define_map[] = {'
+                            % (suite.name, case.name))
+                        f.writeln(4*' '+'%s,'
+                            % ', '.join(
+                                str(sorted(case.defines).index(k))
+                                if k in case.defines else '0xff'
+                                for k in sorted(suite.defines)))
+                        f.writeln('};')
+                        f.writeln()
+
+                    # create case functions
+                    if case.in_ is None:
+                        write_case_functions(f, suite, case)
+                    else:
+                        if suite.if_ is not None or case.if_ is not None:
+                            f.writeln('extern bool __test__%s__%s__filter('
+                                'void);'
+                                % (suite.name, case.name))
+                        f.writeln('extern void __test__%s__%s__run('
+                            'struct lfs_config *cfg);'
+                            % (suite.name, case.name))
+                        f.writeln()
 
                     # create case struct
                     f.writeln('const struct test_case __test__%s__%s__case = {'
@@ -432,6 +455,35 @@ def compile(**args):
 
                 f.write(SUITE_PROLOGUE)
                 f.writeln()
+
+                # write any internal tests
+                for suite in suites:
+                    for case in suite.cases:
+                        if case.in_ == args.get('source'):
+                            # write defines, but note we need to undef any
+                            # new defines since we're in someone else's file
+                            if suite.defines:
+                                for i, define in enumerate(
+                                        sorted(suite.defines)):
+                                    f.writeln('#ifndef %s' % define)
+                                    f.writeln('#define %-24s test_define(%d)'
+                                        % (define, i))
+                                    f.writeln('#define __TEST__%s__NEEDS_UNDEF'
+                                        % define)
+                                    f.writeln('#endif')
+                                f.writeln()
+
+                            write_case_functions(f, suite, case)
+
+                            if suite.defines:
+                                for define in sorted(suite.defines):
+                                    f.writeln('#ifdef __TEST__%s__NEEDS_UNDEF'
+                                        % define)
+                                    f.writeln('#undef __TEST__%s__NEEDS_UNDEF'
+                                        % define)
+                                    f.writeln('#undef %s' % define)
+                                    f.writeln('#endif')
+                                f.writeln()
 
                 # add suite info to test_runner.c
                 if args['source'] == 'runners/test_runner.c':
@@ -738,21 +790,25 @@ def run_stage(name, runner_, **args):
 
             if not args.get('verbose'):
                 sys.stdout.write('\r\x1b[K'
-                    'running \x1b[%dm%s:\x1b[m '
-                    '%d/%d suites, %d/%d cases, %d/%d perms%s '
+                    'running \x1b[%dm%s:\x1b[m %s '
                     % (32 if not failures else 31,
                         name,
-                        sum(passed_suite_perms[k] == v
-                            for k, v in expected_suite_perms.items()),
-                        len(expected_suite_perms),
-                        sum(passed_case_perms[k] == v
-                            for k, v in expected_case_perms.items()),
-                        len(expected_case_perms),
-                        passed_perms,
-                        expected_perms,
-                        ', \x1b[31m%d/%d failures\x1b[m'
-                            % (len(failures), expected_perms)
-                            if failures else ''))
+                        ', '.join(filter(None, [
+                            '%d/%d suites' % (
+                                sum(passed_suite_perms[k] == v
+                                    for k, v in expected_suite_perms.items()),
+                                len(expected_suite_perms))
+                                if (not args.get('by_suites')
+                                    and not args.get('by_cases')) else None,
+                            '%d/%d cases' % (
+                                sum(passed_case_perms[k] == v
+                                    for k, v in expected_case_perms.items()),
+                                len(expected_case_perms))
+                                if not args.get('by_cases') else None,
+                            '%d/%d perms' % (passed_perms, expected_perms),
+                            '\x1b[31m%d/%d failures\x1b[m'
+                                % (len(failures), expected_perms)
+                                if failures else None]))))
                 sys.stdout.flush()
                 needs_newline = True
     except KeyboardInterrupt:
@@ -791,45 +847,21 @@ def run(**args):
     expected = 0
     passed = 0
     failures = []
-    if args.get('by_cases'):
-        for type in ['normal', 'reentrant', 'valgrind']:
-            for case in expected_case_perms.keys():
-                expected_, passed_, failures_, killed = run_stage(
-                    '%s %s' % (type, case),
-                    runner_ + ['--%s' % type, case],
-                    **args)
-                expected += expected_
-                passed += passed_
-                failures.extend(failures_)
-                if (failures and not args.get('keep_going')) or killed:
-                    break
-            if (failures and not args.get('keep_going')) or killed:
-                break
-    elif args.get('by_suites'):
-        for type in ['normal', 'reentrant', 'valgrind']:
-            for suite in expected_suite_perms.keys():
-                expected_, passed_, failures_, killed = run_stage(
-                    '%s %s' % (type, suite),
-                    runner_ + ['--%s' % type, suite],
-                    **args)
-                expected += expected_
-                passed += passed_
-                failures.extend(failures_)
-                if (failures and not args.get('keep_going')) or killed:
-                    break
-            if (failures and not args.get('keep_going')) or killed:
-                break
-    else:
-        for type in ['normal', 'reentrant', 'valgrind']:
-            expected_, passed_, failures_, killed = run_stage(
-                '%s tests' % type,
-                runner_ + ['--%s' % type],
-                **args)
-            expected += expected_
-            passed += passed_
-            failures.extend(failures_)
-            if (failures and not args.get('keep_going')) or killed:
-                break
+    for type, by in it.product(
+            ['normal', 'reentrant', 'valgrind'],
+            expected_case_perms.keys() if args.get('by_cases')
+                else expected_suite_perms.keys() if args.get('by_suites')
+                else [None]):
+
+        expected_, passed_, failures_, killed = run_stage(
+            '%s %s' % (type, by or 'tests'),
+            runner_ + ['--%s' % type] + ([by] if by is not None else []),
+            **args)
+        expected += expected_
+        passed += passed_
+        failures.extend(failures_)
+        if (failures and not args.get('keep_going')) or killed:
+            break
 
     # show summary
     print()

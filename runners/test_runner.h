@@ -24,8 +24,8 @@ struct test_case {
     const test_define_t *const *defines;
     const uint8_t *define_map;
 
-    bool (*filter)(uint32_t perm);
-    void (*run)(struct lfs_config *cfg, uint32_t perm);
+    bool (*filter)(void);
+    void (*run)(struct lfs_config *cfg);
 };
 
 struct test_suite {
