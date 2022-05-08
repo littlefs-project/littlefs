@@ -8,7 +8,6 @@
 enum test_types {
     TEST_NORMAL    = 0x1,
     TEST_REENTRANT = 0x2,
-    TEST_VALGRIND  = 0x4,
 };
 
 typedef uint8_t test_types_t;

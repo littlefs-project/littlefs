@@ -13,6 +13,7 @@ import pty
 import re
 import shlex
 import shutil
+import signal
 import subprocess as sp
 import threading as th
 import time
@@ -77,8 +78,6 @@ class TestCase:
             config.pop('suite_normal', True))
         self.reentrant = config.pop('reentrant',
             config.pop('suite_reentrant', False))
-        self.valgrind = config.pop('valgrind',
-            config.pop('suite_valgrind', True))
 
         # figure out defines and build possible permutations
         self.defines = set()
@@ -163,7 +162,6 @@ class TestSuite:
             in_ = config.pop('in', None)
             normal = config.pop('normal', True)
             reentrant = config.pop('reentrant', False)
-            valgrind = config.pop('valgrind', True)
 
             self.cases = []
             for name, case in sorted(cases.items(),
@@ -177,7 +175,6 @@ class TestSuite:
                     'suite_in': in_,
                     'suite_normal': normal,
                     'suite_reentrant': reentrant,
-                    'suite_valgrind': valgrind,
                     **case}))
 
             # combine per-case defines
@@ -187,7 +184,6 @@ class TestSuite:
             # combine other per-case things
             self.normal = any(case.normal for case in self.cases)
             self.reentrant = any(case.reentrant for case in self.cases)
-            self.valgrind = any(case.valgrind for case in self.cases)
 
         for k in config.keys():
             print('\x1b[01;33mwarning:\x1b[m in %s, found unused key %r'
@@ -202,7 +198,7 @@ class TestSuite:
 def compile(**args):
     # find .toml files
     paths = []
-    for path in args.get('test_paths', TEST_PATHS):
+    for path in args.get('test_ids', TEST_PATHS):
         if os.path.isdir(path):
             path = path + '/*.toml'
 
@@ -210,13 +206,13 @@ def compile(**args):
             paths.append(path)
 
     if not paths:
-        print('no test suites found in %r?' % args['test_paths'])
+        print('no test suites found in %r?' % args['test_ids'])
         sys.exit(-1)
 
     if not args.get('source'):
         if len(paths) > 1:
             print('more than one test suite for compilation? (%r)'
-                % args['test_paths'])
+                % args['test_ids'])
             sys.exit(-1)
 
         # load our suite
@@ -373,8 +369,7 @@ def compile(**args):
                     f.writeln(4*' '+'.types = %s,'
                         % ' | '.join(filter(None, [
                             'TEST_NORMAL' if case.normal else None,
-                            'TEST_REENTRANT' if case.reentrant else None,
-                            'TEST_VALGRIND' if case.valgrind else None])))
+                            'TEST_REENTRANT' if case.reentrant else None])))
                     f.writeln(4*' '+'.permutations = %d,'
                         % len(case.permutations))
                     if case.defines:
@@ -406,8 +401,7 @@ def compile(**args):
                 f.writeln(4*' '+'.types = %s,'
                     % ' | '.join(filter(None, [
                         'TEST_NORMAL' if suite.normal else None,
-                        'TEST_REENTRANT' if suite.reentrant else None,
-                        'TEST_VALGRIND' if suite.valgrind else None])))
+                        'TEST_REENTRANT' if suite.reentrant else None])))
                 if suite.defines:
                     f.writeln(4*' '+'.define_names = __test__%s__define_names,'
                         % suite.name)
@@ -434,7 +428,9 @@ def compile(**args):
                 # write any internal tests
                 for suite in suites:
                     for case in suite.cases:
-                        if case.in_ == args.get('source'):
+                        if (case.in_ is not None
+                                and os.path.normpath(case.in_)
+                                    == os.path.normpath(args['source'])):
                             # write defines, but note we need to undef any
                             # new defines since we're in someone else's file
                             if suite.defines:
@@ -475,15 +471,27 @@ def compile(**args):
 
 def runner(**args):
     cmd = args['runner'].copy()
-    # TODO multiple paths?
-    if 'test_paths' in args:
-        cmd.extend(args.get('test_paths'))
+    cmd.extend(args.get('test_ids'))
 
+    # run under some external command?
+    cmd[:0] = args.get('exec', [])
+
+    # run under valgrind?
+    if args.get('valgrind'):
+        cmd[:0] = filter(None, [
+            'valgrind',
+            '--leak-check=full',
+            '--track-origins=yes',
+            '--error-exitcode=4',
+            '-q'])
+
+    # filter tests?
     if args.get('normal'):    cmd.append('-n')
     if args.get('reentrant'): cmd.append('-r')
-    if args.get('valgrind'):  cmd.append('-V')
     if args.get('geometry'):
         cmd.append('-G%s' % args.get('geometry'))
+
+    # defines?
     if args.get('define'):
         for define in args.get('define'):
             cmd.append('-D%s' % define)
@@ -522,8 +530,7 @@ def find_cases(runner_, **args):
         '^(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)\s+'
             '[^\s]+\s+(?P<filtered>\d+)/(?P<perms>\d+)')
     # skip the first line
-    next(proc.stdout)
-    for line in proc.stdout:
+    for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
         if m:
             filtered = int(m.group('filtered'))
@@ -558,7 +565,6 @@ def find_paths(runner_, **args):
     pattern = re.compile(
         '^(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)\s+'
             '(?P<path>[^:]+):(?P<lineno>\d+)')
-    # skip the first line
     for line in proc.stdout:
         m = pattern.match(line)
         if m:
@@ -586,7 +592,6 @@ def find_defines(runner_, **args):
     pattern = re.compile(
         '^(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)\s+'
             '(?P<defines>(?:\w+=\w+\s*)+)')
-    # skip the first line
     for line in proc.stdout:
         m = pattern.match(line)
         if m:
@@ -614,7 +619,6 @@ def run_stage(name, runner_, **args):
     expected_suite_perms, expected_case_perms, expected_perms, total_perms = (
         find_cases(runner_, **args))
 
-    # TODO valgrind/gdb/exec
     passed_suite_perms = co.defaultdict(lambda: 0)
     passed_case_perms = co.defaultdict(lambda: 0)
     passed_perms = 0
@@ -627,7 +631,6 @@ def run_stage(name, runner_, **args):
             '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
                 ' *(?P<message>.*)' ')$')
     locals = th.local()
-    # TODO use process group instead of this set?
     children = set()
 
     def run_runner(runner_):
@@ -714,17 +717,23 @@ def run_stage(name, runner_, **args):
         nonlocal failures
         nonlocal locals
 
-        while (start or 0) < total_perms:
+        start = start or 0
+        step = step or 1
+        while start < total_perms:
             runner_ = runner.copy()
             if start is not None:
                 runner_.append('--start=%d' % start)
             if step is not None:
                 runner_.append('--step=%d' % step)
+            if args.get('isolate') or args.get('valgrind'):
+                runner_.append('--stop=%d' % (start+step))
 
             try:
                 # run the tests
                 locals.seen_perms = 0
                 run_runner(runner_)
+                assert locals.seen_perms > 0
+                start += locals.seen_perms*step
 
             except TestFailure as failure:
                 # race condition for multiple failures?
@@ -735,14 +744,13 @@ def run_stage(name, runner_, **args):
 
                 if args.get('keep_going') and not killed:
                     # resume after failed test
-                    start = (start or 0) + locals.seen_perms*(step or 1)
+                    assert locals.seen_perms > 0
+                    start += locals.seen_perms*step
                     continue
                 else:
                     # stop other tests
                     for child in children.copy():
                         child.kill()
-
-            break
     
 
     # parallel jobs?
@@ -808,7 +816,7 @@ def run(**args):
     start = time.time()
 
     runner_ = runner(**args)
-    print('using runner `%s`'
+    print('using runner: %s'
         % ' '.join(shlex.quote(c) for c in runner_))
     expected_suite_perms, expected_case_perms, expected_perms, total_perms = (
         find_cases(runner_, **args))
@@ -823,15 +831,19 @@ def run(**args):
     passed = 0
     failures = []
     for type, by in it.product(
-            ['normal', 'reentrant', 'valgrind'],
+            ['normal', 'reentrant'],
             expected_case_perms.keys() if args.get('by_cases')
                 else expected_suite_perms.keys() if args.get('by_suites')
                 else [None]):
+        # rebuild runner for each stage to override test identifier if needed
+        stage_runner = runner(**args | {
+            'test_ids': [by] if by is not None else args.get('test_ids', []),
+            'normal': type == 'normal',
+            'reentrant': type == 'reentrant'})
 
+        # spawn jobs for stage
         expected_, passed_, failures_, killed = run_stage(
-            '%s %s' % (type, by or 'tests'),
-            runner_ + ['--%s' % type] + ([by] if by is not None else []),
-            **args)
+            '%s %s' % (type, by or 'tests'), stage_runner, **args)
         expected += expected_
         passed += passed_
         failures.extend(failures_)
@@ -879,6 +891,40 @@ def run(**args):
                 print(line)
         print()
 
+    # drop into gdb?
+    if failures and (args.get('gdb')
+            or args.get('gdb_case')
+            or args.get('gdb_main')):
+        failure = failures[0]
+        runner_ = runner(**args | {'test_ids': [failure.id]})
+
+        if args.get('gdb_main'):
+            cmd = ['gdb',
+                '-ex', 'break main',
+                '-ex', 'run',
+                '--args'] + runner_
+        elif args.get('gdb_case'):
+            path, lineno = runner_paths[testcase(failure.id)]
+            cmd = ['gdb',
+                '-ex', 'break %s:%d' % (path, lineno),
+                '-ex', 'run',
+                '--args'] + runner_
+        elif failure.assert_ is not None:
+            cmd = ['gdb',
+                '-ex', 'run',
+                '-ex', 'frame function raise',
+                '-ex', 'up 2',
+                '--args'] + runner_
+        else:
+            cmd = ['gdb',
+                '-ex', 'run',
+                '--args'] + runner_
+
+        # exec gdb interactively
+        if args.get('verbose'):
+            print(' '.join(shlex.quote(c) for c in cmd))
+        os.execvp(cmd[0], cmd)
+
     return 1 if failures else 0
 
 
@@ -903,10 +949,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Build and run tests.",
         conflict_handler='resolve')
-    # TODO document test case/perm specifier
-    parser.add_argument('test_paths', nargs='*',
+    parser.add_argument('test_ids', nargs='*',
         help="Description of testis to run. May be a directory, path, or \
-            test identifier. Defaults to %r." % TEST_PATHS)
+            test identifier. Test identifiers are of the form \
+            <suite_name>#<case_name>#<permutation>, but suffixes can be \
+            dropped to run any matching tests. Defaults to %r." % TEST_PATHS)
     parser.add_argument('-v', '--verbose', action='store_true',
         help="Output commands that run behind the scenes.")
     # test flags
@@ -933,8 +980,6 @@ if __name__ == "__main__":
         help="Filter for normal tests. Can be combined.")
     test_parser.add_argument('-r', '--reentrant', action='store_true',
         help="Filter for reentrant tests. Can be combined.")
-    test_parser.add_argument('-V', '--valgrind', action='store_true',
-        help="Filter for Valgrind tests. Can be combined.")
     test_parser.add_argument('-d', '--disk',
         help="Use this file as the disk.")
     test_parser.add_argument('-t', '--trace',
@@ -949,10 +994,25 @@ if __name__ == "__main__":
         help="Number of parallel runners to run.")
     test_parser.add_argument('-k', '--keep-going', action='store_true',
         help="Don't stop on first error.")
+    test_parser.add_argument('-i', '--isolate', action='store_true',
+        help="Run each test permutation in a separate process.")
     test_parser.add_argument('-b', '--by-suites', action='store_true',
         help="Step through tests by suite.")
     test_parser.add_argument('-B', '--by-cases', action='store_true',
         help="Step through tests by case.")
+    test_parser.add_argument('--gdb', action='store_true',
+        help="Drop into gdb on test failure.")
+    test_parser.add_argument('--gdb-case', action='store_true',
+        help="Drop into gdb on test failure but stop at the beginning \
+            of the failing test case.")
+    test_parser.add_argument('--gdb-main', action='store_true',
+        help="Drop into gdb on test failure but stop at the beginning \
+            of main.")
+    test_parser.add_argument('--valgrind', action='store_true',
+        help="Run under Valgrind to find memory errors. Implicitly sets \
+            --isolate.")
+    test_parser.add_argument('--exec', default=[], type=lambda e: e.split(),
+        help="Run under another executable.")
     # compilation flags
     comp_parser = parser.add_argument_group('compilation options')
     comp_parser.add_argument('-c', '--compile', action='store_true',

@@ -235,10 +235,9 @@ static void summary(void) {
     char perm_buf[64];
     sprintf(perm_buf, "%zu/%zu", filtered, perms);
     char type_buf[64];
-    sprintf(type_buf, "%s%s%s",
+    sprintf(type_buf, "%s%s",
             (types & TEST_NORMAL)    ? "n" : "",
-            (types & TEST_REENTRANT) ? "r" : "",
-            (types & TEST_VALGRIND)  ? "V" : "");
+            (types & TEST_REENTRANT) ? "r" : "");
     printf("%-36s %7s %7zu %7zu %11s\n",
             "TOTAL",
             type_buf,
@@ -270,10 +269,9 @@ static void list_suites(void) {
         char perm_buf[64];
         sprintf(perm_buf, "%zu/%zu", filtered, perms);
         char type_buf[64];
-        sprintf(type_buf, "%s%s%s",
+        sprintf(type_buf, "%s%s",
                 (test_suites[i]->types & TEST_NORMAL)    ? "n" : "",
-                (test_suites[i]->types & TEST_REENTRANT) ? "r" : "",
-                (test_suites[i]->types & TEST_VALGRIND)  ? "V" : "");
+                (test_suites[i]->types & TEST_REENTRANT) ? "r" : "");
         printf("%-36s %7s %7zu %11s\n",
                 test_suites[i]->id,
                 type_buf,
@@ -305,10 +303,9 @@ static void list_cases(void) {
             char perm_buf[64];
             sprintf(perm_buf, "%zu/%zu", filtered, perms);
             char type_buf[64];
-            sprintf(type_buf, "%s%s%s",
+            sprintf(type_buf, "%s%s",
                     (types & TEST_NORMAL)    ? "n" : "",
-                    (types & TEST_REENTRANT) ? "r" : "",
-                    (types & TEST_VALGRIND)  ? "V" : "");
+                    (types & TEST_REENTRANT) ? "r" : "");
             printf("%-36s %7s %11s\n",
                     test_suites[i]->cases[j]->id,
                     type_buf,
@@ -532,7 +529,6 @@ enum opt_flags {
     OPT_GEOMETRY        = 'G',
     OPT_NORMAL          = 'n',
     OPT_REENTRANT       = 'r',
-    OPT_VALGRIND        = 'V',
     OPT_START           = 5,
     OPT_STEP            = 6,
     OPT_STOP            = 7,
@@ -555,7 +551,6 @@ const struct option long_opts[] = {
     {"geometry",        required_argument, NULL, OPT_GEOMETRY},
     {"normal",          no_argument,       NULL, OPT_NORMAL},
     {"reentrant",       no_argument,       NULL, OPT_REENTRANT},
-    {"valgrind",        no_argument,       NULL, OPT_VALGRIND},
     {"start",           required_argument, NULL, OPT_START},
     {"stop",            required_argument, NULL, OPT_STOP},
     {"step",            required_argument, NULL, OPT_STEP},
@@ -577,7 +572,6 @@ const char *const help_text[] = {
     "Filter by geometry.",
     "Filter for normal tests. Can be combined.",
     "Filter for reentrant tests. Can be combined.",
-    "Filter for Valgrind tests. Can be combined.",
     "Start at the nth test.",
     "Stop before the nth test.",
     "Only run every n tests, calculated after --start and --stop.",
@@ -723,9 +717,6 @@ invalid_define:
                 break;
             case OPT_REENTRANT:
                 test_types |= TEST_REENTRANT;
-                break;
-            case OPT_VALGRIND:
-                test_types |= TEST_VALGRIND;
                 break;
             case OPT_START: {
                 char *parsed = NULL;
