@@ -10,34 +10,18 @@
 // test geometries
 struct test_geometry {
     const char *name;
-    test_define_t defines[TEST_GEOMETRY_DEFINE_COUNT];
+    uintmax_t defines[TEST_GEOMETRY_DEFINE_COUNT];
 };
 
 const struct test_geometry test_geometries[TEST_GEOMETRY_COUNT]
         = TEST_GEOMETRIES;
 
 // test define lookup and management
-#define TEST_DEFINE_LAYERS 4
-const test_define_t *test_defines[TEST_DEFINE_LAYERS] = {
-    NULL,
-    NULL,
-    NULL,
-    (const test_define_t[TEST_DEFAULT_COUNT])TEST_DEFAULTS,
-};
-
-const uint8_t *test_predefine_maps[TEST_DEFINE_LAYERS] = {
-    NULL,
-    NULL,
-    (const uint8_t[TEST_PREDEFINE_COUNT])TEST_GEOMETRY_DEFINE_MAP,
-    (const uint8_t[TEST_PREDEFINE_COUNT])TEST_DEFAULT_MAP,
-};
-
-const uint8_t *test_define_maps[TEST_DEFINE_LAYERS] = {
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-};
+const uintmax_t *test_override_defines;
+uintmax_t (*const *test_case_defines)(void);
+const uintmax_t *test_geometry_defines;
+const uintmax_t test_default_defines[TEST_PREDEFINE_COUNT]
+        = TEST_DEFAULTS;
 
 uint8_t test_override_predefine_map[TEST_PREDEFINE_COUNT];
 uint8_t test_override_define_map[256];
@@ -53,28 +37,28 @@ const char *const *test_define_names;
 size_t test_define_count;
 
 
-test_define_t test_predefine(size_t define) {
-    for (int i = 0; i < TEST_DEFINE_LAYERS; i++) {
-        if (test_defines[i]
-                && test_predefine_maps[i]
-                && test_predefine_maps[i][define] != 0xff) {
-            return test_defines[i][test_predefine_maps[i][define]];
-        }
+uintmax_t test_predefine(size_t define) {
+    if (test_override_defines
+            && test_override_predefine_map[define] != 0xff) {
+        return test_override_defines[test_override_predefine_map[define]];
+    } else if (test_case_defines
+            && test_case_predefine_map[define] != 0xff
+            && test_case_defines[test_case_predefine_map[define]]) {
+        return test_case_defines[test_case_predefine_map[define]]();
+    } else if (define < TEST_GEOMETRY_DEFINE_COUNT) {
+        return test_geometry_defines[define];
+    } else {
+        return test_default_defines[define-TEST_GEOMETRY_DEFINE_COUNT];
     }
-
-    fprintf(stderr, "error: undefined predefine %s\n",
-            test_predefine_names[define]);
-    assert(false);
-    exit(-1);
 }
 
-test_define_t test_define(size_t define) {
-    for (int i = 0; i < TEST_DEFINE_LAYERS; i++) {
-        if (test_defines[i]
-                && test_define_maps[i]
-                && test_define_maps[i][define] != 0xff) {
-            return test_defines[i][test_define_maps[i][define]];
-        }
+uintmax_t test_define(size_t define) {
+    if (test_override_defines
+            && test_override_define_map[define] != 0xff) {
+        return test_override_defines[test_override_define_map[define]];
+    } else if (test_case_defines
+            && test_case_defines[define]) {
+        return test_case_defines[define]();
     }
 
     fprintf(stderr, "error: undefined define %s\n",
@@ -84,34 +68,33 @@ test_define_t test_define(size_t define) {
 }
 
 static void test_define_geometry(const struct test_geometry *geometry) {
-    test_defines[2] = geometry->defines;
+    test_geometry_defines = geometry->defines;
 }
 
 static void test_define_overrides(
         const char *const *override_names,
-        const test_define_t *override_defines,
+        const uintmax_t *override_defines,
         size_t override_count) {
-    test_defines[0] = override_defines;
+    test_override_defines = override_defines;
     test_override_names = override_names;
     test_override_count = override_count;
 
-    // map any predefines
+    // map any override predefines
     memset(test_override_predefine_map, 0xff, TEST_PREDEFINE_COUNT);
-    for (size_t i = 0; i < override_count; i++) {
+    for (size_t i = 0; i < test_override_count; i++) {
         for (size_t j = 0; j < TEST_PREDEFINE_COUNT; j++) {
-            if (strcmp(override_names[i], test_predefine_names[j]) == 0) {
+            if (strcmp(test_override_names[i], test_predefine_names[j]) == 0) {
                 test_override_predefine_map[j] = i;
             }
         }
     }
-    test_predefine_maps[0] = test_override_predefine_map;
 }
 
 static void test_define_suite(const struct test_suite *suite) {
     test_define_names = suite->define_names;
     test_define_count = suite->define_count;
 
-    // map any defines
+    // map any override defines
     memset(test_override_define_map, 0xff, suite->define_count);
     for (size_t i = 0; i < test_override_count; i++) {
         for (size_t j = 0; j < suite->define_count; j++) {
@@ -120,26 +103,16 @@ static void test_define_suite(const struct test_suite *suite) {
             }
         }
     }
-    test_define_maps[0] = test_override_define_map;
-}
 
-static void test_define_case(
-        const struct test_suite *suite,
-        const struct test_case *case_) {
-    (void)suite;
-    // case_->define_map is already correct, but we need to do
-    // some fixup for the predefine map
-    test_define_maps[1] = case_->define_map;
-
+    // map any suite/case predefines
     memset(test_case_predefine_map, 0xff, TEST_PREDEFINE_COUNT);
-    for (size_t i = 0; i < test_define_count; i++) {
+    for (size_t i = 0; i < suite->define_count; i++) {
         for (size_t j = 0; j < TEST_PREDEFINE_COUNT; j++) {
-            if (strcmp(test_define_names[i], test_predefine_names[j]) == 0) {
-                test_case_predefine_map[j] = case_->define_map[i];
+            if (strcmp(suite->define_names[i], test_predefine_names[j]) == 0) {
+                test_case_predefine_map[j] = i;
             }
         }
     }
-    test_predefine_maps[1] = test_case_predefine_map;
 }
 
 static void test_define_perm(
@@ -148,9 +121,9 @@ static void test_define_perm(
         size_t perm) {
     (void)suite;
     if (case_->defines) {
-        test_defines[1] = case_->defines[perm];
+        test_case_defines = case_->defines[perm];
     } else {
-        test_defines[1] = NULL;
+        test_case_defines = NULL;
     }
 }
 
@@ -251,7 +224,6 @@ static void summary(void) {
                 continue;
             }
 
-            test_define_case(test_suites[i], test_suites[i]->cases[j]);
             test_case_permcount(test_suites[i], test_suites[i]->cases[j],
                     &perms, &filtered);
         }
@@ -291,7 +263,6 @@ static void list_suites(void) {
                 continue;
             }
 
-            test_define_case(test_suites[i], test_suites[i]->cases[j]);
             test_case_permcount(test_suites[i], test_suites[i]->cases[j],
                     &perms, &filtered);
         }
@@ -324,8 +295,6 @@ static void list_cases(void) {
             if (test_case_skip(test_suites[i]->cases[j])) {
                 continue;
             }
-
-            test_define_case(test_suites[i], test_suites[i]->cases[j]);
 
             size_t perms = 0;
             size_t filtered = 0;
@@ -379,8 +348,6 @@ static void list_defines(void) {
                 continue;
             }
 
-            test_define_case(test_suites[i], test_suites[i]->cases[j]);
-
             for (size_t perm = 0;
                     perm < TEST_GEOMETRY_COUNT
                         * test_suites[i]->cases[j]->permutations;
@@ -406,9 +373,9 @@ static void list_defines(void) {
 
                 // print each define
                 for (size_t k = 0; k < test_suites[i]->define_count; k++) {
-                    if (test_suites[i]->cases[j]->define_map
-                            && test_suites[i]->cases[j]->define_map[k]
-                                != 0xff) {
+                    if (test_suites[i]->cases[j]->defines
+                            && test_suites[i]->cases[j]
+                                ->defines[case_perm][k]) {
                         printf("%s=%jd ",
                                 test_suites[i]->define_names[k],
                                 test_define(k));
@@ -432,12 +399,10 @@ static void list_geometries(void) {
 
         printf("%-36s ", test_geometries[i].name);
         // print each define
-        for (size_t k = 0; k < TEST_PREDEFINE_COUNT; k++) {
-            if (test_predefine_maps[2][k] != 0xff) {
-                printf("%s=%jd ",
-                        test_predefine_names[k],
-                        test_predefine(k));
-            }
+        for (size_t k = 0; k < TEST_GEOMETRY_DEFINE_COUNT; k++) {
+            printf("%s=%jd ",
+                    test_predefine_names[k],
+                    test_predefine(k));
         }
         printf("\n");
 
@@ -447,12 +412,10 @@ static void list_geometries(void) {
 static void list_defaults(void) {
     printf("%-36s ", "defaults");
     // print each define
-    for (size_t k = 0; k < TEST_PREDEFINE_COUNT; k++) {
-        if (test_predefine_maps[3][k] != 0xff) {
-            printf("%s=%jd ",
-                    test_predefine_names[k],
-                    test_predefine(k));
-        }
+    for (size_t k = 0; k < TEST_DEFAULT_DEFINE_COUNT; k++) {
+        printf("%s=%jd ",
+                test_predefine_names[k+TEST_GEOMETRY_DEFINE_COUNT],
+                test_predefine(k+TEST_GEOMETRY_DEFINE_COUNT));
     }
     printf("\n");
 }
@@ -470,8 +433,6 @@ static void run(void) {
             if (test_case_skip(test_suites[i]->cases[j])) {
                 continue;
             }
-
-            test_define_case(test_suites[i], test_suites[i]->cases[j]);
 
             for (size_t perm = 0;
                     perm < TEST_GEOMETRY_COUNT
@@ -628,7 +589,7 @@ int main(int argc, char **argv) {
     void (*op)(void) = run;
 
     static const char **override_names = NULL;
-    static test_define_t *override_defines = NULL;
+    static uintmax_t *override_defines = NULL;
     static size_t override_count = 0;
     static size_t override_cap = 0;
 
@@ -730,10 +691,10 @@ int main(int argc, char **argv) {
                     override_names = realloc(override_names, override_cap
                             * sizeof(const char *));
                     override_defines = realloc(override_defines, override_cap
-                            * sizeof(test_define_t));
+                            * sizeof(uintmax_t));
                 }
 
-                // parse into string key/test_define_t value, cannibalizing the
+                // parse into string key/uintmax_t value, cannibalizing the
                 // arg in the process
                 char *sep = strchr(optarg, '=');
                 char *parsed = NULL;

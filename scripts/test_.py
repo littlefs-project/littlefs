@@ -68,7 +68,6 @@ class TestCase:
         self.if_ = config.pop('if', None)
         if isinstance(self.if_, bool):
             self.if_ = 'true' if self.if_ else 'false'
-        self.if_lineno = config.pop('if_lineno', None)
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
         self.in_ = config.pop('in',
@@ -125,18 +124,14 @@ class TestSuite:
             # find line numbers
             f.seek(0)
             case_linenos = []
-            if_linenos = []
             code_linenos = []
             for i, line in enumerate(f):
                 match = re.match(
                     '(?P<case>\[\s*cases\s*\.\s*(?P<name>\w+)\s*\])'
-                        '|' '(?P<if>if\s*=)'
                         '|' '(?P<code>code\s*=)',
                     line)
                 if match and match.group('case'):
                     case_linenos.append((i+1, match.group('name')))
-                elif match and match.group('if'):
-                    if_linenos.append(i+1)
                 elif match and match.group('code'):
                     code_linenos.append(i+2)
 
@@ -147,23 +142,15 @@ class TestSuite:
             for (lineno, name), (nlineno, _) in it.zip_longest(
                     case_linenos, case_linenos[1:],
                     fillvalue=(float('inf'), None)):
-                if_lineno = min(
-                    (l for l in if_linenos if l >= lineno and l < nlineno),
-                    default=None)
                 code_lineno = min(
                     (l for l in code_linenos if l >= lineno and l < nlineno),
                     default=None)
                 cases[name]['lineno'] = lineno
-                cases[name]['if_lineno'] = if_lineno
                 cases[name]['code_lineno'] = code_lineno
 
             self.if_ = config.pop('if', None)
             if isinstance(self.if_, bool):
                 self.if_ = 'true' if self.if_ else 'false'
-            self.if_lineno = min(
-                (l for l in if_linenos
-                    if not case_linenos or l < case_linenos[0][0]),
-                default=None)
 
             self.code = config.pop('code', None)
             self.code_lineno = min(
@@ -274,33 +261,43 @@ def compile(**args):
             # note it's up to the specific generated file to declare
             # the test defines
             def write_case_functions(f, suite, case):
+                    # create case define functions
+                    if case.defines:
+                        # deduplicate defines by value to try to reduce the
+                        # number of functions we generate
+                        define_cbs = {}
+                        for i, defines in enumerate(case.permutations):
+                            for k, v in sorted(defines.items()):
+                                if v not in define_cbs:
+                                    name = ('__test__%s__%s__%s__%d'
+                                        % (suite.name, case.name, k, i))
+                                    define_cbs[v] = name
+                                    f.writeln('uintmax_t %s(void) {' % name)
+                                    f.writeln(4*' '+'return %s;' % v)
+                                    f.writeln('}')
+                                    f.writeln()
+                        f.writeln('uintmax_t (*const *const '
+                            '__test__%s__%s__defines[])(void) = {'
+                            % (suite.name, case.name))
+                        for defines in case.permutations:
+                            f.writeln(4*' '+'(uintmax_t (*const[])(void)){')
+                            for define in sorted(suite.defines):
+                                f.writeln(8*' '+'%s,' % (
+                                    define_cbs[defines[define]]
+                                        if define in defines
+                                        else 'NULL'))
+                            f.writeln(4*' '+'},')
+                        f.writeln('};')
+                        f.writeln()    
+
                     # create case filter function
                     if suite.if_ is not None or case.if_ is not None:
                         f.writeln('bool __test__%s__%s__filter(void) {'
                             % (suite.name, case.name))
-                        if suite.if_ is not None:
-                            if suite.if_lineno is not None:
-                                f.writeln(4*' '+'#line %d "%s"'
-                                    % (suite.if_lineno, suite.path))
-                            f.writeln(4*' '+'if (!(%s)) {' % suite.if_)
-                            if suite.if_lineno is not None:
-                                f.writeln(4*' '+'#line %d "%s"'
-                                    % (f.lineno+1, args['output']))
-                            f.writeln(8*' '+'return false;')
-                            f.writeln(4*' '+'}')
-                            f.writeln()
-                        if case.if_ is not None:
-                            if case.if_lineno is not None:
-                                f.writeln(4*' '+'#line %d "%s"'
-                                    % (case.if_lineno, suite.path))
-                            f.writeln(4*' '+'if (!(%s)) {' % case.if_)
-                            if case.if_lineno is not None:
-                                f.writeln(4*' '+'#line %d "%s"'
-                                    % (f.lineno+1, args['output']))
-                            f.writeln(8*' '+'return false;')
-                            f.writeln(4*' '+'}')
-                            f.writeln()
-                        f.writeln(4*' '+'return true;')
+                        f.writeln(4*' '+'return %s;'
+                            % ' && '.join('(%s)' % if_
+                                for if_ in [suite.if_, case.if_]
+                                if if_ is not None))
                         f.writeln('}')
                         f.writeln()
 
@@ -350,33 +347,14 @@ def compile(**args):
                     f.writeln()
 
                 for case in suite.cases:
-                    # create case defines
-                    if case.defines:
-                        f.writeln('const test_define_t *const '
-                            '__test__%s__%s__defines[] = {'
-                            % (suite.name, case.name))
-                        for permutation in case.permutations:
-                            f.writeln(4*' '+'(const test_define_t[]){%s},'
-                                % ', '.join(str(v) for _, v in sorted(
-                                    permutation.items())))
-                        f.writeln('};')
-                        f.writeln()
-
-                        f.writeln('const uint8_t '
-                            '__test__%s__%s__define_map[] = {'
-                            % (suite.name, case.name))
-                        f.writeln(4*' '+'%s,'
-                            % ', '.join(
-                                str(sorted(case.defines).index(k))
-                                if k in case.defines else '0xff'
-                                for k in sorted(suite.defines)))
-                        f.writeln('};')
-                        f.writeln()
-
                     # create case functions
                     if case.in_ is None:
                         write_case_functions(f, suite, case)
                     else:
+                        if case.defines:
+                            f.writeln('extern uintmax_t (*const *const '
+                                '__test__%s__%s__defines[])(void);'
+                                % (suite.name, case.name))
                         if suite.if_ is not None or case.if_ is not None:
                             f.writeln('extern bool __test__%s__%s__filter('
                                 'void);'
@@ -401,9 +379,6 @@ def compile(**args):
                         % len(case.permutations))
                     if case.defines:
                         f.writeln(4*' '+'.defines = __test__%s__%s__defines,'
-                            % (suite.name, case.name))
-                        f.writeln(4*' '+'.define_map = '
-                            '__test__%s__%s__define_map,'
                             % (suite.name, case.name))
                     if suite.if_ is not None or case.if_ is not None:
                         f.writeln(4*' '+'.filter = __test__%s__%s__filter,'

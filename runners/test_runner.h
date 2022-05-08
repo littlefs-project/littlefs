@@ -12,7 +12,6 @@ enum test_types {
 };
 
 typedef uint8_t test_types_t;
-typedef uintmax_t test_define_t;
 
 struct test_case {
     const char *id;
@@ -21,8 +20,7 @@ struct test_case {
     test_types_t types;
     size_t permutations;
 
-    const test_define_t *const *defines;
-    const uint8_t *define_map;
+    uintmax_t (*const *const *defines)(void);
 
     bool (*filter)(void);
     void (*run)(struct lfs_config *cfg);
@@ -46,8 +44,8 @@ extern const size_t test_suite_count;
 
 
 // access generated test defines
-test_define_t test_predefine(size_t define);
-test_define_t test_define(size_t define);
+uintmax_t test_predefine(size_t define);
+uintmax_t test_define(size_t define);
 
 // a few preconfigured defines that control how tests run
 #define READ_SIZE           test_predefine(0)
@@ -84,10 +82,7 @@ test_define_t test_define(size_t define);
     /* ERASE_CYCLES */      0, \
     /* BADBLOCK_BEHAVIOR */ LFS_TESTBD_BADBLOCK_PROGERROR, \
 }
-#define TEST_DEFAULT_COUNT 5
-#define TEST_DEFAULT_MAP { \
-    0xff, 0xff, 0xff, 0xff, 0xff, 0, 1, 2, 3, 4 \
-}
+#define TEST_DEFAULT_DEFINE_COUNT 5
 
 // test geometries
 #define TEST_GEOMETRIES { \
@@ -100,9 +95,6 @@ test_define_t test_define(size_t define);
 }
 #define TEST_GEOMETRY_COUNT 5
 #define TEST_GEOMETRY_DEFINE_COUNT 5
-#define TEST_GEOMETRY_DEFINE_MAP { \
-    0, 1, 2, 3, 4, 0xff, 0xff, 0xff, 0xff, 0xff \
-}
 
 
 #endif
