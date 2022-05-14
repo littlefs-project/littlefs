@@ -342,8 +342,8 @@ def compile(**args):
                         f.writeln('#endif')
                     f.writeln()
 
+                # create case functions
                 for case in suite.cases:
-                    # create case functions
                     if case.in_ is None:
                         write_case_functions(f, suite, case)
                     else:
@@ -360,39 +360,8 @@ def compile(**args):
                             % (suite.name, case.name))
                         f.writeln()
 
-                    # create case struct
-                    f.writeln('const struct test_case __test__%s__%s__case = {'
-                        % (suite.name, case.name))
-                    f.writeln(4*' '+'.id = "%s",' % case.id())
-                    f.writeln(4*' '+'.name = "%s",' % case.name)
-                    f.writeln(4*' '+'.path = "%s",' % case.path)
-                    f.writeln(4*' '+'.types = %s,'
-                        % ' | '.join(filter(None, [
-                            'TEST_NORMAL' if case.normal else None,
-                            'TEST_REENTRANT' if case.reentrant else None])))
-                    f.writeln(4*' '+'.permutations = %d,'
-                        % len(case.permutations))
-                    if case.defines:
-                        f.writeln(4*' '+'.defines = __test__%s__%s__defines,'
-                            % (suite.name, case.name))
-                    if suite.if_ is not None or case.if_ is not None:
-                        f.writeln(4*' '+'.filter = __test__%s__%s__filter,'
-                            % (suite.name, case.name))
-                    f.writeln(4*' '+'.run = __test__%s__%s__run,'
-                        % (suite.name, case.name))
-                    f.writeln('};')
-                    f.writeln()
-
-                # create suite define names
-                if suite.defines:
-                    f.writeln('const char *const __test__%s__define_names[] = {'
-                        % suite.name)
-                    for k in sorted(suite.defines):
-                        f.writeln(4*' '+'"%s",' % k)
-                    f.writeln('};')
-                    f.writeln()
-
                 # create suite struct
+                f.writeln('__attribute__((section("_test_suites")))')
                 f.writeln('const struct test_suite __test__%s__suite = {'
                     % suite.name)
                 f.writeln(4*' '+'.id = "%s",' % suite.id())
@@ -403,13 +372,34 @@ def compile(**args):
                         'TEST_NORMAL' if suite.normal else None,
                         'TEST_REENTRANT' if suite.reentrant else None])))
                 if suite.defines:
-                    f.writeln(4*' '+'.define_names = __test__%s__define_names,'
-                        % suite.name)
+                    # create suite define names
+                    f.writeln(4*' '+'.define_names = (const char *const[]){')
+                    for k in sorted(suite.defines):
+                        f.writeln(8*' '+'"%s",' % k)
+                    f.writeln(4*' '+'},')
                 f.writeln(4*' '+'.define_count = %d,' % len(suite.defines))
-                f.writeln(4*' '+'.cases = (const struct test_case *const []){')
+                f.writeln(4*' '+'.cases = (const struct test_case[]){')
                 for case in suite.cases:
-                    f.writeln(8*' '+'&__test__%s__%s__case,'
+                    # create case structs
+                    f.writeln(8*' '+'{')
+                    f.writeln(12*' '+'.id = "%s",' % case.id())
+                    f.writeln(12*' '+'.name = "%s",' % case.name)
+                    f.writeln(12*' '+'.path = "%s",' % case.path)
+                    f.writeln(12*' '+'.types = %s,'
+                        % ' | '.join(filter(None, [
+                            'TEST_NORMAL' if case.normal else None,
+                            'TEST_REENTRANT' if case.reentrant else None])))
+                    f.writeln(12*' '+'.permutations = %d,'
+                        % len(case.permutations))
+                    if case.defines:
+                        f.writeln(12*' '+'.defines = __test__%s__%s__defines,'
+                            % (suite.name, case.name))
+                    if suite.if_ is not None or case.if_ is not None:
+                        f.writeln(12*' '+'.filter = __test__%s__%s__filter,'
+                            % (suite.name, case.name))
+                    f.writeln(12*' '+'.run = __test__%s__%s__run,'
                         % (suite.name, case.name))
+                    f.writeln(8*' '+'},')
                 f.writeln(4*' '+'},')
                 f.writeln(4*' '+'.case_count = %d,' % len(suite.cases))
                 f.writeln('};')
@@ -455,19 +445,6 @@ def compile(**args):
                                     f.writeln('#undef %s' % define)
                                     f.writeln('#endif')
                                 f.writeln()
-
-                # add suite info to test_runner.c
-                if args['source'] == 'runners/test_runner.c':
-                    f.writeln()
-                    for suite in suites:
-                        f.writeln('extern const struct test_suite '
-                            '__test__%s__suite;' % suite.name)
-                    f.writeln('const struct test_suite *test_suites[] = {')
-                    for suite in suites:
-                        f.writeln(4*' '+'&__test__%s__suite,' % suite.name)
-                    f.writeln('};')
-                    f.writeln('const size_t test_suite_count = %d;'
-                        % len(suites))
 
 def runner(**args):
     cmd = args['runner'].copy()

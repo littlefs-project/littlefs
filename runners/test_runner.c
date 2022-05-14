@@ -7,6 +7,14 @@
 #include <errno.h>
 
 
+// test suites in a custom ld section
+extern struct test_suite __start__test_suites;
+extern struct test_suite __stop__test_suites;
+
+const struct test_suite *test_suites = &__start__test_suites;
+#define TEST_SUITE_COUNT \
+    ((size_t)(&__stop__test_suites - &__start__test_suites))
+
 // test geometries
 struct test_geometry {
     const char *name;
@@ -212,24 +220,24 @@ static void summary(void) {
     test_types_t types = 0;
     size_t perms = 0;
     size_t filtered = 0;
-    for (size_t i = 0; i < test_suite_count; i++) {
-        if (test_suite_skip(test_suites[i])) {
+    for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
+        if (test_suite_skip(&test_suites[i])) {
             continue;
         }
 
-        test_define_suite(test_suites[i]);
+        test_define_suite(&test_suites[i]);
 
-        for (size_t j = 0; j < test_suites[i]->case_count; j++) {
-            if (test_case_skip(test_suites[i]->cases[j])) {
+        for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            if (test_case_skip(&test_suites[i].cases[j])) {
                 continue;
             }
 
-            test_case_permcount(test_suites[i], test_suites[i]->cases[j],
+            test_case_permcount(&test_suites[i], &test_suites[i].cases[j],
                     &perms, &filtered);
         }
 
-        cases += test_suites[i]->case_count;
-        types |= test_suites[i]->types;
+        cases += test_suites[i].case_count;
+        types |= test_suites[i].types;
     }
 
     char perm_buf[64];
@@ -241,28 +249,28 @@ static void summary(void) {
     printf("%-36s %7s %7zu %7zu %11s\n",
             "TOTAL",
             type_buf,
-            test_suite_count,
+            TEST_SUITE_COUNT,
             cases,
             perm_buf);
 }
 
 static void list_suites(void) {
     printf("%-36s %7s %7s %11s\n", "suite", "types", "cases", "perms");
-    for (size_t i = 0; i < test_suite_count; i++) {
-        if (test_suite_skip(test_suites[i])) {
+    for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
+        if (test_suite_skip(&test_suites[i])) {
             continue;
         }
 
-        test_define_suite(test_suites[i]);
+        test_define_suite(&test_suites[i]);
 
         size_t perms = 0;
         size_t filtered = 0;
-        for (size_t j = 0; j < test_suites[i]->case_count; j++) {
-            if (test_case_skip(test_suites[i]->cases[j])) {
+        for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            if (test_case_skip(&test_suites[i].cases[j])) {
                 continue;
             }
 
-            test_case_permcount(test_suites[i], test_suites[i]->cases[j],
+            test_case_permcount(&test_suites[i], &test_suites[i].cases[j],
                     &perms, &filtered);
         }
 
@@ -270,35 +278,35 @@ static void list_suites(void) {
         sprintf(perm_buf, "%zu/%zu", filtered, perms);
         char type_buf[64];
         sprintf(type_buf, "%s%s",
-                (test_suites[i]->types & TEST_NORMAL)    ? "n" : "",
-                (test_suites[i]->types & TEST_REENTRANT) ? "r" : "");
+                (test_suites[i].types & TEST_NORMAL)    ? "n" : "",
+                (test_suites[i].types & TEST_REENTRANT) ? "r" : "");
         printf("%-36s %7s %7zu %11s\n",
-                test_suites[i]->id,
+                test_suites[i].id,
                 type_buf,
-                test_suites[i]->case_count,
+                test_suites[i].case_count,
                 perm_buf);
     }
 }
 
 static void list_cases(void) {
     printf("%-36s %7s %11s\n", "case", "types", "perms");
-    for (size_t i = 0; i < test_suite_count; i++) {
-        if (test_suite_skip(test_suites[i])) {
+    for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
+        if (test_suite_skip(&test_suites[i])) {
             continue;
         }
 
-        test_define_suite(test_suites[i]);
+        test_define_suite(&test_suites[i]);
 
-        for (size_t j = 0; j < test_suites[i]->case_count; j++) {
-            if (test_case_skip(test_suites[i]->cases[j])) {
+        for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            if (test_case_skip(&test_suites[i].cases[j])) {
                 continue;
             }
 
             size_t perms = 0;
             size_t filtered = 0;
-            test_case_permcount(test_suites[i], test_suites[i]->cases[j],
+            test_case_permcount(&test_suites[i], &test_suites[i].cases[j],
                     &perms, &filtered);
-            test_types_t types = test_suites[i]->cases[j]->types;
+            test_types_t types = test_suites[i].cases[j].types;
 
             char perm_buf[64];
             sprintf(perm_buf, "%zu/%zu", filtered, perms);
@@ -307,7 +315,7 @@ static void list_cases(void) {
                     (types & TEST_NORMAL)    ? "n" : "",
                     (types & TEST_REENTRANT) ? "r" : "");
             printf("%-36s %7s %11s\n",
-                    test_suites[i]->cases[j]->id,
+                    test_suites[i].cases[j].id,
                     type_buf,
                     perm_buf);
         }
@@ -315,39 +323,39 @@ static void list_cases(void) {
 }
 
 static void list_paths(void) {
-    for (size_t i = 0; i < test_suite_count; i++) {
-        if (test_suite_skip(test_suites[i])) {
+    for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
+        if (test_suite_skip(&test_suites[i])) {
             continue;
         }
 
-        for (size_t j = 0; j < test_suites[i]->case_count; j++) {
-            if (test_case_skip(test_suites[i]->cases[j])) {
+        for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            if (test_case_skip(&test_suites[i].cases[j])) {
                 continue;
             }
 
             printf("%-36s %-36s\n",
-                    test_suites[i]->cases[j]->id,
-                    test_suites[i]->cases[j]->path);
+                    test_suites[i].cases[j].id,
+                    test_suites[i].cases[j].path);
         }
     }
 }
 
 static void list_defines(void) {
-    for (size_t i = 0; i < test_suite_count; i++) {
-        if (test_suite_skip(test_suites[i])) {
+    for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
+        if (test_suite_skip(&test_suites[i])) {
             continue;
         }
 
-        test_define_suite(test_suites[i]);
+        test_define_suite(&test_suites[i]);
 
-        for (size_t j = 0; j < test_suites[i]->case_count; j++) {
-            if (test_case_skip(test_suites[i]->cases[j])) {
+        for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            if (test_case_skip(&test_suites[i].cases[j])) {
                 continue;
             }
 
             for (size_t perm = 0;
                     perm < TEST_GEOMETRY_COUNT
-                        * test_suites[i]->cases[j]->permutations;
+                        * test_suites[i].cases[j].permutations;
                     perm++) {
                 if (test_perm_skip(perm)) {
                     continue;
@@ -356,25 +364,24 @@ static void list_defines(void) {
                 // setup defines
                 size_t case_perm = perm / TEST_GEOMETRY_COUNT;
                 size_t geom_perm = perm % TEST_GEOMETRY_COUNT;
-                test_define_perm(test_suites[i],
-                        test_suites[i]->cases[j], case_perm);
+                test_define_perm(&test_suites[i],
+                        &test_suites[i].cases[j], case_perm);
                 test_define_geometry(&test_geometries[geom_perm]);
 
                 // print the case
                 char id_buf[256];
-                sprintf(id_buf, "%s#%zu", test_suites[i]->cases[j]->id, perm);
+                sprintf(id_buf, "%s#%zu", test_suites[i].cases[j].id, perm);
                 printf("%-36s ", id_buf);
 
                 // special case for the current geometry
                 printf("GEOMETRY=%s ", test_geometries[geom_perm].name);
 
                 // print each define
-                for (size_t k = 0; k < test_suites[i]->define_count; k++) {
-                    if (test_suites[i]->cases[j]->defines
-                            && test_suites[i]->cases[j]
-                                ->defines[case_perm][k]) {
+                for (size_t k = 0; k < test_suites[i].define_count; k++) {
+                    if (test_suites[i].cases[j].defines
+                            && test_suites[i].cases[j].defines[case_perm][k]) {
                         printf("%s=%jd ",
-                                test_suites[i]->define_names[k],
+                                test_suites[i].define_names[k],
                                 test_define(k));
                     }
                 }
@@ -419,21 +426,21 @@ static void list_defaults(void) {
 
 static void run(void) {
     size_t step = 0;
-    for (size_t i = 0; i < test_suite_count; i++) {
-        if (test_suite_skip(test_suites[i])) {
+    for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
+        if (test_suite_skip(&test_suites[i])) {
             continue;
         }
 
-        test_define_suite(test_suites[i]);
+        test_define_suite(&test_suites[i]);
 
-        for (size_t j = 0; j < test_suites[i]->case_count; j++) {
-            if (test_case_skip(test_suites[i]->cases[j])) {
+        for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            if (test_case_skip(&test_suites[i].cases[j])) {
                 continue;
             }
 
             for (size_t perm = 0;
                     perm < TEST_GEOMETRY_COUNT
-                        * test_suites[i]->cases[j]->permutations;
+                        * test_suites[i].cases[j].permutations;
                     perm++) {
                 if (test_perm_skip(perm)) {
                     continue;
@@ -447,15 +454,15 @@ static void run(void) {
                 // setup defines
                 size_t case_perm = perm / TEST_GEOMETRY_COUNT;
                 size_t geom_perm = perm % TEST_GEOMETRY_COUNT;
-                test_define_perm(test_suites[i],
-                        test_suites[i]->cases[j], case_perm);
+                test_define_perm(&test_suites[i],
+                        &test_suites[i].cases[j], case_perm);
                 test_define_geometry(&test_geometries[geom_perm]);
 
                 // filter?
-                if (test_suites[i]->cases[j]->filter) {
-                    if (!test_suites[i]->cases[j]->filter()) {
+                if (test_suites[i].cases[j].filter) {
+                    if (!test_suites[i].cases[j].filter()) {
                         printf("skipped %s#%zu\n",
-                                test_suites[i]->cases[j]->id,
+                                test_suites[i].cases[j].id,
                                 perm);
                         continue;
                     }
@@ -494,11 +501,11 @@ static void run(void) {
                 }
 
                 // run the test
-                printf("running %s#%zu\n", test_suites[i]->cases[j]->id, perm);
+                printf("running %s#%zu\n", test_suites[i].cases[j].id, perm);
 
-                test_suites[i]->cases[j]->run(&cfg);
+                test_suites[i].cases[j].run(&cfg);
 
-                printf("finished %s#%zu\n", test_suites[i]->cases[j]->id, perm);
+                printf("finished %s#%zu\n", test_suites[i].cases[j].id, perm);
 
                 // cleanup
                 err = lfs_testbd_destroy(&cfg);

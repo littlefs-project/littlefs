@@ -34,12 +34,9 @@ struct test_suite {
     const char *const *define_names;
     size_t define_count;
 
-    const struct test_case *const *cases;
+    const struct test_case *cases;
     size_t case_count;
 };
-
-extern const struct test_suite *test_suites[];
-extern const size_t test_suite_count;
 
 
 // access generated test defines
