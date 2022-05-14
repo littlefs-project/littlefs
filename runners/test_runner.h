@@ -19,7 +19,7 @@ struct test_case {
     test_types_t types;
     size_t permutations;
 
-    uintmax_t (*const *const *defines)(void);
+    intmax_t (*const *const *defines)(void);
 
     bool (*filter)(void);
     void (*run)(struct lfs_config *cfg);
@@ -43,8 +43,8 @@ extern const size_t test_suite_count;
 
 
 // access generated test defines
-uintmax_t test_predefine(size_t define);
-uintmax_t test_define(size_t define);
+intmax_t test_predefine(size_t define);
+intmax_t test_define(size_t define);
 
 // a few preconfigured defines that control how tests run
 #define READ_SIZE           test_predefine(0)

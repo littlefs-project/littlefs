@@ -10,17 +10,17 @@
 // test geometries
 struct test_geometry {
     const char *name;
-    uintmax_t defines[TEST_GEOMETRY_DEFINE_COUNT];
+    intmax_t defines[TEST_GEOMETRY_DEFINE_COUNT];
 };
 
 const struct test_geometry test_geometries[TEST_GEOMETRY_COUNT]
         = TEST_GEOMETRIES;
 
 // test define lookup and management
-const uintmax_t *test_override_defines;
-uintmax_t (*const *test_case_defines)(void);
-const uintmax_t *test_geometry_defines;
-const uintmax_t test_default_defines[TEST_PREDEFINE_COUNT]
+const intmax_t *test_override_defines;
+intmax_t (*const *test_case_defines)(void);
+const intmax_t *test_geometry_defines;
+const intmax_t test_default_defines[TEST_PREDEFINE_COUNT]
         = TEST_DEFAULTS;
 
 uint8_t test_override_predefine_map[TEST_PREDEFINE_COUNT];
@@ -37,7 +37,7 @@ const char *const *test_define_names;
 size_t test_define_count;
 
 
-uintmax_t test_predefine(size_t define) {
+intmax_t test_predefine(size_t define) {
     if (test_override_defines
             && test_override_predefine_map[define] != 0xff) {
         return test_override_defines[test_override_predefine_map[define]];
@@ -52,7 +52,7 @@ uintmax_t test_predefine(size_t define) {
     }
 }
 
-uintmax_t test_define(size_t define) {
+intmax_t test_define(size_t define) {
     if (test_override_defines
             && test_override_define_map[define] != 0xff) {
         return test_override_defines[test_override_define_map[define]];
@@ -73,7 +73,7 @@ static void test_define_geometry(const struct test_geometry *geometry) {
 
 static void test_define_overrides(
         const char *const *override_names,
-        const uintmax_t *override_defines,
+        const intmax_t *override_defines,
         size_t override_count) {
     test_override_defines = override_defines;
     test_override_names = override_names;
@@ -583,7 +583,7 @@ int main(int argc, char **argv) {
     void (*op)(void) = run;
 
     static const char **override_names = NULL;
-    static uintmax_t *override_defines = NULL;
+    static intmax_t *override_defines = NULL;
     static size_t override_count = 0;
     static size_t override_cap = 0;
 
@@ -685,10 +685,10 @@ int main(int argc, char **argv) {
                     override_names = realloc(override_names, override_cap
                             * sizeof(const char *));
                     override_defines = realloc(override_defines, override_cap
-                            * sizeof(uintmax_t));
+                            * sizeof(intmax_t));
                 }
 
-                // parse into string key/uintmax_t value, cannibalizing the
+                // parse into string key/intmax_t value, cannibalizing the
                 // arg in the process
                 char *sep = strchr(optarg, '=');
                 char *parsed = NULL;

@@ -32,7 +32,7 @@ DEP := $(SRC:%.c=$(BUILDDIR)%.d)
 ASM := $(SRC:%.c=$(BUILDDIR)%.s)
 CGI := $(SRC:%.c=$(BUILDDIR)%.ci)
 
-TESTS ?= $(wildcard tests_/*.toml)
+TESTS ?= $(wildcard tests/*.toml)
 TEST_SRC ?= $(SRC) \
 		$(filter-out $(wildcard bd/*.*.c),$(wildcard bd/*.c)) \
 		runners/test_runner.c
@@ -53,10 +53,11 @@ override CFLAGS += -g3
 override CFLAGS += -I.
 override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
+override CFLAGS += -ftrack-macro-expansion=0
 
-override TESTFLAGS_ += -b
+override TESTFLAGS += -b
 # forward -j flag
-override TESTFLAGS_ += $(filter -j%,$(MAKEFLAGS))
+override TESTFLAGS += $(filter -j%,$(MAKEFLAGS))
 ifdef VERBOSE
 override TESTFLAGS     += -v
 override CALLSFLAGS    += -v
@@ -65,15 +66,14 @@ override DATAFLAGS     += -v
 override STACKFLAGS    += -v
 override STRUCTSFLAGS  += -v
 override COVERAGEFLAGS += -v
-override TESTFLAGS_     += -v
-override TESTCFLAGS_    += -v
+override TESTFLAGS     += -v
+override TESTCFLAGS    += -v
 endif
 ifdef EXEC
-override TESTFLAGS_ += --exec="$(EXEC)"
+override TESTFLAGS 	   += --exec="$(EXEC)"
 endif
 ifdef COVERAGE
-override TESTFLAGS += --coverage
-override TESTFLAGS_ += --coverage
+override TESTFLAGS     += --coverage
 endif
 ifdef BUILDDIR
 override TESTFLAGS     += --build-dir="$(BUILDDIR:/=)"
@@ -112,23 +112,16 @@ tags:
 calls: $(CGI)
 	./scripts/calls.py $^ $(CALLSFLAGS)
 
-.PHONY: test
-test:
-	./scripts/test.py $(TESTFLAGS)
-.SECONDEXPANSION:
-test%: tests/test$$(firstword $$(subst \#, ,%)).toml
-	./scripts/test.py $@ $(TESTFLAGS)
-
 .PHONY: test_runner
 test_runner: $(BUILDDIR)runners/test_runner
 
-.PHONY: test_
-test_: test_runner
-	./scripts/test_.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS_)
+.PHONY: test
+test: test_runner
+	./scripts/test.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS)
 
 .PHONY: test_list
 test_list: test_runner
-	./scripts/test_.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS_) -l
+	./scripts/test.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS) -l
 
 .PHONY: code
 code: $(OBJ)
@@ -199,10 +192,10 @@ $(BUILDDIR)%.a.c: $(BUILDDIR)%.c
 	./scripts/explode_asserts.py $< -o $@
 
 $(BUILDDIR)%.t.c: %.toml
-	./scripts/test_.py -c $< $(TESTCFLAGS_) -o $@
+	./scripts/test.py -c $< $(TESTCFLAGS) -o $@
 
 $(BUILDDIR)%.t.c: %.c $(TESTS)
-	./scripts/test_.py -c $(TESTS) -s $< $(TESTCFLAGS_) -o $@
+	./scripts/test.py -c $(TESTS) -s $< $(TESTCFLAGS) -o $@
 
 # clean everything
 .PHONY: clean
@@ -215,7 +208,6 @@ clean:
 	rm -f $(CGI)
 	rm -f $(DEP)
 	rm -f $(ASM)
-	rm -f $(BUILDDIR)tests/*.toml.*
 	rm -f $(TEST_TSRC)
 	rm -f $(TEST_TASRC)
 	rm -f $(TEST_TAOBJ)
