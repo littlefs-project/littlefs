@@ -15,6 +15,15 @@ import math as m
 
 CI_PATHS = ['*.ci']
 
+def openio(path, mode='r'):
+    if path == '-':
+        if 'r' in mode:
+            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+        else:
+            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+    else:
+        return open(path, mode)
+
 def collect(paths, **args):
     # parse the vcg format
     k_pattern = re.compile('([a-z]+)\s*:', re.DOTALL)
@@ -116,15 +125,6 @@ def collect(paths, **args):
     return flat_results
 
 def main(**args):
-    def openio(path, mode='r'):
-        if path == '-':
-            if 'r' in mode:
-                return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
-            else:
-                return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
-        else:
-            return open(path, mode)
-
     # find sizes
     if not args.get('use', None):
         # find .ci files
@@ -427,4 +427,6 @@ if __name__ == "__main__":
     parser.add_argument('--build-dir',
         help="Specify the relative build directory. Used to map object files \
             to the correct source files.")
-    sys.exit(main(**vars(parser.parse_args())))
+    sys.exit(main(**{k: v
+        for k, v in vars(parser.parse_args()).items()
+        if v is not None}))

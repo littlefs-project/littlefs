@@ -49,7 +49,6 @@ def testcase(path):
     _, case, *_ = path.split('#', 2)
     return '%s#%s' % (testsuite(path), case)
 
-# TODO move this out in other files
 def openio(path, mode='r'):
     if path == '-':
         if 'r' in mode:
@@ -728,6 +727,7 @@ def run_stage(name, runner_, **args):
                     # stop other tests
                     for child in children.copy():
                         child.kill()
+                    break
     
 
     # parallel jobs?
@@ -998,7 +998,6 @@ if __name__ == "__main__":
         help="Source file to compile, possibly injecting internal tests.")
     comp_parser.add_argument('-o', '--output',
         help="Output file.")
-    # TODO apply this to other scripts?
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_args()).items()
         if v is not None}))

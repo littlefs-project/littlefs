@@ -57,16 +57,16 @@ FIELDS = [
 ]
 
 
-def main(**args):
-    def openio(path, mode='r'):
-        if path == '-':
-            if 'r' in mode:
-                return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
-            else:
-                return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+def openio(path, mode='r'):
+    if path == '-':
+        if 'r' in mode:
+            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
         else:
-            return open(path, mode)
+            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+    else:
+        return open(path, mode)
 
+def main(**args):
     # find results
     results = co.defaultdict(lambda: {})
     for path in args.get('csv_paths', '-'):
@@ -276,4 +276,6 @@ if __name__ == "__main__":
         help="Show file-level calls.")
     parser.add_argument('-Y', '--summary', action='store_true',
         help="Only show the totals.")
-    sys.exit(main(**vars(parser.parse_args())))
+    sys.exit(main(**{k: v
+        for k, v in vars(parser.parse_args()).items()
+        if v is not None}))
