@@ -384,6 +384,11 @@ def main(**args):
         print_entries(by='name')
         print_totals()
 
+    # catch recursion
+    if args.get('error_on_recursion') and any(
+            m.isinf(limit) for _, _, _, limit, _ in results):
+        sys.exit(2)
+
 
 if __name__ == "__main__":
     import argparse
@@ -424,6 +429,8 @@ if __name__ == "__main__":
         help="Show file-level calls.")
     parser.add_argument('-Y', '--summary', action='store_true',
         help="Only show the total stack size.")
+    parser.add_argument('-e', '--error-on-recursion', action='store_true',
+        help="Error if any functions are recursive.")
     parser.add_argument('--build-dir',
         help="Specify the relative build directory. Used to map object files \
             to the correct source files.")

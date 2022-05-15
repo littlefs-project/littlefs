@@ -60,7 +60,6 @@ override TESTFLAGS += -b
 override TESTFLAGS += $(filter -j%,$(MAKEFLAGS))
 ifdef VERBOSE
 override TESTFLAGS     += -v
-override CALLSFLAGS    += -v
 override CODEFLAGS     += -v
 override DATAFLAGS     += -v
 override STACKFLAGS    += -v
@@ -77,7 +76,6 @@ override TESTFLAGS     += --coverage
 endif
 ifdef BUILDDIR
 override TESTFLAGS     += --build-dir="$(BUILDDIR:/=)"
-override CALLSFLAGS    += --build-dir="$(BUILDDIR:/=)"
 override CODEFLAGS     += --build-dir="$(BUILDDIR:/=)"
 override DATAFLAGS     += --build-dir="$(BUILDDIR:/=)"
 override STACKFLAGS    += --build-dir="$(BUILDDIR:/=)"
@@ -107,10 +105,6 @@ size: $(OBJ)
 .PHONY: tags
 tags:
 	$(CTAGS) --totals --c-types=+p $(shell find -H -name '*.h') $(SRC)
-
-.PHONY: calls
-calls: $(CGI)
-	./scripts/calls.py $^ $(CALLSFLAGS)
 
 .PHONY: test_runner
 test_runner: $(BUILDDIR)runners/test_runner
@@ -172,18 +166,13 @@ $(BUILDDIR)lfs.csv: $(OBJ) $(CGI)
 $(BUILDDIR)runners/test_runner: $(TEST_TAOBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
-$(BUILDDIR)%.o: %.c
-	$(CC) -c -MMD $(CFLAGS) $< -o $@
+# our main build rule generates .o, .d, and .ci files, the latter
+# used for stack analysis
+$(BUILDDIR)%.o $(BUILDDIR)%.ci: %.c
+	$(CC) -c -MMD -fcallgraph-info=su $(CFLAGS) $< -o $(BUILDDIR)$*.o
 
 $(BUILDDIR)%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
-
-# gcc depends on the output file for intermediate file names, so
-# we can't omit to .o output. We also need to serialize with the
-# normal .o rule because otherwise we can end up with multiprocess
-# problems with two instances of gcc modifying the same .o
-$(BUILDDIR)%.ci: %.c | $(BUILDDIR)%.o
-	$(CC) -c -MMD -fcallgraph-info=su $(CFLAGS) $< -o $|
 
 $(BUILDDIR)%.a.c: %.c
 	./scripts/explode_asserts.py $< -o $@
