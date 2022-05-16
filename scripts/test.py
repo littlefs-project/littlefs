@@ -985,11 +985,11 @@ if __name__ == "__main__":
     test_parser.add_argument('--gdb-main', action='store_true',
         help="Drop into gdb on test failure but stop at the beginning \
             of main.")
+    test_parser.add_argument('--exec', default=[], type=lambda e: e.split(),
+        help="Run under another executable.")
     test_parser.add_argument('--valgrind', action='store_true',
         help="Run under Valgrind to find memory errors. Implicitly sets \
             --isolate.")
-    test_parser.add_argument('--exec', default=[], type=lambda e: e.split(),
-        help="Run under another executable.")
     # compilation flags
     comp_parser = parser.add_argument_group('compilation options')
     comp_parser.add_argument('-c', '--compile', action='store_true',

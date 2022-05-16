@@ -31,6 +31,7 @@ OBJ := $(SRC:%.c=$(BUILDDIR)%.o)
 DEP := $(SRC:%.c=$(BUILDDIR)%.d)
 ASM := $(SRC:%.c=$(BUILDDIR)%.s)
 CGI := $(SRC:%.c=$(BUILDDIR)%.ci)
+TAGCDA := $(SRC:%.c=$(BUILDDIR)%.t.a.gcda)
 
 TESTS ?= $(wildcard tests/*.toml)
 TEST_SRC ?= $(SRC) \
@@ -40,6 +41,8 @@ TEST_TSRC := $(TESTS:%.toml=$(BUILDDIR)%.t.c) $(TEST_SRC:%.c=$(BUILDDIR)%.t.c)
 TEST_TASRC := $(TEST_TSRC:%.t.c=%.t.a.c)
 TEST_TAOBJ := $(TEST_TASRC:%.t.a.c=%.t.a.o)
 TEST_TADEP := $(TEST_TASRC:%.t.a.c=%.t.a.d)
+TEST_TAGCNO := $(TEST_TASRC:%.t.a.c=%.t.a.gcno)
+TEST_TAGCDA := $(TEST_TASRC:%.t.a.c=%.t.a.gcda)
 
 ifdef DEBUG
 override CFLAGS += -O0
@@ -106,15 +109,17 @@ size: $(OBJ)
 tags:
 	$(CTAGS) --totals --c-types=+p $(shell find -H -name '*.h') $(SRC)
 
-.PHONY: test_runner
-test_runner: $(BUILDDIR)runners/test_runner
+.PHONY: test-runner
+test-runner: override CFLAGS+=--coverage
+test-runner: $(BUILDDIR)runners/test_runner
 
 .PHONY: test
-test: test_runner
+test: test-runner
+	rm -f $(TEST_TAGCDA)
 	./scripts/test.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS)
 
-.PHONY: test_list
-test_list: test_runner
+.PHONY: test-list
+test-list: test-runner
 	./scripts/test.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS) -l
 
 .PHONY: code
@@ -134,8 +139,8 @@ structs: $(OBJ)
 	./scripts/structs.py $^ -S $(STRUCTSFLAGS)
 
 .PHONY: coverage
-coverage:
-	./scripts/coverage.py $(BUILDDIR)tests/*.toml.info -s $(COVERAGEFLAGS)
+coverage: $(TAGCDA)
+	./scripts/coverage.py $^ -s $(COVERAGEFLAGS)
 
 .PHONY: summary
 summary: $(BUILDDIR)lfs.csv
@@ -194,10 +199,12 @@ clean:
 	rm -f $(BUILDDIR)lfs.csv
 	rm -f $(BUILDDIR)runners/test_runner
 	rm -f $(OBJ)
-	rm -f $(CGI)
 	rm -f $(DEP)
 	rm -f $(ASM)
+	rm -f $(CGI)
 	rm -f $(TEST_TSRC)
 	rm -f $(TEST_TASRC)
 	rm -f $(TEST_TAOBJ)
 	rm -f $(TEST_TADEP)
+	rm -f $(TEST_TAGCNO)
+	rm -f $(TEST_TAGCDA)

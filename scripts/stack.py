@@ -414,14 +414,14 @@ if __name__ == "__main__":
         help="Show all functions, not just the ones that changed.")
     parser.add_argument('-A', '--everything', action='store_true',
         help="Include builtin and libc specific symbols.")
-    parser.add_argument('-s', '--limit-sort', action='store_true',
-        help="Sort by stack limit.")
-    parser.add_argument('-S', '--reverse-limit-sort', action='store_true',
-        help="Sort by stack limit, but backwards.")
     parser.add_argument('--frame-sort', action='store_true',
         help="Sort by stack frame size.")
     parser.add_argument('--reverse-frame-sort', action='store_true',
         help="Sort by stack frame size, but backwards.")
+    parser.add_argument('-s', '--limit-sort', action='store_true',
+        help="Sort by stack limit.")
+    parser.add_argument('-S', '--reverse-limit-sort', action='store_true',
+        help="Sort by stack limit, but backwards.")
     parser.add_argument('-L', '--depth', default=0, type=lambda x: int(x, 0),
         nargs='?', const=float('inf'),
         help="Depth of dependencies to show.")
