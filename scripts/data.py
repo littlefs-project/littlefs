@@ -17,6 +17,61 @@ import collections as co
 
 OBJ_PATHS = ['*.o']
 
+class DataResult(co.namedtuple('DataResult', 'data_size')):
+    __slots__ = ()
+    def __new__(cls, data_size=0):
+        return super().__new__(cls, int(data_size))
+
+    def __add__(self, other):
+        return self.__class__(self.data_size + other.data_size)
+
+    def __sub__(self, other):
+        return DataDiff(other, self)
+
+    def __rsub__(self, other):
+        return self.__class__.__sub__(other, self)
+
+    def key(self, **args):
+        if args.get('size_sort'):
+            return -self.data_size
+        elif args.get('reverse_size_sort'):
+            return +self.data_size
+        else:
+            return None
+
+    _header = '%7s' % 'size'
+    def __str__(self):
+        return '%7d' % self.data_size
+
+class DataDiff(co.namedtuple('DataDiff',  'old,new')):
+    __slots__ = ()
+
+    def ratio(self):
+        old = self.old.data_size if self.old is not None else 0
+        new = self.new.data_size if self.new is not None else 0
+        return (new-old) / old if old else 1.0
+
+    def key(self, **args):
+        return (
+            self.new.key(**args) if self.new is not None else 0,
+            -self.ratio())
+
+    def __bool__(self):
+        return bool(self.ratio())
+
+    _header = '%7s %7s %7s' % ('old', 'new', 'diff')
+    def __str__(self):
+        old = self.old.data_size if self.old is not None else 0
+        new = self.new.data_size if self.new is not None else 0
+        diff = new - old
+        ratio = self.ratio()
+        return '%7s %7s %+7d%s' % (
+            old or "-",
+            new or "-",
+            diff,
+            ' (%+.1f%%)' % (100*ratio) if ratio else '')
+
+
 def openio(path, mode='r'):
     if path == '-':
         if 'r' in mode:
@@ -27,12 +82,17 @@ def openio(path, mode='r'):
         return open(path, mode)
 
 def collect(paths, **args):
-    results = co.defaultdict(lambda: 0)
+    results = co.defaultdict(lambda: DataResult())
     pattern = re.compile(
         '^(?P<size>[0-9a-fA-F]+)' +
         ' (?P<type>[%s])' % re.escape(args['type']) +
         ' (?P<func>.+?)$')
     for path in paths:
+        # map to source file
+        src_path = re.sub('\.o$', '.c', path)
+        if args.get('build_dir'):
+            src_path = re.sub('%s/*' % re.escape(args['build_dir']), '',
+                src_path)
         # note nm-tool may contain extra args
         cmd = args['nm_tool'] + ['--size-sort', path]
         if args.get('verbose'):
@@ -45,7 +105,14 @@ def collect(paths, **args):
         for line in proc.stdout:
             m = pattern.match(line)
             if m:
-                results[(path, m.group('func'))] += int(m.group('size'), 16)
+                func = m.group('func')
+                # discard internal functions
+                if not args.get('everything') and func.startswith('__'):
+                    continue
+                # discard .8449 suffixes created by optimizer
+                func = re.sub('\.[0-9]+', '', func)
+                results[(src_path, func)] += DataResult(
+                    int(m.group('size'), 16))
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
@@ -53,23 +120,7 @@ def collect(paths, **args):
                     sys.stdout.write(line)
             sys.exit(-1)
 
-    flat_results = []
-    for (file, func), size in results.items():
-        # map to source files
-        if args.get('build_dir'):
-            file = re.sub('%s/*' % re.escape(args['build_dir']), '', file)
-        # replace .o with .c, different scripts report .o/.c, we need to
-        # choose one if we want to deduplicate csv files
-        file = re.sub('\.o$', '.c', file)
-        # discard internal functions
-        if not args.get('everything'):
-            if func.startswith('__'):
-                continue
-        # discard .8449 suffixes created by optimizer
-        func = re.sub('\.[0-9]+', '', func)
-        flat_results.append((file, func, size))
-
-    return flat_results
+    return results
 
 def main(**args):
     # find sizes
@@ -91,34 +142,26 @@ def main(**args):
     else:
         with openio(args['use']) as f:
             r = csv.DictReader(f)
-            results = [
-                (   result['file'],
-                    result['name'],
-                    int(result['data_size']))
+            results = {
+                (result['file'], result['name']): DataResult(
+                    *(result[f] for f in DataResult._fields))
                 for result in r
-                if result.get('data_size') not in {None, ''}]
-
-    total = 0
-    for _, _, size in results:
-        total += size
+                if all(result.get(f) not in {None, ''}
+                    for f in DataResult._fields)}
 
     # find previous results?
     if args.get('diff'):
         try:
             with openio(args['diff']) as f:
                 r = csv.DictReader(f)
-                prev_results = [
-                    (   result['file'],
-                        result['name'],
-                        int(result['data_size']))
+                prev_results = {
+                    (result['file'], result['name']): DataResult(
+                        *(result[f] for f in DataResult._fields))
                     for result in r
-                    if result.get('data_size') not in {None, ''}]
+                    if all(result.get(f) not in {None, ''}
+                        for f in DataResult._fields)}
         except FileNotFoundError:
             prev_results = []
-
-        prev_total = 0
-        for _, _, size in prev_results:
-            prev_total += size
 
     # write results to CSV
     if args.get('output'):
@@ -133,111 +176,87 @@ def main(**args):
                     for result in r:
                         file = result.pop('file', '')
                         func = result.pop('name', '')
-                        result.pop('data_size', None)
+                        for f in DataResult._fields:
+                            result.pop(f, None)
                         merged_results[(file, func)] = result
                         other_fields = result.keys()
             except FileNotFoundError:
                 pass
 
-        for file, func, size in results:
-            merged_results[(file, func)]['data_size'] = size
+        for (file, func), result in results.items():
+            merged_results[(file, func)] |= result._asdict()
 
         with openio(args['output'], 'w') as f:
-            w = csv.DictWriter(f, ['file', 'name', *other_fields, 'data_size'])
+            w = csv.DictWriter(f, ['file', 'name',
+                *other_fields, *DataResult._fields])
             w.writeheader()
             for (file, func), result in sorted(merged_results.items()):
                 w.writerow({'file': file, 'name': func, **result})
 
     # print results
-    def dedup_entries(results, by='name'):
-        entries = co.defaultdict(lambda: 0)
-        for file, func, size in results:
-            entry = (file if by == 'file' else func)
-            entries[entry] += size
-        return entries
-
-    def diff_entries(olds, news):
-        diff = co.defaultdict(lambda: (0, 0, 0, 0))
-        for name, new in news.items():
-            diff[name] = (0, new, new, 1.0)
-        for name, old in olds.items():
-            _, new, _, _ = diff[name]
-            diff[name] = (old, new, new-old, (new-old)/old if old else 1.0)
-        return diff
-
-    def sorted_entries(entries):
-        if args.get('size_sort'):
-            return sorted(entries, key=lambda x: (-x[1], x))
-        elif args.get('reverse_size_sort'):
-            return sorted(entries, key=lambda x: (+x[1], x))
+    def print_header(by):
+        if by == 'total':
+            entry = lambda k: 'TOTAL'
+        elif by == 'file':
+            entry = lambda k: k[0]
         else:
-            return sorted(entries)
-
-    def sorted_diff_entries(entries):
-        if args.get('size_sort'):
-            return sorted(entries, key=lambda x: (-x[1][1], x))
-        elif args.get('reverse_size_sort'):
-            return sorted(entries, key=lambda x: (+x[1][1], x))
-        else:
-            return sorted(entries, key=lambda x: (-x[1][3], x))
-
-    def print_header(by=''):
-        if not args.get('diff'):
-            print('%-36s %7s' % (by, 'size'))
-        else:
-            print('%-36s %7s %7s %7s' % (by, 'old', 'new', 'diff'))
-
-    def print_entry(name, size):
-        print("%-36s %7d" % (name, size))
-
-    def print_diff_entry(name, old, new, diff, ratio):
-        print("%-36s %7s %7s %+7d%s" % (name,
-            old or "-",
-            new or "-",
-            diff,
-            ' (%+.1f%%)' % (100*ratio) if ratio else ''))
-
-    def print_entries(by='name'):
-        entries = dedup_entries(results, by=by)
+            entry = lambda k: k[1]
 
         if not args.get('diff'):
-            print_header(by=by)
-            for name, size in sorted_entries(entries.items()):
-                print_entry(name, size)
+            print('%-36s %s' % (by, DataResult._header))
         else:
-            prev_entries = dedup_entries(prev_results, by=by)
-            diff = diff_entries(prev_entries, entries)
-            print_header(by='%s (%d added, %d removed)' % (by,
-                sum(1 for old, _, _, _ in diff.values() if not old),
-                sum(1 for _, new, _, _ in diff.values() if not new)))
-            for name, (old, new, diff, ratio) in sorted_diff_entries(
-                    diff.items()):
-                if ratio or args.get('all'):
-                    print_diff_entry(name, old, new, diff, ratio)
+            old = {entry(k) for k in results.keys()}
+            new = {entry(k) for k in prev_results.keys()}
+            print('%-36s %s' % (
+                '%s (%d added, %d removed)' % (by,
+                        sum(1 for k in new if k not in old),
+                        sum(1 for k in old if k not in new))
+                    if by else '',
+                DataDiff._header))
 
-    def print_totals():
-        if not args.get('diff'):
-            print_entry('TOTAL', total)
+    def print_entries(by):
+        if by == 'total':
+            entry = lambda k: 'TOTAL'
+        elif by == 'file':
+            entry = lambda k: k[0]
         else:
-            ratio = (0.0 if not prev_total and not total
-                else 1.0 if not prev_total
-                else (total-prev_total)/prev_total)
-            print_diff_entry('TOTAL',
-                prev_total, total,
-                total-prev_total,
-                ratio)
+            entry = lambda k: k[1]
+
+        entries = co.defaultdict(lambda: DataResult())
+        for k, result in results.items():
+            entries[entry(k)] += result
+
+        if not args.get('diff'):
+            for name, result in sorted(entries.items(),
+                    key=lambda p: (p[1].key(**args), p)):
+                print('%-36s %s' % (name, result))
+        else:
+            prev_entries = co.defaultdict(lambda: DataResult())
+            for k, result in prev_results.items():
+                prev_entries[entry(k)] += result
+
+            diff_entries = {name: entries.get(name) - prev_entries.get(name)
+                for name in (entries.keys() | prev_entries.keys())}
+
+            for name, diff in sorted(diff_entries.items(),
+                    key=lambda p: (p[1].key(**args), p)):
+                if diff or args.get('all'):
+                    print('%-36s %s' % (name, diff))
 
     if args.get('quiet'):
         pass
     elif args.get('summary'):
-        print_header()
-        print_totals()
+        print_header('')
+        print_entries('total')
     elif args.get('files'):
-        print_entries(by='file')
-        print_totals()
+        print_header('file')
+        print_entries('file')
+        print_entries('total')
     else:
-        print_entries(by='name')
-        print_totals()
+        print_header('function')
+        print_entries('function')
+        print_entries('total')
+
 
 if __name__ == "__main__":
     import argparse

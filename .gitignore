@@ -6,6 +6,8 @@
 *.csv
 *.t.c
 *.a.c
+*.gcno
+*.gcda
 
 # Testing things
 blocks/

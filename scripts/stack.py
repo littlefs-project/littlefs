@@ -24,6 +24,90 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
+class StackResult(co.namedtuple('StackResult', 'stack_frame,stack_limit')):
+    __slots__ = ()
+    def __new__(cls, stack_frame=0, stack_limit=0):
+        return super().__new__(cls,
+            int(stack_frame),
+            float(stack_limit))
+
+    def __add__(self, other):
+        return self.__class__(
+            self.stack_frame + other.stack_frame,
+            max(self.stack_limit, other.stack_limit))
+
+    def __sub__(self, other):
+        return StackDiff(other, self)
+
+    def __rsub__(self, other):
+        return self.__class__.__sub__(other, self)
+
+    def key(self, **args):
+        if args.get('limit_sort'):
+            return -self.stack_limit
+        elif args.get('reverse_limit_sort'):
+            return +self.stack_limit
+        elif args.get('frame_sort'):
+            return -self.stack_frame
+        elif args.get('reverse_frame_sort'):
+            return +self.stack_frame
+        else:
+            return None
+
+    _header = '%7s %7s' % ('frame', 'limit')
+    def __str__(self):
+        return '%7d %7s' % (
+            self.stack_frame,
+            '∞' if m.isinf(self.stack_limit) else int(self.stack_limit))
+
+class StackDiff(co.namedtuple('StackDiff',  'old,new')):
+    __slots__ = ()
+
+    def ratio(self):
+        old_limit = self.old.stack_limit if self.old is not None else 0
+        new_limit = self.new.stack_limit if self.new is not None else 0
+        return (0.0 if m.isinf(new_limit) and m.isinf(old_limit)
+            else +float('inf') if m.isinf(new_limit)
+            else -float('inf') if m.isinf(old_limit)
+            else 0.0 if not old_limit and not new_limit
+            else 1.0 if not old_limit
+            else (new_limit-old_limit) / old_limit)
+
+    def key(self, **args):
+        return (
+            self.new.key(**args) if self.new is not None else 0,
+            -self.ratio())
+
+    def __bool__(self):
+        return bool(self.ratio())
+
+    _header = '%15s %15s %15s' % ('old', 'new', 'diff')
+    def __str__(self):
+        old_frame = self.old.stack_frame if self.old is not None else 0
+        old_limit = self.old.stack_limit if self.old is not None else 0
+        new_frame = self.new.stack_frame if self.new is not None else 0
+        new_limit = self.new.stack_limit if self.new is not None else 0
+        diff_frame = new_frame - old_frame
+        diff_limit = (0 if m.isinf(new_limit) and m.isinf(old_limit)
+            else new_limit - old_limit)
+        ratio = self.ratio()
+        return '%7s %7s %7s %7s %+7d %7s%s' % (
+            old_frame if self.old is not None else '-',
+            ('∞' if m.isinf(old_limit) else int(old_limit))
+                if self.old is not None else '-',
+            new_frame if self.new is not None else '-',
+            ('∞' if m.isinf(new_limit) else int(new_limit))
+                if self.new is not None else '-',
+            diff_frame,
+            '+∞' if diff_limit > 0 and m.isinf(diff_limit)
+                else '-∞' if diff_limit < 0 and m.isinf(diff_limit)
+                else '%+d' % diff_limit,
+            '' if not ratio
+                else ' (+∞%)' if ratio > 0 and m.isinf(ratio)
+                else ' (-∞%)' if ratio < 0 and m.isinf(ratio)
+                else ' (%+.1f%%)' % (100*ratio))
+
+
 def collect(paths, **args):
     # parse the vcg format
     k_pattern = re.compile('([a-z]+)\s*:', re.DOTALL)
@@ -55,7 +139,7 @@ def collect(paths, **args):
         return node
 
     # collect into functions
-    results = co.defaultdict(lambda: (None, None, 0, set()))
+    callgraph = co.defaultdict(lambda: (None, None, 0, set()))
     f_pattern = re.compile(
         r'([^\\]*)\\n([^:]*)[^\\]*\\n([0-9]+) bytes \((.*)\)')
     for path in paths:
@@ -73,29 +157,29 @@ def collect(paths, **args):
                         if not args.get('quiet') and type != 'static':
                             print('warning: found non-static stack for %s (%s)'
                                 % (function, type))
-                        _, _, _, targets = results[info['title']]
-                        results[info['title']] = (
+                        _, _, _, targets = callgraph[info['title']]
+                        callgraph[info['title']] = (
                             file, function, int(size), targets)
                 elif k == 'edge':
                     info = dict(info)
-                    _, _, _, targets = results[info['sourcename']]
+                    _, _, _, targets = callgraph[info['sourcename']]
                     targets.add(info['targetname'])
                 else:
                     continue
 
     if not args.get('everything'):
-        for source, (s_file, s_function, _, _) in list(results.items()):
+        for source, (s_file, s_function, _, _) in list(callgraph.items()):
             # discard internal functions
             if s_file.startswith('<') or s_file.startswith('/usr/include'):
-                del results[source]
+                del callgraph[source]
 
     # find maximum stack size recursively, this requires also detecting cycles
     # (in case of recursion)
     def find_limit(source, seen=None):
         seen = seen or set()
-        if source not in results:
+        if source not in callgraph:
             return 0
-        _, _, frame, targets = results[source]
+        _, _, frame, targets = callgraph[source]
 
         limit = 0
         for target in targets:
@@ -107,22 +191,24 @@ def collect(paths, **args):
 
         return frame + limit
 
-    def find_deps(targets):
-        deps = set()
+    def find_calls(targets):
+        calls = set()
         for target in targets:
-            if target in results:
-                t_file, t_function, _, _ = results[target]
-                deps.add((t_file, t_function))
-        return deps
+            if target in callgraph:
+                t_file, t_function, _, _ = callgraph[target]
+                calls.add((t_file, t_function))
+        return calls
 
-    # flatten into a list
-    flat_results = []
-    for source, (s_file, s_function, frame, targets) in results.items():
+    # build results
+    results = {}
+    result_calls = {}
+    for source, (s_file, s_function, frame, targets) in callgraph.items():
         limit = find_limit(source)
-        deps = find_deps(targets)
-        flat_results.append((s_file, s_function, frame, limit, deps))
+        calls = find_calls(targets)
+        results[(s_file, s_function)] = StackResult(frame, limit)
+        result_calls[(s_file, s_function)] = calls
 
-    return flat_results
+    return results, result_calls
 
 def main(**args):
     # find sizes
@@ -140,48 +226,32 @@ def main(**args):
             print('no .ci files found in %r?' % args['ci_paths'])
             sys.exit(-1)
 
-        results = collect(paths, **args)
+        results, result_calls = collect(paths, **args)
     else:
         with openio(args['use']) as f:
             r = csv.DictReader(f)
-            results = [
-                (   result['file'],
-                    result['name'],
-                    int(result['stack_frame']),
-                    float(result['stack_limit']), # note limit can be inf
-                    set())
+            results = {
+                (result['file'], result['name']): StackResult(
+                    *(result[f] for f in StackResult._fields))
                 for result in r
-                if result.get('stack_frame') not in {None, ''}
-                if result.get('stack_limit') not in {None, ''}]
+                if all(result.get(f) not in {None, ''}
+                    for f in StackResult._fields)}
 
-    total_frame = 0
-    total_limit = 0
-    for _, _, frame, limit, _ in results:
-        total_frame += frame
-        total_limit = max(total_limit, limit)
+        result_calls = {}
 
     # find previous results?
     if args.get('diff'):
         try:
             with openio(args['diff']) as f:
                 r = csv.DictReader(f)
-                prev_results = [
-                    (   result['file'],
-                        result['name'],
-                        int(result['stack_frame']),
-                        float(result['stack_limit']),
-                        set())
+                prev_results = {
+                    (result['file'], result['name']): StackResult(
+                        *(result[f] for f in StackResult._fields))
                     for result in r
-                    if result.get('stack_frame') not in {None, ''}
-                    if result.get('stack_limit') not in {None, ''}]
+                    if all(result.get(f) not in {None, ''}
+                        for f in StackResult._fields)}
         except FileNotFoundError:
             prev_results = []
-
-        prev_total_frame = 0
-        prev_total_limit = 0
-        for _, _, frame, limit, _ in prev_results:
-            prev_total_frame += frame
-            prev_total_limit = max(prev_total_limit, limit)
 
     # write results to CSV
     if args.get('output'):
@@ -196,193 +266,113 @@ def main(**args):
                     for result in r:
                         file = result.pop('file', '')
                         func = result.pop('name', '')
-                        result.pop('stack_frame', None)
-                        result.pop('stack_limit', None)
+                        for f in StackResult._fields:
+                            result.pop(f, None)
                         merged_results[(file, func)] = result
                         other_fields = result.keys()
             except FileNotFoundError:
                 pass
 
-        for file, func, frame, limit, _ in results:
-            merged_results[(file, func)]['stack_frame'] = frame
-            merged_results[(file, func)]['stack_limit'] = limit
+        for (file, func), result in results.items():
+            merged_results[(file, func)] |= result._asdict()
 
         with openio(args['output'], 'w') as f:
-            w = csv.DictWriter(f, ['file', 'name', *other_fields, 'stack_frame', 'stack_limit'])
+            w = csv.DictWriter(f, ['file', 'name',
+                *other_fields, *StackResult._fields])
             w.writeheader()
             for (file, func), result in sorted(merged_results.items()):
                 w.writerow({'file': file, 'name': func, **result})
 
     # print results
-    def dedup_entries(results, by='name'):
-        entries = co.defaultdict(lambda: (0, 0, set()))
-        for file, func, frame, limit, deps in results:
-            entry = (file if by == 'file' else func)
-            entry_frame, entry_limit, entry_deps = entries[entry]
-            entries[entry] = (
-                entry_frame + frame,
-                max(entry_limit, limit),
-                entry_deps | {file if by == 'file' else func
-                    for file, func in deps})
-        return entries
-
-    def diff_entries(olds, news):
-        diff = co.defaultdict(lambda: (None, None, None, None, 0, 0, 0, set()))
-        for name, (new_frame, new_limit, deps) in news.items():
-            diff[name] = (
-                None, None,
-                new_frame, new_limit,
-                new_frame, new_limit,
-                1.0,
-                deps)
-        for name, (old_frame, old_limit, _) in olds.items():
-            _, _, new_frame, new_limit, _, _, _, deps = diff[name]
-            diff[name] = (
-                old_frame, old_limit,
-                new_frame, new_limit,
-                (new_frame or 0) - (old_frame or 0),
-                0 if m.isinf(new_limit or 0) and m.isinf(old_limit or 0)
-                    else (new_limit or 0) - (old_limit or 0),
-                0.0 if m.isinf(new_limit or 0) and m.isinf(old_limit or 0)
-                    else +float('inf') if m.isinf(new_limit or 0)
-                    else -float('inf') if m.isinf(old_limit or 0)
-                    else +0.0 if not old_limit and not new_limit
-                    else +1.0 if not old_limit
-                    else ((new_limit or 0) - (old_limit or 0))/(old_limit or 0),
-                deps)
-        return diff
-
-    def sorted_entries(entries):
-        if args.get('limit_sort'):
-            return sorted(entries, key=lambda x: (-x[1][1], x))
-        elif args.get('reverse_limit_sort'):
-            return sorted(entries, key=lambda x: (+x[1][1], x))
-        elif args.get('frame_sort'):
-            return sorted(entries, key=lambda x: (-x[1][0], x))
-        elif args.get('reverse_frame_sort'):
-            return sorted(entries, key=lambda x: (+x[1][0], x))
+    def print_header(by):
+        if by == 'total':
+            entry = lambda k: 'TOTAL'
+        elif by == 'file':
+            entry = lambda k: k[0]
         else:
-            return sorted(entries)
+            entry = lambda k: k[1]
 
-    def sorted_diff_entries(entries):
-        if args.get('limit_sort'):
-            return sorted(entries, key=lambda x: (-(x[1][3] or 0), x))
-        elif args.get('reverse_limit_sort'):
-            return sorted(entries, key=lambda x: (+(x[1][3] or 0), x))
-        elif args.get('frame_sort'):
-            return sorted(entries, key=lambda x: (-(x[1][2] or 0), x))
-        elif args.get('reverse_frame_sort'):
-            return sorted(entries, key=lambda x: (+(x[1][2] or 0), x))
-        else:
-            return sorted(entries, key=lambda x: (-x[1][6], x))
-
-    def print_header(by=''):
         if not args.get('diff'):
-            print('%-36s %7s %7s' % (by, 'frame', 'limit'))
+            print('%-36s %s' % (by, StackResult._header))
         else:
-            print('%-36s %15s %15s %15s' % (by, 'old', 'new', 'diff'))
+            old = {entry(k) for k in results.keys()}
+            new = {entry(k) for k in prev_results.keys()}
+            print('%-36s %s' % (
+                '%s (%d added, %d removed)' % (by,
+                        sum(1 for k in new if k not in old),
+                        sum(1 for k in old if k not in new))
+                    if by else '',
+                StackDiff._header))
 
-    def print_entry(name, frame, limit):
-        print("%-36s %7d %7s" % (name,
-            frame, '∞' if m.isinf(limit) else int(limit)))
-
-    def print_diff_entry(name,
-            old_frame, old_limit,
-            new_frame, new_limit,
-            diff_frame, diff_limit,
-            ratio):
-        print('%-36s %7s %7s %7s %7s %+7d %7s%s' % (name,
-            old_frame if old_frame is not None else "-",
-            ('∞' if m.isinf(old_limit) else int(old_limit))
-                if old_limit is not None else "-",
-            new_frame if new_frame is not None else "-",
-            ('∞' if m.isinf(new_limit) else int(new_limit))
-                if new_limit is not None else "-",
-            diff_frame,
-            ('+∞' if diff_limit > 0 and m.isinf(diff_limit)
-                else '-∞' if diff_limit < 0 and m.isinf(diff_limit)
-                else '%+d' % diff_limit),
-            '' if not ratio
-                else ' (+∞%)' if ratio > 0 and m.isinf(ratio)
-                else ' (-∞%)' if ratio < 0 and m.isinf(ratio)
-                else ' (%+.1f%%)' % (100*ratio)))
-
-    def print_entries(by='name'):
-        # build optional tree of dependencies
-        def print_deps(entries, depth, print,
+    def print_entries(by):
+        # print optional tree of dependencies
+        def print_calls(entries, entry_calls, depth,
                 filter=lambda _: True,
                 prefixes=('', '', '', '')):
-            entries = entries if isinstance(entries, list) else list(entries)
-            filtered_entries = [(name, entry)
-                for name, entry in entries
-                if filter(name)]
-            for i, (name, entry) in enumerate(filtered_entries):
+            filtered_entries = {
+                name: result for name, result in entries.items()
+                if filter(name)}
+            for i, (name, result) in enumerate(sorted(filtered_entries.items(),
+                    key=lambda p: (p[1].key(**args), p))):
                 last = (i == len(filtered_entries)-1)
-                print(prefixes[0+last] + name, entry)
+                print('%-36s %s' % (prefixes[0+last] + name, result))
 
-                if depth > 0:
-                    deps = entry[-1]
-                    print_deps(entries, depth-1, print,
-                        lambda name: name in deps,
+                if depth > 0 and by != 'total':
+                    calls = entry_calls.get(name, set())
+                    print_calls(entries, entry_calls, depth-1,
+                        lambda name: name in calls,
                         (   prefixes[2+last] + "|-> ",
                             prefixes[2+last] + "'-> ",
                             prefixes[2+last] + "|   ",
                             prefixes[2+last] + "    "))
 
-        entries = dedup_entries(results, by=by)
+        if by == 'total':
+            entry = lambda k: 'TOTAL'
+        elif by == 'file':
+            entry = lambda k: k[0]
+        else:
+            entry = lambda k: k[1]
+
+        entries = co.defaultdict(lambda: StackResult())
+        for k, result in results.items():
+            entries[entry(k)] += result
+
+        entry_calls = co.defaultdict(lambda: set())
+        for k, calls in result_calls.items():
+            entry_calls[entry(k)] |= {entry(c) for c in calls}
 
         if not args.get('diff'):
-            print_header(by=by)
-            print_deps(
-                sorted_entries(entries.items()),
-                args.get('depth') or 0,
-                lambda name, entry: print_entry(name, *entry[:-1]))
+            print_calls(
+                entries,
+                entry_calls,
+                args.get('depth', 0))
         else:
-            prev_entries = dedup_entries(prev_results, by=by)
-            diff = diff_entries(prev_entries, entries)
+            prev_entries = co.defaultdict(lambda: StackResult())
+            for k, result in prev_results.items():
+                prev_entries[entry(k)] += result
 
-            print_header(by='%s (%d added, %d removed)' % (by,
-                sum(1 for _, old, _, _, _, _, _, _ in diff.values() if old is None),
-                sum(1 for _, _, _, new, _, _, _, _ in diff.values() if new is None)))
-            print_deps(
-                filter(
-                    lambda x: x[1][6] or args.get('all'),
-                    sorted_diff_entries(diff.items())),
-                args.get('depth') or 0,
-                lambda name, entry: print_diff_entry(name, *entry[:-1]))
+            diff_entries = {name: entries.get(name) - prev_entries.get(name)
+                for name in (entries.keys() | prev_entries.keys())}
 
-    def print_totals():
-        if not args.get('diff'):
-            print_entry('TOTAL', total_frame, total_limit)
-        else:
-            diff_frame = total_frame - prev_total_frame
-            diff_limit = (
-                0 if m.isinf(total_limit or 0) and m.isinf(prev_total_limit or 0)
-                    else (total_limit or 0) - (prev_total_limit or 0))
-            ratio = (
-                0.0 if m.isinf(total_limit or 0) and m.isinf(prev_total_limit or 0)
-                    else +float('inf') if m.isinf(total_limit or 0)
-                    else -float('inf') if m.isinf(prev_total_limit or 0)
-                    else 0.0 if not prev_total_limit and not total_limit
-                    else 1.0 if not prev_total_limit
-                    else ((total_limit or 0) - (prev_total_limit or 0))/(prev_total_limit or 0))
-            print_diff_entry('TOTAL',
-                prev_total_frame, prev_total_limit,
-                total_frame, total_limit,
-                diff_frame, diff_limit,
-                ratio)
+            print_calls(
+                {name: diff for name, diff in diff_entries.items()
+                    if diff or args.get('all')},
+                entry_calls,
+                args.get('depth', 0))
 
     if args.get('quiet'):
         pass
     elif args.get('summary'):
-        print_header()
-        print_totals()
+        print_header('')
+        print_entries('total')
     elif args.get('files'):
-        print_entries(by='file')
-        print_totals()
+        print_header('file')
+        print_entries('file')
+        print_entries('total')
     else:
-        print_entries(by='name')
-        print_totals()
+        print_header('function')
+        print_entries('function')
+        print_entries('total')
 
     # catch recursion
     if args.get('error_on_recursion') and any(

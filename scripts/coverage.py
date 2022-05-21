@@ -21,6 +21,140 @@ import subprocess as sp
 
 GCDA_PATHS = ['*.gcda']
 
+class CoverageResult(co.namedtuple('CoverageResult',
+        'coverage_line_hits,coverage_line_count,'
+        'coverage_branch_hits,coverage_branch_count')):
+    __slots__ = ()
+    def __new__(cls,
+            coverage_line_hits=0, coverage_line_count=0,
+            coverage_branch_hits=0, coverage_branch_count=0):
+        return super().__new__(cls,
+            int(coverage_line_hits),
+            int(coverage_line_count),
+            int(coverage_branch_hits),
+            int(coverage_branch_count))
+
+    def __add__(self, other):
+        return self.__class__(
+            self.coverage_line_hits + other.coverage_line_hits,
+            self.coverage_line_count + other.coverage_line_count,
+            self.coverage_branch_hits + other.coverage_branch_hits,
+            self.coverage_branch_count + other.coverage_branch_count)
+
+    def __sub__(self, other):
+        return CoverageDiff(other, self)
+
+    def __rsub__(self, other):
+        return self.__class__.__sub__(other, self)
+
+    def key(self, **args):
+        ratio_line = (self.coverage_line_hits/self.coverage_line_count
+            if self.coverage_line_count else -1)
+        ratio_branch = (self.coverage_branch_hits/self.coverage_branch_count
+            if self.coverage_branch_count else -1)
+
+        if args.get('line_sort'):
+            return (-ratio_line, -ratio_branch)
+        elif args.get('reverse_line_sort'):
+            return (+ratio_line, +ratio_branch)
+        elif args.get('branch_sort'):
+            return (-ratio_branch, -ratio_line)
+        elif args.get('reverse_branch_sort'):
+            return (+ratio_branch, +ratio_line)
+        else:
+            return None
+
+    _header = '%19s %19s' % ('hits/line', 'hits/branch')
+    def __str__(self):
+        line_hits = self.coverage_line_hits
+        line_count = self.coverage_line_count
+        branch_hits = self.coverage_branch_hits
+        branch_count = self.coverage_branch_count
+        return '%11s %7s %11s %7s' % (
+            '%d/%d' % (line_hits, line_count)
+                if line_count else '-',
+            '%.1f%%' % (100*line_hits/line_count)
+                if line_count else '-',
+            '%d/%d' % (branch_hits, branch_count)
+                if branch_count else '-',
+            '%.1f%%' % (100*branch_hits/branch_count)
+                if branch_count else '-')
+
+class CoverageDiff(co.namedtuple('CoverageDiff', 'old,new')):
+    __slots__ = ()
+
+    def ratio_line(self):
+        old_line_hits = (self.old.coverage_line_hits
+            if self.old is not None else 0)
+        old_line_count = (self.old.coverage_line_count
+            if self.old is not None else 0)
+        new_line_hits = (self.new.coverage_line_hits
+            if self.new is not None else 0)
+        new_line_count = (self.new.coverage_line_count
+            if self.new is not None else 0)
+        return ((new_line_hits/new_line_count if new_line_count else 1.0)
+            - (old_line_hits/old_line_count if old_line_count else 1.0))
+
+    def ratio_branch(self):
+        old_branch_hits = (self.old.coverage_branch_hits
+            if self.old is not None else 0)
+        old_branch_count = (self.old.coverage_branch_count
+            if self.old is not None else 0)
+        new_branch_hits = (self.new.coverage_branch_hits
+            if self.new is not None else 0)
+        new_branch_count = (self.new.coverage_branch_count
+            if self.new is not None else 0)
+        return ((new_branch_hits/new_branch_count if new_branch_count else 1.0)
+            - (old_branch_hits/old_branch_count if old_branch_count else 1.0))
+
+    def key(self, **args):
+        return (
+            self.new.key(**args) if self.new is not None else 0,
+            -self.ratio_line(),
+            -self.ratio_branch())
+
+    def __bool__(self):
+        return bool(self.ratio_line() or self.ratio_branch())
+
+    _header = '%23s %23s %23s' % ('old', 'new', 'diff')
+    def __str__(self):
+        old_line_hits = (self.old.coverage_line_hits
+            if self.old is not None else 0)
+        old_line_count = (self.old.coverage_line_count
+            if self.old is not None else 0)
+        old_branch_hits = (self.old.coverage_branch_hits
+            if self.old is not None else 0)
+        old_branch_count = (self.old.coverage_branch_count
+            if self.old is not None else 0)
+        new_line_hits = (self.new.coverage_line_hits
+            if self.new is not None else 0)
+        new_line_count = (self.new.coverage_line_count
+            if self.new is not None else 0)
+        new_branch_hits = (self.new.coverage_branch_hits
+            if self.new is not None else 0)
+        new_branch_count = (self.new.coverage_branch_count
+            if self.new is not None else 0)
+        diff_line_hits = new_line_hits - old_line_hits
+        diff_line_count = new_line_count - old_line_count
+        diff_branch_hits = new_branch_hits - old_branch_hits
+        diff_branch_count = new_branch_count - old_branch_count
+        ratio_line = self.ratio_line()
+        ratio_branch = self.ratio_branch()
+        return '%11s %11s %11s %11s %11s %11s%-10s%s' % (
+            '%d/%d' % (old_line_hits, old_line_count)
+                if old_line_count else '-',
+            '%d/%d' % (old_branch_hits, old_branch_count)
+                if old_branch_count else '-',
+            '%d/%d' % (new_line_hits, new_line_count)
+                if new_line_count else '-',
+            '%d/%d' % (new_branch_hits, new_branch_count)
+                if new_branch_count else '-',
+            '%+d/%+d' % (diff_line_hits, diff_line_count),
+            '%+d/%+d' % (diff_branch_hits, diff_branch_count),
+            ' (%+.1f%%)' % (100*ratio_line) if ratio_line else '',
+            ' (%+.1f%%)' % (100*ratio_branch) if ratio_branch else '')
+
+
 def openio(path, mode='r'):
     if path == '-':
         if 'r' in mode:
@@ -29,113 +163,6 @@ def openio(path, mode='r'):
             return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
     else:
         return open(path, mode)
-
-class CoverageResult(co.namedtuple('CoverageResult',
-        'line_hits,line_count,branch_hits,branch_count')):
-    __slots__ = ()
-    def __new__(cls, line_hits=0, line_count=0, branch_hits=0, branch_count=0):
-        return super().__new__(cls,
-            int(line_hits),
-            int(line_count),
-            int(branch_hits),
-            int(branch_count))
-
-    def __add__(self, other):
-        return self.__class__(
-            self.line_hits + other.line_hits,
-            self.line_count + other.line_count,
-            self.branch_hits + other.branch_hits,
-            self.branch_count + other.branch_count)
-
-    def __sub__(self, other):
-        return CoverageDiff(other, self)
-
-    def key(self, **args):
-        line_ratio = (self.line_hits/self.line_count
-            if self.line_count else -1)
-        branch_ratio = (self.branch_hits/self.branch_count
-            if self.branch_count else -1)
-
-        if args.get('line_sort'):
-            return (-line_ratio, -branch_ratio)
-        elif args.get('reverse_line_sort'):
-            return (+line_ratio, +branch_ratio)
-        elif args.get('branch_sort'):
-            return (-branch_ratio, -line_ratio)
-        elif args.get('reverse_branch_sort'):
-            return (+branch_ratio, +line_ratio)
-        else:
-            return None
-
-    _header = '%19s %19s' % ('hits/line', 'hits/branch')
-    def __str__(self):
-        return '%11s %7s %11s %7s' % (
-            '%d/%d' % (self.line_hits, self.line_count)
-                if self.line_count else '-',
-            '%.1f%%' % (100*self.line_hits/self.line_count)
-                if self.line_count else '-',
-            '%d/%d' % (self.branch_hits, self.branch_count)
-                if self.branch_count else '-',
-            '%.1f%%' % (100*self.branch_hits/self.branch_count)
-                if self.branch_count else '-')
-
-class CoverageDiff(co.namedtuple('CoverageDiff', 'old,new')):
-    __slots__ = ()
-
-    def line_hits_diff(self):
-        return self.new.line_hits - self.old.line_hits
-
-    def line_count_diff(self):
-        return self.new.line_count - self.old.line_count
-
-    def line_ratio(self):
-        return ((self.new.line_hits/self.new.line_count
-                if self.new.line_count else 1.0)
-            - (self.old.line_hits / self.old.line_count
-                if self.old.line_count else 1.0))
-
-    def branch_hits_diff(self):
-        return self.new.branch_hits - self.old.branch_hits
-
-    def branch_count_diff(self):
-        return self.new.branch_count - self.old.branch_count
-
-    def branch_ratio(self):
-        return ((self.new.branch_hits/self.new.branch_count
-                if self.new.branch_count else 1.0)
-            - (self.old.branch_hits / self.old.branch_count
-                if self.old.branch_count else 1.0))
-
-    def key(self, **args):
-        new_key = self.new.key(**args)
-        line_ratio = self.line_ratio()
-        branch_ratio = self.branch_ratio()
-        if new_key is not None:
-            return new_key
-        else:
-            return (-line_ratio, -branch_ratio)
-
-    def __bool__(self):
-        return bool(self.line_ratio() or self.branch_ratio())
-
-    _header = '%23s %23s %23s' % ('old', 'new', 'diff')
-    def __str__(self):
-        line_ratio = self.line_ratio()
-        branch_ratio = self.branch_ratio()
-        return '%11s %11s %11s %11s %11s %11s%-10s%s' % (
-            '%d/%d' % (self.old.line_hits, self.old.line_count)
-                if self.old.line_count else '-',
-            '%d/%d' % (self.old.branch_hits, self.old.branch_count)
-                if self.old.branch_count else '-',
-            '%d/%d' % (self.new.line_hits, self.new.line_count)
-                if self.new.line_count else '-',
-            '%d/%d' % (self.new.branch_hits, self.new.branch_count)
-                if self.new.branch_count else '-',
-            '%+d/%+d' % (self.line_hits_diff(), self.line_count_diff()),
-            '%+d/%+d' % (self.branch_hits_diff(), self.branch_count_diff()),
-            ' (%+.1f%%)' % (100*line_ratio) if line_ratio else '',
-            ' (%+.1f%%)' % (100*branch_ratio) if branch_ratio else '')
-
 
 def collect(paths, **args):
     results = {}
@@ -180,12 +207,12 @@ def collect(paths, **args):
                 results[(src_path, func, line['line_number'])] = (
                     line['count'],
                     CoverageResult(
-                        line_hits=1 if line['count'] > 0 else 0,
-                        line_count=1,
-                        branch_hits=sum(
+                        coverage_line_hits=1 if line['count'] > 0 else 0,
+                        coverage_line_count=1,
+                        coverage_branch_hits=sum(
                             1 if branch['count'] > 0 else 0
                             for branch in line['branches']),
-                        branch_count=len(line['branches'])))
+                        coverage_branch_count=len(line['branches'])))
 
     # merge into functions, since this is what other scripts use
     func_results = co.defaultdict(lambda: CoverageResult())
@@ -210,15 +237,13 @@ def main(**args):
             print('no .gcda files found in %r?' % args['gcda_paths'])
             sys.exit(-1)
 
-        # TODO consistent behavior between this and stack.py for deps?
         results, line_results = collect(paths, **args)
     else:
         with openio(args['use']) as f:
             r = csv.DictReader(f)
             results = {
-                (result['file'], result['name']): CoverageResult(**{
-                    k: v for k, v in result.items()
-                    if k in CoverageResult._fields})
+                (result['file'], result['name']): CoverageResult(
+                    *(result[f] for f in CoverageResult._fields))
                 for result in r
                 if all(result.get(f) not in {None, ''}
                     for f in CoverageResult._fields)}
@@ -229,9 +254,8 @@ def main(**args):
             with openio(args['diff']) as f:
                 r = csv.DictReader(f)
                 prev_results = {
-                    (result['file'], result['name']): CoverageResult(**{
-                        k: v for k, v in result.items()
-                        if k in CoverageResult._fields})
+                    (result['file'], result['name']): CoverageResult(
+                        *(result[f] for f in CoverageResult._fields))
                     for result in r
                     if all(result.get(f) not in {None, ''}
                         for f in CoverageResult._fields)}
@@ -259,8 +283,7 @@ def main(**args):
                 pass
 
         for (file, func), result in results.items():
-            for f in CoverageResult._fields:
-                merged_results[(file, func)][f] = getattr(result, f)
+            merged_results[(file, func)] |= result._asdict()
 
         with openio(args['output'], 'w') as f:
             w = csv.DictWriter(f, ['file', 'name',
@@ -311,7 +334,7 @@ def main(**args):
             for k, result in prev_results.items():
                 prev_entries[entry(k)] += result
 
-            diff_entries = {name: entries[name] - prev_entries[name]
+            diff_entries = {name: entries.get(name) - prev_entries.get(name)
                 for name in (entries.keys() | prev_entries.keys())}
 
             for name, diff in sorted(diff_entries.items(),
@@ -335,10 +358,12 @@ def main(**args):
 
     # catch lack of coverage
     if args.get('error_on_lines') and any(
-            r.line_hits < r.line_count for r in results.values()):
+            r.coverage_line_hits < r.coverage_line_count
+            for r in results.values()):
         sys.exit(2)
     elif args.get('error_on_branches') and any(
-            r.branch_hits < r.branch_count for r in results.values()):
+            r.coverage_branch_hits < r.coverage_branch_count
+            for r in results.values()):
         sys.exit(3)
 
 

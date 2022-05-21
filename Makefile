@@ -74,9 +74,6 @@ endif
 ifdef EXEC
 override TESTFLAGS 	   += --exec="$(EXEC)"
 endif
-ifdef COVERAGE
-override TESTFLAGS     += --coverage
-endif
 ifdef BUILDDIR
 override TESTFLAGS     += --build-dir="$(BUILDDIR:/=)"
 override CODEFLAGS     += --build-dir="$(BUILDDIR:/=)"
@@ -164,9 +161,6 @@ $(BUILDDIR)lfs.csv: $(OBJ) $(CGI)
 	./scripts/data.py $(OBJ) -q -m $@ $(DATAFLAGS) -o $@
 	./scripts/stack.py $(CGI) -q -m $@ $(STACKFLAGS) -o $@
 	./scripts/structs.py $(OBJ) -q -m $@ $(STRUCTSFLAGS) -o $@
-	$(if $(COVERAGE),\
-		./scripts/coverage.py $(BUILDDIR)tests/*.toml.info \
-			-q -m $@ $(COVERAGEFLAGS) -o $@)
 
 $(BUILDDIR)runners/test_runner: $(TEST_TAOBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
