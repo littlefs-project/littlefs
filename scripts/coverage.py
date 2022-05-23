@@ -164,6 +164,14 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
+def color(**args):
+    if args.get('color') == 'auto':
+        return sys.stdout.isatty()
+    elif args.get('color') == 'always':
+        return True
+    else:
+        return False
+
 def collect(paths, **args):
     results = {}
     for path in paths:
@@ -221,6 +229,81 @@ def collect(paths, **args):
 
     return func_results, results
 
+def annotate(paths, results, **args):
+    for path in paths:
+        # map to source file
+        src_path = re.sub('\.t\.a\.gcda$', '.c', path)
+        # TODO test this
+        if args.get('build_dir'):
+            src_path = re.sub('%s/*' % re.escape(args['build_dir']), '',
+                src_path)
+
+        # flatten to line info
+        line_results = {line: (hits, result)
+            for (_, _, line), (hits, result) in results.items()}
+
+        # calculate spans to show
+        if not args.get('annotate'):
+            spans = []
+            last = None
+            for line, (hits, result) in sorted(line_results.items()):
+                if ((args.get('lines') and hits == 0)
+                        or (args.get('branches')
+                            and result.coverage_branch_hits
+                                < result.coverage_branch_count)):
+                    if last is not None and line - last.stop <= args['context']:
+                        last = range(
+                            last.start,
+                            line+1+args['context'])
+                    else:
+                        if last is not None:
+                            spans.append(last)
+                        last = range(
+                            line-args['context'],
+                            line+1+args['context'])
+            if last is not None:
+                spans.append(last)
+
+        with open(src_path) as f:
+            skipped = False
+            for i, line in enumerate(f):
+                # skip lines not in spans?
+                if (not args.get('annotate')
+                        and not any(i+1 in s for s in spans)):
+                    skipped = True
+                    continue
+
+                if skipped:
+                    skipped = False
+                    print('%s@@ %s:%d @@%s' % (
+                        '\x1b[36m' if color(**args) else '',
+                        src_path,
+                        i+1,
+                        '\x1b[m' if color(**args) else ''))
+
+                # build line
+                if line.endswith('\n'):
+                    line = line[:-1]
+
+                if i+1 in line_results:
+                    hits, result = line_results[i+1]
+                    line = '%-*s // %d hits, %d/%d branches' % (
+                        args['width'],
+                        line,
+                        hits,
+                        result.coverage_branch_hits,
+                        result.coverage_branch_count)
+
+                    if color(**args):
+                        if args.get('lines') and hits == 0:
+                            line = '\x1b[1;31m%s\x1b[m' % line
+                        elif (args.get('branches') and
+                                result.coverage_branch_hits
+                                < result.coverage_branch_count):
+                            line = '\x1b[35m%s\x1b[m' % line
+
+                print(line)
+
 def main(**args):
     # find sizes
     if not args.get('use', None):
@@ -246,7 +329,10 @@ def main(**args):
                     *(result[f] for f in CoverageResult._fields))
                 for result in r
                 if all(result.get(f) not in {None, ''}
+
                     for f in CoverageResult._fields)}
+        paths = []
+        line_results = {}
 
     # find previous results?
     if args.get('diff'):
@@ -344,6 +430,10 @@ def main(**args):
 
     if args.get('quiet'):
         pass
+    elif (args.get('annotate')
+            or args.get('lines')
+            or args.get('branches')):
+        annotate(paths, line_results, **args)
     elif args.get('summary'):
         print_header('')
         print_entries('total')
@@ -403,6 +493,20 @@ if __name__ == "__main__":
         help="Show file-level coverage.")
     parser.add_argument('-Y', '--summary', action='store_true',
         help="Only show the total coverage.")
+    parser.add_argument('-p', '--annotate', action='store_true',
+        help="Show source files annotated with coverage info.")
+    parser.add_argument('-l', '--lines', action='store_true',
+        help="Show uncovered lines.")
+    parser.add_argument('-b', '--branches', action='store_true',
+        help="Show uncovered branches.")
+    parser.add_argument('-c', '--context', type=lambda x: int(x, 0), default=3,
+        help="Show a additional lines of context. Defaults to 3.")
+    parser.add_argument('-w', '--width', type=lambda x: int(x, 0), default=80,
+        help="Assume source is styled with this many columns. Defaults to 80.")
+    # TODO add this to test.py?
+    parser.add_argument('--color',
+        choices=['never', 'always', 'auto'], default='auto',
+        help="When to use terminal colors.")
     parser.add_argument('-e', '--error-on-lines', action='store_true',
         help="Error if any lines are not covered.")
     parser.add_argument('-E', '--error-on-branches', action='store_true',
