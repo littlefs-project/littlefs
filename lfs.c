@@ -13,6 +13,8 @@
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
+#define LFS_BULK_XFER_SIZE 32
+
 enum {
     LFS_OK_RELOCATED = 1,
     LFS_OK_DROPPED   = 2,
@@ -132,7 +134,7 @@ static int lfs_bd_cmp(lfs_t *lfs,
     lfs_size_t diff = 0;
 
     for (lfs_off_t i = 0; i < size; i += diff) {
-        uint8_t dat[8];
+        uint8_t dat[LFS_BULK_XFER_SIZE];
 
         diff = lfs_min(size-i, sizeof(dat));
         int res = lfs_bd_read(lfs,
@@ -3043,22 +3045,24 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
         }
 
         // either read from dirty cache or disk
+        uint8_t dat[LFS_BULK_XFER_SIZE];
         for (lfs_off_t i = 0; i < file->off; i++) {
-            uint8_t data;
+            uint32_t diff = 1;
             if (file->flags & LFS_F_INLINE) {
                 err = lfs_dir_getread(lfs, &file->m,
                         // note we evict inline files before they can be dirty
                         NULL, &file->cache, file->off-i,
                         LFS_MKTAG(0xfff, 0x1ff, 0),
                         LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0),
-                        i, &data, 1);
+                        i, dat, diff);
                 if (err) {
                     return err;
                 }
             } else {
+                diff = lfs_min(sizeof(dat), file->off-i);
                 err = lfs_bd_read(lfs,
                         &file->cache, &lfs->rcache, file->off-i,
-                        file->block, i, &data, 1);
+                        file->block, i, dat, diff);
                 if (err) {
                     return err;
                 }
@@ -3066,7 +3070,7 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
 
             err = lfs_bd_prog(lfs,
                     &lfs->pcache, &lfs->rcache, true,
-                    nblock, i, &data, 1);
+                    nblock, i, dat, diff);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
