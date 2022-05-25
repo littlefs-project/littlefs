@@ -3028,6 +3028,8 @@ static int lfs_file_rawclose(lfs_t *lfs, lfs_file_t *file) {
 
 #ifndef LFS_READONLY
 static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
+    lfs_size_t diff = 0;
+    
     while (true) {
         // just relocate what exists into new block
         lfs_block_t nblock;
@@ -3045,7 +3047,6 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
         }
 
         // either read from dirty cache or disk
-        lfs_size_t diff = 0;
         for (lfs_off_t i = 0; i < file->off; i += diff) {
             uint8_t dat[LFS_BULK_XFER_SIZE];
             
