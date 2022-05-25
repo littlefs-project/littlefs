@@ -14,7 +14,7 @@
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
 #define LFS_BULK_RELOC_SIZE 32
-#define LFS_BULK_CMP_SIZE 8
+#define LFS_BULK_CMP_SIZE 32
 
 enum {
     LFS_OK_RELOCATED = 1,
