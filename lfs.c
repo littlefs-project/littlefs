@@ -3045,7 +3045,7 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
         }
 
         // either read from dirty cache or disk
-        lfs_ssize_t diff = 0;
+        lfs_size_t diff = 0;
         for (lfs_off_t i = 0; i < file->off; i += diff) {
             uint8_t dat[LFS_BULK_XFER_SIZE];
             
