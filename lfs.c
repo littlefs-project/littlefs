@@ -3047,7 +3047,7 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
         // either read from dirty cache or disk
         uint8_t dat[LFS_BULK_XFER_SIZE];
         for (lfs_off_t i = 0; i < file->off; i++) {
-            uint32_t diff = 1;
+            lfs_ssize_t diff = 1;
             if (file->flags & LFS_F_INLINE) {
                 err = lfs_dir_getread(lfs, &file->m,
                         // note we evict inline files before they can be dirty
@@ -3059,7 +3059,7 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
                     return err;
                 }
             } else {
-                diff = lfs_min(sizeof(dat), file->off-i);
+                //diff = lfs_min(sizeof(dat), file->off-i);
                 err = lfs_bd_read(lfs,
                         &file->cache, &lfs->rcache, file->off-i,
                         file->block, i, dat, diff);
