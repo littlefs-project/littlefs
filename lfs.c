@@ -13,7 +13,8 @@
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
-#define LFS_BULK_XFER_SIZE 8
+#define LFS_BULK_RELOC_SIZE 8
+#define LFS_BULK_CMP_SIZE 8
 
 enum {
     LFS_OK_RELOCATED = 1,
@@ -134,7 +135,7 @@ static int lfs_bd_cmp(lfs_t *lfs,
     lfs_size_t diff = 0;
 
     for (lfs_off_t i = 0; i < size; i += diff) {
-        uint8_t dat[LFS_BULK_XFER_SIZE];
+        uint8_t dat[LFS_BULK_CMP_SIZE];
 
         diff = lfs_min(size-i, sizeof(dat));
         int res = lfs_bd_read(lfs,
@@ -3048,10 +3049,10 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
 
         // either read from dirty cache or disk
         for (lfs_off_t i = 0; i < file->off; i += diff) {
-            uint8_t dat[LFS_BULK_XFER_SIZE];
+            uint8_t dat[LFS_BULK_RELOC_SIZE];
             
-            diff = 1; //lfs_min(sizeof(dat), file->off-i);
             if (file->flags & LFS_F_INLINE) {
+                diff = 1;
                 err = lfs_dir_getread(lfs, &file->m,
                         // note we evict inline files before they can be dirty
                         NULL, &file->cache, file->off-i,
@@ -3062,6 +3063,7 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
                     return err;
                 }
             } else {
+                diff = lfs_min(sizeof(dat), file->off-i);
                 err = lfs_bd_read(lfs,
                         &file->cache, &lfs->rcache, file->off-i,
                         file->block, i, &dat, diff);
