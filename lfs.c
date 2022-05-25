@@ -13,7 +13,7 @@
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
-#define LFS_BULK_XFER_SIZE 32
+#define LFS_BULK_XFER_SIZE 8
 
 enum {
     LFS_OK_RELOCATED = 1,
@@ -3045,24 +3045,25 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
         }
 
         // either read from dirty cache or disk
-        uint8_t dat[LFS_BULK_XFER_SIZE];
-        for (lfs_off_t i = 0; i < file->off; i++) {
-            lfs_ssize_t diff = 1;
+        lfs_ssize_t diff = 0;
+        for (lfs_off_t i = 0; i < file->off; i += diff) {
+            uint8_t dat[LFS_BULK_XFER_SIZE];
+            
+            diff = 1; //lfs_min(sizeof(dat), file->off-i);
             if (file->flags & LFS_F_INLINE) {
                 err = lfs_dir_getread(lfs, &file->m,
                         // note we evict inline files before they can be dirty
                         NULL, &file->cache, file->off-i,
                         LFS_MKTAG(0xfff, 0x1ff, 0),
                         LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0),
-                        i, dat, diff);
+                        i, &dat, diff);
                 if (err) {
                     return err;
                 }
             } else {
-                //diff = lfs_min(sizeof(dat), file->off-i);
                 err = lfs_bd_read(lfs,
                         &file->cache, &lfs->rcache, file->off-i,
-                        file->block, i, dat, diff);
+                        file->block, i, &dat, diff);
                 if (err) {
                     return err;
                 }
