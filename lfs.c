@@ -5477,7 +5477,9 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file, const char *path, int flags) {
     }
     LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)",
             (void*)lfs, (void*)file, path, flags);
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+#endif
 
     err = lfs_file_rawopen(lfs, file, path, flags);
 
@@ -5498,7 +5500,9 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
                  ".buffer=%p, .attrs=%p, .attr_count=%"PRIu32"})",
             (void*)lfs, (void*)file, path, flags,
             (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+#endif
 
     err = lfs_file_rawopencfg(lfs, file, path, flags, cfg);
 
@@ -5513,8 +5517,9 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_close(%p, %p)", (void*)lfs, (void*)file);
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
-
+#endif
     err = lfs_file_rawclose(lfs, file);
 
     LFS_TRACE("lfs_file_close -> %d", err);
@@ -5529,7 +5534,9 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+#endif
 
     err = lfs_file_rawsync(lfs, file);
 
@@ -5547,7 +5554,10 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     }
     LFS_TRACE("lfs_file_read(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
+
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+#endif
 
     lfs_ssize_t res = lfs_file_rawread(lfs, file, buffer, size);
 
@@ -5565,7 +5575,9 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     }
     LFS_TRACE("lfs_file_write(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+#endif
 
     lfs_ssize_t res = lfs_file_rawwrite(lfs, file, buffer, size);
 
@@ -5583,7 +5595,9 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     }
     LFS_TRACE("lfs_file_seek(%p, %p, %"PRId32", %d)",
             (void*)lfs, (void*)file, off, whence);
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+#endif
 
     lfs_soff_t res = lfs_file_rawseek(lfs, file, off, whence);
 
@@ -5600,7 +5614,9 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     }
     LFS_TRACE("lfs_file_truncate(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, size);
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+#endif
 
     err = lfs_file_rawtruncate(lfs, file, size);
 
@@ -5616,7 +5632,9 @@ lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_tell(%p, %p)", (void*)lfs, (void*)file);
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+#endif
 
     lfs_soff_t res = lfs_file_rawtell(lfs, file);
 
@@ -5645,7 +5663,9 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_size(%p, %p)", (void*)lfs, (void*)file);
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+#endif
 
     lfs_soff_t res = lfs_file_rawsize(lfs, file);
 
@@ -5676,7 +5696,9 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
         return err;
     }
     LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
+#ifndef LFS_NO_ASSERT
     LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)dir));
+#endif
 
     err = lfs_dir_rawopen(lfs, dir, path);
 
