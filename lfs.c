@@ -1281,7 +1281,8 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     }
     lfs_ctz_fromle32(&ctz);
 
-    if (lfs_tag_type3(tag) == LFS_TYPE_CTZSTRUCT) {
+    if (lfs_tag_type3(tag) == LFS_TYPE_CTZSTRUCT
+         || lfs_tag_type3(tag) == LFS_TYPE_FLATSTRUCT) {
         info->size = ctz.size;
     } else if (lfs_tag_type3(tag) == LFS_TYPE_INLINESTRUCT) {
         info->size = lfs_tag_size(tag);
@@ -2985,6 +2986,9 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
                 goto cleanup;
             }
         }
+    } else if (lfs_tag_type3(tag) == LFS_TYPE_FLATSTRUCT) {
+        // mark this as a flat file
+        file->flags |= LFS_F_FLAT;
     }
 
     return 0;
@@ -3121,6 +3125,11 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     if (file->flags & LFS_F_WRITING) {
         lfs_off_t pos = file->pos;
 
+        if (file->flags & LFS_F_FLAT) {
+            // flat file access not yet implemented
+            return LFS_ERR_INVAL;
+        }
+
         if (!(file->flags & LFS_F_INLINE)) {
             // copy over anything after current branch
             lfs_file_t orig = {
@@ -3210,7 +3219,14 @@ static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
         const void *buffer;
         lfs_size_t size;
         struct lfs_ctz ctz;
-        if (file->flags & LFS_F_INLINE) {
+        if (file->flags & LFS_F_FLAT) {
+            // update the flat file reference
+            type = LFS_TYPE_FLATSTRUCT;
+            ctz = file->ctz;
+            lfs_ctz_tole32(&ctz);
+            buffer = &ctz;
+            size = sizeof(ctz);
+        } else if (file->flags & LFS_F_INLINE) {
             // inline the whole file
             type = LFS_TYPE_INLINESTRUCT;
             buffer = file->cache.buffer;
@@ -3259,6 +3275,10 @@ static lfs_ssize_t lfs_file_flushedread(lfs_t *lfs, lfs_file_t *file,
         // check if we need a new block
         if (!(file->flags & LFS_F_READING) ||
                 file->off == lfs->cfg->block_size) {
+            if (file->flags & LFS_F_FLAT) {
+                // reading flat files is not yet implemented
+                return LFS_ERR_INVAL;
+            } 
             if (!(file->flags & LFS_F_INLINE)) {
                 int err = lfs_ctz_find(lfs, NULL, &file->cache,
                         file->ctz.head, file->ctz.size,
@@ -3485,6 +3505,11 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
         return npos;
     }
 
+    if (file->flags & LFS_F_FLAT) {
+        // seeking flat files is not yet implemented
+        return LFS_ERR_INVAL;
+    } 
+
     // if we're only reading and our new offset is still in the file's cache
     // we can avoid flushing and needing to reread the data
     if (
@@ -3527,6 +3552,26 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
     lfs_off_t pos = file->pos;
     lfs_off_t oldsize = lfs_file_rawsize(lfs, file);
+
+    if (file->flags & LFS_F_FLAT) {
+        if (size == oldsize) {
+            // noop
+            return 0;
+        } else if (size < oldsize) {
+            // reduce the file's size
+            if (pos) {
+                // seeking not yet implemented
+                return LFS_ERR_INVAL;
+            }
+            file->ctz.size = size;
+            file->flags |= LFS_F_DIRTY;
+            return 0;
+        } else {
+            // attempting to extend flat files is not yet implemented
+            return LFS_ERR_INVAL;
+        }
+    }
+
     if (size < oldsize) {
         // need to flush since directly changing metadata
         int err = lfs_file_flush(lfs, file);
@@ -3571,6 +3616,16 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     }
 
     return 0;
+}
+
+static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+    LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+
+    if (size > LFS_FILE_MAX) {
+        return LFS_ERR_INVAL;
+    }
+
+    return LFS_ERR_INVAL;
 }
 #endif
 
@@ -4299,6 +4354,16 @@ int lfs_fs_rawtraverse(lfs_t *lfs,
                         ctz.head, ctz.size, cb, data);
                 if (err) {
                     return err;
+                }
+            } else if (lfs_tag_type3(tag) == LFS_TYPE_FLATSTRUCT) {
+                if (ctz.size) {
+                    lfs_block_t blast = ctz.head + ((ctz.size - 1) / lfs->cfg->block_size);
+                    for (lfs_block_t i = ctz.head; i < blast + 1; i++) {
+                        err = cb(data, i);
+                        if (err) {
+                            return err;
+                        }
+                    }
                 }
             } else if (includeorphans &&
                     lfs_tag_type3(tag) == LFS_TYPE_DIRSTRUCT) {
@@ -5605,6 +5670,23 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     err = lfs_file_rawtruncate(lfs, file, size);
 
     LFS_TRACE("lfs_file_truncate -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_off_t size)
+{
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_reserve(%p, %p, %"PRIu32")",
+        (void*)lfs, (void*)file, size);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    err = lfs_file_rawreserve(lfs, file, size);
+
+    LFS_TRACE("lfs_file_reserve -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
