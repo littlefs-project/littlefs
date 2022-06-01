@@ -51,7 +51,7 @@ code = '''
 [[case]] # expected out of space errors
 define.FILES = 5
 define.CYCLES = 64
-define.ROUNDS = [1, 16]
+define.ROUNDS = [0, 1, 2, 3, 4, 5, 6, 7]
 code = '''
 #define WANG_HASH(seed) ((((((seed) ^ 61) ^ ((seed) >> 16) * 9) ^ ((((seed) ^ 61) ^ ((seed) >> 16) * 9) >> 4)) * 0x27d4eb2d) ^ ((((((seed) ^ 61) ^ ((seed) >> 16) * 9) ^ ((((seed) ^ 61) ^ ((seed) >> 16) * 9) >> 4)) * 0x27d4eb2d) >> 15))
 
