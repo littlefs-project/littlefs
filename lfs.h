@@ -148,6 +148,11 @@ enum lfs_open_flags {
     LFS_F_FLAT    = 0x400000, // A flat fixed length file
 };
 
+enum lfs_reserve_flags {
+    LFS_R_ERRED   = 0x01, // Flags an error to abort the reservation
+    LFS_R_GOBBLE  = 0x02, // Force gobble allocation
+};
+
 // File seek flags
 enum lfs_whence_flags {
     LFS_SEEK_SET = 0,   // Seek relative to an absolute position
@@ -604,7 +609,12 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
 // committed due to any error, flag LFS_F_ERRED before closing.
 //
 // Returns a negative error code on failure.
-int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size);
+int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, int flags);
+
+// Return the block of a flat file reservation
+//
+// Returns the first block of the flat reserved storage area
+lfs_block_t lfs_file_reserved_block(lfs_t *lfs, lfs_file_t *file);
 
 // Return the position of the file
 //
