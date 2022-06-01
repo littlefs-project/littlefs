@@ -599,6 +599,43 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         }
     }
 }
+
+static int lfs_alloc_gobble(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks, lfs_size_t limit) {
+    // try to allocate a sequence of blocks
+    lfs_size_t tested = 1;
+    lfs_size_t found = 1;
+    lfs_block_t head;
+    int err = lfs_alloc(lfs, &head);
+    if (err) {
+        return err;
+    }
+    lfs_block_t first = head;
+    bool looped = false;
+    // continue while no limit or tested under limit, and no full sequence found yet
+    while ((!limit || tested < limit) && found < nblocks && (!looped || head < first)) {
+        lfs_block_t next;
+        err = lfs_alloc(lfs, &next);
+        if (err) {
+            return err;
+        }
+        if (next != head + found) {
+            if (next <= head) {
+                looped = true;
+            }
+            // doesn't match, reset
+            found = 1;
+            head = next;
+        } else {
+            ++found;
+        }
+    }
+    if (found < nblocks) {
+        // didn't find what we need
+        return LFS_ERR_NOSPC;
+    }
+    *block = head;
+    return LFS_ERR_OK;
+}
 #endif
 
 /// Metadata pair and directory operations ///
@@ -3226,6 +3263,7 @@ static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
             lfs_ctz_tole32(&ctz);
             buffer = &ctz;
             size = sizeof(ctz);
+            lfs_alloc_ack(lfs);
         } else if (file->flags & LFS_F_INLINE) {
             // inline the whole file
             type = LFS_TYPE_INLINESTRUCT;
@@ -3618,14 +3656,43 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     return 0;
 }
 
-static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
+static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size) {
     LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
 
     if (size > LFS_FILE_MAX) {
         return LFS_ERR_INVAL;
     }
 
-    return LFS_ERR_INVAL;
+    if (size == 0) {
+        // just empty the file
+        file->ctz.head = 0;
+        file->ctz.size = 0;
+        file->flags &= ~LFS_F_FLAT;
+        file->flags |= LFS_F_DIRTY;
+        return LFS_ERR_OK;
+    }
+
+    lfs_block_t head;
+    lfs_size_t nblocks = ((size - 1) / lfs->cfg->block_size) + 1;
+
+    LFS_DEBUG("Try to gobble %"PRIu32" blocks", nblocks);
+    int err = lfs_alloc_gobble(lfs, &head, nblocks, 0);
+
+    if (err == LFS_ERR_NOSPC) {
+        // TODO: Try other strategy
+        LFS_DEBUG("Try alternative allocation strategy for %"PRIu32" blocks", nblocks);
+        return LFS_ERR_NOSPC;
+    } else if (err) {
+        return err;
+    }
+
+    file->ctz.head = head;
+    file->ctz.size = size;
+    file->flags |= LFS_F_FLAT | LFS_F_DIRTY;
+
+    LFS_DEBUG("Reserved flat file of %"PRIu32" blocks at %"PRIu32"", nblocks, head);
+
+    return 0;
 }
 #endif
 
@@ -4357,8 +4424,10 @@ int lfs_fs_rawtraverse(lfs_t *lfs,
                 }
             } else if (lfs_tag_type3(tag) == LFS_TYPE_FLATSTRUCT) {
                 if (ctz.size) {
-                    lfs_block_t blast = ctz.head + ((ctz.size - 1) / lfs->cfg->block_size);
-                    for (lfs_block_t i = ctz.head; i < blast + 1; i++) {
+                    lfs_size_t nblocks = ((ctz.size - 1) / lfs->cfg->block_size) + 1;
+                    lfs_block_t bend = ctz.head + nblocks;
+                    LFS_DEBUG("Traversing flat file of %"PRIu32" blocks at %"PRIu32"", nblocks, ctz.head);
+                    for (lfs_block_t i = ctz.head; i < bend; i++) {
                         err = cb(data, i);
                         if (err) {
                             return err;

@@ -604,7 +604,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
 // committed due to any error, flag LFS_F_ERRED before closing.
 //
 // Returns a negative error code on failure.
-int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
+int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size);
 
 // Return the position of the file
 //
