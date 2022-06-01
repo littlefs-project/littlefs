@@ -612,12 +612,13 @@ static int lfs_alloc_gobble(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks, 
     lfs_block_t first = head;
     bool looped = false;
     // continue while no limit or tested under limit, and no full sequence found yet
-    while ((!limit || tested < limit) && found < nblocks && (!looped || head < first)) {
+    while (found < nblocks && (!looped || head < first)) {
         lfs_block_t next;
         err = lfs_alloc(lfs, &next);
         if (err) {
             return err;
         }
+        ++tested;
         if (next != head + found) {
             if (next <= head) {
                 looped = true;
@@ -625,10 +626,12 @@ static int lfs_alloc_gobble(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks, 
             // doesn't match, reset
             found = 1;
             head = next;
+            if (limit && tested >= limit) {
+                break;
+            }
         } else {
             ++found;
         }
-        ++tested;
     }
     if (found < nblocks) {
         // didn't find what we need, reset cache
