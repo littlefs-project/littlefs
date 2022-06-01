@@ -675,7 +675,7 @@ static int lfs_alloc_scansequence(void *data, lfs_block_t block)
     return LFS_ERR_OK;
 }
 
-static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks) {
+static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks, int flags) {
     // traverse to find a sequence of free blocks
     if (nblocks > lfs->cfg->block_count) {
         return LFS_ERR_NOSPC;
@@ -683,28 +683,67 @@ static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks
     lfs_scansequence_t scan;
     scan.lfs = lfs;
     scan.nblocks = nblocks;
-    int err = lfs_alloc(lfs, &scan.head);
-    if (err) {
-        return err;
-    }
-    scan.first = scan.head;
-    scan.looped = (scan.head + nblocks > lfs->cfg->block_count);
-    if (scan.looped) {
+    if (flags & LFS_R_FRONT) {
         scan.head = 0;
     }
+    else {
+        int err = lfs_alloc(lfs, &scan.head);
+        if (err) {
+            return err;
+        }
+    }
+    scan.first = scan.head;
+    if (scan.head + nblocks > lfs->cfg->block_count) {
+        scan.head = 0;
+    }
+    scan.looped = (scan.head == 0);
     // loop until a traversal is done with no collisions
     do {
         scan.collisions = 0;
-        err = lfs_fs_rawtraverse(lfs, lfs_alloc_scansequence, &scan, true);
+        int err = lfs_fs_rawtraverse(lfs, lfs_alloc_scansequence, &scan, true);
         if (err) {
             return err;
         }
         // LFS_DEBUG("Encountered %"PRIu32" collisions", scan.collisions);
     } while (scan.collisions);
-    // put the allocater cache after our big allocation
+    // put the allocator cache after our big allocation
     lfs->free.off = scan.head + nblocks - lfs->free.size;
     lfs_alloc_drop(lfs);
     *block = scan.head;
+    return LFS_ERR_OK;
+}
+
+typedef struct lfs_scanrange {
+    lfs_t *lfs;
+    lfs_size_t nblocks;
+    lfs_block_t head;
+} llfs_scanrange_t;
+
+static int lfs_alloc_scanrange(void *data, lfs_block_t block)
+{
+    llfs_scanrange_t *scan = (llfs_scanrange_t *)data;
+    lfs_t *lfs = scan->lfs;
+    if (block >= scan->head && block < (scan->head + scan->nblocks)) {
+        return LFS_ERR_NOSPC;
+    }
+    return LFS_ERR_OK;
+}
+
+static int lfs_alloc_range(lfs_t *lfs, lfs_block_t head, lfs_size_t nblocks) {
+    lfs_scansequence_t scan;
+    scan.lfs = lfs;
+    scan.nblocks = nblocks;
+    scan.head = head;
+    if (scan.head + nblocks > lfs->cfg->block_count) {
+        return LFS_ERR_NOSPC;
+    }
+    int err = lfs_fs_rawtraverse(lfs, lfs_alloc_scanrange, &scan, true);
+    if (err) {
+        return err;
+    }
+    // put the allocator cache after our big allocation
+    lfs->free.off = scan.head + nblocks - lfs->free.size;
+    lfs_alloc_drop(lfs);
     return LFS_ERR_OK;
 }
 #endif
@@ -3672,18 +3711,26 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         if (size == oldsize) {
             // noop
             return 0;
-        } else if (size < oldsize) {
-            // reduce the file's size
-            if (pos) {
-                // seeking not yet implemented
-                return LFS_ERR_INVAL;
-            }
-            file->ctz.size = size;
-            file->flags |= LFS_F_DIRTY;
-            return 0;
         } else {
-            // attempting to extend flat files is not yet implemented
-            return LFS_ERR_INVAL;
+            LFS_ASSERT(file->ctz.size);
+            lfs_size_t nblocks = ((size - 1) / lfs->cfg->block_size) + 1;
+            lfs_size_t nbold = ((oldsize - 1) / lfs->cfg->block_size) + 1;
+            if (nblocks <= nbold) {
+                // reduce the file's size
+                file->ctz.size = size;
+                file->flags |= LFS_F_DIRTY;
+                return 0;
+            }
+            else {
+                // attempt to extend flat file
+                int err = lfs_alloc_range(lfs, file->ctz.head + nbold, nblocks - nbold);
+                if (err) {
+                    return err;
+                }
+                file->ctz.size = size;
+                file->flags |= LFS_F_DIRTY;
+                return 0;
+            }
         }
     }
 
@@ -3753,17 +3800,26 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
         return LFS_ERR_OK;
     }
 
-    lfs_block_t head = 0;
     lfs_size_t nblocks = ((size - 1) / lfs->cfg->block_size) + 1;
+
+    int err = LFS_ERR_NOSPC;
+    if ((flags & LFS_R_OVERWRITE) && (file->flags & LFS_F_FLAT)) {
+        // use existing committed or uncommitted reservation if large enough
+        err = lfs_file_rawtruncate(lfs, file, size);
+        if (!err) {
+            return LFS_ERR_OK;
+        }
+    }
+
     lfs_size_t oldsz = 0;
     if ((file->flags & (LFS_F_FLAT | LFS_F_DIRTY)) == (LFS_F_FLAT | LFS_F_DIRTY)) {
         oldsz = file->ctz.size;
         file->ctz.size = 0;
     }
 
-    int err = LFS_ERR_NOSPC;
+    lfs_block_t head = 0;
     lfs_size_t limit = (lfs->cfg->lookahead_size * 8);
-    if ((flags & LFS_R_GOBBLE) || nblocks < limit) {
+    if ((!(flags & LFS_R_FRONT)) && ((flags & LFS_R_GOBBLE) || nblocks < limit)) {
         // LFS_DEBUG("Try to gobble %"PRIu32" blocks", nblocks);
         err = lfs_alloc_gobble(lfs, &head, nblocks, (flags & LFS_R_GOBBLE) ? 0 : limit);
         if (err && (err != LFS_ERR_NOSPC || (flags & LFS_R_GOBBLE))) {
@@ -3776,7 +3832,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
     
     if (err == LFS_ERR_NOSPC) {
         // LFS_DEBUG("Try traversal allocation strategy for %"PRIu32" blocks", nblocks);
-        err = lfs_alloc_sequence(lfs, &head, nblocks);
+        err = lfs_alloc_sequence(lfs, &head, nblocks, flags);
         if (err) {
             if (oldsz) {
                 file->ctz.size = oldsz;

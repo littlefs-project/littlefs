@@ -149,8 +149,10 @@ enum lfs_open_flags {
 };
 
 enum lfs_reserve_flags {
-    LFS_R_ERRED   = 0x01, // Flags an error to abort the reservation
-    LFS_R_GOBBLE  = 0x02, // Force gobble allocation
+    LFS_R_ERRED     = 0x01, // Flags an error to abort the reservation
+    LFS_R_GOBBLE    = 0x02, // Force gobble allocation
+    LFS_R_FRONT     = 0x04, // Allocate in front using traversal allocation
+    LFS_R_OVERWRITE = 0x08, // Overwrite committed reservation
 };
 
 // File seek flags
