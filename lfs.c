@@ -3729,6 +3729,7 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
 static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size) {
     LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+    LFS_ASSERT(file->flags & LFS_F_INLINE || file->flags & LFS_F_FLAT || file->ctz.size > 0);
 
     if (size > LFS_FILE_MAX) {
         return LFS_ERR_INVAL;
@@ -3740,7 +3741,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size) {
         file->ctz.head = 0;
         file->ctz.size = 0;
         file->flags &= ~LFS_F_FLAT;
-        file->flags |= LFS_F_DIRTY;
+        file->flags |= LFS_F_INLINE | LFS_F_DIRTY;
         return LFS_ERR_OK;
     }
 
@@ -3768,6 +3769,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size) {
     file->block = head;
     file->ctz.head = head;
     file->ctz.size = size;
+    file->flags &= ~LFS_F_INLINE;
     file->flags |= LFS_F_FLAT | LFS_F_DIRTY;
     // LFS_DEBUG("Reserved flat file of %"PRIu32" blocks at %"PRIu32"", nblocks, head);
     return LFS_ERR_OK;
