@@ -3794,9 +3794,15 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
 }
 #endif
 
-lfs_block_t lfs_file_reserved_block(lfs_t *lfs, lfs_file_t *file) {
+static int lfs_file_rawreserved(lfs_t *lfs, lfs_file_t *file, lfs_block_t *block) {
+    if (!(file->flags & LFS_F_FLAT)) {
+        return LFS_ERR_INVAL;
+    }
+
     (void)lfs;
-    return file->ctz.head;
+    *block = file->ctz.head;
+
+    return LFS_ERR_OK;
 }
 
 static lfs_soff_t lfs_file_rawtell(lfs_t *lfs, lfs_file_t *file) {
@@ -5869,8 +5875,8 @@ int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, int flags)
     if (err) {
         return err;
     }
-    LFS_TRACE("lfs_file_reserve(%p, %p, %"PRIu32")",
-        (void*)lfs, (void*)file, size);
+    LFS_TRACE("lfs_file_reserve(%p, %p, %"PRIu32", %x)",
+        (void*)lfs, (void*)file, size, flags);
     LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_rawreserve(lfs, file, size, flags);
@@ -5880,6 +5886,22 @@ int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, int flags)
     return err;
 }
 #endif
+
+int lfs_file_reserved(lfs_t *lfs, lfs_file_t *file, lfs_block_t *block) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_reserved(%p, %p, %p)",
+        (void*)lfs, (void*)file, (void*)block);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    err = lfs_file_rawreserved(lfs, file, block);
+
+    LFS_TRACE("lfs_file_reserved -> %"PRId32, res);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
 
 lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
     int err = LFS_LOCK(lfs->cfg);

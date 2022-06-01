@@ -611,10 +611,10 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
 // Returns a negative error code on failure.
 int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, int flags);
 
-// Return the block of a flat file reservation
+// Get the first block of a flat file reservation
 //
-// Returns the first block of the flat reserved storage area
-lfs_block_t lfs_file_reserved_block(lfs_t *lfs, lfs_file_t *file);
+// Returns a negative error code on failure.
+int lfs_file_reserved(lfs_t *lfs, lfs_file_t *file, lfs_block_t *block);
 
 // Return the position of the file
 //
