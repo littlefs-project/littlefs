@@ -661,7 +661,8 @@ static int lfs_alloc_scansequence(void *data, lfs_block_t block)
         ++scan->collisions;
         scan->head = block + 1;
         if (scan->looped) {
-            if (scan->head >= scan->first) {
+            if ((scan->head >= scan->first)
+                || (scan->head + scan->nblocks > lfs->cfg->block_count)) {
                 // cycled all around, nothing good found
                 return LFS_ERR_NOSPC;
             }
