@@ -109,7 +109,7 @@ enum lfs_type {
     LFS_TYPE_DELETE         = 0x4ff,
     LFS_TYPE_SUPERBLOCK     = 0x0ff,
     LFS_TYPE_DIRSTRUCT      = 0x200,
-    LFS_TYPE_FLATSTRUCT     = 0x203,
+    LFS_TYPE_FLATSTRUCT     = 0x204,
     LFS_TYPE_CTZSTRUCT      = 0x202,
     LFS_TYPE_INLINESTRUCT   = 0x201,
     LFS_TYPE_SOFTTAIL       = 0x600,
