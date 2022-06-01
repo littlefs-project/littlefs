@@ -3096,6 +3096,7 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
     } else if (lfs_tag_type3(tag) == LFS_TYPE_FLATSTRUCT) {
         // mark this as a flat file
         file->flags |= LFS_F_FLAT;
+        file->block = file->ctz.head;
     }
 
     return 0;
@@ -3735,6 +3736,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size) {
 
     if (size == 0) {
         // just empty the file
+        file->block = 0;
         file->ctz.head = 0;
         file->ctz.size = 0;
         file->flags &= ~LFS_F_FLAT;
