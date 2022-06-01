@@ -3736,6 +3736,7 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size) {
     LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
     LFS_ASSERT(file->flags & LFS_F_INLINE || file->flags & LFS_F_FLAT || file->ctz.size > 0);
+    static const bool fgobble = false;
 
     if (size > LFS_FILE_MAX) {
         return LFS_ERR_INVAL;
@@ -3756,10 +3757,10 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size) {
 
     int err = LFS_ERR_NOSPC;
     lfs_size_t limit = (lfs->cfg->lookahead_size * 8);
-    if (nblocks < limit) {
+    if (fgobble || nblocks < limit) {
         // LFS_DEBUG("Try to gobble %"PRIu32" blocks", nblocks);
         err = lfs_alloc_gobble(lfs, &head, nblocks, limit);
-        if (err && err != LFS_ERR_NOSPC) {
+        if (err && (err != LFS_ERR_NOSPC || fgobble)) {
             return err;
         }
     }
@@ -4512,7 +4513,7 @@ int lfs_fs_rawtraverse(lfs_t *lfs,
                 if (ctz.size) {
                     lfs_size_t nblocks = ((ctz.size - 1) / lfs->cfg->block_size) + 1;
                     lfs_block_t bend = ctz.head + nblocks;
-                    LFS_DEBUG("Traversing flat file of %"PRIu32" blocks at %"PRIu32"", nblocks, ctz.head);
+                    // LFS_DEBUG("Traversing flat file of %"PRIu32" blocks at %"PRIu32"", nblocks, ctz.head);
                     for (lfs_block_t i = ctz.head; i < bend; i++) {
                         err = cb(data, i);
                         if (err) {
@@ -4536,6 +4537,23 @@ int lfs_fs_rawtraverse(lfs_t *lfs,
     // iterate over any open files
     for (lfs_file_t *f = (lfs_file_t*)lfs->mlist; f; f = f->next) {
         if (f->type != LFS_TYPE_REG) {
+            continue;
+        }
+
+        if (f->flags & LFS_F_FLAT) {
+            if (f->flags & LFS_F_DIRTY) {
+                if (f->ctz.size) {
+                    lfs_size_t nblocks = ((f->ctz.size - 1) / lfs->cfg->block_size) + 1;
+                    lfs_block_t bend = f->ctz.head + nblocks;
+                    // LFS_DEBUG("Traversing flat file of %"PRIu32" blocks at %"PRIu32"", nblocks, ctz.head);
+                    for (lfs_block_t i = f->ctz.head; i < bend; i++) {
+                        int err = cb(data, i);
+                        if (err) {
+                            return err;
+                        }
+                    }
+                }
+            }
             continue;
         }
 
