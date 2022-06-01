@@ -145,7 +145,7 @@ enum lfs_open_flags {
     LFS_F_ERRED   = 0x080000, // An error occurred during write
 #endif
     LFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
-    LFS_F_FLAT    = 0x200000, // A flat fixed length file
+    LFS_F_FLAT    = 0x400000, // A flat fixed length file
 };
 
 // File seek flags
