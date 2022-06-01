@@ -1,0 +1,264 @@
+# flat tests
+
+[[case]] # small allocations
+define.FILES = 5
+code = '''
+    const char *names[FILES] = { "aegus", "galemus", "kaemon", "phyxon", "sekovix" };
+    lfs_file_t files[FILES];
+    lfs_block_t blocks[FILES];
+
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+
+    // check if small allocations behave as expected
+
+    lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_reserve(&lfs, &files[0], cfg.block_size - 1, 0) => 0;
+    lfs_file_reserved(&lfs, &files[0], &blocks[0]) => 0;
+    lfs_file_close(&lfs, &files[0]) => 0;
+
+    lfs_file_open(&lfs, &files[1], names[1], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_reserve(&lfs, &files[1], cfg.block_size, 0) => 0;
+    lfs_file_reserved(&lfs, &files[1], &blocks[1]) => 0;
+    assert(blocks[1] == blocks[0] + 1
+        || blocks[1] < blocks[0]);
+    lfs_file_close(&lfs, &files[1]) => 0;
+
+    lfs_file_open(&lfs, &files[2], names[2], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_reserve(&lfs, &files[2], cfg.block_size + 1, 0) => 0;
+    lfs_file_reserved(&lfs, &files[2], &blocks[2]) => 0;
+    assert(blocks[2] == blocks[1] + 1
+        || blocks[2] < blocks[1]);
+    lfs_file_close(&lfs, &files[2]) => 0;
+
+    lfs_file_open(&lfs, &files[3], names[3], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_reserve(&lfs, &files[3], cfg.block_size * 2 + 1, 0) => 0;
+    lfs_file_reserved(&lfs, &files[3], &blocks[3]) => 0;
+    assert(blocks[3] == blocks[2] + 2
+        || blocks[3] < blocks[2]);
+    lfs_file_close(&lfs, &files[3]) => 0;
+
+    lfs_file_open(&lfs, &files[4], names[4], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_reserve(&lfs, &files[4], cfg.block_size, 0) => 0;
+    lfs_file_reserved(&lfs, &files[4], &blocks[4]) => 0;
+    assert(blocks[4] == blocks[3] + 3
+        || blocks[4] < blocks[3]);
+    lfs_file_close(&lfs, &files[4]) => 0;
+
+    lfs_unmount(&lfs) => 0;
+'''
+
+[[case]] # expected out of space errors
+define.FILES = 5
+define.CYCLES = 64
+define.ROUNDS = [1, 16]
+code = '''
+#define WANG_HASH(seed) ((((((seed) ^ 61) ^ ((seed) >> 16) * 9) ^ ((((seed) ^ 61) ^ ((seed) >> 16) * 9) >> 4)) * 0x27d4eb2d) ^ ((((((seed) ^ 61) ^ ((seed) >> 16) * 9) ^ ((((seed) ^ 61) ^ ((seed) >> 16) * 9) >> 4)) * 0x27d4eb2d) >> 15))
+
+    const char *names[FILES] = { "aubermouth", "barkdell", "dingleton", "hobwelly", "waverton" };
+    lfs_file_t files[FILES];
+
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+
+    // initial files
+    lfs_ssize_t nover = 2; // max fs overhead expected (blocks)
+    lfs_ssize_t nblocks = 0; // blocks allocated
+
+    // test many reservations behave as expected
+    for (int c = 0; c < CYCLES; ++c)
+    {
+        for (int n = 0; n < FILES; ++n)
+        {
+            ++nover;
+            lfs_ssize_t bnew = WANG_HASH(ROUNDS * CYCLES * FILES + c * FILES  + n) % (cfg.block_count / FILES);
+            bool expectok = nblocks + nover + bnew <= (lfs_ssize_t)cfg.block_count;
+            bool expectfail = nblocks + bnew > (lfs_ssize_t)cfg.block_count;
+
+            lfs_file_open(&lfs, &files[n], names[n], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            lfs_ssize_t bold = lfs_file_size(&lfs, &files[n]) / cfg.block_size;
+            err = lfs_file_reserve(&lfs, &files[n], cfg.block_size * bnew, 0);
+            if (expectfail) assert(err == LFS_ERR_NOSPC);
+            lfs_file_close(&lfs, &files[n]) => 0;
+
+            if (!err) {
+                nblocks -= bold;
+                nblocks += bnew;
+            } else if (expectok) {
+                assert(err == LFS_ERR_NOSPC);
+                // if no space but there should be the remaining space is fragmented, free some space
+                lfs_file_open(&lfs, &files[n], names[n], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+                assert(lfs_file_size(&lfs, &files[n]) / cfg.block_size == bold);
+                lfs_file_reserve(&lfs, &files[n], 0, 0) => 0;
+                lfs_file_close(&lfs, &files[n]) => 0;
+                nblocks -= bold;
+            }
+        }
+    }
+
+    lfs_unmount(&lfs) => 0;
+'''
+
+[[case]] # parallel reservations
+define.FILES = 5
+code = '''
+    const char *names[FILES] = { "borea", "miani", "nistia", "rosilio", "stalli" };
+    lfs_file_t files[FILES];
+    lfs_file_t tfile;
+
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+
+    lfs_ssize_t nblocks = (cfg.block_count - 2 - FILES - 1) / (FILES + 1);
+    assert(nblocks > 0);
+    lfs_ssize_t nbtest = cfg.block_count - (nblocks * FILES) + 1;
+    assert(nbtest > 0);
+    assert((nblocks * FILES) + nbtest > (lfs_ssize_t)cfg.block_count);
+
+    for (int n = 0; n < FILES; n++) {
+        lfs_file_open(&lfs, &files[n], names[n], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    }
+    for (int n = 0; n < FILES; n++) {
+        err = lfs_file_reserve(&lfs, &files[n], nblocks * cfg.block_size, 0);
+        assert(!err);
+    }
+
+    assert(lfs_fs_size(&lfs) >= nblocks * FILES);
+    lfs_file_open(&lfs, &tfile, "test", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &tfile, nbtest * cfg.block_size, 0);
+    assert(err == LFS_ERR_NOSPC); // there should be no space now
+    lfs_file_close(&lfs, &tfile) => 0;
+
+    for (int n = 0; n < FILES; n++) {
+        lfs_file_close(&lfs, &files[n]) => 0;
+    }
+
+    assert(lfs_fs_size(&lfs) >= nblocks * FILES);
+    lfs_file_open(&lfs, &tfile, "test", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &tfile, nbtest * cfg.block_size, 0);
+    assert(err == LFS_ERR_NOSPC); // there should be no space now
+    lfs_file_close(&lfs, &tfile) => 0;
+
+    lfs_unmount(&lfs) => 0;
+'''
+
+[[case]] # repeated reservations
+define.FILES = 5
+code = '''
+    const char *names[FILES] = { "koizun", "nenxing", "qailo", "shengwo", "yinpiang" };
+    lfs_file_t files[FILES];
+
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+
+    lfs_ssize_t szhalf = (cfg.block_count - 8) / 2;
+    assert(szhalf > 0);
+    lfs_ssize_t szeighth = (cfg.block_count - 8) / 8;
+    assert(szeighth > 0);
+
+    // big half file can definitely be allocated now
+    lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[0], cfg.block_size * szhalf, 0);
+    assert(!err);
+    lfs_file_close(&lfs, &files[0]) => 0;
+
+    // one eight definitely as well
+    lfs_file_open(&lfs, &files[1], names[1], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[1], cfg.block_size * szeighth, 0);
+    assert(!err);
+    lfs_file_close(&lfs, &files[1]) => 0;
+
+    // free one half
+    lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[0], 0, 0);
+    assert(!err);
+    // attempting to reserve again should fail since this space is still committed
+    err = lfs_file_reserve(&lfs, &files[0], cfg.block_size * szhalf, 0);
+    assert(err == LFS_ERR_NOSPC);
+    lfs_file_close(&lfs, &files[0]) => 0;
+
+    // allocate one half twice
+    lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[0], cfg.block_size * szhalf, 0);
+    assert(!err); // must succeed because the free was committed
+    err = lfs_file_reserve(&lfs, &files[0], cfg.block_size * szhalf, 0);
+    assert(!err); // must still succeed because we discarded the previous
+    lfs_file_close(&lfs, &files[0]) => 0;
+
+    // overallocate
+    lfs_file_open(&lfs, &files[2], names[2], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[2], cfg.block_size * szhalf, 0);
+    assert(err == LFS_ERR_NOSPC); // this should fail
+    lfs_file_close(&lfs, &files[2]) => 0;
+
+    // free one eighth
+    lfs_file_open(&lfs, &files[1], names[1], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[1], 0, 0);
+    assert(!err);
+    lfs_file_close(&lfs, &files[1]) => 0;
+
+    // allocate one eighth
+    lfs_file_open(&lfs, &files[3], names[3], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[3], cfg.block_size * szeighth, 0);
+    assert(!err); // we should have the space since we just freed it
+    lfs_file_close(&lfs, &files[3]) => 0;
+
+    // allocate again after uncommitted free
+    lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[0], 0, 0);
+    assert(!err);
+    err = lfs_file_reserve(&lfs, &files[0], cfg.block_size * szhalf, 0);
+    assert(err == LFS_ERR_NOSPC); // must fail because we did not commit the free
+    lfs_file_close(&lfs, &files[0]) => 0;
+
+    // the last free should have been committed now, test flags
+    lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[0], cfg.block_size * szhalf, 0);
+    assert(!err); // we should have the space
+    // flag error
+    err = lfs_file_reserve(&lfs, &files[0], cfg.block_size * szhalf, LFS_R_ERRED);
+    assert(!err); // this should not give any error
+    lfs_file_close(&lfs, &files[0]) => 0;
+
+    // the error flag should cause the last commit not to be applied
+    lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[0], cfg.block_size * szhalf, 0);
+    assert(!err); // we should have the space
+    lfs_file_close(&lfs, &files[0]) => 0;
+
+    // reserve again the same file
+    lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[0], cfg.block_size * szhalf, 0);
+    assert(err == LFS_ERR_NOSPC); // this should fail since the space is still committed
+    lfs_file_close(&lfs, &files[0]) => 0;
+
+    // truncate
+    lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_truncate(&lfs, &files[0], cfg.block_size * szeighth);
+    assert(!err);
+    lfs_file_close(&lfs, &files[0]) => 0;
+
+    // allocate two eighth
+    lfs_file_open(&lfs, &files[4], names[4], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[4], cfg.block_size * szeighth * 2, 0);
+    assert(!err); // we should have the space since we just freed it
+    lfs_file_close(&lfs, &files[4]) => 0;
+
+    // allocate one eighth, dont check
+    lfs_file_open(&lfs, &files[1], names[1], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[1], cfg.block_size * szeighth, 0);
+    lfs_file_close(&lfs, &files[1]) => 0;
+
+    // allocate one eighth, dont check
+    lfs_file_open(&lfs, &files[2], names[2], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_reserve(&lfs, &files[2], cfg.block_size * szeighth, 0);
+    lfs_file_close(&lfs, &files[2]) => 0;
+
+    // attempt to grow should definitely fail
+    lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    err = lfs_file_truncate(&lfs, &files[0], cfg.block_size * szhalf);
+    assert(err == LFS_ERR_NOSPC);
+    lfs_file_close(&lfs, &files[0]) => 0;
+
+    lfs_unmount(&lfs) => 0;
+'''

@@ -714,7 +714,6 @@ static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks
 }
 
 typedef struct lfs_scanrange {
-    lfs_t *lfs;
     lfs_size_t nblocks;
     lfs_block_t head;
 } llfs_scanrange_t;
@@ -722,7 +721,6 @@ typedef struct lfs_scanrange {
 static int lfs_alloc_scanrange(void *data, lfs_block_t block)
 {
     llfs_scanrange_t *scan = (llfs_scanrange_t *)data;
-    lfs_t *lfs = scan->lfs;
     if (block >= scan->head && block < (scan->head + scan->nblocks)) {
         return LFS_ERR_NOSPC;
     }
@@ -730,8 +728,7 @@ static int lfs_alloc_scanrange(void *data, lfs_block_t block)
 }
 
 static int lfs_alloc_range(lfs_t *lfs, lfs_block_t head, lfs_size_t nblocks) {
-    lfs_scansequence_t scan;
-    scan.lfs = lfs;
+    llfs_scanrange_t scan;
     scan.nblocks = nblocks;
     scan.head = head;
     if (scan.head + nblocks > lfs->cfg->block_count) {
