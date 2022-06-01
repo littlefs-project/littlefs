@@ -3742,7 +3742,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size) {
         return LFS_ERR_OK;
     }
 
-    lfs_block_t head;
+    lfs_block_t head = 0;
     lfs_size_t nblocks = ((size - 1) / lfs->cfg->block_size) + 1;
 
     int err = LFS_ERR_NOSPC;
