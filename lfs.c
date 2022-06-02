@@ -616,6 +616,9 @@ static int lfs_alloc_gobble(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks, 
         lfs_block_t next;
         err = lfs_alloc(lfs, &next);
         if (err) {
+            // didn't find what we need, reset cache
+            lfs->free.off = first - lfs->free.size;
+            lfs_alloc_drop(lfs);
             return err;
         }
         ++tested;
