@@ -3809,6 +3809,19 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     return 0;
 }
 
+static int lfs_file_rawflatcopy(lfs_t *lfs, lfs_block_t dst, lfs_block_t src, lfs_size_t nblocks) {
+    if (dst == src) {
+        // noop
+    } else if (dst < src) {
+        // copy forward
+
+    } else {
+        // copy in reverse
+
+    }
+    return LFS_ERR_OK;
+}
+
 static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, int flags) {
     LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
     LFS_ASSERT(file->flags & LFS_F_INLINE || file->flags & LFS_F_FLAT || file->ctz.size > 0);
@@ -3878,6 +3891,20 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
                 file->ctz.size = oldsz;
             }
             return err;
+        }
+    }
+
+    if ((file->flags & LFS_F_FLAT) && (flags & LFS_R_COPY) && (head != file->ctz.head)) {
+        lfs_size_t oldsize = oldsz ? oldsz : file->ctz.size;
+        if (oldsize) {
+            lfs_size_t oldnblocks = ((file->ctz.size - 1) / lfs->cfg->block_size) + 1;
+            lfs_size_t copyblocks = lfs_min(oldnblocks, nblocks);
+            int err = lfs_file_rawflatcopy(lfs, head, file->ctz.head, copyblocks);
+            if (err) {
+                file->flags |= LFS_F_ERRED;
+                lfs_alloc_ack(lfs);
+                return err;
+            }
         }
     }
 
