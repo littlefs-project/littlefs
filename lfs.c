@@ -652,12 +652,18 @@ typedef struct lfs_scansequence {
     lfs_block_t head;
     lfs_block_t first;
     lfs_size_t collisions;
+    lfs_block_t oldblock;
+    lfs_size_t oldnb;
     bool looped;
 } lfs_scansequence_t;
 
 static int lfs_alloc_scansequence(void *data, lfs_block_t block)
 {
     lfs_scansequence_t *scan = (lfs_scansequence_t *)data;
+    if (block >= scan->oldblock && block < (scan->oldblock + scan->oldnb)) {
+        // ignore this block when overwriting old blocks is allowed
+        return LFS_ERR_OK;
+    }
     lfs_t *lfs = scan->lfs;
     if (block >= scan->head && block < (scan->head + scan->nblocks)) {
         // this block is inside our scan area, use the block after this one
@@ -678,7 +684,7 @@ static int lfs_alloc_scansequence(void *data, lfs_block_t block)
     return LFS_ERR_OK;
 }
 
-static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks, int flags) {
+static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks, int flags, lfs_block_t oldblock, lfs_size_t oldnb) {
     // traverse to find a sequence of free blocks
     if (nblocks > lfs->cfg->block_count) {
         return LFS_ERR_NOSPC;
@@ -686,6 +692,8 @@ static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks
     lfs_scansequence_t scan;
     scan.lfs = lfs;
     scan.nblocks = nblocks;
+    scan.oldblock = oldblock;
+    scan.oldnb = oldnb;
     if (flags & LFS_R_FRONT) {
         scan.head = 0;
     }
@@ -3813,6 +3821,10 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
         return LFS_ERR_INVAL;
     }
 
+    if (file->flags & LFS_F_ERRED) {
+        return LFS_ERR_INVAL;
+    }
+
     if (size == 0 || (flags & LFS_R_ERRED)) {
         // just empty the file
         file->ctz.head = 0;
@@ -3858,7 +3870,9 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
     
     if (err == LFS_ERR_NOSPC) {
         // LFS_DEBUG("Try traversal allocation strategy for %"PRIu32" blocks", nblocks);
-        err = lfs_alloc_sequence(lfs, &head, nblocks, flags);
+        bool overwrite = (file->flags & LFS_F_FLAT) && file->ctz.size && (flags & LFS_R_OVERWRITE);
+        err = lfs_alloc_sequence(lfs, &head, nblocks, flags,
+            file->ctz.head, overwrite ? ((file->ctz.size - 1) / lfs->cfg->block_size) + 1 : 0);
         if (err) {
             if (oldsz) {
                 file->ctz.size = oldsz;
