@@ -3838,6 +3838,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
         return LFS_ERR_INVAL;
     }
 
+    // emptying file or flagging error
     if (size == 0 || (flags & LFS_R_ERRED)) {
         // just empty the file
         file->ctz.head = 0;
@@ -3853,6 +3854,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
 
     lfs_size_t nblocks = ((size - 1) / lfs->cfg->block_size) + 1;
 
+    // handle LFS_R_TRUNCATE option
     int err = LFS_ERR_NOSPC;
     if ((flags & LFS_R_TRUNCATE) && (file->flags & LFS_F_FLAT)) {
         // use existing committed or uncommitted reservation if large enough
@@ -3862,12 +3864,14 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
         }
     }
 
+    // always overwrite if not committed
     lfs_size_t oldsz = 0;
     if ((file->flags & (LFS_F_FLAT | LFS_F_DIRTY)) == (LFS_F_FLAT | LFS_F_DIRTY)) {
         oldsz = file->ctz.size;
         file->ctz.size = 0;
     }
 
+    // try gobble allocation
     lfs_block_t head = 0;
     lfs_size_t limit = (lfs->cfg->lookahead_size * 8);
     if ((!(flags & LFS_R_FRONT)) && ((flags & LFS_R_GOBBLE) || nblocks < limit)) {
@@ -3881,6 +3885,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
         }
     }
     
+    // try traversal allocation
     if (err == LFS_ERR_NOSPC) {
         // LFS_DEBUG("Try traversal allocation strategy for %"PRIu32" blocks", nblocks);
         bool overwrite = (file->flags & LFS_F_FLAT) && file->ctz.size && (flags & LFS_R_OVERWRITE);
@@ -3894,6 +3899,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
         }
     }
 
+    // handle LFS_R_COPY option
     if ((file->flags & LFS_F_FLAT) && (flags & LFS_R_COPY) && (head != file->ctz.head)) {
         lfs_size_t oldsize = oldsz ? oldsz : file->ctz.size;
         if (oldsize) {
@@ -3908,6 +3914,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
         }
     }
 
+    // success
     file->ctz.head = head;
     file->ctz.size = size;
     file->flags &= ~LFS_F_INLINE;
