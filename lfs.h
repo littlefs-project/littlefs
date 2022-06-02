@@ -30,12 +30,12 @@ extern "C"
 // Version of On-disk data structures
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_DISK_VERSION 0x00020001
+#define LFS_DISK_VERSION 0x00020000
 #define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
 #define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
 
 // Minimum disk version for specific features
-#define LFS_DISK_VERSION_FLAT 0x00020001
+#define LFS_DISK_VERSION_FLAT 0x00020000
 
 /// Definitions ///
 
