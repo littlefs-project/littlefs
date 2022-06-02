@@ -709,8 +709,14 @@ static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks
         }
         // LFS_DEBUG("Encountered %"PRIu32" collisions", scan.collisions);
     } while (scan.collisions);
-    // put the allocator cache after our big allocation
-    lfs->free.off = scan.head + nblocks - lfs->free.size;
+    if (lfs->free.off + lfs->free.size > scan.head
+        && lfs->free.off < scan.head + nblocks) {
+        // put the allocator cache after our big allocation
+        lfs->free.off = scan.head + nblocks - lfs->free.size;
+    } else {
+        // just reset
+        lfs->free.off = lfs->free.off - lfs->free.size;
+    }
     lfs_alloc_drop(lfs);
     *block = scan.head;
     return LFS_ERR_OK;
@@ -742,7 +748,14 @@ static int lfs_alloc_range(lfs_t *lfs, lfs_block_t head, lfs_size_t nblocks) {
         return err;
     }
     // put the allocator cache after our big allocation
-    lfs->free.off = scan.head + nblocks - lfs->free.size;
+    if (lfs->free.off + lfs->free.size > scan.head
+        && lfs->free.off < scan.head + nblocks) {
+        // put the allocator cache after our big allocation
+        lfs->free.off = scan.head + nblocks - lfs->free.size;
+    } else {
+        // just reset
+        lfs->free.off = lfs->free.off - lfs->free.size;
+    }
     lfs_alloc_drop(lfs);
     return LFS_ERR_OK;
 }
