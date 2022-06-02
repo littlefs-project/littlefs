@@ -34,6 +34,8 @@ extern "C"
 #define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
 #define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
 
+// Minimum disk version for specific features
+#define LFS_DISK_VERSION_FLAT 0x00020001
 
 /// Definitions ///
 
@@ -419,6 +421,7 @@ typedef struct lfs {
     } free;
 
     const struct lfs_config *cfg;
+    uint32_t version;
     lfs_size_t name_max;
     lfs_size_t file_max;
     lfs_size_t attr_max;

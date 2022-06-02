@@ -3805,6 +3805,10 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
     LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
     LFS_ASSERT(file->flags & LFS_F_INLINE || file->flags & LFS_F_FLAT || file->ctz.size > 0);
 
+    if (lfs->version < LFS_DISK_VERSION_FLAT) {
+        return LFS_ERR_INVAL;
+    }
+
     if (size > LFS_FILE_MAX) {
         return LFS_ERR_INVAL;
     }
@@ -4460,6 +4464,7 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
                 err = LFS_ERR_INVAL;
                 goto cleanup;
             }
+            lfs->version = superblock.version;
 
             // check superblock configuration
             if (superblock.name_max) {
