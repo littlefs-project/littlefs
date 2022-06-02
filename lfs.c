@@ -3829,7 +3829,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
     lfs_size_t nblocks = ((size - 1) / lfs->cfg->block_size) + 1;
 
     int err = LFS_ERR_NOSPC;
-    if ((flags & LFS_R_OVERWRITE) && (file->flags & LFS_F_FLAT)) {
+    if ((flags & LFS_R_TRUNCATE) && (file->flags & LFS_F_FLAT)) {
         // use existing committed or uncommitted reservation if large enough
         err = lfs_file_rawtruncate(lfs, file, size);
         if (!err) {
