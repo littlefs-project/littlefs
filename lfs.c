@@ -704,10 +704,10 @@ static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks
         }
     }
     scan.first = scan.head;
-    if (scan.head + nblocks > lfs->cfg->block_count) {
+    scan.looped = (scan.head + nblocks > lfs->cfg->block_count);
+    if (scan.looped) {
         scan.head = 0;
     }
-    scan.looped = (scan.head == 0);
     // loop until a traversal is done with no collisions
     do {
         scan.collisions = 0;
