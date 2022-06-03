@@ -3158,6 +3158,8 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
         // mark this as a flat file
         LFS_ASSERT((file->flags & LFS_F_INLINE) == 0);
         file->flags |= LFS_F_FLAT;
+        file->cache.block = LFS_BLOCK_NULL;
+        file->cache.size = lfs->cfg->cache_size;
     }
 
     return 0;
@@ -3809,15 +3811,50 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     return 0;
 }
 
-static int lfs_file_rawflatcopy(lfs_t *lfs, lfs_block_t dst, lfs_block_t src, lfs_size_t nblocks) {
-    if (dst == src) {
+static int lfs_file_rawflatcopy(lfs_t *lfs, lfs_file_t *file, lfs_block_t dst, lfs_block_t src, lfs_size_t nblocks) {
+    if (dst == src || !nblocks) {
         // noop
-    } else if (dst < src) {
-        // copy forward
-
     } else {
-        // copy in reverse
-
+        int err;
+        LFS_ASSERT(file->cache.buffer);
+        if (dst < src) {
+            // copy forward
+            for (lfs_block_t i = 0; i < nblocks; ++i) {
+                err = lfs->cfg->erase(lfs->cfg, dst + i);
+                if (err) {
+                    return err;
+                }
+                for (lfs_off_t o = 0; o < lfs->cfg->block_size; o += file->cache.size) {
+                    err = lfs->cfg->read(lfs->cfg, src + i, o, file->cache.buffer, file->cache.size);
+                    if (err) {
+                        return err;
+                    }
+                    err = lfs->cfg->prog(lfs->cfg, dst + i, o, file->cache.buffer, file->cache.size);
+                    if (err) {
+                        return err;
+                    }
+                }
+            }
+        }
+        else {
+            // copy in reverse
+            for (lfs_block_t i = 0; i < nblocks; ++i) {
+                err = lfs->cfg->erase(lfs->cfg, dst + nblocks - i - 1);
+                if (err) {
+                    return err;
+                }
+                for (lfs_off_t o = 0; o < lfs->cfg->block_size; o += file->cache.size) {
+                    err = lfs->cfg->read(lfs->cfg, src + nblocks - i - 1, o, file->cache.buffer, file->cache.size);
+                    if (err) {
+                        return err;
+                    }
+                    err = lfs->cfg->prog(lfs->cfg, dst + nblocks - i - 1, o, file->cache.buffer, file->cache.size);
+                    if (err) {
+                        return err;
+                    }
+                }
+            }
+        }
     }
     return LFS_ERR_OK;
 }
@@ -3841,10 +3878,13 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
     // emptying file or flagging error
     if (size == 0 || (flags & LFS_R_ERRED)) {
         // just empty the file
-        file->ctz.head = 0;
+        file->ctz.head = LFS_BLOCK_INLINE;
         file->ctz.size = 0;
         file->flags &= ~LFS_F_FLAT;
         file->flags |= LFS_F_INLINE | LFS_F_DIRTY;
+        file->cache.block = LFS_BLOCK_INLINE;
+        file->cache.off = 0;
+        file->cache.size = lfs->cfg->cache_size;
         if (flags & LFS_R_ERRED) {
             file->flags |= LFS_F_ERRED;
         }
@@ -3905,7 +3945,7 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
         if (oldsize) {
             lfs_size_t oldnblocks = ((file->ctz.size - 1) / lfs->cfg->block_size) + 1;
             lfs_size_t copyblocks = lfs_min(oldnblocks, nblocks);
-            int err = lfs_file_rawflatcopy(lfs, head, file->ctz.head, copyblocks);
+            err = lfs_file_rawflatcopy(lfs, file, head, file->ctz.head, copyblocks);
             if (err) {
                 file->flags |= LFS_F_ERRED;
                 lfs_alloc_ack(lfs);
@@ -3919,6 +3959,8 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
     file->ctz.size = size;
     file->flags &= ~LFS_F_INLINE;
     file->flags |= LFS_F_FLAT | LFS_F_DIRTY;
+    file->cache.block = LFS_BLOCK_NULL;
+    file->cache.size = lfs->cfg->cache_size;
     // LFS_DEBUG("Reserved flat file of %"PRIu32" blocks at %"PRIu32"", nblocks, head);
     return LFS_ERR_OK;
 }
