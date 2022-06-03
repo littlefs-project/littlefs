@@ -84,7 +84,9 @@ code = '''
             if (WANG_HASH(bnew * 6) & 1) flags = 0;
 
             lfs_file_open(&lfs, &files[n], names[n], LFS_O_WRONLY | LFS_O_CREAT) => 0;
-            lfs_ssize_t bold = lfs_file_size(&lfs, &files[n]) / cfg.block_size;
+            lfs_ssize_t szold = lfs_file_size(&lfs, &files[n]);
+            lfs_ssize_t bold = szold ? ((szold - 1) / cfg.block_size) + 1 : 0;
+            assert(bold == szold / cfg.block_size);
             err = lfs_file_reserve(&lfs, &files[n], cfg.block_size * bnew, flags);
             if (expectfail) assert(err == LFS_ERR_NOSPC);
             lfs_file_close(&lfs, &files[n]) => 0;
@@ -96,8 +98,8 @@ code = '''
                 assert(err == LFS_ERR_NOSPC);
                 // if no space but there should be the remaining space is fragmented
                 lfs_file_open(&lfs, &files[n], names[n], LFS_O_WRONLY | LFS_O_CREAT) => 0;
-                assert(lfs_file_size(&lfs, &files[n]) / cfg.block_size == bold);
-                err = lfs_file_reserve(&lfs, &files[n], 1, 0);
+                assert(lfs_file_size(&lfs, &files[n]) == szold);
+                err = lfs_file_reserve(&lfs, &files[n], cfg.block_size, flags);
                 assert(err == LFS_ERR_OK); // we should be able to reserve at least one block
                 lfs_file_close(&lfs, &files[n]) => 0;
                 if (!err) {
