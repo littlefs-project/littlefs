@@ -717,8 +717,9 @@ static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks
         }
         // LFS_DEBUG("Encountered %"PRIu32" collisions", scan.collisions);
     } while (scan.collisions);
-    if (lfs->free.off + lfs->free.size > scan.head
-        && lfs->free.off < scan.head + nblocks) {
+    if (!scan.first
+        || (lfs->free.off + lfs->free.size > scan.head
+        && lfs->free.off < scan.head + nblocks)) {
         // put the allocator cache after our big allocation
         lfs->free.off = scan.head + nblocks - lfs->free.size;
     } else {
