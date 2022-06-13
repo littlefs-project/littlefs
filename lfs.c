@@ -498,6 +498,7 @@ static int lfs_fs_pred(lfs_t *lfs, const lfs_block_t dir[2],
 static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
 static int lfs_fs_forceconsistency(lfs_t *lfs);
+static int lfs_fs_setblockcount(lfs_t *lfs);
 #endif
 
 #ifdef LFS_MIGRATE
@@ -4104,6 +4105,9 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
     // scan directory blocks for superblock and any global updates
     lfs_mdir_t dir = {.tail = {0, 1}};
     lfs_block_t cycle = 0;
+#ifndef LFS_READONLY
+    bool grow = false;
+#endif
     while (!lfs_pair_isnull(dir.tail)) {
         if (cycle >= lfs->cfg->block_count/2) {
             // loop detected
@@ -4187,15 +4191,24 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
             }
 
             if (superblock.block_count != lfs->cfg->block_count) {
-                LFS_ERROR("Invalid block count (%"PRIu32" != %"PRIu32")",
+                if ((lfs->cfg->flags & LFS_M_GROW)
+                    && (superblock.block_count < lfs->cfg->block_count)) {
+#ifndef LFS_READONLY
+                    LFS_DEBUG("Grow block count from %"PRIu32" to %"PRIu32"",
                         superblock.block_count, lfs->cfg->block_count);
-                err = LFS_ERR_INVAL;
-                goto cleanup;
+                    grow = true;
+#endif
+                } else {
+                    LFS_ERROR("Invalid block count (%"PRIu32" != %"PRIu32")",
+                        superblock.block_count, lfs->cfg->block_count);
+                    err = LFS_ERR_INVAL;
+                    goto cleanup;
+                }
             }
 
             if (superblock.block_size != lfs->cfg->block_size) {
                 LFS_ERROR("Invalid block size (%"PRIu32" != %"PRIu32")",
-                        superblock.block_count, lfs->cfg->block_count);
+                        superblock.block_size, lfs->cfg->block_size);
                 err = LFS_ERR_INVAL;
                 goto cleanup;
             }
@@ -4229,6 +4242,16 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->free.off = lfs->seed % lfs->cfg->block_count;
     lfs_alloc_drop(lfs);
 
+#ifndef LFS_READONLY
+    if (grow) {
+        err = lfs_fs_setblockcount(lfs);
+        if (err) {
+            LFS_ERROR("Failed to grow block count");
+            goto cleanup;
+        }
+    }
+#endif
+
     return 0;
 
 cleanup:
@@ -4240,6 +4263,59 @@ static int lfs_rawunmount(lfs_t *lfs) {
     return lfs_deinit(lfs);
 }
 
+#ifndef LFS_READONLY
+static int lfs_fs_setblockcount(lfs_t *lfs) {
+    // scan directory blocks for superblock
+    lfs_mdir_t dir = {.tail = {0, 1}};
+    lfs_block_t cycle = 0;
+    while (!lfs_pair_isnull(dir.tail)) {
+        if (cycle >= lfs->cfg->block_count / 2) {
+            // loop detected
+            return LFS_ERR_CORRUPT;
+        }
+        cycle += 1;
+
+        // fetch next block in tail list
+        lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail,
+            LFS_MKTAG(0x7ff, 0x3ff, 0),
+            LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8),
+            NULL,
+            lfs_dir_find_match, &(struct lfs_dir_find_match){
+            lfs, "littlefs", 8});
+        if (tag < 0) {
+            return tag;
+        }
+
+        // has superblock?
+        if (tag && !lfs_tag_isdelete(tag)) {
+            // grab superblock
+            lfs_superblock_t superblock;
+            tag = lfs_dir_get(lfs, &dir, LFS_MKTAG(0x7ff, 0x3ff, 0),
+                LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock);
+            if (tag < 0) {
+                return tag;
+            }
+            lfs_superblock_fromle32(&superblock);
+
+            // set the new block count
+            superblock.block_count = lfs->cfg->block_count;
+
+            // write back the updated superblock to disk
+            lfs_superblock_tole32(&superblock);
+            int err = lfs_dir_commit(lfs, &dir, LFS_MKATTRS(
+                {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
+                {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock}));
+            if (err) {
+                return err;
+            }
+            return LFS_ERR_OK;
+        }
+    }
+    return LFS_ERR_INVAL;
+}
+#endif
 
 /// Filesystem filesystem operations ///
 int lfs_fs_rawtraverse(lfs_t *lfs,
