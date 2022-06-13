@@ -498,6 +498,7 @@ static int lfs_fs_pred(lfs_t *lfs, const lfs_block_t dir[2],
 static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
 static int lfs_fs_forceconsistency(lfs_t *lfs);
+static int lfs_fs_setdiskversion(lfs_t *lfs, uint32_t version);
 #endif
 
 #ifdef LFS_MIGRATE
@@ -521,7 +522,6 @@ static int lfs_fs_rawtraverse(lfs_t *lfs,
 
 static int lfs_deinit(lfs_t *lfs);
 static int lfs_rawunmount(lfs_t *lfs);
-static int lfs_fs_setdiskversion(lfs_t *lfs, uint32_t version);
 
 
 /// Block allocator ///
@@ -4650,6 +4650,7 @@ static int lfs_rawunmount(lfs_t *lfs) {
     return lfs_deinit(lfs);
 }
 
+#ifndef LFS_READONLY
 static int lfs_fs_setdiskversion(lfs_t *lfs, uint32_t version) {
     // scan directory blocks for superblock
     lfs_mdir_t dir = {.tail = {0, 1}};
@@ -4702,9 +4703,9 @@ static int lfs_fs_setdiskversion(lfs_t *lfs, uint32_t version) {
             return LFS_ERR_OK;
         }
     }
-    return LFS_ERR_CORRUPT;
+    return LFS_ERR_INVAL;
 }
-
+#endif
 
 /// Filesystem filesystem operations ///
 int lfs_fs_rawtraverse(lfs_t *lfs,
