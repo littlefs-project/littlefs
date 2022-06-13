@@ -521,6 +521,7 @@ static int lfs_fs_rawtraverse(lfs_t *lfs,
 
 static int lfs_deinit(lfs_t *lfs);
 static int lfs_rawunmount(lfs_t *lfs);
+static int lfs_fs_setdiskversion(lfs_t *lfs, uint32_t version);
 
 
 /// Block allocator ///
@@ -3865,7 +3866,11 @@ static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, in
     LFS_ASSERT(file->flags & LFS_F_INLINE || file->flags & LFS_F_FLAT || file->ctz.size > 0);
 
     if (lfs->version < LFS_DISK_VERSION_FLAT) {
-        return LFS_ERR_INVAL;
+        int err = lfs_fs_setdiskversion(lfs, LFS_DISK_VERSION_FLAT);
+        if (err) {
+            return err;
+        }
+        LFS_ASSERT(lfs->version >= LFS_DISK_VERSION_FLAT);
     }
 
     if (size > LFS_FILE_MAX) {
@@ -4459,7 +4464,7 @@ static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
 
         // write one superblock
         lfs_superblock_t superblock = {
-            .version     = LFS_DISK_VERSION,
+            .version     = LFS_DISK_VERSION_BASE,
             .block_size  = lfs->cfg->block_size,
             .block_count = lfs->cfg->block_count,
             .name_max    = lfs->name_max,
@@ -4643,6 +4648,61 @@ cleanup:
 
 static int lfs_rawunmount(lfs_t *lfs) {
     return lfs_deinit(lfs);
+}
+
+static int lfs_fs_setdiskversion(lfs_t *lfs, uint32_t version) {
+    // scan directory blocks for superblock
+    lfs_mdir_t dir = {.tail = {0, 1}};
+    lfs_block_t cycle = 0;
+    while (!lfs_pair_isnull(dir.tail)) {
+        if (cycle >= lfs->cfg->block_count / 2) {
+            // loop detected
+            return LFS_ERR_CORRUPT;
+        }
+        cycle += 1;
+
+        // fetch next block in tail list
+        lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail,
+            LFS_MKTAG(0x7ff, 0x3ff, 0),
+            LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8),
+            NULL,
+            lfs_dir_find_match, &(struct lfs_dir_find_match){
+            lfs, "littlefs", 8});
+        if (tag < 0) {
+            return tag;
+        }
+
+        // has superblock?
+        if (tag && !lfs_tag_isdelete(tag)) {
+            // grab superblock
+            lfs_superblock_t superblock;
+            tag = lfs_dir_get(lfs, &dir, LFS_MKTAG(0x7ff, 0x3ff, 0),
+                LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock);
+            if (tag < 0) {
+                return tag;
+            }
+            lfs_superblock_fromle32(&superblock);
+
+            // set the new version number
+            superblock.version = version;
+
+            // write back the updated superblock to disk
+            lfs_superblock_tole32(&superblock);
+            int err = lfs_dir_commit(lfs, &dir, LFS_MKATTRS(
+                {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
+                {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock}));
+            if (err) {
+                return err;
+            }
+
+            // use the new version number
+            lfs->version = version;
+            return LFS_ERR_OK;
+        }
+    }
+    return LFS_ERR_CORRUPT;
 }
 
 
@@ -5679,7 +5739,7 @@ static int lfs_rawmigrate(lfs_t *lfs, const struct lfs_config *cfg) {
         dir2.split = true;
 
         lfs_superblock_t superblock = {
-            .version     = LFS_DISK_VERSION,
+            .version     = LFS_DISK_VERSION_BASE,
             .block_size  = lfs->cfg->block_size,
             .block_count = lfs->cfg->block_count,
             .name_max    = lfs->name_max,
