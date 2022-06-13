@@ -164,6 +164,7 @@ code = '''
 
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
+    assert(lfs.version == LFS_DISK_VERSION_BASE);
 
     lfs_ssize_t szhalf = (cfg.block_count - 8) / 2;
     assert(szhalf > 0);
@@ -173,6 +174,7 @@ code = '''
     // big half file can definitely be allocated now
     lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
     err = lfs_file_reserve(&lfs, &files[0], cfg.block_size * szhalf, 0);
+    assert(lfs.version == LFS_DISK_VERSION_FLAT);
     assert(err == LFS_ERR_OK);
     lfs_file_close(&lfs, &files[0]) => 0;
 
@@ -181,6 +183,11 @@ code = '''
     err = lfs_file_reserve(&lfs, &files[1], cfg.block_size * szeighth, 0);
     assert(err == LFS_ERR_OK);
     lfs_file_close(&lfs, &files[1]) => 0;
+
+    // check if flat version is applied correctly
+    lfs_unmount(&lfs) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    assert(lfs.version == LFS_DISK_VERSION_FLAT);
 
     // free one half
     lfs_file_open(&lfs, &files[0], names[0], LFS_O_WRONLY | LFS_O_CREAT) => 0;
