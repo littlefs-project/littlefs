@@ -76,7 +76,7 @@ code = '''
             bool expectfail = nblocks + bnew > (lfs_ssize_t)cfg.block_count;
 
             // put some random flags
-            int flags = WANG_HASH(bnew) & 1 ? LFS_R_COPY : 0;
+            int flags = (c == CYCLES / 2) ? LFS_R_COPY : 0;
             if (expectok && (WANG_HASH(bnew * 2) & 1)) flags |= LFS_R_OVERWRITE;
             if (expectok && (WANG_HASH(bnew * 3) & 1)) flags |= LFS_R_TRUNCATE;
             if (WANG_HASH(bnew * 4) & 1) flags |= LFS_R_FRONT;
