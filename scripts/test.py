@@ -93,7 +93,7 @@ PROLOGUE = """
     __attribute__((unused)) lfs_dir_t dir;
     __attribute__((unused)) struct lfs_info info;
     __attribute__((unused)) char path[1024];
-    __attribute__((unused)) uint8_t buffer[1024];
+    __attribute__((unused)) uint8_t buffer[(1024 > LFS_BLOCK_SIZE * 4) ? (1024) : (LFS_BLOCK_SIZE * 4)];
     __attribute__((unused)) lfs_size_t size;
     __attribute__((unused)) int err;
     
