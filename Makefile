@@ -30,19 +30,20 @@ SRC ?= $(filter-out $(wildcard *.*.c),$(wildcard *.c))
 OBJ := $(SRC:%.c=$(BUILDDIR)%.o)
 DEP := $(SRC:%.c=$(BUILDDIR)%.d)
 ASM := $(SRC:%.c=$(BUILDDIR)%.s)
-CGI := $(SRC:%.c=$(BUILDDIR)%.ci)
-TAGCDA := $(SRC:%.c=$(BUILDDIR)%.t.a.gcda)
+CI := $(SRC:%.c=$(BUILDDIR)%.ci)
+GCDA := $(SRC:%.c=$(BUILDDIR)%.t.a.gcda)
 
 TESTS ?= $(wildcard tests/*.toml)
 TEST_SRC ?= $(SRC) \
 		$(filter-out $(wildcard bd/*.*.c),$(wildcard bd/*.c)) \
 		runners/test_runner.c
-TEST_TSRC := $(TESTS:%.toml=$(BUILDDIR)%.t.c) $(TEST_SRC:%.c=$(BUILDDIR)%.t.c)
-TEST_TASRC := $(TEST_TSRC:%.t.c=%.t.a.c)
-TEST_TAOBJ := $(TEST_TASRC:%.t.a.c=%.t.a.o)
-TEST_TADEP := $(TEST_TASRC:%.t.a.c=%.t.a.d)
-TEST_TAGCNO := $(TEST_TASRC:%.t.a.c=%.t.a.gcno)
-TEST_TAGCDA := $(TEST_TASRC:%.t.a.c=%.t.a.gcda)
+TEST_TC := $(TESTS:%.toml=$(BUILDDIR)%.t.c) $(TEST_SRC:%.c=$(BUILDDIR)%.t.c)
+TEST_TAC := $(TEST_TC:%.t.c=%.t.a.c)
+TEST_OBJ := $(TEST_TAC:%.t.a.c=%.t.a.o)
+TEST_DEP := $(TEST_TAC:%.t.a.c=%.t.a.d)
+TEST_CI	:= $(TEST_TAC:%.t.a.c=%.t.a.ci)
+TEST_GCNO := $(TEST_TAC:%.t.a.c=%.t.a.gcno)
+TEST_GCDA := $(TEST_TAC:%.t.a.c=%.t.a.gcda)
 
 ifdef DEBUG
 override CFLAGS += -O0
@@ -112,7 +113,7 @@ test-runner: $(BUILDDIR)runners/test_runner
 
 .PHONY: test
 test: test-runner
-	rm -f $(TEST_TAGCDA)
+	rm -f $(TEST_GCDA)
 	./scripts/test.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS)
 
 .PHONY: test-list
@@ -128,7 +129,7 @@ data: $(OBJ)
 	./scripts/data.py $^ -S $(DATAFLAGS)
 
 .PHONY: stack
-stack: $(CGI)
+stack: $(CI)
 	./scripts/stack.py $^ -S $(STACKFLAGS)
 
 .PHONY: structs
@@ -136,7 +137,7 @@ structs: $(OBJ)
 	./scripts/structs.py $^ -S $(STRUCTSFLAGS)
 
 .PHONY: coverage
-coverage: $(TAGCDA)
+coverage: $(GCDA)
 	./scripts/coverage.py $^ -s $(COVERAGEFLAGS)
 
 .PHONY: summary
@@ -146,7 +147,7 @@ summary: $(BUILDDIR)lfs.csv
 
 # rules
 -include $(DEP)
--include $(TEST_TADEP)
+-include $(TEST_DEP)
 .SUFFIXES:
 .SECONDARY:
 
@@ -156,13 +157,13 @@ $(BUILDDIR)lfs: $(OBJ)
 $(BUILDDIR)lfs.a: $(OBJ)
 	$(AR) rcs $@ $^
 
-$(BUILDDIR)lfs.csv: $(OBJ) $(CGI)
+$(BUILDDIR)lfs.csv: $(OBJ) $(CI)
 	./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o $@
 	./scripts/data.py $(OBJ) -q -m $@ $(DATAFLAGS) -o $@
-	./scripts/stack.py $(CGI) -q -m $@ $(STACKFLAGS) -o $@
+	./scripts/stack.py $(CI) -q -m $@ $(STACKFLAGS) -o $@
 	./scripts/structs.py $(OBJ) -q -m $@ $(STRUCTSFLAGS) -o $@
 
-$(BUILDDIR)runners/test_runner: $(TEST_TAOBJ)
+$(BUILDDIR)runners/test_runner: $(TEST_OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
 # our main build rule generates .o, .d, and .ci files, the latter
@@ -195,10 +196,11 @@ clean:
 	rm -f $(OBJ)
 	rm -f $(DEP)
 	rm -f $(ASM)
-	rm -f $(CGI)
-	rm -f $(TEST_TSRC)
-	rm -f $(TEST_TASRC)
-	rm -f $(TEST_TAOBJ)
-	rm -f $(TEST_TADEP)
-	rm -f $(TEST_TAGCNO)
-	rm -f $(TEST_TAGCDA)
+	rm -f $(CI)
+	rm -f $(TEST_TC)
+	rm -f $(TEST_TAC)
+	rm -f $(TEST_OBJ)
+	rm -f $(TEST_DEP)
+	rm -f $(TEST_CI)
+	rm -f $(TEST_GCNO)
+	rm -f $(TEST_GCDA)
