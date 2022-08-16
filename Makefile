@@ -175,10 +175,10 @@ $(BUILDDIR)%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
 $(BUILDDIR)%.a.c: %.c
-	./scripts/explode_asserts.py $< -o $@
+	./scripts/pretty_asserts.py -p LFS_ASSERT $< -o $@
 
 $(BUILDDIR)%.a.c: $(BUILDDIR)%.c
-	./scripts/explode_asserts.py $< -o $@
+	./scripts/pretty_asserts.py -p LFS_ASSERT $< -o $@
 
 $(BUILDDIR)%.t.c: %.toml
 	./scripts/test.py -c $< $(TESTCFLAGS) -o $@
