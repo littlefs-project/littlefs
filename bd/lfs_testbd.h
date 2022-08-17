@@ -50,7 +50,7 @@ typedef int32_t  lfs_testbd_swear_t;
 // testbd config, this is required for testing
 struct lfs_testbd_config {
     // 8-bit erase value to use for simulating erases. -1 does not simulate
-    // erases, which can speed up testing by avoiding all the extra block-device
+    // erases, which can speed up testing by avoiding the extra block-device
     // operations to store the erase value.
     int32_t erase_value;
 
@@ -68,8 +68,11 @@ struct lfs_testbd_config {
     // Optional buffer for RAM block device.
     void *buffer;
 
-    // Optional buffer for wear
+    // Optional buffer for wear.
     void *wear_buffer;
+
+    // Optional buffer for scratch memory, needed when erase_value != -1.
+    void *scratch_buffer;
 };
 
 // testbd state
@@ -77,7 +80,6 @@ typedef struct lfs_testbd {
     union {
         struct {
             lfs_filebd_t bd;
-            struct lfs_filebd_config cfg;
         } file;
         struct {
             lfs_rambd_t bd;
@@ -88,6 +90,7 @@ typedef struct lfs_testbd {
     bool persist;
     uint32_t power_cycles;
     lfs_testbd_wear_t *wear;
+    uint8_t *scratch;
 
     const struct lfs_testbd_config *cfg;
 } lfs_testbd_t;

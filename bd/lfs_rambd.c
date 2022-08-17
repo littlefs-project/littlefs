@@ -13,12 +13,12 @@ int lfs_rambd_createcfg(const struct lfs_config *cfg,
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
-                "%p {.erase_value=%"PRId32", .buffer=%p})",
+                "%p {.buffer=%p})",
             (void*)cfg, cfg->context,
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
-            (void*)bdcfg, bdcfg->erase_value, bdcfg->buffer);
+            (void*)bdcfg, bdcfg->buffer);
     lfs_rambd_t *bd = cfg->context;
     bd->cfg = bdcfg;
 
@@ -33,13 +33,8 @@ int lfs_rambd_createcfg(const struct lfs_config *cfg,
         }
     }
 
-    // zero for reproducibility?
-    if (bd->cfg->erase_value != -1) {
-        memset(bd->buffer, bd->cfg->erase_value,
-                cfg->block_size * cfg->block_count);
-    } else {
-        memset(bd->buffer, 0, cfg->block_size * cfg->block_count);
-    }
+    // zero for reproducibility
+    memset(bd->buffer, 0, cfg->block_size * cfg->block_count);
 
     LFS_RAMBD_TRACE("lfs_rambd_createcfg -> %d", 0);
     return 0;
@@ -54,7 +49,7 @@ int lfs_rambd_create(const struct lfs_config *cfg) {
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count);
-    static const struct lfs_rambd_config defaults = {.erase_value=-1};
+    static const struct lfs_rambd_config defaults = {0};
     int err = lfs_rambd_createcfg(cfg, &defaults);
     LFS_RAMBD_TRACE("lfs_rambd_create -> %d", err);
     return err;
@@ -79,9 +74,10 @@ int lfs_rambd_read(const struct lfs_config *cfg, lfs_block_t block,
     lfs_rambd_t *bd = cfg->context;
 
     // check if read is valid
+    LFS_ASSERT(block < cfg->block_count);
     LFS_ASSERT(off  % cfg->read_size == 0);
     LFS_ASSERT(size % cfg->read_size == 0);
-    LFS_ASSERT(block < cfg->block_count);
+    LFS_ASSERT(off+size <= cfg->block_size);
 
     // read data
     memcpy(buffer, &bd->buffer[block*cfg->block_size + off], size);
@@ -98,17 +94,10 @@ int lfs_rambd_prog(const struct lfs_config *cfg, lfs_block_t block,
     lfs_rambd_t *bd = cfg->context;
 
     // check if write is valid
+    LFS_ASSERT(block < cfg->block_count);
     LFS_ASSERT(off  % cfg->prog_size == 0);
     LFS_ASSERT(size % cfg->prog_size == 0);
-    LFS_ASSERT(block < cfg->block_count);
-
-    // check that data was erased? only needed for testing
-    if (bd->cfg->erase_value != -1) {
-        for (lfs_off_t i = 0; i < size; i++) {
-            LFS_ASSERT(bd->buffer[block*cfg->block_size + off + i] ==
-                    bd->cfg->erase_value);
-        }
-    }
+    LFS_ASSERT(off+size <= cfg->block_size);
 
     // program data
     memcpy(&bd->buffer[block*cfg->block_size + off], buffer, size);
@@ -119,16 +108,12 @@ int lfs_rambd_prog(const struct lfs_config *cfg, lfs_block_t block,
 
 int lfs_rambd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     LFS_RAMBD_TRACE("lfs_rambd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
-    lfs_rambd_t *bd = cfg->context;
 
     // check if erase is valid
     LFS_ASSERT(block < cfg->block_count);
 
-    // erase, only needed for testing
-    if (bd->cfg->erase_value != -1) {
-        memset(&bd->buffer[block*cfg->block_size],
-                bd->cfg->erase_value, cfg->block_size);
-    }
+    // erase is a noop
+    (void)block;
 
     LFS_RAMBD_TRACE("lfs_rambd_erase -> %d", 0);
     return 0;
@@ -136,8 +121,10 @@ int lfs_rambd_erase(const struct lfs_config *cfg, lfs_block_t block) {
 
 int lfs_rambd_sync(const struct lfs_config *cfg) {
     LFS_RAMBD_TRACE("lfs_rambd_sync(%p)", (void*)cfg);
-    // sync does nothing because we aren't backed by anything real
+
+    // sync is a noop
     (void)cfg;
+
     LFS_RAMBD_TRACE("lfs_rambd_sync -> %d", 0);
     return 0;
 }

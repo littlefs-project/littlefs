@@ -35,6 +35,20 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
     bd->persist = path;
     bd->power_cycles = bd->cfg->power_cycles;
 
+    // create scratch block if we need it (for emulating erase values)
+    if (bd->cfg->erase_value != -1) {
+        if (bd->cfg->scratch_buffer) {
+            bd->scratch = bd->cfg->scratch_buffer;
+        } else {
+            bd->scratch = lfs_malloc(cfg->block_size);
+            if (!bd->scratch) {
+                LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", LFS_ERR_NOMEM);
+                return LFS_ERR_NOMEM;
+            }
+        }
+    }
+
+    // create map of wear
     if (bd->cfg->erase_cycles) {
         if (bd->cfg->wear_buffer) {
             bd->wear = bd->cfg->wear_buffer;
@@ -51,15 +65,11 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
 
     // create underlying block device
     if (bd->persist) {
-        bd->u.file.cfg = (struct lfs_filebd_config){
-            .erase_value = bd->cfg->erase_value,
-        };
-        int err = lfs_filebd_createcfg(cfg, path, &bd->u.file.cfg);
+        int err = lfs_filebd_create(cfg, path);
         LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", err);
         return err;
     } else {
         bd->u.ram.cfg = (struct lfs_rambd_config){
-            .erase_value = bd->cfg->erase_value,
             .buffer = bd->cfg->buffer,
         };
         int err = lfs_rambd_createcfg(cfg, &bd->u.ram.cfg);
@@ -88,6 +98,10 @@ int lfs_testbd_create(const struct lfs_config *cfg, const char *path) {
 int lfs_testbd_destroy(const struct lfs_config *cfg) {
     LFS_TESTBD_TRACE("lfs_testbd_destroy(%p)", (void*)cfg);
     lfs_testbd_t *bd = cfg->context;
+
+    if (bd->cfg->erase_value != -1 && !bd->cfg->scratch_buffer) {
+        lfs_free(bd->scratch);
+    }
     if (bd->cfg->erase_cycles && !bd->cfg->wear_buffer) {
         lfs_free(bd->wear);
     }
@@ -152,9 +166,10 @@ int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
     lfs_testbd_t *bd = cfg->context;
 
     // check if read is valid
+    LFS_ASSERT(block < cfg->block_count);
     LFS_ASSERT(off  % cfg->read_size == 0);
     LFS_ASSERT(size % cfg->read_size == 0);
-    LFS_ASSERT(block < cfg->block_count);
+    LFS_ASSERT(off+size <= cfg->block_size);
 
     // block bad?
     if (bd->cfg->erase_cycles && bd->wear[block] >= bd->cfg->erase_cycles &&
@@ -177,9 +192,10 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
     lfs_testbd_t *bd = cfg->context;
 
     // check if write is valid
+    LFS_ASSERT(block < cfg->block_count);
     LFS_ASSERT(off  % cfg->prog_size == 0);
     LFS_ASSERT(size % cfg->prog_size == 0);
-    LFS_ASSERT(block < cfg->block_count);
+    LFS_ASSERT(off+size <= cfg->block_size);
 
     // block bad?
     if (bd->cfg->erase_cycles && bd->wear[block] >= bd->cfg->erase_cycles) {
@@ -196,11 +212,41 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
         }
     }
 
-    // prog
-    int err = lfs_testbd_rawprog(cfg, block, off, buffer, size);
-    if (err) {
-        LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
-        return err;
+    // emulate an erase value?
+    if (bd->cfg->erase_value != -1) {
+        int err = lfs_testbd_rawread(cfg, block, 0,
+                bd->scratch, cfg->block_size);
+        if (err) {
+            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
+            return err;
+        }
+
+        // assert that program block was erased
+        for (lfs_off_t i = 0; i < size; i++) {
+            LFS_ASSERT(bd->scratch[off+i] == bd->cfg->erase_value);
+        }
+
+        memcpy(&bd->scratch[off], buffer, size);
+
+        err = lfs_testbd_rawerase(cfg, block);
+        if (err) {
+            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
+            return err;
+        }
+
+        err = lfs_testbd_rawprog(cfg, block, 0,
+                bd->scratch, cfg->block_size);
+        if (err) {
+            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
+            return err;
+        }
+    } else {
+        // prog
+        int err = lfs_testbd_rawprog(cfg, block, off, buffer, size);
+        if (err) {
+            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
+            return err;
+        }
     }
 
     // lose power?
@@ -243,11 +289,29 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         }
     }
 
-    // erase
-    int err = lfs_testbd_rawerase(cfg, block);
-    if (err) {
-        LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
-        return err;
+    // emulate an erase value?
+    if (bd->cfg->erase_value != -1) {
+        memset(bd->scratch, bd->cfg->erase_value, cfg->block_size);
+
+        int err = lfs_testbd_rawerase(cfg, block);
+        if (err) {
+            LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
+            return err;
+        }
+
+        err = lfs_testbd_rawprog(cfg, block, 0,
+                bd->scratch, cfg->block_size);
+        if (err) {
+            LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
+            return err;
+        }
+    } else {
+        // erase
+        int err = lfs_testbd_rawerase(cfg, block);
+        if (err) {
+            LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
+            return err;
+        }
     }
 
     // lose power?

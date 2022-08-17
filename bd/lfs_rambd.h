@@ -28,10 +28,6 @@ extern "C"
 
 // rambd config (optional)
 struct lfs_rambd_config {
-    // 8-bit erase value to simulate erasing with. -1 indicates no erase
-    // occurs, which is still a valid block device
-    int32_t erase_value;
-
     // Optional statically allocated buffer for the block device.
     void *buffer;
 };
