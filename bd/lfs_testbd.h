@@ -29,23 +29,33 @@ extern "C"
 #endif
 #endif
 
-// Mode determining how "bad blocks" behave during testing. This simulates
+// Mode determining how "bad-blocks" behave during testing. This simulates
 // some real-world circumstances such as progs not sticking (prog-noop),
 // a readonly disk (erase-noop), and ECC failures (read-error).
 //
 // Not that read-noop is not allowed. Read _must_ return a consistent (but
 // may be arbitrary) value on every read.
-enum lfs_testbd_badblock_behavior {
+typedef enum lfs_testbd_badblock_behavior {
     LFS_TESTBD_BADBLOCK_PROGERROR,
     LFS_TESTBD_BADBLOCK_ERASEERROR,
     LFS_TESTBD_BADBLOCK_READERROR,
     LFS_TESTBD_BADBLOCK_PROGNOOP,
     LFS_TESTBD_BADBLOCK_ERASENOOP,
-};
+} lfs_testbd_badblock_behavior_t;
+
+// Mode determining how power-loss behaves during testing. For now this
+// only supports a noop behavior, leaving the data on-disk untouched.
+typedef enum lfs_testbd_powerloss_behavior {
+    LFS_TESTBD_POWERLOSS_NOOP,
+} lfs_testbd_powerloss_behavior_t;
 
 // Type for measuring wear
 typedef uint32_t lfs_testbd_wear_t;
-typedef int32_t  lfs_testbd_swear_t;
+typedef int32_t lfs_testbd_swear_t;
+
+// Type for tracking power-cycles
+typedef uint32_t lfs_testbd_powercycles_t;
+typedef int32_t lfs_testbd_spowercycles_t;
 
 // testbd config, this is required for testing
 struct lfs_testbd_config {
@@ -55,42 +65,77 @@ struct lfs_testbd_config {
     int32_t erase_value;
 
     // Number of erase cycles before a block becomes "bad". The exact behavior
-    // of bad blocks is controlled by the badblock_mode.
+    // of bad blocks is controlled by badblock_behavior.
     uint32_t erase_cycles;
 
-    // The mode determining how bad blocks fail
-    uint8_t badblock_behavior;
+    // The mode determining how bad-blocks fail
+    lfs_testbd_badblock_behavior_t badblock_behavior;
 
-    // Number of write operations (erase/prog) before forcefully killing
-    // the program with exit. Simulates power-loss. 0 disables.
-    uint32_t power_cycles;
+    // Number of write operations (erase/prog) before triggering a power-loss.
+    // power_cycles=0 disables this. The exact behavior of power-loss is
+    // controlled by a combination of powerloss_behavior and powerloss_cb.
+    lfs_testbd_powercycles_t power_cycles;
 
-    // Optional buffer for RAM block device.
-    void *buffer;
+    // The mode determining how power-loss affects disk
+    lfs_testbd_powerloss_behavior_t powerloss_behavior;
 
-    // Optional buffer for wear.
-    void *wear_buffer;
+    // Function to call to emulate power-loss. The exact behavior of power-loss
+    // is up to the runner to provide.
+    void (*powerloss_cb)(void*);
 
-    // Optional buffer for scratch memory, needed when erase_value != -1.
-    void *scratch_buffer;
+    // Data for power-loss callback
+    void *powerloss_data;
+
+    // True to track when power-loss could have occured. Note this involves 
+    // heavy memory usage!
+    bool track_branches;
+
+//    // Optional buffer for RAM block device.
+//    void *buffer;
+//
+//    // Optional buffer for wear.
+//    void *wear_buffer;
+//
+//    // Optional buffer for scratch memory, needed when erase_value != -1.
+//    void *scratch_buffer;
 };
+
+// A reference counted block
+typedef struct lfs_testbd_block {
+    uint32_t rc;
+    lfs_testbd_wear_t wear;
+
+    uint8_t data[];
+} lfs_testbd_block_t;
 
 // testbd state
 typedef struct lfs_testbd {
-    union {
-        struct {
-            lfs_filebd_t bd;
-        } file;
-        struct {
-            lfs_rambd_t bd;
-            struct lfs_rambd_config cfg;
-        } ram;
-    } u;
-
-    bool persist;
+    // array of copy-on-write blocks
+    lfs_testbd_block_t **blocks;
     uint32_t power_cycles;
-    lfs_testbd_wear_t *wear;
-    uint8_t *scratch;
+
+    // array of tracked branches
+    struct lfs_testbd *branches;
+    lfs_testbd_powercycles_t branch_count;
+    lfs_testbd_powercycles_t branch_capacity;
+
+    // TODO file?
+    
+
+//    union {
+//        struct {
+//            lfs_filebd_t bd;
+//        } file;
+//        struct {
+//            lfs_rambd_t bd;
+//            struct lfs_rambd_config cfg;
+//        } ram;
+//    } u;
+//
+//    bool persist;
+//    uint32_t power_cycles;
+//    lfs_testbd_wear_t *wear;
+//    uint8_t *scratch;
 
     const struct lfs_testbd_config *cfg;
 } lfs_testbd_t;
@@ -138,6 +183,22 @@ lfs_testbd_swear_t lfs_testbd_getwear(const struct lfs_config *cfg,
 // Manually set simulated wear on a given block
 int lfs_testbd_setwear(const struct lfs_config *cfg,
         lfs_block_t block, lfs_testbd_wear_t wear);
+
+// Get the remaining power-cycles
+lfs_testbd_spowercycles_t lfs_testbd_getpowercycles(
+        const struct lfs_config *cfg);
+
+// Manually set the remaining power-cycles
+int lfs_testbd_setpowercycles(const struct lfs_config *cfg,
+        lfs_testbd_powercycles_t power_cycles);
+
+// Get a power-loss branch, requires track_branches=true
+int lfs_testbd_getbranch(const struct lfs_config *cfg,
+        lfs_testbd_powercycles_t branch, lfs_testbd_t *bd);
+
+// Get the current number of power-loss branches
+lfs_testbd_spowercycles_t lfs_testbd_getbranchcount(
+        const struct lfs_config *cfg);
 
 
 #ifdef __cplusplus

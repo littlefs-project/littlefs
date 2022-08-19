@@ -110,10 +110,10 @@ tags:
 .PHONY: test-runner
 test-runner: override CFLAGS+=--coverage
 test-runner: $(BUILDDIR)runners/test_runner
+	rm -f $(TEST_GCDA)
 
 .PHONY: test
 test: test-runner
-	rm -f $(TEST_GCDA)
 	./scripts/test.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS)
 
 .PHONY: test-list

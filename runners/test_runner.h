@@ -5,18 +5,16 @@
 
 
 // generated test configurations
-enum test_types {
-    TEST_NORMAL    = 0x1,
-    TEST_REENTRANT = 0x2,
+enum test_flags {
+    TEST_REENTRANT = 0x1,
 };
-
-typedef uint8_t test_types_t;
+typedef uint8_t test_flags_t;
 
 struct test_case {
     const char *id;
     const char *name;
     const char *path;
-    test_types_t types;
+    test_flags_t flags;
     size_t permutations;
 
     intmax_t (*const *const *defines)(void);
@@ -29,7 +27,7 @@ struct test_suite {
     const char *id;
     const char *name;
     const char *path;
-    test_types_t types;
+    test_flags_t flags;
 
     const char *const *define_names;
     size_t define_count;
@@ -54,6 +52,7 @@ intmax_t test_define(size_t define);
 #define ERASE_VALUE         test_predefine(7)
 #define ERASE_CYCLES        test_predefine(8)
 #define BADBLOCK_BEHAVIOR   test_predefine(9)
+#define POWERLOSS_BEHAVIOR  test_predefine(10)
 
 #define TEST_PREDEFINE_NAMES { \
     "READ_SIZE", \
@@ -66,17 +65,19 @@ intmax_t test_define(size_t define);
     "ERASE_VALUE", \
     "ERASE_CYCLES", \
     "BADBLOCK_BEHAVIOR", \
+    "POWERLOSS_BEHAVIOR", \
 }
-#define TEST_PREDEFINE_COUNT 10
+#define TEST_PREDEFINE_COUNT 11
 
 
 // default predefines
 #define TEST_DEFAULTS { \
-    /* LOOKAHEAD_SIZE */    16, \
-    /* BLOCK_CYCLES */      -1, \
-    /* ERASE_VALUE */       0xff, \
-    /* ERASE_CYCLES */      0, \
-    /* BADBLOCK_BEHAVIOR */ LFS_TESTBD_BADBLOCK_PROGERROR, \
+    /* LOOKAHEAD_SIZE */     16, \
+    /* BLOCK_CYCLES */       -1, \
+    /* ERASE_VALUE */        0xff, \
+    /* ERASE_CYCLES */       0, \
+    /* BADBLOCK_BEHAVIOR */  LFS_TESTBD_BADBLOCK_PROGERROR, \
+    /* POWERLOSS_BEHAVIOR */ LFS_TESTBD_POWERLOSS_NOOP, \
 }
 #define TEST_DEFAULT_DEFINE_COUNT 5
 
