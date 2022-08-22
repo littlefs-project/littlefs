@@ -58,6 +58,14 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
+def color(**args):
+    if args.get('color') == 'auto':
+        return sys.stdout.isatty()
+    elif args.get('color') == 'always':
+        return True
+    else:
+        return False
+
 class TestCase:
     # create a TestCase object from a config
     def __init__(self, config, args={}):
@@ -98,8 +106,11 @@ class TestCase:
                         (suite_defines_ | defines_).items())))))
 
         for k in config.keys():
-            print('\x1b[01;33mwarning:\x1b[m in %s, found unused key %r'
-                % (self.id(), k),
+            print('%swarning:%s in %s, found unused key %r' % (
+                '\x1b[01;33m' if color(**args) else '',
+                '\x1b[m' if color(**args) else '',
+                self.id(),
+                k),
                 file=sys.stderr)
 
     def id(self):
@@ -170,7 +181,8 @@ class TestSuite:
                     'suite_defines': defines,
                     'suite_in': in_,
                     'suite_reentrant': reentrant,
-                    **case}))
+                    **case},
+                    args=args))
 
             # combine per-case defines
             self.defines = set.union(*(
@@ -180,8 +192,11 @@ class TestSuite:
             self.reentrant = any(case.reentrant for case in self.cases)
 
         for k in config.keys():
-            print('\x1b[01;33mwarning:\x1b[m in %s, found unused key %r'
-                % (self.id(), k),
+            print('%swarning:%s in %s, found unused key %r' % (
+                '\x1b[01;33m' if color(**args) else '',
+                '\x1b[m' if color(**args) else '',
+                self.id(),
+                k),
                 file=sys.stderr)
 
     def id(self):
@@ -210,10 +225,10 @@ def compile(**args):
             sys.exit(-1)
 
         # load our suite
-        suite = TestSuite(paths[0])
+        suite = TestSuite(paths[0], args)
     else:
         # load all suites
-        suites = [TestSuite(path) for path in paths]
+        suites = [TestSuite(path, args) for path in paths]
         suites.sort(key=lambda s: s.name)
 
     # write generated test source
@@ -748,46 +763,52 @@ def run_stage(name, runner_, **args):
         runners.append(th.Thread(
             target=run_job, args=(runner_, None, None)))
 
+    def print_update(done):
+        if not args.get('verbose') and (color(**args) or done):
+            sys.stdout.write('%s%srunning %s%s:%s %s%s' % (
+                '\r\x1b[K' if color(**args) else '',
+                '\x1b[?7l' if not done else '',
+                ('\x1b[32m' if not failures else '\x1b[31m')
+                    if color(**args) else '',
+                name,
+                '\x1b[m' if color(**args) else '',
+                ', '.join(filter(None, [
+                    '%d/%d suites' % (
+                        sum(passed_suite_perms[k] == v
+                            for k, v in expected_suite_perms.items()),
+                        len(expected_suite_perms))
+                        if (not args.get('by_suites')
+                            and not args.get('by_cases')) else None,
+                    '%d/%d cases' % (
+                        sum(passed_case_perms[k] == v
+                            for k, v in expected_case_perms.items()),
+                        len(expected_case_perms))
+                        if not args.get('by_cases') else None,
+                    '%d/%d perms' % (passed_perms, expected_perms),
+                    '%dpls!' % powerlosses
+                        if powerlosses else None,
+                    '%s%d/%d failures%s' % (
+                            '\x1b[31m' if color(**args) else '',
+                            len(failures),
+                            expected_perms,
+                            '\x1b[m' if color(**args) else '')
+                        if failures else None])),
+                '\x1b[?7h' if not done else '\n'))
+            sys.stdout.flush()
+
     for r in runners:
         r.start()
 
-    needs_newline = False
     try:
         while any(r.is_alive() for r in runners):
             time.sleep(0.01)
-
-            if not args.get('verbose'):
-                sys.stdout.write('\r\x1b[K'
-                    'running \x1b[%dm%s:\x1b[m %s '
-                    % (32 if not failures else 31,
-                        name,
-                        ', '.join(filter(None, [
-                            '%d/%d suites' % (
-                                sum(passed_suite_perms[k] == v
-                                    for k, v in expected_suite_perms.items()),
-                                len(expected_suite_perms))
-                                if (not args.get('by_suites')
-                                    and not args.get('by_cases')) else None,
-                            '%d/%d cases' % (
-                                sum(passed_case_perms[k] == v
-                                    for k, v in expected_case_perms.items()),
-                                len(expected_case_perms))
-                                if not args.get('by_cases') else None,
-                            '%d/%d perms' % (passed_perms, expected_perms),
-                            '%dpls!' % powerlosses
-                                if powerlosses else None,
-                            '\x1b[31m%d/%d failures\x1b[m'
-                                % (len(failures), expected_perms)
-                                if failures else None]))))
-                sys.stdout.flush()
-                needs_newline = True
+            print_update(False)
     except KeyboardInterrupt:
         # this is handled by the runner threads, we just
         # need to not abort here
         killed = True
     finally:
-        if needs_newline:
-            print()
+        print_update(True)
 
     for r in runners:
         r.join()
@@ -838,13 +859,15 @@ def run(**args):
 
     # show summary
     print()
-    print('\x1b[%dmdone:\x1b[m %s' # %d/%d passed, %d/%d failed%s, in %.2fs'
-        % (32 if not failures else 31,
-            ', '.join(filter(None, [
-                '%d/%d passed' % (passed, expected),
-                '%d/%d failed' % (len(failures), expected),
-                '%dpls!' % powerlosses if powerlosses else None,
-                'in %.2fs' % (time.time()-start)]))))
+    print('%sdone:%s %s' % (
+        ('\x1b[32m' if not failures else '\x1b[31m')
+            if color(**args) else '',
+        '\x1b[m' if color(**args) else '',
+        ', '.join(filter(None, [
+            '%d/%d passed' % (passed, expected),
+            '%d/%d failed' % (len(failures), expected),
+            '%dpls!' % powerlosses if powerlosses else None,
+            'in %.2fs' % (time.time()-start)]))))
     print()
 
     # print each failure
@@ -858,10 +881,13 @@ def run(**args):
         path, lineno = runner_paths[testcase(failure.id)]
         defines = runner_defines.get(failure.id, {})
 
-        print('\x1b[01m%s:%d:\x1b[01;31mfailure:\x1b[m %s%s failed'
-            % (path, lineno, failure.id,
-                ' (%s)' % ', '.join(
-                    '%s=%s' % (k, v) for k, v in defines.items())
+        print('%s%s:%d:%sfailure:%s %s%s failed' % (
+            '\x1b[01m' if color(**args) else '',
+            path, lineno,
+            '\x1b[01;31m' if color(**args) else '',
+            '\x1b[m' if color(**args) else '',
+            failure.id,
+            ' (%s)' % ', '.join('%s=%s' % (k,v) for k,v in defines.items())
                 if defines else ''))
 
         if failure.output:
@@ -873,8 +899,12 @@ def run(**args):
 
         if failure.assert_ is not None:
             path, lineno, message = failure.assert_
-            print('\x1b[01m%s:%d:\x1b[01;31massert:\x1b[m %s'
-                % (path, lineno, message))
+            print('%s%s:%d:%sassert:%s %s' % (
+                '\x1b[01m' if color(**args) else '',
+                path, lineno,
+                '\x1b[01;31m' if color(**args) else '',
+                '\x1b[m' if color(**args) else '',
+                message))
             with open(path) as f:
                 line = next(it.islice(f, lineno-1, None)).strip('\n')
                 print(line)
@@ -946,6 +976,9 @@ if __name__ == "__main__":
             dropped to run any matching tests. Defaults to %s." % TEST_PATHS)
     parser.add_argument('-v', '--verbose', action='store_true',
         help="Output commands that run behind the scenes.")
+    parser.add_argument('--color',
+        choices=['never', 'always', 'auto'], default='auto',
+        help="When to use terminal colors.")
     # test flags
     test_parser = parser.add_argument_group('test options')
     test_parser.add_argument('-Y', '--summary', action='store_true',

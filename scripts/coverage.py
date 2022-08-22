@@ -503,7 +503,6 @@ if __name__ == "__main__":
         help="Show a additional lines of context. Defaults to 3.")
     parser.add_argument('-w', '--width', type=lambda x: int(x, 0), default=80,
         help="Assume source is styled with this many columns. Defaults to 80.")
-    # TODO add this to test.py?
     parser.add_argument('--color',
         choices=['never', 'always', 'auto'], default='auto',
         help="When to use terminal colors.")
