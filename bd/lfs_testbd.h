@@ -57,6 +57,10 @@ typedef int32_t lfs_testbd_swear_t;
 typedef uint32_t lfs_testbd_powercycles_t;
 typedef int32_t lfs_testbd_spowercycles_t;
 
+// Type for delays in nanoseconds
+typedef uint64_t lfs_testbd_delay_t;
+typedef int64_t lfs_testbd_sdelay_t;
+
 // testbd config, this is required for testing
 struct lfs_testbd_config {
     // 8-bit erase value to use for simulating erases. -1 does not simulate
@@ -93,6 +97,18 @@ struct lfs_testbd_config {
     // Path to file to use as a mirror of the disk. This provides a way to view
     // the current state of the block device.
     const char *disk_path;
+
+    // Artificial delay in nanoseconds, there is no purpose for this other
+    // than slowing down the simulation.
+    lfs_testbd_delay_t read_delay;
+
+    // Artificial delay in nanoseconds, there is no purpose for this other
+    // than slowing down the simulation.
+    lfs_testbd_delay_t prog_delay;
+
+    // Artificial delay in nanoseconds, there is no purpose for this other
+    // than slowing down the simulation.
+    lfs_testbd_delay_t erase_delay;
 };
 
 // A reference counted block

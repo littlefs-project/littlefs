@@ -247,6 +247,9 @@ static size_t test_step = 1;
 
 static const char *test_disk = NULL;
 FILE *test_trace = NULL;
+static lfs_testbd_delay_t test_read_delay = 0.0;
+static lfs_testbd_delay_t test_prog_delay = 0.0;
+static lfs_testbd_delay_t test_erase_delay = 0.0;
 
 
 // how many permutations are there actually in a test case
@@ -611,6 +614,9 @@ static void run_powerloss_none(
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk,
+        .read_delay         = test_read_delay,
+        .prog_delay         = test_prog_delay,
+        .erase_delay        = test_erase_delay,
     };
 
     int err = lfs_testbd_createcfg(&cfg, test_disk, &bdcfg);
@@ -674,6 +680,9 @@ static void run_powerloss_linear(
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk,
+        .read_delay         = test_read_delay,
+        .prog_delay         = test_prog_delay,
+        .erase_delay        = test_erase_delay,
         .power_cycles       = i,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -751,6 +760,9 @@ static void run_powerloss_exponential(
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk,
+        .read_delay         = test_read_delay,
+        .prog_delay         = test_prog_delay,
+        .erase_delay        = test_erase_delay,
         .power_cycles       = i,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -826,6 +838,9 @@ static void run_powerloss_cycles(
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk,
+        .read_delay         = test_read_delay,
+        .prog_delay         = test_prog_delay,
+        .erase_delay        = test_erase_delay,
         .power_cycles       = (i < cycle_count) ? cycles[i] : 0,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -1018,6 +1033,9 @@ enum opt_flags {
     OPT_STOP             = 8,
     OPT_DISK             = 'd',
     OPT_TRACE            = 't',
+    OPT_READ_DELAY       = 9,
+    OPT_PROG_DELAY       = 10,
+    OPT_ERASE_DELAY      = 11,
 };
 
 const char *short_opts = "hYlLD:G:p:nrVd:t:";
@@ -1040,6 +1058,9 @@ const struct option long_opts[] = {
     {"step",             required_argument, NULL, OPT_STEP},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
+    {"read-delay",       required_argument, NULL, OPT_READ_DELAY},
+    {"prog-delay",       required_argument, NULL, OPT_PROG_DELAY},
+    {"erase-delay",      required_argument, NULL, OPT_ERASE_DELAY},
     {NULL, 0, NULL, 0},
 };
 
@@ -1061,6 +1082,9 @@ const char *const help_text[] = {
     "Only run every n tests, calculated after --start and --stop.",
     "Redirect block device operations to this file.",
     "Redirect trace output to this file.",
+    "Artificial read delay in seconds.",
+    "Artificial prog delay in seconds.",
+    "Artificial erase delay in seconds.",
 };
 
 int main(int argc, char **argv) {
@@ -1374,6 +1398,36 @@ powerloss_next:
                     }
                 }
                 break;
+            case OPT_READ_DELAY: {
+                char *parsed = NULL;
+                double read_delay = strtod(optarg, &parsed);
+                if (parsed == optarg) {
+                    fprintf(stderr, "error: invalid read-delay: %s\n", optarg);
+                    exit(-1);
+                }
+                test_read_delay = read_delay*1.0e9;
+                break;
+            }
+            case OPT_PROG_DELAY: {
+                char *parsed = NULL;
+                double prog_delay = strtod(optarg, &parsed);
+                if (parsed == optarg) {
+                    fprintf(stderr, "error: invalid prog-delay: %s\n", optarg);
+                    exit(-1);
+                }
+                test_prog_delay = prog_delay*1.0e9;
+                break;
+            }
+            case OPT_ERASE_DELAY: {
+                char *parsed = NULL;
+                double erase_delay = strtod(optarg, &parsed);
+                if (parsed == optarg) {
+                    fprintf(stderr, "error: invalid erase-delay: %s\n", optarg);
+                    exit(-1);
+                }
+                test_erase_delay = erase_delay*1.0e9;
+                break;
+            }
             // done parsing
             case -1:
                 goto getopt_done;

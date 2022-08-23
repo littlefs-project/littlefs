@@ -7,12 +7,17 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#endif
+
 #include "bd/lfs_testbd.h"
 
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -238,6 +243,18 @@ int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
                 size);
     }
 
+    if (bd->cfg->read_delay) {
+        int err = nanosleep(&(struct timespec){
+                .tv_sec=bd->cfg->read_delay/1000000000,
+                .tv_nsec=bd->cfg->read_delay%1000000000},
+            NULL);
+        if (err) {
+            err = -errno;
+            LFS_TESTBD_TRACE("lfs_testbd_read -> %d", err);
+            return err;
+        }
+    }
+
     LFS_TESTBD_TRACE("lfs_testbd_read -> %d", 0);
     return 0;
 }
@@ -301,6 +318,18 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
         ssize_t res2 = write(bd->disk_fd, buffer, size);
         if (res2 < 0) {
             int err = -errno;
+            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
+            return err;
+        }
+    }
+
+    if (bd->cfg->prog_delay) {
+        int err = nanosleep(&(struct timespec){
+                .tv_sec=bd->cfg->prog_delay/1000000000,
+                .tv_nsec=bd->cfg->prog_delay%1000000000},
+            NULL);
+        if (err) {
+            err = -errno;
             LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
             return err;
         }
@@ -383,6 +412,18 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                 LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
                 return err;
             }
+        }
+    }
+
+    if (bd->cfg->erase_delay) {
+        int err = nanosleep(&(struct timespec){
+                .tv_sec=bd->cfg->erase_delay/1000000000,
+                .tv_nsec=bd->cfg->erase_delay%1000000000},
+            NULL);
+        if (err) {
+            err = -errno;
+            LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
+            return err;
         }
     }
 

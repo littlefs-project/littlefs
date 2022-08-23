@@ -498,6 +498,7 @@ def list_(**args):
     if args.get('list_cases'):       cmd.append('--list-cases')
     if args.get('list_paths'):       cmd.append('--list-paths')
     if args.get('list_defines'):     cmd.append('--list-defines')
+    if args.get('list_defaults'):    cmd.append('--list-defaults')
     if args.get('list_geometries'):  cmd.append('--list-geometries')
     if args.get('list_powerlosses'): cmd.append('--list-powerlosses')
 
@@ -641,8 +642,15 @@ def run_stage(name, runner_, **args):
             cmd.append('--disk=%s' % args['disk'])
         if args.get('trace'):
             cmd.append('--trace=%s' % args['trace'])
+        if args.get('read_delay'):
+            cmd.append('--read-delay=%s' % args['read_delay'])
+        if args.get('prog_delay'):
+            cmd.append('--prog-delay=%s' % args['prog_delay'])
+        if args.get('erase_delay'):
+            cmd.append('--erase-delay=%s' % args['erase_delay'])
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
+
         mpty, spty = pty.openpty()
         proc = sp.Popen(cmd, stdout=spty, stderr=spty)
         os.close(spty)
@@ -1010,6 +1018,12 @@ if __name__ == "__main__":
         help="Redirect trace output to this file.")
     test_parser.add_argument('-o', '--output',
         help="Redirect stdout and stderr to this file.")
+    test_parser.add_argument('--read-delay',
+        help="Artificial read delay in seconds.")
+    test_parser.add_argument('--prog-delay',
+        help="Artificial prog delay in seconds.")
+    test_parser.add_argument('--erase-delay',
+        help="Artificial erase delay in seconds.")
     test_parser.add_argument('--runner', default=[RUNNER_PATH],
         type=lambda x: x.split(),
         help="Path to runner, defaults to %r" % RUNNER_PATH)

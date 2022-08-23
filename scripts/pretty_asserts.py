@@ -48,11 +48,14 @@ def write_header(f, limit=LIMIT):
     f.writeln("//")
     f.writeln()
 
-    f.writeln("#include <stdio.h>")
     f.writeln("#include <stdbool.h>")
     f.writeln("#include <stdint.h>")
     f.writeln("#include <inttypes.h>")
+    f.writeln("#include <stdio.h>")
+    f.writeln("#include <string.h>")
     f.writeln("#include <signal.h>")
+    # give source a chance to define feature macros
+    f.writeln("#undef _FEATURES_H")
     f.writeln()
 
     # write print macros
