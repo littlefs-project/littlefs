@@ -610,6 +610,7 @@ static void run_powerloss_none(
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
+        .disk_path          = test_disk,
     };
 
     int err = lfs_testbd_createcfg(&cfg, test_disk, &bdcfg);
@@ -672,6 +673,7 @@ static void run_powerloss_linear(
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
+        .disk_path          = test_disk,
         .power_cycles       = i,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -748,6 +750,7 @@ static void run_powerloss_exponential(
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
+        .disk_path          = test_disk,
         .power_cycles       = i,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -822,6 +825,7 @@ static void run_powerloss_cycles(
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
+        .disk_path          = test_disk,
         .power_cycles       = (i < cycle_count) ? cycles[i] : 0,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,

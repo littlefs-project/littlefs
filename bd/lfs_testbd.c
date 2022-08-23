@@ -6,9 +6,17 @@
  * Copyright (c) 2017, Arm Limited. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
 #include "bd/lfs_testbd.h"
 
 #include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 
 // access to lazily-allocated/copy-on-write blocks
@@ -116,9 +124,40 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
 
     // setup testing things
     bd->power_cycles = bd->cfg->power_cycles;
+    bd->disk_fd = -1;
+    bd->disk_scratch_block = NULL;
+
     bd->branches = NULL;
     bd->branch_capacity = 0;
     bd->branch_count = 0;
+
+    if (bd->cfg->disk_path) {
+        #ifdef _WIN32
+        bd->disk_fd = open(bd->cfg->disk_path,
+                O_RDWR | O_CREAT | O_BINARY, 0666);
+        #else
+        bd->disk_fd = open(bd->cfg->disk_path,
+                O_RDWR | O_CREAT, 0666);
+        #endif
+        if (bd->disk_fd < 0) {
+            int err = -errno;
+            LFS_TESTBD_TRACE("lfs_testbd_create -> %d", err);
+            return err;
+        }
+
+        // if we're emulating erase values, we can keep a block around in
+        // memory of just the erase state to speed up emulated erases
+        if (bd->cfg->erase_value != -1) {
+            bd->disk_scratch_block = malloc(cfg->block_size);
+            if (!bd->disk_scratch_block) {
+                LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", LFS_ERR_NOMEM);
+                return LFS_ERR_NOMEM;
+            }
+            memset(bd->disk_scratch_block,
+                    bd->cfg->erase_value,
+                    cfg->block_size);
+        }
+    }
 
     LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", 0);
     return 0;
@@ -154,51 +193,14 @@ int lfs_testbd_destroy(const struct lfs_config *cfg) {
     free(bd->blocks);
     free(bd->branches);
 
+    if (bd->disk_fd >= 0) {
+        close(bd->disk_fd);
+        free(bd->disk_scratch_block);
+    }
+
     LFS_TESTBD_TRACE("lfs_testbd_destroy -> %d", 0);
     return 0;
 }
-
-
-
-///// Internal mapping to block devices ///
-//static int lfs_testbd_rawread(const struct lfs_config *cfg, lfs_block_t block,
-//        lfs_off_t off, void *buffer, lfs_size_t size) {
-//    lfs_testbd_t *bd = cfg->context;
-//    if (bd->persist) {
-//        return lfs_filebd_read(cfg, block, off, buffer, size);
-//    } else {
-//        return lfs_rambd_read(cfg, block, off, buffer, size);
-//    }
-//}
-//
-//static int lfs_testbd_rawprog(const struct lfs_config *cfg, lfs_block_t block,
-//        lfs_off_t off, const void *buffer, lfs_size_t size) {
-//    lfs_testbd_t *bd = cfg->context;
-//    if (bd->persist) {
-//        return lfs_filebd_prog(cfg, block, off, buffer, size);
-//    } else {
-//        return lfs_rambd_prog(cfg, block, off, buffer, size);
-//    }
-//}
-//
-//static int lfs_testbd_rawerase(const struct lfs_config *cfg,
-//        lfs_block_t block) {
-//    lfs_testbd_t *bd = cfg->context;
-//    if (bd->persist) {
-//        return lfs_filebd_erase(cfg, block);
-//    } else {
-//        return lfs_rambd_erase(cfg, block);
-//    }
-//}
-//
-//static int lfs_testbd_rawsync(const struct lfs_config *cfg) {
-//    lfs_testbd_t *bd = cfg->context;
-//    if (bd->persist) {
-//        return lfs_filebd_sync(cfg);
-//    } else {
-//        return lfs_rambd_sync(cfg);
-//    }
-//}
 
 
 
@@ -285,6 +287,25 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
     // prog data
     memcpy(&b->data[off], buffer, size);
 
+    // mirror to disk file?
+    if (bd->disk_fd >= 0) {
+        off_t res1 = lseek(bd->disk_fd,
+                (off_t)block*cfg->block_size + (off_t)off,
+                SEEK_SET);
+        if (res1 < 0) {
+            int err = -errno;
+            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
+            return err;
+        }
+
+        ssize_t res2 = write(bd->disk_fd, buffer, size);
+        if (res2 < 0) {
+            int err = -errno;
+            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
+            return err;
+        }
+    }
+
     // lose power?
     if (bd->power_cycles > 0) {
         bd->power_cycles -= 1;
@@ -342,6 +363,27 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     // emulate an erase value?
     if (bd->cfg->erase_value != -1) {
         memset(b->data, bd->cfg->erase_value, cfg->block_size);
+
+        // mirror to disk file?
+        if (bd->disk_fd >= 0) {
+            off_t res1 = lseek(bd->disk_fd,
+                    (off_t)block*cfg->block_size,
+                    SEEK_SET);
+            if (res1 < 0) {
+                int err = -errno;
+                LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
+                return err;
+            }
+
+            ssize_t res2 = write(bd->disk_fd,
+                    bd->disk_scratch_block,
+                    cfg->block_size);
+            if (res2 < 0) {
+                int err = -errno;
+                LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
+                return err;
+            }
+        }
     }
 
     // lose power?

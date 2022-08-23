@@ -90,14 +90,9 @@ struct lfs_testbd_config {
     // heavy memory usage!
     bool track_branches;
 
-//    // Optional buffer for RAM block device.
-//    void *buffer;
-//
-//    // Optional buffer for wear.
-//    void *wear_buffer;
-//
-//    // Optional buffer for scratch memory, needed when erase_value != -1.
-//    void *scratch_buffer;
+    // Path to file to use as a mirror of the disk. This provides a way to view
+    // the current state of the block device.
+    const char *disk_path;
 };
 
 // A reference counted block
@@ -112,7 +107,11 @@ typedef struct lfs_testbd_block {
 typedef struct lfs_testbd {
     // array of copy-on-write blocks
     lfs_testbd_block_t **blocks;
+
+    // some other test state
     uint32_t power_cycles;
+    int disk_fd;
+    uint8_t *disk_scratch_block;
 
     // array of tracked branches
     struct lfs_testbd *branches;
