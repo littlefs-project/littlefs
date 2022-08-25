@@ -119,6 +119,13 @@ typedef struct lfs_testbd_block {
     uint8_t data[];
 } lfs_testbd_block_t;
 
+// Disk mirror
+typedef struct lfs_testbd_disk {
+    uint32_t rc;
+    int fd;
+    uint8_t *scratch;
+} lfs_testbd_disk_t;
+
 // testbd state
 typedef struct lfs_testbd {
     // array of copy-on-write blocks
@@ -126,31 +133,7 @@ typedef struct lfs_testbd {
 
     // some other test state
     uint32_t power_cycles;
-    int disk_fd;
-    uint8_t *disk_scratch_block;
-
-    // array of tracked branches
-    struct lfs_testbd *branches;
-    lfs_testbd_powercycles_t branch_count;
-    lfs_testbd_powercycles_t branch_capacity;
-
-    // TODO file?
-    
-
-//    union {
-//        struct {
-//            lfs_filebd_t bd;
-//        } file;
-//        struct {
-//            lfs_rambd_t bd;
-//            struct lfs_rambd_config cfg;
-//        } ram;
-//    } u;
-//
-//    bool persist;
-//    uint32_t power_cycles;
-//    lfs_testbd_wear_t *wear;
-//    uint8_t *scratch;
+    lfs_testbd_disk_t *disk;
 
     const struct lfs_testbd_config *cfg;
 } lfs_testbd_t;
@@ -207,13 +190,8 @@ lfs_testbd_spowercycles_t lfs_testbd_getpowercycles(
 int lfs_testbd_setpowercycles(const struct lfs_config *cfg,
         lfs_testbd_powercycles_t power_cycles);
 
-// Get a power-loss branch, requires track_branches=true
-int lfs_testbd_getbranch(const struct lfs_config *cfg,
-        lfs_testbd_powercycles_t branch, lfs_testbd_t *bd);
-
-// Get the current number of power-loss branches
-lfs_testbd_spowercycles_t lfs_testbd_getbranchcount(
-        const struct lfs_config *cfg);
+// Create a copy-on-write copy of the state of this block device
+int lfs_testbd_copy(const struct lfs_config *cfg, lfs_testbd_t *copy);
 
 
 #ifdef __cplusplus

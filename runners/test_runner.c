@@ -700,6 +700,7 @@ static void run_powerloss_linear(
 
     while (true) {
         if (!setjmp(powerloss_jmp)) {
+            // run the test
             case_->run(&cfg);
             break;
         }
@@ -780,6 +781,7 @@ static void run_powerloss_exponential(
 
     while (true) {
         if (!setjmp(powerloss_jmp)) {
+            // run the test
             case_->run(&cfg);
             break;
         }
@@ -858,6 +860,7 @@ static void run_powerloss_cycles(
 
     while (true) {
         if (!setjmp(powerloss_jmp)) {
+            // run the test
             case_->run(&cfg);
             break;
         }
@@ -883,15 +886,177 @@ static void run_powerloss_cycles(
     }
 }
 
-//static void run_powerloss_n(void *data,
-//
-//static void run_powerloss_incremental(void *data,
+struct powerloss_exhaustive_state {
+    struct lfs_config *cfg;
+
+    lfs_testbd_t *branches;
+    size_t branch_count;
+    size_t branch_capacity;
+};
+
+struct powerloss_exhaustive_cycles {
+    lfs_testbd_powercycles_t *cycles;
+    size_t cycle_count;
+    size_t cycle_capacity;
+};
+
+static void powerloss_exhaustive_branch(void *c) {
+    // append to branches
+    struct powerloss_exhaustive_state *state = c;
+    state->branch_count += 1;
+    if (state->branch_count > state->branch_capacity) {
+        state->branch_capacity = (2*state->branch_capacity > 4)
+                ? 2*state->branch_capacity
+                : 4;
+        state->branches = realloc(state->branches,
+                state->branch_capacity * sizeof(lfs_testbd_t));
+        if (!state->branches) {
+            fprintf(stderr, "error: exhaustive: out of memory\n");
+            exit(-1);
+        }
+    }
+
+    // create copy-on-write copy
+    int err = lfs_testbd_copy(state->cfg,
+            &state->branches[state->branch_count-1]);
+    if (err) {
+        fprintf(stderr, "error: exhaustive: could not create bd copy\n");
+        exit(-1);
+    }
+
+    // also trigger on next power cycle
+    lfs_testbd_setpowercycles(state->cfg, 1);
+}
+
+static void run_powerloss_exhaustive_layer(
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        size_t perm,
+        struct lfs_config *cfg,
+        struct lfs_testbd_config *bdcfg,
+        size_t depth,
+        struct powerloss_exhaustive_cycles *cycles) {
+    (void)suite;
+
+    struct powerloss_exhaustive_state state = {
+        .cfg = cfg,
+        .branches = NULL,
+        .branch_count = 0,
+        .branch_capacity = 0,
+    };
+
+    // run through the test without additional powerlosses, collecting possible
+    // branches as we do so
+    lfs_testbd_setpowercycles(state.cfg, depth > 0 ? 1 : 0);
+    bdcfg->powerloss_data = &state;
+
+    // run the tests
+    case_->run(cfg);
+
+    // aggressively clean up memory here to try to keep our memory usage low
+    int err = lfs_testbd_destroy(cfg);
+    if (err) {
+        fprintf(stderr, "error: could not destroy block device: %d\n", err);
+        exit(-1);
+    }
+
+    // recurse into each branch
+    for (size_t i = 0; i < state.branch_count; i++) {
+        // first push and print the branch
+        cycles->cycle_count += 1;
+        if (cycles->cycle_count > cycles->cycle_capacity) {
+            cycles->cycle_capacity = (2*cycles->cycle_capacity > 4)
+                    ? 2*cycles->cycle_capacity
+                    : 4;
+            cycles->cycles = realloc(cycles->cycles,
+                    cycles->cycle_capacity * sizeof(lfs_testbd_powercycles_t));
+            if (!cycles->cycles) {
+                fprintf(stderr, "error: exhaustive: out of memory\n");
+                exit(-1);
+            }
+        }
+        cycles->cycles[cycles->cycle_count-1] = i;
+
+        printf("powerloss %s#%zu#", case_->id, perm);
+        leb16_print(cycles->cycles, cycles->cycle_count);
+        printf("\n");
+
+        // now recurse
+        cfg->context = &state.branches[i];
+        run_powerloss_exhaustive_layer(suite, case_, perm,
+                cfg, bdcfg, depth-1, cycles);
+
+        // pop the cycle
+        cycles->cycle_count -= 1;
+    }
+
+    // clean up memory
+    free(state.branches);
+}
+
+static void run_powerloss_exhaustive(
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        size_t perm,
+        const lfs_testbd_powercycles_t *cycles,
+        size_t cycle_count) {
+    (void)cycles;
+    (void)suite;
+
+    // create block device and configuration
+    lfs_testbd_t bd;
+
+    struct lfs_config cfg = {
+        .context            = &bd,
+        .read               = lfs_testbd_read,
+        .prog               = lfs_testbd_prog,
+        .erase              = lfs_testbd_erase,
+        .sync               = lfs_testbd_sync,
+        .read_size          = READ_SIZE,
+        .prog_size          = PROG_SIZE,
+        .block_size         = BLOCK_SIZE,
+        .block_count        = BLOCK_COUNT,
+        .block_cycles       = BLOCK_CYCLES,
+        .cache_size         = CACHE_SIZE,
+        .lookahead_size     = LOOKAHEAD_SIZE,
+    };
+
+    struct lfs_testbd_config bdcfg = {
+        .erase_value        = ERASE_VALUE,
+        .erase_cycles       = ERASE_CYCLES,
+        .badblock_behavior  = BADBLOCK_BEHAVIOR,
+        .disk_path          = test_disk,
+        .read_delay         = test_read_delay,
+        .prog_delay         = test_prog_delay,
+        .erase_delay        = test_erase_delay,
+        .powerloss_behavior = POWERLOSS_BEHAVIOR,
+        .powerloss_cb       = powerloss_exhaustive_branch,
+        .powerloss_data     = NULL,
+    };
+
+    int err = lfs_testbd_createcfg(&cfg, test_disk, &bdcfg);
+    if (err) {
+        fprintf(stderr, "error: could not create block device: %d\n", err);
+        exit(-1);
+    }
+
+    // run the test, increasing power-cycles as power-loss events occur
+    printf("running %s#%zu\n", case_->id, perm);
+
+    // recursively exhaust each layer of powerlosses
+    run_powerloss_exhaustive_layer(suite, case_, perm,
+            &cfg, &bdcfg, cycle_count,
+            &(struct powerloss_exhaustive_cycles){NULL, 0, 0});
+
+    printf("finished %s#%zu\n", case_->id, perm);
+}
+
 
 const test_powerloss_t builtin_powerlosses[] = {
     {'0', "none",        run_powerloss_none,        NULL, 0},
     {'e', "exponential", run_powerloss_exponential, NULL, 0},
     {'l', "linear",      run_powerloss_linear,      NULL, 0},
-    //{'x', "exhaustive", run_powerloss_exhaustive}
+    {'x', "exhaustive",  run_powerloss_exhaustive,  NULL, SIZE_MAX},
     {0, NULL, NULL, NULL, 0},
 };
 
@@ -899,7 +1064,7 @@ const char *const builtin_powerlosses_help[] = {
     "Run with no power-losses.",
     "Run with linearly-decreasing power-losses.",
     "Run with exponentially-decreasing power-losses.",
-    //"Run a all permutations of power-losses, this may take a while.",
+    "Run a all permutations of power-losses, this may take a while.",
     "Run a all permutations of n power-losses.",
     "Run a custom comma-separated set of power-losses.",
     "Run a custom leb16-encoded set of power-losses.",
@@ -1273,9 +1438,6 @@ invalid_define:
                         }
                     }
 
-                    // exhaustive permutations
-                    // TODO
-
                     // comma-separated permutation
                     if (*optarg == '{') {
                         // how many cycles?
@@ -1335,6 +1497,23 @@ invalid_define:
                                 test_powerloss_count-1] = (test_powerloss_t){
                             .run = run_powerloss_cycles,
                             .cycles = cycles,
+                            .cycle_count = count,
+                        };
+                        optarg = (char*)parsed;
+                        goto powerloss_next;
+                    }
+
+                    // exhaustive permutations
+                    {
+                        char *parsed = NULL;
+                        size_t count = strtoumax(optarg, &parsed, 0);
+                        if (parsed == optarg) {
+                            goto powerloss_unknown;
+                        }
+                        ((test_powerloss_t*)test_powerlosses)[
+                                test_powerloss_count-1] = (test_powerloss_t){
+                            .run = run_powerloss_exhaustive,
+                            .cycles = NULL,
                             .cycle_count = count,
                         };
                         optarg = (char*)parsed;

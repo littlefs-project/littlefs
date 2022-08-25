@@ -29,68 +29,65 @@
 // Note we can only modify a block if we have exclusive access to it (rc == 1)
 //
 
-// TODO
-__attribute__((unused))
-static void lfs_testbd_incblock(lfs_testbd_t *bd, lfs_block_t block) {
-    if (bd->blocks[block]) {
-        bd->blocks[block]->rc += 1;
+static lfs_testbd_block_t *lfs_testbd_incblock(lfs_testbd_block_t *block) {
+    if (block) {
+        block->rc += 1;
     }
+    return block;
 }
 
-static void lfs_testbd_decblock(lfs_testbd_t *bd, lfs_block_t block) {
-    if (bd->blocks[block]) {
-        bd->blocks[block]->rc -= 1;
-        if (bd->blocks[block]->rc == 0) {
-            free(bd->blocks[block]);
-            bd->blocks[block] = NULL;
+static void lfs_testbd_decblock(lfs_testbd_block_t *block) {
+    if (block) {
+        block->rc -= 1;
+        if (block->rc == 0) {
+            free(block);
         }
     }
 }
 
-static const lfs_testbd_block_t *lfs_testbd_getblock(lfs_testbd_t *bd,
-        lfs_block_t block) {
-    return bd->blocks[block];
-}
-
-static lfs_testbd_block_t *lfs_testbd_mutblock(lfs_testbd_t *bd,
-        lfs_block_t block, lfs_size_t block_size) {
-    if (bd->blocks[block] && bd->blocks[block]->rc == 1) {
+static lfs_testbd_block_t *lfs_testbd_mutblock(
+        const struct lfs_config *cfg,
+        lfs_testbd_block_t **block) {
+    lfs_testbd_block_t *block_ = *block;
+    if (block_ && block_->rc == 1) {
         // rc == 1? can modify
-        return bd->blocks[block];
+        return block_;
 
-    } else if (bd->blocks[block]) {
+    } else if (block_) {
         // rc > 1? need to create a copy
-        lfs_testbd_block_t *b = malloc(
-                sizeof(lfs_testbd_block_t) + block_size);
-        if (!b) {
+        lfs_testbd_block_t *nblock = malloc(
+                sizeof(lfs_testbd_block_t) + cfg->block_size);
+        if (!nblock) {
             return NULL;
         }
 
-        memcpy(b, bd->blocks[block], sizeof(lfs_testbd_block_t) + block_size);
-        b->rc = 1;
+        memcpy(nblock, block_,
+                sizeof(lfs_testbd_block_t) + cfg->block_size);
+        nblock->rc = 1;
 
-        lfs_testbd_decblock(bd, block);
-        bd->blocks[block] = b;
-        return b;
+        lfs_testbd_decblock(block_);
+        *block = nblock;
+        return nblock;
 
     } else {
         // no block? need to allocate
-        lfs_testbd_block_t *b = malloc(
-                sizeof(lfs_testbd_block_t) + block_size);
-        if (!b) {
+        lfs_testbd_block_t *nblock = malloc(
+                sizeof(lfs_testbd_block_t) + cfg->block_size);
+        if (!nblock) {
             return NULL;
         }
 
-        b->rc = 1;
-        b->wear = 0;
+        nblock->rc = 1;
+        nblock->wear = 0;
 
         // zero for consistency
-        memset(b->data,
+        lfs_testbd_t *bd = cfg->context;
+        memset(nblock->data,
                 (bd->cfg->erase_value != -1) ? bd->cfg->erase_value : 0,
-                block_size);
+                cfg->block_size);
 
-        bd->blocks[block] = b;
-        return b;
+        *block = nblock;
+        return nblock;
     }
 }
 
@@ -129,22 +126,25 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
 
     // setup testing things
     bd->power_cycles = bd->cfg->power_cycles;
-    bd->disk_fd = -1;
-    bd->disk_scratch_block = NULL;
-
-    bd->branches = NULL;
-    bd->branch_capacity = 0;
-    bd->branch_count = 0;
+    bd->disk = NULL;
 
     if (bd->cfg->disk_path) {
+        bd->disk = malloc(sizeof(lfs_testbd_disk_t));
+        if (!bd->disk) {
+            LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", LFS_ERR_NOMEM);
+            return LFS_ERR_NOMEM;
+        }
+        bd->disk->rc = 1;
+        bd->disk->scratch = NULL;
+
         #ifdef _WIN32
-        bd->disk_fd = open(bd->cfg->disk_path,
+        bd->disk->fd = open(bd->cfg->disk_path,
                 O_RDWR | O_CREAT | O_BINARY, 0666);
         #else
-        bd->disk_fd = open(bd->cfg->disk_path,
+        bd->disk->fd = open(bd->cfg->disk_path,
                 O_RDWR | O_CREAT, 0666);
         #endif
-        if (bd->disk_fd < 0) {
+        if (bd->disk->fd < 0) {
             int err = -errno;
             LFS_TESTBD_TRACE("lfs_testbd_create -> %d", err);
             return err;
@@ -153,12 +153,12 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
         // if we're emulating erase values, we can keep a block around in
         // memory of just the erase state to speed up emulated erases
         if (bd->cfg->erase_value != -1) {
-            bd->disk_scratch_block = malloc(cfg->block_size);
-            if (!bd->disk_scratch_block) {
+            bd->disk->scratch = malloc(cfg->block_size);
+            if (!bd->disk->scratch) {
                 LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", LFS_ERR_NOMEM);
                 return LFS_ERR_NOMEM;
             }
-            memset(bd->disk_scratch_block,
+            memset(bd->disk->scratch,
                     bd->cfg->erase_value,
                     cfg->block_size);
         }
@@ -191,16 +191,18 @@ int lfs_testbd_destroy(const struct lfs_config *cfg) {
 
     // decrement reference counts
     for (lfs_block_t i = 0; i < cfg->block_count; i++) {
-        lfs_testbd_decblock(bd, i);
+        lfs_testbd_decblock(bd->blocks[i]);
     }
-
-    // free memory
     free(bd->blocks);
-    free(bd->branches);
 
-    if (bd->disk_fd >= 0) {
-        close(bd->disk_fd);
-        free(bd->disk_scratch_block);
+    // clean up other resources 
+    if (bd->disk) {
+        bd->disk->rc -= 1;
+        if (bd->disk->rc == 0) {
+            close(bd->disk->fd);
+            free(bd->disk->scratch);
+            free(bd->disk);
+        }
     }
 
     LFS_TESTBD_TRACE("lfs_testbd_destroy -> %d", 0);
@@ -225,7 +227,7 @@ int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
     LFS_ASSERT(off+size <= cfg->block_size);
 
     // get the block
-    const lfs_testbd_block_t *b = lfs_testbd_getblock(bd, block);
+    const lfs_testbd_block_t *b = bd->blocks[block];
     if (b) {
         // block bad?
         if (bd->cfg->erase_cycles && b->wear >= bd->cfg->erase_cycles &&
@@ -273,7 +275,7 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
     LFS_ASSERT(off+size <= cfg->block_size);
 
     // get the block
-    lfs_testbd_block_t *b = lfs_testbd_mutblock(bd, block, cfg->block_size);
+    lfs_testbd_block_t *b = lfs_testbd_mutblock(cfg, &bd->blocks[block]);
     if (!b) {
         LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
@@ -305,8 +307,8 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
     memcpy(&b->data[off], buffer, size);
 
     // mirror to disk file?
-    if (bd->disk_fd >= 0) {
-        off_t res1 = lseek(bd->disk_fd,
+    if (bd->disk) {
+        off_t res1 = lseek(bd->disk->fd,
                 (off_t)block*cfg->block_size + (off_t)off,
                 SEEK_SET);
         if (res1 < 0) {
@@ -315,7 +317,7 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
             return err;
         }
 
-        ssize_t res2 = write(bd->disk_fd, buffer, size);
+        ssize_t res2 = write(bd->disk->fd, buffer, size);
         if (res2 < 0) {
             int err = -errno;
             LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
@@ -344,15 +346,6 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
         }
     }
 
-//    // track power-loss branch?
-//    if (bd->cfg->track_branches) {
-//        int err = lfs_testbd_trackbranch(bd);
-//        if (err) {
-//            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
-//            return err;
-//        }
-//    }
-
     LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", 0);
     return 0;
 }
@@ -365,7 +358,7 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     LFS_ASSERT(block < cfg->block_count);
 
     // get the block
-    lfs_testbd_block_t *b = lfs_testbd_mutblock(bd, block, cfg->block_size);
+    lfs_testbd_block_t *b = lfs_testbd_mutblock(cfg, &bd->blocks[block]);
     if (!b) {
         LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
@@ -394,8 +387,8 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         memset(b->data, bd->cfg->erase_value, cfg->block_size);
 
         // mirror to disk file?
-        if (bd->disk_fd >= 0) {
-            off_t res1 = lseek(bd->disk_fd,
+        if (bd->disk) {
+            off_t res1 = lseek(bd->disk->fd,
                     (off_t)block*cfg->block_size,
                     SEEK_SET);
             if (res1 < 0) {
@@ -404,8 +397,8 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                 return err;
             }
 
-            ssize_t res2 = write(bd->disk_fd,
-                    bd->disk_scratch_block,
+            ssize_t res2 = write(bd->disk->fd,
+                    bd->disk->scratch,
                     cfg->block_size);
             if (res2 < 0) {
                 int err = -errno;
@@ -436,15 +429,6 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         }
     }
 
-//    // track power-loss branch?
-//    if (bd->cfg->track_branches) {
-//        int err = lfs_testbd_trackbranch(bd);
-//        if (err) {
-//            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
-//            return err;
-//        }
-//    }
-
     LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", 0);
     return 0;
 }
@@ -472,7 +456,7 @@ lfs_testbd_swear_t lfs_testbd_getwear(const struct lfs_config *cfg,
 
     // get the wear
     lfs_testbd_wear_t wear;
-    const lfs_testbd_block_t *b = lfs_testbd_getblock(bd, block);
+    const lfs_testbd_block_t *b = bd->blocks[block];
     if (b) {
         wear = b->wear;
     } else {
@@ -492,7 +476,7 @@ int lfs_testbd_setwear(const struct lfs_config *cfg,
     LFS_ASSERT(block < cfg->block_count);
 
     // set the wear
-    lfs_testbd_block_t *b = lfs_testbd_mutblock(bd, block, cfg->block_size);
+    lfs_testbd_block_t *b = lfs_testbd_mutblock(cfg, &bd->blocks[block]);
     if (!b) {
         LFS_TESTBD_TRACE("lfs_testbd_setwear -> %"PRIu32, LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
@@ -524,23 +508,30 @@ int lfs_testbd_setpowercycles(const struct lfs_config *cfg,
     return 0;
 }
 
-//int lfs_testbd_getbranch(const struct lfs_config *cfg,
-//        lfs_testbd_powercycles_t branch, lfs_testbd_t *bd) {
-//    LFS_TESTBD_TRACE("lfs_testbd_getbranch(%p, %zu, %p)",
-//            (void*)cfg, branch, bd);
-//    lfs_testbd_t *bd = cfg->context;
-//
-//    // TODO
-//
-//    LFS_TESTBD_TRACE("lfs_testbd_getbranch -> %d", 0);
-//    return 0;
-//}
-
-lfs_testbd_spowercycles_t lfs_testbd_getbranchcount(
-        const struct lfs_config *cfg) {
-    LFS_TESTBD_TRACE("lfs_testbd_getbranchcount(%p)", (void*)cfg);
+int lfs_testbd_copy(const struct lfs_config *cfg, lfs_testbd_t *copy) {
+    LFS_TESTBD_TRACE("lfs_testbd_copy(%p, %p)", (void*)cfg, (void*)copy);
     lfs_testbd_t *bd = cfg->context;
 
-    LFS_TESTBD_TRACE("lfs_testbd_getbranchcount -> %"PRIu32, bd->branch_count);
-    return bd->branch_count;
+    // lazily copy over our block array
+    copy->blocks = malloc(cfg->block_count * sizeof(lfs_testbd_block_t*));
+    if (!copy->blocks) {
+        LFS_TESTBD_TRACE("lfs_testbd_copy -> %d", LFS_ERR_NOMEM);
+        return LFS_ERR_NOMEM;
+    }
+
+    for (size_t i = 0; i < cfg->block_count; i++) {
+        copy->blocks[i] = lfs_testbd_incblock(bd->blocks[i]);
+    }
+
+    // other state
+    copy->power_cycles = bd->power_cycles;
+    copy->disk = bd->disk;
+    if (copy->disk) {
+        copy->disk->rc += 1;
+    }
+    copy->cfg = bd->cfg;
+
+    LFS_TESTBD_TRACE("lfs_testbd_copy -> %d", 0);
+    return 0;
 }
+
