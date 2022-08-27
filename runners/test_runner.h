@@ -1,7 +1,26 @@
 #ifndef TEST_RUNNER_H
 #define TEST_RUNNER_H
 
-#include "lfs.h"
+
+// override LFS_TRACE
+void test_trace(const char *fmt, ...);
+
+#define LFS_TRACE_(fmt, ...) \
+    test_trace("%s:%d:trace: " fmt "%s\n", \
+        __FILE__, \
+        __LINE__, \
+        __VA_ARGS__)
+#define LFS_TRACE(...) LFS_TRACE_(__VA_ARGS__, "")
+#define LFS_TESTBD_TRACE(...) LFS_TRACE_(__VA_ARGS__, "")
+
+
+// note these are indirectly included in any generated files
+#include "bd/lfs_testbd.h"
+#include <stdio.h>
+
+// give source a chance to define feature macros
+#undef _FEATURES_H
+#undef _STDIO_H
 
 
 // generated test configurations
@@ -9,6 +28,8 @@ enum test_flags {
     TEST_REENTRANT = 0x1,
 };
 typedef uint8_t test_flags_t;
+
+struct lfs_config;
 
 struct test_case {
     const char *id;

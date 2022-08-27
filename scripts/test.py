@@ -22,16 +22,7 @@ import toml
 
 TEST_PATHS = ['tests']
 RUNNER_PATH = './runners/test_runner'
-
-SUITE_PROLOGUE = """
-#include "runners/test_runner.h"
-#include "bd/lfs_testbd.h"
-#include <stdio.h>
-"""
-CASE_PROLOGUE = """
-"""
-CASE_EPILOGUE = """
-"""
+HEADER_PATH = 'runners/test_runner.h'
 
 
 def testpath(path):
@@ -49,14 +40,21 @@ def testcase(path):
     _, case, *_ = path.split('#', 2)
     return '%s#%s' % (testsuite(path), case)
 
-def openio(path, mode='r'):
+def openio(path, mode='r', buffering=-1, nb=False):
     if path == '-':
         if 'r' in mode:
-            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+            return os.fdopen(os.dup(sys.stdin.fileno()), 'r', buffering)
         else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+            return os.fdopen(os.dup(sys.stdout.fileno()), 'w', buffering)
+    elif nb and 'a' in mode:
+        return os.fdopen(os.open(
+                path,
+                os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NONBLOCK,
+                0o666),
+            mode,
+            buffering)
     else:
-        return open(path, mode)
+        return open(path, mode, buffering)
 
 def color(**args):
     if args.get('color') == 'auto':
@@ -252,19 +250,8 @@ def compile(**args):
             f.writeln("//")
             f.writeln()
 
-            # redirect littlefs tracing
-            f.writeln('#define LFS_TRACE_(fmt, ...) do { \\')
-            f.writeln(8*' '+'extern FILE *test_trace; \\')
-            f.writeln(8*' '+'if (test_trace) { \\')
-            f.writeln(12*' '+'fprintf(test_trace, '
-                '"%s:%d:trace: " fmt "%s\\n", \\')
-            f.writeln(20*' '+'__FILE__, __LINE__, __VA_ARGS__); \\')
-            f.writeln(8*' '+'} \\')
-            f.writeln(4*' '+'} while (0)')
-            f.writeln('#define LFS_TRACE(...) LFS_TRACE_(__VA_ARGS__, "")')
-            f.writeln('#define LFS_TESTBD_TRACE(...) '
-                'LFS_TRACE_(__VA_ARGS__, "")')
-            f.writeln()
+            # include test_runner.h in every generated file
+            f.writeln("#include \"%s\"" % HEADER_PATH)
 
             # write out generated functions, this can end up in different
             # files depending on the "in" attribute
@@ -316,10 +303,6 @@ def compile(**args):
                     f.writeln('void __test__%s__%s__run('
                         '__attribute__((unused)) struct lfs_config *cfg) {'
                         % (suite.name, case.name))
-                    if CASE_PROLOGUE.strip():
-                        f.writeln(4*' '+'%s'
-                            % CASE_PROLOGUE.strip().replace('\n', '\n'+4*' '))
-                        f.writeln()
                     f.writeln(4*' '+'// test case %s' % case.id())
                     if case.code_lineno is not None:
                         f.writeln(4*' '+'#line %d "%s"'
@@ -328,17 +311,10 @@ def compile(**args):
                     if case.code_lineno is not None:
                         f.writeln(4*' '+'#line %d "%s"'
                             % (f.lineno+1, args['output']))
-                    if CASE_EPILOGUE.strip():
-                        f.writeln()
-                        f.writeln(4*' '+'%s'
-                            % CASE_EPILOGUE.strip().replace('\n', '\n'+4*' '))
                     f.writeln('}')
                     f.writeln()
 
             if not args.get('source'):
-                # write test suite prologue
-                f.writeln('%s' % SUITE_PROLOGUE.strip())
-                f.writeln()
                 if suite.code is not None:
                     if suite.code_lineno is not None:
                         f.writeln('#line %d "%s"'
@@ -425,9 +401,6 @@ def compile(**args):
                 f.writeln('#line 1 "%s"' % args['source'])
                 with open(args['source']) as sf:
                     shutil.copyfileobj(sf, f)
-                f.writeln()
-
-                f.write(SUITE_PROLOGUE)
                 f.writeln()
 
                 # write any internal tests
@@ -638,6 +611,7 @@ def run_stage(name, runner_, **args):
 
         # run the tests!
         cmd = runner_.copy()
+        # TODO move all these to runner?
         if args.get('disk'):
             cmd.append('--disk=%s' % args['disk'])
         if args.get('trace'):
@@ -656,8 +630,7 @@ def run_stage(name, runner_, **args):
         os.close(spty)
         children.add(proc)
         mpty = os.fdopen(mpty, 'r', 1)
-        if args.get('output'):
-            output = openio(args['output'], 'w')
+        output = None
 
         last_id = None
         last_output = []
@@ -675,8 +648,18 @@ def run_stage(name, runner_, **args):
                     break
                 last_output.append(line)
                 if args.get('output'):
-                    output.write(line)
-                elif args.get('verbose'):
+                    try:
+                        if not output:
+                            output = openio(args['output'], 'a', 1, nb=True)
+                        output.write(line)
+                    except OSError as e:
+                        if e.errno not in [
+                                errno.ENXIO,
+                                errno.EPIPE,
+                                errno.EAGAIN]:
+                            raise
+                        output = None
+                if args.get('verbose'):
                     sys.stdout.write(line)
 
                 m = pattern.match(line)
@@ -709,8 +692,6 @@ def run_stage(name, runner_, **args):
         finally:
             children.remove(proc)
             mpty.close()
-            if args.get('output'):
-                output.close()
 
         proc.wait()
         if proc.returncode != 0:
@@ -722,6 +703,7 @@ def run_stage(name, runner_, **args):
 
     def run_job(runner, start=None, step=None):
         nonlocal failures
+        nonlocal killed
         nonlocal locals
 
         start = start or 0
@@ -756,6 +738,7 @@ def run_stage(name, runner_, **args):
                     continue
                 else:
                     # stop other tests
+                    killed = True
                     for child in children.copy():
                         child.kill()
                     break
@@ -766,10 +749,12 @@ def run_stage(name, runner_, **args):
     if 'jobs' in args:
         for job in range(args['jobs']):
             runners.append(th.Thread(
-                target=run_job, args=(runner_, job, args['jobs'])))
+                target=run_job, args=(runner_, job, args['jobs']),
+                daemon=True))
     else:
         runners.append(th.Thread(
-            target=run_job, args=(runner_, None, None)))
+            target=run_job, args=(runner_, None, None),
+            daemon=True))
 
     def print_update(done):
         if not args.get('verbose') and (color(**args) or done):
@@ -830,8 +815,10 @@ def run_stage(name, runner_, **args):
     
 
 def run(**args):
+    # measure runtime
     start = time.time()
 
+    # query runner for tests
     runner_ = runner(**args)
     print('using runner: %s'
         % ' '.join(shlex.quote(c) for c in runner_))
@@ -844,6 +831,15 @@ def run(**args):
             total_perms))
     print()
 
+    # truncate and open logs here so they aren't disconnected between tests
+    output = None
+    if args.get('output'):
+        output = openio(args['output'], 'w', 1)
+    trace = None
+    if args.get('trace'):
+        trace = openio(args['trace'], 'w', 1)
+
+    # spawn runners
     expected = 0
     passed = 0
     powerlosses = 0
@@ -857,13 +853,20 @@ def run(**args):
 
         # spawn jobs for stage
         expected_, passed_, powerlosses_, failures_, killed = run_stage(
-            by or 'tests', stage_runner, **args)
+            by or 'tests',
+            stage_runner,
+            **args)
         expected += expected_
         passed += passed_
         powerlosses += powerlosses_
         failures.extend(failures_)
         if (failures and not args.get('keep_going')) or killed:
             break
+
+    if output:
+        output.close()
+    if trace:
+        trace.close()
 
     # show summary
     print()
@@ -974,9 +977,11 @@ def main(**args):
 if __name__ == "__main__":
     import argparse
     import sys
+    argparse.ArgumentParser._handle_conflict_ignore = lambda *_: None
+    argparse._ArgumentGroup._handle_conflict_ignore = lambda *_: None
     parser = argparse.ArgumentParser(
         description="Build and run tests.",
-        conflict_handler='resolve')
+        conflict_handler='ignore')
     parser.add_argument('test_ids', nargs='*',
         help="Description of testis to run. May be a directory, path, or \
             test identifier. Test identifiers are of the form \
@@ -1013,11 +1018,11 @@ if __name__ == "__main__":
         help="Comma-separated list of power-loss scenarios to test. \
             Defaults to 0,l.")
     test_parser.add_argument('-d', '--disk',
-        help="Redirect block device operations to this file.")
+        help="Direct block device operations to this file.")
     test_parser.add_argument('-t', '--trace',
-        help="Redirect trace output to this file.")
+        help="Direct trace output to this file.")
     test_parser.add_argument('-o', '--output',
-        help="Redirect stdout and stderr to this file.")
+        help="Direct stdout and stderr to this file.")
     test_parser.add_argument('--read-delay',
         help="Artificial read delay in seconds.")
     test_parser.add_argument('--prog-delay',

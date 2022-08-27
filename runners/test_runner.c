@@ -1,4 +1,8 @@
 
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#endif
+
 #include "runners/test_runner.h"
 #include "bd/lfs_testbd.h"
 
@@ -6,6 +10,10 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <setjmp.h>
+#include <fcntl.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <unistd.h>
 
 
 // test suites in a custom ld section
@@ -219,10 +227,10 @@ static void run_powerloss_none(
         size_t perm,
         const lfs_testbd_powercycles_t *cycles,
         size_t cycle_count);
-static const test_powerloss_t *test_powerlosses = (const test_powerloss_t[]){
+const test_powerloss_t *test_powerlosses = (const test_powerloss_t[]){
     {'0', "none", run_powerloss_none, NULL, 0},
 };
-static size_t test_powerloss_count = 1;
+size_t test_powerloss_count = 1;
 
 
 typedef struct test_id {
@@ -233,23 +241,70 @@ typedef struct test_id {
     size_t cycle_count;
 } test_id_t;
 
-static const test_id_t *test_ids = (const test_id_t[]) {
+const test_id_t *test_ids = (const test_id_t[]) {
     {NULL, NULL, -1, NULL, 0},
 };
-static size_t test_id_count = 1;
+size_t test_id_count = 1;
 
 
-static const char *test_geometry = NULL;
+const char *test_geometry = NULL;
 
-static size_t test_start = 0;
-static size_t test_stop = -1;
-static size_t test_step = 1;
+size_t test_start = 0;
+size_t test_stop = -1;
+size_t test_step = 1;
 
-static const char *test_disk = NULL;
-FILE *test_trace = NULL;
-static lfs_testbd_delay_t test_read_delay = 0.0;
-static lfs_testbd_delay_t test_prog_delay = 0.0;
-static lfs_testbd_delay_t test_erase_delay = 0.0;
+const char *test_disk_path = NULL;
+const char *test_trace_path = NULL;
+FILE *test_trace_file = NULL;
+uint32_t test_trace_cycles = 0;
+lfs_testbd_delay_t test_read_delay = 0.0;
+lfs_testbd_delay_t test_prog_delay = 0.0;
+lfs_testbd_delay_t test_erase_delay = 0.0;
+
+
+// trace printing
+void test_trace(const char *fmt, ...) {
+    if (test_trace_path) {
+        if (!test_trace_file) {
+            // Tracing output is heavy and trying to open every trace
+            // call is slow, so we only try to open the trace file every
+            // so often. Note this doesn't affect successfully opened files
+            if (test_trace_cycles % 128 != 0) {
+                test_trace_cycles += 1;
+                return;
+            }
+            test_trace_cycles += 1;
+
+            int fd;
+            if (strcmp(test_trace_path, "-") == 0) {
+                fd = dup(1);
+            } else {
+                fd = open(
+                        test_trace_path,
+                        O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK,
+                        0666);
+            }
+            if (fd < 0) {
+                return;
+            }
+
+            FILE *f = fdopen(fd, "a");
+            assert(f);
+            int err = setvbuf(f, NULL, _IOLBF, BUFSIZ);
+            assert(!err);
+            test_trace_file = f;
+        }
+
+        va_list va;
+        va_start(va, fmt);
+        int res = vfprintf(test_trace_file, fmt, va);
+        if (res < 0) {
+            fclose(test_trace_file);
+            test_trace_file = NULL;
+        }
+        va_end(va);
+    }
+}
 
 
 // how many permutations are there actually in a test case
@@ -613,13 +668,13 @@ static void run_powerloss_none(
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
-        .disk_path          = test_disk,
+        .disk_path          = test_disk_path,
         .read_delay         = test_read_delay,
         .prog_delay         = test_prog_delay,
         .erase_delay        = test_erase_delay,
     };
 
-    int err = lfs_testbd_createcfg(&cfg, test_disk, &bdcfg);
+    int err = lfs_testbd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -679,7 +734,7 @@ static void run_powerloss_linear(
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
-        .disk_path          = test_disk,
+        .disk_path          = test_disk_path,
         .read_delay         = test_read_delay,
         .prog_delay         = test_prog_delay,
         .erase_delay        = test_erase_delay,
@@ -689,7 +744,7 @@ static void run_powerloss_linear(
         .powerloss_data     = &powerloss_jmp,
     };
 
-    int err = lfs_testbd_createcfg(&cfg, test_disk, &bdcfg);
+    int err = lfs_testbd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -760,7 +815,7 @@ static void run_powerloss_exponential(
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
-        .disk_path          = test_disk,
+        .disk_path          = test_disk_path,
         .read_delay         = test_read_delay,
         .prog_delay         = test_prog_delay,
         .erase_delay        = test_erase_delay,
@@ -770,7 +825,7 @@ static void run_powerloss_exponential(
         .powerloss_data     = &powerloss_jmp,
     };
 
-    int err = lfs_testbd_createcfg(&cfg, test_disk, &bdcfg);
+    int err = lfs_testbd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -839,7 +894,7 @@ static void run_powerloss_cycles(
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
-        .disk_path          = test_disk,
+        .disk_path          = test_disk_path,
         .read_delay         = test_read_delay,
         .prog_delay         = test_prog_delay,
         .erase_delay        = test_erase_delay,
@@ -849,7 +904,7 @@ static void run_powerloss_cycles(
         .powerloss_data     = &powerloss_jmp,
     };
 
-    int err = lfs_testbd_createcfg(&cfg, test_disk, &bdcfg);
+    int err = lfs_testbd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -1025,7 +1080,7 @@ static void run_powerloss_exhaustive(
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
-        .disk_path          = test_disk,
+        .disk_path          = test_disk_path,
         .read_delay         = test_read_delay,
         .prog_delay         = test_prog_delay,
         .erase_delay        = test_erase_delay,
@@ -1034,7 +1089,7 @@ static void run_powerloss_exhaustive(
         .powerloss_data     = NULL,
     };
 
-    int err = lfs_testbd_createcfg(&cfg, test_disk, &bdcfg);
+    int err = lfs_testbd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -1153,6 +1208,9 @@ static void run_perms(
 }
 
 static void run(void) {
+    // ignore disconnected pipes
+    signal(SIGPIPE, SIG_IGN);
+
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
             if (test_ids[t].suite && strcmp(
@@ -1563,19 +1621,10 @@ powerloss_next:
                 break;
             }
             case OPT_DISK:
-                test_disk = optarg;
+                test_disk_path = optarg;
                 break;
             case OPT_TRACE:
-                if (strcmp(optarg, "-") == 0) {
-                    test_trace = stdout;
-                } else {
-                    test_trace = fopen(optarg, "w");
-                    if (!test_trace) {
-                        fprintf(stderr, "error: could not open for trace: %d\n",
-                                -errno);
-                        exit(-1);
-                    }
-                }
+                test_trace_path = optarg;
                 break;
             case OPT_READ_DELAY: {
                 char *parsed = NULL;

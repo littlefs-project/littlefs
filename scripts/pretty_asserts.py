@@ -422,7 +422,8 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--pattern', action='append',
         help="Regex patterns to search for starting an assert statement. This"
             " implicitly includes \"assert\" and \"=>\".")
-    parser.add_argument('-l', '--limit', default=LIMIT, type=int,
+    parser.add_argument('-l', '--limit',
+        default=LIMIT, type=lambda x: int(x, 0),
         help="Maximum number of characters to display in strcmp and memcmp.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_args()).items()
