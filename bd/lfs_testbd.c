@@ -245,10 +245,10 @@ int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
                 size);
     }
 
-    if (bd->cfg->read_delay) {
+    if (bd->cfg->read_sleep) {
         int err = nanosleep(&(struct timespec){
-                .tv_sec=bd->cfg->read_delay/1000000000,
-                .tv_nsec=bd->cfg->read_delay%1000000000},
+                .tv_sec=bd->cfg->read_sleep/1000000000,
+                .tv_nsec=bd->cfg->read_sleep%1000000000},
             NULL);
         if (err) {
             err = -errno;
@@ -325,10 +325,10 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
         }
     }
 
-    if (bd->cfg->prog_delay) {
+    if (bd->cfg->prog_sleep) {
         int err = nanosleep(&(struct timespec){
-                .tv_sec=bd->cfg->prog_delay/1000000000,
-                .tv_nsec=bd->cfg->prog_delay%1000000000},
+                .tv_sec=bd->cfg->prog_sleep/1000000000,
+                .tv_nsec=bd->cfg->prog_sleep%1000000000},
             NULL);
         if (err) {
             err = -errno;
@@ -408,10 +408,10 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         }
     }
 
-    if (bd->cfg->erase_delay) {
+    if (bd->cfg->erase_sleep) {
         int err = nanosleep(&(struct timespec){
-                .tv_sec=bd->cfg->erase_delay/1000000000,
-                .tv_nsec=bd->cfg->erase_delay%1000000000},
+                .tv_sec=bd->cfg->erase_sleep/1000000000,
+                .tv_nsec=bd->cfg->erase_sleep%1000000000},
             NULL);
         if (err) {
             err = -errno;

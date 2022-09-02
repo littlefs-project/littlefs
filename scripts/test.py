@@ -489,7 +489,8 @@ def find_cases(runner_, **args):
         stdout=sp.PIPE,
         stderr=sp.PIPE if not args.get('verbose') else None,
         universal_newlines=True,
-        errors='replace')
+        errors='replace',
+        close_fds=False)
     expected_suite_perms = co.defaultdict(lambda: 0)
     expected_case_perms = co.defaultdict(lambda: 0)
     expected_perms = 0
@@ -528,7 +529,8 @@ def find_paths(runner_, **args):
         stdout=sp.PIPE,
         stderr=sp.PIPE if not args.get('verbose') else None,
         universal_newlines=True,
-        errors='replace')
+        errors='replace',
+        close_fds=False)
     paths = co.OrderedDict()
     pattern = re.compile(
         '^(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)\s+'
@@ -555,7 +557,8 @@ def find_defines(runner_, **args):
         stdout=sp.PIPE,
         stderr=sp.PIPE if not args.get('verbose') else None,
         universal_newlines=True,
-        errors='replace')
+        errors='replace',
+        close_fds=False)
     defines = co.OrderedDict()
     pattern = re.compile(
         '^(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)\s+'
@@ -616,17 +619,17 @@ def run_stage(name, runner_, **args):
             cmd.append('--disk=%s' % args['disk'])
         if args.get('trace'):
             cmd.append('--trace=%s' % args['trace'])
-        if args.get('read_delay'):
-            cmd.append('--read-delay=%s' % args['read_delay'])
-        if args.get('prog_delay'):
-            cmd.append('--prog-delay=%s' % args['prog_delay'])
-        if args.get('erase_delay'):
-            cmd.append('--erase-delay=%s' % args['erase_delay'])
+        if args.get('read_sleep'):
+            cmd.append('--read-sleep=%s' % args['read_sleep'])
+        if args.get('prog_sleep'):
+            cmd.append('--prog-sleep=%s' % args['prog_sleep'])
+        if args.get('erase_sleep'):
+            cmd.append('--erase-sleep=%s' % args['erase_sleep'])
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
 
         mpty, spty = pty.openpty()
-        proc = sp.Popen(cmd, stdout=spty, stderr=spty)
+        proc = sp.Popen(cmd, stdout=spty, stderr=spty, close_fds=False)
         os.close(spty)
         children.add(proc)
         mpty = os.fdopen(mpty, 'r', 1)
@@ -815,9 +818,6 @@ def run_stage(name, runner_, **args):
     
 
 def run(**args):
-    # measure runtime
-    start = time.time()
-
     # query runner for tests
     runner_ = runner(**args)
     print('using runner: %s'
@@ -838,6 +838,9 @@ def run(**args):
     trace = None
     if args.get('trace'):
         trace = openio(args['trace'], 'w', 1)
+
+    # measure runtime
+    start = time.time()
 
     # spawn runners
     expected = 0
@@ -863,6 +866,8 @@ def run(**args):
         if (failures and not args.get('keep_going')) or killed:
             break
 
+    stop = time.time()
+
     if output:
         output.close()
     if trace:
@@ -878,7 +883,7 @@ def run(**args):
             '%d/%d passed' % (passed, expected),
             '%d/%d failed' % (len(failures), expected),
             '%dpls!' % powerlosses if powerlosses else None,
-            'in %.2fs' % (time.time()-start)]))))
+            'in %.2fs' % (stop-start)]))))
     print()
 
     # print each failure
@@ -1023,11 +1028,11 @@ if __name__ == "__main__":
         help="Direct trace output to this file.")
     test_parser.add_argument('-o', '--output',
         help="Direct stdout and stderr to this file.")
-    test_parser.add_argument('--read-delay',
+    test_parser.add_argument('--read-sleep',
         help="Artificial read delay in seconds.")
-    test_parser.add_argument('--prog-delay',
+    test_parser.add_argument('--prog-sleep',
         help="Artificial prog delay in seconds.")
-    test_parser.add_argument('--erase-delay',
+    test_parser.add_argument('--erase-sleep',
         help="Artificial erase delay in seconds.")
     test_parser.add_argument('--runner', default=[RUNNER_PATH],
         type=lambda x: x.split(),

@@ -257,9 +257,9 @@ const char *test_disk_path = NULL;
 const char *test_trace_path = NULL;
 FILE *test_trace_file = NULL;
 uint32_t test_trace_cycles = 0;
-lfs_testbd_delay_t test_read_delay = 0.0;
-lfs_testbd_delay_t test_prog_delay = 0.0;
-lfs_testbd_delay_t test_erase_delay = 0.0;
+lfs_testbd_sleep_t test_read_sleep = 0.0;
+lfs_testbd_sleep_t test_prog_sleep = 0.0;
+lfs_testbd_sleep_t test_erase_sleep = 0.0;
 
 
 // trace printing
@@ -278,14 +278,19 @@ void test_trace(const char *fmt, ...) {
             int fd;
             if (strcmp(test_trace_path, "-") == 0) {
                 fd = dup(1);
+                if (fd < 0) {
+                    return;
+                }
             } else {
                 fd = open(
                         test_trace_path,
                         O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK,
                         0666);
-            }
-            if (fd < 0) {
-                return;
+                if (fd < 0) {
+                    return;
+                }
+                int err = fcntl(fd, F_SETFL, O_WRONLY | O_CREAT | O_APPEND);
+                assert(!err);
             }
 
             FILE *f = fdopen(fd, "a");
@@ -669,9 +674,9 @@ static void run_powerloss_none(
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk_path,
-        .read_delay         = test_read_delay,
-        .prog_delay         = test_prog_delay,
-        .erase_delay        = test_erase_delay,
+        .read_sleep         = test_read_sleep,
+        .prog_sleep         = test_prog_sleep,
+        .erase_sleep        = test_erase_sleep,
     };
 
     int err = lfs_testbd_createcfg(&cfg, test_disk_path, &bdcfg);
@@ -735,9 +740,9 @@ static void run_powerloss_linear(
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk_path,
-        .read_delay         = test_read_delay,
-        .prog_delay         = test_prog_delay,
-        .erase_delay        = test_erase_delay,
+        .read_sleep         = test_read_sleep,
+        .prog_sleep         = test_prog_sleep,
+        .erase_sleep        = test_erase_sleep,
         .power_cycles       = i,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -816,9 +821,9 @@ static void run_powerloss_exponential(
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk_path,
-        .read_delay         = test_read_delay,
-        .prog_delay         = test_prog_delay,
-        .erase_delay        = test_erase_delay,
+        .read_sleep         = test_read_sleep,
+        .prog_sleep         = test_prog_sleep,
+        .erase_sleep        = test_erase_sleep,
         .power_cycles       = i,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -895,9 +900,9 @@ static void run_powerloss_cycles(
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk_path,
-        .read_delay         = test_read_delay,
-        .prog_delay         = test_prog_delay,
-        .erase_delay        = test_erase_delay,
+        .read_sleep         = test_read_sleep,
+        .prog_sleep         = test_prog_sleep,
+        .erase_sleep        = test_erase_sleep,
         .power_cycles       = (i < cycle_count) ? cycles[i] : 0,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
@@ -1081,9 +1086,9 @@ static void run_powerloss_exhaustive(
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk_path,
-        .read_delay         = test_read_delay,
-        .prog_delay         = test_prog_delay,
-        .erase_delay        = test_erase_delay,
+        .read_sleep         = test_read_sleep,
+        .prog_sleep         = test_prog_sleep,
+        .erase_sleep        = test_erase_sleep,
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_exhaustive_branch,
         .powerloss_data     = NULL,
@@ -1256,9 +1261,9 @@ enum opt_flags {
     OPT_STOP             = 8,
     OPT_DISK             = 'd',
     OPT_TRACE            = 't',
-    OPT_READ_DELAY       = 9,
-    OPT_PROG_DELAY       = 10,
-    OPT_ERASE_DELAY      = 11,
+    OPT_READ_SLEEP       = 9,
+    OPT_PROG_SLEEP       = 10,
+    OPT_ERASE_SLEEP      = 11,
 };
 
 const char *short_opts = "hYlLD:G:p:nrVd:t:";
@@ -1281,9 +1286,9 @@ const struct option long_opts[] = {
     {"step",             required_argument, NULL, OPT_STEP},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
-    {"read-delay",       required_argument, NULL, OPT_READ_DELAY},
-    {"prog-delay",       required_argument, NULL, OPT_PROG_DELAY},
-    {"erase-delay",      required_argument, NULL, OPT_ERASE_DELAY},
+    {"read-sleep",       required_argument, NULL, OPT_READ_SLEEP},
+    {"prog-sleep",       required_argument, NULL, OPT_PROG_SLEEP},
+    {"erase-sleep",      required_argument, NULL, OPT_ERASE_SLEEP},
     {NULL, 0, NULL, 0},
 };
 
@@ -1626,34 +1631,34 @@ powerloss_next:
             case OPT_TRACE:
                 test_trace_path = optarg;
                 break;
-            case OPT_READ_DELAY: {
+            case OPT_READ_SLEEP: {
                 char *parsed = NULL;
-                double read_delay = strtod(optarg, &parsed);
+                double read_sleep = strtod(optarg, &parsed);
                 if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid read-delay: %s\n", optarg);
+                    fprintf(stderr, "error: invalid read-sleep: %s\n", optarg);
                     exit(-1);
                 }
-                test_read_delay = read_delay*1.0e9;
+                test_read_sleep = read_sleep*1.0e9;
                 break;
             }
-            case OPT_PROG_DELAY: {
+            case OPT_PROG_SLEEP: {
                 char *parsed = NULL;
-                double prog_delay = strtod(optarg, &parsed);
+                double prog_sleep = strtod(optarg, &parsed);
                 if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid prog-delay: %s\n", optarg);
+                    fprintf(stderr, "error: invalid prog-sleep: %s\n", optarg);
                     exit(-1);
                 }
-                test_prog_delay = prog_delay*1.0e9;
+                test_prog_sleep = prog_sleep*1.0e9;
                 break;
             }
-            case OPT_ERASE_DELAY: {
+            case OPT_ERASE_SLEEP: {
                 char *parsed = NULL;
-                double erase_delay = strtod(optarg, &parsed);
+                double erase_sleep = strtod(optarg, &parsed);
                 if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid erase-delay: %s\n", optarg);
+                    fprintf(stderr, "error: invalid erase-sleep: %s\n", optarg);
                     exit(-1);
                 }
-                test_erase_delay = erase_delay*1.0e9;
+                test_erase_sleep = erase_sleep*1.0e9;
                 break;
             }
             // done parsing

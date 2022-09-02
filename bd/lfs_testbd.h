@@ -58,8 +58,8 @@ typedef uint32_t lfs_testbd_powercycles_t;
 typedef int32_t lfs_testbd_spowercycles_t;
 
 // Type for delays in nanoseconds
-typedef uint64_t lfs_testbd_delay_t;
-typedef int64_t lfs_testbd_sdelay_t;
+typedef uint64_t lfs_testbd_sleep_t;
+typedef int64_t lfs_testbd_ssleep_t;
 
 // testbd config, this is required for testing
 struct lfs_testbd_config {
@@ -100,15 +100,15 @@ struct lfs_testbd_config {
 
     // Artificial delay in nanoseconds, there is no purpose for this other
     // than slowing down the simulation.
-    lfs_testbd_delay_t read_delay;
+    lfs_testbd_sleep_t read_sleep;
 
     // Artificial delay in nanoseconds, there is no purpose for this other
     // than slowing down the simulation.
-    lfs_testbd_delay_t prog_delay;
+    lfs_testbd_sleep_t prog_sleep;
 
     // Artificial delay in nanoseconds, there is no purpose for this other
     // than slowing down the simulation.
-    lfs_testbd_delay_t erase_delay;
+    lfs_testbd_sleep_t erase_sleep;
 };
 
 // A reference counted block

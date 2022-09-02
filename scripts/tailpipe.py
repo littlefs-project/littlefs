@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+#
+# Efficiently displays the last n lines of a file/pipe.
+#
 
 import os
 import sys
@@ -15,7 +18,7 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
-def main(path, lines=1, keep_open=False):
+def main(path='-', *, lines=1, sleep=0.01, keep_open=False):
     ring = [None] * lines
     i = 0
     count = 0
@@ -29,7 +32,7 @@ def main(path, lines=1, keep_open=False):
         nonlocal count
         nonlocal done
         while True:
-            with openio(path, 'r') as f:
+            with openio(path) as f:
                 for line in f:
                     with lock:
                         ring[i] = line
@@ -45,7 +48,7 @@ def main(path, lines=1, keep_open=False):
     try:
         last_count = 1
         while not done:
-            time.sleep(0.01)
+            time.sleep(sleep)
             event.wait()
             event.clear()
 
@@ -62,10 +65,15 @@ def main(path, lines=1, keep_open=False):
 
             for j in range(count_):
                 # move cursor, clear line, disable/reenable line wrapping
-                sys.stdout.write('\r%s\x1b[K\x1b[?7l%s\x1b[?7h%s' % (
-                    '\x1b[%dA' % (count_-1-j) if count_-1-j > 0 else '',
-                    ring_[(i_-count+j) % lines][:-1],
-                    '\x1b[%dB' % (count_-1-j) if count_-1-j > 0 else ''))
+                sys.stdout.write('\r')
+                if count_-1-j > 0:
+                    sys.stdout.write('\x1b[%dA' % (count_-1-j))
+                sys.stdout.write('\x1b[K')
+                sys.stdout.write('\x1b[?7l')
+                sys.stdout.write(ring_[(i_-count_+j) % lines][:-1])
+                sys.stdout.write('\x1b[?7h')
+                if count_-1-j > 0:
+                    sys.stdout.write('\x1b[%dB' % (count_-1-j))
 
             sys.stdout.flush()
 
@@ -83,14 +91,17 @@ if __name__ == "__main__":
     parser.add_argument(
         'path',
         nargs='?',
-        default='-',
         help="Path to read from.")
     parser.add_argument(
         '-n',
         '--lines',
         type=lambda x: int(x, 0),
-        default=1,
         help="Number of lines to show, defaults to 1.")
+    parser.add_argument(
+        '-s',
+        '--sleep',
+        type=float,
+        help="Seconds to sleep between reads, defaults to 0.01.")
     parser.add_argument(
         '-k',
         '--keep-open',
