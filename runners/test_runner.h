@@ -38,7 +38,7 @@ struct test_case {
     test_flags_t flags;
     size_t permutations;
 
-    intmax_t (*const *const *defines)(void);
+    intmax_t (*const *const *defines)(size_t);
 
     bool (*filter)(void);
     void (*run)(struct lfs_config *cfg);
@@ -59,60 +59,50 @@ struct test_suite {
 
 
 // access generated test defines
-intmax_t test_predefine(size_t define);
+//intmax_t test_predefine(size_t define);
 intmax_t test_define(size_t define);
 
 // a few preconfigured defines that control how tests run
-#define READ_SIZE           test_predefine(0)
-#define PROG_SIZE           test_predefine(1)
-#define BLOCK_SIZE          test_predefine(2)
-#define BLOCK_COUNT         test_predefine(3)
-#define CACHE_SIZE          test_predefine(4)
-#define LOOKAHEAD_SIZE      test_predefine(5)
-#define BLOCK_CYCLES        test_predefine(6)
-#define ERASE_VALUE         test_predefine(7)
-#define ERASE_CYCLES        test_predefine(8)
-#define BADBLOCK_BEHAVIOR   test_predefine(9)
-#define POWERLOSS_BEHAVIOR  test_predefine(10)
+ 
+#define READ_SIZE_i          0
+#define PROG_SIZE_i          1
+#define BLOCK_SIZE_i         2
+#define BLOCK_COUNT_i        3
+#define CACHE_SIZE_i         4
+#define LOOKAHEAD_SIZE_i     5
+#define BLOCK_CYCLES_i       6
+#define ERASE_VALUE_i        7
+#define ERASE_CYCLES_i       8
+#define BADBLOCK_BEHAVIOR_i  9
+#define POWERLOSS_BEHAVIOR_i 10
 
-#define TEST_PREDEFINE_NAMES { \
-    "READ_SIZE", \
-    "PROG_SIZE", \
-    "BLOCK_SIZE", \
-    "BLOCK_COUNT", \
-    "CACHE_SIZE", \
-    "LOOKAHEAD_SIZE", \
-    "BLOCK_CYCLES", \
-    "ERASE_VALUE", \
-    "ERASE_CYCLES", \
-    "BADBLOCK_BEHAVIOR", \
-    "POWERLOSS_BEHAVIOR", \
-}
-#define TEST_PREDEFINE_COUNT 11
+#define READ_SIZE           test_define(READ_SIZE_i)
+#define PROG_SIZE           test_define(PROG_SIZE_i)
+#define BLOCK_SIZE          test_define(BLOCK_SIZE_i)
+#define BLOCK_COUNT         test_define(BLOCK_COUNT_i)
+#define CACHE_SIZE          test_define(CACHE_SIZE_i)
+#define LOOKAHEAD_SIZE      test_define(LOOKAHEAD_SIZE_i)
+#define BLOCK_CYCLES        test_define(BLOCK_CYCLES_i)
+#define ERASE_VALUE         test_define(ERASE_VALUE_i)
+#define ERASE_CYCLES        test_define(ERASE_CYCLES_i)
+#define BADBLOCK_BEHAVIOR   test_define(BADBLOCK_BEHAVIOR_i)
+#define POWERLOSS_BEHAVIOR  test_define(POWERLOSS_BEHAVIOR_i)
 
+#define TEST_IMPLICIT_DEFINES \
+    TEST_DEFINE(READ_SIZE,          test_geometry->read_size) \
+    TEST_DEFINE(PROG_SIZE,          test_geometry->prog_size) \
+    TEST_DEFINE(BLOCK_SIZE,         test_geometry->block_size) \
+    TEST_DEFINE(BLOCK_COUNT,        test_geometry->block_count) \
+    TEST_DEFINE(CACHE_SIZE,         lfs_max(64,lfs_max(READ_SIZE,PROG_SIZE))) \
+    TEST_DEFINE(LOOKAHEAD_SIZE,     16) \
+    TEST_DEFINE(BLOCK_CYCLES,       -1) \
+    TEST_DEFINE(ERASE_VALUE,        0xff) \
+    TEST_DEFINE(ERASE_CYCLES,       0) \
+    TEST_DEFINE(BADBLOCK_BEHAVIOR,  LFS_TESTBD_BADBLOCK_PROGERROR) \
+    TEST_DEFINE(POWERLOSS_BEHAVIOR, LFS_TESTBD_POWERLOSS_NOOP)
 
-// default predefines
-#define TEST_DEFAULTS { \
-    /* LOOKAHEAD_SIZE */     16, \
-    /* BLOCK_CYCLES */       -1, \
-    /* ERASE_VALUE */        0xff, \
-    /* ERASE_CYCLES */       0, \
-    /* BADBLOCK_BEHAVIOR */  LFS_TESTBD_BADBLOCK_PROGERROR, \
-    /* POWERLOSS_BEHAVIOR */ LFS_TESTBD_POWERLOSS_NOOP, \
-}
-#define TEST_DEFAULT_DEFINE_COUNT 5
-
-// test geometries
-#define TEST_GEOMETRIES { \
-    /*geometry, read, write,    erase,                 count, cache */ \
-    {"test",   {  16,    16,      512,       (1024*1024)/512,    64}}, \
-    {"eeprom", {   1,     1,      512,       (1024*1024)/512,    64}}, \
-    {"emmc",   { 512,   512,      512,       (1024*1024)/512,   512}}, \
-    {"nor",    {   1,     1,     4096,      (1024*1024)/4096,    64}}, \
-    {"nand",   {4096,  4096,  32*1024, (1024*1024)/(32*1024),  4096}}, \
-}
-#define TEST_GEOMETRY_COUNT 5
-#define TEST_GEOMETRY_DEFINE_COUNT 5
+#define TEST_GEOMETRY_DEFINE_COUNT 4
+#define TEST_IMPLICIT_DEFINE_COUNT 11
 
 
 #endif

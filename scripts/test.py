@@ -252,6 +252,7 @@ def compile(**args):
 
             # include test_runner.h in every generated file
             f.writeln("#include \"%s\"" % HEADER_PATH)
+            f.writeln()
 
             # write out generated functions, this can end up in different
             # files depending on the "in" attribute
@@ -270,20 +271,22 @@ def compile(**args):
                                     name = ('__test__%s__%s__%s__%d'
                                         % (suite.name, case.name, k, i))
                                     define_cbs[v] = name
-                                    f.writeln('intmax_t %s(void) {' % name)
+                                    f.writeln('intmax_t %s('
+                                        '__attribute__((unused)) '
+                                        'size_t define) {' % name)
                                     f.writeln(4*' '+'return %s;' % v)
                                     f.writeln('}')
                                     f.writeln()
                         f.writeln('intmax_t (*const *const '
-                            '__test__%s__%s__defines[])(void) = {'
+                            '__test__%s__%s__defines[])(size_t) = {'
                             % (suite.name, case.name))
                         for defines in case.permutations:
-                            f.writeln(4*' '+'(intmax_t (*const[])(void)){')
-                            for define in sorted(suite.defines):
-                                f.writeln(8*' '+'%s,' % (
-                                    define_cbs[defines[define]]
-                                        if define in defines
-                                        else 'NULL'))
+                            f.writeln(4*' '+'(intmax_t (*const['
+                                'TEST_IMPLICIT_DEFINE_COUNT+%d])(size_t)){' % (
+                                len(suite.defines)))
+                            for k, v in sorted(defines.items()):
+                                f.writeln(8*' '+'[%-24s] = %s,' % (
+                                    k+'_i', define_cbs[v]))
                             f.writeln(4*' '+'},')
                         f.writeln('};')
                         f.writeln()    
@@ -328,8 +331,10 @@ def compile(**args):
                 if suite.defines:
                     for i, define in enumerate(sorted(suite.defines)):
                         f.writeln('#ifndef %s' % define)
-                        f.writeln('#define %-24s test_define(%d)'
-                            % (define, i))
+                        f.writeln('#define %-24s '
+                            'TEST_IMPLICIT_DEFINE_COUNT+%d' % (define+'_i', i))
+                        f.writeln('#define %-24s '
+                            'test_define(%s)' % (define, define+'_i'))
                         f.writeln('#endif')
                     f.writeln()
 
@@ -340,7 +345,7 @@ def compile(**args):
                     else:
                         if case.defines:
                             f.writeln('extern intmax_t (*const *const '
-                                '__test__%s__%s__defines[])(void);'
+                                '__test__%s__%s__defines[])(size_t);'
                                 % (suite.name, case.name))
                         if suite.if_ is not None or case.if_ is not None:
                             f.writeln('extern bool __test__%s__%s__filter('
@@ -364,11 +369,14 @@ def compile(**args):
                         or 0))
                 if suite.defines:
                     # create suite define names
-                    f.writeln(4*' '+'.define_names = (const char *const[]){')
+                    f.writeln(4*' '+'.define_names = (const char *const['
+                        'TEST_IMPLICIT_DEFINE_COUNT+%d]){' % (
+                        len(suite.defines)))
                     for k in sorted(suite.defines):
-                        f.writeln(8*' '+'"%s",' % k)
+                        f.writeln(8*' '+'[%-24s] = "%s",' % (k+'_i', k))
                     f.writeln(4*' '+'},')
-                f.writeln(4*' '+'.define_count = %d,' % len(suite.defines))
+                    f.writeln(4*' '+'.define_count = '
+                        'TEST_IMPLICIT_DEFINE_COUNT+%d,' % len(suite.defines))
                 f.writeln(4*' '+'.cases = (const struct test_case[]){')
                 for case in suite.cases:
                     # create case structs
@@ -415,10 +423,15 @@ def compile(**args):
                                 for i, define in enumerate(
                                         sorted(suite.defines)):
                                     f.writeln('#ifndef %s' % define)
-                                    f.writeln('#define %-24s test_define(%d)'
-                                        % (define, i))
-                                    f.writeln('#define __TEST__%s__NEEDS_UNDEF'
-                                        % define)
+                                    f.writeln('#define %-24s '
+                                        'TEST_IMPLICIT_DEFINE_COUNT+%d' % (
+                                        define+'_i', i))
+                                    f.writeln('#define %-24s '
+                                        'test_define(%s)' % (
+                                        define, define+'_i'))
+                                    f.writeln('#define '
+                                        '__TEST__%s__NEEDS_UNDEF' % (
+                                        define))
                                     f.writeln('#endif')
                                 f.writeln()
 
@@ -431,6 +444,7 @@ def compile(**args):
                                     f.writeln('#undef __TEST__%s__NEEDS_UNDEF'
                                         % define)
                                     f.writeln('#undef %s' % define)
+                                    f.writeln('#undef %s' % (define+'_i'))
                                     f.writeln('#endif')
                                 f.writeln()
 
@@ -469,9 +483,10 @@ def list_(**args):
     if args.get('summary'):          cmd.append('--summary')
     if args.get('list_suites'):      cmd.append('--list-suites')
     if args.get('list_cases'):       cmd.append('--list-cases')
-    if args.get('list_paths'):       cmd.append('--list-paths')
+    if args.get('list_suite_paths'): cmd.append('--list-suite-paths')
+    if args.get('list_case_paths'):  cmd.append('--list-case-paths')
     if args.get('list_defines'):     cmd.append('--list-defines')
-    if args.get('list_defaults'):    cmd.append('--list-defaults')
+    if args.get('list_implicit'):    cmd.append('--list-implicit')
     if args.get('list_geometries'):  cmd.append('--list-geometries')
     if args.get('list_powerlosses'): cmd.append('--list-powerlosses')
 
@@ -503,10 +518,11 @@ def find_cases(runner_, **args):
         m = pattern.match(line)
         if m:
             filtered = int(m.group('filtered'))
+            perms = int(m.group('perms'))
             expected_suite_perms[m.group('suite')] += filtered
             expected_case_perms[m.group('id')] += filtered
             expected_perms += filtered
-            total_perms += int(m.group('perms'))
+            total_perms += perms
     proc.wait()
     if proc.returncode != 0:
         if not args.get('verbose'):
@@ -520,9 +536,9 @@ def find_cases(runner_, **args):
         expected_perms,
         total_perms)
 
-def find_paths(runner_, **args):
+def find_path(runner_, id, **args):
     # query from runner
-    cmd = runner_ + ['--list-paths']
+    cmd = runner_ + ['--list-case-paths', id]
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -531,14 +547,17 @@ def find_paths(runner_, **args):
         universal_newlines=True,
         errors='replace',
         close_fds=False)
-    paths = co.OrderedDict()
+    path = None
     pattern = re.compile(
         '^(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)\s+'
             '(?P<path>[^:]+):(?P<lineno>\d+)')
-    for line in proc.stdout:
+    # skip the first line
+    for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
-        if m:
-            paths[m.group('id')] = (m.group('path'), int(m.group('lineno')))
+        if m and path is None:
+            path_ = m.group('path')
+            lineno = int(m.group('lineno'))
+            path = (path_, lineno)
     proc.wait()
     if proc.returncode != 0:
         if not args.get('verbose'):
@@ -546,11 +565,36 @@ def find_paths(runner_, **args):
                 sys.stdout.write(line)
         sys.exit(-1)
 
-    return paths
+    return path
 
-def find_defines(runner_, **args):
-    # query from runner
-    cmd = runner_ + ['--list-defines']
+def find_defines(runner_, id, **args):
+    # query implicit defines from runner
+    cmd = runner_ + ['--list-implicit']
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE if not args.get('verbose') else None,
+        universal_newlines=True,
+        errors='replace',
+        close_fds=False)
+    implicit_defines = co.OrderedDict()
+    pattern = re.compile('^(?P<define>\w+)=(?P<values>.+)')
+    for line in proc.stdout:
+        m = pattern.match(line)
+        if m:
+            define = m.group('define')
+            values = m.group('values').split(',')
+            implicit_defines[define] = set(values)
+    proc.wait()
+    if proc.returncode != 0:
+        if not args.get('verbose'):
+            for line in proc.stderr:
+                sys.stdout.write(line)
+        sys.exit(-1)
+
+    # query case defines from runner
+    cmd = runner_ + ['--list-defines', id]
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -560,14 +604,15 @@ def find_defines(runner_, **args):
         errors='replace',
         close_fds=False)
     defines = co.OrderedDict()
-    pattern = re.compile(
-        '^(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)\s+'
-            '(?P<defines>(?:\w+=\w+\s*)+)')
+    pattern = re.compile('^(?P<define>\w+)=(?P<value>.+)')
     for line in proc.stdout:
         m = pattern.match(line)
         if m:
-            defines[m.group('id')] = {k: v
-                for k, v in re.findall('(\w+)=(\w+)', m.group('defines'))}
+            define = m.group('define')
+            value = m.group('value')
+            if (define not in implicit_defines
+                    or value not in implicit_defines[define]):
+                defines[define] = value
     proc.wait()
     if proc.returncode != 0:
         if not args.get('verbose'):
@@ -887,16 +932,16 @@ def run(**args):
     print()
 
     # print each failure
-    if failures:
-        # get some extra info from runner
-        runner_paths = find_paths(runner_, **args)
-        runner_defines = find_defines(runner_, **args)
-
     for failure in failures:
-        # show summary of failure
-        path, lineno = runner_paths[testcase(failure.id)]
-        defines = runner_defines.get(failure.id, {})
+        assert failure.id is not None, '%s broken? %r' % (
+            ' '.join(shlex.quote(c) for c in runner_),
+            failure)
 
+        # get some extra info from runner
+        path, lineno = find_path(runner_, failure.id, **args)
+        defines = find_defines(runner_, failure.id, **args)
+
+        # show summary of failure
         print('%s%s:%d:%sfailure:%s %s%s failed' % (
             '\x1b[01m' if color(**args) else '',
             path, lineno,
@@ -969,9 +1014,10 @@ def main(**args):
     elif (args.get('summary')
             or args.get('list_suites')
             or args.get('list_cases')
-            or args.get('list_paths')
+            or args.get('list_suite_paths')
+            or args.get('list_case_paths')
             or args.get('list_defines')
-            or args.get('list_defaults')
+            or args.get('list_implicit')
             or args.get('list_geometries')
             or args.get('list_powerlosses')):
         list_(**args)
@@ -1005,20 +1051,23 @@ if __name__ == "__main__":
         help="List test suites.")
     test_parser.add_argument('-L', '--list-cases', action='store_true',
         help="List test cases.")
-    test_parser.add_argument('--list-paths', action='store_true',
-        help="List the path for each test case.")
+    test_parser.add_argument('--list-suite-paths', action='store_true',
+        help="List the path for each test suite.")
+    test_parser.add_argument('--list-case-paths', action='store_true',
+        help="List the path and line number for each test case.")
     test_parser.add_argument('--list-defines', action='store_true',
-        help="List the defines for each test permutation.")
-    test_parser.add_argument('--list-defaults', action='store_true',
-        help="List the default defines in this test-runner.")
+        help="List all defines in this test-runner.")
+    test_parser.add_argument('--list-implicit', action='store_true',
+        help="List implicit defines in this test-runner.")
     test_parser.add_argument('--list-geometries', action='store_true',
-        help="List the disk geometries used for testing.")
+        help="List the available disk geometries.")
     test_parser.add_argument('--list-powerlosses', action='store_true',
         help="List the available power-loss scenarios.")
     test_parser.add_argument('-D', '--define', action='append',
         help="Override a test define.")
-    test_parser.add_argument('-G', '--geometry',
-        help="Filter by geometry.")
+    test_parser.add_argument('-g', '--geometry',
+        help="Comma-separated list of disk geometries to test. \
+            Defaults to d,e,E,n,N.")
     test_parser.add_argument('-p', '--powerloss',
         help="Comma-separated list of power-loss scenarios to test. \
             Defaults to 0,l.")

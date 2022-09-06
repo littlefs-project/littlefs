@@ -16,197 +16,89 @@
 #include <unistd.h>
 
 
-// test suites in a custom ld section
-extern struct test_suite __start__test_suites;
-extern struct test_suite __stop__test_suites;
+// some helpers
 
-const struct test_suite *test_suites = &__start__test_suites;
-#define TEST_SUITE_COUNT \
-    ((size_t)(&__stop__test_suites - &__start__test_suites))
+// append to an array with amortized doubling
+void *mappend(void **p,
+        size_t size,
+        size_t *count,
+        size_t *capacity) {
+    uint8_t *p_ = *p;
+    size_t count_ = *count;
+    size_t capacity_ = *capacity;
 
-// test geometries
-struct test_geometry {
-    const char *name;
-    intmax_t defines[TEST_GEOMETRY_DEFINE_COUNT];
-};
+    count_ += 1;
+    if (count_ > capacity_) {
+        capacity_ = (2*capacity_ < 4) ? 4 : 2*capacity_;
 
-const struct test_geometry test_geometries[TEST_GEOMETRY_COUNT]
-        = TEST_GEOMETRIES;
-
-// test define lookup and management
-const intmax_t *test_override_defines;
-intmax_t (*const *test_case_defines)(void);
-const intmax_t *test_geometry_defines;
-const intmax_t test_default_defines[TEST_PREDEFINE_COUNT]
-        = TEST_DEFAULTS;
-
-uint8_t test_override_predefine_map[TEST_PREDEFINE_COUNT];
-uint8_t test_override_define_map[256];
-uint8_t test_case_predefine_map[TEST_PREDEFINE_COUNT];
-
-const char *const *test_override_names;
-size_t test_override_count;
-
-const char *const test_predefine_names[TEST_PREDEFINE_COUNT]
-        = TEST_PREDEFINE_NAMES;
-
-const char *const *test_define_names;
-size_t test_define_count;
-
-
-intmax_t test_predefine(size_t define) {
-    if (test_override_defines
-            && test_override_predefine_map[define] != 0xff) {
-        return test_override_defines[test_override_predefine_map[define]];
-    } else if (test_case_defines
-            && test_case_predefine_map[define] != 0xff
-            && test_case_defines[test_case_predefine_map[define]]) {
-        return test_case_defines[test_case_predefine_map[define]]();
-    } else if (define < TEST_GEOMETRY_DEFINE_COUNT) {
-        return test_geometry_defines[define];
-    } else {
-        return test_default_defines[define-TEST_GEOMETRY_DEFINE_COUNT];
-    }
-}
-
-intmax_t test_define(size_t define) {
-    if (test_override_defines
-            && test_override_define_map[define] != 0xff) {
-        return test_override_defines[test_override_define_map[define]];
-    } else if (test_case_defines
-            && test_case_defines[define]) {
-        return test_case_defines[define]();
-    }
-
-    fprintf(stderr, "error: undefined define %s\n",
-            test_define_names[define]);
-    assert(false);
-    exit(-1);
-}
-
-static void define_geometry(const struct test_geometry *geometry) {
-    test_geometry_defines = geometry->defines;
-}
-
-static void test_define_overrides(
-        const char *const *override_names,
-        const intmax_t *override_defines,
-        size_t override_count) {
-    test_override_defines = override_defines;
-    test_override_names = override_names;
-    test_override_count = override_count;
-
-    // map any override predefines
-    memset(test_override_predefine_map, 0xff, TEST_PREDEFINE_COUNT);
-    for (size_t i = 0; i < test_override_count; i++) {
-        for (size_t j = 0; j < TEST_PREDEFINE_COUNT; j++) {
-            if (strcmp(test_override_names[i], test_predefine_names[j]) == 0) {
-                test_override_predefine_map[j] = i;
-            }
-        }
-    }
-}
-
-static void define_suite(const struct test_suite *suite) {
-    test_define_names = suite->define_names;
-    test_define_count = suite->define_count;
-
-    // map any override defines
-    memset(test_override_define_map, 0xff, suite->define_count);
-    for (size_t i = 0; i < test_override_count; i++) {
-        for (size_t j = 0; j < suite->define_count; j++) {
-            if (strcmp(test_override_names[i], suite->define_names[j]) == 0) {
-                test_override_define_map[j] = i;
-            }
+        p_ = realloc(p_, capacity_*size);
+        if (!p_) {
+            return NULL;
         }
     }
 
-    // map any suite/case predefines
-    memset(test_case_predefine_map, 0xff, TEST_PREDEFINE_COUNT);
-    for (size_t i = 0; i < suite->define_count; i++) {
-        for (size_t j = 0; j < TEST_PREDEFINE_COUNT; j++) {
-            if (strcmp(suite->define_names[i], test_predefine_names[j]) == 0) {
-                test_case_predefine_map[j] = i;
-            }
+    *p = p_;
+    *count = count_;
+    *capacity = capacity_;
+    return &p_[(count_-1)*size];
+}
+
+// a quick self-terminating text-safe varint scheme
+static void leb16_print(uintmax_t x) {
+    while (true) {
+        lfs_testbd_powercycles_t nibble = (x & 0xf) | (x > 0xf ? 0x10 : 0);
+        printf("%c", (nibble < 10) ? '0'+nibble : 'a'+nibble-10);
+        if (x <= 0xf) {
+            break;
         }
+        x >>= 4;
     }
 }
 
-static void define_perm(
-        const struct test_suite *suite,
-        const struct test_case *case_,
-        size_t perm) {
-    (void)suite;
-    if (case_->defines) {
-        test_case_defines = case_->defines[perm];
-    } else {
-        test_case_defines = NULL;
-    }
-}
-
-
-// a quick encoding scheme for sequences of power-loss
-static void leb16_print(
-        const lfs_testbd_powercycles_t *cycles,
-        size_t cycle_count) {
-    for (size_t i = 0; i < cycle_count; i++) {
-        lfs_testbd_powercycles_t x = cycles[i];
-        while (true) {
-            lfs_testbd_powercycles_t nibble = (x & 0xf) | (x > 0xf ? 0x10 : 0);
-            printf("%c", (nibble < 10) ? '0'+nibble : 'a'+nibble-10);
-            if (x <= 0xf) {
-                break;
-            }
-            x >>= 4;
-        }
-    }
-}
-
-static size_t leb16_parse(const char *s, char **tail,
-        lfs_testbd_powercycles_t **cycles) {
-    // first lets count how many number we're dealing with
-    size_t count = 0;
-    size_t len = 0;
-    for (size_t i = 0;; i++) {
-        if ((s[i] >= '0' && s[i] <= '9')
-                || (s[i] >= 'a' && s[i] <= 'f')) {
-            len = i+1;
-            count += 1;
-        } else if ((s[i] >= 'g' && s[i] <= 'v')) {
-            // do nothing
+static uintmax_t leb16_parse(const char *s, char **tail) {
+    uintmax_t x = 0;
+    size_t i = 0;
+    while (true) {
+        uintmax_t nibble = s[i];
+        if (nibble >= '0' && nibble <= '9') {
+            nibble = nibble - '0';
+        } else if (nibble >= 'a' && nibble <= 'v') {
+            nibble = nibble - 'a' + 10;
         } else {
+            // invalid?
+            if (tail) {
+                *tail = (char*)s;
+            }
+            return 0;
+        }
+
+        x |= (nibble & 0xf) << (4*i);
+        i += 1;
+        if (!(nibble & 0x10)) {
             break;
         }
     }
 
-    // then parse
-    lfs_testbd_powercycles_t *cycles_ = malloc(
-            count * sizeof(lfs_testbd_powercycles_t));
-    size_t i = 0;
-    lfs_testbd_powercycles_t x = 0;
-    size_t k = 0;
-    for (size_t j = 0; j < len; j++) {
-        lfs_testbd_powercycles_t nibble = s[j];
-        nibble = (nibble < 'a') ? nibble-'0' : nibble-'a'+10;
-        x |= (nibble & 0xf) << (4*k);
-        k += 1;
-        if (!(nibble & 0x10)) {
-            cycles_[i] = x;
-            i += 1;
-            x = 0;
-            k = 0;
-        }
-    }
-
     if (tail) {
-        *tail = (char*)s + len;
+        *tail = (char*)s + i;
     }
-    *cycles = cycles_;
-    return count;
+    return x;
 }
 
 
-// test state
+
+// test_runner types
+
+typedef struct test_geometry {
+    char short_name;
+    const char *long_name;
+
+    lfs_size_t read_size;
+    lfs_size_t prog_size;
+    lfs_size_t block_size;
+    lfs_size_t block_count;
+} test_geometry_t;
+
 typedef struct test_powerloss {
     char short_name;
     const char *long_name;
@@ -221,33 +113,269 @@ typedef struct test_powerloss {
     size_t cycle_count;
 } test_powerloss_t;
 
-static void run_powerloss_none(
-        const struct test_suite *suite,
-        const struct test_case *case_,
-        size_t perm,
-        const lfs_testbd_powercycles_t *cycles,
-        size_t cycle_count);
-const test_powerloss_t *test_powerlosses = (const test_powerloss_t[]){
-    {'0', "none", run_powerloss_none, NULL, 0},
-};
-size_t test_powerloss_count = 1;
-
-
 typedef struct test_id {
     const char *suite;
     const char *case_;
     size_t perm;
+    const test_geometry_t *geometry;
     const lfs_testbd_powercycles_t *cycles;
     size_t cycle_count;
 } test_id_t;
 
+static void print_id(
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        size_t perm,
+        const lfs_testbd_powercycles_t *cycles,
+        size_t cycle_count) {
+    (void)suite;
+    // suite[#case[#perm[#geometry[#powercycles]]]]
+    printf("%s#%zu#", case_->id, perm);
+
+    // reduce duplication in geometry, this is appended to every test
+    if (READ_SIZE != BLOCK_SIZE || PROG_SIZE != BLOCK_SIZE) {
+        if (READ_SIZE != PROG_SIZE) {
+            leb16_print(READ_SIZE);
+        }
+        leb16_print(PROG_SIZE);
+    }
+    leb16_print(BLOCK_SIZE);
+    if (BLOCK_COUNT*BLOCK_SIZE != 1024*1024) {
+        leb16_print(BLOCK_COUNT);
+    }
+
+    // only print power-cycles if any occured
+    if (cycles) {
+        printf("#");
+        for (size_t i = 0; i < cycle_count; i++) {
+            leb16_print(cycles[i]);
+        }
+    }
+}
+
+
+// test suites are linked into a custom ld section
+extern struct test_suite __start__test_suites;
+extern struct test_suite __stop__test_suites;
+
+const struct test_suite *test_suites = &__start__test_suites;
+#define TEST_SUITE_COUNT \
+    ((size_t)(&__stop__test_suites - &__start__test_suites))
+
+
+// test define management
+typedef struct test_define_map {
+    intmax_t (*const *defines)(size_t);
+    const char *const *names;
+    size_t count;
+} test_define_map_t;
+
+extern const test_geometry_t *test_geometry;
+
+#define TEST_DEFINE(k, v) \
+    intmax_t test_define_##k(__attribute__((unused)) size_t define) { \
+        return v; \
+    }
+
+    TEST_IMPLICIT_DEFINES
+#undef TEST_DEFINE
+
+#define TEST_DEFINE_MAP_COUNT 3
+test_define_map_t test_define_maps[TEST_DEFINE_MAP_COUNT] = {
+    {NULL, NULL, 0},
+    {NULL, NULL, 0},
+    {
+        (intmax_t (*const[TEST_IMPLICIT_DEFINE_COUNT])(size_t)){
+            #define TEST_DEFINE(k, v) \
+                [k##_i] = test_define_##k,
+
+                TEST_IMPLICIT_DEFINES
+            #undef TEST_DEFINE
+        },
+        (const char *const[TEST_IMPLICIT_DEFINE_COUNT]){
+            #define TEST_DEFINE(k, v) \
+                [k##_i] = #k,
+
+                TEST_IMPLICIT_DEFINES
+            #undef TEST_DEFINE
+        },
+        TEST_IMPLICIT_DEFINE_COUNT,
+    },
+};
+
+intmax_t *test_define_cache;
+size_t test_define_cache_count;
+unsigned *test_define_cache_mask;
+
+const char *test_define_name(size_t define) {
+    // lookup in our test defines
+    for (size_t i = 0; i < TEST_DEFINE_MAP_COUNT; i++) {
+        if (define < test_define_maps[i].count
+                && test_define_maps[i].names
+                && test_define_maps[i].names[define]) {
+            return test_define_maps[i].names[define];
+        }
+    }
+
+    return NULL;
+}
+
+intmax_t test_define(size_t define) {
+    // is the define in our cache?
+    if (define < test_define_cache_count
+            && (test_define_cache_mask[define/(8*sizeof(unsigned))]
+                & (1 << (define%(8*sizeof(unsigned)))))) {
+        return test_define_cache[define];
+    }
+
+    // lookup in our test defines
+    for (size_t i = 0; i < TEST_DEFINE_MAP_COUNT; i++) {
+        if (define < test_define_maps[i].count
+                && test_define_maps[i].defines[define]) {
+            intmax_t v = test_define_maps[i].defines[define](define);
+
+            // insert into cache!
+            test_define_cache[define] = v;
+            test_define_cache_mask[define / (8*sizeof(unsigned))]
+                    |= 1 << (define%(8*sizeof(unsigned)));
+
+            return v;
+        }
+    }
+
+    // not found?
+    const char *name = test_define_name(define);
+    fprintf(stderr, "error: undefined define %s (%zd)\n",
+            name ? name : "(unknown)",
+            define);
+    assert(false);
+    exit(-1);
+}
+
+void test_define_flush(void) {
+    // clear cache between permutations
+    memset(test_define_cache_mask, 0,
+            sizeof(unsigned)*(
+                (test_define_cache_count+(8*sizeof(unsigned))-1)
+                / (8*sizeof(unsigned))));
+}
+
+// geometry updates
+const test_geometry_t *test_geometry = NULL;
+
+void test_define_geometry(const test_geometry_t *geometry) {
+    test_geometry = geometry;
+}
+
+// override updates
+typedef struct test_override {
+    const char *name;
+    intmax_t define;
+} test_override_t;
+
+const test_override_t *test_overrides = NULL;
+size_t test_override_count = 0;
+intmax_t *test_override_map = NULL;
+
+intmax_t test_define_override(size_t define) {
+    return test_override_map[define];
+}
+
+void test_define_overrides(
+        const test_override_t *overrides,
+        size_t override_count) {
+    test_overrides = overrides;
+    test_override_count = override_count;
+}
+
+// suite/perm updates
+void test_define_suite(const struct test_suite *suite) {
+    test_define_maps[1].names = suite->define_names;
+    test_define_maps[1].count = suite->define_count;
+
+    // make sure our cache is large enough
+    if (lfs_max(suite->define_count, TEST_IMPLICIT_DEFINE_COUNT)
+            > test_define_cache_count) {
+        // align to power of two to avoid any superlinear growth
+        size_t ncount = 1 << lfs_npw2(
+                lfs_max(suite->define_count, TEST_IMPLICIT_DEFINE_COUNT));
+        test_define_cache = realloc(test_define_cache, ncount*sizeof(intmax_t));
+        test_define_cache_mask = realloc(test_define_cache_mask,
+                sizeof(unsigned)*(
+                    (ncount+(8*sizeof(unsigned))-1)
+                    / (8*sizeof(unsigned))));
+        test_define_cache_count = ncount;
+    }
+
+    // map any overrides
+    if (test_override_count > 0) {
+        // make sure our override arrays are big enough
+        if (suite->define_count > test_define_maps[0].count) {
+            // align to power of two to avoid any superlinear growth
+            size_t ncount = 1 << lfs_npw2(suite->define_count);
+            test_define_maps[0].defines = realloc(
+                    (intmax_t (**)(size_t))test_define_maps[0].defines,
+                    ncount*sizeof(intmax_t (*)(size_t)));
+            test_override_map = realloc(
+                    test_override_map,
+                    ncount*sizeof(intmax_t));
+            test_define_maps[0].count = ncount;
+        }
+
+        for (size_t i = 0; i < test_define_maps[0].count; i++) {
+            ((intmax_t (**)(size_t))test_define_maps[0].defines)[i] = NULL;
+
+            const char *name = test_define_name(i);
+            if (!name) {
+                continue;
+            }
+
+            for (size_t j = 0; j < test_override_count; j++) {
+                if (strcmp(name, test_overrides[j].name) == 0) {
+                    test_override_map[i] = test_overrides[j].define;
+                    ((intmax_t (**)(size_t))test_define_maps[0].defines)[i]
+                            = test_define_override;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void test_define_perm(
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        size_t perm) {
+    if (case_->defines) {
+        test_define_maps[1].defines = case_->defines[perm];
+        test_define_maps[1].count = suite->define_count;
+    } else {
+        test_define_maps[1].defines = NULL;
+        test_define_maps[1].count = 0;
+    }
+}
+
+void test_define_cleanup(void) {
+    // test define management can allocate a few things
+    free(test_define_cache);
+    free(test_define_cache_mask);
+    free(test_override_map);
+    free((intmax_t (**)(size_t))test_define_maps[0].defines);
+}
+
+
+
+// test state
+extern const test_geometry_t *test_geometries;
+extern size_t test_geometry_count;
+
+extern const test_powerloss_t *test_powerlosses;
+extern size_t test_powerloss_count;
+
 const test_id_t *test_ids = (const test_id_t[]) {
-    {NULL, NULL, -1, NULL, 0},
+    {NULL, NULL, -1, NULL, NULL, 0},
 };
 size_t test_id_count = 1;
-
-
-const char *test_geometry = NULL;
 
 size_t test_start = 0;
 size_t test_stop = -1;
@@ -317,6 +445,7 @@ static void count_perms(
         const struct test_suite *suite,
         const struct test_case *case_,
         size_t perm,
+        const test_geometry_t *geometry,
         const lfs_testbd_powercycles_t *cycles,
         size_t cycle_count,
         size_t *perms,
@@ -325,32 +454,28 @@ static void count_perms(
     size_t perms_ = 0;
     size_t filtered_ = 0;
 
-    for (size_t p = 0; p < (cycles ? 1 : test_powerloss_count); p++) {
-        if (!cycles
-                && test_powerlosses[p].short_name != '0'
-                && !(case_->flags & TEST_REENTRANT)) {
+    for (size_t k = 0; k < case_->permutations; k++) {
+        if (perm != (size_t)-1 && k != perm) {
             continue;
         }
 
-        size_t perm_ = 0;
-        for (size_t g = 0; g < TEST_GEOMETRY_COUNT; g++) {
-            if (test_geometry && strcmp(
-                    test_geometries[g].name, test_geometry) != 0) {
-                continue;
-            }
+        // define permutation
+        test_define_perm(suite, case_, k);
 
-            for (size_t k = 0; k < case_->permutations; k++) {
-                perm_ += 1;
+        for (size_t g = 0; g < (geometry ? 1 : test_geometry_count); g++) {
+            // define geometry
+            test_define_geometry(geometry ? geometry : &test_geometries[g]);
+            test_define_flush();
 
-                if (perm != (size_t)-1 && perm_ != perm) {
+            for (size_t p = 0; p < (cycles ? 1 : test_powerloss_count); p++) {
+                // skip non-reentrant tests when powerloss testing
+                if (!cycles
+                        && test_powerlosses[p].short_name != '0'
+                        && !(case_->flags & TEST_REENTRANT)) {
                     continue;
                 }
 
                 perms_ += 1;
-
-                // setup defines
-                define_perm(suite, case_, k);
-                define_geometry(&test_geometries[g]);
 
                 if (case_->filter && !case_->filter()) {
                     continue;
@@ -370,6 +495,7 @@ static void count_perms(
 static void summary(void) {
     printf("%-36s %7s %7s %7s %11s\n",
             "", "flags", "suites", "cases", "perms");
+    size_t suites = 0;
     size_t cases = 0;
     test_flags_t flags = 0;
     size_t perms = 0;
@@ -382,7 +508,7 @@ static void summary(void) {
                 continue;
             }
 
-            define_suite(&test_suites[i]);
+            test_define_suite(&test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
                 if (test_ids[t].case_ && strcmp(
@@ -390,14 +516,16 @@ static void summary(void) {
                     continue;
                 }
 
+                cases += 1;
                 count_perms(&test_suites[i], &test_suites[i].cases[j],
                         test_ids[t].perm,
+                        test_ids[t].geometry,
                         test_ids[t].cycles,
                         test_ids[t].cycle_count,
                         &perms, &filtered);
             }
 
-            cases += test_suites[i].case_count;
+            suites += 1;
             flags |= test_suites[i].flags;
         }
     }
@@ -411,7 +539,7 @@ static void summary(void) {
     printf("%-36s %7s %7zu %7zu %11s\n",
             "TOTAL",
             flag_buf,
-            TEST_SUITE_COUNT,
+            suites,
             cases,
             perm_buf);
 }
@@ -426,8 +554,9 @@ static void list_suites(void) {
                 continue;
             }
 
-            define_suite(&test_suites[i]);
+            test_define_suite(&test_suites[i]);
 
+            size_t cases = 0;
             size_t perms = 0;
             size_t filtered = 0;
 
@@ -437,8 +566,10 @@ static void list_suites(void) {
                     continue;
                 }
 
+                cases += 1;
                 count_perms(&test_suites[i], &test_suites[i].cases[j],
                         test_ids[t].perm,
+                        test_ids[t].geometry,
                         test_ids[t].cycles,
                         test_ids[t].cycle_count,
                         &perms, &filtered);
@@ -453,7 +584,7 @@ static void list_suites(void) {
             printf("%-36s %7s %7zu %11s\n",
                     test_suites[i].id,
                     flag_buf,
-                    test_suites[i].case_count,
+                    cases,
                     perm_buf);
         }
     }
@@ -469,7 +600,7 @@ static void list_cases(void) {
                 continue;
             }
 
-            define_suite(&test_suites[i]);
+            test_define_suite(&test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
                 if (test_ids[t].case_ && strcmp(
@@ -482,6 +613,7 @@ static void list_cases(void) {
 
                 count_perms(&test_suites[i], &test_suites[i].cases[j],
                         test_ids[t].perm,
+                        test_ids[t].geometry,
                         test_ids[t].cycles,
                         test_ids[t].cycle_count,
                         &perms, &filtered);
@@ -503,7 +635,26 @@ static void list_cases(void) {
     }
 }
 
-static void list_paths(void) {
+static void list_suite_paths(void) {
+    printf("%-36s %s\n", "suite", "path");
+
+    for (size_t t = 0; t < test_id_count; t++) {
+        for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
+            if (test_ids[t].suite && strcmp(
+                    test_suites[i].name, test_ids[t].suite) != 0) {
+                continue;
+            }
+
+            printf("%-36s %s\n",
+                    test_suites[i].id,
+                    test_suites[i].path);
+        }
+    }
+}
+
+static void list_case_paths(void) {
+    printf("%-36s %s\n", "case", "path");
+
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
             if (test_ids[t].suite && strcmp(
@@ -517,7 +668,7 @@ static void list_paths(void) {
                     continue;
                 }
 
-                printf("%-36s %-36s\n",
+                printf("%-36s %s\n",
                         test_suites[i].cases[j].id,
                         test_suites[i].cases[j].path);
             }
@@ -525,7 +676,101 @@ static void list_paths(void) {
     }
 }
 
+struct list_define {
+    const char *name;
+    intmax_t *values;
+    size_t value_count;
+    size_t value_capacity;
+};
+
+static void list_defines_perms(
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        size_t perm,
+        const test_geometry_t *geometry,
+        struct list_define **defines,
+        size_t *define_count,
+        size_t *define_capacity) {
+    struct list_define *defines_ = *defines;
+    size_t define_count_ = *define_count;
+    size_t define_capacity_ = *define_capacity;
+
+    for (size_t k = 0; k < case_->permutations; k++) {
+        if (perm != (size_t)-1 && k != perm) {
+            continue;
+        }
+
+        // define permutation
+        test_define_perm(suite, case_, k);
+
+        for (size_t g = 0; g < (geometry ? 1 : test_geometry_count); g++) {
+            // define geometry
+            test_define_geometry(geometry ? geometry : &test_geometries[g]);
+            test_define_flush();
+
+            // collect defines
+            for (size_t d = 0;
+                    d < lfs_max(suite->define_count,
+                        TEST_IMPLICIT_DEFINE_COUNT);
+                    d++) {
+                if (!(d < TEST_IMPLICIT_DEFINE_COUNT || (
+                        case_->defines
+                        && case_->defines[k]
+                        && case_->defines[k][d]))) {
+                    continue;
+                }
+                const char *name = test_define_name(d);
+                intmax_t value = test_define(d);
+
+                // define already in defines?
+                for (size_t i = 0; i < define_count_; i++) {
+                    if (strcmp(defines_[i].name, name) == 0) {
+                        // value already in values?
+                        for (size_t j = 0; j < defines_[i].value_count; j++) {
+                            if (defines_[i].values[j] == value) {
+                                goto next_define;
+                            }
+                        }
+
+                        *(intmax_t*)mappend(
+                            (void**)&defines_[i].values,
+                            sizeof(intmax_t),
+                            &defines_[i].value_count,
+                            &defines_[i].value_capacity) = value;
+
+                        goto next_define;
+                    }
+                }
+
+                {
+                    // new define?
+                    struct list_define *define = mappend(
+                            (void**)&defines_,
+                            sizeof(struct list_define),
+                            &define_count_,
+                            &define_capacity_);
+                    define->name = name;
+                    define->values = malloc(sizeof(intmax_t));
+                    define->values[0] = value;
+                    define->value_count = 1;
+                    define->value_capacity = 1;
+                }
+
+                next_define:;
+            }
+        }
+    }
+
+    *defines = defines_;
+    *define_count = define_count_;
+    *define_capacity = define_capacity_;
+}
+
 static void list_defines(void) {
+    struct list_define *defines = NULL;
+    size_t define_count = 0;
+    size_t define_capacity = 0;
+
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
             if (test_ids[t].suite && strcmp(
@@ -533,7 +778,7 @@ static void list_defines(void) {
                 continue;
             }
 
-            define_suite(&test_suites[i]);
+            test_define_suite(&test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
                 if (test_ids[t].case_ && strcmp(
@@ -541,102 +786,121 @@ static void list_defines(void) {
                     continue;
                 }
 
-                for (size_t p = 0;
-                        p < (test_ids[t].cycles ? 1 : test_powerloss_count);
-                        p++) {
-                    if (!test_ids[t].cycles
-                            && test_powerlosses[p].short_name != '0'
-                            && !(test_suites[i].cases[j].flags
-                                & TEST_REENTRANT)) {
-                        continue;
-                    }
-
-                    size_t perm_ = 0;
-                    for (size_t g = 0; g < TEST_GEOMETRY_COUNT; g++) {
-                        if (test_geometry && strcmp(
-                                test_geometries[g].name, test_geometry) != 0) {
-                            continue;
-                        }
-
-                        for (size_t k = 0;
-                                k < test_suites[i].cases[j].permutations;
-                                k++) {
-                            perm_ += 1;
-
-                            if (test_ids[t].perm != (size_t)-1
-                                    && perm_ != test_ids[t].perm) {
-                                continue;
-                            }
-
-                            // setup defines
-                            define_perm(&test_suites[i],
-                                    &test_suites[i].cases[j],
-                                    k);
-                            define_geometry(&test_geometries[g]);
-
-                            // print the case
-                            char id_buf[256];
-                            sprintf(id_buf, "%s#%zu",
-                                    test_suites[i].cases[j].id, perm_);
-                            printf("%-36s ", id_buf);
-
-                            // special case for the current geometry
-                            printf("GEOMETRY=%s ", test_geometries[g].name);
-
-                            // print each define
-                            for (size_t l = 0;
-                                    l < test_suites[i].define_count;
-                                    l++) {
-                                if (test_suites[i].cases[j].defines
-                                        && test_suites[i].cases[j]
-                                            .defines[k][l]) {
-                                    printf("%s=%jd ",
-                                            test_suites[i].define_names[l],
-                                            test_define(l));
-                                }
-                            }
-                            printf("\n");
-                        }
-                    }
-                }
+                list_defines_perms(&test_suites[i], &test_suites[i].cases[j],
+                        test_ids[t].perm,
+                        test_ids[t].geometry,
+                        &defines,
+                        &define_count,
+                        &define_capacity);
             }
         }
     }
-}
 
-static void list_geometries(void) {
-    for (size_t i = 0; i < TEST_GEOMETRY_COUNT; i++) {
-        if (test_geometry && strcmp(
-                test_geometries[i].name,
-                test_geometry) != 0) {
-            continue;
-        }
-
-        define_geometry(&test_geometries[i]);
-
-        printf("%-36s ", test_geometries[i].name);
-        // print each define
-        for (size_t k = 0; k < TEST_GEOMETRY_DEFINE_COUNT; k++) {
-            printf("%s=%jd ",
-                    test_predefine_names[k],
-                    test_predefine(k));
+    for (size_t i = 0; i < define_count; i++) {
+        printf("%s=", defines[i].name);
+        for (size_t j = 0; j < defines[i].value_count; j++) {
+            printf("%jd", defines[i].values[j]);
+            if (j != defines[i].value_count-1) {
+                printf(",");
+            }
         }
         printf("\n");
-
     }
+
+    for (size_t i = 0; i < define_count; i++) {
+        free(defines[i].values);
+    }
+    free(defines);
 }
 
-static void list_defaults(void) {
-    printf("%-36s ", "defaults");
-    // print each define
-    for (size_t k = 0; k < TEST_DEFAULT_DEFINE_COUNT; k++) {
-        printf("%s=%jd ",
-                test_predefine_names[k+TEST_GEOMETRY_DEFINE_COUNT],
-                test_predefine(k+TEST_GEOMETRY_DEFINE_COUNT));
+static void list_implicit(void) {
+    struct list_define *defines = NULL;
+    size_t define_count = 0;
+    size_t define_capacity = 0;
+
+    for (size_t t = 0; t < test_id_count; t++) {
+        // yes we do need to define a suite, this does a bit of bookeeping
+        // such as setting up the define cache
+        test_define_suite(&(const struct test_suite){0});
+        list_defines_perms(
+                &(const struct test_suite){0},
+                &(const struct test_case){.permutations=1},
+                -1,
+                test_ids[t].geometry,
+                &defines,
+                &define_count,
+                &define_capacity);
     }
-    printf("\n");
+
+    for (size_t i = 0; i < define_count; i++) {
+        printf("%s=", defines[i].name);
+        for (size_t j = 0; j < defines[i].value_count; j++) {
+            printf("%jd", defines[i].values[j]);
+            if (j != defines[i].value_count-1) {
+                printf(",");
+            }
+        }
+        printf("\n");
+    }
+
+    for (size_t i = 0; i < define_count; i++) {
+        free(defines[i].values);
+    }
+    free(defines);
 }
 
+
+
+// geometries to test
+
+const test_geometry_t builtin_geometries[] = {
+    {'d', "default",   16,   16,   512,       (1024*1024)/512},
+    {'e', "eeprom",     1,    1,   512,       (1024*1024)/512},
+    {'E', "emmc",     512,  512,   512,       (1024*1024)/512},
+    {'n', "nor",        1,    1,  4096,      (1024*1024)/4096},
+    {'N', "nand",    4096, 4096, 32768, (1024*1024)/(32*1024)},
+    {0, NULL, 0, 0, 0, 0},
+};
+
+const test_geometry_t *test_geometries = (const test_geometry_t[]){
+    {'d', "default",   16,   16,   512,       (1024*1024)/512},
+    {'e', "eeprom",     1,    1,   512,       (1024*1024)/512},
+    {'E', "emmc",     512,  512,   512,       (1024*1024)/512},
+    {'n', "nor",        1,    1,  4096,      (1024*1024)/4096},
+    {'N', "nand",    4096, 4096, 32768, (1024*1024)/(32*1024)},
+};
+size_t test_geometry_count = 5;
+
+static void list_geometries(void) {
+    printf("%-24s %7s %7s %7s %7s %11s  %s\n",
+            "geometry", "read", "prog", "erase", "count", "size", "leb16");
+    size_t i = 0;
+    for (; builtin_geometries[i].long_name; i++) {
+        uintmax_t read_size   = builtin_geometries[i].read_size;
+        uintmax_t prog_size   = builtin_geometries[i].prog_size;
+        uintmax_t block_size  = builtin_geometries[i].block_size;
+        uintmax_t block_count = builtin_geometries[i].block_count;
+        printf("%c,%-22s %7ju %7ju %7ju %7ju %11ju  ",
+                builtin_geometries[i].short_name,
+                builtin_geometries[i].long_name,
+                read_size,
+                prog_size,
+                block_size,
+                block_count,
+                block_size*block_count);
+        if (read_size != block_size || prog_size != block_size) {
+            if (read_size != prog_size) {
+                leb16_print(read_size);
+            }
+            leb16_print(prog_size);
+        }
+        leb16_print(block_size);
+        if (block_count*block_size != 1024*1024) {
+            leb16_print(block_count);
+        }
+        printf("\n");
+    }
+}
 
 
 // scenarios to run tests under power-loss
@@ -686,11 +950,15 @@ static void run_powerloss_none(
     }
 
     // run the test
-    printf("running %s#%zu\n", case_->id, perm);
+    printf("running ");
+    print_id(suite, case_, perm, NULL, 0);
+    printf("\n");
 
     case_->run(&cfg);
 
-    printf("finished %s#%zu\n", case_->id, perm);
+    printf("finished ");
+    print_id(suite, case_, perm, NULL, 0);
+    printf("\n");
 
     // cleanup
     err = lfs_testbd_destroy(&cfg);
@@ -756,7 +1024,9 @@ static void run_powerloss_linear(
     }
 
     // run the test, increasing power-cycles as power-loss events occur
-    printf("running %s#%zu\n", case_->id, perm);
+    printf("running ");
+    print_id(suite, case_, perm, NULL, 0);
+    printf("\n");
 
     while (true) {
         if (!setjmp(powerloss_jmp)) {
@@ -766,9 +1036,11 @@ static void run_powerloss_linear(
         }
 
         // power-loss!
-        printf("powerloss %s#%zu#", case_->id, perm);
+        printf("powerloss ");
+        print_id(suite, case_, perm, NULL, 0);
+        printf("#");
         for (lfs_testbd_powercycles_t j = 1; j <= i; j++) {
-            leb16_print(&j, 1);
+            leb16_print(j);
         }
         printf("\n");
 
@@ -776,7 +1048,9 @@ static void run_powerloss_linear(
         lfs_testbd_setpowercycles(&cfg, i);
     }
 
-    printf("finished %s#%zu\n", case_->id, perm);
+    printf("finished ");
+    print_id(suite, case_, perm, NULL, 0);
+    printf("\n");
 
     // cleanup
     err = lfs_testbd_destroy(&cfg);
@@ -837,7 +1111,9 @@ static void run_powerloss_exponential(
     }
 
     // run the test, increasing power-cycles as power-loss events occur
-    printf("running %s#%zu\n", case_->id, perm);
+    printf("running ");
+    print_id(suite, case_, perm, NULL, 0);
+    printf("\n");
 
     while (true) {
         if (!setjmp(powerloss_jmp)) {
@@ -847,9 +1123,11 @@ static void run_powerloss_exponential(
         }
 
         // power-loss!
-        printf("powerloss %s#%zu#", case_->id, perm);
+        printf("powerloss ");
+        print_id(suite, case_, perm, NULL, 0);
+        printf("#");
         for (lfs_testbd_powercycles_t j = 1; j <= i; j *= 2) {
-            leb16_print(&j, 1);
+            leb16_print(j);
         }
         printf("\n");
 
@@ -857,7 +1135,9 @@ static void run_powerloss_exponential(
         lfs_testbd_setpowercycles(&cfg, i);
     }
 
-    printf("finished %s#%zu\n", case_->id, perm);
+    printf("finished ");
+    print_id(suite, case_, perm, NULL, 0);
+    printf("\n");
 
     // cleanup
     err = lfs_testbd_destroy(&cfg);
@@ -916,7 +1196,9 @@ static void run_powerloss_cycles(
     }
 
     // run the test, increasing power-cycles as power-loss events occur
-    printf("running %s#%zu\n", case_->id, perm);
+    printf("running ");
+    print_id(suite, case_, perm, NULL, 0);
+    printf("\n");
 
     while (true) {
         if (!setjmp(powerloss_jmp)) {
@@ -927,8 +1209,8 @@ static void run_powerloss_cycles(
 
         // power-loss!
         assert(i <= cycle_count);
-        printf("powerloss %s#%zu#", case_->id, perm);
-        leb16_print(cycles, i+1);
+        printf("powerloss ");
+        print_id(suite, case_, perm, cycles, i+1);
         printf("\n");
 
         i += 1;
@@ -936,7 +1218,9 @@ static void run_powerloss_cycles(
                 (i < cycle_count) ? cycles[i] : 0);
     }
 
-    printf("finished %s#%zu\n", case_->id, perm);
+    printf("finished ");
+    print_id(suite, case_, perm, NULL, 0);
+    printf("\n");
 
     // cleanup
     err = lfs_testbd_destroy(&cfg);
@@ -961,24 +1245,20 @@ struct powerloss_exhaustive_cycles {
 };
 
 static void powerloss_exhaustive_branch(void *c) {
-    // append to branches
     struct powerloss_exhaustive_state *state = c;
-    state->branch_count += 1;
-    if (state->branch_count > state->branch_capacity) {
-        state->branch_capacity = (2*state->branch_capacity > 4)
-                ? 2*state->branch_capacity
-                : 4;
-        state->branches = realloc(state->branches,
-                state->branch_capacity * sizeof(lfs_testbd_t));
-        if (!state->branches) {
-            fprintf(stderr, "error: exhaustive: out of memory\n");
-            exit(-1);
-        }
+    // append to branches
+    lfs_testbd_t *branch = mappend(
+            (void**)&state->branches,
+            sizeof(lfs_testbd_t),
+            &state->branch_count,
+            &state->branch_capacity);
+    if (!branch) {
+        fprintf(stderr, "error: exhaustive: out of memory\n");
+        exit(-1);
     }
 
     // create copy-on-write copy
-    int err = lfs_testbd_copy(state->cfg,
-            &state->branches[state->branch_count-1]);
+    int err = lfs_testbd_copy(state->cfg, branch);
     if (err) {
         fprintf(stderr, "error: exhaustive: could not create bd copy\n");
         exit(-1);
@@ -1023,22 +1303,19 @@ static void run_powerloss_exhaustive_layer(
     // recurse into each branch
     for (size_t i = 0; i < state.branch_count; i++) {
         // first push and print the branch
-        cycles->cycle_count += 1;
-        if (cycles->cycle_count > cycles->cycle_capacity) {
-            cycles->cycle_capacity = (2*cycles->cycle_capacity > 4)
-                    ? 2*cycles->cycle_capacity
-                    : 4;
-            cycles->cycles = realloc(cycles->cycles,
-                    cycles->cycle_capacity * sizeof(lfs_testbd_powercycles_t));
-            if (!cycles->cycles) {
-                fprintf(stderr, "error: exhaustive: out of memory\n");
-                exit(-1);
-            }
+        lfs_testbd_powercycles_t *cycle = mappend(
+                (void**)&cycles->cycles,
+                sizeof(lfs_testbd_powercycles_t),
+                &cycles->cycle_count,
+                &cycles->cycle_capacity);
+        if (!cycle) {
+            fprintf(stderr, "error: exhaustive: out of memory\n");
+            exit(-1);
         }
-        cycles->cycles[cycles->cycle_count-1] = i;
+        *cycle = i;
 
-        printf("powerloss %s#%zu#", case_->id, perm);
-        leb16_print(cycles->cycles, cycles->cycle_count);
+        printf("powerloss ");
+        print_id(suite, case_, perm, cycles->cycles, cycles->cycle_count);
         printf("\n");
 
         // now recurse
@@ -1122,13 +1399,18 @@ const test_powerloss_t builtin_powerlosses[] = {
 
 const char *const builtin_powerlosses_help[] = {
     "Run with no power-losses.",
-    "Run with linearly-decreasing power-losses.",
     "Run with exponentially-decreasing power-losses.",
+    "Run with linearly-decreasing power-losses.",
     "Run a all permutations of power-losses, this may take a while.",
     "Run a all permutations of n power-losses.",
     "Run a custom comma-separated set of power-losses.",
     "Run a custom leb16-encoded set of power-losses.",
 };
+
+const test_powerloss_t *test_powerlosses = (const test_powerloss_t[]){
+    {'0', "none", run_powerloss_none, NULL, 0},
+};
+size_t test_powerloss_count = 1;
 
 static void list_powerlosses(void) {
     printf("%-24s %s\n", "scenario", "description");
@@ -1148,33 +1430,34 @@ static void list_powerlosses(void) {
 
 
 // global test step count
-static size_t step = 0;
+size_t step = 0;
 
 // run the tests
 static void run_perms(
         const struct test_suite *suite,
         const struct test_case *case_,
         size_t perm,
+        const test_geometry_t *geometry,
         const lfs_testbd_powercycles_t *cycles,
         size_t cycle_count) {
-    for (size_t p = 0; p < (cycles ? 1 : test_powerloss_count); p++) {
-        if (!cycles
-                && test_powerlosses[p].short_name != '0'
-                && !(case_->flags & TEST_REENTRANT)) {
+    for (size_t k = 0; k < case_->permutations; k++) {
+        if (perm != (size_t)-1 && k != perm) {
             continue;
         }
 
-        size_t perm_ = 0;
-        for (size_t g = 0; g < TEST_GEOMETRY_COUNT; g++) {
-            if (test_geometry && strcmp(
-                    test_geometries[g].name, test_geometry) != 0) {
-                continue;
-            }
+        // define permutation
+        test_define_perm(suite, case_, k);
 
-            for (size_t k = 0; k < case_->permutations; k++) {
-                perm_ += 1;
+        for (size_t g = 0; g < (geometry ? 1 : test_geometry_count); g++) {
+            // define geometry
+            test_define_geometry(geometry ? geometry : &test_geometries[g]);
+            test_define_flush();
 
-                if (perm != (size_t)-1 && perm_ != perm) {
+            for (size_t p = 0; p < (cycles ? 1 : test_powerloss_count); p++) {
+                // skip non-reentrant tests when powerloss testing
+                if (!cycles
+                        && test_powerlosses[p].short_name != '0'
+                        && !(case_->flags & TEST_REENTRANT)) {
                     continue;
                 }
 
@@ -1186,24 +1469,20 @@ static void run_perms(
                 }
                 step += 1;
 
-                // setup defines
-                define_perm(suite, case_, k);
-                define_geometry(&test_geometries[g]);
-
                 // filter?
                 if (case_->filter && !case_->filter()) {
-                    printf("skipped %s#%zu\n", case_->id, perm_);
+                    printf("skipped %s#%zu\n", case_->id, k);
                     continue;
                 }
 
                 if (cycles) {
                     run_powerloss_cycles(
-                            suite, case_, perm_,
+                            suite, case_, k,
                             cycles,
                             cycle_count);
                 } else {
                     test_powerlosses[p].run(
-                            suite, case_, perm_,
+                            suite, case_, k,
                             test_powerlosses[p].cycles,
                             test_powerlosses[p].cycle_count);
                 }
@@ -1223,7 +1502,7 @@ static void run(void) {
                 continue;
             }
 
-            define_suite(&test_suites[i]);
+            test_define_suite(&test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
                 if (test_ids[t].case_ && strcmp(
@@ -1233,6 +1512,7 @@ static void run(void) {
 
                 run_perms(&test_suites[i], &test_suites[i].cases[j],
                         test_ids[t].perm,
+                        test_ids[t].geometry,
                         test_ids[t].cycles,
                         test_ids[t].cycle_count);
             }
@@ -1248,35 +1528,37 @@ enum opt_flags {
     OPT_SUMMARY          = 'Y',
     OPT_LIST_SUITES      = 'l',
     OPT_LIST_CASES       = 'L',
-    OPT_LIST_PATHS       = 1,
-    OPT_LIST_DEFINES     = 2,
-    OPT_LIST_GEOMETRIES  = 3,
-    OPT_LIST_DEFAULTS    = 4,
-    OPT_LIST_POWERLOSSES = 5,
+    OPT_LIST_SUITE_PATHS = 1,
+    OPT_LIST_CASE_PATHS  = 2,
+    OPT_LIST_DEFINES     = 3,
+    OPT_LIST_IMPLICIT    = 4,
+    OPT_LIST_GEOMETRIES  = 5,
+    OPT_LIST_POWERLOSSES = 6,
     OPT_DEFINE           = 'D',
-    OPT_GEOMETRY         = 'G',
+    OPT_GEOMETRY         = 'g',
     OPT_POWERLOSS        = 'p',
-    OPT_START            = 6,
-    OPT_STEP             = 7,
-    OPT_STOP             = 8,
+    OPT_START            = 7,
+    OPT_STEP             = 8,
+    OPT_STOP             = 9,
     OPT_DISK             = 'd',
     OPT_TRACE            = 't',
-    OPT_READ_SLEEP       = 9,
-    OPT_PROG_SLEEP       = 10,
-    OPT_ERASE_SLEEP      = 11,
+    OPT_READ_SLEEP       = 10,
+    OPT_PROG_SLEEP       = 11,
+    OPT_ERASE_SLEEP      = 12,
 };
 
-const char *short_opts = "hYlLD:G:p:nrVd:t:";
+const char *short_opts = "hYlLD:g:p:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
     {"summary",          no_argument,       NULL, OPT_SUMMARY},
     {"list-suites",      no_argument,       NULL, OPT_LIST_SUITES},
     {"list-cases",       no_argument,       NULL, OPT_LIST_CASES},
-    {"list-paths",       no_argument,       NULL, OPT_LIST_PATHS},
+    {"list-suite-paths", no_argument,       NULL, OPT_LIST_SUITE_PATHS},
+    {"list-case-paths",  no_argument,       NULL, OPT_LIST_CASE_PATHS},
     {"list-defines",     no_argument,       NULL, OPT_LIST_DEFINES},
+    {"list-implicit",    no_argument,       NULL, OPT_LIST_IMPLICIT},
     {"list-geometries",  no_argument,       NULL, OPT_LIST_GEOMETRIES},
-    {"list-defaults",    no_argument,       NULL, OPT_LIST_DEFAULTS},
     {"list-powerlosses", no_argument,       NULL, OPT_LIST_POWERLOSSES},
     {"define",           required_argument, NULL, OPT_DEFINE},
     {"geometry",         required_argument, NULL, OPT_GEOMETRY},
@@ -1297,13 +1579,14 @@ const char *const help_text[] = {
     "Show quick summary.",
     "List test suites.",
     "List test cases.",
-    "List the path for each test case.",
-    "List the defines for each test permutation.",
-    "List the disk geometries used for testing.",
-    "List the default defines in this test-runner.",
+    "List the path for each test suite.",
+    "List the path and line number for each test case.",
+    "List all defines in this test-runner.",
+    "List implicit defines in this test-runner.",
+    "List the available disk geometries.",
     "List the available power-loss scenarios.",
     "Override a test define.",
-    "Filter by geometry.",
+    "Comma-separated list of disk geometries to test. Defaults to d,e,E,n,N.",
     "Comma-separated list of power-loss scenarios to test. Defaults to 0,l.",
     "Start at the nth test.",
     "Stop before the nth test.",
@@ -1318,11 +1601,11 @@ const char *const help_text[] = {
 int main(int argc, char **argv) {
     void (*op)(void) = run;
 
-    const char **override_names = NULL;
-    intmax_t *override_defines = NULL;
+    test_override_t *overrides = NULL;
     size_t override_count = 0;
     size_t override_capacity = 0;
 
+    size_t test_geometry_capacity = 0;
     size_t test_powerloss_capacity = 0;
     size_t test_id_capacity = 0;
 
@@ -1396,41 +1679,32 @@ int main(int argc, char **argv) {
             case OPT_LIST_CASES:
                 op = list_cases;
                 break;
-            case OPT_LIST_PATHS:
-                op = list_paths;
+            case OPT_LIST_SUITE_PATHS:
+                op = list_suite_paths;
+                break;
+            case OPT_LIST_CASE_PATHS:
+                op = list_case_paths;
                 break;
             case OPT_LIST_DEFINES:
                 op = list_defines;
                 break;
+            case OPT_LIST_IMPLICIT:
+                op = list_implicit;
+                break;
             case OPT_LIST_GEOMETRIES:
                 op = list_geometries;
-                break;
-            case OPT_LIST_DEFAULTS:
-                op = list_defaults;
                 break;
             case OPT_LIST_POWERLOSSES:
                 op = list_powerlosses;
                 break;
             // configuration
             case OPT_DEFINE: {
-                // special case for -DGEOMETRY=<name>, we treat this the same
-                // as --geometry=<name>
-                if (strncmp(optarg, "GEOMETRY=", strlen("GEOMETRY=")) == 0) {
-                    test_geometry = &optarg[strlen("GEOMETRY=")];
-                    break;
-                }
-
-                // realloc if necessary
-                override_count += 1;
-                if (override_count > override_capacity) {
-                    override_capacity = (2*override_capacity > 4)
-                            ? 2*override_capacity
-                            : 4;
-                    override_names = realloc(override_names,
-                            override_capacity * sizeof(const char *));
-                    override_defines = realloc(override_defines,
-                            override_capacity * sizeof(intmax_t));
-                }
+                // allocate space
+                test_override_t *override = mappend(
+                        (void**)&overrides,
+                        sizeof(test_override_t),
+                        &override_count,
+                        &override_capacity);
 
                 // parse into string key/intmax_t value, cannibalizing the
                 // arg in the process
@@ -1439,13 +1713,12 @@ int main(int argc, char **argv) {
                 if (!sep) {
                     goto invalid_define;
                 }
-                override_defines[override_count-1]
-                        = strtoumax(sep+1, &parsed, 0);
+                override->define = strtoumax(sep+1, &parsed, 0);
                 if (parsed == sep+1) {
                     goto invalid_define;
                 }
 
-                override_names[override_count-1] = optarg;
+                override->name = optarg;
                 *sep = '\0';
                 break;
 
@@ -1453,9 +1726,136 @@ invalid_define:
                 fprintf(stderr, "error: invalid define: %s\n", optarg);
                 exit(-1);
             }
-            case OPT_GEOMETRY:
-                test_geometry = optarg;
+            case OPT_GEOMETRY: {
+                // reset our geometry scenarios
+                if (test_geometry_capacity > 0) {
+                    free((test_geometry_t*)test_geometries);
+                }
+                test_geometries = NULL;
+                test_geometry_count = 0;
+                test_geometry_capacity = 0;
+
+                // parse the comma separated list of disk geometries
+                while (*optarg) {
+                    // allocate space
+                    test_geometry_t *geometry = mappend(
+                            (void**)&test_geometries,
+                            sizeof(test_geometry_t),
+                            &test_geometry_count,
+                            &test_geometry_capacity);
+
+                    // parse the disk geometry
+                    optarg += strspn(optarg, " ");
+
+                    // named disk geometry
+                    size_t len = strcspn(optarg, " ,");
+                    for (size_t i = 0; builtin_geometries[i].long_name; i++) {
+                        if ((len == 1
+                                && *optarg == builtin_geometries[i].short_name)
+                                || (len == strlen(
+                                        builtin_geometries[i].long_name)
+                                    && memcmp(optarg,
+                                        builtin_geometries[i].long_name,
+                                        len) == 0))  {
+                            *geometry = builtin_geometries[i];
+                            optarg += len;
+                            goto geometry_next;
+                        }
+                    }
+
+                    // comma-separated read/prog/erase/count
+                    if (*optarg == '{') {
+                        lfs_size_t sizes[4];
+                        size_t count = 0;
+
+                        char *s = optarg + 1;
+                        while (count < 4) {
+                            char *parsed = NULL;
+                            sizes[count] = strtoumax(s, &parsed, 0);
+                            count += 1;
+
+                            s = parsed + strspn(parsed, " ");
+                            if (*s == ',') {
+                                s += 1;
+                                continue;
+                            } else if (*s == '}') {
+                                s += 1;
+                                break;
+                            } else {
+                                goto geometry_unknown;
+                            }
+                        }
+
+                        // allow implicit r=p and p=e for common geometries
+                        geometry->read_size = sizes[0];
+                        geometry->prog_size
+                                = count >= 3 ? sizes[1]
+                                : sizes[0];
+                        geometry->block_size
+                                = count >= 3 ? sizes[2]
+                                : count >= 2 ? sizes[1]
+                                : sizes[0];
+                        // if no block_count, figure out 1 MiB total size
+                        geometry->block_count
+                                = count >= 4 ? sizes[3]
+                                : (1024*1024) / geometry->block_size;
+                        optarg = s;
+                        goto geometry_next;
+                    }
+
+                    // leb16-encoded read/prog/erase/count
+                    if (*optarg == '#') {
+                        lfs_size_t sizes[4];
+                        size_t count = 0;
+
+                        char *s = optarg + 1;
+                        while (true) {
+                            char *parsed = NULL;
+                            uintmax_t x = leb16_parse(s, &parsed);
+                            if (parsed == s || count >= 4) {
+                                break;
+                            }
+
+                            sizes[count] = x;
+                            count += 1;
+                            s = parsed;
+                        }
+
+                        // allow implicit r=p and p=e for common geometries
+                        geometry->read_size = sizes[0];
+                        geometry->prog_size
+                                = count >= 3 ? sizes[1]
+                                : sizes[0];
+                        geometry->block_size
+                                = count >= 3 ? sizes[2]
+                                : count >= 2 ? sizes[1]
+                                : sizes[0];
+                        // if no block_count, figure out 1 MiB total size
+                        geometry->block_count
+                                = count >= 4 ? sizes[3]
+                                : (1024*1024) / geometry->block_size;
+                        optarg = s;
+                        goto geometry_next;
+                    }
+
+geometry_unknown:
+                    // unknown scenario?
+                    fprintf(stderr, "error: unknown disk geometry: %s\n",
+                            optarg);
+                    exit(-1);
+
+geometry_next:
+                    optarg += strspn(optarg, " ");
+                    if (*optarg == ',') {
+                        optarg += 1;
+                    } else if (*optarg == '\0') {
+                        break;
+                    } else {
+                        goto geometry_unknown;
+                    }
+                }
                 break;
+            }
             case OPT_POWERLOSS: {
                 // reset our powerloss scenarios
                 if (test_powerloss_capacity > 0) {
@@ -1468,17 +1868,11 @@ invalid_define:
                 // parse the comma separated list of power-loss scenarios
                 while (*optarg) {
                     // allocate space
-                    test_powerloss_count += 1;
-                    if (test_powerloss_count > test_powerloss_capacity) {
-                        test_powerloss_capacity
-                                = (2*test_powerloss_capacity > 4)
-                                ? 2*test_powerloss_capacity
-                                : 4;
-                        test_powerlosses = realloc(
-                                (test_powerloss_t*)test_powerlosses,
-                                test_powerloss_capacity
-                                * sizeof(test_powerloss_t));
-                    }
+                    test_powerloss_t *powerloss = mappend(
+                            (void**)&test_powerlosses,
+                            sizeof(test_powerloss_t),
+                            &test_powerloss_count,
+                            &test_powerloss_capacity);
 
                     // parse the power-loss scenario
                     optarg += strspn(optarg, " ");
@@ -1493,9 +1887,7 @@ invalid_define:
                                     && memcmp(optarg,
                                         builtin_powerlosses[i].long_name,
                                         len) == 0))  {
-                            ((test_powerloss_t*)test_powerlosses)[
-                                    test_powerloss_count-1]
-                                    = builtin_powerlosses[i];
+                            *powerloss = builtin_powerlosses[i];
                             optarg += len;
                             goto powerloss_next;
                         }
@@ -1503,27 +1895,19 @@ invalid_define:
 
                     // comma-separated permutation
                     if (*optarg == '{') {
-                        // how many cycles?
-                        size_t count = 1;
-                        for (size_t i = 0; optarg[i]; i++) {
-                            if (optarg[i] == ',') {
-                                count += 1;
-                            }
-                        }
+                        lfs_testbd_powercycles_t *cycles = NULL;
+                        size_t cycle_count = 0;
+                        size_t cycle_capacity = 0;
 
-                        // parse cycles
-                        lfs_testbd_powercycles_t *cycles = malloc(
-                                count * sizeof(lfs_testbd_powercycles_t));
-                        size_t i = 0;
                         char *s = optarg + 1;
                         while (true) {
                             char *parsed = NULL;
-                            cycles[i] = strtoumax(s, &parsed, 0);
-                            if (parsed == s) {
-                                count -= 1;
-                                i -= 1;
-                            }
-                            i += 1;
+                            *(lfs_testbd_powercycles_t*)mappend(
+                                    (void**)&cycles,
+                                    sizeof(lfs_testbd_powercycles_t),
+                                    &cycle_count,
+                                    &cycle_capacity)
+                                    = strtoumax(s, &parsed, 0);
 
                             s = parsed + strspn(parsed, " ");
                             if (*s == ',') {
@@ -1537,11 +1921,10 @@ invalid_define:
                             }
                         }
 
-                        ((test_powerloss_t*)test_powerlosses)[
-                                test_powerloss_count-1] = (test_powerloss_t){
+                        *powerloss = (test_powerloss_t){
                             .run = run_powerloss_cycles,
                             .cycles = cycles,
-                            .cycle_count = count,
+                            .cycle_count = cycle_count,
                         };
                         optarg = s;
                         goto powerloss_next;
@@ -1549,20 +1932,32 @@ invalid_define:
 
                     // leb16-encoded permutation
                     if (*optarg == '#') {
-                        lfs_testbd_powercycles_t *cycles;
-                        char *parsed = NULL;
-                        size_t count = leb16_parse(optarg+1, &parsed, &cycles);
-                        if (parsed == optarg+1) {
-                            goto powerloss_unknown;
+                        lfs_testbd_powercycles_t *cycles = NULL;
+                        size_t cycle_count = 0;
+                        size_t cycle_capacity = 0;
+
+                        char *s = optarg + 1;
+                        while (true) {
+                            char *parsed = NULL;
+                            uintmax_t x = leb16_parse(s, &parsed);
+                            if (parsed == s) {
+                                break;
+                            }
+
+                            *(lfs_testbd_powercycles_t*)mappend(
+                                    (void**)&cycles,
+                                    sizeof(lfs_testbd_powercycles_t),
+                                    &cycle_count,
+                                    &cycle_capacity) = x;
+                            s = parsed;
                         }
 
-                        ((test_powerloss_t*)test_powerlosses)[
-                                test_powerloss_count-1] = (test_powerloss_t){
+                        *powerloss = (test_powerloss_t){
                             .run = run_powerloss_cycles,
                             .cycles = cycles,
-                            .cycle_count = count,
+                            .cycle_count = cycle_count,
                         };
-                        optarg = (char*)parsed;
+                        optarg = s;
                         goto powerloss_next;
                     }
 
@@ -1573,8 +1968,7 @@ invalid_define:
                         if (parsed == optarg) {
                             goto powerloss_unknown;
                         }
-                        ((test_powerloss_t*)test_powerlosses)[
-                                test_powerloss_count-1] = (test_powerloss_t){
+                        *powerloss = (test_powerloss_t){
                             .run = run_powerloss_exhaustive,
                             .cycles = NULL,
                             .cycle_count = count,
@@ -1585,15 +1979,18 @@ invalid_define:
 
 powerloss_unknown:
                     // unknown scenario?
-                    fprintf(stderr, "error: "
-                            "unknown power-loss scenario: %s\n",
+                    fprintf(stderr, "error: unknown power-loss scenario: %s\n",
                             optarg);
                     exit(-1);
 
 powerloss_next:
-                    optarg += strcspn(optarg, ",");
+                    optarg += strspn(optarg, " ");
                     if (*optarg == ',') {
                         optarg += 1;
+                    } else if (*optarg == '\0') {
+                        break;
+                    } else {
+                        goto powerloss_unknown;
                     }
                 }
                 break;
@@ -1684,6 +2081,7 @@ getopt_done: ;
         char *suite = argv[optind];
         char *case_ = strchr(suite, '#');
         size_t perm = -1;
+        test_geometry_t *geometry = NULL;
         lfs_testbd_powercycles_t *cycles = NULL;
         size_t cycle_count = 0;
 
@@ -1697,19 +2095,69 @@ getopt_done: ;
                 *perm_ = '\0';
                 perm_ += 1;
 
-                // parse power cycles
-                char *cycles_ = strchr(perm_, '#');
-                if (cycles_) {
-                    *cycles_ = '\0';
-                    cycles_ += 1;
+                // parse geometry
+                char *geometry_ = strchr(perm_, '#');
+                if (geometry_) {
+                    *geometry_ = '\0';
+                    geometry_ += 1;
 
-                    char *parsed = NULL;
-                    cycle_count = leb16_parse(cycles_, &parsed, &cycles);
-                    if (parsed == cycles_) {
-                        fprintf(stderr, "error: "
-                                "could not parse test cycles: %s\n", cycles_);
-                        exit(-1);
+                    // parse power cycles
+                    char *cycles_ = strchr(geometry_, '#');
+                    if (cycles_) {
+                        *cycles_ = '\0';
+                        cycles_ += 1;
+
+                        size_t cycle_capacity = 0;
+                        while (*cycles_ != '\0') {
+                            char *parsed = NULL;
+                            *(lfs_testbd_powercycles_t*)mappend(
+                                    (void**)&cycles,
+                                    sizeof(lfs_testbd_powercycles_t),
+                                    &cycle_count,
+                                    &cycle_capacity)
+                                    = leb16_parse(cycles_, &parsed);
+                            if (parsed == cycles_) {
+                                fprintf(stderr, "error: "
+                                        "could not parse test cycles: %s\n",
+                                        cycles_);
+                                exit(-1);
+                            }
+                            cycles_ = parsed;
+                        }
                     }
+
+                    geometry = malloc(sizeof(test_geometry_t));
+                    lfs_size_t sizes[4];
+                    size_t count = 0;
+
+                    while (*geometry_ != '\0') {
+                        char *parsed = NULL;
+                        uintmax_t x = leb16_parse(geometry_, &parsed);
+                        if (parsed == geometry_ || count >= 4) {
+                            fprintf(stderr, "error: "
+                                    "count not parse test geometry: %s\n",
+                                    geometry_);
+                            exit(-1);
+                        }
+
+                        sizes[count] = x;
+                        count += 1;
+                        geometry_ = parsed;
+                    }
+
+                    // allow implicit r=p and p=e for common geometries
+                    geometry->read_size = sizes[0];
+                    geometry->prog_size
+                            = count >= 3 ? sizes[1]
+                            : sizes[0];
+                    geometry->block_size
+                            = count >= 3 ? sizes[2]
+                            : count >= 2 ? sizes[1]
+                            : sizes[0];
+                    // if no block_count, figure out 1 MiB total size
+                    geometry->block_count
+                            = count >= 4 ? sizes[3]
+                            : (1024*1024) / geometry->block_size;
                 }
 
                 char *parsed = NULL;
@@ -1734,32 +2182,33 @@ getopt_done: ;
         }
 
         // append to identifier list
-        test_id_count += 1;
-        if (test_id_count > test_id_capacity) {
-            test_id_capacity = (2*test_id_capacity > 4)
-                    ? 2*test_id_capacity
-                    : 4;
-            test_ids = realloc((test_id_t*)test_ids,
-                    test_id_capacity * sizeof(test_id_t));
-        }
-        ((test_id_t*)test_ids)[test_id_count-1] = (test_id_t){
+        *(test_id_t*)mappend(
+                (void**)&test_ids,
+                sizeof(test_id_t),
+                &test_id_count,
+                &test_id_capacity) = (test_id_t){
             .suite = suite,
             .case_ = case_,
             .perm = perm,
+            .geometry = geometry,
             .cycles = cycles,
             .cycle_count = cycle_count,
         };
     }
 
     // register overrides
-    test_define_overrides(override_names, override_defines, override_count);
+    test_define_overrides(overrides, override_count);
 
     // do the thing
     op();
 
     // cleanup (need to be done for valgrind testing)
-    free(override_names);
-    free(override_defines);
+    test_define_cleanup();
+    free(overrides);
+
+    if (test_geometry_capacity) {
+        free((test_geometry_t*)test_geometries);
+    }
     if (test_powerloss_capacity) {
         for (size_t i = 0; i < test_powerloss_count; i++) {
             free((lfs_testbd_powercycles_t*)test_powerlosses[i].cycles);
@@ -1768,6 +2217,7 @@ getopt_done: ;
     }
     if (test_id_capacity) {
         for (size_t i = 0; i < test_id_count; i++) {
+            free((test_geometry_t*)test_ids[i].geometry);
             free((lfs_testbd_powercycles_t*)test_ids[i].cycles);
         }
         free((test_id_t*)test_ids);
