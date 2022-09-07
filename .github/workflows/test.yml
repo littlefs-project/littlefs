@@ -292,6 +292,27 @@ jobs:
       - name: test-valgrind
         run: make test TESTFLAGS+="-k --valgrind"
 
+  # test that compilation is warning free under clang
+  clang:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          # need toml, also pip3 isn't installed by default?
+          sudo apt-get update -qq
+          sudo apt-get install -qq python3 python3-pip
+          sudo pip3 install toml
+      - name: install-clang
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq clang
+          echo "CC=clang" >> $GITHUB_ENV
+          clang --version
+      # no reason to not test again
+      - name: test-clang
+        run: make test TESTFLAGS+="-k"
+
   # self-host with littlefs-fuse for a fuzz-like test
   fuse:
     runs-on: ubuntu-20.04
