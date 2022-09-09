@@ -88,7 +88,7 @@ class TestCase:
                 file=sys.stderr)
 
     def id(self):
-        return '%s#%s' % (self.suite, self.name)
+        return '%s:%s' % (self.suite, self.name)
 
 
 class TestSuite:
@@ -497,7 +497,7 @@ def find_cases(runner_, **args):
     expected_perms = 0
     total_perms = 0
     pattern = re.compile(
-        '^(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)\s+'
+        '^(?P<id>(?P<case>(?P<suite>[^:]+):[^\s:]+)[^\s]*)\s+'
             '[^\s]+\s+(?P<filtered>\d+)/(?P<perms>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
@@ -535,7 +535,7 @@ def find_path(runner_, id, **args):
         close_fds=False)
     path = None
     pattern = re.compile(
-        '^(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)\s+'
+        '^(?P<id>(?P<case>(?P<suite>[^:]+):[^\s:]+)[^\s]*)\s+'
             '(?P<path>[^:]+):(?P<lineno>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
@@ -630,7 +630,7 @@ def run_stage(name, runner_, **args):
 
     pattern = re.compile('^(?:'
             '(?P<op>running|finished|skipped|powerloss) '
-                '(?P<id>(?P<case>(?P<suite>[^#]+)#[^\s#]+)[^\s]*)'
+                '(?P<id>(?P<case>(?P<suite>[^:]+):[^\s:]+)[^\s]*)'
             '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
                 ' *(?P<message>.*)' ')$')
     locals = th.local()

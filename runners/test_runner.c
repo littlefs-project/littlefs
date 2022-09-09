@@ -129,8 +129,8 @@ static void print_id(
         const lfs_testbd_powercycles_t *cycles,
         size_t cycle_count) {
     (void)suite;
-    // suite[#case[#perm[#geometry[#powercycles]]]]
-    printf("%s#%zu#", case_->id, perm);
+    // suite[:case[:perm[:geometry[:powercycles]]]]
+    printf("%s:%zu:", case_->id, perm);
 
     // reduce duplication in geometry, this is appended to every test
     if (READ_SIZE != BLOCK_SIZE || PROG_SIZE != BLOCK_SIZE) {
@@ -146,7 +146,7 @@ static void print_id(
 
     // only print power-cycles if any occured
     if (cycles) {
-        printf("#");
+        printf(":");
         for (size_t i = 0; i < cycle_count; i++) {
             leb16_print(cycles[i]);
         }
@@ -1038,7 +1038,7 @@ static void run_powerloss_linear(
         // power-loss!
         printf("powerloss ");
         print_id(suite, case_, perm, NULL, 0);
-        printf("#");
+        printf(":");
         for (lfs_testbd_powercycles_t j = 1; j <= i; j++) {
             leb16_print(j);
         }
@@ -1125,7 +1125,7 @@ static void run_powerloss_exponential(
         // power-loss!
         printf("powerloss ");
         print_id(suite, case_, perm, NULL, 0);
-        printf("#");
+        printf(":");
         for (lfs_testbd_powercycles_t j = 1; j <= i; j *= 2) {
             leb16_print(j);
         }
@@ -1378,14 +1378,14 @@ static void run_powerloss_exhaustive(
     }
 
     // run the test, increasing power-cycles as power-loss events occur
-    printf("running %s#%zu\n", case_->id, perm);
+    printf("running %s:%zu\n", case_->id, perm);
 
     // recursively exhaust each layer of powerlosses
     run_powerloss_exhaustive_layer(suite, case_, perm,
             &cfg, &bdcfg, cycle_count,
             &(struct powerloss_exhaustive_cycles){NULL, 0, 0});
 
-    printf("finished %s#%zu\n", case_->id, perm);
+    printf("finished %s:%zu\n", case_->id, perm);
 }
 
 
@@ -1425,7 +1425,7 @@ static void list_powerlosses(void) {
     // a couple more options with special parsing
     printf("%-24s %s\n", "1,2,3",   builtin_powerlosses_help[i+0]);
     printf("%-24s %s\n", "{1,2,3}", builtin_powerlosses_help[i+1]);
-    printf("%-24s %s\n", "#1248g1", builtin_powerlosses_help[i+2]);
+    printf("%-24s %s\n", ":1248g1", builtin_powerlosses_help[i+2]);
 }
 
 
@@ -1471,7 +1471,7 @@ static void run_perms(
 
                 // filter?
                 if (case_->filter && !case_->filter()) {
-                    printf("skipped %s#%zu\n", case_->id, k);
+                    printf("skipped %s:%zu\n", case_->id, k);
                     continue;
                 }
 
@@ -1798,7 +1798,7 @@ invalid_define:
                     }
 
                     // leb16-encoded read/prog/erase/count
-                    if (*optarg == '#') {
+                    if (*optarg == ':') {
                         lfs_size_t sizes[4];
                         size_t count = 0;
 
@@ -1925,7 +1925,7 @@ geometry_next:
                     }
 
                     // leb16-encoded permutation
-                    if (*optarg == '#') {
+                    if (*optarg == ':') {
                         lfs_testbd_powercycles_t *cycles = NULL;
                         size_t cycle_count = 0;
                         size_t cycle_capacity = 0;
@@ -2097,7 +2097,7 @@ getopt_done: ;
 
         // parse suite
         char *suite = argv[optind];
-        char *case_ = strchr(suite, '#');
+        char *case_ = strchr(suite, ':');
         if (case_) {
             *case_ = '\0';
             case_ += 1;
@@ -2116,7 +2116,7 @@ getopt_done: ;
 
         if (case_) {
             // parse case
-            char *perm_ = strchr(case_, '#');
+            char *perm_ = strchr(case_, ':');
             if (perm_) {
                 *perm_ = '\0';
                 perm_ += 1;
@@ -2126,7 +2126,7 @@ getopt_done: ;
 
             if (perm_) {
                 // parse permutation
-                char *geometry_ = strchr(perm_, '#');
+                char *geometry_ = strchr(perm_, ':');
                 if (geometry_) {
                     *geometry_ = '\0';
                     geometry_ += 1;
@@ -2142,7 +2142,7 @@ getopt_done: ;
 
                 if (geometry_) {
                     // parse geometry
-                    char *cycles_ = strchr(geometry_, '#');
+                    char *cycles_ = strchr(geometry_, ':');
                     if (cycles_) {
                         *cycles_ = '\0';
                         cycles_ += 1;
