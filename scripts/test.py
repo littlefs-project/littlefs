@@ -20,25 +20,9 @@ import time
 import toml
 
 
-TEST_PATHS = ['tests']
-RUNNER_PATH = './runners/test_runner'
+RUNNER_PATH = 'runners/test_runner'
 HEADER_PATH = 'runners/test_runner.h'
 
-
-def testpath(path):
-    path, *_ = path.split('#', 1)
-    return path
-
-def testsuite(path):
-    suite = testpath(path)
-    suite = os.path.basename(suite)
-    if suite.endswith('.toml'):
-        suite = suite[:-len('.toml')]
-    return suite
-
-def testcase(path):
-    _, case, *_ = path.split('#', 2)
-    return '%s#%s' % (testsuite(path), case)
 
 def openio(path, mode='r', buffering=-1, nb=False):
     if path == '-':
@@ -55,14 +39,6 @@ def openio(path, mode='r', buffering=-1, nb=False):
             buffering)
     else:
         return open(path, mode, buffering)
-
-def color(**args):
-    if args.get('color') == 'auto':
-        return sys.stdout.isatty()
-    elif args.get('color') == 'always':
-        return True
-    else:
-        return False
 
 class TestCase:
     # create a TestCase object from a config
@@ -105,8 +81,8 @@ class TestCase:
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
-                '\x1b[01;33m' if color(**args) else '',
-                '\x1b[m' if color(**args) else '',
+                '\x1b[01;33m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
                 self.id(),
                 k),
                 file=sys.stderr)
@@ -118,8 +94,10 @@ class TestCase:
 class TestSuite:
     # create a TestSuite object from a toml file
     def __init__(self, path, args={}):
-        self.name = testsuite(path)
-        self.path = testpath(path)
+        self.path = path
+        self.name = os.path.basename(path)
+        if self.name.endswith('.toml'):
+            self.name = self.name[:-len('.toml')]
 
         # load toml file and parse test cases
         with open(self.path) as f:
@@ -191,8 +169,8 @@ class TestSuite:
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
-                '\x1b[01;33m' if color(**args) else '',
-                '\x1b[m' if color(**args) else '',
+                '\x1b[01;33m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
                 self.id(),
                 k),
                 file=sys.stderr)
@@ -202,10 +180,10 @@ class TestSuite:
 
 
 
-def compile(**args):
+def compile(test_paths, **args):
     # find .toml files
     paths = []
-    for path in args.get('test_ids', TEST_PATHS):
+    for path in test_paths:
         if os.path.isdir(path):
             path = path + '/*.toml'
 
@@ -213,13 +191,12 @@ def compile(**args):
             paths.append(path)
 
     if not paths:
-        print('no test suites found in %r?' % args['test_ids'])
+        print('no test suites found in %r?' % test_paths)
         sys.exit(-1)
 
     if not args.get('source'):
         if len(paths) > 1:
-            print('more than one test suite for compilation? (%r)'
-                % args['test_ids'])
+            print('more than one test suite for compilation? (%r)' % test_paths)
             sys.exit(-1)
 
         # load our suite
@@ -251,7 +228,7 @@ def compile(**args):
             f.writeln()
 
             # include test_runner.h in every generated file
-            f.writeln("#include \"%s\"" % HEADER_PATH)
+            f.writeln("#include \"%s\"" % args['include'])
             f.writeln()
 
             # write out generated functions, this can end up in different
@@ -448,9 +425,9 @@ def compile(**args):
                                     f.writeln('#endif')
                                 f.writeln()
 
-def runner(**args):
-    cmd = args['runner'].copy()
-    cmd.extend(args.get('test_ids'))
+def find_runner(runner, test_ids, **args):
+    cmd = runner.copy()
+    cmd.extend(test_ids)
 
     # run under some external command?
     cmd[:0] = args.get('exec', [])
@@ -466,10 +443,19 @@ def runner(**args):
 
     # other context
     if args.get('geometry'):
-        cmd.append('-G%s' % args.get('geometry'))
-
+        cmd.append('-g%s' % args['geometry'])
     if args.get('powerloss'):
-        cmd.append('-p%s' % args.get('powerloss'))
+        cmd.append('-p%s' % args['powerloss'])
+    if args.get('disk'):
+        cmd.append('-d%s' % args['disk'])
+    if args.get('trace'):
+        cmd.append('-t%s' % args['trace'])
+    if args.get('read_sleep'):
+        cmd.append('--read-sleep=%s' % args['read_sleep'])
+    if args.get('prog_sleep'):
+        cmd.append('--prog-sleep=%s' % args['prog_sleep'])
+    if args.get('erase_sleep'):
+        cmd.append('--erase-sleep=%s' % args['erase_sleep'])
 
     # defines?
     if args.get('define'):
@@ -478,8 +464,8 @@ def runner(**args):
 
     return cmd
 
-def list_(**args):
-    cmd = runner(**args)
+def list_(runner, test_ids, **args):
+    cmd = find_runner(runner, test_ids, **args)
     if args.get('summary'):          cmd.append('--summary')
     if args.get('list_suites'):      cmd.append('--list-suites')
     if args.get('list_cases'):       cmd.append('--list-cases')
@@ -492,7 +478,7 @@ def list_(**args):
 
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
-    sys.exit(sp.call(cmd))
+    return sp.call(cmd)
 
 
 def find_cases(runner_, **args):
@@ -624,10 +610,10 @@ def find_defines(runner_, id, **args):
 
 
 class TestFailure(Exception):
-    def __init__(self, id, returncode, output, assert_=None):
+    def __init__(self, id, returncode, stdout, assert_=None):
         self.id = id
         self.returncode = returncode
-        self.output = output
+        self.stdout = stdout
         self.assert_ = assert_
 
 def run_stage(name, runner_, **args):
@@ -659,17 +645,6 @@ def run_stage(name, runner_, **args):
 
         # run the tests!
         cmd = runner_.copy()
-        # TODO move all these to runner?
-        if args.get('disk'):
-            cmd.append('--disk=%s' % args['disk'])
-        if args.get('trace'):
-            cmd.append('--trace=%s' % args['trace'])
-        if args.get('read_sleep'):
-            cmd.append('--read-sleep=%s' % args['read_sleep'])
-        if args.get('prog_sleep'):
-            cmd.append('--prog-sleep=%s' % args['prog_sleep'])
-        if args.get('erase_sleep'):
-            cmd.append('--erase-sleep=%s' % args['erase_sleep'])
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
 
@@ -678,10 +653,10 @@ def run_stage(name, runner_, **args):
         os.close(spty)
         children.add(proc)
         mpty = os.fdopen(mpty, 'r', 1)
-        output = None
+        stdout = None
 
         last_id = None
-        last_output = []
+        last_stdout = []
         last_assert = None
         try:
             while True:
@@ -694,19 +669,19 @@ def run_stage(name, runner_, **args):
                     raise
                 if not line:
                     break
-                last_output.append(line)
-                if args.get('output'):
+                last_stdout.append(line)
+                if args.get('stdout'):
                     try:
-                        if not output:
-                            output = openio(args['output'], 'a', 1, nb=True)
-                        output.write(line)
+                        if not stdout:
+                            stdout = openio(args['stdout'], 'a', 1, nb=True)
+                        stdout.write(line)
                     except OSError as e:
                         if e.errno not in [
                                 errno.ENXIO,
                                 errno.EPIPE,
                                 errno.EAGAIN]:
                             raise
-                        output = None
+                        stdout = None
                 if args.get('verbose'):
                     sys.stdout.write(line)
 
@@ -716,7 +691,7 @@ def run_stage(name, runner_, **args):
                     if op == 'running':
                         locals.seen_perms += 1
                         last_id = m.group('id')
-                        last_output = []
+                        last_stdout = []
                         last_assert = None
                     elif op == 'powerloss':
                         last_id = m.group('id')
@@ -736,7 +711,7 @@ def run_stage(name, runner_, **args):
                         if args.get('keep_going'):
                             proc.kill()
         except KeyboardInterrupt:
-            raise TestFailure(last_id, 1, last_output)
+            raise TestFailure(last_id, 1, last_stdout)
         finally:
             children.remove(proc)
             mpty.close()
@@ -746,7 +721,7 @@ def run_stage(name, runner_, **args):
             raise TestFailure(
                 last_id,
                 proc.returncode,
-                last_output,
+                last_stdout,
                 last_assert)
 
     def run_job(runner, start=None, step=None):
@@ -758,12 +733,10 @@ def run_stage(name, runner_, **args):
         step = step or 1
         while start < total_perms:
             runner_ = runner.copy()
-            if start is not None:
-                runner_.append('--start=%d' % start)
-            if step is not None:
-                runner_.append('--step=%d' % step)
             if args.get('isolate') or args.get('valgrind'):
-                runner_.append('--stop=%d' % (start+step))
+                runner_.append('-s%s,%s,%s' % (start, start+step, step))
+            else:
+                runner_.append('-s%s,,%s' % (start, step))
 
             try:
                 # run the tests
@@ -805,14 +778,14 @@ def run_stage(name, runner_, **args):
             daemon=True))
 
     def print_update(done):
-        if not args.get('verbose') and (color(**args) or done):
+        if not args.get('verbose') and (args['color'] or done):
             sys.stdout.write('%s%srunning %s%s:%s %s%s' % (
-                '\r\x1b[K' if color(**args) else '',
+                '\r\x1b[K' if args['color'] else '',
                 '\x1b[?7l' if not done else '',
                 ('\x1b[32m' if not failures else '\x1b[31m')
-                    if color(**args) else '',
+                    if args['color'] else '',
                 name,
-                '\x1b[m' if color(**args) else '',
+                '\x1b[m' if args['color'] else '',
                 ', '.join(filter(None, [
                     '%d/%d suites' % (
                         sum(passed_suite_perms[k] == v
@@ -829,10 +802,10 @@ def run_stage(name, runner_, **args):
                     '%dpls!' % powerlosses
                         if powerlosses else None,
                     '%s%d/%d failures%s' % (
-                            '\x1b[31m' if color(**args) else '',
+                            '\x1b[31m' if args['color'] else '',
                             len(failures),
                             expected_perms,
-                            '\x1b[m' if color(**args) else '')
+                            '\x1b[m' if args['color'] else '')
                         if failures else None])),
                 '\x1b[?7h' if not done else '\n'))
             sys.stdout.flush()
@@ -862,9 +835,9 @@ def run_stage(name, runner_, **args):
         killed)
     
 
-def run(**args):
+def run(runner, test_ids, **args):
     # query runner for tests
-    runner_ = runner(**args)
+    runner_ = find_runner(runner, test_ids, **args)
     print('using runner: %s'
         % ' '.join(shlex.quote(c) for c in runner_))
     expected_suite_perms, expected_case_perms, expected_perms, total_perms = (
@@ -877,9 +850,9 @@ def run(**args):
     print()
 
     # truncate and open logs here so they aren't disconnected between tests
-    output = None
-    if args.get('output'):
-        output = openio(args['output'], 'w', 1)
+    stdout = None
+    if args.get('stdout'):
+        stdout = openio(args['stdout'], 'w', 1)
     trace = None
     if args.get('trace'):
         trace = openio(args['trace'], 'w', 1)
@@ -896,8 +869,8 @@ def run(**args):
             else expected_suite_perms.keys() if args.get('by_suites')
             else [None]):
         # rebuild runner for each stage to override test identifier if needed
-        stage_runner = runner(**args | {
-            'test_ids': [by] if by is not None else args.get('test_ids', [])})
+        stage_runner = find_runner(runner,
+            [by] if by is not None else test_ids, **args)
 
         # spawn jobs for stage
         expected_, passed_, powerlosses_, failures_, killed = run_stage(
@@ -913,8 +886,8 @@ def run(**args):
 
     stop = time.time()
 
-    if output:
-        output.close()
+    if stdout:
+        stdout.close()
     if trace:
         trace.close()
 
@@ -922,8 +895,8 @@ def run(**args):
     print()
     print('%sdone:%s %s' % (
         ('\x1b[32m' if not failures else '\x1b[31m')
-            if color(**args) else '',
-        '\x1b[m' if color(**args) else '',
+            if args['color'] else '',
+        '\x1b[m' if args['color'] else '',
         ', '.join(filter(None, [
             '%d/%d passed' % (passed, expected),
             '%d/%d failed' % (len(failures), expected),
@@ -943,28 +916,28 @@ def run(**args):
 
         # show summary of failure
         print('%s%s:%d:%sfailure:%s %s%s failed' % (
-            '\x1b[01m' if color(**args) else '',
+            '\x1b[01m' if args['color'] else '',
             path, lineno,
-            '\x1b[01;31m' if color(**args) else '',
-            '\x1b[m' if color(**args) else '',
+            '\x1b[01;31m' if args['color'] else '',
+            '\x1b[m' if args['color'] else '',
             failure.id,
             ' (%s)' % ', '.join('%s=%s' % (k,v) for k,v in defines.items())
                 if defines else ''))
 
-        if failure.output:
-            output = failure.output
+        if failure.stdout:
+            stdout = failure.stdout
             if failure.assert_ is not None:
-                output = output[:-1]
-            for line in output[-5:]:
+                stdout = stdout[:-1]
+            for line in stdout[-args.get('context', 5):]:
                 sys.stdout.write(line)
 
         if failure.assert_ is not None:
             path, lineno, message = failure.assert_
             print('%s%s:%d:%sassert:%s %s' % (
-                '\x1b[01m' if color(**args) else '',
+                '\x1b[01m' if args['color'] else '',
                 path, lineno,
-                '\x1b[01;31m' if color(**args) else '',
-                '\x1b[m' if color(**args) else '',
+                '\x1b[01;31m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
                 message))
             with open(path) as f:
                 line = next(it.islice(f, lineno-1, None)).strip('\n')
@@ -976,7 +949,7 @@ def run(**args):
             or args.get('gdb_case')
             or args.get('gdb_main')):
         failure = failures[0]
-        runner_ = runner(**args | {'test_ids': [failure.id]})
+        runner_ = find_runner(runner, [failure.id], **args)
 
         if args.get('gdb_main'):
             cmd = ['gdb',
@@ -984,7 +957,7 @@ def run(**args):
                 '-ex', 'run',
                 '--args'] + runner_
         elif args.get('gdb_case'):
-            path, lineno = runner_paths[testcase(failure.id)]
+            path, lineno = find_path(runner_, failure.id, **args)
             cmd = ['gdb',
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
@@ -1009,8 +982,16 @@ def run(**args):
 
 
 def main(**args):
+    # figure out what color should be
+    if args.get('color') == 'auto':
+        args['color'] = sys.stdout.isatty()
+    elif args.get('color') == 'always':
+        args['color'] = True
+    else:
+        args['color'] = False
+
     if args.get('compile'):
-        compile(**args)
+        return compile(**args)
     elif (args.get('summary')
             or args.get('list_suites')
             or args.get('list_cases')
@@ -1020,9 +1001,9 @@ def main(**args):
             or args.get('list_implicit')
             or args.get('list_geometries')
             or args.get('list_powerlosses')):
-        list_(**args)
+        return list_(**args)
     else:
-        run(**args)
+        return run(**args)
 
 
 if __name__ == "__main__":
@@ -1033,18 +1014,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Build and run tests.",
         conflict_handler='ignore')
-    parser.add_argument('test_ids', nargs='*',
-        help="Description of testis to run. May be a directory, path, or \
-            test identifier. Test identifiers are of the form \
-            <suite_name>#<case_name>#<permutation>, but suffixes can be \
-            dropped to run any matching tests. Defaults to %s." % TEST_PATHS)
     parser.add_argument('-v', '--verbose', action='store_true',
         help="Output commands that run behind the scenes.")
     parser.add_argument('--color',
         choices=['never', 'always', 'auto'], default='auto',
         help="When to use terminal colors.")
+
     # test flags
     test_parser = parser.add_argument_group('test options')
+    test_parser.add_argument('runner', nargs='?',
+        type=lambda x: x.split(),
+        help="Test runner to use for testing. Defaults to %r." % RUNNER_PATH)
+    test_parser.add_argument('test_ids', nargs='*',
+        help="Description of tests to run.")
     test_parser.add_argument('-Y', '--summary', action='store_true',
         help="Show quick summary.")
     test_parser.add_argument('-l', '--list-suites', action='store_true',
@@ -1075,17 +1057,14 @@ if __name__ == "__main__":
         help="Direct block device operations to this file.")
     test_parser.add_argument('-t', '--trace',
         help="Direct trace output to this file.")
-    test_parser.add_argument('-o', '--output',
-        help="Direct stdout and stderr to this file.")
+    test_parser.add_argument('-O', '--stdout',
+        help="Direct stdout to this file. Note stderr is already merged here.")
     test_parser.add_argument('--read-sleep',
         help="Artificial read delay in seconds.")
     test_parser.add_argument('--prog-sleep',
         help="Artificial prog delay in seconds.")
     test_parser.add_argument('--erase-sleep',
         help="Artificial erase delay in seconds.")
-    test_parser.add_argument('--runner', default=[RUNNER_PATH],
-        type=lambda x: x.split(),
-        help="Path to runner, defaults to %r" % RUNNER_PATH)
     test_parser.add_argument('-j', '--jobs', nargs='?', type=int,
         const=len(os.sched_getaffinity(0)),
         help="Number of parallel runners to run.")
@@ -1097,6 +1076,9 @@ if __name__ == "__main__":
         help="Step through tests by suite.")
     test_parser.add_argument('-B', '--by-cases', action='store_true',
         help="Step through tests by case.")
+    test_parser.add_argument('--context', type=lambda x: int(x, 0),
+        help="Show this many lines of stdout on test failure. \
+            Defaults to 5.")
     test_parser.add_argument('--gdb', action='store_true',
         help="Drop into gdb on test failure.")
     test_parser.add_argument('--gdb-case', action='store_true',
@@ -1110,14 +1092,27 @@ if __name__ == "__main__":
     test_parser.add_argument('--valgrind', action='store_true',
         help="Run under Valgrind to find memory errors. Implicitly sets \
             --isolate.")
+
     # compilation flags
     comp_parser = parser.add_argument_group('compilation options')
+    comp_parser.add_argument('test_paths', nargs='*',
+        help="Description of *.toml files to compile. May be a directory \
+            or a list of paths.")
     comp_parser.add_argument('-c', '--compile', action='store_true',
         help="Compile a test suite or source file.")
     comp_parser.add_argument('-s', '--source',
         help="Source file to compile, possibly injecting internal tests.")
+    comp_parser.add_argument('--include', default=HEADER_PATH,
+        help="Inject this header file into every compiled test file. \
+            Defaults to %r." % HEADER_PATH)
     comp_parser.add_argument('-o', '--output',
         help="Output file.")
+
+    # runner + test_ids overlaps test_paths, so we need to do some munging here
+    args = parser.parse_args()
+    args.test_paths = [' '.join(args.runner or [])] + args.test_ids
+    args.runner = args.runner or [RUNNER_PATH]
+
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_args()).items()
+        for k, v in vars(args).items()
         if v is not None}))

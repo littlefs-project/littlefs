@@ -377,9 +377,9 @@ const test_id_t *test_ids = (const test_id_t[]) {
 };
 size_t test_id_count = 1;
 
-size_t test_start = 0;
-size_t test_stop = -1;
-size_t test_step = 1;
+size_t test_step_start = 0;
+size_t test_step_stop = -1;
+size_t test_step_step = 1;
 
 const char *test_disk_path = NULL;
 const char *test_trace_path = NULL;
@@ -1430,7 +1430,7 @@ static void list_powerlosses(void) {
 
 
 // global test step count
-size_t step = 0;
+size_t test_step = 0;
 
 // run the tests
 static void run_perms(
@@ -1461,13 +1461,13 @@ static void run_perms(
                     continue;
                 }
 
-                if (!(step >= test_start
-                        && step < test_stop
-                        && (step-test_start) % test_step == 0)) {
-                    step += 1;
+                if (!(test_step >= test_step_start
+                        && test_step < test_step_stop
+                        && (test_step-test_step_start) % test_step_step == 0)) {
+                    test_step += 1;
                     continue;
                 }
-                step += 1;
+                test_step += 1;
 
                 // filter?
                 if (case_->filter && !case_->filter()) {
@@ -1537,17 +1537,15 @@ enum opt_flags {
     OPT_DEFINE           = 'D',
     OPT_GEOMETRY         = 'g',
     OPT_POWERLOSS        = 'p',
-    OPT_START            = 7,
-    OPT_STEP             = 8,
-    OPT_STOP             = 9,
+    OPT_STEP             = 's',
     OPT_DISK             = 'd',
     OPT_TRACE            = 't',
-    OPT_READ_SLEEP       = 10,
-    OPT_PROG_SLEEP       = 11,
-    OPT_ERASE_SLEEP      = 12,
+    OPT_READ_SLEEP       = 7,
+    OPT_PROG_SLEEP       = 8,
+    OPT_ERASE_SLEEP      = 9,
 };
 
-const char *short_opts = "hYlLD:g:p:d:t:";
+const char *short_opts = "hYlLD:g:p:s:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -1563,8 +1561,6 @@ const struct option long_opts[] = {
     {"define",           required_argument, NULL, OPT_DEFINE},
     {"geometry",         required_argument, NULL, OPT_GEOMETRY},
     {"powerloss",        required_argument, NULL, OPT_POWERLOSS},
-    {"start",            required_argument, NULL, OPT_START},
-    {"stop",             required_argument, NULL, OPT_STOP},
     {"step",             required_argument, NULL, OPT_STEP},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
@@ -1588,9 +1584,7 @@ const char *const help_text[] = {
     "Override a test define.",
     "Comma-separated list of disk geometries to test. Defaults to d,e,E,n,N.",
     "Comma-separated list of power-loss scenarios to test. Defaults to 0,l.",
-    "Start at the nth test.",
-    "Stop before the nth test.",
-    "Only run every n tests, calculated after --start and --stop.",
+    "Comma-separated range of test permutations to run (start,stop,step).",
     "Redirect block device operations to this file.",
     "Redirect trace output to this file.",
     "Artificial read delay in seconds.",
@@ -1995,32 +1989,51 @@ powerloss_next:
                 }
                 break;
             }
-            case OPT_START: {
-                char *parsed = NULL;
-                test_start = strtoumax(optarg, &parsed, 0);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid skip: %s\n", optarg);
-                    exit(-1);
-                }
-                break;
-            }
-            case OPT_STOP: {
-                char *parsed = NULL;
-                test_stop = strtoumax(optarg, &parsed, 0);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid count: %s\n", optarg);
-                    exit(-1);
-                }
-                break;
-            }
             case OPT_STEP: {
                 char *parsed = NULL;
-                test_step = strtoumax(optarg, &parsed, 0);
-                if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid every: %s\n", optarg);
-                    exit(-1);
+                size_t start = strtoumax(optarg, &parsed, 0);
+                // allow empty string for start=0
+                if (parsed != optarg) {
+                    test_step_start = start;
                 }
+                optarg = parsed + strspn(parsed, " ");
+
+                if (*optarg != ',' && *optarg != '\0') {
+                    goto step_unknown;
+                }
+
+                if (*optarg == ',') {
+                    optarg += 1;
+                    size_t stop = strtoumax(optarg, &parsed, 0);
+                    // allow empty string for stop=end
+                    if (parsed != optarg) {
+                        test_step_stop = stop;
+                    }
+                    optarg = parsed + strspn(parsed, " ");
+
+                    if (*optarg != ',' && *optarg != '\0') {
+                        goto step_unknown;
+                    }
+
+                    if (*optarg == ',') {
+                        optarg += 1;
+                        size_t step = strtoumax(optarg, &parsed, 0);
+                        // allow empty string for stop=1
+                        if (parsed != optarg) {
+                            test_step_step = step;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+
+                        if (*optarg != '\0') {
+                            goto step_unknown;
+                        }
+                    }
+                }
+
                 break;
+step_unknown:
+                fprintf(stderr, "error: invalid step: %s\n", optarg);
+                exit(-1);
             }
             case OPT_DISK:
                 test_disk_path = optarg;
@@ -2077,53 +2090,62 @@ getopt_done: ;
 
     // parse test identifier, if any, cannibalizing the arg in the process
     for (; argc > optind; optind++) {
-        // parse suite
-        char *suite = argv[optind];
-        char *case_ = strchr(suite, '#');
         size_t perm = -1;
         test_geometry_t *geometry = NULL;
         lfs_testbd_powercycles_t *cycles = NULL;
         size_t cycle_count = 0;
 
+        // parse suite
+        char *suite = argv[optind];
+        char *case_ = strchr(suite, '#');
         if (case_) {
             *case_ = '\0';
             case_ += 1;
+        }
 
+        // remove optional path and .toml suffix
+        char *slash = strrchr(suite, '/');
+        if (slash) {
+            suite = slash+1;
+        }
+
+        size_t suite_len = strlen(suite);
+        if (suite_len > 5 && strcmp(&suite[suite_len-5], ".toml") == 0) {
+            suite[suite_len-5] = '\0';
+        }
+
+        if (case_) {
             // parse case
             char *perm_ = strchr(case_, '#');
             if (perm_) {
                 *perm_ = '\0';
                 perm_ += 1;
+            }
 
-                // parse geometry
+            // nothing really to do for case
+
+            if (perm_) {
+                // parse permutation
                 char *geometry_ = strchr(perm_, '#');
                 if (geometry_) {
                     *geometry_ = '\0';
                     geometry_ += 1;
+                }
 
-                    // parse power cycles
+                char *parsed = NULL;
+                perm = strtoumax(perm_, &parsed, 10);
+                if (parsed == perm_) {
+                    fprintf(stderr, "error: "
+                            "could not parse test permutation: %s\n", perm_);
+                    exit(-1);
+                }
+
+                if (geometry_) {
+                    // parse geometry
                     char *cycles_ = strchr(geometry_, '#');
                     if (cycles_) {
                         *cycles_ = '\0';
                         cycles_ += 1;
-
-                        size_t cycle_capacity = 0;
-                        while (*cycles_ != '\0') {
-                            char *parsed = NULL;
-                            *(lfs_testbd_powercycles_t*)mappend(
-                                    (void**)&cycles,
-                                    sizeof(lfs_testbd_powercycles_t),
-                                    &cycle_count,
-                                    &cycle_capacity)
-                                    = leb16_parse(cycles_, &parsed);
-                            if (parsed == cycles_) {
-                                fprintf(stderr, "error: "
-                                        "could not parse test cycles: %s\n",
-                                        cycles_);
-                                exit(-1);
-                            }
-                            cycles_ = parsed;
-                        }
                     }
 
                     geometry = malloc(sizeof(test_geometry_t));
@@ -2131,7 +2153,6 @@ getopt_done: ;
                     size_t count = 0;
 
                     while (*geometry_ != '\0') {
-                        char *parsed = NULL;
                         uintmax_t x = leb16_parse(geometry_, &parsed);
                         if (parsed == geometry_ || count >= 4) {
                             fprintf(stderr, "error: "
@@ -2158,27 +2179,28 @@ getopt_done: ;
                     geometry->block_count
                             = count >= 4 ? sizes[3]
                             : (1024*1024) / geometry->block_size;
-                }
 
-                char *parsed = NULL;
-                perm = strtoumax(perm_, &parsed, 10);
-                if (parsed == perm_) {
-                    fprintf(stderr, "error: "
-                            "could not parse test permutation: %s\n", perm_);
-                    exit(-1);
+                    if (cycles_) {
+                        // parse power cycles
+                        size_t cycle_capacity = 0;
+                        while (*cycles_ != '\0') {
+                            *(lfs_testbd_powercycles_t*)mappend(
+                                    (void**)&cycles,
+                                    sizeof(lfs_testbd_powercycles_t),
+                                    &cycle_count,
+                                    &cycle_capacity)
+                                    = leb16_parse(cycles_, &parsed);
+                            if (parsed == cycles_) {
+                                fprintf(stderr, "error: "
+                                        "could not parse test cycles: %s\n",
+                                        cycles_);
+                                exit(-1);
+                            }
+                            cycles_ = parsed;
+                        }
+                    }
                 }
             }
-        }
-
-        // remove optional path and .toml suffix
-        char *slash = strrchr(suite, '/');
-        if (slash) {
-            suite = slash+1;
-        }
-
-        size_t suite_len = strlen(suite);
-        if (suite_len > 5 && strcmp(&suite[suite_len-5], ".toml") == 0) {
-            suite[suite_len-5] = '\0';
         }
 
         // append to identifier list

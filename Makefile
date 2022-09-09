@@ -107,18 +107,18 @@ size: $(OBJ)
 tags:
 	$(CTAGS) --totals --c-types=+p $(shell find -H -name '*.h') $(SRC)
 
-.PHONY: test-runner
-test-runner: override CFLAGS+=--coverage
-test-runner: $(BUILDDIR)runners/test_runner
+.PHONY: test-runner build-test
+test-runner build-test: override CFLAGS+=--coverage
+test-runner build-test: $(BUILDDIR)runners/test_runner
 	rm -f $(TEST_GCDA)
 
 .PHONY: test
 test: test-runner
-	./scripts/test.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS)
+	./scripts/test.py $(BUILDDIR)runners/test_runner $(TESTFLAGS)
 
 .PHONY: test-list
 test-list: test-runner
-	./scripts/test.py --runner=$(BUILDDIR)runners/test_runner $(TESTFLAGS) -l
+	./scripts/test.py $(BUILDDIR)runners/test_runner $(TESTFLAGS) -l
 
 .PHONY: code
 code: $(OBJ)

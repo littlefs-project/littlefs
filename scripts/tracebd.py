@@ -6,6 +6,7 @@
 import collections as co
 import itertools as it
 import math as m
+import os
 import re
 import shutil
 import threading as th
@@ -322,11 +323,8 @@ def main(path='-', *,
         chars=None,
         wear_chars=None,
         color='auto',
-        block=None,
-        start=None,
-        stop=None,
-        start_off=None,
-        stop_off=None,
+        block=(None,None),
+        off=(None,None),
         block_size=None,
         block_count=None,
         block_cycles=None,
@@ -346,25 +344,26 @@ def main(path='-', *,
     if color == 'auto':
         color = 'always' if sys.stdout.isatty() else 'never'
 
-    start = (start if start is not None
-        else block if block is not None
-        else 0)
-    stop = (stop if stop is not None
-        else block+1 if block is not None
-        else block_count if block_count is not None
-        else None)
-    start_off = (start_off if start_off is not None
-        else 0)
-    stop_off = (stop_off if stop_off is not None
-        else block_size if block_size is not None
-        else None)
+    block_start = block[0]
+    block_stop = block[1] if len(block) > 1 else block[0]+1
+    off_start = off[0]
+    off_stop = off[1] if len(off) > 1 else off[0]+1
+
+    if block_start is None:
+        block_start = 0
+    if block_stop is None and block_count is not None:
+        block_stop = block_count
+    if off_start is None:
+        off_start = 0
+    if off_stop is None and block_size is not None:
+        off_stop = block_size
 
     bd = Bd(
         size=(block_size if block_size is not None
-            else stop_off-start_off if stop_off is not None
+            else off_stop-off_start if off_stop is not None
             else 1),
         count=(block_count if block_count is not None
-            else stop-start if stop is not None
+            else block_stop-block_start if block_stop is not None
             else 1),
         width=(width or 80)*height)
     lock = th.Lock()
@@ -431,21 +430,21 @@ def main(path='-', *,
             size = int(m.group('block_size'), 0)
             count = int(m.group('block_count'), 0)
 
-            if stop_off is not None:
-                size = stop_off-start_off
-            if stop is not None:
-                count = stop-start
+            if off_stop is not None:
+                size = off_stop-off_start
+            if block_stop is not None:
+                count = block_stop-block_start
 
             with lock:
                 if reset:
                     bd.reset()
                     
-                # ignore the new values is stop/stop_off is explicit
+                # ignore the new values if block_stop/off_stop is explicit
                 bd.smoosh(
-                    size=(size if stop_off is None
-                        else stop_off-start_off),
-                    count=(count if stop is None
-                        else stop-start))
+                    size=(size if off_stop is None
+                        else off_stop-off_start),
+                    count=(count if block_stop is None
+                        else block_stop-block_start))
             return True
 
         elif m.group('read') and read:
@@ -453,14 +452,14 @@ def main(path='-', *,
             off = int(m.group('read_off'), 0)
             size = int(m.group('read_size'), 0)
 
-            if stop is not None and block >= stop:
+            if block_stop is not None and block >= block_stop:
                 return False
-            block -= start
-            if stop_off is not None:
-                if off >= stop_off:
+            block -= block_start
+            if off_stop is not None:
+                if off >= off_stop:
                     return False
-                size = min(size, stop_off-off)
-            off -= start_off
+                size = min(size, off_stop-off)
+            off -= off_start
 
             with lock:
                 bd.read(block, slice(off,off+size))
@@ -471,14 +470,14 @@ def main(path='-', *,
             off = int(m.group('prog_off'), 0)
             size = int(m.group('prog_size'), 0)
 
-            if stop is not None and block >= stop:
+            if block_stop is not None and block >= block_stop:
                 return False
-            block -= start
-            if stop_off is not None:
-                if off >= stop_off:
+            block -= block_start
+            if off_stop is not None:
+                if off >= off_stop:
                     return False
-                size = min(size, stop_off-off)
-            off -= start_off
+                size = min(size, off_stop-off)
+            off -= off_start
 
             with lock:
                 bd.prog(block, slice(off,off+size))
@@ -487,9 +486,9 @@ def main(path='-', *,
         elif m.group('erase') and (erase or wear):
             block = int(m.group('erase_block'), 0)
 
-            if stop is not None and block >= stop:
+            if block_stop is not None and block >= block_stop:
                 return False
-            block -= start
+            block -= block_start
 
             with lock:
                 bd.erase(block)
@@ -691,24 +690,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '-b',
         '--block',
-        type=lambda x: int(x, 0),
-        help="Show a specific block.")
+        type=lambda x: tuple(int(x,0) if x else None for x in x.split(',',1)),
+        help="Show a specific block or range of blocks.")
     parser.add_argument(
-        '--start',
-        type=lambda x: int(x, 0),
-        help="Start at this block.")
-    parser.add_argument(
-        '--stop',
-        type=lambda x: int(x, 0),
-        help="Stop before this block.")
-    parser.add_argument(
-        '--start-off',
-        type=lambda x: int(x, 0),
-        help="Start at this offset.")
-    parser.add_argument(
-        '--stop-off',
-        type=lambda x: int(x, 0),
-        help="Stop before this offset.")
+        '-i',
+        '--off',
+        type=lambda x: tuple(int(x,0) if x else None for x in x.split(',',1)),
+        help="Show a specific offset or range of offsets.")
     parser.add_argument(
         '-B',
         '--block-size',
