@@ -93,10 +93,7 @@ typedef struct test_geometry {
     char short_name;
     const char *long_name;
 
-    lfs_size_t read_size;
-    lfs_size_t prog_size;
-    lfs_size_t block_size;
-    lfs_size_t block_count;
+    test_define_t defines[TEST_GEOMETRY_DEFINE_COUNT];
 } test_geometry_t;
 
 typedef struct test_powerloss {
@@ -104,11 +101,10 @@ typedef struct test_powerloss {
     const char *long_name;
 
     void (*run)(
-            const struct test_suite *suite,
-            const struct test_case *case_,
-            size_t perm,
             const lfs_testbd_powercycles_t *cycles,
-            size_t cycle_count);
+            size_t cycle_count,
+            const struct test_suite *suite,
+            const struct test_case *case_);
     const lfs_testbd_powercycles_t *cycles;
     size_t cycle_count;
 } test_powerloss_t;
@@ -116,42 +112,11 @@ typedef struct test_powerloss {
 typedef struct test_id {
     const char *suite;
     const char *case_;
-    size_t perm;
-    const test_geometry_t *geometry;
+    const test_define_t *defines;
+    size_t define_count;
     const lfs_testbd_powercycles_t *cycles;
     size_t cycle_count;
 } test_id_t;
-
-static void print_id(
-        const struct test_suite *suite,
-        const struct test_case *case_,
-        size_t perm,
-        const lfs_testbd_powercycles_t *cycles,
-        size_t cycle_count) {
-    (void)suite;
-    // suite[:case[:perm[:geometry[:powercycles]]]]
-    printf("%s:%zu:", case_->id, perm);
-
-    // reduce duplication in geometry, this is appended to every test
-    if (READ_SIZE != BLOCK_SIZE || PROG_SIZE != BLOCK_SIZE) {
-        if (READ_SIZE != PROG_SIZE) {
-            leb16_print(READ_SIZE);
-        }
-        leb16_print(PROG_SIZE);
-    }
-    leb16_print(BLOCK_SIZE);
-    if (BLOCK_COUNT*BLOCK_SIZE != 1024*1024) {
-        leb16_print(BLOCK_COUNT);
-    }
-
-    // only print power-cycles if any occured
-    if (cycles) {
-        printf(":");
-        for (size_t i = 0; i < cycle_count; i++) {
-            leb16_print(cycles[i]);
-        }
-    }
-}
 
 
 // test suites are linked into a custom ld section
@@ -165,33 +130,56 @@ const struct test_suite *test_suites = &__start__test_suites;
 
 // test define management
 typedef struct test_define_map {
-    intmax_t (*const *defines)(size_t);
-    const char *const *names;
+    const test_define_t *defines;
     size_t count;
 } test_define_map_t;
 
-extern const test_geometry_t *test_geometry;
+typedef struct test_define_names {
+    const char *const *names;
+    size_t count;
+} test_define_names_t;
+
+intmax_t test_define_lit(void *data) {
+    return (intmax_t)data;
+}
+#define TEST_LIT(x) {test_define_lit, (void*)(uintptr_t)(x)}
+
 
 #define TEST_DEFINE(k, v) \
-    intmax_t test_define_##k(__attribute__((unused)) size_t define) { \
+    intmax_t test_define_##k(void *data) { \
+        (void)data; \
         return v; \
     }
 
     TEST_IMPLICIT_DEFINES
 #undef TEST_DEFINE
 
-#define TEST_DEFINE_MAP_COUNT 3
+#define TEST_DEFINE_MAP_EXPLICIT    0
+#define TEST_DEFINE_MAP_OVERRIDE    1
+#define TEST_DEFINE_MAP_PERMUTATION 2
+#define TEST_DEFINE_MAP_GEOMETRY    3
+#define TEST_DEFINE_MAP_IMPLICIT    4
+#define TEST_DEFINE_MAP_COUNT       5
+
 test_define_map_t test_define_maps[TEST_DEFINE_MAP_COUNT] = {
-    {NULL, NULL, 0},
-    {NULL, NULL, 0},
-    {
-        (intmax_t (*const[TEST_IMPLICIT_DEFINE_COUNT])(size_t)){
+    [TEST_DEFINE_MAP_IMPLICIT] = {
+        (const test_define_t[TEST_IMPLICIT_DEFINE_COUNT]) {
             #define TEST_DEFINE(k, v) \
-                [k##_i] = test_define_##k,
+                [k##_i] = {test_define_##k, NULL},
 
                 TEST_IMPLICIT_DEFINES
             #undef TEST_DEFINE
         },
+        TEST_IMPLICIT_DEFINE_COUNT,
+    },
+};
+
+#define TEST_DEFINE_NAMES_SUITE    0
+#define TEST_DEFINE_NAMES_IMPLICIT 1
+#define TEST_DEFINE_NAMES_COUNT    2
+
+test_define_names_t test_define_names[TEST_DEFINE_NAMES_COUNT] = {
+    [TEST_DEFINE_NAMES_IMPLICIT] = {
         (const char *const[TEST_IMPLICIT_DEFINE_COUNT]){
             #define TEST_DEFINE(k, v) \
                 [k##_i] = #k,
@@ -208,16 +196,28 @@ size_t test_define_cache_count;
 unsigned *test_define_cache_mask;
 
 const char *test_define_name(size_t define) {
-    // lookup in our test defines
-    for (size_t i = 0; i < TEST_DEFINE_MAP_COUNT; i++) {
-        if (define < test_define_maps[i].count
-                && test_define_maps[i].names
-                && test_define_maps[i].names[define]) {
-            return test_define_maps[i].names[define];
+    // lookup in our test names
+    for (size_t i = 0; i < TEST_DEFINE_NAMES_COUNT; i++) {
+        if (define < test_define_names[i].count
+                && test_define_names[i].names
+                && test_define_names[i].names[define]) {
+            return test_define_names[i].names[define];
         }
     }
 
     return NULL;
+}
+
+bool test_define_ispermutation(size_t define) {
+    // is this define specific to the permutation?
+    for (size_t i = 0; i < TEST_DEFINE_MAP_IMPLICIT; i++) {
+        if (define < test_define_maps[i].count
+                && test_define_maps[i].defines[define].cb) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 intmax_t test_define(size_t define) {
@@ -231,8 +231,9 @@ intmax_t test_define(size_t define) {
     // lookup in our test defines
     for (size_t i = 0; i < TEST_DEFINE_MAP_COUNT; i++) {
         if (define < test_define_maps[i].count
-                && test_define_maps[i].defines[define]) {
-            intmax_t v = test_define_maps[i].defines[define](define);
+                && test_define_maps[i].defines[define].cb) {
+            intmax_t v = test_define_maps[i].defines[define].cb(
+                    test_define_maps[i].defines[define].data);
 
             // insert into cache!
             test_define_cache[define] = v;
@@ -242,6 +243,8 @@ intmax_t test_define(size_t define) {
             return v;
         }
     }
+
+    return 0;
 
     // not found?
     const char *name = test_define_name(define);
@@ -264,7 +267,8 @@ void test_define_flush(void) {
 const test_geometry_t *test_geometry = NULL;
 
 void test_define_geometry(const test_geometry_t *geometry) {
-    test_geometry = geometry;
+    test_define_maps[TEST_DEFINE_MAP_GEOMETRY] = (test_define_map_t){
+            geometry->defines, TEST_GEOMETRY_DEFINE_COUNT};
 }
 
 // override updates
@@ -275,11 +279,6 @@ typedef struct test_override {
 
 const test_override_t *test_overrides = NULL;
 size_t test_override_count = 0;
-intmax_t *test_override_map = NULL;
-
-intmax_t test_define_override(size_t define) {
-    return test_override_map[define];
-}
 
 void test_define_overrides(
         const test_override_t *overrides,
@@ -290,8 +289,8 @@ void test_define_overrides(
 
 // suite/perm updates
 void test_define_suite(const struct test_suite *suite) {
-    test_define_maps[1].names = suite->define_names;
-    test_define_maps[1].count = suite->define_count;
+    test_define_names[TEST_DEFINE_NAMES_SUITE] = (test_define_names_t){
+            suite->define_names, suite->define_count};
 
     // make sure our cache is large enough
     if (lfs_max(suite->define_count, TEST_IMPLICIT_DEFINE_COUNT)
@@ -310,20 +309,23 @@ void test_define_suite(const struct test_suite *suite) {
     // map any overrides
     if (test_override_count > 0) {
         // make sure our override arrays are big enough
-        if (suite->define_count > test_define_maps[0].count) {
+        if (suite->define_count
+                > test_define_maps[TEST_DEFINE_MAP_OVERRIDE].count) {
             // align to power of two to avoid any superlinear growth
             size_t ncount = 1 << lfs_npw2(suite->define_count);
-            test_define_maps[0].defines = realloc(
-                    (intmax_t (**)(size_t))test_define_maps[0].defines,
-                    ncount*sizeof(intmax_t (*)(size_t)));
-            test_override_map = realloc(
-                    test_override_map,
-                    ncount*sizeof(intmax_t));
-            test_define_maps[0].count = ncount;
+            test_define_maps[TEST_DEFINE_MAP_OVERRIDE].defines = realloc(
+                    (test_define_t*)test_define_maps[
+                        TEST_DEFINE_MAP_OVERRIDE].defines,
+                    ncount*sizeof(test_define_t));
+            test_define_maps[TEST_DEFINE_MAP_OVERRIDE].count = ncount;
         }
 
-        for (size_t i = 0; i < test_define_maps[0].count; i++) {
-            ((intmax_t (**)(size_t))test_define_maps[0].defines)[i] = NULL;
+        for (size_t i = 0;
+                i < test_define_maps[TEST_DEFINE_MAP_OVERRIDE].count;
+                i++) {
+            ((test_define_t*)test_define_maps[
+                    TEST_DEFINE_MAP_OVERRIDE].defines)[i]
+                    = (test_define_t){NULL};
 
             const char *name = test_define_name(i);
             if (!name) {
@@ -332,9 +334,9 @@ void test_define_suite(const struct test_suite *suite) {
 
             for (size_t j = 0; j < test_override_count; j++) {
                 if (strcmp(name, test_overrides[j].name) == 0) {
-                    test_override_map[i] = test_overrides[j].define;
-                    ((intmax_t (**)(size_t))test_define_maps[0].defines)[i]
-                            = test_define_override;
+                    ((test_define_t*)test_define_maps[
+                            TEST_DEFINE_MAP_OVERRIDE].defines)[i]
+                            = (test_define_t)TEST_LIT(test_overrides[j].define);
                     break;
                 }
             }
@@ -347,20 +349,26 @@ void test_define_perm(
         const struct test_case *case_,
         size_t perm) {
     if (case_->defines) {
-        test_define_maps[1].defines = case_->defines[perm];
-        test_define_maps[1].count = suite->define_count;
+        test_define_maps[TEST_DEFINE_MAP_PERMUTATION] = (test_define_map_t){
+                case_->defines[perm], suite->define_count};
     } else {
-        test_define_maps[1].defines = NULL;
-        test_define_maps[1].count = 0;
+        test_define_maps[TEST_DEFINE_MAP_PERMUTATION] = (test_define_map_t){
+                NULL, 0};
     }
+}
+
+void test_define_explicit(
+        const test_define_t *defines,
+        size_t define_count) {
+    test_define_maps[TEST_DEFINE_MAP_EXPLICIT] = (test_define_map_t){
+            defines, define_count};
 }
 
 void test_define_cleanup(void) {
     // test define management can allocate a few things
     free(test_define_cache);
     free(test_define_cache_mask);
-    free(test_override_map);
-    free((intmax_t (**)(size_t))test_define_maps[0].defines);
+    free((test_define_t*)test_define_maps[TEST_DEFINE_MAP_OVERRIDE].defines);
 }
 
 
@@ -373,7 +381,7 @@ extern const test_powerloss_t *test_powerlosses;
 extern size_t test_powerloss_count;
 
 const test_id_t *test_ids = (const test_id_t[]) {
-    {NULL, NULL, -1, NULL, NULL, 0},
+    {NULL, NULL, NULL, 0, NULL, 0},
 };
 size_t test_id_count = 1;
 
@@ -440,54 +448,130 @@ void test_trace(const char *fmt, ...) {
 }
 
 
-// how many permutations are there actually in a test case
-static void count_perms(
+// encode our permutation into a reusable id
+static void perm_printid(
         const struct test_suite *suite,
         const struct test_case *case_,
-        size_t perm,
-        const test_geometry_t *geometry,
+        const lfs_testbd_powercycles_t *cycles,
+        size_t cycle_count) {
+    (void)suite;
+    // suite[:case[:permutation[:powercycles]]]]
+    printf("%s:", case_->id);
+    for (size_t d = 0;
+            d < lfs_max(
+                suite->define_count,
+                TEST_IMPLICIT_DEFINE_COUNT);
+            d++) {
+        if (test_define_ispermutation(d)) {
+            leb16_print(d);
+            leb16_print(test_define(d));
+        }
+    }
+
+    // only print power-cycles if any occured
+    if (cycles) {
+        printf(":");
+        for (size_t i = 0; i < cycle_count; i++) {
+            leb16_print(cycles[i]);
+        }
+    }
+}
+
+static void run_powerloss_cycles(
         const lfs_testbd_powercycles_t *cycles,
         size_t cycle_count,
-        size_t *perms,
-        size_t *filtered) {
-    (void)cycle_count;
-    size_t perms_ = 0;
-    size_t filtered_ = 0;
+        const struct test_suite *suite,
+        const struct test_case *case_);
 
-    for (size_t k = 0; k < case_->permutations; k++) {
-        if (perm != (size_t)-1 && k != perm) {
-            continue;
-        }
+// iterate through permutations in a test case
+static void case_forperm(
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        const test_define_t *defines,
+        size_t define_count,
+        const lfs_testbd_powercycles_t *cycles,
+        size_t cycle_count,
+        void (*cb)(
+            void *data,
+            const struct test_suite *suite,
+            const struct test_case *case_,
+            const test_powerloss_t *powerloss),
+        void *data) {
+    if (defines) {
+        test_define_explicit(defines, define_count);
+        test_define_flush();
 
-        // define permutation
-        test_define_perm(suite, case_, k);
-
-        for (size_t g = 0; g < (geometry ? 1 : test_geometry_count); g++) {
-            // define geometry
-            test_define_geometry(geometry ? geometry : &test_geometries[g]);
-            test_define_flush();
-
-            for (size_t p = 0; p < (cycles ? 1 : test_powerloss_count); p++) {
+        if (cycles) {
+            cb(data, suite, case_, &(test_powerloss_t){
+                    .run=run_powerloss_cycles,
+                    .cycles=cycles,
+                    .cycle_count=cycle_count});
+        } else {
+            for (size_t p = 0; p < test_powerloss_count; p++) {
                 // skip non-reentrant tests when powerloss testing
-                if (!cycles
-                        && test_powerlosses[p].short_name != '0'
+                if (test_powerlosses[p].short_name != '0'
                         && !(case_->flags & TEST_REENTRANT)) {
                     continue;
                 }
 
-                perms_ += 1;
+                cb(data, suite, case_, &test_powerlosses[p]);
+            }
+        }
+    } else {
+        for (size_t k = 0; k < case_->permutations; k++) {
+            // define permutation
+            test_define_perm(suite, case_, k);
 
-                if (case_->filter && !case_->filter()) {
-                    continue;
+            for (size_t g = 0; g < test_geometry_count; g++) {
+                // define geometry
+                test_define_geometry(&test_geometries[g]);
+                test_define_flush();
+
+                if (cycles) {
+                    cb(data, suite, case_, &(test_powerloss_t){
+                            .run=run_powerloss_cycles,
+                            .cycles=cycles,
+                            .cycle_count=cycle_count});
+                } else {
+                    for (size_t p = 0; p < test_powerloss_count; p++) {
+                        // skip non-reentrant tests when powerloss testing
+                        if (test_powerlosses[p].short_name != '0'
+                                && !(case_->flags & TEST_REENTRANT)) {
+                            continue;
+                        }
+
+                        cb(data, suite, case_, &test_powerlosses[p]);
+                    }
                 }
-
-                filtered_ += 1;
             }
         }
     }
+}
 
-    *perms += perms_;
-    *filtered += filtered_;
+
+// how many permutations are there actually in a test case
+struct perm_count_state {
+    size_t total;
+    size_t filtered;
+};
+
+void perm_count(
+        void *data,
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        const test_powerloss_t *powerloss) {
+    struct perm_count_state *state = data;
+    (void)suite;
+    (void)case_;
+    (void)powerloss;
+
+    state->total += 1;
+
+    if (case_->filter && !case_->filter()) {
+        return;
+    }
+
+    state->filtered += 1;
 }
 
 
@@ -498,8 +582,7 @@ static void summary(void) {
     size_t suites = 0;
     size_t cases = 0;
     test_flags_t flags = 0;
-    size_t perms = 0;
-    size_t filtered = 0;
+    struct perm_count_state perms = {0, 0};
 
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
@@ -517,12 +600,15 @@ static void summary(void) {
                 }
 
                 cases += 1;
-                count_perms(&test_suites[i], &test_suites[i].cases[j],
-                        test_ids[t].perm,
-                        test_ids[t].geometry,
+                case_forperm(
+                        &test_suites[i],
+                        &test_suites[i].cases[j],
+                        test_ids[t].defines,
+                        test_ids[t].define_count,
                         test_ids[t].cycles,
                         test_ids[t].cycle_count,
-                        &perms, &filtered);
+                        perm_count,
+                        &perms);
             }
 
             suites += 1;
@@ -531,7 +617,7 @@ static void summary(void) {
     }
 
     char perm_buf[64];
-    sprintf(perm_buf, "%zu/%zu", filtered, perms);
+    sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
     char flag_buf[64];
     sprintf(flag_buf, "%s%s",
             (flags & TEST_REENTRANT) ? "r" : "",
@@ -557,8 +643,7 @@ static void list_suites(void) {
             test_define_suite(&test_suites[i]);
 
             size_t cases = 0;
-            size_t perms = 0;
-            size_t filtered = 0;
+            struct perm_count_state perms = {0, 0};
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
                 if (test_ids[t].case_ && strcmp(
@@ -567,16 +652,19 @@ static void list_suites(void) {
                 }
 
                 cases += 1;
-                count_perms(&test_suites[i], &test_suites[i].cases[j],
-                        test_ids[t].perm,
-                        test_ids[t].geometry,
+                case_forperm(
+                        &test_suites[i],
+                        &test_suites[i].cases[j],
+                        test_ids[t].defines,
+                        test_ids[t].define_count,
                         test_ids[t].cycles,
                         test_ids[t].cycle_count,
-                        &perms, &filtered);
+                        perm_count,
+                        &perms);
             }
 
             char perm_buf[64];
-            sprintf(perm_buf, "%zu/%zu", filtered, perms);
+            sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
             char flag_buf[64];
             sprintf(flag_buf, "%s%s",
                     (test_suites[i].flags & TEST_REENTRANT) ? "r" : "",
@@ -608,18 +696,19 @@ static void list_cases(void) {
                     continue;
                 }
 
-                size_t perms = 0;
-                size_t filtered = 0;
-
-                count_perms(&test_suites[i], &test_suites[i].cases[j],
-                        test_ids[t].perm,
-                        test_ids[t].geometry,
+                struct perm_count_state perms = {0, 0};
+                case_forperm(
+                        &test_suites[i],
+                        &test_suites[i].cases[j],
+                        test_ids[t].defines,
+                        test_ids[t].define_count,
                         test_ids[t].cycles,
                         test_ids[t].cycle_count,
-                        &perms, &filtered);
+                        perm_count,
+                        &perms);
 
                 char perm_buf[64];
-                sprintf(perm_buf, "%zu/%zu", filtered, perms);
+                sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
                 char flag_buf[64];
                 sprintf(flag_buf, "%s%s",
                         (test_suites[i].cases[j].flags & TEST_REENTRANT)
@@ -676,101 +765,102 @@ static void list_case_paths(void) {
     }
 }
 
-struct list_define {
+struct list_defines_define {
     const char *name;
     intmax_t *values;
     size_t value_count;
     size_t value_capacity;
 };
 
-static void list_defines_perms(
-        const struct test_suite *suite,
-        const struct test_case *case_,
-        size_t perm,
-        const test_geometry_t *geometry,
-        struct list_define **defines,
-        size_t *define_count,
-        size_t *define_capacity) {
-    struct list_define *defines_ = *defines;
-    size_t define_count_ = *define_count;
-    size_t define_capacity_ = *define_capacity;
+struct list_defines_defines {
+    struct list_defines_define *defines;
+    size_t define_count;
+    size_t define_capacity;
+};
 
-    for (size_t k = 0; k < case_->permutations; k++) {
-        if (perm != (size_t)-1 && k != perm) {
-            continue;
-        }
+static void list_defines_add(
+        struct list_defines_defines *defines,
+        size_t d) {
+    const char *name = test_define_name(d);
+    intmax_t value = test_define(d);
 
-        // define permutation
-        test_define_perm(suite, case_, k);
-
-        for (size_t g = 0; g < (geometry ? 1 : test_geometry_count); g++) {
-            // define geometry
-            test_define_geometry(geometry ? geometry : &test_geometries[g]);
-            test_define_flush();
-
-            // collect defines
-            for (size_t d = 0;
-                    d < lfs_max(suite->define_count,
-                        TEST_IMPLICIT_DEFINE_COUNT);
-                    d++) {
-                if (!(d < TEST_IMPLICIT_DEFINE_COUNT || (
-                        case_->defines
-                        && case_->defines[k]
-                        && case_->defines[k][d]))) {
-                    continue;
+    // define already in defines?
+    for (size_t i = 0; i < defines->define_count; i++) {
+        if (strcmp(defines->defines[i].name, name) == 0) {
+            // value already in values?
+            for (size_t j = 0; j < defines->defines[i].value_count; j++) {
+                if (defines->defines[i].values[j] == value) {
+                    return;
                 }
-                const char *name = test_define_name(d);
-                intmax_t value = test_define(d);
-
-                // define already in defines?
-                for (size_t i = 0; i < define_count_; i++) {
-                    if (strcmp(defines_[i].name, name) == 0) {
-                        // value already in values?
-                        for (size_t j = 0; j < defines_[i].value_count; j++) {
-                            if (defines_[i].values[j] == value) {
-                                goto next_define;
-                            }
-                        }
-
-                        *(intmax_t*)mappend(
-                            (void**)&defines_[i].values,
-                            sizeof(intmax_t),
-                            &defines_[i].value_count,
-                            &defines_[i].value_capacity) = value;
-
-                        goto next_define;
-                    }
-                }
-
-                {
-                    // new define?
-                    struct list_define *define = mappend(
-                            (void**)&defines_,
-                            sizeof(struct list_define),
-                            &define_count_,
-                            &define_capacity_);
-                    define->name = name;
-                    define->values = malloc(sizeof(intmax_t));
-                    define->values[0] = value;
-                    define->value_count = 1;
-                    define->value_capacity = 1;
-                }
-
-                next_define:;
             }
+
+            *(intmax_t*)mappend(
+                (void**)&defines->defines[i].values,
+                sizeof(intmax_t),
+                &defines->defines[i].value_count,
+                &defines->defines[i].value_capacity) = value;
+
+            return;
         }
     }
 
-    *defines = defines_;
-    *define_count = define_count_;
-    *define_capacity = define_capacity_;
+    // new define?
+    struct list_defines_define *define = mappend(
+            (void**)&defines->defines,
+            sizeof(struct list_defines_define),
+            &defines->define_count,
+            &defines->define_capacity);
+    define->name = name;
+    define->values = malloc(sizeof(intmax_t));
+    define->values[0] = value;
+    define->value_count = 1;
+    define->value_capacity = 1;
 }
 
-static void list_defines(void) {
-    struct list_define *defines = NULL;
-    size_t define_count = 0;
-    size_t define_capacity = 0;
+void perm_list_defines(
+        void *data,
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        const test_powerloss_t *powerloss) {
+    struct list_defines_defines *defines = data;
+    (void)suite;
+    (void)case_;
+    (void)powerloss;
 
+    // collect defines
+    for (size_t d = 0;
+            d < lfs_max(suite->define_count,
+                TEST_IMPLICIT_DEFINE_COUNT);
+            d++) {
+        if (!test_define_ispermutation(d)) {
+            continue;
+        }
+
+        list_defines_add(defines, d);
+    }
+}
+
+extern const test_geometry_t builtin_geometries[];
+
+static void list_defines(void) {
+    struct list_defines_defines defines = {NULL, 0, 0};
+
+    // yes we do need to define a suite, this does a bit of bookeeping
+    // such as setting up the define cache
+    test_define_suite(&(const struct test_suite){0});
+
+    // make sure to include builtin geometries here
+    for (size_t g = 0; builtin_geometries[g].long_name; g++) {
+        test_define_geometry(&builtin_geometries[g]);
+        test_define_flush();
+
+        // add implicit defines
+        for (size_t d = 0; d < TEST_IMPLICIT_DEFINE_COUNT; d++) {
+            list_defines_add(&defines, d);
+        }
+    }
+
+    // add permutation defines
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
             if (test_ids[t].suite && strcmp(
@@ -786,67 +876,119 @@ static void list_defines(void) {
                     continue;
                 }
 
-                list_defines_perms(&test_suites[i], &test_suites[i].cases[j],
-                        test_ids[t].perm,
-                        test_ids[t].geometry,
-                        &defines,
-                        &define_count,
-                        &define_capacity);
+                case_forperm(
+                        &test_suites[i],
+                        &test_suites[i].cases[j],
+                        test_ids[t].defines,
+                        test_ids[t].define_count,
+                        test_ids[t].cycles,
+                        test_ids[t].cycle_count,
+                        perm_list_defines,
+                        &defines);
             }
         }
     }
 
-    for (size_t i = 0; i < define_count; i++) {
-        printf("%s=", defines[i].name);
-        for (size_t j = 0; j < defines[i].value_count; j++) {
-            printf("%jd", defines[i].values[j]);
-            if (j != defines[i].value_count-1) {
+    for (size_t i = 0; i < defines.define_count; i++) {
+        printf("%s=", defines.defines[i].name);
+        for (size_t j = 0; j < defines.defines[i].value_count; j++) {
+            printf("%jd", defines.defines[i].values[j]);
+            if (j != defines.defines[i].value_count-1) {
                 printf(",");
             }
         }
         printf("\n");
     }
 
-    for (size_t i = 0; i < define_count; i++) {
-        free(defines[i].values);
+    for (size_t i = 0; i < defines.define_count; i++) {
+        free(defines.defines[i].values);
     }
-    free(defines);
+    free(defines.defines);
 }
 
-static void list_implicit(void) {
-    struct list_define *defines = NULL;
-    size_t define_count = 0;
-    size_t define_capacity = 0;
+static void list_permutation_defines(void) {
+    struct list_defines_defines defines = {NULL, 0, 0};
 
+    // add permutation defines
     for (size_t t = 0; t < test_id_count; t++) {
-        // yes we do need to define a suite, this does a bit of bookeeping
-        // such as setting up the define cache
-        test_define_suite(&(const struct test_suite){0});
-        list_defines_perms(
-                &(const struct test_suite){0},
-                &(const struct test_case){.permutations=1},
-                -1,
-                test_ids[t].geometry,
-                &defines,
-                &define_count,
-                &define_capacity);
+        for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
+            if (test_ids[t].suite && strcmp(
+                    test_suites[i].name, test_ids[t].suite) != 0) {
+                continue;
+            }
+
+            test_define_suite(&test_suites[i]);
+
+            for (size_t j = 0; j < test_suites[i].case_count; j++) {
+                if (test_ids[t].case_ && strcmp(
+                        test_suites[i].cases[j].name, test_ids[t].case_) != 0) {
+                    continue;
+                }
+
+                case_forperm(
+                        &test_suites[i],
+                        &test_suites[i].cases[j],
+                        test_ids[t].defines,
+                        test_ids[t].define_count,
+                        test_ids[t].cycles,
+                        test_ids[t].cycle_count,
+                        perm_list_defines,
+                        &defines);
+            }
+        }
     }
 
-    for (size_t i = 0; i < define_count; i++) {
-        printf("%s=", defines[i].name);
-        for (size_t j = 0; j < defines[i].value_count; j++) {
-            printf("%jd", defines[i].values[j]);
-            if (j != defines[i].value_count-1) {
+    for (size_t i = 0; i < defines.define_count; i++) {
+        printf("%s=", defines.defines[i].name);
+        for (size_t j = 0; j < defines.defines[i].value_count; j++) {
+            printf("%jd", defines.defines[i].values[j]);
+            if (j != defines.defines[i].value_count-1) {
                 printf(",");
             }
         }
         printf("\n");
     }
 
-    for (size_t i = 0; i < define_count; i++) {
-        free(defines[i].values);
+    for (size_t i = 0; i < defines.define_count; i++) {
+        free(defines.defines[i].values);
     }
-    free(defines);
+    free(defines.defines);
+}
+
+static void list_implicit_defines(void) {
+    struct list_defines_defines defines = {NULL, 0, 0};
+
+    // yes we do need to define a suite, this does a bit of bookeeping
+    // such as setting up the define cache
+    test_define_suite(&(const struct test_suite){0});
+
+    // make sure to include builtin geometries here
+    extern const test_geometry_t builtin_geometries[];
+    for (size_t g = 0; builtin_geometries[g].long_name; g++) {
+        test_define_geometry(&builtin_geometries[g]);
+        test_define_flush();
+
+        // add implicit defines
+        for (size_t d = 0; d < TEST_IMPLICIT_DEFINE_COUNT; d++) {
+            list_defines_add(&defines, d);
+        }
+    }
+
+    for (size_t i = 0; i < defines.define_count; i++) {
+        printf("%s=", defines.defines[i].name);
+        for (size_t j = 0; j < defines.defines[i].value_count; j++) {
+            printf("%jd", defines.defines[i].values[j]);
+            if (j != defines.defines[i].value_count-1) {
+                printf(",");
+            }
+        }
+        printf("\n");
+    }
+
+    for (size_t i = 0; i < defines.define_count; i++) {
+        free(defines.defines[i].values);
+    }
+    free(defines.defines);
 }
 
 
@@ -854,51 +996,35 @@ static void list_implicit(void) {
 // geometries to test
 
 const test_geometry_t builtin_geometries[] = {
-    {'d', "default",   16,   16,   512,       (1024*1024)/512},
-    {'e', "eeprom",     1,    1,   512,       (1024*1024)/512},
-    {'E', "emmc",     512,  512,   512,       (1024*1024)/512},
-    {'n', "nor",        1,    1,  4096,      (1024*1024)/4096},
-    {'N', "nand",    4096, 4096, 32768, (1024*1024)/(32*1024)},
-    {0, NULL, 0, 0, 0, 0},
+    {'d', "default", {{NULL}, TEST_LIT(16),   TEST_LIT(512),   {NULL}}},
+    {'e', "eeprom",  {{NULL}, TEST_LIT(1),    TEST_LIT(512),   {NULL}}},
+    {'E', "emmc",    {{NULL}, {NULL},         TEST_LIT(512),   {NULL}}},
+    {'n', "nor",     {{NULL}, TEST_LIT(1),    TEST_LIT(4096),  {NULL}}},
+    {'N', "nand",    {{NULL}, TEST_LIT(4096), TEST_LIT(32768), {NULL}}},
+    {0, NULL, {{NULL}, {NULL}, {NULL}, {NULL}}},
 };
 
-const test_geometry_t *test_geometries = (const test_geometry_t[]){
-    {'d', "default",   16,   16,   512,       (1024*1024)/512},
-    {'e', "eeprom",     1,    1,   512,       (1024*1024)/512},
-    {'E', "emmc",     512,  512,   512,       (1024*1024)/512},
-    {'n', "nor",        1,    1,  4096,      (1024*1024)/4096},
-    {'N', "nand",    4096, 4096, 32768, (1024*1024)/(32*1024)},
-};
+const test_geometry_t *test_geometries = builtin_geometries;
 size_t test_geometry_count = 5;
 
 static void list_geometries(void) {
-    printf("%-24s %7s %7s %7s %7s %11s  %s\n",
-            "geometry", "read", "prog", "erase", "count", "size", "leb16");
-    size_t i = 0;
-    for (; builtin_geometries[i].long_name; i++) {
-        uintmax_t read_size   = builtin_geometries[i].read_size;
-        uintmax_t prog_size   = builtin_geometries[i].prog_size;
-        uintmax_t block_size  = builtin_geometries[i].block_size;
-        uintmax_t block_count = builtin_geometries[i].block_count;
-        printf("%c,%-22s %7ju %7ju %7ju %7ju %11ju  ",
-                builtin_geometries[i].short_name,
-                builtin_geometries[i].long_name,
-                read_size,
-                prog_size,
-                block_size,
-                block_count,
-                block_size*block_count);
-        if (read_size != block_size || prog_size != block_size) {
-            if (read_size != prog_size) {
-                leb16_print(read_size);
-            }
-            leb16_print(prog_size);
-        }
-        leb16_print(block_size);
-        if (block_count*block_size != 1024*1024) {
-            leb16_print(block_count);
-        }
-        printf("\n");
+    // yes we do need to define a suite, this does a bit of bookeeping
+    // such as setting up the define cache
+    test_define_suite(&(const struct test_suite){0});
+
+    printf("%-24s %7s %7s %7s %7s %11s\n",
+            "geometry", "read", "prog", "erase", "count", "size");
+    for (size_t g = 0; builtin_geometries[g].long_name; g++) {
+        test_define_geometry(&builtin_geometries[g]);
+        test_define_flush();
+        printf("%c,%-22s %7ju %7ju %7ju %7ju %11ju\n",
+                builtin_geometries[g].short_name,
+                builtin_geometries[g].long_name,
+                READ_SIZE,
+                PROG_SIZE,
+                BLOCK_SIZE,
+                BLOCK_COUNT,
+                BLOCK_SIZE*BLOCK_COUNT);
     }
 }
 
@@ -906,11 +1032,10 @@ static void list_geometries(void) {
 // scenarios to run tests under power-loss
 
 static void run_powerloss_none(
-        const struct test_suite *suite,
-        const struct test_case *case_,
-        size_t perm,
         const lfs_testbd_powercycles_t *cycles,
-        size_t cycle_count) {
+        size_t cycle_count,
+        const struct test_suite *suite,
+        const struct test_case *case_) {
     (void)cycles;
     (void)cycle_count;
     (void)suite;
@@ -951,13 +1076,13 @@ static void run_powerloss_none(
 
     // run the test
     printf("running ");
-    print_id(suite, case_, perm, NULL, 0);
+    perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
     case_->run(&cfg);
 
     printf("finished ");
-    print_id(suite, case_, perm, NULL, 0);
+    perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
     // cleanup
@@ -974,11 +1099,10 @@ static void powerloss_longjmp(void *c) {
 }
 
 static void run_powerloss_linear(
-        const struct test_suite *suite,
-        const struct test_case *case_,
-        size_t perm,
         const lfs_testbd_powercycles_t *cycles,
-        size_t cycle_count) {
+        size_t cycle_count,
+        const struct test_suite *suite,
+        const struct test_case *case_) {
     (void)cycles;
     (void)cycle_count;
     (void)suite;
@@ -1025,7 +1149,7 @@ static void run_powerloss_linear(
 
     // run the test, increasing power-cycles as power-loss events occur
     printf("running ");
-    print_id(suite, case_, perm, NULL, 0);
+    perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
     while (true) {
@@ -1037,7 +1161,7 @@ static void run_powerloss_linear(
 
         // power-loss!
         printf("powerloss ");
-        print_id(suite, case_, perm, NULL, 0);
+        perm_printid(suite, case_, NULL, 0);
         printf(":");
         for (lfs_testbd_powercycles_t j = 1; j <= i; j++) {
             leb16_print(j);
@@ -1049,7 +1173,7 @@ static void run_powerloss_linear(
     }
 
     printf("finished ");
-    print_id(suite, case_, perm, NULL, 0);
+    perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
     // cleanup
@@ -1061,11 +1185,10 @@ static void run_powerloss_linear(
 }
 
 static void run_powerloss_exponential(
-        const struct test_suite *suite,
-        const struct test_case *case_,
-        size_t perm,
         const lfs_testbd_powercycles_t *cycles,
-        size_t cycle_count) {
+        size_t cycle_count,
+        const struct test_suite *suite,
+        const struct test_case *case_) {
     (void)cycles;
     (void)cycle_count;
     (void)suite;
@@ -1112,7 +1235,7 @@ static void run_powerloss_exponential(
 
     // run the test, increasing power-cycles as power-loss events occur
     printf("running ");
-    print_id(suite, case_, perm, NULL, 0);
+    perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
     while (true) {
@@ -1124,7 +1247,7 @@ static void run_powerloss_exponential(
 
         // power-loss!
         printf("powerloss ");
-        print_id(suite, case_, perm, NULL, 0);
+        perm_printid(suite, case_, NULL, 0);
         printf(":");
         for (lfs_testbd_powercycles_t j = 1; j <= i; j *= 2) {
             leb16_print(j);
@@ -1136,7 +1259,7 @@ static void run_powerloss_exponential(
     }
 
     printf("finished ");
-    print_id(suite, case_, perm, NULL, 0);
+    perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
     // cleanup
@@ -1148,11 +1271,10 @@ static void run_powerloss_exponential(
 }
 
 static void run_powerloss_cycles(
-        const struct test_suite *suite,
-        const struct test_case *case_,
-        size_t perm,
         const lfs_testbd_powercycles_t *cycles,
-        size_t cycle_count) {
+        size_t cycle_count,
+        const struct test_suite *suite,
+        const struct test_case *case_) {
     (void)suite;
 
     // create block device and configuration
@@ -1197,7 +1319,7 @@ static void run_powerloss_cycles(
 
     // run the test, increasing power-cycles as power-loss events occur
     printf("running ");
-    print_id(suite, case_, perm, NULL, 0);
+    perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
     while (true) {
@@ -1210,7 +1332,7 @@ static void run_powerloss_cycles(
         // power-loss!
         assert(i <= cycle_count);
         printf("powerloss ");
-        print_id(suite, case_, perm, cycles, i+1);
+        perm_printid(suite, case_, cycles, i+1);
         printf("\n");
 
         i += 1;
@@ -1219,7 +1341,7 @@ static void run_powerloss_cycles(
     }
 
     printf("finished ");
-    print_id(suite, case_, perm, NULL, 0);
+    perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
     // cleanup
@@ -1269,13 +1391,12 @@ static void powerloss_exhaustive_branch(void *c) {
 }
 
 static void run_powerloss_exhaustive_layer(
+        struct powerloss_exhaustive_cycles *cycles,
         const struct test_suite *suite,
         const struct test_case *case_,
-        size_t perm,
         struct lfs_config *cfg,
         struct lfs_testbd_config *bdcfg,
-        size_t depth,
-        struct powerloss_exhaustive_cycles *cycles) {
+        size_t depth) {
     (void)suite;
 
     struct powerloss_exhaustive_state state = {
@@ -1315,13 +1436,14 @@ static void run_powerloss_exhaustive_layer(
         *cycle = i;
 
         printf("powerloss ");
-        print_id(suite, case_, perm, cycles->cycles, cycles->cycle_count);
+        perm_printid(suite, case_, cycles->cycles, cycles->cycle_count);
         printf("\n");
 
         // now recurse
         cfg->context = &state.branches[i];
-        run_powerloss_exhaustive_layer(suite, case_, perm,
-                cfg, bdcfg, depth-1, cycles);
+        run_powerloss_exhaustive_layer(cycles,
+                suite, case_,
+                cfg, bdcfg, depth-1);
 
         // pop the cycle
         cycles->cycle_count -= 1;
@@ -1332,11 +1454,10 @@ static void run_powerloss_exhaustive_layer(
 }
 
 static void run_powerloss_exhaustive(
-        const struct test_suite *suite,
-        const struct test_case *case_,
-        size_t perm,
         const lfs_testbd_powercycles_t *cycles,
-        size_t cycle_count) {
+        size_t cycle_count,
+        const struct test_suite *suite,
+        const struct test_case *case_) {
     (void)cycles;
     (void)suite;
 
@@ -1378,14 +1499,19 @@ static void run_powerloss_exhaustive(
     }
 
     // run the test, increasing power-cycles as power-loss events occur
-    printf("running %s:%zu\n", case_->id, perm);
+    printf("running ");
+    perm_printid(suite, case_, NULL, 0);
+    printf("\n");
 
     // recursively exhaust each layer of powerlosses
-    run_powerloss_exhaustive_layer(suite, case_, perm,
-            &cfg, &bdcfg, cycle_count,
-            &(struct powerloss_exhaustive_cycles){NULL, 0, 0});
+    run_powerloss_exhaustive_layer(
+            &(struct powerloss_exhaustive_cycles){NULL, 0, 0},
+            suite, case_,
+            &cfg, &bdcfg, cycle_count);
 
-    printf("finished %s:%zu\n", case_->id, perm);
+    printf("finished ");
+    perm_printid(suite, case_, NULL, 0);
+    printf("\n");
 }
 
 
@@ -1432,63 +1558,33 @@ static void list_powerlosses(void) {
 // global test step count
 size_t test_step = 0;
 
-// run the tests
-static void run_perms(
+void perm_run(
+        void *data,
         const struct test_suite *suite,
         const struct test_case *case_,
-        size_t perm,
-        const test_geometry_t *geometry,
-        const lfs_testbd_powercycles_t *cycles,
-        size_t cycle_count) {
-    for (size_t k = 0; k < case_->permutations; k++) {
-        if (perm != (size_t)-1 && k != perm) {
-            continue;
-        }
+        const test_powerloss_t *powerloss) {
+    (void)data;
 
-        // define permutation
-        test_define_perm(suite, case_, k);
-
-        for (size_t g = 0; g < (geometry ? 1 : test_geometry_count); g++) {
-            // define geometry
-            test_define_geometry(geometry ? geometry : &test_geometries[g]);
-            test_define_flush();
-
-            for (size_t p = 0; p < (cycles ? 1 : test_powerloss_count); p++) {
-                // skip non-reentrant tests when powerloss testing
-                if (!cycles
-                        && test_powerlosses[p].short_name != '0'
-                        && !(case_->flags & TEST_REENTRANT)) {
-                    continue;
-                }
-
-                if (!(test_step >= test_step_start
-                        && test_step < test_step_stop
-                        && (test_step-test_step_start) % test_step_step == 0)) {
-                    test_step += 1;
-                    continue;
-                }
-                test_step += 1;
-
-                // filter?
-                if (case_->filter && !case_->filter()) {
-                    printf("skipped %s:%zu\n", case_->id, k);
-                    continue;
-                }
-
-                if (cycles) {
-                    run_powerloss_cycles(
-                            suite, case_, k,
-                            cycles,
-                            cycle_count);
-                } else {
-                    test_powerlosses[p].run(
-                            suite, case_, k,
-                            test_powerlosses[p].cycles,
-                            test_powerlosses[p].cycle_count);
-                }
-            }
-        }
+    // skip this step?
+    if (!(test_step >= test_step_start
+            && test_step < test_step_stop
+            && (test_step-test_step_start) % test_step_step == 0)) {
+        test_step += 1;
+        return;
     }
+    test_step += 1;
+
+    // filter?
+    if (case_->filter && !case_->filter()) {
+        printf("skipped ");
+        perm_printid(suite, case_, NULL, 0);
+        printf("\n");
+        return;
+    }
+
+    powerloss->run(
+            powerloss->cycles, powerloss->cycle_count,
+            suite, case_);
 }
 
 static void run(void) {
@@ -1510,11 +1606,15 @@ static void run(void) {
                     continue;
                 }
 
-                run_perms(&test_suites[i], &test_suites[i].cases[j],
-                        test_ids[t].perm,
-                        test_ids[t].geometry,
+                case_forperm(
+                        &test_suites[i],
+                        &test_suites[i].cases[j],
+                        test_ids[t].defines,
+                        test_ids[t].define_count,
                         test_ids[t].cycles,
-                        test_ids[t].cycle_count);
+                        test_ids[t].cycle_count,
+                        perm_run,
+                        NULL);
             }
         }
     }
@@ -1524,25 +1624,26 @@ static void run(void) {
 
 // option handling
 enum opt_flags {
-    OPT_HELP             = 'h',
-    OPT_SUMMARY          = 'Y',
-    OPT_LIST_SUITES      = 'l',
-    OPT_LIST_CASES       = 'L',
-    OPT_LIST_SUITE_PATHS = 1,
-    OPT_LIST_CASE_PATHS  = 2,
-    OPT_LIST_DEFINES     = 3,
-    OPT_LIST_IMPLICIT    = 4,
-    OPT_LIST_GEOMETRIES  = 5,
-    OPT_LIST_POWERLOSSES = 6,
-    OPT_DEFINE           = 'D',
-    OPT_GEOMETRY         = 'g',
-    OPT_POWERLOSS        = 'p',
-    OPT_STEP             = 's',
-    OPT_DISK             = 'd',
-    OPT_TRACE            = 't',
-    OPT_READ_SLEEP       = 7,
-    OPT_PROG_SLEEP       = 8,
-    OPT_ERASE_SLEEP      = 9,
+    OPT_HELP                     = 'h',
+    OPT_SUMMARY                  = 'Y',
+    OPT_LIST_SUITES              = 'l',
+    OPT_LIST_CASES               = 'L',
+    OPT_LIST_SUITE_PATHS         = 1,
+    OPT_LIST_CASE_PATHS          = 2,
+    OPT_LIST_DEFINES             = 3,
+    OPT_LIST_PERMUTATION_DEFINES = 4,
+    OPT_LIST_IMPLICIT_DEFINES    = 5,
+    OPT_LIST_GEOMETRIES          = 6,
+    OPT_LIST_POWERLOSSES         = 7,
+    OPT_DEFINE                   = 'D',
+    OPT_GEOMETRY                 = 'g',
+    OPT_POWERLOSS                = 'p',
+    OPT_STEP                     = 's',
+    OPT_DISK                     = 'd',
+    OPT_TRACE                    = 't',
+    OPT_READ_SLEEP               = 8,
+    OPT_PROG_SLEEP               = 9,
+    OPT_ERASE_SLEEP              = 10,
 };
 
 const char *short_opts = "hYlLD:g:p:s:d:t:";
@@ -1555,7 +1656,10 @@ const struct option long_opts[] = {
     {"list-suite-paths", no_argument,       NULL, OPT_LIST_SUITE_PATHS},
     {"list-case-paths",  no_argument,       NULL, OPT_LIST_CASE_PATHS},
     {"list-defines",     no_argument,       NULL, OPT_LIST_DEFINES},
-    {"list-implicit",    no_argument,       NULL, OPT_LIST_IMPLICIT},
+    {"list-permutation-defines",
+                         no_argument,       NULL, OPT_LIST_PERMUTATION_DEFINES},
+    {"list-implicit-defines",
+                         no_argument,       NULL, OPT_LIST_IMPLICIT_DEFINES},
     {"list-geometries",  no_argument,       NULL, OPT_LIST_GEOMETRIES},
     {"list-powerlosses", no_argument,       NULL, OPT_LIST_POWERLOSSES},
     {"define",           required_argument, NULL, OPT_DEFINE},
@@ -1578,6 +1682,7 @@ const char *const help_text[] = {
     "List the path for each test suite.",
     "List the path and line number for each test case.",
     "List all defines in this test-runner.",
+    "List explicit defines in this test-runner.",
     "List implicit defines in this test-runner.",
     "List the available disk geometries.",
     "List the available power-loss scenarios.",
@@ -1682,8 +1787,11 @@ int main(int argc, char **argv) {
             case OPT_LIST_DEFINES:
                 op = list_defines;
                 break;
-            case OPT_LIST_IMPLICIT:
-                op = list_implicit;
+            case OPT_LIST_PERMUTATION_DEFINES:
+                op = list_permutation_defines;
+                break;
+            case OPT_LIST_IMPLICIT_DEFINES:
+                op = list_implicit_defines;
                 break;
             case OPT_LIST_GEOMETRIES:
                 op = list_geometries;
@@ -1781,18 +1889,27 @@ invalid_define:
                         }
 
                         // allow implicit r=p and p=e for common geometries
-                        geometry->read_size = sizes[0];
-                        geometry->prog_size
-                                = count >= 3 ? sizes[1]
-                                : sizes[0];
-                        geometry->block_size
-                                = count >= 3 ? sizes[2]
-                                : count >= 2 ? sizes[1]
-                                : sizes[0];
-                        // if no block_count, figure out 1 MiB total size
-                        geometry->block_count
-                                = count >= 4 ? sizes[3]
-                                : (1024*1024) / geometry->block_size;
+                        memset(geometry, 0, sizeof(test_geometry_t));
+                        if (count >= 3) {
+                            geometry->defines[0]
+                                    = (test_define_t)TEST_LIT(sizes[0]);
+                            geometry->defines[1]
+                                    = (test_define_t)TEST_LIT(sizes[1]);
+                            geometry->defines[2]
+                                    = (test_define_t)TEST_LIT(sizes[2]);
+                        } else if (count >= 2) {
+                            geometry->defines[1]
+                                    = (test_define_t)TEST_LIT(sizes[0]);
+                            geometry->defines[2]
+                                    = (test_define_t)TEST_LIT(sizes[1]);
+                        } else {
+                            geometry->defines[2]
+                                    = (test_define_t)TEST_LIT(sizes[0]);
+                        }
+                        if (count >= 4) {
+                            geometry->defines[3]
+                                    = (test_define_t)TEST_LIT(sizes[3]);
+                        }
                         optarg = s;
                         goto geometry_next;
                     }
@@ -1816,18 +1933,27 @@ invalid_define:
                         }
 
                         // allow implicit r=p and p=e for common geometries
-                        geometry->read_size = sizes[0];
-                        geometry->prog_size
-                                = count >= 3 ? sizes[1]
-                                : sizes[0];
-                        geometry->block_size
-                                = count >= 3 ? sizes[2]
-                                : count >= 2 ? sizes[1]
-                                : sizes[0];
-                        // if no block_count, figure out 1 MiB total size
-                        geometry->block_count
-                                = count >= 4 ? sizes[3]
-                                : (1024*1024) / geometry->block_size;
+                        memset(geometry, 0, sizeof(test_geometry_t));
+                        if (count >= 3) {
+                            geometry->defines[0]
+                                    = (test_define_t)TEST_LIT(sizes[0]);
+                            geometry->defines[1]
+                                    = (test_define_t)TEST_LIT(sizes[1]);
+                            geometry->defines[2]
+                                    = (test_define_t)TEST_LIT(sizes[2]);
+                        } else if (count >= 2) {
+                            geometry->defines[1]
+                                    = (test_define_t)TEST_LIT(sizes[0]);
+                            geometry->defines[2]
+                                    = (test_define_t)TEST_LIT(sizes[1]);
+                        } else {
+                            geometry->defines[2]
+                                    = (test_define_t)TEST_LIT(sizes[0]);
+                        }
+                        if (count >= 4) {
+                            geometry->defines[3]
+                                    = (test_define_t)TEST_LIT(sizes[3]);
+                        }
                         optarg = s;
                         goto geometry_next;
                     }
@@ -2090,8 +2216,8 @@ getopt_done: ;
 
     // parse test identifier, if any, cannibalizing the arg in the process
     for (; argc > optind; optind++) {
-        size_t perm = -1;
-        test_geometry_t *geometry = NULL;
+        test_define_t *defines = NULL;
+        size_t define_count = 0;
         lfs_testbd_powercycles_t *cycles = NULL;
         size_t cycle_count = 0;
 
@@ -2116,88 +2242,61 @@ getopt_done: ;
 
         if (case_) {
             // parse case
-            char *perm_ = strchr(case_, ':');
-            if (perm_) {
-                *perm_ = '\0';
-                perm_ += 1;
+            char *defines_ = strchr(case_, ':');
+            if (defines_) {
+                *defines_ = '\0';
+                defines_ += 1;
             }
 
             // nothing really to do for case
 
-            if (perm_) {
-                // parse permutation
-                char *geometry_ = strchr(perm_, ':');
-                if (geometry_) {
-                    *geometry_ = '\0';
-                    geometry_ += 1;
+            if (defines_) {
+                // parse defines
+                char *cycles_ = strchr(defines_, ':');
+                if (cycles_) {
+                    *cycles_ = '\0';
+                    cycles_ += 1;
                 }
 
-                char *parsed = NULL;
-                perm = strtoumax(perm_, &parsed, 10);
-                if (parsed == perm_) {
-                    fprintf(stderr, "error: "
-                            "could not parse test permutation: %s\n", perm_);
-                    exit(-1);
-                }
-
-                if (geometry_) {
-                    // parse geometry
-                    char *cycles_ = strchr(geometry_, ':');
-                    if (cycles_) {
-                        *cycles_ = '\0';
-                        cycles_ += 1;
+                while (true) {
+                    char *parsed;
+                    size_t d = leb16_parse(defines_, &parsed);
+                    intmax_t v = leb16_parse(parsed, &parsed);
+                    if (parsed == defines_) {
+                        break;
                     }
+                    defines_ = parsed;
 
-                    geometry = malloc(sizeof(test_geometry_t));
-                    lfs_size_t sizes[4];
-                    size_t count = 0;
+                    if (d >= define_count) {
+                        // align to power of two to avoid any superlinear growth
+                        size_t ncount = 1 << lfs_npw2(d+1);
+                        defines = realloc(defines,
+                                ncount*sizeof(test_define_t));
+                        memset(defines+define_count, 0,
+                                (ncount-define_count)*sizeof(test_define_t));
+                        define_count = ncount;
+                    }
+                    defines[d] = (test_define_t)TEST_LIT(v);
+                }
 
-                    while (*geometry_ != '\0') {
-                        uintmax_t x = leb16_parse(geometry_, &parsed);
-                        if (parsed == geometry_ || count >= 4) {
+                if (cycles_) {
+                    // parse power cycles
+                    size_t cycle_capacity = 0;
+                    while (*cycles_ != '\0') {
+                        char *parsed = NULL;
+                        *(lfs_testbd_powercycles_t*)mappend(
+                                (void**)&cycles,
+                                sizeof(lfs_testbd_powercycles_t),
+                                &cycle_count,
+                                &cycle_capacity)
+                                = leb16_parse(cycles_, &parsed);
+                        if (parsed == cycles_) {
                             fprintf(stderr, "error: "
-                                    "count not parse test geometry: %s\n",
-                                    geometry_);
+                                    "could not parse test cycles: %s\n",
+                                    cycles_);
                             exit(-1);
                         }
-
-                        sizes[count] = x;
-                        count += 1;
-                        geometry_ = parsed;
-                    }
-
-                    // allow implicit r=p and p=e for common geometries
-                    geometry->read_size = sizes[0];
-                    geometry->prog_size
-                            = count >= 3 ? sizes[1]
-                            : sizes[0];
-                    geometry->block_size
-                            = count >= 3 ? sizes[2]
-                            : count >= 2 ? sizes[1]
-                            : sizes[0];
-                    // if no block_count, figure out 1 MiB total size
-                    geometry->block_count
-                            = count >= 4 ? sizes[3]
-                            : (1024*1024) / geometry->block_size;
-
-                    if (cycles_) {
-                        // parse power cycles
-                        size_t cycle_capacity = 0;
-                        while (*cycles_ != '\0') {
-                            *(lfs_testbd_powercycles_t*)mappend(
-                                    (void**)&cycles,
-                                    sizeof(lfs_testbd_powercycles_t),
-                                    &cycle_count,
-                                    &cycle_capacity)
-                                    = leb16_parse(cycles_, &parsed);
-                            if (parsed == cycles_) {
-                                fprintf(stderr, "error: "
-                                        "could not parse test cycles: %s\n",
-                                        cycles_);
-                                exit(-1);
-                            }
-                            cycles_ = parsed;
-                        }
+                        cycles_ = parsed;
                     }
                 }
             }
@@ -2211,8 +2310,8 @@ getopt_done: ;
                 &test_id_capacity) = (test_id_t){
             .suite = suite,
             .case_ = case_,
-            .perm = perm,
-            .geometry = geometry,
+            .defines = defines,
+            .define_count = define_count,
             .cycles = cycles,
             .cycle_count = cycle_count,
         };
@@ -2239,7 +2338,7 @@ getopt_done: ;
     }
     if (test_id_capacity) {
         for (size_t i = 0; i < test_id_count; i++) {
-            free((test_geometry_t*)test_ids[i].geometry);
+            free((test_geometry_t*)test_ids[i].defines);
             free((lfs_testbd_powercycles_t*)test_ids[i].cycles);
         }
         free((test_id_t*)test_ids);

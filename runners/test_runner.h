@@ -24,12 +24,17 @@ void test_trace(const char *fmt, ...);
 
 
 // generated test configurations
+struct lfs_config;
+
 enum test_flags {
     TEST_REENTRANT = 0x1,
 };
 typedef uint8_t test_flags_t;
 
-struct lfs_config;
+typedef struct test_define {
+    intmax_t (*cb)(void *data);
+    void *data;
+} test_define_t;
 
 struct test_case {
     const char *id;
@@ -38,7 +43,7 @@ struct test_case {
     test_flags_t flags;
     size_t permutations;
 
-    intmax_t (*const *const *defines)(size_t);
+    const test_define_t *const *defines;
 
     bool (*filter)(void);
     void (*run)(struct lfs_config *cfg);
@@ -89,10 +94,10 @@ intmax_t test_define(size_t define);
 #define POWERLOSS_BEHAVIOR  test_define(POWERLOSS_BEHAVIOR_i)
 
 #define TEST_IMPLICIT_DEFINES \
-    TEST_DEFINE(READ_SIZE,          test_geometry->read_size) \
-    TEST_DEFINE(PROG_SIZE,          test_geometry->prog_size) \
-    TEST_DEFINE(BLOCK_SIZE,         test_geometry->block_size) \
-    TEST_DEFINE(BLOCK_COUNT,        test_geometry->block_count) \
+    TEST_DEFINE(READ_SIZE,          PROG_SIZE) \
+    TEST_DEFINE(PROG_SIZE,          BLOCK_SIZE) \
+    TEST_DEFINE(BLOCK_SIZE,         0) \
+    TEST_DEFINE(BLOCK_COUNT,        (1024*1024)/BLOCK_SIZE) \
     TEST_DEFINE(CACHE_SIZE,         lfs_max(64,lfs_max(READ_SIZE,PROG_SIZE))) \
     TEST_DEFINE(LOOKAHEAD_SIZE,     16) \
     TEST_DEFINE(BLOCK_CYCLES,       -1) \

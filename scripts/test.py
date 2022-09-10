@@ -250,19 +250,19 @@ def compile(test_paths, **args):
                                     define_cbs[v] = name
                                     f.writeln('intmax_t %s('
                                         '__attribute__((unused)) '
-                                        'size_t define) {' % name)
+                                        'void *data) {' % name)
                                     f.writeln(4*' '+'return %s;' % v)
                                     f.writeln('}')
                                     f.writeln()
-                        f.writeln('intmax_t (*const *const '
-                            '__test__%s__%s__defines[])(size_t) = {'
+                        f.writeln('const test_define_t *const '
+                            '__test__%s__%s__defines[] = {'
                             % (suite.name, case.name))
                         for defines in case.permutations:
-                            f.writeln(4*' '+'(intmax_t (*const['
-                                'TEST_IMPLICIT_DEFINE_COUNT+%d])(size_t)){' % (
+                            f.writeln(4*' '+'(const test_define_t['
+                                'TEST_IMPLICIT_DEFINE_COUNT+%d]){' % (
                                 len(suite.defines)))
                             for k, v in sorted(defines.items()):
-                                f.writeln(8*' '+'[%-24s] = %s,' % (
+                                f.writeln(8*' '+'[%-24s] = {%s, NULL},' % (
                                     k+'_i', define_cbs[v]))
                             f.writeln(4*' '+'},')
                         f.writeln('};')
@@ -321,8 +321,8 @@ def compile(test_paths, **args):
                         write_case_functions(f, suite, case)
                     else:
                         if case.defines:
-                            f.writeln('extern intmax_t (*const *const '
-                                '__test__%s__%s__defines[])(size_t);'
+                            f.writeln('extern const test_define_t *const ' 
+                                '__test__%s__%s__defines[];'
                                 % (suite.name, case.name))
                         if suite.if_ is not None or case.if_ is not None:
                             f.writeln('extern bool __test__%s__%s__filter('
@@ -472,7 +472,10 @@ def list_(runner, test_ids, **args):
     if args.get('list_suite_paths'): cmd.append('--list-suite-paths')
     if args.get('list_case_paths'):  cmd.append('--list-case-paths')
     if args.get('list_defines'):     cmd.append('--list-defines')
-    if args.get('list_implicit'):    cmd.append('--list-implicit')
+    if args.get('list_permutation_defines'):
+                                     cmd.append('--list-permutation-defines')
+    if args.get('list_implicit_defines'):
+                                     cmd.append('--list-implicit-defines')
     if args.get('list_geometries'):  cmd.append('--list-geometries')
     if args.get('list_powerlosses'): cmd.append('--list-powerlosses')
 
@@ -554,33 +557,8 @@ def find_path(runner_, id, **args):
     return path
 
 def find_defines(runner_, id, **args):
-    # query implicit defines from runner
-    cmd = runner_ + ['--list-implicit']
-    if args.get('verbose'):
-        print(' '.join(shlex.quote(c) for c in cmd))
-    proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=sp.PIPE if not args.get('verbose') else None,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
-    implicit_defines = co.OrderedDict()
-    pattern = re.compile('^(?P<define>\w+)=(?P<values>.+)')
-    for line in proc.stdout:
-        m = pattern.match(line)
-        if m:
-            define = m.group('define')
-            values = m.group('values').split(',')
-            implicit_defines[define] = set(values)
-    proc.wait()
-    if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stdout.write(line)
-        sys.exit(-1)
-
-    # query case defines from runner
-    cmd = runner_ + ['--list-defines', id]
+    # query permutation defines from runner
+    cmd = runner_ + ['--list-permutation-defines', id]
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -596,9 +574,7 @@ def find_defines(runner_, id, **args):
         if m:
             define = m.group('define')
             value = m.group('value')
-            if (define not in implicit_defines
-                    or value not in implicit_defines[define]):
-                defines[define] = value
+            defines[define] = value
     proc.wait()
     if proc.returncode != 0:
         if not args.get('verbose'):
@@ -998,7 +974,8 @@ def main(**args):
             or args.get('list_suite_paths')
             or args.get('list_case_paths')
             or args.get('list_defines')
-            or args.get('list_implicit')
+            or args.get('list_permutation_defines')
+            or args.get('list_implicit_defines')
             or args.get('list_geometries')
             or args.get('list_powerlosses')):
         return list_(**args)
@@ -1039,7 +1016,9 @@ if __name__ == "__main__":
         help="List the path and line number for each test case.")
     test_parser.add_argument('--list-defines', action='store_true',
         help="List all defines in this test-runner.")
-    test_parser.add_argument('--list-implicit', action='store_true',
+    test_parser.add_argument('--list-permutation-defines', action='store_true',
+        help="List explicit defines in this test-runner.")
+    test_parser.add_argument('--list-implicit-defines', action='store_true',
         help="List implicit defines in this test-runner.")
     test_parser.add_argument('--list-geometries', action='store_true',
         help="List the available disk geometries.")
