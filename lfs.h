@@ -534,8 +534,8 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 // are values from the enum lfs_open_flags that are bitwise-ored together.
 //
 // The config struct provides additional config options per file as described
-// above. The config struct must be allocated while the file is open, and the
-// config struct must be zeroed for defaults and backwards compatibility.
+// above. The config struct must remain allocated while the file is open, and
+// the config struct must be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
 int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
