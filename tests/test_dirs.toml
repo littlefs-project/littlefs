@@ -18,7 +18,7 @@ code = '''
 '''
 
 [cases.many_dir_creation]
-defines.N = [3,6,9,12,21,33,57,66,72,93,99]
+defines.N = 'range(3, 100, 3)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
     lfs_t lfs;
@@ -55,7 +55,7 @@ code = '''
 '''
 
 [cases.many_dir_removal]
-defines.N = [3,6,9,12,21,33,57,66,72,93,99]
+defines.N = 'range(3, 100, 11)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
     lfs_t lfs;
@@ -112,7 +112,7 @@ code = '''
 '''
 
 [cases.many_dir_rename]
-defines.N = [3,6,9,12,21,33,57,66,72,93,99]
+defines.N = 'range(3, 100, 11)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
     lfs_t lfs;
@@ -266,7 +266,7 @@ code = '''
 '''
 
 [cases.file_creation]
-defines.N = [3,6,9,12,21,33,57,66,72,93,99]
+defines.N = 'range(3, 100, 11)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
     lfs_t lfs;
@@ -306,7 +306,7 @@ code = '''
 '''
 
 [cases.file_removal]
-defines.N = [3,6,9,12,21,33,57,66,72,93,99]
+defines.N = 'range(3, 100, 11)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
     lfs_t lfs;
@@ -366,7 +366,7 @@ code = '''
 '''
 
 [cases.file_rename]
-defines.N = [3,6,9,12,21,33,57,66,72,93,99]
+defines.N = 'range(3, 100, 11)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
     lfs_t lfs;

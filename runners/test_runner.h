@@ -43,7 +43,7 @@ struct test_case {
     test_flags_t flags;
     size_t permutations;
 
-    const test_define_t *const *defines;
+    const test_define_t *defines;
 
     bool (*filter)(void);
     void (*run)(struct lfs_config *cfg);

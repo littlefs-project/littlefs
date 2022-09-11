@@ -1586,7 +1586,7 @@ code = '''
 # move fix in relocation
 [cases.move_fix_relocation]
 in = "lfs.c"
-defines.RELOCATIONS = [0x0, 0x1, 0x2, 0x3]
+defines.RELOCATIONS = 'range(4)'
 defines.ERASE_CYCLES = 0xffffffff
 code = '''
     lfs_t lfs;
@@ -1731,7 +1731,7 @@ code = '''
 # move fix in relocation with predecessor
 [cases.move_fix_relocation_predecessor]
 in = "lfs.c"
-defines.RELOCATIONS = [0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7]
+defines.RELOCATIONS = 'range(8)'
 defines.ERASE_CYCLES = 0xffffffff
 code = '''
     lfs_t lfs;

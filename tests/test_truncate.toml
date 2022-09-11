@@ -285,7 +285,7 @@ code = '''
 
 # more aggressive general truncation tests
 [cases.aggressive_truncate]
-defines.CONFIG = [0,1,2,3,4,5]
+defines.CONFIG = 'range(6)'
 defines.SMALLSIZE = 32
 defines.MEDIUMSIZE = 2048
 defines.LARGESIZE = 8192

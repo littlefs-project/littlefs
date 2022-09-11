@@ -274,18 +274,17 @@ void test_define_geometry(const test_geometry_t *geometry) {
 // override updates
 typedef struct test_override {
     const char *name;
-    intmax_t define;
+    const intmax_t *defines;
+    size_t permutations;
 } test_override_t;
 
 const test_override_t *test_overrides = NULL;
 size_t test_override_count = 0;
 
-void test_define_overrides(
-        const test_override_t *overrides,
-        size_t override_count) {
-    test_overrides = overrides;
-    test_override_count = override_count;
-}
+test_define_t *test_override_defines = NULL;
+size_t test_override_define_count = 0;
+size_t test_override_define_permutations = 1;
+size_t test_override_define_capacity = 0;
 
 // suite/perm updates
 void test_define_suite(const struct test_suite *suite) {
@@ -308,35 +307,63 @@ void test_define_suite(const struct test_suite *suite) {
 
     // map any overrides
     if (test_override_count > 0) {
+        // first figure out the total size of override permutations
+        size_t count = 0;
+        size_t permutations = 1;
+        for (size_t i = 0; i < test_override_count; i++) {
+            for (size_t d = 0;
+                    d < lfs_max(
+                        suite->define_count,
+                        TEST_IMPLICIT_DEFINE_COUNT);
+                    d++) {
+                // define name match?
+                const char *name = test_define_name(d);
+                if (name && strcmp(name, test_overrides[i].name) == 0) {
+                    count = d+1;
+                    permutations *= test_overrides[i].permutations;
+                    break;
+                }
+            }
+        }
+        test_override_define_count = count;
+        test_override_define_permutations = permutations;
+
         // make sure our override arrays are big enough
-        if (suite->define_count
-                > test_define_maps[TEST_DEFINE_MAP_OVERRIDE].count) {
+        if (count * permutations > test_override_define_capacity) {
             // align to power of two to avoid any superlinear growth
-            size_t ncount = 1 << lfs_npw2(suite->define_count);
-            test_define_maps[TEST_DEFINE_MAP_OVERRIDE].defines = realloc(
-                    (test_define_t*)test_define_maps[
-                        TEST_DEFINE_MAP_OVERRIDE].defines,
-                    ncount*sizeof(test_define_t));
-            test_define_maps[TEST_DEFINE_MAP_OVERRIDE].count = ncount;
+            size_t ncapacity = 1 << lfs_npw2(count * permutations);
+            test_override_defines = realloc(
+                    test_override_defines,
+                    sizeof(test_define_t)*ncapacity);
+            test_override_define_capacity = ncapacity;
         }
 
-        for (size_t i = 0;
-                i < test_define_maps[TEST_DEFINE_MAP_OVERRIDE].count;
-                i++) {
-            ((test_define_t*)test_define_maps[
-                    TEST_DEFINE_MAP_OVERRIDE].defines)[i]
-                    = (test_define_t){NULL};
+        // zero unoverridden defines
+        memset(test_override_defines, 0,
+                sizeof(test_define_t) * count * permutations);
 
-            const char *name = test_define_name(i);
-            if (!name) {
-                continue;
-            }
+        // compute permutations
+        size_t p = 1;
+        for (size_t i = 0; i < test_override_count; i++) {
+            for (size_t d = 0;
+                    d < lfs_max(
+                        suite->define_count,
+                        TEST_IMPLICIT_DEFINE_COUNT);
+                    d++) {
+                // define name match?
+                const char *name = test_define_name(d);
+                if (name && strcmp(name, test_overrides[i].name) == 0) {
+                    // scatter the define permutations based on already
+                    // seen permutations
+                    for (size_t j = 0; j < permutations; j++) {
+                        test_override_defines[j*count + d]
+                                = (test_define_t)TEST_LIT(
+                                    test_overrides[i].defines[(j/p)
+                                        % test_overrides[i].permutations]);
+                    }
 
-            for (size_t j = 0; j < test_override_count; j++) {
-                if (strcmp(name, test_overrides[j].name) == 0) {
-                    ((test_define_t*)test_define_maps[
-                            TEST_DEFINE_MAP_OVERRIDE].defines)[i]
-                            = (test_define_t)TEST_LIT(test_overrides[j].define);
+                    // keep track of how many permutations we've seen so far
+                    p *= test_overrides[i].permutations;
                     break;
                 }
             }
@@ -350,11 +377,18 @@ void test_define_perm(
         size_t perm) {
     if (case_->defines) {
         test_define_maps[TEST_DEFINE_MAP_PERMUTATION] = (test_define_map_t){
-                case_->defines[perm], suite->define_count};
+                case_->defines + perm*suite->define_count,
+                suite->define_count};
     } else {
         test_define_maps[TEST_DEFINE_MAP_PERMUTATION] = (test_define_map_t){
                 NULL, 0};
     }
+}
+
+void test_define_override(size_t perm) {
+    test_define_maps[TEST_DEFINE_MAP_OVERRIDE] = (test_define_map_t){
+            test_override_defines + perm*test_override_define_count,
+            test_override_define_count};
 }
 
 void test_define_explicit(
@@ -368,7 +402,7 @@ void test_define_cleanup(void) {
     // test define management can allocate a few things
     free(test_define_cache);
     free(test_define_cache_mask);
-    free((test_define_t*)test_define_maps[TEST_DEFINE_MAP_OVERRIDE].defines);
+    free(test_override_defines);
 }
 
 
@@ -522,25 +556,30 @@ static void case_forperm(
             // define permutation
             test_define_perm(suite, case_, k);
 
-            for (size_t g = 0; g < test_geometry_count; g++) {
-                // define geometry
-                test_define_geometry(&test_geometries[g]);
-                test_define_flush();
+            for (size_t v = 0; v < test_override_define_permutations; v++) {
+                // define override permutation
+                test_define_override(v);
 
-                if (cycles) {
-                    cb(data, suite, case_, &(test_powerloss_t){
-                            .run=run_powerloss_cycles,
-                            .cycles=cycles,
-                            .cycle_count=cycle_count});
-                } else {
-                    for (size_t p = 0; p < test_powerloss_count; p++) {
-                        // skip non-reentrant tests when powerloss testing
-                        if (test_powerlosses[p].short_name != '0'
-                                && !(case_->flags & TEST_REENTRANT)) {
-                            continue;
+                for (size_t g = 0; g < test_geometry_count; g++) {
+                    // define geometry
+                    test_define_geometry(&test_geometries[g]);
+                    test_define_flush();
+
+                    if (cycles) {
+                        cb(data, suite, case_, &(test_powerloss_t){
+                                .run=run_powerloss_cycles,
+                                .cycles=cycles,
+                                .cycle_count=cycle_count});
+                    } else {
+                        for (size_t p = 0; p < test_powerloss_count; p++) {
+                            // skip non-reentrant tests when powerloss testing
+                            if (test_powerlosses[p].short_name != '0'
+                                    && !(case_->flags & TEST_REENTRANT)) {
+                                continue;
+                            }
+
+                            cb(data, suite, case_, &test_powerlosses[p]);
                         }
-
-                        cb(data, suite, case_, &test_powerlosses[p]);
                     }
                 }
             }
@@ -832,11 +871,31 @@ void perm_list_defines(
             d < lfs_max(suite->define_count,
                 TEST_IMPLICIT_DEFINE_COUNT);
             d++) {
-        if (!test_define_ispermutation(d)) {
-            continue;
+        if (d < TEST_IMPLICIT_DEFINE_COUNT
+                || test_define_ispermutation(d)) {
+            list_defines_add(defines, d);
         }
+    }
+}
 
-        list_defines_add(defines, d);
+void perm_list_permutation_defines(
+        void *data,
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        const test_powerloss_t *powerloss) {
+    struct list_defines_defines *defines = data;
+    (void)suite;
+    (void)case_;
+    (void)powerloss;
+
+    // collect permutation_defines
+    for (size_t d = 0;
+            d < lfs_max(suite->define_count,
+                TEST_IMPLICIT_DEFINE_COUNT);
+            d++) {
+        if (test_define_ispermutation(d)) {
+            list_defines_add(defines, d);
+        }
     }
 }
 
@@ -845,22 +904,7 @@ extern const test_geometry_t builtin_geometries[];
 static void list_defines(void) {
     struct list_defines_defines defines = {NULL, 0, 0};
 
-    // yes we do need to define a suite, this does a bit of bookeeping
-    // such as setting up the define cache
-    test_define_suite(&(const struct test_suite){0});
-
-    // make sure to include builtin geometries here
-    for (size_t g = 0; builtin_geometries[g].long_name; g++) {
-        test_define_geometry(&builtin_geometries[g]);
-        test_define_flush();
-
-        // add implicit defines
-        for (size_t d = 0; d < TEST_IMPLICIT_DEFINE_COUNT; d++) {
-            list_defines_add(&defines, d);
-        }
-    }
-
-    // add permutation defines
+    // add defines
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
             if (test_ids[t].suite && strcmp(
@@ -932,7 +976,7 @@ static void list_permutation_defines(void) {
                         test_ids[t].define_count,
                         test_ids[t].cycles,
                         test_ids[t].cycle_count,
-                        perm_list_defines,
+                        perm_list_permutation_defines,
                         &defines);
             }
         }
@@ -1700,10 +1744,7 @@ const char *const help_text[] = {
 int main(int argc, char **argv) {
     void (*op)(void) = run;
 
-    test_override_t *overrides = NULL;
-    size_t override_count = 0;
-    size_t override_capacity = 0;
-
+    size_t test_override_capacity = 0;
     size_t test_geometry_capacity = 0;
     size_t test_powerloss_capacity = 0;
     size_t test_id_capacity = 0;
@@ -1803,10 +1844,10 @@ int main(int argc, char **argv) {
             case OPT_DEFINE: {
                 // allocate space
                 test_override_t *override = mappend(
-                        (void**)&overrides,
+                        (void**)&test_overrides,
                         sizeof(test_override_t),
-                        &override_count,
-                        &override_capacity);
+                        &test_override_count,
+                        &test_override_capacity);
 
                 // parse into string key/intmax_t value, cannibalizing the
                 // arg in the process
@@ -1815,13 +1856,112 @@ int main(int argc, char **argv) {
                 if (!sep) {
                     goto invalid_define;
                 }
-                override->define = strtoumax(sep+1, &parsed, 0);
-                if (parsed == sep+1) {
-                    goto invalid_define;
-                }
-
-                override->name = optarg;
                 *sep = '\0';
+                override->name = optarg;
+                optarg = sep+1;
+
+                // parse comma-separated permutations
+                {
+                    override->defines = NULL;
+                    override->permutations = 0;
+                    size_t override_capacity = 0;
+                    while (true) {
+                        optarg += strspn(optarg, " ");
+
+                        if (strncmp(optarg, "range", strlen("range")) == 0) {
+                            // range of values
+                            optarg += strlen("range");
+                            optarg += strspn(optarg, " ");
+                            if (*optarg != '(') {
+                                goto invalid_define;
+                            }
+                            optarg += 1;
+
+                            intmax_t start = strtoumax(optarg, &parsed, 0);
+                            intmax_t stop = -1;
+                            intmax_t step = 1;
+                            // allow empty string for start=0
+                            if (parsed == optarg) {
+                                start = 0;
+                            }
+                            optarg = parsed + strspn(parsed, " ");
+
+                            if (*optarg != ',' && *optarg != ')') {
+                                goto invalid_define;
+                            }
+
+                            if (*optarg == ',') {
+                                optarg += 1;
+                                stop = strtoumax(optarg, &parsed, 0);
+                                // allow empty string for stop=end
+                                if (parsed == optarg) {
+                                    stop = -1;
+                                }
+                                optarg = parsed + strspn(parsed, " ");
+
+                                if (*optarg != ',' && *optarg != ')') {
+                                    goto invalid_define;
+                                }
+
+                                if (*optarg == ',') {
+                                    optarg += 1;
+                                    step = strtoumax(optarg, &parsed, 0);
+                                    // allow empty string for stop=1
+                                    if (parsed == optarg) {
+                                        step = 1;
+                                    }
+                                    optarg = parsed + strspn(parsed, " ");
+
+                                    if (*optarg != ')') {
+                                        goto invalid_define;
+                                    }
+                                }
+                            } else {
+                                // single value = stop only
+                                stop = start;
+                                start = 0;
+                            }
+                            
+                            if (*optarg != ')') {
+                                goto invalid_define;
+                            }
+                            optarg += 1;
+
+                            // calculate the range of values
+                            assert(step != 0);
+                            for (intmax_t i = start;
+                                    (step < 0)
+                                        ? i > stop
+                                        : (uintmax_t)i < (uintmax_t)stop;
+                                    i += step) {
+                                *(intmax_t*)mappend(
+                                        (void**)&override->defines,
+                                        sizeof(intmax_t),
+                                        &override->permutations,
+                                        &override_capacity) = i;
+                            }
+                        } else if (*optarg != '\0') {
+                            // single value
+                            intmax_t define = strtoimax(optarg, &parsed, 0);
+                            if (parsed == optarg) {
+                                goto invalid_define;
+                            }
+                            *(intmax_t*)mappend(
+                                    (void**)&override->defines,
+                                    sizeof(intmax_t),
+                                    &override->permutations,
+                                    &override_capacity) = define;
+                        } else {
+                            break;
+                        }
+
+                        optarg = parsed + strspn(parsed, " ");
+                        if (*optarg == ',') {
+                            optarg += 1;
+                        }
+                    }
+                }
+                assert(override->permutations > 0);
                 break;
 
 invalid_define:
@@ -2117,10 +2257,12 @@ powerloss_next:
             }
             case OPT_STEP: {
                 char *parsed = NULL;
-                size_t start = strtoumax(optarg, &parsed, 0);
+                test_step_start = strtoumax(optarg, &parsed, 0);
+                test_step_stop = -1;
+                test_step_step = 1;
                 // allow empty string for start=0
-                if (parsed != optarg) {
-                    test_step_start = start;
+                if (parsed == optarg) {
+                    test_step_start = 0;
                 }
                 optarg = parsed + strspn(parsed, " ");
 
@@ -2130,10 +2272,10 @@ powerloss_next:
 
                 if (*optarg == ',') {
                     optarg += 1;
-                    size_t stop = strtoumax(optarg, &parsed, 0);
+                    test_step_stop = strtoumax(optarg, &parsed, 0);
                     // allow empty string for stop=end
-                    if (parsed != optarg) {
-                        test_step_stop = stop;
+                    if (parsed == optarg) {
+                        test_step_stop = -1;
                     }
                     optarg = parsed + strspn(parsed, " ");
 
@@ -2143,10 +2285,10 @@ powerloss_next:
 
                     if (*optarg == ',') {
                         optarg += 1;
-                        size_t step = strtoumax(optarg, &parsed, 0);
+                        test_step_step = strtoumax(optarg, &parsed, 0);
                         // allow empty string for stop=1
-                        if (parsed != optarg) {
-                            test_step_step = step;
+                        if (parsed == optarg) {
+                            test_step_step = 1;
                         }
                         optarg = parsed + strspn(parsed, " ");
 
@@ -2154,6 +2296,10 @@ powerloss_next:
                             goto step_unknown;
                         }
                     }
+                } else {
+                    // single value = stop only
+                    test_step_stop = test_step_start;
+                    test_step_start = 0;
                 }
 
                 break;
@@ -2317,30 +2463,31 @@ getopt_done: ;
         };
     }
 
-    // register overrides
-    test_define_overrides(overrides, override_count);
-
     // do the thing
     op();
 
     // cleanup (need to be done for valgrind testing)
     test_define_cleanup();
-    free(overrides);
-
+    if (test_overrides) {
+        for (size_t i = 0; i < test_override_count; i++) {
+            free((void*)test_overrides[i].defines);
+        }
+        free((void*)test_overrides);
+    }
     if (test_geometry_capacity) {
-        free((test_geometry_t*)test_geometries);
+        free((void*)test_geometries);
     }
     if (test_powerloss_capacity) {
         for (size_t i = 0; i < test_powerloss_count; i++) {
-            free((lfs_testbd_powercycles_t*)test_powerlosses[i].cycles);
+            free((void*)test_powerlosses[i].cycles);
         }
-        free((test_powerloss_t*)test_powerlosses);
+        free((void*)test_powerlosses);
     }
     if (test_id_capacity) {
         for (size_t i = 0; i < test_id_count; i++) {
-            free((test_geometry_t*)test_ids[i].defines);
-            free((lfs_testbd_powercycles_t*)test_ids[i].cycles);
+            free((void*)test_ids[i].defines);
+            free((void*)test_ids[i].cycles);
         }
-        free((test_id_t*)test_ids);
+        free((void*)test_ids);
     }
 }

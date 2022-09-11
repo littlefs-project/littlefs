@@ -62,6 +62,7 @@ class TestCase:
         self.defines = set()
         self.permutations = []
 
+        # defines can be a dict or a list or dicts
         suite_defines = config.pop('suite_defines', {})
         if not isinstance(suite_defines, list):
             suite_defines = [suite_defines]
@@ -69,15 +70,63 @@ class TestCase:
         if not isinstance(defines, list):
             defines = [defines]
 
+        def csplit(v):
+            # split commas but only outside of parens
+            parens = 0
+            i_ = 0
+            for i in range(len(v)):
+                if v[i] == ',' and parens == 0:
+                    yield v[i_:i]
+                    i_ = i+1
+                elif v[i] in '([{':
+                    parens += 1
+                elif v[i] in '}])':
+                    parens -= 1
+            if v[i_:].strip():
+                yield v[i_:]
+
+        def parse_define(v):
+            # a define entry can be a list
+            if isinstance(v, list):
+                for v_ in v:
+                    yield from parse_define(v_)
+            # or a string
+            elif isinstance(v, str):
+                # which can be comma-separated values, with optional
+                # range statements. This matches the runtime define parser in
+                # the runner itself.
+                for v_ in csplit(v):
+                    m = re.search(r'\brange\b\s*\('
+                        '(?P<start>[^,\s]*)'
+                        '\s*(?:,\s*(?P<stop>[^,\s]*)'
+                        '\s*(?:,\s*(?P<step>[^,\s]*)\s*)?)?\)',
+                        v_)
+                    if m:
+                        start = (int(m.group('start'), 0)
+                            if m.group('start') else 0)
+                        stop = (int(m.group('stop'), 0)
+                            if m.group('stop') else None)
+                        step = (int(m.group('step'), 0)
+                            if m.group('step') else 1)
+                        if m.lastindex <= 1:
+                            start, stop = 0, start
+                        for x in range(start, stop, step):
+                            yield from parse_define('%s(%d)%s' % (
+                                v_[:m.start()], x, v_[m.end():]))
+                    else:                            
+                        yield v_
+            # or a literal value
+            else:
+                yield v
+
         # build possible permutations
         for suite_defines_ in suite_defines:
             self.defines |= suite_defines_.keys()
             for defines_ in defines:
                 self.defines |= defines_.keys()
-                self.permutations.extend(map(dict, it.product(*(
-                    [(k, v) for v in (vs if isinstance(vs, list) else [vs])]
-                    for k, vs in sorted(
-                        (suite_defines_ | defines_).items())))))
+                self.permutations.extend(dict(perm) for perm in it.product(*(
+                    [(k, v) for v in parse_define(vs)]
+                    for k, vs in sorted((suite_defines_ | defines_).items()))))
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
@@ -254,13 +303,12 @@ def compile(test_paths, **args):
                                     f.writeln(4*' '+'return %s;' % v)
                                     f.writeln('}')
                                     f.writeln()
-                        f.writeln('const test_define_t *const '
-                            '__test__%s__%s__defines[] = {'
-                            % (suite.name, case.name))
+                        f.writeln('const test_define_t '
+                            '__test__%s__%s__defines[]['
+                            'TEST_IMPLICIT_DEFINE_COUNT+%d] = {'
+                            % (suite.name, case.name, len(suite.defines)))
                         for defines in case.permutations:
-                            f.writeln(4*' '+'(const test_define_t['
-                                'TEST_IMPLICIT_DEFINE_COUNT+%d]){' % (
-                                len(suite.defines)))
+                            f.writeln(4*' '+'{')
                             for k, v in sorted(defines.items()):
                                 f.writeln(8*' '+'[%-24s] = {%s, NULL},' % (
                                     k+'_i', define_cbs[v]))
@@ -321,9 +369,10 @@ def compile(test_paths, **args):
                         write_case_functions(f, suite, case)
                     else:
                         if case.defines:
-                            f.writeln('extern const test_define_t *const ' 
-                                '__test__%s__%s__defines[];'
-                                % (suite.name, case.name))
+                            f.writeln('extern const test_define_t '
+                                '__test__%s__%s__defines[]['
+                                'TEST_IMPLICIT_DEFINE_COUNT+%d];'
+                                % (suite.name, case.name, len(suite.defines)))
                         if suite.if_ is not None or case.if_ is not None:
                             f.writeln('extern bool __test__%s__%s__filter('
                                 'void);'
@@ -368,7 +417,8 @@ def compile(test_paths, **args):
                     f.writeln(12*' '+'.permutations = %d,'
                         % len(case.permutations))
                     if case.defines:
-                        f.writeln(12*' '+'.defines = __test__%s__%s__defines,'
+                        f.writeln(12*' '+'.defines '
+                            '= (const test_define_t*)__test__%s__%s__defines,'
                             % (suite.name, case.name))
                     if suite.if_ is not None or case.if_ is not None:
                         f.writeln(12*' '+'.filter = __test__%s__%s__filter,'
@@ -1088,7 +1138,7 @@ if __name__ == "__main__":
         help="Output file.")
 
     # runner + test_ids overlaps test_paths, so we need to do some munging here
-    args = parser.parse_args()
+    args = parser.parse_intermixed_args()
     args.test_paths = [' '.join(args.runner or [])] + args.test_ids
     args.runner = args.runner or [RUNNER_PATH]
 
