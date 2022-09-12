@@ -41,6 +41,8 @@ def main(path='-', *, lines=1, sleep=0.01, keep_open=False):
                     event.set()
             if not keep_open:
                 break
+            # don't just flood open calls
+            time.sleep(sleep)
         done = True
 
     th.Thread(target=read, daemon=True).start()

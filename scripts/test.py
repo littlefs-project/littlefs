@@ -4,6 +4,7 @@
 #
 
 import collections as co
+import csv
 import errno
 import glob
 import itertools as it
@@ -26,7 +27,7 @@ HEADER_PATH = 'runners/test_runner.h'
 
 def openio(path, mode='r', buffering=-1, nb=False):
     if path == '-':
-        if 'r' in mode:
+        if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), 'r', buffering)
         else:
             return os.fdopen(os.dup(sys.stdout.fileno()), 'w', buffering)
@@ -475,9 +476,8 @@ def compile(test_paths, **args):
                                     f.writeln('#endif')
                                 f.writeln()
 
-def find_runner(runner, test_ids, **args):
+def find_runner(runner, **args):
     cmd = runner.copy()
-    cmd.extend(test_ids)
 
     # run under some external command?
     cmd[:0] = args.get('exec', [])
@@ -514,8 +514,8 @@ def find_runner(runner, test_ids, **args):
 
     return cmd
 
-def list_(runner, test_ids, **args):
-    cmd = find_runner(runner, test_ids, **args)
+def list_(runner, test_ids=[], **args):
+    cmd = find_runner(runner, **args) + test_ids
     if args.get('summary'):          cmd.append('--summary')
     if args.get('list_suites'):      cmd.append('--list-suites')
     if args.get('list_cases'):       cmd.append('--list-cases')
@@ -534,9 +534,9 @@ def list_(runner, test_ids, **args):
     return sp.call(cmd)
 
 
-def find_cases(runner_, **args):
+def find_cases(runner_, ids=[], **args):
     # query from runner
-    cmd = runner_ + ['--list-cases']
+    cmd = runner_ + ['--list-cases'] + ids
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -635,6 +635,41 @@ def find_defines(runner_, id, **args):
     return defines
 
 
+# Thread-safe CSV writer
+class TestOutput:
+    def __init__(self, path, head=None, tail=None):
+        self.f = openio(path, 'w+', 1)
+        self.lock = th.Lock()
+        self.head = head or []
+        self.tail = tail or []
+        self.writer = csv.DictWriter(self.f, self.head + self.tail)
+        self.rows = []
+
+    def close(self):
+        self.f.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.f.close()
+
+    def writerow(self, row):
+        with self.lock:
+            self.rows.append(row)
+            if all(k in self.head or k in self.tail for k in row.keys()):
+                # can simply append
+                self.writer.writerow(row)
+            else:
+                # need to rewrite the file
+                self.head.extend(row.keys() - (self.head + self.tail))
+                self.f.truncate()
+                self.writer = csv.DictWriter(self.f, self.head + self.tail)
+                self.writer.writeheader()
+                for row in self.rows:
+                    self.writer.writerow(row)
+
+# A test failure
 class TestFailure(Exception):
     def __init__(self, id, returncode, stdout, assert_=None):
         self.id = id
@@ -642,10 +677,10 @@ class TestFailure(Exception):
         self.stdout = stdout
         self.assert_ = assert_
 
-def run_stage(name, runner_, **args):
+def run_stage(name, runner_, ids, output_, **args):
     # get expected suite/case/perm counts
     expected_suite_perms, expected_case_perms, expected_perms, total_perms = (
-        find_cases(runner_, **args))
+        find_cases(runner_, ids, **args))
 
     passed_suite_perms = co.defaultdict(lambda: 0)
     passed_case_perms = co.defaultdict(lambda: 0)
@@ -662,7 +697,7 @@ def run_stage(name, runner_, **args):
     locals = th.local()
     children = set()
 
-    def run_runner(runner_):
+    def run_runner(runner_, ids=[]):
         nonlocal passed_suite_perms
         nonlocal passed_case_perms
         nonlocal passed_perms
@@ -670,7 +705,7 @@ def run_stage(name, runner_, **args):
         nonlocal locals
 
         # run the tests!
-        cmd = runner_.copy()
+        cmd = runner_ + ids
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
 
@@ -726,6 +761,14 @@ def run_stage(name, runner_, **args):
                         passed_suite_perms[m.group('suite')] += 1
                         passed_case_perms[m.group('case')] += 1
                         passed_perms += 1
+                        if output_:
+                            # get defines and write to csv
+                            defines = find_defines(
+                                runner_, m.group('id'), **args)
+                            output_.writerow({
+                                'case': m.group('case'),
+                                'test_pass': 1,
+                                **defines})
                     elif op == 'skipped':
                         locals.seen_perms += 1
                     elif op == 'assert':
@@ -750,7 +793,7 @@ def run_stage(name, runner_, **args):
                 last_stdout,
                 last_assert)
 
-    def run_job(runner, start=None, step=None):
+    def run_job(runner_, ids=[], start=None, step=None):
         nonlocal failures
         nonlocal killed
         nonlocal locals
@@ -758,20 +801,30 @@ def run_stage(name, runner_, **args):
         start = start or 0
         step = step or 1
         while start < total_perms:
-            runner_ = runner.copy()
+            job_runner = runner_.copy()
             if args.get('isolate') or args.get('valgrind'):
-                runner_.append('-s%s,%s,%s' % (start, start+step, step))
+                job_runner.append('-s%s,%s,%s' % (start, start+step, step))
             else:
-                runner_.append('-s%s,,%s' % (start, step))
+                job_runner.append('-s%s,,%s' % (start, step))
 
             try:
                 # run the tests
                 locals.seen_perms = 0
-                run_runner(runner_)
+                run_runner(job_runner, ids)
                 assert locals.seen_perms > 0
                 start += locals.seen_perms*step
 
             except TestFailure as failure:
+                # keep track of failures
+                if output_:
+                    suite, case, _ = failure.id.split(':', 2)
+                    # get defines and write to csv
+                    defines = find_defines(runner_, failure.id, **args)
+                    output_.writerow({
+                        'case': ':'.join([suite, case]),
+                        'test_pass': 0,
+                        **defines})
+
                 # race condition for multiple failures?
                 if failures and not args.get('keep_going'):
                     break
@@ -796,11 +849,11 @@ def run_stage(name, runner_, **args):
     if 'jobs' in args:
         for job in range(args['jobs']):
             runners.append(th.Thread(
-                target=run_job, args=(runner_, job, args['jobs']),
+                target=run_job, args=(runner_, ids, job, args['jobs']),
                 daemon=True))
     else:
         runners.append(th.Thread(
-            target=run_job, args=(runner_, None, None),
+            target=run_job, args=(runner_, ids, None, None),
             daemon=True))
 
     def print_update(done):
@@ -861,13 +914,12 @@ def run_stage(name, runner_, **args):
         killed)
     
 
-def run(runner, test_ids, **args):
+def run(runner, test_ids=[], **args):
     # query runner for tests
-    runner_ = find_runner(runner, test_ids, **args)
-    print('using runner: %s'
-        % ' '.join(shlex.quote(c) for c in runner_))
+    runner_ = find_runner(runner, **args)
+    print('using runner: %s' % ' '.join(shlex.quote(c) for c in runner_))
     expected_suite_perms, expected_case_perms, expected_perms, total_perms = (
-        find_cases(runner_, **args))
+        find_cases(runner_, test_ids, **args))
     print('found %d suites, %d cases, %d/%d permutations'
         % (len(expected_suite_perms),
             len(expected_case_perms),
@@ -882,6 +934,9 @@ def run(runner, test_ids, **args):
     trace = None
     if args.get('trace'):
         trace = openio(args['trace'], 'w', 1)
+    output = None
+    if args.get('output'):
+        output = TestOutput(args['output'], ['case'], ['test_pass'])
 
     # measure runtime
     start = time.time()
@@ -894,14 +949,12 @@ def run(runner, test_ids, **args):
     for by in (expected_case_perms.keys() if args.get('by_cases')
             else expected_suite_perms.keys() if args.get('by_suites')
             else [None]):
-        # rebuild runner for each stage to override test identifier if needed
-        stage_runner = find_runner(runner,
-            [by] if by is not None else test_ids, **args)
-
         # spawn jobs for stage
         expected_, passed_, powerlosses_, failures_, killed = run_stage(
             by or 'tests',
-            stage_runner,
+            runner_,
+            [by] if by is not None else test_ids,
+            output,
             **args)
         expected += expected_
         passed += passed_
@@ -916,6 +969,8 @@ def run(runner, test_ids, **args):
         stdout.close()
     if trace:
         trace.close()
+    if output:
+        output.close()
 
     # show summary
     print()
@@ -975,29 +1030,29 @@ def run(runner, test_ids, **args):
             or args.get('gdb_case')
             or args.get('gdb_main')):
         failure = failures[0]
-        runner_ = find_runner(runner, [failure.id], **args)
+        cmd = runner_ + [failure.id]
 
         if args.get('gdb_main'):
-            cmd = ['gdb',
+            cmd[:0] = ['gdb',
                 '-ex', 'break main',
                 '-ex', 'run',
-                '--args'] + runner_
+                '--args']
         elif args.get('gdb_case'):
             path, lineno = find_path(runner_, failure.id, **args)
-            cmd = ['gdb',
+            cmd[:0] = ['gdb',
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
-                '--args'] + runner_
+                '--args']
         elif failure.assert_ is not None:
-            cmd = ['gdb',
+            cmd[:0] = ['gdb',
                 '-ex', 'run',
                 '-ex', 'frame function raise',
                 '-ex', 'up 2',
-                '--args'] + runner_
+                '--args']
         else:
-            cmd = ['gdb',
+            cmd[:0] = ['gdb',
                 '-ex', 'run',
-                '--args'] + runner_
+                '--args']
 
         # exec gdb interactively
         if args.get('verbose'):
@@ -1088,6 +1143,8 @@ if __name__ == "__main__":
         help="Direct trace output to this file.")
     test_parser.add_argument('-O', '--stdout',
         help="Direct stdout to this file. Note stderr is already merged here.")
+    test_parser.add_argument('-o', '--output',
+        help="CSV file to store results.")
     test_parser.add_argument('--read-sleep',
         help="Artificial read delay in seconds.")
     test_parser.add_argument('--prog-sleep',

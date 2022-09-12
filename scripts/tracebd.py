@@ -600,6 +600,8 @@ def main(path='-', *,
                                 time.sleep(sleep)
                 if not keep_open:
                     break
+                # don't just flood open calls
+                time.sleep(sleep)
         except KeyboardInterrupt:
             pass
     else:
@@ -618,6 +620,8 @@ def main(path='-', *,
                             event.set()
                 if not keep_open:
                     break
+                # don't just flood open calls
+                time.sleep(sleep)
             done = True
 
         th.Thread(target=parse, daemon=True).start()
