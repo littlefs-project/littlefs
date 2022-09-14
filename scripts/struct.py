@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 #
-# Script to find data size at the function level. Basically just a bit wrapper
-# around nm with some extra conveniences for comparing builds. Heavily inspired
-# by Linux's Bloat-O-Meter.
+# Script to find struct sizes.
 #
 
 import collections as co
@@ -17,8 +15,7 @@ import subprocess as sp
 
 
 OBJ_PATHS = ['*.o']
-NM_TOOL = ['nm']
-TYPE = 'dDbB'
+OBJDUMP_TOOL = ['objdump']
 
 
 # integer fields
@@ -113,15 +110,15 @@ class IntField(co.namedtuple('IntField', 'x')):
         else:
             return IntField(round(self.x / n))
 
-# data size results
-class DataResult(co.namedtuple('DataResult', 'file,function,data_size')):
+# struct size results
+class StructResult(co.namedtuple('StructResult', 'file,struct,struct_size')):
     __slots__ = ()
-    def __new__(cls, file, function, data_size):
-        return super().__new__(cls, file, function, IntField(data_size))
+    def __new__(cls, file, struct, struct_size):
+        return super().__new__(cls, file, struct, IntField(struct_size))
 
     def __add__(self, other):
-        return DataResult(self.file, self.function,
-            self.data_size + other.data_size)
+        return StructResult(self.file, self.struct,
+            self.struct_size + other.struct_size)
 
 
 def openio(path, mode='r'):
@@ -134,24 +131,27 @@ def openio(path, mode='r'):
         return open(path, mode)
 
 def collect(paths, *,
-        nm_tool=NM_TOOL,
-        type=TYPE,
+        objdump_tool=OBJDUMP_TOOL,
         build_dir=None,
         everything=False,
         **args):
+    decl_pattern = re.compile(
+        '^\s+(?P<no>[0-9]+)'
+            '\s+(?P<dir>[0-9]+)'
+            '\s+.*'
+            '\s+(?P<file>[^\s]+)$')
+    struct_pattern = re.compile(
+        '^(?:.*DW_TAG_(?P<tag>[a-z_]+).*'
+            '|^.*DW_AT_name.*:\s*(?P<name>[^:\s]+)\s*'
+            '|^.*DW_AT_decl_file.*:\s*(?P<decl>[0-9]+)\s*'
+            '|^.*DW_AT_byte_size.*:\s*(?P<size>[0-9]+)\s*)$')
+
     results = []
-    pattern = re.compile(
-        '^(?P<size>[0-9a-fA-F]+)' +
-        ' (?P<type>[%s])' % re.escape(type) +
-        ' (?P<func>.+?)$')
     for path in paths:
-        # map to source file
-        src_path = re.sub('\.o$', '.c', path)
-        if build_dir:
-            src_path = re.sub('%s/*' % re.escape(build_dir), '',
-                src_path)
-        # note nm-tool may contain extra args
-        cmd = nm_tool + ['--size-sort', path]
+        # find decl, we want to filter by structs in .h files
+        decls = {}
+        # note objdump-tool may contain extra args
+        cmd = objdump_tool + ['--dwarf=rawline', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -160,19 +160,63 @@ def collect(paths, *,
             universal_newlines=True,
             errors='replace')
         for line in proc.stdout:
-            m = pattern.match(line)
+            # find file numbers
+            m = decl_pattern.match(line)
             if m:
-                func = m.group('func')
-                # discard internal functions
-                if not everything and func.startswith('__'):
-                    continue
-                # discard .8449 suffixes created by optimizer
-                func = re.sub('\.[0-9]+', '', func)
+                decls[int(m.group('no'))] = m.group('file')
+        proc.wait()
+        if proc.returncode != 0:
+            if not args.get('verbose'):
+                for line in proc.stderr:
+                    sys.stdout.write(line)
+            sys.exit(-1)
 
-                results.append(DataResult(
-                    src_path, func,
-                    int(m.group('size'), 16)))
+        # collect structs as we parse dwarf info
+        found = False
+        name = None
+        decl = None
+        size = None
 
+        # note objdump-tool may contain extra args
+        cmd = objdump_tool + ['--dwarf=info', path]
+        if args.get('verbose'):
+            print(' '.join(shlex.quote(c) for c in cmd))
+        proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            stderr=sp.PIPE if not args.get('verbose') else None,
+            universal_newlines=True,
+            errors='replace')
+        for line in proc.stdout:
+            # state machine here to find structs
+            m = struct_pattern.match(line)
+            if m:
+                if m.group('tag'):
+                    if (name is not None
+                            and decl is not None
+                            and size is not None):
+                        file = decls.get(decl, '?')
+                        # map to source file
+                        file = re.sub('\.o$', '.c', file)
+                        if build_dir:
+                            file = re.sub(
+                                '%s/*' % re.escape(build_dir), '',
+                                file)
+                        # only include structs declared in header files in the
+                        # current directory, ignore internal-only structs (
+                        # these are represented in other measurements)
+                        if everything or file.endswith('.h'):
+                            results.append(StructResult(file, name, size))
+
+                    found = (m.group('tag') == 'structure_type')
+                    name = None
+                    decl = None
+                    size = None
+                elif found and m.group('name'):
+                    name = m.group('name')
+                elif found and name and m.group('decl'):
+                    decl = int(m.group('decl'))
+                elif found and name and m.group('size'):
+                    size = int(m.group('size'))
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
@@ -184,7 +228,7 @@ def collect(paths, *,
 
 
 def fold(results, *,
-        by=['file', 'function'],
+        by=['file', 'struct'],
         **_):
     folding = co.OrderedDict()
     for r in results:
@@ -211,16 +255,16 @@ def table(results, diff_results=None, *,
     all_, all = all, __builtins__.all
 
     # fold
-    results = fold(results, by=['file' if by_file else 'function'])
+    results = fold(results, by=['file' if by_file else 'struct'])
     if diff_results is not None:
         diff_results = fold(diff_results,
-            by=['file' if by_file else 'function'])
+            by=['file' if by_file else 'struct'])
 
     table = {
-        r.file if by_file else r.function: r
+        r.file if by_file else r.struct: r
         for r in results}
     diff_table = {
-        r.file if by_file else r.function: r
+        r.file if by_file else r.struct: r
         for r in diff_results or []}
 
     # sort, note that python's sort is stable
@@ -228,18 +272,18 @@ def table(results, diff_results=None, *,
     names.sort()
     if diff_results is not None:
         names.sort(key=lambda n: -IntField.ratio(
-            table[n].data_size if n in table else None,
-            diff_table[n].data_size if n in diff_table else None))
+            table[n].struct_size if n in table else None,
+            diff_table[n].struct_size if n in diff_table else None))
     if size_sort:
-        names.sort(key=lambda n: (table[n].data_size,) if n in table else (),
+        names.sort(key=lambda n: (table[n].struct_size,) if n in table else (),
             reverse=True)
     elif reverse_size_sort:
-        names.sort(key=lambda n: (table[n].data_size,) if n in table else (),
+        names.sort(key=lambda n: (table[n].struct_size,) if n in table else (),
             reverse=False)
 
     # print header
     print('%-36s' % ('%s%s' % (
-        'file' if by_file else 'function',
+        'file' if by_file else 'struct',
         ' (%d added, %d removed)' % (
             sum(1 for n in table if n not in diff_table),
             sum(1 for n in diff_table if n not in table))
@@ -263,19 +307,19 @@ def table(results, diff_results=None, *,
             if diff_results is not None:
                 diff_r = diff_table.get(name)
                 ratio = IntField.ratio(
-                    r.data_size if r else None,
-                    diff_r.data_size if diff_r else None)
+                    r.struct_size if r else None,
+                    diff_r.struct_size if diff_r else None)
                 if not ratio and not all_:
                     continue
 
             print('%-36s' % name, end='')
             if diff_results is None:
                 print(' %s' % (
-                    r.data_size.table()
+                    r.struct_size.table()
                         if r else IntField.none))
             elif percent:
                 print(' %s%s' % (
-                    r.data_size.diff_table()
+                    r.struct_size.diff_table()
                         if r else IntField.diff_none,
                     ' (%s)' % (
                         '+∞%' if ratio == float('+inf')
@@ -283,13 +327,13 @@ def table(results, diff_results=None, *,
                         else '%+.1f%%' % (100*ratio))))
             else:
                 print(' %s %s %s%s' % (
-                    diff_r.data_size.diff_table()
+                    diff_r.struct_size.diff_table()
                         if diff_r else IntField.diff_none,
-                    r.data_size.diff_table()
+                    r.struct_size.diff_table()
                         if r else IntField.diff_none,
                     IntField.diff_diff(
-                        r.data_size if r else None,
-                        diff_r.data_size if diff_r else None)
+                        r.struct_size if r else None,
+                        diff_r.struct_size if diff_r else None)
                         if r or diff_r else IntField.diff_none,
                     ' (%s)' % (
                         '+∞%' if ratio == float('+inf')
@@ -304,17 +348,17 @@ def table(results, diff_results=None, *,
         diff_total = fold(diff_results, by=[])
         diff_r = diff_total[0] if diff_total else None
         ratio = IntField.ratio(
-            r.data_size if r else None,
-            diff_r.data_size if diff_r else None)
+            r.struct_size if r else None,
+            diff_r.struct_size if diff_r else None)
 
     print('%-36s' % 'TOTAL', end='')
     if diff_results is None:
         print(' %s' % (
-            r.data_size.table()
+            r.struct_size.table()
                 if r else IntField.none))
     elif percent:
         print(' %s%s' % (
-            r.data_size.diff_table()
+            r.struct_size.diff_table()
                 if r else IntField.diff_none,
             ' (%s)' % (
                 '+∞%' if ratio == float('+inf')
@@ -322,13 +366,13 @@ def table(results, diff_results=None, *,
                 else '%+.1f%%' % (100*ratio))))
     else:
         print(' %s %s %s%s' % (
-            diff_r.data_size.diff_table()
+            diff_r.struct_size.diff_table()
                 if diff_r else IntField.diff_none,
-            r.data_size.diff_table()
+            r.struct_size.diff_table()
                 if r else IntField.diff_none,
             IntField.diff_diff(
-                r.data_size if r else None,
-                diff_r.data_size if diff_r else None)
+                r.struct_size if r else None,
+                diff_r.struct_size if diff_r else None)
                 if r or diff_r else IntField.diff_none,
             ' (%s)' % (
                 '+∞%' if ratio == float('+inf')
@@ -360,9 +404,9 @@ def main(obj_paths, **args):
             reader = csv.DictReader(f)
             for r in reader:
                 try:
-                    results.append(DataResult(**{
+                    results.append(StructResult(**{
                         k: v for k, v in r.items()
-                        if k in DataResult._fields}))
+                        if k in StructResult._fields}))
                 except TypeError:
                     pass
 
@@ -375,7 +419,7 @@ def main(obj_paths, **args):
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
-            writer = csv.DictWriter(f, DataResult._fields)
+            writer = csv.DictWriter(f, StructResult._fields)
             writer.writeheader()
             for r in results:
                 writer.writerow(r._asdict())
@@ -388,9 +432,9 @@ def main(obj_paths, **args):
                 reader = csv.DictReader(f)
                 for r in reader:
                     try:
-                        diff_results.append(DataResult(**{
+                        diff_results.append(StructResult(**{
                             k: v for k, v in r.items()
-                            if k in DataResult._fields}))
+                            if k in StructResult._fields}))
                     except TypeError:
                         pass
         except FileNotFoundError:
@@ -411,7 +455,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Find data size at the function level.")
+        description="Find struct sizes.")
     parser.add_argument(
         'obj_paths',
         nargs='*',
@@ -465,15 +509,10 @@ if __name__ == "__main__":
         action='store_true',
         help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '--type',
-        default=TYPE,
-        help="Type of symbols to report, this uses the same single-character "
-            "type-names emitted by nm. Defaults to %(default)r.")
-    parser.add_argument(
-        '--nm-tool',
+        '--objdump-tool',
         type=lambda x: x.split(),
-        default=NM_TOOL,
-        help="Path to the nm tool to use. Defaults to %(default)r")
+        default=OBJDUMP_TOOL,
+        help="Path to the objdump tool to use.")
     parser.add_argument(
         '--build-dir',
         help="Specify the relative build directory. Used to map object files "

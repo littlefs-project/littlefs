@@ -67,7 +67,7 @@ override TESTFLAGS     += -v
 override CODEFLAGS     += -v
 override DATAFLAGS     += -v
 override STACKFLAGS    += -v
-override STRUCTSFLAGS  += -v
+override STRUCTFLAGS   += -v
 override COVERAGEFLAGS += -v
 override TESTFLAGS     += -v
 override TESTCFLAGS    += -v
@@ -76,11 +76,10 @@ ifdef EXEC
 override TESTFLAGS 	   += --exec="$(EXEC)"
 endif
 ifdef BUILDDIR
-override TESTFLAGS     += --build-dir="$(BUILDDIR:/=)"
 override CODEFLAGS     += --build-dir="$(BUILDDIR:/=)"
 override DATAFLAGS     += --build-dir="$(BUILDDIR:/=)"
 override STACKFLAGS    += --build-dir="$(BUILDDIR:/=)"
-override STRUCTSFLAGS  += --build-dir="$(BUILDDIR:/=)"
+override STRUCTFLAGS   += --build-dir="$(BUILDDIR:/=)"
 override COVERAGEFLAGS += --build-dir="$(BUILDDIR:/=)"
 endif
 ifneq ($(NM),nm)
@@ -88,7 +87,7 @@ override CODEFLAGS += --nm-tool="$(NM)"
 override DATAFLAGS += --nm-tool="$(NM)"
 endif
 ifneq ($(OBJDUMP),objdump)
-override STRUCTSFLAGS += --objdump-tool="$(OBJDUMP)"
+override STRUCTFLAGS += --objdump-tool="$(OBJDUMP)"
 endif
 
 
@@ -132,17 +131,22 @@ data: $(OBJ)
 stack: $(CI)
 	./scripts/stack.py $^ -S $(STACKFLAGS)
 
-.PHONY: structs
-structs: $(OBJ)
-	./scripts/structs.py $^ -S $(STRUCTSFLAGS)
+.PHONY: struct
+struct: $(OBJ)
+	./scripts/struct.py $^ -S $(STRUCTFLAGS)
 
 .PHONY: coverage
 coverage: $(GCDA)
 	./scripts/coverage.py $^ -s $(COVERAGEFLAGS)
 
-.PHONY: summary
-summary: $(BUILDDIR)lfs.csv
-	./scripts/summary.py -Y $^ $(SUMMARYFLAGS)
+.PHONY: summary sizes
+summary sizes: $(BUILDDIR)lfs.csv
+	$(strip ./scripts/summary.py -Y $^ \
+		-f code=code_size,$\
+			data=data_size,$\
+			stack=stack_limit,$\
+			struct=struct_size \
+		$(SUMMARYFLAGS))
 
 
 # rules
@@ -157,11 +161,27 @@ $(BUILDDIR)lfs: $(OBJ)
 $(BUILDDIR)lfs.a: $(OBJ)
 	$(AR) rcs $@ $^
 
-$(BUILDDIR)lfs.csv: $(OBJ) $(CI)
-	./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o $@
-	./scripts/data.py $(OBJ) -q -m $@ $(DATAFLAGS) -o $@
-	./scripts/stack.py $(CI) -q -m $@ $(STACKFLAGS) -o $@
-	./scripts/structs.py $(OBJ) -q -m $@ $(STRUCTSFLAGS) -o $@
+$(BUILDDIR)lfs.code.csv: $(OBJ)
+	./scripts/code.py $^ -q $(CODEFLAGS) -o $@
+
+$(BUILDDIR)lfs.data.csv: $(OBJ)
+	./scripts/data.py $^ -q $(CODEFLAGS) -o $@
+
+$(BUILDDIR)lfs.stack.csv: $(CI)
+	./scripts/stack.py $^ -q $(CODEFLAGS) -o $@
+
+$(BUILDDIR)lfs.struct.csv: $(OBJ)
+	./scripts/struct.py $^ -q $(CODEFLAGS) -o $@
+
+$(BUILDDIR)lfs.coverage.csv: $(GCDA)
+	./scripts/coverage.py $^ -q $(COVERAGEFLAGS) -o $@
+
+$(BUILDDIR)lfs.csv: \
+		$(BUILDDIR)lfs.code.csv \
+		$(BUILDDIR)lfs.data.csv \
+		$(BUILDDIR)lfs.stack.csv \
+		$(BUILDDIR)lfs.struct.csv
+	./scripts/summary.py $^ -q $(SUMMARYFLAGS) -o $@
 
 $(BUILDDIR)runners/test_runner: $(TEST_OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
@@ -191,7 +211,13 @@ $(BUILDDIR)%.t.c: %.c $(TESTS)
 clean:
 	rm -f $(BUILDDIR)lfs
 	rm -f $(BUILDDIR)lfs.a
-	rm -f $(BUILDDIR)lfs.csv
+	$(strip rm -f \
+		$(BUILDDIR)lfs.csv \
+		$(BUILDDIR)lfs.code.csv \
+		$(BUILDDIR)lfs.data.csv \
+		$(BUILDDIR)lfs.stack.csv \
+		$(BUILDDIR)lfs.struct.csv \
+		$(BUILDDIR)lfs.coverage.csv)
 	rm -f $(BUILDDIR)runners/test_runner
 	rm -f $(OBJ)
 	rm -f $(DEP)

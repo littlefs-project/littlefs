@@ -4,16 +4,123 @@
 # report as infinite stack usage.
 #
 
-import os
+import collections as co
+import csv
 import glob
 import itertools as it
-import re
-import csv
-import collections as co
 import math as m
+import os
+import re
 
 
 CI_PATHS = ['*.ci']
+
+
+# integer fields
+class IntField(co.namedtuple('IntField', 'x')):
+    __slots__ = ()
+    def __new__(cls, x):
+        if isinstance(x, IntField):
+            return x
+        if isinstance(x, str):
+            try:
+                x = int(x, 0)
+            except ValueError:
+                # also accept +-∞ and +-inf
+                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
+                    x = float('inf')
+                elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
+                    x = float('-inf')
+                else:
+                    raise
+        return super().__new__(cls, x)
+
+    def __int__(self):
+        assert not m.isinf(self.x)
+        return self.x
+
+    def __float__(self):
+        return float(self.x)
+
+    def __str__(self):
+        if self.x == float('inf'):
+            return '∞'
+        elif self.x == float('-inf'):
+            return '-∞'
+        else:
+            return str(self.x)
+
+    none = '%7s' % '-'
+    def table(self):
+        return '%7s' % (self,)
+
+    diff_none = '%7s' % '-'
+    diff_table = table
+
+    def diff_diff(self, other):
+        new = self.x if self else 0
+        old = other.x if other else 0
+        diff = new - old
+        if diff == float('+inf'):
+            return '%7s' % '+∞'
+        elif diff == float('-inf'):
+            return '%7s' % '-∞'
+        else:
+            return '%+7d' % diff
+
+    def ratio(self, other):
+        new = self.x if self else 0
+        old = other.x if other else 0
+        if m.isinf(new) and m.isinf(old):
+            return 0.0
+        elif m.isinf(new):
+            return float('+inf')
+        elif m.isinf(old):
+            return float('-inf')
+        elif not old and not new:
+            return 0.0
+        elif not old:
+            return 1.0
+        else:
+            return (new-old) / old
+
+    def __add__(self, other):
+        return IntField(self.x + other.x)
+
+    def __mul__(self, other):
+        return IntField(self.x * other.x)
+
+    def __lt__(self, other):
+        return self.x < other.x
+
+    def __gt__(self, other):
+        return self.__class__.__lt__(other, self)
+
+    def __le__(self, other):
+        return not self.__gt__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+    def __truediv__(self, n):
+        if m.isinf(self.x):
+            return self
+        else:
+            return IntField(round(self.x / n))
+
+# size results
+class StackResult(co.namedtuple('StackResult',
+        'file,function,stack_frame,stack_limit')):
+    __slots__ = ()
+    def __new__(cls, file, function, stack_frame, stack_limit):
+        return super().__new__(cls, file, function,
+            IntField(stack_frame), IntField(stack_limit))
+
+    def __add__(self, other):
+        return StackResult(self.file, self.function,
+            self.stack_frame + other.stack_frame,
+            max(self.stack_limit, other.stack_limit))
+
 
 def openio(path, mode='r'):
     if path == '-':
@@ -24,91 +131,10 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
-class StackResult(co.namedtuple('StackResult', 'stack_frame,stack_limit')):
-    __slots__ = ()
-    def __new__(cls, stack_frame=0, stack_limit=0):
-        return super().__new__(cls,
-            int(stack_frame),
-            float(stack_limit))
 
-    def __add__(self, other):
-        return self.__class__(
-            self.stack_frame + other.stack_frame,
-            max(self.stack_limit, other.stack_limit))
-
-    def __sub__(self, other):
-        return StackDiff(other, self)
-
-    def __rsub__(self, other):
-        return self.__class__.__sub__(other, self)
-
-    def key(self, **args):
-        if args.get('limit_sort'):
-            return -self.stack_limit
-        elif args.get('reverse_limit_sort'):
-            return +self.stack_limit
-        elif args.get('frame_sort'):
-            return -self.stack_frame
-        elif args.get('reverse_frame_sort'):
-            return +self.stack_frame
-        else:
-            return None
-
-    _header = '%7s %7s' % ('frame', 'limit')
-    def __str__(self):
-        return '%7d %7s' % (
-            self.stack_frame,
-            '∞' if m.isinf(self.stack_limit) else int(self.stack_limit))
-
-class StackDiff(co.namedtuple('StackDiff',  'old,new')):
-    __slots__ = ()
-
-    def ratio(self):
-        old_limit = self.old.stack_limit if self.old is not None else 0
-        new_limit = self.new.stack_limit if self.new is not None else 0
-        return (0.0 if m.isinf(new_limit) and m.isinf(old_limit)
-            else +float('inf') if m.isinf(new_limit)
-            else -float('inf') if m.isinf(old_limit)
-            else 0.0 if not old_limit and not new_limit
-            else 1.0 if not old_limit
-            else (new_limit-old_limit) / old_limit)
-
-    def key(self, **args):
-        return (
-            self.new.key(**args) if self.new is not None else 0,
-            -self.ratio())
-
-    def __bool__(self):
-        return bool(self.ratio())
-
-    _header = '%15s %15s %15s' % ('old', 'new', 'diff')
-    def __str__(self):
-        old_frame = self.old.stack_frame if self.old is not None else 0
-        old_limit = self.old.stack_limit if self.old is not None else 0
-        new_frame = self.new.stack_frame if self.new is not None else 0
-        new_limit = self.new.stack_limit if self.new is not None else 0
-        diff_frame = new_frame - old_frame
-        diff_limit = (0 if m.isinf(new_limit) and m.isinf(old_limit)
-            else new_limit - old_limit)
-        ratio = self.ratio()
-        return '%7s %7s %7s %7s %+7d %7s%s' % (
-            old_frame if self.old is not None else '-',
-            ('∞' if m.isinf(old_limit) else int(old_limit))
-                if self.old is not None else '-',
-            new_frame if self.new is not None else '-',
-            ('∞' if m.isinf(new_limit) else int(new_limit))
-                if self.new is not None else '-',
-            diff_frame,
-            '+∞' if diff_limit > 0 and m.isinf(diff_limit)
-                else '-∞' if diff_limit < 0 and m.isinf(diff_limit)
-                else '%+d' % diff_limit,
-            '' if not ratio
-                else ' (+∞%)' if ratio > 0 and m.isinf(ratio)
-                else ' (-∞%)' if ratio < 0 and m.isinf(ratio)
-                else ' (%+.1f%%)' % (100*ratio))
-
-
-def collect(paths, **args):
+def collect(paths, *,
+        everything=False,
+        **args):
     # parse the vcg format
     k_pattern = re.compile('([a-z]+)\s*:', re.DOTALL)
     v_pattern = re.compile('(?:"(.*?)"|([a-z]+))', re.DOTALL)
@@ -154,9 +180,11 @@ def collect(paths, **args):
                     m = f_pattern.match(info['label'])
                     if m:
                         function, file, size, type = m.groups()
-                        if not args.get('quiet') and type != 'static':
+                        if (not args.get('quiet')
+                                and 'static' not in type
+                                and 'bounded' not in type):
                             print('warning: found non-static stack for %s (%s)'
-                                % (function, type))
+                                % (function, type, size))
                         _, _, _, targets = callgraph[info['title']]
                         callgraph[info['title']] = (
                             file, function, int(size), targets)
@@ -167,7 +195,7 @@ def collect(paths, **args):
                 else:
                     continue
 
-    if not args.get('everything'):
+    if not everything:
         for source, (s_file, s_function, _, _) in list(callgraph.items()):
             # discard internal functions
             if s_file.startswith('<') or s_file.startswith('/usr/include'):
@@ -200,22 +228,266 @@ def collect(paths, **args):
         return calls
 
     # build results
-    results = {}
-    result_calls = {}
+    results = []
+    calls = {}
     for source, (s_file, s_function, frame, targets) in callgraph.items():
         limit = find_limit(source)
-        calls = find_calls(targets)
-        results[(s_file, s_function)] = StackResult(frame, limit)
-        result_calls[(s_file, s_function)] = calls
+        cs = find_calls(targets)
+        results.append(StackResult(s_file, s_function, frame, limit))
+        calls[(s_file, s_function)] = cs
 
-    return results, result_calls
+    return results, calls
 
-def main(**args):
+
+def fold(results, *,
+        by=['file', 'function'],
+        **_):
+    folding = co.OrderedDict()
+    for r in results:
+        name = tuple(getattr(r, k) for k in by)
+        if name not in folding:
+            folding[name] = []
+        folding[name].append(r)
+
+    folded = []
+    for rs in folding.values():
+        folded.append(sum(rs[1:], start=rs[0]))
+
+    return folded
+
+def fold_calls(calls, *,
+        by=['file', 'function'],
+        **_):
+    def by_(name):
+        file, function = name
+        return (((file,) if 'file' in by else ())
+            + ((function,) if 'function' in by else ()))
+
+    folded = {}
+    for name, cs in calls.items():
+        name = by_(name)
+        if name not in folded:
+            folded[name] = set()
+        folded[name] |= {by_(c) for c in cs}
+
+    return folded
+
+
+def table(results, calls, diff_results=None, *,
+        by_file=False,
+        limit_sort=False,
+        reverse_limit_sort=False,
+        frame_sort=False,
+        reverse_frame_sort=False,
+        summary=False,
+        all=False,
+        percent=False,
+        tree=False,
+        depth=None,
+        **_):
+    all_, all = all, __builtins__.all
+
+    # tree doesn't really make sense with depth=0, assume depth=inf
+    if depth is None:
+        depth = float('inf') if tree else 0
+
+    # fold
+    results = fold(results, by=['file' if by_file else 'function'])
+    calls = fold_calls(calls, by=['file' if by_file else 'function'])
+    if diff_results is not None:
+        diff_results = fold(diff_results,
+            by=['file' if by_file else 'function'])
+
+    table = {
+        r.file if by_file else r.function: r
+        for r in results}
+    diff_table = {
+        r.file if by_file else r.function: r
+        for r in diff_results or []}
+
+    # sort, note that python's sort is stable
+    names = list(table.keys() | diff_table.keys())
+    names.sort()
+    if diff_results is not None:
+        names.sort(key=lambda n: -IntField.ratio(
+            table[n].stack_frame if n in table else None,
+            diff_table[n].stack_frame if n in diff_table else None))
+    if limit_sort:
+        names.sort(key=lambda n: (table[n].stack_limit,) if n in table else (),
+            reverse=True)
+    elif reverse_limit_sort:
+        names.sort(key=lambda n: (table[n].stack_limit,) if n in table else (),
+            reverse=False)
+    elif frame_sort:
+        names.sort(key=lambda n: (table[n].stack_frame,) if n in table else (),
+            reverse=True)
+    elif reverse_frame_sort:
+        names.sort(key=lambda n: (table[n].stack_frame,) if n in table else (),
+            reverse=False)
+
+    # adjust the name width based on the expected call depth, note that we
+    # can't always find the depth due to recursion
+    width = 36 + (4*depth if not m.isinf(depth) else 0)
+
+    # print header
+    if not tree:
+        print('%-*s' % (width, '%s%s' % (
+            'file' if by_file else 'function',
+            ' (%d added, %d removed)' % (
+                sum(1 for n in table if n not in diff_table),
+                sum(1 for n in diff_table if n not in table))
+                if diff_results is not None and not percent else '')
+            if not summary else ''),
+            end='')
+        if diff_results is None:
+            print(' %s %s' % (
+                'frame'.rjust(len(IntField.none)),
+                'limit'.rjust(len(IntField.none))))
+        elif percent:
+            print(' %s %s' % (
+                'frame'.rjust(len(IntField.diff_none)),
+                'limit'.rjust(len(IntField.diff_none))))
+        else:
+            print(' %s %s %s %s %s %s' % (
+                'oframe'.rjust(len(IntField.diff_none)),
+                'olimit'.rjust(len(IntField.diff_none)),
+                'nframe'.rjust(len(IntField.diff_none)),
+                'nlimit'.rjust(len(IntField.diff_none)),
+                'dframe'.rjust(len(IntField.diff_none)),
+                'dlimit'.rjust(len(IntField.diff_none))))
+
+    # print entries
+    if not summary:
+        # print the tree recursively
+        def table_calls(names_, depth,
+                prefixes=('', '', '', '')):
+            for i, name in enumerate(names_):
+                r = table.get(name)
+                if diff_results is not None:
+                    diff_r = diff_table.get(name)
+                    ratio = IntField.ratio(
+                        r.stack_limit if r else None,
+                        diff_r.stack_limit if diff_r else None)
+                    if not ratio and not all_:
+                        continue
+
+                is_last = (i == len(names_)-1)
+                print('%-*s' % (width, prefixes[0+is_last] + name), end='')
+                if tree:
+                    print()
+                elif diff_results is None:
+                    print(' %s %s' % (
+                        r.stack_frame.table()
+                            if r else IntField.none,
+                        r.stack_limit.table()
+                            if r else IntField.none))
+                elif percent:
+                    print(' %s %s%s' % (
+                        r.stack_frame.diff_table()
+                            if r else IntField.diff_none,
+                        r.stack_limit.diff_table()
+                            if r else IntField.diff_none,
+                        ' (%s)' % (
+                            '+∞%' if ratio == float('+inf')
+                            else '-∞%' if ratio == float('-inf')
+                            else '%+.1f%%' % (100*ratio))))
+                else:
+                    print(' %s %s %s %s %s %s%s' % (
+                        diff_r.stack_frame.diff_table()
+                            if diff_r else IntField.diff_none,
+                        diff_r.stack_limit.diff_table()
+                            if diff_r else IntField.diff_none,
+                        r.stack_frame.diff_table()
+                            if r else IntField.diff_none,
+                        r.stack_limit.diff_table()
+                            if r else IntField.diff_none,
+                        IntField.diff_diff(
+                            r.stack_frame if r else None,
+                            diff_r.stack_frame if diff_r else None)
+                            if r or diff_r else IntField.diff_none,
+                        IntField.diff_diff(
+                            r.stack_limit if r else None,
+                            diff_r.stack_limit if diff_r else None)
+                            if r or diff_r else IntField.diff_none,
+                        ' (%s)' % (
+                            '+∞%' if ratio == float('+inf')
+                            else '-∞%' if ratio == float('-inf')
+                            else '%+.1f%%' % (100*ratio))
+                            if ratio else ''))
+
+                # recurse?
+                if depth > 0:
+                    cs = calls.get((name,), set())
+                    table_calls(
+                        [n for n in names if (n,) in cs],
+                        depth-1,
+                        (   prefixes[2+is_last] + "|-> ",
+                            prefixes[2+is_last] + "'-> ",
+                            prefixes[2+is_last] + "|   ",
+                            prefixes[2+is_last] + "    "))
+                
+
+        table_calls(names, depth)
+
+    # print total
+    if not tree:
+        total = fold(results, by=[])
+        r = total[0] if total else None
+        if diff_results is not None:
+            diff_total = fold(diff_results, by=[])
+            diff_r = diff_total[0] if diff_total else None
+            ratio = IntField.ratio(
+                r.stack_limit if r else None,
+                diff_r.stack_limit if diff_r else None)
+
+        print('%-*s' % (width, 'TOTAL'), end='')
+        if diff_results is None:
+            print(' %s %s' % (
+                r.stack_frame.table()
+                    if r else IntField.none,
+                r.stack_limit.table()
+                    if r else IntField.none))
+        elif percent:
+            print(' %s %s%s' % (
+                r.stack_frame.diff_table()
+                    if r else IntField.diff_none,
+                r.stack_limit.diff_table()
+                    if r else IntField.diff_none,
+                ' (%s)' % (
+                    '+∞%' if ratio == float('+inf')
+                    else '-∞%' if ratio == float('-inf')
+                    else '%+.1f%%' % (100*ratio))))
+        else:
+            print(' %s %s %s %s %s %s%s' % (
+                diff_r.stack_frame.diff_table()
+                    if diff_r else IntField.diff_none,
+                diff_r.stack_limit.diff_table()
+                    if diff_r else IntField.diff_none,
+                r.stack_frame.diff_table()
+                    if r else IntField.diff_none,
+                r.stack_limit.diff_table()
+                    if r else IntField.diff_none,
+                IntField.diff_diff(
+                    r.stack_frame if r else None,
+                    diff_r.stack_frame if diff_r else None)
+                    if r or diff_r else IntField.diff_none,
+                IntField.diff_diff(
+                    r.stack_limit if r else None,
+                    diff_r.stack_limit if diff_r else None)
+                    if r or diff_r else IntField.diff_none,
+                ' (%s)' % (
+                    '+∞%' if ratio == float('+inf')
+                    else '-∞%' if ratio == float('-inf')
+                    else '%+.1f%%' % (100*ratio))
+                    if ratio else ''))
+
+
+def main(ci_paths, **args):
     # find sizes
     if not args.get('use', None):
         # find .ci files
         paths = []
-        for path in args['ci_paths']:
+        for path in ci_paths:
             if os.path.isdir(path):
                 path = path + '/*.ci'
 
@@ -223,160 +495,68 @@ def main(**args):
                 paths.append(path)
 
         if not paths:
-            print('no .ci files found in %r?' % args['ci_paths'])
+            print('no .ci files found in %r?' % ci_paths)
             sys.exit(-1)
 
-        results, result_calls = collect(paths, **args)
+        results, calls = collect(paths, **args)
     else:
+        results = []
         with openio(args['use']) as f:
-            r = csv.DictReader(f)
-            results = {
-                (result['file'], result['name']): StackResult(
-                    *(result[f] for f in StackResult._fields))
-                for result in r
-                if all(result.get(f) not in {None, ''}
-                    for f in StackResult._fields)}
+            reader = csv.DictReader(f)
+            for r in reader:
+                try:
+                    results.append(StackResult(**{
+                        k: v for k, v in r.items()
+                        if k in StackResult._fields}))
+                except TypeError:
+                    pass
 
-        result_calls = {}
+        calls = {}
 
-    # find previous results?
-    if args.get('diff'):
-        try:
-            with openio(args['diff']) as f:
-                r = csv.DictReader(f)
-                prev_results = {
-                    (result['file'], result['name']): StackResult(
-                        *(result[f] for f in StackResult._fields))
-                    for result in r
-                    if all(result.get(f) not in {None, ''}
-                        for f in StackResult._fields)}
-        except FileNotFoundError:
-            prev_results = []
+    # fold to remove duplicates
+    results = fold(results)
+
+    # sort because why not
+    results.sort()
 
     # write results to CSV
     if args.get('output'):
-        merged_results = co.defaultdict(lambda: {})
-        other_fields = []
-
-        # merge?
-        if args.get('merge'):
-            try:
-                with openio(args['merge']) as f:
-                    r = csv.DictReader(f)
-                    for result in r:
-                        file = result.pop('file', '')
-                        func = result.pop('name', '')
-                        for f in StackResult._fields:
-                            result.pop(f, None)
-                        merged_results[(file, func)] = result
-                        other_fields = result.keys()
-            except FileNotFoundError:
-                pass
-
-        for (file, func), result in results.items():
-            merged_results[(file, func)] |= result._asdict()
-
         with openio(args['output'], 'w') as f:
-            w = csv.DictWriter(f, ['file', 'name',
-                *other_fields, *StackResult._fields])
-            w.writeheader()
-            for (file, func), result in sorted(merged_results.items()):
-                w.writerow({'file': file, 'name': func, **result})
+            writer = csv.DictWriter(f, StackResult._fields)
+            writer.writeheader()
+            for r in results:
+                writer.writerow(r._asdict())
 
-    # print results
-    def print_header(by):
-        if by == 'total':
-            entry = lambda k: 'TOTAL'
-        elif by == 'file':
-            entry = lambda k: k[0]
-        else:
-            entry = lambda k: k[1]
+    # find previous results?
+    if args.get('diff'):
+        diff_results = []
+        try:
+            with openio(args['diff']) as f:
+                reader = csv.DictReader(f)
+                for r in reader:
+                    try:
+                        diff_results.append(StackResult(**{
+                            k: v for k, v in r.items()
+                            if k in StackResult._fields}))
+                    except TypeError:
+                        pass
+        except FileNotFoundError:
+            pass
 
-        if not args.get('diff'):
-            print('%-36s %s' % (by, StackResult._header))
-        else:
-            old = {entry(k) for k in results.keys()}
-            new = {entry(k) for k in prev_results.keys()}
-            print('%-36s %s' % (
-                '%s (%d added, %d removed)' % (by,
-                        sum(1 for k in new if k not in old),
-                        sum(1 for k in old if k not in new))
-                    if by else '',
-                StackDiff._header))
+        # fold to remove duplicates
+        diff_results = fold(diff_results)
 
-    def print_entries(by):
-        # print optional tree of dependencies
-        def print_calls(entries, entry_calls, depth,
-                filter=lambda _: True,
-                prefixes=('', '', '', '')):
-            filtered_entries = {
-                name: result for name, result in entries.items()
-                if filter(name)}
-            for i, (name, result) in enumerate(sorted(filtered_entries.items(),
-                    key=lambda p: (p[1].key(**args), p))):
-                last = (i == len(filtered_entries)-1)
-                print('%-36s %s' % (prefixes[0+last] + name, result))
+    # print table
+    if not args.get('quiet'):
+        table(
+            results,
+            calls,
+            diff_results if args.get('diff') else None,
+            **args)
 
-                if depth > 0 and by != 'total':
-                    calls = entry_calls.get(name, set())
-                    print_calls(entries, entry_calls, depth-1,
-                        lambda name: name in calls,
-                        (   prefixes[2+last] + "|-> ",
-                            prefixes[2+last] + "'-> ",
-                            prefixes[2+last] + "|   ",
-                            prefixes[2+last] + "    "))
-
-        if by == 'total':
-            entry = lambda k: 'TOTAL'
-        elif by == 'file':
-            entry = lambda k: k[0]
-        else:
-            entry = lambda k: k[1]
-
-        entries = co.defaultdict(lambda: StackResult())
-        for k, result in results.items():
-            entries[entry(k)] += result
-
-        entry_calls = co.defaultdict(lambda: set())
-        for k, calls in result_calls.items():
-            entry_calls[entry(k)] |= {entry(c) for c in calls}
-
-        if not args.get('diff'):
-            print_calls(
-                entries,
-                entry_calls,
-                args.get('depth', 0))
-        else:
-            prev_entries = co.defaultdict(lambda: StackResult())
-            for k, result in prev_results.items():
-                prev_entries[entry(k)] += result
-
-            diff_entries = {name: entries.get(name) - prev_entries.get(name)
-                for name in (entries.keys() | prev_entries.keys())}
-
-            print_calls(
-                {name: diff for name, diff in diff_entries.items()
-                    if diff or args.get('all')},
-                entry_calls,
-                args.get('depth', 0))
-
-    if args.get('quiet'):
-        pass
-    elif args.get('summary'):
-        print_header('')
-        print_entries('total')
-    elif args.get('files'):
-        print_header('file')
-        print_entries('file')
-        print_entries('total')
-    else:
-        print_header('function')
-        print_entries('function')
-        print_entries('total')
-
-    # catch recursion
+    # error on recursion
     if args.get('error_on_recursion') and any(
-            m.isinf(limit) for _, _, _, limit, _ in results):
+            m.isinf(float(r.stack_limit)) for r in results):
         sys.exit(2)
 
 
@@ -385,45 +565,83 @@ if __name__ == "__main__":
     import sys
     parser = argparse.ArgumentParser(
         description="Find stack usage at the function level.")
-    parser.add_argument('ci_paths', nargs='*', default=CI_PATHS,
-        help="Description of where to find *.ci files. May be a directory \
-            or a list of paths. Defaults to %r." % CI_PATHS)
-    parser.add_argument('-v', '--verbose', action='store_true',
+    parser.add_argument(
+        'ci_paths',
+        nargs='*',
+        default=CI_PATHS,
+        help="Description of where to find *.ci files. May be a directory "
+            "or a list of paths. Defaults to %r." % CI_PATHS)
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
         help="Output commands that run behind the scenes.")
-    parser.add_argument('-q', '--quiet', action='store_true',
+    parser.add_argument(
+        '-q', '--quiet',
+        action='store_true',
         help="Don't show anything, useful with -o.")
-    parser.add_argument('-o', '--output',
+    parser.add_argument(
+        '-o', '--output',
         help="Specify CSV file to store results.")
-    parser.add_argument('-u', '--use',
-        help="Don't parse callgraph files, instead use this CSV file.")
-    parser.add_argument('-d', '--diff',
+    parser.add_argument(
+        '-u', '--use',
+        help="Don't parse anything, use this CSV file.")
+    parser.add_argument(
+        '-d', '--diff',
         help="Specify CSV file to diff against.")
-    parser.add_argument('-m', '--merge',
-        help="Merge with an existing CSV file when writing to output.")
-    parser.add_argument('-a', '--all', action='store_true',
-        help="Show all functions, not just the ones that changed.")
-    parser.add_argument('-A', '--everything', action='store_true',
-        help="Include builtin and libc specific symbols.")
-    parser.add_argument('--frame-sort', action='store_true',
-        help="Sort by stack frame size.")
-    parser.add_argument('--reverse-frame-sort', action='store_true',
-        help="Sort by stack frame size, but backwards.")
-    parser.add_argument('-s', '--limit-sort', action='store_true',
+    parser.add_argument(
+        '-a', '--all',
+        action='store_true',
+        help="Show all, not just the ones that changed.")
+    parser.add_argument(
+        '-p', '--percent',
+        action='store_true',
+        help="Only show percentage change, not a full diff.")
+    parser.add_argument(
+        '-t', '--tree',
+        action='store_true',
+        help="Only show the function call tree.")
+    parser.add_argument(
+        '-b', '--by-file',
+        action='store_true',
+        help="Group by file.")
+    parser.add_argument(
+        '-s', '--limit-sort',
+        action='store_true',
         help="Sort by stack limit.")
-    parser.add_argument('-S', '--reverse-limit-sort', action='store_true',
+    parser.add_argument(
+        '-S', '--reverse-limit-sort',
+        action='store_true',
         help="Sort by stack limit, but backwards.")
-    parser.add_argument('-L', '--depth', default=0, type=lambda x: int(x, 0),
-        nargs='?', const=float('inf'),
-        help="Depth of dependencies to show.")
-    parser.add_argument('-F', '--files', action='store_true',
-        help="Show file-level calls.")
-    parser.add_argument('-Y', '--summary', action='store_true',
-        help="Only show the total stack size.")
-    parser.add_argument('-e', '--error-on-recursion', action='store_true',
+    parser.add_argument(
+        '--frame-sort',
+        action='store_true',
+        help="Sort by stack frame.")
+    parser.add_argument(
+        '--reverse-frame-sort',
+        action='store_true',
+        help="Sort by stack frame, but backwards.")
+    parser.add_argument(
+        '-Y', '--summary',
+        action='store_true',
+        help="Only show the total size.")
+    parser.add_argument(
+        '-L', '--depth',
+        nargs='?',
+        type=lambda x: int(x, 0),
+        const=float('inf'),
+        help="Depth of function calls to show.")
+    parser.add_argument(
+        '-e', '--error-on-recursion',
+        action='store_true',
         help="Error if any functions are recursive.")
-    parser.add_argument('--build-dir',
-        help="Specify the relative build directory. Used to map object files \
-            to the correct source files.")
+    parser.add_argument(
+        '-A', '--everything',
+        action='store_true',
+        help="Include builtin and libc specific symbols.")
+    parser.add_argument(
+        '--build-dir',
+        help="Specify the relative build directory. Used to map object files "
+            "to the correct source files.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_args()).items()
         if v is not None}))

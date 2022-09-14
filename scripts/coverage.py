@@ -10,6 +10,7 @@ import csv
 import glob
 import itertools as it
 import json
+import math as m
 import os
 import re
 import shlex
@@ -20,139 +21,189 @@ import subprocess as sp
 
 
 GCDA_PATHS = ['*.gcda']
+GCOV_TOOL = ['gcov']
 
-class CoverageResult(co.namedtuple('CoverageResult',
-        'coverage_line_hits,coverage_line_count,'
-        'coverage_branch_hits,coverage_branch_count')):
+
+# integer fields
+class IntField(co.namedtuple('IntField', 'x')):
     __slots__ = ()
-    def __new__(cls,
-            coverage_line_hits=0, coverage_line_count=0,
-            coverage_branch_hits=0, coverage_branch_count=0):
-        return super().__new__(cls,
-            int(coverage_line_hits),
-            int(coverage_line_count),
-            int(coverage_branch_hits),
-            int(coverage_branch_count))
+    def __new__(cls, x):
+        if isinstance(x, IntField):
+            return x
+        if isinstance(x, str):
+            try:
+                x = int(x, 0)
+            except ValueError:
+                # also accept +-∞ and +-inf
+                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
+                    x = float('inf')
+                elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
+                    x = float('-inf')
+                else:
+                    raise
+        return super().__new__(cls, x)
+
+    def __int__(self):
+        assert not m.isinf(self.x)
+        return self.x
+
+    def __float__(self):
+        return float(self.x)
+
+    def __str__(self):
+        if self.x == float('inf'):
+            return '∞'
+        elif self.x == float('-inf'):
+            return '-∞'
+        else:
+            return str(self.x)
+
+    none = '%7s' % '-'
+    def table(self):
+        return '%7s' % (self,)
+
+    diff_none = '%7s' % '-'
+    diff_table = table
+
+    def diff_diff(self, other):
+        new = self.x if self else 0
+        old = other.x if other else 0
+        diff = new - old
+        if diff == float('+inf'):
+            return '%7s' % '+∞'
+        elif diff == float('-inf'):
+            return '%7s' % '-∞'
+        else:
+            return '%+7d' % diff
+
+    def ratio(self, other):
+        new = self.x if self else 0
+        old = other.x if other else 0
+        if m.isinf(new) and m.isinf(old):
+            return 0.0
+        elif m.isinf(new):
+            return float('+inf')
+        elif m.isinf(old):
+            return float('-inf')
+        elif not old and not new:
+            return 0.0
+        elif not old:
+            return 1.0
+        else:
+            return (new-old) / old
 
     def __add__(self, other):
-        return self.__class__(
-            self.coverage_line_hits + other.coverage_line_hits,
-            self.coverage_line_count + other.coverage_line_count,
-            self.coverage_branch_hits + other.coverage_branch_hits,
-            self.coverage_branch_count + other.coverage_branch_count)
+        return IntField(self.x + other.x)
 
-    def __sub__(self, other):
-        return CoverageDiff(other, self)
+    def __mul__(self, other):
+        return IntField(self.x * other.x)
 
-    def __rsub__(self, other):
-        return self.__class__.__sub__(other, self)
+    def __lt__(self, other):
+        return self.x < other.x
 
-    def key(self, **args):
-        ratio_line = (self.coverage_line_hits/self.coverage_line_count
-            if self.coverage_line_count else -1)
-        ratio_branch = (self.coverage_branch_hits/self.coverage_branch_count
-            if self.coverage_branch_count else -1)
+    def __gt__(self, other):
+        return self.__class__.__lt__(other, self)
 
-        if args.get('line_sort'):
-            return (-ratio_line, -ratio_branch)
-        elif args.get('reverse_line_sort'):
-            return (+ratio_line, +ratio_branch)
-        elif args.get('branch_sort'):
-            return (-ratio_branch, -ratio_line)
-        elif args.get('reverse_branch_sort'):
-            return (+ratio_branch, +ratio_line)
+    def __le__(self, other):
+        return not self.__gt__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+    def __truediv__(self, n):
+        if m.isinf(self.x):
+            return self
         else:
-            return None
+            return IntField(round(self.x / n))
 
-    _header = '%19s %19s' % ('hits/line', 'hits/branch')
-    def __str__(self):
-        line_hits = self.coverage_line_hits
-        line_count = self.coverage_line_count
-        branch_hits = self.coverage_branch_hits
-        branch_count = self.coverage_branch_count
-        return '%11s %7s %11s %7s' % (
-            '%d/%d' % (line_hits, line_count)
-                if line_count else '-',
-            '%.1f%%' % (100*line_hits/line_count)
-                if line_count else '-',
-            '%d/%d' % (branch_hits, branch_count)
-                if branch_count else '-',
-            '%.1f%%' % (100*branch_hits/branch_count)
-                if branch_count else '-')
-
-class CoverageDiff(co.namedtuple('CoverageDiff', 'old,new')):
+# fractional fields, a/b
+class FracField(co.namedtuple('FracField', 'a,b')):
     __slots__ = ()
+    def __new__(cls, a, b=None):
+        if isinstance(a, FracField) and b is None:
+            return a
+        if isinstance(a, str) and b is None:
+            a, b = a.split('/', 1)
+        if b is None:
+            b = a
+        return super().__new__(cls, IntField(a), IntField(b))
 
-    def ratio_line(self):
-        old_line_hits = (self.old.coverage_line_hits
-            if self.old is not None else 0)
-        old_line_count = (self.old.coverage_line_count
-            if self.old is not None else 0)
-        new_line_hits = (self.new.coverage_line_hits
-            if self.new is not None else 0)
-        new_line_count = (self.new.coverage_line_count
-            if self.new is not None else 0)
-        return ((new_line_hits/new_line_count if new_line_count else 1.0)
-            - (old_line_hits/old_line_count if old_line_count else 1.0))
-
-    def ratio_branch(self):
-        old_branch_hits = (self.old.coverage_branch_hits
-            if self.old is not None else 0)
-        old_branch_count = (self.old.coverage_branch_count
-            if self.old is not None else 0)
-        new_branch_hits = (self.new.coverage_branch_hits
-            if self.new is not None else 0)
-        new_branch_count = (self.new.coverage_branch_count
-            if self.new is not None else 0)
-        return ((new_branch_hits/new_branch_count if new_branch_count else 1.0)
-            - (old_branch_hits/old_branch_count if old_branch_count else 1.0))
-
-    def key(self, **args):
-        return (
-            self.new.key(**args) if self.new is not None else 0,
-            -self.ratio_line(),
-            -self.ratio_branch())
-
-    def __bool__(self):
-        return bool(self.ratio_line() or self.ratio_branch())
-
-    _header = '%23s %23s %23s' % ('old', 'new', 'diff')
     def __str__(self):
-        old_line_hits = (self.old.coverage_line_hits
-            if self.old is not None else 0)
-        old_line_count = (self.old.coverage_line_count
-            if self.old is not None else 0)
-        old_branch_hits = (self.old.coverage_branch_hits
-            if self.old is not None else 0)
-        old_branch_count = (self.old.coverage_branch_count
-            if self.old is not None else 0)
-        new_line_hits = (self.new.coverage_line_hits
-            if self.new is not None else 0)
-        new_line_count = (self.new.coverage_line_count
-            if self.new is not None else 0)
-        new_branch_hits = (self.new.coverage_branch_hits
-            if self.new is not None else 0)
-        new_branch_count = (self.new.coverage_branch_count
-            if self.new is not None else 0)
-        diff_line_hits = new_line_hits - old_line_hits
-        diff_line_count = new_line_count - old_line_count
-        diff_branch_hits = new_branch_hits - old_branch_hits
-        diff_branch_count = new_branch_count - old_branch_count
-        ratio_line = self.ratio_line()
-        ratio_branch = self.ratio_branch()
-        return '%11s %11s %11s %11s %11s %11s%-10s%s' % (
-            '%d/%d' % (old_line_hits, old_line_count)
-                if old_line_count else '-',
-            '%d/%d' % (old_branch_hits, old_branch_count)
-                if old_branch_count else '-',
-            '%d/%d' % (new_line_hits, new_line_count)
-                if new_line_count else '-',
-            '%d/%d' % (new_branch_hits, new_branch_count)
-                if new_branch_count else '-',
-            '%+d/%+d' % (diff_line_hits, diff_line_count),
-            '%+d/%+d' % (diff_branch_hits, diff_branch_count),
-            ' (%+.1f%%)' % (100*ratio_line) if ratio_line else '',
-            ' (%+.1f%%)' % (100*ratio_branch) if ratio_branch else '')
+        return '%s/%s' % (self.a, self.b)
+
+    none = '%11s %7s' % ('-', '-')
+    def table(self):
+        if not self.b.x:
+            return self.none
+
+        t = self.a.x/self.b.x
+        return '%11s %7s' % (
+            self,
+            '∞%' if t == float('+inf')
+            else '-∞%' if t == float('-inf')
+            else '%.1f%%' % (100*t))
+
+    diff_none = '%11s' % '-'
+    def diff_table(self):
+        if not self.b.x:
+            return self.diff_none
+
+        return '%11s' % (self,)
+
+    def diff_diff(self, other):
+        new_a, new_b = self if self else (IntField(0), IntField(0))
+        old_a, old_b = other if other else (IntField(0), IntField(0))
+        return '%11s' % ('%s/%s' % (
+            new_a.diff_diff(old_a).strip(),
+            new_b.diff_diff(old_b).strip()))
+
+    def ratio(self, other):
+        new_a, new_b = self if self else (IntField(0), IntField(0))
+        old_a, old_b = other if other else (IntField(0), IntField(0))
+        new = new_a.x/new_b.x if new_b.x else 1.0
+        old = old_a.x/old_b.x if old_b.x else 1.0
+        return new - old
+
+    def __add__(self, other):
+        return FracField(self.a + other.a, self.b + other.b)
+
+    def __mul__(self, other):
+        return FracField(self.a * other.a, self.b + other.b)
+
+    def __lt__(self, other):
+        self_r = self.a.x/self.b.x if self.b.x else float('-inf')
+        other_r = other.a.x/other.b.x if other.b.x else float('-inf')
+        return self_r < other_r
+
+    def __gt__(self, other):
+        return self.__class__.__lt__(other, self)
+
+    def __le__(self, other):
+        return not self.__gt__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+    def __truediv__(self, n):
+        return FracField(self.a / n, self.b / n)
+
+# coverage results
+class CoverageResult(co.namedtuple('CoverageResult',
+        'file,function,line,'
+        'coverage_hits,coverage_lines,coverage_branches')):
+    __slots__ = ()
+    def __new__(cls, file, function, line,
+            coverage_hits, coverage_lines, coverage_branches):
+        return super().__new__(cls, file, function, int(IntField(line)),
+            IntField(coverage_hits),
+            FracField(coverage_lines),
+            FracField(coverage_branches))
+
+    def __add__(self, other):
+        return CoverageResult(self.file, self.function, self.line,
+            max(self.coverage_hits, other.coverage_hits),
+            self.coverage_lines + other.coverage_lines,
+            self.coverage_branches + other.coverage_branches)
 
 
 def openio(path, mode='r'):
@@ -164,27 +215,22 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
-def color(**args):
-    if args.get('color') == 'auto':
-        return sys.stdout.isatty()
-    elif args.get('color') == 'always':
-        return True
-    else:
-        return False
-
-def collect(paths, **args):
-    results = {}
+def collect(paths, *,
+        gcov_tool=GCOV_TOOL,
+        build_dir=None,
+        everything=False,
+        **args):
+    results = []
     for path in paths:
         # map to source file
         src_path = re.sub('\.t\.a\.gcda$', '.c', path)
-        # TODO test this
-        if args.get('build_dir'):
-            src_path = re.sub('%s/*' % re.escape(args['build_dir']), '',
+        if build_dir:
+            src_path = re.sub('%s/*' % re.escape(build_dir), '',
                 src_path)
 
         # get coverage info through gcov's json output
         # note, gcov-tool may contain extra args
-        cmd = args['gcov_tool'] + ['-b', '-t', '--json-format', path]
+        cmd = GCOV_TOOL + ['-b', '-t', '--json-format', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -208,49 +254,277 @@ def collect(paths, **args):
             for line in file['lines']:
                 func = line.get('function_name', '(inlined)')
                 # discard internal function (this includes injected test cases)
-                if not args.get('everything'):
+                if not everything:
                     if func.startswith('__'):
                         continue
 
-                results[(src_path, func, line['line_number'])] = (
+                results.append(CoverageResult(
+                    src_path, func, line['line_number'],
                     line['count'],
-                    CoverageResult(
-                        coverage_line_hits=1 if line['count'] > 0 else 0,
-                        coverage_line_count=1,
-                        coverage_branch_hits=sum(
-                            1 if branch['count'] > 0 else 0
+                    FracField(
+                        1 if line['count'] > 0 else 0,
+                        1),
+                    FracField(
+                        sum(1 if branch['count'] > 0 else 0
                             for branch in line['branches']),
-                        coverage_branch_count=len(line['branches'])))
+                        len(line['branches']))))
 
-    # merge into functions, since this is what other scripts use
-    func_results = co.defaultdict(lambda: CoverageResult())
-    for (file, func, _), (_, result) in results.items():
-        func_results[(file, func)] += result
+    return results
 
-    return func_results, results
 
-def annotate(paths, results, **args):
+def fold(results, *,
+        by=['file', 'function', 'line'],
+        **_):
+    folding = co.OrderedDict()
+    for r in results:
+        name = tuple(getattr(r, k) for k in by)
+        if name not in folding:
+            folding[name] = []
+        folding[name].append(r)
+
+    folded = []
+    for rs in folding.values():
+        folded.append(sum(rs[1:], start=rs[0]))
+
+    return folded
+
+
+def table(results, diff_results=None, *,
+        by_file=False,
+        by_line=False,
+        line_sort=False,
+        reverse_line_sort=False,
+        branch_sort=False,
+        reverse_branch_sort=False,
+        summary=False,
+        all=False,
+        percent=False,
+        **_):
+    all_, all = all, __builtins__.all
+
+    # fold
+    results = fold(results,
+        by=['file', 'line'] if by_line
+            else ['file'] if by_file
+            else ['function'])
+    if diff_results is not None:
+        diff_results = fold(diff_results,
+            by=['file', 'line'] if by_line
+                else ['file'] if by_file
+                else ['function'])
+
+    table = {
+        (r.file, r.line) if by_line
+            else r.file if by_file
+            else r.function: r
+        for r in results}
+    diff_table = {
+        (r.file, r.line) if by_line
+            else r.file if by_file
+            else r.function: r
+        for r in diff_results or []}
+
+    # sort, note that python's sort is stable
+    names = list(table.keys() | diff_table.keys())
+    names.sort()
+    if diff_results is not None:
+        names.sort(key=lambda n: (
+            -FracField.ratio(
+                table[n].coverage_lines if n in table else None,
+                diff_table[n].coverage_lines if n in diff_table else None),
+            -FracField.ratio(
+                table[n].coverage_branches if n in table else None,
+                diff_table[n].coverage_branches if n in diff_table else None)))
+    if line_sort:
+        names.sort(key=lambda n: (table[n].coverage_lines,)
+            if n in table else (),
+            reverse=True)
+    elif reverse_line_sort:
+        names.sort(key=lambda n: (table[n].coverage_lines,)
+            if n in table else (),
+            reverse=False)
+    elif branch_sort:
+        names.sort(key=lambda n: (table[n].coverage_branches,)
+            if n in table else (),
+            reverse=True)
+    elif reverse_branch_sort:
+        names.sort(key=lambda n: (table[n].coverage_branches,)
+            if n in table else (),
+            reverse=False)
+
+    # print header
+    print('%-36s' % ('%s%s' % (
+        'line' if by_line
+            else 'file' if by_file
+            else 'function',
+        ' (%d added, %d removed)' % (
+            sum(1 for n in table if n not in diff_table),
+            sum(1 for n in diff_table if n not in table))
+            if diff_results is not None and not percent else '')
+        if not summary else ''),
+        end='')
+    if diff_results is None:
+        print(' %s %s' % (
+            'hits/line'.rjust(len(FracField.none)),
+            'hits/branch'.rjust(len(FracField.none))))
+    elif percent:
+        print(' %s %s' % (
+            'hits/line'.rjust(len(FracField.diff_none)),
+            'hits/branch'.rjust(len(FracField.diff_none))))
+    else:
+        print(' %s %s %s %s %s %s' % (
+            'oh/line'.rjust(len(FracField.diff_none)),
+            'oh/branch'.rjust(len(FracField.diff_none)),
+            'nh/line'.rjust(len(FracField.diff_none)),
+            'nh/branch'.rjust(len(FracField.diff_none)),
+            'dh/line'.rjust(len(FracField.diff_none)),
+            'dh/branch'.rjust(len(FracField.diff_none))))
+
+    # print entries
+    if not summary:
+        for name in names:
+            r = table.get(name)
+            if diff_results is not None:
+                diff_r = diff_table.get(name)
+                line_ratio = FracField.ratio(
+                    r.coverage_lines if r else None,
+                    diff_r.coverage_lines if diff_r else None)
+                branch_ratio = FracField.ratio(
+                    r.coverage_branches if r else None,
+                    diff_r.coverage_branches if diff_r else None)
+                if not line_ratio and not branch_ratio and not all_:
+                    continue
+
+            print('%-36s' % (
+                ':'.join('%s' % n for n in name)
+                if by_line else name), end='')
+            if diff_results is None:
+                print(' %s %s' % (
+                    r.coverage_lines.table()
+                        if r else FracField.none,
+                    r.coverage_branches.table()
+                        if r else FracField.none))
+            elif percent:
+                print(' %s %s%s' % (
+                    r.coverage_lines.diff_table()
+                        if r else FracField.diff_none,
+                    r.coverage_branches.diff_table()
+                        if r else FracField.diff_none,
+                    ' (%s)' % ', '.join(
+                            '+∞%' if t == float('+inf')
+                            else '-∞%' if t == float('-inf')
+                            else '%+.1f%%' % (100*t)
+                            for t in [line_ratio, branch_ratio])))
+            else:
+                print(' %s %s %s %s %s %s%s' % (
+                    diff_r.coverage_lines.diff_table()
+                        if diff_r else FracField.diff_none,
+                    diff_r.coverage_branches.diff_table()
+                        if diff_r else FracField.diff_none,
+                    r.coverage_lines.diff_table()
+                        if r else FracField.diff_none,
+                    r.coverage_branches.diff_table()
+                        if r else FracField.diff_none,
+                    FracField.diff_diff(
+                        r.coverage_lines if r else None,
+                        diff_r.coverage_lines if diff_r else None)
+                        if r or diff_r else FracField.diff_none,
+                    FracField.diff_diff(
+                        r.coverage_branches if r else None,
+                        diff_r.coverage_branches if diff_r else None)
+                        if r or diff_r else FracField.diff_none,
+                    ' (%s)' % ', '.join(
+                            '+∞%' if t == float('+inf')
+                            else '-∞%' if t == float('-inf')
+                            else '%+.1f%%' % (100*t)
+                            for t in [line_ratio, branch_ratio]
+                            if t)
+                        if line_ratio or branch_ratio else ''))
+
+    # print total
+    total = fold(results, by=[])
+    r = total[0] if total else None
+    if diff_results is not None:
+        diff_total = fold(diff_results, by=[])
+        diff_r = diff_total[0] if diff_total else None
+        line_ratio = FracField.ratio(
+            r.coverage_lines if r else None,
+            diff_r.coverage_lines if diff_r else None)
+        branch_ratio = FracField.ratio(
+            r.coverage_branches if r else None,
+            diff_r.coverage_branches if diff_r else None)
+
+    print('%-36s' % 'TOTAL', end='')
+    if diff_results is None:
+        print(' %s %s' % (
+            r.coverage_lines.table()
+                if r else FracField.none,
+            r.coverage_branches.table()
+                if r else FracField.none))
+    elif percent:
+        print(' %s %s%s' % (
+            r.coverage_lines.diff_table()
+                if r else FracField.diff_none,
+            r.coverage_branches.diff_table()
+                if r else FracField.diff_none,
+            ' (%s)' % ', '.join(
+                    '+∞%' if t == float('+inf')
+                    else '-∞%' if t == float('-inf')
+                    else '%+.1f%%' % (100*t)
+                    for t in [line_ratio, branch_ratio])))
+    else:
+        print(' %s %s %s %s %s %s%s' % (
+            diff_r.coverage_lines.diff_table()
+                if diff_r else FracField.diff_none,
+            diff_r.coverage_branches.diff_table()
+                if diff_r else FracField.diff_none,
+            r.coverage_lines.diff_table()
+                if r else FracField.diff_none,
+            r.coverage_branches.diff_table()
+                if r else FracField.diff_none,
+            FracField.diff_diff(
+                r.coverage_lines if r else None,
+                diff_r.coverage_lines if diff_r else None)
+                if r or diff_r else FracField.diff_none,
+            FracField.diff_diff(
+                r.coverage_branches if r else None,
+                diff_r.coverage_branches if diff_r else None)
+                if r or diff_r else FracField.diff_none,
+            ' (%s)' % ', '.join(
+                    '+∞%' if t == float('+inf')
+                    else '-∞%' if t == float('-inf')
+                    else '%+.1f%%' % (100*t)
+                    for t in [line_ratio, branch_ratio]
+                    if t)
+                if line_ratio or branch_ratio else ''))
+
+
+def annotate(paths, results, *,
+        annotate=False,
+        lines=False,
+        branches=False,
+        build_dir=None,
+        **args):
     for path in paths:
         # map to source file
         src_path = re.sub('\.t\.a\.gcda$', '.c', path)
-        # TODO test this
-        if args.get('build_dir'):
-            src_path = re.sub('%s/*' % re.escape(args['build_dir']), '',
+        if build_dir:
+            src_path = re.sub('%s/*' % re.escape(build_dir), '',
                 src_path)
 
         # flatten to line info
-        line_results = {line: (hits, result)
-            for (_, _, line), (hits, result) in results.items()}
+        results = fold(results, by=['file', 'line'])
+        table = {r.line: r for r in results if r.file == src_path}
 
         # calculate spans to show
-        if not args.get('annotate'):
+        if not annotate:
             spans = []
             last = None
-            for line, (hits, result) in sorted(line_results.items()):
-                if ((args.get('lines') and hits == 0)
-                        or (args.get('branches')
-                            and result.coverage_branch_hits
-                                < result.coverage_branch_count)):
+            for line, r in sorted(table.items()):
+                if ((lines and int(r.coverage_hits) == 0)
+                        or (branches
+                            and r.coverage_branches.a
+                                < r.coverage_branches.b)):
                     if last is not None and line - last.stop <= args['context']:
                         last = range(
                             last.start,
@@ -268,48 +542,55 @@ def annotate(paths, results, **args):
             skipped = False
             for i, line in enumerate(f):
                 # skip lines not in spans?
-                if (not args.get('annotate')
-                        and not any(i+1 in s for s in spans)):
+                if not annotate and not any(i+1 in s for s in spans):
                     skipped = True
                     continue
 
                 if skipped:
                     skipped = False
                     print('%s@@ %s:%d @@%s' % (
-                        '\x1b[36m' if color(**args) else '',
+                        '\x1b[36m' if args['color'] else '',
                         src_path,
                         i+1,
-                        '\x1b[m' if color(**args) else ''))
+                        '\x1b[m' if args['color'] else ''))
 
                 # build line
                 if line.endswith('\n'):
                     line = line[:-1]
 
-                if i+1 in line_results:
-                    hits, result = line_results[i+1]
-                    line = '%-*s // %d hits, %d/%d branches' % (
+                if i+1 in table:
+                    r = table[i+1]
+                    line = '%-*s // %s hits, %s branches' % (
                         args['width'],
                         line,
-                        hits,
-                        result.coverage_branch_hits,
-                        result.coverage_branch_count)
+                        r.coverage_hits,
+                        r.coverage_branches)
 
-                    if color(**args):
-                        if args.get('lines') and hits == 0:
+                    if args['color']:
+                        if lines and int(r.coverage_hits) == 0:
                             line = '\x1b[1;31m%s\x1b[m' % line
-                        elif (args.get('branches') and
-                                result.coverage_branch_hits
-                                < result.coverage_branch_count):
+                        elif (branches
+                                and r.coverage_branches.a
+                                    < r.coverage_branches.b):
                             line = '\x1b[35m%s\x1b[m' % line
 
                 print(line)
 
-def main(**args):
+
+def main(gcda_paths, **args):
+    # figure out what color should be
+    if args.get('color') == 'auto':
+        args['color'] = sys.stdout.isatty()
+    elif args.get('color') == 'always':
+        args['color'] = True
+    else:
+        args['color'] = False
+
     # find sizes
     if not args.get('use', None):
         # find .gcda files
         paths = []
-        for path in args['gcda_paths']:
+        for path in gcda_paths:
             if os.path.isdir(path):
                 path = path + '/*.gcda'
 
@@ -317,143 +598,77 @@ def main(**args):
                 paths.append(path)
 
         if not paths:
-            print('no .gcda files found in %r?' % args['gcda_paths'])
+            print('no .gcda files found in %r?' % gcda_paths)
             sys.exit(-1)
 
-        results, line_results = collect(paths, **args)
+        results = collect(paths, **args)
     else:
+        results = []
         with openio(args['use']) as f:
-            r = csv.DictReader(f)
-            results = {
-                (result['file'], result['name']): CoverageResult(
-                    *(result[f] for f in CoverageResult._fields))
-                for result in r
-                if all(result.get(f) not in {None, ''}
+            reader = csv.DictReader(f)
+            for r in reader:
+                try:
+                    results.append(CoverageResult(**{
+                        k: v for k, v in r.items()
+                        if k in CoverageResult._fields}))
+                except TypeError:
+                    pass
 
-                    for f in CoverageResult._fields)}
-        paths = []
-        line_results = {}
+    # fold to remove duplicates
+    results = fold(results)
 
-    # find previous results?
-    if args.get('diff'):
-        try:
-            with openio(args['diff']) as f:
-                r = csv.DictReader(f)
-                prev_results = {
-                    (result['file'], result['name']): CoverageResult(
-                        *(result[f] for f in CoverageResult._fields))
-                    for result in r
-                    if all(result.get(f) not in {None, ''}
-                        for f in CoverageResult._fields)}
-        except FileNotFoundError:
-            prev_results = []
+    # sort because why not
+    results.sort()
 
     # write results to CSV
     if args.get('output'):
-        merged_results = co.defaultdict(lambda: {})
-        other_fields = []
-
-        # merge?
-        if args.get('merge'):
-            try:
-                with openio(args['merge']) as f:
-                    r = csv.DictReader(f)
-                    for result in r:
-                        file = result.pop('file', '')
-                        func = result.pop('name', '')
-                        for f in CoverageResult._fields:
-                            result.pop(f, None)
-                        merged_results[(file, func)] = result
-                        other_fields = result.keys()
-            except FileNotFoundError:
-                pass
-
-        for (file, func), result in results.items():
-            merged_results[(file, func)] |= result._asdict()
-
         with openio(args['output'], 'w') as f:
-            w = csv.DictWriter(f, ['file', 'name',
-                *other_fields, *CoverageResult._fields])
-            w.writeheader()
-            for (file, func), result in sorted(merged_results.items()):
-                w.writerow({'file': file, 'name': func, **result})
+            writer = csv.DictWriter(f, CoverageResult._fields)
+            writer.writeheader()
+            for r in results:
+                writer.writerow(r._asdict())
 
-    # print results
-    def print_header(by):
-        if by == 'total':
-            entry = lambda k: 'TOTAL'
-        elif by == 'file':
-            entry = lambda k: k[0]
+    # find previous results?
+    if args.get('diff'):
+        diff_results = []
+        try:
+            with openio(args['diff']) as f:
+                reader = csv.DictReader(f)
+                for r in reader:
+                    try:
+                        diff_results.append(CoverageResult(**{
+                            k: v for k, v in r.items()
+                            if k in CoverageResult._fields}))
+                    except TypeError:
+                        pass
+        except FileNotFoundError:
+            pass
+
+        # fold to remove duplicates
+        diff_results = fold(diff_results)
+
+    if not args.get('quiet'):
+        if (args.get('annotate')
+                or args.get('lines')
+                or args.get('branches')):
+            # annotate sources
+            annotate(
+                paths,
+                results,
+                **args)
         else:
-            entry = lambda k: k[1]
-
-        if not args.get('diff'):
-            print('%-36s %s' % (by, CoverageResult._header))
-        else:
-            old = {entry(k) for k in results.keys()}
-            new = {entry(k) for k in prev_results.keys()}
-            print('%-36s %s' % (
-                '%s (%d added, %d removed)' % (by,
-                        sum(1 for k in new if k not in old),
-                        sum(1 for k in old if k not in new))
-                    if by else '',
-                CoverageDiff._header))
-
-    def print_entries(by):
-        if by == 'total':
-            entry = lambda k: 'TOTAL'
-        elif by == 'file':
-            entry = lambda k: k[0]
-        else:
-            entry = lambda k: k[1]
-
-        entries = co.defaultdict(lambda: CoverageResult())
-        for k, result in results.items():
-            entries[entry(k)] += result
-
-        if not args.get('diff'):
-            for name, result in sorted(entries.items(),
-                    key=lambda p: (p[1].key(**args), p)):
-                print('%-36s %s' % (name, result))
-        else:
-            prev_entries = co.defaultdict(lambda: CoverageResult())
-            for k, result in prev_results.items():
-                prev_entries[entry(k)] += result
-
-            diff_entries = {name: entries.get(name) - prev_entries.get(name)
-                for name in (entries.keys() | prev_entries.keys())}
-
-            for name, diff in sorted(diff_entries.items(),
-                    key=lambda p: (p[1].key(**args), p)):
-                if diff or args.get('all'):
-                    print('%-36s %s' % (name, diff))
-
-    if args.get('quiet'):
-        pass
-    elif (args.get('annotate')
-            or args.get('lines')
-            or args.get('branches')):
-        annotate(paths, line_results, **args)
-    elif args.get('summary'):
-        print_header('')
-        print_entries('total')
-    elif args.get('files'):
-        print_header('file')
-        print_entries('file')
-        print_entries('total')
-    else:
-        print_header('function')
-        print_entries('function')
-        print_entries('total')
+            # print table
+            table(
+                results,
+                diff_results if args.get('diff') else None,
+                **args)
 
     # catch lack of coverage
     if args.get('error_on_lines') and any(
-            r.coverage_line_hits < r.coverage_line_count
-            for r in results.values()):
+            r.coverage_lines.a < r.coverage_lines.b for r in results):
         sys.exit(2)
     elif args.get('error_on_branches') and any(
-            r.coverage_branch_hits < r.coverage_branch_count
-            for r in results.values()):
+            r.coverage_branches.a < r.coverage_branches.b for r in results):
         sys.exit(3)
 
 
@@ -462,60 +677,114 @@ if __name__ == "__main__":
     import sys
     parser = argparse.ArgumentParser(
         description="Find coverage info after running tests.")
-    parser.add_argument('gcda_paths', nargs='*', default=GCDA_PATHS,
-        help="Description of where to find *.gcda files. May be a directory \
-            or a list of paths. Defaults to %r." % GCDA_PATHS)
-    parser.add_argument('-v', '--verbose', action='store_true',
+    parser.add_argument(
+        'gcda_paths',
+        nargs='*',
+        default=GCDA_PATHS,
+        help="Description of where to find *.gcda files. May be a directory "
+            "or a list of paths. Defaults to %(default)r.")
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
         help="Output commands that run behind the scenes.")
-    parser.add_argument('-q', '--quiet', action='store_true',
+    parser.add_argument(
+        '-q', '--quiet',
+        action='store_true',
         help="Don't show anything, useful with -o.")
-    parser.add_argument('-o', '--output',
+    parser.add_argument(
+        '-o', '--output',
         help="Specify CSV file to store results.")
-    parser.add_argument('-u', '--use',
-        help="Don't compile and find code sizes, instead use this CSV file.")
-    parser.add_argument('-d', '--diff',
-        help="Specify CSV file to diff code size against.")
-    parser.add_argument('-m', '--merge',
-        help="Merge with an existing CSV file when writing to output.")
-    parser.add_argument('-a', '--all', action='store_true',
-        help="Show all functions, not just the ones that changed.")
-    parser.add_argument('-A', '--everything', action='store_true',
-        help="Include builtin and libc specific symbols.")
-    parser.add_argument('-s', '--line-sort', action='store_true',
+    parser.add_argument(
+        '-u', '--use',
+        help="Don't parse anything, use this CSV file.")
+    parser.add_argument(
+        '-d', '--diff',
+        help="Specify CSV file to diff against.")
+    parser.add_argument(
+        '-a', '--all',
+        action='store_true',
+        help="Show all, not just the ones that changed.")
+    parser.add_argument(
+        '-p', '--percent',
+        action='store_true',
+        help="Only show percentage change, not a full diff.")
+    parser.add_argument(
+        '-b', '--by-file',
+        action='store_true',
+        help="Group by file.")
+    parser.add_argument(
+        '--by-line',
+        action='store_true',
+        help="Group by line.")
+    parser.add_argument(
+        '-s', '--line-sort',
+        action='store_true',
         help="Sort by line coverage.")
-    parser.add_argument('-S', '--reverse-line-sort', action='store_true',
+    parser.add_argument(
+        '-S', '--reverse-line-sort',
+        action='store_true',
         help="Sort by line coverage, but backwards.")
-    parser.add_argument('--branch-sort', action='store_true',
+    parser.add_argument(
+        '--branch-sort',
+        action='store_true',
         help="Sort by branch coverage.")
-    parser.add_argument('--reverse-branch-sort', action='store_true',
+    parser.add_argument(
+        '--reverse-branch-sort',
+        action='store_true',
         help="Sort by branch coverage, but backwards.")
-    parser.add_argument('-F', '--files', action='store_true',
-        help="Show file-level coverage.")
-    parser.add_argument('-Y', '--summary', action='store_true',
-        help="Only show the total coverage.")
-    parser.add_argument('-p', '--annotate', action='store_true',
+    parser.add_argument(
+        '-Y', '--summary',
+        action='store_true',
+        help="Only show the total size.")
+    parser.add_argument(
+        '-l', '--annotate',
+        action='store_true',
         help="Show source files annotated with coverage info.")
-    parser.add_argument('-l', '--lines', action='store_true',
+    parser.add_argument(
+        '-L', '--lines',
+        action='store_true',
         help="Show uncovered lines.")
-    parser.add_argument('-b', '--branches', action='store_true',
+    parser.add_argument(
+        '-B', '--branches',
+        action='store_true',
         help="Show uncovered branches.")
-    parser.add_argument('-c', '--context', type=lambda x: int(x, 0), default=3,
-        help="Show a additional lines of context. Defaults to 3.")
-    parser.add_argument('-W', '--width', type=lambda x: int(x, 0), default=80,
-        help="Assume source is styled with this many columns. Defaults to 80.")
-    parser.add_argument('--color',
-        choices=['never', 'always', 'auto'], default='auto',
+    parser.add_argument(
+        '-c', '--context',
+        type=lambda x: int(x, 0),
+        default=3,
+        help="Show a additional lines of context. Defaults to %(default)r.")
+    parser.add_argument(
+        '-W', '--width',
+        type=lambda x: int(x, 0),
+        default=80,
+        help="Assume source is styled with this many columns. Defaults "
+            "to %(default)r.")
+    parser.add_argument(
+        '--color',
+        choices=['never', 'always', 'auto'],
+        default='auto',
         help="When to use terminal colors.")
-    parser.add_argument('-e', '--error-on-lines', action='store_true',
+    parser.add_argument(
+        '-e', '--error-on-lines',
+        action='store_true',
         help="Error if any lines are not covered.")
-    parser.add_argument('-E', '--error-on-branches', action='store_true',
+    parser.add_argument(
+        '-E', '--error-on-branches',
+        action='store_true',
         help="Error if any branches are not covered.")
-    parser.add_argument('--gcov-tool', default=['gcov'],
+    parser.add_argument(
+        '-A', '--everything',
+        action='store_true',
+        help="Include builtin and libc specific symbols.")
+    parser.add_argument(
+        '--gcov-tool',
+        default=GCOV_TOOL,
         type=lambda x: x.split(),
-        help="Path to the gcov tool to use.")
-    parser.add_argument('--build-dir',
-        help="Specify the relative build directory. Used to map object files \
-            to the correct source files.")
+        help="Path to the gcov tool to use. Defaults to %(default)r.")
+    parser.add_argument(
+        '--build-dir',
+        help="Specify the relative build directory. Used to map object files "
+            "to the correct source files.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_args()).items()
         if v is not None}))

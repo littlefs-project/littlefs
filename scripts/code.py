@@ -5,71 +5,123 @@
 # by Linux's Bloat-O-Meter.
 #
 
-import os
+import collections as co
+import csv
 import glob
 import itertools as it
-import subprocess as sp
-import shlex
+import math as m
+import os
 import re
-import csv
-import collections as co
+import shlex
+import subprocess as sp
 
 
 OBJ_PATHS = ['*.o']
+NM_TOOL = ['nm']
+TYPE = 'tTrRdD'
 
-class CodeResult(co.namedtuple('CodeResult', 'code_size')):
+
+# integer fields
+class IntField(co.namedtuple('IntField', 'x')):
     __slots__ = ()
-    def __new__(cls, code_size=0):
-        return super().__new__(cls, int(code_size))
+    def __new__(cls, x):
+        if isinstance(x, IntField):
+            return x
+        if isinstance(x, str):
+            try:
+                x = int(x, 0)
+            except ValueError:
+                # also accept +-∞ and +-inf
+                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
+                    x = float('inf')
+                elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
+                    x = float('-inf')
+                else:
+                    raise
+        return super().__new__(cls, x)
+
+    def __int__(self):
+        assert not m.isinf(self.x)
+        return self.x
+
+    def __float__(self):
+        return float(self.x)
+
+    def __str__(self):
+        if self.x == float('inf'):
+            return '∞'
+        elif self.x == float('-inf'):
+            return '-∞'
+        else:
+            return str(self.x)
+
+    none = '%7s' % '-'
+    def table(self):
+        return '%7s' % (self,)
+
+    diff_none = '%7s' % '-'
+    diff_table = table
+
+    def diff_diff(self, other):
+        new = self.x if self else 0
+        old = other.x if other else 0
+        diff = new - old
+        if diff == float('+inf'):
+            return '%7s' % '+∞'
+        elif diff == float('-inf'):
+            return '%7s' % '-∞'
+        else:
+            return '%+7d' % diff
+
+    def ratio(self, other):
+        new = self.x if self else 0
+        old = other.x if other else 0
+        if m.isinf(new) and m.isinf(old):
+            return 0.0
+        elif m.isinf(new):
+            return float('+inf')
+        elif m.isinf(old):
+            return float('-inf')
+        elif not old and not new:
+            return 0.0
+        elif not old:
+            return 1.0
+        else:
+            return (new-old) / old
 
     def __add__(self, other):
-        return self.__class__(self.code_size + other.code_size)
+        return IntField(self.x + other.x)
 
-    def __sub__(self, other):
-        return CodeDiff(other, self)
+    def __mul__(self, other):
+        return IntField(self.x * other.x)
 
-    def __rsub__(self, other):
-        return self.__class__.__sub__(other, self)
+    def __lt__(self, other):
+        return self.x < other.x
 
-    def key(self, **args):
-        if args.get('size_sort'):
-            return -self.code_size
-        elif args.get('reverse_size_sort'):
-            return +self.code_size
+    def __gt__(self, other):
+        return self.__class__.__lt__(other, self)
+
+    def __le__(self, other):
+        return not self.__gt__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+    def __truediv__(self, n):
+        if m.isinf(self.x):
+            return self
         else:
-            return None
+            return IntField(round(self.x / n))
 
-    _header = '%7s' % 'size'
-    def __str__(self):
-        return '%7d' % self.code_size
-
-class CodeDiff(co.namedtuple('CodeDiff',  'old,new')):
+# code size results
+class CodeResult(co.namedtuple('CodeResult', 'file,function,code_size')):
     __slots__ = ()
+    def __new__(cls, file, function, code_size):
+        return super().__new__(cls, file, function, IntField(code_size))
 
-    def ratio(self):
-        old = self.old.code_size if self.old is not None else 0
-        new = self.new.code_size if self.new is not None else 0
-        return (new-old) / old if old else 1.0
-
-    def key(self, **args):
-        return (
-            self.new.key(**args) if self.new is not None else 0,
-            -self.ratio())
-
-    def __bool__(self):
-        return bool(self.ratio())
-
-    _header = '%7s %7s %7s' % ('old', 'new', 'diff')
-    def __str__(self):
-        old = self.old.code_size if self.old is not None else 0
-        new = self.new.code_size if self.new is not None else 0
-        diff = new - old
-        ratio = self.ratio()
-        return '%7s %7s %+7d%s' % (
-            old or "-",
-            new or "-",
-            diff,
-            ' (%+.1f%%)' % (100*ratio) if ratio else '')
+    def __add__(self, other):
+        return CodeResult(self.file, self.function,
+            self.code_size + other.code_size)
 
 
 def openio(path, mode='r'):
@@ -81,20 +133,25 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
-def collect(paths, **args):
-    results = co.defaultdict(lambda: CodeResult())
+def collect(paths, *,
+        nm_tool=NM_TOOL,
+        type=TYPE,
+        build_dir=None,
+        everything=False,
+        **args):
+    results = []
     pattern = re.compile(
         '^(?P<size>[0-9a-fA-F]+)' +
-        ' (?P<type>[%s])' % re.escape(args['type']) +
+        ' (?P<type>[%s])' % re.escape(type) +
         ' (?P<func>.+?)$')
     for path in paths:
         # map to source file
         src_path = re.sub('\.o$', '.c', path)
-        if args.get('build_dir'):
-            src_path = re.sub('%s/*' % re.escape(args['build_dir']), '',
+        if build_dir:
+            src_path = re.sub('%s/*' % re.escape(build_dir), '',
                 src_path)
         # note nm-tool may contain extra args
-        cmd = args['nm_tool'] + ['--size-sort', path]
+        cmd = nm_tool + ['--size-sort', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -107,12 +164,15 @@ def collect(paths, **args):
             if m:
                 func = m.group('func')
                 # discard internal functions
-                if not args.get('everything') and func.startswith('__'):
+                if not everything and func.startswith('__'):
                     continue
                 # discard .8449 suffixes created by optimizer
                 func = re.sub('\.[0-9]+', '', func)
-                results[(src_path, func)] += CodeResult(
-                    int(m.group('size'), 16))
+
+                results.append(CodeResult(
+                    src_path, func,
+                    int(m.group('size'), 16)))
+
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
@@ -122,12 +182,167 @@ def collect(paths, **args):
 
     return results
 
-def main(**args):
+
+def fold(results, *,
+        by=['file', 'function'],
+        **_):
+    folding = co.OrderedDict()
+    for r in results:
+        name = tuple(getattr(r, k) for k in by)
+        if name not in folding:
+            folding[name] = []
+        folding[name].append(r)
+
+    folded = []
+    for rs in folding.values():
+        folded.append(sum(rs[1:], start=rs[0]))
+
+    return folded
+
+
+def table(results, diff_results=None, *,
+        by_file=False,
+        size_sort=False,
+        reverse_size_sort=False,
+        summary=False,
+        all=False,
+        percent=False,
+        **_):
+    all_, all = all, __builtins__.all
+
+    # fold
+    results = fold(results, by=['file' if by_file else 'function'])
+    if diff_results is not None:
+        diff_results = fold(diff_results,
+            by=['file' if by_file else 'function'])
+
+    table = {
+        r.file if by_file else r.function: r
+        for r in results}
+    diff_table = {
+        r.file if by_file else r.function: r
+        for r in diff_results or []}
+
+    # sort, note that python's sort is stable
+    names = list(table.keys() | diff_table.keys())
+    names.sort()
+    if diff_results is not None:
+        names.sort(key=lambda n: -IntField.ratio(
+            table[n].code_size if n in table else None,
+            diff_table[n].code_size if n in diff_table else None))
+    if size_sort:
+        names.sort(key=lambda n: (table[n].code_size,) if n in table else (),
+            reverse=True)
+    elif reverse_size_sort:
+        names.sort(key=lambda n: (table[n].code_size,) if n in table else (),
+            reverse=False)
+
+    # print header
+    print('%-36s' % ('%s%s' % (
+        'file' if by_file else 'function',
+        ' (%d added, %d removed)' % (
+            sum(1 for n in table if n not in diff_table),
+            sum(1 for n in diff_table if n not in table))
+            if diff_results is not None and not percent else '')
+        if not summary else ''),
+        end='')
+    if diff_results is None:
+        print(' %s' % ('size'.rjust(len(IntField.none))))
+    elif percent:
+        print(' %s' % ('size'.rjust(len(IntField.diff_none))))
+    else:
+        print(' %s %s %s' % (
+            'old'.rjust(len(IntField.diff_none)),
+            'new'.rjust(len(IntField.diff_none)),
+            'diff'.rjust(len(IntField.diff_none))))
+
+    # print entries
+    if not summary:
+        for name in names:
+            r = table.get(name)
+            if diff_results is not None:
+                diff_r = diff_table.get(name)
+                ratio = IntField.ratio(
+                    r.code_size if r else None,
+                    diff_r.code_size if diff_r else None)
+                if not ratio and not all_:
+                    continue
+
+            print('%-36s' % name, end='')
+            if diff_results is None:
+                print(' %s' % (
+                    r.code_size.table()
+                        if r else IntField.none))
+            elif percent:
+                print(' %s%s' % (
+                    r.code_size.diff_table()
+                        if r else IntField.diff_none,
+                    ' (%s)' % (
+                        '+∞%' if ratio == float('+inf')
+                        else '-∞%' if ratio == float('-inf')
+                        else '%+.1f%%' % (100*ratio))))
+            else:
+                print(' %s %s %s%s' % (
+                    diff_r.code_size.diff_table()
+                        if diff_r else IntField.diff_none,
+                    r.code_size.diff_table()
+                        if r else IntField.diff_none,
+                    IntField.diff_diff(
+                        r.code_size if r else None,
+                        diff_r.code_size if diff_r else None)
+                        if r or diff_r else IntField.diff_none,
+                    ' (%s)' % (
+                        '+∞%' if ratio == float('+inf')
+                        else '-∞%' if ratio == float('-inf')
+                        else '%+.1f%%' % (100*ratio))
+                        if ratio else ''))
+
+    # print total
+    total = fold(results, by=[])
+    r = total[0] if total else None
+    if diff_results is not None:
+        diff_total = fold(diff_results, by=[])
+        diff_r = diff_total[0] if diff_total else None
+        ratio = IntField.ratio(
+            r.code_size if r else None,
+            diff_r.code_size if diff_r else None)
+
+    print('%-36s' % 'TOTAL', end='')
+    if diff_results is None:
+        print(' %s' % (
+            r.code_size.table()
+                if r else IntField.none))
+    elif percent:
+        print(' %s%s' % (
+            r.code_size.diff_table()
+                if r else IntField.diff_none,
+            ' (%s)' % (
+                '+∞%' if ratio == float('+inf')
+                else '-∞%' if ratio == float('-inf')
+                else '%+.1f%%' % (100*ratio))))
+    else:
+        print(' %s %s %s%s' % (
+            diff_r.code_size.diff_table()
+                if diff_r else IntField.diff_none,
+            r.code_size.diff_table()
+                if r else IntField.diff_none,
+            IntField.diff_diff(
+                r.code_size if r else None,
+                diff_r.code_size if diff_r else None)
+                if r or diff_r else IntField.diff_none,
+            ' (%s)' % (
+                '+∞%' if ratio == float('+inf')
+                else '-∞%' if ratio == float('-inf')
+                else '%+.1f%%' % (100*ratio))
+                if ratio else ''))
+
+
+def main(obj_paths, **args):
     # find sizes
     if not args.get('use', None):
         # find .o files
         paths = []
-        for path in args['obj_paths']:
+        for path in obj_paths:
             if os.path.isdir(path):
                 path = path + '/*.o'
 
@@ -135,127 +350,61 @@ def main(**args):
                 paths.append(path)
 
         if not paths:
-            print('no .obj files found in %r?' % args['obj_paths'])
+            print('no .obj files found in %r?' % obj_paths)
             sys.exit(-1)
 
         results = collect(paths, **args)
     else:
+        results = []
         with openio(args['use']) as f:
-            r = csv.DictReader(f)
-            results = {
-                (result['file'], result['name']): CodeResult(
-                    *(result[f] for f in CodeResult._fields))
-                for result in r
-                if all(result.get(f) not in {None, ''}
-                    for f in CodeResult._fields)}
+            reader = csv.DictReader(f)
+            for r in reader:
+                try:
+                    results.append(CodeResult(**{
+                        k: v for k, v in r.items()
+                        if k in CodeResult._fields}))
+                except TypeError:
+                    pass
 
-    # find previous results?
-    if args.get('diff'):
-        try:
-            with openio(args['diff']) as f:
-                r = csv.DictReader(f)
-                prev_results = {
-                    (result['file'], result['name']): CodeResult(
-                        *(result[f] for f in CodeResult._fields))
-                    for result in r
-                    if all(result.get(f) not in {None, ''}
-                        for f in CodeResult._fields)}
-        except FileNotFoundError:
-            prev_results = []
+    # fold to remove duplicates
+    results = fold(results)
+
+    # sort because why not
+    results.sort()
 
     # write results to CSV
     if args.get('output'):
-        merged_results = co.defaultdict(lambda: {})
-        other_fields = []
-
-        # merge?
-        if args.get('merge'):
-            try:
-                with openio(args['merge']) as f:
-                    r = csv.DictReader(f)
-                    for result in r:
-                        file = result.pop('file', '')
-                        func = result.pop('name', '')
-                        for f in CodeResult._fields:
-                            result.pop(f, None)
-                        merged_results[(file, func)] = result
-                        other_fields = result.keys()
-            except FileNotFoundError:
-                pass
-
-        for (file, func), result in results.items():
-            merged_results[(file, func)] |= result._asdict()
-
         with openio(args['output'], 'w') as f:
-            w = csv.DictWriter(f, ['file', 'name',
-                *other_fields, *CodeResult._fields])
-            w.writeheader()
-            for (file, func), result in sorted(merged_results.items()):
-                w.writerow({'file': file, 'name': func, **result})
+            writer = csv.DictWriter(f, CodeResult._fields)
+            writer.writeheader()
+            for r in results:
+                writer.writerow(r._asdict())
 
-    # print results
-    def print_header(by):
-        if by == 'total':
-            entry = lambda k: 'TOTAL'
-        elif by == 'file':
-            entry = lambda k: k[0]
-        else:
-            entry = lambda k: k[1]
+    # find previous results?
+    if args.get('diff'):
+        diff_results = []
+        try:
+            with openio(args['diff']) as f:
+                reader = csv.DictReader(f)
+                for r in reader:
+                    try:
+                        diff_results.append(CodeResult(**{
+                            k: v for k, v in r.items()
+                            if k in CodeResult._fields}))
+                    except TypeError:
+                        pass
+        except FileNotFoundError:
+            pass
 
-        if not args.get('diff'):
-            print('%-36s %s' % (by, CodeResult._header))
-        else:
-            old = {entry(k) for k in results.keys()}
-            new = {entry(k) for k in prev_results.keys()}
-            print('%-36s %s' % (
-                '%s (%d added, %d removed)' % (by,
-                        sum(1 for k in new if k not in old),
-                        sum(1 for k in old if k not in new))
-                    if by else '',
-                CodeDiff._header))
+        # fold to remove duplicates
+        diff_results = fold(diff_results)
 
-    def print_entries(by):
-        if by == 'total':
-            entry = lambda k: 'TOTAL'
-        elif by == 'file':
-            entry = lambda k: k[0]
-        else:
-            entry = lambda k: k[1]
-
-        entries = co.defaultdict(lambda: CodeResult())
-        for k, result in results.items():
-            entries[entry(k)] += result
-
-        if not args.get('diff'):
-            for name, result in sorted(entries.items(),
-                    key=lambda p: (p[1].key(**args), p)):
-                print('%-36s %s' % (name, result))
-        else:
-            prev_entries = co.defaultdict(lambda: CodeResult())
-            for k, result in prev_results.items():
-                prev_entries[entry(k)] += result
-
-            diff_entries = {name: entries.get(name) - prev_entries.get(name)
-                for name in (entries.keys() | prev_entries.keys())}
-
-            for name, diff in sorted(diff_entries.items(),
-                    key=lambda p: (p[1].key(**args), p)):
-                if diff or args.get('all'):
-                    print('%-36s %s' % (name, diff))
-
-    if args.get('quiet'):
-        pass
-    elif args.get('summary'):
-        print_header('')
-        print_entries('total')
-    elif args.get('files'):
-        print_header('file')
-        print_entries('file')
-        print_entries('total')
-    else:
-        print_header('function')
-        print_entries('function')
-        print_entries('total')
+    # print table
+    if not args.get('quiet'):
+        table(
+            results,
+            diff_results if args.get('diff') else None,
+            **args)
 
 
 if __name__ == "__main__":
@@ -263,42 +412,72 @@ if __name__ == "__main__":
     import sys
     parser = argparse.ArgumentParser(
         description="Find code size at the function level.")
-    parser.add_argument('obj_paths', nargs='*', default=OBJ_PATHS,
-        help="Description of where to find *.o files. May be a directory \
-            or a list of paths. Defaults to %r." % OBJ_PATHS)
-    parser.add_argument('-v', '--verbose', action='store_true',
+    parser.add_argument(
+        'obj_paths',
+        nargs='*',
+        default=OBJ_PATHS,
+        help="Description of where to find *.o files. May be a directory "
+            "or a list of paths. Defaults to %(default)r.")
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
         help="Output commands that run behind the scenes.")
-    parser.add_argument('-q', '--quiet', action='store_true',
+    parser.add_argument(
+        '-q', '--quiet',
+        action='store_true',
         help="Don't show anything, useful with -o.")
-    parser.add_argument('-o', '--output',
+    parser.add_argument(
+        '-o', '--output',
         help="Specify CSV file to store results.")
-    parser.add_argument('-u', '--use',
-        help="Don't compile and find code sizes, instead use this CSV file.")
-    parser.add_argument('-d', '--diff',
-        help="Specify CSV file to diff code size against.")
-    parser.add_argument('-m', '--merge',
-        help="Merge with an existing CSV file when writing to output.")
-    parser.add_argument('-a', '--all', action='store_true',
-        help="Show all functions, not just the ones that changed.")
-    parser.add_argument('-A', '--everything', action='store_true',
-        help="Include builtin and libc specific symbols.")
-    parser.add_argument('-s', '--size-sort', action='store_true',
+    parser.add_argument(
+        '-u', '--use',
+        help="Don't parse anything, use this CSV file.")
+    parser.add_argument(
+        '-d', '--diff',
+        help="Specify CSV file to diff against.")
+    parser.add_argument(
+        '-a', '--all',
+        action='store_true',
+        help="Show all, not just the ones that changed.")
+    parser.add_argument(
+        '-p', '--percent',
+        action='store_true',
+        help="Only show percentage change, not a full diff.")
+    parser.add_argument(
+        '-b', '--by-file',
+        action='store_true',
+        help="Group by file. Note this does not include padding "
+            "so sizes may differ from other tools.")
+    parser.add_argument(
+        '-s', '--size-sort',
+        action='store_true',
         help="Sort by size.")
-    parser.add_argument('-S', '--reverse-size-sort', action='store_true',
+    parser.add_argument(
+        '-S', '--reverse-size-sort',
+        action='store_true',
         help="Sort by size, but backwards.")
-    parser.add_argument('-F', '--files', action='store_true',
-        help="Show file-level code sizes. Note this does not include padding! "
-            "So sizes may differ from other tools.")
-    parser.add_argument('-Y', '--summary', action='store_true',
-        help="Only show the total code size.")
-    parser.add_argument('--type', default='tTrRdD',
+    parser.add_argument(
+        '-Y', '--summary',
+        action='store_true',
+        help="Only show the total size.")
+    parser.add_argument(
+        '-A', '--everything',
+        action='store_true',
+        help="Include builtin and libc specific symbols.")
+    parser.add_argument(
+        '--type',
+        default=TYPE,
         help="Type of symbols to report, this uses the same single-character "
             "type-names emitted by nm. Defaults to %(default)r.")
-    parser.add_argument('--nm-tool', default=['nm'], type=lambda x: x.split(),
-        help="Path to the nm tool to use.")
-    parser.add_argument('--build-dir',
-        help="Specify the relative build directory. Used to map object files \
-            to the correct source files.")
+    parser.add_argument(
+        '--nm-tool',
+        type=lambda x: x.split(),
+        default=NM_TOOL,
+        help="Path to the nm tool to use. Defaults to %(default)r")
+    parser.add_argument(
+        '--build-dir',
+        help="Specify the relative build directory. Used to map object files "
+            "to the correct source files.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_args()).items()
         if v is not None}))
