@@ -18,7 +18,8 @@ CSV_PATHS = ['*.csv']
 MERGES = {
     'add': (
         ['code_size', 'data_size', 'stack_frame', 'struct_size',
-            'coverage_lines', 'coverage_branches'],
+            'coverage_lines', 'coverage_branches',
+            'test_passed'],
         lambda xs: sum(xs[1:], start=xs[0])
     ),
     'mul': (

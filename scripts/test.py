@@ -663,6 +663,7 @@ class TestOutput:
             else:
                 # need to rewrite the file
                 self.head.extend(row.keys() - (self.head + self.tail))
+                self.f.seek(0)
                 self.f.truncate()
                 self.writer = csv.DictWriter(self.f, self.head + self.tail)
                 self.writer.writeheader()
@@ -767,7 +768,7 @@ def run_stage(name, runner_, ids, output_, **args):
                                 runner_, m.group('id'), **args)
                             output_.writerow({
                                 'case': m.group('case'),
-                                'test_pass': 1,
+                                'test_passed': '1/1',
                                 **defines})
                     elif op == 'skipped':
                         locals.seen_perms += 1
@@ -822,7 +823,7 @@ def run_stage(name, runner_, ids, output_, **args):
                     defines = find_defines(runner_, failure.id, **args)
                     output_.writerow({
                         'case': ':'.join([suite, case]),
-                        'test_pass': 0,
+                        'test_passed': '0/1',
                         **defines})
 
                 # race condition for multiple failures?
@@ -936,7 +937,7 @@ def run(runner, test_ids=[], **args):
         trace = openio(args['trace'], 'w', 1)
     output = None
     if args.get('output'):
-        output = TestOutput(args['output'], ['case'], ['test_pass'])
+        output = TestOutput(args['output'], ['case'], ['test_passed'])
 
     # measure runtime
     start = time.time()
