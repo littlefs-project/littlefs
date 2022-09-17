@@ -1,6 +1,6 @@
 
 # simple file seek
-[cases.seek]
+[cases.test_seek_read]
 defines = [
     {COUNT=132, SKIP=4},
     {COUNT=132, SKIP=128},
@@ -73,7 +73,7 @@ code = '''
 '''
 
 # simple file seek and write
-[cases.seek_write]
+[cases.test_seek_write]
 defines = [
     {COUNT=132, SKIP=4},
     {COUNT=132, SKIP=128},
@@ -138,7 +138,7 @@ code = '''
 '''
 
 # boundary seek and writes
-[cases.boundary_seek_write]
+[cases.test_seek_boundary_write]
 defines.COUNT = 132
 code = '''
     lfs_t lfs;
@@ -195,7 +195,7 @@ code = '''
 '''
 
 # out of bounds seek
-[cases.out_of_bounds_seek]
+[cases.test_seek_out_of_bounds]
 defines = [
     {COUNT=132, SKIP=4},
     {COUNT=132, SKIP=128},
@@ -254,7 +254,7 @@ code = '''
 '''
 
 # inline write and seek
-[cases.inline_write_seek]
+[cases.test_seek_inline_write]
 defines.SIZE = [2, 4, 128, 132]
 code = '''
     lfs_t lfs;
@@ -325,7 +325,7 @@ code = '''
 '''
 
 # file seek and write with power-loss
-[cases.reentrant_seek_write]
+[cases.test_seek_reentrant_write]
 # must be power-of-2 for quadratic probing to be exhaustive
 defines.COUNT = [4, 64, 128]
 reentrant = true

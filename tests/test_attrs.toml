@@ -1,4 +1,4 @@
-[cases.get_set_attrs]
+[cases.test_attrs_get_set]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -79,7 +79,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.get_set_root_attrs]
+[cases.test_attrs_get_set_root]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -159,7 +159,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.get_set_file_attrs]
+[cases.test_attrs_get_set_file]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -269,7 +269,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.deferred_file_attrs]
+[cases.test_attrs_deferred_file]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;

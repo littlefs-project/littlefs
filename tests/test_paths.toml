@@ -1,6 +1,6 @@
 
 # simple path test
-[cases.path]
+[cases.test_paths_normal]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -25,7 +25,7 @@ code = '''
 '''
 
 # redundant slashes
-[cases.redundant_slashes]
+[cases.test_paths_redundant_slashes]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -52,7 +52,7 @@ code = '''
 '''
 
 # dot path test
-[cases.dot_path]
+[cases.test_paths_dot]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -81,7 +81,7 @@ code = '''
 '''
 
 # dot dot path test
-[cases.dot_dot_path]
+[cases.test_paths_dot_dot]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -114,7 +114,7 @@ code = '''
 '''
 
 # trailing dot path test
-[cases.trailing_dot_path]
+[cases.test_paths_trailing_dot]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -139,7 +139,7 @@ code = '''
 '''
 
 # leading dot path test
-[cases.leading_dot_path]
+[cases.test_paths_leading_dot]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -154,7 +154,7 @@ code = '''
 '''
 
 # root dot dot path test
-[cases.root_dot_dot_path]
+[cases.test_paths_root_dot_dot]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -181,7 +181,7 @@ code = '''
 '''
 
 # invalid path tests
-[cases.invalid_path]
+[cases.test_paths_invalid]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg);
@@ -206,7 +206,7 @@ code = '''
 '''
 
 # root operations
-[cases.root]
+[cases.test_paths_root]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -226,7 +226,7 @@ code = '''
 '''
 
 # root representations
-[cases.root_reprs]
+[cases.test_paths_root_reprs]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -254,7 +254,7 @@ code = '''
 '''
 
 # superblock conflict test
-[cases.superblock_conflict]
+[cases.test_paths_superblock_conflict]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -273,7 +273,7 @@ code = '''
 '''
 
 # max path test
-[cases.max_path]
+[cases.test_paths_max]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -301,7 +301,7 @@ code = '''
 '''
 
 # really big path test
-[cases.really_big_path]
+[cases.test_paths_really_big]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;

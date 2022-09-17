@@ -110,8 +110,7 @@ typedef struct test_powerloss {
 } test_powerloss_t;
 
 typedef struct test_id {
-    const char *suite;
-    const char *case_;
+    const char *name;
     const test_define_t *defines;
     size_t define_count;
     const lfs_testbd_powercycles_t *cycles;
@@ -415,7 +414,7 @@ extern const test_powerloss_t *test_powerlosses;
 extern size_t test_powerloss_count;
 
 const test_id_t *test_ids = (const test_id_t[]) {
-    {NULL, NULL, NULL, 0, NULL, 0},
+    {NULL, NULL, 0, NULL, 0},
 };
 size_t test_id_count = 1;
 
@@ -489,8 +488,8 @@ static void perm_printid(
         const lfs_testbd_powercycles_t *cycles,
         size_t cycle_count) {
     (void)suite;
-    // suite[:case[:permutation[:powercycles]]]]
-    printf("%s:", case_->id);
+    // case[:permutation[:powercycles]]]
+    printf("%s:", case_->name);
     for (size_t d = 0;
             d < lfs_max(
                 suite->define_count,
@@ -625,16 +624,15 @@ static void summary(void) {
 
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            if (test_ids[t].suite && strcmp(
-                    test_suites[i].name, test_ids[t].suite) != 0) {
-                continue;
-            }
-
             test_define_suite(&test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
-                if (test_ids[t].case_ && strcmp(
-                        test_suites[i].cases[j].name, test_ids[t].case_) != 0) {
+                // does neither suite nor case name match?
+                if (test_ids[t].name && !(
+                        strcmp(test_ids[t].name,
+                            test_suites[i].name) == 0
+                        || strcmp(test_ids[t].name,
+                            test_suites[i].cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -674,19 +672,18 @@ static void list_suites(void) {
 
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            if (test_ids[t].suite && strcmp(
-                    test_suites[i].name, test_ids[t].suite) != 0) {
-                continue;
-            }
-
             test_define_suite(&test_suites[i]);
 
             size_t cases = 0;
             struct perm_count_state perms = {0, 0};
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
-                if (test_ids[t].case_ && strcmp(
-                        test_suites[i].cases[j].name, test_ids[t].case_) != 0) {
+                // does neither suite nor case name match?
+                if (test_ids[t].name && !(
+                        strcmp(test_ids[t].name,
+                            test_suites[i].name) == 0
+                        || strcmp(test_ids[t].name,
+                            test_suites[i].cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -702,6 +699,11 @@ static void list_suites(void) {
                         &perms);
             }
 
+            // no tests found?
+            if (!cases) {
+                continue;
+            }
+
             char perm_buf[64];
             sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
             char flag_buf[64];
@@ -709,7 +711,7 @@ static void list_suites(void) {
                     (test_suites[i].flags & TEST_REENTRANT) ? "r" : "",
                     (!test_suites[i].flags) ? "-" : "");
             printf("%-36s %7s %7zu %11s\n",
-                    test_suites[i].id,
+                    test_suites[i].name,
                     flag_buf,
                     cases,
                     perm_buf);
@@ -722,16 +724,15 @@ static void list_cases(void) {
 
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            if (test_ids[t].suite && strcmp(
-                    test_suites[i].name, test_ids[t].suite) != 0) {
-                continue;
-            }
-
             test_define_suite(&test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
-                if (test_ids[t].case_ && strcmp(
-                        test_suites[i].cases[j].name, test_ids[t].case_) != 0) {
+                // does neither suite nor case name match?
+                if (test_ids[t].name && !(
+                        strcmp(test_ids[t].name,
+                            test_suites[i].name) == 0
+                        || strcmp(test_ids[t].name,
+                            test_suites[i].cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -755,7 +756,7 @@ static void list_cases(void) {
                         (!test_suites[i].cases[j].flags)
                             ? "-" : "");
                 printf("%-36s %7s %11s\n",
-                        test_suites[i].cases[j].id,
+                        test_suites[i].cases[j].name,
                         flag_buf,
                         perm_buf);
             }
@@ -768,13 +769,26 @@ static void list_suite_paths(void) {
 
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            if (test_ids[t].suite && strcmp(
-                    test_suites[i].name, test_ids[t].suite) != 0) {
+            size_t cases = 0;
+
+            for (size_t j = 0; j < test_suites[i].case_count; j++) {
+                // does neither suite nor case name match?
+                if (test_ids[t].name && !(
+                        strcmp(test_ids[t].name,
+                            test_suites[i].name) == 0
+                        || strcmp(test_ids[t].name,
+                            test_suites[i].cases[j].name) == 0)) {
+                    continue;
+                }
+            }
+
+            // no tests found?
+            if (!cases) {
                 continue;
             }
 
             printf("%-36s %s\n",
-                    test_suites[i].id,
+                    test_suites[i].name,
                     test_suites[i].path);
         }
     }
@@ -785,19 +799,18 @@ static void list_case_paths(void) {
 
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            if (test_ids[t].suite && strcmp(
-                    test_suites[i].name, test_ids[t].suite) != 0) {
-                continue;
-            }
-
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
-                if (test_ids[t].case_ && strcmp(
-                        test_suites[i].cases[j].name, test_ids[t].case_) != 0) {
+                // does neither suite nor case name match?
+                if (test_ids[t].name && !(
+                        strcmp(test_ids[t].name,
+                            test_suites[i].name) == 0
+                        || strcmp(test_ids[t].name,
+                            test_suites[i].cases[j].name) == 0)) {
                     continue;
                 }
 
                 printf("%-36s %s\n",
-                        test_suites[i].cases[j].id,
+                        test_suites[i].cases[j].name,
                         test_suites[i].cases[j].path);
             }
         }
@@ -907,16 +920,15 @@ static void list_defines(void) {
     // add defines
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            if (test_ids[t].suite && strcmp(
-                    test_suites[i].name, test_ids[t].suite) != 0) {
-                continue;
-            }
-
             test_define_suite(&test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
-                if (test_ids[t].case_ && strcmp(
-                        test_suites[i].cases[j].name, test_ids[t].case_) != 0) {
+                // does neither suite nor case name match?
+                if (test_ids[t].name && !(
+                        strcmp(test_ids[t].name,
+                            test_suites[i].name) == 0
+                        || strcmp(test_ids[t].name,
+                            test_suites[i].cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -956,16 +968,15 @@ static void list_permutation_defines(void) {
     // add permutation defines
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            if (test_ids[t].suite && strcmp(
-                    test_suites[i].name, test_ids[t].suite) != 0) {
-                continue;
-            }
-
             test_define_suite(&test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
-                if (test_ids[t].case_ && strcmp(
-                        test_suites[i].cases[j].name, test_ids[t].case_) != 0) {
+                // does neither suite nor case name match?
+                if (test_ids[t].name && !(
+                        strcmp(test_ids[t].name,
+                            test_suites[i].name) == 0
+                        || strcmp(test_ids[t].name,
+                            test_suites[i].cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1637,16 +1648,15 @@ static void run(void) {
 
     for (size_t t = 0; t < test_id_count; t++) {
         for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            if (test_ids[t].suite && strcmp(
-                    test_suites[i].name, test_ids[t].suite) != 0) {
-                continue;
-            }
-
             test_define_suite(&test_suites[i]);
 
             for (size_t j = 0; j < test_suites[i].case_count; j++) {
-                if (test_ids[t].case_ && strcmp(
-                        test_suites[i].cases[j].name, test_ids[t].case_) != 0) {
+                // does neither suite nor case name match?
+                if (test_ids[t].name && !(
+                        strcmp(test_ids[t].name,
+                            test_suites[i].name) == 0
+                        || strcmp(test_ids[t].name,
+                            test_suites[i].cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -2367,83 +2377,72 @@ getopt_done: ;
         lfs_testbd_powercycles_t *cycles = NULL;
         size_t cycle_count = 0;
 
-        // parse suite
-        char *suite = argv[optind];
-        char *case_ = strchr(suite, ':');
-        if (case_) {
-            *case_ = '\0';
-            case_ += 1;
+        // parse name, can be suite or case
+        char *name = argv[optind];
+        char *defines_ = strchr(name, ':');
+        if (defines_) {
+            *defines_ = '\0';
+            defines_ += 1;
         }
 
         // remove optional path and .toml suffix
-        char *slash = strrchr(suite, '/');
+        char *slash = strrchr(name, '/');
         if (slash) {
-            suite = slash+1;
+            name = slash+1;
         }
 
-        size_t suite_len = strlen(suite);
-        if (suite_len > 5 && strcmp(&suite[suite_len-5], ".toml") == 0) {
-            suite[suite_len-5] = '\0';
+        size_t name_len = strlen(name);
+        if (name_len > 5 && strcmp(&name[name_len-5], ".toml") == 0) {
+            name[name_len-5] = '\0';
         }
 
-        if (case_) {
-            // parse case
-            char *defines_ = strchr(case_, ':');
-            if (defines_) {
-                *defines_ = '\0';
-                defines_ += 1;
+        if (defines_) {
+            // parse defines
+            char *cycles_ = strchr(defines_, ':');
+            if (cycles_) {
+                *cycles_ = '\0';
+                cycles_ += 1;
             }
 
-            // nothing really to do for case
-
-            if (defines_) {
-                // parse defines
-                char *cycles_ = strchr(defines_, ':');
-                if (cycles_) {
-                    *cycles_ = '\0';
-                    cycles_ += 1;
+            while (true) {
+                char *parsed;
+                size_t d = leb16_parse(defines_, &parsed);
+                intmax_t v = leb16_parse(parsed, &parsed);
+                if (parsed == defines_) {
+                    break;
                 }
+                defines_ = parsed;
 
-                while (true) {
-                    char *parsed;
-                    size_t d = leb16_parse(defines_, &parsed);
-                    intmax_t v = leb16_parse(parsed, &parsed);
-                    if (parsed == defines_) {
-                        break;
-                    }
-                    defines_ = parsed;
-
-                    if (d >= define_count) {
-                        // align to power of two to avoid any superlinear growth
-                        size_t ncount = 1 << lfs_npw2(d+1);
-                        defines = realloc(defines,
-                                ncount*sizeof(test_define_t));
-                        memset(defines+define_count, 0,
-                                (ncount-define_count)*sizeof(test_define_t));
-                        define_count = ncount;
-                    }
-                    defines[d] = (test_define_t)TEST_LIT(v);
+                if (d >= define_count) {
+                    // align to power of two to avoid any superlinear growth
+                    size_t ncount = 1 << lfs_npw2(d+1);
+                    defines = realloc(defines,
+                            ncount*sizeof(test_define_t));
+                    memset(defines+define_count, 0,
+                            (ncount-define_count)*sizeof(test_define_t));
+                    define_count = ncount;
                 }
+                defines[d] = (test_define_t)TEST_LIT(v);
+            }
 
-                if (cycles_) {
-                    // parse power cycles
-                    size_t cycle_capacity = 0;
-                    while (*cycles_ != '\0') {
-                        char *parsed = NULL;
-                        *(lfs_testbd_powercycles_t*)mappend(
-                                (void**)&cycles,
-                                sizeof(lfs_testbd_powercycles_t),
-                                &cycle_count,
-                                &cycle_capacity)
-                                = leb16_parse(cycles_, &parsed);
-                        if (parsed == cycles_) {
-                            fprintf(stderr, "error: "
-                                    "could not parse test cycles: %s\n",
-                                    cycles_);
-                            exit(-1);
-                        }
-                        cycles_ = parsed;
+            if (cycles_) {
+                // parse power cycles
+                size_t cycle_capacity = 0;
+                while (*cycles_ != '\0') {
+                    char *parsed = NULL;
+                    *(lfs_testbd_powercycles_t*)mappend(
+                            (void**)&cycles,
+                            sizeof(lfs_testbd_powercycles_t),
+                            &cycle_count,
+                            &cycle_capacity)
+                            = leb16_parse(cycles_, &parsed);
+                    if (parsed == cycles_) {
+                        fprintf(stderr, "error: "
+                                "could not parse test cycles: %s\n",
+                                cycles_);
+                        exit(-1);
                     }
+                    cycles_ = parsed;
                 }
             }
         }
@@ -2454,8 +2453,7 @@ getopt_done: ;
                 sizeof(test_id_t),
                 &test_id_count,
                 &test_id_capacity) = (test_id_t){
-            .suite = suite,
-            .case_ = case_,
+            .name = name,
             .defines = defines,
             .define_count = define_count,
             .cycles = cycles,

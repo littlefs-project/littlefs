@@ -1,5 +1,5 @@
 # specific corner cases worth explicitly testing for
-[cases.dangling_split_dir]
+[cases.test_relocations_dangling_split_dir]
 defines.ITERATIONS = 20
 defines.COUNT = 10
 defines.BLOCK_CYCLES = [8, 1]
@@ -77,7 +77,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.outdated_head]
+[cases.test_relocations_outdated_head]
 defines.ITERATIONS = 20
 defines.COUNT = 10
 defines.BLOCK_CYCLES = [8, 1]
@@ -168,7 +168,7 @@ code = '''
 # reentrant testing for relocations, this is the same as the
 # orphan testing, except here we also set block_cycles so that
 # almost every tree operation needs a relocation
-[cases.reentrant_relocations]
+[cases.test_relocations_reentrant]
 reentrant = true
 # TODO fix this case, caused by non-DAG trees
 if = '!(DEPTH == 3 && CACHE_SIZE != 64)'
@@ -236,7 +236,7 @@ code = '''
 '''
 
 # reentrant testing for relocations, but now with random renames!
-[cases.reentrant_relocations_renames]
+[cases.test_relocations_reentrant_renames]
 reentrant = true
 # TODO fix this case, caused by non-DAG trees
 if = '!(DEPTH == 3 && CACHE_SIZE != 64)'

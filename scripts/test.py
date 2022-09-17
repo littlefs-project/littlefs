@@ -133,12 +133,9 @@ class TestCase:
             print('%swarning:%s in %s, found unused key %r' % (
                 '\x1b[01;33m' if args['color'] else '',
                 '\x1b[m' if args['color'] else '',
-                self.id(),
+                self.name,
                 k),
                 file=sys.stderr)
-
-    def id(self):
-        return '%s:%s' % (self.suite, self.name)
 
 
 class TestSuite:
@@ -221,12 +218,9 @@ class TestSuite:
             print('%swarning:%s in %s, found unused key %r' % (
                 '\x1b[01;33m' if args['color'] else '',
                 '\x1b[m' if args['color'] else '',
-                self.id(),
+                self.name,
                 k),
                 file=sys.stderr)
-
-    def id(self):
-        return self.name
 
 
 
@@ -244,17 +238,45 @@ def compile(test_paths, **args):
         print('no test suites found in %r?' % test_paths)
         sys.exit(-1)
 
+    # load the suites
+    suites = [TestSuite(path, args) for path in paths]
+    suites.sort(key=lambda s: s.name)
+
+    # check for name conflicts, these will cause ambiguity problems later
+    # when running tests
+    seen = {}
+    for suite in suites:
+        if suite.name in seen:
+            print('%swarning:%s conflicting suite %r, %s and %s' % (
+                '\x1b[01;33m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
+                suite.name,
+                suite.path,
+                seen[suite.name].path),
+                file=sys.stderr)
+        seen[suite.name] = suite
+
+        for case in suite.cases:
+            # only allow conflicts if a case and its suite share a name
+            if case.name in seen and not (
+                    isinstance(seen[case.name], TestSuite)
+                    and seen[case.name].cases == [case]):
+                print('%swarning:%s conflicting case %r, %s and %s' % (
+                    '\x1b[01;33m' if args['color'] else '',
+                    '\x1b[m' if args['color'] else '',
+                    case.name,
+                    case.path,
+                    seen[case.name].path),
+                    file=sys.stderr)
+            seen[case.name] = case
+
+    # we can only compile one test suite at a time
     if not args.get('source'):
-        if len(paths) > 1:
+        if len(suites) > 1:
             print('more than one test suite for compilation? (%r)' % test_paths)
             sys.exit(-1)
 
-        # load our suite
-        suite = TestSuite(paths[0], args)
-    else:
-        # load all suites
-        suites = [TestSuite(path, args) for path in paths]
-        suites.sort(key=lambda s: s.name)
+        suite = suites[0]
 
     # write generated test source
     if 'output' in args:
@@ -332,7 +354,7 @@ def compile(test_paths, **args):
                     f.writeln('void __test__%s__%s__run('
                         '__attribute__((unused)) struct lfs_config *cfg) {'
                         % (suite.name, case.name))
-                    f.writeln(4*' '+'// test case %s' % case.id())
+                    f.writeln(4*' '+'// test case %s' % case.name)
                     if case.code_lineno is not None:
                         f.writeln(4*' '+'#line %d "%s"'
                             % (case.code_lineno, suite.path))
@@ -384,10 +406,14 @@ def compile(test_paths, **args):
                         f.writeln()
 
                 # create suite struct
-                f.writeln('__attribute__((section("_test_suites")))')
+                #
+                # note we place this in the custom test_suites section with
+                # minimum alignment, otherwise GCC ups the alignment to
+                # 32-bytes for some reason
+                f.writeln('__attribute__((section("_test_suites"), '
+                    'aligned(1)))')
                 f.writeln('const struct test_suite __test__%s__suite = {'
                     % suite.name)
-                f.writeln(4*' '+'.id = "%s",' % suite.id())
                 f.writeln(4*' '+'.name = "%s",' % suite.name)
                 f.writeln(4*' '+'.path = "%s",' % suite.path)
                 f.writeln(4*' '+'.flags = %s,'
@@ -408,7 +434,6 @@ def compile(test_paths, **args):
                 for case in suite.cases:
                     # create case structs
                     f.writeln(8*' '+'{')
-                    f.writeln(12*' '+'.id = "%s",' % case.id())
                     f.writeln(12*' '+'.name = "%s",' % case.name)
                     f.writeln(12*' '+'.path = "%s",' % case.path)
                     f.writeln(12*' '+'.flags = %s,'
@@ -534,8 +559,13 @@ def list_(runner, test_ids=[], **args):
     return sp.call(cmd)
 
 
-def find_cases(runner_, ids=[], **args):
-    # query from runner
+def find_perms(runner_, ids=[], **args):
+    case_suites = {}
+    expected_case_perms = co.defaultdict(lambda: 0)
+    expected_perms = 0
+    total_perms = 0
+
+    # query cases from the runner
     cmd = runner_ + ['--list-cases'] + ids
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
@@ -545,21 +575,17 @@ def find_cases(runner_, ids=[], **args):
         universal_newlines=True,
         errors='replace',
         close_fds=False)
-    expected_suite_perms = co.defaultdict(lambda: 0)
-    expected_case_perms = co.defaultdict(lambda: 0)
-    expected_perms = 0
-    total_perms = 0
     pattern = re.compile(
-        '^(?P<id>(?P<case>(?P<suite>[^:]+):[^\s:]+)[^\s]*)\s+'
-            '[^\s]+\s+(?P<filtered>\d+)/(?P<perms>\d+)')
+        '^(?P<case>[^\s]+)'
+            '\s+(?P<flags>[^\s]+)'
+            '\s+(?P<filtered>\d+)/(?P<perms>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
         if m:
             filtered = int(m.group('filtered'))
             perms = int(m.group('perms'))
-            expected_suite_perms[m.group('suite')] += filtered
-            expected_case_perms[m.group('id')] += filtered
+            expected_case_perms[m.group('case')] += filtered
             expected_perms += filtered
             total_perms += perms
     proc.wait()
@@ -569,13 +595,50 @@ def find_cases(runner_, ids=[], **args):
                 sys.stdout.write(line)
         sys.exit(-1)
 
+    # get which suite each case belongs to via paths
+    cmd = runner_ + ['--list-case-paths'] + ids
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    proc = sp.Popen(cmd,
+        stdout=sp.PIPE,
+        stderr=sp.PIPE if not args.get('verbose') else None,
+        universal_newlines=True,
+        errors='replace',
+        close_fds=False)
+    pattern = re.compile(
+        '^(?P<case>[^\s]+)'
+            '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
+    # skip the first line
+    for line in it.islice(proc.stdout, 1, None):
+        m = pattern.match(line)
+        if m:
+            path = m.group('path')
+            # strip path/suffix here
+            suite = os.path.basename(path)
+            if suite.endswith('.toml'):
+                suite = suite[:-len('.toml')]
+            case_suites[m.group('case')] = suite
+    proc.wait()
+    if proc.returncode != 0:
+        if not args.get('verbose'):
+            for line in proc.stderr:
+                sys.stdout.write(line)
+        sys.exit(-1)
+
+    # figure out expected suite perms
+    expected_suite_perms = co.defaultdict(lambda: 0)
+    for case, suite in case_suites.items():
+        expected_suite_perms[suite] += expected_case_perms[case]
+
     return (
+        case_suites,
         expected_suite_perms,
         expected_case_perms,
         expected_perms,
         total_perms)
 
 def find_path(runner_, id, **args):
+    path = None
     # query from runner
     cmd = runner_ + ['--list-case-paths', id]
     if args.get('verbose'):
@@ -586,10 +649,9 @@ def find_path(runner_, id, **args):
         universal_newlines=True,
         errors='replace',
         close_fds=False)
-    path = None
     pattern = re.compile(
-        '^(?P<id>(?P<case>(?P<suite>[^:]+):[^\s:]+)[^\s]*)\s+'
-            '(?P<path>[^:]+):(?P<lineno>\d+)')
+        '^(?P<case>[^\s]+)'
+            '\s+(?P<path>[^:]+):(?P<lineno>\d+)')
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
@@ -680,8 +742,11 @@ class TestFailure(Exception):
 
 def run_stage(name, runner_, ids, output_, **args):
     # get expected suite/case/perm counts
-    expected_suite_perms, expected_case_perms, expected_perms, total_perms = (
-        find_cases(runner_, ids, **args))
+    (case_suites,
+        expected_suite_perms,
+        expected_case_perms,
+        expected_perms,
+        total_perms) = find_perms(runner_, ids, **args)
 
     passed_suite_perms = co.defaultdict(lambda: 0)
     passed_case_perms = co.defaultdict(lambda: 0)
@@ -692,9 +757,10 @@ def run_stage(name, runner_, ids, output_, **args):
 
     pattern = re.compile('^(?:'
             '(?P<op>running|finished|skipped|powerloss) '
-                '(?P<id>(?P<case>(?P<suite>[^:]+):[^\s:]+)[^\s]*)'
+                '(?P<id>(?P<case>[^:]+)[^\s]*)'
             '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
-                ' *(?P<message>.*)' ')$')
+                ' *(?P<message>.*)'
+        ')$')
     locals = th.local()
     children = set()
 
@@ -759,15 +825,18 @@ def run_stage(name, runner_, ids, output_, **args):
                         last_id = m.group('id')
                         powerlosses += 1
                     elif op == 'finished':
-                        passed_suite_perms[m.group('suite')] += 1
-                        passed_case_perms[m.group('case')] += 1
+                        case = m.group('case')
+                        suite = case_suites[case]
+                        passed_suite_perms[suite] += 1
+                        passed_case_perms[case] += 1
                         passed_perms += 1
                         if output_:
                             # get defines and write to csv
                             defines = find_defines(
                                 runner_, m.group('id'), **args)
                             output_.writerow({
-                                'case': m.group('case'),
+                                'suite': suite,
+                                'case': case,
                                 'test_passed': '1/1',
                                 **defines})
                     elif op == 'skipped':
@@ -818,11 +887,13 @@ def run_stage(name, runner_, ids, output_, **args):
             except TestFailure as failure:
                 # keep track of failures
                 if output_:
-                    suite, case, _ = failure.id.split(':', 2)
+                    case, _ = failure.id.split(':', 1)
+                    suite = case_suites[case]
                     # get defines and write to csv
                     defines = find_defines(runner_, failure.id, **args)
                     output_.writerow({
-                        'case': ':'.join([suite, case]),
+                        'suite': suite,
+                        'case': case,
                         'test_passed': '0/1',
                         **defines})
 
@@ -919,13 +990,16 @@ def run(runner, test_ids=[], **args):
     # query runner for tests
     runner_ = find_runner(runner, **args)
     print('using runner: %s' % ' '.join(shlex.quote(c) for c in runner_))
-    expected_suite_perms, expected_case_perms, expected_perms, total_perms = (
-        find_cases(runner_, test_ids, **args))
-    print('found %d suites, %d cases, %d/%d permutations'
-        % (len(expected_suite_perms),
-            len(expected_case_perms),
-            expected_perms,
-            total_perms))
+    (_,
+        expected_suite_perms,
+        expected_case_perms,
+        expected_perms,
+        total_perms) = find_perms(runner_, test_ids, **args)
+    print('found %d suites, %d cases, %d/%d permutations' % (
+        len(expected_suite_perms),
+        len(expected_case_perms),
+        expected_perms,
+        total_perms))
     print()
 
     # truncate and open logs here so they aren't disconnected between tests
@@ -937,7 +1011,7 @@ def run(runner, test_ids=[], **args):
         trace = openio(args['trace'], 'w', 1)
     output = None
     if args.get('output'):
-        output = TestOutput(args['output'], ['case'], ['test_passed'])
+        output = TestOutput(args['output'], ['suite', 'case'], ['test_passed'])
 
     # measure runtime
     start = time.time()
@@ -951,12 +1025,17 @@ def run(runner, test_ids=[], **args):
             else expected_suite_perms.keys() if args.get('by_suites')
             else [None]):
         # spawn jobs for stage
-        expected_, passed_, powerlosses_, failures_, killed = run_stage(
-            by or 'tests',
-            runner_,
-            [by] if by is not None else test_ids,
-            output,
-            **args)
+        (expected_,
+            passed_,
+            powerlosses_,
+            failures_,
+            killed) = run_stage(
+                by or 'tests',
+                runner_,
+                [by] if by is not None else test_ids,
+                output,
+                **args)
+        # collect passes/failures
         expected += expected_
         passed += passed_
         powerlosses += powerlosses_

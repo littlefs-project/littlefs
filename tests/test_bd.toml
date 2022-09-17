@@ -4,7 +4,7 @@
 # Note we use 251, a prime, in places to avoid aliasing powers of 2.
 # 
 
-[cases.one_block]
+[cases.test_bd_one_block]
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
@@ -29,7 +29,7 @@ code = '''
     }
 '''
 
-[cases.two_block]
+[cases.test_bd_two_block]
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
@@ -87,7 +87,7 @@ code = '''
     }
 '''
 
-[cases.last_block]
+[cases.test_bd_last_block]
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
@@ -145,7 +145,7 @@ code = '''
     }
 '''
 
-[cases.powers_of_two]
+[cases.test_bd_powers_of_two]
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
@@ -191,7 +191,7 @@ code = '''
     }
 '''
 
-[cases.fibonacci]
+[cases.test_bd_fibonacci]
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''

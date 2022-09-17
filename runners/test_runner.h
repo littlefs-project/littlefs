@@ -37,7 +37,6 @@ typedef struct test_define {
 } test_define_t;
 
 struct test_case {
-    const char *id;
     const char *name;
     const char *path;
     test_flags_t flags;
@@ -50,7 +49,6 @@ struct test_case {
 };
 
 struct test_suite {
-    const char *id;
     const char *name;
     const char *path;
     test_flags_t flags;

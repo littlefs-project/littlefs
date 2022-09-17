@@ -1,7 +1,7 @@
 # bad blocks with block cycles should be tested in test_relocations
 if = '(int32_t)BLOCK_CYCLES == -1'
 
-[cases.single_bad_blocks]
+[cases.test_badblocks_single]
 defines.BLOCK_COUNT = 256 # small bd so test runs faster
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
@@ -81,7 +81,7 @@ code = '''
     }
 '''
 
-[cases.region_corruption] # (causes cascading failures)
+[cases.test_badblocks_region_corruption] # (causes cascading failures)
 defines.BLOCK_COUNT = 256 # small bd so test runs faster
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
@@ -160,7 +160,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.alternating_corruption] # (causes cascading failures)
+[cases.test_badblocks_alternating_corruption] # (causes cascading failures)
 defines.BLOCK_COUNT = 256 # small bd so test runs faster
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
@@ -240,7 +240,7 @@ code = '''
 '''
 
 # other corner cases
-[cases.bad_superblocks] # (corrupt 1 or 0)
+[cases.test_badblocks_superblocks] # (corrupt 1 or 0)
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
 defines.BADBLOCK_BEHAVIOR = [

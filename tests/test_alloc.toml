@@ -3,7 +3,7 @@
 if = 'BLOCK_CYCLES == -1'
 
 # parallel allocation test
-[cases.parallel_allocation]
+[cases.test_alloc_parallel]
 defines.FILES = 3
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
 code = '''
@@ -52,7 +52,7 @@ code = '''
 '''
 
 # serial allocation test
-[cases.serial_allocation]
+[cases.test_alloc_serial]
 defines.FILES = 3
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
 code = '''
@@ -99,7 +99,7 @@ code = '''
 '''
 
 # parallel allocation reuse test
-[cases.parallel_allocation_reuse]
+[cases.test_alloc_parallel_reuse]
 defines.FILES = 3
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
 defines.CYCLES = [1, 10]
@@ -161,7 +161,7 @@ code = '''
 '''
 
 # serial allocation reuse test
-[cases.serial_allocation_reuse]
+[cases.test_alloc_serial_reuse]
 defines.FILES = 3
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
 defines.CYCLES = [1, 10]
@@ -221,7 +221,7 @@ code = '''
 '''
 
 # exhaustion test
-[cases.exhaustion]
+[cases.test_alloc_exhaustion]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -261,7 +261,7 @@ code = '''
 '''
 
 # exhaustion wraparound test
-[cases.exhaustion_wraparound]
+[cases.test_alloc_exhaustion_wraparound]
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-4)) / 3)'
 code = '''
     lfs_t lfs;
@@ -313,7 +313,7 @@ code = '''
 '''
 
 # dir exhaustion test
-[cases.dir_exhaustion]
+[cases.test_alloc_dir_exhaustion]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -367,7 +367,7 @@ code = '''
 '''
 
 # what if we have a bad block during an allocation scan?
-[cases.bad_block_allocation]
+[cases.test_alloc_bad_blocks]
 in = "lfs.c"
 defines.ERASE_CYCLES = 0xffffffff
 defines.BADBLOCK_BEHAVIOR = 'LFS_TESTBD_BADBLOCK_READERROR'
@@ -459,7 +459,7 @@ code = '''
 # should be removed and replaced with generalized tests.
 
 # chained dir exhaustion test
-[cases.chained_dir_exhaustion]
+[cases.test_alloc_chained_dir_exhaustion]
 if = 'BLOCK_SIZE == 512'
 defines.BLOCK_COUNT = 1024
 code = '''
@@ -537,7 +537,7 @@ code = '''
 '''
 
 # split dir test
-[cases.split_dir]
+[cases.test_alloc_split_dir]
 if = 'BLOCK_SIZE == 512'
 defines.BLOCK_COUNT = 1024
 code = '''
@@ -586,7 +586,7 @@ code = '''
 '''
 
 # outdated lookahead test
-[cases.outdated_lookahead]
+[cases.test_alloc_outdated_lookahead]
 if = 'BLOCK_SIZE == 512'
 defines.BLOCK_COUNT = 1024
 code = '''
@@ -654,7 +654,7 @@ code = '''
 '''
 
 # outdated lookahead and split dir test
-[cases.outdated_lookahead_split_dir]
+[cases.test_alloc_outdated_lookahead_split_dir]
 if = 'BLOCK_SIZE == 512'
 defines.BLOCK_COUNT = 1024
 code = '''

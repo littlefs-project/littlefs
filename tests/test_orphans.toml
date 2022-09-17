@@ -1,4 +1,4 @@
-[cases.orphan]
+[cases.test_orphans_normal]
 in = "lfs.c"
 if = 'PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
@@ -60,7 +60,7 @@ code = '''
 '''
 
 # reentrant testing for orphans, basically just spam mkdir/remove
-[cases.reentrant_orphan]
+[cases.test_orphans_reentrant]
 reentrant = true
 # TODO fix this case, caused by non-DAG trees
 if = '!(DEPTH == 3 && CACHE_SIZE != 64)'

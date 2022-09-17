@@ -1,12 +1,12 @@
 # simple formatting test
-[cases.format]
+[cases.test_superblocks_format]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
 '''
 
 # mount/unmount
-[cases.mount]
+[cases.test_superblocks_mount]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -15,7 +15,7 @@ code = '''
 '''
 
 # reentrant format
-[cases.reentrant_format]
+[cases.test_superblocks_reentrant_format]
 reentrant = true
 code = '''
     lfs_t lfs;
@@ -28,14 +28,14 @@ code = '''
 '''
 
 # invalid mount
-[cases.invalid_mount]
+[cases.test_superblocks_invalid_mount]
 code = '''
     lfs_t lfs;
     lfs_mount(&lfs, cfg) => LFS_ERR_CORRUPT;
 '''
 
 # expanding superblock
-[cases.expanding_superblock]
+[cases.test_superblocks_expand]
 defines.LFS_BLOCK_CYCLES = [32, 33, 1]
 defines.N = [10, 100, 1000]
 code = '''
@@ -69,7 +69,7 @@ code = '''
 '''
 
 # expanding superblock with power cycle
-[cases.expanding_superblock_power_cycle]
+[cases.test_superblocks_expand_power_cycle]
 defines.LFS_BLOCK_CYCLES = [32, 33, 1]
 defines.N = [10, 100, 1000]
 code = '''
@@ -107,7 +107,7 @@ code = '''
 '''
 
 # reentrant expanding superblock
-[cases.reentrant_expanding_superblock]
+[cases.test_superblocks_reentrant_expand]
 defines.LFS_BLOCK_CYCLES = [2, 1]
 defines.N = 24
 reentrant = true

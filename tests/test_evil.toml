@@ -3,7 +3,7 @@
 
 # invalid pointer tests (outside of block_count)
 
-[cases.invalid_tail_pointer]
+[cases.test_evil_invalid_tail_pointer]
 defines.TAIL_TYPE = ['LFS_TYPE_HARDTAIL', 'LFS_TYPE_SOFTTAIL']
 defines.INVALSET = [0x3, 0x1, 0x2]
 in = "lfs.c"
@@ -27,7 +27,7 @@ code = '''
     lfs_mount(&lfs, cfg) => LFS_ERR_CORRUPT;
 '''
 
-[cases.invalid_dir_pointer]
+[cases.test_evil_invalid_dir_pointer]
 defines.INVALSET = [0x3, 0x1, 0x2]
 in = "lfs.c"
 code = '''
@@ -78,7 +78,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.invalid_file_pointer]
+[cases.test_evil_invalid_file_pointer]
 in = "lfs.c"
 defines.SIZE = [10, 1000, 100000] # faked file size
 code = '''
@@ -130,7 +130,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.invalid_ctz_pointer] # invalid pointer in CTZ skip-list test
+[cases.test_evil_invalid_ctz_pointer] # invalid pointer in CTZ skip-list test
 defines.SIZE = ['2*BLOCK_SIZE', '3*BLOCK_SIZE', '4*BLOCK_SIZE']
 in = "lfs.c"
 code = '''
@@ -196,7 +196,7 @@ code = '''
 '''
 
 
-[cases.invalid_gstate_pointer]
+[cases.test_evil_invalid_gstate_pointer]
 defines.INVALSET = [0x3, 0x1, 0x2]
 in = "lfs.c"
 code = '''
@@ -224,7 +224,7 @@ code = '''
 
 # cycle detection/recovery tests
 
-[cases.mdir_loop] # metadata-pair threaded-list loop test
+[cases.test_evil_mdir_loop] # metadata-pair threaded-list loop test
 in = "lfs.c"
 code = '''
     // create littlefs
@@ -244,7 +244,7 @@ code = '''
     lfs_mount(&lfs, cfg) => LFS_ERR_CORRUPT;
 '''
 
-[cases.mdir_loop_2] # metadata-pair threaded-list 2-length loop test
+[cases.test_evil_mdir_loop2] # metadata-pair threaded-list 2-length loop test
 in = "lfs.c"
 code = '''
     // create littlefs with child dir
@@ -275,7 +275,7 @@ code = '''
     lfs_mount(&lfs, cfg) => LFS_ERR_CORRUPT;
 '''
 
-[cases.mdir_loop_child] # metadata-pair threaded-list 1-length child loop test
+[cases.test_evil_mdir_loop_child] # metadata-pair threaded-list 1-length child loop test
 in = "lfs.c"
 code = '''
     // create littlefs with child dir

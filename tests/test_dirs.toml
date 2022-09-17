@@ -1,4 +1,4 @@
-[cases.root]
+[cases.test_dirs_root]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -17,7 +17,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.many_dir_creation]
+[cases.test_dirs_many_creation]
 defines.N = 'range(3, 100, 3)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
@@ -54,7 +54,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.many_dir_removal]
+[cases.test_dirs_many_removal]
 defines.N = 'range(3, 100, 11)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
@@ -111,7 +111,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.many_dir_rename]
+[cases.test_dirs_many_rename]
 defines.N = 'range(3, 100, 11)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
@@ -177,7 +177,7 @@ code = '''
     lfs_unmount(&lfs);
 '''
 
-[cases.reentrant_many_dir]
+[cases.test_dirs_many_reentrant]
 defines.N = [5, 11]
 reentrant = true
 code = '''
@@ -265,7 +265,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.file_creation]
+[cases.test_dirs_file_creation]
 defines.N = 'range(3, 100, 11)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
@@ -305,7 +305,7 @@ code = '''
     lfs_unmount(&lfs);
 '''
 
-[cases.file_removal]
+[cases.test_dirs_file_removal]
 defines.N = 'range(3, 100, 11)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
@@ -365,7 +365,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.file_rename]
+[cases.test_dirs_file_rename]
 defines.N = 'range(3, 100, 11)'
 if = 'N < BLOCK_COUNT/2'
 code = '''
@@ -434,7 +434,7 @@ code = '''
     lfs_unmount(&lfs);
 '''
 
-[cases.reentrant_files]
+[cases.test_dirs_file_reentrant]
 defines.N = [5, 25]
 if = 'N < BLOCK_COUNT/2'
 reentrant = true
@@ -524,7 +524,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.nested_dirs]
+[cases.test_dirs_nested]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -652,7 +652,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.recursive_remove]
+[cases.test_dirs_recursive_remove]
 defines.N = [10, 100]
 if = 'N < BLOCK_COUNT/2'
 code = '''
@@ -716,7 +716,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.other_errors]
+[cases.test_dirs_other_errors]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -794,7 +794,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.directory_seek]
+[cases.test_dirs_seek]
 defines.COUNT = [4, 128, 132]
 if = 'COUNT < BLOCK_COUNT/2'
 code = '''
@@ -862,7 +862,7 @@ code = '''
     }
 '''
 
-[cases.root_seek]
+[cases.test_dirs_toot_seek]
 defines.COUNT = [4, 128, 132]
 if = 'COUNT < BLOCK_COUNT/2'
 code = '''

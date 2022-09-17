@@ -1,5 +1,5 @@
 # simple truncate
-[cases.truncate]
+[cases.test_truncate_simple]
 defines.MEDIUMSIZE = [32, 2048]
 defines.LARGESIZE = 8192
 code = '''
@@ -47,7 +47,7 @@ code = '''
 '''
 
 # truncate and read
-[cases.truncate_read]
+[cases.test_truncate_read]
 defines.MEDIUMSIZE = [32, 2048]
 defines.LARGESIZE = 8192
 code = '''
@@ -102,7 +102,7 @@ code = '''
 '''
 
 # write, truncate, and read
-[cases.write_truncate_read]
+[cases.test_truncate_write_read]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -158,7 +158,7 @@ code = '''
 '''
 
 # truncate and write
-[cases.truncate_write]
+[cases.test_truncate_write]
 defines.MEDIUMSIZE = [32, 2048]
 defines.LARGESIZE = 8192
 code = '''
@@ -213,7 +213,7 @@ code = '''
 '''
 
 # truncate write under powerloss
-[cases.reentrant_truncate_write]
+[cases.test_truncate_reentrant_write]
 defines.SMALLSIZE = [4, 512]
 defines.MEDIUMSIZE = [32, 1024]
 defines.LARGESIZE = 2048
@@ -284,7 +284,7 @@ code = '''
 '''
 
 # more aggressive general truncation tests
-[cases.aggressive_truncate]
+[cases.test_truncate_aggressive]
 defines.CONFIG = 'range(6)'
 defines.SMALLSIZE = 32
 defines.MEDIUMSIZE = 2048
@@ -428,7 +428,7 @@ code = '''
 '''
 
 # noop truncate
-[cases.nop_truncate]
+[cases.test_truncate_nop]
 defines.MEDIUMSIZE = [32, 2048]
 code = '''
     lfs_t lfs;

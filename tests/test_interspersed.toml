@@ -1,5 +1,5 @@
 
-[cases.interspersed_files]
+[cases.test_interspersed_files]
 defines.SIZE = [10, 100]
 defines.FILES = [4, 10, 26] 
 code = '''
@@ -66,7 +66,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.interspersed_remove_files]
+[cases.test_interspersed_remove_files]
 defines.SIZE = [10, 100]
 defines.FILES = [4, 10, 26]
 code = '''
@@ -127,7 +127,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.remove_inconveniently]
+[cases.test_interspersed_remove_inconveniently]
 defines.SIZE = [10, 100]
 code = '''
     lfs_t lfs;
@@ -191,7 +191,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.reentrant_interspersed_files]
+[cases.test_interspersed_reentrant_files]
 defines.SIZE = [10, 100]
 defines.FILES = [4, 10, 26] 
 reentrant = true

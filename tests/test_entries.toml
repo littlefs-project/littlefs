@@ -5,7 +5,7 @@
 defines.CACHE_SIZE = 512
 if = 'CACHE_SIZE % PROG_SIZE == 0 && CACHE_SIZE == 512'
 
-[cases.entry_grow]
+[cases.test_entries_grow]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
@@ -98,7 +98,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.entry_shrink]
+[cases.test_entries_shrink]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
@@ -191,7 +191,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.entry_spill]
+[cases.test_entries_spill]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
@@ -268,7 +268,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.entry_push_spill]
+[cases.test_entries_push_spill]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
@@ -361,7 +361,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.entry_push_spill_two]
+[cases.test_entries_push_spill_two]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
@@ -469,7 +469,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.entry_drop]
+[cases.test_entries_drop]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
@@ -572,7 +572,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.create_too_big]
+[cases.test_entries_create_too_big]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -600,7 +600,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.resize_too_big]
+[cases.test_entries_resize_too_big]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;

@@ -1,4 +1,4 @@
-[cases.move_file]
+[cases.test_move_file]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -60,7 +60,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.nop_move] # yes this is legal
+[cases.test_move_nop] # yes this is legal
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -78,7 +78,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.move_file_corrupt_source]
+[cases.test_move_file_corrupt_source]
 in = "lfs.c"
 code = '''
     lfs_t lfs;
@@ -158,7 +158,7 @@ code = '''
 '''
 
 # move file corrupt source and dest
-[cases.move_file_corrupt_source_dest]
+[cases.test_move_file_corrupt_source_dest]
 in = "lfs.c"
 if = 'PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
@@ -254,7 +254,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.move_file_after_corrupt]
+[cases.test_move_file_after_corrupt]
 in = "lfs.c"
 if = 'PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
@@ -355,7 +355,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.reentrant_move_file]
+[cases.test_move_reentrant_file]
 reentrant = true
 code = '''
     lfs_t lfs;
@@ -472,7 +472,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.move_dir]
+[cases.test_move_dir]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -540,7 +540,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.move_dir_corrupt_source]
+[cases.test_move_dir_corrupt_source]
 in = "lfs.c"
 code = '''
     lfs_t lfs;
@@ -626,7 +626,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.move_dir_corrupt_source_dest]
+[cases.test_move_dir_corrupt_source_dest]
 in = "lfs.c"
 if = 'PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
@@ -729,7 +729,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.move_dir_after_corrupt]
+[cases.test_move_dir_after_corrupt]
 in = "lfs.c"
 if = 'PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
@@ -837,7 +837,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.reentrant_move_dir]
+[cases.test_reentrant_dir]
 reentrant = true
 code = '''
     lfs_t lfs;
@@ -958,7 +958,7 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.move_state_stealing]
+[cases.test_move_state_stealing]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -1028,7 +1028,7 @@ code = '''
 # Other specific corner cases
 
 # create + delete in same commit with neighbors
-[cases.create_delete_same]
+[cases.test_move_create_delete_same]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -1179,7 +1179,7 @@ code = '''
 '''
 
 # create + delete + delete in same commit with neighbors
-[cases.create_delete_delete_same]
+[cases.test_move_create_delete_delete_same]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -1341,7 +1341,7 @@ code = '''
 '''
 
 # create + delete in different dirs with neighbors
-[cases.create_delete_different]
+[cases.test_move_create_delete_different]
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -1584,7 +1584,7 @@ code = '''
 '''
 
 # move fix in relocation
-[cases.move_fix_relocation]
+[cases.test_move_fix_relocation]
 in = "lfs.c"
 defines.RELOCATIONS = 'range(4)'
 defines.ERASE_CYCLES = 0xffffffff
@@ -1729,7 +1729,7 @@ code = '''
 '''
 
 # move fix in relocation with predecessor
-[cases.move_fix_relocation_predecessor]
+[cases.test_move_fix_relocation_predecessor]
 in = "lfs.c"
 defines.RELOCATIONS = 'range(8)'
 defines.ERASE_CYCLES = 0xffffffff
