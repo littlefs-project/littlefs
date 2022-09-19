@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+#
+# Preprocessor that makes asserts easier to debug.
+#
+# Example:
+# ./scripts/prettyasserts.py -p LFS_ASSERT lfs.c -o lfs.a.c
+#
+# Copyright (c) 2022, The littlefs authors.
+# Copyright (c) 2020, Arm Limited. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+#
 
 import re
 import sys
@@ -34,7 +44,7 @@ LEXEMES = {
 
 def openio(path, mode='r'):
     if path == '-':
-        if 'r' in mode:
+        if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
         else:
             return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
@@ -414,17 +424,25 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Preprocessor that makes asserts easy to debug.")
-    parser.add_argument('input',
+        description="Preprocessor that makes asserts easier to debug.")
+    parser.add_argument(
+        'input',
         help="Input C file.")
-    parser.add_argument('-o', '--output', required=True,
+    parser.add_argument(
+        '-o', '--output',
+        required=True,
         help="Output C file.")
-    parser.add_argument('-p', '--pattern', action='append',
+    parser.add_argument(
+        '-p', '--pattern',
+        action='append',
         help="Regex patterns to search for starting an assert statement. This"
             " implicitly includes \"assert\" and \"=>\".")
-    parser.add_argument('-l', '--limit',
-        default=LIMIT, type=lambda x: int(x, 0),
-        help="Maximum number of characters to display in strcmp and memcmp.")
+    parser.add_argument(
+        '-l', '--limit',
+        type=lambda x: int(x, 0),
+        default=LIMIT,
+        help="Maximum number of characters to display in strcmp and memcmp. "
+            "Defaults to %r." % LIMIT)
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_args()).items()
+        for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

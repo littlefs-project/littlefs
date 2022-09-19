@@ -3,6 +3,12 @@
 # Script to find stack usage at the function level. Will detect recursion and
 # report as infinite stack usage.
 #
+# Example:
+# ./scripts/stack.py lfs.ci lfs_util.ci -S
+#
+# Copyright (c) 2022, The littlefs authors.
+# SPDX-License-Identifier: BSD-3-Clause
+#
 
 import collections as co
 import csv
@@ -124,7 +130,7 @@ class StackResult(co.namedtuple('StackResult',
 
 def openio(path, mode='r'):
     if path == '-':
-        if 'r' in mode:
+        if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
         else:
             return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
@@ -425,7 +431,7 @@ def table(results, calls, diff_results=None, *,
                             prefixes[2+is_last] + "'-> ",
                             prefixes[2+is_last] + "|   ",
                             prefixes[2+is_last] + "    "))
-                
+
 
         table_calls(names, depth)
 
@@ -643,5 +649,5 @@ if __name__ == "__main__":
         help="Specify the relative build directory. Used to map object files "
             "to the correct source files.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_args()).items()
+        for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

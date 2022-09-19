@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 #
-# Script to find code size at the function level. Basically just a bit wrapper
+# Script to find code size at the function level. Basically just a big wrapper
 # around nm with some extra conveniences for comparing builds. Heavily inspired
 # by Linux's Bloat-O-Meter.
+#
+# Example:
+# ./scripts/code.py lfs.o lfs_util.o -S
+#
+# Copyright (c) 2022, The littlefs authors.
+# Copyright (c) 2020, Arm Limited. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
 #
 
 import collections as co
@@ -126,7 +133,7 @@ class CodeResult(co.namedtuple('CodeResult', 'file,function,code_size')):
 
 def openio(path, mode='r'):
     if path == '-':
-        if 'r' in mode:
+        if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
         else:
             return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
@@ -417,7 +424,7 @@ if __name__ == "__main__":
         nargs='*',
         default=OBJ_PATHS,
         help="Description of where to find *.o files. May be a directory "
-            "or a list of paths. Defaults to %(default)r.")
+            "or a list of paths. Defaults to %r." % OBJ_PATHS)
     parser.add_argument(
         '-v', '--verbose',
         action='store_true',
@@ -468,16 +475,16 @@ if __name__ == "__main__":
         '--type',
         default=TYPE,
         help="Type of symbols to report, this uses the same single-character "
-            "type-names emitted by nm. Defaults to %(default)r.")
+            "type-names emitted by nm. Defaults to %r." % TYPE)
     parser.add_argument(
         '--nm-tool',
         type=lambda x: x.split(),
         default=NM_TOOL,
-        help="Path to the nm tool to use. Defaults to %(default)r")
+        help="Path to the nm tool to use. Defaults to %r." % NM_TOOL)
     parser.add_argument(
         '--build-dir',
         help="Specify the relative build directory. Used to map object files "
             "to the correct source files.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_args()).items()
+        for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

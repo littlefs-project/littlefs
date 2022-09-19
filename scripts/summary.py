@@ -2,6 +2,15 @@
 #
 # Script to summarize the outputs of other scripts. Operates on CSV files.
 #
+# Example:
+# ./scripts/code.py lfs.o lfs_util.o -q -o lfs.code.csv
+# ./scripts/data.py lfs.o lfs_util.o -q -o lfs.data.csv
+# ./scripts/summary.py lfs.code.csv lfs.data.csv -q -o lfs.csv
+# ./scripts/summary.py -Y lfs.csv -f code=code_size,data=data_size
+#
+# Copyright (c) 2022, The littlefs authors.
+# SPDX-License-Identifier: BSD-3-Clause
+#
 
 import collections as co
 import csv
@@ -43,7 +52,7 @@ MERGES = {
 
 def openio(path, mode='r'):
     if path == '-':
-        if 'r' in mode:
+        if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
         else:
             return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
@@ -660,7 +669,7 @@ if __name__ == "__main__":
         nargs='*',
         default=CSV_PATHS,
         help="Description of where to find *.csv files. May be a directory "
-            "or list of paths. Defaults to %(default)r.")
+            "or list of paths. Defaults to %r." % CSV_PATHS)
     parser.add_argument(
         '-q', '--quiet',
         action='store_true',
@@ -722,5 +731,5 @@ if __name__ == "__main__":
         action='store_true',
         help="Only show the totals.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_args()).items()
+        for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

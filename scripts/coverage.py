@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 #
-# Script to find test coverage. Basically just a big wrapper around gcov with
-# some extra conveniences for comparing builds. Heavily inspired by Linux's
-# Bloat-O-Meter.
+# Script to find coverage info after running tests.
+#
+# Example:
+# ./scripts/coverage.py lfs.t.a.gcda lfs_util.t.a.gcda -s
+#
+# Copyright (c) 2022, The littlefs authors.
+# Copyright (c) 2020, Arm Limited. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
 #
 
 import collections as co
@@ -208,7 +213,7 @@ class CoverageResult(co.namedtuple('CoverageResult',
 
 def openio(path, mode='r'):
     if path == '-':
-        if 'r' in mode:
+        if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
         else:
             return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
@@ -682,7 +687,7 @@ if __name__ == "__main__":
         nargs='*',
         default=GCDA_PATHS,
         help="Description of where to find *.gcda files. May be a directory "
-            "or a list of paths. Defaults to %(default)r.")
+            "or a list of paths. Defaults to %r." % GCDA_PATHS)
     parser.add_argument(
         '-v', '--verbose',
         action='store_true',
@@ -752,18 +757,17 @@ if __name__ == "__main__":
         '-c', '--context',
         type=lambda x: int(x, 0),
         default=3,
-        help="Show a additional lines of context. Defaults to %(default)r.")
+        help="Show a additional lines of context. Defaults to 3.")
     parser.add_argument(
         '-W', '--width',
         type=lambda x: int(x, 0),
         default=80,
-        help="Assume source is styled with this many columns. Defaults "
-            "to %(default)r.")
+        help="Assume source is styled with this many columns. Defaults to 80.")
     parser.add_argument(
         '--color',
         choices=['never', 'always', 'auto'],
         default='auto',
-        help="When to use terminal colors.")
+        help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
         '-e', '--error-on-lines',
         action='store_true',
@@ -780,11 +784,11 @@ if __name__ == "__main__":
         '--gcov-tool',
         default=GCOV_TOOL,
         type=lambda x: x.split(),
-        help="Path to the gcov tool to use. Defaults to %(default)r.")
+        help="Path to the gcov tool to use. Defaults to %r." % GCOV_TOOL)
     parser.add_argument(
         '--build-dir',
         help="Specify the relative build directory. Used to map object files "
             "to the correct source files.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_args()).items()
+        for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

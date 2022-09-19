@@ -2,6 +2,12 @@
 #
 # Efficiently displays the last n lines of a file/pipe.
 #
+# Example:
+# ./scripts/tailpipe.py trace -n5
+#
+# Copyright (c) 2022, The littlefs authors.
+# SPDX-License-Identifier: BSD-3-Clause
+#
 
 import os
 import sys
@@ -11,7 +17,7 @@ import time
 
 def openio(path, mode='r'):
     if path == '-':
-        if 'r' in mode:
+        if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
         else:
             return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
@@ -111,5 +117,5 @@ if __name__ == "__main__":
         help="Reopen the pipe on EOF, useful when multiple "
             "processes are writing.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_args()).items()
+        for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

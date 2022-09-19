@@ -2,8 +2,15 @@
 #
 # Display operations on block devices based on trace output
 #
+# Example:
+# ./scripts/tracebd.py trace
+#
+# Copyright (c) 2022, The littlefs authors.
+# SPDX-License-Identifier: BSD-3-Clause
+#
 
 import collections as co
+import functools as ft
 import itertools as it
 import math as m
 import os
@@ -15,7 +22,7 @@ import time
 
 def openio(path, mode='r'):
     if path == '-':
-        if 'r' in mode:
+        if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
         else:
             return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
@@ -23,11 +30,11 @@ def openio(path, mode='r'):
         return open(path, mode)
 
 # space filling Hilbert-curve
+#
+# note we memoize the last curve since this is a bit expensive
+#
+@ft.lru_cache(1)
 def hilbert_curve(width, height):
-    # memoize the last curve
-    if getattr(hilbert_curve, 'last', (None,))[0] == (width, height):
-        return hilbert_curve.last[1]
-
     # based on generalized Hilbert curves:
     # https://github.com/jakubcerveny/gilbert
     #
@@ -83,16 +90,14 @@ def hilbert_curve(width, height):
     else:
         curve = hilbert_(0, 0, 0, +height, +width, 0)
 
-    curve = list(curve)
-    hilbert_curve.last = ((width, height), curve)
-    return curve
+    return list(curve)
 
 # space filling Z-curve/Lebesgue-curve
+#
+# note we memoize the last curve since this is a bit expensive
+#
+@ft.lru_cache(1)
 def lebesgue_curve(width, height):
-    # memoize the last curve
-    if getattr(lebesgue_curve, 'last', (None,))[0] == (width, height):
-        return lebesgue_curve.last[1]
-
     # we create a truncated Z-curve by simply filtering out the points
     # that are outside our region
     curve = []
@@ -104,7 +109,6 @@ def lebesgue_curve(width, height):
         if x < width and y < height:
             curve.append((x, y))
 
-    lebesgue_curve.last = ((width, height), curve)
     return curve
 
 
@@ -151,29 +155,30 @@ class Block:
 
     def __add__(self, other):
         return Block(
-            max(self.wear, other.wear), 
+            max(self.wear, other.wear),
             self.readed | other.readed,
             self.proged | other.proged,
             self.erased | other.erased)
 
-    def draw(self,
-            ascii=False,
+    def draw(self, *,
+            subscripts=False,
             chars=None,
             wear_chars=None,
-            color='always',
+            color=True,
             read=True,
             prog=True,
             erase=True,
             wear=False,
             max_wear=None,
-            block_cycles=None):
+            block_cycles=None,
+            **_):
         if not chars: chars = '.rpe'
         c = chars[0]
         f = []
 
         if wear:
-            if not wear_chars and ascii: wear_chars = '0123456789'
-            elif not wear_chars:         wear_chars = '.₁₂₃₄₅₆789'
+            if not wear_chars and subscripts: wear_chars = '.₁₂₃₄₅₆789'
+            elif not wear_chars:              wear_chars = '0123456789'
 
             if block_cycles:
                 w = self.wear / block_cycles
@@ -183,8 +188,7 @@ class Block:
             c = wear_chars[min(
                 int(w*(len(wear_chars)-1)),
                 len(wear_chars)-1)]
-            if color == 'wear' or (
-                    color == 'always' and not read and not prog and not erase):
+            if color:
                 if w*9 >= 9:   f.append('\x1b[1;31m')
                 elif w*9 >= 7: f.append('\x1b[35m')
 
@@ -192,12 +196,12 @@ class Block:
         elif prog and self.proged: c = chars[2]
         elif read and self.readed: c = chars[1]
 
-        if color == 'ops' or color == 'always':
+        if color:
             if erase and self.erased:  f.append('\x1b[44m')
             elif prog and self.proged: f.append('\x1b[45m')
             elif read and self.readed: f.append('\x1b[42m')
 
-        if color in ['always', 'wear', 'ops'] and f:
+        if color:
             return '%s%c\x1b[m' % (''.join(f), c)
         else:
             return c
@@ -318,16 +322,13 @@ def main(path='-', *,
         prog=False,
         erase=False,
         wear=False,
-        reset=False,
-        ascii=False,
-        chars=None,
-        wear_chars=None,
         color='auto',
         block=(None,None),
         off=(None,None),
         block_size=None,
         block_count=None,
         block_cycles=None,
+        reset=False,
         width=None,
         height=1,
         scale=None,
@@ -336,13 +337,20 @@ def main(path='-', *,
         sleep=None,
         hilbert=False,
         lebesgue=False,
-        keep_open=False):
+        keep_open=False,
+        **args):
+    # exclusive wear or read/prog/erase by default
     if not read and not prog and not erase and not wear:
         read = True
         prog = True
         erase = True
+    # figure out what color should be
     if color == 'auto':
-        color = 'always' if sys.stdout.isatty() else 'never'
+        color = sys.stdout.isatty()
+    elif color == 'always':
+        color = True
+    else:
+        color = False
 
     block_start = block[0]
     block_stop = block[1] if len(block) > 1 else block[0]+1
@@ -438,7 +446,7 @@ def main(path='-', *,
             with lock:
                 if reset:
                     bd.reset()
-                    
+
                 # ignore the new values if block_stop/off_stop is explicit
                 bd.smoosh(
                     size=(size if off_stop is None
@@ -513,16 +521,14 @@ def main(path='-', *,
 
         def draw(b):
             return b.draw(
-                ascii=ascii,
-                chars=chars,
-                wear_chars=wear_chars,
-                color=color,
                 read=read,
                 prog=prog,
                 erase=erase,
                 wear=wear,
+                color=color,
                 max_wear=max_wear,
-                block_cycles=block_cycles)
+                block_cycles=block_cycles,
+                **args)
 
         # fold via a curve?
         if height > 1:
@@ -562,7 +568,7 @@ def main(path='-', *,
     def print_line():
         nonlocal last_rows
         if not lines:
-            return 
+            return
 
         # give ourself a canvas
         while last_rows < len(history)*height:
@@ -672,15 +678,8 @@ if __name__ == "__main__":
         action='store_true',
         help="Render wear.")
     parser.add_argument(
-        '-R',
-        '--reset',
-        action='store_true',
-        help="Reset wear on block device initialization.")
-    parser.add_argument(
-        '-A',
-        '--ascii',
-        action='store_true',
-        help="Don't use unicode characters.")
+        '--subscripts',
+        help="Use unicode subscripts for showing wear.")
     parser.add_argument(
         '--chars',
         help="Characters to use for noop, read, prog, erase operations.")
@@ -689,8 +688,9 @@ if __name__ == "__main__":
         help="Characters to use to show wear.")
     parser.add_argument(
         '--color',
-        choices=['never', 'always', 'auto', 'ops', 'wear'],
-        help="When to use terminal colors, defaults to auto.")
+        choices=['never', 'always', 'auto'],
+        default='auto',
+        help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
         '-b',
         '--block',
@@ -716,6 +716,11 @@ if __name__ == "__main__":
         type=lambda x: int(x, 0),
         help="Assumed maximum number of erase cycles when measuring wear.")
     parser.add_argument(
+        '-R',
+        '--reset',
+        action='store_true',
+        help="Reset wear on block device initialization.")
+    parser.add_argument(
         '-W',
         '--width',
         type=lambda x: int(x, 0),
@@ -735,13 +740,12 @@ if __name__ == "__main__":
         '-n',
         '--lines',
         type=lambda x: int(x, 0),
-        help="Number of lines to show, with 0 indicating no limit. "
-            "Defaults to 0.")
+        help="Number of lines to show.")
     parser.add_argument(
         '-c',
         '--coalesce',
         type=lambda x: int(x, 0),
-        help="Number of operations to coalesce together. Defaults to 1.")
+        help="Number of operations to coalesce together.")
     parser.add_argument(
         '-s',
         '--sleep',
@@ -765,5 +769,5 @@ if __name__ == "__main__":
         help="Reopen the pipe on EOF, useful when multiple "
             "processes are writing.")
     sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_args()).items()
+        for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

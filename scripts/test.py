@@ -2,6 +2,12 @@
 #
 # Script to compile and runs tests.
 #
+# Example:
+# ./scripts/test.py runners/test_runner -b
+#
+# Copyright (c) 2022, The littlefs authors.
+# SPDX-License-Identifier: BSD-3-Clause
+#
 
 import collections as co
 import csv
@@ -114,7 +120,7 @@ class TestCase:
                         for x in range(start, stop, step):
                             yield from parse_define('%s(%d)%s' % (
                                 v_[:m.start()], x, v_[m.end():]))
-                    else:                            
+                    else:
                         yield v_
             # or a literal value
             else:
@@ -337,7 +343,7 @@ def compile(test_paths, **args):
                                     k+'_i', define_cbs[v]))
                             f.writeln(4*' '+'},')
                         f.writeln('};')
-                        f.writeln()    
+                        f.writeln()
 
                     # create case filter function
                     if suite.if_ is not None or case.if_ is not None:
@@ -505,7 +511,8 @@ def find_runner(runner, **args):
     cmd = runner.copy()
 
     # run under some external command?
-    cmd[:0] = args.get('exec', [])
+    if args.get('exec'):
+        cmd[:0] = args['exec']
 
     # run under valgrind?
     if args.get('valgrind'):
@@ -914,7 +921,7 @@ def run_stage(name, runner_, ids, output_, **args):
                     for child in children.copy():
                         child.kill()
                     break
-    
+
 
     # parallel jobs?
     runners = []
@@ -984,7 +991,7 @@ def run_stage(name, runner_, ids, output_, **args):
         powerlosses,
         failures,
         killed)
-    
+
 
 def run(runner, test_ids=[], **args):
     # query runner for tests
@@ -1176,102 +1183,173 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Build and run tests.",
         conflict_handler='ignore')
-    parser.add_argument('-v', '--verbose', action='store_true',
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
         help="Output commands that run behind the scenes.")
-    parser.add_argument('--color',
-        choices=['never', 'always', 'auto'], default='auto',
-        help="When to use terminal colors.")
+    parser.add_argument(
+        '--color',
+        choices=['never', 'always', 'auto'],
+        default='auto',
+        help="When to use terminal colors. Defaults to 'auto'.")
 
     # test flags
     test_parser = parser.add_argument_group('test options')
-    test_parser.add_argument('runner', nargs='?',
+    test_parser.add_argument(
+        'runner',
+        nargs='?',
         type=lambda x: x.split(),
         help="Test runner to use for testing. Defaults to %r." % RUNNER_PATH)
-    test_parser.add_argument('test_ids', nargs='*',
+    test_parser.add_argument(
+        'test_ids',
+        nargs='*',
         help="Description of tests to run.")
-    test_parser.add_argument('-Y', '--summary', action='store_true',
+    test_parser.add_argument(
+        '-Y', '--summary',
+        action='store_true',
         help="Show quick summary.")
-    test_parser.add_argument('-l', '--list-suites', action='store_true',
+    test_parser.add_argument(
+        '-l', '--list-suites',
+        action='store_true',
         help="List test suites.")
-    test_parser.add_argument('-L', '--list-cases', action='store_true',
+    test_parser.add_argument(
+        '-L', '--list-cases',
+        action='store_true',
         help="List test cases.")
-    test_parser.add_argument('--list-suite-paths', action='store_true',
+    test_parser.add_argument(
+        '--list-suite-paths',
+        action='store_true',
         help="List the path for each test suite.")
-    test_parser.add_argument('--list-case-paths', action='store_true',
+    test_parser.add_argument(
+        '--list-case-paths',
+        action='store_true',
         help="List the path and line number for each test case.")
-    test_parser.add_argument('--list-defines', action='store_true',
+    test_parser.add_argument(
+        '--list-defines',
+        action='store_true',
         help="List all defines in this test-runner.")
-    test_parser.add_argument('--list-permutation-defines', action='store_true',
+    test_parser.add_argument(
+        '--list-permutation-defines',
+        action='store_true',
         help="List explicit defines in this test-runner.")
-    test_parser.add_argument('--list-implicit-defines', action='store_true',
+    test_parser.add_argument(
+        '--list-implicit-defines',
+        action='store_true',
         help="List implicit defines in this test-runner.")
-    test_parser.add_argument('--list-geometries', action='store_true',
+    test_parser.add_argument(
+        '--list-geometries',
+        action='store_true',
         help="List the available disk geometries.")
-    test_parser.add_argument('--list-powerlosses', action='store_true',
+    test_parser.add_argument(
+        '--list-powerlosses',
+        action='store_true',
         help="List the available power-loss scenarios.")
-    test_parser.add_argument('-D', '--define', action='append',
+    test_parser.add_argument(
+        '-D', '--define',
+        action='append',
         help="Override a test define.")
-    test_parser.add_argument('-g', '--geometry',
-        help="Comma-separated list of disk geometries to test. \
-            Defaults to d,e,E,n,N.")
-    test_parser.add_argument('-p', '--powerloss',
-        help="Comma-separated list of power-loss scenarios to test. \
-            Defaults to 0,l.")
-    test_parser.add_argument('-d', '--disk',
+    test_parser.add_argument(
+        '-g', '--geometry',
+        help="Comma-separated list of disk geometries to test. "
+            "Defaults to d,e,E,n,N.")
+    test_parser.add_argument(
+        '-p', '--powerloss',
+        help="Comma-separated list of power-loss scenarios to test. "
+            "Defaults to 0,l.")
+    test_parser.add_argument(
+        '-d', '--disk',
         help="Direct block device operations to this file.")
-    test_parser.add_argument('-t', '--trace',
+    test_parser.add_argument(
+        '-t', '--trace',
         help="Direct trace output to this file.")
-    test_parser.add_argument('-O', '--stdout',
+    test_parser.add_argument(
+        '-O', '--stdout',
         help="Direct stdout to this file. Note stderr is already merged here.")
-    test_parser.add_argument('-o', '--output',
+    test_parser.add_argument(
+        '-o', '--output',
         help="CSV file to store results.")
-    test_parser.add_argument('--read-sleep',
+    test_parser.add_argument(
+        '--read-sleep',
         help="Artificial read delay in seconds.")
-    test_parser.add_argument('--prog-sleep',
+    test_parser.add_argument(
+        '--prog-sleep',
         help="Artificial prog delay in seconds.")
-    test_parser.add_argument('--erase-sleep',
+    test_parser.add_argument(
+        '--erase-sleep',
         help="Artificial erase delay in seconds.")
-    test_parser.add_argument('-j', '--jobs', nargs='?', type=int,
+    test_parser.add_argument(
+        '-j', '--jobs',
+        nargs='?',
+        type=lambda x: int(x, 0),
         const=len(os.sched_getaffinity(0)),
         help="Number of parallel runners to run.")
-    test_parser.add_argument('-k', '--keep-going', action='store_true',
+    test_parser.add_argument(
+        '-k', '--keep-going',
+        action='store_true',
         help="Don't stop on first error.")
-    test_parser.add_argument('-i', '--isolate', action='store_true',
+    test_parser.add_argument(
+        '-i', '--isolate',
+        action='store_true',
         help="Run each test permutation in a separate process.")
-    test_parser.add_argument('-b', '--by-suites', action='store_true',
+    test_parser.add_argument(
+        '-b', '--by-suites',
+        action='store_true',
         help="Step through tests by suite.")
-    test_parser.add_argument('-B', '--by-cases', action='store_true',
+    test_parser.add_argument(
+        '-B', '--by-cases',
+        action='store_true',
         help="Step through tests by case.")
-    test_parser.add_argument('--context', type=lambda x: int(x, 0),
-        help="Show this many lines of stdout on test failure. \
-            Defaults to 5.")
-    test_parser.add_argument('--gdb', action='store_true',
+    test_parser.add_argument(
+        '--context',
+        type=lambda x: int(x, 0),
+        default=5,
+        help="Show this many lines of stdout on test failure. "
+            "Defaults to 5.")
+    test_parser.add_argument(
+        '--gdb',
+        action='store_true',
         help="Drop into gdb on test failure.")
-    test_parser.add_argument('--gdb-case', action='store_true',
-        help="Drop into gdb on test failure but stop at the beginning \
-            of the failing test case.")
-    test_parser.add_argument('--gdb-main', action='store_true',
-        help="Drop into gdb on test failure but stop at the beginning \
-            of main.")
-    test_parser.add_argument('--exec', default=[], type=lambda e: e.split(),
+    test_parser.add_argument(
+        '--gdb-case',
+        action='store_true',
+        help="Drop into gdb on test failure but stop at the beginning "
+            "of the failing test case.")
+    test_parser.add_argument(
+        '--gdb-main',
+        action='store_true',
+        help="Drop into gdb on test failure but stop at the beginning "
+            "of main.")
+    test_parser.add_argument(
+        '--exec',
+        type=lambda e: e.split(),
         help="Run under another executable.")
-    test_parser.add_argument('--valgrind', action='store_true',
-        help="Run under Valgrind to find memory errors. Implicitly sets \
-            --isolate.")
+    test_parser.add_argument(
+        '--valgrind',
+        action='store_true',
+        help="Run under Valgrind to find memory errors. Implicitly sets "
+            "--isolate.")
 
     # compilation flags
     comp_parser = parser.add_argument_group('compilation options')
-    comp_parser.add_argument('test_paths', nargs='*',
-        help="Description of *.toml files to compile. May be a directory \
-            or a list of paths.")
-    comp_parser.add_argument('-c', '--compile', action='store_true',
+    comp_parser.add_argument(
+        'test_paths',
+        nargs='*',
+        help="Description of *.toml files to compile. May be a directory "
+            "or a list of paths.")
+    comp_parser.add_argument(
+        '-c', '--compile',
+        action='store_true',
         help="Compile a test suite or source file.")
-    comp_parser.add_argument('-s', '--source',
+    comp_parser.add_argument(
+        '-s', '--source',
         help="Source file to compile, possibly injecting internal tests.")
-    comp_parser.add_argument('--include', default=HEADER_PATH,
-        help="Inject this header file into every compiled test file. \
-            Defaults to %r." % HEADER_PATH)
-    comp_parser.add_argument('-o', '--output',
+    comp_parser.add_argument(
+        '--include',
+        default=HEADER_PATH,
+        help="Inject this header file into every compiled test file. "
+            "Defaults to %r." % HEADER_PATH)
+    comp_parser.add_argument(
+        '-o', '--output',
         help="Output file.")
 
     # runner + test_ids overlaps test_paths, so we need to do some munging here

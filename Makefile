@@ -133,7 +133,7 @@ stack: $(CI)
 
 .PHONY: struct
 struct: $(OBJ)
-	./scripts/struct.py $^ -S $(STRUCTFLAGS)
+	./scripts/struct_.py $^ -S $(STRUCTFLAGS)
 
 .PHONY: coverage
 coverage: $(GCDA)
@@ -171,7 +171,7 @@ $(BUILDDIR)lfs.stack.csv: $(CI)
 	./scripts/stack.py $^ -q $(CODEFLAGS) -o $@
 
 $(BUILDDIR)lfs.struct.csv: $(OBJ)
-	./scripts/struct.py $^ -q $(CODEFLAGS) -o $@
+	./scripts/struct_.py $^ -q $(CODEFLAGS) -o $@
 
 $(BUILDDIR)lfs.coverage.csv: $(GCDA)
 	./scripts/coverage.py $^ -q $(COVERAGEFLAGS) -o $@
@@ -195,10 +195,10 @@ $(BUILDDIR)%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
 $(BUILDDIR)%.a.c: %.c
-	./scripts/pretty_asserts.py -p LFS_ASSERT $< -o $@
+	./scripts/prettyasserts.py -p LFS_ASSERT $< -o $@
 
 $(BUILDDIR)%.a.c: $(BUILDDIR)%.c
-	./scripts/pretty_asserts.py -p LFS_ASSERT $< -o $@
+	./scripts/prettyasserts.py -p LFS_ASSERT $< -o $@
 
 $(BUILDDIR)%.t.c: %.toml
 	./scripts/test.py -c $< $(TESTCFLAGS) -o $@
