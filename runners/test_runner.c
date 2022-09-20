@@ -511,6 +511,69 @@ static void perm_printid(
     }
 }
 
+
+// a quick trie for keeping track of permutations we've seen
+typedef struct test_seen {
+    struct test_seen_branch *branches;
+    size_t branch_count;
+    size_t branch_capacity;
+} test_seen_t;
+
+struct test_seen_branch {
+    intmax_t define;
+    struct test_seen branch;
+};
+
+bool test_seen_insert(
+        test_seen_t *seen,
+        const struct test_suite *suite,
+        const struct test_case *case_) {
+    (void)case_;
+    bool was_seen = true;
+
+    // use the currently set defines
+    for (size_t d = 0;
+            d < lfs_max(
+                suite->define_count,
+                TEST_IMPLICIT_DEFINE_COUNT);
+            d++) {
+        // treat unpermuted defines the same as 0
+        intmax_t define = test_define_ispermutation(d) ? TEST_DEFINE(d) : 0;
+
+        // already seen?
+        struct test_seen_branch *branch = NULL;
+        for (size_t i = 0; i < seen->branch_count; i++) {
+            if (seen->branches[i].define == define) {
+                branch = &seen->branches[i];
+                break;
+            }
+        }
+
+        // need to create a new node
+        if (!branch) {
+            was_seen = false;
+            branch = mappend(
+                    (void**)&seen->branches,
+                    sizeof(struct test_seen_branch),
+                    &seen->branch_count,
+                    &seen->branch_capacity);
+            branch->define = define;
+            branch->branch = (test_seen_t){NULL, 0, 0};
+        }
+
+        seen = &branch->branch;
+    }
+
+    return was_seen;
+}
+
+void test_seen_cleanup(test_seen_t *seen) {
+    for (size_t i = 0; i < seen->branch_count; i++) {
+        test_seen_cleanup(&seen->branches[i].branch);
+    }
+    free(seen->branches);
+}
+
 static void run_powerloss_cycles(
         const lfs_emubd_powercycles_t *cycles,
         size_t cycle_count,
@@ -551,40 +614,51 @@ static void case_forperm(
                 cb(data, suite, case_, &test_powerlosses[p]);
             }
         }
-    } else {
-        for (size_t k = 0; k < case_->permutations; k++) {
-            // define permutation
-            test_define_perm(suite, case_, k);
+        return;
+    }
 
-            for (size_t v = 0; v < test_override_define_permutations; v++) {
-                // define override permutation
-                test_define_override(v);
+    test_seen_t seen = {NULL, 0, 0};
 
-                for (size_t g = 0; g < test_geometry_count; g++) {
-                    // define geometry
-                    test_define_geometry(&test_geometries[g]);
-                    test_define_flush();
+    for (size_t k = 0; k < case_->permutations; k++) {
+        // define permutation
+        test_define_perm(suite, case_, k);
 
-                    if (cycles) {
-                        cb(data, suite, case_, &(test_powerloss_t){
-                                .run=run_powerloss_cycles,
-                                .cycles=cycles,
-                                .cycle_count=cycle_count});
-                    } else {
-                        for (size_t p = 0; p < test_powerloss_count; p++) {
-                            // skip non-reentrant tests when powerloss testing
-                            if (test_powerlosses[p].short_name != '0'
-                                    && !(case_->flags & TEST_REENTRANT)) {
-                                continue;
-                            }
+        for (size_t v = 0; v < test_override_define_permutations; v++) {
+            // define override permutation
+            test_define_override(v);
 
-                            cb(data, suite, case_, &test_powerlosses[p]);
+            for (size_t g = 0; g < test_geometry_count; g++) {
+                // define geometry
+                test_define_geometry(&test_geometries[g]);
+                test_define_flush();
+
+                // have we seen this permutation before?
+                bool was_seen = test_seen_insert(&seen, suite, case_);
+                if (!(k == 0 && v == 0 && g == 0) && was_seen) {
+                    continue;
+                }
+
+                if (cycles) {
+                    cb(data, suite, case_, &(test_powerloss_t){
+                            .run=run_powerloss_cycles,
+                            .cycles=cycles,
+                            .cycle_count=cycle_count});
+                } else {
+                    for (size_t p = 0; p < test_powerloss_count; p++) {
+                        // skip non-reentrant tests when powerloss testing
+                        if (test_powerlosses[p].short_name != '0'
+                                && !(case_->flags & TEST_REENTRANT)) {
+                            continue;
                         }
+
+                        cb(data, suite, case_, &test_powerlosses[p]);
                     }
                 }
             }
         }
     }
+
+    test_seen_cleanup(&seen);
 }
 
 
