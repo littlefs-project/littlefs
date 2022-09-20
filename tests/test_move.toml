@@ -1638,15 +1638,15 @@ code = '''
     if (RELOCATIONS & 0x1) {
         lfs_dir_t dir;
         lfs_dir_open(&lfs, &dir, "/parent");
-        lfs_testbd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
-        lfs_testbd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
         lfs_dir_close(&lfs, &dir) => 0;
     }
     if (RELOCATIONS & 0x2) {
         lfs_dir_t dir;
         lfs_dir_open(&lfs, &dir, "/parent/child");
-        lfs_testbd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
-        lfs_testbd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
         lfs_dir_close(&lfs, &dir) => 0;
     }
 
@@ -1784,22 +1784,22 @@ code = '''
     if (RELOCATIONS & 0x1) {
         lfs_dir_t dir;
         lfs_dir_open(&lfs, &dir, "/parent");
-        lfs_testbd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
-        lfs_testbd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
         lfs_dir_close(&lfs, &dir) => 0;
     }
     if (RELOCATIONS & 0x2) {
         lfs_dir_t dir;
         lfs_dir_open(&lfs, &dir, "/parent/sibling");
-        lfs_testbd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
-        lfs_testbd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
         lfs_dir_close(&lfs, &dir) => 0;
     }
     if (RELOCATIONS & 0x4) {
         lfs_dir_t dir;
         lfs_dir_open(&lfs, &dir, "/parent/child");
-        lfs_testbd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
-        lfs_testbd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
         lfs_dir_close(&lfs, &dir) => 0;
     }
 

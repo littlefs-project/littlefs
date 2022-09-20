@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 #
-# Script to compile and runs tests.
+# Script to compile and runs benches.
 #
 # Example:
-# ./scripts/test.py runners/test_runner -b
+# ./scripts/bench.py runners/bench_runner -b
 #
 # Copyright (c) 2022, The littlefs authors.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -27,8 +27,8 @@ import time
 import toml
 
 
-RUNNER_PATH = 'runners/test_runner'
-HEADER_PATH = 'runners/test_runner.h'
+RUNNER_PATH = 'runners/bench_runner'
+HEADER_PATH = 'runners/bench_runner.h'
 
 
 def openio(path, mode='r', buffering=-1, nb=False):
@@ -47,8 +47,8 @@ def openio(path, mode='r', buffering=-1, nb=False):
     else:
         return open(path, mode, buffering)
 
-class TestCase:
-    # create a TestCase object from a config
+class BenchCase:
+    # create a BenchCase object from a config
     def __init__(self, config, args={}):
         self.name = config.pop('name')
         self.path = config.pop('path')
@@ -61,9 +61,6 @@ class TestCase:
         self.code_lineno = config.pop('code_lineno', None)
         self.in_ = config.pop('in',
             config.pop('suite_in', None))
-
-        self.reentrant = config.pop('reentrant',
-            config.pop('suite_reentrant', False))
 
         # figure out defines and build possible permutations
         self.defines = set()
@@ -144,17 +141,17 @@ class TestCase:
                 file=sys.stderr)
 
 
-class TestSuite:
-    # create a TestSuite object from a toml file
+class BenchSuite:
+    # create a BenchSuite object from a toml file
     def __init__(self, path, args={}):
         self.path = path
         self.name = os.path.basename(path)
         if self.name.endswith('.toml'):
             self.name = self.name[:-len('.toml')]
 
-        # load toml file and parse test cases
+        # load toml file and parse bench cases
         with open(self.path) as f:
-            # load tests
+            # load benches
             config = toml.load(f)
 
             # find line numbers
@@ -197,28 +194,23 @@ class TestSuite:
             # a couple of these we just forward to all cases
             defines = config.pop('defines', {})
             in_ = config.pop('in', None)
-            reentrant = config.pop('reentrant', False)
 
             self.cases = []
             for name, case in sorted(cases.items(),
                     key=lambda c: c[1].get('lineno')):
-                self.cases.append(TestCase(config={
+                self.cases.append(BenchCase(config={
                     'name': name,
                     'path': path + (':%d' % case['lineno']
                         if 'lineno' in case else ''),
                     'suite': self.name,
                     'suite_defines': defines,
                     'suite_in': in_,
-                    'suite_reentrant': reentrant,
                     **case},
                     args=args))
 
             # combine per-case defines
             self.defines = set.union(*(
                 set(case.defines) for case in self.cases))
-
-            # combine other per-case things
-            self.reentrant = any(case.reentrant for case in self.cases)
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
@@ -230,10 +222,10 @@ class TestSuite:
 
 
 
-def compile(test_paths, **args):
+def compile(bench_paths, **args):
     # find .toml files
     paths = []
-    for path in test_paths:
+    for path in bench_paths:
         if os.path.isdir(path):
             path = path + '/*.toml'
 
@@ -241,15 +233,15 @@ def compile(test_paths, **args):
             paths.append(path)
 
     if not paths:
-        print('no test suites found in %r?' % test_paths)
+        print('no bench suites found in %r?' % bench_paths)
         sys.exit(-1)
 
     # load the suites
-    suites = [TestSuite(path, args) for path in paths]
+    suites = [BenchSuite(path, args) for path in paths]
     suites.sort(key=lambda s: s.name)
 
     # check for name conflicts, these will cause ambiguity problems later
-    # when running tests
+    # when running benches
     seen = {}
     for suite in suites:
         if suite.name in seen:
@@ -265,7 +257,7 @@ def compile(test_paths, **args):
         for case in suite.cases:
             # only allow conflicts if a case and its suite share a name
             if case.name in seen and not (
-                    isinstance(seen[case.name], TestSuite)
+                    isinstance(seen[case.name], BenchSuite)
                     and seen[case.name].cases == [case]):
                 print('%swarning:%s conflicting case %r, %s and %s' % (
                     '\x1b[01;33m' if args['color'] else '',
@@ -276,15 +268,15 @@ def compile(test_paths, **args):
                     file=sys.stderr)
             seen[case.name] = case
 
-    # we can only compile one test suite at a time
+    # we can only compile one bench suite at a time
     if not args.get('source'):
         if len(suites) > 1:
-            print('more than one test suite for compilation? (%r)' % test_paths)
+            print('more than one bench suite for compilation? (%r)' % bench_paths)
             sys.exit(-1)
 
         suite = suites[0]
 
-    # write generated test source
+    # write generated bench source
     if 'output' in args:
         with openio(args['output'], 'w') as f:
             _write = f.write
@@ -305,7 +297,7 @@ def compile(test_paths, **args):
             f.writeln("//")
             f.writeln()
 
-            # include test_runner.h in every generated file
+            # include bench_runner.h in every generated file
             f.writeln("#include \"%s\"" % args['include'])
             f.writeln()
 
@@ -313,7 +305,7 @@ def compile(test_paths, **args):
             # files depending on the "in" attribute
             #
             # note it's up to the specific generated file to declare
-            # the test defines
+            # the bench defines
             def write_case_functions(f, suite, case):
                     # create case define functions
                     if case.defines:
@@ -323,7 +315,7 @@ def compile(test_paths, **args):
                         for i, defines in enumerate(case.permutations):
                             for k, v in sorted(defines.items()):
                                 if v not in define_cbs:
-                                    name = ('__test__%s__%s__%s__%d'
+                                    name = ('__bench__%s__%s__%s__%d'
                                         % (suite.name, case.name, k, i))
                                     define_cbs[v] = name
                                     f.writeln('intmax_t %s('
@@ -332,9 +324,9 @@ def compile(test_paths, **args):
                                     f.writeln(4*' '+'return %s;' % v)
                                     f.writeln('}')
                                     f.writeln()
-                        f.writeln('const test_define_t '
-                            '__test__%s__%s__defines[]['
-                            'TEST_IMPLICIT_DEFINE_COUNT+%d] = {'
+                        f.writeln('const bench_define_t '
+                            '__bench__%s__%s__defines[]['
+                            'BENCH_IMPLICIT_DEFINE_COUNT+%d] = {'
                             % (suite.name, case.name, len(suite.defines)))
                         for defines in case.permutations:
                             f.writeln(4*' '+'{')
@@ -347,7 +339,7 @@ def compile(test_paths, **args):
 
                     # create case filter function
                     if suite.if_ is not None or case.if_ is not None:
-                        f.writeln('bool __test__%s__%s__filter(void) {'
+                        f.writeln('bool __bench__%s__%s__filter(void) {'
                             % (suite.name, case.name))
                         f.writeln(4*' '+'return %s;'
                             % ' && '.join('(%s)' % if_
@@ -357,10 +349,10 @@ def compile(test_paths, **args):
                         f.writeln()
 
                     # create case run function
-                    f.writeln('void __test__%s__%s__run('
+                    f.writeln('void __bench__%s__%s__run('
                         '__attribute__((unused)) struct lfs_config *cfg) {'
                         % (suite.name, case.name))
-                    f.writeln(4*' '+'// test case %s' % case.name)
+                    f.writeln(4*' '+'// bench case %s' % case.name)
                     if case.code_lineno is not None:
                         f.writeln(4*' '+'#line %d "%s"'
                             % (case.code_lineno, suite.path))
@@ -386,9 +378,9 @@ def compile(test_paths, **args):
                     for i, define in enumerate(sorted(suite.defines)):
                         f.writeln('#ifndef %s' % define)
                         f.writeln('#define %-24s '
-                            'TEST_IMPLICIT_DEFINE_COUNT+%d' % (define+'_i', i))
+                            'BENCH_IMPLICIT_DEFINE_COUNT+%d' % (define+'_i', i))
                         f.writeln('#define %-24s '
-                            'TEST_DEFINE(%s)' % (define, define+'_i'))
+                            'BENCH_DEFINE(%s)' % (define, define+'_i'))
                         f.writeln('#endif')
                     f.writeln()
 
@@ -398,64 +390,58 @@ def compile(test_paths, **args):
                         write_case_functions(f, suite, case)
                     else:
                         if case.defines:
-                            f.writeln('extern const test_define_t '
-                                '__test__%s__%s__defines[]['
-                                'TEST_IMPLICIT_DEFINE_COUNT+%d];'
+                            f.writeln('extern const bench_define_t '
+                                '__bench__%s__%s__defines[]['
+                                'BENCH_IMPLICIT_DEFINE_COUNT+%d];'
                                 % (suite.name, case.name, len(suite.defines)))
                         if suite.if_ is not None or case.if_ is not None:
-                            f.writeln('extern bool __test__%s__%s__filter('
+                            f.writeln('extern bool __bench__%s__%s__filter('
                                 'void);'
                                 % (suite.name, case.name))
-                        f.writeln('extern void __test__%s__%s__run('
+                        f.writeln('extern void __bench__%s__%s__run('
                             'struct lfs_config *cfg);'
                             % (suite.name, case.name))
                         f.writeln()
 
                 # create suite struct
                 #
-                # note we place this in the custom test_suites section with
+                # note we place this in the custom bench_suites section with
                 # minimum alignment, otherwise GCC ups the alignment to
                 # 32-bytes for some reason
-                f.writeln('__attribute__((section("_test_suites"), '
+                f.writeln('__attribute__((section("_bench_suites"), '
                     'aligned(1)))')
-                f.writeln('const struct test_suite __test__%s__suite = {'
+                f.writeln('const struct bench_suite __bench__%s__suite = {'
                     % suite.name)
                 f.writeln(4*' '+'.name = "%s",' % suite.name)
                 f.writeln(4*' '+'.path = "%s",' % suite.path)
-                f.writeln(4*' '+'.flags = %s,'
-                    % (' | '.join(filter(None, [
-                        'TEST_REENTRANT' if suite.reentrant else None]))
-                        or 0))
+                f.writeln(4*' '+'.flags = 0,')
                 if suite.defines:
                     # create suite define names
                     f.writeln(4*' '+'.define_names = (const char *const['
-                        'TEST_IMPLICIT_DEFINE_COUNT+%d]){' % (
+                        'BENCH_IMPLICIT_DEFINE_COUNT+%d]){' % (
                         len(suite.defines)))
                     for k in sorted(suite.defines):
                         f.writeln(8*' '+'[%-24s] = "%s",' % (k+'_i', k))
                     f.writeln(4*' '+'},')
                     f.writeln(4*' '+'.define_count = '
-                        'TEST_IMPLICIT_DEFINE_COUNT+%d,' % len(suite.defines))
-                f.writeln(4*' '+'.cases = (const struct test_case[]){')
+                        'BENCH_IMPLICIT_DEFINE_COUNT+%d,' % len(suite.defines))
+                f.writeln(4*' '+'.cases = (const struct bench_case[]){')
                 for case in suite.cases:
                     # create case structs
                     f.writeln(8*' '+'{')
                     f.writeln(12*' '+'.name = "%s",' % case.name)
                     f.writeln(12*' '+'.path = "%s",' % case.path)
-                    f.writeln(12*' '+'.flags = %s,'
-                        % (' | '.join(filter(None, [
-                            'TEST_REENTRANT' if case.reentrant else None]))
-                            or 0))
+                    f.writeln(12*' '+'.flags = 0,')
                     f.writeln(12*' '+'.permutations = %d,'
                         % len(case.permutations))
                     if case.defines:
                         f.writeln(12*' '+'.defines '
-                            '= (const test_define_t*)__test__%s__%s__defines,'
+                            '= (const bench_define_t*)__bench__%s__%s__defines,'
                             % (suite.name, case.name))
                     if suite.if_ is not None or case.if_ is not None:
-                        f.writeln(12*' '+'.filter = __test__%s__%s__filter,'
+                        f.writeln(12*' '+'.filter = __bench__%s__%s__filter,'
                             % (suite.name, case.name))
-                    f.writeln(12*' '+'.run = __test__%s__%s__run,'
+                    f.writeln(12*' '+'.run = __bench__%s__%s__run,'
                         % (suite.name, case.name))
                     f.writeln(8*' '+'},')
                 f.writeln(4*' '+'},')
@@ -470,7 +456,7 @@ def compile(test_paths, **args):
                     shutil.copyfileobj(sf, f)
                 f.writeln()
 
-                # write any internal tests
+                # write any internal benches
                 for suite in suites:
                     for case in suite.cases:
                         if (case.in_ is not None
@@ -483,13 +469,13 @@ def compile(test_paths, **args):
                                         sorted(suite.defines)):
                                     f.writeln('#ifndef %s' % define)
                                     f.writeln('#define %-24s '
-                                        'TEST_IMPLICIT_DEFINE_COUNT+%d' % (
+                                        'BENCH_IMPLICIT_DEFINE_COUNT+%d' % (
                                         define+'_i', i))
                                     f.writeln('#define %-24s '
-                                        'TEST_DEFINE(%s)' % (
+                                        'BENCH_DEFINE(%s)' % (
                                         define, define+'_i'))
                                     f.writeln('#define '
-                                        '__TEST__%s__NEEDS_UNDEF' % (
+                                        '__BENCH__%s__NEEDS_UNDEF' % (
                                         define))
                                     f.writeln('#endif')
                                 f.writeln()
@@ -498,9 +484,9 @@ def compile(test_paths, **args):
 
                             if suite.defines:
                                 for define in sorted(suite.defines):
-                                    f.writeln('#ifdef __TEST__%s__NEEDS_UNDEF'
+                                    f.writeln('#ifdef __BENCH__%s__NEEDS_UNDEF'
                                         % define)
-                                    f.writeln('#undef __TEST__%s__NEEDS_UNDEF'
+                                    f.writeln('#undef __BENCH__%s__NEEDS_UNDEF'
                                         % define)
                                     f.writeln('#undef %s' % define)
                                     f.writeln('#undef %s' % (define+'_i'))
@@ -526,8 +512,6 @@ def find_runner(runner, **args):
     # other context
     if args.get('geometry'):
         cmd.append('-g%s' % args['geometry'])
-    if args.get('powerloss'):
-        cmd.append('-p%s' % args['powerloss'])
     if args.get('disk'):
         cmd.append('-d%s' % args['disk'])
     if args.get('trace'):
@@ -546,8 +530,8 @@ def find_runner(runner, **args):
 
     return cmd
 
-def list_(runner, test_ids=[], **args):
-    cmd = find_runner(runner, **args) + test_ids
+def list_(runner, bench_ids=[], **args):
+    cmd = find_runner(runner, **args) + bench_ids
     if args.get('summary'):          cmd.append('--summary')
     if args.get('list_suites'):      cmd.append('--list-suites')
     if args.get('list_cases'):       cmd.append('--list-cases')
@@ -559,7 +543,6 @@ def list_(runner, test_ids=[], **args):
     if args.get('list_implicit_defines'):
                                      cmd.append('--list-implicit-defines')
     if args.get('list_geometries'):  cmd.append('--list-geometries')
-    if args.get('list_powerlosses'): cmd.append('--list-powerlosses')
 
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
@@ -705,7 +688,7 @@ def find_defines(runner_, id, **args):
 
 
 # Thread-safe CSV writer
-class TestOutput:
+class BenchOutput:
     def __init__(self, path, head=None, tail=None):
         self.f = openio(path, 'w+', 1)
         self.lock = th.Lock()
@@ -739,8 +722,8 @@ class TestOutput:
                 for row in self.rows:
                     self.writer.writerow(row)
 
-# A test failure
-class TestFailure(Exception):
+# A bench failure
+class BenchFailure(Exception):
     def __init__(self, id, returncode, stdout, assert_=None):
         self.id = id
         self.returncode = returncode
@@ -758,13 +741,18 @@ def run_stage(name, runner_, ids, output_, **args):
     passed_suite_perms = co.defaultdict(lambda: 0)
     passed_case_perms = co.defaultdict(lambda: 0)
     passed_perms = 0
-    powerlosses = 0
+    read = 0
+    prog = 0
+    erased = 0
     failures = []
     killed = False
 
     pattern = re.compile('^(?:'
-            '(?P<op>running|finished|skipped|powerloss) '
-                '(?P<id>(?P<case>[^:]+)[^\s]*)'
+            '(?P<op>running|finished|skipped|powerloss)'
+                ' (?P<id>(?P<case>[^:]+)[^\s]*)'
+                '(?: (?P<read>\d+))?'
+                '(?: (?P<prog>\d+))?'
+                '(?: (?P<erased>\d+))?'
             '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
                 ' *(?P<message>.*)'
         ')$')
@@ -775,10 +763,12 @@ def run_stage(name, runner_, ids, output_, **args):
         nonlocal passed_suite_perms
         nonlocal passed_case_perms
         nonlocal passed_perms
-        nonlocal powerlosses
+        nonlocal read
+        nonlocal prog
+        nonlocal erased
         nonlocal locals
 
-        # run the tests!
+        # run the benches!
         cmd = runner_ + ids
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
@@ -828,15 +818,18 @@ def run_stage(name, runner_, ids, output_, **args):
                         last_id = m.group('id')
                         last_stdout = []
                         last_assert = None
-                    elif op == 'powerloss':
-                        last_id = m.group('id')
-                        powerlosses += 1
                     elif op == 'finished':
                         case = m.group('case')
                         suite = case_suites[case]
+                        read_ = int(m.group('read'))
+                        prog_ = int(m.group('prog'))
+                        erased_ = int(m.group('erased'))
                         passed_suite_perms[suite] += 1
                         passed_case_perms[case] += 1
                         passed_perms += 1
+                        read += read_
+                        prog += prog_
+                        erased += erased_
                         if output_:
                             # get defines and write to csv
                             defines = find_defines(
@@ -844,7 +837,9 @@ def run_stage(name, runner_, ids, output_, **args):
                             output_.writerow({
                                 'suite': suite,
                                 'case': case,
-                                'test_passed': '1/1',
+                                'bench_read': read_,
+                                'bench_prog': prog_,
+                                'bench_erased': erased_,
                                 **defines})
                     elif op == 'skipped':
                         locals.seen_perms += 1
@@ -857,14 +852,14 @@ def run_stage(name, runner_, ids, output_, **args):
                         if args.get('keep_going'):
                             proc.kill()
         except KeyboardInterrupt:
-            raise TestFailure(last_id, 1, last_stdout)
+            raise BenchFailure(last_id, 1, last_stdout)
         finally:
             children.remove(proc)
             mpty.close()
 
         proc.wait()
         if proc.returncode != 0:
-            raise TestFailure(
+            raise BenchFailure(
                 last_id,
                 proc.returncode,
                 last_stdout,
@@ -885,13 +880,13 @@ def run_stage(name, runner_, ids, output_, **args):
                 job_runner.append('-s%s,,%s' % (start, step))
 
             try:
-                # run the tests
+                # run the benches
                 locals.seen_perms = 0
                 run_runner(job_runner, ids)
                 assert locals.seen_perms > 0
                 start += locals.seen_perms*step
 
-            except TestFailure as failure:
+            except BenchFailure as failure:
                 # keep track of failures
                 if output_:
                     case, _ = failure.id.split(':', 1)
@@ -901,7 +896,6 @@ def run_stage(name, runner_, ids, output_, **args):
                     output_.writerow({
                         'suite': suite,
                         'case': case,
-                        'test_passed': '0/1',
                         **defines})
 
                 # race condition for multiple failures?
@@ -911,12 +905,12 @@ def run_stage(name, runner_, ids, output_, **args):
                 failures.append(failure)
 
                 if args.get('keep_going') and not killed:
-                    # resume after failed test
+                    # resume after failed bench
                     assert locals.seen_perms > 0
                     start += locals.seen_perms*step
                     continue
                 else:
-                    # stop other tests
+                    # stop other benches
                     killed = True
                     for child in children.copy():
                         child.kill()
@@ -940,7 +934,7 @@ def run_stage(name, runner_, ids, output_, **args):
             sys.stdout.write('%s%srunning %s%s:%s %s%s' % (
                 '\r\x1b[K' if args['color'] else '',
                 '\x1b[?7l' if not done else '',
-                ('\x1b[32m' if not failures else '\x1b[31m')
+                ('\x1b[34m' if not failures else '\x1b[31m')
                     if args['color'] else '',
                 name,
                 '\x1b[m' if args['color'] else '',
@@ -957,8 +951,6 @@ def run_stage(name, runner_, ids, output_, **args):
                         len(expected_case_perms))
                         if not args.get('by_cases') else None,
                     '%d/%d perms' % (passed_perms, expected_perms),
-                    '%dpls!' % powerlosses
-                        if powerlosses else None,
                     '%s%d/%d failures%s' % (
                             '\x1b[31m' if args['color'] else '',
                             len(failures),
@@ -988,20 +980,22 @@ def run_stage(name, runner_, ids, output_, **args):
     return (
         expected_perms,
         passed_perms,
-        powerlosses,
+        read,
+        prog,
+        erased,
         failures,
         killed)
 
 
-def run(runner, test_ids=[], **args):
-    # query runner for tests
+def run(runner, bench_ids=[], **args):
+    # query runner for benches
     runner_ = find_runner(runner, **args)
     print('using runner: %s' % ' '.join(shlex.quote(c) for c in runner_))
     (_,
         expected_suite_perms,
         expected_case_perms,
         expected_perms,
-        total_perms) = find_perms(runner_, test_ids, **args)
+        total_perms) = find_perms(runner_, bench_ids, **args)
     print('found %d suites, %d cases, %d/%d permutations' % (
         len(expected_suite_perms),
         len(expected_case_perms),
@@ -1009,7 +1003,7 @@ def run(runner, test_ids=[], **args):
         total_perms))
     print()
 
-    # truncate and open logs here so they aren't disconnected between tests
+    # truncate and open logs here so they aren't disconnected between benches
     stdout = None
     if args.get('stdout'):
         stdout = openio(args['stdout'], 'w', 1)
@@ -1018,9 +1012,9 @@ def run(runner, test_ids=[], **args):
         trace = openio(args['trace'], 'w', 1)
     output = None
     if args.get('output'):
-        output = TestOutput(args['output'],
+        output = BenchOutput(args['output'],
             ['suite', 'case'],
-            ['test_passed'])
+            ['bench_read', 'bench_prog', 'bench_erased'])
 
     # measure runtime
     start = time.time()
@@ -1028,7 +1022,9 @@ def run(runner, test_ids=[], **args):
     # spawn runners
     expected = 0
     passed = 0
-    powerlosses = 0
+    read = 0
+    prog = 0
+    erased = 0
     failures = []
     for by in (expected_case_perms.keys() if args.get('by_cases')
             else expected_suite_perms.keys() if args.get('by_suites')
@@ -1036,18 +1032,22 @@ def run(runner, test_ids=[], **args):
         # spawn jobs for stage
         (expected_,
             passed_,
-            powerlosses_,
+            read_,
+            prog_,
+            erased_,
             failures_,
             killed) = run_stage(
-                by or 'tests',
+                by or 'benches',
                 runner_,
-                [by] if by is not None else test_ids,
+                [by] if by is not None else bench_ids,
                 output,
                 **args)
         # collect passes/failures
         expected += expected_
         passed += passed_
-        powerlosses += powerlosses_
+        read += read_
+        prog += prog_
+        erased += erased_
         failures.extend(failures_)
         if (failures and not args.get('keep_going')) or killed:
             break
@@ -1064,13 +1064,13 @@ def run(runner, test_ids=[], **args):
     # show summary
     print()
     print('%sdone:%s %s' % (
-        ('\x1b[32m' if not failures else '\x1b[31m')
+        ('\x1b[34m' if not failures else '\x1b[31m')
             if args['color'] else '',
         '\x1b[m' if args['color'] else '',
         ', '.join(filter(None, [
-            '%d/%d passed' % (passed, expected),
-            '%d/%d failed' % (len(failures), expected),
-            '%dpls!' % powerlosses if powerlosses else None,
+            '%d read' % read,
+            '%d prog' % prog,
+            '%d erased' % erased,
             'in %.2fs' % (stop-start)]))))
     print()
 
@@ -1170,8 +1170,7 @@ def main(**args):
             or args.get('list_defines')
             or args.get('list_permutation_defines')
             or args.get('list_implicit_defines')
-            or args.get('list_geometries')
-            or args.get('list_powerlosses')):
+            or args.get('list_geometries')):
         return list_(**args)
     else:
         return run(**args)
@@ -1183,7 +1182,7 @@ if __name__ == "__main__":
     argparse.ArgumentParser._handle_conflict_ignore = lambda *_: None
     argparse._ArgumentGroup._handle_conflict_ignore = lambda *_: None
     parser = argparse.ArgumentParser(
-        description="Build and run tests.",
+        description="Build and run benches.",
         conflict_handler='ignore')
     parser.add_argument(
         '-v', '--verbose',
@@ -1195,137 +1194,129 @@ if __name__ == "__main__":
         default='auto',
         help="When to use terminal colors. Defaults to 'auto'.")
 
-    # test flags
-    test_parser = parser.add_argument_group('test options')
-    test_parser.add_argument(
+    # bench flags
+    bench_parser = parser.add_argument_group('bench options')
+    bench_parser.add_argument(
         'runner',
         nargs='?',
         type=lambda x: x.split(),
-        help="Test runner to use for testing. Defaults to %r." % RUNNER_PATH)
-    test_parser.add_argument(
-        'test_ids',
+        help="Bench runner to use for benching. Defaults to %r." % RUNNER_PATH)
+    bench_parser.add_argument(
+        'bench_ids',
         nargs='*',
-        help="Description of tests to run.")
-    test_parser.add_argument(
+        help="Description of benches to run.")
+    bench_parser.add_argument(
         '-Y', '--summary',
         action='store_true',
         help="Show quick summary.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '-l', '--list-suites',
         action='store_true',
-        help="List test suites.")
-    test_parser.add_argument(
+        help="List bench suites.")
+    bench_parser.add_argument(
         '-L', '--list-cases',
         action='store_true',
-        help="List test cases.")
-    test_parser.add_argument(
+        help="List bench cases.")
+    bench_parser.add_argument(
         '--list-suite-paths',
         action='store_true',
-        help="List the path for each test suite.")
-    test_parser.add_argument(
+        help="List the path for each bench suite.")
+    bench_parser.add_argument(
         '--list-case-paths',
         action='store_true',
-        help="List the path and line number for each test case.")
-    test_parser.add_argument(
+        help="List the path and line number for each bench case.")
+    bench_parser.add_argument(
         '--list-defines',
         action='store_true',
-        help="List all defines in this test-runner.")
-    test_parser.add_argument(
+        help="List all defines in this bench-runner.")
+    bench_parser.add_argument(
         '--list-permutation-defines',
         action='store_true',
-        help="List explicit defines in this test-runner.")
-    test_parser.add_argument(
+        help="List explicit defines in this bench-runner.")
+    bench_parser.add_argument(
         '--list-implicit-defines',
         action='store_true',
-        help="List implicit defines in this test-runner.")
-    test_parser.add_argument(
+        help="List implicit defines in this bench-runner.")
+    bench_parser.add_argument(
         '--list-geometries',
         action='store_true',
         help="List the available disk geometries.")
-    test_parser.add_argument(
-        '--list-powerlosses',
-        action='store_true',
-        help="List the available power-loss scenarios.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '-D', '--define',
         action='append',
-        help="Override a test define.")
-    test_parser.add_argument(
+        help="Override a bench define.")
+    bench_parser.add_argument(
         '-g', '--geometry',
-        help="Comma-separated list of disk geometries to test. "
+        help="Comma-separated list of disk geometries to bench. "
             "Defaults to d,e,E,n,N.")
-    test_parser.add_argument(
-        '-p', '--powerloss',
-        help="Comma-separated list of power-loss scenarios to test. "
-            "Defaults to 0,l.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '-d', '--disk',
         help="Direct block device operations to this file.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '-t', '--trace',
         help="Direct trace output to this file.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '-O', '--stdout',
         help="Direct stdout to this file. Note stderr is already merged here.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '-o', '--output',
         help="CSV file to store results.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '--read-sleep',
         help="Artificial read delay in seconds.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '--prog-sleep',
         help="Artificial prog delay in seconds.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '--erase-sleep',
         help="Artificial erase delay in seconds.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '-j', '--jobs',
         nargs='?',
         type=lambda x: int(x, 0),
         const=len(os.sched_getaffinity(0)),
         help="Number of parallel runners to run.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '-k', '--keep-going',
         action='store_true',
         help="Don't stop on first error.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '-i', '--isolate',
         action='store_true',
-        help="Run each test permutation in a separate process.")
-    test_parser.add_argument(
+        help="Run each bench permutation in a separate process.")
+    bench_parser.add_argument(
         '-b', '--by-suites',
         action='store_true',
-        help="Step through tests by suite.")
-    test_parser.add_argument(
+        help="Step through benches by suite.")
+    bench_parser.add_argument(
         '-B', '--by-cases',
         action='store_true',
-        help="Step through tests by case.")
-    test_parser.add_argument(
+        help="Step through benches by case.")
+    bench_parser.add_argument(
         '--context',
         type=lambda x: int(x, 0),
         default=5,
-        help="Show this many lines of stdout on test failure. "
+        help="Show this many lines of stdout on bench failure. "
             "Defaults to 5.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '--gdb',
         action='store_true',
-        help="Drop into gdb on test failure.")
-    test_parser.add_argument(
+        help="Drop into gdb on bench failure.")
+    bench_parser.add_argument(
         '--gdb-case',
         action='store_true',
-        help="Drop into gdb on test failure but stop at the beginning "
-            "of the failing test case.")
-    test_parser.add_argument(
+        help="Drop into gdb on bench failure but stop at the beginning "
+            "of the failing bench case.")
+    bench_parser.add_argument(
         '--gdb-main',
         action='store_true',
-        help="Drop into gdb on test failure but stop at the beginning "
+        help="Drop into gdb on bench failure but stop at the beginning "
             "of main.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '--exec',
         type=lambda e: e.split(),
         help="Run under another executable.")
-    test_parser.add_argument(
+    bench_parser.add_argument(
         '--valgrind',
         action='store_true',
         help="Run under Valgrind to find memory errors. Implicitly sets "
@@ -1334,29 +1325,29 @@ if __name__ == "__main__":
     # compilation flags
     comp_parser = parser.add_argument_group('compilation options')
     comp_parser.add_argument(
-        'test_paths',
+        'bench_paths',
         nargs='*',
         help="Description of *.toml files to compile. May be a directory "
             "or a list of paths.")
     comp_parser.add_argument(
         '-c', '--compile',
         action='store_true',
-        help="Compile a test suite or source file.")
+        help="Compile a bench suite or source file.")
     comp_parser.add_argument(
         '-s', '--source',
-        help="Source file to compile, possibly injecting internal tests.")
+        help="Source file to compile, possibly injecting internal benches.")
     comp_parser.add_argument(
         '--include',
         default=HEADER_PATH,
-        help="Inject this header file into every compiled test file. "
+        help="Inject this header file into every compiled bench file. "
             "Defaults to %r." % HEADER_PATH)
     comp_parser.add_argument(
         '-o', '--output',
         help="Output file.")
 
-    # runner + test_ids overlaps test_paths, so we need to do some munging here
+    # runner + bench_ids overlaps bench_paths, so we need to do some munging here
     args = parser.parse_intermixed_args()
-    args.test_paths = [' '.join(args.runner or [])] + args.test_ids
+    args.bench_paths = [' '.join(args.runner or [])] + args.bench_ids
     args.runner = args.runner or [RUNNER_PATH]
 
     sys.exit(main(**{k: v

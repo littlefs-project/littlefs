@@ -7,7 +7,8 @@ $(if $(findstring n,$(MAKEFLAGS)),, $(shell mkdir -p \
 	$(BUILDDIR) \
 	$(BUILDDIR)bd \
 	$(BUILDDIR)runners \
-	$(BUILDDIR)tests))
+	$(BUILDDIR)tests \
+	$(BUILDDIR)benches))
 endif
 
 # overridable target/src/tools/flags/etc
@@ -45,6 +46,18 @@ TEST_CI	:= $(TEST_TAC:%.t.a.c=%.t.a.ci)
 TEST_GCNO := $(TEST_TAC:%.t.a.c=%.t.a.gcno)
 TEST_GCDA := $(TEST_TAC:%.t.a.c=%.t.a.gcda)
 
+BENCHES ?= $(wildcard benches/*.toml)
+BENCH_SRC ?= $(SRC) \
+		$(filter-out $(wildcard bd/*.*.c),$(wildcard bd/*.c)) \
+		runners/bench_runner.c
+BENCH_BC := $(BENCHES:%.toml=$(BUILDDIR)%.b.c) $(BENCH_SRC:%.c=$(BUILDDIR)%.b.c)
+BENCH_BAC := $(BENCH_BC:%.b.c=%.b.a.c)
+BENCH_OBJ := $(BENCH_BAC:%.b.a.c=%.b.a.o)
+BENCH_DEP := $(BENCH_BAC:%.b.a.c=%.b.a.d)
+BENCH_CI	:= $(BENCH_BAC:%.b.a.c=%.b.a.ci)
+BENCH_GCNO := $(BENCH_BAC:%.b.a.c=%.b.a.gcno)
+BENCH_GCDA := $(BENCH_BAC:%.b.a.c=%.b.a.gcda)
+
 ifdef DEBUG
 override CFLAGS += -O0
 else
@@ -60,27 +73,31 @@ override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
 override CFLAGS += -ftrack-macro-expansion=0
 
 override TESTFLAGS += -b
+override BENCHFLAGS += -b
 # forward -j flag
 override TESTFLAGS += $(filter -j%,$(MAKEFLAGS))
+override BENCHFLAGS += $(filter -j%,$(MAKEFLAGS))
 ifdef VERBOSE
-override TESTFLAGS     += -v
-override CODEFLAGS     += -v
-override DATAFLAGS     += -v
-override STACKFLAGS    += -v
-override STRUCTFLAGS   += -v
-override COVERAGEFLAGS += -v
-override TESTFLAGS     += -v
-override TESTCFLAGS    += -v
+override CODEFLAGS     	+= -v
+override DATAFLAGS     	+= -v
+override STACKFLAGS    	+= -v
+override STRUCTFLAGS   	+= -v
+override COVERAGEFLAGS 	+= -v
+override TESTFLAGS     	+= -v
+override TESTCFLAGS    	+= -v
+override BENCHFLAGS    	+= -v
+override BENCHCFLAGS  	+= -v
 endif
 ifdef EXEC
-override TESTFLAGS 	   += --exec="$(EXEC)"
+override TESTFLAGS 	   	+= --exec="$(EXEC)"
+override BENCHFLAGS	   	+= --exec="$(EXEC)"
 endif
 ifdef BUILDDIR
-override CODEFLAGS     += --build-dir="$(BUILDDIR:/=)"
-override DATAFLAGS     += --build-dir="$(BUILDDIR:/=)"
-override STACKFLAGS    += --build-dir="$(BUILDDIR:/=)"
-override STRUCTFLAGS   += --build-dir="$(BUILDDIR:/=)"
-override COVERAGEFLAGS += --build-dir="$(BUILDDIR:/=)"
+override CODEFLAGS     	+= --build-dir="$(BUILDDIR:/=)"
+override DATAFLAGS     	+= --build-dir="$(BUILDDIR:/=)"
+override STACKFLAGS    	+= --build-dir="$(BUILDDIR:/=)"
+override STRUCTFLAGS   	+= --build-dir="$(BUILDDIR:/=)"
+override COVERAGEFLAGS	+= --build-dir="$(BUILDDIR:/=)"
 endif
 ifneq ($(NM),nm)
 override CODEFLAGS += --nm-tool="$(NM)"
@@ -118,6 +135,17 @@ test: test-runner
 .PHONY: test-list
 test-list: test-runner
 	./scripts/test.py $(BUILDDIR)runners/test_runner $(TESTFLAGS) -l
+
+.PHONY: bench-runner build-bench
+bench-runner build-bench: $(BUILDDIR)runners/bench_runner
+
+.PHONY: bench
+bench: bench-runner
+	./scripts/bench.py $(BUILDDIR)runners/bench_runner $(BENCHFLAGS)
+
+.PHONY: bench-list
+bench-list: bench-runner
+	./scripts/bench.py $(BUILDDIR)runners/bench_runner $(BENCHFLAGS) -l
 
 .PHONY: code
 code: $(OBJ)
@@ -186,6 +214,9 @@ $(BUILDDIR)lfs.csv: \
 $(BUILDDIR)runners/test_runner: $(TEST_OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
+$(BUILDDIR)runners/bench_runner: $(BENCH_OBJ)
+	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
+
 # our main build rule generates .o, .d, and .ci files, the latter
 # used for stack analysis
 $(BUILDDIR)%.o $(BUILDDIR)%.ci: %.c
@@ -206,6 +237,12 @@ $(BUILDDIR)%.t.c: %.toml
 $(BUILDDIR)%.t.c: %.c $(TESTS)
 	./scripts/test.py -c $(TESTS) -s $< $(TESTCFLAGS) -o $@
 
+$(BUILDDIR)%.b.c: %.toml
+	./scripts/bench.py -c $< $(BENCHCFLAGS) -o $@
+
+$(BUILDDIR)%.b.c: %.c $(BENCHES)
+	./scripts/bench.py -c $(BENCHES) -s $< $(BENCHCFLAGS) -o $@
+
 # clean everything
 .PHONY: clean
 clean:
@@ -219,6 +256,7 @@ clean:
 		$(BUILDDIR)lfs.struct.csv \
 		$(BUILDDIR)lfs.coverage.csv)
 	rm -f $(BUILDDIR)runners/test_runner
+	rm -f $(BUILDDIR)runners/bench_runner
 	rm -f $(OBJ)
 	rm -f $(DEP)
 	rm -f $(ASM)
@@ -230,3 +268,10 @@ clean:
 	rm -f $(TEST_CI)
 	rm -f $(TEST_GCNO)
 	rm -f $(TEST_GCDA)
+	rm -f $(BENCH_BC)
+	rm -f $(BENCH_BAC)
+	rm -f $(BENCH_OBJ)
+	rm -f $(BENCH_DEP)
+	rm -f $(BENCH_CI)
+	rm -f $(BENCH_GCNO)
+	rm -f $(BENCH_GCDA)

@@ -11,11 +11,11 @@ void test_trace(const char *fmt, ...);
         __LINE__, \
         __VA_ARGS__)
 #define LFS_TRACE(...) LFS_TRACE_(__VA_ARGS__, "")
-#define LFS_TESTBD_TRACE(...) LFS_TRACE_(__VA_ARGS__, "")
+#define LFS_EMUBD_TRACE(...) LFS_TRACE_(__VA_ARGS__, "")
 
 
 // note these are indirectly included in any generated files
-#include "bd/lfs_testbd.h"
+#include "bd/lfs_emubd.h"
 #include <stdio.h>
 
 // give source a chance to define feature macros
@@ -62,8 +62,9 @@ struct test_suite {
 
 
 // access generated test defines
-//intmax_t test_predefine(size_t define);
 intmax_t test_define(size_t define);
+
+#define TEST_DEFINE(i) test_define(i)
 
 // a few preconfigured defines that control how tests run
  
@@ -79,33 +80,33 @@ intmax_t test_define(size_t define);
 #define BADBLOCK_BEHAVIOR_i  9
 #define POWERLOSS_BEHAVIOR_i 10
 
-#define READ_SIZE           test_define(READ_SIZE_i)
-#define PROG_SIZE           test_define(PROG_SIZE_i)
-#define BLOCK_SIZE          test_define(BLOCK_SIZE_i)
-#define BLOCK_COUNT         test_define(BLOCK_COUNT_i)
-#define CACHE_SIZE          test_define(CACHE_SIZE_i)
-#define LOOKAHEAD_SIZE      test_define(LOOKAHEAD_SIZE_i)
-#define BLOCK_CYCLES        test_define(BLOCK_CYCLES_i)
-#define ERASE_VALUE         test_define(ERASE_VALUE_i)
-#define ERASE_CYCLES        test_define(ERASE_CYCLES_i)
-#define BADBLOCK_BEHAVIOR   test_define(BADBLOCK_BEHAVIOR_i)
-#define POWERLOSS_BEHAVIOR  test_define(POWERLOSS_BEHAVIOR_i)
+#define READ_SIZE           TEST_DEFINE(READ_SIZE_i)
+#define PROG_SIZE           TEST_DEFINE(PROG_SIZE_i)
+#define BLOCK_SIZE          TEST_DEFINE(BLOCK_SIZE_i)
+#define BLOCK_COUNT         TEST_DEFINE(BLOCK_COUNT_i)
+#define CACHE_SIZE          TEST_DEFINE(CACHE_SIZE_i)
+#define LOOKAHEAD_SIZE      TEST_DEFINE(LOOKAHEAD_SIZE_i)
+#define BLOCK_CYCLES        TEST_DEFINE(BLOCK_CYCLES_i)
+#define ERASE_VALUE         TEST_DEFINE(ERASE_VALUE_i)
+#define ERASE_CYCLES        TEST_DEFINE(ERASE_CYCLES_i)
+#define BADBLOCK_BEHAVIOR   TEST_DEFINE(BADBLOCK_BEHAVIOR_i)
+#define POWERLOSS_BEHAVIOR  TEST_DEFINE(POWERLOSS_BEHAVIOR_i)
 
 #define TEST_IMPLICIT_DEFINES \
-    TEST_DEFINE(READ_SIZE,          PROG_SIZE) \
-    TEST_DEFINE(PROG_SIZE,          BLOCK_SIZE) \
-    TEST_DEFINE(BLOCK_SIZE,         0) \
-    TEST_DEFINE(BLOCK_COUNT,        (1024*1024)/BLOCK_SIZE) \
-    TEST_DEFINE(CACHE_SIZE,         lfs_max(64,lfs_max(READ_SIZE,PROG_SIZE))) \
-    TEST_DEFINE(LOOKAHEAD_SIZE,     16) \
-    TEST_DEFINE(BLOCK_CYCLES,       -1) \
-    TEST_DEFINE(ERASE_VALUE,        0xff) \
-    TEST_DEFINE(ERASE_CYCLES,       0) \
-    TEST_DEFINE(BADBLOCK_BEHAVIOR,  LFS_TESTBD_BADBLOCK_PROGERROR) \
-    TEST_DEFINE(POWERLOSS_BEHAVIOR, LFS_TESTBD_POWERLOSS_NOOP)
+    TEST_DEF(READ_SIZE,          PROG_SIZE) \
+    TEST_DEF(PROG_SIZE,          BLOCK_SIZE) \
+    TEST_DEF(BLOCK_SIZE,         0) \
+    TEST_DEF(BLOCK_COUNT,        (1024*1024)/BLOCK_SIZE) \
+    TEST_DEF(CACHE_SIZE,         lfs_max(64,lfs_max(READ_SIZE,PROG_SIZE))) \
+    TEST_DEF(LOOKAHEAD_SIZE,     16) \
+    TEST_DEF(BLOCK_CYCLES,       -1) \
+    TEST_DEF(ERASE_VALUE,        0xff) \
+    TEST_DEF(ERASE_CYCLES,       0) \
+    TEST_DEF(BADBLOCK_BEHAVIOR,  LFS_EMUBD_BADBLOCK_PROGERROR) \
+    TEST_DEF(POWERLOSS_BEHAVIOR, LFS_EMUBD_POWERLOSS_NOOP)
 
-#define TEST_GEOMETRY_DEFINE_COUNT 4
 #define TEST_IMPLICIT_DEFINE_COUNT 11
+#define TEST_GEOMETRY_DEFINE_COUNT 4
 
 
 #endif

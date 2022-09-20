@@ -28,7 +28,8 @@ MERGES = {
     'add': (
         ['code_size', 'data_size', 'stack_frame', 'struct_size',
             'coverage_lines', 'coverage_branches',
-            'test_passed'],
+            'test_passed',
+            'bench_read', 'bench_prog', 'bench_erased'],
         lambda xs: sum(xs[1:], start=xs[0])
     ),
     'mul': (

@@ -1,5 +1,5 @@
 /*
- * Testing block device, wraps filebd and rambd while providing a bunch
+ * Emulating block device, wraps filebd and rambd while providing a bunch
  * of hooks for testing littlefs in various conditions.
  *
  * Copyright (c) 2022, The littlefs authors.
@@ -11,7 +11,7 @@
 #define _POSIX_C_SOURCE 199309L
 #endif
 
-#include "bd/lfs_testbd.h"
+#include "bd/lfs_emubd.h"
 
 #include <stdlib.h>
 #include <fcntl.h>
@@ -29,14 +29,14 @@
 // Note we can only modify a block if we have exclusive access to it (rc == 1)
 //
 
-static lfs_testbd_block_t *lfs_testbd_incblock(lfs_testbd_block_t *block) {
+static lfs_emubd_block_t *lfs_emubd_incblock(lfs_emubd_block_t *block) {
     if (block) {
         block->rc += 1;
     }
     return block;
 }
 
-static void lfs_testbd_decblock(lfs_testbd_block_t *block) {
+static void lfs_emubd_decblock(lfs_emubd_block_t *block) {
     if (block) {
         block->rc -= 1;
         if (block->rc == 0) {
@@ -45,34 +45,34 @@ static void lfs_testbd_decblock(lfs_testbd_block_t *block) {
     }
 }
 
-static lfs_testbd_block_t *lfs_testbd_mutblock(
+static lfs_emubd_block_t *lfs_emubd_mutblock(
         const struct lfs_config *cfg,
-        lfs_testbd_block_t **block) {
-    lfs_testbd_block_t *block_ = *block;
+        lfs_emubd_block_t **block) {
+    lfs_emubd_block_t *block_ = *block;
     if (block_ && block_->rc == 1) {
         // rc == 1? can modify
         return block_;
 
     } else if (block_) {
         // rc > 1? need to create a copy
-        lfs_testbd_block_t *nblock = malloc(
-                sizeof(lfs_testbd_block_t) + cfg->block_size);
+        lfs_emubd_block_t *nblock = malloc(
+                sizeof(lfs_emubd_block_t) + cfg->block_size);
         if (!nblock) {
             return NULL;
         }
 
         memcpy(nblock, block_,
-                sizeof(lfs_testbd_block_t) + cfg->block_size);
+                sizeof(lfs_emubd_block_t) + cfg->block_size);
         nblock->rc = 1;
 
-        lfs_testbd_decblock(block_);
+        lfs_emubd_decblock(block_);
         *block = nblock;
         return nblock;
 
     } else {
         // no block? need to allocate
-        lfs_testbd_block_t *nblock = malloc(
-                sizeof(lfs_testbd_block_t) + cfg->block_size);
+        lfs_emubd_block_t *nblock = malloc(
+                sizeof(lfs_emubd_block_t) + cfg->block_size);
         if (!nblock) {
             return NULL;
         }
@@ -81,7 +81,7 @@ static lfs_testbd_block_t *lfs_testbd_mutblock(
         nblock->wear = 0;
 
         // zero for consistency
-        lfs_testbd_t *bd = cfg->context;
+        lfs_emubd_t *bd = cfg->context;
         memset(nblock->data,
                 (bd->cfg->erase_value != -1) ? bd->cfg->erase_value : 0,
                 cfg->block_size);
@@ -92,11 +92,11 @@ static lfs_testbd_block_t *lfs_testbd_mutblock(
 }
 
 
-// testbd create/destroy
+// emubd create/destroy
 
-int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
-        const struct lfs_testbd_config *bdcfg) {
-    LFS_TESTBD_TRACE("lfs_testbd_createcfg(%p {.context=%p, "
+int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
+        const struct lfs_emubd_config *bdcfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_createcfg(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
@@ -113,25 +113,28 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
             bdcfg->badblock_behavior, bdcfg->power_cycles,
             bdcfg->powerloss_behavior, (void*)(uintptr_t)bdcfg->powerloss_cb,
             bdcfg->powerloss_data, bdcfg->track_branches);
-    lfs_testbd_t *bd = cfg->context;
+    lfs_emubd_t *bd = cfg->context;
     bd->cfg = bdcfg;
 
     // allocate our block array, all blocks start as uninitialized
-    bd->blocks = malloc(cfg->block_count * sizeof(lfs_testbd_block_t*));
+    bd->blocks = malloc(cfg->block_count * sizeof(lfs_emubd_block_t*));
     if (!bd->blocks) {
-        LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", LFS_ERR_NOMEM);
+        LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
-    memset(bd->blocks, 0, cfg->block_count * sizeof(lfs_testbd_block_t*));
+    memset(bd->blocks, 0, cfg->block_count * sizeof(lfs_emubd_block_t*));
 
     // setup testing things
+    bd->read = 0;
+    bd->prog = 0;
+    bd->erased = 0;
     bd->power_cycles = bd->cfg->power_cycles;
     bd->disk = NULL;
 
     if (bd->cfg->disk_path) {
-        bd->disk = malloc(sizeof(lfs_testbd_disk_t));
+        bd->disk = malloc(sizeof(lfs_emubd_disk_t));
         if (!bd->disk) {
-            LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", LFS_ERR_NOMEM);
+            LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", LFS_ERR_NOMEM);
             return LFS_ERR_NOMEM;
         }
         bd->disk->rc = 1;
@@ -146,7 +149,7 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
         #endif
         if (bd->disk->fd < 0) {
             int err = -errno;
-            LFS_TESTBD_TRACE("lfs_testbd_create -> %d", err);
+            LFS_EMUBD_TRACE("lfs_emubd_create -> %d", err);
             return err;
         }
 
@@ -155,7 +158,7 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
         if (bd->cfg->erase_value != -1) {
             bd->disk->scratch = malloc(cfg->block_size);
             if (!bd->disk->scratch) {
-                LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", LFS_ERR_NOMEM);
+                LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", LFS_ERR_NOMEM);
                 return LFS_ERR_NOMEM;
             }
             memset(bd->disk->scratch,
@@ -164,12 +167,12 @@ int lfs_testbd_createcfg(const struct lfs_config *cfg, const char *path,
         }
     }
 
-    LFS_TESTBD_TRACE("lfs_testbd_createcfg -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", 0);
     return 0;
 }
 
-int lfs_testbd_create(const struct lfs_config *cfg, const char *path) {
-    LFS_TESTBD_TRACE("lfs_testbd_create(%p {.context=%p, "
+int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
+    LFS_EMUBD_TRACE("lfs_emubd_create(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
@@ -179,19 +182,19 @@ int lfs_testbd_create(const struct lfs_config *cfg, const char *path) {
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
             path);
-    static const struct lfs_testbd_config defaults = {.erase_value=-1};
-    int err = lfs_testbd_createcfg(cfg, path, &defaults);
-    LFS_TESTBD_TRACE("lfs_testbd_create -> %d", err);
+    static const struct lfs_emubd_config defaults = {.erase_value=-1};
+    int err = lfs_emubd_createcfg(cfg, path, &defaults);
+    LFS_EMUBD_TRACE("lfs_emubd_create -> %d", err);
     return err;
 }
 
-int lfs_testbd_destroy(const struct lfs_config *cfg) {
-    LFS_TESTBD_TRACE("lfs_testbd_destroy(%p)", (void*)cfg);
-    lfs_testbd_t *bd = cfg->context;
+int lfs_emubd_destroy(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_destroy(%p)", (void*)cfg);
+    lfs_emubd_t *bd = cfg->context;
 
     // decrement reference counts
     for (lfs_block_t i = 0; i < cfg->block_count; i++) {
-        lfs_testbd_decblock(bd->blocks[i]);
+        lfs_emubd_decblock(bd->blocks[i]);
     }
     free(bd->blocks);
 
@@ -205,7 +208,7 @@ int lfs_testbd_destroy(const struct lfs_config *cfg) {
         }
     }
 
-    LFS_TESTBD_TRACE("lfs_testbd_destroy -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_destroy -> %d", 0);
     return 0;
 }
 
@@ -213,12 +216,12 @@ int lfs_testbd_destroy(const struct lfs_config *cfg) {
 
 // block device API
 
-int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
-    LFS_TESTBD_TRACE("lfs_testbd_read(%p, "
+    LFS_EMUBD_TRACE("lfs_emubd_read(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
             (void*)cfg, block, off, buffer, size);
-    lfs_testbd_t *bd = cfg->context;
+    lfs_emubd_t *bd = cfg->context;
 
     // check if read is valid
     LFS_ASSERT(block < cfg->block_count);
@@ -227,12 +230,12 @@ int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
     LFS_ASSERT(off+size <= cfg->block_size);
 
     // get the block
-    const lfs_testbd_block_t *b = bd->blocks[block];
+    const lfs_emubd_block_t *b = bd->blocks[block];
     if (b) {
         // block bad?
         if (bd->cfg->erase_cycles && b->wear >= bd->cfg->erase_cycles &&
-                bd->cfg->badblock_behavior == LFS_TESTBD_BADBLOCK_READERROR) {
-            LFS_TESTBD_TRACE("lfs_testbd_read -> %d", LFS_ERR_CORRUPT);
+                bd->cfg->badblock_behavior == LFS_EMUBD_BADBLOCK_READERROR) {
+            LFS_EMUBD_TRACE("lfs_emubd_read -> %d", LFS_ERR_CORRUPT);
             return LFS_ERR_CORRUPT;
         }
 
@@ -243,8 +246,10 @@ int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
         memset(buffer,
                 (bd->cfg->erase_value != -1) ? bd->cfg->erase_value : 0,
                 size);
-    }
+    }   
 
+    // track reads
+    bd->read += size;
     if (bd->cfg->read_sleep) {
         int err = nanosleep(&(struct timespec){
                 .tv_sec=bd->cfg->read_sleep/1000000000,
@@ -252,21 +257,21 @@ int lfs_testbd_read(const struct lfs_config *cfg, lfs_block_t block,
             NULL);
         if (err) {
             err = -errno;
-            LFS_TESTBD_TRACE("lfs_testbd_read -> %d", err);
+            LFS_EMUBD_TRACE("lfs_emubd_read -> %d", err);
             return err;
         }
     }
 
-    LFS_TESTBD_TRACE("lfs_testbd_read -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_read -> %d", 0);
     return 0;
 }
 
-int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
+int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
-    LFS_TESTBD_TRACE("lfs_testbd_prog(%p, "
+    LFS_EMUBD_TRACE("lfs_emubd_prog(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
             (void*)cfg, block, off, buffer, size);
-    lfs_testbd_t *bd = cfg->context;
+    lfs_emubd_t *bd = cfg->context;
 
     // check if write is valid
     LFS_ASSERT(block < cfg->block_count);
@@ -275,23 +280,23 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
     LFS_ASSERT(off+size <= cfg->block_size);
 
     // get the block
-    lfs_testbd_block_t *b = lfs_testbd_mutblock(cfg, &bd->blocks[block]);
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
     if (!b) {
-        LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", LFS_ERR_NOMEM);
+        LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
 
     // block bad?
     if (bd->cfg->erase_cycles && b->wear >= bd->cfg->erase_cycles) {
         if (bd->cfg->badblock_behavior ==
-                LFS_TESTBD_BADBLOCK_PROGERROR) {
-            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", LFS_ERR_CORRUPT);
+                LFS_EMUBD_BADBLOCK_PROGERROR) {
+            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_CORRUPT);
             return LFS_ERR_CORRUPT;
         } else if (bd->cfg->badblock_behavior ==
-                LFS_TESTBD_BADBLOCK_PROGNOOP ||
+                LFS_EMUBD_BADBLOCK_PROGNOOP ||
                 bd->cfg->badblock_behavior ==
-                LFS_TESTBD_BADBLOCK_ERASENOOP) {
-            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", 0);
+                LFS_EMUBD_BADBLOCK_ERASENOOP) {
+            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", 0);
             return 0;
         }
     }
@@ -313,18 +318,20 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
                 SEEK_SET);
         if (res1 < 0) {
             int err = -errno;
-            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
+            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
             return err;
         }
 
         ssize_t res2 = write(bd->disk->fd, buffer, size);
         if (res2 < 0) {
             int err = -errno;
-            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
+            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
             return err;
         }
     }
 
+    // track progs
+    bd->prog += size;
     if (bd->cfg->prog_sleep) {
         int err = nanosleep(&(struct timespec){
                 .tv_sec=bd->cfg->prog_sleep/1000000000,
@@ -332,7 +339,7 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
             NULL);
         if (err) {
             err = -errno;
-            LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", err);
+            LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", err);
             return err;
         }
     }
@@ -346,21 +353,21 @@ int lfs_testbd_prog(const struct lfs_config *cfg, lfs_block_t block,
         }
     }
 
-    LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", 0);
     return 0;
 }
 
-int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    LFS_TESTBD_TRACE("lfs_testbd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
-    lfs_testbd_t *bd = cfg->context;
+int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
+    LFS_EMUBD_TRACE("lfs_emubd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
+    lfs_emubd_t *bd = cfg->context;
 
     // check if erase is valid
     LFS_ASSERT(block < cfg->block_count);
 
     // get the block
-    lfs_testbd_block_t *b = lfs_testbd_mutblock(cfg, &bd->blocks[block]);
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
     if (!b) {
-        LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", LFS_ERR_NOMEM);
+        LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
 
@@ -368,12 +375,12 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     if (bd->cfg->erase_cycles) {
         if (b->wear >= bd->cfg->erase_cycles) {
             if (bd->cfg->badblock_behavior ==
-                    LFS_TESTBD_BADBLOCK_ERASEERROR) {
-                LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", LFS_ERR_CORRUPT);
+                    LFS_EMUBD_BADBLOCK_ERASEERROR) {
+                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", LFS_ERR_CORRUPT);
                 return LFS_ERR_CORRUPT;
             } else if (bd->cfg->badblock_behavior ==
-                    LFS_TESTBD_BADBLOCK_ERASENOOP) {
-                LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", 0);
+                    LFS_EMUBD_BADBLOCK_ERASENOOP) {
+                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", 0);
                 return 0;
             }
         } else {
@@ -393,7 +400,7 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                     SEEK_SET);
             if (res1 < 0) {
                 int err = -errno;
-                LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
+                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
                 return err;
             }
 
@@ -402,12 +409,14 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
                     cfg->block_size);
             if (res2 < 0) {
                 int err = -errno;
-                LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
+                LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
                 return err;
             }
         }
     }
 
+    // track erases
+    bd->erased += cfg->block_size;
     if (bd->cfg->erase_sleep) {
         int err = nanosleep(&(struct timespec){
                 .tv_sec=bd->cfg->erase_sleep/1000000000,
@@ -415,7 +424,7 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
             NULL);
         if (err) {
             err = -errno;
-            LFS_TESTBD_TRACE("lfs_testbd_erase -> %d", err);
+            LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
             return err;
         }
     }
@@ -429,98 +438,142 @@ int lfs_testbd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         }
     }
 
-    LFS_TESTBD_TRACE("lfs_testbd_prog -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", 0);
     return 0;
 }
 
-int lfs_testbd_sync(const struct lfs_config *cfg) {
-    LFS_TESTBD_TRACE("lfs_testbd_sync(%p)", (void*)cfg);
+int lfs_emubd_sync(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_sync(%p)", (void*)cfg);
 
     // do nothing
     (void)cfg;
 
-    LFS_TESTBD_TRACE("lfs_testbd_sync -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_sync -> %d", 0);
     return 0;
 }
 
+/// Additional extended API for driving test features ///
 
-// simulated wear operations
+lfs_emubd_sio_t lfs_emubd_getread(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_getread(%p)", (void*)cfg);
+    lfs_emubd_t *bd = cfg->context;
+    LFS_EMUBD_TRACE("lfs_emubd_getread -> %"PRIu64, bd->read);
+    return bd->read;
+}
 
-lfs_testbd_swear_t lfs_testbd_getwear(const struct lfs_config *cfg,
+lfs_emubd_sio_t lfs_emubd_getprog(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_getprog(%p)", (void*)cfg);
+    lfs_emubd_t *bd = cfg->context;
+    LFS_EMUBD_TRACE("lfs_emubd_getprog -> %"PRIu64, bd->prog);
+    return bd->prog;
+}
+
+lfs_emubd_sio_t lfs_emubd_geterased(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_geterased(%p)", (void*)cfg);
+    lfs_emubd_t *bd = cfg->context;
+    LFS_EMUBD_TRACE("lfs_emubd_geterased -> %"PRIu64, bd->erased);
+    return bd->erased;
+}
+
+int lfs_emubd_setread(const struct lfs_config *cfg, lfs_emubd_io_t read) {
+    LFS_EMUBD_TRACE("lfs_emubd_setread(%p, %"PRIu64")", (void*)cfg, read);
+    lfs_emubd_t *bd = cfg->context;
+    bd->read = read;
+    LFS_EMUBD_TRACE("lfs_emubd_setread -> %d", 0);
+    return 0;
+}
+
+int lfs_emubd_setprog(const struct lfs_config *cfg, lfs_emubd_io_t prog) {
+    LFS_EMUBD_TRACE("lfs_emubd_setprog(%p, %"PRIu64")", (void*)cfg, prog);
+    lfs_emubd_t *bd = cfg->context;
+    bd->prog = prog;
+    LFS_EMUBD_TRACE("lfs_emubd_setprog -> %d", 0);
+    return 0;
+}
+
+int lfs_emubd_seterased(const struct lfs_config *cfg, lfs_emubd_io_t erased) {
+    LFS_EMUBD_TRACE("lfs_emubd_seterased(%p, %"PRIu64")", (void*)cfg, erased);
+    lfs_emubd_t *bd = cfg->context;
+    bd->erased = erased;
+    LFS_EMUBD_TRACE("lfs_emubd_seterased -> %d", 0);
+    return 0;
+}
+
+lfs_emubd_swear_t lfs_emubd_getwear(const struct lfs_config *cfg,
         lfs_block_t block) {
-    LFS_TESTBD_TRACE("lfs_testbd_getwear(%p, %"PRIu32")", (void*)cfg, block);
-    lfs_testbd_t *bd = cfg->context;
+    LFS_EMUBD_TRACE("lfs_emubd_getwear(%p, %"PRIu32")", (void*)cfg, block);
+    lfs_emubd_t *bd = cfg->context;
 
     // check if block is valid
     LFS_ASSERT(block < cfg->block_count);
 
     // get the wear
-    lfs_testbd_wear_t wear;
-    const lfs_testbd_block_t *b = bd->blocks[block];
+    lfs_emubd_wear_t wear;
+    const lfs_emubd_block_t *b = bd->blocks[block];
     if (b) {
         wear = b->wear;
     } else {
         wear = 0;
     }
 
-    LFS_TESTBD_TRACE("lfs_testbd_getwear -> %"PRIu32, wear);
+    LFS_EMUBD_TRACE("lfs_emubd_getwear -> %"PRIu32, wear);
     return wear;
 }
 
-int lfs_testbd_setwear(const struct lfs_config *cfg,
-        lfs_block_t block, lfs_testbd_wear_t wear) {
-    LFS_TESTBD_TRACE("lfs_testbd_setwear(%p, %"PRIu32")", (void*)cfg, block);
-    lfs_testbd_t *bd = cfg->context;
+int lfs_emubd_setwear(const struct lfs_config *cfg,
+        lfs_block_t block, lfs_emubd_wear_t wear) {
+    LFS_EMUBD_TRACE("lfs_emubd_setwear(%p, %"PRIu32")", (void*)cfg, block);
+    lfs_emubd_t *bd = cfg->context;
 
     // check if block is valid
     LFS_ASSERT(block < cfg->block_count);
 
     // set the wear
-    lfs_testbd_block_t *b = lfs_testbd_mutblock(cfg, &bd->blocks[block]);
+    lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
     if (!b) {
-        LFS_TESTBD_TRACE("lfs_testbd_setwear -> %"PRIu32, LFS_ERR_NOMEM);
+        LFS_EMUBD_TRACE("lfs_emubd_setwear -> %"PRIu32, LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
     b->wear = wear;
 
-    LFS_TESTBD_TRACE("lfs_testbd_setwear -> %"PRIu32, 0);
+    LFS_EMUBD_TRACE("lfs_emubd_setwear -> %"PRIu32, 0);
     return 0;
 }
 
-lfs_testbd_spowercycles_t lfs_testbd_getpowercycles(
+lfs_emubd_spowercycles_t lfs_emubd_getpowercycles(
         const struct lfs_config *cfg) {
-    LFS_TESTBD_TRACE("lfs_testbd_getpowercycles(%p)", (void*)cfg);
-    lfs_testbd_t *bd = cfg->context;
+    LFS_EMUBD_TRACE("lfs_emubd_getpowercycles(%p)", (void*)cfg);
+    lfs_emubd_t *bd = cfg->context;
 
-    LFS_TESTBD_TRACE("lfs_testbd_getpowercycles -> %"PRIi32, bd->power_cycles);
+    LFS_EMUBD_TRACE("lfs_emubd_getpowercycles -> %"PRIi32, bd->power_cycles);
     return bd->power_cycles;
 }
 
-int lfs_testbd_setpowercycles(const struct lfs_config *cfg,
-        lfs_testbd_powercycles_t power_cycles) {
-    LFS_TESTBD_TRACE("lfs_testbd_setpowercycles(%p, %"PRIi32")",
+int lfs_emubd_setpowercycles(const struct lfs_config *cfg,
+        lfs_emubd_powercycles_t power_cycles) {
+    LFS_EMUBD_TRACE("lfs_emubd_setpowercycles(%p, %"PRIi32")",
             (void*)cfg, power_cycles);
-    lfs_testbd_t *bd = cfg->context;
+    lfs_emubd_t *bd = cfg->context;
 
     bd->power_cycles = power_cycles;
 
-    LFS_TESTBD_TRACE("lfs_testbd_getpowercycles -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_getpowercycles -> %d", 0);
     return 0;
 }
 
-int lfs_testbd_copy(const struct lfs_config *cfg, lfs_testbd_t *copy) {
-    LFS_TESTBD_TRACE("lfs_testbd_copy(%p, %p)", (void*)cfg, (void*)copy);
-    lfs_testbd_t *bd = cfg->context;
+int lfs_emubd_copy(const struct lfs_config *cfg, lfs_emubd_t *copy) {
+    LFS_EMUBD_TRACE("lfs_emubd_copy(%p, %p)", (void*)cfg, (void*)copy);
+    lfs_emubd_t *bd = cfg->context;
 
     // lazily copy over our block array
-    copy->blocks = malloc(cfg->block_count * sizeof(lfs_testbd_block_t*));
+    copy->blocks = malloc(cfg->block_count * sizeof(lfs_emubd_block_t*));
     if (!copy->blocks) {
-        LFS_TESTBD_TRACE("lfs_testbd_copy -> %d", LFS_ERR_NOMEM);
+        LFS_EMUBD_TRACE("lfs_emubd_copy -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
 
     for (size_t i = 0; i < cfg->block_count; i++) {
-        copy->blocks[i] = lfs_testbd_incblock(bd->blocks[i]);
+        copy->blocks[i] = lfs_emubd_incblock(bd->blocks[i]);
     }
 
     // other state
@@ -531,7 +584,7 @@ int lfs_testbd_copy(const struct lfs_config *cfg, lfs_testbd_t *copy) {
     }
     copy->cfg = bd->cfg;
 
-    LFS_TESTBD_TRACE("lfs_testbd_copy -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_copy -> %d", 0);
     return 0;
 }
 

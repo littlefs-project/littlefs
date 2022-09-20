@@ -4,11 +4,11 @@ defines.ERASE_CYCLES = 10
 defines.BLOCK_COUNT = 256 # small bd so test runs faster
 defines.BLOCK_CYCLES = 'ERASE_CYCLES / 2'
 defines.BADBLOCK_BEHAVIOR = [
-    'LFS_TESTBD_BADBLOCK_PROGERROR',
-    'LFS_TESTBD_BADBLOCK_ERASEERROR',
-    'LFS_TESTBD_BADBLOCK_READERROR',
-    'LFS_TESTBD_BADBLOCK_PROGNOOP',
-    'LFS_TESTBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 defines.FILES = 10
 code = '''
@@ -97,11 +97,11 @@ defines.ERASE_CYCLES = 10
 defines.BLOCK_COUNT = 256 # small bd so test runs faster
 defines.BLOCK_CYCLES = 'ERASE_CYCLES / 2'
 defines.BADBLOCK_BEHAVIOR = [
-    'LFS_TESTBD_BADBLOCK_PROGERROR',
-    'LFS_TESTBD_BADBLOCK_ERASEERROR',
-    'LFS_TESTBD_BADBLOCK_READERROR',
-    'LFS_TESTBD_BADBLOCK_PROGNOOP',
-    'LFS_TESTBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 defines.FILES = 10
 code = '''
@@ -197,7 +197,7 @@ code = '''
 
     for (int run = 0; run < 2; run++) {
         for (lfs_block_t b = 0; b < BLOCK_COUNT; b++) {
-            lfs_testbd_setwear(cfg, b,
+            lfs_emubd_setwear(cfg, b,
                     (b < run_block_count[run]) ? 0 : ERASE_CYCLES) => 0;
         }
 
@@ -297,7 +297,7 @@ code = '''
 
     for (int run = 0; run < 2; run++) {
         for (lfs_block_t b = 0; b < BLOCK_COUNT; b++) {
-            lfs_testbd_setwear(cfg, b,
+            lfs_emubd_setwear(cfg, b,
                     (b < run_block_count[run]) ? 0 : ERASE_CYCLES) => 0;
         }
 
@@ -469,12 +469,12 @@ exhausted:
     LFS_WARN("completed %d cycles", cycle);
 
     // check the wear on our block device
-    lfs_testbd_wear_t minwear = -1;
-    lfs_testbd_wear_t totalwear = 0;
-    lfs_testbd_wear_t maxwear = 0;
+    lfs_emubd_wear_t minwear = -1;
+    lfs_emubd_wear_t totalwear = 0;
+    lfs_emubd_wear_t maxwear = 0;
     // skip 0 and 1 as superblock movement is intentionally avoided
     for (lfs_block_t b = 2; b < BLOCK_COUNT; b++) {
-        lfs_testbd_wear_t wear = lfs_testbd_getwear(cfg, b);
+        lfs_emubd_wear_t wear = lfs_emubd_getwear(cfg, b);
         printf("%08x: wear %d\n", b, wear);
         assert(wear >= 0);
         if (wear < minwear) {
@@ -485,17 +485,17 @@ exhausted:
         }
         totalwear += wear;
     }
-    lfs_testbd_wear_t avgwear = totalwear / BLOCK_COUNT;
+    lfs_emubd_wear_t avgwear = totalwear / BLOCK_COUNT;
     LFS_WARN("max wear: %d cycles", maxwear);
     LFS_WARN("avg wear: %d cycles", totalwear / (int)BLOCK_COUNT);
     LFS_WARN("min wear: %d cycles", minwear);
 
     // find standard deviation^2
-    lfs_testbd_wear_t dev2 = 0;
+    lfs_emubd_wear_t dev2 = 0;
     for (lfs_block_t b = 2; b < BLOCK_COUNT; b++) {
-        lfs_testbd_wear_t wear = lfs_testbd_getwear(cfg, b);
+        lfs_emubd_wear_t wear = lfs_emubd_getwear(cfg, b);
         assert(wear >= 0);
-        lfs_testbd_swear_t diff = wear - avgwear;
+        lfs_emubd_swear_t diff = wear - avgwear;
         dev2 += diff*diff;
     }
     dev2 /= totalwear;

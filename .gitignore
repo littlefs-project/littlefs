@@ -5,6 +5,7 @@
 *.ci
 *.csv
 *.t.c
+*.b.c
 *.a.c
 *.gcno
 *.gcda
@@ -17,3 +18,4 @@ tests/*.toml.*
 scripts/__pycache__
 .gdb_history
 runners/test_runner
+runners/bench_runner

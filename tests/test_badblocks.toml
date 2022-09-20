@@ -6,18 +6,18 @@ defines.BLOCK_COUNT = 256 # small bd so test runs faster
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
 defines.BADBLOCK_BEHAVIOR = [
-    'LFS_TESTBD_BADBLOCK_PROGERROR',
-    'LFS_TESTBD_BADBLOCK_ERASEERROR',
-    'LFS_TESTBD_BADBLOCK_READERROR',
-    'LFS_TESTBD_BADBLOCK_PROGNOOP',
-    'LFS_TESTBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 defines.NAMEMULT = 64
 defines.FILEMULT = 1
 code = '''
     for (lfs_block_t badblock = 2; badblock < BLOCK_COUNT; badblock++) {
-        lfs_testbd_setwear(cfg, badblock-1, 0) => 0;
-        lfs_testbd_setwear(cfg, badblock, 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, badblock-1, 0) => 0;
+        lfs_emubd_setwear(cfg, badblock, 0xffffffff) => 0;
 
         lfs_t lfs;
         lfs_format(&lfs, cfg) => 0;
@@ -86,17 +86,17 @@ defines.BLOCK_COUNT = 256 # small bd so test runs faster
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
 defines.BADBLOCK_BEHAVIOR = [
-    'LFS_TESTBD_BADBLOCK_PROGERROR',
-    'LFS_TESTBD_BADBLOCK_ERASEERROR',
-    'LFS_TESTBD_BADBLOCK_READERROR',
-    'LFS_TESTBD_BADBLOCK_PROGNOOP',
-    'LFS_TESTBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 defines.NAMEMULT = 64
 defines.FILEMULT = 1
 code = '''
     for (lfs_block_t i = 0; i < (BLOCK_COUNT-2)/2; i++) {
-        lfs_testbd_setwear(cfg, i+2, 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, i+2, 0xffffffff) => 0;
     }
 
     lfs_t lfs;
@@ -165,17 +165,17 @@ defines.BLOCK_COUNT = 256 # small bd so test runs faster
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
 defines.BADBLOCK_BEHAVIOR = [
-    'LFS_TESTBD_BADBLOCK_PROGERROR',
-    'LFS_TESTBD_BADBLOCK_ERASEERROR',
-    'LFS_TESTBD_BADBLOCK_READERROR',
-    'LFS_TESTBD_BADBLOCK_PROGNOOP',
-    'LFS_TESTBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 defines.NAMEMULT = 64
 defines.FILEMULT = 1
 code = '''
     for (lfs_block_t i = 0; i < (BLOCK_COUNT-2)/2; i++) {
-        lfs_testbd_setwear(cfg, (2*i) + 2, 0xffffffff) => 0;
+        lfs_emubd_setwear(cfg, (2*i) + 2, 0xffffffff) => 0;
     }
 
     lfs_t lfs;
@@ -244,15 +244,15 @@ code = '''
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
 defines.BADBLOCK_BEHAVIOR = [
-    'LFS_TESTBD_BADBLOCK_PROGERROR',
-    'LFS_TESTBD_BADBLOCK_ERASEERROR',
-    'LFS_TESTBD_BADBLOCK_READERROR',
-    'LFS_TESTBD_BADBLOCK_PROGNOOP',
-    'LFS_TESTBD_BADBLOCK_ERASENOOP',
+    'LFS_EMUBD_BADBLOCK_PROGERROR',
+    'LFS_EMUBD_BADBLOCK_ERASEERROR',
+    'LFS_EMUBD_BADBLOCK_READERROR',
+    'LFS_EMUBD_BADBLOCK_PROGNOOP',
+    'LFS_EMUBD_BADBLOCK_ERASENOOP',
 ]
 code = '''
-    lfs_testbd_setwear(cfg, 0, 0xffffffff) => 0;
-    lfs_testbd_setwear(cfg, 1, 0xffffffff) => 0;
+    lfs_emubd_setwear(cfg, 0, 0xffffffff) => 0;
+    lfs_emubd_setwear(cfg, 1, 0xffffffff) => 0;
 
     lfs_t lfs;
     lfs_format(&lfs, cfg) => LFS_ERR_NOSPC;
