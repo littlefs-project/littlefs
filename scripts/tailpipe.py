@@ -104,12 +104,12 @@ if __name__ == "__main__":
         '-n',
         '--lines',
         type=lambda x: int(x, 0),
-        help="Number of lines to show, defaults to 1.")
+        help="Number of lines to show. Defaults to 1.")
     parser.add_argument(
         '-s',
         '--sleep',
         type=float,
-        help="Seconds to sleep between reads, defaults to 0.01.")
+        help="Seconds to sleep between reads. Defaults to 0.01.")
     parser.add_argument(
         '-k',
         '--keep-open',

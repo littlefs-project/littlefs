@@ -11,6 +11,7 @@
 
 import collections as co
 import functools as ft
+import io
 import itertools as it
 import math as m
 import os
@@ -424,7 +425,7 @@ def main(path='-', *,
                 '\s*(?P<erase_block>\w+)\s*' '\)'
             '|' '(?P<sync>sync)\('
                 '\s*(?P<sync_ctx>\w+)\s*' '\)' ')')
-    def parse_line(line):
+    def parse(line):
         # string searching is actually much faster than
         # the regex here
         if 'trace' not in line or 'bd' not in line:
@@ -508,7 +509,7 @@ def main(path='-', *,
 
     # print a pretty line of trace output
     history = []
-    def push_line():
+    def push():
         # create copy to avoid corrupt output
         with lock:
             resmoosh()
@@ -564,29 +565,42 @@ def main(path='-', *,
             history.append(line)
             del history[:-lines]
 
-    last_rows = 1
-    def print_line():
-        nonlocal last_rows
-        if not lines:
-            return
+    def draw(f):
+        def writeln(s=''):
+            f.write(s)
+            f.write('\n')
+        f.writeln = writeln
+
+        for line in it.chain.from_iterable(history):
+            f.writeln(line)
+
+    last_lines = 1
+    def redraw():
+        nonlocal last_lines
+
+        canvas = io.StringIO()
+        draw(canvas)
+        canvas = canvas.getvalue().splitlines()
 
         # give ourself a canvas
-        while last_rows < len(history)*height:
+        while last_lines < len(canvas):
             sys.stdout.write('\n')
-            last_rows += 1
+            last_lines += 1
 
-        for i, row in enumerate(it.chain.from_iterable(history)):
-            jump = len(history)*height-1-i
+        for i, line in enumerate(canvas):
+            jump = len(canvas)-1-i
             # move cursor, clear line, disable/reenable line wrapping
             sys.stdout.write('\r')
             if jump > 0:
                 sys.stdout.write('\x1b[%dA' % jump)
             sys.stdout.write('\x1b[K')
             sys.stdout.write('\x1b[?7l')
-            sys.stdout.write(row)
+            sys.stdout.write(line)
             sys.stdout.write('\x1b[?7h')
             if jump > 0:
                 sys.stdout.write('\x1b[%dB' % jump)
+
+        sys.stdout.flush()
 
 
     if sleep is None or (coalesce and not lines):
@@ -596,11 +610,11 @@ def main(path='-', *,
                 with openio(path) as f:
                     changes = 0
                     for line in f:
-                        change = parse_line(line)
+                        change = parse(line)
                         changes += change
                         if change and changes % (coalesce or 1) == 0:
-                            push_line()
-                            print_line()
+                            push()
+                            redraw()
                             # sleep between coalesced lines?
                             if sleep is not None:
                                 time.sleep(sleep)
@@ -612,17 +626,17 @@ def main(path='-', *,
             pass
     else:
         # read/parse in a background thread
-        def parse():
+        def background_parse():
             nonlocal done
             while True:
                 with openio(path) as f:
                     changes = 0
                     for line in f:
-                        change = parse_line(line)
+                        change = parse(line)
                         changes += change
                         if change and changes % (coalesce or 1) == 0:
                             if coalesce:
-                                push_line()
+                                push()
                             event.set()
                 if not keep_open:
                     break
@@ -630,7 +644,7 @@ def main(path='-', *,
                 time.sleep(sleep or 0.1)
             done = True
 
-        th.Thread(target=parse, daemon=True).start()
+        th.Thread(target=background_parse, daemon=True).start()
 
         try:
             while not done:
@@ -638,8 +652,8 @@ def main(path='-', *,
                 event.wait()
                 event.clear()
                 if not coalesce:
-                    push_line()
-                print_line()
+                    push()
+                redraw()
         except KeyboardInterrupt:
             pass
 
@@ -658,23 +672,19 @@ if __name__ == "__main__":
         nargs='?',
         help="Path to read from.")
     parser.add_argument(
-        '-r',
-        '--read',
+        '-r', '--read',
         action='store_true',
         help="Render reads.")
     parser.add_argument(
-        '-p',
-        '--prog',
+        '-p', '--prog',
         action='store_true',
         help="Render progs.")
     parser.add_argument(
-        '-e',
-        '--erase',
+        '-e', '--erase',
         action='store_true',
         help="Render erases.")
     parser.add_argument(
-        '-w',
-        '--wear',
+        '-w', '--wear',
         action='store_true',
         help="Render wear.")
     parser.add_argument(
@@ -692,18 +702,15 @@ if __name__ == "__main__":
         default='auto',
         help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
-        '-b',
-        '--block',
+        '-b', '--block',
         type=lambda x: tuple(int(x,0) if x else None for x in x.split(',',1)),
         help="Show a specific block or range of blocks.")
     parser.add_argument(
-        '-i',
-        '--off',
+        '-i', '--off',
         type=lambda x: tuple(int(x,0) if x else None for x in x.split(',',1)),
         help="Show a specific offset or range of offsets.")
     parser.add_argument(
-        '-B',
-        '--block-size',
+        '-B', '--block-size',
         type=lambda x: int(x, 0),
         help="Assume a specific block size.")
     parser.add_argument(
@@ -711,60 +718,49 @@ if __name__ == "__main__":
         type=lambda x: int(x, 0),
         help="Assume a specific block count.")
     parser.add_argument(
-        '-C',
-        '--block-cycles',
+        '-C', '--block-cycles',
         type=lambda x: int(x, 0),
         help="Assumed maximum number of erase cycles when measuring wear.")
     parser.add_argument(
-        '-R',
-        '--reset',
+        '-R', '--reset',
         action='store_true',
         help="Reset wear on block device initialization.")
     parser.add_argument(
-        '-W',
-        '--width',
+        '-W', '--width',
         type=lambda x: int(x, 0),
         help="Width in columns. A width of 0 indicates no limit. Defaults "
             "to terminal width or 80.")
     parser.add_argument(
-        '-H',
-        '--height',
+        '-H', '--height',
         type=lambda x: int(x, 0),
         help="Height in rows. Defaults to 1.")
     parser.add_argument(
-        '-x',
-        '--scale',
+        '-x', '--scale',
         type=float,
         help="Number of characters per block, ignores --width if set.")
     parser.add_argument(
-        '-n',
-        '--lines',
+        '-n', '--lines',
         type=lambda x: int(x, 0),
         help="Number of lines to show.")
     parser.add_argument(
-        '-c',
-        '--coalesce',
+        '-c', '--coalesce',
         type=lambda x: int(x, 0),
         help="Number of operations to coalesce together.")
     parser.add_argument(
-        '-s',
-        '--sleep',
+        '-s', '--sleep',
         type=float,
         help="Time in seconds to sleep between reads, while coalescing "
             "operations.")
     parser.add_argument(
-        '-I',
-        '--hilbert',
+        '-I', '--hilbert',
         action='store_true',
         help="Render as a space-filling Hilbert curve.")
     parser.add_argument(
-        '-Z',
-        '--lebesgue',
+        '-Z', '--lebesgue',
         action='store_true',
         help="Render as a space-filling Z-curve.")
     parser.add_argument(
-        '-k',
-        '--keep-open',
+        '-k', '--keep-open',
         action='store_true',
         help="Reopen the pipe on EOF, useful when multiple "
             "processes are writing.")

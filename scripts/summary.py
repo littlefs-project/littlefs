@@ -607,7 +607,7 @@ def main(csv_paths, *, fields=None, by=None, **args):
     for path in paths:
         try:
             with openio(path) as f:
-                reader = csv.DictReader(f)
+                reader = csv.DictReader(f, restval='')
                 for r in reader:
                     results.append(r)
         except FileNotFoundError:
@@ -634,7 +634,7 @@ def main(csv_paths, *, fields=None, by=None, **args):
         diff_results = []
         try:
             with openio(args['diff']) as f:
-                reader = csv.DictReader(f)
+                reader = csv.DictReader(f, restval='')
                 for r in reader:
                     diff_results.append(r)
         except FileNotFoundError:
@@ -693,12 +693,12 @@ if __name__ == "__main__":
         '-f', '--fields',
         type=lambda x: [x.strip() for x in x.split(',')],
         help="Only show these fields. Can rename fields "
-            "with old_name=new_name.")
+            "with new_name=old_name.")
     parser.add_argument(
         '-b', '--by',
         type=lambda x: [x.strip() for x in x.split(',')],
         help="Group by these fields. Can rename fields "
-            "with old_name=new_name.")
+            "with new_name=old_name.")
     parser.add_argument(
         '--add',
         type=lambda x: [x.strip() for x in x.split(',')],
