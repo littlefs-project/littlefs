@@ -170,10 +170,11 @@ coverage: $(GCDA)
 .PHONY: summary sizes
 summary sizes: $(BUILDDIR)lfs.csv
 	$(strip ./scripts/summary.py -Y $^ \
-		-f code=code_size,$\
+		-fcode=code_size,$\
 			data=data_size,$\
 			stack=stack_limit,$\
 			struct=struct_size \
+		--max=stack \
 		$(SUMMARYFLAGS))
 
 

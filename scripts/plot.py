@@ -330,12 +330,13 @@ def collect(csv_paths, renames=[]):
 
     return results
 
-def dataset(results, x=None, y=None, defines={}):
+def dataset(results, x=None, y=None, define=[]):
     # organize by 'by', x, and y
     dataset = {}
-    for i, r in enumerate(results):
+    i = 0
+    for r in results:
         # filter results by matching defines
-        if not all(k in r and r[k] in vs for k, vs in defines.items()):
+        if not all(k in r and r[k] in vs for k, vs in define):
             continue
 
         # find xs
@@ -348,6 +349,7 @@ def dataset(results, x=None, y=None, defines={}):
                 continue
         else:
             x_ = i
+            i += 1
 
         # find ys
         if y is not None:
@@ -368,13 +370,28 @@ def dataset(results, x=None, y=None, defines={}):
 
     return dataset
 
-def datasets(results, by=None, x=None, y=None, defines={}):
+def datasets(results, by=None, x=None, y=None, define=[]):
     # filter results by matching defines
     results_ = []
     for r in results:
-        if all(k in r and r[k] in vs for k, vs in defines.items()):
+        if all(k in r and r[k] in vs for k, vs in define):
             results_.append(r)
     results = results_
+
+    # if y not specified, try to guess from data
+    if y is None:
+        y = co.OrderedDict()
+        for r in results:
+            for k, v in r.items():
+                if by is not None and k in by:
+                    continue
+                if y.get(k, True):
+                    try:
+                        dat(v)
+                        y[k] = True
+                    except ValueError:
+                        y[k] = False
+        y = list(k for k,v in y.items() if v)
 
     if by is not None:
         # find all 'by' values
@@ -387,13 +404,17 @@ def datasets(results, by=None, x=None, y=None, defines={}):
     datasets = co.OrderedDict()
     for ks_ in (ks if by is not None else [()]):
         for x_ in (x if x is not None else [None]):
-            for y_ in (y if y is not None else [None]):
-                datasets[ks_ + (x_, y_)] = dataset(
+            for y_ in y:
+                # hide x/y if there is only one field
+                k_x = x_ if len(x or []) > 1 else ''
+                k_y = y_ if len(y or []) > 1 else ''
+
+                datasets[ks_ + (k_x, k_y)] = dataset(
                     results,
                     x_,
                     y_,
-                    {by_: {k_} for by_, k_ in zip(by, ks_)}
-                        if by is not None else {})
+                    [(by_, k_) for by_, k_ in zip(by, ks_)]
+                        if by is not None else [])
 
     return datasets
     
@@ -431,7 +452,7 @@ def main(csv_paths, *,
     if ylim is not None and len(ylim) == 1:
         ylim = (0, ylim[0])
 
-    # seperate out renames
+    # separate out renames
     renames = [k.split('=', 1)
         for k in it.chain(by or [], x or [], y or [])
         if '=' in k]
@@ -452,7 +473,7 @@ def main(csv_paths, *,
         results = collect(csv_paths, renames)
 
         # then extract the requested datasets
-        datasets_ = datasets(results, by, x, y, dict(define))
+        datasets_ = datasets(results, by, x, y, define)
 
         # what colors to use?
         if colors is not None:
@@ -483,10 +504,7 @@ def main(csv_paths, *,
                         else '%s ' % line_chars_[i % len(line_chars_)]
                         if line_chars is not None
                         else '',
-                    ','.join(k_ for i, k_ in enumerate(k)
-                        if k_
-                        if not (i == len(k)-2 and len(x) == 1)
-                        if not (i == len(k)-1 and len(y) == 1)))
+                    ','.join(k_ for k_ in k if k_))
 
                 if label:
                     legend_.append(label)
@@ -685,7 +703,7 @@ if __name__ == "__main__":
         '-b', '--by',
         type=lambda x: [x.strip() for x in x.split(',')],
         help="Fields to render as separate plots. All other fields will be "
-            "summed. Can rename fields with new_name=old_name.")
+            "summed as needed. Can rename fields with new_name=old_name.")
     parser.add_argument(
         '-x',
         type=lambda x: [x.strip() for x in x.split(',')],
@@ -694,15 +712,14 @@ if __name__ == "__main__":
     parser.add_argument(
         '-y',
         type=lambda x: [x.strip() for x in x.split(',')],
-        required=True,
         help="Fields to use for the y-axis. Can rename fields with "
             "new_name=old_name.")
     parser.add_argument(
         '-D', '--define',
-        type=lambda x: (lambda k, v: (k, set(v.split(','))))(*x.split('=', 1)),
+        type=lambda x: (lambda k,v: (k, set(v.split(','))))(*x.split('=', 1)),
         action='append',
-        help="Only include rows where this field is this value (field=value). "
-            "May include comma-separated options.")
+        help="Only include rows where this field is this value. May include "
+            "comma-separated options.")
     parser.add_argument(
         '--color',
         choices=['never', 'always', 'auto'],
