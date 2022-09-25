@@ -17,8 +17,28 @@ import math as m
 import os
 import re
 import shutil
-import threading as th
 import time
+
+
+
+CHARS = 'rpe.'
+COLORS = ['42', '45', '44', '']
+
+WEAR_CHARS = '0123456789'
+WEAR_CHARS_SUBSCRIPTS = '.₁₂₃₄₅₆789'
+WEAR_COLORS = ['', '', '', '', '', '', '', '35', '35', '1;31']
+
+CHARS_DOTS = " .':"
+COLORS_DOTS = ['32', '35', '34', '']
+CHARS_BRAILLE = (
+    '⠀⢀⡀⣀⠠⢠⡠⣠⠄⢄⡄⣄⠤⢤⡤⣤' '⠐⢐⡐⣐⠰⢰⡰⣰⠔⢔⡔⣔⠴⢴⡴⣴'
+    '⠂⢂⡂⣂⠢⢢⡢⣢⠆⢆⡆⣆⠦⢦⡦⣦' '⠒⢒⡒⣒⠲⢲⡲⣲⠖⢖⡖⣖⠶⢶⡶⣶'
+    '⠈⢈⡈⣈⠨⢨⡨⣨⠌⢌⡌⣌⠬⢬⡬⣬' '⠘⢘⡘⣘⠸⢸⡸⣸⠜⢜⡜⣜⠼⢼⡼⣼'
+    '⠊⢊⡊⣊⠪⢪⡪⣪⠎⢎⡎⣎⠮⢮⡮⣮' '⠚⢚⡚⣚⠺⢺⡺⣺⠞⢞⡞⣞⠾⢾⡾⣾'
+    '⠁⢁⡁⣁⠡⢡⡡⣡⠅⢅⡅⣅⠥⢥⡥⣥' '⠑⢑⡑⣑⠱⢱⡱⣱⠕⢕⡕⣕⠵⢵⡵⣵'
+    '⠃⢃⡃⣃⠣⢣⡣⣣⠇⢇⡇⣇⠧⢧⡧⣧' '⠓⢓⡓⣓⠳⢳⡳⣳⠗⢗⡗⣗⠷⢷⡷⣷'
+    '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
+    '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
 
 
 def openio(path, mode='r'):
@@ -29,6 +49,63 @@ def openio(path, mode='r'):
             return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
     else:
         return open(path, mode)
+
+class LinesIO:
+    def __init__(self, maxlen=None):
+        self.maxlen = maxlen
+        self.lines = co.deque(maxlen=maxlen)
+        self.tail = io.StringIO()
+
+        # trigger automatic sizing
+        if maxlen == 0:
+            self.resize(0)
+
+    def write(self, s):
+        # note using split here ensures the trailing string has no newline
+        lines = s.split('\n')
+
+        if len(lines) > 1 and self.tail.getvalue():
+            self.tail.write(lines[0])
+            lines[0] = self.tail.getvalue()
+            self.tail = io.StringIO()
+
+        self.lines.extend(lines[:-1])
+
+        if lines[-1]:
+            self.tail.write(lines[-1])
+
+    def resize(self, maxlen):
+        self.maxlen = maxlen
+        if maxlen == 0:
+            maxlen = shutil.get_terminal_size((80, 5))[1]
+        if maxlen != self.lines.maxlen:
+            self.lines = co.deque(self.lines, maxlen=maxlen)
+
+    last_lines = 1
+    def draw(self):
+        # did terminal size change?
+        if self.maxlen == 0:
+            self.resize(0)
+
+        # first thing first, give ourself a canvas
+        while LinesIO.last_lines < len(self.lines):
+            sys.stdout.write('\n')
+            LinesIO.last_lines += 1
+
+        for j, line in enumerate(self.lines):
+            # move cursor, clear line, disable/reenable line wrapping
+            sys.stdout.write('\r')
+            if len(self.lines)-1-j > 0:
+                sys.stdout.write('\x1b[%dA' % (len(self.lines)-1-j))
+            sys.stdout.write('\x1b[K')
+            sys.stdout.write('\x1b[?7l')
+            sys.stdout.write(line)
+            sys.stdout.write('\x1b[?7h')
+            if len(self.lines)-1-j > 0:
+                sys.stdout.write('\x1b[%dB' % (len(self.lines)-1-j))
+        sys.stdout.flush()
+
+
 
 # space filling Hilbert-curve
 #
@@ -113,209 +190,362 @@ def lebesgue_curve(width, height):
     return curve
 
 
-class Block:
-    def __init__(self, wear=0, readed=False, proged=False, erased=False):
-        self._ = ((wear << 3)
+class Block(int):
+    __slots__ = ()
+    def __new__(cls, state=0, *,
+            wear=0,
+            readed=False,
+            proged=False,
+            erased=False):
+        return super().__new__(cls,
+            state
+            | (wear << 3)
             | (1 if readed else 0)
             | (2 if proged else 0)
-            | (4 if erased else False))
+            | (4 if erased else 0))
 
     @property
     def wear(self):
-        return self._ >> 3
+        return self >> 3
 
     @property
     def readed(self):
-        return (self._ & 1) != 0
+        return (self & 1) != 0
 
     @property
     def proged(self):
-        return (self._ & 2) != 0
+        return (self & 2) != 0
 
     @property
     def erased(self):
-        return (self._ & 4) != 0
+        return (self & 4) != 0
 
     def read(self):
-        self._ |= 1
+        return Block(int(self) | 1)
 
     def prog(self):
-        self._ |= 2
+        return Block(int(self) | 2)
 
     def erase(self):
-        self._ = (self._ | 4) + 8
+        return Block((int(self) | 4) + 8)
 
     def clear(self):
-        self._ &= ~7
+        return Block(int(self) & ~7)
 
-    def reset(self):
-        self._ = 0
-
-    def copy(self):
-        return Block(self.wear, self.readed, self.proged, self.erased)
-
-    def __add__(self, other):
+    def __or__(self, other):
         return Block(
-            max(self.wear, other.wear),
-            self.readed | other.readed,
-            self.proged | other.proged,
-            self.erased | other.erased)
+            (int(self) | int(other)) & 7,
+            wear=max(self.wear, other.wear))
 
-    def draw(self, *,
-            subscripts=False,
-            chars=None,
+    def worn(self, max_wear, *,
+            block_cycles=None,
             wear_chars=None,
-            color=True,
+            **_):
+        if wear_chars is None:
+            wear_chars = WEAR_CHARS
+
+        if block_cycles:
+            return self.wear / block_cycles
+        else:
+            return self.wear / max(max_wear, len(wear_chars))
+
+    def draw(self, max_wear, char=None, *,
             read=True,
             prog=True,
             erase=True,
             wear=False,
-            max_wear=None,
             block_cycles=None,
+            color=True,
+            subscripts=False,
+            dots=False,
+            braille=False,
+            chars=None,
+            wear_chars=None,
+            colors=None,
+            wear_colors=None,
             **_):
-        if not chars: chars = '.rpe'
-        c = chars[0]
-        f = []
+        # fallback to default chars/colors
+        if chars is None:
+            chars = CHARS
+        if len(chars) < len(CHARS):
+            chars = chars + CHARS[len(chars):]
+
+        if colors is None:
+            if braille or dots:
+                colors = COLORS_DOTS
+            else:
+                colors = COLORS
+        if len(colors) < len(COLORS):
+            colors = colors + COLORS[len(colors):]
+
+        if wear_chars is None:
+            if subscripts:
+                wear_chars = WEAR_CHARS_SUBSCRIPTS
+            else:
+                wear_chars = WEAR_CHARS
+
+        if wear_colors is None:
+            wear_colors = WEAR_COLORS
+
+        # compute char/color
+        c = chars[3]
+        f = [colors[3]]
 
         if wear:
-            if not wear_chars and subscripts: wear_chars = '.₁₂₃₄₅₆789'
-            elif not wear_chars:              wear_chars = '0123456789'
+            w = min(
+                self.worn(
+                    max_wear,
+                    block_cycles=block_cycles,
+                    wear_chars=wear_chars),
+                1)
 
-            if block_cycles:
-                w = self.wear / block_cycles
-            else:
-                w = self.wear / max(max_wear, len(wear_chars)-1)
+            c = wear_chars[int(w * (len(wear_chars)-1))]
+            f.append(wear_colors[int(w * (len(wear_colors)-1))])
 
-            c = wear_chars[min(
-                int(w*(len(wear_chars)-1)),
-                len(wear_chars)-1)]
-            if color:
-                if w*9 >= 9:   f.append('\x1b[1;31m')
-                elif w*9 >= 7: f.append('\x1b[35m')
+        if erase and self.erased:
+            c = chars[2]
+            f.append(colors[2])
+        elif prog and self.proged:
+            c = chars[1]
+            f.append(colors[1])
+        elif read and self.readed:
+            c = chars[0]
+            f.append(colors[0])
 
-        if erase and self.erased:  c = chars[3]
-        elif prog and self.proged: c = chars[2]
-        elif read and self.readed: c = chars[1]
+        # override char?
+        if char:
+            c = char
 
-        if color:
-            if erase and self.erased:  f.append('\x1b[44m')
-            elif prog and self.proged: f.append('\x1b[45m')
-            elif read and self.readed: f.append('\x1b[42m')
+        # apply colors
+        if f and color:
+            c = '%s%s\x1b[m' % (
+                ''.join('\x1b[%sm' % f_ for f_ in f),
+                c)
 
-        if color:
-            return '%s%c\x1b[m' % (''.join(f), c)
-        else:
-            return c
+        return c
+
 
 class Bd:
-    def __init__(self, *, blocks=None, size=1, count=1, width=80):
-        if blocks is not None:
+    def __init__(self, *,
+            size=1,
+            count=1,
+            width=None,
+            height=1,
+            blocks=None):
+        if width is None:
+            width = count
+
+        if blocks is None:
+            self.blocks = [Block() for _ in range(width*height)]
+        else:
             self.blocks = blocks
-            self.size = size
-            self.count = count
-            self.width = width
-        else:
-            self.blocks = []
-            self.size = None
-            self.count = None
-            self.width = None
-            self.smoosh(size=size, count=count, width=width)
-
-    def get(self, block=slice(None), off=slice(None)):
-        if not isinstance(block, slice):
-            block = slice(block, block+1)
-        if not isinstance(off, slice):
-            off = slice(off, off+1)
-
-        if (not self.blocks
-                or not self.width
-                or not self.size
-                or not self.count):
-            return
-
-        if self.count >= self.width:
-            scale = (self.count+self.width-1) // self.width
-            for i in range(
-                    (block.start if block.start is not None else 0)//scale,
-                    (min(block.stop if block.stop is not None else self.count,
-                        self.count)+scale-1)//scale):
-                yield self.blocks[i]
-        else:
-            scale = self.width // self.count
-            for i in range(
-                    block.start if block.start is not None else 0,
-                    min(block.stop if block.stop is not None else self.count,
-                        self.count)):
-                for j in range(
-                        ((off.start if off.start is not None else 0)
-                            *scale)//self.size,
-                        (min(off.stop if off.stop is not None else self.size,
-                            self.size)*scale+self.size-1)//self.size):
-                    yield self.blocks[i*scale+j]
-
-    def __getitem__(self, block=slice(None), off=slice(None)):
-        if isinstance(block, tuple):
-            block, off = block
-        if not isinstance(block, slice):
-            block = slice(block, block+1)
-        if not isinstance(off, slice):
-            off = slice(off, off+1)
-
-        # needs resize?
-        if ((block.stop is not None and block.stop > self.count)
-                or (off.stop is not None and off.stop > self.size)):
-            self.smoosh(
-                count=max(block.stop or self.count, self.count),
-                size=max(off.stop or self.size, self.size))
-
-        return self.get(block, off)
-
-    def smoosh(self, *, size=None, count=None, width=None):
-        size = size or self.size
-        count = count or self.count
-        width = width or self.width
-
-        if count >= width:
-            scale = (count+width-1) // width
-            self.blocks = [
-                sum(self.get(slice(i,i+scale)), start=Block())
-                for i in range(0, count, scale)]
-        else:
-            scale = width // count
-            self.blocks = [
-                sum(self.get(i, slice(j*(size//width),(j+1)*(size//width))),
-                    start=Block())
-                for i in range(0, count)
-                for j in range(scale)]
-
         self.size = size
         self.count = count
         self.width = width
+        self.height = height
 
-    def read(self, block=slice(None), off=slice(None)):
-        for c in self[block, off]:
-            c.read()
+    def _op(self, f, block=None, off=None, size=None):
+        if block is None:
+            range_ = range(len(self.blocks))
+        else:
+            if off is None:
+                off, size = 0, self.size
+            elif size is None:
+                off, size = 0, off
 
-    def prog(self, block=slice(None), off=slice(None)):
-        for c in self[block, off]:
-            c.prog()
+            # update our geometry? this will do nothing if we haven't changed
+            self.resize(
+                size=max(self.size, off+size),
+                count=max(self.count, block+1))
 
-    def erase(self, block=slice(None), off=slice(None)):
-        for c in self[block, off]:
-            c.erase()
+            # map to our block space
+            start = (block*self.size + off) / (self.size*self.count)
+            stop = (block*self.size + off+size) / (self.size*self.count)
 
-    def clear(self, block=slice(None), off=slice(None)):
-        for c in self[block, off]:
-            c.clear()
+            range_ = range(
+                m.floor(start*len(self.blocks)),
+                m.ceil(stop*len(self.blocks)))
 
-    def reset(self, block=slice(None), off=slice(None)):
-        for c in self[block, off]:
-            c.reset()
+        # apply the op
+        for i in range_:
+            self.blocks[i] = f(self.blocks[i])
+
+    def read(self, block=None, off=None, size=None):
+        self._op(Block.read, block, off, size)
+
+    def prog(self, block=None, off=None, size=None):
+        self._op(Block.prog, block, off, size)
+
+    def erase(self, block=None, off=None, size=None):
+        self._op(Block.erase, block, off, size)
+
+    def clear(self, block=None, off=None, size=None):
+        self._op(Block.clear, block, off, size)
 
     def copy(self):
         return Bd(
-            blocks=[b.copy() for b in self.blocks],
-            size=self.size, count=self.count, width=self.width)
+            blocks=self.blocks.copy(),
+            size=self.size,
+            count=self.count,
+            width=self.width,
+            height=self.height)
+
+    def resize(self, *,
+            size=None,
+            count=None,
+            width=None,
+            height=None):
+        size = size if size is not None else self.size
+        count = count if count is not None else self.count
+        width = width if width is not None else self.width
+        height = height if height is not None else self.height
+
+        if (size == self.size
+                and count == self.count
+                and width == self.width
+                and height == self.height):
+            return
+
+        # transform our blocks
+        blocks = []
+        for x in range(width*height):
+            # map from new bd space
+            start = m.floor(x * (size*count)/(width*height))
+            stop = m.ceil((x+1) * (size*count)/(width*height))
+            start_block = start // size
+            start_off = start % size
+            stop_block = stop // size
+            stop_off = stop % size
+            # map to old bd space
+            start = start_block*self.size + start_off
+            stop = stop_block*self.size + stop_off
+            start = m.floor(start * len(self.blocks)/(self.size*self.count))
+            stop = m.ceil(stop * len(self.blocks)/(self.size*self.count))
+
+            # aggregate state
+            blocks.append(ft.reduce(
+                Block.__or__,
+                self.blocks[start:stop],
+                Block()))
+            
+        self.size = size
+        self.count = count
+        self.width = width
+        self.height = height
+        self.blocks = blocks
+
+    def draw(self, row, *,
+            read=False,
+            prog=False,
+            erase=False,
+            wear=False,
+            hilbert=False,
+            lebesgue=False,
+            dots=False,
+            braille=False,
+            **args):
+        # find max wear?
+        max_wear = None
+        if wear:
+            max_wear = max(b.wear for b in self.blocks)
+
+        # fold via a curve?
+        if hilbert:
+            grid = [None]*(self.width*self.height)
+            for (x,y), b in zip(
+                    hilbert_curve(self.width, self.height),
+                    self.blocks):
+                grid[x + y*self.width] = b
+        elif lebesgue:
+            grid = [None]*(self.width*self.height)
+            for (x,y), b in zip(
+                    lebesgue_curve(self.width, self.height),
+                    self.blocks):
+                grid[x + y*self.width] = b
+        else:
+            grid = self.blocks
+
+        # need to wait for more trace output before rendering
+        #
+        # this is sort of a hack that knows the output is going to a terminal
+        if (braille and self.height < 4) or (dots and self.height < 2):
+            needed_height = 4 if braille else 2
+
+            self.history = getattr(self, 'history', [])
+            self.history.append(grid)
+
+            if len(self.history)*self.height < needed_height:
+                # skip for now
+                return None
+
+            grid = list(it.chain.from_iterable(
+                # did we resize?
+                it.islice(it.chain(h, it.repeat(Block())),
+                    self.width*self.height)
+                for h in self.history))
+            self.history = []
+
+        line = []
+        if braille:
+            # encode into a byte
+            for x in range(0, self.width, 2):
+                byte_b = 0
+                best_b = Block()
+                for i in range(2*4):
+                    b = grid[x+(2-1-(i%2)) + ((row*4)+(4-1-(i//2)))*self.width]
+                    best_b |= b
+                    if ((read and b.readed)
+                            or (prog and b.proged)
+                            or (erase and b.erased)
+                            or (not read and not prog and not erase
+                                and wear and b.worn(max_wear, **args) >= 0.7)):
+                        byte_b |= 1 << i
+
+                line.append(best_b.draw(
+                    max_wear,
+                    CHARS_BRAILLE[byte_b],
+                    braille=True,
+                    read=read,
+                    prog=prog,
+                    erase=erase,
+                    wear=wear,
+                    **args))
+        elif dots:
+            # encode into a byte
+            for x in range(self.width):
+                byte_b = 0
+                best_b = Block()
+                for i in range(2):
+                    b = grid[x + ((row*2)+(2-1-i))*self.width]
+                    best_b |= b
+                    if ((read and b.readed)
+                            or (prog and b.proged)
+                            or (erase and b.erased)
+                            or (not read and not prog and not erase
+                                and wear and b.worn(max_wear, **args) >= 0.7)):
+                        byte_b |= 1 << i
+
+                line.append(best_b.draw(
+                    max_wear,
+                    CHARS_DOTS[byte_b],
+                    dots=True,
+                    read=read,
+                    prog=prog,
+                    erase=erase,
+                    wear=wear,
+                    **args))
+        else:
+            for x in range(self.width):
+                line.append(grid[x + row*self.width].draw(
+                    max_wear,
+                    read=read,
+                    prog=prog,
+                    erase=erase,
+                    wear=wear,
+                    **args))
+
+        return ''.join(line)
+
 
 
 def main(path='-', *,
@@ -323,28 +553,25 @@ def main(path='-', *,
         prog=False,
         erase=False,
         wear=False,
-        color='auto',
         block=(None,None),
         off=(None,None),
         block_size=None,
         block_count=None,
         block_cycles=None,
         reset=False,
+        color='auto',
+        dots=False,
+        braille=False,
         width=None,
-        height=1,
-        scale=None,
+        height=None,
         lines=None,
-        coalesce=None,
-        sleep=None,
+        cat=False,
         hilbert=False,
         lebesgue=False,
+        coalesce=None,
+        sleep=None,
         keep_open=False,
         **args):
-    # exclusive wear or read/prog/erase by default
-    if not read and not prog and not erase and not wear:
-        read = True
-        prog = True
-        erase = True
     # figure out what color should be
     if color == 'auto':
         color = sys.stdout.isatty()
@@ -353,6 +580,30 @@ def main(path='-', *,
     else:
         color = False
 
+    # exclusive wear or read/prog/erase by default
+    if not read and not prog and not erase and not wear:
+        read = True
+        prog = True
+        erase = True
+
+    # assume a reasonable lines/height if not specified
+    #
+    # note that we let height = None if neither hilbert or lebesgue
+    # are specified, this is a bit special as the default may be less
+    # than one character in height.
+    if height is None and (hilbert or lebesgue):
+        if lines is not None:
+            height = lines
+        else:
+            height = 5
+
+    if lines is None:
+        if height is not None:
+            lines = height
+        else:
+            lines = 5
+
+    # allow ranges for blocks/offs
     block_start = block[0]
     block_stop = block[1] if len(block) > 1 else block[0]+1
     off_start = off[0]
@@ -367,38 +618,48 @@ def main(path='-', *,
     if off_stop is None and block_size is not None:
         off_stop = block_size
 
-    bd = Bd(
-        size=(block_size if block_size is not None
-            else off_stop-off_start if off_stop is not None
-            else 1),
-        count=(block_count if block_count is not None
-            else block_stop-block_start if block_stop is not None
-            else 1),
-        width=(width or 80)*height)
-    lock = th.Lock()
-    event = th.Event()
-    done = False
+    # create a block device representation
+    bd = Bd()
 
-    # adjust width?
-    def resmoosh():
+    def resize(*, size=None, count=None):
+        nonlocal bd
+
+        # size may be overriden by cli args
+        if block_size is not None:
+            size = block_size
+        elif off_stop is not None:
+            size = off_stop-off_start
+
+        if block_count is not None:
+            count = block_count
+        elif block_stop is not None:
+            count = block_stop-block_start
+
+        # figure out best width/height
         if width is None:
-            w = shutil.get_terminal_size((80, 0))[0] * height
-        elif width == 0:
-            w = max(int(bd.count*(scale or 1)), 1)
+            width_ = min(80, shutil.get_terminal_size((80, 5))[0])
+        elif width:
+            width_ = width
         else:
-            w = width * height
+            width_ = shutil.get_terminal_size((80, 5))[0]
 
-        if scale and int(bd.count*scale) > w:
-            c = int(w/scale)
-        elif scale and int(bd.count*scale) < w:
-            w = max(int(bd.count*(scale or 1)), 1)
-            c = bd.count
+        if height is None:
+            height_ = 0
+        elif height:
+            height_ = height
         else:
-            c = bd.count
+            height_ = shutil.get_terminal_size((80, 5))[1]
 
-        if w != bd.width or c != bd.count:
-            bd.smoosh(width=w, count=c)
-    resmoosh()
+        bd.resize(
+            size=size,
+            count=count,
+            # scale if we're printing with dots or braille
+            width=2*width_ if braille else width_,
+            height=max(1,
+                4*height_ if braille
+                else 2*height_ if dots
+                else height_))
+    resize()
 
     # parse a line of trace output
     pattern = re.compile(
@@ -426,8 +687,11 @@ def main(path='-', *,
             '|' '(?P<sync>sync)\('
                 '\s*(?P<sync_ctx>\w+)\s*' '\)' ')')
     def parse(line):
-        # string searching is actually much faster than
-        # the regex here
+        nonlocal bd
+
+        # string searching is much faster than the regex here, and this
+        # actually has a big impact given how much trace output comes
+        # through here
         if 'trace' not in line or 'bd' not in line:
             return False
         m = pattern.search(line)
@@ -439,21 +703,13 @@ def main(path='-', *,
             size = int(m.group('block_size'), 0)
             count = int(m.group('block_count'), 0)
 
-            if off_stop is not None:
-                size = off_stop-off_start
-            if block_stop is not None:
-                count = block_stop-block_start
-
-            with lock:
-                if reset:
-                    bd.reset()
-
-                # ignore the new values if block_stop/off_stop is explicit
-                bd.smoosh(
-                    size=(size if off_stop is None
-                        else off_stop-off_start),
-                    count=(count if block_stop is None
-                        else block_stop-block_start))
+            resize(size=size, count=count)
+            if reset:
+                bd = Bd(
+                    size=bd.size,
+                    count=bd.count,
+                    width=bd.width,
+                    height=bd.height)
             return True
 
         elif m.group('read') and read:
@@ -470,8 +726,7 @@ def main(path='-', *,
                 size = min(size, off_stop-off)
             off -= off_start
 
-            with lock:
-                bd.read(block, slice(off,off+size))
+            bd.read(block, off, size)
             return True
 
         elif m.group('prog') and prog:
@@ -488,8 +743,7 @@ def main(path='-', *,
                 size = min(size, off_stop-off)
             off -= off_start
 
-            with lock:
-                bd.prog(block, slice(off,off+size))
+            bd.prog(block, off, size)
             return True
 
         elif m.group('erase') and (erase or wear):
@@ -499,165 +753,75 @@ def main(path='-', *,
                 return False
             block -= block_start
 
-            with lock:
-                bd.erase(block)
+            bd.erase(block)
             return True
 
         else:
             return False
 
-
-    # print a pretty line of trace output
-    history = []
-    def push():
-        # create copy to avoid corrupt output
-        with lock:
-            resmoosh()
-            bd_ = bd.copy()
-            bd.clear()
-
-        max_wear = None
-        if wear:
-            max_wear = max(b.wear for b in bd_.blocks)
-
-        def draw(b):
-            return b.draw(
-                read=read,
-                prog=prog,
-                erase=erase,
-                wear=wear,
-                color=color,
-                max_wear=max_wear,
-                block_cycles=block_cycles,
-                **args)
-
-        # fold via a curve?
-        if height > 1:
-            w = (len(bd.blocks)+height-1) // height
-            if hilbert:
-                grid = {}
-                for (x,y),b in zip(hilbert_curve(w, height), bd_.blocks):
-                    grid[(x,y)] = draw(b)
-                line = [
-                    ''.join(grid.get((x,y), ' ') for x in range(w))
-                    for y in range(height)]
-            elif lebesgue:
-                grid = {}
-                for (x,y),b in zip(lebesgue_curve(w, height), bd_.blocks):
-                    grid[(x,y)] = draw(b)
-                line = [
-                    ''.join(grid.get((x,y), ' ') for x in range(w))
-                    for y in range(height)]
-            else:
-                line = [
-                    ''.join(draw(b) for b in bd_.blocks[y*w:y*w+w])
-                    for y in range(height)]
-        else:
-            line = [''.join(draw(b) for b in bd_.blocks)]
-
-        if not lines:
-            # just go ahead and print here
-            for row in line:
-                sys.stdout.write(row)
-                sys.stdout.write('\n')
-            sys.stdout.flush()
-        else:
-            history.append(line)
-            del history[:-lines]
-
+    # print trace output
     def draw(f):
         def writeln(s=''):
             f.write(s)
             f.write('\n')
         f.writeln = writeln
 
-        for line in it.chain.from_iterable(history):
-            f.writeln(line)
+        # don't forget we've scaled this for braille/dots!
+        for row in range(
+                m.ceil(bd.height/4) if braille
+                else m.ceil(bd.height/2) if dots
+                else bd.height):
+            line = bd.draw(row,
+                read=read,
+                prog=prog,
+                erase=erase,
+                wear=wear,
+                block_cycles=block_cycles,
+                color=color,
+                dots=dots,
+                braille=braille,
+                hilbert=hilbert,
+                lebesgue=lebesgue,
+                **args)
+            if line:
+                f.writeln(line)
 
-    last_lines = 1
-    def redraw():
-        nonlocal last_lines
-
-        canvas = io.StringIO()
-        draw(canvas)
-        canvas = canvas.getvalue().splitlines()
-
-        # give ourself a canvas
-        while last_lines < len(canvas):
-            sys.stdout.write('\n')
-            last_lines += 1
-
-        for i, line in enumerate(canvas):
-            jump = len(canvas)-1-i
-            # move cursor, clear line, disable/reenable line wrapping
-            sys.stdout.write('\r')
-            if jump > 0:
-                sys.stdout.write('\x1b[%dA' % jump)
-            sys.stdout.write('\x1b[K')
-            sys.stdout.write('\x1b[?7l')
-            sys.stdout.write(line)
-            sys.stdout.write('\x1b[?7h')
-            if jump > 0:
-                sys.stdout.write('\x1b[%dB' % jump)
-
-        sys.stdout.flush()
+        bd.clear()
+        resize()
 
 
-    if sleep is None or (coalesce and not lines):
-        # read/parse coalesce number of operations
-        try:
-            while True:
-                with openio(path) as f:
-                    changes = 0
-                    for line in f:
-                        change = parse(line)
-                        changes += change
-                        if change and changes % (coalesce or 1) == 0:
-                            push()
-                            redraw()
-                            # sleep between coalesced lines?
-                            if sleep is not None:
-                                time.sleep(sleep)
-                if not keep_open:
-                    break
-                # don't just flood open calls
-                time.sleep(sleep or 0.1)
-        except KeyboardInterrupt:
-            pass
+    # read/parse/coalesce operations
+    if cat:
+        ring = sys.stdout
     else:
-        # read/parse in a background thread
-        def background_parse():
-            nonlocal done
-            while True:
-                with openio(path) as f:
-                    changes = 0
-                    for line in f:
-                        change = parse(line)
-                        changes += change
-                        if change and changes % (coalesce or 1) == 0:
-                            if coalesce:
-                                push()
-                            event.set()
-                if not keep_open:
-                    break
-                # don't just flood open calls
-                time.sleep(sleep or 0.1)
-            done = True
+        ring = LinesIO(lines)
 
-        th.Thread(target=background_parse, daemon=True).start()
+    ptime = time.time()
+    try:
+        while True:
+            with openio(path) as f:
+                changed = 0
+                for line in f:
+                    changed += parse(line)
 
-        try:
-            while not done:
-                time.sleep(sleep)
-                event.wait()
-                event.clear()
-                if not coalesce:
-                    push()
-                redraw()
-        except KeyboardInterrupt:
-            pass
+                    # need to redraw?
+                    if (changed
+                            and (not coalesce or changed >= coalesce)
+                            and (not sleep or time.time()-ptime >= sleep)):
+                        draw(ring)
+                        if not cat:
+                            ring.draw()
+                        changed = 0
+                        ptime = time.time()
 
-    if lines:
+            if not keep_open:
+                break
+            # don't just flood open calls
+            time.sleep(sleep or 0.1)
+    except KeyboardInterrupt:
+        pass
+
+    if not cat:
         sys.stdout.write('\n')
 
 
@@ -688,20 +852,6 @@ if __name__ == "__main__":
         action='store_true',
         help="Render wear.")
     parser.add_argument(
-        '--subscripts',
-        help="Use unicode subscripts for showing wear.")
-    parser.add_argument(
-        '--chars',
-        help="Characters to use for noop, read, prog, erase operations.")
-    parser.add_argument(
-        '--wear-chars',
-        help="Characters to use to show wear.")
-    parser.add_argument(
-        '--color',
-        choices=['never', 'always', 'auto'],
-        default='auto',
-        help="When to use terminal colors. Defaults to 'auto'.")
-    parser.add_argument(
         '-b', '--block',
         type=lambda x: tuple(int(x,0) if x else None for x in x.split(',',1)),
         help="Show a specific block or range of blocks.")
@@ -726,22 +876,63 @@ if __name__ == "__main__":
         action='store_true',
         help="Reset wear on block device initialization.")
     parser.add_argument(
+        '--color',
+        choices=['never', 'always', 'auto'],
+        default='auto',
+        help="When to use terminal colors. Defaults to 'auto'.")
+    parser.add_argument(
+        '--subscripts',
+        action='store_true',
+        help="Use unicode subscripts for showing wear.")
+    parser.add_argument(
+        '-:', '--dots',
+        action='store_true',
+        help="Use 1x2 ascii dot characters.")
+    parser.add_argument(
+        '-⣿', '--braille',
+        action='store_true',
+        help="Use 2x4 unicode braille characters. Note that braille characters "
+            "sometimes suffer from inconsistent widths.")
+    parser.add_argument(
+        '--chars',
+        help="Characters to use for read, prog, erase, noop operations.")
+    parser.add_argument(
+        '--wear-chars',
+        help="Characters to use for showing wear.")
+    parser.add_argument(
+        '--colors',
+        type=lambda x: x.split(','),
+        help="Colors to use for read, prog, erase, noop operations.")
+    parser.add_argument(
+        '--wear-colors',
+        type=lambda x: x.split(','),
+        help="Colors to use for showing wear.")
+    parser.add_argument(
         '-W', '--width',
         type=lambda x: int(x, 0),
-        help="Width in columns. A width of 0 indicates no limit. Defaults "
-            "to terminal width or 80.")
+        help="Width in columns. 0 uses the terminal width. Defaults to "
+            "min(terminal, 80).")
     parser.add_argument(
         '-H', '--height',
         type=lambda x: int(x, 0),
-        help="Height in rows. Defaults to 1.")
-    parser.add_argument(
-        '-x', '--scale',
-        type=float,
-        help="Number of characters per block, ignores --width if set.")
+        help="Height in rows. 0 uses the terminal height. Defaults to 1.")
     parser.add_argument(
         '-n', '--lines',
         type=lambda x: int(x, 0),
-        help="Number of lines to show.")
+        help="Show this many lines of history. 0 uses the terminal height. "
+            "Defaults to 5.")
+    parser.add_argument(
+        '-z', '--cat',
+        action='store_true',
+        help="Pipe directly to stdout.")
+    parser.add_argument(
+        '-U', '--hilbert',
+        action='store_true',
+        help="Render as a space-filling Hilbert curve.")
+    parser.add_argument(
+        '-Z', '--lebesgue',
+        action='store_true',
+        help="Render as a space-filling Z-curve.")
     parser.add_argument(
         '-c', '--coalesce',
         type=lambda x: int(x, 0),
@@ -749,16 +940,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-s', '--sleep',
         type=float,
-        help="Time in seconds to sleep between reads, while coalescing "
-            "operations.")
-    parser.add_argument(
-        '-I', '--hilbert',
-        action='store_true',
-        help="Render as a space-filling Hilbert curve.")
-    parser.add_argument(
-        '-Z', '--lebesgue',
-        action='store_true',
-        help="Render as a space-filling Z-curve.")
+        help="Time in seconds to sleep between reads, coalescing operations.")
     parser.add_argument(
         '-k', '--keep-open',
         action='store_true',

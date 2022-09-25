@@ -89,6 +89,61 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
+class LinesIO:
+    def __init__(self, maxlen=None):
+        self.maxlen = maxlen
+        self.lines = co.deque(maxlen=maxlen)
+        self.tail = io.StringIO()
+
+        # trigger automatic sizing
+        if maxlen == 0:
+            self.resize(0)
+
+    def write(self, s):
+        # note using split here ensures the trailing string has no newline
+        lines = s.split('\n')
+
+        if len(lines) > 1 and self.tail.getvalue():
+            self.tail.write(lines[0])
+            lines[0] = self.tail.getvalue()
+            self.tail = io.StringIO()
+
+        self.lines.extend(lines[:-1])
+
+        if lines[-1]:
+            self.tail.write(lines[-1])
+
+    def resize(self, maxlen):
+        self.maxlen = maxlen
+        if maxlen == 0:
+            maxlen = shutil.get_terminal_size((80, 5))[1]
+        if maxlen != self.lines.maxlen:
+            self.lines = co.deque(self.lines, maxlen=maxlen)
+
+    last_lines = 1
+    def draw(self):
+        # did terminal size change?
+        if self.maxlen == 0:
+            self.resize(0)
+
+        # first thing first, give ourself a canvas
+        while LinesIO.last_lines < len(self.lines):
+            sys.stdout.write('\n')
+            LinesIO.last_lines += 1
+
+        for j, line in enumerate(self.lines):
+            # move cursor, clear line, disable/reenable line wrapping
+            sys.stdout.write('\r')
+            if len(self.lines)-1-j > 0:
+                sys.stdout.write('\x1b[%dA' % (len(self.lines)-1-j))
+            sys.stdout.write('\x1b[K')
+            sys.stdout.write('\x1b[?7l')
+            sys.stdout.write(line)
+            sys.stdout.write('\x1b[?7h')
+            if len(self.lines)-1-j > 0:
+                sys.stdout.write('\x1b[%dB' % (len(self.lines)-1-j))
+        sys.stdout.flush()
+
 
 # parse different data representations
 def dat(x):
@@ -114,6 +169,7 @@ def dat(x):
     # else give up
     raise ValueError("invalid dat %r" % x)
 
+
 # a hack log10 that preserves sign, and passes zero as zero
 def slog10(x):
     if x == 0:
@@ -122,7 +178,6 @@ def slog10(x):
         return m.log10(x)
     else:
         return -m.log10(-x)
-
 
 class Plot:
     def __init__(self, width, height, *,
@@ -427,7 +482,8 @@ def main(csv_paths, *,
         xlim=None,
         ylim=None,
         width=None,
-        height=None,
+        height=17,
+        cat=False,
         color=False,
         braille=False,
         colors=None,
@@ -538,10 +594,12 @@ def main(csv_paths, *,
                     if v is not None))))
 
         # figure out our plot size
-        if width is not None:
+        if width is None:
+            width_ = min(80, shutil.get_terminal_size((80, 17))[0])
+        elif width:
             width_ = width
         else:
-            width_ = shutil.get_terminal_size((80, 8))[0]
+            width_ = shutil.get_terminal_size((80, 17))[0]
         # make space for units
         width_ -= 5
         # make space for legend
@@ -550,10 +608,10 @@ def main(csv_paths, *,
         # limit a bit
         width_ = max(2*4, width_)
 
-        if height is not None:
+        if height:
             height_ = height
         else:
-            height_ = shutil.get_terminal_size((80, 8))[1]
+            height_ = shutil.get_terminal_size((80, 17))[1]
             # make space for shell prompt
             if not keep_open:
                 height_ -= 1
@@ -644,45 +702,26 @@ def main(csv_paths, *,
                         '\x1b[m' if color else '')
                         for j in range(i, min(i+legend_cols, len(legend_))))))
 
-
-    last_lines = 1
-    def redraw():
-        nonlocal last_lines
-
-        canvas = io.StringIO()
-        draw(canvas)
-        canvas = canvas.getvalue().splitlines()
-
-        # give ourself a canvas
-        while last_lines < len(canvas):
-            sys.stdout.write('\n')
-            last_lines += 1
-
-        for i, line in enumerate(canvas):
-            jump = len(canvas)-1-i
-            # move cursor, clear line, disable/reenable line wrapping
-            sys.stdout.write('\r')
-            if jump > 0:
-                sys.stdout.write('\x1b[%dA' % jump)
-            sys.stdout.write('\x1b[K')
-            sys.stdout.write('\x1b[?7l')
-            sys.stdout.write(line)
-            sys.stdout.write('\x1b[?7h')
-            if jump > 0:
-                sys.stdout.write('\x1b[%dB' % jump)
-
-        sys.stdout.flush()
-
     if keep_open:
         try:
             while True:
-                redraw()
+                if cat:
+                    draw(sys.stdout)
+                else:
+                    ring = LinesIO()
+                    draw(ring)
+                    ring.draw()
                 # don't just flood open calls
                 time.sleep(sleep or 0.1)
         except KeyboardInterrupt:
             pass
 
-        redraw()
+        if cat:
+            draw(sys.stdout)
+        else:
+            ring = LinesIO()
+            draw(ring)
+            ring.draw()
         sys.stdout.write('\n')
     else:
         draw(sys.stdout)
@@ -726,9 +765,9 @@ if __name__ == "__main__":
         default='auto',
         help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
-        '--braille',
+        '-⣿', '--braille',
         action='store_true',
-        help="Use unicode braille characters. Note that braille characters "
+        help="Use 2x4 unicode braille characters. Note that braille characters "
             "sometimes suffer from inconsistent widths.")
     parser.add_argument(
         '--colors',
@@ -747,12 +786,16 @@ if __name__ == "__main__":
     parser.add_argument(
         '-W', '--width',
         type=lambda x: int(x, 0),
-        help="Width in columns. A width of 0 indicates no limit. Defaults "
-            "to terminal width or 80.")
+        help="Width in columns. 0 uses the terminal width. Defaults to "
+            "min(terminal, 80).")
     parser.add_argument(
         '-H', '--height',
         type=lambda x: int(x, 0),
-        help="Height in rows. Defaults to terminal height or 8.")
+        help="Height in rows. 0 uses the terminal height. Defaults to 17.")
+    parser.add_argument(
+        '-z', '--cat',
+        action='store_true',
+        help="Pipe directly to stdout.")
     parser.add_argument(
         '-X', '--xlim',
         type=lambda x: tuple(dat(x) if x else None for x in x.split(',')),

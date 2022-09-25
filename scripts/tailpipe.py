@@ -9,9 +9,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
+import collections as co
+import io
 import os
+import shutil
 import sys
-import threading as th
 import time
 
 
@@ -24,71 +26,89 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
-def main(path='-', *, lines=1, sleep=0.01, keep_open=False):
-    ring = [None] * lines
-    i = 0
-    count = 0
-    lock = th.Lock()
-    event = th.Event()
-    done = False
+class LinesIO:
+    def __init__(self, maxlen=None):
+        self.maxlen = maxlen
+        self.lines = co.deque(maxlen=maxlen)
+        self.tail = io.StringIO()
 
-    # do the actual reading in a background thread
-    def read():
-        nonlocal i
-        nonlocal count
-        nonlocal done
+        # trigger automatic sizing
+        if maxlen == 0:
+            self.resize(0)
+
+    def write(self, s):
+        # note using split here ensures the trailing string has no newline
+        lines = s.split('\n')
+
+        if len(lines) > 1 and self.tail.getvalue():
+            self.tail.write(lines[0])
+            lines[0] = self.tail.getvalue()
+            self.tail = io.StringIO()
+
+        self.lines.extend(lines[:-1])
+
+        if lines[-1]:
+            self.tail.write(lines[-1])
+
+    def resize(self, maxlen):
+        self.maxlen = maxlen
+        if maxlen == 0:
+            maxlen = shutil.get_terminal_size((80, 5))[1]
+        if maxlen != self.lines.maxlen:
+            self.lines = co.deque(self.lines, maxlen=maxlen)
+
+    last_lines = 1
+    def draw(self):
+        # did terminal size change?
+        if self.maxlen == 0:
+            self.resize(0)
+
+        # first thing first, give ourself a canvas
+        while LinesIO.last_lines < len(self.lines):
+            sys.stdout.write('\n')
+            LinesIO.last_lines += 1
+
+        for j, line in enumerate(self.lines):
+            # move cursor, clear line, disable/reenable line wrapping
+            sys.stdout.write('\r')
+            if len(self.lines)-1-j > 0:
+                sys.stdout.write('\x1b[%dA' % (len(self.lines)-1-j))
+            sys.stdout.write('\x1b[K')
+            sys.stdout.write('\x1b[?7l')
+            sys.stdout.write(line)
+            sys.stdout.write('\x1b[?7h')
+            if len(self.lines)-1-j > 0:
+                sys.stdout.write('\x1b[%dB' % (len(self.lines)-1-j))
+        sys.stdout.flush()
+
+
+def main(path='-', *, lines=5, cat=False, sleep=0.01, keep_open=False):
+    if cat:
+        ring = sys.stdout
+    else:
+        ring = LinesIO(lines)
+
+    ptime = time.time()
+    try:
         while True:
             with openio(path) as f:
                 for line in f:
-                    with lock:
-                        ring[i] = line
-                        i = (i + 1) % lines
-                        count = min(lines, count + 1)
-                    event.set()
+                    ring.write(line)
+
+                    # need to redraw?
+                    if not cat and time.time()-ptime >= sleep:
+                        ring.draw()
+                        ptime = time.time()
+
             if not keep_open:
                 break
             # don't just flood open calls
             time.sleep(sleep or 0.1)
-        done = True
-
-    th.Thread(target=read, daemon=True).start()
-
-    try:
-        last_count = 1
-        while not done:
-            time.sleep(sleep)
-            event.wait()
-            event.clear()
-
-            # create a copy to avoid corrupt output
-            with lock:
-                ring_ = ring.copy()
-                i_ = i
-                count_ = count
-
-            # first thing first, give ourself a canvas
-            while last_count < count_:
-                sys.stdout.write('\n')
-                last_count += 1
-
-            for j in range(count_):
-                # move cursor, clear line, disable/reenable line wrapping
-                sys.stdout.write('\r')
-                if count_-1-j > 0:
-                    sys.stdout.write('\x1b[%dA' % (count_-1-j))
-                sys.stdout.write('\x1b[K')
-                sys.stdout.write('\x1b[?7l')
-                sys.stdout.write(ring_[(i_-count_+j) % lines][:-1])
-                sys.stdout.write('\x1b[?7h')
-                if count_-1-j > 0:
-                    sys.stdout.write('\x1b[%dB' % (count_-1-j))
-
-            sys.stdout.flush()
-
     except KeyboardInterrupt:
         pass
 
-    sys.stdout.write('\n')
+    if not cat:
+        sys.stdout.write('\n')
 
 
 if __name__ == "__main__":
@@ -104,15 +124,18 @@ if __name__ == "__main__":
         '-n',
         '--lines',
         type=lambda x: int(x, 0),
-        help="Number of lines to show. Defaults to 1.")
+        help="Show this many lines of history. 0 uses the terminal height. "
+            "Defaults to 5.")
     parser.add_argument(
-        '-s',
-        '--sleep',
+        '-z', '--cat',
+        action='store_true',
+        help="Pipe directly to stdout.")
+    parser.add_argument(
+        '-s', '--sleep',
         type=float,
         help="Seconds to sleep between reads. Defaults to 0.01.")
     parser.add_argument(
-        '-k',
-        '--keep-open',
+        '-k', '--keep-open',
         action='store_true',
         help="Reopen the pipe on EOF, useful when multiple "
             "processes are writing.")
