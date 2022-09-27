@@ -320,12 +320,12 @@ def table(results, diff_results=None, *,
                 else ['function'])
 
     table = {
-        (r.file, r.line) if by_line
+        '%s:%s' % (r.file, r.line) if by_line
             else r.file if by_file
             else r.function: r
         for r in results}
     diff_table = {
-        (r.file, r.line) if by_line
+        '%s:%s' % (r.file, r.line) if by_line
             else r.file if by_file
             else r.function: r
         for r in diff_results or []}
@@ -359,16 +359,20 @@ def table(results, diff_results=None, *,
             reverse=False)
 
     # print header
-    print('%-36s' % ('%s%s' % (
-        'line' if by_line
-            else 'file' if by_file
-            else 'function',
-        ' (%d added, %d removed)' % (
-            sum(1 for n in table if n not in diff_table),
-            sum(1 for n in diff_table if n not in table))
-            if diff_results is not None and not percent else '')
-        if not summary else ''),
-        end='')
+    if not summary:
+        title = '%s%s' % (
+            'line' if by_line else 'file' if by_file else 'function',
+            ' (%d added, %d removed)' % (
+                sum(1 for n in table if n not in diff_table),
+                sum(1 for n in diff_table if n not in table))
+                if diff_results is not None and not percent else '')
+        name_width = max(it.chain([23, len(title)], (len(n) for n in names)))
+    else:
+        title = ''
+        name_width = 23
+    name_width = 4*((name_width+1+4-1)//4)-1
+
+    print('%-*s ' % (name_width, title), end='')
     if diff_results is None:
         print(' %s %s' % (
             'hits/line'.rjust(len(FracField.none)),
@@ -401,9 +405,7 @@ def table(results, diff_results=None, *,
                 if not line_ratio and not branch_ratio and not all_:
                     continue
 
-            print('%-36s' % (
-                ':'.join('%s' % n for n in name)
-                if by_line else name), end='')
+            print('%-*s ' % (name_width, name), end='')
             if diff_results is None:
                 print(' %s %s' % (
                     r.coverage_lines.table()
@@ -460,7 +462,7 @@ def table(results, diff_results=None, *,
             r.coverage_branches if r else None,
             diff_r.coverage_branches if diff_r else None)
 
-    print('%-36s' % 'TOTAL', end='')
+    print('%-*s ' % (name_width, 'TOTAL'), end='')
     if diff_results is None:
         print(' %s %s' % (
             r.coverage_lines.table()

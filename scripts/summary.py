@@ -422,8 +422,12 @@ def table(results, total, diff_results=None, diff_total=None, *,
         **_):
     all_, all = all, __builtins__.all
 
-    table = {tuple(r.get(k,'') for k in by): r for r in results}
-    diff_table = {tuple(r.get(k,'') for k in by): r for r in diff_results or []}
+    table = {
+        ','.join(r.get(k,'') for k in by): r
+        for r in results}
+    diff_table = {
+        ','.join(r.get(k,'') for k in by): r
+        for r in diff_results or []}
 
     # sort, note that python's sort is stable
     names = list(table.keys() | diff_table.keys())
@@ -446,30 +450,40 @@ def table(results, total, diff_results=None, diff_total=None, *,
             reverse=False)
 
     # print header
-    print('%-36s' % ('%s%s' % (
-        ','.join(k for k in by),
-        ' (%d added, %d removed)' % (
-            sum(1 for n in table if n not in diff_table),
-            sum(1 for n in diff_table if n not in table))
-            if diff_results is not None and not percent else '')
-        if not summary else ''),
-        end='')
-    if diff_results is None:
-        print(' %s' % (
-            ' '.join(k.rjust(len(types[k].none))
-                for k in fields)))
-    elif percent:
-        print(' %s' % (
-            ' '.join(k.rjust(len(types[k].diff_none))
-                for k in fields)))
+    if not summary:
+        title = '%s%s' % (
+            ','.join(by),
+            ' (%d added, %d removed)' % (
+                sum(1 for n in table if n not in diff_table),
+                sum(1 for n in diff_table if n not in table))
+                if diff_results is not None and not percent else '')
+        name_width = max(it.chain([23, len(title)], (len(n) for n in names)))
     else:
+        title = ''
+        name_width = 23
+    name_width = 4*((name_width+1+4-1)//4)-1
+
+    print('%-*s ' % (name_width, title), end='')
+    if diff_results is None:
+        widths = [
+            4*((max(len(types[k].none), len(k))+1+4-1)//4)-1
+            for k in fields]
+        print(' %s' % (
+            ' '.join(k.rjust(w) for w, k in zip(widths, fields))))
+    elif percent:
+        widths = [
+            4*((max(len(types[k].diff_none), len(k))+1+4-1)//4)-1
+            for k in fields]
+        print(' %s' % (
+            ' '.join(k.rjust(w) for w, k in zip(widths, fields))))
+    else:
+        widths = [
+            4*((max(len(types[k].diff_none), 1+len(k))+1+4-1)//4)-1
+            for k in fields]
         print(' %s %s %s' % (
-            ' '.join(('o'+k).rjust(len(types[k].diff_none))
-                for k in fields),
-            ' '.join(('n'+k).rjust(len(types[k].diff_none))
-                for k in fields),
-            ' '.join(('d'+k).rjust(len(types[k].diff_none))
-                for k in fields)))
+            ' '.join(('o'+k).rjust(w) for w, k in zip(widths, fields)),
+            ' '.join(('n'+k).rjust(w) for w, k in zip(widths, fields)),
+            ' '.join(('d'+k).rjust(w) for w, k in zip(widths, fields))))
 
     # print entries
     if not summary:
@@ -482,17 +496,21 @@ def table(results, total, diff_results=None, diff_total=None, *,
                 if not any(ratios) and not all_:
                     continue
 
-            print('%-36s' % ','.join(name), end='')
+            print('%-*s ' % (name_width, name), end='')
             if diff_results is None:
                 print(' %s' % (
-                    ' '.join(r[k].table()
-                        if k in r else types[k].none
-                        for k in fields)))
+                    ' '.join(
+                        (r[k].table()
+                            if k in r
+                            else types[k].none).rjust(w)
+                        for w, k in zip(widths, fields))))
             elif percent:
                 print(' %s%s' % (
-                    ' '.join(r[k].diff_table()
-                        if k in r else types[k].diff_none
-                        for k in fields),
+                    ' '.join(
+                        (r[k].diff_table().rjust(w)
+                            if k in r
+                            else types[k].diff_none).rjust(w)
+                        for w, k in zip(widths, fields)),
                     ' (%s)' % ', '.join(
                             '+∞%' if t == +m.inf
                             else '-∞%' if t == -m.inf
@@ -500,15 +518,21 @@ def table(results, total, diff_results=None, diff_total=None, *,
                             for t in ratios)))
             else:
                 print(' %s %s %s%s' % (
-                    ' '.join(diff_r[k].diff_table()
-                        if k in diff_r else types[k].diff_none
-                        for k in fields),
-                    ' '.join(r[k].diff_table()
-                        if k in r else types[k].diff_none
-                        for k in fields),
-                    ' '.join(types[k].diff_diff(r.get(k), diff_r.get(k))
-                        if k in r or k in diff_r else types[k].diff_none
-                        for k in fields),
+                    ' '.join(
+                        (diff_r[k].diff_table()
+                            if k in diff_r
+                            else types[k].diff_none).rjust(w)
+                        for w, k in zip(widths, fields)),
+                    ' '.join(
+                        (r[k].diff_table()
+                            if k in r
+                            else types[k].diff_none).rjust(w)
+                        for w, k in zip(widths, fields)),
+                    ' '.join(
+                        (types[k].diff_diff(r.get(k), diff_r.get(k))
+                            if k in r or k in diff_r
+                            else types[k].diff_none).rjust(w)
+                        for w, k in zip(widths, fields)),
                     ' (%s)' % ', '.join(
                             '+∞%' if t == +m.inf
                             else '-∞%' if t == -m.inf
@@ -524,17 +548,21 @@ def table(results, total, diff_results=None, diff_total=None, *,
         ratios = [types[k].ratio(r.get(k), diff_r.get(k))
             for k in fields]
 
-    print('%-36s' % 'TOTAL', end='')
+    print('%-*s ' % (name_width, 'TOTAL'), end='')
     if diff_results is None:
         print(' %s' % (
-            ' '.join(r[k].table()
-                if k in r else types[k].none
-                for k in fields)))
+            ' '.join(
+                (r[k].table()
+                    if k in r
+                    else types[k].none).rjust(w)
+                for w, k in zip(widths, fields))))
     elif percent:
         print(' %s%s' % (
-            ' '.join(r[k].diff_table()
-                if k in r else types[k].diff_none
-                for k in fields),
+            ' '.join(
+                (r[k].diff_table().rjust(w)
+                    if k in r
+                    else types[k].diff_none).rjust(w)
+                for w, k in zip(widths, fields)),
             ' (%s)' % ', '.join(
                     '+∞%' if t == +m.inf
                     else '-∞%' if t == -m.inf
@@ -542,15 +570,21 @@ def table(results, total, diff_results=None, diff_total=None, *,
                     for t in ratios)))
     else:
         print(' %s %s %s%s' % (
-            ' '.join(diff_r[k].diff_table()
-                if k in diff_r else types[k].diff_none
-                for k in fields),
-            ' '.join(r[k].diff_table()
-                if k in r else types[k].diff_none
-                for k in fields),
-            ' '.join(types[k].diff_diff(r.get(k), diff_r.get(k))
-                if k in r or k in diff_r else types[k].diff_none
-                for k in fields),
+            ' '.join(
+                (diff_r[k].diff_table()
+                    if k in diff_r
+                    else types[k].diff_none).rjust(w)
+                for w, k in zip(widths, fields)),
+            ' '.join(
+                (r[k].diff_table()
+                    if k in r
+                    else types[k].diff_none).rjust(w)
+                for w, k in zip(widths, fields)),
+            ' '.join(
+                (types[k].diff_diff(r.get(k), diff_r.get(k))
+                    if k in r or k in diff_r
+                    else types[k].diff_none).rjust(w)
+                for w, k in zip(widths, fields)),
             ' (%s)' % ', '.join(
                     '+∞%' if t == +m.inf
                     else '-∞%' if t == -m.inf

@@ -329,20 +329,27 @@ def table(results, calls, diff_results=None, *,
         names.sort(key=lambda n: (table[n].stack_frame,) if n in table else (),
             reverse=False)
 
-    # adjust the name width based on the expected call depth, note that we
-    # can't always find the depth due to recursion
-    width = 36 + (4*depth if not m.isinf(depth) else 0)
-
     # print header
-    if not tree:
-        print('%-*s' % (width, '%s%s' % (
+    if not summary:
+        title = '%s%s' % (
             'file' if by_file else 'function',
             ' (%d added, %d removed)' % (
                 sum(1 for n in table if n not in diff_table),
                 sum(1 for n in diff_table if n not in table))
                 if diff_results is not None and not percent else '')
-            if not summary else ''),
-            end='')
+        name_width = max(it.chain([23, len(title)], (len(n) for n in names)))
+    else:
+        title = ''
+        name_width = 23
+    name_width = 4*((name_width+1+4-1)//4)-1
+
+    # adjust the name width based on the expected call depth, note that we
+    # can't always find the depth due to recursion
+    if not m.isinf(depth):
+        name_width += 4*depth
+
+    if not tree:
+        print('%-*s ' % (name_width, title), end='')
         if diff_results is None:
             print(' %s %s' % (
                 'frame'.rjust(len(IntField.none)),
@@ -376,7 +383,7 @@ def table(results, calls, diff_results=None, *,
                         continue
 
                 is_last = (i == len(names_)-1)
-                print('%-*s' % (width, prefixes[0+is_last] + name), end='')
+                print('%-*s ' % (name_width, prefixes[0+is_last]+name), end='')
                 if tree:
                     print()
                 elif diff_results is None:
@@ -444,7 +451,7 @@ def table(results, calls, diff_results=None, *,
                 r.stack_limit if r else None,
                 diff_r.stack_limit if diff_r else None)
 
-        print('%-*s' % (width, 'TOTAL'), end='')
+        print('%-*s ' % (name_width, 'TOTAL'), end='')
         if diff_results is None:
             print(' %s %s' % (
                 r.stack_frame.table()

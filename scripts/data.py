@@ -244,14 +244,20 @@ def table(results, diff_results=None, *,
             reverse=False)
 
     # print header
-    print('%-36s' % ('%s%s' % (
-        'file' if by_file else 'function',
-        ' (%d added, %d removed)' % (
-            sum(1 for n in table if n not in diff_table),
-            sum(1 for n in diff_table if n not in table))
-            if diff_results is not None and not percent else '')
-        if not summary else ''),
-        end='')
+    if not summary:
+        title = '%s%s' % (
+            'file' if by_file else 'function',
+            ' (%d added, %d removed)' % (
+                sum(1 for n in table if n not in diff_table),
+                sum(1 for n in diff_table if n not in table))
+                if diff_results is not None and not percent else '')
+        name_width = max(it.chain([23, len(title)], (len(n) for n in names)))
+    else:
+        title = ''
+        name_width = 23
+    name_width = 4*((name_width+1+4-1)//4)-1
+
+    print('%-*s ' % (name_width, title), end='')
     if diff_results is None:
         print(' %s' % ('size'.rjust(len(IntField.none))))
     elif percent:
@@ -274,7 +280,7 @@ def table(results, diff_results=None, *,
                 if not ratio and not all_:
                     continue
 
-            print('%-36s' % name, end='')
+            print('%-*s ' % (name_width, name), end='')
             if diff_results is None:
                 print(' %s' % (
                     r.data_size.table()
@@ -313,7 +319,7 @@ def table(results, diff_results=None, *,
             r.data_size if r else None,
             diff_r.data_size if diff_r else None)
 
-    print('%-36s' % 'TOTAL', end='')
+    print('%-*s ' % (name_width, 'TOTAL'), end='')
     if diff_results is None:
         print(' %s' % (
             r.data_size.table()

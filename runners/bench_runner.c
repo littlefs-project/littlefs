@@ -665,7 +665,7 @@ void perm_count(
 
 // operations we can do
 static void summary(void) {
-    printf("%-36s %7s %7s %7s %11s\n",
+    printf("%-23s  %7s %7s %7s %11s\n",
             "", "flags", "suites", "cases", "perms");
     size_t suites = 0;
     size_t cases = 0;
@@ -707,7 +707,7 @@ static void summary(void) {
     sprintf(flag_buf, "%s%s",
             (flags & BENCH_REENTRANT) ? "r" : "",
             (!flags) ? "-" : "");
-    printf("%-36s %7s %7zu %7zu %11s\n",
+    printf("%-23s  %7s %7zu %7zu %11s\n",
             "TOTAL",
             flag_buf,
             suites,
@@ -716,8 +716,18 @@ static void summary(void) {
 }
 
 static void list_suites(void) {
-    printf("%-36s %7s %7s %11s\n", "suite", "flags", "cases", "perms");
+    // at least size so that names fit
+    unsigned name_width = 23;
+    for (size_t i = 0; i < BENCH_SUITE_COUNT; i++) {
+        size_t len = strlen(bench_suites[i].name);
+        if (len > name_width) {
+            name_width = len;
+        }
+    }
+    name_width = 4*((name_width+1+4-1)/4)-1;
 
+    printf("%-*s  %7s %7s %11s\n",
+            name_width, "suite", "flags", "cases", "perms");
     for (size_t t = 0; t < bench_id_count; t++) {
         for (size_t i = 0; i < BENCH_SUITE_COUNT; i++) {
             bench_define_suite(&bench_suites[i]);
@@ -756,7 +766,8 @@ static void list_suites(void) {
             sprintf(flag_buf, "%s%s",
                     (bench_suites[i].flags & BENCH_REENTRANT) ? "r" : "",
                     (!bench_suites[i].flags) ? "-" : "");
-            printf("%-36s %7s %7zu %11s\n",
+            printf("%-*s  %7s %7zu %11s\n",
+                    name_width,
                     bench_suites[i].name,
                     flag_buf,
                     cases,
@@ -766,8 +777,19 @@ static void list_suites(void) {
 }
 
 static void list_cases(void) {
-    printf("%-36s %7s %11s\n", "case", "flags", "perms");
+    // at least size so that names fit
+    unsigned name_width = 23;
+    for (size_t i = 0; i < BENCH_SUITE_COUNT; i++) {
+        for (size_t j = 0; j < bench_suites[i].case_count; j++) {
+            size_t len = strlen(bench_suites[i].cases[j].name);
+            if (len > name_width) {
+                name_width = len;
+            }
+        }
+    }
+    name_width = 4*((name_width+1+4-1)/4)-1;
 
+    printf("%-*s  %7s %11s\n", name_width, "case", "flags", "perms");
     for (size_t t = 0; t < bench_id_count; t++) {
         for (size_t i = 0; i < BENCH_SUITE_COUNT; i++) {
             bench_define_suite(&bench_suites[i]);
@@ -799,7 +821,8 @@ static void list_cases(void) {
                             ? "r" : "",
                         (!bench_suites[i].cases[j].flags)
                             ? "-" : "");
-                printf("%-36s %7s %11s\n",
+                printf("%-*s  %7s %11s\n",
+                        name_width,
                         bench_suites[i].cases[j].name,
                         flag_buf,
                         perm_buf);
@@ -809,8 +832,17 @@ static void list_cases(void) {
 }
 
 static void list_suite_paths(void) {
-    printf("%-36s %s\n", "suite", "path");
+    // at least size so that names fit
+    unsigned name_width = 23;
+    for (size_t i = 0; i < BENCH_SUITE_COUNT; i++) {
+        size_t len = strlen(bench_suites[i].name);
+        if (len > name_width) {
+            name_width = len;
+        }
+    }
+    name_width = 4*((name_width+1+4-1)/4)-1;
 
+    printf("%-*s  %s\n", name_width, "suite", "path");
     for (size_t t = 0; t < bench_id_count; t++) {
         for (size_t i = 0; i < BENCH_SUITE_COUNT; i++) {
             size_t cases = 0;
@@ -823,6 +855,8 @@ static void list_suite_paths(void) {
                         || strcmp(bench_ids[t].name,
                             bench_suites[i].cases[j].name) == 0)) {
                     continue;
+
+                    cases += 1;
                 }
             }
 
@@ -831,7 +865,8 @@ static void list_suite_paths(void) {
                 continue;
             }
 
-            printf("%-36s %s\n",
+            printf("%-*s  %s\n",
+                    name_width,
                     bench_suites[i].name,
                     bench_suites[i].path);
         }
@@ -839,8 +874,19 @@ static void list_suite_paths(void) {
 }
 
 static void list_case_paths(void) {
-    printf("%-36s %s\n", "case", "path");
+    // at least size so that names fit
+    unsigned name_width = 23;
+    for (size_t i = 0; i < BENCH_SUITE_COUNT; i++) {
+        for (size_t j = 0; j < bench_suites[i].case_count; j++) {
+            size_t len = strlen(bench_suites[i].cases[j].name);
+            if (len > name_width) {
+                name_width = len;
+            }
+        }
+    }
+    name_width = 4*((name_width+1+4-1)/4)-1;
 
+    printf("%-*s  %s\n", name_width, "case", "path");
     for (size_t t = 0; t < bench_id_count; t++) {
         for (size_t i = 0; i < BENCH_SUITE_COUNT; i++) {
             for (size_t j = 0; j < bench_suites[i].case_count; j++) {
@@ -853,7 +899,8 @@ static void list_case_paths(void) {
                     continue;
                 }
 
-                printf("%-36s %s\n",
+                printf("%-*s  %s\n",
+                        name_width,
                         bench_suites[i].cases[j].name,
                         bench_suites[i].cases[j].path);
             }
@@ -1099,16 +1146,27 @@ const bench_geometry_t *bench_geometries = builtin_geometries;
 size_t bench_geometry_count = 5;
 
 static void list_geometries(void) {
+    // at least size so that names fit
+    unsigned name_width = 23;
+    for (size_t g = 0; builtin_geometries[g].name; g++) {
+        size_t len = strlen(builtin_geometries[g].name);
+        if (len > name_width) {
+            name_width = len;
+        }
+    }
+    name_width = 4*((name_width+1+4-1)/4)-1;
+
     // yes we do need to define a suite, this does a bit of bookeeping
     // such as setting up the define cache
     bench_define_suite(&(const struct bench_suite){0});
 
-    printf("%-24s %7s %7s %7s %7s %11s\n",
-            "geometry", "read", "prog", "erase", "count", "size");
+    printf("%-*s  %7s %7s %7s %7s %11s\n",
+            name_width, "geometry", "read", "prog", "erase", "count", "size");
     for (size_t g = 0; builtin_geometries[g].name; g++) {
         bench_define_geometry(&builtin_geometries[g]);
         bench_define_flush();
-        printf("%-24s %7ju %7ju %7ju %7ju %11ju\n",
+        printf("%-*s  %7ju %7ju %7ju %7ju %11ju\n",
+                name_width,
                 builtin_geometries[g].name,
                 READ_SIZE,
                 PROG_SIZE,
