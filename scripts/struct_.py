@@ -27,7 +27,7 @@ OBJDUMP_TOOL = ['objdump']
 # integer fields
 class IntField(co.namedtuple('IntField', 'x')):
     __slots__ = ()
-    def __new__(cls, x):
+    def __new__(cls, x=0):
         if isinstance(x, IntField):
             return x
         if isinstance(x, str):
@@ -36,12 +36,21 @@ class IntField(co.namedtuple('IntField', 'x')):
             except ValueError:
                 # also accept +-∞ and +-inf
                 if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
-                    x = float('inf')
+                    x = m.inf
                 elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
-                    x = float('-inf')
+                    x = -m.inf
                 else:
                     raise
+        assert isinstance(x, int) or m.isinf(x), x
         return super().__new__(cls, x)
+
+    def __str__(self):
+        if self.x == m.inf:
+            return '∞'
+        elif self.x == -m.inf:
+            return '-∞'
+        else:
+            return str(self.x)
 
     def __int__(self):
         assert not m.isinf(self.x)
@@ -49,14 +58,6 @@ class IntField(co.namedtuple('IntField', 'x')):
 
     def __float__(self):
         return float(self.x)
-
-    def __str__(self):
-        if self.x == float('inf'):
-            return '∞'
-        elif self.x == float('-inf'):
-            return '-∞'
-        else:
-            return str(self.x)
 
     none = '%7s' % '-'
     def table(self):
@@ -69,9 +70,9 @@ class IntField(co.namedtuple('IntField', 'x')):
         new = self.x if self else 0
         old = other.x if other else 0
         diff = new - old
-        if diff == float('+inf'):
+        if diff == +m.inf:
             return '%7s' % '+∞'
-        elif diff == float('-inf'):
+        elif diff == -m.inf:
             return '%7s' % '-∞'
         else:
             return '%+7d' % diff
@@ -82,9 +83,9 @@ class IntField(co.namedtuple('IntField', 'x')):
         if m.isinf(new) and m.isinf(old):
             return 0.0
         elif m.isinf(new):
-            return float('+inf')
+            return +m.inf
         elif m.isinf(old):
-            return float('-inf')
+            return -m.inf
         elif not old and not new:
             return 0.0
         elif not old:
@@ -94,6 +95,9 @@ class IntField(co.namedtuple('IntField', 'x')):
 
     def __add__(self, other):
         return IntField(self.x + other.x)
+
+    def __sub__(self, other):
+        return IntField(self.x - other.x)
 
     def __mul__(self, other):
         return IntField(self.x * other.x)
@@ -109,12 +113,6 @@ class IntField(co.namedtuple('IntField', 'x')):
 
     def __ge__(self, other):
         return not self.__lt__(other)
-
-    def __truediv__(self, n):
-        if m.isinf(self.x):
-            return self
-        else:
-            return IntField(round(self.x / n))
 
 # struct size results
 class StructResult(co.namedtuple('StructResult', 'file,struct,struct_size')):
@@ -328,8 +326,8 @@ def table(results, diff_results=None, *,
                     r.struct_size.diff_table()
                         if r else IntField.diff_none,
                     ' (%s)' % (
-                        '+∞%' if ratio == float('+inf')
-                        else '-∞%' if ratio == float('-inf')
+                        '+∞%' if ratio == +m.inf
+                        else '-∞%' if ratio == -m.inf
                         else '%+.1f%%' % (100*ratio))))
             else:
                 print(' %s %s %s%s' % (
@@ -342,8 +340,8 @@ def table(results, diff_results=None, *,
                         diff_r.struct_size if diff_r else None)
                         if r or diff_r else IntField.diff_none,
                     ' (%s)' % (
-                        '+∞%' if ratio == float('+inf')
-                        else '-∞%' if ratio == float('-inf')
+                        '+∞%' if ratio == +m.inf
+                        else '-∞%' if ratio == -m.inf
                         else '%+.1f%%' % (100*ratio))
                         if ratio else ''))
 
@@ -367,8 +365,8 @@ def table(results, diff_results=None, *,
             r.struct_size.diff_table()
                 if r else IntField.diff_none,
             ' (%s)' % (
-                '+∞%' if ratio == float('+inf')
-                else '-∞%' if ratio == float('-inf')
+                '+∞%' if ratio == +m.inf
+                else '-∞%' if ratio == -m.inf
                 else '%+.1f%%' % (100*ratio))))
     else:
         print(' %s %s %s%s' % (
@@ -381,8 +379,8 @@ def table(results, diff_results=None, *,
                 diff_r.struct_size if diff_r else None)
                 if r or diff_r else IntField.diff_none,
             ' (%s)' % (
-                '+∞%' if ratio == float('+inf')
-                else '-∞%' if ratio == float('-inf')
+                '+∞%' if ratio == +m.inf
+                else '-∞%' if ratio == -m.inf
                 else '%+.1f%%' % (100*ratio))
                 if ratio else ''))
 

@@ -32,7 +32,7 @@ GCOV_TOOL = ['gcov']
 # integer fields
 class IntField(co.namedtuple('IntField', 'x')):
     __slots__ = ()
-    def __new__(cls, x):
+    def __new__(cls, x=0):
         if isinstance(x, IntField):
             return x
         if isinstance(x, str):
@@ -41,12 +41,21 @@ class IntField(co.namedtuple('IntField', 'x')):
             except ValueError:
                 # also accept +-∞ and +-inf
                 if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
-                    x = float('inf')
+                    x = m.inf
                 elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
-                    x = float('-inf')
+                    x = -m.inf
                 else:
                     raise
+        assert isinstance(x, int) or m.isinf(x), x
         return super().__new__(cls, x)
+
+    def __str__(self):
+        if self.x == m.inf:
+            return '∞'
+        elif self.x == -m.inf:
+            return '-∞'
+        else:
+            return str(self.x)
 
     def __int__(self):
         assert not m.isinf(self.x)
@@ -54,14 +63,6 @@ class IntField(co.namedtuple('IntField', 'x')):
 
     def __float__(self):
         return float(self.x)
-
-    def __str__(self):
-        if self.x == float('inf'):
-            return '∞'
-        elif self.x == float('-inf'):
-            return '-∞'
-        else:
-            return str(self.x)
 
     none = '%7s' % '-'
     def table(self):
@@ -74,9 +75,9 @@ class IntField(co.namedtuple('IntField', 'x')):
         new = self.x if self else 0
         old = other.x if other else 0
         diff = new - old
-        if diff == float('+inf'):
+        if diff == +m.inf:
             return '%7s' % '+∞'
-        elif diff == float('-inf'):
+        elif diff == -m.inf:
             return '%7s' % '-∞'
         else:
             return '%+7d' % diff
@@ -87,9 +88,9 @@ class IntField(co.namedtuple('IntField', 'x')):
         if m.isinf(new) and m.isinf(old):
             return 0.0
         elif m.isinf(new):
-            return float('+inf')
+            return +m.inf
         elif m.isinf(old):
-            return float('-inf')
+            return -m.inf
         elif not old and not new:
             return 0.0
         elif not old:
@@ -99,6 +100,9 @@ class IntField(co.namedtuple('IntField', 'x')):
 
     def __add__(self, other):
         return IntField(self.x + other.x)
+
+    def __sub__(self, other):
+        return IntField(self.x - other.x)
 
     def __mul__(self, other):
         return IntField(self.x * other.x)
@@ -115,16 +119,10 @@ class IntField(co.namedtuple('IntField', 'x')):
     def __ge__(self, other):
         return not self.__lt__(other)
 
-    def __truediv__(self, n):
-        if m.isinf(self.x):
-            return self
-        else:
-            return IntField(round(self.x / n))
-
 # fractional fields, a/b
 class FracField(co.namedtuple('FracField', 'a,b')):
     __slots__ = ()
-    def __new__(cls, a, b=None):
+    def __new__(cls, a=0, b=None):
         if isinstance(a, FracField) and b is None:
             return a
         if isinstance(a, str) and b is None:
@@ -136,6 +134,9 @@ class FracField(co.namedtuple('FracField', 'a,b')):
     def __str__(self):
         return '%s/%s' % (self.a, self.b)
 
+    def __float__(self):
+        return float(self.a)
+
     none = '%11s %7s' % ('-', '-')
     def table(self):
         if not self.b.x:
@@ -144,8 +145,8 @@ class FracField(co.namedtuple('FracField', 'a,b')):
         t = self.a.x/self.b.x
         return '%11s %7s' % (
             self,
-            '∞%' if t == float('+inf')
-            else '-∞%' if t == float('-inf')
+            '∞%' if t == +m.inf
+            else '-∞%' if t == -m.inf
             else '%.1f%%' % (100*t))
 
     diff_none = '%11s' % '-'
@@ -172,12 +173,15 @@ class FracField(co.namedtuple('FracField', 'a,b')):
     def __add__(self, other):
         return FracField(self.a + other.a, self.b + other.b)
 
+    def __sub__(self, other):
+        return FracField(self.a - other.a, self.b - other.b)
+
     def __mul__(self, other):
         return FracField(self.a * other.a, self.b + other.b)
 
     def __lt__(self, other):
-        self_r = self.a.x/self.b.x if self.b.x else float('-inf')
-        other_r = other.a.x/other.b.x if other.b.x else float('-inf')
+        self_r = self.a.x/self.b.x if self.b.x else -m.inf
+        other_r = other.a.x/other.b.x if other.b.x else -m.inf
         return self_r < other_r
 
     def __gt__(self, other):
@@ -188,9 +192,6 @@ class FracField(co.namedtuple('FracField', 'a,b')):
 
     def __ge__(self, other):
         return not self.__lt__(other)
-
-    def __truediv__(self, n):
-        return FracField(self.a / n, self.b / n)
 
 # coverage results
 class CoverageResult(co.namedtuple('CoverageResult',
@@ -416,8 +417,8 @@ def table(results, diff_results=None, *,
                     r.coverage_branches.diff_table()
                         if r else FracField.diff_none,
                     ' (%s)' % ', '.join(
-                            '+∞%' if t == float('+inf')
-                            else '-∞%' if t == float('-inf')
+                            '+∞%' if t == +m.inf
+                            else '-∞%' if t == -m.inf
                             else '%+.1f%%' % (100*t)
                             for t in [line_ratio, branch_ratio])))
             else:
@@ -439,8 +440,8 @@ def table(results, diff_results=None, *,
                         diff_r.coverage_branches if diff_r else None)
                         if r or diff_r else FracField.diff_none,
                     ' (%s)' % ', '.join(
-                            '+∞%' if t == float('+inf')
-                            else '-∞%' if t == float('-inf')
+                            '+∞%' if t == +m.inf
+                            else '-∞%' if t == -m.inf
                             else '%+.1f%%' % (100*t)
                             for t in [line_ratio, branch_ratio]
                             if t)
@@ -473,8 +474,8 @@ def table(results, diff_results=None, *,
             r.coverage_branches.diff_table()
                 if r else FracField.diff_none,
             ' (%s)' % ', '.join(
-                    '+∞%' if t == float('+inf')
-                    else '-∞%' if t == float('-inf')
+                    '+∞%' if t == +m.inf
+                    else '-∞%' if t == -m.inf
                     else '%+.1f%%' % (100*t)
                     for t in [line_ratio, branch_ratio])))
     else:
@@ -496,8 +497,8 @@ def table(results, diff_results=None, *,
                 diff_r.coverage_branches if diff_r else None)
                 if r or diff_r else FracField.diff_none,
             ' (%s)' % ', '.join(
-                    '+∞%' if t == float('+inf')
-                    else '-∞%' if t == float('-inf')
+                    '+∞%' if t == +m.inf
+                    else '-∞%' if t == -m.inf
                     else '%+.1f%%' % (100*t)
                     for t in [line_ratio, branch_ratio]
                     if t)
