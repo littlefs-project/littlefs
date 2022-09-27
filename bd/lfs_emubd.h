@@ -136,8 +136,8 @@ typedef struct lfs_emubd {
     lfs_emubd_block_t **blocks;
 
     // some other test state
-    lfs_emubd_io_t read;
-    lfs_emubd_io_t prog;
+    lfs_emubd_io_t readed;
+    lfs_emubd_io_t proged;
     lfs_emubd_io_t erased;
     lfs_emubd_powercycles_t power_cycles;
     lfs_emubd_disk_t *disk;
@@ -182,19 +182,19 @@ int lfs_emubd_sync(const struct lfs_config *cfg);
 /// Additional extended API for driving test features ///
 
 // Get total amount of bytes read
-lfs_emubd_sio_t lfs_emubd_getread(const struct lfs_config *cfg);
+lfs_emubd_sio_t lfs_emubd_getreaded(const struct lfs_config *cfg);
 
 // Get total amount of bytes programmed
-lfs_emubd_sio_t lfs_emubd_getprog(const struct lfs_config *cfg);
+lfs_emubd_sio_t lfs_emubd_getproged(const struct lfs_config *cfg);
 
 // Get total amount of bytes erased
 lfs_emubd_sio_t lfs_emubd_geterased(const struct lfs_config *cfg);
 
 // Manually set amount of bytes read
-int lfs_emubd_setread(const struct lfs_config *cfg, lfs_emubd_io_t read);
+int lfs_emubd_setreaded(const struct lfs_config *cfg, lfs_emubd_io_t readed);
 
 // Manually set amount of bytes programmed
-int lfs_emubd_setprog(const struct lfs_config *cfg, lfs_emubd_io_t prog);
+int lfs_emubd_setproged(const struct lfs_config *cfg, lfs_emubd_io_t proged);
 
 // Manually set amount of bytes erased
 int lfs_emubd_seterased(const struct lfs_config *cfg, lfs_emubd_io_t erased);

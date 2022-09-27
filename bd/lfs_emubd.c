@@ -125,8 +125,8 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
     memset(bd->blocks, 0, cfg->block_count * sizeof(lfs_emubd_block_t*));
 
     // setup testing things
-    bd->read = 0;
-    bd->prog = 0;
+    bd->readed = 0;
+    bd->proged = 0;
     bd->erased = 0;
     bd->power_cycles = bd->cfg->power_cycles;
     bd->disk = NULL;
@@ -249,7 +249,7 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     }   
 
     // track reads
-    bd->read += size;
+    bd->readed += size;
     if (bd->cfg->read_sleep) {
         int err = nanosleep(&(struct timespec){
                 .tv_sec=bd->cfg->read_sleep/1000000000,
@@ -331,7 +331,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     }
 
     // track progs
-    bd->prog += size;
+    bd->proged += size;
     if (bd->cfg->prog_sleep) {
         int err = nanosleep(&(struct timespec){
                 .tv_sec=bd->cfg->prog_sleep/1000000000,
@@ -454,18 +454,18 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
 
 /// Additional extended API for driving test features ///
 
-lfs_emubd_sio_t lfs_emubd_getread(const struct lfs_config *cfg) {
-    LFS_EMUBD_TRACE("lfs_emubd_getread(%p)", (void*)cfg);
+lfs_emubd_sio_t lfs_emubd_getreaded(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_getreaded(%p)", (void*)cfg);
     lfs_emubd_t *bd = cfg->context;
-    LFS_EMUBD_TRACE("lfs_emubd_getread -> %"PRIu64, bd->read);
-    return bd->read;
+    LFS_EMUBD_TRACE("lfs_emubd_getreaded -> %"PRIu64, bd->readed);
+    return bd->readed;
 }
 
-lfs_emubd_sio_t lfs_emubd_getprog(const struct lfs_config *cfg) {
-    LFS_EMUBD_TRACE("lfs_emubd_getprog(%p)", (void*)cfg);
+lfs_emubd_sio_t lfs_emubd_getproged(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_getproged(%p)", (void*)cfg);
     lfs_emubd_t *bd = cfg->context;
-    LFS_EMUBD_TRACE("lfs_emubd_getprog -> %"PRIu64, bd->prog);
-    return bd->prog;
+    LFS_EMUBD_TRACE("lfs_emubd_getproged -> %"PRIu64, bd->proged);
+    return bd->proged;
 }
 
 lfs_emubd_sio_t lfs_emubd_geterased(const struct lfs_config *cfg) {
@@ -475,19 +475,19 @@ lfs_emubd_sio_t lfs_emubd_geterased(const struct lfs_config *cfg) {
     return bd->erased;
 }
 
-int lfs_emubd_setread(const struct lfs_config *cfg, lfs_emubd_io_t read) {
-    LFS_EMUBD_TRACE("lfs_emubd_setread(%p, %"PRIu64")", (void*)cfg, read);
+int lfs_emubd_setreaded(const struct lfs_config *cfg, lfs_emubd_io_t readed) {
+    LFS_EMUBD_TRACE("lfs_emubd_setreaded(%p, %"PRIu64")", (void*)cfg, readed);
     lfs_emubd_t *bd = cfg->context;
-    bd->read = read;
-    LFS_EMUBD_TRACE("lfs_emubd_setread -> %d", 0);
+    bd->readed = readed;
+    LFS_EMUBD_TRACE("lfs_emubd_setreaded -> %d", 0);
     return 0;
 }
 
-int lfs_emubd_setprog(const struct lfs_config *cfg, lfs_emubd_io_t prog) {
-    LFS_EMUBD_TRACE("lfs_emubd_setprog(%p, %"PRIu64")", (void*)cfg, prog);
+int lfs_emubd_setproged(const struct lfs_config *cfg, lfs_emubd_io_t proged) {
+    LFS_EMUBD_TRACE("lfs_emubd_setproged(%p, %"PRIu64")", (void*)cfg, proged);
     lfs_emubd_t *bd = cfg->context;
-    bd->prog = prog;
-    LFS_EMUBD_TRACE("lfs_emubd_setprog -> %d", 0);
+    bd->proged = proged;
+    LFS_EMUBD_TRACE("lfs_emubd_setproged -> %d", 0);
     return 0;
 }
 

@@ -464,47 +464,47 @@ void bench_trace(const char *fmt, ...) {
 
 // bench recording state
 static struct lfs_config *bench_cfg = NULL;
-static lfs_emubd_io_t bench_last_read = 0;
-static lfs_emubd_io_t bench_last_prog = 0;
+static lfs_emubd_io_t bench_last_readed = 0;
+static lfs_emubd_io_t bench_last_proged = 0;
 static lfs_emubd_io_t bench_last_erased = 0;
-lfs_emubd_io_t bench_read = 0;
-lfs_emubd_io_t bench_prog = 0;
+lfs_emubd_io_t bench_readed = 0;
+lfs_emubd_io_t bench_proged = 0;
 lfs_emubd_io_t bench_erased = 0;
 
 void bench_reset(void) {
-    bench_read = 0;
-    bench_prog = 0;
+    bench_readed = 0;
+    bench_proged = 0;
     bench_erased = 0;
-    bench_last_read = 0;
-    bench_last_prog = 0;
+    bench_last_readed = 0;
+    bench_last_proged = 0;
     bench_last_erased = 0;
 }
 
 void bench_start(void) {
     assert(bench_cfg);
-    lfs_emubd_sio_t read = lfs_emubd_getread(bench_cfg);
-    assert(read >= 0);
-    lfs_emubd_sio_t prog = lfs_emubd_getprog(bench_cfg);
-    assert(prog >= 0);
+    lfs_emubd_sio_t readed = lfs_emubd_getreaded(bench_cfg);
+    assert(readed >= 0);
+    lfs_emubd_sio_t proged = lfs_emubd_getproged(bench_cfg);
+    assert(proged >= 0);
     lfs_emubd_sio_t erased = lfs_emubd_geterased(bench_cfg);
     assert(erased >= 0);
 
-    bench_last_read = read;
-    bench_last_prog = prog;
+    bench_last_readed = readed;
+    bench_last_proged = proged;
     bench_last_erased = erased;
 }
 
 void bench_stop(void) {
     assert(bench_cfg);
-    lfs_emubd_sio_t read = lfs_emubd_getread(bench_cfg);
-    assert(read >= 0);
-    lfs_emubd_sio_t prog = lfs_emubd_getprog(bench_cfg);
-    assert(prog >= 0);
+    lfs_emubd_sio_t readed = lfs_emubd_getreaded(bench_cfg);
+    assert(readed >= 0);
+    lfs_emubd_sio_t proged = lfs_emubd_getproged(bench_cfg);
+    assert(proged >= 0);
     lfs_emubd_sio_t erased = lfs_emubd_geterased(bench_cfg);
     assert(erased >= 0);
 
-    bench_read += read - bench_last_read;
-    bench_prog += prog - bench_last_prog;
+    bench_readed += readed - bench_last_readed;
+    bench_proged += proged - bench_last_proged;
     bench_erased += erased - bench_last_erased;
 }
 
@@ -1250,8 +1250,8 @@ void perm_run(
     printf("finished ");
     perm_printid(suite, case_);
     printf(" %"PRIu64" %"PRIu64" %"PRIu64,
-        bench_read,
-        bench_prog,
+        bench_readed,
+        bench_proged,
         bench_erased);
     printf("\n");
 
