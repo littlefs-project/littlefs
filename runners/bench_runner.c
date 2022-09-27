@@ -90,9 +90,7 @@ static uintmax_t leb16_parse(const char *s, char **tail) {
 // bench_runner types
 
 typedef struct bench_geometry {
-    char short_name;
-    const char *long_name;
-
+    const char *name;
     bench_define_t defines[BENCH_GEOMETRY_DEFINE_COUNT];
 } bench_geometry_t;
 
@@ -1057,7 +1055,7 @@ static void list_implicit_defines(void) {
 
     // make sure to include builtin geometries here
     extern const bench_geometry_t builtin_geometries[];
-    for (size_t g = 0; builtin_geometries[g].long_name; g++) {
+    for (size_t g = 0; builtin_geometries[g].name; g++) {
         bench_define_geometry(&builtin_geometries[g]);
         bench_define_flush();
 
@@ -1089,12 +1087,12 @@ static void list_implicit_defines(void) {
 // geometries to bench
 
 const bench_geometry_t builtin_geometries[] = {
-    {'d', "default", {{NULL}, BENCH_CONST(16),   BENCH_CONST(512),   {NULL}}},
-    {'e', "eeprom",  {{NULL}, BENCH_CONST(1),    BENCH_CONST(512),   {NULL}}},
-    {'E', "emmc",    {{NULL}, {NULL},            BENCH_CONST(512),   {NULL}}},
-    {'n', "nor",     {{NULL}, BENCH_CONST(1),    BENCH_CONST(4096),  {NULL}}},
-    {'N', "nand",    {{NULL}, BENCH_CONST(4096), BENCH_CONST(32768), {NULL}}},
-    {0, NULL, {{NULL}, {NULL}, {NULL}, {NULL}}},
+    {"default", {{NULL}, BENCH_CONST(16),   BENCH_CONST(512),   {NULL}}},
+    {"eeprom",  {{NULL}, BENCH_CONST(1),    BENCH_CONST(512),   {NULL}}},
+    {"emmc",    {{NULL}, {NULL},            BENCH_CONST(512),   {NULL}}},
+    {"nor",     {{NULL}, BENCH_CONST(1),    BENCH_CONST(4096),  {NULL}}},
+    {"nand",    {{NULL}, BENCH_CONST(4096), BENCH_CONST(32768), {NULL}}},
+    {NULL, {{NULL}, {NULL}, {NULL}, {NULL}}},
 };
 
 const bench_geometry_t *bench_geometries = builtin_geometries;
@@ -1107,12 +1105,11 @@ static void list_geometries(void) {
 
     printf("%-24s %7s %7s %7s %7s %11s\n",
             "geometry", "read", "prog", "erase", "count", "size");
-    for (size_t g = 0; builtin_geometries[g].long_name; g++) {
+    for (size_t g = 0; builtin_geometries[g].name; g++) {
         bench_define_geometry(&builtin_geometries[g]);
         bench_define_flush();
-        printf("%c,%-22s %7ju %7ju %7ju %7ju %11ju\n",
-                builtin_geometries[g].short_name,
-                builtin_geometries[g].long_name,
+        printf("%-24s %7ju %7ju %7ju %7ju %11ju\n",
+                builtin_geometries[g].name,
                 READ_SIZE,
                 PROG_SIZE,
                 BLOCK_SIZE,
@@ -1253,7 +1250,7 @@ enum opt_flags {
     OPT_LIST_IMPLICIT_DEFINES    = 5,
     OPT_LIST_GEOMETRIES          = 6,
     OPT_DEFINE                   = 'D',
-    OPT_GEOMETRY                 = 'g',
+    OPT_GEOMETRY                 = 'G',
     OPT_STEP                     = 's',
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
@@ -1262,7 +1259,7 @@ enum opt_flags {
     OPT_ERASE_SLEEP              = 9,
 };
 
-const char *short_opts = "hYlLD:g:s:d:t:";
+const char *short_opts = "hYlLD:G:s:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -1300,7 +1297,7 @@ const char *const help_text[] = {
     "List implicit defines in this bench-runner.",
     "List the available disk geometries.",
     "Override a bench define.",
-    "Comma-separated list of disk geometries to bench. Defaults to d,e,E,n,N.",
+    "Comma-separated list of disk geometries to bench.",
     "Comma-separated range of bench permutations to run (start,stop,step).",
     "Redirect block device operations to this file.",
     "Redirect trace output to this file.",
@@ -1555,14 +1552,11 @@ invalid_define:
 
                     // named disk geometry
                     size_t len = strcspn(optarg, " ,");
-                    for (size_t i = 0; builtin_geometries[i].long_name; i++) {
-                        if ((len == 1
-                                && *optarg == builtin_geometries[i].short_name)
-                                || (len == strlen(
-                                        builtin_geometries[i].long_name)
-                                    && memcmp(optarg,
-                                        builtin_geometries[i].long_name,
-                                        len) == 0))  {
+                    for (size_t i = 0; builtin_geometries[i].name; i++) {
+                        if (len == strlen(builtin_geometries[i].name)
+                                && memcmp(optarg,
+                                    builtin_geometries[i].name,
+                                    len) == 0) {
                             *geometry = builtin_geometries[i];
                             optarg += len;
                             goto geometry_next;

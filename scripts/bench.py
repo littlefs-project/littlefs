@@ -511,7 +511,7 @@ def find_runner(runner, **args):
 
     # other context
     if args.get('geometry'):
-        cmd.append('-g%s' % args['geometry'])
+        cmd.append('-G%s' % args['geometry'])
     if args.get('disk'):
         cmd.append('-d%s' % args['disk'])
     if args.get('trace'):
@@ -1003,6 +1003,10 @@ def run(runner, bench_ids=[], **args):
         total_perms))
     print()
 
+    # automatic job detection?
+    if args.get('jobs') == 0:
+        args['jobs'] = len(os.sched_getaffinity(0))
+
     # truncate and open logs here so they aren't disconnected between benches
     stdout = None
     if args.get('stdout'):
@@ -1246,9 +1250,8 @@ if __name__ == "__main__":
         action='append',
         help="Override a bench define.")
     bench_parser.add_argument(
-        '-g', '--geometry',
-        help="Comma-separated list of disk geometries to bench. "
-            "Defaults to d,e,E,n,N.")
+        '-G', '--geometry',
+        help="Comma-separated list of disk geometries to bench.")
     bench_parser.add_argument(
         '-d', '--disk',
         help="Direct block device operations to this file.")
@@ -1274,8 +1277,8 @@ if __name__ == "__main__":
         '-j', '--jobs',
         nargs='?',
         type=lambda x: int(x, 0),
-        const=len(os.sched_getaffinity(0)),
-        help="Number of parallel runners to run.")
+        const=0,
+        help="Number of parallel runners to run. 0 runs one runner per core.")
     bench_parser.add_argument(
         '-k', '--keep-going',
         action='store_true',

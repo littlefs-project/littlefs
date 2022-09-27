@@ -479,8 +479,8 @@ def main(csv_paths, *,
         x=None,
         y=None,
         define=[],
-        xlim=None,
-        ylim=None,
+        xlim=(None,None),
+        ylim=(None,None),
         width=None,
         height=17,
         cat=False,
@@ -489,7 +489,7 @@ def main(csv_paths, *,
         colors=None,
         chars=None,
         line_chars=None,
-        no_lines=False,
+        points=False,
         legend=None,
         keep_open=False,
         sleep=None,
@@ -503,9 +503,9 @@ def main(csv_paths, *,
         color = False
 
     # allow shortened ranges
-    if xlim is not None and len(xlim) == 1:
+    if len(xlim) == 1:
         xlim = (0, xlim[0])
-    if ylim is not None and len(ylim) == 1:
+    if len(ylim) == 1:
         ylim = (0, ylim[0])
 
     # separate out renames
@@ -544,7 +544,7 @@ def main(csv_paths, *,
 
         if line_chars is not None:
             line_chars_ = line_chars
-        elif not no_lines:
+        elif not points:
             line_chars_ = [True]
         else:
             line_chars_ = [False]
@@ -567,28 +567,26 @@ def main(csv_paths, *,
                     legend_width = max(legend_width, len(label)+1)
 
         # find xlim/ylim
-        if xlim is not None:
-            xlim_ = xlim
-        else:
-            xlim_ = (
-                min(it.chain([0], (k
+        xlim_ = (
+            xlim[0] if xlim[0] is not None
+                else min(it.chain([0], (k
                     for r in datasets_.values()
                     for k, v in r.items()
                     if v is not None))),
-                max(it.chain([0], (k
+            xlim[1] if xlim[1] is not None
+                else max(it.chain([0], (k
                     for r in datasets_.values()
                     for k, v in r.items()
                     if v is not None))))
 
-        if ylim is not None:
-            ylim_ = ylim
-        else:
-            ylim_ = (
-                min(it.chain([0], (v
+        ylim_ = (
+            ylim[0] if ylim[0] is not None
+                else min(it.chain([0], (v
                     for r in datasets_.values()
                     for _, v in r.items()
                     if v is not None))),
-                max(it.chain([0], (v
+            ylim[1] if ylim[1] is not None
+                else max(it.chain([0], (v
                     for r in datasets_.values()
                     for _, v in r.items()
                     if v is not None))))
@@ -740,17 +738,17 @@ if __name__ == "__main__":
             "or list of paths. Defaults to %r." % CSV_PATHS)
     parser.add_argument(
         '-b', '--by',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Fields to render as separate plots. All other fields will be "
             "summed as needed. Can rename fields with new_name=old_name.")
     parser.add_argument(
         '-x',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Fields to use for the x-axis. Can rename fields with "
             "new_name=old_name.")
     parser.add_argument(
         '-y',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Fields to use for the y-axis. Can rename fields with "
             "new_name=old_name.")
     parser.add_argument(
@@ -771,7 +769,7 @@ if __name__ == "__main__":
             "sometimes suffer from inconsistent widths.")
     parser.add_argument(
         '--colors',
-        type=lambda x: x.split(','),
+        type=lambda x: [x.strip() for x in x.split(',')],
         help="Colors to use.")
     parser.add_argument(
         '--chars',
@@ -780,17 +778,21 @@ if __name__ == "__main__":
         '--line-chars',
         help="Characters to use for lines.")
     parser.add_argument(
-        '-L', '--no-lines',
+        '-.', '--points',
         action='store_true',
         help="Only draw the data points.")
     parser.add_argument(
         '-W', '--width',
+        nargs='?',
         type=lambda x: int(x, 0),
+        const=0,
         help="Width in columns. 0 uses the terminal width. Defaults to "
             "min(terminal, 80).")
     parser.add_argument(
         '-H', '--height',
+        nargs='?',
         type=lambda x: int(x, 0),
+        const=0,
         help="Height in rows. 0 uses the terminal height. Defaults to 17.")
     parser.add_argument(
         '-z', '--cat',
@@ -798,11 +800,15 @@ if __name__ == "__main__":
         help="Pipe directly to stdout.")
     parser.add_argument(
         '-X', '--xlim',
-        type=lambda x: tuple(dat(x) if x else None for x in x.split(',')),
+        type=lambda x: tuple(
+            dat(x) if x.strip() else None
+            for x in x.split(',')),
         help="Range for the x-axis.")
     parser.add_argument(
         '-Y', '--ylim',
-        type=lambda x: tuple(dat(x) if x else None for x in x.split(',')),
+        type=lambda x: tuple(
+            dat(x) if x.strip() else None
+            for x in x.split(',')),
         help="Range for the y-axis.")
     parser.add_argument(
         '--xlog',

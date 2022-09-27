@@ -121,9 +121,10 @@ if __name__ == "__main__":
         nargs='?',
         help="Path to read from.")
     parser.add_argument(
-        '-n',
-        '--lines',
+        '-n', '--lines',
+        nargs='?',
         type=lambda x: int(x, 0),
+        const=0,
         help="Show this many lines of history. 0 uses the terminal height. "
             "Defaults to 5.")
     parser.add_argument(

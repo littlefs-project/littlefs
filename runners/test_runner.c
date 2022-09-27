@@ -90,16 +90,12 @@ static uintmax_t leb16_parse(const char *s, char **tail) {
 // test_runner types
 
 typedef struct test_geometry {
-    char short_name;
-    const char *long_name;
-
+    const char *name;
     test_define_t defines[TEST_GEOMETRY_DEFINE_COUNT];
 } test_geometry_t;
 
 typedef struct test_powerloss {
-    char short_name;
-    const char *long_name;
-
+    const char *name;
     void (*run)(
             const lfs_emubd_powercycles_t *cycles,
             size_t cycle_count,
@@ -574,6 +570,11 @@ void test_seen_cleanup(test_seen_t *seen) {
     free(seen->branches);
 }
 
+static void run_powerloss_none(
+        const lfs_emubd_powercycles_t *cycles,
+        size_t cycle_count,
+        const struct test_suite *suite,
+        const struct test_case *case_);
 static void run_powerloss_cycles(
         const lfs_emubd_powercycles_t *cycles,
         size_t cycle_count,
@@ -606,7 +607,7 @@ static void case_forperm(
         } else {
             for (size_t p = 0; p < test_powerloss_count; p++) {
                 // skip non-reentrant tests when powerloss testing
-                if (test_powerlosses[p].short_name != '0'
+                if (test_powerlosses[p].run != run_powerloss_none
                         && !(case_->flags & TEST_REENTRANT)) {
                     continue;
                 }
@@ -646,7 +647,7 @@ static void case_forperm(
                 } else {
                     for (size_t p = 0; p < test_powerloss_count; p++) {
                         // skip non-reentrant tests when powerloss testing
-                        if (test_powerlosses[p].short_name != '0'
+                        if (test_powerlosses[p].run != run_powerloss_none
                                 && !(case_->flags & TEST_REENTRANT)) {
                             continue;
                         }
@@ -1094,7 +1095,7 @@ static void list_implicit_defines(void) {
 
     // make sure to include builtin geometries here
     extern const test_geometry_t builtin_geometries[];
-    for (size_t g = 0; builtin_geometries[g].long_name; g++) {
+    for (size_t g = 0; builtin_geometries[g].name; g++) {
         test_define_geometry(&builtin_geometries[g]);
         test_define_flush();
 
@@ -1126,12 +1127,12 @@ static void list_implicit_defines(void) {
 // geometries to test
 
 const test_geometry_t builtin_geometries[] = {
-    {'d', "default", {{NULL}, TEST_CONST(16),   TEST_CONST(512),   {NULL}}},
-    {'e', "eeprom",  {{NULL}, TEST_CONST(1),    TEST_CONST(512),   {NULL}}},
-    {'E', "emmc",    {{NULL}, {NULL},           TEST_CONST(512),   {NULL}}},
-    {'n', "nor",     {{NULL}, TEST_CONST(1),    TEST_CONST(4096),  {NULL}}},
-    {'N', "nand",    {{NULL}, TEST_CONST(4096), TEST_CONST(32768), {NULL}}},
-    {0, NULL, {{NULL}, {NULL}, {NULL}, {NULL}}},
+    {"default", {{NULL}, TEST_CONST(16),   TEST_CONST(512),   {NULL}}},
+    {"eeprom",  {{NULL}, TEST_CONST(1),    TEST_CONST(512),   {NULL}}},
+    {"emmc",    {{NULL}, {NULL},           TEST_CONST(512),   {NULL}}},
+    {"nor",     {{NULL}, TEST_CONST(1),    TEST_CONST(4096),  {NULL}}},
+    {"nand",    {{NULL}, TEST_CONST(4096), TEST_CONST(32768), {NULL}}},
+    {NULL, {{NULL}, {NULL}, {NULL}, {NULL}}},
 };
 
 const test_geometry_t *test_geometries = builtin_geometries;
@@ -1144,12 +1145,11 @@ static void list_geometries(void) {
 
     printf("%-24s %7s %7s %7s %7s %11s\n",
             "geometry", "read", "prog", "erase", "count", "size");
-    for (size_t g = 0; builtin_geometries[g].long_name; g++) {
+    for (size_t g = 0; builtin_geometries[g].name; g++) {
         test_define_geometry(&builtin_geometries[g]);
         test_define_flush();
-        printf("%c,%-22s %7ju %7ju %7ju %7ju %11ju\n",
-                builtin_geometries[g].short_name,
-                builtin_geometries[g].long_name,
+        printf("%-24s %7ju %7ju %7ju %7ju %11ju\n",
+                builtin_geometries[g].name,
                 READ_SIZE,
                 PROG_SIZE,
                 BLOCK_SIZE,
@@ -1314,7 +1314,7 @@ static void run_powerloss_linear(
     }
 }
 
-static void run_powerloss_exponential(
+static void run_powerloss_log(
         const lfs_emubd_powercycles_t *cycles,
         size_t cycle_count,
         const struct test_suite *suite,
@@ -1646,11 +1646,11 @@ static void run_powerloss_exhaustive(
 
 
 const test_powerloss_t builtin_powerlosses[] = {
-    {'0', "none",        run_powerloss_none,        NULL, 0},
-    {'e', "exponential", run_powerloss_exponential, NULL, 0},
-    {'l', "linear",      run_powerloss_linear,      NULL, 0},
-    {'x', "exhaustive",  run_powerloss_exhaustive,  NULL, SIZE_MAX},
-    {0, NULL, NULL, NULL, 0},
+    {"none",       run_powerloss_none,       NULL, 0},
+    {"log",        run_powerloss_log,        NULL, 0},
+    {"linear",     run_powerloss_linear,     NULL, 0},
+    {"exhaustive", run_powerloss_exhaustive, NULL, SIZE_MAX},
+    {NULL, NULL, NULL, 0},
 };
 
 const char *const builtin_powerlosses_help[] = {
@@ -1664,17 +1664,16 @@ const char *const builtin_powerlosses_help[] = {
 };
 
 const test_powerloss_t *test_powerlosses = (const test_powerloss_t[]){
-    {'0', "none", run_powerloss_none, NULL, 0},
+    {"none", run_powerloss_none, NULL, 0},
 };
 size_t test_powerloss_count = 1;
 
 static void list_powerlosses(void) {
     printf("%-24s %s\n", "scenario", "description");
     size_t i = 0;
-    for (; builtin_powerlosses[i].long_name; i++) {
-        printf("%c,%-22s %s\n",
-                builtin_powerlosses[i].short_name,
-                builtin_powerlosses[i].long_name,
+    for (; builtin_powerlosses[i].name; i++) {
+        printf("%-24s %s\n",
+                builtin_powerlosses[i].name,
                 builtin_powerlosses_help[i]);
     }
 
@@ -1765,8 +1764,8 @@ enum opt_flags {
     OPT_LIST_GEOMETRIES          = 6,
     OPT_LIST_POWERLOSSES         = 7,
     OPT_DEFINE                   = 'D',
-    OPT_GEOMETRY                 = 'g',
-    OPT_POWERLOSS                = 'p',
+    OPT_GEOMETRY                 = 'G',
+    OPT_POWERLOSS                = 'P',
     OPT_STEP                     = 's',
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
@@ -1775,7 +1774,7 @@ enum opt_flags {
     OPT_ERASE_SLEEP              = 10,
 };
 
-const char *short_opts = "hYlLD:g:p:s:d:t:";
+const char *short_opts = "hYlLD:G:P:s:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -1816,8 +1815,8 @@ const char *const help_text[] = {
     "List the available disk geometries.",
     "List the available power-loss scenarios.",
     "Override a test define.",
-    "Comma-separated list of disk geometries to test. Defaults to d,e,E,n,N.",
-    "Comma-separated list of power-loss scenarios to test. Defaults to 0,l.",
+    "Comma-separated list of disk geometries to test.",
+    "Comma-separated list of power-loss scenarios to test.",
     "Comma-separated range of test permutations to run (start,stop,step).",
     "Redirect block device operations to this file.",
     "Redirect trace output to this file.",
@@ -2076,14 +2075,11 @@ invalid_define:
 
                     // named disk geometry
                     size_t len = strcspn(optarg, " ,");
-                    for (size_t i = 0; builtin_geometries[i].long_name; i++) {
-                        if ((len == 1
-                                && *optarg == builtin_geometries[i].short_name)
-                                || (len == strlen(
-                                        builtin_geometries[i].long_name)
-                                    && memcmp(optarg,
-                                        builtin_geometries[i].long_name,
-                                        len) == 0))  {
+                    for (size_t i = 0; builtin_geometries[i].name; i++) {
+                        if (len == strlen(builtin_geometries[i].name)
+                                && memcmp(optarg,
+                                    builtin_geometries[i].name,
+                                    len) == 0)  {
                             *geometry = builtin_geometries[i];
                             optarg += len;
                             goto geometry_next;
@@ -2224,14 +2220,11 @@ geometry_next:
 
                     // named power-loss scenario
                     size_t len = strcspn(optarg, " ,");
-                    for (size_t i = 0; builtin_powerlosses[i].long_name; i++) {
-                        if ((len == 1
-                                && *optarg == builtin_powerlosses[i].short_name)
-                                || (len == strlen(
-                                        builtin_powerlosses[i].long_name)
-                                    && memcmp(optarg,
-                                        builtin_powerlosses[i].long_name,
-                                        len) == 0))  {
+                    for (size_t i = 0; builtin_powerlosses[i].name; i++) {
+                        if (len == strlen(builtin_powerlosses[i].name)
+                                && memcmp(optarg,
+                                    builtin_powerlosses[i].name,
+                                    len) == 0) {
                             *powerloss = builtin_powerlosses[i];
                             optarg += len;
                             goto powerloss_next;

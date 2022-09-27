@@ -853,11 +853,15 @@ if __name__ == "__main__":
         help="Render wear.")
     parser.add_argument(
         '-b', '--block',
-        type=lambda x: tuple(int(x,0) if x else None for x in x.split(',',1)),
+        type=lambda x: tuple(
+            int(x, 0) if x.strip() else None
+            for x in x.split(',')),
         help="Show a specific block or range of blocks.")
     parser.add_argument(
         '-i', '--off',
-        type=lambda x: tuple(int(x,0) if x else None for x in x.split(',',1)),
+        type=lambda x: tuple(
+            int(x, 0) if x.strip() else None
+            for x in x.split(',')),
         help="Show a specific offset or range of offsets.")
     parser.add_argument(
         '-B', '--block-size',
@@ -901,24 +905,30 @@ if __name__ == "__main__":
         help="Characters to use for showing wear.")
     parser.add_argument(
         '--colors',
-        type=lambda x: x.split(','),
+        type=lambda x: [x.strip() for x in x.split(',')],
         help="Colors to use for read, prog, erase, noop operations.")
     parser.add_argument(
         '--wear-colors',
-        type=lambda x: x.split(','),
+        type=lambda x: [x.strip() for x in x.split(',')],
         help="Colors to use for showing wear.")
     parser.add_argument(
         '-W', '--width',
+        nargs='?',
         type=lambda x: int(x, 0),
+        const=0,
         help="Width in columns. 0 uses the terminal width. Defaults to "
             "min(terminal, 80).")
     parser.add_argument(
         '-H', '--height',
+        nargs='?',
         type=lambda x: int(x, 0),
+        const=0,
         help="Height in rows. 0 uses the terminal height. Defaults to 1.")
     parser.add_argument(
         '-n', '--lines',
+        nargs='?',
         type=lambda x: int(x, 0),
+        const=0,
         help="Show this many lines of history. 0 uses the terminal height. "
             "Defaults to 5.")
     parser.add_argument(

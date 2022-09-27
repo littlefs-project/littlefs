@@ -525,9 +525,9 @@ def find_runner(runner, **args):
 
     # other context
     if args.get('geometry'):
-        cmd.append('-g%s' % args['geometry'])
+        cmd.append('-G%s' % args['geometry'])
     if args.get('powerloss'):
-        cmd.append('-p%s' % args['powerloss'])
+        cmd.append('-P%s' % args['powerloss'])
     if args.get('disk'):
         cmd.append('-d%s' % args['disk'])
     if args.get('trace'):
@@ -1009,6 +1009,10 @@ def run(runner, test_ids=[], **args):
         total_perms))
     print()
 
+    # automatic job detection?
+    if args.get('jobs') == 0:
+        args['jobs'] = len(os.sched_getaffinity(0))
+
     # truncate and open logs here so they aren't disconnected between tests
     stdout = None
     if args.get('stdout'):
@@ -1251,13 +1255,11 @@ if __name__ == "__main__":
         action='append',
         help="Override a test define.")
     test_parser.add_argument(
-        '-g', '--geometry',
-        help="Comma-separated list of disk geometries to test. "
-            "Defaults to d,e,E,n,N.")
+        '-G', '--geometry',
+        help="Comma-separated list of disk geometries to test.")
     test_parser.add_argument(
-        '-p', '--powerloss',
-        help="Comma-separated list of power-loss scenarios to test. "
-            "Defaults to 0,l.")
+        '-P', '--powerloss',
+        help="Comma-separated list of power-loss scenarios to test.")
     test_parser.add_argument(
         '-d', '--disk',
         help="Direct block device operations to this file.")
@@ -1283,8 +1285,8 @@ if __name__ == "__main__":
         '-j', '--jobs',
         nargs='?',
         type=lambda x: int(x, 0),
-        const=len(os.sched_getaffinity(0)),
-        help="Number of parallel runners to run.")
+        const=0,
+        help="Number of parallel runners to run. 0 runs one runner per core.")
     test_parser.add_argument(
         '-k', '--keep-going',
         action='store_true',

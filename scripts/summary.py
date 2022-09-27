@@ -671,46 +671,46 @@ if __name__ == "__main__":
         help="Only show percentage change, not a full diff.")
     parser.add_argument(
         '-b', '--by',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Group by these fields. All other fields will be merged as "
             "needed. Can rename fields with new_name=old_name.")
     parser.add_argument(
         '-f', '--fields',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Use these fields. Can rename fields with new_name=old_name.")
     parser.add_argument(
         '-D', '--define',
-        type=lambda x: (lambda k,v: (k, set(v.split(','))))(*x.split('=', 1)),
         action='append',
+        type=lambda x: (lambda k,v: (k, set(v.split(','))))(*x.split('=', 1)),
         help="Only include rows where this field is this value. May include "
             "comma-separated options.")
     parser.add_argument(
         '--add',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Add these fields (the default).")
     parser.add_argument(
         '--mul',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Multiply these fields.")
     parser.add_argument(
         '--min',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Take the minimum of these fields.")
     parser.add_argument(
         '--max',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Take the maximum of these fields.")
     parser.add_argument(
         '--avg',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Average these fields.")
     parser.add_argument(
         '-s', '--sort',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Sort by these fields.")
     parser.add_argument(
         '-S', '--reverse-sort',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        action='append',
         help="Sort by these fields, but backwards.")
     parser.add_argument(
         '-Y', '--summary',
