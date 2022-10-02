@@ -424,7 +424,8 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Preprocessor that makes asserts easier to debug.")
+        description="Preprocessor that makes asserts easier to debug.",
+        allow_abbrev=False)
     parser.add_argument(
         'input',
         help="Input C file.")

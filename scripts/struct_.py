@@ -3,7 +3,7 @@
 # Script to find struct sizes.
 #
 # Example:
-# ./scripts/struct_.py lfs.o lfs_util.o -S
+# ./scripts/struct_.py lfs.o lfs_util.o -Ssize
 #
 # Copyright (c) 2022, The littlefs authors.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -11,6 +11,7 @@
 
 import collections as co
 import csv
+import difflib
 import glob
 import itertools as it
 import math as m
@@ -128,26 +129,28 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
-def collect(paths, *,
+def collect(obj_paths, *,
         objdump_tool=OBJDUMP_TOOL,
-        build_dir=None,
+        sources=None,
         everything=False,
+        internal=False,
         **args):
-    decl_pattern = re.compile(
-        '^\s+(?P<no>[0-9]+)'
-            '\s+(?P<dir>[0-9]+)'
-            '\s+.*'
-            '\s+(?P<file>[^\s]+)$')
-    struct_pattern = re.compile(
-        '^(?:.*DW_TAG_(?P<tag>[a-z_]+).*'
+    line_pattern = re.compile(
+        '^\s+(?P<no>[0-9]+)\s+'
+            '(?:(?P<dir>[0-9]+)\s+)?'
+            '.*\s+'
+            '(?P<path>[^\s]+)$')
+    info_pattern = re.compile(
+        '^(?:.*(?P<tag>DW_TAG_[a-z_]+).*'
             '|^.*DW_AT_name.*:\s*(?P<name>[^:\s]+)\s*'
-            '|^.*DW_AT_decl_file.*:\s*(?P<decl>[0-9]+)\s*'
+            '|^.*DW_AT_decl_file.*:\s*(?P<file>[0-9]+)\s*'
             '|^.*DW_AT_byte_size.*:\s*(?P<size>[0-9]+)\s*)$')
 
     results = []
-    for path in paths:
-        # find decl, we want to filter by structs in .h files
-        decls = {}
+    for path in obj_paths:
+        # find files, we want to filter by structs in .h files
+        dirs = {}
+        files = {}
         # note objdump-tool may contain extra args
         cmd = objdump_tool + ['--dwarf=rawline', path]
         if args.get('verbose'):
@@ -156,12 +159,26 @@ def collect(paths, *,
             stdout=sp.PIPE,
             stderr=sp.PIPE if not args.get('verbose') else None,
             universal_newlines=True,
-            errors='replace')
+            errors='replace',
+            close_fds=False)
         for line in proc.stdout:
-            # find file numbers
-            m = decl_pattern.match(line)
+            # note that files contain references to dirs, which we
+            # dereference as soon as we see them as each file table follows a
+            # dir table
+            m = line_pattern.match(line)
             if m:
-                decls[int(m.group('no'))] = m.group('file')
+                if not m.group('dir'):
+                    # found a directory entry
+                    dirs[int(m.group('no'))] = m.group('path')
+                else:
+                    # found a file entry
+                    dir = int(m.group('dir'))
+                    if dir in dirs:
+                        files[int(m.group('no'))] = os.path.join(
+                            dirs[dir],
+                            m.group('path'))
+                    else:
+                        files[int(m.group('no'))] = m.group('path')
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
@@ -170,11 +187,11 @@ def collect(paths, *,
             sys.exit(-1)
 
         # collect structs as we parse dwarf info
-        found = False
-        name = None
-        decl = None
-        size = None
-
+        results_ = []
+        is_struct = False
+        s_name = None
+        s_file = None
+        s_size = None
         # note objdump-tool may contain extra args
         cmd = objdump_tool + ['--dwarf=info', path]
         if args.get('verbose'):
@@ -183,44 +200,57 @@ def collect(paths, *,
             stdout=sp.PIPE,
             stderr=sp.PIPE if not args.get('verbose') else None,
             universal_newlines=True,
-            errors='replace')
+            errors='replace',
+            close_fds=False)
         for line in proc.stdout:
             # state machine here to find structs
-            m = struct_pattern.match(line)
+            m = info_pattern.match(line)
             if m:
                 if m.group('tag'):
-                    if (name is not None
-                            and decl is not None
-                            and size is not None):
-                        file = decls.get(decl, '?')
-                        # map to source file
-                        file = re.sub('\.o$', '.c', file)
-                        if build_dir:
-                            file = re.sub(
-                                '%s/*' % re.escape(build_dir), '',
-                                file)
-                        # only include structs declared in header files in the
-                        # current directory, ignore internal-only structs (
-                        # these are represented in other measurements)
-                        if everything or file.endswith('.h'):
-                            results.append(StructResult(file, name, size))
-
-                    found = (m.group('tag') == 'structure_type')
-                    name = None
-                    decl = None
-                    size = None
-                elif found and m.group('name'):
-                    name = m.group('name')
-                elif found and name and m.group('decl'):
-                    decl = int(m.group('decl'))
-                elif found and name and m.group('size'):
-                    size = int(m.group('size'))
+                    if is_struct:
+                        file = files.get(s_file, '?')
+                        results_.append(StructResult(file, s_name, s_size))
+                    is_struct = (m.group('tag') == 'DW_TAG_structure_type')
+                elif m.group('name'):
+                    s_name = m.group('name')
+                elif m.group('file'):
+                    s_file = int(m.group('file'))
+                elif m.group('size'):
+                    s_size = int(m.group('size'))
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
                 for line in proc.stderr:
                     sys.stdout.write(line)
             sys.exit(-1)
+
+        for r in results_:
+            # ignore filtered sources
+            if sources is not None:
+                if not any(
+                        os.path.abspath(r.file) == os.path.abspath(s)
+                        for s in sources):
+                    continue
+            else:
+                # default to only cwd
+                if not everything and not os.path.commonpath([
+                        os.getcwd(),
+                        os.path.abspath(r.file)]) == os.getcwd():
+                    continue
+
+                # limit to .h files unless --internal
+                if not internal and not r.file.endswith('.h'):
+                    continue
+
+            # simplify path
+            if os.path.commonpath([
+                    os.getcwd(),
+                    os.path.abspath(r.file)]) == os.getcwd():
+                file = os.path.relpath(r.file)
+            else:
+                file = os.path.abspath(r.file)
+
+            results.append(StructResult(r.file, r.struct, r.size))
 
     return results
 
@@ -479,7 +509,7 @@ def main(obj_paths, *,
                 paths.append(path)
 
         if not paths:
-            print("error: no .obj files found in %r?" % obj_paths)
+            print("error: no .o files found in %r?" % obj_paths)
             sys.exit(-1)
 
         results = collect(paths, **args)
@@ -513,12 +543,14 @@ def main(obj_paths, *,
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
-            writer = csv.DictWriter(f, StructResult._by
+            writer = csv.DictWriter(f,
+                (by if by is not None else StructResult._by)
                 + ['struct_'+k for k in StructResult._fields])
             writer.writeheader()
             for r in results:
                 writer.writerow(
-                    {k: getattr(r, k) for k in StructResult._by}
+                    {k: getattr(r, k)
+                        for k in (by if by is not None else StructResult._by)}
                     | {'struct_'+k: getattr(r, k)
                         for k in StructResult._fields})
 
@@ -559,7 +591,8 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Find struct sizes.")
+        description="Find struct sizes.",
+        allow_abbrev=False)
     parser.add_argument(
         'obj_paths',
         nargs='*',
@@ -626,18 +659,24 @@ if __name__ == "__main__":
         action='store_true',
         help="Only show the total.")
     parser.add_argument(
-        '-A', '--everything',
+        '-F', '--source',
+        dest='sources',
+        action='append',
+        help="Only consider definitions in this file. Defaults to anything "
+            "in the current directory.")
+    parser.add_argument(
+        '--everything',
         action='store_true',
         help="Include builtin and libc specific symbols.")
+    parser.add_argument(
+        '--internal',
+        action='store_true',
+        help="Also show structs in .c files.")
     parser.add_argument(
         '--objdump-tool',
         type=lambda x: x.split(),
         default=OBJDUMP_TOOL,
         help="Path to the objdump tool to use. Defaults to %r." % OBJDUMP_TOOL)
-    parser.add_argument(
-        '--build-dir',
-        help="Specify the relative build directory. Used to map object files "
-            "to the correct source files.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

@@ -3,7 +3,9 @@
 # Script to find coverage info after running tests.
 #
 # Example:
-# ./scripts/coverage.py lfs.t.a.gcda lfs_util.t.a.gcda -s
+# ./scripts/coverage.py \
+#     lfs.t.a.gcda lfs_util.t.a.gcda \
+#     -Flfs.c -Flfs_util.c -slines
 #
 # Copyright (c) 2022, The littlefs authors.
 # Copyright (c) 2020, Arm Limited. All rights reserved.
@@ -209,19 +211,13 @@ def openio(path, mode='r'):
     else:
         return open(path, mode)
 
-def collect(paths, *,
+def collect(gcda_paths, *,
         gcov_tool=GCOV_TOOL,
-        build_dir=None,
+        sources=None,
         everything=False,
         **args):
     results = []
-    for path in paths:
-        # map to source file
-        src_path = re.sub('\.t\.a\.gcda$', '.c', path)
-        if build_dir:
-            src_path = re.sub('%s/*' % re.escape(build_dir), '',
-                src_path)
-
+    for path in gcda_paths:
         # get coverage info through gcov's json output
         # note, gcov-tool may contain extra args
         cmd = GCOV_TOOL + ['-b', '-t', '--json-format', path]
@@ -231,7 +227,8 @@ def collect(paths, *,
             stdout=sp.PIPE,
             stderr=sp.PIPE if not args.get('verbose') else None,
             universal_newlines=True,
-            errors='replace')
+            errors='replace',
+            close_fds=False)
         data = json.load(proc.stdout)
         proc.wait()
         if proc.returncode != 0:
@@ -242,12 +239,30 @@ def collect(paths, *,
 
         # collect line/branch coverage
         for file in data['files']:
-            if file['file'] != src_path:
-                continue
+            # ignore filtered sources
+            if sources is not None:
+                if not any(
+                        os.path.abspath(file['file']) == os.path.abspath(s)
+                        for s in sources):
+                    continue
+            else:
+                # default to only cwd
+                if not everything and not os.path.commonpath([
+                        os.getcwd(),
+                        os.path.abspath(file['file'])]) == os.getcwd():
+                    continue
+
+            # simplify path
+            if os.path.commonpath([
+                    os.getcwd(),
+                    os.path.abspath(file['file'])]) == os.getcwd():
+                file_name = os.path.relpath(file['file'])
+            else:
+                file_name = os.path.abspath(file['file'])
 
             for func in file['functions']:
                 func_name = func.get('name', '(inlined)')
-                # discard internal function (this includes injected test cases)
+                # discard internal functions (this includes injected test cases)
                 if not everything:
                     if func_name.startswith('__'):
                         continue
@@ -255,7 +270,7 @@ def collect(paths, *,
                 # go ahead and add functions, later folding will merge this if
                 # there are other hits on this line
                 results.append(CoverageResult(
-                    src_path, func_name, func['start_line'],
+                    file_name, func_name, func['start_line'],
                     func['execution_count'], 0,
                     Frac(1 if func['execution_count'] > 0 else 0, 1),
                     0,
@@ -271,7 +286,7 @@ def collect(paths, *,
                 # go ahead and add lines, later folding will merge this if
                 # there are other hits on this line
                 results.append(CoverageResult(
-                    src_path, func_name, line['line_number'],
+                    file_name, func_name, line['line_number'],
                     0, line['count'],
                     0,
                     Frac(1 if line['count'] > 0 else 0, 1),
@@ -519,31 +534,25 @@ def table(Result, results, diff_results=None, *,
             line[-1]))
 
 
-def annotate(Result, results, paths, *,
+def annotate(Result, results, *,
         annotate=False,
         lines=False,
         branches=False,
-        build_dir=None,
         **args):
     # if neither branches/lines specified, color both
     if annotate and not lines and not branches:
         lines, branches = True, True
 
-    for path in paths:
-        # map to source file
-        src_path = re.sub('\.t\.a\.gcda$', '.c', path)
-        if build_dir:
-            src_path = re.sub('%s/*' % re.escape(build_dir), '',
-                src_path)
-
+    for path in co.OrderedDict.fromkeys(r.file for r in results).keys():
         # flatten to line info
         results = fold(Result, results, by=['file', 'line'])
-        table = {r.line: r for r in results if r.file == src_path}
+        table = {r.line: r for r in results if r.file == path}
 
         # calculate spans to show
         if not annotate:
             spans = []
             last = None
+            func = None
             for line, r in sorted(table.items()):
                 if ((lines and int(r.hits) == 0)
                         or (branches and r.branches.a < r.branches.b)):
@@ -553,27 +562,29 @@ def annotate(Result, results, paths, *,
                             line+1+args['context'])
                     else:
                         if last is not None:
-                            spans.append(last)
+                            spans.append((last, func))
                         last = range(
                             line-args['context'],
                             line+1+args['context'])
+                        func = r.function
             if last is not None:
-                spans.append(last)
+                spans.append((last, func))
 
-        with open(src_path) as f:
+        with open(path) as f:
             skipped = False
             for i, line in enumerate(f):
                 # skip lines not in spans?
-                if not annotate and not any(i+1 in s for s in spans):
+                if not annotate and not any(i+1 in s for s, _ in spans):
                     skipped = True
                     continue
 
                 if skipped:
                     skipped = False
-                    print('%s@@ %s:%d @@%s' % (
+                    print('%s@@ %s:%d: %s @@%s' % (
                         '\x1b[36m' if args['color'] else '',
-                        src_path,
+                        path,
                         i+1,
+                        next(iter(f for _, f in spans)),
                         '\x1b[m' if args['color'] else ''))
 
                 # build line
@@ -659,12 +670,14 @@ def main(gcda_paths, *,
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
-            writer = csv.DictWriter(f, CoverageResult._by
+            writer = csv.DictWriter(f,
+                (by if by is not None else CoverageResult._by)
                 + ['coverage_'+k for k in CoverageResult._fields])
             writer.writeheader()
             for r in results:
                 writer.writerow(
-                    {k: getattr(r, k) for k in CoverageResult._by}
+                    {k: getattr(r, k)
+                        for k in (by if by is not None else CoverageResult._by)}
                     | {'coverage_'+k: getattr(r, k)
                         for k in CoverageResult._fields})
 
@@ -698,8 +711,7 @@ def main(gcda_paths, *,
                 or args.get('lines')
                 or args.get('branches')):
             # annotate sources
-            annotate(CoverageResult, results, paths,
-                **args)
+            annotate(CoverageResult, results, **args)
         else:
             # print table
             table(CoverageResult, results,
@@ -724,7 +736,8 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Find coverage info after running tests.")
+        description="Find coverage info after running tests.",
+        allow_abbrev=False)
     parser.add_argument(
         'gcda_paths',
         nargs='*',
@@ -791,15 +804,21 @@ if __name__ == "__main__":
         action='store_true',
         help="Only show the total.")
     parser.add_argument(
-        '-A', '--everything',
+        '-F', '--source',
+        dest='sources',
+        action='append',
+        help="Only consider definitions in this file. Defaults to anything "
+            "in the current directory.")
+    parser.add_argument(
+        '--everything',
         action='store_true',
         help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '-H', '--hits',
+        '--hits',
         action='store_true',
         help="Show total hits instead of coverage.")
     parser.add_argument(
-        '-l', '--annotate',
+        '-A', '--annotate',
         action='store_true',
         help="Show source files annotated with coverage info.")
     parser.add_argument(
@@ -814,7 +833,7 @@ if __name__ == "__main__":
         '-c', '--context',
         type=lambda x: int(x, 0),
         default=3,
-        help="Show a additional lines of context. Defaults to 3.")
+        help="Show n additional lines of context. Defaults to 3.")
     parser.add_argument(
         '-W', '--width',
         type=lambda x: int(x, 0),
@@ -838,10 +857,6 @@ if __name__ == "__main__":
         default=GCOV_TOOL,
         type=lambda x: x.split(),
         help="Path to the gcov tool to use. Defaults to %r." % GCOV_TOOL)
-    parser.add_argument(
-        '--build-dir',
-        help="Specify the relative build directory. Used to map object files "
-            "to the correct source files.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

@@ -19,44 +19,52 @@ TARGET ?= $(BUILDDIR)lfs.a
 endif
 
 
-CC      ?= gcc
-AR      ?= ar
-SIZE    ?= size
-CTAGS   ?= ctags
-NM      ?= nm
-OBJDUMP ?= objdump
-LCOV    ?= lcov
+CC       ?= gcc
+AR       ?= ar
+SIZE     ?= size
+CTAGS    ?= ctags
+NM       ?= nm
+OBJDUMP  ?= objdump
+VALGRIND ?= valgrind
+GDB		 ?= gdb
+PERF	 ?= perf
 
-SRC ?= $(filter-out $(wildcard *.*.c),$(wildcard *.c))
-OBJ := $(SRC:%.c=$(BUILDDIR)%.o)
-DEP := $(SRC:%.c=$(BUILDDIR)%.d)
-ASM := $(SRC:%.c=$(BUILDDIR)%.s)
-CI := $(SRC:%.c=$(BUILDDIR)%.ci)
+SRC  ?= $(filter-out $(wildcard *.*.c),$(wildcard *.c))
+OBJ  := $(SRC:%.c=$(BUILDDIR)%.o)
+DEP  := $(SRC:%.c=$(BUILDDIR)%.d)
+ASM  := $(SRC:%.c=$(BUILDDIR)%.s)
+CI   := $(SRC:%.c=$(BUILDDIR)%.ci)
 GCDA := $(SRC:%.c=$(BUILDDIR)%.t.a.gcda)
 
 TESTS ?= $(wildcard tests/*.toml)
 TEST_SRC ?= $(SRC) \
 		$(filter-out $(wildcard bd/*.*.c),$(wildcard bd/*.c)) \
 		runners/test_runner.c
-TEST_TC := $(TESTS:%.toml=$(BUILDDIR)%.t.c) $(TEST_SRC:%.c=$(BUILDDIR)%.t.c)
-TEST_TAC := $(TEST_TC:%.t.c=%.t.a.c)
-TEST_OBJ := $(TEST_TAC:%.t.a.c=%.t.a.o)
-TEST_DEP := $(TEST_TAC:%.t.a.c=%.t.a.d)
-TEST_CI	:= $(TEST_TAC:%.t.a.c=%.t.a.ci)
+TEST_RUNNER ?= $(BUILDDIR)runners/test_runner
+TEST_TC   := $(TESTS:%.toml=$(BUILDDIR)%.t.c) \
+		$(TEST_SRC:%.c=$(BUILDDIR)%.t.c)
+TEST_TAC  := $(TEST_TC:%.t.c=%.t.a.c)
+TEST_OBJ  := $(TEST_TAC:%.t.a.c=%.t.a.o)
+TEST_DEP  := $(TEST_TAC:%.t.a.c=%.t.a.d)
+TEST_CI	  := $(TEST_TAC:%.t.a.c=%.t.a.ci)
 TEST_GCNO := $(TEST_TAC:%.t.a.c=%.t.a.gcno)
 TEST_GCDA := $(TEST_TAC:%.t.a.c=%.t.a.gcda)
+TEST_PERF := $(TEST_RUNNER:%=%.perf)
 
 BENCHES ?= $(wildcard benches/*.toml)
 BENCH_SRC ?= $(SRC) \
 		$(filter-out $(wildcard bd/*.*.c),$(wildcard bd/*.c)) \
 		runners/bench_runner.c
-BENCH_BC := $(BENCHES:%.toml=$(BUILDDIR)%.b.c) $(BENCH_SRC:%.c=$(BUILDDIR)%.b.c)
-BENCH_BAC := $(BENCH_BC:%.b.c=%.b.a.c)
-BENCH_OBJ := $(BENCH_BAC:%.b.a.c=%.b.a.o)
-BENCH_DEP := $(BENCH_BAC:%.b.a.c=%.b.a.d)
-BENCH_CI	:= $(BENCH_BAC:%.b.a.c=%.b.a.ci)
+BENCH_RUNNER ?= $(BUILDDIR)runners/bench_runner
+BENCH_BC   := $(BENCHES:%.toml=$(BUILDDIR)%.b.c) \
+		$(BENCH_SRC:%.c=$(BUILDDIR)%.b.c)
+BENCH_BAC  := $(BENCH_BC:%.b.c=%.b.a.c)
+BENCH_OBJ  := $(BENCH_BAC:%.b.a.c=%.b.a.o)
+BENCH_DEP  := $(BENCH_BAC:%.b.a.c=%.b.a.d)
+BENCH_CI   := $(BENCH_BAC:%.b.a.c=%.b.a.ci)
 BENCH_GCNO := $(BENCH_BAC:%.b.a.c=%.b.a.gcno)
 BENCH_GCDA := $(BENCH_BAC:%.b.a.c=%.b.a.gcda)
+BENCH_PERF := $(BENCH_RUNNER:%=%.perf)
 
 ifdef DEBUG
 override CFLAGS += -O0
@@ -71,40 +79,67 @@ override CFLAGS += -I.
 override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
 override CFLAGS += -ftrack-macro-expansion=0
+ifdef YES_COVERAGE
+override CFLAGS += --coverage
+endif
+ifdef YES_PERF
+override CFLAGS += -fno-omit-frame-pointer
+endif
 
-override TESTFLAGS += -b
-override BENCHFLAGS += -b
-# forward -j flag
-override TESTFLAGS += $(filter -j%,$(MAKEFLAGS))
-override BENCHFLAGS += $(filter -j%,$(MAKEFLAGS))
 ifdef VERBOSE
-override CODEFLAGS     	+= -v
-override DATAFLAGS     	+= -v
-override STACKFLAGS    	+= -v
-override STRUCTFLAGS   	+= -v
-override COVERAGEFLAGS 	+= -v
-override TESTFLAGS     	+= -v
-override TESTCFLAGS    	+= -v
-override BENCHFLAGS    	+= -v
-override BENCHCFLAGS  	+= -v
-endif
-ifdef EXEC
-override TESTFLAGS 	   	+= --exec="$(EXEC)"
-override BENCHFLAGS	   	+= --exec="$(EXEC)"
-endif
-ifdef BUILDDIR
-override CODEFLAGS     	+= --build-dir="$(BUILDDIR:/=)"
-override DATAFLAGS     	+= --build-dir="$(BUILDDIR:/=)"
-override STACKFLAGS    	+= --build-dir="$(BUILDDIR:/=)"
-override STRUCTFLAGS   	+= --build-dir="$(BUILDDIR:/=)"
-override COVERAGEFLAGS	+= --build-dir="$(BUILDDIR:/=)"
+override CODEFLAGS     += -v
+override DATAFLAGS     += -v
+override STACKFLAGS    += -v
+override STRUCTFLAGS   += -v
+override COVERAGEFLAGS += -v
+override PERFFLAGS     += -v
 endif
 ifneq ($(NM),nm)
 override CODEFLAGS += --nm-tool="$(NM)"
 override DATAFLAGS += --nm-tool="$(NM)"
 endif
 ifneq ($(OBJDUMP),objdump)
+override CODEFLAGS   += --objdump-tool="$(OBJDUMP)"
+override DATAFLAGS   += --objdump-tool="$(OBJDUMP)"
 override STRUCTFLAGS += --objdump-tool="$(OBJDUMP)"
+override PERFFLAGS   += --objdump-tool="$(OBJDUMP)"
+endif
+ifneq ($(PERF),perf)
+override PERFFLAGS += --perf-tool="$(PERF)"
+endif
+
+override TESTFLAGS  += -b
+override BENCHFLAGS += -b
+# forward -j flag
+override TESTFLAGS  += $(filter -j%,$(MAKEFLAGS))
+override BENCHFLAGS += $(filter -j%,$(MAKEFLAGS))
+ifdef YES_PERF
+override TESTFLAGS += --perf=$(TEST_PERF)
+endif
+ifndef NO_PERF
+override BENCHFLAGS += --perf=$(BENCH_PERF)
+endif
+ifdef VERBOSE
+override TESTFLAGS   += -v
+override TESTCFLAGS  += -v
+override BENCHFLAGS  += -v
+override BENCHCFLAGS += -v
+endif
+ifdef EXEC
+override TESTFLAGS  += --exec="$(EXEC)"
+override BENCHFLAGS += --exec="$(EXEC)"
+endif
+ifneq ($(GDB),gdb)
+override TESTFLAGS  += --gdb-tool="$(GDB)"
+override BENCHFLAGS += --gdb-tool="$(GDB)"
+endif
+ifneq ($(VALGRIND),valgrind)
+override TESTFLAGS  += --valgrind-tool="$(VALGRIND)"
+override BENCHFLAGS += --valgrind-tool="$(VALGRIND)"
+endif
+ifneq ($(PERF),perf)
+override TESTFLAGS  += --perf-tool="$(PERF)"
+override BENCHFLAGS += --perf-tool="$(PERF)"
 endif
 
 
@@ -124,28 +159,50 @@ tags:
 	$(CTAGS) --totals --c-types=+p $(shell find -H -name '*.h') $(SRC)
 
 .PHONY: test-runner build-test
+ifndef NO_COVERAGE
 test-runner build-test: override CFLAGS+=--coverage
-test-runner build-test: $(BUILDDIR)runners/test_runner
+endif
+ifdef YES_PERF
+bench-runner build-bench: override CFLAGS+=-fno-omit-frame-pointer
+endif
+test-runner build-test: $(TEST_RUNNER)
+ifndef NO_COVERAGE
 	rm -f $(TEST_GCDA)
+endif
+ifdef YES_PERF
+	rm -f $(TEST_PERF)
+endif
 
 .PHONY: test
 test: test-runner
-	./scripts/test.py $(BUILDDIR)runners/test_runner $(TESTFLAGS)
+	./scripts/test.py $(TEST_RUNNER) $(TESTFLAGS)
 
 .PHONY: test-list
 test-list: test-runner
-	./scripts/test.py $(BUILDDIR)runners/test_runner $(TESTFLAGS) -l
+	./scripts/test.py $(TEST_RUNNER) $(TESTFLAGS) -l
 
 .PHONY: bench-runner build-bench
-bench-runner build-bench: $(BUILDDIR)runners/bench_runner
+ifdef YES_COVERAGE
+bench-runner build-bench: override CFLAGS+=--coverage
+endif
+ifndef NO_PERF
+bench-runner build-bench: override CFLAGS+=-fno-omit-frame-pointer
+endif
+bench-runner build-bench: $(BENCH_RUNNER)
+ifdef YES_COVERAGE 
+	rm -f $(BENCH_GCDA)
+endif
+ifndef NO_PERF
+	rm -f $(BENCH_PERF)
+endif
 
 .PHONY: bench
 bench: bench-runner
-	./scripts/bench.py $(BUILDDIR)runners/bench_runner $(BENCHFLAGS)
+	./scripts/bench.py $(BENCH_RUNNER) $(BENCHFLAGS)
 
 .PHONY: bench-list
 bench-list: bench-runner
-	./scripts/bench.py $(BUILDDIR)runners/bench_runner $(BENCHFLAGS) -l
+	./scripts/bench.py $(BENCH_RUNNER) $(BENCHFLAGS) -l
 
 .PHONY: code
 code: $(OBJ)
@@ -165,7 +222,17 @@ struct: $(OBJ)
 
 .PHONY: coverage
 coverage: $(GCDA)
-	./scripts/coverage.py $^ -slines -sbranches $(COVERAGEFLAGS)
+	$(strip ./scripts/coverage.py \
+		$^ $(patsubst %,-F%,$(SRC)) \
+		-slines -sbranches \
+		$(COVERAGEFLAGS))
+
+.PHONY: perf
+perf: $(BENCH_PERF)
+	$(strip ./scripts/perf.py \
+		$^ $(patsubst %,-F%,$(SRC)) \
+		-scycles \
+		$(PERFFLAGS))
 
 .PHONY: summary sizes
 summary sizes: $(BUILDDIR)lfs.csv
@@ -203,7 +270,10 @@ $(BUILDDIR)lfs.struct.csv: $(OBJ)
 	./scripts/struct_.py $^ -q $(CODEFLAGS) -o $@
 
 $(BUILDDIR)lfs.coverage.csv: $(GCDA)
-	./scripts/coverage.py $^ -q $(COVERAGEFLAGS) -o $@
+	./scripts/coverage.py $^ $(patsubst %,-F%,$(SRC)) -q $(COVERAGEFLAGS) -o $@
+
+$(BUILDDIR)lfs.perf.csv: $(BENCH_PERF)
+	./scripts/perf.py $^ $(patsubst %,-F%,$(SRC)) -q $(PERFFLAGS) -o $@
 
 $(BUILDDIR)lfs.csv: \
 		$(BUILDDIR)lfs.code.csv \
@@ -255,13 +325,13 @@ clean:
 		$(BUILDDIR)lfs.data.csv \
 		$(BUILDDIR)lfs.stack.csv \
 		$(BUILDDIR)lfs.struct.csv \
-		$(BUILDDIR)lfs.coverage.csv)
-	rm -f $(BUILDDIR)runners/test_runner
-	rm -f $(BUILDDIR)runners/bench_runner
+		$(BUILDDIR)lfs.coverage.csv \
+		$(BUILDDIR)lfs.perf.csv)
 	rm -f $(OBJ)
 	rm -f $(DEP)
 	rm -f $(ASM)
 	rm -f $(CI)
+	rm -f $(TEST_RUNNER)
 	rm -f $(TEST_TC)
 	rm -f $(TEST_TAC)
 	rm -f $(TEST_OBJ)
@@ -269,6 +339,8 @@ clean:
 	rm -f $(TEST_CI)
 	rm -f $(TEST_GCNO)
 	rm -f $(TEST_GCDA)
+	rm -f $(TEST_PERF)
+	rm -f $(BENCH_RUNNER)
 	rm -f $(BENCH_BC)
 	rm -f $(BENCH_BAC)
 	rm -f $(BENCH_OBJ)
@@ -276,3 +348,4 @@ clean:
 	rm -f $(BENCH_CI)
 	rm -f $(BENCH_GCNO)
 	rm -f $(BENCH_GCDA)
+	rm -f $(BENCH_PERF)

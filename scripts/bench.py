@@ -27,8 +27,12 @@ import time
 import toml
 
 
-RUNNER_PATH = 'runners/bench_runner'
+RUNNER_PATH = './runners/bench_runner'
 HEADER_PATH = 'runners/bench_runner.h'
+
+GDB_TOOL = ['gdb']
+VALGRIND_TOOL = ['valgrind']
+PERF_SCRIPT = ['./scripts/perf.py']
 
 
 def openio(path, mode='r', buffering=-1, nb=False):
@@ -502,12 +506,25 @@ def find_runner(runner, **args):
 
     # run under valgrind?
     if args.get('valgrind'):
-        cmd[:0] = filter(None, [
-            'valgrind',
+        cmd[:0] = args['valgrind_tool'] + [
             '--leak-check=full',
             '--track-origins=yes',
             '--error-exitcode=4',
-            '-q'])
+            '-q']
+
+    # run under perf?
+    if args.get('perf'):
+        cmd[:0] = args['perf_script'] + list(filter(None, [
+            '-R',
+            '--perf-freq=%s' % args['perf_freq']
+                if args.get('perf_freq') else None,
+            '--perf-period=%s' % args['perf_period']
+                if args.get('perf_period') else None,
+            '--perf-events=%s' % args['perf_events']
+                if args.get('perf_events') else None,
+            '--perf-tool=%s' % args['perf_tool']
+                if args.get('perf_tool') else None,
+            '-o%s' % args['perf']]))
 
     # other context
     if args.get('geometry'):
@@ -789,9 +806,9 @@ def run_stage(name, runner_, ids, output_, **args):
                 try:
                     line = mpty.readline()
                 except OSError as e:
-                    if e.errno == errno.EIO:
-                        break
-                    raise
+                    if e.errno != errno.EIO:
+                        raise
+                    break
                 if not line:
                     break
                 last_stdout.append(line)
@@ -1126,24 +1143,24 @@ def run(runner, bench_ids=[], **args):
         cmd = runner_ + [failure.id]
 
         if args.get('gdb_main'):
-            cmd[:0] = ['gdb',
+            cmd[:0] = args['gdb_tool'] + [
                 '-ex', 'break main',
                 '-ex', 'run',
                 '--args']
         elif args.get('gdb_case'):
             path, lineno = find_path(runner_, failure.id, **args)
-            cmd[:0] = ['gdb',
+            cmd[:0] = args['gdb_tool'] + [
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
                 '--args']
         elif failure.assert_ is not None:
-            cmd[:0] = ['gdb',
+            cmd[:0] = args['gdb_tool'] + [
                 '-ex', 'run',
                 '-ex', 'frame function raise',
                 '-ex', 'up 2',
                 '--args']
         else:
-            cmd[:0] = ['gdb',
+            cmd[:0] = args['gdb_tool'] + [
                 '-ex', 'run',
                 '--args']
 
@@ -1187,6 +1204,7 @@ if __name__ == "__main__":
     argparse._ArgumentGroup._handle_conflict_ignore = lambda *_: None
     parser = argparse.ArgumentParser(
         description="Build and run benches.",
+        allow_abbrev=False,
         conflict_handler='ignore')
     parser.add_argument(
         '-v', '--verbose',
@@ -1316,6 +1334,11 @@ if __name__ == "__main__":
         help="Drop into gdb on bench failure but stop at the beginning "
             "of main.")
     bench_parser.add_argument(
+        '--gdb-tool',
+        type=lambda x: x.split(),
+        default=GDB_TOOL,
+        help="Path to gdb tool to use. Defaults to %r." % GDB_TOOL)
+    bench_parser.add_argument(
         '--exec',
         type=lambda e: e.split(),
         help="Run under another executable.")
@@ -1324,6 +1347,37 @@ if __name__ == "__main__":
         action='store_true',
         help="Run under Valgrind to find memory errors. Implicitly sets "
             "--isolate.")
+    bench_parser.add_argument(
+        '--valgrind-tool',
+        type=lambda x: x.split(),
+        default=VALGRIND_TOOL,
+        help="Path to Valgrind tool to use. Defaults to %r." % VALGRIND_TOOL)
+    bench_parser.add_argument(
+        '--perf',
+        help="Run under Linux's perf to sample performance counters, writing "
+            "samples to this file.")
+    bench_parser.add_argument(
+        '--perf-freq',
+        help="perf sampling frequency. This is passed directly to the perf "
+            "script.")
+    bench_parser.add_argument(
+        '--perf-period',
+        help="perf sampling period. This is passed directly to the perf "
+            "script.")
+    bench_parser.add_argument(
+        '--perf-events',
+        help="perf events to record. This is passed directly to the perf "
+            "script.")
+    bench_parser.add_argument(
+        '--perf-script',
+        type=lambda x: x.split(),
+        default=PERF_SCRIPT,
+        help="Path to the perf script to use. Defaults to %r." % PERF_SCRIPT)
+    bench_parser.add_argument(
+        '--perf-tool',
+        type=lambda x: x.split(),
+        help="Path to the perf tool to use. This is passed directly to the "
+            "perf script")
 
     # compilation flags
     comp_parser = parser.add_argument_group('compilation options')
@@ -1348,7 +1402,7 @@ if __name__ == "__main__":
         '-o', '--output',
         help="Output file.")
 
-    # runner + bench_ids overlaps bench_paths, so we need to do some munging here
+    # runner/bench_paths overlap, so need to do some munging here
     args = parser.parse_intermixed_args()
     args.bench_paths = [' '.join(args.runner or [])] + args.bench_ids
     args.runner = args.runner or [RUNNER_PATH]

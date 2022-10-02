@@ -5,7 +5,7 @@
 # by Linux's Bloat-O-Meter.
 #
 # Example:
-# ./scripts/code.py lfs.o lfs_util.o -S
+# ./scripts/code.py lfs.o lfs_util.o -Ssize
 #
 # Copyright (c) 2022, The littlefs authors.
 # Copyright (c) 2020, Arm Limited. All rights reserved.
@@ -14,6 +14,7 @@
 
 import collections as co
 import csv
+import difflib
 import glob
 import itertools as it
 import math as m
@@ -25,7 +26,8 @@ import subprocess as sp
 
 OBJ_PATHS = ['*.o']
 NM_TOOL = ['nm']
-TYPE = 'tTrRdD'
+NM_TYPES = 'tTrRdD'
+OBJDUMP_TOOL = ['objdump']
 
 
 # integer fields
@@ -135,21 +137,32 @@ def openio(path, mode='r'):
 
 def collect(paths, *,
         nm_tool=NM_TOOL,
-        type=TYPE,
-        build_dir=None,
+        nm_types=NM_TYPES,
+        objdump_tool=OBJDUMP_TOOL,
+        sources=None,
         everything=False,
         **args):
-    results = []
-    pattern = re.compile(
+    size_pattern = re.compile(
         '^(?P<size>[0-9a-fA-F]+)' +
-        ' (?P<type>[%s])' % re.escape(type) +
+        ' (?P<type>[%s])' % re.escape(nm_types) +
         ' (?P<func>.+?)$')
+    line_pattern = re.compile(
+        '^\s+(?P<no>[0-9]+)\s+'
+            '(?:(?P<dir>[0-9]+)\s+)?'
+            '.*\s+'
+            '(?P<path>[^\s]+)$')
+    info_pattern = re.compile(
+        '^(?:.*(?P<tag>DW_TAG_[a-z_]+).*'
+            '|^.*DW_AT_name.*:\s*(?P<name>[^:\s]+)\s*'
+            '|^.*DW_AT_decl_file.*:\s*(?P<file>[0-9]+)\s*)$')
+
+    results = []
     for path in paths:
-        # map to source file
-        src_path = re.sub('\.o$', '.c', path)
-        if build_dir:
-            src_path = re.sub('%s/*' % re.escape(build_dir), '',
-                src_path)
+        # guess the source, if we have debug-info we'll replace this later
+        file = re.sub('(\.o)?$', '.c', path, 1)
+
+        # find symbol sizes
+        results_ = []
         # note nm-tool may contain extra args
         cmd = nm_tool + ['--size-sort', path]
         if args.get('verbose'):
@@ -158,27 +171,139 @@ def collect(paths, *,
             stdout=sp.PIPE,
             stderr=sp.PIPE if not args.get('verbose') else None,
             universal_newlines=True,
-            errors='replace')
+            errors='replace',
+            close_fds=False)
         for line in proc.stdout:
-            m = pattern.match(line)
+            m = size_pattern.match(line)
             if m:
                 func = m.group('func')
                 # discard internal functions
                 if not everything and func.startswith('__'):
                     continue
-                # discard .8449 suffixes created by optimizer
-                func = re.sub('\.[0-9]+', '', func)
-
-                results.append(CodeResult(
-                    src_path, func,
+                results_.append(CodeResult(
+                    file, func,
                     int(m.group('size'), 16)))
-
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
                 for line in proc.stderr:
                     sys.stdout.write(line)
             sys.exit(-1)
+
+
+        # try to figure out the source file if we have debug-info
+        dirs = {}
+        files = {}
+        # note objdump-tool may contain extra args
+        cmd = objdump_tool + ['--dwarf=rawline', path]
+        if args.get('verbose'):
+            print(' '.join(shlex.quote(c) for c in cmd))
+        proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            stderr=sp.PIPE if not args.get('verbose') else None,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+        for line in proc.stdout:
+            # note that files contain references to dirs, which we
+            # dereference as soon as we see them as each file table follows a
+            # dir table
+            m = line_pattern.match(line)
+            if m:
+                if not m.group('dir'):
+                    # found a directory entry
+                    dirs[int(m.group('no'))] = m.group('path')
+                else:
+                    # found a file entry
+                    dir = int(m.group('dir'))
+                    if dir in dirs:
+                        files[int(m.group('no'))] = os.path.join(
+                            dirs[dir],
+                            m.group('path'))
+                    else:
+                        files[int(m.group('no'))] = m.group('path')
+        proc.wait()
+        if proc.returncode != 0:
+            if not args.get('verbose'):
+                for line in proc.stderr:
+                    sys.stdout.write(line)
+            # do nothing on error, we don't need objdump to work, source files
+            # may just be inaccurate
+            pass
+
+        defs = {}
+        is_func = False
+        f_name = None
+        f_file = None
+        # note objdump-tool may contain extra args
+        cmd = objdump_tool + ['--dwarf=info', path]
+        if args.get('verbose'):
+            print(' '.join(shlex.quote(c) for c in cmd))
+        proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            stderr=sp.PIPE if not args.get('verbose') else None,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+        for line in proc.stdout:
+            # state machine here to find definitions
+            m = info_pattern.match(line)
+            if m:
+                if m.group('tag'):
+                    if is_func:
+                        defs[f_name] = files.get(f_file, '?')
+                    is_func = (m.group('tag') == 'DW_TAG_subprogram')
+                elif m.group('name'):
+                    f_name = m.group('name')
+                elif m.group('file'):
+                    f_file = int(m.group('file'))
+        proc.wait()
+        if proc.returncode != 0:
+            if not args.get('verbose'):
+                for line in proc.stderr:
+                    sys.stdout.write(line)
+            # do nothing on error, we don't need objdump to work, source files
+            # may just be inaccurate
+            pass
+
+        for r in results_:
+            # find best matching debug symbol, this may be slightly different
+            # due to optimizations
+            if defs:
+                # exact match? avoid difflib if we can for speed
+                if r.function in defs:
+                    file = defs[r.function]
+                else:
+                    _, file = max(
+                        defs.items(),
+                        key=lambda d: difflib.SequenceMatcher(None,
+                            d[0],
+                            r.function, False).ratio())
+            else:
+                file = r.file
+
+            # ignore filtered sources
+            if sources is not None:
+                if not any(
+                        os.path.abspath(file) == os.path.abspath(s)
+                        for s in sources):
+                    continue
+            else:
+                # default to only cwd
+                if not everything and not os.path.commonpath([
+                        os.getcwd(),
+                        os.path.abspath(file)]) == os.getcwd():
+                    continue
+
+            # simplify path
+            if os.path.commonpath([
+                    os.getcwd(),
+                    os.path.abspath(file)]) == os.getcwd():
+                file = os.path.relpath(file)
+            else:
+                file = os.path.abspath(file)
+
+            results.append(CodeResult(file, r.function, r.size))
 
     return results
 
@@ -437,7 +562,7 @@ def main(obj_paths, *,
                 paths.append(path)
 
         if not paths:
-            print("error: no .obj files found in %r?" % obj_paths)
+            print("error: no .o files found in %r?" % obj_paths)
             sys.exit(-1)
 
         results = collect(paths, **args)
@@ -469,13 +594,16 @@ def main(obj_paths, *,
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
-            writer = csv.DictWriter(f, CodeResult._by
+            writer = csv.DictWriter(f,
+                (by if by is not None else CodeResult._by)
                 + ['code_'+k for k in CodeResult._fields])
             writer.writeheader()
             for r in results:
                 writer.writerow(
-                    {k: getattr(r, k) for k in CodeResult._by}
-                    | {'code_'+k: getattr(r, k) for k in CodeResult._fields})
+                    {k: getattr(r, k)
+                        for k in (by if by is not None else CodeResult._by)}
+                    | {'code_'+k: getattr(r, k)
+                        for k in CodeResult._fields})
 
     # find previous results?
     if args.get('diff'):
@@ -512,7 +640,8 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Find code size at the function level.")
+        description="Find code size at the function level.",
+        allow_abbrev=False)
     parser.add_argument(
         'obj_paths',
         nargs='*',
@@ -579,23 +708,30 @@ if __name__ == "__main__":
         action='store_true',
         help="Only show the total.")
     parser.add_argument(
-        '-A', '--everything',
+        '-F', '--source',
+        dest='sources',
+        action='append',
+        help="Only consider definitions in this file. Defaults to anything "
+            "in the current directory.")
+    parser.add_argument(
+        '--everything',
         action='store_true',
         help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '--type',
-        default=TYPE,
+        '--nm-types',
+        default=NM_TYPES,
         help="Type of symbols to report, this uses the same single-character "
-            "type-names emitted by nm. Defaults to %r." % TYPE)
+            "type-names emitted by nm. Defaults to %r." % NM_TYPES)
     parser.add_argument(
         '--nm-tool',
         type=lambda x: x.split(),
         default=NM_TOOL,
         help="Path to the nm tool to use. Defaults to %r." % NM_TOOL)
     parser.add_argument(
-        '--build-dir',
-        help="Specify the relative build directory. Used to map object files "
-            "to the correct source files.")
+        '--objdump-tool',
+        type=lambda x: x.split(),
+        default=OBJDUMP_TOOL,
+        help="Path to the objdump tool to use. Defaults to %r." % OBJDUMP_TOOL)
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

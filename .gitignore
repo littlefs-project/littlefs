@@ -9,6 +9,7 @@
 *.a.c
 *.gcno
 *.gcda
+*.perf
 
 # Testing things
 blocks/

@@ -4,7 +4,7 @@
 # report as infinite stack usage.
 #
 # Example:
-# ./scripts/stack.py lfs.ci lfs_util.ci -S
+# ./scripts/stack.py lfs.ci lfs_util.ci -Slimit
 #
 # Copyright (c) 2022, The littlefs authors.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -131,6 +131,7 @@ def openio(path, mode='r'):
         return open(path, mode)
 
 def collect(paths, *,
+        sources=None,
         everything=False,
         **args):
     # parse the vcg format
@@ -181,8 +182,9 @@ def collect(paths, *,
                         if (not args.get('quiet')
                                 and 'static' not in type
                                 and 'bounded' not in type):
-                            print("warning: found non-static stack for %s (%s)"
-                                % (function, type, size))
+                            print("warning: "
+                                "found non-static stack for %s (%s, %s)" % (
+                                function, type, size))
                         _, _, _, targets = callgraph[info['title']]
                         callgraph[info['title']] = (
                             file, function, int(size), targets)
@@ -193,11 +195,48 @@ def collect(paths, *,
                 else:
                     continue
 
+    callgraph_ = co.defaultdict(lambda: (None, None, 0, set()))
+    for source, (s_file, s_function, frame, targets) in callgraph.items():
+        # discard internal functions
+        if not everything and s_function.startswith('__'):
+            continue
+        # ignore filtered sources
+        if sources is not None:
+            if not any(
+                    os.path.abspath(s_file) == os.path.abspath(s)
+                    for s in sources):
+                continue
+        else:
+            # default to only cwd
+            if not everything and not os.path.commonpath([
+                    os.getcwd(),
+                    os.path.abspath(s_file)]) == os.getcwd():
+                continue
+
+        # smiplify path
+        if os.path.commonpath([
+                os.getcwd(),
+                os.path.abspath(s_file)]) == os.getcwd():
+            s_file = os.path.relpath(s_file)
+        else:
+            s_file = os.path.abspath(s_file)
+
+        callgraph_[source] = (s_file, s_function, frame, targets)
+    callgraph = callgraph_
+
     if not everything:
-        for source, (s_file, s_function, _, _) in list(callgraph.items()):
+        callgraph_ = co.defaultdict(lambda: (None, None, 0, set()))
+        for source, (s_file, s_function, frame, targets) in callgraph.items():
+            # discard filtered sources
+            if sources is not None and not any(
+                    os.path.abspath(s_file) == os.path.abspath(s)
+                    for s in sources):
+                continue
             # discard internal functions
-            if s_file.startswith('<') or s_file.startswith('/usr/include'):
-                del callgraph[source]
+            if s_function.startswith('__'):
+                continue
+            callgraph_[source] = (s_file, s_function, frame, targets)
+        callgraph = callgraph_
 
     # find maximum stack size recursively, this requires also detecting cycles
     # (in case of recursion)
@@ -278,7 +317,7 @@ def table(Result, results, diff_results=None, *,
         all=False,
         percent=False,
         tree=False,
-        depth=None,
+        depth=1,
         **_):
     all_, all = all, __builtins__.all
 
@@ -467,15 +506,8 @@ def table(Result, results, diff_results=None, *,
     # adjust the name width based on the expected call depth, though
     # note this doesn't really work with unbounded recursion
     if not summary:
-        # it doesn't really make sense to not have a depth with tree,
-        # so assume depth=inf if tree by default
-        if depth is None:
-            depth = m.inf if tree else 0
-        elif depth == 0:
-            depth = m.inf
-
         if not m.isinf(depth):
-            widths[0] += 4*depth
+            widths[0] += 4*(depth-1)
 
     # print our table with optional call info
     #
@@ -528,7 +560,7 @@ def table(Result, results, diff_results=None, *,
                          prefixes[2+is_last] + "'-> ",
                          prefixes[2+is_last] + "|   ",
                          prefixes[2+is_last] + "    "))
-        recurse(names, depth)
+        recurse(names, depth-1)
 
     if not tree:
         print('%-*s  %s%s' % (
@@ -544,6 +576,13 @@ def main(ci_paths,
         defines=None,
         sort=None,
         **args):
+    # it doesn't really make sense to not have a depth with tree,
+    # so assume depth=inf if tree by default
+    if args.get('depth') is None:
+        args['depth'] = m.inf if args['tree'] else 1
+    elif args.get('depth') == 0:
+        args['depth'] = m.inf
+
     # find sizes
     if not args.get('use', None):
         # find .ci files
@@ -588,13 +627,16 @@ def main(ci_paths,
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
-            writer = csv.DictWriter(f, StackResult._by
+            writer = csv.DictWriter(f,
+                (by if by is not None else StackResult._by)
                 + ['stack_'+k for k in StackResult._fields])
             writer.writeheader()
             for r in results:
                 writer.writerow(
-                    {k: getattr(r, k) for k in StackResult._by}
-                    | {'stack_'+k: getattr(r, k) for k in StackResult._fields})
+                    {k: getattr(r, k)
+                        for k in (by if by is not None else StackResult._by)}
+                    | {'stack_'+k: getattr(r, k)
+                        for k in StackResult._fields})
 
     # find previous results?
     if args.get('diff'):
@@ -636,7 +678,8 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Find stack usage at the function level.")
+        description="Find stack usage at the function level.",
+        allow_abbrev=False)
     parser.add_argument(
         'ci_paths',
         nargs='*',
@@ -703,7 +746,13 @@ if __name__ == "__main__":
         action='store_true',
         help="Only show the total.")
     parser.add_argument(
-        '-A', '--everything',
+        '-F', '--source',
+        dest='sources',
+        action='append',
+        help="Only consider definitions in this file. Defaults to anything "
+            "in the current directory.")
+    parser.add_argument(
+        '--everything',
         action='store_true',
         help="Include builtin and libc specific symbols.")
     parser.add_argument(
@@ -711,20 +760,16 @@ if __name__ == "__main__":
         action='store_true',
         help="Only show the function call tree.")
     parser.add_argument(
-        '-L', '--depth',
+        '-Z', '--depth',
         nargs='?',
         type=lambda x: int(x, 0),
         const=0,
-        help="Depth of function calls to show. 0 show all calls but may not "
+        help="Depth of function calls to show. 0 shows all calls but may not "
             "terminate!")
     parser.add_argument(
         '-e', '--error-on-recursion',
         action='store_true',
         help="Error if any functions are recursive.")
-    parser.add_argument(
-        '--build-dir',
-        help="Specify the relative build directory. Used to map object files "
-            "to the correct source files.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

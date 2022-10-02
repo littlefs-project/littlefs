@@ -727,7 +727,8 @@ if __name__ == "__main__":
     import sys
     import argparse
     parser = argparse.ArgumentParser(
-        description="Plot CSV files in terminal.")
+        description="Plot CSV files in terminal.",
+        allow_abbrev=False)
     parser.add_argument(
         'csv_paths',
         nargs='*',

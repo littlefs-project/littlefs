@@ -750,7 +750,8 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Summarize measurements in CSV files.")
+        description="Summarize measurements in CSV files.",
+        allow_abbrev=False)
     parser.add_argument(
         'csv_paths',
         nargs='*',
