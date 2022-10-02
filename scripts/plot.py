@@ -438,9 +438,7 @@ def datasets(results, by=None, x=None, y=None, define=[]):
         y = co.OrderedDict()
         for r in results:
             for k, v in r.items():
-                if by is not None and k in by:
-                    continue
-                if y.get(k, True):
+                if (by is None or k not in by) and v.strip():
                     try:
                         dat(v)
                         y[k] = True
@@ -462,7 +460,7 @@ def datasets(results, by=None, x=None, y=None, define=[]):
             for y_ in y:
                 # hide x/y if there is only one field
                 k_x = x_ if len(x or []) > 1 else ''
-                k_y = y_ if len(y or []) > 1 else ''
+                k_y = y_ if len(y or []) > 1 or (not ks_ and not k_x) else ''
 
                 datasets[ks_ + (k_x, k_y)] = dataset(
                     results,
@@ -509,15 +507,15 @@ def main(csv_paths, *,
         ylim = (0, ylim[0])
 
     # separate out renames
-    renames = [k.split('=', 1)
-        for k in it.chain(by or [], x or [], y or [])
-        if '=' in k]
+    renames = list(it.chain.from_iterable(
+        ((k, v) for v in vs)
+        for k, vs in it.chain(by or [], x or [], y or [])))
     if by is not None:
-        by = [k.split('=', 1)[0] for k in by]
+        by = [k for k, _ in by]
     if x is not None:
-        x = [k.split('=', 1)[0] for k in x]
+        x = [k for k, _ in x]
     if y is not None:
-        y = [k.split('=', 1)[0] for k in y]
+        y = [k for k, _ in y]
 
     def draw(f):
         def writeln(s=''):
@@ -739,23 +737,31 @@ if __name__ == "__main__":
     parser.add_argument(
         '-b', '--by',
         action='append',
-        help="Fields to render as separate plots. All other fields will be "
-            "summed as needed. Can rename fields with new_name=old_name.")
+        type=lambda x: (
+            lambda k,v=None: (k, v.split(',') if v is not None else ())
+            )(*x.split('=', 1)),
+        help="Group by this field. Can rename fields with new_name=old_name.")
     parser.add_argument(
         '-x',
         action='append',
-        help="Fields to use for the x-axis. Can rename fields with "
+        type=lambda x: (
+            lambda k,v=None: (k, v.split(',') if v is not None else ())
+            )(*x.split('=', 1)),
+        help="Field to use for the x-axis. Can rename fields with "
             "new_name=old_name.")
     parser.add_argument(
         '-y',
         action='append',
-        help="Fields to use for the y-axis. Can rename fields with "
+        type=lambda x: (
+            lambda k,v=None: (k, v.split(',') if v is not None else ())
+            )(*x.split('=', 1)),
+        help="Field to use for the y-axis. Can rename fields with "
             "new_name=old_name.")
     parser.add_argument(
         '-D', '--define',
         type=lambda x: (lambda k,v: (k, set(v.split(','))))(*x.split('=', 1)),
         action='append',
-        help="Only include rows where this field is this value. May include "
+        help="Only include results where this field is this value. May include "
             "comma-separated options.")
     parser.add_argument(
         '--color',

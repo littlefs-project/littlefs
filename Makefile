@@ -149,23 +149,23 @@ bench-list: bench-runner
 
 .PHONY: code
 code: $(OBJ)
-	./scripts/code.py $^ -S $(CODEFLAGS)
+	./scripts/code.py $^ -Ssize $(CODEFLAGS)
 
 .PHONY: data
 data: $(OBJ)
-	./scripts/data.py $^ -S $(DATAFLAGS)
+	./scripts/data.py $^ -Ssize $(DATAFLAGS)
 
 .PHONY: stack
 stack: $(CI)
-	./scripts/stack.py $^ -S $(STACKFLAGS)
+	./scripts/stack.py $^ -Slimit -Sframe $(STACKFLAGS)
 
 .PHONY: struct
 struct: $(OBJ)
-	./scripts/struct_.py $^ -S $(STRUCTFLAGS)
+	./scripts/struct_.py $^ -Ssize $(STRUCTFLAGS)
 
 .PHONY: coverage
 coverage: $(GCDA)
-	./scripts/coverage.py $^ -s $(COVERAGEFLAGS)
+	./scripts/coverage.py $^ -slines -sbranches $(COVERAGEFLAGS)
 
 .PHONY: summary sizes
 summary sizes: $(BUILDDIR)lfs.csv

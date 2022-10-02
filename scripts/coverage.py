@@ -30,10 +30,10 @@ GCOV_TOOL = ['gcov']
 
 
 # integer fields
-class IntField(co.namedtuple('IntField', 'x')):
+class Int(co.namedtuple('Int', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, IntField):
+        if isinstance(x, Int):
             return x
         if isinstance(x, str):
             try:
@@ -99,37 +99,25 @@ class IntField(co.namedtuple('IntField', 'x')):
             return (new-old) / old
 
     def __add__(self, other):
-        return IntField(self.x + other.x)
+        return self.__class__(self.x + other.x)
 
     def __sub__(self, other):
-        return IntField(self.x - other.x)
+        return self.__class__(self.x - other.x)
 
     def __mul__(self, other):
-        return IntField(self.x * other.x)
-
-    def __lt__(self, other):
-        return self.x < other.x
-
-    def __gt__(self, other):
-        return self.__class__.__lt__(other, self)
-
-    def __le__(self, other):
-        return not self.__gt__(other)
-
-    def __ge__(self, other):
-        return not self.__lt__(other)
+        return self.__class__(self.x * other.x)
 
 # fractional fields, a/b
-class FracField(co.namedtuple('FracField', 'a,b')):
+class Frac(co.namedtuple('Frac', 'a,b')):
     __slots__ = ()
     def __new__(cls, a=0, b=None):
-        if isinstance(a, FracField) and b is None:
+        if isinstance(a, Frac) and b is None:
             return a
         if isinstance(a, str) and b is None:
             a, b = a.split('/', 1)
         if b is None:
             b = a
-        return super().__new__(cls, IntField(a), IntField(b))
+        return super().__new__(cls, Int(a), Int(b))
 
     def __str__(self):
         return '%s/%s' % (self.a, self.b)
@@ -139,10 +127,7 @@ class FracField(co.namedtuple('FracField', 'a,b')):
 
     none = '%11s %7s' % ('-', '-')
     def table(self):
-        if not self.b.x:
-            return self.none
-
-        t = self.a.x/self.b.x
+        t = self.a.x/self.b.x if self.b.x else 1.0
         return '%11s %7s' % (
             self,
             '∞%' if t == +m.inf
@@ -151,38 +136,35 @@ class FracField(co.namedtuple('FracField', 'a,b')):
 
     diff_none = '%11s' % '-'
     def diff_table(self):
-        if not self.b.x:
-            return self.diff_none
-
         return '%11s' % (self,)
 
     def diff_diff(self, other):
-        new_a, new_b = self if self else (IntField(0), IntField(0))
-        old_a, old_b = other if other else (IntField(0), IntField(0))
+        new_a, new_b = self if self else (Int(0), Int(0))
+        old_a, old_b = other if other else (Int(0), Int(0))
         return '%11s' % ('%s/%s' % (
             new_a.diff_diff(old_a).strip(),
             new_b.diff_diff(old_b).strip()))
 
     def ratio(self, other):
-        new_a, new_b = self if self else (IntField(0), IntField(0))
-        old_a, old_b = other if other else (IntField(0), IntField(0))
+        new_a, new_b = self if self else (Int(0), Int(0))
+        old_a, old_b = other if other else (Int(0), Int(0))
         new = new_a.x/new_b.x if new_b.x else 1.0
         old = old_a.x/old_b.x if old_b.x else 1.0
         return new - old
 
     def __add__(self, other):
-        return FracField(self.a + other.a, self.b + other.b)
+        return self.__class__(self.a + other.a, self.b + other.b)
 
     def __sub__(self, other):
-        return FracField(self.a - other.a, self.b - other.b)
+        return self.__class__(self.a - other.a, self.b - other.b)
 
     def __mul__(self, other):
-        return FracField(self.a * other.a, self.b + other.b)
+        return self.__class__(self.a * other.a, self.b + other.b)
 
     def __lt__(self, other):
-        self_r = self.a.x/self.b.x if self.b.x else -m.inf
-        other_r = other.a.x/other.b.x if other.b.x else -m.inf
-        return self_r < other_r
+        self_t = self.a.x/self.b.x if self.b.x else 1.0
+        other_t = other.a.x/other.b.x if other.b.x else 1.0
+        return (self_t, self.a.x) < (other_t, other.a.x)
 
     def __gt__(self, other):
         return self.__class__.__lt__(other, self)
@@ -194,22 +176,28 @@ class FracField(co.namedtuple('FracField', 'a,b')):
         return not self.__lt__(other)
 
 # coverage results
-class CoverageResult(co.namedtuple('CoverageResult',
-        'file,function,line,'
-        'coverage_hits,coverage_lines,coverage_branches')):
+class CoverageResult(co.namedtuple('CoverageResult', [
+        'file', 'function', 'line',
+        'calls', 'hits', 'funcs', 'lines', 'branches'])):
+    _by = ['file', 'function', 'line']
+    _fields = ['calls', 'hits', 'funcs', 'lines', 'branches']
+    _types = {
+        'calls': Int, 'hits': Int,
+        'funcs': Frac, 'lines': Frac, 'branches': Frac}
+
     __slots__ = ()
-    def __new__(cls, file, function, line,
-            coverage_hits, coverage_lines, coverage_branches):
-        return super().__new__(cls, file, function, int(IntField(line)),
-            IntField(coverage_hits),
-            FracField(coverage_lines),
-            FracField(coverage_branches))
+    def __new__(cls, file='', function='', line=0,
+            calls=0, hits=0, funcs=0, lines=0, branches=0):
+        return super().__new__(cls, file, function, int(Int(line)),
+            Int(calls), Int(hits), Frac(funcs), Frac(lines), Frac(branches))
 
     def __add__(self, other):
         return CoverageResult(self.file, self.function, self.line,
-            max(self.coverage_hits, other.coverage_hits),
-            self.coverage_lines + other.coverage_lines,
-            self.coverage_branches + other.coverage_branches)
+            max(self.calls, other.calls),
+            max(self.hits, other.hits),
+            self.funcs + other.funcs,
+            self.lines + other.lines,
+            self.branches + other.branches)
 
 
 def openio(path, mode='r'):
@@ -257,20 +245,37 @@ def collect(paths, *,
             if file['file'] != src_path:
                 continue
 
-            for line in file['lines']:
-                func = line.get('function_name', '(inlined)')
+            for func in file['functions']:
+                func_name = func.get('name', '(inlined)')
                 # discard internal function (this includes injected test cases)
                 if not everything:
-                    if func.startswith('__'):
+                    if func_name.startswith('__'):
                         continue
 
+                # go ahead and add functions, later folding will merge this if
+                # there are other hits on this line
                 results.append(CoverageResult(
-                    src_path, func, line['line_number'],
-                    line['count'],
-                    FracField(
-                        1 if line['count'] > 0 else 0,
-                        1),
-                    FracField(
+                    src_path, func_name, func['start_line'],
+                    func['execution_count'], 0,
+                    Frac(1 if func['execution_count'] > 0 else 0, 1),
+                    0,
+                    0))
+
+            for line in file['lines']:
+                func_name = line.get('function_name', '(inlined)')
+                # discard internal function (this includes injected test cases)
+                if not everything:
+                    if func_name.startswith('__'):
+                        continue
+
+                # go ahead and add lines, later folding will merge this if
+                # there are other hits on this line
+                results.append(CoverageResult(
+                    src_path, func_name, line['line_number'],
+                    0, line['count'],
+                    0,
+                    Frac(1 if line['count'] > 0 else 0, 1),
+                    Frac(
                         sum(1 if branch['count'] > 0 else 0
                             for branch in line['branches']),
                         len(line['branches']))))
@@ -278,9 +283,27 @@ def collect(paths, *,
     return results
 
 
-def fold(results, *,
-        by=['file', 'function', 'line'],
+def fold(Result, results, *,
+        by=None,
+        defines=None,
         **_):
+    if by is None:
+        by = Result._by
+
+    for k in it.chain(by or [], (k for k, _ in defines or [])):
+        if k not in Result._by and k not in Result._fields:
+            print("error: could not find field %r?" % k)
+            sys.exit(-1)
+
+    # filter by matching defines
+    if defines is not None:
+        results_ = []
+        for r in results:
+            if all(getattr(r, k) in vs for k, vs in defines):
+                results_.append(r)
+        results = results_
+
+    # organize results into conflicts
     folding = co.OrderedDict()
     for r in results:
         name = tuple(getattr(r, k) for k in by)
@@ -288,231 +311,224 @@ def fold(results, *,
             folding[name] = []
         folding[name].append(r)
 
+    # merge conflicts
     folded = []
-    for rs in folding.values():
+    for name, rs in folding.items():
         folded.append(sum(rs[1:], start=rs[0]))
 
     return folded
 
-
-def table(results, diff_results=None, *,
-        by_file=False,
-        by_line=False,
-        line_sort=False,
-        reverse_line_sort=False,
-        branch_sort=False,
-        reverse_branch_sort=False,
+def table(Result, results, diff_results=None, *,
+        by=None,
+        fields=None,
+        sort=None,
         summary=False,
         all=False,
         percent=False,
         **_):
     all_, all = all, __builtins__.all
 
-    # fold
-    results = fold(results,
-        by=['file', 'line'] if by_line
-            else ['file'] if by_file
-            else ['function'])
-    if diff_results is not None:
-        diff_results = fold(diff_results,
-            by=['file', 'line'] if by_line
-                else ['file'] if by_file
-                else ['function'])
+    if by is None:
+        by = Result._by
+    if fields is None:
+        fields = Result._fields
+    types = Result._types
 
+    # fold again
+    results = fold(Result, results, by=by)
+    if diff_results is not None:
+        diff_results = fold(Result, diff_results, by=by)
+
+    # organize by name
     table = {
-        '%s:%s' % (r.file, r.line) if by_line
-            else r.file if by_file
-            else r.function: r
+        ','.join(str(getattr(r, k) or '') for k in by): r
         for r in results}
     diff_table = {
-        '%s:%s' % (r.file, r.line) if by_line
-            else r.file if by_file
-            else r.function: r
+        ','.join(str(getattr(r, k) or '') for k in by): r
         for r in diff_results or []}
-
-    # sort, note that python's sort is stable
     names = list(table.keys() | diff_table.keys())
+
+    # sort again, now with diff info, note that python's sort is stable
     names.sort()
     if diff_results is not None:
-        names.sort(key=lambda n: (
-            -FracField.ratio(
-                table[n].coverage_lines if n in table else None,
-                diff_table[n].coverage_lines if n in diff_table else None),
-            -FracField.ratio(
-                table[n].coverage_branches if n in table else None,
-                diff_table[n].coverage_branches if n in diff_table else None)))
-    if line_sort:
-        names.sort(key=lambda n: (table[n].coverage_lines,)
-            if n in table else (),
+        names.sort(key=lambda n: tuple(
+            types[k].ratio(
+                getattr(table.get(n), k, None),
+                getattr(diff_table.get(n), k, None))
+            for k in fields),
             reverse=True)
-    elif reverse_line_sort:
-        names.sort(key=lambda n: (table[n].coverage_lines,)
-            if n in table else (),
-            reverse=False)
-    elif branch_sort:
-        names.sort(key=lambda n: (table[n].coverage_branches,)
-            if n in table else (),
-            reverse=True)
-    elif reverse_branch_sort:
-        names.sort(key=lambda n: (table[n].coverage_branches,)
-            if n in table else (),
-            reverse=False)
+    if sort:
+        for k, reverse in reversed(sort):
+            names.sort(key=lambda n: (getattr(table[n], k),)
+                if getattr(table.get(n), k, None) is not None else (),
+                reverse=reverse ^ (not k or k in Result._fields))
 
-    # print header
-    if not summary:
-        title = '%s%s' % (
-            'line' if by_line else 'file' if by_file else 'function',
-            ' (%d added, %d removed)' % (
-                sum(1 for n in table if n not in diff_table),
-                sum(1 for n in diff_table if n not in table))
-                if diff_results is not None and not percent else '')
-        name_width = max(it.chain([23, len(title)], (len(n) for n in names)))
-    else:
-        title = ''
-        name_width = 23
-    name_width = 4*((name_width+1+4-1)//4)-1
 
-    print('%-*s ' % (name_width, title), end='')
+    # build up our lines
+    lines = []
+
+    # header
+    line = []
+    line.append('%s%s' % (
+        ','.join(by),
+        ' (%d added, %d removed)' % (
+            sum(1 for n in table if n not in diff_table),
+            sum(1 for n in diff_table if n not in table))
+            if diff_results is not None and not percent else '')
+        if not summary else '')
     if diff_results is None:
-        print(' %s %s' % (
-            'hits/line'.rjust(len(FracField.none)),
-            'hits/branch'.rjust(len(FracField.none))))
+        for k in fields:
+            line.append(k)
     elif percent:
-        print(' %s %s' % (
-            'hits/line'.rjust(len(FracField.diff_none)),
-            'hits/branch'.rjust(len(FracField.diff_none))))
+        for k in fields:
+            line.append(k)
     else:
-        print(' %s %s %s %s %s %s' % (
-            'oh/line'.rjust(len(FracField.diff_none)),
-            'oh/branch'.rjust(len(FracField.diff_none)),
-            'nh/line'.rjust(len(FracField.diff_none)),
-            'nh/branch'.rjust(len(FracField.diff_none)),
-            'dh/line'.rjust(len(FracField.diff_none)),
-            'dh/branch'.rjust(len(FracField.diff_none))))
+        for k in fields:
+            line.append('o'+k)
+        for k in fields:
+            line.append('n'+k)
+        for k in fields:
+            line.append('d'+k)
+    line.append('')
+    lines.append(line)
 
-    # print entries
+    # entries
     if not summary:
         for name in names:
             r = table.get(name)
             if diff_results is not None:
                 diff_r = diff_table.get(name)
-                line_ratio = FracField.ratio(
-                    r.coverage_lines if r else None,
-                    diff_r.coverage_lines if diff_r else None)
-                branch_ratio = FracField.ratio(
-                    r.coverage_branches if r else None,
-                    diff_r.coverage_branches if diff_r else None)
-                if not line_ratio and not branch_ratio and not all_:
+                ratios = [
+                    types[k].ratio(
+                        getattr(r, k, None),
+                        getattr(diff_r, k, None))
+                    for k in fields]
+                if not any(ratios) and not all_:
                     continue
 
-            print('%-*s ' % (name_width, name), end='')
+            line = []
+            line.append(name)
             if diff_results is None:
-                print(' %s %s' % (
-                    r.coverage_lines.table()
-                        if r else FracField.none,
-                    r.coverage_branches.table()
-                        if r else FracField.none))
+                for k in fields:
+                    line.append(getattr(r, k).table()
+                        if getattr(r, k, None) is not None
+                        else types[k].none)
             elif percent:
-                print(' %s %s%s' % (
-                    r.coverage_lines.diff_table()
-                        if r else FracField.diff_none,
-                    r.coverage_branches.diff_table()
-                        if r else FracField.diff_none,
-                    ' (%s)' % ', '.join(
-                            '+∞%' if t == +m.inf
-                            else '-∞%' if t == -m.inf
-                            else '%+.1f%%' % (100*t)
-                            for t in [line_ratio, branch_ratio])))
+                for k in fields:
+                    line.append(getattr(r, k).diff_table()
+                        if getattr(r, k, None) is not None
+                        else types[k].diff_none)
             else:
-                print(' %s %s %s %s %s %s%s' % (
-                    diff_r.coverage_lines.diff_table()
-                        if diff_r else FracField.diff_none,
-                    diff_r.coverage_branches.diff_table()
-                        if diff_r else FracField.diff_none,
-                    r.coverage_lines.diff_table()
-                        if r else FracField.diff_none,
-                    r.coverage_branches.diff_table()
-                        if r else FracField.diff_none,
-                    FracField.diff_diff(
-                        r.coverage_lines if r else None,
-                        diff_r.coverage_lines if diff_r else None)
-                        if r or diff_r else FracField.diff_none,
-                    FracField.diff_diff(
-                        r.coverage_branches if r else None,
-                        diff_r.coverage_branches if diff_r else None)
-                        if r or diff_r else FracField.diff_none,
-                    ' (%s)' % ', '.join(
-                            '+∞%' if t == +m.inf
-                            else '-∞%' if t == -m.inf
-                            else '%+.1f%%' % (100*t)
-                            for t in [line_ratio, branch_ratio]
-                            if t)
-                        if line_ratio or branch_ratio else ''))
+                for k in fields:
+                    line.append(getattr(diff_r, k).diff_table()
+                        if getattr(diff_r, k, None) is not None
+                        else types[k].diff_none)
+                for k in fields:
+                    line.append(getattr(r, k).diff_table()
+                        if getattr(r, k, None) is not None
+                        else types[k].diff_none)
+                for k in fields:
+                    line.append(types[k].diff_diff(
+                            getattr(r, k, None),
+                            getattr(diff_r, k, None)))
+            if diff_results is None:
+                line.append('')
+            elif percent:
+                line.append(' (%s)' % ', '.join(
+                    '+∞%' if t == +m.inf
+                    else '-∞%' if t == -m.inf
+                    else '%+.1f%%' % (100*t)
+                    for t in ratios))
+            else:
+                line.append(' (%s)' % ', '.join(
+                        '+∞%' if t == +m.inf
+                        else '-∞%' if t == -m.inf
+                        else '%+.1f%%' % (100*t)
+                        for t in ratios
+                        if t)
+                    if any(ratios) else '')
+            lines.append(line)
 
-    # print total
-    total = fold(results, by=[])
-    r = total[0] if total else None
+    # total
+    r = next(iter(fold(Result, results, by=[])), None)
     if diff_results is not None:
-        diff_total = fold(diff_results, by=[])
-        diff_r = diff_total[0] if diff_total else None
-        line_ratio = FracField.ratio(
-            r.coverage_lines if r else None,
-            diff_r.coverage_lines if diff_r else None)
-        branch_ratio = FracField.ratio(
-            r.coverage_branches if r else None,
-            diff_r.coverage_branches if diff_r else None)
+        diff_r = next(iter(fold(Result, diff_results, by=[])), None)
+        ratios = [
+            types[k].ratio(
+                getattr(r, k, None),
+                getattr(diff_r, k, None))
+            for k in fields]
 
-    print('%-*s ' % (name_width, 'TOTAL'), end='')
+    line = []
+    line.append('TOTAL')
     if diff_results is None:
-        print(' %s %s' % (
-            r.coverage_lines.table()
-                if r else FracField.none,
-            r.coverage_branches.table()
-                if r else FracField.none))
+        for k in fields:
+            line.append(getattr(r, k).table()
+                if getattr(r, k, None) is not None
+                else types[k].none)
     elif percent:
-        print(' %s %s%s' % (
-            r.coverage_lines.diff_table()
-                if r else FracField.diff_none,
-            r.coverage_branches.diff_table()
-                if r else FracField.diff_none,
-            ' (%s)' % ', '.join(
-                    '+∞%' if t == +m.inf
-                    else '-∞%' if t == -m.inf
-                    else '%+.1f%%' % (100*t)
-                    for t in [line_ratio, branch_ratio])))
+        for k in fields:
+            line.append(getattr(r, k).diff_table()
+                if getattr(r, k, None) is not None
+                else types[k].diff_none)
     else:
-        print(' %s %s %s %s %s %s%s' % (
-            diff_r.coverage_lines.diff_table()
-                if diff_r else FracField.diff_none,
-            diff_r.coverage_branches.diff_table()
-                if diff_r else FracField.diff_none,
-            r.coverage_lines.diff_table()
-                if r else FracField.diff_none,
-            r.coverage_branches.diff_table()
-                if r else FracField.diff_none,
-            FracField.diff_diff(
-                r.coverage_lines if r else None,
-                diff_r.coverage_lines if diff_r else None)
-                if r or diff_r else FracField.diff_none,
-            FracField.diff_diff(
-                r.coverage_branches if r else None,
-                diff_r.coverage_branches if diff_r else None)
-                if r or diff_r else FracField.diff_none,
-            ' (%s)' % ', '.join(
-                    '+∞%' if t == +m.inf
-                    else '-∞%' if t == -m.inf
-                    else '%+.1f%%' % (100*t)
-                    for t in [line_ratio, branch_ratio]
-                    if t)
-                if line_ratio or branch_ratio else ''))
+        for k in fields:
+            line.append(getattr(diff_r, k).diff_table()
+                if getattr(diff_r, k, None) is not None
+                else types[k].diff_none)
+        for k in fields:
+            line.append(getattr(r, k).diff_table()
+                if getattr(r, k, None) is not None
+                else types[k].diff_none)
+        for k in fields:
+            line.append(types[k].diff_diff(
+                    getattr(r, k, None),
+                    getattr(diff_r, k, None)))
+    if diff_results is None:
+        line.append('')
+    elif percent:
+        line.append(' (%s)' % ', '.join(
+            '+∞%' if t == +m.inf
+            else '-∞%' if t == -m.inf
+            else '%+.1f%%' % (100*t)
+            for t in ratios))
+    else:
+        line.append(' (%s)' % ', '.join(
+                '+∞%' if t == +m.inf
+                else '-∞%' if t == -m.inf
+                else '%+.1f%%' % (100*t)
+                for t in ratios
+                if t)
+            if any(ratios) else '')
+    lines.append(line)
+
+    # find the best widths, note that column 0 contains the names and column -1
+    # the ratios, so those are handled a bit differently
+    widths = [
+        ((max(it.chain([w], (len(l[i]) for l in lines)))+1+4-1)//4)*4-1
+        for w, i in zip(
+            it.chain([23], it.repeat(7)),
+            range(len(lines[0])-1))]
+
+    # print our table
+    for line in lines:
+        print('%-*s  %s%s' % (
+            widths[0], line[0],
+            ' '.join('%*s' % (w, x)
+                for w, x in zip(widths[1:], line[1:-1])),
+            line[-1]))
 
 
-def annotate(paths, results, *,
+def annotate(Result, results, paths, *,
         annotate=False,
         lines=False,
         branches=False,
         build_dir=None,
         **args):
+    # if neither branches/lines specified, color both
+    if annotate and not lines and not branches:
+        lines, branches = True, True
+
     for path in paths:
         # map to source file
         src_path = re.sub('\.t\.a\.gcda$', '.c', path)
@@ -521,7 +537,7 @@ def annotate(paths, results, *,
                 src_path)
 
         # flatten to line info
-        results = fold(results, by=['file', 'line'])
+        results = fold(Result, results, by=['file', 'line'])
         table = {r.line: r for r in results if r.file == src_path}
 
         # calculate spans to show
@@ -529,10 +545,8 @@ def annotate(paths, results, *,
             spans = []
             last = None
             for line, r in sorted(table.items()):
-                if ((lines and int(r.coverage_hits) == 0)
-                        or (branches
-                            and r.coverage_branches.a
-                                < r.coverage_branches.b)):
+                if ((lines and int(r.hits) == 0)
+                        or (branches and r.branches.a < r.branches.b)):
                     if last is not None and line - last.stop <= args['context']:
                         last = range(
                             last.start,
@@ -568,24 +582,29 @@ def annotate(paths, results, *,
 
                 if i+1 in table:
                     r = table[i+1]
-                    line = '%-*s // %s hits, %s branches' % (
+                    line = '%-*s // %s hits%s' % (
                         args['width'],
                         line,
-                        r.coverage_hits,
-                        r.coverage_branches)
+                        r.hits,
+                        ', %s branches' % (r.branches,)
+                            if int(r.branches.b) else '')
 
                     if args['color']:
-                        if lines and int(r.coverage_hits) == 0:
+                        if lines and int(r.hits) == 0:
                             line = '\x1b[1;31m%s\x1b[m' % line
-                        elif (branches
-                                and r.coverage_branches.a
-                                    < r.coverage_branches.b):
+                        elif branches and r.branches.a < r.branches.b:
                             line = '\x1b[35m%s\x1b[m' % line
 
                 print(line)
 
 
-def main(gcda_paths, **args):
+def main(gcda_paths, *,
+        by=None,
+        fields=None,
+        defines=None,
+        sort=None,
+        hits=False,
+        **args):
     # figure out what color should be
     if args.get('color') == 'auto':
         args['color'] = sys.stdout.isatty()
@@ -606,7 +625,7 @@ def main(gcda_paths, **args):
                 paths.append(path)
 
         if not paths:
-            print('no .gcda files found in %r?' % gcda_paths)
+            print("error: no .gcda files found in %r?" % gcda_paths)
             sys.exit(-1)
 
         results = collect(paths, **args)
@@ -616,25 +635,38 @@ def main(gcda_paths, **args):
             reader = csv.DictReader(f, restval='')
             for r in reader:
                 try:
-                    results.append(CoverageResult(**{
-                        k: v for k, v in r.items()
-                        if k in CoverageResult._fields}))
+                    results.append(CoverageResult(
+                        **{k: r[k] for k in CoverageResult._by
+                            if k in r and r[k].strip()},
+                        **{k: r['coverage_'+k]
+                            for k in CoverageResult._fields
+                            if 'coverage_'+k in r
+                                and r['coverage_'+k].strip()}))
                 except TypeError:
                     pass
 
-    # fold to remove duplicates
-    results = fold(results)
+    # fold
+    results = fold(CoverageResult, results, by=by, defines=defines)
 
-    # sort because why not
+    # sort, note that python's sort is stable
     results.sort()
+    if sort:
+        for k, reverse in reversed(sort):
+            results.sort(key=lambda r: (getattr(r, k),)
+                if getattr(r, k) is not None else (),
+                reverse=reverse ^ (not k or k in CoverageResult._fields))
 
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
-            writer = csv.DictWriter(f, CoverageResult._fields)
+            writer = csv.DictWriter(f, CoverageResult._by
+                + ['coverage_'+k for k in CoverageResult._fields])
             writer.writeheader()
             for r in results:
-                writer.writerow(r._asdict())
+                writer.writerow(
+                    {k: getattr(r, k) for k in CoverageResult._by}
+                    | {'coverage_'+k: getattr(r, k)
+                        for k in CoverageResult._fields})
 
     # find previous results?
     if args.get('diff'):
@@ -644,31 +676,39 @@ def main(gcda_paths, **args):
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
                     try:
-                        diff_results.append(CoverageResult(**{
-                            k: v for k, v in r.items()
-                            if k in CoverageResult._fields}))
+                        diff_results.append(CoverageResult(
+                            **{k: r[k] for k in CoverageResult._by
+                                if k in r and r[k].strip()},
+                            **{k: r['coverage_'+k]
+                                for k in CoverageResult._fields
+                                if 'coverage_'+k in r
+                                    and r['coverage_'+k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:
             pass
 
-        # fold to remove duplicates
-        diff_results = fold(diff_results)
+        # fold
+        diff_results = fold(CoverageResult, diff_results,
+            by=by, defines=defines)
 
+    # print table
     if not args.get('quiet'):
         if (args.get('annotate')
                 or args.get('lines')
                 or args.get('branches')):
             # annotate sources
-            annotate(
-                paths,
-                results,
+            annotate(CoverageResult, results, paths,
                 **args)
         else:
             # print table
-            table(
-                results,
+            table(CoverageResult, results,
                 diff_results if args.get('diff') else None,
+                by=by if by is not None else ['function'],
+                fields=fields if fields is not None
+                    else ['lines', 'branches'] if not hits
+                    else ['calls', 'hits'],
+                sort=sort,
                 **args)
 
     # catch lack of coverage
@@ -717,33 +757,47 @@ if __name__ == "__main__":
         action='store_true',
         help="Only show percentage change, not a full diff.")
     parser.add_argument(
-        '-b', '--by-file',
-        action='store_true',
-        help="Group by file.")
+        '-b', '--by',
+        action='append',
+        choices=CoverageResult._by,
+        help="Group by this field.")
     parser.add_argument(
-        '--by-line',
-        action='store_true',
-        help="Group by line.")
+        '-f', '--field',
+        dest='fields',
+        action='append',
+        choices=CoverageResult._fields,
+        help="Show this field.")
     parser.add_argument(
-        '-s', '--line-sort',
-        action='store_true',
-        help="Sort by line coverage.")
+        '-D', '--define',
+        dest='defines',
+        action='append',
+        type=lambda x: (lambda k,v: (k, set(v.split(','))))(*x.split('=', 1)),
+        help="Only include results where this field is this value.")
+    class AppendSort(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if namespace.sort is None:
+                namespace.sort = []
+            namespace.sort.append((value, True if option == '-S' else False))
     parser.add_argument(
-        '-S', '--reverse-line-sort',
-        action='store_true',
-        help="Sort by line coverage, but backwards.")
+        '-s', '--sort',
+        action=AppendSort,
+        help="Sort by this field.")
     parser.add_argument(
-        '--branch-sort',
-        action='store_true',
-        help="Sort by branch coverage.")
-    parser.add_argument(
-        '--reverse-branch-sort',
-        action='store_true',
-        help="Sort by branch coverage, but backwards.")
+        '-S', '--reverse-sort',
+        action=AppendSort,
+        help="Sort by this field, but backwards.")
     parser.add_argument(
         '-Y', '--summary',
         action='store_true',
-        help="Only show the total size.")
+        help="Only show the total.")
+    parser.add_argument(
+        '-A', '--everything',
+        action='store_true',
+        help="Include builtin and libc specific symbols.")
+    parser.add_argument(
+        '-H', '--hits',
+        action='store_true',
+        help="Show total hits instead of coverage.")
     parser.add_argument(
         '-l', '--annotate',
         action='store_true',
@@ -779,10 +833,6 @@ if __name__ == "__main__":
         '-E', '--error-on-branches',
         action='store_true',
         help="Error if any branches are not covered.")
-    parser.add_argument(
-        '-A', '--everything',
-        action='store_true',
-        help="Include builtin and libc specific symbols.")
     parser.add_argument(
         '--gcov-tool',
         default=GCOV_TOOL,

@@ -33,36 +33,25 @@ OPS = {
     'prod':    lambda xs: m.prod(xs[1:], start=xs[0]),
     'min':     min,
     'max':     max,
-    'mean':    lambda xs: FloatField(sum(float(x) for x in xs) / len(xs)),
+    'mean':    lambda xs: Float(sum(float(x) for x in xs) / len(xs)),
     'stddev':  lambda xs: (
-        lambda mean: FloatField(
+        lambda mean: Float(
             m.sqrt(sum((float(x) - mean)**2 for x in xs) / len(xs)))
         )(sum(float(x) for x in xs) / len(xs)),
-    'gmean':   lambda xs: FloatField(m.prod(float(x) for x in xs)**(1/len(xs))),
+    'gmean':   lambda xs: Float(m.prod(float(x) for x in xs)**(1/len(xs))),
     'gstddev': lambda xs: (
-        lambda gmean: FloatField(
+        lambda gmean: Float(
             m.exp(m.sqrt(sum(m.log(float(x)/gmean)**2 for x in xs) / len(xs)))
             if gmean else m.inf)
-        )(m.prod(float(x) for x in xs)**(1/len(xs)))
-
+        )(m.prod(float(x) for x in xs)**(1/len(xs))),
 }
 
 
-def openio(path, mode='r'):
-    if path == '-':
-        if mode == 'r':
-            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
-        else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
-    else:
-        return open(path, mode)
-
-
 # integer fields
-class IntField(co.namedtuple('IntField', 'x')):
+class Int(co.namedtuple('Int', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, IntField):
+        if isinstance(x, Int):
             return x
         if isinstance(x, str):
             try:
@@ -128,31 +117,19 @@ class IntField(co.namedtuple('IntField', 'x')):
             return (new-old) / old
 
     def __add__(self, other):
-        return IntField(self.x + other.x)
+        return self.__class__(self.x + other.x)
 
     def __sub__(self, other):
-        return IntField(self.x - other.x)
+        return self.__class__(self.x - other.x)
 
     def __mul__(self, other):
-        return IntField(self.x * other.x)
-
-    def __lt__(self, other):
-        return self.x < other.x
-
-    def __gt__(self, other):
-        return self.__class__.__lt__(other, self)
-
-    def __le__(self, other):
-        return not self.__gt__(other)
-
-    def __ge__(self, other):
-        return not self.__lt__(other)
+        return self.__class__(self.x * other.x)
 
 # float fields
-class FloatField(co.namedtuple('FloatField', 'x')):
+class Float(co.namedtuple('Float', 'x')):
     __slots__ = ()
     def __new__(cls, x=0.0):
-        if isinstance(x, FloatField):
+        if isinstance(x, Float):
             return x
         if isinstance(x, str):
             try:
@@ -179,31 +156,27 @@ class FloatField(co.namedtuple('FloatField', 'x')):
     def __float__(self):
         return float(self.x)
 
-    none = IntField.none
-    table = IntField.table
-    diff_none = IntField.diff_none
-    diff_table = IntField.diff_table
-    diff_diff = IntField.diff_diff
-    ratio = IntField.ratio
-    __add__ = IntField.__add__
-    __sub__ = IntField.__sub__
-    __mul__ = IntField.__mul__
-    __lt__ = IntField.__lt__
-    __gt__ = IntField.__gt__
-    __le__ = IntField.__le__
-    __ge__ = IntField.__ge__
+    none = Int.none
+    table = Int.table
+    diff_none = Int.diff_none
+    diff_table = Int.diff_table
+    diff_diff = Int.diff_diff
+    ratio = Int.ratio
+    __add__ = Int.__add__
+    __sub__ = Int.__sub__
+    __mul__ = Int.__mul__
 
 # fractional fields, a/b
-class FracField(co.namedtuple('FracField', 'a,b')):
+class Frac(co.namedtuple('Frac', 'a,b')):
     __slots__ = ()
     def __new__(cls, a=0, b=None):
-        if isinstance(a, FracField) and b is None:
+        if isinstance(a, Frac) and b is None:
             return a
         if isinstance(a, str) and b is None:
             a, b = a.split('/', 1)
         if b is None:
             b = a
-        return super().__new__(cls, IntField(a), IntField(b))
+        return super().__new__(cls, Int(a), Int(b))
 
     def __str__(self):
         return '%s/%s' % (self.a, self.b)
@@ -213,10 +186,7 @@ class FracField(co.namedtuple('FracField', 'a,b')):
 
     none = '%11s %7s' % ('-', '-')
     def table(self):
-        if not self.b.x:
-            return self.none
-
-        t = self.a.x/self.b.x
+        t = self.a.x/self.b.x if self.b.x else 1.0
         return '%11s %7s' % (
             self,
             '∞%' if t == +m.inf
@@ -225,38 +195,35 @@ class FracField(co.namedtuple('FracField', 'a,b')):
 
     diff_none = '%11s' % '-'
     def diff_table(self):
-        if not self.b.x:
-            return self.diff_none
-
         return '%11s' % (self,)
 
     def diff_diff(self, other):
-        new_a, new_b = self if self else (IntField(0), IntField(0))
-        old_a, old_b = other if other else (IntField(0), IntField(0))
+        new_a, new_b = self if self else (Int(0), Int(0))
+        old_a, old_b = other if other else (Int(0), Int(0))
         return '%11s' % ('%s/%s' % (
             new_a.diff_diff(old_a).strip(),
             new_b.diff_diff(old_b).strip()))
 
     def ratio(self, other):
-        new_a, new_b = self if self else (IntField(0), IntField(0))
-        old_a, old_b = other if other else (IntField(0), IntField(0))
+        new_a, new_b = self if self else (Int(0), Int(0))
+        old_a, old_b = other if other else (Int(0), Int(0))
         new = new_a.x/new_b.x if new_b.x else 1.0
         old = old_a.x/old_b.x if old_b.x else 1.0
         return new - old
 
     def __add__(self, other):
-        return FracField(self.a + other.a, self.b + other.b)
+        return self.__class__(self.a + other.a, self.b + other.b)
 
     def __sub__(self, other):
-        return FracField(self.a - other.a, self.b - other.b)
+        return self.__class__(self.a - other.a, self.b - other.b)
 
     def __mul__(self, other):
-        return FracField(self.a * other.a, self.b + other.b)
+        return self.__class__(self.a * other.a, self.b + other.b)
 
     def __lt__(self, other):
-        self_r = self.a.x/self.b.x if self.b.x else -m.inf
-        other_r = other.a.x/other.b.x if other.b.x else -m.inf
-        return self_r < other_r
+        self_t = self.a.x/self.b.x if self.b.x else 1.0
+        other_t = other.a.x/other.b.x if other.b.x else 1.0
+        return (self_t, self.a.x) < (other_t, other.a.x)
 
     def __gt__(self, other):
         return self.__class__.__lt__(other, self)
@@ -268,54 +235,41 @@ class FracField(co.namedtuple('FracField', 'a,b')):
         return not self.__lt__(other)
 
 # available types
-TYPES = [IntField, FloatField, FracField]
+TYPES = co.OrderedDict([
+    ('int',   Int),
+    ('float', Float),
+    ('frac',  Frac)
+])
 
 
-def homogenize(results, *,
+def infer(results, *,
         by=None,
         fields=None,
+        types={},
+        ops={},
         renames=[],
-        define={},
-        types=None,
         **_):
-    results = results.copy()
-
-    # rename fields?
-    if renames:
-        for r in results:
-            # make a copy so renames can overlap
-            r_ = {}
-            for new_k, old_k in renames:
-                if old_k in r:
-                    r_[new_k] = r[old_k]
-            r.update(r_)
-
-    # filter by matching defines
-    if define:
-        results_ = []
-        for r in results:
-            if all(k in r and r[k] in vs for k, vs in define):
-                results_.append(r)
-        results = results_
-
     # if fields not specified, try to guess from data
     if fields is None:
         fields = co.OrderedDict()
         for r in results:
             for k, v in r.items():
-                if by is not None and k in by:
-                    continue
-                types_ = []
-                for type in fields.get(k, TYPES):
-                    try:
-                        type(v)
-                        types_.append(type)
-                    except ValueError:
-                        pass
-                fields[k] = types_
-        fields = list(k for k,v in fields.items() if v)
+                if (by is None or k not in by) and v.strip():
+                    types_ = []
+                    for t in fields.get(k, TYPES.values()):
+                        try:
+                            t(v)
+                            types_.append(t)
+                        except ValueError:
+                            pass
+                    fields[k] = types_
+        fields = list(k for k, v in fields.items() if v)
 
-    # infer 'by' fields?
+    # deduplicate fields
+    fields = list(co.OrderedDict.fromkeys(fields).keys())
+
+    # if by not specified, guess it's anything not in fields and not a
+    # source of a rename
     if by is None:
         by = co.OrderedDict()
         for r in results:
@@ -327,295 +281,355 @@ def homogenize(results, *,
                     and not any(k == old_k for _, old_k in renames))
         by = list(by.keys())
 
-    # go ahead and clean up none values, these can have a few forms
-    results_ = []
-    for r in results:
-        results_.append({
-            k: r[k] for k in it.chain(by, fields)
-            if r.get(k) is not None and not (
-                isinstance(r[k], str)
-                and re.match('^\s*[+-]?\s*$', r[k]))})
-    results = results_
+    # deduplicate fields
+    by = list(co.OrderedDict.fromkeys(by).keys())
 
     # find best type for all fields
-    if types is None:
-        def is_type(x, type):
-            try:
-                type(x)
-                return True
-            except ValueError:
-                return False
-
-        types = {}
-        for k in fields:
-            for type in TYPES:
-                if all(k not in r or is_type(r[k], type) for r in results_):
-                    types[k] = type
+    types_ = {}
+    for k in fields:
+        if k in types:
+            types_[k] = types[k]
+        else:
+            for t in TYPES.values():
+                for r in results:
+                    if k in r and r[k].strip():
+                        try:
+                            t(r[k])
+                        except ValueError:
+                            break
+                else:
+                    types_[k] = t
                     break
             else:
-                print("no type matches field %r?" % k)
+                print("error: no type matches field %r?" % k)
                 sys.exit(-1)
+    types = types_
 
-    # homogenize types
-    for r in results:
-        for k in fields:
-            if k in r:
-                r[k] = types[k](r[k])
-
-    return by, fields, types, results
+    # does folding change the type?
+    types_ = {}
+    for k, t in types.items():
+        types_[k] = ops.get(k, OPS['sum'])([t()]).__class__
 
 
-def fold(results, *,
-        by=[],
-        fields=[],
-        types=None,
-        ops={},
+    # create result class
+    def __new__(cls, **r):
+        return cls.__mro__[1].__new__(cls,
+            **{k: r.get(k) for k in by},
+            **{k: r[k] if k in r and isinstance(r[k], list)
+                else [types[k](r[k])] if k in r
+                else []
+                for k in fields})
+
+    def __add__(self, other):
+        return self.__class__(
+            **{k: getattr(self, k) for k in by},
+            **{k: object.__getattribute__(self, k)
+                + object.__getattribute__(other, k)
+                for k in fields})
+
+    def __getattribute__(self, k):
+        if k in fields:
+            if object.__getattribute__(self, k):
+                return ops.get(k, OPS['sum'])(object.__getattribute__(self, k))
+            else:
+                return None
+        return object.__getattribute__(self, k)
+
+    return type('Result', (co.namedtuple('Result', by + fields),), {
+        '__slots__': (),
+        '__new__': __new__,
+        '__add__': __add__,
+        '__getattribute__': __getattribute__,
+        '_by': by,
+        '_fields': fields,
+        '_types': types_,
+    })
+
+
+def fold(Result, results, *,
+        by=None,
+        defines=None,
         **_):
+    if by is None:
+        by = Result._by
+
+    for k in it.chain(by or [], (k for k, _ in defines or [])):
+        if k not in Result._by and k not in Result._fields:
+            print("error: could not find field %r?" % k)
+            sys.exit(-1)
+
+    # filter by matching defines
+    if defines is not None:
+        results_ = []
+        for r in results:
+            if all(getattr(r, k) in vs for k, vs in defines):
+                results_.append(r)
+        results = results_
+
+    # organize results into conflicts
     folding = co.OrderedDict()
     for r in results:
-        name = tuple(r.get(k, '') for k in by)
+        name = tuple(getattr(r, k) for k in by)
         if name not in folding:
-            folding[name] = {k: [] for k in fields}
-        for k in fields:
-            if k in r:
-                folding[name][k].append(r[k])
+            folding[name] = []
+        folding[name].append(r)
 
-    # merge fields, we need the count at this point for averages
+    # merge conflicts
     folded = []
-    for name, r in folding.items():
-        r_ = {}
-        for k, vs in r.items():
-            if vs:
-                # sum fields by default
-                op = OPS[ops.get(k, 'sum')]
-                r_[k] = op(vs)
+    for name, rs in folding.items():
+        folded.append(sum(rs[1:], start=rs[0]))
 
-        # drop any rows without fields and any empty keys
-        if r_:
-            folded.append(dict(
-                {k: v for k, v in zip(by, name) if v},
-                **r_))
+    return folded
 
-    # what is the type of merged fields?
-    if types is not None:
-        types_ = {}
-        for k in fields:
-            op = OPS[ops.get(k, 'sum')]
-            types_[k] = op([types[k]()]).__class__
-
-    if types is None:
-        return folded
-    else:
-        return types_, folded
-
-
-def table(results, total, diff_results=None, diff_total=None, *,
-        by=[],
-        fields=[],
-        types={},
-        ops={},
+def table(Result, results, diff_results=None, *,
+        by=None,
+        fields=None,
         sort=None,
-        reverse_sort=None,
         summary=False,
         all=False,
         percent=False,
         **_):
     all_, all = all, __builtins__.all
 
+    if by is None:
+        by = Result._by
+    if fields is None:
+        fields = Result._fields
+    types = Result._types
+
+    # fold again
+    results = fold(Result, results, by=by)
+    if diff_results is not None:
+        diff_results = fold(Result, diff_results, by=by)
+
+    # organize by name
     table = {
-        ','.join(r.get(k,'') for k in by): r
+        ','.join(str(getattr(r, k) or '') for k in by): r
         for r in results}
     diff_table = {
-        ','.join(r.get(k,'') for k in by): r
+        ','.join(str(getattr(r, k) or '') for k in by): r
         for r in diff_results or []}
-
-    # sort, note that python's sort is stable
     names = list(table.keys() | diff_table.keys())
+
+    # sort again, now with diff info, note that python's sort is stable
     names.sort()
     if diff_results is not None:
         names.sort(key=lambda n: tuple(
-            -types[k].ratio(
-                table.get(n,{}).get(k),
-                diff_table.get(n,{}).get(k))
-            for k in fields))
-    if sort:
-        names.sort(key=lambda n: tuple(
-            (table[n][k],) if k in table.get(n,{}) else ()
-            for k in sort),
+            types[k].ratio(
+                getattr(table.get(n), k, None),
+                getattr(diff_table.get(n), k, None))
+            for k in fields),
             reverse=True)
-    elif reverse_sort:
-        names.sort(key=lambda n: tuple(
-            (table[n][k],) if k in table.get(n,{}) else ()
-            for k in reverse_sort),
-            reverse=False)
+    if sort:
+        for k, reverse in reversed(sort):
+            names.sort(key=lambda n: (getattr(table[n], k),)
+                if getattr(table.get(n), k, None) is not None else (),
+                reverse=reverse ^ (not k or k in Result._fields))
 
-    # print header
-    if not summary:
-        title = '%s%s' % (
-            ','.join(by),
-            ' (%d added, %d removed)' % (
-                sum(1 for n in table if n not in diff_table),
-                sum(1 for n in diff_table if n not in table))
-                if diff_results is not None and not percent else '')
-        name_width = max(it.chain([23, len(title)], (len(n) for n in names)))
-    else:
-        title = ''
-        name_width = 23
-    name_width = 4*((name_width+1+4-1)//4)-1
 
-    print('%-*s ' % (name_width, title), end='')
+    # build up our lines
+    lines = []
+
+    # header
+    line = []
+    line.append('%s%s' % (
+        ','.join(by),
+        ' (%d added, %d removed)' % (
+            sum(1 for n in table if n not in diff_table),
+            sum(1 for n in diff_table if n not in table))
+            if diff_results is not None and not percent else '')
+        if not summary else '')
     if diff_results is None:
-        widths = [
-            4*((max(len(types[k].none), len(k))+1+4-1)//4)-1
-            for k in fields]
-        print(' %s' % (
-            ' '.join(k.rjust(w) for w, k in zip(widths, fields))))
+        for k in fields:
+            line.append(k)
     elif percent:
-        widths = [
-            4*((max(len(types[k].diff_none), len(k))+1+4-1)//4)-1
-            for k in fields]
-        print(' %s' % (
-            ' '.join(k.rjust(w) for w, k in zip(widths, fields))))
+        for k in fields:
+            line.append(k)
     else:
-        widths = [
-            4*((max(len(types[k].diff_none), 1+len(k))+1+4-1)//4)-1
-            for k in fields]
-        print(' %s %s %s' % (
-            ' '.join(('o'+k).rjust(w) for w, k in zip(widths, fields)),
-            ' '.join(('n'+k).rjust(w) for w, k in zip(widths, fields)),
-            ' '.join(('d'+k).rjust(w) for w, k in zip(widths, fields))))
+        for k in fields:
+            line.append('o'+k)
+        for k in fields:
+            line.append('n'+k)
+        for k in fields:
+            line.append('d'+k)
+    line.append('')
+    lines.append(line)
 
-    # print entries
+    # entries
     if not summary:
         for name in names:
-            r = table.get(name, {})
+            r = table.get(name)
             if diff_results is not None:
-                diff_r = diff_table.get(name, {})
-                ratios = [types[k].ratio(r.get(k), diff_r.get(k))
+                diff_r = diff_table.get(name)
+                ratios = [
+                    types[k].ratio(
+                        getattr(r, k, None),
+                        getattr(diff_r, k, None))
                     for k in fields]
                 if not any(ratios) and not all_:
                     continue
 
-            print('%-*s ' % (name_width, name), end='')
+            line = []
+            line.append(name)
             if diff_results is None:
-                print(' %s' % (
-                    ' '.join(
-                        (r[k].table()
-                            if k in r
-                            else types[k].none).rjust(w)
-                        for w, k in zip(widths, fields))))
+                for k in fields:
+                    line.append(getattr(r, k).table()
+                        if getattr(r, k, None) is not None
+                        else types[k].none)
             elif percent:
-                print(' %s%s' % (
-                    ' '.join(
-                        (r[k].diff_table().rjust(w)
-                            if k in r
-                            else types[k].diff_none).rjust(w)
-                        for w, k in zip(widths, fields)),
-                    ' (%s)' % ', '.join(
-                            '+∞%' if t == +m.inf
-                            else '-∞%' if t == -m.inf
-                            else '%+.1f%%' % (100*t)
-                            for t in ratios)))
+                for k in fields:
+                    line.append(getattr(r, k).diff_table()
+                        if getattr(r, k, None) is not None
+                        else types[k].diff_none)
             else:
-                print(' %s %s %s%s' % (
-                    ' '.join(
-                        (diff_r[k].diff_table()
-                            if k in diff_r
-                            else types[k].diff_none).rjust(w)
-                        for w, k in zip(widths, fields)),
-                    ' '.join(
-                        (r[k].diff_table()
-                            if k in r
-                            else types[k].diff_none).rjust(w)
-                        for w, k in zip(widths, fields)),
-                    ' '.join(
-                        (types[k].diff_diff(r.get(k), diff_r.get(k))
-                            if k in r or k in diff_r
-                            else types[k].diff_none).rjust(w)
-                        for w, k in zip(widths, fields)),
-                    ' (%s)' % ', '.join(
-                            '+∞%' if t == +m.inf
-                            else '-∞%' if t == -m.inf
-                            else '%+.1f%%' % (100*t)
-                            for t in ratios
-                            if t)
-                        if any(ratios) else ''))
+                for k in fields:
+                    line.append(getattr(diff_r, k).diff_table()
+                        if getattr(diff_r, k, None) is not None
+                        else types[k].diff_none)
+                for k in fields:
+                    line.append(getattr(r, k).diff_table()
+                        if getattr(r, k, None) is not None
+                        else types[k].diff_none)
+                for k in fields:
+                    line.append(types[k].diff_diff(
+                            getattr(r, k, None),
+                            getattr(diff_r, k, None)))
+            if diff_results is None:
+                line.append('')
+            elif percent:
+                line.append(' (%s)' % ', '.join(
+                    '+∞%' if t == +m.inf
+                    else '-∞%' if t == -m.inf
+                    else '%+.1f%%' % (100*t)
+                    for t in ratios))
+            else:
+                line.append(' (%s)' % ', '.join(
+                        '+∞%' if t == +m.inf
+                        else '-∞%' if t == -m.inf
+                        else '%+.1f%%' % (100*t)
+                        for t in ratios
+                        if t)
+                    if any(ratios) else '')
+            lines.append(line)
 
-    # print total
-    r = total
-    if diff_total is not None:
-        diff_r = diff_total
-        ratios = [types[k].ratio(r.get(k), diff_r.get(k))
+    # total
+    r = next(iter(fold(Result, results, by=[])), None)
+    if diff_results is not None:
+        diff_r = next(iter(fold(Result, diff_results, by=[])), None)
+        ratios = [
+            types[k].ratio(
+                getattr(r, k, None),
+                getattr(diff_r, k, None))
             for k in fields]
 
-    print('%-*s ' % (name_width, 'TOTAL'), end='')
+    line = []
+    line.append('TOTAL')
     if diff_results is None:
-        print(' %s' % (
-            ' '.join(
-                (r[k].table()
-                    if k in r
-                    else types[k].none).rjust(w)
-                for w, k in zip(widths, fields))))
+        for k in fields:
+            line.append(getattr(r, k).table()
+                if getattr(r, k, None) is not None
+                else types[k].none)
     elif percent:
-        print(' %s%s' % (
-            ' '.join(
-                (r[k].diff_table().rjust(w)
-                    if k in r
-                    else types[k].diff_none).rjust(w)
-                for w, k in zip(widths, fields)),
-            ' (%s)' % ', '.join(
-                    '+∞%' if t == +m.inf
-                    else '-∞%' if t == -m.inf
-                    else '%+.1f%%' % (100*t)
-                    for t in ratios)))
+        for k in fields:
+            line.append(getattr(r, k).diff_table()
+                if getattr(r, k, None) is not None
+                else types[k].diff_none)
     else:
-        print(' %s %s %s%s' % (
-            ' '.join(
-                (diff_r[k].diff_table()
-                    if k in diff_r
-                    else types[k].diff_none).rjust(w)
-                for w, k in zip(widths, fields)),
-            ' '.join(
-                (r[k].diff_table()
-                    if k in r
-                    else types[k].diff_none).rjust(w)
-                for w, k in zip(widths, fields)),
-            ' '.join(
-                (types[k].diff_diff(r.get(k), diff_r.get(k))
-                    if k in r or k in diff_r
-                    else types[k].diff_none).rjust(w)
-                for w, k in zip(widths, fields)),
-            ' (%s)' % ', '.join(
-                    '+∞%' if t == +m.inf
-                    else '-∞%' if t == -m.inf
-                    else '%+.1f%%' % (100*t)
-                    for t in ratios
-                    if t)
-                if any(ratios) else ''))
+        for k in fields:
+            line.append(getattr(diff_r, k).diff_table()
+                if getattr(diff_r, k, None) is not None
+                else types[k].diff_none)
+        for k in fields:
+            line.append(getattr(r, k).diff_table()
+                if getattr(r, k, None) is not None
+                else types[k].diff_none)
+        for k in fields:
+            line.append(types[k].diff_diff(
+                    getattr(r, k, None),
+                    getattr(diff_r, k, None)))
+    if diff_results is None:
+        line.append('')
+    elif percent:
+        line.append(' (%s)' % ', '.join(
+            '+∞%' if t == +m.inf
+            else '-∞%' if t == -m.inf
+            else '%+.1f%%' % (100*t)
+            for t in ratios))
+    else:
+        line.append(' (%s)' % ', '.join(
+                '+∞%' if t == +m.inf
+                else '-∞%' if t == -m.inf
+                else '%+.1f%%' % (100*t)
+                for t in ratios
+                if t)
+            if any(ratios) else '')
+    lines.append(line)
 
+    # find the best widths, note that column 0 contains the names and column -1
+    # the ratios, so those are handled a bit differently
+    widths = [
+        ((max(it.chain([w], (len(l[i]) for l in lines)))+1+4-1)//4)*4-1
+        for w, i in zip(
+            it.chain([23], it.repeat(7)),
+            range(len(lines[0])-1))]
+
+    # print our table
+    for line in lines:
+        print('%-*s  %s%s' % (
+            widths[0], line[0],
+            ' '.join('%*s' % (w, x)
+                for w, x in zip(widths[1:], line[1:-1])),
+            line[-1]))
+
+
+def openio(path, mode='r'):
+    if path == '-':
+        if mode == 'r':
+            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+        else:
+            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+    else:
+        return open(path, mode)
 
 def main(csv_paths, *,
         by=None,
         fields=None,
-        define=[],
+        defines=None,
+        sort=None,
         **args):
     # separate out renames
-    renames = [k.split('=', 1)
-        for k in it.chain(by or [], fields or [])
-        if '=' in k]
+    renames = list(it.chain.from_iterable(
+        ((k, v) for v in vs)
+        for k, vs in it.chain(by or [], fields or [])))
     if by is not None:
-        by = [k.split('=', 1)[0] for k in by]
+        by = [k for k, _ in by]
     if fields is not None:
-        fields = [k.split('=', 1)[0] for k in fields]
+        fields = [k for k, _ in fields]
+
+    # figure out types
+    types = {}
+    for t in TYPES.keys():
+        for k in args.get(t, []):
+            if k in types:
+                print("error: conflicting type for field %r?" % k)
+                sys.exit(-1)
+            types[k] = TYPES[t]
+    # rename types?
+    if renames:
+        types_ = {}
+        for new_k, old_k in renames:
+            if old_k in types:
+                types_[new_k] = types[old_k]
+        types.update(types_)
 
     # figure out merge operations
     ops = {}
-    for m in OPS.keys():
-        for k in args.get(m, []):
+    for o in OPS.keys():
+        for k in args.get(o, []):
             if k in ops:
-                print("conflicting op for field %r?" % k)
+                print("error: conflicting op for field %r?" % k)
                 sys.exit(-1)
-            ops[k] = m
+            ops[k] = OPS[o]
     # rename ops?
     if renames:
         ops_ = {}
@@ -634,7 +648,7 @@ def main(csv_paths, *,
             paths.append(path)
 
     if not paths:
-        print('no .csv files found in %r?' % csv_paths)
+        print("error: no .csv files found in %r?" % csv_paths)
         sys.exit(-1)
 
     results = []
@@ -643,29 +657,56 @@ def main(csv_paths, *,
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
+                    # rename fields?
+                    if renames:
+                        # make a copy so renames can overlap
+                        r_ = {}
+                        for new_k, old_k in renames:
+                            if old_k in r:
+                                r_[new_k] = r[old_k]
+                        r.update(r_)
+
                     results.append(r)
         except FileNotFoundError:
             pass
 
     # homogenize
-    by, fields, types, results = homogenize(results,
-        by=by, fields=fields, renames=renames, define=define)
+    Result = infer(results,
+        by=by,
+        fields=fields,
+        types=types,
+        ops=ops,
+        renames=renames)
+    results_ = []
+    for r in results:
+        try:
+            results_.append(Result(**{
+                k: r[k] for k in Result._by + Result._fields
+                if k in r and r[k].strip()}))
+        except TypeError:
+            pass
+    results = results_
 
-    # fold for total, note we do this with the raw data to avoid
-    # issues with lossy operations
-    total = fold(results, fields=fields, ops=ops)
-    total = total[0] if total else {}
+    # fold
+    results = fold(Result, results, by=by, defines=defines)
 
-    # fold to remove duplicates
-    types_, results = fold(results, by=by, fields=fields, types=types, ops=ops)
+    # sort, note that python's sort is stable
+    results.sort()
+    if sort:
+        for k, reverse in reversed(sort):
+            results.sort(key=lambda r: (getattr(r, k),)
+                if getattr(r, k) is not None else (),
+                reverse=reverse ^ (not k or k in Result._fields))
 
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
-            writer = csv.DictWriter(f, by + fields)
+            writer = csv.DictWriter(f, Result._by + Result._fields)
             writer.writeheader()
             for r in results:
-                writer.writerow(r)
+                # note we need to go through getattr to resolve lazy fields
+                writer.writerow({
+                    k: getattr(r, k) for k in Result._by + Result._fields})
 
     # find previous results?
     if args.get('diff'):
@@ -674,33 +715,34 @@ def main(csv_paths, *,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
-                    diff_results.append(r)
+                    # rename fields?
+                    if renames:
+                        # make a copy so renames can overlap
+                        r_ = {}
+                        for new_k, old_k in renames:
+                            if old_k in r:
+                                r_[new_k] = r[old_k]
+                        r.update(r_)
+
+                    try:
+                        diff_results.append(Result(**{
+                            k: r[k] for k in Result._by + Result._fields
+                            if k in r and r[k].strip()}))
+                    except TypeError:
+                        pass
         except FileNotFoundError:
             pass
 
-        # homogenize
-        _, _, _, diff_results = homogenize(diff_results,
-            by=by, fields=fields, renames=renames, define=define, types=types)
-
-        # fold for total, note we do this with the raw data to avoid
-        # issues with lossy operations
-        diff_total = fold(diff_results, fields=fields, ops=ops)
-        diff_total = diff_total[0] if diff_total else {}
-
-        # fold to remove duplicates
-        diff_results = fold(diff_results, by=by, fields=fields, ops=ops)
+        # fold
+        diff_results = fold(Result, diff_results, by=by, defines=defines)
 
     # print table
     if not args.get('quiet'):
-        table(
-            results,
-            total,
+        table(Result, results,
             diff_results if args.get('diff') else None,
-            diff_total if args.get('diff') else None,
             by=by,
             fields=fields,
-            types=types_,
-            ops=ops,
+            sort=sort,
             **args)
 
 
@@ -736,18 +778,54 @@ if __name__ == "__main__":
     parser.add_argument(
         '-b', '--by',
         action='append',
-        help="Group by these fields. All other fields will be merged as "
-            "needed. Can rename fields with new_name=old_name.")
+        type=lambda x: (
+            lambda k,v=None: (k, v.split(',') if v is not None else ())
+            )(*x.split('=', 1)),
+        help="Group by this field. Can rename fields with new_name=old_name.")
     parser.add_argument(
-        '-f', '--fields',
+        '-f', '--field',
+        dest='fields',
         action='append',
-        help="Use these fields. Can rename fields with new_name=old_name.")
+        type=lambda x: (
+            lambda k,v=None: (k, v.split(',') if v is not None else ())
+            )(*x.split('=', 1)),
+        help="Show this field. Can rename fields with new_name=old_name.")
     parser.add_argument(
         '-D', '--define',
+        dest='defines',
         action='append',
         type=lambda x: (lambda k,v: (k, set(v.split(','))))(*x.split('=', 1)),
-        help="Only include rows where this field is this value. May include "
+        help="Only include results where this field is this value. May include "
             "comma-separated options.")
+    class AppendSort(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if namespace.sort is None:
+                namespace.sort = []
+            namespace.sort.append((value, True if option == '-S' else False))
+    parser.add_argument(
+        '-s', '--sort',
+        action=AppendSort,
+        help="Sort by this fields.")
+    parser.add_argument(
+        '-S', '--reverse-sort',
+        action=AppendSort,
+        help="Sort by this fields, but backwards.")
+    parser.add_argument(
+        '-Y', '--summary',
+        action='store_true',
+        help="Only show the total.")
+    parser.add_argument(
+        '--int',
+        action='append',
+        help="Treat these fields as ints.")
+    parser.add_argument(
+        '--float',
+        action='append',
+        help="Treat these fields as floats.")
+    parser.add_argument(
+        '--frac',
+        action='append',
+        help="Treat these fields as fractions.")
     parser.add_argument(
         '--sum',
         action='append',
@@ -780,18 +858,6 @@ if __name__ == "__main__":
         '--gstddev',
         action='append',
         help="Find the geometric standard deviation of these fields.")
-    parser.add_argument(
-        '-s', '--sort',
-        action='append',
-        help="Sort by these fields.")
-    parser.add_argument(
-        '-S', '--reverse-sort',
-        action='append',
-        help="Sort by these fields, but backwards.")
-    parser.add_argument(
-        '-Y', '--summary',
-        action='store_true',
-        help="Only show the totals.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))
