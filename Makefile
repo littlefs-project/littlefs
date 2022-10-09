@@ -231,7 +231,7 @@ coverage: $(GCDA)
 perf: $(BENCH_PERF)
 	$(strip ./scripts/perf.py \
 		$^ $(patsubst %,-F%,$(SRC)) \
-		-scycles \
+		-Scycles \
 		$(PERFFLAGS))
 
 .PHONY: summary sizes

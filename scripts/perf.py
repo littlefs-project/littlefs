@@ -28,6 +28,8 @@ import subprocess as sp
 import tempfile
 import zipfile
 
+# TODO support non-zip perf results?
+
 
 PERF_PATHS = ['*.perf']
 PERF_TOOL = ['perf']
@@ -118,61 +120,31 @@ class Int(co.namedtuple('Int', 'x')):
 # perf results
 class PerfResult(co.namedtuple('PerfResult', [
         'file', 'function', 'line',
-        'self_cycles',
-        'self_bmisses', 'self_branches',
-        'self_cmisses', 'self_caches',
-        'cycles',
-        'bmisses', 'branches',
-        'cmisses', 'caches',
-        'children', 'parents'])):
+        'cycles', 'bmisses', 'branches', 'cmisses', 'caches',
+        'children'])):
     _by = ['file', 'function', 'line']
-    _fields = [
-        'self_cycles',
-        'self_bmisses', 'self_branches',
-        'self_cmisses', 'self_caches',
-        'cycles',
-        'bmisses', 'branches',
-        'cmisses', 'caches']
+    _fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
     _types = {
-        'self_cycles': Int,
-        'self_bmisses': Int, 'self_branches': Int,
-        'self_cmisses': Int, 'self_caches': Int,
         'cycles': Int,
         'bmisses': Int, 'branches': Int,
         'cmisses': Int, 'caches': Int}
 
     __slots__ = ()
     def __new__(cls, file='', function='', line=0,
-            self_cycles=0,
-            self_bmisses=0, self_branches=0,
-            self_cmisses=0, self_caches=0,
-            cycles=0,
-            bmisses=0, branches=0,
-            cmisses=0, caches=0,
-            children=set(), parents=set()):
+            cycles=0, bmisses=0, branches=0, cmisses=0, caches=0,
+            children=[]):
         return super().__new__(cls, file, function, int(Int(line)),
-            Int(self_cycles),
-            Int(self_bmisses), Int(self_branches),
-            Int(self_cmisses), Int(self_caches),
-            Int(cycles),
-            Int(bmisses), Int(branches),
-            Int(cmisses), Int(caches),
-            children, parents)
+            Int(cycles), Int(bmisses), Int(branches), Int(cmisses), Int(caches),
+            children)
 
     def __add__(self, other):
         return PerfResult(self.file, self.function, self.line,
-            self.self_cycles + other.self_cycles,
-            self.self_bmisses + other.self_bmisses,
-            self.self_branches + other.self_branches,
-            self.self_cmisses + other.self_cmisses,
-            self.self_caches + other.self_caches,
             self.cycles + other.cycles,
             self.bmisses + other.bmisses,
             self.branches + other.branches,
             self.cmisses + other.cmisses,
             self.caches + other.caches,
-            self.children | other.children,
-            self.parents | other.parents)
+            self.children + other.children)
 
 
 def openio(path, mode='r'):
@@ -245,7 +217,8 @@ def record(command, *,
 def collect_decompressed(path, *,
         perf_tool=PERF_TOOL,
         everything=False,
-        depth=0,
+        propagate=0,
+        depth=1,
         **args):
     sample_pattern = re.compile(
         '(?P<comm>\w+)'
@@ -278,10 +251,27 @@ def collect_decompressed(path, *,
         close_fds=False)
 
     last_filtered = False
-    last_has_frame = False
     last_event = ''
     last_period = 0
-    results = co.defaultdict(lambda: co.defaultdict(lambda: (0, 0)))
+    last_stack = []
+    results = {}
+
+    def commit():
+        # tail-recursively propagate measurements
+        for i in range(len(last_stack)):
+            results_ = results
+            for j in reversed(range(i+1)):
+                if i+1-j > depth:
+                    break
+
+                # propagate
+                name = last_stack[j]
+                if name not in results_:
+                    results_[name] = (co.defaultdict(lambda: 0), {})
+                results_[name][0][last_event] += last_period
+
+                # recurse
+                results_ = results_[name][1]
 
     for line in proc.stdout:
         # we need to process a lot of data, so wait to use regex as late
@@ -291,10 +281,12 @@ def collect_decompressed(path, *,
         if not line.startswith('\t'):
             m = sample_pattern.match(line)
             if m:
+                if last_stack:
+                    commit()
                 last_event = m.group('event')
                 last_filtered = last_event in events
                 last_period = int(m.group('period'), 0)
-                last_has_frame = False
+                last_stack = []
         elif last_filtered:
             m = frame_pattern.match(line)
             if m:
@@ -305,20 +297,16 @@ def collect_decompressed(path, *,
                         or not m.group('sym')[:1].isalpha()):
                     continue
 
-                name = (
+                last_stack.append((
                     m.group('dso'),
                     m.group('sym'),
-                    int(m.group('addr'), 16))
-                self, total = results[name][last_event]
-                if not last_has_frame:
-                    results[name][last_event] = (
-                        self + last_period,
-                        total + last_period)
-                    last_has_frame = True
-                else:
-                    results[name][last_event] = (
-                        self,
-                        total + last_period)
+                    int(m.group('addr'), 16)))
+
+                # stop propogating?
+                if propagate and len(last_stack) >= propagate:
+                    last_filtered = False
+    if last_stack:
+        commit()
 
     proc.wait()
     if proc.returncode != 0:
@@ -328,14 +316,15 @@ def collect_decompressed(path, *,
         sys.exit(-1)
 
     # rearrange results into result type
-    results_ = []
-    for name, r in results.items():
-        results_.append(PerfResult(*name,
-            **{'self_'+events[e]: s for e, (s, _) in r.items()},
-            **{        events[e]: t for e, (_, t) in r.items()}))
-    results = results_
+    def to_results(results):
+        results_ = []
+        for name, (r, children) in results.items():
+            results_.append(PerfResult(*name,
+                **{events[k]: v for k, v in r.items()},
+                children=to_results(children)))
+        return results_
 
-    return results
+    return to_results(results)
 
 def collect_job(path, i, **args):
     # decompress into a temporary file, this is to work around
@@ -567,38 +556,46 @@ def collect(paths, *,
                     default=0)
 
                 # then try to map addrs -> file+line
-                for r in results_:
-                    addr = r.line + delta
-                    i = bisect.bisect(line_at, addr, key=lambda x: x[0])
-                    if i > 0:
-                        _, file, line = line_at[i-1]
-                    else:
-                        file, line = re.sub('(\.o)?$', '.c', r.file, 1), 0
+                #
+                # note we need to do this recursively
+                def remap(results):
+                    results_ = []
+                    for r in results:
+                        addr = r.line + delta
+                        i = bisect.bisect(line_at, addr, key=lambda x: x[0])
+                        if i > 0:
+                            _, file, line = line_at[i-1]
+                        else:
+                            file, line = re.sub('(\.o)?$', '.c', r.file, 1), 0
 
-                    # ignore filtered sources
-                    if sources is not None:
-                        if not any(
-                                os.path.abspath(file) == os.path.abspath(s)
-                                for s in sources):
-                            continue
-                    else:
-                        # default to only cwd
-                        if not everything and not os.path.commonpath([
+                        # ignore filtered sources
+                        if sources is not None:
+                            if not any(
+                                    os.path.abspath(file) == os.path.abspath(s)
+                                    for s in sources):
+                                continue
+                        else:
+                            # default to only cwd
+                            if not everything and not os.path.commonpath([
+                                    os.getcwd(),
+                                    os.path.abspath(file)]) == os.getcwd():
+                                continue
+
+                        # simplify path
+                        if os.path.commonpath([
                                 os.getcwd(),
                                 os.path.abspath(file)]) == os.getcwd():
-                            continue
+                            file = os.path.relpath(file)
+                        else:
+                            file = os.path.abspath(file)
 
-                    # simplify path
-                    if os.path.commonpath([
-                            os.getcwd(),
-                            os.path.abspath(file)]) == os.getcwd():
-                        file = os.path.relpath(file)
-                    else:
-                        file = os.path.abspath(file)
+                        function, *_ = r.function.split('+', 1)
+                        results_.append(r._replace(
+                            file=file, function=function, line=line,
+                            children=remap(r.children)))
+                    return results_
 
-                    function, *_ = r.function.split('+', 1)
-                    results.append(PerfResult(file, function, line,
-                        **{k: getattr(r, k) for k in PerfResult._fields}))
+                results.extend(remap(results_))
 
     return results
 
@@ -636,6 +633,15 @@ def fold(Result, results, *,
     for name, rs in folding.items():
         folded.append(sum(rs[1:], start=rs[0]))
 
+    # fold recursively
+    folded_ = []
+    for r in folded:
+        folded_.append(r._replace(children=fold(
+            Result, r.children,
+            by=by,
+            defines=defines)))
+    folded = folded_ 
+
     return folded
 
 def table(Result, results, diff_results=None, *,
@@ -645,6 +651,7 @@ def table(Result, results, diff_results=None, *,
         summary=False,
         all=False,
         percent=False,
+        depth=1,
         **_):
     all_, all = all, __builtins__.all
 
@@ -683,13 +690,12 @@ def table(Result, results, diff_results=None, *,
                 if getattr(table.get(n), k, None) is not None else (),
                 reverse=reverse ^ (not k or k in Result._fields))
 
-
     # build up our lines
     lines = []
 
     # header
-    line = []
-    line.append('%s%s' % (
+    header = []
+    header.append('%s%s' % (
         ','.join(by),
         ' (%d added, %d removed)' % (
             sum(1 for n in table if n not in diff_table),
@@ -698,129 +704,95 @@ def table(Result, results, diff_results=None, *,
         if not summary else '')
     if diff_results is None:
         for k in fields:
-            line.append(k)
+            header.append(k)
     elif percent:
         for k in fields:
-            line.append(k)
+            header.append(k)
     else:
         for k in fields:
-            line.append('o'+k)
+            header.append('o'+k)
         for k in fields:
-            line.append('n'+k)
+            header.append('n'+k)
         for k in fields:
-            line.append('d'+k)
-    line.append('')
-    lines.append(line)
+            header.append('d'+k)
+    header.append('')
+    lines.append(header)
+
+    def table_entry(name, r, diff_r=None, ratios=[]):
+        entry = []
+        entry.append(name)
+        if diff_results is None:
+            for k in fields:
+                entry.append(getattr(r, k).table()
+                    if getattr(r, k, None) is not None
+                    else types[k].none)
+        elif percent:
+            for k in fields:
+                entry.append(getattr(r, k).diff_table()
+                    if getattr(r, k, None) is not None
+                    else types[k].diff_none)
+        else:
+            for k in fields:
+                entry.append(getattr(diff_r, k).diff_table()
+                    if getattr(diff_r, k, None) is not None
+                    else types[k].diff_none)
+            for k in fields:
+                entry.append(getattr(r, k).diff_table()
+                    if getattr(r, k, None) is not None
+                    else types[k].diff_none)
+            for k in fields:
+                entry.append(types[k].diff_diff(
+                        getattr(r, k, None),
+                        getattr(diff_r, k, None)))
+        if diff_results is None:
+            entry.append('')
+        elif percent:
+            entry.append(' (%s)' % ', '.join(
+                '+∞%' if t == +m.inf
+                else '-∞%' if t == -m.inf
+                else '%+.1f%%' % (100*t)
+                for t in ratios))
+        else:
+            entry.append(' (%s)' % ', '.join(
+                    '+∞%' if t == +m.inf
+                    else '-∞%' if t == -m.inf
+                    else '%+.1f%%' % (100*t)
+                    for t in ratios
+                    if t)
+                if any(ratios) else '')
+        return entry
 
     # entries
     if not summary:
         for name in names:
             r = table.get(name)
-            if diff_results is not None:
+            if diff_results is None:
+                diff_r = None
+                ratios = None
+            else:
                 diff_r = diff_table.get(name)
                 ratios = [
                     types[k].ratio(
                         getattr(r, k, None),
                         getattr(diff_r, k, None))
                     for k in fields]
-                if not any(ratios) and not all_:
+                if not all_ and not any(ratios):
                     continue
-
-            line = []
-            line.append(name)
-            if diff_results is None:
-                for k in fields:
-                    line.append(getattr(r, k).table()
-                        if getattr(r, k, None) is not None
-                        else types[k].none)
-            elif percent:
-                for k in fields:
-                    line.append(getattr(r, k).diff_table()
-                        if getattr(r, k, None) is not None
-                        else types[k].diff_none)
-            else:
-                for k in fields:
-                    line.append(getattr(diff_r, k).diff_table()
-                        if getattr(diff_r, k, None) is not None
-                        else types[k].diff_none)
-                for k in fields:
-                    line.append(getattr(r, k).diff_table()
-                        if getattr(r, k, None) is not None
-                        else types[k].diff_none)
-                for k in fields:
-                    line.append(types[k].diff_diff(
-                            getattr(r, k, None),
-                            getattr(diff_r, k, None)))
-            if diff_results is None:
-                line.append('')
-            elif percent:
-                line.append(' (%s)' % ', '.join(
-                    '+∞%' if t == +m.inf
-                    else '-∞%' if t == -m.inf
-                    else '%+.1f%%' % (100*t)
-                    for t in ratios))
-            else:
-                line.append(' (%s)' % ', '.join(
-                        '+∞%' if t == +m.inf
-                        else '-∞%' if t == -m.inf
-                        else '%+.1f%%' % (100*t)
-                        for t in ratios
-                        if t)
-                    if any(ratios) else '')
-            lines.append(line)
+            lines.append(table_entry(name, r, diff_r, ratios))
 
     # total
     r = next(iter(fold(Result, results, by=[])), None)
-    if diff_results is not None:
+    if diff_results is None:
+        diff_r = None
+        ratios = None
+    else:
         diff_r = next(iter(fold(Result, diff_results, by=[])), None)
         ratios = [
             types[k].ratio(
                 getattr(r, k, None),
                 getattr(diff_r, k, None))
             for k in fields]
-
-    line = []
-    line.append('TOTAL')
-    if diff_results is None:
-        for k in fields:
-            line.append(getattr(r, k).table()
-                if getattr(r, k, None) is not None
-                else types[k].none)
-    elif percent:
-        for k in fields:
-            line.append(getattr(r, k).diff_table()
-                if getattr(r, k, None) is not None
-                else types[k].diff_none)
-    else:
-        for k in fields:
-            line.append(getattr(diff_r, k).diff_table()
-                if getattr(diff_r, k, None) is not None
-                else types[k].diff_none)
-        for k in fields:
-            line.append(getattr(r, k).diff_table()
-                if getattr(r, k, None) is not None
-                else types[k].diff_none)
-        for k in fields:
-            line.append(types[k].diff_diff(
-                    getattr(r, k, None),
-                    getattr(diff_r, k, None)))
-    if diff_results is None:
-        line.append('')
-    elif percent:
-        line.append(' (%s)' % ', '.join(
-            '+∞%' if t == +m.inf
-            else '-∞%' if t == -m.inf
-            else '%+.1f%%' % (100*t)
-            for t in ratios))
-    else:
-        line.append(' (%s)' % ', '.join(
-                '+∞%' if t == +m.inf
-                else '-∞%' if t == -m.inf
-                else '%+.1f%%' % (100*t)
-                for t in ratios
-                if t)
-            if any(ratios) else '')
-    lines.append(line)
+    lines.append(table_entry('TOTAL', r, diff_r, ratios))
 
     # find the best widths, note that column 0 contains the names and column -1
     # the ratios, so those are handled a bit differently
@@ -830,13 +802,83 @@ def table(Result, results, diff_results=None, *,
             it.chain([23], it.repeat(7)),
             range(len(lines[0])-1))]
 
-    # print our table
-    for line in lines:
-        print('%-*s  %s%s' % (
-            widths[0], line[0],
-            ' '.join('%*s' % (w, x)
-                for w, x in zip(widths[1:], line[1:-1])),
-            line[-1]))
+    # adjust the name width based on the expected call depth, though
+    # note this doesn't really work with unbounded recursion
+    if not summary and not m.isinf(depth):
+        widths[0] += 4*(depth-1)
+
+    # print the tree recursively
+    print('%-*s  %s%s' % (
+        widths[0], lines[0][0],
+        ' '.join('%*s' % (w, x)
+            for w, x in zip(widths[1:], lines[0][1:-1])),
+        lines[0][-1]))
+
+    if not summary:
+        def recurse(results_, depth_, prefixes=('', '', '', '')):
+            # rebuild our tables at each layer
+            table_ = {
+                ','.join(str(getattr(r, k) or '') for k in by): r
+                for r in results_}
+            names_ = list(table_.keys())
+
+            # sort again at each layer, keep in mind the numbers are
+            # changing as we descend
+            names_.sort()
+            if sort:
+                for k, reverse in reversed(sort):
+                    names_.sort(key=lambda n: (getattr(table_[n], k),)
+                        if getattr(table_.get(n), k, None) is not None else (),
+                        reverse=reverse ^ (not k or k in Result._fields))
+
+            for i, name in enumerate(names_):
+                r = table_[name]
+                is_last = (i == len(names_)-1)
+
+                print('%s%-*s  %s' % (
+                    prefixes[0+is_last],
+                    widths[0] - (
+                        len(prefixes[0+is_last])
+                        if not m.isinf(depth) else 0),
+                    name,
+                    ' '.join('%*s' % (w, x)
+                        for w, x in zip(
+                            widths[1:],
+                            table_entry(name, r)[1:]))))
+
+                # recurse?
+                if depth_ > 1:
+                    recurse(
+                        r.children,
+                        depth_-1,
+                        (prefixes[2+is_last] + "|-> ",
+                         prefixes[2+is_last] + "'-> ",
+                         prefixes[2+is_last] + "|   ",
+                         prefixes[2+is_last] + "    "))
+
+        # we have enough going on with diffing to make the top layer
+        # a special case
+        for name, line in zip(names, lines[1:-1]):
+            print('%-*s  %s%s' % (
+                widths[0], line[0],
+                ' '.join('%*s' % (w, x)
+                    for w, x in zip(widths[1:], line[1:-1])),
+                line[-1]))
+
+            if name in table and depth > 1:
+                recurse(
+                    table[name].children,
+                    depth-1,
+                    ("|-> ",
+                     "'-> ",
+                     "|   ",
+                     "    "))
+
+    print('%-*s  %s%s' % (
+        widths[0], lines[-1][0],
+        ' '.join('%*s' % (w, x)
+            for w, x in zip(widths[1:], lines[-1][1:-1])),
+        lines[-1][-1]))
 
 
 def annotate(Result, results, *,
@@ -855,11 +897,11 @@ def annotate(Result, results, *,
     t0, t1 = min(t0, t1), max(t0, t1)
 
     if not branches and not caches:
-        tk = 'self_cycles'
+        tk = 'cycles'
     elif branches:
-        tk = 'self_bmisses'
+        tk = 'bmisses'
     else:
-        tk = 'self_cmisses'
+        tk = 'cmisses'
 
     # find max cycles
     max_ = max(it.chain((float(getattr(r, tk)) for r in results), [1]))
@@ -913,23 +955,19 @@ def annotate(Result, results, *,
 
                 r = table.get(i+1)
                 if r is not None and (
-                        float(r.self_cycles) > 0
+                        float(r.cycles) > 0
                         if not branches and not caches
-                        else float(r.self_bmisses) > 0
-                            or float(r.self_branches) > 0
+                        else float(r.bmisses) > 0 or float(r.branches) > 0
                         if branches
-                        else float(r.self_cmisses) > 0
-                            or float(r.self_caches) > 0):
+                        else float(r.cmisses) > 0 or float(r.caches) > 0):
                     line = '%-*s // %s' % (
                         args['width'],
                         line,
-                        '%s cycles' % r.self_cycles
+                        '%s cycles' % r.cycles
                         if not branches and not caches
-                        else '%s bmisses, %s branches' % (
-                            r.self_bmisses, r.self_branches)
+                        else '%s bmisses, %s branches' % (r.bmisses, r.branches)
                         if branches
-                        else '%s cmisses, %s caches' % (
-                            r.self_cmisses, r.self_caches))
+                        else '%s cmisses, %s caches' % (r.cmisses, r.caches))
 
                     if args['color']:
                         if float(getattr(r, tk)) / max_ >= t1:
@@ -948,8 +986,6 @@ def report(perf_paths, *,
         self=False,
         branches=False,
         caches=False,
-        tree=False,
-        depth=None,
         **args):
     # figure out what color should be
     if args.get('color') == 'auto':
@@ -959,11 +995,8 @@ def report(perf_paths, *,
     else:
         args['color'] = False
 
-    # it doesn't really make sense to not have a depth with tree,
-    # so assume depth=inf if tree by default
-    if args.get('depth') is None:
-        args['depth'] = m.inf if tree else 1
-    elif args.get('depth') == 0:
+    # depth of 0 == m.inf
+    if args.get('depth') == 0:
         args['depth'] = m.inf
 
     # find sizes
@@ -1055,12 +1088,10 @@ def report(perf_paths, *,
             table(PerfResult, results,
                 diff_results if args.get('diff') else None,
                 by=by if by is not None else ['function'],
-                fields=fields if fields is not None else [
-                    'self_'+k if self else k
-                    for k in (
-                        ['cycles'] if not branches and not caches
-                        else ['bmisses', 'branches'] if branches
-                        else ['cmisses', 'caches'])],
+                fields=fields if fields is not None
+                    else ['cycles'] if not branches and not caches
+                    else ['bmisses', 'branches'] if branches
+                    else ['cmisses', 'caches'],
                 sort=sort,
                 **args)
 
@@ -1165,10 +1196,6 @@ if __name__ == "__main__":
         action='store_true',
         help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '--self',
-        action='store_true',
-        help="Show samples before propagation up the call-chain.")
-    parser.add_argument(
         '--branches',
         action='store_true',
         help="Show branches and branch misses.")
@@ -1176,6 +1203,18 @@ if __name__ == "__main__":
         '--caches',
         action='store_true',
         help="Show cache accesses and cache misses.")
+    parser.add_argument(
+        '-P', '--propagate',
+        type=lambda x: int(x, 0),
+        help="Depth to propagate samples up the call-stack. 0 propagates up "
+            "to the entry point, 1 does no propagation. Defaults to 0.")
+    parser.add_argument(
+        '-Z', '--depth',
+        nargs='?',
+        type=lambda x: int(x, 0),
+        const=0,
+        help="Depth of function calls to show. 0 shows all calls but may not "
+            "terminate!")
     parser.add_argument(
         '-A', '--annotate',
         action='store_true',

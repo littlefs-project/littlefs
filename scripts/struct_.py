@@ -217,6 +217,9 @@ def collect(obj_paths, *,
                     s_file = int(m.group('file'))
                 elif m.group('size'):
                     s_size = int(m.group('size'))
+        if is_struct:
+            file = files.get(s_file, '?')
+            results_.append(StructResult(file, s_name, s_size))
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
@@ -250,7 +253,7 @@ def collect(obj_paths, *,
             else:
                 file = os.path.abspath(r.file)
 
-            results.append(StructResult(r.file, r.struct, r.size))
+            results.append(r._replace(file=file))
 
     return results
 
@@ -340,8 +343,8 @@ def table(Result, results, diff_results=None, *,
     lines = []
 
     # header
-    line = []
-    line.append('%s%s' % (
+    header = []
+    header.append('%s%s' % (
         ','.join(by),
         ' (%d added, %d removed)' % (
             sum(1 for n in table if n not in diff_table),
@@ -350,129 +353,95 @@ def table(Result, results, diff_results=None, *,
         if not summary else '')
     if diff_results is None:
         for k in fields:
-            line.append(k)
+            header.append(k)
     elif percent:
         for k in fields:
-            line.append(k)
+            header.append(k)
     else:
         for k in fields:
-            line.append('o'+k)
+            header.append('o'+k)
         for k in fields:
-            line.append('n'+k)
+            header.append('n'+k)
         for k in fields:
-            line.append('d'+k)
-    line.append('')
-    lines.append(line)
+            header.append('d'+k)
+    header.append('')
+    lines.append(header)
+
+    def table_entry(name, r, diff_r=None, ratios=[]):
+        entry = []
+        entry.append(name)
+        if diff_results is None:
+            for k in fields:
+                entry.append(getattr(r, k).table()
+                    if getattr(r, k, None) is not None
+                    else types[k].none)
+        elif percent:
+            for k in fields:
+                entry.append(getattr(r, k).diff_table()
+                    if getattr(r, k, None) is not None
+                    else types[k].diff_none)
+        else:
+            for k in fields:
+                entry.append(getattr(diff_r, k).diff_table()
+                    if getattr(diff_r, k, None) is not None
+                    else types[k].diff_none)
+            for k in fields:
+                entry.append(getattr(r, k).diff_table()
+                    if getattr(r, k, None) is not None
+                    else types[k].diff_none)
+            for k in fields:
+                entry.append(types[k].diff_diff(
+                        getattr(r, k, None),
+                        getattr(diff_r, k, None)))
+        if diff_results is None:
+            entry.append('')
+        elif percent:
+            entry.append(' (%s)' % ', '.join(
+                '+∞%' if t == +m.inf
+                else '-∞%' if t == -m.inf
+                else '%+.1f%%' % (100*t)
+                for t in ratios))
+        else:
+            entry.append(' (%s)' % ', '.join(
+                    '+∞%' if t == +m.inf
+                    else '-∞%' if t == -m.inf
+                    else '%+.1f%%' % (100*t)
+                    for t in ratios
+                    if t)
+                if any(ratios) else '')
+        return entry
 
     # entries
     if not summary:
         for name in names:
             r = table.get(name)
-            if diff_results is not None:
+            if diff_results is None:
+                diff_r = None
+                ratios = None
+            else:
                 diff_r = diff_table.get(name)
                 ratios = [
                     types[k].ratio(
                         getattr(r, k, None),
                         getattr(diff_r, k, None))
                     for k in fields]
-                if not any(ratios) and not all_:
+                if not all_ and not any(ratios):
                     continue
-
-            line = []
-            line.append(name)
-            if diff_results is None:
-                for k in fields:
-                    line.append(getattr(r, k).table()
-                        if getattr(r, k, None) is not None
-                        else types[k].none)
-            elif percent:
-                for k in fields:
-                    line.append(getattr(r, k).diff_table()
-                        if getattr(r, k, None) is not None
-                        else types[k].diff_none)
-            else:
-                for k in fields:
-                    line.append(getattr(diff_r, k).diff_table()
-                        if getattr(diff_r, k, None) is not None
-                        else types[k].diff_none)
-                for k in fields:
-                    line.append(getattr(r, k).diff_table()
-                        if getattr(r, k, None) is not None
-                        else types[k].diff_none)
-                for k in fields:
-                    line.append(types[k].diff_diff(
-                            getattr(r, k, None),
-                            getattr(diff_r, k, None)))
-            if diff_results is None:
-                line.append('')
-            elif percent:
-                line.append(' (%s)' % ', '.join(
-                    '+∞%' if t == +m.inf
-                    else '-∞%' if t == -m.inf
-                    else '%+.1f%%' % (100*t)
-                    for t in ratios))
-            else:
-                line.append(' (%s)' % ', '.join(
-                        '+∞%' if t == +m.inf
-                        else '-∞%' if t == -m.inf
-                        else '%+.1f%%' % (100*t)
-                        for t in ratios
-                        if t)
-                    if any(ratios) else '')
-            lines.append(line)
+            lines.append(table_entry(name, r, diff_r, ratios))
 
     # total
     r = next(iter(fold(Result, results, by=[])), None)
-    if diff_results is not None:
+    if diff_results is None:
+        diff_r = None
+        ratios = None
+    else:
         diff_r = next(iter(fold(Result, diff_results, by=[])), None)
         ratios = [
             types[k].ratio(
                 getattr(r, k, None),
                 getattr(diff_r, k, None))
             for k in fields]
-
-    line = []
-    line.append('TOTAL')
-    if diff_results is None:
-        for k in fields:
-            line.append(getattr(r, k).table()
-                if getattr(r, k, None) is not None
-                else types[k].none)
-    elif percent:
-        for k in fields:
-            line.append(getattr(r, k).diff_table()
-                if getattr(r, k, None) is not None
-                else types[k].diff_none)
-    else:
-        for k in fields:
-            line.append(getattr(diff_r, k).diff_table()
-                if getattr(diff_r, k, None) is not None
-                else types[k].diff_none)
-        for k in fields:
-            line.append(getattr(r, k).diff_table()
-                if getattr(r, k, None) is not None
-                else types[k].diff_none)
-        for k in fields:
-            line.append(types[k].diff_diff(
-                    getattr(r, k, None),
-                    getattr(diff_r, k, None)))
-    if diff_results is None:
-        line.append('')
-    elif percent:
-        line.append(' (%s)' % ', '.join(
-            '+∞%' if t == +m.inf
-            else '-∞%' if t == -m.inf
-            else '%+.1f%%' % (100*t)
-            for t in ratios))
-    else:
-        line.append(' (%s)' % ', '.join(
-                '+∞%' if t == +m.inf
-                else '-∞%' if t == -m.inf
-                else '%+.1f%%' % (100*t)
-                for t in ratios
-                if t)
-            if any(ratios) else '')
-    lines.append(line)
+    lines.append(table_entry('TOTAL', r, diff_r, ratios))
 
     # find the best widths, note that column 0 contains the names and column -1
     # the ratios, so those are handled a bit differently

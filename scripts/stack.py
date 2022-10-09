@@ -102,23 +102,23 @@ class Int(co.namedtuple('Int', 'x')):
 
 # size results
 class StackResult(co.namedtuple('StackResult', [
-        'file', 'function', 'frame', 'limit', 'calls'])):
+        'file', 'function', 'frame', 'limit', 'children'])):
     _by = ['file', 'function']
     _fields = ['frame', 'limit']
     _types = {'frame': Int, 'limit': Int}
 
     __slots__ = ()
     def __new__(cls, file='', function='',
-            frame=0, limit=0, calls=set()):
+            frame=0, limit=0, children=set()):
         return super().__new__(cls, file, function,
             Int(frame), Int(limit),
-            calls)
+            children)
 
     def __add__(self, other):
         return StackResult(self.file, self.function,
             self.frame + other.frame,
             max(self.limit, other.limit),
-            self.calls | other.calls)
+            self.children | other.children)
 
 
 def openio(path, mode='r'):
@@ -256,20 +256,20 @@ def collect(paths, *,
 
         return frame + limit
 
-    def find_calls(targets):
-        calls = set()
+    def find_children(targets):
+        children = set()
         for target in targets:
             if target in callgraph:
                 t_file, t_function, _, _ = callgraph[target]
-                calls.add((t_file, t_function))
-        return calls
+                children.add((t_file, t_function))
+        return children
 
     # build results
     results = []
     for source, (s_file, s_function, frame, targets) in callgraph.items():
         limit = find_limit(source)
-        calls = find_calls(targets)
-        results.append(StackResult(s_file, s_function, frame, limit, calls))
+        children = find_children(targets)
+        results.append(StackResult(s_file, s_function, frame, limit, children))
 
     return results
 
@@ -361,8 +361,8 @@ def table(Result, results, diff_results=None, *,
     lines = []
 
     # header
-    line = []
-    line.append('%s%s' % (
+    header = []
+    header.append('%s%s' % (
         ','.join(by),
         ' (%d added, %d removed)' % (
             sum(1 for n in table if n not in diff_table),
@@ -371,129 +371,95 @@ def table(Result, results, diff_results=None, *,
         if not summary else '')
     if diff_results is None:
         for k in fields:
-            line.append(k)
+            header.append(k)
     elif percent:
         for k in fields:
-            line.append(k)
+            header.append(k)
     else:
         for k in fields:
-            line.append('o'+k)
+            header.append('o'+k)
         for k in fields:
-            line.append('n'+k)
+            header.append('n'+k)
         for k in fields:
-            line.append('d'+k)
-    line.append('')
-    lines.append(line)
+            header.append('d'+k)
+    header.append('')
+    lines.append(header)
+
+    def table_entry(name, r, diff_r=None, ratios=[]):
+        entry = []
+        entry.append(name)
+        if diff_results is None:
+            for k in fields:
+                entry.append(getattr(r, k).table()
+                    if getattr(r, k, None) is not None
+                    else types[k].none)
+        elif percent:
+            for k in fields:
+                entry.append(getattr(r, k).diff_table()
+                    if getattr(r, k, None) is not None
+                    else types[k].diff_none)
+        else:
+            for k in fields:
+                entry.append(getattr(diff_r, k).diff_table()
+                    if getattr(diff_r, k, None) is not None
+                    else types[k].diff_none)
+            for k in fields:
+                entry.append(getattr(r, k).diff_table()
+                    if getattr(r, k, None) is not None
+                    else types[k].diff_none)
+            for k in fields:
+                entry.append(types[k].diff_diff(
+                        getattr(r, k, None),
+                        getattr(diff_r, k, None)))
+        if diff_results is None:
+            entry.append('')
+        elif percent:
+            entry.append(' (%s)' % ', '.join(
+                '+∞%' if t == +m.inf
+                else '-∞%' if t == -m.inf
+                else '%+.1f%%' % (100*t)
+                for t in ratios))
+        else:
+            entry.append(' (%s)' % ', '.join(
+                    '+∞%' if t == +m.inf
+                    else '-∞%' if t == -m.inf
+                    else '%+.1f%%' % (100*t)
+                    for t in ratios
+                    if t)
+                if any(ratios) else '')
+        return entry
 
     # entries
     if not summary:
         for name in names:
             r = table.get(name)
-            if diff_results is not None:
+            if diff_results is None:
+                diff_r = None
+                ratios = None
+            else:
                 diff_r = diff_table.get(name)
                 ratios = [
                     types[k].ratio(
                         getattr(r, k, None),
                         getattr(diff_r, k, None))
                     for k in fields]
-                if not any(ratios) and not all_:
+                if not all_ and not any(ratios):
                     continue
-
-            line = []
-            line.append(name)
-            if diff_results is None:
-                for k in fields:
-                    line.append(getattr(r, k).table()
-                        if getattr(r, k, None) is not None
-                        else types[k].none)
-            elif percent:
-                for k in fields:
-                    line.append(getattr(r, k).diff_table()
-                        if getattr(r, k, None) is not None
-                        else types[k].diff_none)
-            else:
-                for k in fields:
-                    line.append(getattr(diff_r, k).diff_table()
-                        if getattr(diff_r, k, None) is not None
-                        else types[k].diff_none)
-                for k in fields:
-                    line.append(getattr(r, k).diff_table()
-                        if getattr(r, k, None) is not None
-                        else types[k].diff_none)
-                for k in fields:
-                    line.append(types[k].diff_diff(
-                            getattr(r, k, None),
-                            getattr(diff_r, k, None)))
-            if diff_results is None:
-                line.append('')
-            elif percent:
-                line.append(' (%s)' % ', '.join(
-                    '+∞%' if t == +m.inf
-                    else '-∞%' if t == -m.inf
-                    else '%+.1f%%' % (100*t)
-                    for t in ratios))
-            else:
-                line.append(' (%s)' % ', '.join(
-                        '+∞%' if t == +m.inf
-                        else '-∞%' if t == -m.inf
-                        else '%+.1f%%' % (100*t)
-                        for t in ratios
-                        if t)
-                    if any(ratios) else '')
-            lines.append(line)
+            lines.append(table_entry(name, r, diff_r, ratios))
 
     # total
     r = next(iter(fold(Result, results, by=[])), None)
-    if diff_results is not None:
+    if diff_results is None:
+        diff_r = None
+        ratios = None
+    else:
         diff_r = next(iter(fold(Result, diff_results, by=[])), None)
         ratios = [
             types[k].ratio(
                 getattr(r, k, None),
                 getattr(diff_r, k, None))
             for k in fields]
-
-    line = []
-    line.append('TOTAL')
-    if diff_results is None:
-        for k in fields:
-            line.append(getattr(r, k).table()
-                if getattr(r, k, None) is not None
-                else types[k].none)
-    elif percent:
-        for k in fields:
-            line.append(getattr(r, k).diff_table()
-                if getattr(r, k, None) is not None
-                else types[k].diff_none)
-    else:
-        for k in fields:
-            line.append(getattr(diff_r, k).diff_table()
-                if getattr(diff_r, k, None) is not None
-                else types[k].diff_none)
-        for k in fields:
-            line.append(getattr(r, k).diff_table()
-                if getattr(r, k, None) is not None
-                else types[k].diff_none)
-        for k in fields:
-            line.append(types[k].diff_diff(
-                    getattr(r, k, None),
-                    getattr(diff_r, k, None)))
-    if diff_results is None:
-        line.append('')
-    elif percent:
-        line.append(' (%s)' % ', '.join(
-            '+∞%' if t == +m.inf
-            else '-∞%' if t == -m.inf
-            else '%+.1f%%' % (100*t)
-            for t in ratios))
-    else:
-        line.append(' (%s)' % ', '.join(
-                '+∞%' if t == +m.inf
-                else '-∞%' if t == -m.inf
-                else '%+.1f%%' % (100*t)
-                for t in ratios
-                if t)
-            if any(ratios) else '')
-    lines.append(line)
+    lines.append(table_entry('TOTAL', r, diff_r, ratios))
 
     # find the best widths, note that column 0 contains the names and column -1
     # the ratios, so those are handled a bit differently
@@ -505,22 +471,17 @@ def table(Result, results, diff_results=None, *,
 
     # adjust the name width based on the expected call depth, though
     # note this doesn't really work with unbounded recursion
-    if not summary:
-        if not m.isinf(depth):
-            widths[0] += 4*(depth-1)
+    if not summary and not m.isinf(depth):
+        widths[0] += 4*(depth-1)
 
-    # print our table with optional call info
-    #
-    # note we try to adjust our name width based on expected call depth, but
-    # this doesn't work if there's unbounded recursion
+    # print the tree recursively
     if not tree:
         print('%-*s  %s%s' % (
             widths[0], lines[0][0],
             ' '.join('%*s' % (w, x)
-                for w, x, in zip(widths[1:], lines[0][1:-1])),
+                for w, x in zip(widths[1:], lines[0][1:-1])),
             lines[0][-1]))
 
-    # print the tree recursively
     if not summary:
         line_table = {n: l for n, l in zip(names, lines[1:-1])}
 
@@ -541,32 +502,32 @@ def table(Result, results, diff_results=None, *,
                 if not tree:
                     print(' %s%s' % (
                         ' '.join('%*s' % (w, x)
-                            for w, x, in zip(widths[1:], line[1:-1])),
+                            for w, x in zip(widths[1:], line[1:-1])),
                         line[-1]),
                         end='')
                 print() 
 
                 # recurse?
-                if name in table and depth_ > 0:
-                    calls = {
+                if name in table and depth_ > 1:
+                    children = {
                         ','.join(str(getattr(Result(*c), k) or '') for k in by)
-                        for c in table[name].calls}
-
+                        for c in table[name].children}
                     recurse(
                         # note we're maintaining sort order
-                        [n for n in names if n in calls],
+                        [n for n in names if n in children],
                         depth_-1,
                         (prefixes[2+is_last] + "|-> ",
                          prefixes[2+is_last] + "'-> ",
                          prefixes[2+is_last] + "|   ",
                          prefixes[2+is_last] + "    "))
-        recurse(names, depth-1)
+
+        recurse(names, depth)
 
     if not tree:
         print('%-*s  %s%s' % (
             widths[0], lines[-1][0],
             ' '.join('%*s' % (w, x)
-                for w, x, in zip(widths[1:], lines[-1][1:-1])),
+                for w, x in zip(widths[1:], lines[-1][1:-1])),
             lines[-1][-1]))
 
 
