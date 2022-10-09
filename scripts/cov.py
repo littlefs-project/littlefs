@@ -3,7 +3,7 @@
 # Script to find coverage info after running tests.
 #
 # Example:
-# ./scripts/coverage.py \
+# ./scripts/cov.py \
 #     lfs.t.a.gcda lfs_util.t.a.gcda \
 #     -Flfs.c -Flfs_util.c -slines
 #
@@ -178,7 +178,7 @@ class Frac(co.namedtuple('Frac', 'a,b')):
         return not self.__lt__(other)
 
 # coverage results
-class CoverageResult(co.namedtuple('CoverageResult', [
+class CovResult(co.namedtuple('CovResult', [
         'file', 'function', 'line',
         'calls', 'hits', 'funcs', 'lines', 'branches'])):
     _by = ['file', 'function', 'line']
@@ -194,7 +194,7 @@ class CoverageResult(co.namedtuple('CoverageResult', [
             Int(calls), Int(hits), Frac(funcs), Frac(lines), Frac(branches))
 
     def __add__(self, other):
-        return CoverageResult(self.file, self.function, self.line,
+        return CovResult(self.file, self.function, self.line,
             max(self.calls, other.calls),
             max(self.hits, other.hits),
             self.funcs + other.funcs,
@@ -269,7 +269,7 @@ def collect(gcda_paths, *,
 
                 # go ahead and add functions, later folding will merge this if
                 # there are other hits on this line
-                results.append(CoverageResult(
+                results.append(CovResult(
                     file_name, func_name, func['start_line'],
                     func['execution_count'], 0,
                     Frac(1 if func['execution_count'] > 0 else 0, 1),
@@ -285,7 +285,7 @@ def collect(gcda_paths, *,
 
                 # go ahead and add lines, later folding will merge this if
                 # there are other hits on this line
-                results.append(CoverageResult(
+                results.append(CovResult(
                     file_name, func_name, line['line_number'],
                     0, line['count'],
                     0,
@@ -612,18 +612,18 @@ def main(gcda_paths, *,
             reader = csv.DictReader(f, restval='')
             for r in reader:
                 try:
-                    results.append(CoverageResult(
-                        **{k: r[k] for k in CoverageResult._by
+                    results.append(CovResult(
+                        **{k: r[k] for k in CovResult._by
                             if k in r and r[k].strip()},
-                        **{k: r['coverage_'+k]
-                            for k in CoverageResult._fields
-                            if 'coverage_'+k in r
-                                and r['coverage_'+k].strip()}))
+                        **{k: r['cov_'+k]
+                            for k in CovResult._fields
+                            if 'cov_'+k in r
+                                and r['cov_'+k].strip()}))
                 except TypeError:
                     pass
 
     # fold
-    results = fold(CoverageResult, results, by=by, defines=defines)
+    results = fold(CovResult, results, by=by, defines=defines)
 
     # sort, note that python's sort is stable
     results.sort()
@@ -631,21 +631,21 @@ def main(gcda_paths, *,
         for k, reverse in reversed(sort):
             results.sort(key=lambda r: (getattr(r, k),)
                 if getattr(r, k) is not None else (),
-                reverse=reverse ^ (not k or k in CoverageResult._fields))
+                reverse=reverse ^ (not k or k in CovResult._fields))
 
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
-                (by if by is not None else CoverageResult._by)
-                + ['coverage_'+k for k in CoverageResult._fields])
+                (by if by is not None else CovResult._by)
+                + ['cov_'+k for k in CovResult._fields])
             writer.writeheader()
             for r in results:
                 writer.writerow(
                     {k: getattr(r, k)
-                        for k in (by if by is not None else CoverageResult._by)}
-                    | {'coverage_'+k: getattr(r, k)
-                        for k in CoverageResult._fields})
+                        for k in (by if by is not None else CovResult._by)}
+                    | {'cov_'+k: getattr(r, k)
+                        for k in CovResult._fields})
 
     # find previous results?
     if args.get('diff'):
@@ -655,20 +655,20 @@ def main(gcda_paths, *,
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
                     try:
-                        diff_results.append(CoverageResult(
-                            **{k: r[k] for k in CoverageResult._by
+                        diff_results.append(CovResult(
+                            **{k: r[k] for k in CovResult._by
                                 if k in r and r[k].strip()},
-                            **{k: r['coverage_'+k]
-                                for k in CoverageResult._fields
-                                if 'coverage_'+k in r
-                                    and r['coverage_'+k].strip()}))
+                            **{k: r['cov_'+k]
+                                for k in CovResult._fields
+                                if 'cov_'+k in r
+                                    and r['cov_'+k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:
             pass
 
         # fold
-        diff_results = fold(CoverageResult, diff_results,
+        diff_results = fold(CovResult, diff_results,
             by=by, defines=defines)
 
     # print table
@@ -677,10 +677,10 @@ def main(gcda_paths, *,
                 or args.get('lines')
                 or args.get('branches')):
             # annotate sources
-            annotate(CoverageResult, results, **args)
+            annotate(CovResult, results, **args)
         else:
             # print table
-            table(CoverageResult, results,
+            table(CovResult, results,
                 diff_results if args.get('diff') else None,
                 by=by if by is not None else ['function'],
                 fields=fields if fields is not None
@@ -691,10 +691,10 @@ def main(gcda_paths, *,
 
     # catch lack of coverage
     if args.get('error_on_lines') and any(
-            r.coverage_lines.a < r.coverage_lines.b for r in results):
+            r.lines.a < r.lines.b for r in results):
         sys.exit(2)
     elif args.get('error_on_branches') and any(
-            r.coverage_branches.a < r.coverage_branches.b for r in results):
+            r.branches.a < r.branches.b for r in results):
         sys.exit(3)
 
 
@@ -738,13 +738,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '-b', '--by',
         action='append',
-        choices=CoverageResult._by,
+        choices=CovResult._by,
         help="Group by this field.")
     parser.add_argument(
         '-f', '--field',
         dest='fields',
         action='append',
-        choices=CoverageResult._fields,
+        choices=CovResult._fields,
         help="Show this field.")
     parser.add_argument(
         '-D', '--define',

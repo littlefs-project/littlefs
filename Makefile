@@ -79,7 +79,7 @@ override CFLAGS += -I.
 override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
 override CFLAGS += -ftrack-macro-expansion=0
-ifdef YES_COVERAGE
+ifdef YES_COV
 override CFLAGS += --coverage
 endif
 ifdef YES_PERF
@@ -87,12 +87,12 @@ override CFLAGS += -fno-omit-frame-pointer
 endif
 
 ifdef VERBOSE
-override CODEFLAGS     += -v
-override DATAFLAGS     += -v
-override STACKFLAGS    += -v
-override STRUCTFLAGS   += -v
-override COVERAGEFLAGS += -v
-override PERFFLAGS     += -v
+override CODEFLAGS   += -v
+override DATAFLAGS   += -v
+override STACKFLAGS  += -v
+override STRUCTFLAGS += -v
+override COVFLAGS    += -v
+override PERFFLAGS   += -v
 endif
 ifneq ($(NM),nm)
 override CODEFLAGS += --nm-tool="$(NM)"
@@ -159,14 +159,14 @@ tags:
 	$(CTAGS) --totals --c-types=+p $(shell find -H -name '*.h') $(SRC)
 
 .PHONY: test-runner build-test
-ifndef NO_COVERAGE
+ifndef NO_COV
 test-runner build-test: override CFLAGS+=--coverage
 endif
 ifdef YES_PERF
 bench-runner build-bench: override CFLAGS+=-fno-omit-frame-pointer
 endif
 test-runner build-test: $(TEST_RUNNER)
-ifndef NO_COVERAGE
+ifndef NO_COV
 	rm -f $(TEST_GCDA)
 endif
 ifdef YES_PERF
@@ -182,14 +182,14 @@ test-list: test-runner
 	./scripts/test.py $(TEST_RUNNER) $(TESTFLAGS) -l
 
 .PHONY: bench-runner build-bench
-ifdef YES_COVERAGE
+ifdef YES_COV
 bench-runner build-bench: override CFLAGS+=--coverage
 endif
 ifndef NO_PERF
 bench-runner build-bench: override CFLAGS+=-fno-omit-frame-pointer
 endif
 bench-runner build-bench: $(BENCH_RUNNER)
-ifdef YES_COVERAGE 
+ifdef YES_COV 
 	rm -f $(BENCH_GCDA)
 endif
 ifndef NO_PERF
@@ -220,12 +220,12 @@ stack: $(CI)
 struct: $(OBJ)
 	./scripts/struct_.py $^ -Ssize $(STRUCTFLAGS)
 
-.PHONY: coverage
-coverage: $(GCDA)
-	$(strip ./scripts/coverage.py \
+.PHONY: cov
+cov: $(GCDA)
+	$(strip ./scripts/cov.py \
 		$^ $(patsubst %,-F%,$(SRC)) \
 		-slines -sbranches \
-		$(COVERAGEFLAGS))
+		$(COVFLAGS))
 
 .PHONY: perf
 perf: $(BENCH_PERF)
@@ -269,8 +269,8 @@ $(BUILDDIR)lfs.stack.csv: $(CI)
 $(BUILDDIR)lfs.struct.csv: $(OBJ)
 	./scripts/struct_.py $^ -q $(CODEFLAGS) -o $@
 
-$(BUILDDIR)lfs.coverage.csv: $(GCDA)
-	./scripts/coverage.py $^ $(patsubst %,-F%,$(SRC)) -q $(COVERAGEFLAGS) -o $@
+$(BUILDDIR)lfs.cov.csv: $(GCDA)
+	./scripts/cov.py $^ $(patsubst %,-F%,$(SRC)) -q $(COVFLAGS) -o $@
 
 $(BUILDDIR)lfs.perf.csv: $(BENCH_PERF)
 	./scripts/perf.py $^ $(patsubst %,-F%,$(SRC)) -q $(PERFFLAGS) -o $@
@@ -325,7 +325,7 @@ clean:
 		$(BUILDDIR)lfs.data.csv \
 		$(BUILDDIR)lfs.stack.csv \
 		$(BUILDDIR)lfs.struct.csv \
-		$(BUILDDIR)lfs.coverage.csv \
+		$(BUILDDIR)lfs.cov.csv \
 		$(BUILDDIR)lfs.perf.csv)
 	rm -f $(OBJ)
 	rm -f $(DEP)
