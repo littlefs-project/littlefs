@@ -17,14 +17,14 @@ import sys
 import time
 
 
-def openio(path, mode='r'):
+def openio(path, mode='r', buffering=-1):
     if path == '-':
         if mode == 'r':
-            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
         else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
-        return open(path, mode)
+        return open(path, mode, buffering)
 
 class LinesIO:
     def __init__(self, maxlen=None):
@@ -104,6 +104,9 @@ def main(path='-', *, lines=5, cat=False, sleep=0.01, keep_open=False):
                 break
             # don't just flood open calls
             time.sleep(sleep or 0.1)
+    except FileNotFoundError as e:
+        print("error: file not found %r" % path)
+        sys.exit(-1)
     except KeyboardInterrupt:
         pass
 

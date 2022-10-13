@@ -41,14 +41,14 @@ CHARS_BRAILLE = (
     '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
 
 
-def openio(path, mode='r'):
+def openio(path, mode='r', buffering=-1):
     if path == '-':
         if mode == 'r':
-            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
         else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
-        return open(path, mode)
+        return open(path, mode, buffering)
 
 class LinesIO:
     def __init__(self, maxlen=None):
@@ -663,29 +663,30 @@ def main(path='-', *,
 
     # parse a line of trace output
     pattern = re.compile(
-        'trace.*?bd_(?:'
+        '^(?P<file>[^:]*):(?P<line>[0-9]+):trace:.*?bd_(?:'
             '(?P<create>create\w*)\('
                 '(?:'
                     'block_size=(?P<block_size>\w+)'
                     '|' 'block_count=(?P<block_count>\w+)'
                     '|' '.*?' ')*' '\)'
             '|' '(?P<read>read)\('
-                '\s*(?P<read_ctx>\w+)\s*' ','
-                '\s*(?P<read_block>\w+)\s*' ','
-                '\s*(?P<read_off>\w+)\s*' ','
-                '\s*(?P<read_buffer>\w+)\s*' ','
-                '\s*(?P<read_size>\w+)\s*' '\)'
+                '\s*(?P<read_ctx>\w+)' '\s*,'
+                '\s*(?P<read_block>\w+)' '\s*,'
+                '\s*(?P<read_off>\w+)' '\s*,'
+                '\s*(?P<read_buffer>\w+)' '\s*,'
+                '\s*(?P<read_size>\w+)' '\s*\)'
             '|' '(?P<prog>prog)\('
-                '\s*(?P<prog_ctx>\w+)\s*' ','
-                '\s*(?P<prog_block>\w+)\s*' ','
-                '\s*(?P<prog_off>\w+)\s*' ','
-                '\s*(?P<prog_buffer>\w+)\s*' ','
-                '\s*(?P<prog_size>\w+)\s*' '\)'
+                '\s*(?P<prog_ctx>\w+)' '\s*,'
+                '\s*(?P<prog_block>\w+)' '\s*,'
+                '\s*(?P<prog_off>\w+)' '\s*,'
+                '\s*(?P<prog_buffer>\w+)' '\s*,'
+                '\s*(?P<prog_size>\w+)' '\s*\)'
             '|' '(?P<erase>erase)\('
-                '\s*(?P<erase_ctx>\w+)\s*' ','
-                '\s*(?P<erase_block>\w+)\s*' '\)'
+                '\s*(?P<erase_ctx>\w+)' '\s*,'
+                '\s*(?P<erase_block>\w+)'
+                '\s*\(\s*(?P<erase_size>\w+)\s*\)' '\s*\)'
             '|' '(?P<sync>sync)\('
-                '\s*(?P<sync_ctx>\w+)\s*' '\)' ')')
+                '\s*(?P<sync_ctx>\w+)' '\s*\)' ')\s*$')
     def parse(line):
         nonlocal bd
 
@@ -694,7 +695,7 @@ def main(path='-', *,
         # through here
         if 'trace' not in line or 'bd' not in line:
             return False
-        m = pattern.search(line)
+        m = pattern.match(line)
         if not m:
             return False
 
@@ -748,12 +749,16 @@ def main(path='-', *,
 
         elif m.group('erase') and (erase or wear):
             block = int(m.group('erase_block'), 0)
+            size = int(m.group('erase_size'), 0)
 
             if block_stop is not None and block >= block_stop:
                 return False
             block -= block_start
+            if off_stop is not None:
+                size = min(size, off_stop)
+            off = -off_start
 
-            bd.erase(block)
+            bd.erase(block, off, size)
             return True
 
         else:
@@ -818,6 +823,9 @@ def main(path='-', *,
                 break
             # don't just flood open calls
             time.sleep(sleep or 0.1)
+    except FileNotFoundError as e:
+        print("error: file not found %r" % path)
+        sys.exit(-1)
     except KeyboardInterrupt:
         pass
 

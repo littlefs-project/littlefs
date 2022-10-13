@@ -12,7 +12,6 @@
 import collections as co
 import csv
 import difflib
-import glob
 import itertools as it
 import math as m
 import os
@@ -21,7 +20,6 @@ import shlex
 import subprocess as sp
 
 
-OBJ_PATHS = ['*.o']
 OBJDUMP_TOOL = ['objdump']
 
 
@@ -120,14 +118,14 @@ class StructResult(co.namedtuple('StructResult', ['file', 'struct', 'size'])):
             self.size + other.size)
 
 
-def openio(path, mode='r'):
+def openio(path, mode='r', buffering=-1):
     if path == '-':
         if mode == 'r':
-            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
         else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
-        return open(path, mode)
+        return open(path, mode, buffering)
 
 def collect(obj_paths, *,
         objdump_tool=OBJDUMP_TOOL,
@@ -136,15 +134,15 @@ def collect(obj_paths, *,
         internal=False,
         **args):
     line_pattern = re.compile(
-        '^\s+(?P<no>[0-9]+)\s+'
-            '(?:(?P<dir>[0-9]+)\s+)?'
-            '.*\s+'
-            '(?P<path>[^\s]+)$')
+        '^\s+(?P<no>[0-9]+)'
+            '(?:\s+(?P<dir>[0-9]+))?'
+            '\s+.*'
+            '\s+(?P<path>[^\s]+)$')
     info_pattern = re.compile(
         '^(?:.*(?P<tag>DW_TAG_[a-z_]+).*'
-            '|^.*DW_AT_name.*:\s*(?P<name>[^:\s]+)\s*'
-            '|^.*DW_AT_decl_file.*:\s*(?P<file>[0-9]+)\s*'
-            '|^.*DW_AT_byte_size.*:\s*(?P<size>[0-9]+)\s*)$')
+            '|.*DW_AT_name.*:\s*(?P<name>[^:\s]+)\s*'
+            '|.*DW_AT_decl_file.*:\s*(?P<file>[0-9]+)\s*'
+            '|.*DW_AT_byte_size.*:\s*(?P<size>[0-9]+)\s*)$')
 
     results = []
     for path in obj_paths:
@@ -468,20 +466,7 @@ def main(obj_paths, *,
         **args):
     # find sizes
     if not args.get('use', None):
-        # find .o files
-        paths = []
-        for path in obj_paths:
-            if os.path.isdir(path):
-                path = path + '/*.o'
-
-            for path in glob.glob(path):
-                paths.append(path)
-
-        if not paths:
-            print("error: no .o files found in %r?" % obj_paths)
-            sys.exit(-1)
-
-        results = collect(paths, **args)
+        results = collect(obj_paths, **args)
     else:
         results = []
         with openio(args['use']) as f:
@@ -565,9 +550,7 @@ if __name__ == "__main__":
     parser.add_argument(
         'obj_paths',
         nargs='*',
-        default=OBJ_PATHS,
-        help="Description of where to find *.o files. May be a directory "
-            "or a list of paths. Defaults to %r." % OBJ_PATHS)
+        help="Input *.o files.")
     parser.add_argument(
         '-v', '--verbose',
         action='store_true',

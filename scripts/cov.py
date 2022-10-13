@@ -14,7 +14,6 @@
 
 import collections as co
 import csv
-import glob
 import itertools as it
 import json
 import math as m
@@ -26,8 +25,6 @@ import subprocess as sp
 # TODO use explode_asserts to avoid counting assert branches?
 # TODO use dwarf=info to find functions for inline functions?
 
-
-GCDA_PATHS = ['*.gcda']
 GCOV_TOOL = ['gcov']
 
 
@@ -202,14 +199,14 @@ class CovResult(co.namedtuple('CovResult', [
             self.branches + other.branches)
 
 
-def openio(path, mode='r'):
+def openio(path, mode='r', buffering=-1):
     if path == '-':
         if mode == 'r':
-            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
         else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
-        return open(path, mode)
+        return open(path, mode, buffering)
 
 def collect(gcda_paths, *,
         gcov_tool=GCOV_TOOL,
@@ -592,20 +589,7 @@ def main(gcda_paths, *,
 
     # find sizes
     if not args.get('use', None):
-        # find .gcda files
-        paths = []
-        for path in gcda_paths:
-            if os.path.isdir(path):
-                path = path + '/*.gcda'
-
-            for path in glob.glob(path):
-                paths.append(path)
-
-        if not paths:
-            print("error: no .gcda files found in %r?" % gcda_paths)
-            sys.exit(-1)
-
-        results = collect(paths, **args)
+        results = collect(gcda_paths, **args)
     else:
         results = []
         with openio(args['use']) as f:
@@ -707,9 +691,7 @@ if __name__ == "__main__":
     parser.add_argument(
         'gcda_paths',
         nargs='*',
-        default=GCDA_PATHS,
-        help="Description of where to find *.gcda files. May be a directory "
-            "or a list of paths. Defaults to %r." % GCDA_PATHS)
+        help="Input *.gcda files.")
     parser.add_argument(
         '-v', '--verbose',
         action='store_true',

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 #
-# Script to aggregate and report Linux perf results.
+# Aggregate and report call-stack propagated block-device operations
+# from trace output.
 #
 # Example:
-# ./scripts/perf.py -R -obench.perf ./runners/bench_runner
-# ./scripts/perf.py bench.perf -j -Flfs.c -Flfs_util.c -Scycles
+# ./scripts/bench.py -ttrace
+# ./scripts/perfbd.py trace -j -Flfs.c -Flfs_util.c -Serased -Sproged -Sreaded
 #
 # Copyright (c) 2022, The littlefs authors.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -13,8 +14,6 @@
 import bisect
 import collections as co
 import csv
-import errno
-import fcntl
 import functools as ft
 import itertools as it
 import math as m
@@ -22,17 +21,9 @@ import multiprocessing as mp
 import os
 import re
 import shlex
-import shutil
 import subprocess as sp
-import tempfile
-import zipfile
-
-# TODO support non-zip perf results?
 
 
-PERF_TOOL = ['perf']
-PERF_EVENTS = 'cycles,branch-misses,branches,cache-misses,cache-references'
-PERF_FREQ = 100
 OBJDUMP_TOOL = ['objdump']
 THRESHOLD = (0.5, 0.85)
 
@@ -116,32 +107,27 @@ class Int(co.namedtuple('Int', 'x')):
         return self.__class__(self.x * other.x)
 
 # perf results
-class PerfResult(co.namedtuple('PerfResult', [
+class PerfBdResult(co.namedtuple('PerfBdResult', [
         'file', 'function', 'line',
-        'cycles', 'bmisses', 'branches', 'cmisses', 'caches',
+        'readed', 'proged', 'erased',
         'children'])):
     _by = ['file', 'function', 'line']
-    _fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
-    _types = {
-        'cycles': Int,
-        'bmisses': Int, 'branches': Int,
-        'cmisses': Int, 'caches': Int}
+    _fields = ['readed', 'proged', 'erased']
+    _types = {'readed': Int, 'proged': Int, 'erased': Int}
 
     __slots__ = ()
     def __new__(cls, file='', function='', line=0,
-            cycles=0, bmisses=0, branches=0, cmisses=0, caches=0,
+            readed=0, proged=0, erased=0,
             children=[]):
         return super().__new__(cls, file, function, int(Int(line)),
-            Int(cycles), Int(bmisses), Int(branches), Int(cmisses), Int(caches),
+            Int(readed), Int(proged), Int(erased),
             children)
 
     def __add__(self, other):
-        return PerfResult(self.file, self.function, self.line,
-            self.cycles + other.cycles,
-            self.bmisses + other.bmisses,
-            self.branches + other.branches,
-            self.cmisses + other.cmisses,
-            self.caches + other.caches,
+        return PerfBdResult(self.file, self.function, self.line,
+            self.readed + other.readed,
+            self.proged + other.proged,
+            self.erased + other.erased,
             self.children + other.children)
 
 
@@ -154,84 +140,6 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-# run perf as a subprocess, storing measurements into a zip file
-def record(command, *,
-        output=None,
-        perf_freq=PERF_FREQ,
-        perf_period=None,
-        perf_events=PERF_EVENTS,
-        perf_tool=PERF_TOOL,
-        **args):
-    # create a temporary file for perf to write to, as far as I can tell
-    # this is strictly needed because perf's pipe-mode only works with stdout
-    with tempfile.NamedTemporaryFile('rb') as f:
-        # figure out our perf invocation
-        perf = perf_tool + list(filter(None, [
-            'record',
-            '-F%s' % perf_freq
-                if perf_freq is not None
-                and perf_period is None else None,
-            '-c%s' % perf_period
-                if perf_period is not None else None,
-            '-B',
-            '-g',
-            '--all-user',
-            '-e%s' % perf_events,
-            '-o%s' % f.name]))
-
-        # run our command
-        try:
-            if args.get('verbose'):
-                print(' '.join(shlex.quote(c) for c in perf + command))
-            err = sp.call(perf + command, close_fds=False)
-
-        except KeyboardInterrupt:
-            err = errno.EOWNERDEAD
-
-        # synchronize access
-        z = os.open(output, os.O_RDWR | os.O_CREAT)
-        fcntl.flock(z, fcntl.LOCK_EX)
-
-        # copy measurements into our zip file
-        with os.fdopen(z, 'r+b') as z:
-            with zipfile.ZipFile(z, 'a',
-                    compression=zipfile.ZIP_DEFLATED,
-                    compresslevel=1) as z:
-                with z.open('perf.%d' % os.getpid(), 'w') as g:
-                    shutil.copyfileobj(f, g)
-
-    # forward the return code
-    return err
-
-
-# try to only process each dso onceS
-#
-# note this only caches with the non-keyword arguments
-def multiprocessing_cache(f):
-    local_cache = {}
-    manager = mp.Manager()
-    global_cache = manager.dict()
-    lock = mp.Lock()
-
-    def multiprocessing_cache(*args, **kwargs):
-        # check local cache?
-        if args in local_cache:
-            return local_cache[args]
-        # check global cache?
-        with lock:
-            if args in global_cache:
-                v = global_cache[args]
-                local_cache[args] = v
-                return v
-            # fall back to calling the function
-            v = f(*args, **kwargs)
-            global_cache[args] = v
-            local_cache[args] = v
-            return v
-
-    return multiprocessing_cache
-
-@multiprocessing_cache
 def collect_syms_and_lines(obj_path, *,
         objdump_tool=None,
         **args):
@@ -259,7 +167,7 @@ def collect_syms_and_lines(obj_path, *,
                     '|' '.' ')*'
             ')$', re.IGNORECASE)
 
-    # figure out symbol addresses and file+line ranges
+    # figure out symbol addresses
     syms = {}
     sym_at = []
     cmd = objdump_tool + ['-t', obj_path]
@@ -382,162 +290,220 @@ def collect_syms_and_lines(obj_path, *,
     return syms, sym_at, lines, line_at
 
 
-def collect_decompressed(path, *,
-        perf_tool=PERF_TOOL,
+def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
         sources=None,
         everything=False,
         propagate=0,
         depth=1,
         **args):
-    sample_pattern = re.compile(
-        '(?P<comm>\w+)'
-        '\s+(?P<pid>\w+)'
-        '\s+(?P<time>[\w.]+):'
-        '\s*(?P<period>\w+)'
-        '\s+(?P<event>[^:]+):')
+    trace_pattern = re.compile(
+        '^(?P<file>[^:]*):(?P<line>[0-9]+):trace:\s*(?P<prefix>[^\s]*?bd_)(?:'
+            '(?P<read>read)\('
+                '\s*(?P<read_ctx>\w+)' '\s*,'
+                '\s*(?P<read_block>\w+)' '\s*,'
+                '\s*(?P<read_off>\w+)' '\s*,'
+                '\s*(?P<read_buffer>\w+)' '\s*,'
+                '\s*(?P<read_size>\w+)' '\s*\)'
+            '|' '(?P<prog>prog)\('
+                '\s*(?P<prog_ctx>\w+)' '\s*,'
+                '\s*(?P<prog_block>\w+)' '\s*,'
+                '\s*(?P<prog_off>\w+)' '\s*,'
+                '\s*(?P<prog_buffer>\w+)' '\s*,'
+                '\s*(?P<prog_size>\w+)' '\s*\)'
+            '|' '(?P<erase>erase)\('
+                '\s*(?P<erase_ctx>\w+)' '\s*,'
+                '\s*(?P<erase_block>\w+)'
+                '\s*\(\s*(?P<erase_size>\w+)\s*\)' '\s*\)' ')\s*$')
     frame_pattern = re.compile(
-        '\s+(?P<addr>\w+)'
-        '\s+(?P<sym>[^\s\+]+)(?:\+(?P<off>\w+))?'
-        '\s+\((?P<dso>[^\)]+)\)')
-    events = {
-        'cycles':           'cycles',
-        'branch-misses':    'bmisses',
-        'branches':         'branches',
-        'cache-misses':     'cmisses',
-        'cache-references': 'caches'}
+        '^\s+at (?P<addr>\w+)\s*$')
 
-    # note perf_tool may contain extra args
-    cmd = perf_tool + [
-        'script',
-        '-i%s' % path]
-    if args.get('verbose'):
-        print(' '.join(shlex.quote(c) for c in cmd))
-    proc = sp.Popen(cmd,
-        stdout=sp.PIPE,
-        stderr=sp.PIPE if not args.get('verbose') else None,
-        universal_newlines=True,
-        errors='replace',
-        close_fds=False)
-
+    # parse all of the trace files for read/prog/erase operations
     last_filtered = False
-    last_event = ''
-    last_period = 0
+    last_file = None
+    last_line = None
+    last_sym = None
+    last_readed = 0
+    last_proged = 0
+    last_erased = 0
     last_stack = []
-    deltas = co.defaultdict(lambda: {})
-    syms_ = co.defaultdict(lambda: {})
+    last_delta = None
     at_cache = {}
     results = {}
 
     def commit():
-        # tail-recursively propagate measurements
-        for i in range(len(last_stack)):
-            results_ = results
-            for j in reversed(range(i+1)):
-                if i+1-j > depth:
-                    break
+        # fallback to just capturing top-level measurements
+        if not last_stack:
+            file = last_file
+            sym = last_sym
+            line = last_line
 
-                # propagate
-                name = last_stack[j]
-                if name not in results_:
-                    results_[name] = (co.defaultdict(lambda: 0), {})
-                results_[name][0][last_event] += last_period
+            # ignore filtered sources
+            if sources is not None:
+                if not any(
+                        os.path.abspath(file)
+                            == os.path.abspath(s)
+                        for s in sources):
+                    return
+            else:
+                # default to only cwd
+                if not everything and not os.path.commonpath([
+                        os.getcwd(),
+                        os.path.abspath(file)]) == os.getcwd():
+                    return
 
-                # recurse
-                results_ = results_[name][1]
+            # simplify path
+            if os.path.commonpath([
+                    os.getcwd(),
+                    os.path.abspath(file)]) == os.getcwd():
+                file = os.path.relpath(file)
+            else:
+                file = os.path.abspath(file)
 
-    for line in proc.stdout:
-        # we need to process a lot of data, so wait to use regex as late
-        # as possible
-        if not line.startswith('\t'):
-            if last_filtered:
-                commit()
-            last_filtered = False
+            results[(file, sym, line)] = (
+                last_readed,
+                last_proged,
+                last_erased,
+                {})
+        else:
+            # tail-recursively propagate measurements
+            for i in range(len(last_stack)):
+                results_ = results
+                for j in reversed(range(i+1)):
+                    if i+1-j > depth:
+                        break
 
-            if line:
-                m = sample_pattern.match(line)
-                if m and m.group('event') in events:
-                    last_filtered = True
-                    last_event = m.group('event')
-                    last_period = int(m.group('period'), 0)
-                    last_stack = []
+                    # propagate
+                    name = last_stack[j]
+                    if name in results_:
+                        r, p, e, children = results_[name]
+                    else:
+                        r, p, e, children = 0, 0, 0, {}
+                    results_[name] = (
+                        r+last_readed,
+                        p+last_proged,
+                        e+last_erased,
+                        children)
 
-        elif last_filtered:
-            m = frame_pattern.match(line)
-            if m:
-                # filter out internal/kernel functions
-                if not everything and (
-                        m.group('sym').startswith('__')
-                        or m.group('sym').startswith('0')
-                        or m.group('sym').startswith('-')
-                        or m.group('sym').startswith('[')
-                        or m.group('dso').startswith('/usr/lib')):
-                    continue
+                    # recurse
+                    results_ = results_[name][-1]
 
-                dso = m.group('dso')
-                sym = m.group('sym')
-                off = int(m.group('off'), 0) if m.group('off') else 0
-                addr_ = int(m.group('addr'), 16)
+    with openio(path) as f:
+        # try to jump to middle of file? need step out of utf8-safe mode and
+        # then resync up with the next newline to avoid parsing half a line
+        if start is not None and start > 0:
+            fd = f.fileno()
+            os.lseek(fd, start, os.SEEK_SET)
+            while os.read(fd, 1) not in {b'\n', b'\r', b''}:
+                pass
+            f = os.fdopen(fd)
 
-                # get the syms/lines for the dso, this is cached
-                syms, sym_at, lines, line_at = collect_syms_and_lines(
-                    dso,
-                    **args)
+        for line in f:
+            # we have a lot of data, try to take a few shortcuts,
+            # string search is much faster than regex so try to use
+            # regex as late as possible.
+            if not line.startswith('\t'):
+                if last_filtered:
+                    commit()
+                last_filtered = False
 
-                # ASLR is tricky, we have symbols+offsets, but static symbols
-                # means we may have multiple options for each symbol.
-                #
-                # To try to solve this, we use previous seen symbols to build
-                # confidence for the correct ASLR delta. This means we may
-                # guess incorrectly for early symbols, but this will only affect
-                # a few samples.
-                if sym in syms:
-                    sym_addr_ = addr_ - off
+                # done processing our slice?
+                if stop is not None:
+                    if os.lseek(f.fileno(), 0, os.SEEK_CUR) > stop:
+                        break
 
-                    # track possible deltas?
-                    for sym_addr, size in syms[sym]:
-                        delta = sym_addr - sym_addr_
-                        if delta not in deltas[dso]:
-                            deltas[dso][delta] = sum(
-                                abs(a_+delta - a)
-                                for s, (a_, _) in syms_[dso].items()
-                                for a, _ in syms[s])
-                    for delta in deltas[dso].keys():
-                        deltas[dso][delta] += abs(sym_addr_+delta - sym_addr)
-                    syms_[dso][sym] = sym_addr_, size
+                if 'trace' in line and 'bd' in line:
+                    m = trace_pattern.match(line)
+                    if m:
+                        last_filtered = True
+                        last_file = os.path.abspath(m.group('file'))
+                        last_line = int(m.group('line'), 0)
+                        last_sym = m.group('prefix')
+                        last_readed = 0
+                        last_proged = 0
+                        last_erased = 0
+                        last_stack = []
+                        last_delta = None
 
-                    # guess the best delta
-                    delta, _ = min(deltas[dso].items(),
-                        key=lambda x: (x[1], x[0]))
-                    addr = addr_ + delta
+                        if m.group('read'):
+                            last_sym += m.group('read')
+                            last_readed += int(m.group('read_size'))
+                        elif m.group('prog'):
+                            last_sym += m.group('prog')
+                            last_proged += int(m.group('prog_size'))
+                        elif m.group('erase'):
+                            last_sym += m.group('erase')
+                            last_erased += int(m.group('erase_size'))
+
+            elif last_filtered:
+                m = frame_pattern.match(line)
+                if m:
+                    addr_ = int(m.group('addr'), 0)
+
+                    # before we can do anything with addr, we need to
+                    # reverse ASLR, fortunately we know the file+line of
+                    # the first stack frame, so we can use that as a point
+                    # of reference
+                    if last_delta is None:
+                        i = bisect.bisect(lines, (last_file, last_line),
+                            key=lambda x: (x[0], x[1]))
+                        if i > 0:
+                            last_delta = lines[i-1][2] - addr_
+                        else:
+                            # can't reverse ASLR, give up on backtrace
+                            commit()
+                            last_filtered = False
+                            continue
+
+                    addr = addr_ + last_delta
 
                     # cached?
-                    if (dso,addr) in at_cache:
-                        cached = at_cache[(dso,addr)]
+                    if addr in at_cache:
+                        cached = at_cache[addr]
                         if cached is None:
                             # cache says to skip
                             continue
-                        file, line = cached
+                        file, sym, line = cached
                     else:
+                        # find sym
+                        i = bisect.bisect(sym_at, addr, key=lambda x: x[0])
+                        # check that we're actually in the sym's size
+                        if i > 0 and addr < sym_at[i-1][0] + sym_at[i-1][2]:
+                            _, sym, _ = sym_at[i-1]
+                        else:
+                            sym = hex(addr)
+
+                        # filter out internal/unknown functions
+                        if not everything and (
+                                sym.startswith('__')
+                                or sym.startswith('0')
+                                or sym.startswith('-')
+                                or sym == '_start'):
+                            at_cache[addr] = None
+                            continue
+
                         # find file+line
                         i = bisect.bisect(line_at, addr, key=lambda x: x[0])
                         if i > 0:
                             _, file, line = line_at[i-1]
+                        elif len(last_stack) == 0:
+                            file, line = last_file, last_line
                         else:
-                            file, line = re.sub('(\.o)?$', '.c', dso, 1), 0
+                            file, line = re.sub('(\.o)?$', '.c', obj_path, 1), 0
 
                         # ignore filtered sources
                         if sources is not None:
                             if not any(
-                                    os.path.abspath(file) == os.path.abspath(s)
+                                    os.path.abspath(file)
+                                        == os.path.abspath(s)
                                     for s in sources):
-                                at_cache[(dso,addr)] = None
+                                at_cache[addr] = None
                                 continue
                         else:
                             # default to only cwd
                             if not everything and not os.path.commonpath([
                                     os.getcwd(),
                                     os.path.abspath(file)]) == os.getcwd():
-                                at_cache[(dso,addr)] = None
+                                at_cache[addr] = None
                                 continue
 
                         # simplify path
@@ -548,79 +514,79 @@ def collect_decompressed(path, *,
                         else:
                             file = os.path.abspath(file)
 
-                        at_cache[(dso,addr)] = file, line
-                else:
-                    file, line = re.sub('(\.o)?$', '.c', dso, 1), 0
+                        at_cache[addr] = file, sym, line
 
-                last_stack.append((file, sym, line))
+                    last_stack.append((file, sym, line))
 
-                # stop propogating?
-                if propagate and len(last_stack) >= propagate:
-                    commit()
-                    last_filtered = False
-    if last_filtered:
-        commit()
-
-    proc.wait()
-    if proc.returncode != 0:
-        if not args.get('verbose'):
-            for line in proc.stderr:
-                sys.stdout.write(line)
-        sys.exit(-1)
+                    # stop propagating?
+                    if propagate and len(last_stack) >= propagate:
+                        commit()
+                        last_filtered = False
+        if last_filtered:
+            commit()
 
     # rearrange results into result type
     def to_results(results):
         results_ = []
-        for name, (r, children) in results.items():
-            results_.append(PerfResult(*name,
-                **{events[k]: v for k, v in r.items()},
+        for name, (r, p, e, children) in results.items():
+            results_.append(PerfBdResult(*name,
+                r, p, e,
                 children=to_results(children)))
         return results_
 
     return to_results(results)
 
-def collect_job(path, i, **args):
-    # decompress into a temporary file, this is to work around
-    # some limitations of perf
-    with zipfile.ZipFile(path) as z:
-        with z.open(i) as f:
-            with tempfile.NamedTemporaryFile('wb') as g:
-                shutil.copyfileobj(f, g)
-                g.flush()
-
-                return collect_decompressed(g.name, **args)
-
 def starapply(args):
     f, args, kwargs = args
     return f(*args, **kwargs)
 
-def collect(perf_paths, *,
+def collect(obj_path, trace_paths, *,
         jobs=None,
         **args):
     # automatic job detection?
     if jobs == 0:
         jobs = len(os.sched_getaffinity(0))
 
-    records = []
-    for path in perf_paths:
-        # each .perf file is actually a zip file containing perf files from
-        # multiple runs
-        with zipfile.ZipFile(path) as z:
-            records.extend((path, i) for i in z.infolist())
+    # find sym/line info to reverse ASLR
+    syms, sym_at, lines, line_at = collect_syms_and_lines(obj_path, **args)
 
-    # we're dealing with a lot of data but also surprisingly
-    # parallelizable
     if jobs is not None:
+        # try to split up files so that even single files can be processed
+        # in parallel
+        #
+        # this looks naive, since we're splitting up text files by bytes, but
+        # we do proper backtrace delimination in collect_job
+        trace_ranges = []
+        for path in trace_paths:
+            if path == '-':
+                trace_ranges.append([(None, None)])
+                continue
+
+            size = os.path.getsize(path)
+            if size == 0:
+                trace_ranges.append([(None, None)])
+                continue
+
+            perjob = m.ceil(size // jobs)
+            trace_ranges.append([(i, i+perjob) for i in range(0, size, perjob)])
+
         results = []
         with mp.Pool(jobs) as p:
             for results_ in p.imap_unordered(
                     starapply,
-                    ((collect_job, (path, i), args) for path, i in records)):
+                    ((collect_job, (path, start, stop,
+                        syms, sym_at, lines, line_at),
+                        args)
+                        for path, ranges in zip(trace_paths, trace_ranges)
+                        for start, stop in ranges)):
                 results.extend(results_)
+
     else:
         results = []
-        for path, i in records:
-            results.extend(collect_job(path, i, **args))
+        for path in trace_paths:
+            results.extend(collect_job(path, None, None,
+                syms, sym_at, lines, line_at,
+                **args))
 
     return results
 
@@ -909,27 +875,44 @@ def table(Result, results, diff_results=None, *,
 def annotate(Result, results, *,
         annotate=None,
         threshold=None,
-        branches=False,
-        caches=False,
+        read_threshold=None,
+        prog_threshold=None,
+        erase_threshold=None,
         **args):
-    # figure out the threshold
+    # figure out the thresholds
     if threshold is None:
-        t0, t1 = THRESHOLD
+        threshold = THRESHOLD
     elif len(threshold) == 1:
-        t0, t1 = threshold[0], threshold[0]
-    else:
-        t0, t1 = threshold
-    t0, t1 = min(t0, t1), max(t0, t1)
+        threshold = threshold[0], threshold[0]
 
-    if not branches and not caches:
-        tk = 'cycles'
-    elif branches:
-        tk = 'bmisses'
+    if read_threshold is None:
+        read_t0, read_t1 = threshold
+    elif len(read_threshold) == 1:
+        read_t0, read_t1 = read_threshold[0], read_threshold[0]
     else:
-        tk = 'cmisses'
+        read_t0, read_t1 = read_threshold
+    read_t0, read_t1 = min(read_t0, read_t1), max(read_t0, read_t1)
 
-    # find max cycles
-    max_ = max(it.chain((float(getattr(r, tk)) for r in results), [1]))
+    if prog_threshold is None:
+        prog_t0, prog_t1 = threshold
+    elif len(prog_threshold) == 1:
+        prog_t0, prog_t1 = prog_threshold[0], prog_threshold[0]
+    else:
+        prog_t0, prog_t1 = prog_threshold
+    prog_t0, prog_t1 = min(prog_t0, prog_t1), max(prog_t0, prog_t1)
+
+    if erase_threshold is None:
+        erase_t0, erase_t1 = threshold
+    elif len(erase_threshold) == 1:
+        erase_t0, erase_t1 = erase_threshold[0], erase_threshold[0]
+    else:
+        erase_t0, erase_t1 = erase_threshold
+    erase_t0, erase_t1 = min(erase_t0, erase_t1), max(erase_t0, erase_t1)
+
+    # find maxs
+    max_readed = max(it.chain((float(r.readed) for r in results), [1]))
+    max_proged = max(it.chain((float(r.proged) for r in results), [1]))
+    max_erased = max(it.chain((float(r.erased) for r in results), [1]))
 
     for path in co.OrderedDict.fromkeys(r.file for r in results).keys():
         # flatten to line info
@@ -942,7 +925,9 @@ def annotate(Result, results, *,
             last = None
             func = None
             for line, r in sorted(table.items()):
-                if float(getattr(r, tk)) / max_ >= t0:
+                if (float(r.readed) / max_readed >= read_t0
+                        or float(r.proged) / max_proged >= prog_t0
+                        or float(r.erased) / max_erased >= erase_t0):
                     if last is not None and line - last.stop <= args['context']:
                         last = range(
                             last.start,
@@ -978,38 +963,33 @@ def annotate(Result, results, *,
                 if line.endswith('\n'):
                     line = line[:-1]
 
-                r = table.get(i+1)
-                if r is not None and (
-                        float(r.cycles) > 0
-                        if not branches and not caches
-                        else float(r.bmisses) > 0 or float(r.branches) > 0
-                        if branches
-                        else float(r.cmisses) > 0 or float(r.caches) > 0):
-                    line = '%-*s // %s' % (
+                if i+1 in table:
+                    r = table[i+1]
+                    line = '%-*s // %s readed, %s proged, %s erased' % (
                         args['width'],
                         line,
-                        '%s cycles' % r.cycles
-                        if not branches and not caches
-                        else '%s bmisses, %s branches' % (r.bmisses, r.branches)
-                        if branches
-                        else '%s cmisses, %s caches' % (r.cmisses, r.caches))
+                        r.readed,
+                        r.proged,
+                        r.erased)
 
                     if args['color']:
-                        if float(getattr(r, tk)) / max_ >= t1:
+                        if (float(r.readed) / max_readed >= read_t1
+                                or float(r.proged) / max_proged >= prog_t1
+                                or float(r.erased) / max_erased >= erase_t1):
                             line = '\x1b[1;31m%s\x1b[m' % line
-                        elif float(getattr(r, tk)) / max_ >= t0:
+                        elif (float(r.readed) / max_readed >= read_t0
+                                or float(r.proged) / max_proged >= prog_t0
+                                or float(r.erased) / max_erased >= erase_t0):
                             line = '\x1b[35m%s\x1b[m' % line
 
                 print(line)
 
 
-def report(perf_paths, *,
+def report(obj_path='', trace_paths=[], *,
         by=None,
         fields=None,
         defines=None,
         sort=None,
-        branches=False,
-        caches=False,
         **args):
     # figure out what color should be
     if args.get('color') == 'auto':
@@ -1025,23 +1005,23 @@ def report(perf_paths, *,
 
     # find sizes
     if not args.get('use', None):
-        results = collect(perf_paths, **args)
+        results = collect(obj_path, trace_paths, **args)
     else:
         results = []
         with openio(args['use']) as f:
             reader = csv.DictReader(f, restval='')
             for r in reader:
                 try:
-                    results.append(PerfResult(
-                        **{k: r[k] for k in PerfResult._by
+                    results.append(PerfBdResult(
+                        **{k: r[k] for k in PerfBdResult._by
                             if k in r and r[k].strip()},
-                        **{k: r['perf_'+k] for k in PerfResult._fields
-                            if 'perf_'+k in r and r['perf_'+k].strip()}))
+                        **{k: r['perfbd_'+k] for k in PerfBdResult._fields
+                            if 'perfbd_'+k in r and r['perfbd_'+k].strip()}))
                 except TypeError:
                     pass
 
     # fold
-    results = fold(PerfResult, results, by=by, defines=defines)
+    results = fold(PerfBdResult, results, by=by, defines=defines)
 
     # sort, note that python's sort is stable
     results.sort()
@@ -1049,21 +1029,21 @@ def report(perf_paths, *,
         for k, reverse in reversed(sort):
             results.sort(key=lambda r: (getattr(r, k),)
                 if getattr(r, k) is not None else (),
-                reverse=reverse ^ (not k or k in PerfResult._fields))
+                reverse=reverse ^ (not k or k in PerfBdResult._fields))
 
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
-                (by if by is not None else PerfResult._by)
-                + ['perf_'+k for k in PerfResult._fields])
+                (by if by is not None else PerfBdResult._by)
+                + ['perfbd_'+k for k in PerfBdResult._fields])
             writer.writeheader()
             for r in results:
                 writer.writerow(
                     {k: getattr(r, k)
-                        for k in (by if by is not None else PerfResult._by)}
-                    | {'perf_'+k: getattr(r, k)
-                        for k in PerfResult._fields})
+                        for k in (by if by is not None else PerfBdResult._by)}
+                    | {'perfbd_'+k: getattr(r, k)
+                        for k in PerfBdResult._fields})
 
     # find previous results?
     if args.get('diff'):
@@ -1073,36 +1053,35 @@ def report(perf_paths, *,
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
                     try:
-                        diff_results.append(PerfResult(
-                            **{k: r[k] for k in PerfResult._by
+                        diff_results.append(PerfBdResult(
+                            **{k: r[k] for k in PerfBdResult._by
                                 if k in r and r[k].strip()},
-                            **{k: r['perf_'+k] for k in PerfResult._fields
-                                if 'perf_'+k in r and r['perf_'+k].strip()}))
+                            **{k: r['perfbd_'+k] for k in PerfBdResult._fields
+                                if 'perfbd_'+k in r
+                                    and r['perfbd_'+k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:
             pass
 
         # fold
-        diff_results = fold(PerfResult, diff_results, by=by, defines=defines)
+        diff_results = fold(PerfBdResult, diff_results, by=by, defines=defines)
 
     # print table
     if not args.get('quiet'):
-        if args.get('annotate') or args.get('threshold'):
+        if (args.get('annotate')
+                or args.get('threshold')
+                or args.get('read_threshold')
+                or args.get('prog_threshold')
+                or args.get('erase_threshold')):
             # annotate sources
-            annotate(PerfResult, results,
-                branches=branches,
-                caches=caches,
-                **args)
+            annotate(PerfBdResult, results, **args)
         else:
             # print table
-            table(PerfResult, results,
+            table(PerfBdResult, results,
                 diff_results if args.get('diff') else None,
                 by=by if by is not None else ['function'],
-                fields=fields if fields is not None
-                    else ['cycles'] if not branches and not caches
-                    else ['bmisses', 'branches'] if branches
-                    else ['cmisses', 'caches'],
+                fields=fields,
                 sort=sort,
                 **args)
 
@@ -1117,25 +1096,18 @@ def main(**args):
 if __name__ == "__main__":
     import argparse
     import sys
-
-    # bit of a hack, but parse_intermixed_args and REMAINDER are
-    # incompatible, so we need to figure out what we want before running
-    # argparse
-    if '-R' in sys.argv or '--record' in sys.argv:
-        nargs = argparse.REMAINDER
-    else:
-        nargs = '*'
-
-    argparse.ArgumentParser._handle_conflict_ignore = lambda *_: None
-    argparse._ArgumentGroup._handle_conflict_ignore = lambda *_: None
     parser = argparse.ArgumentParser(
-        description="Aggregate and report Linux perf results.",
-        allow_abbrev=False,
-        conflict_handler='ignore')
+        description="Aggregate and report call-stack propagated "
+            "block-device operations from trace output.",
+        allow_abbrev=False)
     parser.add_argument(
-        'perf_paths',
-        nargs=nargs,
-        help="Input *.perf files.")
+        'obj_path',
+        nargs='?',
+        help="Input executable for mapping addresses to symbols.")
+    parser.add_argument(
+        'trace_paths',
+        nargs='*',
+        help="Input *.trace files.")
     parser.add_argument(
         '-v', '--verbose',
         action='store_true',
@@ -1164,13 +1136,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '-b', '--by',
         action='append',
-        choices=PerfResult._by,
+        choices=PerfBdResult._by,
         help="Group by this field.")
     parser.add_argument(
         '-f', '--field',
         dest='fields',
         action='append',
-        choices=PerfResult._fields,
+        choices=PerfBdResult._fields,
         help="Show this field.")
     parser.add_argument(
         '-D', '--define',
@@ -1206,14 +1178,6 @@ if __name__ == "__main__":
         action='store_true',
         help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '--branches',
-        action='store_true',
-        help="Show branches and branch misses.")
-    parser.add_argument(
-        '--caches',
-        action='store_true',
-        help="Show cache accesses and cache misses.")
-    parser.add_argument(
         '-P', '--propagate',
         type=lambda x: int(x, 0),
         help="Depth to propagate samples up the call-stack. 0 propagates up "
@@ -1234,7 +1198,28 @@ if __name__ == "__main__":
         nargs='?',
         type=lambda x: tuple(float(x) for x in x.split(',')),
         const=THRESHOLD,
-        help="Show lines with samples above this threshold as a percent of "
+        help="Show lines with any ops above this threshold as a percent of "
+            "all lines. Defaults to %s." % ','.join(str(t) for t in THRESHOLD))
+    parser.add_argument(
+        '--read-threshold',
+        nargs='?',
+        type=lambda x: tuple(float(x) for x in x.split(',')),
+        const=THRESHOLD,
+        help="Show lines with reads above this threshold as a percent of "
+            "all lines. Defaults to %s." % ','.join(str(t) for t in THRESHOLD))
+    parser.add_argument(
+        '--prog-threshold',
+        nargs='?',
+        type=lambda x: tuple(float(x) for x in x.split(',')),
+        const=THRESHOLD,
+        help="Show lines with progs above this threshold as a percent of "
+            "all lines. Defaults to %s." % ','.join(str(t) for t in THRESHOLD))
+    parser.add_argument(
+        '--erase-threshold',
+        nargs='?',
+        type=lambda x: tuple(float(x) for x in x.split(',')),
+        const=THRESHOLD,
+        help="Show lines with erases above this threshold as a percent of "
             "all lines. Defaults to %s." % ','.join(str(t) for t in THRESHOLD))
     parser.add_argument(
         '-c', '--context',
@@ -1258,61 +1243,10 @@ if __name__ == "__main__":
         const=0,
         help="Number of processes to use. 0 spawns one process per core.")
     parser.add_argument(
-        '--perf-tool',
-        type=lambda x: x.split(),
-        help="Path to the perf tool to use. Defaults to %r." % PERF_TOOL)
-    parser.add_argument(
         '--objdump-tool',
         type=lambda x: x.split(),
         default=OBJDUMP_TOOL,
         help="Path to the objdump tool to use. Defaults to %r." % OBJDUMP_TOOL)
-
-    # record flags
-    record_parser = parser.add_argument_group('record options')
-    record_parser.add_argument(
-        'command',
-        nargs=nargs,
-        help="Command to run.")
-    record_parser.add_argument(
-        '-R', '--record',
-        action='store_true',
-        help="Run a command and aggregate perf measurements.")
-    record_parser.add_argument(
-        '-o', '--output',
-        help="Output file. Uses flock to synchronize. This is stored as a "
-            "zip-file of multiple perf results.")
-    record_parser.add_argument(
-        '--perf-freq',
-        help="perf sampling frequency. This is passed directly to perf. "
-            "Defaults to %r." % PERF_FREQ)
-    record_parser.add_argument(
-        '--perf-period',
-        help="perf sampling period. This is passed directly to perf.")
-    record_parser.add_argument(
-        '--perf-events',
-        help="perf events to record. This is passed directly to perf. "
-            "Defaults to %r." % PERF_EVENTS)
-    record_parser.add_argument(
-        '--perf-tool',
-        type=lambda x: x.split(),
-        help="Path to the perf tool to use. Defaults to %r." % PERF_TOOL)
-
-    # avoid intermixed/REMAINDER conflict, see above
-    if nargs == argparse.REMAINDER:
-        args = parser.parse_args()
-    else:
-        args = parser.parse_intermixed_args()
-
-    # perf_paths/command overlap, so need to do some munging here
-    args.command = args.perf_paths
-    if args.record:
-        if not args.command:
-            print('error: no command specified?')
-            sys.exit(-1)
-        if not args.output:
-            print('error: no output file specified?')
-            sys.exit(-1)
-
     sys.exit(main(**{k: v
-        for k, v in vars(args).items()
+        for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

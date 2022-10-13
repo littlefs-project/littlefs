@@ -96,7 +96,8 @@ int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,
 
 int lfs_filebd_prog(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
-    LFS_FILEBD_TRACE("lfs_filebd_prog(%p, 0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
+    LFS_FILEBD_TRACE("lfs_filebd_prog(%p, "
+                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
             (void*)cfg, block, off, buffer, size);
     lfs_filebd_t *bd = cfg->context;
 
@@ -127,7 +128,8 @@ int lfs_filebd_prog(const struct lfs_config *cfg, lfs_block_t block,
 }
 
 int lfs_filebd_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    LFS_FILEBD_TRACE("lfs_filebd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
+    LFS_FILEBD_TRACE("lfs_filebd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
+            (void*)cfg, block, cfg->block_size);
 
     // check if erase is valid
     LFS_ASSERT(block < cfg->block_count);

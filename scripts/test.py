@@ -35,19 +35,12 @@ VALGRIND_TOOL = ['valgrind']
 PERF_SCRIPT = ['./scripts/perf.py']
 
 
-def openio(path, mode='r', buffering=-1, nb=False):
+def openio(path, mode='r', buffering=-1):
     if path == '-':
         if mode == 'r':
-            return os.fdopen(os.dup(sys.stdin.fileno()), 'r', buffering)
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
         else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), 'w', buffering)
-    elif nb and 'a' in mode:
-        return os.fdopen(os.open(
-                path,
-                os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NONBLOCK,
-                0o666),
-            mode,
-            buffering)
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
         return open(path, mode, buffering)
 
@@ -549,6 +542,12 @@ def find_runner(runner, **args):
         cmd.append('-d%s' % args['disk'])
     if args.get('trace'):
         cmd.append('-t%s' % args['trace'])
+    if args.get('trace_backtrace'):
+        cmd.append('--trace-backtrace')
+    if args.get('trace_period'):
+        cmd.append('--trace-period=%s' % args['trace_period'])
+    if args.get('trace_freq'):
+        cmd.append('--trace-freq=%s' % args['trace_freq'])
     if args.get('read_sleep'):
         cmd.append('--read-sleep=%s' % args['read_sleep'])
     if args.get('prog_sleep'):
@@ -764,7 +763,7 @@ class TestFailure(Exception):
         self.stdout = stdout
         self.assert_ = assert_
 
-def run_stage(name, runner_, ids, output_, **args):
+def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
     # get expected suite/case/perm counts
     (case_suites,
         expected_suite_perms,
@@ -805,7 +804,6 @@ def run_stage(name, runner_, ids, output_, **args):
         os.close(spty)
         children.add(proc)
         mpty = os.fdopen(mpty, 'r', 1)
-        stdout = None
 
         last_id = None
         last_stdout = []
@@ -822,18 +820,12 @@ def run_stage(name, runner_, ids, output_, **args):
                 if not line:
                     break
                 last_stdout.append(line)
-                if args.get('stdout'):
+                if stdout_:
                     try:
-                        if not stdout:
-                            stdout = openio(args['stdout'], 'a', 1, nb=True)
-                        stdout.write(line)
-                    except OSError as e:
-                        if e.errno not in [
-                                errno.ENXIO,
-                                errno.EPIPE,
-                                errno.EAGAIN]:
-                            raise
-                        stdout = None
+                        stdout_.write(line)
+                        stdout_.flush()
+                    except BrokenPipeError:
+                        pass
                 if args.get('verbose'):
                     sys.stdout.write(line)
 
@@ -1063,6 +1055,8 @@ def run(runner, test_ids=[], **args):
                 by or 'tests',
                 runner_,
                 [by] if by is not None else test_ids,
+                stdout,
+                trace,
                 output,
                 **args)
         # collect passes/failures
@@ -1076,9 +1070,15 @@ def run(runner, test_ids=[], **args):
     stop = time.time()
 
     if stdout:
-        stdout.close()
+        try:
+            stdout.close()
+        except BrokenPipeError:
+            pass
     if trace:
-        trace.close()
+        try:
+            trace.close()
+        except BrokenPipeError:
+            pass
     if output:
         output.close()
 
@@ -1285,6 +1285,16 @@ if __name__ == "__main__":
         '-t', '--trace',
         help="Direct trace output to this file.")
     test_parser.add_argument(
+        '--trace-backtrace',
+        action='store_true',
+        help="Include a backtrace with every trace statement.")
+    test_parser.add_argument(
+        '--trace-period',
+        help="Sample trace output at this period in cycles.")
+    test_parser.add_argument(
+        '--trace-freq',
+        help="Sample trace output at this frequency in hz.")
+    test_parser.add_argument(
         '-O', '--stdout',
         help="Direct stdout to this file. Note stderr is already merged here.")
     test_parser.add_argument(
@@ -1361,7 +1371,7 @@ if __name__ == "__main__":
         default=VALGRIND_TOOL,
         help="Path to Valgrind tool to use. Defaults to %r." % VALGRIND_TOOL)
     test_parser.add_argument(
-        '--perf',
+        '-p', '--perf',
         help="Run under Linux's perf to sample performance counters, writing "
             "samples to this file.")
     test_parser.add_argument(

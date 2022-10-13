@@ -11,7 +11,6 @@
 
 import collections as co
 import csv
-import glob
 import io
 import itertools as it
 import math as m
@@ -19,7 +18,6 @@ import os
 import shutil
 import time
 
-CSV_PATHS = ['*.csv']
 COLORS = [
     '1;34', # bold blue
     '1;31', # bold red
@@ -80,14 +78,14 @@ def si(x, w=4):
         s = s.rstrip('.')
     return '%s%s%s' % ('-' if x < 0 else '', s, SI_PREFIXES[p])
 
-def openio(path, mode='r'):
+def openio(path, mode='r', buffering=-1):
     if path == '-':
         if mode == 'r':
-            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
         else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
-        return open(path, mode)
+        return open(path, mode, buffering)
 
 class LinesIO:
     def __init__(self, maxlen=None):
@@ -356,16 +354,8 @@ class Plot:
 
 def collect(csv_paths, renames=[]):
     # collect results from CSV files
-    paths = []
-    for path in csv_paths:
-        if os.path.isdir(path):
-            path = path + '/*.csv'
-
-        for path in glob.glob(path):
-            paths.append(path)
-
     results = []
-    for path in paths:
+    for path in csv_paths:
         try:
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
@@ -732,9 +722,7 @@ if __name__ == "__main__":
     parser.add_argument(
         'csv_paths',
         nargs='*',
-        default=CSV_PATHS,
-        help="Description of where to find *.csv files. May be a directory "
-            "or list of paths. Defaults to %r." % CSV_PATHS)
+        help="Input *.csv files.")
     parser.add_argument(
         '-b', '--by',
         action='append',

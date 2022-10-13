@@ -107,7 +107,8 @@ int lfs_rambd_prog(const struct lfs_config *cfg, lfs_block_t block,
 }
 
 int lfs_rambd_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    LFS_RAMBD_TRACE("lfs_rambd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
+    LFS_RAMBD_TRACE("lfs_rambd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
+            (void*)cfg, block, cfg->block_size);
 
     // check if erase is valid
     LFS_ASSERT(block < cfg->block_count);

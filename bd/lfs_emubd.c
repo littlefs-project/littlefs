@@ -358,7 +358,8 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
 }
 
 int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    LFS_EMUBD_TRACE("lfs_emubd_erase(%p, 0x%"PRIx32")", (void*)cfg, block);
+    LFS_EMUBD_TRACE("lfs_emubd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
+            (void*)cfg, block, cfg->block_size);
     lfs_emubd_t *bd = cfg->context;
 
     // check if erase is valid

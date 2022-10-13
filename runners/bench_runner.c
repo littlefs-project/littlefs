@@ -14,6 +14,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <execinfo.h>
+#include <time.h>
 
 
 // some helpers
@@ -405,26 +407,63 @@ size_t bench_step_step = 1;
 
 const char *bench_disk_path = NULL;
 const char *bench_trace_path = NULL;
+bool bench_trace_backtrace = false;
+uint32_t bench_trace_period = 0;
+uint32_t bench_trace_freq = 0;
 FILE *bench_trace_file = NULL;
 uint32_t bench_trace_cycles = 0;
+uint64_t bench_trace_time = 0;
+uint64_t bench_trace_open_time = 0;
 lfs_emubd_sleep_t bench_read_sleep = 0.0;
 lfs_emubd_sleep_t bench_prog_sleep = 0.0;
 lfs_emubd_sleep_t bench_erase_sleep = 0.0;
 
+// this determines both the backtrace buffer and the trace printf buffer, if
+// trace ends up interleaved or truncated this may need to be increased
+#ifndef BENCH_TRACE_BACKTRACE_BUFFER_SIZE
+#define BENCH_TRACE_BACKTRACE_BUFFER_SIZE 8192
+#endif
+void *bench_trace_backtrace_buffer[
+    BENCH_TRACE_BACKTRACE_BUFFER_SIZE / sizeof(void*)];
 
 // trace printing
 void bench_trace(const char *fmt, ...) {
     if (bench_trace_path) {
-        if (!bench_trace_file) {
-            // Tracing output is heavy and trying to open every trace
-            // call is slow, so we only try to open the trace file every
-            // so often. Note this doesn't affect successfully opened files
-            if (bench_trace_cycles % 128 != 0) {
+        // sample at a specific period?
+        if (bench_trace_period) {
+            if (bench_trace_cycles % bench_trace_period != 0) {
                 bench_trace_cycles += 1;
                 return;
             }
             bench_trace_cycles += 1;
+        }
 
+        // sample at a specific frequency?
+        if (bench_trace_freq) {
+            struct timespec t;
+            clock_gettime(CLOCK_MONOTONIC, &t);
+            uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
+                    + (uint64_t)t.tv_nsec;
+            if (now - bench_trace_time < (1000*1000*1000) / bench_trace_freq) {
+                return;
+            }
+            bench_trace_time = now;
+        }
+
+        if (!bench_trace_file) {
+            // Tracing output is heavy and trying to open every trace
+            // call is slow, so we only try to open the trace file every
+            // so often. Note this doesn't affect successfully opened files
+            struct timespec t;
+            clock_gettime(CLOCK_MONOTONIC, &t);
+            uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
+                    + (uint64_t)t.tv_nsec;
+            if (now - bench_trace_open_time < 100*1000*1000) {
+                return;
+            }
+            bench_trace_open_time = now;
+
+            // try to open the trace file
             int fd;
             if (strcmp(bench_trace_path, "-") == 0) {
                 fd = dup(1);
@@ -445,19 +484,42 @@ void bench_trace(const char *fmt, ...) {
 
             FILE *f = fdopen(fd, "a");
             assert(f);
-            int err = setvbuf(f, NULL, _IOLBF, BUFSIZ);
+            int err = setvbuf(f, NULL, _IOFBF,
+                    BENCH_TRACE_BACKTRACE_BUFFER_SIZE);
             assert(!err);
             bench_trace_file = f;
         }
 
+        // print trace
         va_list va;
         va_start(va, fmt);
         int res = vfprintf(bench_trace_file, fmt, va);
+        va_end(va);
         if (res < 0) {
             fclose(bench_trace_file);
             bench_trace_file = NULL;
+            return;
         }
-        va_end(va);
+
+        if (bench_trace_backtrace) {
+            // print backtrace
+            size_t count = backtrace(
+                    bench_trace_backtrace_buffer,
+                    BENCH_TRACE_BACKTRACE_BUFFER_SIZE);
+            // note we skip our own stack frame
+            for (size_t i = 1; i < count; i++) {
+                res = fprintf(bench_trace_file, "\tat %p\n",
+                        bench_trace_backtrace_buffer[i]);
+                if (res < 0) {
+                    fclose(bench_trace_file);
+                    bench_trace_file = NULL;
+                    return;
+                }
+            }
+        }
+
+        // flush immediately
+        fflush(bench_trace_file);
     }
 }
 
@@ -1312,9 +1374,12 @@ enum opt_flags {
     OPT_STEP                     = 's',
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_READ_SLEEP               = 7,
-    OPT_PROG_SLEEP               = 8,
-    OPT_ERASE_SLEEP              = 9,
+    OPT_TRACE_BACKTRACE          = 7,
+    OPT_TRACE_PERIOD             = 8,
+    OPT_TRACE_FREQ               = 9,
+    OPT_READ_SLEEP               = 10,
+    OPT_PROG_SLEEP               = 11,
+    OPT_ERASE_SLEEP              = 12,
 };
 
 const char *short_opts = "hYlLD:G:s:d:t:";
@@ -1337,6 +1402,9 @@ const struct option long_opts[] = {
     {"step",             required_argument, NULL, OPT_STEP},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
+    {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
+    {"trace-period",     required_argument, NULL, OPT_TRACE_PERIOD},
+    {"trace-freq",       required_argument, NULL, OPT_TRACE_FREQ},
     {"read-sleep",       required_argument, NULL, OPT_READ_SLEEP},
     {"prog-sleep",       required_argument, NULL, OPT_PROG_SLEEP},
     {"erase-sleep",      required_argument, NULL, OPT_ERASE_SLEEP},
@@ -1357,8 +1425,11 @@ const char *const help_text[] = {
     "Override a bench define.",
     "Comma-separated list of disk geometries to bench.",
     "Comma-separated range of bench permutations to run (start,stop,step).",
-    "Redirect block device operations to this file.",
-    "Redirect trace output to this file.",
+    "Direct block device operations to this file.",
+    "Direct trace output to this file.",
+    "Include a backtrace with every trace statement.",
+    "Sample trace output at this period in cycles.",
+    "Sample trace output at this frequency in hz.",
     "Artificial read delay in seconds.",
     "Artificial prog delay in seconds.",
     "Artificial erase delay in seconds.",
@@ -1790,6 +1861,27 @@ step_unknown:
             case OPT_TRACE:
                 bench_trace_path = optarg;
                 break;
+            case OPT_TRACE_BACKTRACE:
+                bench_trace_backtrace = true;
+                break;
+            case OPT_TRACE_PERIOD: {
+                char *parsed = NULL;
+                bench_trace_period = strtoumax(optarg, &parsed, 0);
+                if (parsed == optarg) {
+                    fprintf(stderr, "error: invalid trace-period: %s\n", optarg);
+                    exit(-1);
+                }
+                break;
+            }
+            case OPT_TRACE_FREQ: {
+                char *parsed = NULL;
+                bench_trace_freq = strtoumax(optarg, &parsed, 0);
+                if (parsed == optarg) {
+                    fprintf(stderr, "error: invalid trace-freq: %s\n", optarg);
+                    exit(-1);
+                }
+                break;
+            }
             case OPT_READ_SLEEP: {
                 char *parsed = NULL;
                 double read_sleep = strtod(optarg, &parsed);

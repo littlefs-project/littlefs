@@ -12,14 +12,11 @@
 
 import collections as co
 import csv
-import glob
 import itertools as it
 import math as m
 import os
 import re
 
-
-CI_PATHS = ['*.ci']
 
 
 # integer fields
@@ -121,16 +118,16 @@ class StackResult(co.namedtuple('StackResult', [
             self.children | other.children)
 
 
-def openio(path, mode='r'):
+def openio(path, mode='r', buffering=-1):
     if path == '-':
         if mode == 'r':
-            return os.fdopen(os.dup(sys.stdin.fileno()), 'r')
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
         else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), 'w')
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
-        return open(path, mode)
+        return open(path, mode, buffering)
 
-def collect(paths, *,
+def collect(ci_paths, *,
         sources=None,
         everything=False,
         **args):
@@ -167,7 +164,7 @@ def collect(paths, *,
     callgraph = co.defaultdict(lambda: (None, None, 0, set()))
     f_pattern = re.compile(
         r'([^\\]*)\\n([^:]*)[^\\]*\\n([0-9]+) bytes \((.*)\)')
-    for path in paths:
+    for path in ci_paths:
         with open(path) as f:
             vcg = parse_vcg(f.read())
         for k, graph in vcg:
@@ -546,20 +543,7 @@ def main(ci_paths,
 
     # find sizes
     if not args.get('use', None):
-        # find .ci files
-        paths = []
-        for path in ci_paths:
-            if os.path.isdir(path):
-                path = path + '/*.ci'
-
-            for path in glob.glob(path):
-                paths.append(path)
-
-        if not paths:
-            print("error: no .ci files found in %r?" % ci_paths)
-            sys.exit(-1)
-
-        results = collect(paths, **args)
+        results = collect(ci_paths, **args)
     else:
         results = []
         with openio(args['use']) as f:
@@ -644,9 +628,7 @@ if __name__ == "__main__":
     parser.add_argument(
         'ci_paths',
         nargs='*',
-        default=CI_PATHS,
-        help="Description of where to find *.ci files. May be a directory "
-            "or a list of paths. Defaults to %r." % CI_PATHS)
+        help="Input *.ci files.")
     parser.add_argument(
         '-v', '--verbose',
         action='store_true',
