@@ -12,12 +12,15 @@
 import collections as co
 import io
 import os
+import select
 import shutil
 import sys
+import threading as th
 import time
 
 
 def openio(path, mode='r', buffering=-1):
+    # allow '-' for stdin/stdout
     if path == '-':
         if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
@@ -57,48 +60,71 @@ class LinesIO:
         if maxlen != self.lines.maxlen:
             self.lines = co.deque(self.lines, maxlen=maxlen)
 
-    last_lines = 1
+    canvas_lines = 1
     def draw(self):
         # did terminal size change?
         if self.maxlen == 0:
             self.resize(0)
 
         # first thing first, give ourself a canvas
-        while LinesIO.last_lines < len(self.lines):
+        while LinesIO.canvas_lines < len(self.lines):
             sys.stdout.write('\n')
-            LinesIO.last_lines += 1
+            LinesIO.canvas_lines += 1
 
-        for j, line in enumerate(self.lines):
+        # clear the bottom of the canvas if we shrink
+        shrink = LinesIO.canvas_lines - len(self.lines)
+        if shrink > 0:
+            for i in range(shrink):
+                sys.stdout.write('\r')
+                if shrink-1-i > 0:
+                    sys.stdout.write('\x1b[%dA' % (shrink-1-i))
+                sys.stdout.write('\x1b[K')
+                if shrink-1-i > 0:
+                    sys.stdout.write('\x1b[%dB' % (shrink-1-i))
+            sys.stdout.write('\x1b[%dA' % shrink)
+            LinesIO.canvas_lines = len(self.lines)
+
+        for i, line in enumerate(self.lines):
             # move cursor, clear line, disable/reenable line wrapping
             sys.stdout.write('\r')
-            if len(self.lines)-1-j > 0:
-                sys.stdout.write('\x1b[%dA' % (len(self.lines)-1-j))
+            if len(self.lines)-1-i > 0:
+                sys.stdout.write('\x1b[%dA' % (len(self.lines)-1-i))
             sys.stdout.write('\x1b[K')
             sys.stdout.write('\x1b[?7l')
             sys.stdout.write(line)
             sys.stdout.write('\x1b[?7h')
-            if len(self.lines)-1-j > 0:
-                sys.stdout.write('\x1b[%dB' % (len(self.lines)-1-j))
+            if len(self.lines)-1-i > 0:
+                sys.stdout.write('\x1b[%dB' % (len(self.lines)-1-i))
         sys.stdout.flush()
 
 
-def main(path='-', *, lines=5, cat=False, sleep=0.01, keep_open=False):
+def main(path='-', *, lines=5, cat=False, sleep=None, keep_open=False):
     if cat:
         ring = sys.stdout
     else:
         ring = LinesIO(lines)
 
-    ptime = time.time()
+    # if sleep print in background thread to avoid getting stuck in a read call
+    event = th.Event()
+    lock = th.Lock()
+    if not cat:
+        done = False
+        def background():
+            while not done:
+                event.wait()
+                event.clear()
+                with lock:
+                    ring.draw()
+                time.sleep(sleep or 0.01)
+        th.Thread(target=background, daemon=True).start()
+
     try:
         while True:
             with openio(path) as f:
                 for line in f:
-                    ring.write(line)
-
-                    # need to redraw?
-                    if not cat and time.time()-ptime >= sleep:
-                        ring.draw()
-                        ptime = time.time()
+                    with lock:
+                        ring.write(line)
+                        event.set()
 
             if not keep_open:
                 break
@@ -111,6 +137,8 @@ def main(path='-', *, lines=5, cat=False, sleep=0.01, keep_open=False):
         pass
 
     if not cat:
+        done = True
+        lock.acquire() # avoids https://bugs.python.org/issue42717
         sys.stdout.write('\n')
 
 

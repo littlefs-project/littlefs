@@ -18,6 +18,12 @@ import os
 import shutil
 import time
 
+try:
+    import inotify_simple
+except ModuleNotFoundError:
+    inotify_simple = None
+
+
 COLORS = [
     '1;34', # bold blue
     '1;31', # bold red
@@ -79,6 +85,7 @@ def si(x, w=4):
     return '%s%s%s' % ('-' if x < 0 else '', s, SI_PREFIXES[p])
 
 def openio(path, mode='r', buffering=-1):
+    # allow '-' for stdin/stdout
     if path == '-':
         if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
@@ -86,6 +93,31 @@ def openio(path, mode='r', buffering=-1):
             return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
     else:
         return open(path, mode, buffering)
+
+def inotifywait(paths):
+    # wait for interesting events
+    inotify = inotify_simple.INotify()
+    flags = (inotify_simple.flags.ATTRIB
+        | inotify_simple.flags.CREATE
+        | inotify_simple.flags.DELETE
+        | inotify_simple.flags.DELETE_SELF
+        | inotify_simple.flags.MODIFY
+        | inotify_simple.flags.MOVED_FROM
+        | inotify_simple.flags.MOVED_TO
+        | inotify_simple.flags.MOVE_SELF)
+
+    # recurse into directories
+    for path in paths:
+        if os.path.isdir(path):
+            for dir, _, files in os.walk(path):
+                inotify.add_watch(dir, flags)
+                for f in files:
+                    inotify.add_watch(os.path.join(dir, f), flags)
+        else:
+            inotify.add_watch(path, flags)
+
+    # wait for event
+    inotify.read()
 
 class LinesIO:
     def __init__(self, maxlen=None):
@@ -118,28 +150,41 @@ class LinesIO:
         if maxlen != self.lines.maxlen:
             self.lines = co.deque(self.lines, maxlen=maxlen)
 
-    last_lines = 1
+    canvas_lines = 1
     def draw(self):
         # did terminal size change?
         if self.maxlen == 0:
             self.resize(0)
 
         # first thing first, give ourself a canvas
-        while LinesIO.last_lines < len(self.lines):
+        while LinesIO.canvas_lines < len(self.lines):
             sys.stdout.write('\n')
-            LinesIO.last_lines += 1
+            LinesIO.canvas_lines += 1
 
-        for j, line in enumerate(self.lines):
+        # clear the bottom of the canvas if we shrink
+        shrink = LinesIO.canvas_lines - len(self.lines)
+        if shrink > 0:
+            for i in range(shrink):
+                sys.stdout.write('\r')
+                if shrink-1-i > 0:
+                    sys.stdout.write('\x1b[%dA' % (shrink-1-i))
+                sys.stdout.write('\x1b[K')
+                if shrink-1-i > 0:
+                    sys.stdout.write('\x1b[%dB' % (shrink-1-i))
+            sys.stdout.write('\x1b[%dA' % shrink)
+            LinesIO.canvas_lines = len(self.lines)
+
+        for i, line in enumerate(self.lines):
             # move cursor, clear line, disable/reenable line wrapping
             sys.stdout.write('\r')
-            if len(self.lines)-1-j > 0:
-                sys.stdout.write('\x1b[%dA' % (len(self.lines)-1-j))
+            if len(self.lines)-1-i > 0:
+                sys.stdout.write('\x1b[%dA' % (len(self.lines)-1-i))
             sys.stdout.write('\x1b[K')
             sys.stdout.write('\x1b[?7l')
             sys.stdout.write(line)
             sys.stdout.write('\x1b[?7h')
-            if len(self.lines)-1-j > 0:
-                sys.stdout.write('\x1b[%dB' % (len(self.lines)-1-j))
+            if len(self.lines)-1-i > 0:
+                sys.stdout.write('\x1b[%dB' % (len(self.lines)-1-i))
         sys.stdout.flush()
 
 
@@ -697,8 +742,16 @@ def main(csv_paths, *,
                     ring = LinesIO()
                     draw(ring)
                     ring.draw()
-                # don't just flood open calls
-                time.sleep(sleep or 0.1)
+
+                # try to inotifywait
+                if inotify_simple is not None:
+                    ptime = time.time()
+                    inotifywait(csv_paths)
+                    # sleep for a minimum amount of time, this helps issues
+                    # around rapidly updating files
+                    time.sleep(max(0, (sleep or 0.01) - (time.time()-ptime)))
+                else:
+                    time.sleep(sleep or 0.1)
         except KeyboardInterrupt:
             pass
 

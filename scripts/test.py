@@ -36,6 +36,7 @@ PERF_SCRIPT = ['./scripts/perf.py']
 
 
 def openio(path, mode='r', buffering=-1):
+    # allow '-' for stdin/stdout
     if path == '-':
         if mode == 'r':
             return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
