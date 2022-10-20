@@ -9,6 +9,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
+import codecs
 import collections as co
 import csv
 import io
@@ -49,6 +50,7 @@ CHARS_BRAILLE = (
     '⠃⢃⡃⣃⠣⢣⡣⣣⠇⢇⡇⣇⠧⢧⡧⣧' '⠓⢓⡓⣓⠳⢳⡳⣳⠗⢗⡗⣗⠷⢷⡷⣷'
     '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
     '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
+CHARS_POINTS_AND_LINES = 'o'
 
 SI_PREFIXES = {
     18:  'E',
@@ -66,12 +68,31 @@ SI_PREFIXES = {
     -18: 'a',
 }
 
+SI2_PREFIXES = {
+    60:  'Ei',
+    50:  'Pi',
+    40:  'Ti',
+    30:  'Gi',
+    20:  'Mi',
+    10:  'Ki',
+    0:   '',
+    -10: 'mi',
+    -20: 'ui',
+    -30: 'ni',
+    -40: 'pi',
+    -50: 'fi',
+    -60: 'ai',
+}
+
 
 # format a number to a strict character width using SI prefixes
 def si(x, w=4):
     if x == 0:
         return '0'
     # figure out prefix and scale
+    #
+    # note we adjust this so that 100K = .1M, which has more info
+    # per character
     p = 3*int(m.log(abs(x)*10, 10**3))
     p = min(18, max(-18, p))
     # format with enough digits
@@ -83,6 +104,25 @@ def si(x, w=4):
         s = s.rstrip('0')
         s = s.rstrip('.')
     return '%s%s%s' % ('-' if x < 0 else '', s, SI_PREFIXES[p])
+
+def si2(x, w=5):
+    if x == 0:
+        return '0'
+    # figure out prefix and scale
+    #
+    # note we adjust this so that 128Ki = .1Mi, which has more info
+    # per character
+    p = 10*int(m.log(abs(x)*10, 2**10))
+    p = min(30, max(-30, p))
+    # format with enough digits
+    s = '%.*f' % (w, abs(x) / (2.0**p))
+    s = s.lstrip('0')
+    # truncate but only digits that follow the dot
+    if '.' in s:
+        s = s[:max(s.find('.'), w-(3 if x < 0 else 2))]
+        s = s.rstrip('0')
+        s = s.rstrip('.')
+    return '%s%s%s' % ('-' if x < 0 else '', s, SI2_PREFIXES[p])
 
 def openio(path, mode='r', buffering=-1):
     # allow '-' for stdin/stdout
@@ -202,7 +242,7 @@ def dat(x):
 
     # then try as float
     try:
-        x = float(x)
+        return float(x)
         # just don't allow infinity or nan
         if m.isinf(x) or m.isnan(x):
             raise ValueError("invalid dat %r" % x)
@@ -213,14 +253,14 @@ def dat(x):
     raise ValueError("invalid dat %r" % x)
 
 
-# a hack log10 that preserves sign, and passes zero as zero
-def slog10(x):
-    if x == 0:
-        return x
-    elif x > 0:
-        return m.log10(x)
+# a hack log that preserves sign, with a linear region between -1 and 1
+def symlog(x):
+    if x > 1:
+        return m.log(x)+1
+    elif x < -1:
+        return -m.log(-x)-1
     else:
-        return -m.log10(-x)
+        return x
 
 class Plot:
     def __init__(self, width, height, *,
@@ -242,16 +282,16 @@ class Plot:
         try:
             if self.xlog:
                 x = int(self.width * (
-                    (slog10(x)-slog10(self.xlim[0]))
-                    / (slog10(self.xlim[1])-slog10(self.xlim[0]))))
+                    (symlog(x)-symlog(self.xlim[0]))
+                    / (symlog(self.xlim[1])-symlog(self.xlim[0]))))
             else:
                 x = int(self.width * (
                     (x-self.xlim[0])
                     / (self.xlim[1]-self.xlim[0])))
             if self.ylog:
                 y = int(self.height * (
-                    (slog10(y)-slog10(self.ylim[0]))
-                    / (slog10(self.ylim[1])-slog10(self.ylim[0]))))
+                    (symlog(y)-symlog(self.ylim[0]))
+                    / (symlog(self.ylim[1])-symlog(self.ylim[0]))))
             else:
                 y = int(self.height * (
                     (y-self.ylim[0])
@@ -376,20 +416,15 @@ class Plot:
 
             # draw axis in blank spaces
             if not b:
-                zx, zy = self.scale(0, 0)
-                if x == zx // xscale and y == zy // yscale:
+                if x == 0 and y == 0:
                     c = '+'
-                elif x == zx // xscale and y == 0:
-                    c = 'v'
-                elif x == zx // xscale and y == self.height//yscale-1:
+                elif x == 0 and y == self.height//yscale-1:
                     c = '^'
-                elif y == zy // yscale and x == 0:
-                    c = '<'
-                elif y == zy // yscale and x == self.width//xscale-1:
+                elif x == self.width//xscale-1 and y == 0:
                     c = '>'
-                elif x == zx // xscale:
+                elif x == 0:
                     c = '|'
-                elif y == zy // yscale:
+                elif y == 0:
                     c = '-'
 
             row_.append(c)
@@ -512,10 +547,16 @@ def main(csv_paths, *,
         x=None,
         y=None,
         define=[],
+        width=None,
+        height=None,
         xlim=(None,None),
         ylim=(None,None),
-        width=None,
-        height=17,
+        x2=False,
+        y2=False,
+        xunits='',
+        yunits='',
+        xlabel=None,
+        ylabel=None,
         cat=False,
         color=False,
         braille=False,
@@ -523,6 +564,8 @@ def main(csv_paths, *,
         chars=None,
         line_chars=None,
         points=False,
+        points_and_lines=False,
+        title=None,
         legend=None,
         keep_open=False,
         sleep=None,
@@ -552,6 +595,38 @@ def main(csv_paths, *,
     if y is not None:
         y = [k for k, _ in y]
 
+    # what colors to use?
+    if colors is not None:
+        colors_ = colors
+    else:
+        colors_ = COLORS
+
+    if chars is not None:
+        chars_ = chars
+    elif points_and_lines:
+        chars_ = CHARS_POINTS_AND_LINES
+    else:
+        chars_ = [True]
+
+    if line_chars is not None:
+        line_chars_ = line_chars
+    elif points_and_lines or not points:
+        line_chars_ = [True]
+    else:
+        line_chars_ = [False]
+
+    # allow escape codes in labels/titles
+    if title is not None:
+        title = codecs.escape_decode(title.encode('utf8'))[0].decode('utf8')
+    if xlabel is not None:
+        xlabel = codecs.escape_decode(xlabel.encode('utf8'))[0].decode('utf8')
+    if ylabel is not None:
+        ylabel = codecs.escape_decode(ylabel.encode('utf8'))[0].decode('utf8')
+
+    title = title.splitlines() if title is not None else []
+    xlabel = xlabel.splitlines() if xlabel is not None else []
+    ylabel = ylabel.splitlines() if ylabel is not None else []
+
     def draw(f):
         def writeln(s=''):
             f.write(s)
@@ -563,24 +638,6 @@ def main(csv_paths, *,
 
         # then extract the requested datasets
         datasets_ = datasets(results, by, x, y, define)
-
-        # what colors to use?
-        if colors is not None:
-            colors_ = colors
-        else:
-            colors_ = COLORS
-
-        if chars is not None:
-            chars_ = chars
-        else:
-            chars_ = [True]
-
-        if line_chars is not None:
-            line_chars_ = line_chars
-        elif not points:
-            line_chars_ = [True]
-        else:
-            line_chars_ = [False]
 
         # build legend?
         legend_width = 0
@@ -626,34 +683,51 @@ def main(csv_paths, *,
 
         # figure out our plot size
         if width is None:
-            width_ = min(80, shutil.get_terminal_size((80, 17))[0])
+            width_ = min(80, shutil.get_terminal_size((80, None))[0])
         elif width:
             width_ = width
         else:
-            width_ = shutil.get_terminal_size((80, 17))[0]
+            width_ = shutil.get_terminal_size((80, None))[0]
         # make space for units
-        width_ -= 5
+        width_ -= (5 if y2 else 4)+1+len(yunits)
+        # make space for label
+        width_ -= len(ylabel)
         # make space for legend
         if legend in {'left', 'right'} and legend_:
             width_ -= legend_width
         # limit a bit
-        width_ = max(2*4, width_)
+        width_ = max(2*((5 if x2 else 4)+len(xunits)), width_)
 
-        if height:
+        if height is None:
+            height_ = 17 + len(title) + len(xlabel)
+        elif height:
             height_ = height
         else:
-            height_ = shutil.get_terminal_size((80, 17))[1]
+            height_ = shutil.get_terminal_size((None,
+                17 + len(title) + len(xlabel)))[1]
             # make space for shell prompt
             if not keep_open:
                 height_ -= 1
         # make space for units
         height_ -= 1
+        # make space for label
+        height_ -= len(xlabel)
+        # make space for title
+        height_ -= len(title)
         # make space for legend
         if legend in {'above', 'below'} and legend_:
             legend_cols = min(len(legend_), max(1, width_//legend_width))
             height_ -= (len(legend_)+legend_cols-1) // legend_cols
         # limit a bit
         height_ = max(2, height_)
+
+        # figure out margin for label/units/legend
+        margin = (5 if y2 else 4) + len(yunits) + len(ylabel)
+        if legend == 'left' and legend_:
+            margin += legend_width
+
+        # make it easier to transpose ylabel
+        ylabel_ = [l.center(height_) for l in ylabel]
 
         # create a plot and draw our coordinates
         plot = Plot(
@@ -672,11 +746,16 @@ def main(csv_paths, *,
                 color=colors_[i % len(colors_)],
                 char=chars_[i % len(chars_)],
                 line_char=line_chars_[i % len(line_chars_)])
+        
 
+        # draw title?
+        for line in title:
+            f.writeln('%*s %s' % (margin, '', line.center(width_)))
         # draw legend=above?
         if legend == 'above' and legend_:
             for i in range(0, len(legend_), legend_cols):
-                f.writeln('%4s %*s%s' % (
+                f.writeln('%*s %*s%s' % (
+                    margin,
                     '',
                     max(width_ - sum(len(label)+1
                         for label in legend_[i:i+legend_cols]),
@@ -688,7 +767,7 @@ def main(csv_paths, *,
                         '\x1b[m' if color else '')
                         for j in range(i, min(i+legend_cols, len(legend_))))))
         for row in range(height_):
-            f.writeln('%s%4s %s%s' % (
+            f.writeln('%s%s%*s %s%s' % (
                 # draw legend=left?
                 ('%s%-*s %s' % (
                     '\x1b[%sm' % colors_[row % len(colors_)] if color else '',
@@ -696,9 +775,14 @@ def main(csv_paths, *,
                     legend_[row] if row < len(legend_) else '',
                     '\x1b[m' if color else ''))
                     if legend == 'left' and legend_ else '',
+                # draw ylabel?
+                ('%*s' % (
+                    len(ylabel),
+                    ''.join(l[row] for l in ylabel_))),
                 # draw plot
-                si(ylim_[0], 4) if row == height_-1
-                    else si(ylim_[1], 4) if row == 0
+                (5 if y2 else 4)+len(yunits),
+                (si2 if y2 else si)(ylim_[0])+yunits if row == height_-1
+                    else (si2 if y2 else si)(ylim_[1])+yunits if row == 0
                     else '',
                 plot.draw(row,
                     braille=line_chars is None and braille,
@@ -711,17 +795,23 @@ def main(csv_paths, *,
                     legend_[row] if row < len(legend_) else '',
                     '\x1b[m' if color else ''))
                     if legend == 'right' and legend_ else ''))
-        f.writeln('%*s %-4s%*s%4s' % (
-            4 + (legend_width if legend == 'left' and legend_ else 0),
+        f.writeln('%*s %-*s%*s%*s' % (
+            margin,
             '',
-            si(xlim_[0], 4),
-            width_ - 2*4,
+            (5 if x2 else 4)+len(xunits),
+            (si2 if x2 else si)(xlim_[0])+xunits,
+            width_ - 2*((5 if x2 else 4)+len(xunits)),
             '',
-            si(xlim_[1], 4)))
+            (5 if x2 else 4)+len(xunits),
+            (si2 if x2 else si)(xlim_[1])+xunits))
+        # draw xlabel?
+        for line in xlabel:
+            f.writeln('%*s %s' % (margin, '', line.center(width_)))
         # draw legend=below?
         if legend == 'below' and legend_:
             for i in range(0, len(legend_), legend_cols):
-                f.writeln('%4s %*s%s' % (
+                f.writeln('%*s %*s%s' % (
+                    margin,
                     '',
                     max(width_ - sum(len(label)+1
                         for label in legend_[i:i+legend_cols]),
@@ -816,19 +906,23 @@ if __name__ == "__main__":
         help="Use 2x4 unicode braille characters. Note that braille characters "
             "sometimes suffer from inconsistent widths.")
     parser.add_argument(
+        '-.', '--points',
+        action='store_true',
+        help="Only draw data points.")
+    parser.add_argument(
+        '-!', '--points-and-lines',
+        action='store_true',
+        help="Draw data points and lines.")
+    parser.add_argument(
         '--colors',
         type=lambda x: [x.strip() for x in x.split(',')],
-        help="Colors to use.")
+        help="Comma-separated colors to use.")
     parser.add_argument(
         '--chars',
         help="Characters to use for points.")
     parser.add_argument(
         '--line-chars',
         help="Characters to use for lines.")
-    parser.add_argument(
-        '-.', '--points',
-        action='store_true',
-        help="Only draw the data points.")
     parser.add_argument(
         '-W', '--width',
         nargs='?',
@@ -867,8 +961,33 @@ if __name__ == "__main__":
         action='store_true',
         help="Use a logarithmic y-axis.")
     parser.add_argument(
+        '--x2',
+        action='store_true',
+        help="Use base-2 prefixes for the x-axis.")
+    parser.add_argument(
+        '--y2',
+        action='store_true',
+        help="Use base-2 prefixes for the y-axis.")
+    parser.add_argument(
+        '--xunits',
+        help="Units for the x-axis.")
+    parser.add_argument(
+        '--yunits',
+        help="Units for the y-axis.")
+    parser.add_argument(
+        '--xlabel',
+        help="Add a label to the x-axis.")
+    parser.add_argument(
+        '--ylabel',
+        help="Add a label to the y-axis.")
+    parser.add_argument(
+        '-t', '--title',
+        help="Add a title.")
+    parser.add_argument(
         '-l', '--legend',
+        nargs='?',
         choices=['above', 'below', 'left', 'right'],
+        const='right',
         help="Place a legend here.")
     parser.add_argument(
         '-k', '--keep-open',
