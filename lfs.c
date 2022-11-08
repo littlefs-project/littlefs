@@ -279,14 +279,12 @@ static inline int lfs_pair_cmp(
              paira[0] == pairb[1] || paira[1] == pairb[0]);
 }
 
-#ifndef LFS_READONLY
-static inline bool lfs_pair_sync(
+static inline bool lfs_pair_issync(
         const lfs_block_t paira[2],
         const lfs_block_t pairb[2]) {
     return (paira[0] == pairb[0] && paira[1] == pairb[1]) ||
            (paira[0] == pairb[1] && paira[1] == pairb[0]);
 }
-#endif
 
 static inline void lfs_pair_fromle32(lfs_block_t pair[2]) {
     pair[0] = lfs_fromle32(pair[0]);
@@ -4110,14 +4108,23 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // scan directory blocks for superblock and any global updates
     lfs_mdir_t dir = {.tail = {0, 1}};
-    lfs_block_t cycle = 0;
+    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
+    lfs_size_t tortoise_i = 1;
+    lfs_size_t tortoise_period = 1;
     while (!lfs_pair_isnull(dir.tail)) {
-        if (cycle >= lfs->cfg->block_count/2) {
-            // loop detected
+        // detect cycles with Brent's algorithm
+        if (lfs_pair_issync(dir.tail, tortoise)) {
+            LFS_WARN("Cycle detected in tail list");
             err = LFS_ERR_CORRUPT;
             goto cleanup;
         }
-        cycle += 1;
+        if (tortoise_i == tortoise_period) {
+            tortoise[0] = dir.tail[0];
+            tortoise[1] = dir.tail[1];
+            tortoise_i = 0;
+            tortoise_period *= 2;
+        }
+        tortoise_i += 1;
 
         // fetch next block in tail list
         lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail,
@@ -4268,13 +4275,22 @@ int lfs_fs_rawtraverse(lfs_t *lfs,
     }
 #endif
 
-    lfs_block_t cycle = 0;
+    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
+    lfs_size_t tortoise_i = 1;
+    lfs_size_t tortoise_period = 1;
     while (!lfs_pair_isnull(dir.tail)) {
-        if (cycle >= lfs->cfg->block_count/2) {
-            // loop detected
+        // detect cycles with Brent's algorithm
+        if (lfs_pair_issync(dir.tail, tortoise)) {
+            LFS_WARN("Cycle detected in tail list");
             return LFS_ERR_CORRUPT;
         }
-        cycle += 1;
+        if (tortoise_i == tortoise_period) {
+            tortoise[0] = dir.tail[0];
+            tortoise[1] = dir.tail[1];
+            tortoise_i = 0;
+            tortoise_period *= 2;
+        }
+        tortoise_i += 1;
 
         for (int i = 0; i < 2; i++) {
             int err = cb(data, dir.tail[i]);
@@ -4353,13 +4369,22 @@ static int lfs_fs_pred(lfs_t *lfs,
     // iterate over all directory directory entries
     pdir->tail[0] = 0;
     pdir->tail[1] = 1;
-    lfs_block_t cycle = 0;
+    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
+    lfs_size_t tortoise_i = 1;
+    lfs_size_t tortoise_period = 1;
     while (!lfs_pair_isnull(pdir->tail)) {
-        if (cycle >= lfs->cfg->block_count/2) {
-            // loop detected
+        // detect cycles with Brent's algorithm
+        if (lfs_pair_issync(pdir->tail, tortoise)) {
+            LFS_WARN("Cycle detected in tail list");
             return LFS_ERR_CORRUPT;
         }
-        cycle += 1;
+        if (tortoise_i == tortoise_period) {
+            tortoise[0] = pdir->tail[0];
+            tortoise[1] = pdir->tail[1];
+            tortoise_i = 0;
+            tortoise_period *= 2;
+        }
+        tortoise_i += 1;
 
         if (lfs_pair_cmp(pdir->tail, pair) == 0) {
             return 0;
@@ -4409,13 +4434,22 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
     // use fetchmatch with callback to find pairs
     parent->tail[0] = 0;
     parent->tail[1] = 1;
-    lfs_block_t cycle = 0;
+    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
+    lfs_size_t tortoise_i = 1;
+    lfs_size_t tortoise_period = 1;
     while (!lfs_pair_isnull(parent->tail)) {
-        if (cycle >= lfs->cfg->block_count/2) {
-            // loop detected
+        // detect cycles with Brent's algorithm
+        if (lfs_pair_issync(parent->tail, tortoise)) {
+            LFS_WARN("Cycle detected in tail list");
             return LFS_ERR_CORRUPT;
         }
-        cycle += 1;
+        if (tortoise_i == tortoise_period) {
+            tortoise[0] = parent->tail[0];
+            tortoise[1] = parent->tail[1];
+            tortoise_i = 0;
+            tortoise_period *= 2;
+        }
+        tortoise_i += 1;
 
         lfs_stag_t tag = lfs_dir_fetchmatch(lfs, parent, parent->tail,
                 LFS_MKTAG(0x7ff, 0, 0x3ff),
@@ -4532,7 +4566,7 @@ restart:
                     }
                     lfs_pair_fromle32(pair);
 
-                    if (!lfs_pair_sync(pair, pdir.tail)) {
+                    if (!lfs_pair_issync(pair, pdir.tail)) {
                         // we have desynced
                         LFS_DEBUG("Fixing half-orphan "
                                 "{0x%"PRIx32", 0x%"PRIx32"} "
