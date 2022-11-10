@@ -230,12 +230,11 @@ def dataset(results, x=None, y=None, define=[]):
         # find ys
         if y is not None:
             if y not in r:
-                y_ = None
-            else:
-                try:
-                    y_ = dat(r[y])
-                except ValueError:
-                    y_ = None
+                continue
+            try:
+                y_ = dat(r[y])
+            except ValueError:
+                continue
         else:
             y_ = None
 
