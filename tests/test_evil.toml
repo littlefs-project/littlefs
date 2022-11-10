@@ -24,7 +24,7 @@ code = '''
     lfs_deinit(&lfs) => 0;
 
     // test that mount fails gracefully
-    lfs_mount(&lfs, cfg) => LFS_ERR_CORRUPT;
+    lfs_mount(&lfs, cfg) => LFS_ERR_INVAL;
 '''
 
 [cases.test_evil_invalid_dir_pointer]

@@ -31,7 +31,7 @@ code = '''
 [cases.test_superblocks_invalid_mount]
 code = '''
     lfs_t lfs;
-    lfs_mount(&lfs, cfg) => LFS_ERR_CORRUPT;
+    lfs_mount(&lfs, cfg) => LFS_ERR_INVAL;
 '''
 
 # expanding superblock

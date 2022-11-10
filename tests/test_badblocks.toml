@@ -256,5 +256,5 @@ code = '''
 
     lfs_t lfs;
     lfs_format(&lfs, cfg) => LFS_ERR_NOSPC;
-    lfs_mount(&lfs, cfg) => LFS_ERR_CORRUPT;
+    lfs_mount(&lfs, cfg) => LFS_ERR_INVAL;
 '''

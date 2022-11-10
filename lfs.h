@@ -189,21 +189,52 @@ struct lfs_config {
     int (*unlock)(const struct lfs_config *c);
 #endif
 
-    // Minimum size of a block read in bytes. All read operations will be a
-    // multiple of this value.
+    // Minimum size of a read operation in bytes. All read operations
+    // will be a multiple of this value.
     lfs_size_t read_size;
 
-    // Minimum size of a block program in bytes. All program operations will be
-    // a multiple of this value.
+    // Minimum size of a program operation in bytes. All program operations
+    // will be a multiple of this value.
     lfs_size_t prog_size;
 
-    // Size of an erasable block in bytes. This does not impact ram consumption
-    // and may be larger than the physical erase size. However, non-inlined
-    // files take up at minimum one block. Must be a multiple of the read and
-    // program sizes.
+    // Minimum size of an erase operation in bytes. All erase operations
+    // will be a multiple of this value. This must be a multiple of the read
+    // and program sizes.
+    //
+    // If zero, the block_size is used as the erase_size. This is mostly for
+    // backwards compatibility.
+    lfs_size_t erase_size;
+
+    // Number of erase blocks on the device.
+    //
+    // If zero, the block_count is used as the erase_count. This is mostly for
+    // backwards compatibility.
+    lfs_size_t erase_count;
+
+    // Size of a logical block in bytes. This does not impact RAM consumption
+    // and may be a multiple of the physical erase_size.
+    //
+    // Note, non-inlined files take up at minimum one logical block, and
+    // directories take up at minimum two logical blocks.
+    //
+    // If zero, littlefs attempts to find the superblock and use the the
+    // block_size stored there. This requires searching different block_sizes.
+    // If a superblock is found this takes no longer than mounting with a known
+    // block_size, but it can take time to fail if a superblock is not found:
+    //
+    // - O(block_size) if a superblock is found
+    // - O(d(block_count)) if block_count is non-zero
+    // - O(log(block_count)) if block_count is a power of 2
+    // - O(erase_count) if block_count is zero
     lfs_size_t block_size;
 
-    // Number of erasable blocks on the device.
+    // Number of logical blocks on the device.
+    //
+    // If zero, littlefs uses the block_count stored in the superblock.
+    //
+    // If non-zero and block_size is zero, littlefs will assume block_size
+    // is a factor of erase_size*block_count to speed up mount when no
+    // superblock is found.
     lfs_size_t block_count;
 
     // Number of erase cycles before littlefs evicts metadata logs and moves
@@ -408,6 +439,10 @@ typedef struct lfs {
     } free;
 
     const struct lfs_config *cfg;
+    lfs_size_t erase_size;
+    lfs_size_t erase_count;
+    lfs_size_t block_size;
+    lfs_size_t block_count;
     lfs_size_t name_max;
     lfs_size_t file_max;
     lfs_size_t attr_max;
