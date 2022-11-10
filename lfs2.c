@@ -865,11 +865,6 @@ static int lfs2_dir_traverse(lfs2_t *lfs2,
                 };
                 sp += 1;
 
-                dir = dir;
-                off = off;
-                ptag = ptag;
-                attrs = attrs;
-                attrcount = attrcount;
                 tmask = 0;
                 ttag = 0;
                 begin = 0;
@@ -1162,6 +1157,7 @@ static lfs2_stag_t lfs2_dir_fetchmatch(lfs2_t *lfs2,
                         dir->erased = false;
                         break;
                     }
+                    return err;
                 }
                 lfs2_pair_fromle32(temptail);
             }
@@ -2998,12 +2994,14 @@ cleanup:
     return err;
 }
 
+#ifndef LFS2_NO_MALLOC
 static int lfs2_file_rawopen(lfs2_t *lfs2, lfs2_file_t *file,
         const char *path, int flags) {
     static const struct lfs2_file_config defaults = {0};
     int err = lfs2_file_rawopencfg(lfs2, file, path, flags, &defaults);
     return err;
 }
+#endif
 
 static int lfs2_file_rawclose(lfs2_t *lfs2, lfs2_file_t *file) {
 #ifndef LFS2_READONLY
@@ -4195,7 +4193,7 @@ static int lfs2_rawmount(lfs2_t *lfs2, const struct lfs2_config *cfg) {
 
             if (superblock.block_size != lfs2->cfg->block_size) {
                 LFS2_ERROR("Invalid block size (%"PRIu32" != %"PRIu32")",
-                        superblock.block_count, lfs2->cfg->block_count);
+                        superblock.block_size, lfs2->cfg->block_size);
                 err = LFS2_ERR_INVAL;
                 goto cleanup;
             }
