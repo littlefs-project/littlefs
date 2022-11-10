@@ -1157,6 +1157,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                         dir->erased = false;
                         break;
                     }
+                    return err;
                 }
                 lfs_pair_fromle32(temptail);
             }
