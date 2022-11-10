@@ -4192,7 +4192,7 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
 
             if (superblock.block_size != lfs->cfg->block_size) {
                 LFS_ERROR("Invalid block size (%"PRIu32" != %"PRIu32")",
-                        superblock.block_count, lfs->cfg->block_count);
+                        superblock.block_size, lfs->cfg->block_size);
                 err = LFS_ERR_INVAL;
                 goto cleanup;
             }
