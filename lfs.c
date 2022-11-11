@@ -4001,7 +4001,6 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->prog_size != 0);
     LFS_ASSERT(lfs->cfg->cache_size != 0);
     LFS_ASSERT(lfs->cfg->erase_size != 0 || lfs->cfg->block_size != 0);
-    LFS_ASSERT(lfs->cfg->erase_count != 0 || lfs->cfg->block_count != 0);
 
     // check that cache_size is a multiple of prog_size and read_size
     LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->read_size == 0);
@@ -4222,21 +4221,23 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
     if (!lfs->block_size) {
         lfs->block_size = lfs->erase_size;
         // make sure this doesn't overflow
-        lfs_size_t limit = lfs->block_count
-                ? lfs->block_count/2
-                : lfs->erase_count/2;
-        if (limit > ((lfs_size_t)-1) / lfs->block_size) {
+        if (!lfs->erase_count || lfs->erase_count/2
+                > ((lfs_size_t)-1) / lfs->erase_size) {
             block_size_limit = ((lfs_size_t)-1);
         } else {
-            block_size_limit = limit * lfs->block_size;
+            block_size_limit = (lfs->erase_count/2) * lfs->erase_size;
         }
     }
 
     // search for the correct block_size
     while (true) {
         // setup block_size/count so underlying operations work
-        lfs->block_count = lfs->erase_count
-                / (lfs->block_size/lfs->erase_size);
+        if (!lfs->erase_count) {
+            lfs->block_count = (lfs_size_t)-1;
+        } else {
+            lfs->block_count = lfs->erase_count
+                    / (lfs->block_size/lfs->erase_size);
+        }
 
         // scan directory blocks for superblock and any global updates
         lfs_mdir_t dir = {.tail = {0, 1}};
@@ -4301,7 +4302,7 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
                 }
 
                 if (superblock.block_count != lfs->block_count) {
-                    if ((lfs->cfg->block_size && lfs->cfg->block_count)
+                    if (lfs->cfg->block_count
                             || superblock.block_count > lfs->block_count) {
                         LFS_ERROR("Invalid block count %"PRIu32,
                                 superblock.block_count);
@@ -4383,9 +4384,9 @@ next_block_size:
         }
 
         // if block_count is set, skip block_sizes that aren't a factor,
-        // this brings our search down from O(n) to O(d(n)), and
-        // O(log(n)) for powers of 2
-        if (lfs->cfg->block_count && lfs->cfg->block_count
+        // this brings our search down from O(n) to O(d(n)), O(log(n))
+        // on average, and O(log(n)) for powers of 2
+        if (lfs->erase_count && lfs->erase_count
                 % (lfs->block_size/lfs->erase_size) != 0) {
             goto next_block_size;
         }
