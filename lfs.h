@@ -301,6 +301,33 @@ struct lfs_info {
     char name[LFS_NAME_MAX+1];
 };
 
+// Filesystem info structure
+//
+// Some of these can also be found in lfs_config, but the values here respect
+// what was stored in the superblock during lfs_format.
+struct lfs_fsinfo {
+    // Size of a logical block in bytes.
+    lfs_size_t block_size;
+
+    // Number of logical blocks on the block device.
+    lfs_size_t block_count;
+
+    // Number of blocks in use, this is the same as lfs_fs_size.
+    //
+    // Note: Result is best effort. If files share COW structures, the returned
+    // size may be larger than the filesystem actually is.
+    lfs_size_t block_usage;
+
+    // Upper limit on the length of file names in bytes.
+    lfs_size_t name_max;
+
+    // Upper limit on the size of files in bytes.
+    lfs_size_t file_max;
+
+    // Upper limit on the size of custom attributes in bytes.
+    lfs_size_t attr_max;
+};
+
 // Custom attribute structure, used to describe custom attributes
 // committed atomically during file writes.
 struct lfs_attr {
@@ -682,6 +709,11 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 
 
 /// Filesystem-level filesystem operations
+
+// Find info about the filesystem
+//
+// Fills out the fsinfo structure. Returns a negative error code on failure.
+int lfs_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo);
 
 // Finds the current size of the filesystem
 //

@@ -4825,6 +4825,21 @@ static lfs_ssize_t lfs_fs_rawsize(lfs_t *lfs) {
     return size;
 }
 
+static int lfs_fs_rawstat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    lfs_ssize_t usage = lfs_fs_rawsize(lfs);
+    if (usage < 0) {
+        return usage;
+    }
+
+    fsinfo->block_size = lfs->block_size;
+    fsinfo->block_count = lfs->block_count;
+    fsinfo->block_usage = usage;
+    fsinfo->name_max = lfs->name_max;
+    fsinfo->file_max = lfs->file_max;
+    fsinfo->attr_max = lfs->attr_max;
+    return 0;
+}
+
 #ifdef LFS_MIGRATE
 ////// Migration from littelfs v1 below this //////
 
@@ -5944,6 +5959,20 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
     err = lfs_dir_rawrewind(lfs, dir);
 
     LFS_TRACE("lfs_dir_rewind -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_fs_stat(%p, %p)", (void*)lfs, (void*)fsinfo);
+
+    err = lfs_fs_rawstat(lfs, fsinfo);
+
+    LFS_TRACE("lfs_fs_stat -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
