@@ -460,8 +460,8 @@ code = '''
 
 # chained dir exhaustion test
 [cases.test_alloc_chained_dir_exhaustion]
-if = 'BLOCK_SIZE == 512'
-defines.BLOCK_COUNT = 1024
+if = 'ERASE_SIZE == 512'
+defines.ERASE_COUNT = 1024
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -538,8 +538,8 @@ code = '''
 
 # split dir test
 [cases.test_alloc_split_dir]
-if = 'BLOCK_SIZE == 512'
-defines.BLOCK_COUNT = 1024
+if = 'ERASE_SIZE == 512'
+defines.ERASE_COUNT = 1024
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -587,8 +587,8 @@ code = '''
 
 # outdated lookahead test
 [cases.test_alloc_outdated_lookahead]
-if = 'BLOCK_SIZE == 512'
-defines.BLOCK_COUNT = 1024
+if = 'ERASE_SIZE == 512'
+defines.ERASE_COUNT = 1024
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -655,8 +655,8 @@ code = '''
 
 # outdated lookahead and split dir test
 [cases.test_alloc_outdated_lookahead_split_dir]
-if = 'BLOCK_SIZE == 512'
-defines.BLOCK_COUNT = 1024
+if = 'ERASE_SIZE == 512'
+defines.ERASE_COUNT = 1024
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;

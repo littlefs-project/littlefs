@@ -89,18 +89,22 @@ intmax_t bench_define(size_t define);
  
 #define READ_SIZE_i          0
 #define PROG_SIZE_i          1
-#define BLOCK_SIZE_i         2
-#define BLOCK_COUNT_i        3
-#define CACHE_SIZE_i         4
-#define LOOKAHEAD_SIZE_i     5
-#define BLOCK_CYCLES_i       6
-#define ERASE_VALUE_i        7
-#define ERASE_CYCLES_i       8
-#define BADBLOCK_BEHAVIOR_i  9
-#define POWERLOSS_BEHAVIOR_i 10
+#define ERASE_SIZE_i         2
+#define ERASE_COUNT_i        3
+#define BLOCK_SIZE_i         4
+#define BLOCK_COUNT_i        5
+#define CACHE_SIZE_i         6
+#define LOOKAHEAD_SIZE_i     7
+#define BLOCK_CYCLES_i       8
+#define ERASE_VALUE_i        9
+#define ERASE_CYCLES_i       10
+#define BADBLOCK_BEHAVIOR_i  11
+#define POWERLOSS_BEHAVIOR_i 12
 
 #define READ_SIZE           bench_define(READ_SIZE_i)
 #define PROG_SIZE           bench_define(PROG_SIZE_i)
+#define ERASE_SIZE          bench_define(ERASE_SIZE_i)
+#define ERASE_COUNT         bench_define(ERASE_COUNT_i)
 #define BLOCK_SIZE          bench_define(BLOCK_SIZE_i)
 #define BLOCK_COUNT         bench_define(BLOCK_COUNT_i)
 #define CACHE_SIZE          bench_define(CACHE_SIZE_i)
@@ -113,9 +117,11 @@ intmax_t bench_define(size_t define);
 
 #define BENCH_IMPLICIT_DEFINES \
     BENCH_DEF(READ_SIZE,          PROG_SIZE) \
-    BENCH_DEF(PROG_SIZE,          BLOCK_SIZE) \
-    BENCH_DEF(BLOCK_SIZE,         0) \
-    BENCH_DEF(BLOCK_COUNT,        (1024*1024)/BLOCK_SIZE) \
+    BENCH_DEF(PROG_SIZE,          ERASE_SIZE) \
+    BENCH_DEF(ERASE_SIZE,         0) \
+    BENCH_DEF(ERASE_COUNT,        (1024*1024)/BLOCK_SIZE) \
+    BENCH_DEF(BLOCK_SIZE,         ERASE_SIZE) \
+    BENCH_DEF(BLOCK_COUNT,        ERASE_COUNT/lfs_max(BLOCK_SIZE/ERASE_SIZE,1))\
     BENCH_DEF(CACHE_SIZE,         lfs_max(64,lfs_max(READ_SIZE,PROG_SIZE))) \
     BENCH_DEF(LOOKAHEAD_SIZE,     16) \
     BENCH_DEF(BLOCK_CYCLES,       -1) \
@@ -125,7 +131,7 @@ intmax_t bench_define(size_t define);
     BENCH_DEF(POWERLOSS_BEHAVIOR, LFS_EMUBD_POWERLOSS_NOOP)
 
 #define BENCH_GEOMETRY_DEFINE_COUNT 4
-#define BENCH_IMPLICIT_DEFINE_COUNT 11
+#define BENCH_IMPLICIT_DEFINE_COUNT 13
 
 
 #endif
