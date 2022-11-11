@@ -149,3 +149,51 @@ code = '''
     assert(info.type == LFS_TYPE_REG);
     lfs_unmount(&lfs) => 0;
 '''
+
+# mount with unknown block_size
+[cases.test_superblocks_unknown_block_size]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+
+    cfg->block_size = 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "test",
+            LFS_O_CREAT | LFS_O_EXCL | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "hello!", 6) => 6;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_open(&lfs, &file, "test", LFS_O_RDONLY) => 0;
+    uint8_t buffer[256];
+    lfs_file_read(&lfs, &file, buffer, sizeof(buffer)) => 6;
+    lfs_file_close(&lfs, &file) => 0;
+    assert(memcmp(buffer, "hello!", 6) == 0);
+    lfs_unmount(&lfs) => 0;
+'''
+
+# mount with unknown block_count
+[cases.test_superblocks_unknown_block_count]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+
+    cfg->block_count = 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "test",
+            LFS_O_CREAT | LFS_O_EXCL | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "hello!", 6) => 6;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_open(&lfs, &file, "test", LFS_O_RDONLY) => 0;
+    uint8_t buffer[256];
+    lfs_file_read(&lfs, &file, buffer, sizeof(buffer)) => 6;
+    lfs_file_close(&lfs, &file) => 0;
+    assert(memcmp(buffer, "hello!", 6) == 0);
+    lfs_unmount(&lfs) => 0;
+'''

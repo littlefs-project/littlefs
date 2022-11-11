@@ -48,6 +48,7 @@ static void lfs_emubd_decblock(lfs_emubd_block_t *block) {
 static lfs_emubd_block_t *lfs_emubd_mutblock(
         const struct lfs_config *cfg,
         lfs_emubd_block_t **block) {
+    lfs_emubd_t *bd = cfg->context;
     lfs_emubd_block_t *block_ = *block;
     if (block_ && block_->rc == 1) {
         // rc == 1? can modify
@@ -56,13 +57,13 @@ static lfs_emubd_block_t *lfs_emubd_mutblock(
     } else if (block_) {
         // rc > 1? need to create a copy
         lfs_emubd_block_t *nblock = malloc(
-                sizeof(lfs_emubd_block_t) + cfg->block_size);
+                sizeof(lfs_emubd_block_t) + bd->cfg->erase_size);
         if (!nblock) {
             return NULL;
         }
 
         memcpy(nblock, block_,
-                sizeof(lfs_emubd_block_t) + cfg->block_size);
+                sizeof(lfs_emubd_block_t) + bd->cfg->erase_size);
         nblock->rc = 1;
 
         lfs_emubd_decblock(block_);
@@ -72,7 +73,7 @@ static lfs_emubd_block_t *lfs_emubd_mutblock(
     } else {
         // no block? need to allocate
         lfs_emubd_block_t *nblock = malloc(
-                sizeof(lfs_emubd_block_t) + cfg->block_size);
+                sizeof(lfs_emubd_block_t) + bd->cfg->erase_size);
         if (!nblock) {
             return NULL;
         }
@@ -81,10 +82,9 @@ static lfs_emubd_block_t *lfs_emubd_mutblock(
         nblock->wear = 0;
 
         // zero for consistency
-        lfs_emubd_t *bd = cfg->context;
         memset(nblock->data,
                 (bd->cfg->erase_value != -1) ? bd->cfg->erase_value : 0,
-                cfg->block_size);
+                bd->cfg->erase_size);
 
         *block = nblock;
         return nblock;
@@ -94,22 +94,22 @@ static lfs_emubd_block_t *lfs_emubd_mutblock(
 
 // emubd create/destroy
 
-int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
+int lfs_emubd_create(const struct lfs_config *cfg,
         const struct lfs_emubd_config *bdcfg) {
-    LFS_EMUBD_TRACE("lfs_emubd_createcfg(%p {.context=%p, "
-                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
-                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
-                "\"%s\", "
-                "%p {.erase_value=%"PRId32", .erase_cycles=%"PRIu32", "
+    LFS_EMUBD_TRACE("lfs_emubd_create(%p {.context=%p, "
+                ".read=%p, .prog=%p, .erase=%p, .sync=%p}, "
+                "%p {.read_size=%"PRIu32", .prog_size=%"PRIu32", "
+                ".erase_size=%"PRIu32", .erase_count=%"PRIu32", "
+                ".erase_value=%"PRId32", .erase_cycles=%"PRIu32", "
                 ".badblock_behavior=%"PRIu8", .power_cycles=%"PRIu32", "
                 ".powerloss_behavior=%"PRIu8", .powerloss_cb=%p, "
                 ".powerloss_data=%p, .track_branches=%d})",
             (void*)cfg, cfg->context,
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
-            path, (void*)bdcfg, bdcfg->erase_value, bdcfg->erase_cycles,
+            (void*)bdcfg,
+            bdcfg->read_size, bdcfg->prog_size, bdcfg->erase_size,
+            bdcfg->erase_count, bdcfg->erase_value, bdcfg->erase_cycles,
             bdcfg->badblock_behavior, bdcfg->power_cycles,
             bdcfg->powerloss_behavior, (void*)(uintptr_t)bdcfg->powerloss_cb,
             bdcfg->powerloss_data, bdcfg->track_branches);
@@ -117,12 +117,12 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
     bd->cfg = bdcfg;
 
     // allocate our block array, all blocks start as uninitialized
-    bd->blocks = malloc(cfg->block_count * sizeof(lfs_emubd_block_t*));
+    bd->blocks = malloc(bd->cfg->erase_count * sizeof(lfs_emubd_block_t*));
     if (!bd->blocks) {
-        LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", LFS_ERR_NOMEM);
+        LFS_EMUBD_TRACE("lfs_emubd_create -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
-    memset(bd->blocks, 0, cfg->block_count * sizeof(lfs_emubd_block_t*));
+    memset(bd->blocks, 0, bd->cfg->erase_count * sizeof(lfs_emubd_block_t*));
 
     // setup testing things
     bd->readed = 0;
@@ -134,7 +134,7 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
     if (bd->cfg->disk_path) {
         bd->disk = malloc(sizeof(lfs_emubd_disk_t));
         if (!bd->disk) {
-            LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", LFS_ERR_NOMEM);
+            LFS_EMUBD_TRACE("lfs_emubd_create -> %d", LFS_ERR_NOMEM);
             return LFS_ERR_NOMEM;
         }
         bd->disk->rc = 1;
@@ -156,21 +156,21 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
         // if we're emulating erase values, we can keep a block around in
         // memory of just the erase state to speed up emulated erases
         if (bd->cfg->erase_value != -1) {
-            bd->disk->scratch = malloc(cfg->block_size);
+            bd->disk->scratch = malloc(bd->cfg->erase_size);
             if (!bd->disk->scratch) {
-                LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", LFS_ERR_NOMEM);
+                LFS_EMUBD_TRACE("lfs_emubd_create -> %d", LFS_ERR_NOMEM);
                 return LFS_ERR_NOMEM;
             }
             memset(bd->disk->scratch,
                     bd->cfg->erase_value,
-                    cfg->block_size);
+                    bd->cfg->erase_size);
 
             // go ahead and erase all of the disk, otherwise the file will not
             // match our internal representation
-            for (size_t i = 0; i < cfg->block_count; i++) {
+            for (size_t i = 0; i < bd->cfg->erase_count; i++) {
                 ssize_t res = write(bd->disk->fd,
                         bd->disk->scratch,
-                        cfg->block_size);
+                        bd->cfg->erase_size);
                 if (res < 0) {
                     int err = -errno;
                     LFS_EMUBD_TRACE("lfs_emubd_create -> %d", err);
@@ -180,25 +180,8 @@ int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
         }
     }
 
-    LFS_EMUBD_TRACE("lfs_emubd_createcfg -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_create -> %d", 0);
     return 0;
-}
-
-int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
-    LFS_EMUBD_TRACE("lfs_emubd_create(%p {.context=%p, "
-                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
-                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
-                "\"%s\")",
-            (void*)cfg, cfg->context,
-            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
-            path);
-    static const struct lfs_emubd_config defaults = {.erase_value=-1};
-    int err = lfs_emubd_createcfg(cfg, path, &defaults);
-    LFS_EMUBD_TRACE("lfs_emubd_create -> %d", err);
-    return err;
 }
 
 int lfs_emubd_destroy(const struct lfs_config *cfg) {
@@ -206,7 +189,7 @@ int lfs_emubd_destroy(const struct lfs_config *cfg) {
     lfs_emubd_t *bd = cfg->context;
 
     // decrement reference counts
-    for (lfs_block_t i = 0; i < cfg->block_count; i++) {
+    for (lfs_block_t i = 0; i < bd->cfg->erase_count; i++) {
         lfs_emubd_decblock(bd->blocks[i]);
     }
     free(bd->blocks);
@@ -237,10 +220,10 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     lfs_emubd_t *bd = cfg->context;
 
     // check if read is valid
-    LFS_ASSERT(block < cfg->block_count);
-    LFS_ASSERT(off  % cfg->read_size == 0);
-    LFS_ASSERT(size % cfg->read_size == 0);
-    LFS_ASSERT(off+size <= cfg->block_size);
+    LFS_ASSERT(block < bd->cfg->erase_count);
+    LFS_ASSERT(off  % bd->cfg->read_size == 0);
+    LFS_ASSERT(size % bd->cfg->read_size == 0);
+    LFS_ASSERT(off+size <= bd->cfg->erase_size);
 
     // get the block
     const lfs_emubd_block_t *b = bd->blocks[block];
@@ -287,10 +270,10 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     lfs_emubd_t *bd = cfg->context;
 
     // check if write is valid
-    LFS_ASSERT(block < cfg->block_count);
-    LFS_ASSERT(off  % cfg->prog_size == 0);
-    LFS_ASSERT(size % cfg->prog_size == 0);
-    LFS_ASSERT(off+size <= cfg->block_size);
+    LFS_ASSERT(block < bd->cfg->erase_count);
+    LFS_ASSERT(off  % bd->cfg->prog_size == 0);
+    LFS_ASSERT(size % bd->cfg->prog_size == 0);
+    LFS_ASSERT(off+size <= bd->cfg->erase_size);
 
     // get the block
     lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
@@ -327,7 +310,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     // mirror to disk file?
     if (bd->disk) {
         off_t res1 = lseek(bd->disk->fd,
-                (off_t)block*cfg->block_size + (off_t)off,
+                (off_t)block*bd->cfg->erase_size + (off_t)off,
                 SEEK_SET);
         if (res1 < 0) {
             int err = -errno;
@@ -372,11 +355,11 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
 
 int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     LFS_EMUBD_TRACE("lfs_emubd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
-            (void*)cfg, block, cfg->block_size);
+            (void*)cfg, block, ((lfs_emubd_t*)cfg->context)->cfg->erase_size);
     lfs_emubd_t *bd = cfg->context;
 
     // check if erase is valid
-    LFS_ASSERT(block < cfg->block_count);
+    LFS_ASSERT(block < bd->cfg->erase_count);
 
     // get the block
     lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
@@ -405,12 +388,12 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
 
     // emulate an erase value?
     if (bd->cfg->erase_value != -1) {
-        memset(b->data, bd->cfg->erase_value, cfg->block_size);
+        memset(b->data, bd->cfg->erase_value, bd->cfg->erase_size);
 
         // mirror to disk file?
         if (bd->disk) {
             off_t res1 = lseek(bd->disk->fd,
-                    (off_t)block*cfg->block_size,
+                    (off_t)block*bd->cfg->erase_size,
                     SEEK_SET);
             if (res1 < 0) {
                 int err = -errno;
@@ -420,7 +403,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
 
             ssize_t res2 = write(bd->disk->fd,
                     bd->disk->scratch,
-                    cfg->block_size);
+                    bd->cfg->erase_size);
             if (res2 < 0) {
                 int err = -errno;
                 LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", err);
@@ -430,7 +413,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     }
 
     // track erases
-    bd->erased += cfg->block_size;
+    bd->erased += bd->cfg->erase_size;
     if (bd->cfg->erase_sleep) {
         int err = nanosleep(&(struct timespec){
                 .tv_sec=bd->cfg->erase_sleep/1000000000,
@@ -573,7 +556,7 @@ lfs_emubd_swear_t lfs_emubd_wear(const struct lfs_config *cfg,
     lfs_emubd_t *bd = cfg->context;
 
     // check if block is valid
-    LFS_ASSERT(block < cfg->block_count);
+    LFS_ASSERT(block < bd->cfg->erase_count);
 
     // get the wear
     lfs_emubd_wear_t wear;
@@ -594,7 +577,7 @@ int lfs_emubd_setwear(const struct lfs_config *cfg,
     lfs_emubd_t *bd = cfg->context;
 
     // check if block is valid
-    LFS_ASSERT(block < cfg->block_count);
+    LFS_ASSERT(block < bd->cfg->erase_count);
 
     // set the wear
     lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
@@ -634,13 +617,13 @@ int lfs_emubd_copy(const struct lfs_config *cfg, lfs_emubd_t *copy) {
     lfs_emubd_t *bd = cfg->context;
 
     // lazily copy over our block array
-    copy->blocks = malloc(cfg->block_count * sizeof(lfs_emubd_block_t*));
+    copy->blocks = malloc(bd->cfg->erase_count * sizeof(lfs_emubd_block_t*));
     if (!copy->blocks) {
         LFS_EMUBD_TRACE("lfs_emubd_copy -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
 
-    for (size_t i = 0; i < cfg->block_count; i++) {
+    for (size_t i = 0; i < bd->cfg->erase_count; i++) {
         copy->blocks[i] = lfs_emubd_incblock(bd->blocks[i]);
     }
 

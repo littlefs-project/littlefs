@@ -2,7 +2,7 @@
 if = '(int32_t)BLOCK_CYCLES == -1'
 
 [cases.test_badblocks_single]
-defines.BLOCK_COUNT = 256 # small bd so test runs faster
+defines.ERASE_COUNT = 256 # small bd so test runs faster
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
 defines.BADBLOCK_BEHAVIOR = [
@@ -82,7 +82,7 @@ code = '''
 '''
 
 [cases.test_badblocks_region_corruption] # (causes cascading failures)
-defines.BLOCK_COUNT = 256 # small bd so test runs faster
+defines.ERASE_COUNT = 256 # small bd so test runs faster
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
 defines.BADBLOCK_BEHAVIOR = [
@@ -161,7 +161,7 @@ code = '''
 '''
 
 [cases.test_badblocks_alternating_corruption] # (causes cascading failures)
-defines.BLOCK_COUNT = 256 # small bd so test runs faster
+defines.ERASE_COUNT = 256 # small bd so test runs faster
 defines.ERASE_CYCLES = 0xffffffff
 defines.ERASE_VALUE = [0x00, 0xff, -1]
 defines.BADBLOCK_BEHAVIOR = [

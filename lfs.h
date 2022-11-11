@@ -197,9 +197,8 @@ struct lfs_config {
     // will be a multiple of this value.
     lfs_size_t prog_size;
 
-    // Minimum size of an erase operation in bytes. All erase operations
-    // will be a multiple of this value. This must be a multiple of the read
-    // and program sizes.
+    // Size of an erase operation in bytes. This must be a multiple of the
+    // read and program sizes.
     //
     // If zero, the block_size is used as the erase_size. This is mostly for
     // backwards compatibility.
