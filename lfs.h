@@ -205,17 +205,6 @@ struct lfs_config {
     // backwards compatibility.
     lfs_size_t erase_size;
 
-    // Number of erase blocks on the device.
-    //
-    // If zero, the block_count is used as the erase_count. This is mostly for
-    // backwards compatibility.
-    //
-    // If zero and block_count is zero, this is treated as unknown.
-    //
-    // If non-zero, littlefs will assume block_size is a factor of
-    // erase_size*erase_count to speed up mount when no superblock is found.
-    lfs_size_t erase_count;
-
     // Size of a logical block in bytes. This does not impact RAM consumption
     // and may be a multiple of the physical erase_size.
     //
@@ -228,14 +217,17 @@ struct lfs_config {
     // block_size, but it can take time to fail if a superblock is not found:
     //
     // - O(block_size) if a superblock is found
-    // - O(d(erase_count)) if erase_count is non-zero
-    // - O(log(erase_count)) if erase_count is a power of 2
-    // - O(erase_count) if erase_count is zero
+    // - O(d(block_count)) if block_count is non-zero
+    // - O(log(block_count)) if block_count is a power of 2
+    // - O(block_count) if block_count is zero
     lfs_size_t block_size;
 
     // Number of logical blocks on the device.
     //
     // If zero, littlefs uses the block_count stored in the superblock.
+    //
+    // If non-zero, littlefs will assume block_size is a factor of
+    // erase_size*erase_count to speed up mount when no superblock is found.
     lfs_size_t block_count;
 
     // Number of erase cycles before littlefs evicts metadata logs and moves
@@ -441,7 +433,6 @@ typedef struct lfs {
 
     const struct lfs_config *cfg;
     lfs_size_t erase_size;
-    lfs_size_t erase_count;
     lfs_size_t block_size;
     lfs_size_t block_count;
     lfs_size_t name_max;

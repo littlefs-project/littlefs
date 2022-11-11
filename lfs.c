@@ -43,7 +43,6 @@ static int lfs_bd_rawread(lfs_t *lfs, lfs_block_t block,
     // read in erase_size chunks
     while (size > 0) {
         lfs_size_t delta = lfs_min(size, off + lfs->erase_size);
-        LFS_ASSERT(block <= lfs->erase_count);
         LFS_ASSERT(off + size <= lfs->erase_size);
         LFS_ASSERT(size % lfs->cfg->read_size == 0);
         int err = lfs->cfg->read(lfs->cfg, block, off, buffer_, delta);
@@ -79,7 +78,6 @@ static int lfs_bd_rawprog(lfs_t *lfs, lfs_block_t block,
     // prog in erase_size chunks
     while (size > 0) {
         lfs_size_t delta = lfs_min(size, off + lfs->erase_size);
-        LFS_ASSERT(block <= lfs->erase_count);
         LFS_ASSERT(off + size <= lfs->erase_size);
         LFS_ASSERT(size % lfs->cfg->prog_size == 0);
         int err = lfs->cfg->prog(lfs->cfg, block, off, buffer_, delta);
@@ -107,7 +105,6 @@ static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
     // adjust to physical erase size
     block = block * (lfs->block_size/lfs->erase_size);
     for (lfs_block_t i = 0; i < lfs->block_size/lfs->erase_size; i++) {
-        LFS_ASSERT(block + i <= lfs->erase_count);
         int err = lfs->cfg->erase(lfs->cfg, block + i);
         LFS_ASSERT(err <= 0);
         if (err < 0) {
@@ -4006,29 +4003,19 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->read_size == 0);
     LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->prog_size == 0);
 
-    // setup erase_size/count, these can be zero for backwards compatibility
+    // setup erase_size, this can be zero for backwards compatibility
     lfs->erase_size = lfs->cfg->erase_size;
-    lfs->erase_count = lfs->cfg->erase_count;
-    lfs->block_size = lfs->cfg->block_size;
-    lfs->block_count = lfs->cfg->block_count;
     if (!lfs->erase_size) {
-        lfs->erase_size = lfs->block_size;
-    }
-    if (!lfs->erase_count) {
-        lfs->erase_count = lfs->block_count;
+        lfs->erase_size = lfs->cfg->block_size;
     }
 
     // check that block_size is a multiple of erase_size is a mulitiple of
     // cache_size, this implies everything is a multiple of read_size and
     // prog_size
     LFS_ASSERT(lfs->erase_size % lfs->cfg->cache_size == 0);
-    if (lfs->block_size) {
-        LFS_ASSERT(lfs->block_size % lfs->erase_size == 0);
+    if (lfs->cfg->block_size) {
+        LFS_ASSERT(lfs->cfg->block_size % lfs->erase_size == 0);
     }
-
-    // check that the block size is large enough to fit ctz pointers
-    LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->block_size-2*4))
-            <= lfs->block_size);
 
     // block_cycles = 0 is no longer supported.
     //
@@ -4145,13 +4132,17 @@ static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
             return err;
         }
 
-        // if block_size/block_count not specified, assume equal to erase blocks
+        // if block_size not specified, assume equal to erase blocks
+        lfs->block_size = lfs->cfg->block_size;
         if (!lfs->block_size) {
             lfs->block_size = lfs->erase_size;
         }
-        if (!lfs->block_count) {
-            lfs->block_count = lfs->erase_count;
-        }
+        lfs->block_count = lfs->cfg->block_count;
+        LFS_ASSERT(lfs->block_count != 0);
+
+        // check that the block size is large enough to fit ctz pointers
+        LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->block_size-2*4))
+                <= lfs->block_size);
 
         // create free lookahead
         memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
@@ -4217,26 +4208,27 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // if block_size is unknown we need to search for it
-    lfs_size_t block_size_limit = lfs->block_size;
+    lfs->block_size = lfs->cfg->block_size;
+    lfs_size_t block_size_limit = lfs->cfg->block_size;
     if (!lfs->block_size) {
         lfs->block_size = lfs->erase_size;
         // make sure this doesn't overflow
-        if (!lfs->erase_count || lfs->erase_count/2
+        if (!lfs->cfg->block_count || lfs->cfg->block_count/2
                 > ((lfs_size_t)-1) / lfs->erase_size) {
             block_size_limit = ((lfs_size_t)-1);
         } else {
-            block_size_limit = (lfs->erase_count/2) * lfs->erase_size;
+            block_size_limit = (lfs->cfg->block_count/2) * lfs->erase_size;
         }
     }
 
     // search for the correct block_size
     while (true) {
         // setup block_size/count so underlying operations work
-        if (!lfs->erase_count) {
+        lfs->block_count = lfs->cfg->block_count;
+        if (!lfs->block_count) {
             lfs->block_count = (lfs_size_t)-1;
-        } else {
-            lfs->block_count = lfs->erase_count
-                    / (lfs->block_size/lfs->erase_size);
+        } else if (!lfs->cfg->block_size) {
+            lfs->block_count /= lfs->block_size/lfs->erase_size;
         }
 
         // scan directory blocks for superblock and any global updates
@@ -4383,10 +4375,10 @@ next_block_size:
             goto cleanup;
         }
 
-        // if block_count is set, skip block_sizes that aren't a factor,
+        // if block_count is non-zero, skip block_sizes that aren't a factor,
         // this brings our search down from O(n) to O(d(n)), O(log(n))
         // on average, and O(log(n)) for powers of 2
-        if (lfs->erase_count && lfs->erase_count
+        if (lfs->cfg->block_count && lfs->cfg->block_count
                 % (lfs->block_size/lfs->erase_size) != 0) {
             goto next_block_size;
         }
@@ -5503,7 +5495,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_format(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".erase_size=%"PRIu32", .erase_count=%"PRIu32", "
+                ".erase_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32", "
                 ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
                 ".lookahead_size=%"PRIu32", .read_buffer=%p, "
@@ -5513,7 +5505,7 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *cfg) {
             (void*)lfs, (void*)cfg, cfg->context,
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->erase_size, cfg->erase_count,
+            cfg->read_size, cfg->prog_size, cfg->erase_size,
             cfg->block_size, cfg->block_count, cfg->block_cycles,
             cfg->cache_size, cfg->lookahead_size,
             cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
@@ -5535,7 +5527,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_TRACE("lfs_mount(%p, %p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".erase_size=%"PRIu32", .erase_count=%"PRIu32", "
+                ".erase_size=%"PRIu32", "
                 ".block_size=%"PRIu32", .block_count=%"PRIu32", "
                 ".block_cycles=%"PRIu32", .cache_size=%"PRIu32", "
                 ".lookahead_size=%"PRIu32", .read_buffer=%p, "
@@ -5545,7 +5537,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             (void*)lfs, (void*)cfg, cfg->context,
             (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->erase_size, cfg->erase_count,
+            cfg->read_size, cfg->prog_size, cfg->erase_size,
             cfg->block_size, cfg->block_count, cfg->block_cycles,
             cfg->cache_size, cfg->lookahead_size,
             cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
