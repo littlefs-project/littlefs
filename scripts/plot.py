@@ -535,7 +535,7 @@ def datasets(results, by=None, x=None, y=None, define=[]):
                     results,
                     x_,
                     y_,
-                    [(by_, k_) for by_, k_ in zip(by, ks_)]
+                    [(by_, {k_}) for by_, k_ in zip(by, ks_)]
                         if by is not None else [])
 
     return datasets

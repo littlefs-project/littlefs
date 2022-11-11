@@ -1,3 +1,9 @@
+/*
+ * Runner for littlefs benchmarks
+ *
+ * Copyright (c) 2022, The littlefs authors.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #ifndef BENCH_RUNNER_H
 #define BENCH_RUNNER_H
 

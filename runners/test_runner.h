@@ -1,3 +1,9 @@
+/*
+ * Runner for littlefs tests
+ *
+ * Copyright (c) 2022, The littlefs authors.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #ifndef TEST_RUNNER_H
 #define TEST_RUNNER_H
 

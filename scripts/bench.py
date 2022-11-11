@@ -118,6 +118,8 @@ class BenchCase:
                     else:
                         yield v_
             # or a literal value
+            elif isinstance(v, bool):
+                yield 'true' if v else 'false'
             else:
                 yield v
 
@@ -817,8 +819,6 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
                         stdout_.flush()
                     except BrokenPipeError:
                         pass
-                if args.get('verbose'):
-                    sys.stdout.write(line)
 
                 m = pattern.match(line)
                 if m:

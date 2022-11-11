@@ -39,6 +39,7 @@ LEXEMES = {
     'cmp':      CMP.keys(),
     'logic':    ['\&\&', '\|\|'],
     'sep':      [':', ';', '\{', '\}', ','],
+    'op':       ['->'], # specifically ops that conflict with cmp
 }
 
 
@@ -330,7 +331,7 @@ def p_expr(p):
             except ParseFailure:
                 p.pop(state)
                 res.append(p.expect('assert'))
-        elif p.accept('string', None, 'ws'):
+        elif p.accept('string', 'op', 'ws', None):
             res.append(p.m)
         else:
             return ''.join(res)
@@ -414,7 +415,8 @@ def main(input=None, output=None, pattern=[], limit=LIMIT):
                         f.write(p.m)
                     else:
                         break
-            except ParseFailure as f:
+            except ParseFailure as e:
+                print('warning: %s' % e)
                 pass
 
             for i in range(p.off, len(p.tokens)):

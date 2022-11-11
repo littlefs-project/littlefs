@@ -36,7 +36,7 @@ code = '''
 
 # expanding superblock
 [cases.test_superblocks_expand]
-defines.LFS_BLOCK_CYCLES = [32, 33, 1]
+defines.BLOCK_CYCLES = [32, 33, 1]
 defines.N = [10, 100, 1000]
 code = '''
     lfs_t lfs;
@@ -70,7 +70,7 @@ code = '''
 
 # expanding superblock with power cycle
 [cases.test_superblocks_expand_power_cycle]
-defines.LFS_BLOCK_CYCLES = [32, 33, 1]
+defines.BLOCK_CYCLES = [32, 33, 1]
 defines.N = [10, 100, 1000]
 code = '''
     lfs_t lfs;
@@ -108,7 +108,7 @@ code = '''
 
 # reentrant expanding superblock
 [cases.test_superblocks_reentrant_expand]
-defines.LFS_BLOCK_CYCLES = [2, 1]
+defines.BLOCK_CYCLES = [2, 1]
 defines.N = 24
 reentrant = true
 code = '''

@@ -1,4 +1,9 @@
-
+/*
+ * Runner for littlefs benchmarks
+ *
+ * Copyright (c) 2022, The littlefs authors.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 199309L
 #endif
