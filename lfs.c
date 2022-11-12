@@ -1299,8 +1299,10 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
         dir->rev = revs[(r+1)%2];
     }
 
-    LFS_ERROR("Corrupted dir pair at {0x%"PRIx32", 0x%"PRIx32"}",
-            dir->pair[0], dir->pair[1]);
+    if (!lfs_pair_isnull(lfs->root)) {
+        LFS_ERROR("Corrupted dir pair at {0x%"PRIx32", 0x%"PRIx32"}",
+                dir->pair[0], dir->pair[1]);
+    }
     return LFS_ERR_CORRUPT;
 }
 
@@ -4230,6 +4232,10 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
         } else if (!lfs->cfg->block_size) {
             lfs->block_count /= lfs->block_size/lfs->erase_size;
         }
+
+        // make sure cached data from a different block_size doesn't cause
+        // problems, we should never visit the same mdir twice here anyways
+        lfs_cache_drop(lfs, &lfs->rcache);
 
         // scan directory blocks for superblock and any global updates
         lfs_mdir_t dir = {.tail = {0, 1}};
