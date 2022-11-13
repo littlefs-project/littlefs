@@ -5033,6 +5033,44 @@ static lfs_ssize_t lfs_fs_rawsize(lfs_t *lfs) {
     return size;
 }
 
+#ifndef LFS_READONLY
+int lfs_fs_rawgrow(lfs_t *lfs, lfs_size_t block_count) {
+    // shrinking is not supported
+    LFS_ASSERT(block_count >= lfs->block_count);
+
+    if (block_count > lfs->block_count) {
+        lfs->block_count = block_count;
+
+        // fetch the root
+        lfs_mdir_t root;
+        int err = lfs_dir_fetch(lfs, &root, lfs->root);
+        if (err) {
+            return err;
+        }
+
+        // update the superblock
+        lfs_superblock_t superblock;
+        lfs_stag_t tag = lfs_dir_get(lfs, &root, LFS_MKTAG(0x7ff, 0x3ff, 0),
+                LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock);
+        if (tag < 0) {
+            return tag;
+        }
+        lfs_superblock_fromle32(&superblock);
+
+        superblock.block_count = lfs->block_count;
+
+        lfs_superblock_tole32(&superblock);
+        err = lfs_dir_commit(lfs, &root, LFS_MKATTRS(
+                {tag, &superblock}));
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+#endif
 
 #ifdef LFS_MIGRATE
 ////// Migration from littelfs v1 below this //////
@@ -6211,6 +6249,22 @@ int lfs_fs_mkconsistent(lfs_t *lfs) {
     err = lfs_fs_rawmkconsistent(lfs);
 
     LFS_TRACE("lfs_fs_mkconsistent -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS_READONLY
+int lfs_fs_grow(lfs_t *lfs, lfs_size_t block_count) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_fs_grow(%p, %"PRIu32")", (void*)lfs, block_count);
+
+    err = lfs_fs_rawgrow(lfs, block_count);
+
+    LFS_TRACE("lfs_fs_grow -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
