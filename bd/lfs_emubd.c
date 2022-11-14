@@ -220,7 +220,9 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     lfs_emubd_t *bd = cfg->context;
 
     // check if read is valid
-    LFS_ASSERT(block < bd->cfg->erase_count);
+    if (block >= bd->cfg->erase_count) {
+        return LFS_ERR_INVAL;
+    }
     LFS_ASSERT(off  % bd->cfg->read_size == 0);
     LFS_ASSERT(size % bd->cfg->read_size == 0);
     LFS_ASSERT(off+size <= bd->cfg->erase_size);
