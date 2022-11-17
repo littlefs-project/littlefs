@@ -129,7 +129,7 @@ typedef struct bench_define_names {
 } bench_define_names_t;
 
 intmax_t bench_define_lit(void *data) {
-    return (intmax_t)data;
+    return (intptr_t)data;
 }
 
 #define BENCH_CONST(x) {bench_define_lit, (void*)(uintptr_t)(x)}

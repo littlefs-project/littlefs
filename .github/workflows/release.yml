@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     # need to manually check for a couple things
     # - tests passed?
@@ -31,8 +31,22 @@ jobs:
         with:
           workflow: ${{github.event.workflow_run.name}}
           run_id: ${{github.event.workflow_run.id}}
-          name: results
-          path: results
+          name: sizes
+          path: sizes
+      - uses: dawidd6/action-download-artifact@v2
+        continue-on-error: true
+        with:
+          workflow: ${{github.event.workflow_run.name}}
+          run_id: ${{github.event.workflow_run.id}}
+          name: cov
+          path: cov
+      - uses: dawidd6/action-download-artifact@v2
+        continue-on-error: true
+        with:
+          workflow: ${{github.event.workflow_run.name}}
+          run_id: ${{github.event.workflow_run.id}}
+          name: bench
+          path: bench
 
       - name: find-version
         run: |
@@ -68,76 +82,115 @@ jobs:
           echo "LFS_PREV_VERSION=$LFS_PREV_VERSION" >> $GITHUB_ENV
 
       # try to find results from tests
-      - name: collect-results
+      - name: collect-table
         run: |
           # previous results to compare against?
           [ -n "$LFS_PREV_VERSION" ] && curl -sS \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/`
               `status/$LFS_PREV_VERSION?per_page=100" \
             | jq -re 'select(.sha != env.GITHUB_SHA) | .statuses[]' \
-            >> prev-results.json \
+            >> prev-statuses.json \
             || true
 
           # build table for GitHub
-          echo "<table>" >> results.txt
-          echo "<thead>" >> results.txt
-          echo "<tr>" >> results.txt
-          echo "<th align=left>Configuration</th>" >> results.txt
-          for r in Code Stack Structs Coverage
-          do
-            echo "<th align=right>$r</th>" >> results.txt
-          done
-          echo "</tr>" >> results.txt
-          echo "</thead>" >> results.txt
+          declare -A table
 
-          echo "<tbody>" >> results.txt
+          # sizes table
+          i=0
+          j=0
           for c in "" readonly threadsafe migrate error-asserts
           do
-            echo "<tr>" >> results.txt
+            # per-config results
             c_or_default=${c:-default}
-            echo "<td align=left>${c_or_default^}</td>" >> results.txt
-            for r in code stack structs
-            do
-              # per-config results
-              echo "<td align=right>" >> results.txt
-              [ -e results/thumb${c:+-$c}.csv ] && ( \
-                export PREV="$(jq -re '
-                      select(.context == "'"results (thumb${c:+, $c}) / $r"'").description
-                      | capture("(?<result>[0-9∞]+)").result' \
-                    prev-results.json || echo 0)"
-                ./scripts/summary.py results/thumb${c:+-$c}.csv -f $r -Y | awk '
-                  NR==2 {printf "%s B",$2}
-                  NR==2 && ENVIRON["PREV"]+0 != 0 {
-                    printf " (%+.1f%%)",100*($2-ENVIRON["PREV"])/ENVIRON["PREV"]}
-                  NR==2 {printf "\n"}' \
-                | sed -e 's/ /\&nbsp;/g' \
-                >> results.txt)
-              echo "</td>" >> results.txt
-            done
-            # coverage results
-            if [ -z $c ]
-            then
-              echo "<td rowspan=0 align=right>" >> results.txt
-              [ -e results/coverage.csv ] && ( \
-                export PREV="$(jq -re '
-                      select(.context == "results / coverage").description
-                      | capture("(?<result>[0-9\\.]+)").result' \
-                    prev-results.json || echo 0)"
-                ./scripts/coverage.py -u results/coverage.csv -Y | awk -F '[ /%]+' '
-                  NR==2 {printf "%.1f%% of %d lines",$4,$3}
-                  NR==2 && ENVIRON["PREV"]+0 != 0 {
-                    printf " (%+.1f%%)",$4-ENVIRON["PREV"]}
-                  NR==2 {printf "\n"}' \
-                | sed -e 's/ /\&nbsp;/g' \
-                >> results.txt)
-              echo "</td>" >> results.txt
-            fi
-            echo "</tr>" >> results.txt
-          done
-          echo "</tbody>" >> results.txt
-          echo "</table>" >> results.txt
+            c_camel=${c_or_default^}
+            table[$i,$j]=$c_camel
+            ((j+=1))
 
-          cat results.txt
+            for s in code stack struct
+            do
+              f=sizes/thumb${c:+-$c}.$s.csv
+              [ -e $f ] && table[$i,$j]=$( \
+                export PREV="$(jq -re '
+                    select(.context == "'"sizes (thumb${c:+, $c}) / $s"'").description
+                    | capture("(?<prev>[0-9∞]+)").prev' \
+                  prev-statuses.json || echo 0)"
+                ./scripts/summary.py $f --max=stack_limit -Y \
+                  | awk '
+                    NR==2 {$1=0; printf "%s B",$NF}
+                    NR==2 && ENVIRON["PREV"]+0 != 0 {
+                      printf " (%+.1f%%)",100*($NF-ENVIRON["PREV"])/ENVIRON["PREV"]
+                    }' \
+                  | sed -e 's/ /\&nbsp;/g')
+              ((j+=1))
+            done
+            ((j=0, i+=1))
+          done
+
+          # coverage table
+          i=0
+          j=4
+          for s in lines branches
+          do
+            table[$i,$j]=${s^}
+            ((j+=1))
+
+            f=cov/cov.csv
+            [ -e $f ] && table[$i,$j]=$( \
+              export PREV="$(jq -re '
+                  select(.context == "'"cov / $s"'").description
+                  | capture("(?<prev>[0-9\\.]+)").prev' \
+                prev-statuses.json || echo 0)"
+              ./scripts/cov.py -u $f -f$s -Y \
+                | awk -F '[ /%]+' -v s=$s '
+                  NR==2 {$1=0; printf "%.1f%% of %d %s",$4,$3,s}
+                  NR==2 && ENVIRON["PREV"]+0 != 0 {
+                    printf " (%+.1f%%)",$4-ENVIRON["PREV"]
+                  }' \
+                | sed -e 's/ /\&nbsp;/g')
+            ((j=4, i+=1))
+          done
+
+          # benchmark table
+          i=3
+          j=4
+          for s in readed proged erased
+          do
+            table[$i,$j]=${s^}
+            ((j+=1))
+
+            f=bench/bench.csv
+            [ -e $f ] && table[$i,$j]=$( \
+              export PREV="$(jq -re '
+                  select(.context == "'"bench / $s"'").description
+                  | capture("(?<prev>[0-9]+)").prev' \
+                prev-statuses.json || echo 0)"
+              ./scripts/summary.py $f -f$s=bench_$s -Y \
+                | awk '
+                  NR==2 {$1=0; printf "%s B",$NF}
+                  NR==2 && ENVIRON["PREV"]+0 != 0 {
+                    printf " (%+.1f%%)",100*($NF-ENVIRON["PREV"])/ENVIRON["PREV"]
+                  }' \
+                | sed -e 's/ /\&nbsp;/g')
+            ((j=4, i+=1))
+          done
+
+          # build the actual table
+          echo "|   | Code | Stack | Structs |   | Coverage |" >> table.txt
+          echo "|:--|-----:|------:|--------:|:--|---------:|" >> table.txt
+          for ((i=0; i<6; i++))
+          do
+            echo -n "|" >> table.txt
+            for ((j=0; j<6; j++))
+            do
+              echo -n " " >> table.txt
+              [[ i -eq 2 && j -eq 5 ]] && echo -n "**Benchmarks**" >> table.txt
+              echo -n "${table[$i,$j]}" >> table.txt
+              echo -n " |" >> table.txt
+            done
+            echo >> table.txt
+          done
+
+          cat table.txt
 
       # find changes from history
       - name: collect-changes
@@ -164,7 +217,7 @@ jobs:
           git config user.email ${{secrets.BOT_EMAIL}}
           git fetch "https://github.com/$GITHUB_REPOSITORY.git" \
             "v$LFS_VERSION_MAJOR-prefix" || true
-          ./scripts/prefix.py "lfs$LFS_VERSION_MAJOR"
+          ./scripts/changeprefix.py --git "lfs" "lfs$LFS_VERSION_MAJOR"
           git branch "v$LFS_VERSION_MAJOR-prefix" $( \
             git commit-tree $(git write-tree) \
               $(git rev-parse --verify -q FETCH_HEAD | sed -e 's/^/-p /') \
@@ -182,7 +235,7 @@ jobs:
         run: |
           # create release and patch version tag (vN.N.N)
           # only draft if not a patch release
-          [ -e results.txt ] && export RESULTS="$(cat results.txt)"
+          [ -e table.txt ] && export TABLES="$(cat table.txt)"
           [ -e changes.txt ] && export CHANGES="$(cat changes.txt)"
           curl -sS -X POST -H "authorization: token ${{secrets.BOT_TOKEN}}" \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases" \
@@ -191,6 +244,6 @@ jobs:
               name: env.LFS_VERSION | rtrimstr(".0"),
               target_commitish: "${{github.event.workflow_run.head_sha}}",
               draft: env.LFS_VERSION | endswith(".0"),
-              body: [env.RESULTS, env.CHANGES | select(.)] | join("\n\n")}' \
-              | tee /dev/stderr)"
+              body: [env.TABLES, env.CHANGES | select(.)] | join("\n\n")
+            }' | tee /dev/stderr)"
 

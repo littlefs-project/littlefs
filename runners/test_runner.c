@@ -142,7 +142,7 @@ typedef struct test_define_names {
 } test_define_names_t;
 
 intmax_t test_define_lit(void *data) {
-    return (intmax_t)data;
+    return (intptr_t)data;
 }
 
 #define TEST_CONST(x) {test_define_lit, (void*)(uintptr_t)(x)}
