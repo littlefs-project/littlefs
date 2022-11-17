@@ -14,7 +14,7 @@ BUILDDIR ?= .
 ifneq ($(wildcard test.c main.c),)
 TARGET ?= $(BUILDDIR)/lfs
 else
-TARGET ?= $(BUILDDIR)/lfs.a
+TARGET ?= $(BUILDDIR)/liblfs.a
 endif
 
 
@@ -290,7 +290,7 @@ summary sizes: $(BUILDDIR)/lfs.csv
 $(BUILDDIR)/lfs: $(OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
-$(BUILDDIR)/lfs.a: $(OBJ)
+$(BUILDDIR)/liblfs.a: $(OBJ)
 	$(AR) rcs $@ $^
 
 $(BUILDDIR)/lfs.code.csv: $(OBJ)
@@ -359,7 +359,7 @@ $(BUILDDIR)/%.b.c: %.c $(BENCHES)
 .PHONY: clean
 clean:
 	rm -f $(BUILDDIR)/lfs
-	rm -f $(BUILDDIR)/lfs.a
+	rm -f $(BUILDDIR)/liblfs.a
 	$(strip rm -f \
 		$(BUILDDIR)/lfs.csv \
 		$(BUILDDIR)/lfs.code.csv \
