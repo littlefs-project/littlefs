@@ -30,8 +30,8 @@ import toml
 RUNNER_PATH = './runners/test_runner'
 HEADER_PATH = 'runners/test_runner.h'
 
-GDB_TOOL = ['gdb']
-VALGRIND_TOOL = ['valgrind']
+GDB_PATH = ['gdb']
+VALGRIND_PATH = ['valgrind']
 PERF_SCRIPT = ['./scripts/perf.py']
 
 
@@ -516,7 +516,7 @@ def find_runner(runner, **args):
 
     # run under valgrind?
     if args.get('valgrind'):
-        cmd[:0] = args['valgrind_tool'] + [
+        cmd[:0] = args['valgrind_path'] + [
             '--leak-check=full',
             '--track-origins=yes',
             '--error-exitcode=4',
@@ -532,8 +532,8 @@ def find_runner(runner, **args):
                 if args.get('perf_period') else None,
             '--perf-events=%s' % args['perf_events']
                 if args.get('perf_events') else None,
-            '--perf-tool=%s' % args['perf_tool']
-                if args.get('perf_tool') else None,
+            '--perf-path=%s' % args['perf_path']
+                if args.get('perf_path') else None,
             '-o%s' % args['perf']]))
 
     # other context
@@ -1144,24 +1144,24 @@ def run(runner, test_ids=[], **args):
         cmd = runner_ + [failure.id]
 
         if args.get('gdb_main'):
-            cmd[:0] = args['gdb_tool'] + [
+            cmd[:0] = args['gdb_path'] + [
                 '-ex', 'break main',
                 '-ex', 'run',
                 '--args']
         elif args.get('gdb_case'):
             path, lineno = find_path(runner_, failure.id, **args)
-            cmd[:0] = args['gdb_tool'] + [
+            cmd[:0] = args['gdb_path'] + [
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
                 '--args']
         elif failure.assert_ is not None:
-            cmd[:0] = args['gdb_tool'] + [
+            cmd[:0] = args['gdb_path'] + [
                 '-ex', 'run',
                 '-ex', 'frame function raise',
                 '-ex', 'up 2',
                 '--args']
         else:
-            cmd[:0] = args['gdb_tool'] + [
+            cmd[:0] = args['gdb_path'] + [
                 '-ex', 'run',
                 '--args']
 
@@ -1353,10 +1353,11 @@ if __name__ == "__main__":
         help="Drop into gdb on test failure but stop at the beginning "
             "of main.")
     test_parser.add_argument(
-        '--gdb-tool',
+        '--gdb-path',
         type=lambda x: x.split(),
-        default=GDB_TOOL,
-        help="Path to gdb tool to use. Defaults to %r." % GDB_TOOL)
+        default=GDB_PATH,
+        help="Path to the gdb executable, may include flags. "
+            "Defaults to %r." % GDB_PATH)
     test_parser.add_argument(
         '--exec',
         type=lambda e: e.split(),
@@ -1367,10 +1368,11 @@ if __name__ == "__main__":
         help="Run under Valgrind to find memory errors. Implicitly sets "
             "--isolate.")
     test_parser.add_argument(
-        '--valgrind-tool',
+        '--valgrind-path',
         type=lambda x: x.split(),
-        default=VALGRIND_TOOL,
-        help="Path to Valgrind tool to use. Defaults to %r." % VALGRIND_TOOL)
+        default=VALGRIND_PATH,
+        help="Path to the Valgrind executable, may include flags. "
+            "Defaults to %r." % VALGRIND_PATH)
     test_parser.add_argument(
         '-p', '--perf',
         help="Run under Linux's perf to sample performance counters, writing "
@@ -1393,10 +1395,10 @@ if __name__ == "__main__":
         default=PERF_SCRIPT,
         help="Path to the perf script to use. Defaults to %r." % PERF_SCRIPT)
     test_parser.add_argument(
-        '--perf-tool',
+        '--perf-path',
         type=lambda x: x.split(),
-        help="Path to the perf tool to use. This is passed directly to the "
-            "perf script")
+        help="Path to the perf executable, may include flags. This is passed "
+            "directly to the perf script")
 
     # compilation flags
     comp_parser = parser.add_argument_group('compilation options')

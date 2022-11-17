@@ -1,21 +1,20 @@
 ifdef BUILDDIR
-# make sure BUILDDIR ends with a slash
-override BUILDDIR := $(BUILDDIR)/
 # bit of a hack, but we want to make sure BUILDDIR directory structure
 # is correct before any commands
 $(if $(findstring n,$(MAKEFLAGS)),, $(shell mkdir -p \
-	$(BUILDDIR) \
-	$(BUILDDIR)bd \
-	$(BUILDDIR)runners \
-	$(BUILDDIR)tests \
-	$(BUILDDIR)benches))
+	$(BUILDDIR)/ \
+	$(BUILDDIR)/bd \
+	$(BUILDDIR)/runners \
+	$(BUILDDIR)/tests \
+	$(BUILDDIR)/benches))
 endif
+BUILDDIR ?= .
 
 # overridable target/src/tools/flags/etc
 ifneq ($(wildcard test.c main.c),)
-TARGET ?= $(BUILDDIR)lfs
+TARGET ?= $(BUILDDIR)/lfs
 else
-TARGET ?= $(BUILDDIR)lfs.a
+TARGET ?= $(BUILDDIR)/lfs.a
 endif
 
 
@@ -30,19 +29,19 @@ GDB		 ?= gdb
 PERF	 ?= perf
 
 SRC  ?= $(filter-out $(wildcard *.*.c),$(wildcard *.c))
-OBJ  := $(SRC:%.c=$(BUILDDIR)%.o)
-DEP  := $(SRC:%.c=$(BUILDDIR)%.d)
-ASM  := $(SRC:%.c=$(BUILDDIR)%.s)
-CI   := $(SRC:%.c=$(BUILDDIR)%.ci)
-GCDA := $(SRC:%.c=$(BUILDDIR)%.t.a.gcda)
+OBJ  := $(SRC:%.c=$(BUILDDIR)/%.o)
+DEP  := $(SRC:%.c=$(BUILDDIR)/%.d)
+ASM  := $(SRC:%.c=$(BUILDDIR)/%.s)
+CI   := $(SRC:%.c=$(BUILDDIR)/%.ci)
+GCDA := $(SRC:%.c=$(BUILDDIR)/%.t.a.gcda)
 
 TESTS ?= $(wildcard tests/*.toml)
 TEST_SRC ?= $(SRC) \
 		$(filter-out $(wildcard bd/*.*.c),$(wildcard bd/*.c)) \
 		runners/test_runner.c
-TEST_RUNNER ?= $(BUILDDIR)runners/test_runner
-TEST_TC    := $(TESTS:%.toml=$(BUILDDIR)%.t.c) \
-		$(TEST_SRC:%.c=$(BUILDDIR)%.t.c)
+TEST_RUNNER ?= $(BUILDDIR)/runners/test_runner
+TEST_TC    := $(TESTS:%.toml=$(BUILDDIR)/%.t.c) \
+		$(TEST_SRC:%.c=$(BUILDDIR)/%.t.c)
 TEST_TAC   := $(TEST_TC:%.t.c=%.t.a.c)
 TEST_OBJ   := $(TEST_TAC:%.t.a.c=%.t.a.o)
 TEST_DEP   := $(TEST_TAC:%.t.a.c=%.t.a.d)
@@ -56,9 +55,9 @@ BENCHES ?= $(wildcard benches/*.toml)
 BENCH_SRC ?= $(SRC) \
 		$(filter-out $(wildcard bd/*.*.c),$(wildcard bd/*.c)) \
 		runners/bench_runner.c
-BENCH_RUNNER ?= $(BUILDDIR)runners/bench_runner
-BENCH_BC    := $(BENCHES:%.toml=$(BUILDDIR)%.b.c) \
-		$(BENCH_SRC:%.c=$(BUILDDIR)%.b.c)
+BENCH_RUNNER ?= $(BUILDDIR)/runners/bench_runner
+BENCH_BC    := $(BENCHES:%.toml=$(BUILDDIR)/%.b.c) \
+		$(BENCH_SRC:%.c=$(BUILDDIR)/%.b.c)
 BENCH_BAC   := $(BENCH_BC:%.b.c=%.b.a.c)
 BENCH_OBJ   := $(BENCH_BAC:%.b.a.c=%.b.a.o)
 BENCH_DEP   := $(BENCH_BAC:%.b.a.c=%.b.a.d)
@@ -104,18 +103,18 @@ endif
 override PERFFLAGS   += $(filter -j%,$(MAKEFLAGS))
 override PERFBDFLAGS += $(filter -j%,$(MAKEFLAGS))
 ifneq ($(NM),nm)
-override CODEFLAGS += --nm-tool="$(NM)"
-override DATAFLAGS += --nm-tool="$(NM)"
+override CODEFLAGS += --nm-path="$(NM)"
+override DATAFLAGS += --nm-path="$(NM)"
 endif
 ifneq ($(OBJDUMP),objdump)
-override CODEFLAGS   += --objdump-tool="$(OBJDUMP)"
-override DATAFLAGS   += --objdump-tool="$(OBJDUMP)"
-override STRUCTFLAGS += --objdump-tool="$(OBJDUMP)"
-override PERFFLAGS   += --objdump-tool="$(OBJDUMP)"
-override PERFBDFLAGS += --objdump-tool="$(OBJDUMP)"
+override CODEFLAGS   += --objdump-path="$(OBJDUMP)"
+override DATAFLAGS   += --objdump-path="$(OBJDUMP)"
+override STRUCTFLAGS += --objdump-path="$(OBJDUMP)"
+override PERFFLAGS   += --objdump-path="$(OBJDUMP)"
+override PERFBDFLAGS += --objdump-path="$(OBJDUMP)"
 endif
 ifneq ($(PERF),perf)
-override PERFFLAGS += --perf-tool="$(PERF)"
+override PERFFLAGS += --perf-path="$(PERF)"
 endif
 
 override TESTFLAGS  += -b
@@ -128,10 +127,10 @@ override TESTFLAGS  += -p$(TEST_PERF)
 override BENCHFLAGS += -p$(BENCH_PERF)
 endif
 ifdef YES_PERFBD
-override TESTFLAGS  += -t$(TEST_TRACE) --trace-backtrace --trace-freq=100
+override TESTFLAGS += -t$(TEST_TRACE) --trace-backtrace --trace-freq=100
 endif
 ifndef NO_PERFBD
-override BENCHFLAGS  += -t$(BENCH_TRACE) --trace-backtrace --trace-freq=100
+override BENCHFLAGS += -t$(BENCH_TRACE) --trace-backtrace --trace-freq=100
 endif
 ifdef VERBOSE
 override TESTFLAGS   += -v
@@ -144,16 +143,16 @@ override TESTFLAGS  += --exec="$(EXEC)"
 override BENCHFLAGS += --exec="$(EXEC)"
 endif
 ifneq ($(GDB),gdb)
-override TESTFLAGS  += --gdb-tool="$(GDB)"
-override BENCHFLAGS += --gdb-tool="$(GDB)"
+override TESTFLAGS  += --gdb-path="$(GDB)"
+override BENCHFLAGS += --gdb-path="$(GDB)"
 endif
 ifneq ($(VALGRIND),valgrind)
-override TESTFLAGS  += --valgrind-tool="$(VALGRIND)"
-override BENCHFLAGS += --valgrind-tool="$(VALGRIND)"
+override TESTFLAGS  += --valgrind-path="$(VALGRIND)"
+override BENCHFLAGS += --valgrind-path="$(VALGRIND)"
 endif
 ifneq ($(PERF),perf)
-override TESTFLAGS  += --perf-tool="$(PERF)"
-override BENCHFLAGS += --perf-tool="$(PERF)"
+override TESTFLAGS  += --perf-path="$(PERF)"
+override BENCHFLAGS += --perf-path="$(PERF)"
 endif
 
 
@@ -177,10 +176,10 @@ ifndef NO_COV
 test-runner build-test: override CFLAGS+=--coverage
 endif
 ifdef YES_PERF
-bench-runner build-bench: override CFLAGS+=-fno-omit-frame-pointer
+test-runner build-test: override CFLAGS+=-fno-omit-frame-pointer
 endif
 ifdef YES_PERFBD
-bench-runner build-bench: override CFLAGS+=-fno-omit-frame-pointer
+test-runner build-test: override CFLAGS+=-fno-omit-frame-pointer
 endif
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
@@ -272,7 +271,7 @@ perfbd: $(BENCH_TRACE)
 		$(PERFBDFLAGS))
 
 .PHONY: summary sizes
-summary sizes: $(BUILDDIR)lfs.csv
+summary sizes: $(BUILDDIR)/lfs.csv
 	$(strip ./scripts/summary.py -Y $^ \
 		-fcode=code_size \
 		-fdata=data_size \
@@ -288,88 +287,88 @@ summary sizes: $(BUILDDIR)lfs.csv
 .SUFFIXES:
 .SECONDARY:
 
-$(BUILDDIR)lfs: $(OBJ)
+$(BUILDDIR)/lfs: $(OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
-$(BUILDDIR)lfs.a: $(OBJ)
+$(BUILDDIR)/lfs.a: $(OBJ)
 	$(AR) rcs $@ $^
 
-$(BUILDDIR)lfs.code.csv: $(OBJ)
+$(BUILDDIR)/lfs.code.csv: $(OBJ)
 	./scripts/code.py $^ -q $(CODEFLAGS) -o $@
 
-$(BUILDDIR)lfs.data.csv: $(OBJ)
+$(BUILDDIR)/lfs.data.csv: $(OBJ)
 	./scripts/data.py $^ -q $(CODEFLAGS) -o $@
 
-$(BUILDDIR)lfs.stack.csv: $(CI)
+$(BUILDDIR)/lfs.stack.csv: $(CI)
 	./scripts/stack.py $^ -q $(CODEFLAGS) -o $@
 
-$(BUILDDIR)lfs.struct.csv: $(OBJ)
+$(BUILDDIR)/lfs.struct.csv: $(OBJ)
 	./scripts/struct_.py $^ -q $(CODEFLAGS) -o $@
 
-$(BUILDDIR)lfs.cov.csv: $(GCDA)
+$(BUILDDIR)/lfs.cov.csv: $(GCDA)
 	./scripts/cov.py $^ $(patsubst %,-F%,$(SRC)) -q $(COVFLAGS) -o $@
 
-$(BUILDDIR)lfs.perf.csv: $(BENCH_PERF)
+$(BUILDDIR)/lfs.perf.csv: $(BENCH_PERF)
 	./scripts/perf.py $^ $(patsubst %,-F%,$(SRC)) -q $(PERFFLAGS) -o $@
 
-$(BUILDDIR)lfs.perfbd.csv: $(BENCH_TRACE)
+$(BUILDDIR)/lfs.perfbd.csv: $(BENCH_TRACE)
 	$(strip ./scripts/perfbd.py \
 		$(BENCH_RUNNER) $^ $(patsubst %,-F%,$(SRC)) \
 		-q $(PERFBDFLAGS) -o $@)
 
-$(BUILDDIR)lfs.csv: \
-		$(BUILDDIR)lfs.code.csv \
-		$(BUILDDIR)lfs.data.csv \
-		$(BUILDDIR)lfs.stack.csv \
-		$(BUILDDIR)lfs.struct.csv
+$(BUILDDIR)/lfs.csv: \
+		$(BUILDDIR)/lfs.code.csv \
+		$(BUILDDIR)/lfs.data.csv \
+		$(BUILDDIR)/lfs.stack.csv \
+		$(BUILDDIR)/lfs.struct.csv
 	./scripts/summary.py $^ -q $(SUMMARYFLAGS) -o $@
 
-$(BUILDDIR)runners/test_runner: $(TEST_OBJ)
+$(BUILDDIR)/runners/test_runner: $(TEST_OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
-$(BUILDDIR)runners/bench_runner: $(BENCH_OBJ)
+$(BUILDDIR)/runners/bench_runner: $(BENCH_OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
 # our main build rule generates .o, .d, and .ci files, the latter
 # used for stack analysis
-$(BUILDDIR)%.o $(BUILDDIR)%.ci: %.c
-	$(CC) -c -MMD -fcallgraph-info=su $(CFLAGS) $< -o $(BUILDDIR)$*.o
+$(BUILDDIR)/%.o $(BUILDDIR)/%.ci: %.c
+	$(CC) -c -MMD -fcallgraph-info=su $(CFLAGS) $< -o $(BUILDDIR)/$*.o
 
-$(BUILDDIR)%.s: %.c
+$(BUILDDIR)/%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
-$(BUILDDIR)%.a.c: %.c
+$(BUILDDIR)/%.a.c: %.c
 	./scripts/prettyasserts.py -p LFS_ASSERT $< -o $@
 
-$(BUILDDIR)%.a.c: $(BUILDDIR)%.c
+$(BUILDDIR)/%.a.c: $(BUILDDIR)/%.c
 	./scripts/prettyasserts.py -p LFS_ASSERT $< -o $@
 
-$(BUILDDIR)%.t.c: %.toml
+$(BUILDDIR)/%.t.c: %.toml
 	./scripts/test.py -c $< $(TESTCFLAGS) -o $@
 
-$(BUILDDIR)%.t.c: %.c $(TESTS)
+$(BUILDDIR)/%.t.c: %.c $(TESTS)
 	./scripts/test.py -c $(TESTS) -s $< $(TESTCFLAGS) -o $@
 
-$(BUILDDIR)%.b.c: %.toml
+$(BUILDDIR)/%.b.c: %.toml
 	./scripts/bench.py -c $< $(BENCHCFLAGS) -o $@
 
-$(BUILDDIR)%.b.c: %.c $(BENCHES)
+$(BUILDDIR)/%.b.c: %.c $(BENCHES)
 	./scripts/bench.py -c $(BENCHES) -s $< $(BENCHCFLAGS) -o $@
 
 # clean everything
 .PHONY: clean
 clean:
-	rm -f $(BUILDDIR)lfs
-	rm -f $(BUILDDIR)lfs.a
+	rm -f $(BUILDDIR)/lfs
+	rm -f $(BUILDDIR)/lfs.a
 	$(strip rm -f \
-		$(BUILDDIR)lfs.csv \
-		$(BUILDDIR)lfs.code.csv \
-		$(BUILDDIR)lfs.data.csv \
-		$(BUILDDIR)lfs.stack.csv \
-		$(BUILDDIR)lfs.struct.csv \
-		$(BUILDDIR)lfs.cov.csv \
-		$(BUILDDIR)lfs.perf.csv \
-		$(BUILDDIR)lfs.perfbd.csv)
+		$(BUILDDIR)/lfs.csv \
+		$(BUILDDIR)/lfs.code.csv \
+		$(BUILDDIR)/lfs.data.csv \
+		$(BUILDDIR)/lfs.stack.csv \
+		$(BUILDDIR)/lfs.struct.csv \
+		$(BUILDDIR)/lfs.cov.csv \
+		$(BUILDDIR)/lfs.perf.csv \
+		$(BUILDDIR)/lfs.perfbd.csv)
 	rm -f $(OBJ)
 	rm -f $(DEP)
 	rm -f $(ASM)

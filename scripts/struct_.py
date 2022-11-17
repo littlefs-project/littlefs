@@ -20,7 +20,7 @@ import shlex
 import subprocess as sp
 
 
-OBJDUMP_TOOL = ['objdump']
+OBJDUMP_PATH = ['objdump']
 
 
 
@@ -129,7 +129,7 @@ def openio(path, mode='r', buffering=-1):
         return open(path, mode, buffering)
 
 def collect(obj_paths, *,
-        objdump_tool=OBJDUMP_TOOL,
+        objdump_path=OBJDUMP_PATH,
         sources=None,
         everything=False,
         internal=False,
@@ -150,8 +150,8 @@ def collect(obj_paths, *,
         # find files, we want to filter by structs in .h files
         dirs = {}
         files = {}
-        # note objdump-tool may contain extra args
-        cmd = objdump_tool + ['--dwarf=rawline', path]
+        # note objdump-path may contain extra args
+        cmd = objdump_path + ['--dwarf=rawline', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -191,8 +191,8 @@ def collect(obj_paths, *,
         s_name = None
         s_file = None
         s_size = None
-        # note objdump-tool may contain extra args
-        cmd = objdump_tool + ['--dwarf=info', path]
+        # note objdump-path may contain extra args
+        cmd = objdump_path + ['--dwarf=info', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -626,10 +626,11 @@ if __name__ == "__main__":
         action='store_true',
         help="Also show structs in .c files.")
     parser.add_argument(
-        '--objdump-tool',
+        '--objdump-path',
         type=lambda x: x.split(),
-        default=OBJDUMP_TOOL,
-        help="Path to the objdump tool to use. Defaults to %r." % OBJDUMP_TOOL)
+        default=OBJDUMP_PATH,
+        help="Path to the objdump executable, may include flags. "
+            "Defaults to %r." % OBJDUMP_PATH)
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

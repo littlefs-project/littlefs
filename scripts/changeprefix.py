@@ -21,7 +21,7 @@ import shutil
 import subprocess
 import tempfile
 
-GIT_TOOL = ['git']
+GIT_PATH = ['git']
 
 
 def openio(path, mode='r', buffering=-1):
@@ -89,10 +89,10 @@ def main(from_prefix, to_prefix, paths=[], *,
         no_renames=False,
         git=False,
         no_stage=False,
-        git_tool=GIT_TOOL):
+        git_path=GIT_PATH):
     if not paths:
         if git:
-            cmd = git_tool + ['ls-tree', '-r', '--name-only', 'HEAD']
+            cmd = git_path + ['ls-tree', '-r', '--name-only', 'HEAD']
             if verbose:
                 print(' '.join(shlex.quote(c) for c in cmd))
             paths = subprocess.check_output(cmd, encoding='utf8').split()
@@ -116,11 +116,11 @@ def main(from_prefix, to_prefix, paths=[], *,
         # stage?
         if git and not no_stage:
             if from_path != to_path:
-                cmd = git_tool + ['rm', '-q', from_path]
+                cmd = git_path + ['rm', '-q', from_path]
                 if verbose:
                     print(' '.join(shlex.quote(c) for c in cmd))
                 subprocess.check_call(cmd)
-            cmd = git_tool + ['add', to_path]
+            cmd = git_path + ['add', to_path]
             if verbose:
                 print(' '.join(shlex.quote(c) for c in cmd))
             subprocess.check_call(cmd)
@@ -168,10 +168,11 @@ if __name__ == "__main__":
         action='store_true',
         help="Don't stage changes with git.")
     parser.add_argument(
-        '--git-tool',
+        '--git-path',
         type=lambda x: x.split(),
-        default=GIT_TOOL,
-        help="Path to git tool to use. Defaults to %r." % GIT_TOOL)
+        default=GIT_PATH,
+        help="Path to git executable, may include flags. "
+            "Defaults to %r." % GIT_PATH)
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

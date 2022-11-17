@@ -25,7 +25,7 @@ import subprocess as sp
 # TODO use explode_asserts to avoid counting assert branches?
 # TODO use dwarf=info to find functions for inline functions?
 
-GCOV_TOOL = ['gcov']
+GCOV_PATH = ['gcov']
 
 
 # integer fields
@@ -210,15 +210,15 @@ def openio(path, mode='r', buffering=-1):
         return open(path, mode, buffering)
 
 def collect(gcda_paths, *,
-        gcov_tool=GCOV_TOOL,
+        gcov_path=GCOV_PATH,
         sources=None,
         everything=False,
         **args):
     results = []
     for path in gcda_paths:
         # get coverage info through gcov's json output
-        # note, gcov-tool may contain extra args
-        cmd = GCOV_TOOL + ['-b', '-t', '--json-format', path]
+        # note, gcov-path may contain extra args
+        cmd = GCOV_PATH + ['-b', '-t', '--json-format', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -802,10 +802,11 @@ if __name__ == "__main__":
         action='store_true',
         help="Error if any branches are not covered.")
     parser.add_argument(
-        '--gcov-tool',
-        default=GCOV_TOOL,
+        '--gcov-path',
+        default=GCOV_PATH,
         type=lambda x: x.split(),
-        help="Path to the gcov tool to use. Defaults to %r." % GCOV_TOOL)
+        help="Path to the gcov executable, may include paths. "
+            "Defaults to %r." % GCOV_PATH)
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

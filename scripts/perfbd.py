@@ -24,7 +24,7 @@ import shlex
 import subprocess as sp
 
 
-OBJDUMP_TOOL = ['objdump']
+OBJDUMP_PATH = ['objdump']
 THRESHOLD = (0.5, 0.85)
 
 
@@ -142,7 +142,7 @@ def openio(path, mode='r', buffering=-1):
         return open(path, mode, buffering)
 
 def collect_syms_and_lines(obj_path, *,
-        objdump_tool=None,
+        objdump_path=None,
         **args):
     symbol_pattern = re.compile(
         '^(?P<addr>[0-9a-fA-F]+)'
@@ -171,7 +171,7 @@ def collect_syms_and_lines(obj_path, *,
     # figure out symbol addresses
     syms = {}
     sym_at = []
-    cmd = objdump_tool + ['-t', obj_path]
+    cmd = objdump_path + ['-t', obj_path]
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -220,7 +220,7 @@ def collect_syms_and_lines(obj_path, *,
     op_file = 1
     op_line = 1
     op_addr = 0
-    cmd = objdump_tool + ['--dwarf=rawline', obj_path]
+    cmd = objdump_path + ['--dwarf=rawline', obj_path]
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -1244,10 +1244,11 @@ if __name__ == "__main__":
         const=0,
         help="Number of processes to use. 0 spawns one process per core.")
     parser.add_argument(
-        '--objdump-tool',
+        '--objdump-path',
         type=lambda x: x.split(),
-        default=OBJDUMP_TOOL,
-        help="Path to the objdump tool to use. Defaults to %r." % OBJDUMP_TOOL)
+        default=OBJDUMP_PATH,
+        help="Path to the objdump executable, may include flags. "
+            "Defaults to %r." % OBJDUMP_PATH)
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

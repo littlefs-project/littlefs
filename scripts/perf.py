@@ -30,10 +30,10 @@ import zipfile
 # TODO support non-zip perf results?
 
 
-PERF_TOOL = ['perf']
+PERF_PATH = ['perf']
 PERF_EVENTS = 'cycles,branch-misses,branches,cache-misses,cache-references'
 PERF_FREQ = 100
-OBJDUMP_TOOL = ['objdump']
+OBJDUMP_PATH = ['objdump']
 THRESHOLD = (0.5, 0.85)
 
 
@@ -161,13 +161,13 @@ def record(command, *,
         perf_freq=PERF_FREQ,
         perf_period=None,
         perf_events=PERF_EVENTS,
-        perf_tool=PERF_TOOL,
+        perf_path=PERF_PATH,
         **args):
     # create a temporary file for perf to write to, as far as I can tell
     # this is strictly needed because perf's pipe-mode only works with stdout
     with tempfile.NamedTemporaryFile('rb') as f:
         # figure out our perf invocation
-        perf = perf_tool + list(filter(None, [
+        perf = perf_path + list(filter(None, [
             'record',
             '-F%s' % perf_freq
                 if perf_freq is not None
@@ -234,7 +234,7 @@ def multiprocessing_cache(f):
 
 @multiprocessing_cache
 def collect_syms_and_lines(obj_path, *,
-        objdump_tool=None,
+        objdump_path=None,
         **args):
     symbol_pattern = re.compile(
         '^(?P<addr>[0-9a-fA-F]+)'
@@ -263,7 +263,7 @@ def collect_syms_and_lines(obj_path, *,
     # figure out symbol addresses and file+line ranges
     syms = {}
     sym_at = []
-    cmd = objdump_tool + ['-t', obj_path]
+    cmd = objdump_path + ['-t', obj_path]
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -312,7 +312,7 @@ def collect_syms_and_lines(obj_path, *,
     op_file = 1
     op_line = 1
     op_addr = 0
-    cmd = objdump_tool + ['--dwarf=rawline', obj_path]
+    cmd = objdump_path + ['--dwarf=rawline', obj_path]
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -384,7 +384,7 @@ def collect_syms_and_lines(obj_path, *,
 
 
 def collect_decompressed(path, *,
-        perf_tool=PERF_TOOL,
+        perf_path=PERF_PATH,
         sources=None,
         everything=False,
         propagate=0,
@@ -407,8 +407,8 @@ def collect_decompressed(path, *,
         'cache-misses':     'cmisses',
         'cache-references': 'caches'}
 
-    # note perf_tool may contain extra args
-    cmd = perf_tool + [
+    # note perf_path may contain extra args
+    cmd = perf_path + [
         'script',
         '-i%s' % path]
     if args.get('verbose'):
@@ -1259,14 +1259,16 @@ if __name__ == "__main__":
         const=0,
         help="Number of processes to use. 0 spawns one process per core.")
     parser.add_argument(
-        '--perf-tool',
+        '--perf-path',
         type=lambda x: x.split(),
-        help="Path to the perf tool to use. Defaults to %r." % PERF_TOOL)
+        help="Path to the perf executable, may include flags. "
+            "Defaults to %r." % PERF_PATH)
     parser.add_argument(
-        '--objdump-tool',
+        '--objdump-path',
         type=lambda x: x.split(),
-        default=OBJDUMP_TOOL,
-        help="Path to the objdump tool to use. Defaults to %r." % OBJDUMP_TOOL)
+        default=OBJDUMP_PATH,
+        help="Path to the objdump executable, may include flags. "
+            "Defaults to %r." % OBJDUMP_PATH)
 
     # record flags
     record_parser = parser.add_argument_group('record options')
@@ -1294,9 +1296,10 @@ if __name__ == "__main__":
         help="perf events to record. This is passed directly to perf. "
             "Defaults to %r." % PERF_EVENTS)
     record_parser.add_argument(
-        '--perf-tool',
+        '--perf-path',
         type=lambda x: x.split(),
-        help="Path to the perf tool to use. Defaults to %r." % PERF_TOOL)
+        help="Path to the perf executable, may include flags. "
+            "Defaults to %r." % PERF_PATH)
 
     # avoid intermixed/REMAINDER conflict, see above
     if nargs == argparse.REMAINDER:

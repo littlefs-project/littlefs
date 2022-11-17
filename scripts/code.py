@@ -23,9 +23,9 @@ import shlex
 import subprocess as sp
 
 
-NM_TOOL = ['nm']
+NM_PATH = ['nm']
 NM_TYPES = 'tTrRdD'
-OBJDUMP_TOOL = ['objdump']
+OBJDUMP_PATH = ['objdump']
 
 
 # integer fields
@@ -135,9 +135,9 @@ def openio(path, mode='r', buffering=-1):
         return open(path, mode, buffering)
 
 def collect(obj_paths, *,
-        nm_tool=NM_TOOL,
+        nm_path=NM_PATH,
         nm_types=NM_TYPES,
-        objdump_tool=OBJDUMP_TOOL,
+        objdump_path=OBJDUMP_PATH,
         sources=None,
         everything=False,
         **args):
@@ -162,8 +162,8 @@ def collect(obj_paths, *,
 
         # find symbol sizes
         results_ = []
-        # note nm-tool may contain extra args
-        cmd = nm_tool + ['--size-sort', path]
+        # note nm-path may contain extra args
+        cmd = nm_path + ['--size-sort', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -193,8 +193,8 @@ def collect(obj_paths, *,
         # try to figure out the source file if we have debug-info
         dirs = {}
         files = {}
-        # note objdump-tool may contain extra args
-        cmd = objdump_tool + ['--dwarf=rawline', path]
+        # note objdump-path may contain extra args
+        cmd = objdump_path + ['--dwarf=rawline', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -234,8 +234,8 @@ def collect(obj_paths, *,
         is_func = False
         f_name = None
         f_file = None
-        # note objdump-tool may contain extra args
-        cmd = objdump_tool + ['--dwarf=info', path]
+        # note objdump-path may contain extra args
+        cmd = objdump_path + ['--dwarf=info', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -675,15 +675,17 @@ if __name__ == "__main__":
         help="Type of symbols to report, this uses the same single-character "
             "type-names emitted by nm. Defaults to %r." % NM_TYPES)
     parser.add_argument(
-        '--nm-tool',
+        '--nm-path',
         type=lambda x: x.split(),
-        default=NM_TOOL,
-        help="Path to the nm tool to use. Defaults to %r." % NM_TOOL)
+        default=NM_PATH,
+        help="Path to the nm executable, may include flags. "
+            "Defaults to %r." % NM_PATH)
     parser.add_argument(
-        '--objdump-tool',
+        '--objdump-path',
         type=lambda x: x.split(),
-        default=OBJDUMP_TOOL,
-        help="Path to the objdump tool to use. Defaults to %r." % OBJDUMP_TOOL)
+        default=OBJDUMP_PATH,
+        help="Path to the objdump executable, may include flags. "
+            "Defaults to %r." % OBJDUMP_PATH)
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))
