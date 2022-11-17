@@ -157,20 +157,37 @@ endif
 
 
 # commands
+
+## Build littlefs
 .PHONY: all build
 all build: $(TARGET)
 
+## Build assembly files
 .PHONY: asm
 asm: $(ASM)
 
+## Find the total size
 .PHONY: size
 size: $(OBJ)
 	$(SIZE) -t $^
 
+## Generate a ctags file
 .PHONY: tags
 tags:
 	$(CTAGS) --totals --c-types=+p $(shell find -H -name '*.h') $(SRC)
 
+## Show this help text
+.PHONY: help
+help:
+	@$(strip awk '/^## / { \
+			sub(/^## /,""); \
+			getline rule; \
+			while (rule ~ /^(#|\.PHONY|ifdef|ifndef)/) getline rule; \
+			gsub(/:.*/, "", rule); \
+			printf " "" %-25s %s\n", rule, $$0 \
+		}' $(MAKEFILE_LIST))
+
+## Build the test-runner
 .PHONY: test-runner build-test
 ifndef NO_COV
 test-runner build-test: override CFLAGS+=--coverage
@@ -194,14 +211,17 @@ ifdef YES_PERFBD
 	rm -f $(TEST_TRACE)
 endif
 
+## Run the tests, -j enables parallel tests
 .PHONY: test
 test: test-runner
 	./scripts/test.py $(TEST_RUNNER) $(TESTFLAGS)
 
+## List the tests
 .PHONY: test-list
 test-list: test-runner
 	./scripts/test.py $(TEST_RUNNER) $(TESTFLAGS) -l
 
+## Build the bench-runner
 .PHONY: bench-runner build-bench
 ifdef YES_COV
 bench-runner build-bench: override CFLAGS+=--coverage
@@ -225,30 +245,37 @@ ifndef NO_PERFBD
 	rm -f $(BENCH_TRACE)
 endif
 
+## Run the benchmarks, -j enables parallel benchmarks
 .PHONY: bench
 bench: bench-runner
 	./scripts/bench.py $(BENCH_RUNNER) $(BENCHFLAGS)
 
+## List the benchmarks
 .PHONY: bench-list
 bench-list: bench-runner
 	./scripts/bench.py $(BENCH_RUNNER) $(BENCHFLAGS) -l
 
+## Find the per-function code size
 .PHONY: code
 code: $(OBJ)
 	./scripts/code.py $^ -Ssize $(CODEFLAGS)
 
+## Find the per-function data size
 .PHONY: data
 data: $(OBJ)
 	./scripts/data.py $^ -Ssize $(DATAFLAGS)
 
+## Find the per-function stack usage
 .PHONY: stack
 stack: $(CI)
 	./scripts/stack.py $^ -Slimit -Sframe $(STACKFLAGS)
 
+## Find the struct sizes
 .PHONY: struct
 struct: $(OBJ)
 	./scripts/struct_.py $^ -Ssize $(STRUCTFLAGS)
 
+## Find the line/branch coverage after a test run
 .PHONY: cov
 cov: $(GCDA)
 	$(strip ./scripts/cov.py \
@@ -256,6 +283,7 @@ cov: $(GCDA)
 		-slines -sbranches \
 		$(COVFLAGS))
 
+## Find the perf results after bench run with YES_PERF
 .PHONY: perf
 perf: $(BENCH_PERF)
 	$(strip ./scripts/perf.py \
@@ -263,6 +291,7 @@ perf: $(BENCH_PERF)
 		-Scycles \
 		$(PERFFLAGS))
 
+## Find the perfbd results after a bench run
 .PHONY: perfbd
 perfbd: $(BENCH_TRACE)
 	$(strip ./scripts/perfbd.py \
@@ -270,6 +299,7 @@ perfbd: $(BENCH_TRACE)
 		-Serased -Sproged -Sreaded \
 		$(PERFBDFLAGS))
 
+## Find a summary of compile-time sizes
 .PHONY: summary sizes
 summary sizes: $(BUILDDIR)/lfs.csv
 	$(strip ./scripts/summary.py -Y $^ \
@@ -355,7 +385,7 @@ $(BUILDDIR)/%.b.c: %.toml
 $(BUILDDIR)/%.b.c: %.c $(BENCHES)
 	./scripts/bench.py -c $(BENCHES) -s $< $(BENCHCFLAGS) -o $@
 
-# clean everything
+## Clean everything
 .PHONY: clean
 clean:
 	rm -f $(BUILDDIR)/lfs
