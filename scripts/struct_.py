@@ -473,6 +473,9 @@ def main(obj_paths, *,
         with openio(args['use']) as f:
             reader = csv.DictReader(f, restval='')
             for r in reader:
+                if not any('struct_'+k in r and r['struct_'+k].strip()
+                        for k in StructResult._fields):
+                    continue
                 try:
                     results.append(StructResult(
                         **{k: r[k] for k in StructResult._by
@@ -516,6 +519,9 @@ def main(obj_paths, *,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
+                    if not any('struct_'+k in r and r['struct_'+k].strip()
+                            for k in StructResult._fields):
+                        continue
                     try:
                         diff_results.append(StructResult(
                             **{k: r[k] for k in StructResult._by

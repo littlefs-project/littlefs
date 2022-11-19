@@ -311,7 +311,7 @@ def infer(results, *,
     # create result class
     def __new__(cls, **r):
         return cls.__mro__[1].__new__(cls,
-            **{k: r.get(k) for k in by},
+            **{k: r.get(k, '') for k in by},
             **{k: r[k] if k in r and isinstance(r[k], list)
                 else [types[k](r[k])] if k in r
                 else []
@@ -631,6 +631,9 @@ def main(csv_paths, *,
         renames=renames)
     results_ = []
     for r in results:
+        if not any(k in r and r[k].strip()
+                for k in Result._fields):
+            continue
         try:
             results_.append(Result(**{
                 k: r[k] for k in Result._by + Result._fields
@@ -676,6 +679,9 @@ def main(csv_paths, *,
                                 r_[new_k] = r[old_k]
                         r.update(r_)
 
+                    if not any(k in r and r[k].strip()
+                            for k in Result._fields):
+                        continue
                     try:
                         diff_results.append(Result(**{
                             k: r[k] for k in Result._by + Result._fields

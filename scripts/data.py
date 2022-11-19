@@ -566,6 +566,9 @@ def main(obj_paths, *,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
+                    if not any('data_'+k in r and r['data_'+k].strip()
+                            for k in DataResult._fields):
+                        continue
                     try:
                         diff_results.append(DataResult(
                             **{k: r[k] for k in DataResult._by

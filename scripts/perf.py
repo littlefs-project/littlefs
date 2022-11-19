@@ -1032,6 +1032,9 @@ def report(perf_paths, *,
         with openio(args['use']) as f:
             reader = csv.DictReader(f, restval='')
             for r in reader:
+                if not any('perf_'+k in r and r['perf_'+k].strip()
+                        for k in PerfResult._fields):
+                    continue
                 try:
                     results.append(PerfResult(
                         **{k: r[k] for k in PerfResult._by
@@ -1073,6 +1076,9 @@ def report(perf_paths, *,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
+                    if not any('perf_'+k in r and r['perf_'+k].strip()
+                            for k in PerfResult._fields):
+                        continue
                     try:
                         diff_results.append(PerfResult(
                             **{k: r[k] for k in PerfResult._by

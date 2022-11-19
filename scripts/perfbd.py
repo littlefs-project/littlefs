@@ -1012,6 +1012,9 @@ def report(obj_path='', trace_paths=[], *,
         with openio(args['use']) as f:
             reader = csv.DictReader(f, restval='')
             for r in reader:
+                if not any('perfbd_'+k in r and r['perfbd_'+k].strip()
+                        for k in PerfBdResult._fields):
+                    continue
                 try:
                     results.append(PerfBdResult(
                         **{k: r[k] for k in PerfBdResult._by
@@ -1053,6 +1056,9 @@ def report(obj_path='', trace_paths=[], *,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
+                    if not any('perfbd_'+k in r and r['perfbd_'+k].strip()
+                            for k in PerfBdResult._fields):
+                        continue
                     try:
                         diff_results.append(PerfBdResult(
                             **{k: r[k] for k in PerfBdResult._by

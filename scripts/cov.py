@@ -596,6 +596,9 @@ def main(gcda_paths, *,
         with openio(args['use']) as f:
             reader = csv.DictReader(f, restval='')
             for r in reader:
+                if not any('cov_'+k in r and r['cov_'+k].strip()
+                        for k in CovResult._fields):
+                    continue
                 try:
                     results.append(CovResult(
                         **{k: r[k] for k in CovResult._by
@@ -639,6 +642,9 @@ def main(gcda_paths, *,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
+                    if not any('cov_'+k in r and r['cov_'+k].strip()
+                            for k in CovResult._fields):
+                        continue
                     try:
                         diff_results.append(CovResult(
                             **{k: r[k] for k in CovResult._by

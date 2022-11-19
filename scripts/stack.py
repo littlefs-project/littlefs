@@ -550,6 +550,9 @@ def main(ci_paths,
         with openio(args['use']) as f:
             reader = csv.DictReader(f, restval='')
             for r in reader:
+                if not any('stack_'+k in r and r['stack_'+k].strip()
+                        for k in StackResult._fields):
+                    continue
                 try:
                     results.append(StackResult(
                         **{k: r[k] for k in StackResult._by
@@ -591,6 +594,9 @@ def main(ci_paths,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
+                    if not any('stack_'+k in r and r['stack_'+k].strip()
+                            for k in StackResult._fields):
+                        continue
                     try:
                         diff_results.append(StackResult(
                             **{k: r[k] for k in StackResult._by
