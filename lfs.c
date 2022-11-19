@@ -1931,11 +1931,20 @@ static int lfs_dir_splittingcompact(lfs_t *lfs, lfs_mdir_t *dir,
                 return err;
             }
 
-            // space is complicated, we need room for tail, crc, gstate,
-            // cleanup delete, and we cap at half a block to give room
-            // for metadata updates.
+            // space is complicated, we need room for:
+            //
+            // - tail:         4+2*4 = 12 bytes
+            // - gstate:       4+3*4 = 16 bytes
+            // - move delete:  4     = 4 bytes
+            // - crc:          4+4   = 8 bytes
+            //                 total = 40 bytes
+            //
+            // And we cap at half a block to avoid degenerate cases with
+            // nearly-full metadata blocks.
+            //
             if (end - split < 0xff
-                    && size <= lfs_min(lfs->cfg->block_size - 36,
+                    && size <= lfs_min(
+                        lfs->cfg->block_size - 40,
                         lfs_alignup(
                             (lfs->cfg->metadata_max
                                 ? lfs->cfg->metadata_max
