@@ -809,7 +809,7 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
         mpty = os.fdopen(mpty, 'r', 1)
 
         last_id = None
-        last_stdout = []
+        last_stdout = co.deque(maxlen=args.get('context', 5) + 1)
         last_assert = None
         try:
             while True:
@@ -836,7 +836,7 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
                     if op == 'running':
                         locals.seen_perms += 1
                         last_id = m.group('id')
-                        last_stdout = []
+                        last_stdout.clear()
                         last_assert = None
                     elif op == 'powerloss':
                         last_id = m.group('id')
@@ -867,7 +867,7 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
                         if args.get('keep_going'):
                             proc.kill()
         except KeyboardInterrupt:
-            raise TestFailure(last_id, 1, last_stdout)
+            raise TestFailure(last_id, 1, list(last_stdout))
         finally:
             children.remove(proc)
             mpty.close()
@@ -877,7 +877,7 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
             raise TestFailure(
                 last_id,
                 proc.returncode,
-                last_stdout,
+                list(last_stdout),
                 last_assert)
 
     def run_job(runner_, ids=[], start=None, step=None):
