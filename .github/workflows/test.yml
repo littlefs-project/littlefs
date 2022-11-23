@@ -245,8 +245,8 @@ jobs:
               | sed -n 's/[^-.]*-\([^.]*\)\..*csv/, \1/p')) / $(echo $f \
               | sed -n 's/[^.]*\.\(.*\)\.csv/\1/p')"
             export PREV="$(curl -sS \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/`
-                `master?per_page=100" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/master`
+                `?per_page=100" \
               | jq -re 'select(.sha != env.GITHUB_SHA) | .statuses[]
                 | select(.context == env.CONTEXT).description
                 | capture("(?<prev>[0-9∞]+)").prev' \
@@ -289,15 +289,16 @@ jobs:
             export STEP="cov"
             export CONTEXT="cov / $s"
             export PREV="$(curl -sS \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/`
-                `master?per_page=100" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/master`
+                `?per_page=100" \
               | jq -re 'select(.sha != env.GITHUB_SHA) | .statuses[]
                 | select(.context == env.CONTEXT).description
-                | capture("(?<prev>[0-9\\.]+)").prev' \
+                | capture("(?<prev_a>[0-9]+)/(?<prev_b>[0-9]+)")
+                | 100*((.prev_a|tonumber) / (.prev_b|tonumber))' \
               || echo 0)"
             export DESCRIPTION="$(./scripts/cov.py -u $f -f$s -Y \
               | awk -F '[ /%]+' -v s=$s '
-                NR==2 {$1=0; printf "%.1f%% of %d %s",$4,$3,s}
+                NR==2 {$1=0; printf "%d/%d %s",$2,$3,s}
                 NR==2 && ENVIRON["PREV"]+0 != 0 {
                   printf " (%+.1f%%)",$4-ENVIRON["PREV"]
                 }')"
@@ -435,8 +436,8 @@ jobs:
             export STEP="bench"
             export CONTEXT="bench / $s"
             export PREV="$(curl -sS \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/`
-                `master?per_page=100" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/master`
+                `?per_page=100" \
               | jq -re 'select(.sha != env.GITHUB_SHA) | .statuses[]
                 | select(.context == env.CONTEXT).description
                 | capture("(?<prev>[0-9]+)").prev' \
@@ -584,3 +585,182 @@ jobs:
           make -B test-runner
           make -B test
 
+  # status related tasks that run after tests
+  status:
+    runs-on: ubuntu-22.04
+    needs: [test, bench]
+    steps:
+      - uses: actions/checkout@v2
+        if: ${{github.event_name == 'pull_request'}}
+      - name: install
+        if: ${{github.event_name == 'pull_request'}}
+        run: |
+          # need a few things
+          sudo apt-get install -qq gcc python3 python3-pip
+          pip3 install toml
+          gcc --version
+          python3 --version
+      - uses: actions/download-artifact@v2
+        if: ${{github.event_name == 'pull_request'}}
+        continue-on-error: true
+        with:
+          name: sizes
+          path: sizes
+      - uses: actions/download-artifact@v2
+        if: ${{github.event_name == 'pull_request'}}
+        continue-on-error: true
+        with:
+          name: cov
+          path: cov
+      - uses: actions/download-artifact@v2
+        if: ${{github.event_name == 'pull_request'}}
+        continue-on-error: true
+        with:
+          name: bench
+          path: bench
+
+      # try to find results from tests
+      - name: create-table
+        if: ${{github.event_name == 'pull_request'}}
+        run: |
+          # compare against pull-request target
+          curl -sS \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/`
+              `${{github.event.pull_request.base.ref}}`
+              `?per_page=100" \
+            | jq -re 'select(.sha != env.GITHUB_SHA) | .statuses[]' \
+            >> prev-status.json \
+            || true
+
+          # build table for GitHub
+          declare -A table
+
+          # sizes table
+          i=0
+          j=0
+          for c in "" readonly threadsafe migrate error-asserts
+          do
+            # per-config results
+            c_or_default=${c:-default}
+            c_camel=${c_or_default^}
+            table[$i,$j]=$c_camel
+            ((j+=1))
+
+            for s in code stack struct
+            do
+              f=sizes/thumb${c:+-$c}.$s.csv
+              [ -e $f ] && table[$i,$j]=$( \
+                export PREV="$(jq -re '
+                    select(.context == "'"sizes (thumb${c:+, $c}) / $s"'").description
+                    | capture("(?<prev>[0-9∞]+)").prev' \
+                  prev-status.json || echo 0)"
+                ./scripts/summary.py $f --max=stack_limit -Y \
+                  | awk '
+                    NR==2 {$1=0; printf "%s B",$NF}
+                    NR==2 && ENVIRON["PREV"]+0 != 0 {
+                      printf " (%+.1f%%)",100*($NF-ENVIRON["PREV"])/ENVIRON["PREV"]
+                    }' \
+                  | sed -e 's/ /\&nbsp;/g')
+              ((j+=1))
+            done
+            ((j=0, i+=1))
+          done
+
+          # coverage table
+          i=0
+          j=4
+          for s in lines branches
+          do
+            table[$i,$j]=${s^}
+            ((j+=1))
+
+            f=cov/cov.csv
+            [ -e $f ] && table[$i,$j]=$( \
+              export PREV="$(jq -re '
+                  select(.context == "'"cov / $s"'").description
+                  | capture("(?<prev_a>[0-9]+)/(?<prev_b>[0-9]+)")
+                  | 100*((.prev_a|tonumber) / (.prev_b|tonumber))' \
+                prev-status.json || echo 0)"
+              ./scripts/cov.py -u $f -f$s -Y \
+                | awk -F '[ /%]+' -v s=$s '
+                  NR==2 {$1=0; printf "%d/%d %s",$2,$3,s}
+                  NR==2 && ENVIRON["PREV"]+0 != 0 {
+                    printf " (%+.1f%%)",$4-ENVIRON["PREV"]
+                  }' \
+                | sed -e 's/ /\&nbsp;/g')
+            ((j=4, i+=1))
+          done
+
+          # benchmark table
+          i=3
+          j=4
+          for s in readed proged erased
+          do
+            table[$i,$j]=${s^}
+            ((j+=1))
+
+            f=bench/bench.csv
+            [ -e $f ] && table[$i,$j]=$( \
+              export PREV="$(jq -re '
+                  select(.context == "'"bench / $s"'").description
+                  | capture("(?<prev>[0-9]+)").prev' \
+                prev-status.json || echo 0)"
+              ./scripts/summary.py $f -f$s=bench_$s -Y \
+                | awk '
+                  NR==2 {$1=0; printf "%s B",$NF}
+                  NR==2 && ENVIRON["PREV"]+0 != 0 {
+                    printf " (%+.1f%%)",100*($NF-ENVIRON["PREV"])/ENVIRON["PREV"]
+                  }' \
+                | sed -e 's/ /\&nbsp;/g')
+            ((j=4, i+=1))
+          done
+
+          # build the actual table
+          echo "|   | Code | Stack | Structs |   | Coverage |" >> table.txt
+          echo "|:--|-----:|------:|--------:|:--|---------:|" >> table.txt
+          for ((i=0; i<6; i++))
+          do
+            echo -n "|" >> table.txt
+            for ((j=0; j<6; j++))
+            do
+              echo -n " " >> table.txt
+              [[ i -eq 2 && j -eq 5 ]] && echo -n "**Benchmarks**" >> table.txt
+              echo -n "${table[$i,$j]:-}" >> table.txt
+              echo -n " |" >> table.txt
+            done
+            echo >> table.txt
+          done
+
+          cat table.txt
+
+      # create a bot comment for successful runs on pull requests
+      - name: create-comment
+        if: ${{github.event_name == 'pull_request'}}
+        run: |
+          touch comment.txt
+          echo "<details>" >> comment.txt
+          echo "<summary>" >> comment.txt
+          echo "Tests passed ✓, `
+            `Code: $(awk 'NR==3 {print $4}' table.txt || true), `
+            `Stack: $(awk 'NR==3 {print $6}' table.txt || true), `
+            `Structs: $(awk 'NR==3 {print $8}' table.txt || true)" \
+            >> comment.txt
+          echo "</summary>" >> comment.txt
+          echo >> comment.txt
+          [ -e table.txt ] && cat table.txt >> comment.txt
+          echo >> comment.txt
+          echo "</details>" >> comment.txt
+          cat comment.txt
+
+          mkdir -p comment
+          jq -n --rawfile comment comment.txt '{
+            number: ${{github.event.number}},
+            body: $comment,
+          }' | tee comment/comment.json
+      - name: upload-comment
+        uses: actions/upload-artifact@v2
+        with:
+          name: comment
+          path: comment
+          retention-days: 1
+    

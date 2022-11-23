@@ -5,6 +5,10 @@ on:
     branches: [master]
     types: [completed]
 
+defaults:
+  run:
+    shell: bash -euv -o pipefail {0}
+
 jobs:
   release:
     runs-on: ubuntu-22.04
@@ -82,14 +86,14 @@ jobs:
           echo "LFS_PREV_VERSION=$LFS_PREV_VERSION" >> $GITHUB_ENV
 
       # try to find results from tests
-      - name: collect-table
+      - name: create-table
         run: |
           # previous results to compare against?
           [ -n "$LFS_PREV_VERSION" ] && curl -sS \
-            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/`
-              `status/$LFS_PREV_VERSION?per_page=100" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/status/$LFS_PREV_VERSION`
+              `?per_page=100" \
             | jq -re 'select(.sha != env.GITHUB_SHA) | .statuses[]' \
-            >> prev-statuses.json \
+            >> prev-status.json \
             || true
 
           # build table for GitHub
@@ -113,7 +117,7 @@ jobs:
                 export PREV="$(jq -re '
                     select(.context == "'"sizes (thumb${c:+, $c}) / $s"'").description
                     | capture("(?<prev>[0-9∞]+)").prev' \
-                  prev-statuses.json || echo 0)"
+                  prev-status.json || echo 0)"
                 ./scripts/summary.py $f --max=stack_limit -Y \
                   | awk '
                     NR==2 {$1=0; printf "%s B",$NF}
@@ -138,11 +142,12 @@ jobs:
             [ -e $f ] && table[$i,$j]=$( \
               export PREV="$(jq -re '
                   select(.context == "'"cov / $s"'").description
-                  | capture("(?<prev>[0-9\\.]+)").prev' \
-                prev-statuses.json || echo 0)"
+                  | capture("(?<prev_a>[0-9]+)/(?<prev_b>[0-9]+)")
+                  | 100*((.prev_a|tonumber) / (.prev_b|tonumber))' \
+                prev-status.json || echo 0)"
               ./scripts/cov.py -u $f -f$s -Y \
                 | awk -F '[ /%]+' -v s=$s '
-                  NR==2 {$1=0; printf "%.1f%% of %d %s",$4,$3,s}
+                  NR==2 {$1=0; printf "%d/%d %s",$2,$3,s}
                   NR==2 && ENVIRON["PREV"]+0 != 0 {
                     printf " (%+.1f%%)",$4-ENVIRON["PREV"]
                   }' \
@@ -163,7 +168,7 @@ jobs:
               export PREV="$(jq -re '
                   select(.context == "'"bench / $s"'").description
                   | capture("(?<prev>[0-9]+)").prev' \
-                prev-statuses.json || echo 0)"
+                prev-status.json || echo 0)"
               ./scripts/summary.py $f -f$s=bench_$s -Y \
                 | awk '
                   NR==2 {$1=0; printf "%s B",$NF}
@@ -184,7 +189,7 @@ jobs:
             do
               echo -n " " >> table.txt
               [[ i -eq 2 && j -eq 5 ]] && echo -n "**Benchmarks**" >> table.txt
-              echo -n "${table[$i,$j]}" >> table.txt
+              echo -n "${table[$i,$j]:-}" >> table.txt
               echo -n " |" >> table.txt
             done
             echo >> table.txt
@@ -193,7 +198,7 @@ jobs:
           cat table.txt
 
       # find changes from history
-      - name: collect-changes
+      - name: create-changes
         run: |
           [ -n "$LFS_PREV_VERSION" ] || exit 0
           # use explicit link to github commit so that release notes can
@@ -235,15 +240,18 @@ jobs:
         run: |
           # create release and patch version tag (vN.N.N)
           # only draft if not a patch release
-          [ -e table.txt ] && export TABLES="$(cat table.txt)"
-          [ -e changes.txt ] && export CHANGES="$(cat changes.txt)"
+          [ -e table.txt ] && cat table.txt >> release.txt
+          echo >> release.txt
+          [ -e changes.txt ] && cat changes.txt >> release.txt
+          cat release.txt
+
           curl -sS -X POST -H "authorization: token ${{secrets.BOT_TOKEN}}" \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases" \
-            -d "$(jq -n '{
+            -d "$(jq -n --rawfile release release.txt '{
               tag_name: env.LFS_VERSION,
               name: env.LFS_VERSION | rtrimstr(".0"),
               target_commitish: "${{github.event.workflow_run.head_sha}}",
               draft: env.LFS_VERSION | endswith(".0"),
-              body: [env.TABLES, env.CHANGES | select(.)] | join("\n\n")
+              body: $release,
             }' | tee /dev/stderr)"
 

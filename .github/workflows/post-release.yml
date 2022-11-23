@@ -4,6 +4,10 @@ on:
     branches: [master]
     types: [released]
 
+defaults:
+  run:
+    shell: bash -euv -o pipefail {0}
+
 jobs:
   post-release:
     runs-on: ubuntu-22.04
