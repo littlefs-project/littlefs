@@ -404,7 +404,7 @@ jobs:
           valgrind --version
       - name: bench
         run: |
-          make bench BENCHFLAGS+=-olfs.bench.csv
+          make bench BENCHFLAGS+="-o lfs.bench.csv"
 
           # find bench results
           ./scripts/summary.py lfs.bench.csv \
