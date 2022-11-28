@@ -1688,7 +1688,7 @@ static void run_powerloss_exhaustive_layer(
             fprintf(stderr, "error: exhaustive: out of memory\n");
             exit(-1);
         }
-        *cycle = i;
+        *cycle = i+1;
 
         printf("powerloss ");
         perm_printid(suite, case_, cycles->cycles, cycles->cycle_count);

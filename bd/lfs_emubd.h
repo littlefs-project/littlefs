@@ -181,6 +181,13 @@ int lfs_emubd_sync(const struct lfs_config *cfg);
 
 /// Additional extended API for driving test features ///
 
+// A CRC of a block for debugging purposes
+int lfs_emubd_crc(const struct lfs_config *cfg,
+        lfs_block_t block, uint32_t *crc);
+
+// A CRC of the entire block device for debugging purposes
+int lfs_emubd_bdcrc(const struct lfs_config *cfg, uint32_t *crc);
+
 // Get total amount of bytes read
 lfs_emubd_sio_t lfs_emubd_getreaded(const struct lfs_config *cfg);
 

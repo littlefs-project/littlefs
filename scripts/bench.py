@@ -1144,8 +1144,12 @@ def run(runner, bench_ids=[], **args):
         cmd = runner_ + [failure.id]
 
         if args.get('gdb_main'):
+            # we don't really need the case breakpoint here, but it
+            # can be helpful
+            path, lineno = find_path(runner_, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
                 '-ex', 'break main',
+                '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
                 '--args']
         elif args.get('gdb_case'):

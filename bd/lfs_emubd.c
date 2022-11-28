@@ -452,7 +452,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         }
     }
 
-    LFS_EMUBD_TRACE("lfs_emubd_prog -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_erase -> %d", 0);
     return 0;
 }
 
@@ -467,6 +467,60 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
 }
 
 /// Additional extended API for driving test features ///
+
+static int lfs_emubd_rawcrc(const struct lfs_config *cfg,
+        lfs_block_t block, uint32_t *crc) {
+    lfs_emubd_t *bd = cfg->context;
+
+    // check if crc is valid
+    LFS_ASSERT(block < cfg->block_count);
+
+    // crc the block
+    uint32_t crc_ = 0xffffffff;
+    const lfs_emubd_block_t *b = bd->blocks[block];
+    if (b) {
+        crc_ = lfs_crc(crc_, b->data, cfg->block_size);
+    } else {
+        uint8_t erase_value = (bd->cfg->erase_value != -1)
+                ? bd->cfg->erase_value
+                : 0;
+        for (lfs_size_t i = 0; i < cfg->block_size; i++) {
+            crc_ = lfs_crc(crc_, &erase_value, 1);
+        }
+    }
+    *crc = 0xffffffff ^ crc_;
+
+    return 0;
+}
+
+int lfs_emubd_crc(const struct lfs_config *cfg,
+        lfs_block_t block, uint32_t *crc) {
+    LFS_EMUBD_TRACE("lfs_emubd_crc(%p, %"PRIu32", %p)",
+            (void*)cfg, block, crc);
+    int err = lfs_emubd_rawcrc(cfg, block, crc);
+    LFS_EMUBD_TRACE("lfs_emubd_crc -> %d", err);
+    return err;
+}
+
+int lfs_emubd_bdcrc(const struct lfs_config *cfg, uint32_t *crc) {
+    LFS_EMUBD_TRACE("lfs_emubd_bdcrc(%p, %p)", (void*)cfg, crc);
+
+    uint32_t crc_ = 0xffffffff;
+    for (lfs_block_t i = 0; i < cfg->block_count; i++) {
+        uint32_t i_crc;
+        int err = lfs_emubd_rawcrc(cfg, i, &i_crc);
+        if (err) {
+            LFS_EMUBD_TRACE("lfs_emubd_bdcrc -> %d", err);
+            return err;
+        }
+
+        crc_ = lfs_crc(crc_, &i_crc, sizeof(uint32_t));
+    }
+    *crc = 0xffffffff ^ crc_;
+
+    LFS_EMUBD_TRACE("lfs_emubd_bdcrc -> %d", 0);
+    return 0;
+}
 
 lfs_emubd_sio_t lfs_emubd_getreaded(const struct lfs_config *cfg) {
     LFS_EMUBD_TRACE("lfs_emubd_getreaded(%p)", (void*)cfg);
@@ -591,6 +645,9 @@ int lfs_emubd_copy(const struct lfs_config *cfg, lfs_emubd_t *copy) {
     }
 
     // other state
+    copy->readed = bd->readed;
+    copy->proged = bd->proged;
+    copy->erased = bd->erased;
     copy->power_cycles = bd->power_cycles;
     copy->disk = bd->disk;
     if (copy->disk) {
