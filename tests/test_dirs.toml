@@ -179,6 +179,7 @@ code = '''
 
 [cases.test_dirs_many_reentrant]
 defines.N = [5, 11]
+if = 'BLOCK_COUNT >= 4*N'
 reentrant = true
 code = '''
     lfs_t lfs;
