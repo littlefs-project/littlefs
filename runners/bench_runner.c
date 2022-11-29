@@ -1201,12 +1201,12 @@ static void list_implicit_defines(void) {
 // geometries to bench
 
 const bench_geometry_t builtin_geometries[] = {
-    {"default", {{NULL}, BENCH_CONST(16),   BENCH_CONST(512),   {NULL}}},
-    {"eeprom",  {{NULL}, BENCH_CONST(1),    BENCH_CONST(512),   {NULL}}},
-    {"emmc",    {{NULL}, {NULL},            BENCH_CONST(512),   {NULL}}},
-    {"nor",     {{NULL}, BENCH_CONST(1),    BENCH_CONST(4096),  {NULL}}},
-    {"nand",    {{NULL}, BENCH_CONST(4096), BENCH_CONST(32768), {NULL}}},
-    {NULL, {{NULL}, {NULL}, {NULL}, {NULL}}},
+    {"default", {{0}, BENCH_CONST(16),   BENCH_CONST(512),   {0}}},
+    {"eeprom",  {{0}, BENCH_CONST(1),    BENCH_CONST(512),   {0}}},
+    {"emmc",    {{0}, {0},               BENCH_CONST(512),   {0}}},
+    {"nor",     {{0}, BENCH_CONST(1),    BENCH_CONST(4096),  {0}}},
+    {"nand",    {{0}, BENCH_CONST(4096), BENCH_CONST(32768), {0}}},
+    {NULL, {{0}, {0}, {0}, {0}}},
 };
 
 const bench_geometry_t *bench_geometries = builtin_geometries;

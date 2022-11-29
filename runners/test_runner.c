@@ -1241,12 +1241,12 @@ static void list_implicit_defines(void) {
 // geometries to test
 
 const test_geometry_t builtin_geometries[] = {
-    {"default", {{NULL}, TEST_CONST(16),   TEST_CONST(512),   {NULL}}},
-    {"eeprom",  {{NULL}, TEST_CONST(1),    TEST_CONST(512),   {NULL}}},
-    {"emmc",    {{NULL}, {NULL},           TEST_CONST(512),   {NULL}}},
-    {"nor",     {{NULL}, TEST_CONST(1),    TEST_CONST(4096),  {NULL}}},
-    {"nand",    {{NULL}, TEST_CONST(4096), TEST_CONST(32768), {NULL}}},
-    {NULL, {{NULL}, {NULL}, {NULL}, {NULL}}},
+    {"default", {{0}, TEST_CONST(16),   TEST_CONST(512),   {0}}},
+    {"eeprom",  {{0}, TEST_CONST(1),    TEST_CONST(512),   {0}}},
+    {"emmc",    {{0}, {0},              TEST_CONST(512),   {0}}},
+    {"nor",     {{0}, TEST_CONST(1),    TEST_CONST(4096),  {0}}},
+    {"nand",    {{0}, TEST_CONST(4096), TEST_CONST(32768), {0}}},
+    {NULL, {{0}, {0}, {0}, {0}}},
 };
 
 const test_geometry_t *test_geometries = builtin_geometries;

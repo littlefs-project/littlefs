@@ -67,91 +67,92 @@ BENCH_GCDA  := $(BENCH_BAC:%.b.a.c=%.b.a.gcda)
 BENCH_PERF  := $(BENCH_RUNNER:%=%.perf)
 BENCH_TRACE := $(BENCH_RUNNER:%=%.trace)
 
+CFLAGS += -fcallgraph-info=su
+CFLAGS += -g3
+CFLAGS += -I.
+CFLAGS += -std=c99 -Wall -Wextra -pedantic
+CFLAGS += -ftrack-macro-expansion=0
 ifdef DEBUG
-override CFLAGS += -O0
+CFLAGS += -O0
 else
-override CFLAGS += -Os
+CFLAGS += -Os
 endif
 ifdef TRACE
-override CFLAGS += -DLFS_YES_TRACE
+CFLAGS += -DLFS_YES_TRACE
 endif
-override CFLAGS += -g3
-override CFLAGS += -I.
-override CFLAGS += -std=c99 -Wall -Wextra -pedantic
-override CFLAGS += -ftrack-macro-expansion=0
 ifdef YES_COV
-override CFLAGS += --coverage
+CFLAGS += --coverage
 endif
 ifdef YES_PERF
-override CFLAGS += -fno-omit-frame-pointer
+CFLAGS += -fno-omit-frame-pointer
 endif
 ifdef YES_PERFBD
-override CFLAGS += -fno-omit-frame-pointer
+CFLAGS += -fno-omit-frame-pointer
 endif
 
 ifdef VERBOSE
-override CODEFLAGS   += -v
-override DATAFLAGS   += -v
-override STACKFLAGS  += -v
-override STRUCTFLAGS += -v
-override COVFLAGS    += -v
-override PERFFLAGS   += -v
-override PERFBDFLAGS += -v
+CODEFLAGS   += -v
+DATAFLAGS   += -v
+STACKFLAGS  += -v
+STRUCTFLAGS += -v
+COVFLAGS    += -v
+PERFFLAGS   += -v
+PERFBDFLAGS += -v
 endif
 # forward -j flag
-override PERFFLAGS   += $(filter -j%,$(MAKEFLAGS))
-override PERFBDFLAGS += $(filter -j%,$(MAKEFLAGS))
+PERFFLAGS   += $(filter -j%,$(MAKEFLAGS))
+PERFBDFLAGS += $(filter -j%,$(MAKEFLAGS))
 ifneq ($(NM),nm)
-override CODEFLAGS += --nm-path="$(NM)"
-override DATAFLAGS += --nm-path="$(NM)"
+CODEFLAGS += --nm-path="$(NM)"
+DATAFLAGS += --nm-path="$(NM)"
 endif
 ifneq ($(OBJDUMP),objdump)
-override CODEFLAGS   += --objdump-path="$(OBJDUMP)"
-override DATAFLAGS   += --objdump-path="$(OBJDUMP)"
-override STRUCTFLAGS += --objdump-path="$(OBJDUMP)"
-override PERFFLAGS   += --objdump-path="$(OBJDUMP)"
-override PERFBDFLAGS += --objdump-path="$(OBJDUMP)"
+CODEFLAGS   += --objdump-path="$(OBJDUMP)"
+DATAFLAGS   += --objdump-path="$(OBJDUMP)"
+STRUCTFLAGS += --objdump-path="$(OBJDUMP)"
+PERFFLAGS   += --objdump-path="$(OBJDUMP)"
+PERFBDFLAGS += --objdump-path="$(OBJDUMP)"
 endif
 ifneq ($(PERF),perf)
-override PERFFLAGS += --perf-path="$(PERF)"
+PERFFLAGS += --perf-path="$(PERF)"
 endif
 
-override TESTFLAGS  += -b
-override BENCHFLAGS += -b
+TESTFLAGS  += -b
+BENCHFLAGS += -b
 # forward -j flag
-override TESTFLAGS  += $(filter -j%,$(MAKEFLAGS))
-override BENCHFLAGS += $(filter -j%,$(MAKEFLAGS))
+TESTFLAGS  += $(filter -j%,$(MAKEFLAGS))
+BENCHFLAGS += $(filter -j%,$(MAKEFLAGS))
 ifdef YES_PERF
-override TESTFLAGS  += -p$(TEST_PERF)
-override BENCHFLAGS += -p$(BENCH_PERF)
+TESTFLAGS  += -p$(TEST_PERF)
+BENCHFLAGS += -p$(BENCH_PERF)
 endif
 ifdef YES_PERFBD
-override TESTFLAGS += -t$(TEST_TRACE) --trace-backtrace --trace-freq=100
+TESTFLAGS += -t$(TEST_TRACE) --trace-backtrace --trace-freq=100
 endif
 ifndef NO_PERFBD
-override BENCHFLAGS += -t$(BENCH_TRACE) --trace-backtrace --trace-freq=100
+BENCHFLAGS += -t$(BENCH_TRACE) --trace-backtrace --trace-freq=100
 endif
 ifdef VERBOSE
-override TESTFLAGS   += -v
-override TESTCFLAGS  += -v
-override BENCHFLAGS  += -v
-override BENCHCFLAGS += -v
+TESTFLAGS   += -v
+TESTCFLAGS  += -v
+BENCHFLAGS  += -v
+BENCHCFLAGS += -v
 endif
 ifdef EXEC
-override TESTFLAGS  += --exec="$(EXEC)"
-override BENCHFLAGS += --exec="$(EXEC)"
+TESTFLAGS  += --exec="$(EXEC)"
+BENCHFLAGS += --exec="$(EXEC)"
 endif
 ifneq ($(GDB),gdb)
-override TESTFLAGS  += --gdb-path="$(GDB)"
-override BENCHFLAGS += --gdb-path="$(GDB)"
+TESTFLAGS  += --gdb-path="$(GDB)"
+BENCHFLAGS += --gdb-path="$(GDB)"
 endif
 ifneq ($(VALGRIND),valgrind)
-override TESTFLAGS  += --valgrind-path="$(VALGRIND)"
-override BENCHFLAGS += --valgrind-path="$(VALGRIND)"
+TESTFLAGS  += --valgrind-path="$(VALGRIND)"
+BENCHFLAGS += --valgrind-path="$(VALGRIND)"
 endif
 ifneq ($(PERF),perf)
-override TESTFLAGS  += --perf-path="$(PERF)"
-override BENCHFLAGS += --perf-path="$(PERF)"
+TESTFLAGS  += --perf-path="$(PERF)"
+BENCHFLAGS += --perf-path="$(PERF)"
 endif
 
 
@@ -189,13 +190,13 @@ help:
 ## Build the test-runner
 .PHONY: test-runner build-test
 ifndef NO_COV
-test-runner build-test: override CFLAGS+=--coverage
+test-runner build-test: CFLAGS+=--coverage
 endif
 ifdef YES_PERF
-test-runner build-test: override CFLAGS+=-fno-omit-frame-pointer
+test-runner build-test: CFLAGS+=-fno-omit-frame-pointer
 endif
 ifdef YES_PERFBD
-test-runner build-test: override CFLAGS+=-fno-omit-frame-pointer
+test-runner build-test: CFLAGS+=-fno-omit-frame-pointer
 endif
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
@@ -223,13 +224,13 @@ test-list: test-runner
 ## Build the bench-runner
 .PHONY: bench-runner build-bench
 ifdef YES_COV
-bench-runner build-bench: override CFLAGS+=--coverage
+bench-runner build-bench: CFLAGS+=--coverage
 endif
 ifdef YES_PERF
-bench-runner build-bench: override CFLAGS+=-fno-omit-frame-pointer
+bench-runner build-bench: CFLAGS+=-fno-omit-frame-pointer
 endif
 ifndef NO_PERFBD
-bench-runner build-bench: override CFLAGS+=-fno-omit-frame-pointer
+bench-runner build-bench: CFLAGS+=-fno-omit-frame-pointer
 endif
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
@@ -361,7 +362,7 @@ $(BUILDDIR)/runners/bench_runner: $(BENCH_OBJ)
 # our main build rule generates .o, .d, and .ci files, the latter
 # used for stack analysis
 $(BUILDDIR)/%.o $(BUILDDIR)/%.ci: %.c
-	$(CC) -c -MMD -fcallgraph-info=su $(CFLAGS) $< -o $(BUILDDIR)/$*.o
+	$(CC) -c -MMD $(CFLAGS) $< -o $(BUILDDIR)/$*.o
 
 $(BUILDDIR)/%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@

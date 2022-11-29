@@ -9,6 +9,7 @@ env:
   CFLAGS: -Werror
   MAKEFLAGS: -j
   TESTFLAGS: -k
+  BENCHFLAGS:
 
 jobs:
   # run tests
@@ -78,12 +79,13 @@ jobs:
         run: |
           make clean
           sed -n '/``` c/,/```/{/```/d; p}' README.md > test.c
-          make all CFLAGS+=" \
+          CFLAGS="$CFLAGS \
             -Duser_provided_block_device_read=NULL \
             -Duser_provided_block_device_prog=NULL \
             -Duser_provided_block_device_erase=NULL \
             -Duser_provided_block_device_sync=NULL \
-            -include stdio.h"
+            -include stdio.h" \
+            make all
           rm test.c
 
       # run the tests!
@@ -91,7 +93,7 @@ jobs:
         run: |
           make clean
           # TODO include this by default?
-          make test TESTFLAGS+='-Pnone,linear'
+          TESTFLAGS="$TESTFLAGS -Pnone,linear" make test
 
       # collect coverage info
       #
@@ -110,12 +112,12 @@ jobs:
       - name: sizes
         run: |
           make clean
-          make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv \
-            CFLAGS+=" \
-              -DLFS_NO_ASSERT \
-              -DLFS_NO_DEBUG \
-              -DLFS_NO_WARN \
-              -DLFS_NO_ERROR"
+          CFLAGS="$CFLAGS \
+            -DLFS_NO_ASSERT \
+            -DLFS_NO_DEBUG \
+            -DLFS_NO_WARN \
+            -DLFS_NO_ERROR" \
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv
           ./scripts/summary.py lfs.struct.csv \
             -bstruct \
             -fsize=struct_size
@@ -133,13 +135,13 @@ jobs:
       - name: sizes-readonly
         run: |
           make clean
-          make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv \
-            CFLAGS+=" \
-              -DLFS_NO_ASSERT \
-              -DLFS_NO_DEBUG \
-              -DLFS_NO_WARN \
-              -DLFS_NO_ERROR \
-              -DLFS_READONLY"
+          CFLAGS="$CFLAGS \
+            -DLFS_NO_ASSERT \
+            -DLFS_NO_DEBUG \
+            -DLFS_NO_WARN \
+            -DLFS_NO_ERROR \
+            -DLFS_READONLY" \
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv
           ./scripts/summary.py lfs.struct.csv \
             -bstruct \
             -fsize=struct_size
@@ -157,13 +159,13 @@ jobs:
       - name: sizes-threadsafe
         run: |
           make clean
-          make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv \
-            CFLAGS+=" \
-              -DLFS_NO_ASSERT \
-              -DLFS_NO_DEBUG \
-              -DLFS_NO_WARN \
-              -DLFS_NO_ERROR \
-              -DLFS_THREADSAFE"
+          CFLAGS="$CFLAGS \
+            -DLFS_NO_ASSERT \
+            -DLFS_NO_DEBUG \
+            -DLFS_NO_WARN \
+            -DLFS_NO_ERROR \
+            -DLFS_THREADSAFE" \
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv
           ./scripts/summary.py lfs.struct.csv \
             -bstruct \
             -fsize=struct_size
@@ -181,13 +183,13 @@ jobs:
       - name: sizes-migrate
         run: |
           make clean
-          make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv \
-            CFLAGS+=" \
-              -DLFS_NO_ASSERT \
-              -DLFS_NO_DEBUG \
-              -DLFS_NO_WARN \
-              -DLFS_NO_ERROR \
-              -DLFS_MIGRATE"
+          CFLAGS="$CFLAGS \
+            -DLFS_NO_ASSERT \
+            -DLFS_NO_DEBUG \
+            -DLFS_NO_WARN \
+            -DLFS_NO_ERROR \
+            -DLFS_MIGRATE" \
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv
           ./scripts/summary.py lfs.struct.csv \
             -bstruct \
             -fsize=struct_size
@@ -205,12 +207,12 @@ jobs:
       - name: sizes-error-asserts
         run: |
           make clean
-          make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv \
-            CFLAGS+=" \
-              -DLFS_NO_DEBUG \
-              -DLFS_NO_WARN \
-              -DLFS_NO_ERROR \
-              -D'LFS_ASSERT(test)=do {if(!(test)) {return -1;}} while(0)'"
+          CFLAGS="$CFLAGS \
+            -DLFS_NO_DEBUG \
+            -DLFS_NO_WARN \
+            -DLFS_NO_ERROR \
+            -D'LFS_ASSERT(test)=do {if(!(test)) {return -1;}} while(0)'" \
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv
           ./scripts/summary.py lfs.struct.csv \
             -bstruct \
             -fsize=struct_size
@@ -341,13 +343,14 @@ jobs:
       - name: test-pls
         if: ${{matrix.pls <= 1}}
         run: |
-          make test TESTFLAGS+="-P${{matrix.pls}}"
+          TESTFLAGS="$TESTFLAGS -P${{matrix.pls}}" make test
       # >=2pls takes multiple days to run fully, so we can only
       # run a subset of tests, these are the most important
       - name: test-limited-pls
         if: ${{matrix.pls > 1}}
         run: |
-          make test TESTFLAGS+="-P${{matrix.pls}} test_dirs test_relocations"
+          TESTFLAGS="$TESTFLAGS -P${{matrix.pls}} test_dirs test_relocations" \
+            make test
 
   # run with LFS_NO_INTRINSICS to make sure that works
   test-no-intrinsics:
@@ -364,7 +367,7 @@ jobs:
           python3 --version
       - name: test-no-intrinsics
         run: |
-          make test CFLAGS+="-DLFS_NO_INTRINSICS"
+          CFLAGS="$CFLAGS -DLFS_NO_INTRINSICS" make test
 
   # run under Valgrind to check for memory errors
   test-valgrind:
@@ -384,7 +387,29 @@ jobs:
       # on one geometry
       - name: test-valgrind
         run: |
-          make test TESTFLAGS+="-Gdefault --valgrind"
+          TESTFLAGS="$TESTFLAGS -Gdefault --valgrind" make test
+
+  # test that compilation is warning free under clang
+  # run with Clang, mostly to check for Clang-specific warnings
+  test-clang:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          # need a few things
+          sudo apt-get install -qq clang python3 python3-pip
+          pip3 install toml
+          clang --version
+          python3 --version
+      - name: test-clang
+        run: |
+          # override CFLAGS since Clang does not support -fcallgraph-info
+          # and -ftrack-macro-expansions
+          make \
+            CC=clang \
+            CFLAGS="$CFLAGS -MMD -g3 -I. -std=c99 -Wall -Wextra -pedantic" \
+            test
 
   # run benchmarks
   #
@@ -404,7 +429,7 @@ jobs:
           valgrind --version
       - name: bench
         run: |
-          make bench BENCHFLAGS+="-o lfs.bench.csv"
+          BENCHFLAGS="$BENCHFLAGS -o lfs.bench.csv" make bench
 
           # find bench results
           ./scripts/summary.py lfs.bench.csv \
@@ -462,27 +487,6 @@ jobs:
           name: status
           path: status
           retention-days: 1
-
-  # test that compilation is warning free under clang
-  clang:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-      - name: install
-        run: |
-          # need toml, also pip3 isn't installed by default?
-          sudo apt-get update -qq
-          sudo apt-get install -qq python3 python3-pip
-          sudo pip3 install toml
-      - name: install-clang
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -qq clang
-          echo "CC=clang" >> $GITHUB_ENV
-          clang --version
-      # no reason to not test again
-      - name: test-clang
-        run: make test TESTFLAGS+="-k"
 
   # self-host with littlefs-fuse for a fuzz-like test
   fuse:
