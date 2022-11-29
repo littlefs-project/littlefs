@@ -414,9 +414,10 @@ jobs:
           valgrind --version
       - name: bench
         run: |
-          BENCHFLAGS="$BENCHFLAGS -o lfs.bench.csv" make bench
+          make bench
 
           # find bench results
+          make lfs.bench.csv
           ./scripts/summary.py lfs.bench.csv \
             -bsuite \
             -freaded=bench_readed \

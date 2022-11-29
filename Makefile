@@ -50,6 +50,7 @@ TEST_GCNO  := $(TEST_TAC:%.t.a.c=%.t.a.gcno)
 TEST_GCDA  := $(TEST_TAC:%.t.a.c=%.t.a.gcda)
 TEST_PERF  := $(TEST_RUNNER:%=%.perf)
 TEST_TRACE := $(TEST_RUNNER:%=%.trace)
+TEST_CSV   := $(TEST_RUNNER:%=%.csv)
 
 BENCHES ?= $(wildcard benches/*.toml)
 BENCH_SRC ?= $(SRC) \
@@ -66,6 +67,7 @@ BENCH_GCNO  := $(BENCH_BAC:%.b.a.c=%.b.a.gcno)
 BENCH_GCDA  := $(BENCH_BAC:%.b.a.c=%.b.a.gcda)
 BENCH_PERF  := $(BENCH_RUNNER:%=%.perf)
 BENCH_TRACE := $(BENCH_RUNNER:%=%.trace)
+BENCH_CSV   := $(BENCH_RUNNER:%=%.csv)
 
 CFLAGS += -fcallgraph-info=su
 CFLAGS += -g3
@@ -131,6 +133,12 @@ TESTFLAGS += -t $(TEST_TRACE) --trace-backtrace --trace-freq=100
 endif
 ifndef NO_PERFBD
 BENCHFLAGS += -t $(BENCH_TRACE) --trace-backtrace --trace-freq=100
+endif
+ifdef YES_TESTMARKS
+TESTFLAGS += -o $(TEST_CSV)
+endif
+ifndef NO_BENCHMARKS
+BENCHFLAGS += -o $(BENCH_CSV)
 endif
 ifdef VERBOSE
 TESTFLAGS   += -v
@@ -376,6 +384,23 @@ test: test-runner
 test-list: test-runner
 	./scripts/test.py $(TEST_RUNNER) $(TESTFLAGS) -l
 
+## Summarize the testmarks
+.PHONY: testmarks
+testmarks: SUMMARYFLAGS+=-spassed
+testmarks: $(TEST_CSV) $(BUILDDIR)/lfs.test.csv
+	$(strip ./scripts/summary.py $(TEST_CSV) \
+		-bsuite \
+		-fpassed=test_passed \
+		$(SUMMARYFLAGS))
+
+## Compare testmarks against a previous run
+.PHONY: testmarks-diff
+testmarks-diff: $(TEST_CSV)
+	$(strip ./scripts/summary.py $^ \
+		-bsuite \
+		-fpassed=test_passed \
+		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs.test.csv)
+
 ## Build the bench-runner
 .PHONY: bench-runner build-bench
 ifdef YES_COV
@@ -409,6 +434,28 @@ bench: bench-runner
 .PHONY: bench-list
 bench-list: bench-runner
 	./scripts/bench.py $(BENCH_RUNNER) $(BENCHFLAGS) -l
+
+## Summarize the benchmarks
+.PHONY: benchmarks
+benchmarks: SUMMARYFLAGS+=-Serased -Sproged -Sreaded
+benchmarks: $(BENCH_CSV) $(BUILDDIR)/lfs.bench.csv
+	$(strip ./scripts/summary.py $(BENCH_CSV) \
+		-bsuite \
+		-freaded=bench_readed \
+		-fproged=bench_proged \
+		-ferased=bench_erased \
+		$(SUMMARYFLAGS))
+
+## Compare benchmarks against a previous run
+.PHONY: benchmarks-diff
+benchmarks-diff: $(BENCH_CSV)
+	$(strip ./scripts/summary.py $^ \
+		-bsuite \
+		-freaded=bench_readed \
+		-fproged=bench_proged \
+		-ferased=bench_erased \
+		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs.bench.csv)
+
 
 
 # rules
@@ -450,6 +497,12 @@ $(BUILDDIR)/lfs.perfbd.csv: $(BENCH_TRACE)
 		$(patsubst %,-F%,$(SRC)) \
 		-q $(PERFBDFLAGS) -o $@)
 
+$(BUILDDIR)/lfs.test.csv: $(TEST_CSV)
+	cp $^ $@
+
+$(BUILDDIR)/lfs.bench.csv: $(BENCH_CSV)
+	cp $^ $@
+
 $(BUILDDIR)/runners/test_runner: $(TEST_OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
 
@@ -487,14 +540,15 @@ $(BUILDDIR)/%.b.c: %.c $(BENCHES)
 clean:
 	rm -f $(BUILDDIR)/lfs
 	rm -f $(BUILDDIR)/liblfs.a
-	$(strip rm -f \
-		$(BUILDDIR)/lfs.code.csv \
-		$(BUILDDIR)/lfs.data.csv \
-		$(BUILDDIR)/lfs.stack.csv \
-		$(BUILDDIR)/lfs.structs.csv \
-		$(BUILDDIR)/lfs.cov.csv \
-		$(BUILDDIR)/lfs.perf.csv \
-		$(BUILDDIR)/lfs.perfbd.csv)
+	rm -f $(BUILDDIR)/lfs.code.csv
+	rm -f $(BUILDDIR)/lfs.data.csv
+	rm -f $(BUILDDIR)/lfs.stack.csv
+	rm -f $(BUILDDIR)/lfs.structs.csv
+	rm -f $(BUILDDIR)/lfs.cov.csv
+	rm -f $(BUILDDIR)/lfs.perf.csv
+	rm -f $(BUILDDIR)/lfs.perfbd.csv
+	rm -f $(BUILDDIR)/lfs.test.csv
+	rm -f $(BUILDDIR)/lfs.bench.csv
 	rm -f $(OBJ)
 	rm -f $(DEP)
 	rm -f $(ASM)
@@ -509,6 +563,7 @@ clean:
 	rm -f $(TEST_GCDA)
 	rm -f $(TEST_PERF)
 	rm -f $(TEST_TRACE)
+	rm -f $(TEST_CSV)
 	rm -f $(BENCH_RUNNER)
 	rm -f $(BENCH_BC)
 	rm -f $(BENCH_BAC)
@@ -519,3 +574,4 @@ clean:
 	rm -f $(BENCH_GCDA)
 	rm -f $(BENCH_PERF)
 	rm -f $(BENCH_TRACE)
+	rm -f $(BENCH_CSV)
