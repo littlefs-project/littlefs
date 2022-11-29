@@ -122,6 +122,7 @@ class PerfResult(co.namedtuple('PerfResult', [
         'children'])):
     _by = ['file', 'function', 'line']
     _fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
+    _sort = ['cycles', 'bmisses', 'cmisses', 'branches', 'caches']
     _types = {
         'cycles': Int,
         'bmisses': Int, 'branches': Int,
@@ -712,9 +713,14 @@ def table(Result, results, diff_results=None, *,
             reverse=True)
     if sort:
         for k, reverse in reversed(sort):
-            names.sort(key=lambda n: (getattr(table[n], k),)
-                if getattr(table.get(n), k, None) is not None else (),
+            names.sort(
+                key=lambda n: tuple(
+                    (getattr(table[n], k),)
+                    if getattr(table.get(n), k, None) is not None else ()
+                    for k in ([k] if k else [
+                        k for k in Result._sort if k in fields])),
                 reverse=reverse ^ (not k or k in Result._fields))
+
 
     # build up our lines
     lines = []
@@ -853,8 +859,13 @@ def table(Result, results, diff_results=None, *,
             names_.sort()
             if sort:
                 for k, reverse in reversed(sort):
-                    names_.sort(key=lambda n: (getattr(table_[n], k),)
-                        if getattr(table_.get(n), k, None) is not None else (),
+                    names_.sort(
+                        key=lambda n: tuple(
+                            (getattr(table_[n], k),)
+                            if getattr(table_.get(n), k, None) is not None
+                            else ()
+                            for k in ([k] if k else [
+                                k for k in Result._sort if k in fields])),
                         reverse=reverse ^ (not k or k in Result._fields))
 
             for i, name in enumerate(names_):
@@ -1051,8 +1062,10 @@ def report(perf_paths, *,
     results.sort()
     if sort:
         for k, reverse in reversed(sort):
-            results.sort(key=lambda r: (getattr(r, k),)
-                if getattr(r, k) is not None else (),
+            results.sort(
+                key=lambda r: tuple(
+                    (getattr(r, k),) if getattr(r, k) is not None else ()
+                    for k in ([k] if k else PerfResult._sort)),
                 reverse=reverse ^ (not k or k in PerfResult._fields))
 
     # write results to CSV
@@ -1060,14 +1073,15 @@ def report(perf_paths, *,
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
                 (by if by is not None else PerfResult._by)
-                + ['perf_'+k for k in PerfResult._fields])
+                + ['perf_'+k for k in (
+                    fields if fields is not None else PerfResult._fields)])
             writer.writeheader()
             for r in results:
                 writer.writerow(
-                    {k: getattr(r, k)
-                        for k in (by if by is not None else PerfResult._by)}
-                    | {'perf_'+k: getattr(r, k)
-                        for k in PerfResult._fields})
+                    {k: getattr(r, k) for k in (
+                        by if by is not None else PerfResult._by)}
+                    | {'perf_'+k: getattr(r, k) for k in (
+                        fields if fields is not None else PerfResult._fields)})
 
     # find previous results?
     if args.get('diff'):
@@ -1192,12 +1206,14 @@ if __name__ == "__main__":
             namespace.sort.append((value, True if option == '-S' else False))
     parser.add_argument(
         '-s', '--sort',
+        nargs='?',
         action=AppendSort,
-        help="Sort by this fields.")
+        help="Sort by this field.")
     parser.add_argument(
         '-S', '--reverse-sort',
+        nargs='?',
         action=AppendSort,
-        help="Sort by this fields, but backwards.")
+        help="Sort by this field, but backwards.")
     parser.add_argument(
         '-Y', '--summary',
         action='store_true',

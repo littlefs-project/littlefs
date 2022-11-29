@@ -117,21 +117,18 @@ jobs:
             -DLFS_NO_DEBUG \
             -DLFS_NO_WARN \
             -DLFS_NO_ERROR" \
-            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv
-          ./scripts/summary.py lfs.struct.csv \
-            -bstruct \
-            -fsize=struct_size
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.structs.csv
+          ./scripts/structs.py -u lfs.structs.csv
           ./scripts/summary.py lfs.code.csv lfs.data.csv lfs.stack.csv \
             -bfunction \
             -fcode=code_size \
             -fdata=data_size \
-            -fstack=stack_limit \
-            --max=stack_limit
+            -fstack=stack_limit --max=stack_limit
           mkdir -p sizes
           cp lfs.code.csv sizes/${{matrix.arch}}.code.csv
           cp lfs.data.csv sizes/${{matrix.arch}}.data.csv
           cp lfs.stack.csv sizes/${{matrix.arch}}.stack.csv
-          cp lfs.struct.csv sizes/${{matrix.arch}}.struct.csv
+          cp lfs.structs.csv sizes/${{matrix.arch}}.structs.csv
       - name: sizes-readonly
         run: |
           make clean
@@ -141,21 +138,18 @@ jobs:
             -DLFS_NO_WARN \
             -DLFS_NO_ERROR \
             -DLFS_READONLY" \
-            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv
-          ./scripts/summary.py lfs.struct.csv \
-            -bstruct \
-            -fsize=struct_size
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.structs.csv
+          ./scripts/structs.py -u lfs.structs.csv
           ./scripts/summary.py lfs.code.csv lfs.data.csv lfs.stack.csv \
             -bfunction \
             -fcode=code_size \
             -fdata=data_size \
-            -fstack=stack_limit \
-            --max=stack_limit
+            -fstack=stack_limit --max=stack_limit
           mkdir -p sizes
           cp lfs.code.csv sizes/${{matrix.arch}}-readonly.code.csv
           cp lfs.data.csv sizes/${{matrix.arch}}-readonly.data.csv
           cp lfs.stack.csv sizes/${{matrix.arch}}-readonly.stack.csv
-          cp lfs.struct.csv sizes/${{matrix.arch}}-readonly.struct.csv
+          cp lfs.structs.csv sizes/${{matrix.arch}}-readonly.structs.csv
       - name: sizes-threadsafe
         run: |
           make clean
@@ -165,21 +159,18 @@ jobs:
             -DLFS_NO_WARN \
             -DLFS_NO_ERROR \
             -DLFS_THREADSAFE" \
-            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv
-          ./scripts/summary.py lfs.struct.csv \
-            -bstruct \
-            -fsize=struct_size
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.structs.csv
+          ./scripts/structs.py -u lfs.structs.csv
           ./scripts/summary.py lfs.code.csv lfs.data.csv lfs.stack.csv \
             -bfunction \
             -fcode=code_size \
             -fdata=data_size \
-            -fstack=stack_limit \
-            --max=stack_limit
+            -fstack=stack_limit --max=stack_limit
           mkdir -p sizes
           cp lfs.code.csv sizes/${{matrix.arch}}-threadsafe.code.csv
           cp lfs.data.csv sizes/${{matrix.arch}}-threadsafe.data.csv
           cp lfs.stack.csv sizes/${{matrix.arch}}-threadsafe.stack.csv
-          cp lfs.struct.csv sizes/${{matrix.arch}}-threadsafe.struct.csv
+          cp lfs.structs.csv sizes/${{matrix.arch}}-threadsafe.structs.csv
       - name: sizes-migrate
         run: |
           make clean
@@ -189,21 +180,18 @@ jobs:
             -DLFS_NO_WARN \
             -DLFS_NO_ERROR \
             -DLFS_MIGRATE" \
-            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv
-          ./scripts/summary.py lfs.struct.csv \
-            -bstruct \
-            -fsize=struct_size
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.structs.csv
+          ./scripts/structs.py -u lfs.structs.csv
           ./scripts/summary.py lfs.code.csv lfs.data.csv lfs.stack.csv \
             -bfunction \
             -fcode=code_size \
             -fdata=data_size \
-            -fstack=stack_limit \
-            --max=stack_limit
+            -fstack=stack_limit --max=stack_limit
           mkdir -p sizes
           cp lfs.code.csv sizes/${{matrix.arch}}-migrate.code.csv
           cp lfs.data.csv sizes/${{matrix.arch}}-migrate.data.csv
           cp lfs.stack.csv sizes/${{matrix.arch}}-migrate.stack.csv
-          cp lfs.struct.csv sizes/${{matrix.arch}}-migrate.struct.csv
+          cp lfs.structs.csv sizes/${{matrix.arch}}-migrate.structs.csv
       - name: sizes-error-asserts
         run: |
           make clean
@@ -212,21 +200,18 @@ jobs:
             -DLFS_NO_WARN \
             -DLFS_NO_ERROR \
             -D'LFS_ASSERT(test)=do {if(!(test)) {return -1;}} while(0)'" \
-            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.struct.csv
-          ./scripts/summary.py lfs.struct.csv \
-            -bstruct \
-            -fsize=struct_size
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.structs.csv
+          ./scripts/structs.py -u lfs.structs.csv
           ./scripts/summary.py lfs.code.csv lfs.data.csv lfs.stack.csv \
             -bfunction \
             -fcode=code_size \
             -fdata=data_size \
-            -fstack=stack_limit \
-            --max=stack_limit
+            -fstack=stack_limit --max=stack_limit
           mkdir -p sizes
           cp lfs.code.csv sizes/${{matrix.arch}}-error-asserts.code.csv
           cp lfs.data.csv sizes/${{matrix.arch}}-error-asserts.data.csv
           cp lfs.stack.csv sizes/${{matrix.arch}}-error-asserts.stack.csv
-          cp lfs.struct.csv sizes/${{matrix.arch}}-error-asserts.struct.csv
+          cp lfs.structs.csv sizes/${{matrix.arch}}-error-asserts.structs.csv
 
       # create size statuses
       - name: upload-sizes
@@ -671,7 +656,7 @@ jobs:
             table[$i,$j]=$c_camel
             ((j+=1))
 
-            for s in code stack struct
+            for s in code stack structs
             do
               f=sizes/thumb${c:+-$c}.$s.csv
               [ -e $f ] && table[$i,$j]=$( \

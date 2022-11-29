@@ -91,13 +91,13 @@ CFLAGS += -fno-omit-frame-pointer
 endif
 
 ifdef VERBOSE
-CODEFLAGS   += -v
-DATAFLAGS   += -v
-STACKFLAGS  += -v
-STRUCTFLAGS += -v
-COVFLAGS    += -v
-PERFFLAGS   += -v
-PERFBDFLAGS += -v
+CODEFLAGS    += -v
+DATAFLAGS    += -v
+STACKFLAGS   += -v
+STRUCTSFLAGS += -v
+COVFLAGS     += -v
+PERFFLAGS    += -v
+PERFBDFLAGS  += -v
 endif
 # forward -j flag
 PERFFLAGS   += $(filter -j%,$(MAKEFLAGS))
@@ -107,11 +107,11 @@ CODEFLAGS += --nm-path="$(NM)"
 DATAFLAGS += --nm-path="$(NM)"
 endif
 ifneq ($(OBJDUMP),objdump)
-CODEFLAGS   += --objdump-path="$(OBJDUMP)"
-DATAFLAGS   += --objdump-path="$(OBJDUMP)"
-STRUCTFLAGS += --objdump-path="$(OBJDUMP)"
-PERFFLAGS   += --objdump-path="$(OBJDUMP)"
-PERFBDFLAGS += --objdump-path="$(OBJDUMP)"
+CODEFLAGS    += --objdump-path="$(OBJDUMP)"
+DATAFLAGS    += --objdump-path="$(OBJDUMP)"
+STRUCTSFLAGS += --objdump-path="$(OBJDUMP)"
+PERFFLAGS    += --objdump-path="$(OBJDUMP)"
+PERFBDFLAGS  += --objdump-path="$(OBJDUMP)"
 endif
 ifneq ($(PERF),perf)
 PERFFLAGS += --perf-path="$(PERF)"
@@ -123,14 +123,14 @@ BENCHFLAGS += -b
 TESTFLAGS  += $(filter -j%,$(MAKEFLAGS))
 BENCHFLAGS += $(filter -j%,$(MAKEFLAGS))
 ifdef YES_PERF
-TESTFLAGS  += -p$(TEST_PERF)
-BENCHFLAGS += -p$(BENCH_PERF)
+TESTFLAGS  += -p $(TEST_PERF)
+BENCHFLAGS += -p $(BENCH_PERF)
 endif
 ifdef YES_PERFBD
-TESTFLAGS += -t$(TEST_TRACE) --trace-backtrace --trace-freq=100
+TESTFLAGS += -t $(TEST_TRACE) --trace-backtrace --trace-freq=100
 endif
 ifndef NO_PERFBD
-BENCHFLAGS += -t$(BENCH_TRACE) --trace-backtrace --trace-freq=100
+BENCHFLAGS += -t $(BENCH_TRACE) --trace-backtrace --trace-freq=100
 endif
 ifdef VERBOSE
 TESTFLAGS   += -v
@@ -186,6 +186,161 @@ help:
 			gsub(/:.*/, "", rule); \
 			printf " "" %-25s %s\n", rule, $$0 \
 		}' $(MAKEFILE_LIST))
+
+## Find the per-function code size
+.PHONY: code
+code: CODEFLAGS+=-S
+code: $(OBJ) $(BUILDDIR)/lfs.code.csv
+	./scripts/code.py $(OBJ) $(CODEFLAGS)
+
+## Compare per-function code size
+.PHONY: code-diff
+code-diff: $(OBJ)
+	./scripts/code.py $^ $(CODEFLAGS) -d $(BUILDDIR)/lfs.code.csv
+
+## Find the per-function data size
+.PHONY: data
+data: DATAFLAGS+=-S
+data: $(OBJ) $(BUILDDIR)/lfs.data.csv
+	./scripts/data.py $(OBJ) $(DATAFLAGS)
+
+## Compare per-function data size
+.PHONY: data-diff
+data-diff: $(OBJ)
+	./scripts/data.py $^ $(DATAFLAGS) -d $(BUILDDIR)/lfs.data.csv
+
+## Find the per-function stack usage
+.PHONY: stack
+stack: STACKFLAGS+=-S
+stack: $(CI) $(BUILDDIR)/lfs.stack.csv
+	./scripts/stack.py $(CI) $(STACKFLAGS)
+
+## Compare per-function stack usage
+.PHONY: stack-diff
+stack-diff: $(CI)
+	./scripts/stack.py $^ $(STACKFLAGS) -d $(BUILDDIR)/lfs.stack.csv
+
+## Find function sizes
+.PHONY: funcs
+funcs: SUMMARYFLAGS+=-S
+funcs: \
+		$(BUILDDIR)/lfs.code.csv \
+		$(BUILDDIR)/lfs.data.csv \
+		$(BUILDDIR)/lfs.stack.csv
+	$(strip ./scripts/summary.py $^ \
+		-bfunction \
+		-fcode=code_size \
+		-fdata=data_size \
+		-fstack=stack_limit --max=stack \
+		$(SUMMARYFLAGS))
+
+## Compare function sizes
+.PHONY: funcs-diff
+funcs-diff: SHELL=/bin/bash
+funcs-diff: $(OBJ) $(CI)
+	$(strip ./scripts/summary.py \
+		<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
+		<(./scripts/data.py $(OBJ) -q $(DATAFLAGS) -o-) \
+		<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
+		-bfunction \
+		-fcode=code_size \
+		-fdata=data_size \
+		-fstack=stack_limit --max=stack \
+		$(SUMMARYFLAGS) -d <(./scripts/summary.py \
+			$(BUILDDIR)/lfs.code.csv \
+			$(BUILDDIR)/lfs.data.csv \
+			$(BUILDDIR)/lfs.stack.csv \
+			-q $(SUMMARYFLAGS) -o-))
+
+## Find struct sizes
+.PHONY: structs
+structs: STRUCTSFLAGS+=-S
+structs: $(OBJ) $(BUILDDIR)/lfs.structs.csv
+	./scripts/structs.py $(OBJ) $(STRUCTSFLAGS)
+
+## Compare struct sizes
+.PHONY: structs-diff
+structs-diff: $(OBJ)
+	./scripts/structs.py $^ $(STRUCTSFLAGS) -d $(BUILDDIR)/lfs.structs.csv
+
+## Find the line/branch coverage after a test run
+.PHONY: cov
+cov: COVFLAGS+=-s
+cov: $(GCDA) $(BUILDDIR)/lfs.cov.csv
+	$(strip ./scripts/cov.py $(GCDA) \
+		$(patsubst %,-F%,$(SRC)) \
+		$(COVFLAGS))
+
+## Compare line/branch coverage
+.PHONY: cov-diff
+cov-diff: $(GCDA)
+	$(strip ./scripts/cov.py $^ \
+		$(patsubst %,-F%,$(SRC)) \
+		$(COVFLAGS) -d $(BUILDDIR)/lfs.cov.csv)
+
+## Find the perf results after bench run with YES_PERF
+.PHONY: perf
+perf: PERFFLAGS+=-S
+perf: $(BENCH_PERF) $(BUILDDIR)/lfs.perf.csv
+	$(strip ./scripts/perf.py $(BENCH_PERF) \
+		$(patsubst %,-F%,$(SRC)) \
+		$(PERFFLAGS))
+
+## Compare perf results
+.PHONY: perf-diff
+perf-diff: $(BENCH_PERF)
+	$(strip ./scripts/perf.py $^ \
+		$(patsubst %,-F%,$(SRC)) \
+		$(PERFFLAGS) -d $(BUILDDIR)/lfs.perf.csv)
+
+## Find the perfbd results after a bench run
+.PHONY: perfbd
+perfbd: PERFBDFLAGS+=-S
+perfbd: $(BENCH_TRACE) $(BUILDDIR)/lfs.perfbd.csv
+	$(strip ./scripts/perfbd.py $(BENCH_RUNNER) $(BENCH_TRACE) \
+		$(patsubst %,-F%,$(SRC)) \
+		$(PERFBDFLAGS))
+
+## Compare perfbd results
+.PHONY: perfbd-diff
+perfbd-diff: $(BENCH_TRACE)
+	$(strip ./scripts/perfbd.py $(BENCH_RUNNER) $^ \
+		$(patsubst %,-F%,$(SRC)) \
+		$(PERFBDFLAGS) -d $(BUILDDIR)/lfs.perfbd.csv)
+
+## Find a summary of compile-time sizes
+.PHONY: summary sizes
+summary sizes: \
+		$(BUILDDIR)/lfs.code.csv \
+		$(BUILDDIR)/lfs.data.csv \
+		$(BUILDDIR)/lfs.stack.csv \
+		$(BUILDDIR)/lfs.structs.csv
+	$(strip ./scripts/summary.py $^ \
+		-fcode=code_size \
+		-fdata=data_size \
+		-fstack=stack_limit --max=stack \
+		-fstructs=struct_size \
+		-Y $(SUMMARYFLAGS))
+
+## Compare compile-time sizes
+.PHONY: summary-diff sizes-diff
+summary-diff sizes-diff: SHELL=/bin/bash
+summary-diff sizes-diff: $(OBJ) $(CI)
+	$(strip ./scripts/summary.py \
+		<(./scripts/code.py $(OBJ) -q $(CODEFLAGS) -o-) \
+		<(./scripts/data.py $(OBJ) -q $(DATAFLAGS) -o-) \
+		<(./scripts/stack.py $(CI) -q $(STACKFLAGS) -o-) \
+		<(./scripts/structs.py $(OBJ) -q $(STRUCTSFLAGS) -o-) \
+		-fcode=code_size \
+		-fdata=data_size \
+		-fstack=stack_limit --max=stack \
+		-fstructs=struct_size \
+		-Y $(SUMMARYFLAGS) -d <(./scripts/summary.py \
+			$(BUILDDIR)/lfs.code.csv \
+			$(BUILDDIR)/lfs.data.csv \
+			$(BUILDDIR)/lfs.stack.csv \
+			$(BUILDDIR)/lfs.structs.csv \
+			-q $(SUMMARYFLAGS) -o-))
 
 ## Build the test-runner
 .PHONY: test-runner build-test
@@ -255,61 +410,6 @@ bench: bench-runner
 bench-list: bench-runner
 	./scripts/bench.py $(BENCH_RUNNER) $(BENCHFLAGS) -l
 
-## Find the per-function code size
-.PHONY: code
-code: $(OBJ)
-	./scripts/code.py $^ -Ssize $(CODEFLAGS)
-
-## Find the per-function data size
-.PHONY: data
-data: $(OBJ)
-	./scripts/data.py $^ -Ssize $(DATAFLAGS)
-
-## Find the per-function stack usage
-.PHONY: stack
-stack: $(CI)
-	./scripts/stack.py $^ -Slimit -Sframe $(STACKFLAGS)
-
-## Find the struct sizes
-.PHONY: struct
-struct: $(OBJ)
-	./scripts/struct_.py $^ -Ssize $(STRUCTFLAGS)
-
-## Find the line/branch coverage after a test run
-.PHONY: cov
-cov: $(GCDA)
-	$(strip ./scripts/cov.py \
-		$^ $(patsubst %,-F%,$(SRC)) \
-		-slines -sbranches \
-		$(COVFLAGS))
-
-## Find the perf results after bench run with YES_PERF
-.PHONY: perf
-perf: $(BENCH_PERF)
-	$(strip ./scripts/perf.py \
-		$^ $(patsubst %,-F%,$(SRC)) \
-		-Scycles \
-		$(PERFFLAGS))
-
-## Find the perfbd results after a bench run
-.PHONY: perfbd
-perfbd: $(BENCH_TRACE)
-	$(strip ./scripts/perfbd.py \
-		$(BENCH_RUNNER) $^ $(patsubst %,-F%,$(SRC)) \
-		-Serased -Sproged -Sreaded \
-		$(PERFBDFLAGS))
-
-## Find a summary of compile-time sizes
-.PHONY: summary sizes
-summary sizes: $(BUILDDIR)/lfs.csv
-	$(strip ./scripts/summary.py -Y $^ \
-		-fcode=code_size \
-		-fdata=data_size \
-		-fstack=stack_limit \
-		-fstruct=struct_size \
-		--max=stack \
-		$(SUMMARYFLAGS))
-
 
 # rules
 -include $(DEP)
@@ -327,31 +427,28 @@ $(BUILDDIR)/lfs.code.csv: $(OBJ)
 	./scripts/code.py $^ -q $(CODEFLAGS) -o $@
 
 $(BUILDDIR)/lfs.data.csv: $(OBJ)
-	./scripts/data.py $^ -q $(CODEFLAGS) -o $@
+	./scripts/data.py $^ -q $(DATAFLAGS) -o $@
 
 $(BUILDDIR)/lfs.stack.csv: $(CI)
-	./scripts/stack.py $^ -q $(CODEFLAGS) -o $@
+	./scripts/stack.py $^ -q $(STACKFLAGS) -o $@
 
-$(BUILDDIR)/lfs.struct.csv: $(OBJ)
-	./scripts/struct_.py $^ -q $(CODEFLAGS) -o $@
+$(BUILDDIR)/lfs.structs.csv: $(OBJ)
+	./scripts/structs.py $^ -q $(STRUCTSFLAGS) -o $@
 
 $(BUILDDIR)/lfs.cov.csv: $(GCDA)
-	./scripts/cov.py $^ $(patsubst %,-F%,$(SRC)) -q $(COVFLAGS) -o $@
+	$(strip ./scripts/cov.py $^ \
+		$(patsubst %,-F%,$(SRC)) \
+		-q $(COVFLAGS) -o $@)
 
 $(BUILDDIR)/lfs.perf.csv: $(BENCH_PERF)
-	./scripts/perf.py $^ $(patsubst %,-F%,$(SRC)) -q $(PERFFLAGS) -o $@
+	$(strip ./scripts/perf.py $^ \
+		$(patsubst %,-F%,$(SRC)) \
+		-q $(PERFFLAGS) -o $@)
 
 $(BUILDDIR)/lfs.perfbd.csv: $(BENCH_TRACE)
-	$(strip ./scripts/perfbd.py \
-		$(BENCH_RUNNER) $^ $(patsubst %,-F%,$(SRC)) \
+	$(strip ./scripts/perfbd.py $(BENCH_RUNNER) $^ \
+		$(patsubst %,-F%,$(SRC)) \
 		-q $(PERFBDFLAGS) -o $@)
-
-$(BUILDDIR)/lfs.csv: \
-		$(BUILDDIR)/lfs.code.csv \
-		$(BUILDDIR)/lfs.data.csv \
-		$(BUILDDIR)/lfs.stack.csv \
-		$(BUILDDIR)/lfs.struct.csv
-	./scripts/summary.py $^ -q $(SUMMARYFLAGS) -o $@
 
 $(BUILDDIR)/runners/test_runner: $(TEST_OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o $@
@@ -391,11 +488,10 @@ clean:
 	rm -f $(BUILDDIR)/lfs
 	rm -f $(BUILDDIR)/liblfs.a
 	$(strip rm -f \
-		$(BUILDDIR)/lfs.csv \
 		$(BUILDDIR)/lfs.code.csv \
 		$(BUILDDIR)/lfs.data.csv \
 		$(BUILDDIR)/lfs.stack.csv \
-		$(BUILDDIR)/lfs.struct.csv \
+		$(BUILDDIR)/lfs.structs.csv \
 		$(BUILDDIR)/lfs.cov.csv \
 		$(BUILDDIR)/lfs.perf.csv \
 		$(BUILDDIR)/lfs.perfbd.csv)
