@@ -25,15 +25,15 @@ code = '''
             // chose name, roughly random seed, and random 2^n size
             char path[1024];
             sprintf(path, "roadrunner/test%d", i);
-            srand(cycle * i);
-            lfs_size_t size = 1 << ((rand() % 10)+2);
+            uint32_t prng = cycle * i;
+            lfs_size_t size = 1 << ((TEST_PRNG(&prng) % 10)+2);
 
             lfs_file_t file;
             lfs_file_open(&lfs, &file, path,
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
 
             for (lfs_size_t j = 0; j < size; j++) {
-                char c = 'a' + (rand() % 26);
+                char c = 'a' + (TEST_PRNG(&prng) % 26);
                 lfs_ssize_t res = lfs_file_write(&lfs, &file, &c, 1);
                 assert(res == 1 || res == LFS_ERR_NOSPC);
                 if (res == LFS_ERR_NOSPC) {
@@ -56,13 +56,13 @@ code = '''
             // check for errors
             char path[1024];
             sprintf(path, "roadrunner/test%d", i);
-            srand(cycle * i);
-            lfs_size_t size = 1 << ((rand() % 10)+2);
+            uint32_t prng = cycle * i;
+            lfs_size_t size = 1 << ((TEST_PRNG(&prng) % 10)+2);
 
             lfs_file_t file;
             lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
             for (lfs_size_t j = 0; j < size; j++) {
-                char c = 'a' + (rand() % 26);
+                char c = 'a' + (TEST_PRNG(&prng) % 26);
                 char r;
                 lfs_file_read(&lfs, &file, &r, 1) => 1;
                 assert(r == c);
@@ -115,15 +115,15 @@ code = '''
             // chose name, roughly random seed, and random 2^n size
             char path[1024];
             sprintf(path, "test%d", i);
-            srand(cycle * i);
-            lfs_size_t size = 1 << ((rand() % 10)+2);
+            uint32_t prng = cycle * i;
+            lfs_size_t size = 1 << ((TEST_PRNG(&prng) % 10)+2);
 
             lfs_file_t file;
             lfs_file_open(&lfs, &file, path,
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
 
             for (lfs_size_t j = 0; j < size; j++) {
-                char c = 'a' + (rand() % 26);
+                char c = 'a' + (TEST_PRNG(&prng) % 26);
                 lfs_ssize_t res = lfs_file_write(&lfs, &file, &c, 1);
                 assert(res == 1 || res == LFS_ERR_NOSPC);
                 if (res == LFS_ERR_NOSPC) {
@@ -146,13 +146,13 @@ code = '''
             // check for errors
             char path[1024];
             sprintf(path, "test%d", i);
-            srand(cycle * i);
-            lfs_size_t size = 1 << ((rand() % 10)+2);
+            uint32_t prng = cycle * i;
+            lfs_size_t size = 1 << ((TEST_PRNG(&prng) % 10)+2);
 
             lfs_file_t file;
             lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
             for (lfs_size_t j = 0; j < size; j++) {
-                char c = 'a' + (rand() % 26);
+                char c = 'a' + (TEST_PRNG(&prng) % 26);
                 char r;
                 lfs_file_read(&lfs, &file, &r, 1) => 1;
                 assert(r == c);
@@ -214,15 +214,15 @@ code = '''
                 // chose name, roughly random seed, and random 2^n size
                 char path[1024];
                 sprintf(path, "roadrunner/test%d", i);
-                srand(cycle * i);
-                lfs_size_t size = 1 << ((rand() % 10)+2);
+                uint32_t prng = cycle * i;
+                lfs_size_t size = 1 << ((TEST_PRNG(&prng) % 10)+2);
 
                 lfs_file_t file;
                 lfs_file_open(&lfs, &file, path,
                         LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
 
                 for (lfs_size_t j = 0; j < size; j++) {
-                    char c = 'a' + (rand() % 26);
+                    char c = 'a' + (TEST_PRNG(&prng) % 26);
                     lfs_ssize_t res = lfs_file_write(&lfs, &file, &c, 1);
                     assert(res == 1 || res == LFS_ERR_NOSPC);
                     if (res == LFS_ERR_NOSPC) {
@@ -245,13 +245,13 @@ code = '''
                 // check for errors
                 char path[1024];
                 sprintf(path, "roadrunner/test%d", i);
-                srand(cycle * i);
-                lfs_size_t size = 1 << ((rand() % 10)+2);
+                uint32_t prng = cycle * i;
+                lfs_size_t size = 1 << ((TEST_PRNG(&prng) % 10)+2);
 
                 lfs_file_t file;
                 lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
                 for (lfs_size_t j = 0; j < size; j++) {
-                    char c = 'a' + (rand() % 26);
+                    char c = 'a' + (TEST_PRNG(&prng) % 26);
                     char r;
                     lfs_file_read(&lfs, &file, &r, 1) => 1;
                     assert(r == c);
@@ -311,15 +311,15 @@ code = '''
                 // chose name, roughly random seed, and random 2^n size
                 char path[1024];
                 sprintf(path, "test%d", i);
-                srand(cycle * i);
-                lfs_size_t size = 1 << ((rand() % 10)+2);
+                uint32_t prng = cycle * i;
+                lfs_size_t size = 1 << ((TEST_PRNG(&prng) % 10)+2);
 
                 lfs_file_t file;
                 lfs_file_open(&lfs, &file, path,
                         LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
 
                 for (lfs_size_t j = 0; j < size; j++) {
-                    char c = 'a' + (rand() % 26);
+                    char c = 'a' + (TEST_PRNG(&prng) % 26);
                     lfs_ssize_t res = lfs_file_write(&lfs, &file, &c, 1);
                     assert(res == 1 || res == LFS_ERR_NOSPC);
                     if (res == LFS_ERR_NOSPC) {
@@ -342,13 +342,13 @@ code = '''
                 // check for errors
                 char path[1024];
                 sprintf(path, "test%d", i);
-                srand(cycle * i);
-                lfs_size_t size = 1 << ((rand() % 10)+2);
+                uint32_t prng = cycle * i;
+                lfs_size_t size = 1 << ((TEST_PRNG(&prng) % 10)+2);
 
                 lfs_file_t file;
                 lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
                 for (lfs_size_t j = 0; j < size; j++) {
-                    char c = 'a' + (rand() % 26);
+                    char c = 'a' + (TEST_PRNG(&prng) % 26);
                     char r;
                     lfs_file_read(&lfs, &file, &r, 1) => 1;
                     assert(r == c);
@@ -404,15 +404,15 @@ code = '''
             // chose name, roughly random seed, and random 2^n size
             char path[1024];
             sprintf(path, "roadrunner/test%d", i);
-            srand(cycle * i);
-            lfs_size_t size = 1 << 4; //((rand() % 10)+2);
+            uint32_t prng = cycle * i;
+            lfs_size_t size = 1 << 4; //((TEST_PRNG(&prng) % 10)+2);
 
             lfs_file_t file;
             lfs_file_open(&lfs, &file, path,
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
 
             for (lfs_size_t j = 0; j < size; j++) {
-                char c = 'a' + (rand() % 26);
+                char c = 'a' + (TEST_PRNG(&prng) % 26);
                 lfs_ssize_t res = lfs_file_write(&lfs, &file, &c, 1);
                 assert(res == 1 || res == LFS_ERR_NOSPC);
                 if (res == LFS_ERR_NOSPC) {
@@ -435,13 +435,13 @@ code = '''
             // check for errors
             char path[1024];
             sprintf(path, "roadrunner/test%d", i);
-            srand(cycle * i);
-            lfs_size_t size = 1 << 4; //((rand() % 10)+2);
+            uint32_t prng = cycle * i;
+            lfs_size_t size = 1 << 4; //((TEST_PRNG(&prng) % 10)+2);
 
             lfs_file_t file;
             lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
             for (lfs_size_t j = 0; j < size; j++) {
-                char c = 'a' + (rand() % 26);
+                char c = 'a' + (TEST_PRNG(&prng) % 26);
                 char r;
                 lfs_file_read(&lfs, &file, &r, 1) => 1;
                 assert(r == c);

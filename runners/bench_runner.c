@@ -529,6 +529,19 @@ void bench_trace(const char *fmt, ...) {
 }
 
 
+// bench prng
+uint32_t bench_prng(uint32_t *state) {
+    // A simple xorshift32 generator, easily reproducible. Keep in mind
+    // determinism is much more important than actual randomness here.
+    uint32_t x = *state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    *state = x;
+    return x;
+}
+
+
 // bench recording state
 static struct lfs_config *bench_cfg = NULL;
 static lfs_emubd_io_t bench_last_readed = 0;

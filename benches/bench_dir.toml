@@ -1,17 +1,3 @@
-
-
-# deterministic prng
-code = '''
-static uint32_t xorshift32(uint32_t *state) {
-    uint32_t x = *state;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    *state = x;
-    return x;
-}
-'''
-
 [cases.bench_dir_open]
 # 0 = in-order
 # 1 = reversed-order
@@ -37,7 +23,7 @@ code = '''
         uint32_t file_prng = i;
         for (lfs_size_t j = 0; j < FILE_SIZE; j += CHUNK_SIZE) {
             for (lfs_size_t k = 0; k < CHUNK_SIZE; k++) {
-                buffer[k] = xorshift32(&file_prng);
+                buffer[k] = BENCH_PRNG(&file_prng);
             }
             lfs_file_write(&lfs, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
         }
@@ -52,7 +38,7 @@ code = '''
         lfs_off_t i_
             = (ORDER == 0) ? i
             : (ORDER == 1) ? (N-1-i)
-            : xorshift32(&prng) % N;
+            : BENCH_PRNG(&prng) % N;
         sprintf(name, "file%08x", i_);
         lfs_file_t file;
         lfs_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
@@ -61,7 +47,7 @@ code = '''
         for (lfs_size_t j = 0; j < FILE_SIZE; j += CHUNK_SIZE) {
             lfs_file_read(&lfs, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
             for (lfs_size_t k = 0; k < CHUNK_SIZE; k++) {
-                assert(buffer[k] == xorshift32(&file_prng));
+                assert(buffer[k] == BENCH_PRNG(&file_prng));
             }
         }
 
@@ -93,7 +79,7 @@ code = '''
         lfs_off_t i_
             = (ORDER == 0) ? i
             : (ORDER == 1) ? (N-1-i)
-            : xorshift32(&prng) % N;
+            : BENCH_PRNG(&prng) % N;
         sprintf(name, "file%08x", i_);
         lfs_file_t file;
         lfs_file_open(&lfs, &file, name,
@@ -102,7 +88,7 @@ code = '''
         uint32_t file_prng = i_;
         for (lfs_size_t j = 0; j < FILE_SIZE; j += CHUNK_SIZE) {
             for (lfs_size_t k = 0; k < CHUNK_SIZE; k++) {
-                buffer[k] = xorshift32(&file_prng);
+                buffer[k] = BENCH_PRNG(&file_prng);
             }
             lfs_file_write(&lfs, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
         }
@@ -139,7 +125,7 @@ code = '''
         uint32_t file_prng = i;
         for (lfs_size_t j = 0; j < FILE_SIZE; j += CHUNK_SIZE) {
             for (lfs_size_t k = 0; k < CHUNK_SIZE; k++) {
-                buffer[k] = xorshift32(&file_prng);
+                buffer[k] = BENCH_PRNG(&file_prng);
             }
             lfs_file_write(&lfs, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
         }
@@ -154,7 +140,7 @@ code = '''
         lfs_off_t i_
             = (ORDER == 0) ? i
             : (ORDER == 1) ? (N-1-i)
-            : xorshift32(&prng) % N;
+            : BENCH_PRNG(&prng) % N;
         sprintf(name, "file%08x", i_);
         int err = lfs_remove(&lfs, name);
         assert(!err || err == LFS_ERR_NOENT);
@@ -185,7 +171,7 @@ code = '''
         uint32_t file_prng = i;
         for (lfs_size_t j = 0; j < FILE_SIZE; j += CHUNK_SIZE) {
             for (lfs_size_t k = 0; k < CHUNK_SIZE; k++) {
-                buffer[k] = xorshift32(&file_prng);
+                buffer[k] = BENCH_PRNG(&file_prng);
             }
             lfs_file_write(&lfs, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
         }
@@ -235,7 +221,7 @@ code = '''
         lfs_off_t i_
             = (ORDER == 0) ? i
             : (ORDER == 1) ? (N-1-i)
-            : xorshift32(&prng) % N;
+            : BENCH_PRNG(&prng) % N;
         printf("hm %d\n", i);
         sprintf(name, "dir%08x", i_);
         int err = lfs_mkdir(&lfs, name);
@@ -271,7 +257,7 @@ code = '''
         lfs_off_t i_
             = (ORDER == 0) ? i
             : (ORDER == 1) ? (N-1-i)
-            : xorshift32(&prng) % N;
+            : BENCH_PRNG(&prng) % N;
         sprintf(name, "dir%08x", i_);
         int err = lfs_remove(&lfs, name);
         assert(!err || err == LFS_ERR_NOENT);

@@ -545,6 +545,19 @@ void test_trace(const char *fmt, ...) {
 }
 
 
+// test prng
+uint32_t test_prng(uint32_t *state) {
+    // A simple xorshift32 generator, easily reproducible. Keep in mind
+    // determinism is much more important than actual randomness here.
+    uint32_t x = *state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    *state = x;
+    return x;
+}
+
+
 // encode our permutation into a reusable id
 static void perm_printid(
         const struct test_suite *suite,

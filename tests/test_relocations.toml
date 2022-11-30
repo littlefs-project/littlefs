@@ -186,13 +186,13 @@ code = '''
         lfs_mount(&lfs, cfg) => 0;
     }
 
-    srand(1);
+    uint32_t prng = 1;
     const char alpha[] = "abcdefghijklmnopqrstuvwxyz";
     for (unsigned i = 0; i < CYCLES; i++) {
         // create random path
         char full_path[256];
         for (unsigned d = 0; d < DEPTH; d++) {
-            sprintf(&full_path[2*d], "/%c", alpha[rand() % FILES]);
+            sprintf(&full_path[2*d], "/%c", alpha[TEST_PRNG(&prng) % FILES]);
         }
 
         // if it does not exist, we create it, else we destroy
@@ -255,13 +255,13 @@ code = '''
         lfs_mount(&lfs, cfg) => 0;
     }
 
-    srand(1);
+    uint32_t prng = 1;
     const char alpha[] = "abcdefghijklmnopqrstuvwxyz";
     for (unsigned i = 0; i < CYCLES; i++) {
         // create random path
         char full_path[256];
         for (unsigned d = 0; d < DEPTH; d++) {
-            sprintf(&full_path[2*d], "/%c", alpha[rand() % FILES]);
+            sprintf(&full_path[2*d], "/%c", alpha[TEST_PRNG(&prng) % FILES]);
         }
 
         // if it does not exist, we create it, else we destroy
@@ -293,7 +293,7 @@ code = '''
             // create new random path
             char new_path[256];
             for (unsigned d = 0; d < DEPTH; d++) {
-                sprintf(&new_path[2*d], "/%c", alpha[rand() % FILES]);
+                sprintf(&new_path[2*d], "/%c", alpha[TEST_PRNG(&prng) % FILES]);
             }
 
             // if new path does not exist, rename, otherwise destroy

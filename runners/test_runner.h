@@ -67,6 +67,12 @@ struct test_suite {
 };
 
 
+// deterministic prng for pseudo-randomness in testes
+uint32_t test_prng(uint32_t *state);
+
+#define TEST_PRNG(state) test_prng(state)
+
+
 // access generated test defines
 intmax_t test_define(size_t define);
 

@@ -74,6 +74,12 @@ struct bench_suite {
 };
 
 
+// deterministic prng for pseudo-randomness in benches
+uint32_t bench_prng(uint32_t *state);
+
+#define BENCH_PRNG(state) bench_prng(state)
+
+
 // access generated bench defines
 intmax_t bench_define(size_t define);
 
