@@ -92,8 +92,7 @@ jobs:
       - name: test
         run: |
           make clean
-          # TODO include this by default?
-          TESTFLAGS="$TESTFLAGS -Pnone,linear" make test
+          make test
 
       # collect coverage info
       #
@@ -372,7 +371,7 @@ jobs:
       # on one geometry
       - name: test-valgrind
         run: |
-          TESTFLAGS="$TESTFLAGS -Gdefault --valgrind" make test
+          TESTFLAGS="$TESTFLAGS --valgrind -Gdefault -Pnone" make test
 
   # test that compilation is warning free under clang
   # run with Clang, mostly to check for Clang-specific warnings

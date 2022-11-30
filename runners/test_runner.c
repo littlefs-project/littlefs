@@ -1788,10 +1788,13 @@ const char *const builtin_powerlosses_help[] = {
     "Run a custom leb16-encoded set of power-losses.",
 };
 
+// default to -Pnone,linear, which provides a good heuristic while still
+// running quickly
 const test_powerloss_t *test_powerlosses = (const test_powerloss_t[]){
-    {"none", run_powerloss_none, NULL, 0},
+    {"none",   run_powerloss_none,   NULL, 0},
+    {"linear", run_powerloss_linear, NULL, 0},
 };
-size_t test_powerloss_count = 1;
+size_t test_powerloss_count = 2;
 
 static void list_powerlosses(void) {
     // at least size so that names fit
