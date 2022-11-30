@@ -189,13 +189,13 @@ int lfs_emubd_crc(const struct lfs_config *cfg,
 int lfs_emubd_bdcrc(const struct lfs_config *cfg, uint32_t *crc);
 
 // Get total amount of bytes read
-lfs_emubd_sio_t lfs_emubd_getreaded(const struct lfs_config *cfg);
+lfs_emubd_sio_t lfs_emubd_readed(const struct lfs_config *cfg);
 
 // Get total amount of bytes programmed
-lfs_emubd_sio_t lfs_emubd_getproged(const struct lfs_config *cfg);
+lfs_emubd_sio_t lfs_emubd_proged(const struct lfs_config *cfg);
 
 // Get total amount of bytes erased
-lfs_emubd_sio_t lfs_emubd_geterased(const struct lfs_config *cfg);
+lfs_emubd_sio_t lfs_emubd_erased(const struct lfs_config *cfg);
 
 // Manually set amount of bytes read
 int lfs_emubd_setreaded(const struct lfs_config *cfg, lfs_emubd_io_t readed);
@@ -207,7 +207,7 @@ int lfs_emubd_setproged(const struct lfs_config *cfg, lfs_emubd_io_t proged);
 int lfs_emubd_seterased(const struct lfs_config *cfg, lfs_emubd_io_t erased);
 
 // Get simulated wear on a given block
-lfs_emubd_swear_t lfs_emubd_getwear(const struct lfs_config *cfg,
+lfs_emubd_swear_t lfs_emubd_wear(const struct lfs_config *cfg,
         lfs_block_t block);
 
 // Manually set simulated wear on a given block
@@ -215,7 +215,7 @@ int lfs_emubd_setwear(const struct lfs_config *cfg,
         lfs_block_t block, lfs_emubd_wear_t wear);
 
 // Get the remaining power-cycles
-lfs_emubd_spowercycles_t lfs_emubd_getpowercycles(
+lfs_emubd_spowercycles_t lfs_emubd_powercycles(
         const struct lfs_config *cfg);
 
 // Manually set the remaining power-cycles

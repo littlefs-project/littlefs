@@ -522,24 +522,24 @@ int lfs_emubd_bdcrc(const struct lfs_config *cfg, uint32_t *crc) {
     return 0;
 }
 
-lfs_emubd_sio_t lfs_emubd_getreaded(const struct lfs_config *cfg) {
-    LFS_EMUBD_TRACE("lfs_emubd_getreaded(%p)", (void*)cfg);
+lfs_emubd_sio_t lfs_emubd_readed(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_readed(%p)", (void*)cfg);
     lfs_emubd_t *bd = cfg->context;
-    LFS_EMUBD_TRACE("lfs_emubd_getreaded -> %"PRIu64, bd->readed);
+    LFS_EMUBD_TRACE("lfs_emubd_readed -> %"PRIu64, bd->readed);
     return bd->readed;
 }
 
-lfs_emubd_sio_t lfs_emubd_getproged(const struct lfs_config *cfg) {
-    LFS_EMUBD_TRACE("lfs_emubd_getproged(%p)", (void*)cfg);
+lfs_emubd_sio_t lfs_emubd_proged(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_proged(%p)", (void*)cfg);
     lfs_emubd_t *bd = cfg->context;
-    LFS_EMUBD_TRACE("lfs_emubd_getproged -> %"PRIu64, bd->proged);
+    LFS_EMUBD_TRACE("lfs_emubd_proged -> %"PRIu64, bd->proged);
     return bd->proged;
 }
 
-lfs_emubd_sio_t lfs_emubd_geterased(const struct lfs_config *cfg) {
-    LFS_EMUBD_TRACE("lfs_emubd_geterased(%p)", (void*)cfg);
+lfs_emubd_sio_t lfs_emubd_erased(const struct lfs_config *cfg) {
+    LFS_EMUBD_TRACE("lfs_emubd_erased(%p)", (void*)cfg);
     lfs_emubd_t *bd = cfg->context;
-    LFS_EMUBD_TRACE("lfs_emubd_geterased -> %"PRIu64, bd->erased);
+    LFS_EMUBD_TRACE("lfs_emubd_erased -> %"PRIu64, bd->erased);
     return bd->erased;
 }
 
@@ -567,9 +567,9 @@ int lfs_emubd_seterased(const struct lfs_config *cfg, lfs_emubd_io_t erased) {
     return 0;
 }
 
-lfs_emubd_swear_t lfs_emubd_getwear(const struct lfs_config *cfg,
+lfs_emubd_swear_t lfs_emubd_wear(const struct lfs_config *cfg,
         lfs_block_t block) {
-    LFS_EMUBD_TRACE("lfs_emubd_getwear(%p, %"PRIu32")", (void*)cfg, block);
+    LFS_EMUBD_TRACE("lfs_emubd_wear(%p, %"PRIu32")", (void*)cfg, block);
     lfs_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -584,7 +584,7 @@ lfs_emubd_swear_t lfs_emubd_getwear(const struct lfs_config *cfg,
         wear = 0;
     }
 
-    LFS_EMUBD_TRACE("lfs_emubd_getwear -> %"PRIu32, wear);
+    LFS_EMUBD_TRACE("lfs_emubd_wear -> %"PRIu32, wear);
     return wear;
 }
 
@@ -608,12 +608,12 @@ int lfs_emubd_setwear(const struct lfs_config *cfg,
     return 0;
 }
 
-lfs_emubd_spowercycles_t lfs_emubd_getpowercycles(
+lfs_emubd_spowercycles_t lfs_emubd_powercycles(
         const struct lfs_config *cfg) {
-    LFS_EMUBD_TRACE("lfs_emubd_getpowercycles(%p)", (void*)cfg);
+    LFS_EMUBD_TRACE("lfs_emubd_powercycles(%p)", (void*)cfg);
     lfs_emubd_t *bd = cfg->context;
 
-    LFS_EMUBD_TRACE("lfs_emubd_getpowercycles -> %"PRIi32, bd->power_cycles);
+    LFS_EMUBD_TRACE("lfs_emubd_powercycles -> %"PRIi32, bd->power_cycles);
     return bd->power_cycles;
 }
 
@@ -625,7 +625,7 @@ int lfs_emubd_setpowercycles(const struct lfs_config *cfg,
 
     bd->power_cycles = power_cycles;
 
-    LFS_EMUBD_TRACE("lfs_emubd_getpowercycles -> %d", 0);
+    LFS_EMUBD_TRACE("lfs_emubd_powercycles -> %d", 0);
     return 0;
 }
 

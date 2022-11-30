@@ -549,11 +549,11 @@ void bench_reset(void) {
 
 void bench_start(void) {
     assert(bench_cfg);
-    lfs_emubd_sio_t readed = lfs_emubd_getreaded(bench_cfg);
+    lfs_emubd_sio_t readed = lfs_emubd_readed(bench_cfg);
     assert(readed >= 0);
-    lfs_emubd_sio_t proged = lfs_emubd_getproged(bench_cfg);
+    lfs_emubd_sio_t proged = lfs_emubd_proged(bench_cfg);
     assert(proged >= 0);
-    lfs_emubd_sio_t erased = lfs_emubd_geterased(bench_cfg);
+    lfs_emubd_sio_t erased = lfs_emubd_erased(bench_cfg);
     assert(erased >= 0);
 
     bench_last_readed = readed;
@@ -563,11 +563,11 @@ void bench_start(void) {
 
 void bench_stop(void) {
     assert(bench_cfg);
-    lfs_emubd_sio_t readed = lfs_emubd_getreaded(bench_cfg);
+    lfs_emubd_sio_t readed = lfs_emubd_readed(bench_cfg);
     assert(readed >= 0);
-    lfs_emubd_sio_t proged = lfs_emubd_getproged(bench_cfg);
+    lfs_emubd_sio_t proged = lfs_emubd_proged(bench_cfg);
     assert(proged >= 0);
-    lfs_emubd_sio_t erased = lfs_emubd_geterased(bench_cfg);
+    lfs_emubd_sio_t erased = lfs_emubd_erased(bench_cfg);
     assert(erased >= 0);
 
     bench_readed += readed - bench_last_readed;
