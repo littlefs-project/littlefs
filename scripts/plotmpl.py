@@ -325,8 +325,11 @@ def main(csv_paths, output, *,
         dark=False,
         ggplot=False,
         xkcd=False,
+        github=False,
         font=None,
         font_size=FONT_SIZE,
+        font_color=None,
+        foreground=None,
         background=None):
     # guess the output format
     if not png and not svg:
@@ -352,6 +355,25 @@ def main(csv_paths, output, *,
     if y is not None:
         y = [k for k, _ in y]
 
+    # some shortcuts for color schemes
+    if github:
+        ggplot = True
+        if font_color is None:
+            if dark:
+                font_color = '#c9d1d9'
+            else:
+                font_color = '#24292f'
+        if foreground is None:
+            if dark:
+                foreground = '#343942'
+            else:
+                foreground = '#eff1f3'
+        if background is None:
+            if dark:
+                background = '#0d1117'
+            else:
+                background = '#ffffff'
+
     # what colors/alphas/formats to use?
     if colors is not None:
         colors_ = colors
@@ -369,12 +391,26 @@ def main(csv_paths, output, *,
     else:
         formats_ = FORMATS
 
+    if font_color is not None:
+        font_color_ = font_color
+    elif dark:
+        font_color_ = '#ffffff'
+    else:
+        font_color_ = '#000000'
+
+    if foreground is not None:
+        foreground_ = foreground
+    elif dark:
+        foreground_ = '#333333'
+    else:
+        foreground_ = '#e5e5e5'
+
     if background is not None:
         background_ = background
     elif dark:
-        background_ = mpl.style.library['dark_background']['figure.facecolor']
+        background_ = '#000000'
     else:
-        background_ = plt.rcParams['figure.facecolor']
+        background_ = '#ffffff'
 
     # allow escape codes in labels/titles
     if title is not None:
@@ -398,7 +434,7 @@ def main(csv_paths, output, *,
     if ggplot:
         plt.style.use('ggplot')
         plt.rc('patch', linewidth=0)
-        plt.rc('axes', edgecolor=background_)
+        plt.rc('axes', facecolor=foreground_, edgecolor=background_)
         plt.rc('grid', color=background_)
         # fix the the gridlines when ggplot+xkcd
         if xkcd:
@@ -406,28 +442,32 @@ def main(csv_paths, output, *,
             plt.rc('axes.spines', bottom=False, left=False)
     if dark:
         plt.style.use('dark_background')
-        plt.rc('savefig', facecolor='auto')
+        plt.rc('savefig', facecolor='auto', edgecolor='auto')
         # fix ggplot when dark
         if ggplot:
             plt.rc('axes',
-                facecolor='#333333',
-                edgecolor=background_,
-                labelcolor='#aaaaaa')
-            plt.rc('xtick', color='#aaaaaa')
-            plt.rc('ytick', color='#aaaaaa')
+                facecolor=foreground_,
+                edgecolor=background_)
             plt.rc('grid', color=background_)
 
     if font is not None:
         plt.rc('font', family=font)
     plt.rc('font', size=font_size)
+    plt.rc('text', color=font_color_)
     plt.rc('figure', titlesize='medium')
-    plt.rc('axes', titlesize='medium', labelsize='small')
-    plt.rc('xtick', labelsize='small')
-    plt.rc('ytick', labelsize='small')
+    plt.rc('axes',
+        titlesize='medium',
+        labelsize='small',
+        labelcolor=font_color_)
+    if not ggplot:
+        plt.rc('axes', edgecolor=font_color_)
+    plt.rc('xtick', labelsize='small', color=font_color_)
+    plt.rc('ytick', labelsize='small', color=font_color_)
     plt.rc('legend',
         fontsize='small',
         fancybox=False,
         framealpha=None,
+        edgecolor=foreground_,
         borderaxespad=0)
     plt.rc('axes.spines', top=False, right=False)
 
@@ -439,8 +479,8 @@ def main(csv_paths, output, *,
     fig = plt.figure(figsize=(
         width/plt.rcParams['figure.dpi'],
         height/plt.rcParams['figure.dpi']),
-        # note we need a linewidth to keep xkcd mode happy
-        linewidth=8)
+        # we need a linewidth to keep xkcd mode happy
+        linewidth=8 if xkcd else 0)
     ax = fig.subplots()
 
     for i, (name, dataset) in enumerate(datasets_.items()):
@@ -845,12 +885,22 @@ if __name__ == "__main__":
         action='store_true',
         help="Use the xkcd style.")
     parser.add_argument(
+        '--github',
+        action='store_true',
+        help="Use the ggplot style with GitHub colors.")
+    parser.add_argument(
         '--font',
         type=lambda x: [x.strip() for x in x.split(',')],
         help="Font family for matplotlib.")
     parser.add_argument(
         '--font-size',
         help="Font size for matplotlib. Defaults to %r." % FONT_SIZE)
+    parser.add_argument(
+        '--font-color',
+        help="Color for the font and other line elements.")
+    parser.add_argument(
+        '--foreground',
+        help="Foreground color to use.")
     parser.add_argument(
         '--background',
         help="Background color to use.")
