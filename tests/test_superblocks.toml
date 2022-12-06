@@ -330,6 +330,7 @@ code = '''
             {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
             {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
                 &superblock})) => 0;
+    lfs_deinit(&lfs) => 0;
 
     // known block_size/block_count
     cfg->block_size = BLOCK_SIZE;
@@ -461,6 +462,7 @@ code = '''
             {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
             {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
                 &superblock})) => 0;
+    lfs_deinit(&lfs) => 0;
 
     // known block_size/block_count
     cfg->block_size = BLOCK_SIZE;
@@ -521,6 +523,7 @@ code = '''
             {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
             {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
                 &superblock})) => 0;
+    lfs_deinit(&lfs) => 0;
 
     // known block_size/block_count
     cfg->block_size = BLOCK_SIZE;

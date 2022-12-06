@@ -4087,7 +4087,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs->attr_max = LFS_ATTR_MAX;
     }
 
-    LFS_ASSERT(lfs->cfg->metadata_max <= lfs->block_size);
+    LFS_ASSERT(lfs->cfg->metadata_max <= lfs->cfg->block_size);
 
     // setup default state
     lfs->root[0] = LFS_BLOCK_NULL;
@@ -4139,8 +4139,8 @@ static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
         if (!lfs->block_size) {
             lfs->block_size = lfs->erase_size;
         }
+        LFS_ASSERT(lfs->cfg->block_count != 0);
         lfs->block_count = lfs->cfg->block_count;
-        LFS_ASSERT(lfs->block_count != 0);
 
         // check that the block size is large enough to fit ctz pointers
         LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->block_size-2*4))
@@ -4846,6 +4846,7 @@ static int lfs_fs_rawstat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
     return 0;
 }
 
+#ifndef LFS_READONLY
 int lfs_fs_rawgrow(lfs_t *lfs, lfs_size_t block_count) {
     // shrinking is not supported
     LFS_ASSERT(block_count >= lfs->block_count);
@@ -4882,6 +4883,7 @@ int lfs_fs_rawgrow(lfs_t *lfs, lfs_size_t block_count) {
 
     return 0;
 }
+#endif
 
 #ifdef LFS_MIGRATE
 ////// Migration from littelfs v1 below this //////
@@ -5057,7 +5059,7 @@ static int lfs1_dir_fetch(lfs_t *lfs,
         }
 
         if ((0x7fffffff & test.size) < sizeof(test)+4 ||
-            (0x7fffffff & test.size) > lfs->block_size) {
+            (0x7fffffff & test.size) > lfs->cfg->block_size) {
             continue;
         }
 
@@ -5244,6 +5246,13 @@ static int lfs1_mount(lfs_t *lfs, struct lfs1 *lfs1,
         if (err) {
             return err;
         }
+
+        // setup block_size, v1 did not support block_size searching, so
+        // block_size and block_count are required
+        LFS_ASSERT(lfs->cfg->block_size != 0);
+        LFS_ASSERT(lfs->cfg->block_count != 0);
+        lfs->block_size = lfs->cfg->block_size;
+        lfs->block_count = lfs->cfg->block_count;
 
         lfs->lfs1 = lfs1;
         lfs->lfs1->root[0] = LFS_BLOCK_NULL;
@@ -5491,8 +5500,8 @@ static int lfs_rawmigrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
         lfs_superblock_t superblock = {
             .version     = LFS_DISK_VERSION,
-            .block_size  = lfs->block_size,
-            .block_count = lfs->block_count,
+            .block_size  = lfs->cfg->block_size,
+            .block_count = lfs->cfg->block_count,
             .name_max    = lfs->name_max,
             .file_max    = lfs->file_max,
             .attr_max    = lfs->attr_max,

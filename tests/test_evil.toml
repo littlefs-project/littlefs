@@ -237,7 +237,7 @@ code = '''
     lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
     lfs_dir_commit(&lfs, &mdir, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_HARDTAIL, 0x3ff, 8),
-                (lfs_block_t[2]){0, 1}})) => 0;
+                (lfs_block_t[2]){lfs_tole32(0), lfs_tole32(1)}})) => 0;
     lfs_deinit(&lfs) => 0;
 
     // test that mount fails gracefully
@@ -268,7 +268,7 @@ code = '''
     lfs_dir_fetch(&lfs, &mdir, pair) => 0;
     lfs_dir_commit(&lfs, &mdir, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_HARDTAIL, 0x3ff, 8),
-                (lfs_block_t[2]){0, 1}})) => 0;
+                (lfs_block_t[2]){lfs_tole32(0), lfs_tole32(1)}})) => 0;
     lfs_deinit(&lfs) => 0;
 
     // test that mount fails gracefully
@@ -297,6 +297,7 @@ code = '''
     lfs_pair_fromle32(pair);
     // change tail-pointer to point to ourself
     lfs_dir_fetch(&lfs, &mdir, pair) => 0;
+    lfs_pair_tole32(pair);
     lfs_dir_commit(&lfs, &mdir, LFS_MKATTRS(
             {LFS_MKTAG(LFS_TYPE_HARDTAIL, 0x3ff, 8), pair})) => 0;
     lfs_deinit(&lfs) => 0;
