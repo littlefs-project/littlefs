@@ -77,8 +77,7 @@ override CFLAGS += -DLFS_YES_TRACE
 endif
 override CFLAGS += -g3
 override CFLAGS += -I.
-override CFLAGS += -std=c99 -Wall -pedantic
-override CFLAGS += -Wextra -Wshadow -Wjump-misses-init -Wundef
+override CFLAGS += -std=c99 -Wall -Wextra -pedantic
 override CFLAGS += -ftrack-macro-expansion=0
 ifdef YES_COV
 override CFLAGS += --coverage
