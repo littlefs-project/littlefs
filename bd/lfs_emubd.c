@@ -584,13 +584,14 @@ lfs_emubd_swear_t lfs_emubd_wear(const struct lfs_config *cfg,
         wear = 0;
     }
 
-    LFS_EMUBD_TRACE("lfs_emubd_wear -> %"PRIu32, wear);
+    LFS_EMUBD_TRACE("lfs_emubd_wear -> %"PRIi32, wear);
     return wear;
 }
 
 int lfs_emubd_setwear(const struct lfs_config *cfg,
         lfs_block_t block, lfs_emubd_wear_t wear) {
-    LFS_EMUBD_TRACE("lfs_emubd_setwear(%p, %"PRIu32")", (void*)cfg, block);
+    LFS_EMUBD_TRACE("lfs_emubd_setwear(%p, %"PRIu32", %"PRIi32")",
+            (void*)cfg, block, wear);
     lfs_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -599,12 +600,12 @@ int lfs_emubd_setwear(const struct lfs_config *cfg,
     // set the wear
     lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
     if (!b) {
-        LFS_EMUBD_TRACE("lfs_emubd_setwear -> %"PRIu32, LFS_ERR_NOMEM);
+        LFS_EMUBD_TRACE("lfs_emubd_setwear -> %d", LFS_ERR_NOMEM);
         return LFS_ERR_NOMEM;
     }
     b->wear = wear;
 
-    LFS_EMUBD_TRACE("lfs_emubd_setwear -> %"PRIu32, 0);
+    LFS_EMUBD_TRACE("lfs_emubd_setwear -> %d", 0);
     return 0;
 }
 

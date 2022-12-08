@@ -23,8 +23,8 @@ TAG_TYPES = {
     'hardtail':     (0x7ff, 0x601),
     'gstate':       (0x700, 0x700),
     'movestate':    (0x7ff, 0x7ff),
-    'crc':          (0x700, 0x500),
-    'nprogcrc':     (0x7ff, 0x5ff),
+    'crc':          (0x780, 0x500),
+    'fcrc':         (0x7ff, 0x5ff),
 }
 
 class Tag:
@@ -126,10 +126,9 @@ class Tag:
         return ntag
 
     def typerepr(self):
-        if (self.is_('crc') and not self.is_('nprogcrc') and
-                getattr(self, 'crc', 0xffffffff) != 0xffffffff):
+        if (self.is_('crc') and getattr(self, 'crc', 0xffffffff) != 0xffffffff):
             crc_status = ' (bad)'
-        elif self.is_('nprogcrc') and getattr(self, 'erased', False):
+        elif self.is_('fcrc') and getattr(self, 'erased', False):
             crc_status = ' (era)'
         else:
             crc_status = ''
@@ -203,7 +202,7 @@ class MetadataPair:
             tag = Tag((int(tag) ^ ntag) & 0x7fffffff)
             tag.off = off + 4
             tag.data = block[off+4:off+tag.dsize]
-            if tag.is_('crc') and not tag.is_('nprogcrc'):
+            if tag.is_('crc'):
                 crc = binascii.crc32(block[off:off+2*4], crc)
             else:
                 crc = binascii.crc32(block[off:off+tag.dsize], crc)
@@ -212,7 +211,7 @@ class MetadataPair:
 
             self.all_.append(tag)
 
-            if tag.is_('nprogcrc') and len(tag.data) == 8:
+            if tag.is_('fcrc') and len(tag.data) == 8:
                 etag = tag
                 estate = struct.unpack('<II', tag.data)
             elif tag.is_('crc'):
@@ -228,8 +227,6 @@ class MetadataPair:
                         if ecrc == dcrc:
                             etag.erased = True
                             corrupt = True
-                    elif not (tag.is_('crc 0x0') or tag.is_('crc 0x1')):
-                        corrupt = True
 
                 # reset tag parsing
                 crc = 0
@@ -244,7 +241,7 @@ class MetadataPair:
         # find most recent tags
         self.tags = []
         for tag in self.log:
-            if tag.is_('crc') or tag.is_('splice'):
+            if tag.is_('crc') or tag.is_('fcrc') or tag.is_('splice'):
                 continue
             elif tag.id == 0x3ff:
                 if tag in self and self[tag] is tag:
