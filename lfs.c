@@ -1078,6 +1078,8 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
         bool tempsplit = false;
         lfs_stag_t tempbesttag = besttag;
 
+        // assume not erased until proven otherwise
+        bool maybeerased = false;
         bool hasfcrc = false;
         struct lfs_fcrc fcrc;
 
@@ -1095,24 +1097,26 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     // can't continue?
-                    dir->erased = false;
                     break;
                 }
                 return err;
             }
 
             crc = lfs_crc(crc, &tag, sizeof(tag));
-            tag = (lfs_frombe32(tag) ^ ptag) & 0x7fffffff;
+            tag = lfs_frombe32(tag) ^ ptag;
 
+            // next commit not yet programmed?
+            if (!lfs_tag_isvalid(tag)) {
+                maybeerased = true;
+                break;
             // out of range?
-            if (off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
-                dir->erased = false;
+            } else if (off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
                 break;
             }
 
             ptag = tag;
 
-            if (lfs_tag_type2(tag) == LFS_TYPE_CRC) {
+            if (lfs_tag_type2(tag) == LFS_TYPE_CCRC) {
                 // check the crc attr
                 uint32_t dcrc;
                 err = lfs_bd_read(lfs,
@@ -1120,7 +1124,6 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                         dir->pair[0], off+sizeof(tag), &dcrc, sizeof(dcrc));
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
-                        dir->erased = false;
                         break;
                     }
                     return err;
@@ -1128,9 +1131,11 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 dcrc = lfs_fromle32(dcrc);
 
                 if (crc != dcrc) {
-                    dir->erased = false;
                     break;
                 }
+
+                // reset the next bit if we need to
+                ptag ^= (lfs_tag_t)(lfs_tag_chunk(tag) & 1U) << 31;
 
                 // toss our crc into the filesystem seed for
                 // pseudorandom numbers, note we use another crc here
@@ -1147,49 +1152,13 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 dir->tail[1] = temptail[1];
                 dir->split = tempsplit;
 
-                // check for an fcrc matching the next prog's erased state, if
-                // this failed most likely a previous prog was interrupted, we
-                // need a new erase
-                if (hasfcrc) {
-                    // this may look inefficient, but since cache_size is
-                    // probably > prog_size, the data will always remain in
-                    // cache for the next iteration
-
-                    // first read the leading byte, this always contains a bit
-                    // we can perturb to avoid writes that don't change the fcrc
-                    uint8_t eperturb;
-                    err = lfs_bd_read(lfs,
-                            NULL, &lfs->rcache, lfs->cfg->block_size,
-                            dir->pair[0], dir->off, &eperturb, 1);
-                    if (err && err != LFS_ERR_CORRUPT) {
-                        return err;
-                    }
-
-                    // perturb valid bit?
-                    dir->etag |= (0x80 & ~eperturb) << 24;
-
-                    // crc the full prog_size, don't bother avoiding a reread
-                    // of the eperturb, it should still be in our cache
-                    uint32_t ecrc = 0xffffffff;
-                    err = lfs_bd_crc(lfs,
-                            NULL, &lfs->rcache, lfs->cfg->block_size,
-                            dir->pair[0], dir->off, fcrc.size, &ecrc);
-                    if (err && err != LFS_ERR_CORRUPT) {
-                        return err;
-                    }
-
-                    // found beginning of erased part?
-                    if (ecrc == fcrc.crc) {
-                        dir->erased = true;
-                        break;
-                    }
-                }
-
                 // reset crc
                 crc = 0xffffffff;
-                hasfcrc = false;
                 continue;
             }
+
+            // fcrc is only valid when last tag was a crc
+            hasfcrc = false;
 
             // crc the entry first, hopefully leaving it in the cache
             err = lfs_bd_crc(lfs,
@@ -1198,7 +1167,6 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                     lfs_tag_dsize(tag)-sizeof(tag), &crc);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
-                    dir->erased = false;
                     break;
                 }
                 return err;
@@ -1228,7 +1196,6 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                         dir->pair[0], off+sizeof(tag), &temptail, 8);
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
-                        dir->erased = false;
                         break;
                     }
                     return err;
@@ -1241,7 +1208,6 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                         &fcrc, sizeof(fcrc));
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
-                        dir->erased = false;
                         break;
                     }
                 }
@@ -1256,7 +1222,6 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                         dir->pair[0], off+sizeof(tag)});
                 if (res < 0) {
                     if (res == LFS_ERR_CORRUPT) {
-                        dir->erased = false;
                         break;
                     }
                     return res;
@@ -1278,35 +1243,54 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             }
         }
 
-        // consider what we have good enough
-        if (dir->off > 0) {
-            // synthetic move
-            if (lfs_gstate_hasmovehere(&lfs->gdisk, dir->pair)) {
-                if (lfs_tag_id(lfs->gdisk.tag) == lfs_tag_id(besttag)) {
-                    besttag |= 0x80000000;
-                } else if (besttag != -1 &&
-                        lfs_tag_id(lfs->gdisk.tag) < lfs_tag_id(besttag)) {
-                    besttag -= LFS_MKTAG(0, 1, 0);
-                }
+        // found no valid commits?
+        if (dir->off == 0) {
+            // try the other block?
+            lfs_pair_swap(dir->pair);
+            dir->rev = revs[(r+1)%2];
+            continue;
+        }
+
+        // did we end on a valid commit? we may have an erased block
+        dir->erased = false;
+        if (maybeerased && hasfcrc && dir->off % lfs->cfg->prog_size == 0) {
+            // check for an fcrc matching the next prog's erased state, if
+            // this failed most likely a previous prog was interrupted, we
+            // need a new erase
+            uint32_t fcrc_ = 0xffffffff;
+            int err = lfs_bd_crc(lfs,
+                    NULL, &lfs->rcache, lfs->cfg->block_size,
+                    dir->pair[0], dir->off, fcrc.size, &fcrc_);
+            if (err && err != LFS_ERR_CORRUPT) {
+                return err;
             }
 
-            // found tag? or found best id?
-            if (id) {
-                *id = lfs_min(lfs_tag_id(besttag), dir->count);
-            }
+            // found beginning of erased part?
+            dir->erased = (fcrc_ == fcrc.crc);
+        }
 
-            if (lfs_tag_isvalid(besttag)) {
-                return besttag;
-            } else if (lfs_tag_id(besttag) < dir->count) {
-                return LFS_ERR_NOENT;
-            } else {
-                return 0;
+        // synthetic move
+        if (lfs_gstate_hasmovehere(&lfs->gdisk, dir->pair)) {
+            if (lfs_tag_id(lfs->gdisk.tag) == lfs_tag_id(besttag)) {
+                besttag |= 0x80000000;
+            } else if (besttag != -1 &&
+                    lfs_tag_id(lfs->gdisk.tag) < lfs_tag_id(besttag)) {
+                besttag -= LFS_MKTAG(0, 1, 0);
             }
         }
 
-        // failed, try the other block?
-        lfs_pair_swap(dir->pair);
-        dir->rev = revs[(r+1)%2];
+        // found tag? or found best id?
+        if (id) {
+            *id = lfs_min(lfs_tag_id(besttag), dir->count);
+        }
+
+        if (lfs_tag_isvalid(besttag)) {
+            return besttag;
+        } else if (lfs_tag_id(besttag) < dir->count) {
+            return LFS_ERR_NOENT;
+        } else {
+            return 0;
+        }
     }
 
     LFS_ERROR("Corrupted dir pair at {0x%"PRIx32", 0x%"PRIx32"}",
@@ -1598,8 +1582,9 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
     // padding is not crced, which lets fetches skip padding but
     // makes committing a bit more complicated
     while (commit->off < end) {
-        lfs_off_t noff = lfs_min(end - (commit->off+sizeof(lfs_tag_t)), 0x3fe)
-                + (commit->off+sizeof(lfs_tag_t));
+        lfs_off_t noff = (
+                lfs_min(end - (commit->off+sizeof(lfs_tag_t)), 0x3fe)
+                + (commit->off+sizeof(lfs_tag_t)));
         // too large for crc tag? need padding commits
         if (noff < end) {
             noff = lfs_min(noff, end - 5*sizeof(uint32_t));
@@ -1607,7 +1592,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
 
         // space for fcrc?
         uint8_t eperturb = -1;
-        if (noff < lfs->cfg->block_size) {
+        if (noff >= end && noff <= lfs->cfg->block_size - lfs->cfg->prog_size) {
             // first read the leading byte, this always contains a bit
             // we can perturb to avoid writes that don't change the fcrc
             int err = lfs_bd_read(lfs,
@@ -1619,15 +1604,9 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
 
             // find the expected fcrc, don't bother avoiding a reread
             // of the eperturb, it should still be in our cache
-            struct lfs_fcrc fcrc = {
-                // if our commit is a padding commit, we only care about
-                // invalidating outdated commits if there is a partial write, 
-                // so we fcrc the minimum amount (1 byte)
-                .size=(noff < end ? 1 : lfs->cfg->prog_size),
-                .crc=0xffffffff,
-            };
+            struct lfs_fcrc fcrc = {.size=lfs->cfg->prog_size, .crc=0xffffffff};
             err = lfs_bd_crc(lfs,
-                    NULL, &lfs->rcache, fcrc.size,
+                    NULL, &lfs->rcache, lfs->cfg->prog_size,
                     commit->block, noff, fcrc.size, &fcrc.crc);
             if (err && err != LFS_ERR_CORRUPT) {
                 return err;
@@ -1647,7 +1626,8 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
             lfs_tag_t tag;
             uint32_t crc;
         } ccrc;
-        lfs_tag_t ntag = LFS_MKTAG(LFS_TYPE_CCRC, 0x3ff,
+        lfs_tag_t ntag = LFS_MKTAG(
+                LFS_TYPE_CCRC + (((uint8_t)~eperturb) >> 7), 0x3ff,
                 noff - (commit->off+sizeof(lfs_tag_t)));
         ccrc.tag = lfs_tobe32(ntag ^ commit->ptag);
         commit->crc = lfs_crc(commit->crc, &ccrc.tag, sizeof(lfs_tag_t));
@@ -1668,15 +1648,19 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
 
         commit->off = noff;
         // perturb valid bit?
-        commit->ptag = ntag | ((0x80 & ~eperturb) << 24);
+        commit->ptag = ntag ^ ((0x80 & ~eperturb) << 24);
         // reset crc for next commit
         commit->crc = 0xffffffff;
-    }
 
-    // flush buffers
-    int err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
-    if (err) {
-        return err;
+        // manually flush here since we don't prog the padding, this confuses
+        // the caching layer
+        if (noff >= end || noff >= lfs->pcache.off + lfs->cfg->cache_size) {
+            // flush buffers
+            int err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
+            if (err) {
+                return err;
+            }
+        }
     }
 
     // successful commit, check checksums to make sure
@@ -1685,7 +1669,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
     // case if they are corrupted we would have had to compact anyways
     lfs_off_t off = commit->begin;
     uint32_t crc = 0xffffffff;
-    err = lfs_bd_crc(lfs,
+    int err = lfs_bd_crc(lfs,
             NULL, &lfs->rcache, off1+sizeof(uint32_t),
             commit->block, off, off1-off, &crc);
     if (err) {

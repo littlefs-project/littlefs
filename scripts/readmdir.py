@@ -23,7 +23,8 @@ TAG_TYPES = {
     'hardtail':     (0x7ff, 0x601),
     'gstate':       (0x700, 0x700),
     'movestate':    (0x7ff, 0x7ff),
-    'crc':          (0x780, 0x500),
+    'crc':          (0x700, 0x500),
+    'ccrc':         (0x780, 0x500),
     'fcrc':         (0x7ff, 0x5ff),
 }
 
@@ -121,12 +122,13 @@ class Tag:
         ntag = Tag(self.type, nid, self.size)
         if hasattr(self, 'off'):    ntag.off    = self.off
         if hasattr(self, 'data'):   ntag.data   = self.data
-        if hasattr(self, 'crc'):    ntag.crc    = self.crc
+        if hasattr(self, 'ccrc'):   ntag.crc    = self.crc
         if hasattr(self, 'erased'): ntag.erased = self.erased
         return ntag
 
     def typerepr(self):
-        if (self.is_('crc') and getattr(self, 'crc', 0xffffffff) != 0xffffffff):
+        if (self.is_('ccrc')
+                and getattr(self, 'ccrc', 0xffffffff) != 0xffffffff):
             crc_status = ' (bad)'
         elif self.is_('fcrc') and getattr(self, 'erased', False):
             crc_status = ' (era)'
@@ -187,8 +189,8 @@ class MetadataPair:
 
         self.rev, = struct.unpack('<I', block[0:4])
         crc = binascii.crc32(block[0:4])
-        etag = None
-        estate = None
+        fcrctag = None
+        fcrcdata = None
 
         # parse tags
         corrupt = False
@@ -202,7 +204,7 @@ class MetadataPair:
             tag = Tag((int(tag) ^ ntag) & 0x7fffffff)
             tag.off = off + 4
             tag.data = block[off+4:off+tag.dsize]
-            if tag.is_('crc'):
+            if tag.is_('ccrc'):
                 crc = binascii.crc32(block[off:off+2*4], crc)
             else:
                 crc = binascii.crc32(block[off:off+tag.dsize], crc)
@@ -212,26 +214,28 @@ class MetadataPair:
             self.all_.append(tag)
 
             if tag.is_('fcrc') and len(tag.data) == 8:
-                etag = tag
-                estate = struct.unpack('<II', tag.data)
-            elif tag.is_('crc'):
+                fcrctag = tag
+                fcrcdata = struct.unpack('<II', tag.data)
+            elif tag.is_('ccrc'):
                 # is valid commit?
                 if crc != 0xffffffff:
                     corrupt = True
                 if not corrupt:
                     self.log = self.all_.copy()
                     # end of commit?
-                    if estate:
-                        esize, ecrc = estate
-                        dcrc = 0xffffffff ^ binascii.crc32(block[off:off+esize])
-                        if ecrc == dcrc:
-                            etag.erased = True
+                    if fcrcdata:
+                        fcrcsize, fcrc = fcrcdata
+                        fcrc_ = 0xffffffff ^ binascii.crc32(
+                            block[off:off+fcrcsize])
+                        if fcrc_ == fcrc:
+                            fcrctag.erased = True
                             corrupt = True
 
                 # reset tag parsing
                 crc = 0
-                etag = None
-                estate = None
+                tag = Tag(int(tag) ^ ((tag.type & 1) << 31))
+                fcrctag = None
+                fcrcdata = None
 
         # find active ids
         self.ids = list(it.takewhile(
@@ -241,7 +245,7 @@ class MetadataPair:
         # find most recent tags
         self.tags = []
         for tag in self.log:
-            if tag.is_('crc') or tag.is_('fcrc') or tag.is_('splice'):
+            if tag.is_('crc') or tag.is_('splice'):
                 continue
             elif tag.id == 0x3ff:
                 if tag in self and self[tag] is tag:
