@@ -1139,10 +1139,11 @@ def run(runner, test_ids=[], **args):
 
     # drop into gdb?
     if failures and (args.get('gdb')
-            or args.get('gdb_powerloss_before')
-            or args.get('gdb_powerloss_after')
             or args.get('gdb_case')
-            or args.get('gdb_main')):
+            or args.get('gdb_main')
+            or args.get('gdb_pl') is not None
+            or args.get('gdb_pl_before')
+            or args.get('gdb_pl_after')):
         failure = failures[0]
         cmd = runner_ + [failure.id]
 
@@ -1161,7 +1162,14 @@ def run(runner, test_ids=[], **args):
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
                 '--args']
-        elif args.get('gdb_powerloss_before'):
+        elif args.get('gdb_pl') is not None:
+            path, lineno = find_path(runner_, failure.id, **args)
+            cmd[:0] = args['gdb_path'] + [
+                '-ex', 'break %s:%d' % (path, lineno),
+                '-ex', 'ignore 1 %d' % args['gdb_pl'],
+                '-ex', 'run',
+                '--args']
+        elif args.get('gdb_pl_before'):
             # figure out how many powerlosses there were
             powerlosses = (
                 sum(1 for _ in re.finditer('[0-9a-f]',
@@ -1173,7 +1181,7 @@ def run(runner, test_ids=[], **args):
                 '-ex', 'ignore 1 %d' % max(powerlosses-1, 0),
                 '-ex', 'run',
                 '--args']
-        elif args.get('gdb_powerloss_after'):
+        elif args.get('gdb_pl_after'):
             # figure out how many powerlosses there were
             powerlosses = (
                 sum(1 for _ in re.finditer('[0-9a-f]',
@@ -1374,14 +1382,6 @@ if __name__ == "__main__":
         action='store_true',
         help="Drop into gdb on test failure.")
     test_parser.add_argument(
-        '--gdb-powerloss-before',
-        action='store_true',
-        help="Drop into gdb before the powerloss that caused the failure.")
-    test_parser.add_argument(
-        '--gdb-powerloss-after',
-        action='store_true',
-        help="Drop into gdb after the powerloss that caused the failure.")
-    test_parser.add_argument(
         '--gdb-case',
         action='store_true',
         help="Drop into gdb on test failure but stop at the beginning "
@@ -1391,6 +1391,18 @@ if __name__ == "__main__":
         action='store_true',
         help="Drop into gdb on test failure but stop at the beginning "
             "of main.")
+    test_parser.add_argument(
+        '--gdb-pl',
+        type=lambda x: int(x, 0),
+        help="Drop into gdb on this specific powerloss.")
+    test_parser.add_argument(
+        '--gdb-pl-before',
+        action='store_true',
+        help="Drop into gdb before the powerloss that caused the failure.")
+    test_parser.add_argument(
+        '--gdb-pl-after',
+        action='store_true',
+        help="Drop into gdb after the powerloss that caused the failure.")
     test_parser.add_argument(
         '--gdb-path',
         type=lambda x: x.split(),
