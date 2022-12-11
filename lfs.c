@@ -4603,7 +4603,6 @@ static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss) {
 
     int8_t found = 0;
 
-restart:
     // Check for orphans in two separate passes:
     // - 1 for half-orphans (relocations)
     // - 2 for full-orphans (removes/renames)
@@ -4612,10 +4611,12 @@ restart:
     // references to full-orphans, effectively hiding them from the deorphan
     // search.
     //
-    for (int pass = 0; pass < 2; pass++) {
+    int pass = 0;
+    while (pass < 2) {
         // Fix any orphans
         lfs_mdir_t pdir = {.split = true, .tail = {0, 1}};
         lfs_mdir_t dir;
+        bool moreorphans = false;
 
         // iterate over all directory directory entries
         while (!lfs_pair_isnull(pdir.tail)) {
@@ -4676,7 +4677,7 @@ restart:
 
                         // did our commit create more orphans?
                         if (state == LFS_OK_ORPHANED) {
-                            goto restart;
+                            moreorphans = true;
                         }
 
                         // refetch tail
@@ -4712,7 +4713,7 @@ restart:
 
                     // did our commit create more orphans?
                     if (state == LFS_OK_ORPHANED) {
-                        goto restart;
+                        moreorphans = true;
                     }
 
                     // refetch tail
@@ -4722,6 +4723,8 @@ restart:
 
             pdir = dir;
         }
+
+        pass = moreorphans ? 0 : pass+1;
     }
 
     // mark orphans as fixed
