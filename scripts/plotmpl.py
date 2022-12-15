@@ -1150,11 +1150,15 @@ if __name__ == "__main__":
         help="Add a label to the y-axis.")
     parser.add_argument(
         '--xticklabels',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        type=lambda x:
+            [x.strip() for x in x.split(',')]
+            if x.strip() else [],
         help="Comma separated xticklabels.")
     parser.add_argument(
         '--yticklabels',
-        type=lambda x: [x.strip() for x in x.split(',')],
+        type=lambda x:
+            [x.strip() for x in x.split(',')]
+            if x.strip() else [],
         help="Comma separated yticklabels.")
     parser.add_argument(
         '-t', '--title',

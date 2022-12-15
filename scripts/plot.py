@@ -9,6 +9,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
+import bisect
 import codecs
 import collections as co
 import csv
@@ -16,6 +17,7 @@ import io
 import itertools as it
 import math as m
 import os
+import shlex
 import shutil
 import time
 
@@ -123,6 +125,10 @@ def si2(x, w=5):
         s = s.rstrip('0')
         s = s.rstrip('.')
     return '%s%s%s' % ('-' if x < 0 else '', s, SI2_PREFIXES[p])
+
+# parse escape strings
+def escape(s):
+    return codecs.escape_decode(s.encode('utf8'))[0].decode('utf8')
 
 def openio(path, mode='r', buffering=-1):
     # allow '-' for stdin/stdout
@@ -268,13 +274,21 @@ class Plot:
             ylim=None,
             xlog=False,
             ylog=False,
-            **_):
-        self.width = width
-        self.height = height
+            braille=False,
+            dots=False):
+        # scale if we're printing with dots or braille
+        self.width = 2*width if braille else width
+        self.height = (4*height if braille
+            else 2*height if dots
+            else height)
+
         self.xlim = xlim or (0, width)
         self.ylim = ylim or (0, height)
         self.xlog = xlog
         self.ylog = ylog
+        self.braille = braille
+        self.dots = dots
+
         self.grid = [('',False)]*(self.width*self.height)
 
     def scale(self, x, y):
@@ -368,14 +382,11 @@ class Plot:
                         char=char)
 
     def draw(self, row, *,
-            dots=False,
-            braille=False,
-            color=False,
-            **_):
+            color=False):
         # scale if needed
-        if braille:
+        if self.braille:
             xscale, yscale = 2, 4
-        elif dots:
+        elif self.dots:
             xscale, yscale = 1, 2
         else:
             xscale, yscale = 1, 1
@@ -403,7 +414,7 @@ class Plot:
             if b:
                 if best_c:
                     c = best_c
-                elif braille:
+                elif self.braille:
                     c = CHARS_BRAILLE[b]
                 else:
                     c = CHARS_DOTS[b]
@@ -539,6 +550,266 @@ def datasets(results, by=None, x=None, y=None, define=[]):
                         if by is not None else [])
 
     return datasets
+
+
+# some classes for organizing subplots into a grid
+class Subplot:
+    def __init__(self, **args):
+        self.x = 0
+        self.y = 0
+        self.xspan = 1
+        self.yspan = 1
+        self.args = args
+
+class Grid:
+    def __init__(self, subplot, width=1.0, height=1.0):
+        self.xweights = [width]
+        self.yweights = [height]
+        self.map = {(0,0): subplot}
+        self.subplots = [subplot]
+
+    def __repr__(self):
+        return 'Grid(%r, %r)' % (self.xweights, self.yweights)
+
+    @property
+    def width(self):
+        return len(self.xweights)
+
+    @property
+    def height(self):
+        return len(self.yweights)
+
+    def __iter__(self):
+        return iter(self.subplots)
+
+    def __getitem__(self, i):
+        x, y = i
+        if x < 0:
+            x += len(self.xweights)
+        if y < 0:
+            y += len(self.yweights)
+
+        return self.map[(x,y)]
+
+    def merge(self, other, dir):
+        if dir in ['above', 'below']:
+            # first scale the two grids so they line up
+            self_xweights = self.xweights
+            other_xweights = other.xweights
+            self_w = sum(self_xweights)
+            other_w = sum(other_xweights)
+            ratio = self_w / other_w
+            other_xweights = [s*ratio for s in other_xweights]
+
+            # now interleave xweights as needed
+            new_xweights = []
+            self_map = {}
+            other_map = {}
+            self_i = 0
+            other_i = 0
+            self_xweight = (self_xweights[self_i]
+                if self_i < len(self_xweights) else m.inf)
+            other_xweight = (other_xweights[other_i]
+                if other_i < len(other_xweights) else m.inf)
+            while self_i < len(self_xweights) and other_i < len(other_xweights):
+                if other_xweight - self_xweight > 0.0000001:
+                    new_xweights.append(self_xweight)
+                    other_xweight -= self_xweight
+
+                    new_i = len(new_xweights)-1
+                    for j in range(len(self.yweights)):
+                        self_map[(new_i, j)] = self.map[(self_i, j)]
+                    for j in range(len(other.yweights)):
+                        other_map[(new_i, j)] = other.map[(other_i, j)]
+                    for s in other.subplots:
+                        if s.x+s.xspan-1 == new_i:
+                            s.xspan += 1
+                        elif s.x > new_i:
+                            s.x += 1
+
+                    self_i += 1
+                    self_xweight = (self_xweights[self_i]
+                        if self_i < len(self_xweights) else m.inf)
+                elif self_xweight - other_xweight > 0.0000001:
+                    new_xweights.append(other_xweight)
+                    self_xweight -= other_xweight
+
+                    new_i = len(new_xweights)-1
+                    for j in range(len(other.yweights)):
+                        other_map[(new_i, j)] = other.map[(other_i, j)]
+                    for j in range(len(self.yweights)):
+                        self_map[(new_i, j)] = self.map[(self_i, j)]
+                    for s in self.subplots:
+                        if s.x+s.xspan-1 == new_i:
+                            s.xspan += 1
+                        elif s.x > new_i:
+                            s.x += 1
+
+                    other_i += 1
+                    other_xweight = (other_xweights[other_i]
+                        if other_i < len(other_xweights) else m.inf)
+                else:
+                    new_xweights.append(self_xweight)
+
+                    new_i = len(new_xweights)-1
+                    for j in range(len(self.yweights)):
+                        self_map[(new_i, j)] = self.map[(self_i, j)]
+                    for j in range(len(other.yweights)):
+                        other_map[(new_i, j)] = other.map[(other_i, j)]
+
+                    self_i += 1
+                    self_xweight = (self_xweights[self_i]
+                        if self_i < len(self_xweights) else m.inf)
+                    other_i += 1
+                    other_xweight = (other_xweights[other_i]
+                        if other_i < len(other_xweights) else m.inf)
+
+            # squish so ratios are preserved
+            self_h = sum(self.yweights)
+            other_h = sum(other.yweights)
+            ratio = (self_h-other_h) / self_h
+            self_yweights = [s*ratio for s in self.yweights]
+
+            # finally concatenate the two grids
+            if dir == 'above':
+                for s in other.subplots:
+                    s.y += len(self_yweights)
+                self.subplots.extend(other.subplots)
+
+                self.xweights = new_xweights
+                self.yweights = self_yweights + other.yweights
+                self.map = self_map | {(x, y+len(self_yweights)): s
+                    for (x, y), s in other_map.items()}
+            else:
+                for s in self.subplots:
+                    s.y += len(other.yweights)
+                self.subplots.extend(other.subplots)
+
+                self.xweights = new_xweights
+                self.yweights = other.yweights + self_yweights
+                self.map = other_map | {(x, y+len(other.yweights)): s
+                    for (x, y), s in self_map.items()}
+
+        if dir in ['right', 'left']:
+            # first scale the two grids so they line up
+            self_yweights = self.yweights
+            other_yweights = other.yweights
+            self_h = sum(self_yweights)
+            other_h = sum(other_yweights)
+            ratio = self_h / other_h
+            other_yweights = [s*ratio for s in other_yweights]
+
+            # now interleave yweights as needed
+            new_yweights = []
+            self_map = {}
+            other_map = {}
+            self_i = 0
+            other_i = 0
+            self_yweight = (self_yweights[self_i]
+                if self_i < len(self_yweights) else m.inf)
+            other_yweight = (other_yweights[other_i]
+                if other_i < len(other_yweights) else m.inf)
+            while self_i < len(self_yweights) and other_i < len(other_yweights):
+                if other_yweight - self_yweight > 0.0000001:
+                    new_yweights.append(self_yweight)
+                    other_yweight -= self_yweight
+
+                    new_i = len(new_yweights)-1
+                    for j in range(len(self.xweights)):
+                        self_map[(j, new_i)] = self.map[(j, self_i)]
+                    for j in range(len(other.xweights)):
+                        other_map[(j, new_i)] = other.map[(j, other_i)]
+                    for s in other.subplots:
+                        if s.y+s.yspan-1 == new_i:
+                            s.yspan += 1
+                        elif s.y > new_i:
+                            s.y += 1
+
+                    self_i += 1
+                    self_yweight = (self_yweights[self_i]
+                        if self_i < len(self_yweights) else m.inf)
+                elif self_yweight - other_yweight > 0.0000001:
+                    new_yweights.append(other_yweight)
+                    self_yweight -= other_yweight
+
+                    new_i = len(new_yweights)-1
+                    for j in range(len(other.xweights)):
+                        other_map[(j, new_i)] = other.map[(j, other_i)]
+                    for j in range(len(self.xweights)):
+                        self_map[(j, new_i)] = self.map[(j, self_i)]
+                    for s in self.subplots:
+                        if s.y+s.yspan-1 == new_i:
+                            s.yspan += 1
+                        elif s.y > new_i:
+                            s.y += 1
+
+                    other_i += 1
+                    other_yweight = (other_yweights[other_i]
+                        if other_i < len(other_yweights) else m.inf)
+                else:
+                    new_yweights.append(self_yweight)
+
+                    new_i = len(new_yweights)-1
+                    for j in range(len(self.xweights)):
+                        self_map[(j, new_i)] = self.map[(j, self_i)]
+                    for j in range(len(other.xweights)):
+                        other_map[(j, new_i)] = other.map[(j, other_i)]
+
+                    self_i += 1
+                    self_yweight = (self_yweights[self_i]
+                        if self_i < len(self_yweights) else m.inf)
+                    other_i += 1
+                    other_yweight = (other_yweights[other_i]
+                        if other_i < len(other_yweights) else m.inf)
+
+            # squish so ratios are preserved
+            self_w = sum(self.xweights)
+            other_w = sum(other.xweights)
+            ratio = (self_w-other_w) / self_w
+            self_xweights = [s*ratio for s in self.xweights]
+
+            # finally concatenate the two grids
+            if dir == 'right':
+                for s in other.subplots:
+                    s.x += len(self_xweights)
+                self.subplots.extend(other.subplots)
+
+                self.xweights = self_xweights + other.xweights
+                self.yweights = new_yweights
+                self.map = self_map | {(x+len(self_xweights), y): s
+                    for (x, y), s in other_map.items()}
+            else:
+                for s in self.subplots:
+                    s.x += len(other.xweights)
+                self.subplots.extend(other.subplots)
+
+                self.xweights = other.xweights + self_xweights
+                self.yweights = new_yweights
+                self.map = other_map | {(x+len(other.xweights), y): s
+                    for (x, y), s in self_map.items()}
+                    
+
+    def scale(self, width, height):
+        self.xweights = [s*width for s in self.xweights]
+        self.yweights = [s*height for s in self.yweights]
+
+    @classmethod
+    def fromargs(cls, width=1.0, height=1.0, *,
+            subplots=[],
+            **args):
+        grid = cls(Subplot(**args))
+
+        for dir, subargs in subplots:
+            subgrid = cls.fromargs(
+                width=subargs.pop('width',
+                    0.5 if dir in ['right', 'left'] else width),
+                height=subargs.pop('height',
+                    0.5 if dir in ['above', 'below'] else height),
+                **subargs)
+            grid.merge(subgrid, dir)
+
+        grid.scale(width, height)
+        return grid
     
 
 def main(csv_paths, *,
@@ -546,17 +817,6 @@ def main(csv_paths, *,
         x=None,
         y=None,
         define=[],
-        width=None,
-        height=None,
-        xlim=(None,None),
-        ylim=(None,None),
-        x2=False,
-        y2=False,
-        xunits='',
-        yunits='',
-        xlabel=None,
-        ylabel=None,
-        cat=False,
         color=False,
         braille=False,
         colors=None,
@@ -564,8 +824,27 @@ def main(csv_paths, *,
         line_chars=None,
         points=False,
         points_and_lines=False,
+        width=None,
+        height=None,
+        xlim=(None,None),
+        ylim=(None,None),
+        xlog=False,
+        ylog=False,
+        x2=False,
+        y2=False,
+        xunits='',
+        yunits='',
+        xlabel=None,
+        ylabel=None,
+        xticklabels=None,
+        yticklabels=None,
         title=None,
-        legend=None,
+        legend_right=False,
+        legend_above=False,
+        legend_below=False,
+        subplot={},
+        subplots=[],
+        cat=False,
         keep_open=False,
         sleep=None,
         **args):
@@ -576,23 +855,6 @@ def main(csv_paths, *,
         color = True
     else:
         color = False
-
-    # allow shortened ranges
-    if len(xlim) == 1:
-        xlim = (0, xlim[0])
-    if len(ylim) == 1:
-        ylim = (0, ylim[0])
-
-    # separate out renames
-    renames = list(it.chain.from_iterable(
-        ((k, v) for v in vs)
-        for k, vs in it.chain(by or [], x or [], y or [])))
-    if by is not None:
-        by = [k for k, _ in by]
-    if x is not None:
-        x = [k for k, _ in x]
-    if y is not None:
-        y = [k for k, _ in y]
 
     # what colors to use?
     if colors is not None:
@@ -615,16 +877,98 @@ def main(csv_paths, *,
         line_chars_ = [False]
 
     # allow escape codes in labels/titles
-    if title is not None:
-        title = codecs.escape_decode(title.encode('utf8'))[0].decode('utf8')
-    if xlabel is not None:
-        xlabel = codecs.escape_decode(xlabel.encode('utf8'))[0].decode('utf8')
-    if ylabel is not None:
-        ylabel = codecs.escape_decode(ylabel.encode('utf8'))[0].decode('utf8')
+    title = escape(title).splitlines() if title is not None else []
+    xlabel = escape(xlabel).splitlines() if xlabel is not None else []
+    ylabel = escape(ylabel).splitlines() if ylabel is not None else []
 
-    title = title.splitlines() if title is not None else []
-    xlabel = xlabel.splitlines() if xlabel is not None else []
-    ylabel = ylabel.splitlines() if ylabel is not None else []
+    # separate out renames
+    renames = list(it.chain.from_iterable(
+        ((k, v) for v in vs)
+        for k, vs in it.chain(by or [], x or [], y or [])))
+    if by is not None:
+        by = [k for k, _ in by]
+    if x is not None:
+        x = [k for k, _ in x]
+    if y is not None:
+        y = [k for k, _ in y]
+
+    # create a grid of subplots
+    grid = Grid.fromargs(
+        subplots=subplots + subplot.pop('subplots', []),
+        **subplot)
+
+    for s in grid:
+        # allow subplot params to override global params
+        x2_ = s.args.get('x2', False) or x2
+        y2_ = s.args.get('y2', False) or y2
+        xunits_ = s.args.get('xunits', xunits)
+        yunits_ = s.args.get('yunits', yunits)
+        xticklabels_ = s.args.get('xticklabels', xticklabels)
+        yticklabels_ = s.args.get('yticklabels', yticklabels)
+
+        # label/titles are handled a bit differently in subplots
+        subtitle = s.args.get('title')
+        xsublabel = s.args.get('xlabel')
+        ysublabel = s.args.get('ylabel')
+
+        # allow escape codes in sublabels/subtitles
+        subtitle = (escape(subtitle).splitlines()
+            if subtitle is not None else [])
+        xsublabel = (escape(xsublabel).splitlines()
+            if xsublabel is not None else [])
+        ysublabel = (escape(ysublabel).splitlines()
+            if ysublabel is not None else [])
+
+        # don't allow >2 ticklabels and render single ticklabels only once
+        if xticklabels_ is not None:
+            if len(xticklabels_) == 1:
+                xticklabels_ = ["", xticklabels_[0]]
+            elif len(xticklabels_) > 2:
+                xticklabels_ = [xticklabels_[0], xticklabels_[-1]]
+        if yticklabels_ is not None:
+            if len(yticklabels_) == 1:
+                yticklabels_ = ["", yticklabels_[0]]
+            elif len(yticklabels_) > 2:
+                yticklabels_ = [yticklabels_[0], yticklabels_[-1]]
+
+        s.x2 = x2_
+        s.y2 = y2_
+        s.xunits = xunits_
+        s.yunits = yunits_
+        s.xticklabels = xticklabels_
+        s.yticklabels = yticklabels_
+        s.title = subtitle
+        s.xlabel = xsublabel
+        s.ylabel = ysublabel
+
+    # preprocess margins so they can be shared
+    for s in grid:
+        s.xmargin = (
+            len(s.ylabel) + (1 if s.ylabel else 0) # fit ysublabel
+                + (1 if s.x > 0 else 0),           # space between
+            ((5 if s.y2 else 4) + len(s.yunits)    # fit yticklabels
+                if s.yticklabels is None
+                else max((len(t) for t in s.yticklabels), default=0))
+                + (1 if s.yticklabels != [] else 0),
+        )
+        s.ymargin = (
+            len(s.xlabel),                   # fit xsublabel
+            1 if s.xticklabels != [] else 0, # fit xticklabels
+            len(s.title),                    # fit subtitle
+        )
+
+    for s in grid:
+        # share margins so everything aligns nicely
+        s.xmargin = (
+            max(s_.xmargin[0] for s_ in grid if s_.x == s.x),
+            max(s_.xmargin[1] for s_ in grid if s_.x == s.x),
+        )
+        s.ymargin = (
+            max(s_.ymargin[0] for s_ in grid if s_.y == s.y),
+            max(s_.ymargin[1] for s_ in grid if s_.y == s.y),
+            max(s_.ymargin[-1] for s_ in grid if s_.y+s_.yspan == s.y+s.yspan),
+        )
+
 
     def draw(f):
         def writeln(s=''):
@@ -638,9 +982,21 @@ def main(csv_paths, *,
         # then extract the requested datasets
         datasets_ = datasets(results, by, x, y, define)
 
+        # figure out colors/chars here so that subplot defines
+        # don't change them later, that'd be bad
+        datacolors_ = {
+            name: colors_[i % len(colors_)]
+            for i, name in enumerate(datasets_.keys())}
+        datachars_ = {
+            name: chars_[i % len(chars_)]
+            for i, name in enumerate(datasets_.keys())}
+        dataline_chars_ = {
+            name: line_chars_[i % len(line_chars_)]
+            for i, name in enumerate(datasets_.keys())}
+
         # build legend?
         legend_width = 0
-        if legend:
+        if legend_right or legend_above or legend_below:
             legend_ = []
             for i, k in enumerate(datasets_.keys()):
                 label = '%s%s' % (
@@ -655,47 +1011,13 @@ def main(csv_paths, *,
                     legend_.append(label)
                     legend_width = max(legend_width, len(label)+1)
 
-        # find xlim/ylim
-        xlim_ = (
-            xlim[0] if xlim[0] is not None
-                else min(it.chain([0], (k
-                    for r in datasets_.values()
-                    for k, v in r.items()
-                    if v is not None))),
-            xlim[1] if xlim[1] is not None
-                else max(it.chain([0], (k
-                    for r in datasets_.values()
-                    for k, v in r.items()
-                    if v is not None))))
-
-        ylim_ = (
-            ylim[0] if ylim[0] is not None
-                else min(it.chain([0], (v
-                    for r in datasets_.values()
-                    for _, v in r.items()
-                    if v is not None))),
-            ylim[1] if ylim[1] is not None
-                else max(it.chain([0], (v
-                    for r in datasets_.values()
-                    for _, v in r.items()
-                    if v is not None))))
-
-        # figure out our plot size
+        # figure out our canvas size
         if width is None:
             width_ = min(80, shutil.get_terminal_size((80, None))[0])
         elif width:
             width_ = width
         else:
             width_ = shutil.get_terminal_size((80, None))[0]
-        # make space for units
-        width_ -= (5 if y2 else 4)+1+len(yunits)
-        # make space for label
-        width_ -= len(ylabel)
-        # make space for legend
-        if legend in {'left', 'right'} and legend_:
-            width_ -= legend_width
-        # limit a bit
-        width_ = max(2*((5 if x2 else 4)+len(xunits)), width_)
 
         if height is None:
             height_ = 17 + len(title) + len(xlabel)
@@ -707,120 +1029,322 @@ def main(csv_paths, *,
             # make space for shell prompt
             if not keep_open:
                 height_ -= 1
-        # make space for units
-        height_ -= 1
-        # make space for label
+
+        # carve out space for the xlabel
         height_ -= len(xlabel)
-        # make space for title
+        # carve out space for the ylabel
+        width_ -= len(ylabel) + (1 if ylabel else 0)
+        # carve out space for title
         height_ -= len(title)
-        # make space for legend
-        if legend in {'above', 'below'} and legend_:
-            legend_cols = min(len(legend_), max(1, width_//legend_width))
+
+        # carve out space for the legend
+        if legend_right and legend_:
+            width_ -= legend_width
+        if legend_above and legend_:
+            legend_cols = len(legend_)
+            while True:
+                legend_widths = [
+                    max(len(l) for l in legend_[i::legend_cols])
+                    for i in range(legend_cols)]
+                if (legend_cols <= 1
+                        or sum(legend_widths)+2*(legend_cols-1)
+                            + max(sum(s.xmargin[:2]) for s in grid if s.x == 0)
+                            <= width_):
+                    break
+                legend_cols -= 1
             height_ -= (len(legend_)+legend_cols-1) // legend_cols
-        # limit a bit
-        height_ = max(2, height_)
+        if legend_below and legend_:
+            legend_cols = len(legend_)
+            while True:
+                legend_widths = [
+                    max(len(l) for l in legend_[i::legend_cols])
+                    for i in range(legend_cols)]
+                if (legend_cols <= 1
+                        or sum(legend_widths)+2*(legend_cols-1)
+                            + max(sum(s.xmargin[:2]) for s in grid if s.x == 0)
+                            <= width_):
+                    break
+                legend_cols -= 1
+            height_ -= (len(legend_)+legend_cols-1) // legend_cols
 
-        # figure out margin for label/units/legend
-        margin = (5 if y2 else 4) + len(yunits) + len(ylabel)
-        if legend == 'left' and legend_:
-            margin += legend_width
+        # figure out the grid dimensions
+        #
+        # note we floor to give the dimension tweaks the best chance of not
+        # exceeding the requested dimensions, this means we usually are less
+        # than the requested dimensions by quite a bit when we have many
+        # subplots, but it's a tradeoff for a relatively simple implementation
+        widths = [m.floor(w*width_) for w in grid.xweights]
+        heights = [m.floor(w*height_) for w in grid.yweights]
 
-        # make it easier to transpose ylabel
-        ylabel_ = [l.center(height_) for l in ylabel]
+        # tweak dimensions to allow all plots to have a minimum width,
+        # this may force the plot to be larger than the requested dimensions,
+        # but that's the best we can do
+        for s in grid:
+            # fit xunits
+            minwidth = sum(s.xmargin) + max(2,
+                2*((5 if s.x2 else 4)+len(s.xunits))
+                    if s.xticklabels is None
+                    else sum(len(t) for t in s.xticklabels))
+            # fit yunits
+            minheight = sum(s.ymargin) + 2
 
-        # create a plot and draw our coordinates
-        plot = Plot(
-            # scale if we're printing with dots or braille
-            2*width_ if line_chars is None and braille else width_,
-            4*height_ if line_chars is None and braille
-                else 2*height_ if line_chars is None
-                else height_,
-            xlim=xlim_,
-            ylim=ylim_,
-            **args)
+            i = 0
+            while minwidth > sum(widths[s.x:s.x+s.xspan]):
+                widths[s.x+i] += 1
+                i = (i + 1) % s.xspan
 
-        for i, (k, dataset) in enumerate(datasets_.items()):
-            plot.plot(
-                sorted((x,y) for x,y in dataset.items()),
-                color=colors_[i % len(colors_)],
-                char=chars_[i % len(chars_)],
-                line_char=line_chars_[i % len(line_chars_)])
-        
+            i = 0
+            while minheight > sum(heights[s.y:s.y+s.yspan]):
+                heights[s.y+i] += 1
+                i = (i + 1) % s.yspan
+
+        width_ = sum(widths)
+        height_ = sum(heights)
+
+        # create a plot for each subplot
+        for s in grid:
+            # allow subplot params to override global params
+            define_ = define + s.args.get('define', [])
+            xlim_ = s.args.get('xlim', xlim)
+            ylim_ = s.args.get('ylim', ylim)
+            xlog_ = s.args.get('xlog', False) or xlog
+            ylog_ = s.args.get('ylog', False) or ylog
+
+            # allow shortened ranges
+            if len(xlim_) == 1:
+                xlim_ = (0, xlim_[0])
+            if len(ylim_) == 1:
+                ylim_ = (0, ylim_[0])
+
+            # data can be constrained by subplot-specific defines,
+            # so re-extract for each plot
+            subdatasets = datasets(results, by, x, y, define_)
+
+            # find actual xlim/ylim
+            xlim_ = (
+                xlim_[0] if xlim_[0] is not None
+                    else min(it.chain([0], (k
+                        for r in subdatasets.values()
+                        for k, v in r.items()
+                        if v is not None))),
+                xlim_[1] if xlim_[1] is not None
+                    else max(it.chain([0], (k
+                        for r in subdatasets.values()
+                        for k, v in r.items()
+                        if v is not None))))
+
+            ylim_ = (
+                ylim_[0] if ylim_[0] is not None
+                    else min(it.chain([0], (v
+                        for r in subdatasets.values()
+                        for _, v in r.items()
+                        if v is not None))),
+                ylim_[1] if ylim_[1] is not None
+                    else max(it.chain([0], (v
+                        for r in subdatasets.values()
+                        for _, v in r.items()
+                        if v is not None))))
+
+            # find actual width/height
+            subwidth = sum(widths[s.x:s.x+s.xspan]) - sum(s.xmargin)
+            subheight = sum(heights[s.y:s.y+s.yspan]) - sum(s.ymargin)
+
+            # plot!
+            plot = Plot(
+                subwidth,
+                subheight,
+                xlim=xlim_,
+                ylim=ylim_,
+                xlog=xlog_,
+                ylog=ylog_,
+                braille=line_chars is None and braille,
+                dots=line_chars is None and not braille)
+
+            for name, dataset in subdatasets.items():
+                plot.plot(
+                    sorted((x,y) for x,y in dataset.items()),
+                    color=datacolors_[name],
+                    char=datachars_[name],
+                    line_char=dataline_chars_[name])
+
+            s.plot = plot
+            s.width = subwidth
+            s.height = subheight
+            s.xlim = xlim_
+            s.ylim = ylim_
+
+
+        # now that everything's plotted, let's render things to the terminal
+
+        # figure out margin
+        xmargin = (
+            len(ylabel) + (1 if ylabel else 0),
+            sum(grid[0,0].xmargin[:2]),
+        )
+        ymargin = (
+            sum(grid[0,0].ymargin[:2]),
+            grid[-1,-1].ymargin[-1],
+        )
 
         # draw title?
         for line in title:
-            f.writeln('%*s %s' % (margin, '', line.center(width_)))
-        # draw legend=above?
-        if legend == 'above' and legend_:
+            f.writeln('%*s%s' % (
+                sum(xmargin[:2]), '',
+                line.center(width_-xmargin[1])))
+
+        # draw legend_above?
+        if legend_above and legend_:
             for i in range(0, len(legend_), legend_cols):
-                f.writeln('%*s %*s%s' % (
-                    margin,
-                    '',
-                    max(width_ - sum(len(label)+1
-                        for label in legend_[i:i+legend_cols]),
-                        0) // 2,
-                    '',
-                    ' '.join('%s%s%s' % (
-                        '\x1b[%sm' % colors_[j % len(colors_)] if color else '',
-                        legend_[j],
-                        '\x1b[m' if color else '')
-                        for j in range(i, min(i+legend_cols, len(legend_))))))
+                f.writeln('%*s%s' % (
+                    max(sum(xmargin[:2])
+                        + (width_-xmargin[1]
+                            - (sum(legend_widths)+2*(legend_cols-1)))
+                            // 2,
+                        0), '',
+                    '  '.join('%s%s%s' % (
+                        '\x1b[%sm' % colors_[(i+j) % len(colors_)]
+                            if color else '',
+                        '%-*s' % (legend_widths[j], legend_[i+j]),
+                        '\x1b[m'
+                            if color else '')
+                        for j in range(min(legend_cols, len(legend_)-i)))))
+
         for row in range(height_):
-            f.writeln('%s%s%*s %s%s' % (
-                # draw legend=left?
-                ('%s%-*s %s' % (
-                    '\x1b[%sm' % colors_[row % len(colors_)] if color else '',
-                    legend_width-1,
-                    legend_[row] if row < len(legend_) else '',
+            # draw ylabel?
+            f.write(
+                '%s ' % ''.join(
+                    ('%*s%s%*s' % (
+                        ymargin[-1], '',
+                        line.center(height_-sum(ymargin)),
+                        ymargin[0], ''))[row]
+                    for line in ylabel)
+                if ylabel else '')
+
+            for x_ in range(grid.width):
+                # figure out the grid x/y position
+                subrow = row
+                y_ = len(heights)-1
+                while subrow >= heights[y_]:
+                    subrow -= heights[y_]
+                    y_ -= 1
+
+                s = grid[x_, y_]
+                subrow = row - sum(heights[s.y+s.yspan:])
+
+                # header
+                if subrow < s.ymargin[-1]:
+                    # draw subtitle?
+                    if subrow < len(s.title):
+                        f.write('%*s%s' % (
+                            sum(s.xmargin[:2]), '',
+                            s.title[subrow].center(s.width)))
+                    else:
+                        f.write('%*s%*s' % (
+                            sum(s.xmargin[:2]), '',
+                            s.width, ''))
+                # draw plot?
+                elif subrow-s.ymargin[-1] < s.height:
+                    subrow = subrow-s.ymargin[-1]
+
+                    # draw ysublabel?
+                    f.write('%-*s' % (
+                        s.xmargin[0],
+                        '%s ' % ''.join(
+                                line.center(s.height)[subrow]
+                                for line in s.ylabel)
+                            if s.ylabel else ''))
+
+                    # draw yunits?
+                    if subrow == 0 and s.yticklabels != []:
+                        f.write('%*s' % (
+                            s.xmargin[1],
+                            ((si2 if s.y2 else si)(s.ylim[1]) + s.yunits
+                                if s.yticklabels is None
+                                else s.yticklabels[1])
+                                + ' '))
+                    elif subrow == s.height-1 and s.yticklabels != []:
+                        f.write('%*s' % (
+                            s.xmargin[1],
+                            ((si2 if s.y2 else si)(s.ylim[0]) + s.yunits
+                                if s.yticklabels is None
+                                else s.yticklabels[0])
+                                + ' '))
+                    else:
+                        f.write('%*s' % (
+                            s.xmargin[1], ''))
+
+                    # draw plot!
+                    f.write(s.plot.draw(subrow, color=color))
+
+                # footer
+                else:
+                    subrow = subrow-s.ymargin[-1]-s.height
+
+                    # draw xunits?
+                    if subrow < (1 if s.xticklabels != [] else 0):
+                        f.write('%*s%-*s%*s%*s' % (
+                            sum(s.xmargin[:2]), '',
+                            (5 if s.x2 else 4) + len(s.xunits)
+                                if s.xticklabels is None
+                                else len(s.xticklabels[0]),
+                            (si2 if s.x2 else si)(s.xlim[0]) + s.xunits
+                                if s.xticklabels is None
+                                else s.xticklabels[0],
+                            s.width - (2*((5 if s.x2 else 4)+len(s.xunits))
+                                if s.xticklabels is None
+                                else sum(len(t) for t in s.xticklabels)), '',
+                            (5 if s.x2 else 4) + len(s.xunits)
+                                if s.xticklabels is None
+                                else len(s.xticklabels[1]),
+                            (si2 if s.x2 else si)(s.xlim[1]) + s.xunits
+                                if s.xticklabels is None
+                                else s.xticklabels[1]))
+                    # draw xsublabel?
+                    elif (subrow < s.ymargin[1]
+                            or subrow-s.ymargin[1] >= len(s.xlabel)):
+                        f.write('%*s%*s' % (
+                            sum(s.xmargin[:2]), '',
+                            s.width, ''))
+                    else:
+                        f.write('%*s%s' % (
+                            sum(s.xmargin[:2]), '',
+                            s.xlabel[subrow-s.ymargin[1]].center(s.width)))
+
+            # draw legend_right?
+            if (legend_right and legend_
+                    and row >= ymargin[-1]
+                    and row-ymargin[-1] < len(legend_)):
+                j = row-ymargin[-1]
+                f.write(' %s%s%s' % (
+                    '\x1b[%sm' % colors_[j % len(colors_)] if color else '',
+                    legend_[j],
                     '\x1b[m' if color else ''))
-                    if legend == 'left' and legend_ else '',
-                # draw ylabel?
-                ('%*s' % (
-                    len(ylabel),
-                    ''.join(l[row] for l in ylabel_))),
-                # draw plot
-                (5 if y2 else 4)+len(yunits),
-                (si2 if y2 else si)(ylim_[0])+yunits if row == height_-1
-                    else (si2 if y2 else si)(ylim_[1])+yunits if row == 0
-                    else '',
-                plot.draw(row,
-                    braille=line_chars is None and braille,
-                    dots=line_chars is None and not braille,
-                    color=color,
-                    **args),
-                # draw legend=right?
-                (' %s%s%s' % (
-                    '\x1b[%sm' % colors_[row % len(colors_)] if color else '',
-                    legend_[row] if row < len(legend_) else '',
-                    '\x1b[m' if color else ''))
-                    if legend == 'right' and legend_ else ''))
-        f.writeln('%*s %-*s%*s%*s' % (
-            margin,
-            '',
-            (5 if x2 else 4)+len(xunits),
-            (si2 if x2 else si)(xlim_[0])+xunits,
-            width_ - 2*((5 if x2 else 4)+len(xunits)),
-            '',
-            (5 if x2 else 4)+len(xunits),
-            (si2 if x2 else si)(xlim_[1])+xunits))
+
+            f.writeln()
+
         # draw xlabel?
         for line in xlabel:
-            f.writeln('%*s %s' % (margin, '', line.center(width_)))
-        # draw legend=below?
-        if legend == 'below' and legend_:
+            f.writeln('%*s%s' % (
+                sum(xmargin[:2]), '',
+                line.center(width_-xmargin[1])))
+
+        # draw legend below?
+        if legend_below and legend_:
             for i in range(0, len(legend_), legend_cols):
-                f.writeln('%*s %*s%s' % (
-                    margin,
-                    '',
-                    max(width_ - sum(len(label)+1
-                        for label in legend_[i:i+legend_cols]),
-                        0) // 2,
-                    '',
-                    ' '.join('%s%s%s' % (
-                        '\x1b[%sm' % colors_[j % len(colors_)] if color else '',
-                        legend_[j],
-                        '\x1b[m' if color else '')
-                        for j in range(i, min(i+legend_cols, len(legend_))))))
+                f.writeln('%*s%s' % (
+                    max(sum(xmargin[:2])
+                        + (width_-xmargin[1]
+                            - (sum(legend_widths)+2*(legend_cols-1)))
+                            // 2,
+                        0), '',
+                    '  '.join('%s%s%s' % (
+                        '\x1b[%sm' % colors_[(i+j) % len(colors_)]
+                            if color else '',
+                        '%-*s' % (legend_widths[j], legend_[i+j]),
+                        '\x1b[m'
+                            if color else '')
+                        for j in range(min(legend_cols, len(legend_)-i)))))
+
 
     if keep_open:
         try:
@@ -936,10 +1460,6 @@ if __name__ == "__main__":
         const=0,
         help="Height in rows. 0 uses the terminal height. Defaults to 17.")
     parser.add_argument(
-        '-z', '--cat',
-        action='store_true',
-        help="Pipe directly to stdout.")
-    parser.add_argument(
         '-X', '--xlim',
         type=lambda x: tuple(
             dat(x) if x.strip() else None
@@ -980,14 +1500,75 @@ if __name__ == "__main__":
         '--ylabel',
         help="Add a label to the y-axis.")
     parser.add_argument(
+        '--xticklabels',
+        type=lambda x:
+            [x.strip() for x in x.split(',')]
+            if x.strip() else [],
+        help="Comma separated xticklabels.")
+    parser.add_argument(
+        '--yticklabels',
+        type=lambda x:
+            [x.strip() for x in x.split(',')]
+            if x.strip() else [],
+        help="Comma separated yticklabels.")
+    parser.add_argument(
         '-t', '--title',
         help="Add a title.")
     parser.add_argument(
-        '-l', '--legend',
-        nargs='?',
-        choices=['above', 'below', 'left', 'right'],
-        const='right',
-        help="Place a legend here.")
+        '-l', '--legend-right',
+        action='store_true',
+        help="Place a legend to the right.")
+    parser.add_argument(
+        '--legend-above',
+        action='store_true',
+        help="Place a legend above.")
+    parser.add_argument(
+        '--legend-below',
+        action='store_true',
+        help="Place a legend below.")
+    class AppendSubplot(argparse.Action):
+        @staticmethod
+        def parse(value):
+            import copy
+            subparser = copy.deepcopy(parser)
+            next(a for a in subparser._actions
+                if '--width' in a.option_strings).type = float
+            next(a for a in subparser._actions
+                if '--height' in a.option_strings).type = float
+            return subparser.parse_intermixed_args(shlex.split(value or ""))
+        def __call__(self, parser, namespace, value, option):
+            if not hasattr(namespace, 'subplots'):
+                namespace.subplots = []
+            namespace.subplots.append((
+                option.split('-')[-1],
+                self.__class__.parse(value)))
+    parser.add_argument(
+        '--subplot-above',
+        action=AppendSubplot,
+        help="Add subplot above with the same dataset. Takes an arg string to "
+            "control the subplot which supports most (but not all) of the "
+            "parameters listed here. The relative dimensions of the subplot "
+            "can be controlled with -W/-H which now take a percentage.")
+    parser.add_argument(
+        '--subplot-below',
+        action=AppendSubplot,
+        help="Add subplot below with the same dataset.")
+    parser.add_argument(
+        '--subplot-left',
+        action=AppendSubplot,
+        help="Add subplot left with the same dataset.")
+    parser.add_argument(
+        '--subplot-right',
+        action=AppendSubplot,
+        help="Add subplot right with the same dataset.")
+    parser.add_argument(
+        '--subplot',
+        type=AppendSubplot.parse,
+        help="Add subplot-specific arguments to the main plot.")
+    parser.add_argument(
+        '-z', '--cat',
+        action='store_true',
+        help="Pipe directly to stdout.")
     parser.add_argument(
         '-k', '--keep-open',
         action='store_true',
@@ -997,6 +1578,15 @@ if __name__ == "__main__":
         type=float,
         help="Time in seconds to sleep between redraws when running with -k. "
             "Defaults to 0.01.")
-    sys.exit(main(**{k: v
-        for k, v in vars(parser.parse_intermixed_args()).items()
-        if v is not None}))
+
+    def dictify(ns):
+        if hasattr(ns, 'subplots'):
+            ns.subplots = [(dir, dictify(subplot_ns))
+                for dir, subplot_ns in ns.subplots]
+        if ns.subplot is not None:
+            ns.subplot = dictify(ns.subplot)
+        return {k: v
+            for k, v in vars(ns).items()
+            if v is not None}
+
+    sys.exit(main(**dictify(parser.parse_intermixed_args())))
