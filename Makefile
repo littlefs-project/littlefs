@@ -28,43 +28,43 @@ VALGRIND ?= valgrind
 GDB		 ?= gdb
 PERF	 ?= perf
 
-SRC  ?= $(filter-out $(wildcard *.*.c),$(wildcard *.c))
+SRC  ?= $(filter-out $(wildcard *.t.* *.b.*),$(wildcard *.c))
 OBJ  := $(SRC:%.c=$(BUILDDIR)/%.o)
 DEP  := $(SRC:%.c=$(BUILDDIR)/%.d)
 ASM  := $(SRC:%.c=$(BUILDDIR)/%.s)
 CI   := $(SRC:%.c=$(BUILDDIR)/%.ci)
-GCDA := $(SRC:%.c=$(BUILDDIR)/%.t.a.gcda)
+GCDA := $(SRC:%.c=$(BUILDDIR)/%.t.gcda)
 
 TESTS ?= $(wildcard tests/*.toml)
 TEST_SRC ?= $(SRC) \
-		$(filter-out $(wildcard bd/*.*.c),$(wildcard bd/*.c)) \
+		$(filter-out $(wildcard bd/*.t.* bd/*.b.*),$(wildcard bd/*.c)) \
 		runners/test_runner.c
 TEST_RUNNER ?= $(BUILDDIR)/runners/test_runner
-TEST_TC    := $(TESTS:%.toml=$(BUILDDIR)/%.t.c) \
-		$(TEST_SRC:%.c=$(BUILDDIR)/%.t.c)
-TEST_TAC   := $(TEST_TC:%.t.c=%.t.a.c)
-TEST_OBJ   := $(TEST_TAC:%.t.a.c=%.t.a.o)
-TEST_DEP   := $(TEST_TAC:%.t.a.c=%.t.a.d)
-TEST_CI	   := $(TEST_TAC:%.t.a.c=%.t.a.ci)
-TEST_GCNO  := $(TEST_TAC:%.t.a.c=%.t.a.gcno)
-TEST_GCDA  := $(TEST_TAC:%.t.a.c=%.t.a.gcda)
+TEST_A     := $(TESTS:%.toml=$(BUILDDIR)/%.t.a.c) \
+		$(TEST_SRC:%.c=$(BUILDDIR)/%.t.a.c)
+TEST_C     := $(TEST_A:%.t.a.c=%.t.c)
+TEST_OBJ   := $(TEST_C:%.t.c=%.t.o)
+TEST_DEP   := $(TEST_C:%.t.c=%.t.d)
+TEST_CI	   := $(TEST_C:%.t.c=%.t.ci)
+TEST_GCNO  := $(TEST_C:%.t.c=%.t.gcno)
+TEST_GCDA  := $(TEST_C:%.t.c=%.t.gcda)
 TEST_PERF  := $(TEST_RUNNER:%=%.perf)
 TEST_TRACE := $(TEST_RUNNER:%=%.trace)
 TEST_CSV   := $(TEST_RUNNER:%=%.csv)
 
 BENCHES ?= $(wildcard benches/*.toml)
 BENCH_SRC ?= $(SRC) \
-		$(filter-out $(wildcard bd/*.*.c),$(wildcard bd/*.c)) \
+		$(filter-out $(wildcard bd/*.t.* bd/*.b.*),$(wildcard bd/*.c)) \
 		runners/bench_runner.c
 BENCH_RUNNER ?= $(BUILDDIR)/runners/bench_runner
-BENCH_BC    := $(BENCHES:%.toml=$(BUILDDIR)/%.b.c) \
-		$(BENCH_SRC:%.c=$(BUILDDIR)/%.b.c)
-BENCH_BAC   := $(BENCH_BC:%.b.c=%.b.a.c)
-BENCH_OBJ   := $(BENCH_BAC:%.b.a.c=%.b.a.o)
-BENCH_DEP   := $(BENCH_BAC:%.b.a.c=%.b.a.d)
-BENCH_CI    := $(BENCH_BAC:%.b.a.c=%.b.a.ci)
-BENCH_GCNO  := $(BENCH_BAC:%.b.a.c=%.b.a.gcno)
-BENCH_GCDA  := $(BENCH_BAC:%.b.a.c=%.b.a.gcda)
+BENCH_A     := $(BENCHES:%.toml=$(BUILDDIR)/%.b.a.c) \
+		$(BENCH_SRC:%.c=$(BUILDDIR)/%.b.a.c)
+BENCH_C     := $(BENCH_A:%.b.a.c=%.b.c)
+BENCH_OBJ   := $(BENCH_C:%.b.c=%.b.o)
+BENCH_DEP   := $(BENCH_C:%.b.c=%.b.d)
+BENCH_CI    := $(BENCH_C:%.b.c=%.b.ci)
+BENCH_GCNO  := $(BENCH_C:%.b.c=%.b.gcno)
+BENCH_GCDA  := $(BENCH_C:%.b.c=%.b.gcda)
 BENCH_PERF  := $(BENCH_RUNNER:%=%.perf)
 BENCH_TRACE := $(BENCH_RUNNER:%=%.trace)
 BENCH_CSV   := $(BENCH_RUNNER:%=%.csv)
@@ -517,22 +517,22 @@ $(BUILDDIR)/%.o $(BUILDDIR)/%.ci: %.c
 $(BUILDDIR)/%.s: %.c
 	$(CC) -S $(CFLAGS) $< -o $@
 
-$(BUILDDIR)/%.a.c: %.c
+$(BUILDDIR)/%.c: %.a.c
 	./scripts/prettyasserts.py -p LFS_ASSERT $< -o $@
 
-$(BUILDDIR)/%.a.c: $(BUILDDIR)/%.c
+$(BUILDDIR)/%.c: $(BUILDDIR)/%.a.c
 	./scripts/prettyasserts.py -p LFS_ASSERT $< -o $@
 
-$(BUILDDIR)/%.t.c: %.toml
+$(BUILDDIR)/%.t.a.c: %.toml
 	./scripts/test.py -c $< $(TESTCFLAGS) -o $@
 
-$(BUILDDIR)/%.t.c: %.c $(TESTS)
+$(BUILDDIR)/%.t.a.c: %.c $(TESTS)
 	./scripts/test.py -c $(TESTS) -s $< $(TESTCFLAGS) -o $@
 
-$(BUILDDIR)/%.b.c: %.toml
+$(BUILDDIR)/%.b.a.c: %.toml
 	./scripts/bench.py -c $< $(BENCHCFLAGS) -o $@
 
-$(BUILDDIR)/%.b.c: %.c $(BENCHES)
+$(BUILDDIR)/%.b.a.c: %.c $(BENCHES)
 	./scripts/bench.py -c $(BENCHES) -s $< $(BENCHCFLAGS) -o $@
 
 ## Clean everything
@@ -554,8 +554,8 @@ clean:
 	rm -f $(ASM)
 	rm -f $(CI)
 	rm -f $(TEST_RUNNER)
-	rm -f $(TEST_TC)
-	rm -f $(TEST_TAC)
+	rm -f $(TEST_A)
+	rm -f $(TEST_C)
 	rm -f $(TEST_OBJ)
 	rm -f $(TEST_DEP)
 	rm -f $(TEST_CI)
@@ -565,8 +565,8 @@ clean:
 	rm -f $(TEST_TRACE)
 	rm -f $(TEST_CSV)
 	rm -f $(BENCH_RUNNER)
-	rm -f $(BENCH_BC)
-	rm -f $(BENCH_BAC)
+	rm -f $(BENCH_A)
+	rm -f $(BENCH_C)
 	rm -f $(BENCH_OBJ)
 	rm -f $(BENCH_DEP)
 	rm -f $(BENCH_CI)

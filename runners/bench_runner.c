@@ -52,6 +52,12 @@ void *mappend(void **p,
 
 // a quick self-terminating text-safe varint scheme
 static void leb16_print(uintmax_t x) {
+    // allow 'w' to indicate negative numbers
+    if ((intmax_t)x < 0) {
+        printf("w");
+        x = -x;
+    }
+
     while (true) {
         char nibble = (x & 0xf) | (x > 0xf ? 0x10 : 0);
         printf("%c", (nibble < 10) ? '0'+nibble : 'a'+nibble-10);
@@ -63,7 +69,17 @@ static void leb16_print(uintmax_t x) {
 }
 
 static uintmax_t leb16_parse(const char *s, char **tail) {
+    bool neg = false;
     uintmax_t x = 0;
+    if (tail) {
+        *tail = (char*)s;
+    }
+
+    if (s[0] == 'w') {
+        neg = true;
+        s = s+1;
+    }
+
     size_t i = 0;
     while (true) {
         uintmax_t nibble = s[i];
@@ -73,23 +89,21 @@ static uintmax_t leb16_parse(const char *s, char **tail) {
             nibble = nibble - 'a' + 10;
         } else {
             // invalid?
-            if (tail) {
-                *tail = (char*)s;
-            }
             return 0;
         }
 
         x |= (nibble & 0xf) << (4*i);
         i += 1;
         if (!(nibble & 0x10)) {
+            s = s + i;
             break;
         }
     }
 
     if (tail) {
-        *tail = (char*)s + i;
+        *tail = (char*)s;
     }
-    return x;
+    return neg ? -x : x;
 }
 
 
@@ -145,8 +159,8 @@ intmax_t bench_define_lit(void *data) {
     BENCH_IMPLICIT_DEFINES
 #undef BENCH_DEF
 
-#define BENCH_DEFINE_MAP_EXPLICIT    0
-#define BENCH_DEFINE_MAP_OVERRIDE    1
+#define BENCH_DEFINE_MAP_OVERRIDE    0
+#define BENCH_DEFINE_MAP_EXPLICIT    1
 #define BENCH_DEFINE_MAP_PERMUTATION 2
 #define BENCH_DEFINE_MAP_GEOMETRY    3
 #define BENCH_DEFINE_MAP_IMPLICIT    4
@@ -681,11 +695,18 @@ static void case_forperm(
             const struct bench_suite *suite,
             const struct bench_case *case_),
         void *data) {
+    // explicit permutation?
     if (defines) {
         bench_define_explicit(defines, define_count);
-        bench_define_flush();
 
-        cb(data, suite, case_);
+        for (size_t v = 0; v < bench_override_define_permutations; v++) {
+            // define override permutation
+            bench_define_override(v);
+            bench_define_flush();
+
+            cb(data, suite, case_);
+        }
+
         return;
     }
 

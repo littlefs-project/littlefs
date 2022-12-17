@@ -52,6 +52,12 @@ void *mappend(void **p,
 
 // a quick self-terminating text-safe varint scheme
 static void leb16_print(uintmax_t x) {
+    // allow 'w' to indicate negative numbers
+    if ((intmax_t)x < 0) {
+        printf("w");
+        x = -x;
+    }
+
     while (true) {
         char nibble = (x & 0xf) | (x > 0xf ? 0x10 : 0);
         printf("%c", (nibble < 10) ? '0'+nibble : 'a'+nibble-10);
@@ -63,7 +69,17 @@ static void leb16_print(uintmax_t x) {
 }
 
 static uintmax_t leb16_parse(const char *s, char **tail) {
+    bool neg = false;
     uintmax_t x = 0;
+    if (tail) {
+        *tail = (char*)s;
+    }
+
+    if (s[0] == 'w') {
+        neg = true;
+        s = s+1;
+    }
+
     size_t i = 0;
     while (true) {
         uintmax_t nibble = s[i];
@@ -73,23 +89,21 @@ static uintmax_t leb16_parse(const char *s, char **tail) {
             nibble = nibble - 'a' + 10;
         } else {
             // invalid?
-            if (tail) {
-                *tail = (char*)s;
-            }
             return 0;
         }
 
         x |= (nibble & 0xf) << (4*i);
         i += 1;
         if (!(nibble & 0x10)) {
+            s = s + i;
             break;
         }
     }
 
     if (tail) {
-        *tail = (char*)s + i;
+        *tail = (char*)s;
     }
-    return x;
+    return neg ? -x : x;
 }
 
 
@@ -158,8 +172,8 @@ intmax_t test_define_lit(void *data) {
     TEST_IMPLICIT_DEFINES
 #undef TEST_DEF
 
-#define TEST_DEFINE_MAP_EXPLICIT    0
-#define TEST_DEFINE_MAP_OVERRIDE    1
+#define TEST_DEFINE_MAP_OVERRIDE    0
+#define TEST_DEFINE_MAP_EXPLICIT    1
 #define TEST_DEFINE_MAP_PERMUTATION 2
 #define TEST_DEFINE_MAP_GEOMETRY    3
 #define TEST_DEFINE_MAP_IMPLICIT    4
@@ -675,26 +689,34 @@ static void case_forperm(
             const struct test_case *case_,
             const test_powerloss_t *powerloss),
         void *data) {
+    // explicit permutation?
     if (defines) {
         test_define_explicit(defines, define_count);
-        test_define_flush();
 
-        if (cycles) {
-            cb(data, suite, case_, &(test_powerloss_t){
-                    .run=run_powerloss_cycles,
-                    .cycles=cycles,
-                    .cycle_count=cycle_count});
-        } else {
-            for (size_t p = 0; p < test_powerloss_count; p++) {
-                // skip non-reentrant tests when powerloss testing
-                if (test_powerlosses[p].run != run_powerloss_none
-                        && !(case_->flags & TEST_REENTRANT)) {
-                    continue;
+        for (size_t v = 0; v < test_override_define_permutations; v++) {
+            // define override permutation
+            test_define_override(v);
+            test_define_flush();
+
+            // explicit powerloss cycles?
+            if (cycles) {
+                cb(data, suite, case_, &(test_powerloss_t){
+                        .run=run_powerloss_cycles,
+                        .cycles=cycles,
+                        .cycle_count=cycle_count});
+            } else {
+                for (size_t p = 0; p < test_powerloss_count; p++) {
+                    // skip non-reentrant tests when powerloss testing
+                    if (test_powerlosses[p].run != run_powerloss_none
+                            && !(case_->flags & TEST_REENTRANT)) {
+                        continue;
+                    }
+
+                    cb(data, suite, case_, &test_powerlosses[p]);
                 }
-
-                cb(data, suite, case_, &test_powerlosses[p]);
             }
         }
+
         return;
     }
 

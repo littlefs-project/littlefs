@@ -323,8 +323,8 @@ def compile(test_paths, **args):
                         for i, defines in enumerate(case.permutations):
                             for k, v in sorted(defines.items()):
                                 if v not in define_cbs:
-                                    name = ('__test__%s__%s__%s__%d'
-                                        % (suite.name, case.name, k, i))
+                                    name = ('__test__%s__%s__%d'
+                                        % (case.name, k, i))
                                     define_cbs[v] = name
                                     f.writeln('intmax_t %s('
                                         '__attribute__((unused)) '
@@ -333,9 +333,9 @@ def compile(test_paths, **args):
                                     f.writeln('}')
                                     f.writeln()
                         f.writeln('const test_define_t '
-                            '__test__%s__%s__defines[]['
+                            '__test__%s__defines[]['
                             'TEST_IMPLICIT_DEFINE_COUNT+%d] = {'
-                            % (suite.name, case.name, len(suite.defines)))
+                            % (case.name, len(suite.defines)))
                         for defines in case.permutations:
                             f.writeln(4*' '+'{')
                             for k, v in sorted(defines.items()):
@@ -347,8 +347,8 @@ def compile(test_paths, **args):
 
                     # create case filter function
                     if suite.if_ is not None or case.if_ is not None:
-                        f.writeln('bool __test__%s__%s__filter(void) {'
-                            % (suite.name, case.name))
+                        f.writeln('bool __test__%s__filter(void) {'
+                            % (case.name))
                         f.writeln(4*' '+'return %s;'
                             % ' && '.join('(%s)' % if_
                                 for if_ in [suite.if_, case.if_]
@@ -357,9 +357,9 @@ def compile(test_paths, **args):
                         f.writeln()
 
                     # create case run function
-                    f.writeln('void __test__%s__%s__run('
+                    f.writeln('void __test__%s__run('
                         '__attribute__((unused)) struct lfs_config *cfg) {'
-                        % (suite.name, case.name))
+                        % (case.name))
                     f.writeln(4*' '+'// test case %s' % case.name)
                     if case.code_lineno is not None:
                         f.writeln(4*' '+'#line %d "%s"'
@@ -399,16 +399,16 @@ def compile(test_paths, **args):
                     else:
                         if case.defines:
                             f.writeln('extern const test_define_t '
-                                '__test__%s__%s__defines[]['
+                                '__test__%s__defines[]['
                                 'TEST_IMPLICIT_DEFINE_COUNT+%d];'
-                                % (suite.name, case.name, len(suite.defines)))
+                                % (case.name, len(suite.defines)))
                         if suite.if_ is not None or case.if_ is not None:
-                            f.writeln('extern bool __test__%s__%s__filter('
+                            f.writeln('extern bool __test__%s__filter('
                                 'void);'
-                                % (suite.name, case.name))
-                        f.writeln('extern void __test__%s__%s__run('
+                                % (case.name))
+                        f.writeln('extern void __test__%s__run('
                             'struct lfs_config *cfg);'
-                            % (suite.name, case.name))
+                            % (case.name))
                         f.writeln()
 
                 # create suite struct
@@ -450,13 +450,13 @@ def compile(test_paths, **args):
                         % len(case.permutations))
                     if case.defines:
                         f.writeln(12*' '+'.defines '
-                            '= (const test_define_t*)__test__%s__%s__defines,'
-                            % (suite.name, case.name))
+                            '= (const test_define_t*)__test__%s__defines,'
+                            % (case.name))
                     if suite.if_ is not None or case.if_ is not None:
-                        f.writeln(12*' '+'.filter = __test__%s__%s__filter,'
-                            % (suite.name, case.name))
-                    f.writeln(12*' '+'.run = __test__%s__%s__run,'
-                        % (suite.name, case.name))
+                        f.writeln(12*' '+'.filter = __test__%s__filter,'
+                            % (case.name))
+                    f.writeln(12*' '+'.run = __test__%s__run,'
+                        % (case.name))
                     f.writeln(8*' '+'},')
                 f.writeln(4*' '+'},')
                 f.writeln(4*' '+'.case_count = %d,' % len(suite.cases))
@@ -1044,7 +1044,8 @@ def run(runner, test_ids=[], **args):
     passed = 0
     powerlosses = 0
     failures = []
-    for by in (expected_case_perms.keys() if args.get('by_cases')
+    for by in (test_ids if test_ids
+            else expected_case_perms.keys() if args.get('by_cases')
             else expected_suite_perms.keys() if args.get('by_suites')
             else [None]):
         # spawn jobs for stage
@@ -1055,7 +1056,7 @@ def run(runner, test_ids=[], **args):
             killed) = run_stage(
                 by or 'tests',
                 runner_,
-                [by] if by is not None else test_ids,
+                [by] if by is not None else [],
                 stdout,
                 trace,
                 output,
