@@ -336,7 +336,8 @@ typedef struct lfs_mdir_ {
     lfs_off_t eoff;
     uint16_t count;
 
-    //bool erased;
+    // TODO need both erased and eperturb?
+    bool erased;
     bool split;
     bool eperturb;
     lfs_block_t tail[2];

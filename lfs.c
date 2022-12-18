@@ -659,6 +659,14 @@ struct lfs_diskoff {
     lfs_off_t off;
 };
 
+struct lfs_pattern_ {
+    lfs_tag_t mask;
+    lfs_tag_t tag;
+    int (*cb)(void *data, lfs_block_t block, lfs_off_t off);
+    void *data;
+    lfs_off_t scratch_off;
+};
+
 #define LFS_MKATTRS(...) \
     (struct lfs_mattr[]){__VA_ARGS__}, \
     sizeof((struct lfs_mattr[]){__VA_ARGS__}) / sizeof(struct lfs_mattr)
@@ -666,6 +674,10 @@ struct lfs_diskoff {
 #define LFS_MKATTRS_(...) \
     (struct lfs_mattr_[]){__VA_ARGS__}, \
     sizeof((struct lfs_mattr_[]){__VA_ARGS__}) / sizeof(struct lfs_mattr_)
+
+#define LFS_MKPATTERNS_(...) \
+    (struct lfs_pattern_[]){__VA_ARGS__}, \
+    sizeof((struct lfs_pattern_[]){__VA_ARGS__}) / sizeof(struct lfs_pattern_)
 
 // operations on global state
 static inline void lfs_gstate_xor(lfs_gstate_t *a, const lfs_gstate_t *b) {
@@ -2492,8 +2504,10 @@ lfs_ssize_t lfs_bd_progleb128_(lfs_t *lfs,
 }
 
 lfs_ssize_t lfs_bd_readtag_(lfs_t *lfs,
-        lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
-        lfs_block_t block, lfs_off_t off, lfs_tag_t *tag, lfs_size_t *size) {
+        lfs_cache_t *pcache, lfs_cache_t *rcache,
+        lfs_size_t hint, uint32_t *crc,
+        lfs_block_t block, lfs_off_t off,
+        lfs_tag_t *tag, lfs_size_t *size) {
     uint8_t header[2*sizeof(uint32_t)];
     lfs_size_t hdiff = 0;
 
@@ -2515,6 +2529,11 @@ lfs_ssize_t lfs_bd_readtag_(lfs_t *lfs,
         return res;
     }
     hdiff += res;
+
+    // TODO is this the best place for this?
+    if (crc) {
+        *crc = lfs_crc(*crc, header, hdiff);
+    }
 
     return hdiff;
 }
@@ -2549,6 +2568,155 @@ lfs_ssize_t lfs_bd_progtag_(lfs_t *lfs,
     return hdiff;
 }
 
+
+int lfs_dir_fetchmatch_(lfs_t *lfs,
+        lfs_mdir__t *mdir, const lfs_block_t pair[2],
+        struct lfs_pattern_ *patterns, lfs_size_t pattern_count) {
+    // if either block address is invalid we return LFS_ERR_CORRUPT here,
+    // otherwise later writes to the pair could fail
+    if (pair[0] >= lfs->cfg->block_count || pair[1] >= lfs->cfg->block_count) {
+        return LFS_ERR_CORRUPT;
+    }
+
+    // find the block with the most recent revision
+    uint32_t revs[2] = {0, 0};
+    int r = 0;
+    for (int i = 0; i < 2; i++) {
+        int err = lfs_bd_read(lfs,
+                NULL, &lfs->rcache, sizeof(revs[i]),
+                pair[i], 0, &revs[i], sizeof(revs[i]));
+        revs[i] = lfs_fromle32(revs[i]);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+
+        if (err != LFS_ERR_CORRUPT &&
+                lfs_scmp(revs[i], revs[(i+1)%2]) > 0) {
+            r = i;
+        }
+    }
+
+    // scan tags to fetch the mdir, possibly falling back to the other block
+    for (int i = 0; i < 2; i++) {
+        lfs_mdir__t scratch;
+        scratch.pair[0] = pair[(r+i+0) % 2];
+        scratch.pair[1] = pair[(r+i+1) % 2];
+        scratch.rev = revs[(r+i) % 2];
+        scratch.eoff = 0;
+        for (int i = 0; i < pattern_count; i++) {
+            patterns[i].scratch_off = 0;
+        }
+
+        bool hasestate = false;
+        struct lfs_estate estate;
+
+        uint32_t rev = lfs_tole32(mdir->rev);
+        uint32_t crc = lfs_crc(0xffffffff, &rev, sizeof(rev));
+
+        while (true) {
+            // extract next tag
+            lfs_tag_t tag;
+            lfs_size_t size;
+            lfs_ssize_t diff = lfs_bd_readtag_(lfs,
+                    NULL, &lfs->rcache, 2*sizeof(uint32_t), &crc,
+                    scratch.pair[0], scratch.eoff, &tag, &size);
+            if (diff < 0) {
+                if (diff == LFS_ERR_CORRUPT) {
+                    // can't continue
+                    mdir->erased = false;
+                    break;
+                }
+                return diff;
+            }
+            scratch.eoff += diff;
+
+            // out of range?
+            if (scratch.eoff + size > lfs->cfg->block_size) {
+                mdir->erased = false;
+                break;
+            }
+
+            if (lfs_tag_type_(tag) == LFS_T_CRC) {
+                // check the crc attr
+                uint32_t dcrc;
+                int err = lfs_bd_read(lfs,
+                        NULL, &lfs->rcache, lfs->cfg->block_size,
+                        scratch.pair[0], scratch.eoff, &dcrc, sizeof(dcrc));
+                if (err) {
+                    if (err == LFS_ERR_CORRUPT) {
+                        mdir->erased = false;
+                        break;
+                    }
+                    return err;
+                }
+                dcrc = lfs_fromle32(dcrc);
+                scratch.eoff += sizeof(dcrc);
+
+                if (crc != dcrc) {
+                    mdir->erased = false;
+                    break;
+                }
+
+                // TODO pseudrandom numbers, gcrc, etc
+
+                // found a valid commit!
+                for (int i = 0; i < pattern_count; i++) {
+                    if (patterns[i].scratch_off != 0) {
+                        int err = patterns[i].cb(patterns[i].data,
+                                scratch.pair[0],
+                                patterns[i].scratch_off);
+                        if (err) {
+                            return err;
+                        }
+                    }
+                    patterns[i].scratch_off = 0;
+                }
+
+                *mdir = scratch;
+
+                if (hasestate) {
+                }
+
+                // reset crc for next commit
+                crc = 0xffffffff;
+                hasestate = false;
+
+                // TODO handle erasestate
+                mdir->erased = false; // TODO
+            } else {
+                // crc the entry first, hopefully leaving it in the cache
+                int err = lfs_bd_crc(lfs,
+                        NULL, &lfs->rcache, lfs->cfg->block_size,
+                        scratch.pair[0], scratch.eoff,
+                        size, &crc);
+                if (err) {
+                    if (err == LFS_ERR_CORRUPT) {
+                        mdir->erased = false;
+                        break;
+                    }
+                    return err;
+                }
+
+                // TODO handle dir modifying tags?
+
+                // found matches?
+                for (int i = 0; i < pattern_count; i++) {
+                    if ((patterns[i].mask & patterns[i].tag) ==
+                            (patterns[i].mask & tag)) {
+                        patterns[i].scratch_off = scratch.eoff;
+                    }
+                }
+            }
+        }
+    }
+}
+
+int lfs_dir_fetch_(lfs_t *lfs,
+        lfs_mdir__t *mdir, const lfs_block_t pair[2]) {
+    return lfs_dir_fetchmatch_(lfs, mdir, pair, NULL, 0);
+}
+
+
 // TODO name dir->mdir for these low-level operations?
 // TODO I don't think a mask works anymore, do we need this?
 lfs_stag_t lfs_dir_getattrslice_(lfs_t *lfs, lfs_mdir__t *mdir,
@@ -2566,7 +2734,7 @@ lfs_stag_t lfs_dir_getattrslice_(lfs_t *lfs, lfs_mdir__t *mdir,
         lfs_tag_t rtag;
         lfs_off_t rsize;
         lfs_ssize_t rdiff = lfs_bd_readtag_(lfs,
-                NULL, &lfs->rcache, 2*sizeof(uint32_t),
+                NULL, &lfs->rcache, 2*sizeof(uint32_t), NULL,
                 mdir->pair[0], roff, &rtag, &rsize);
         if (rdiff < 0) {
             return rdiff;
@@ -2604,7 +2772,7 @@ lfs_stag_t lfs_dir_getattrslice_(lfs_t *lfs, lfs_mdir__t *mdir,
             lfs_off_t nroff;
             // TODO are hints correct both here and commit?
             lfs_soff_t res = lfs_bd_readtag_(lfs,
-                    NULL, &lfs->rcache, 2*sizeof(uint32_t),
+                    NULL, &lfs->rcache, 2*sizeof(uint32_t), NULL,
                     mdir->pair[0], roff+rdiff, &ralt, &nroff);
             if (res < 0) {
                 return res;
@@ -2716,7 +2884,7 @@ lfs_ssize_t lfs_dir_commitattr_(lfs_t *lfs, lfs_off_t *proff,
             lfs_tag_t rtag;
             lfs_off_t rsize;
             lfs_ssize_t res = lfs_bd_readtag_(lfs,
-                    &lfs->pcache, &lfs->rcache, 2*sizeof(uint32_t),
+                    &lfs->pcache, &lfs->rcache, 2*sizeof(uint32_t), NULL,
                     block, roff, &rtag, &rsize);
             if (res < 0) {
                 return res;
@@ -2728,7 +2896,7 @@ lfs_ssize_t lfs_dir_commitattr_(lfs_t *lfs, lfs_off_t *proff,
                 lfs_tag_t ralt;
                 lfs_off_t nroff;
                 res = lfs_bd_readtag_(lfs,
-                        &lfs->pcache, &lfs->rcache, 2*sizeof(uint32_t),
+                        &lfs->pcache, &lfs->rcache, 2*sizeof(uint32_t), NULL,
                         block, roff+rdiff, &ralt, &nroff);
                 if (res < 0) {
                     return res;
