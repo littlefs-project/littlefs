@@ -215,6 +215,15 @@ static inline uint32_t lfs_tobe32(uint32_t a) {
 // Calculate CRC-32 with polynomial = 0x04c11db7
 uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
 
+// Calculate crc32c incrementally
+//
+// polynomial = 0x11edc6f41
+// init = 0xffffffff
+// fini = 0xffffffff
+//
+uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size);
+
+
 // Allocate memory, only used if buffers are not provided to littlefs
 // Note, memory must be 64-bit aligned
 static inline void *lfs_malloc(size_t size) {
