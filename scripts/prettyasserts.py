@@ -31,7 +31,7 @@ CMP = {
 }
 
 LEXEMES = {
-    'ws':       [r'(?:\s|\n|#.*?\n|//.*?\n|/\*.*?\*/)+'],
+    'ws':       [r'(?:\s|\n|#.*?(?<!\\)\n|//.*?(?<!\\)\n|/\*.*?\*/)+'],
     'assert':   ['assert'],
     'arrow':    ['=>'],
     'string':   [r'"(?:\\.|[^"])*"', r"'(?:\\.|[^'])\'"],
@@ -39,7 +39,7 @@ LEXEMES = {
     'cmp':      CMP.keys(),
     'logic':    ['\&\&', '\|\|'],
     'sep':      [':', ';', '\{', '\}', ','],
-    'op':       ['->'], # specifically ops that conflict with cmp
+    'op':       ['->', '>>', '<<'], # specifically ops that conflict with cmp
 }
 
 
