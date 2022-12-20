@@ -172,6 +172,27 @@ static int lfs_bd_crc(lfs_t *lfs,
     return 0;
 }
 
+static int lfs_bd_crc32c(lfs_t *lfs,
+        const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
+        lfs_block_t block, lfs_off_t off, lfs_size_t size, uint32_t *crc) {
+    lfs_size_t diff = 0;
+
+    for (lfs_off_t i = 0; i < size; i += diff) {
+        uint8_t dat[8];
+        diff = lfs_min(size-i, sizeof(dat));
+        int err = lfs_bd_read(lfs,
+                pcache, rcache, hint-i,
+                block, off+i, &dat, diff);
+        if (err) {
+            return err;
+        }
+
+        *crc = lfs_crc32c(*crc, &dat, diff);
+    }
+
+    return 0;
+}
+
 #ifndef LFS_READONLY
 static int lfs_bd_flush(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate) {
@@ -282,6 +303,7 @@ static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
 
 
 /// Small type-level utilities ///
+
 // operations on block pairs
 static inline void lfs_pair_swap(lfs_block_t pair[2]) {
     lfs_block_t t = pair[0];
@@ -372,6 +394,108 @@ static inline lfs_size_t lfs_tag_dsize(lfs_tag_t tag) {
     return sizeof(tag) + lfs_tag_size(tag + lfs_tag_isdelete(tag));
 }
 
+typedef uint32_t lfs_rtag_t;
+typedef int32_t lfs_srtag_t;
+
+enum lfs_rtag_type1 {
+    LFS_TYPE1_CREATE = 0x40,
+    LFS_TYPE1_DELETE = 0x48,
+    LFS_TYPE1_STRUCT = 0x50,
+    LFS_TYPE1_UATTR  = 0x60,
+
+    LFS_TYPE1_TAIL   = 0x08,
+    LFS_TYPE1_GSTATE = 0x10,
+
+    LFS_TYPE1_CRC0   = 0x02,
+    LFS_TYPE1_CRC1   = 0x0a,
+    LFS_TYPE1_FCRC   = 0x12,
+
+    LFS_TYPE1_ALT    = 0x01,
+};
+
+enum lfs_rtag_color {
+    LFS_COLOR_B = 0,
+    LFS_COLOR_R = 1,
+};
+
+enum lfs_rtag_dir {
+    LFS_DIR_LT = 0,
+    LFS_DIR_GT = 1,
+};
+
+#define LFS_MKRTAG_(type1, type2, id) \
+    (((0x7f & (lfs_rtag_t)(type1)) << 0) \
+        | ((0xff & (lfs_rtag_t)(type2)) << 7) \
+        | ((0xffff & (lfs_rtag_t)(id)) << 15))
+
+#define LFS_MKRTAG(type1, type2, id) \
+    LFS_MKRTAG_(LFS_TYPE1_##type1, type2, id)
+
+#define LFS_MKRALT_(color, dir, weight) \
+    (0x1 \
+        | ((0x1 & (lfs_rtag_t)(color)) << 2) \
+        | ((0x1 & (lfs_rtag_t)(dir)) << 1) \
+        | ((0xfffffff & (lfs_rtag_t)(weight)) << 3))
+
+#define LFS_MKRALT(color, dir, weight) \
+    LFS_MKRALT_(LFS_COLOR_##color, LFS_DIR_##dir, weight)
+
+static inline bool lfs_rtag_isvalid(lfs_rtag_t tag) {
+    return !(tag & 0x80000000);
+}
+
+static inline bool lfs_rtag_isalt(lfs_rtag_t tag) {
+    return tag & 0x1;
+}
+
+static inline bool lfs_rtag_intree(lfs_rtag_t tag) {
+    return tag & 0x2;
+}
+
+static inline uint8_t lfs_rtag_type1(lfs_rtag_t tag) {
+    return tag & 0x7f;
+}
+
+static inline uint8_t lfs_rtag_type2(lfs_rtag_t tag) {
+    return (tag >> 7) & 0xff;
+}
+
+static inline uint16_t lfs_rtag_id(lfs_rtag_t tag) {
+    return (tag >> 15) & 0xffff;
+}
+
+static inline bool lfs_rtag_islt(lfs_rtag_t tag) {
+    return !(tag & 0x2);
+}
+
+static inline bool lfs_rtag_isgt(lfs_rtag_t tag) {
+    return tag & 0x2;
+}
+
+static inline bool lfs_rtag_isblack(lfs_rtag_t tag) {
+    return !(tag & 0x4);
+}
+
+static inline bool lfs_rtag_isred(lfs_rtag_t tag) {
+    return tag & 0x4;
+}
+
+static inline lfs_rtag_t lfs_rtag_weight(lfs_rtag_t tag) {
+    return (tag >> 3) & 0xfffffff;
+}
+
+static inline lfs_rtag_t lfs_rtag_red(lfs_rtag_t tag) {
+    return tag | 0x4;
+}
+
+static inline lfs_rtag_t lfs_rtag_black(lfs_rtag_t tag) {
+    return tag & ~0x4;
+}
+
+static inline lfs_rtag_t lfs_rtag_parallel(lfs_rtag_t a, lfs_rtag_t b) {
+    return (a & 0x2) == (b & 0x2);
+}
+
 // operations on attributes in attribute lists
 struct lfs_mattr {
     lfs_tag_t tag;
@@ -386,6 +510,19 @@ struct lfs_diskoff {
 #define LFS_MKATTRS(...) \
     (struct lfs_mattr[]){__VA_ARGS__}, \
     sizeof((struct lfs_mattr[]){__VA_ARGS__}) / sizeof(struct lfs_mattr)
+
+struct lfs_rattr {
+    lfs_rtag_t tag;
+    const void *buffer;
+    lfs_size_t size;
+    struct lfs_rattr *next;
+};
+
+#define LFS_MKRATTR_(...) \
+    (&(struct lfs_rattr){__VA_ARGS__})
+
+#define LFS_MKRATTR(type1, type2, id, buffer, size, next) \
+    (&(struct lfs_rattr){LFS_MKRTAG(type1, type2, id), buffer, size, next})
 
 // operations on global state
 static inline void lfs_gstate_xor(lfs_gstate_t *a, const lfs_gstate_t *b) {
@@ -453,6 +590,35 @@ static void lfs_fcrc_tole32(struct lfs_fcrc *fcrc) {
     fcrc->crc = lfs_tole32(fcrc->crc);
 }
 #endif
+
+struct lfs_rfcrc {
+    uint32_t crc;
+    lfs_size_t size;
+    // extra space for leb128 encoding
+    uint8_t spill[1];
+};
+
+static lfs_ssize_t lfs_rfcrc_todisk(struct lfs_rfcrc *fcrc) {
+    lfs_tole32_(fcrc->crc, &fcrc->crc);
+
+    lfs_ssize_t delta = lfs_toleb128(fcrc->size, (uint8_t*)&fcrc->size, 5);
+    if (delta < 0) {
+        return delta;
+    }
+
+    return sizeof(uint32_t) + delta;
+}
+
+static lfs_ssize_t lfs_rfcrc_fromdisk(struct lfs_rfcrc *fcrc) {
+    fcrc->crc = lfs_fromle32_(&fcrc->crc);
+
+    lfs_ssize_t delta = lfs_fromleb128(&fcrc->size, (uint8_t*)&fcrc->size, 5);
+    if (delta < 0) {
+        return delta;
+    }
+
+    return sizeof(uint32_t) + delta;
+}
 
 // other endianness operations
 static void lfs_ctz_fromle32(struct lfs_ctz *ctz) {
@@ -641,6 +807,683 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     }
 }
 #endif
+
+
+/// Red-black-yellow Dhara tree operations ///
+
+static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
+        const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
+        lfs_block_t block, lfs_off_t off,
+        lfs_rtag_t *tag, lfs_size_t *size, uint32_t *crc) {
+    // needed to quiet an uninitialized warning, zeroing tag on error is
+    // probably a good idea anyways
+    *tag = 0;
+
+    // read a pair of leb128s
+    uint8_t buffer[2*5];
+    lfs_size_t i = 0;
+
+    // TODO allow different hint for lookup? bench this? does our hint work backwards?
+    // TODO should lfs_bd_read allow a range for reads?
+    int err = lfs_bd_read(lfs,
+            pcache, rcache, hint,
+            block, off, &buffer, sizeof(buffer));
+    if (err) {
+        return err;
+    }
+
+    lfs_rtag_t tag_;
+    ssize_t delta = lfs_fromleb128(&tag_, &buffer[i], 5);
+    if (delta < 0) {
+        return delta;
+    }
+    i += delta;
+
+    lfs_size_t size_;
+    delta = lfs_fromleb128(&size_, &buffer[i], 5);
+    if (delta < 0) {
+        return delta;
+    }
+    i += delta;
+
+    // optionally crc
+    if (crc) {
+        uint32_t crc_ = *crc;
+
+        // on-disk, the tags valid bit must reflect the parity of the
+        // preceding data, fortunately for crc32c this is the same as the
+        // parity of the crc
+        if ((tag_ & 1) != (lfs_popc(crc_) & 1)) {
+            return LFS_ERR_INVAL;
+        }
+
+        *crc = lfs_crc32c(crc_, buffer, i);
+    }
+
+    // convert to in-device tag repr, we want the valid bit in the sign bit
+    tag_ >>= 1;
+    *tag = tag_;
+    *size = size_;
+
+    return i;
+}
+
+static int lfs_rbyd_fetch(lfs_t *lfs, lfs_rbyd_t *rbyd, lfs_block_t block) {
+    // read the revision count and get the crc started
+    uint32_t rev;
+    int err = lfs_bd_read(lfs,
+            NULL, &lfs->rcache, lfs->cfg->block_size,
+            block, 0, &rev, sizeof(uint32_t));
+    if (err) {
+        return err;
+    }
+
+    // calculate crc before endian conversion
+    uint32_t crc = lfs_crc32c(0, &rev, sizeof(uint32_t));
+    lfs_off_t off = sizeof(uint32_t);
+    lfs_off_t trunk = 0;
+    bool wastrunk = false;
+
+    rbyd->block = block;
+    rbyd->rev = lfs_fromle32_(&rev);
+    rbyd->trunk = 0;
+    rbyd->noff = 0;
+
+    // assume unerased until proven otherwise
+    bool maybeerased = false;
+    bool hasfcrc = false;
+    struct lfs_rfcrc fcrc;
+
+    // scan tags, checking valid bits, crcs, etc
+    while (true) {
+        lfs_rtag_t tag;
+        lfs_size_t size;
+        lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
+                NULL, &lfs->rcache, lfs->cfg->block_size,
+                block, 0, &tag, &size, &crc);
+        if (delta < 0) {
+            if (delta == LFS_ERR_INVAL
+                    || delta == LFS_ERR_CORRUPT
+                    || delta == LFS_ERR_OVERFLOW) {
+                maybeerased = (delta == LFS_ERR_INVAL);
+                break;
+            }
+            return delta;
+        }
+
+        // found trunk of tree?
+        if (!wastrunk && (lfs_rtag_isalt(tag) || lfs_rtag_intree(tag))) {
+            trunk = off;
+            wastrunk = true;
+        }
+
+        off += delta;
+
+        // we mostly just skip alt pointers here
+        if (lfs_rtag_isalt(tag)) {
+            continue;
+        }
+
+        // trunk ends at non-alt tag
+        wastrunk = false;
+
+        // tag goes out of range?
+        if (off + size > lfs->cfg->block_size) {
+            break;
+        }
+
+        // not an end-of-commit crc
+        if ((lfs_rtag_type1(tag) & ~0x8) != LFS_TYPE1_CRC0) {
+            // fcrc is only valid if the last tag was a crc
+            hasfcrc = false;
+
+            // crc the entry first, hopefully leaving it in the cache
+            err = lfs_bd_crc32c(lfs,
+                    NULL, &lfs->rcache, lfs->cfg->block_size,
+                    block, off, size, &crc);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    break;
+                }
+                return err;
+            }
+
+            // found an fcrc?
+            if (lfs_rtag_type1(tag) == LFS_TYPE1_FCRC) {
+                err = lfs_bd_read(lfs,
+                        NULL, &lfs->rcache, lfs->cfg->block_size,
+                        block, off, &fcrc,
+                        lfs_min(size, sizeof(struct lfs_rfcrc)));
+                if (err) {
+                    if (err == LFS_ERR_CORRUPT) {
+                        break;
+                    }
+                    return err;
+                }
+
+                lfs_ssize_t delta = lfs_rfcrc_fromdisk(&fcrc);
+                if (delta < 0) {
+                    return delta;
+                }
+                hasfcrc = true;
+            }
+        // is an end-of-commit crc
+        } else {
+            uint32_t crc_ = 0;
+            err = lfs_bd_read(lfs,
+                    NULL, &lfs->rcache, lfs->cfg->block_size,
+                    block, off, &crc_, sizeof(uint32_t));
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    break;
+                }
+                return err;
+            }
+            crc_ = lfs_fromle32_(&crc_);
+
+            if (crc != crc_) {
+                // uh oh, crcs don't match
+                break;
+            }
+
+            // toss our crc into the filesystem seed for
+            // pseudorandom numbers, note we use another crc here
+            // as a collection function because it is sufficiently
+            // random and convenient
+            lfs->seed = lfs_crc32c(lfs->seed, &crc, sizeof(uint32_t));
+
+            // save what we've found so far
+            rbyd->trunk = trunk;
+            rbyd->noff = off;
+            rbyd->crc = crc;
+        }
+    }
+
+    // no valid commits at all?
+    if (rbyd->noff == 0) {
+        return LFS_ERR_CORRUPT;
+    }
+
+    // did we end on a valid commit? we may have an erased block
+    rbyd->erased = false;
+    if (maybeerased && hasfcrc && rbyd->noff % lfs->cfg->prog_size == 0) {
+        // check for an fcrc matching the next prog's erased state, if
+        // this failed most likely a previous prog was interrupted, we
+        // need a new erase
+        uint32_t fcrc_ = 0xffffffff;
+        int err = lfs_bd_crc32c(lfs,
+                NULL, &lfs->rcache, lfs->cfg->block_size,
+                rbyd->block, rbyd->noff, fcrc.size, &fcrc_);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+
+        // found beginning of erased part?
+        rbyd->erased = (fcrc_ == fcrc.crc);
+    }
+
+    return 0;
+}
+
+//static lfs_ssize_t lfs_rbyd_lookup(lfs_t *lfs, lfs_rbyd_t *rbyd,
+//        lfs_rtag_t tag, lfs_off_t *off, lfs_rtag_t *ntag) {
+//    // TODO
+//    return 0;
+//}
+
+static int lfs_rbyd_prog(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache,
+        lfs_block_t block, lfs_off_t off,
+        const void *buffer, lfs_size_t size,
+        uint32_t *crc) {
+    int err = lfs_bd_prog(lfs,
+            pcache, rcache, false,
+            block, off, buffer, size);
+    if (err) {
+        return err;
+    }
+
+    // optionally crc
+    if (crc) {
+        *crc = lfs_crc32c(*crc, buffer, size);
+    }
+
+    return 0;
+}
+
+static lfs_ssize_t lfs_rbyd_progtag(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache,
+        lfs_block_t block, lfs_off_t off,
+        lfs_rtag_t tag, lfs_size_t size, uint32_t *crc) {
+    // convert to on-disk repr
+    tag <<= 1;
+
+    // make sure to include the parity of the current crc
+    uint32_t crc_ = *crc;
+    tag |= lfs_popc(crc_) & 1;
+
+    // compress into pair of leb128s
+    uint8_t buffer[2*5];
+    lfs_size_t i = 0;
+
+    ssize_t delta = lfs_toleb128(tag, &buffer[i], 5);
+    if (delta < 0) {
+        return delta;
+    }
+    i += delta;
+
+    delta = lfs_toleb128(size, &buffer[i], 5);
+    if (delta < 0) {
+        return delta;
+    }
+    i += delta;
+
+    int err = lfs_rbyd_prog(lfs,
+            pcache, rcache,
+            block, off, &buffer, i, crc);
+    if (err) {
+        return err;
+    }
+
+    // crc
+    *crc = lfs_crc32c(crc_, buffer, i);
+
+    return i;
+}
+
+static lfs_ssize_t lfs_rbyd_p_push(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache,
+        lfs_block_t block, lfs_off_t off,
+        lfs_rtag_t p_alts[static 3],
+        lfs_off_t p_jumps[static 3],
+        lfs_rtag_t alt, lfs_off_t jump, uint32_t *crc) {
+    lfs_ssize_t delta = 0;
+
+    // too many alts, need to write one out?
+    if (p_alts[2]) {
+        // change to relative jump at the last minute
+        lfs_rtag_t alt_ = p_alts[2];
+        lfs_off_t jump_ = off - p_jumps[2];
+
+        delta = lfs_rbyd_progtag(lfs,
+                pcache, rcache,
+                block, off,
+                alt_, jump_, crc);
+        if (delta < 0) {
+            return delta;
+        }
+    }
+
+    // push the alts
+    p_alts[2] = p_alts[1];
+    p_jumps[2] = p_jumps[1];
+    p_alts[1] = p_alts[0];
+    p_jumps[1] = p_jumps[0];
+    p_alts[0] = alt;
+    p_jumps[0] = jump;
+
+    return delta;
+}
+
+static lfs_ssize_t lfs_rbyd_p_flush(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache,
+        lfs_block_t block, lfs_off_t off,
+        lfs_rtag_t p_alts[static 3],
+        lfs_rtag_t p_jumps[static 3], uint32_t *crc) {
+    lfs_ssize_t delta = 0;
+
+    for (unsigned i = 0; i < 3; i++) {
+        lfs_ssize_t delta_ = lfs_rbyd_p_push(lfs,
+                pcache, rcache,
+                block, off,
+                p_alts, p_jumps, 0, 0, crc);
+        if (delta_ < 0) {
+            return delta_;
+        }
+        delta += delta_;
+    }
+
+    return delta;
+}
+
+static void lfs_rbyd_p_red(
+        lfs_rtag_t p_alts[static 3],
+        lfs_off_t p_jumps[static 3]) {
+    LFS_ASSERT(lfs_rtag_isblack(p_alts[0]));
+
+    // recolor with red edge
+    if (p_alts[1]) {
+        p_alts[1] = lfs_rtag_red(p_alts[1]);
+
+        // reorder so that top two edges always go in the same direction
+        if (p_alts[2] && lfs_rtag_isred(p_alts[2])) {
+            if (lfs_rtag_parallel(p_alts[1], p_alts[2])) {
+                // no reorder needed
+            } else if (lfs_rtag_parallel(p_alts[0], p_alts[2])) {
+                lfs_rtag_t alt_ = p_alts[1];
+                lfs_off_t jump_ = p_jumps[1];
+                p_alts[1] = p_alts[0];
+                p_jumps[1] = p_jumps[0];
+                p_alts[0] = alt_;
+                p_jumps[0] = jump_;
+            } else if (lfs_rtag_parallel(p_alts[0], p_alts[1])) {
+                lfs_rtag_t alt_ = p_alts[2];
+                lfs_off_t jump_ = p_jumps[2];
+                p_alts[2] = p_alts[1];
+                p_jumps[2] = p_jumps[1];
+                p_alts[1] = p_alts[0];
+                p_jumps[1] = p_jumps[0];
+                p_alts[0] = alt_;
+                p_jumps[0] = jump_;
+            } else {
+                LFS_ASSERT(false);
+            }
+        }
+    }
+}
+
+static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
+        const struct lfs_rattr *attrs) {
+    LFS_ASSERT(rbyd->erased);
+
+    // setup commit state
+    const lfs_block_t block = rbyd->block;
+    lfs_off_t trunk = rbyd->trunk;
+    uint16_t count = rbyd->count;
+    lfs_off_t off = rbyd->noff;
+    uint32_t crc = rbyd->crc;
+    bool erased = false;
+
+    // mark as unerased in case we fail
+    rbyd->erased = false;
+
+    // include revision count?
+    if (!off) {
+        uint32_t rev;
+        lfs_tole32_(rbyd->rev, &rev);
+        int err = lfs_rbyd_prog(lfs,
+                &lfs->pcache, &lfs->rcache,
+                block, off, &rev, sizeof(uint32_t), &crc);
+        if (err) {
+            return err;
+        }
+
+        off += sizeof(uint32_t);
+    }
+
+    // append each tag to the tree
+    for (const struct lfs_rattr *attr = attrs; attr; attr = attr->next) {
+        // assume we'll update our trunk
+        lfs_off_t branch = trunk;
+        trunk = off;
+
+        // no trunk yet?
+        if (!branch) {
+            goto leaf;
+        }
+
+        // weights for pruning
+        lfs_rtag_t lo = lfs_rtag_weight(attr->tag);
+        lfs_rtag_t hi = ((count << 12)+0xfff)-1 - lfs_rtag_weight(attr->tag);
+        printf("lo, hi = (%x, %x)\n", lo, hi);
+
+        // queue of pending alts we can emulate rotations with
+        lfs_rtag_t p_alts[3] = {0, 0, 0};
+        lfs_off_t p_jumps[3] = {0, 0, 0};
+
+        // descend down tree, building alt pointers
+        while (true) {
+            lfs_rtag_t alt;
+            lfs_off_t jump;
+            lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
+                    &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
+                    block, branch, &alt, &jump, NULL);
+            if (delta < 0) {
+                return delta;
+            }
+
+            // make jump absolute
+            jump = branch - jump;
+
+            // found an alt?
+            if (lfs_rtag_isalt(alt)) {
+                LFS_ASSERT(false); // TODO
+
+//            // prune?
+//            if (lfs_rtag_weight(alt) >= lo+hi+1) {
+//                LFS_ASSERT(p_alts[0]);
+//                alt = lfs_rtag_black(p_alts[0]);
+//                jump = p_jumps[0];
+//                branch = ?;
+//                lfs_rbyd_p_pop(p_alts, p_jumps);
+//            }
+//
+//            // split?
+//            if (p_alts[0] && lfs_rtag_isred(alt) && lfs_rtag_isred(p_alts[0])) {
+//                LFS_ASSERT(lfs_rtag_parallel(alt, p_alts[0]));
+//                if (lfs_rbyd_follow(lo, hi, alt)) {
+//                    lfs_rbyd_trim(&lo, &hi, alt[0]);
+//                    lfs_rbyd_trim(&lo, &hi, alt);
+//                    lfs_rtag_t alt_ = lfs_rtag_black(p_alts[0]);
+//                    lfs_off_t jump_ = p_jumps[0];
+//                    
+//
+//                    p_jumps[0] = branch;
+//
+//
+//                    lfs_rbyd_p_red(p_alts, p_jumps);
+//                    
+//                    
+//                } else {
+//                    p_alts[0] = lfs_rbyd_black(p_alts[0]);
+//                    p_jumps[0] = ?; // TODO where does this come from?
+//                    lfs_rbyd_p_red(p_alts, p_jumps);
+//                    lfs_rbyd_trim(&lo, &hi, alt);
+//
+//                    branch += delta;
+//                    continue;
+//                }
+//            }
+
+
+
+                //branch += delta;
+
+            // found end of tree?
+            } else {
+                // split leaf?
+                if (alt != attr->tag) {
+                    lfs_rtag_t alt_;
+                    if (lfs_rtag_weight(alt) < lfs_rtag_weight(attr->tag)) {
+                        alt_ = LFS_MKRALT(B, LT, lo);
+                    } else {
+                        alt_ = LFS_MKRALT(B, GT, hi);
+                    }
+
+                    lfs_ssize_t delta = lfs_rbyd_p_push(lfs,
+                            &lfs->pcache, &lfs->rcache,
+                            block, off,
+                            p_alts, p_jumps, alt_, branch, &crc);
+                    if (delta < 0) {
+                        return delta;
+                    }
+                    off += delta;
+
+                    lfs_rbyd_p_red(p_alts, p_jumps);
+                }
+
+                // flush any pending alts
+                delta = lfs_rbyd_p_flush(lfs,
+                        &lfs->pcache, &lfs->rcache,
+                        block, off,
+                        p_alts, p_jumps, &crc);
+                if (delta < 0) {
+                    return delta;
+                }
+                off += delta;
+
+                // done! lets get out of here
+                goto leaf;
+            }
+        }
+
+    leaf:;
+        // write the tag
+        lfs_ssize_t delta = lfs_rbyd_progtag(lfs,
+                &lfs->pcache, &lfs->rcache,
+                block, off,
+                attr->tag, attr->size, &crc);
+        if (delta < 0) {
+            return delta;
+        }
+        off += delta;
+
+        // don't forget the actual data!
+        int err = lfs_rbyd_prog(lfs,
+                &lfs->pcache, &lfs->rcache,
+                block, off,
+                attr->buffer, attr->size, &crc);
+        if (err) {
+            return err;
+        }
+        off += attr->size;
+
+        continue;
+        
+    }
+
+    // align to the next prog unit
+    //
+    // this gets a bit complicated as we have two types of crcs:
+    // - 7-word crc with fcrc to check following prog (middle of block)
+    //     1-byte fcrc tag
+    //   + 1-byte fcrc len (worst case)
+    //   + 4-byte fcrc crc
+    //   + 5-byte fcrc crc-len (worst case)
+    //   + 1-byte crc tag
+    //   + 5-byte crc len (worst case)
+    //   + 4-byte crc crc
+    //   = 21 bytes
+    // - 3-word crc with no following prog (end of block)
+    //     1-byte crc tag
+    //   + 5-byte crc len (worst case)
+    //   + 4-byte crc crc
+    //   = 10 bytes
+    // 
+    const lfs_off_t aligned = lfs_alignup(
+            lfs_min(off + 1+1+4+5 + 1+5+4, lfs->cfg->block_size),
+            lfs->cfg->prog_size);
+
+    // space for fcrc?
+    uint8_t perturb = 0;
+    if (aligned <= lfs->cfg->block_size - lfs->cfg->prog_size) {
+        // read the leading byte in case we need to change the expected
+        // value of the next tag's valid bit
+        int err = lfs_bd_read(lfs,
+                &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
+                block, aligned, &perturb, 1);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+
+        // find the expected fcrc, don't bother avoiding a reread of the
+        // perturb byte, as it should still be in our cache
+        struct lfs_rfcrc fcrc = {.crc=0, .size=lfs->cfg->prog_size};
+        err = lfs_bd_crc32c(lfs,
+                &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
+                block, aligned, fcrc.size, &fcrc.crc);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+
+        lfs_size_t fcrc_delta = lfs_rfcrc_todisk(&fcrc);
+        lfs_ssize_t delta = lfs_rbyd_progtag(lfs,
+                &lfs->pcache, &lfs->rcache,
+                block, off,
+                LFS_MKRTAG(FCRC, 0, 0), fcrc_delta, &crc);
+        if (delta < 0) {
+            return delta;
+        }
+        off += delta;
+
+        err = lfs_rbyd_prog(lfs,
+                &lfs->pcache, &lfs->rcache,
+                block, off,
+                &fcrc, fcrc_delta, &crc);
+        if (err) {
+            return err;
+        }
+        off += fcrc_delta;
+
+        erased = true;
+    }
+
+    // build end-of-commit crc
+    //
+    // note padding-size depends on leb-encoding depends on padding-size, to
+    // get around this catch-22 we just always write a fully-expanded leb128
+    // encoding
+    uint8_t buffer[1+5+4];
+    buffer[0] = LFS_MKRTAG(CRC0, 0, 0) << 1;
+
+    lfs_off_t padding = aligned - (off + 1+5);
+    buffer[1] = 0x80 | (0x7f & (padding >>  0));
+    buffer[2] = 0x80 | (0x7f & (padding >>  7));
+    buffer[3] = 0x80 | (0x7f & (padding >> 14));
+    buffer[4] = 0x00 | (0x7f & (padding >> 21));
+    buffer[5] = 0x00 | (0x7f & (padding >> 28));
+
+    crc = lfs_crc32c(crc, buffer, 1+5);
+    // we can't let the next tag appear as valid, so intentionally perturb the
+    // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
+    // so we can really change any bit to make this happen, we've reserved a bit
+    // in crc tags just for this purpose
+    if ((lfs_popc(crc) & 1) == (perturb & 1)) {
+        buffer[0] ^= 0x10;
+        crc ^= 0xc00c303e; // note crc(a ^ b) == crc(a) ^ crc(b)
+    }
+    lfs_tole32_(crc, &buffer[1+5]);
+
+    int err = lfs_bd_prog(lfs,
+            &lfs->pcache, &lfs->rcache, false,
+            block, off, buffer, 1+5+4);
+    if (err) {
+        return err;
+    }
+    off += 1+5+4;
+
+    // flush our caches, finalizing the commit on-disk
+    err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
+    if (err) {
+        return err;
+    }
+
+    // succesful commit, check checksum to make sure
+    uint32_t crc_ = 0;
+    err = lfs_bd_crc32c(lfs,
+            NULL, &lfs->rcache, off-4,
+            block, rbyd->noff, off-4 - rbyd->noff, &crc_);
+    if (err) {
+        return err;
+    }
+
+    printf("%08x == %08x\n", crc_, crc);
+    assert(crc_ == crc);
+
+    if (crc_ != crc) {
+        // oh no, something went wrong
+        return LFS_ERR_CORRUPT;
+    }
+
+    // ok, everything is good, save what we've committed
+    rbyd->trunk = trunk;
+    rbyd->noff = aligned;
+    rbyd->crc = crc;
+    rbyd->erased = erased;
+
+    return 0;
+}
+
 
 /// Metadata pair and directory operations ///
 static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,

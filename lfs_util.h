@@ -212,6 +212,28 @@ static inline uint32_t lfs_tobe32(uint32_t a) {
     return lfs_frombe32(a);
 }
 
+// Convert to/from 32-bit little-endian
+static inline void lfs_tole32_(uint32_t word, void *buffer) {
+    ((uint8_t*)buffer)[0] = word >>  0;
+    ((uint8_t*)buffer)[1] = word >>  8;
+    ((uint8_t*)buffer)[2] = word >> 16;
+    ((uint8_t*)buffer)[3] = word >> 24;
+}
+
+static inline uint32_t lfs_fromle32_(const void *buffer) {
+    return (((uint8_t*)buffer)[0] <<  0)
+         | (((uint8_t*)buffer)[1] <<  8)
+         | (((uint8_t*)buffer)[2] << 16)
+         | (((uint8_t*)buffer)[3] << 24);
+}
+
+// Convert to/from leb128 encoding
+ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size);
+
+ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size);
+
+
+
 // Calculate CRC-32 with polynomial = 0x04c11db7
 uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
 

@@ -10,6 +10,45 @@
 // Only compile if user does not provide custom config
 #ifndef LFS_CONFIG
 
+// Need lfs.h for error codes
+// TODO should we actually move the error codes to lfs_util.h?
+#include "lfs.h"
+
+
+// Convert to/from leb128 encoding
+ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size) {
+    uint8_t *data = buffer;
+
+    for (size_t i = 0; i < size; i++) {
+        uint8_t dat = word & 0x7f;
+        word >>= 7;
+        if (word != 0) {
+            data[i] = dat | 0x80;
+        } else {
+            data[i] = dat | 0x00;
+            return i+1;
+        }
+    }
+
+    return LFS_ERR_OVERFLOW;
+}
+
+ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size) {
+    const uint8_t *data = buffer;
+
+    uint32_t word_ = 0;
+    for (size_t i = 0; i < size; i++) {
+        uint8_t dat = data[i];
+        word_ |= (dat & 0x7f) << 7*i;
+        if (!(dat & 0x80)) {
+            *word = word_;
+            return i+1;
+        }
+    }
+
+    return LFS_ERR_OVERFLOW;
+}
+
 
 // Software CRC implementation with small lookup table
 uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size) {

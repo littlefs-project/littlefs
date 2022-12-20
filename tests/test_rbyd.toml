@@ -1,0 +1,28 @@
+
+# Test this inner rbyd data-structure
+
+[cases.rbyd_create]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .noff = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+
+    //lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
+
+    uint32_t data = 0xa5dfa5df;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(UATTR, 1, 0, &data, 4,
+            LFS_MKRATTR(UATTR, 2, 0, &data, 4,
+            NULL))) => 0;
+
+'''
