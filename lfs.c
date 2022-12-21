@@ -1424,13 +1424,13 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     // get around this catch-22 we just always write a fully-expanded leb128
     // encoding
     uint8_t buffer[1+5+4];
-    buffer[0] = LFS_MKRTAG(CRC0, 0, 0) << 1;
+    buffer[0] = (LFS_MKRTAG(CRC0, 0, 0) << 1) | (lfs_popc(crc) & 1);
 
     lfs_off_t padding = aligned - (off + 1+5);
     buffer[1] = 0x80 | (0x7f & (padding >>  0));
     buffer[2] = 0x80 | (0x7f & (padding >>  7));
     buffer[3] = 0x80 | (0x7f & (padding >> 14));
-    buffer[4] = 0x00 | (0x7f & (padding >> 21));
+    buffer[4] = 0x80 | (0x7f & (padding >> 21));
     buffer[5] = 0x00 | (0x7f & (padding >> 28));
 
     crc = lfs_crc32c(crc, buffer, 1+5);
