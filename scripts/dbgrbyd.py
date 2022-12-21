@@ -45,15 +45,7 @@ def tagrepr(tag, size, off=None):
     type2 = (tag >> 7) & 0xff
     id = (tag >> 15) & 0xffff
 
-    if type1 & 1:
-        return 'alt %s %s x%x %s' % (
-            'r' if type1 & 4 else 'b',
-            'gt' if type1 & 2 else 'lt',
-            tag >> 3,
-            'x%x' % (0xffffffff & (off-size))
-                if off is not None
-                else '-%d' % off)
-    elif type1 == 0x40:
+    if type1 == 0x40:
         return 'create x%02x id%d %d' % (type2, id, size)
     elif type1 == 0x48:
         return 'delete x%02x id%d %d' % (type2, id, size)
@@ -68,16 +60,24 @@ def tagrepr(tag, size, off=None):
             return 'tail x%02x %d' % (type2, size)
     elif type1 == 0x10:
         return 'gstate x%02x %d' % (type2, size)
-    elif type1 == 0x02 or type1 == 0x0a:
+    elif (type1 & 0x7e) == 0x02:
         if type2 == 0:
             return 'crc%x %d' % (type1 >> 3, size)
         else:
             return 'crc%x x%02x %d' % (type1 >> 3, type2, size)
-    elif type1 == 0x12:
+    elif type1 == 0x0a:
         if type2 == 0:
             return 'fcrc %d' % (size)
         else:
             return 'fcrc x%02x %d' % (type2, size)
+    elif type1 & 0x4:
+        return 'alt%s%s x%x %s' % (
+            'r' if type1 & 4 else 'b',
+            'gt' if type1 & 2 else 'lt',
+            tag >> 3,
+            'x%x' % (0xffffffff & (off-size))
+                if off is not None
+                else '-%d' % off)
     else:
         return 'x%02x x%02x id%d %d' % (type1, type2, id, size)
 
@@ -104,8 +104,8 @@ def main(disk, block_size, block1, block2=None, **args):
             crc = crc32c(data[j:j+delta], crc)
             j += delta
 
-            if not tag & 0x1:
-                if (tag & 0x37) != 0x2:
+            if not tag & 0x4:
+                if (tag & 0x7e) != 0x2:
                     crc = crc32c(data[j:j+size], crc)
                 # found a crc?
                 else:
@@ -131,11 +131,10 @@ def main(disk, block_size, block1, block2=None, **args):
 
     # print contents of the winning metadata block
     block, data, rev, off = blocks[i], datas[i], revs[i], offs[i]
-    print('mdir 0x%x, rev %d, size %d (was 0x%x, %d, %d)' % (
+    print('mdir 0x%x, rev %d, size %d%s' % (
         block, rev, off,
-        blocks[len(blocks)-1-i],
-        revs[len(revs)-1-i],
-        offs[len(offs)-1-i]))
+        ' (was 0x%x, %d, %d)' % (blocks[~i], revs[~i], offs[~i])
+            if len(blocks) > 1 else ''))
     print('%-8s  %-22s  %s' % (
         'off', 'tag',
         'data (truncated)'
@@ -158,8 +157,8 @@ def main(disk, block_size, block1, block2=None, **args):
         crc = crc32c(data[j:j+delta], crc)
         j += delta
 
-        if not tag & 0x1:
-            if (tag & 0x37) != 0x2:
+        if not tag & 0x4:
+            if (tag & 0x7e) != 0x2:
                 crc = crc32c(data[j:j+size], crc)
             # found a crc?
             else:
@@ -173,7 +172,7 @@ def main(disk, block_size, block1, block2=None, **args):
             '%-22s%s' % (
                 tagrepr(tag, size, j_),
                 '  %s' % next(xxd(data[j_+delta:j_+delta+min(size, 8)], 8), '')
-                    if not tag & 1 and not args.get('no_truncate') else ''),
+                    if not tag & 0x4 and not args.get('no_truncate') else ''),
             '  (%s)' % ', '.join(notes)
                 if notes else ''))
 
@@ -181,7 +180,7 @@ def main(disk, block_size, block1, block2=None, **args):
             for o, line in enumerate(xxd(data[j_:j_+delta])):
                 print('%8s: %s' % ('%04x' % (j_ + o*16), line))
 
-        if not tag & 0x1:
+        if not tag & 0x4:
             if args.get('raw') or args.get('no_truncate'):
                 for o, line in enumerate(xxd(data[j_+delta:j_+delta+size])):
                     print('%8s: %s' % ('%04x' % (j_+delta + o*16), line))

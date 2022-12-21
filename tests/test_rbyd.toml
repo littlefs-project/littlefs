@@ -22,14 +22,14 @@ code = '''
     lfs_rbyd_t rbyd_ = rbyd;
     lfs_bd_erase(&lfs, rbyd_.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd_, NULL) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
 
     // commit with one attribute
     rbyd_ = rbyd;
     lfs_bd_erase(&lfs, rbyd_.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd_,
             LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
 
     // commit with two attributes
     rbyd_ = rbyd;
@@ -38,7 +38,7 @@ code = '''
             LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
             LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
             NULL))) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
 
 //    // commit with three attributes
 //    rbyd_ = rbyd;
@@ -74,7 +74,7 @@ code = '''
     lfs_rbyd_t rbyd_ = rbyd;
     lfs_bd_erase(&lfs, rbyd_.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd_, NULL) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
 
     // commit with one attribute
     rbyd_ = rbyd;
@@ -82,7 +82,7 @@ code = '''
     lfs_rbyd_commit(&lfs, &rbyd_, NULL) => 0;
     lfs_rbyd_commit(&lfs, &rbyd_,
             LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
 
     // commit with two attributes
     rbyd_ = rbyd;
@@ -91,7 +91,7 @@ code = '''
             LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
     lfs_rbyd_commit(&lfs, &rbyd_,
             LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
 
 //    // commit with three attributes
 //    rbyd_ = rbyd;

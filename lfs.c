@@ -407,10 +407,13 @@ enum lfs_rtag_type1 {
     LFS_TYPE1_GSTATE = 0x10,
 
     LFS_TYPE1_CRC0   = 0x02,
-    LFS_TYPE1_CRC1   = 0x0a,
-    LFS_TYPE1_FCRC   = 0x12,
+    LFS_TYPE1_CRC1   = 0x03,
+    LFS_TYPE1_FCRC   = 0x0a,
 
-    LFS_TYPE1_ALT    = 0x01,
+    LFS_TYPE1_ALTBLT = 0x04,
+    LFS_TYPE1_ALTRLT = 0x05,
+    LFS_TYPE1_ALTBGT = 0x06,
+    LFS_TYPE1_ALTRGT = 0x07,
 };
 
 enum lfs_rtag_color {
@@ -432,8 +435,8 @@ enum lfs_rtag_dir {
     LFS_MKRTAG_(LFS_TYPE1_##type1, type2, id)
 
 #define LFS_MKRALT_(color, dir, weight) \
-    (0x1 \
-        | ((0x1 & (lfs_rtag_t)(color)) << 2) \
+    (LFS_TYPE1_ALTBLT \
+        | ((0x1 & (lfs_rtag_t)(color)) << 0) \
         | ((0x1 & (lfs_rtag_t)(dir)) << 1) \
         | ((0xfffffff & (lfs_rtag_t)(weight)) << 3))
 
@@ -445,11 +448,11 @@ static inline bool lfs_rtag_isvalid(lfs_rtag_t tag) {
 }
 
 static inline bool lfs_rtag_isalt(lfs_rtag_t tag) {
-    return tag & 0x1;
+    return tag & 0x4;
 }
 
 static inline bool lfs_rtag_intree(lfs_rtag_t tag) {
-    return tag & 0x2;
+    return !(tag & 0x6);
 }
 
 static inline uint8_t lfs_rtag_type1(lfs_rtag_t tag) {
@@ -473,11 +476,11 @@ static inline bool lfs_rtag_isgt(lfs_rtag_t tag) {
 }
 
 static inline bool lfs_rtag_isblack(lfs_rtag_t tag) {
-    return !(tag & 0x4);
+    return !(tag & 0x1);
 }
 
 static inline bool lfs_rtag_isred(lfs_rtag_t tag) {
-    return tag & 0x4;
+    return tag & 0x1;
 }
 
 static inline lfs_rtag_t lfs_rtag_weight(lfs_rtag_t tag) {
@@ -485,11 +488,11 @@ static inline lfs_rtag_t lfs_rtag_weight(lfs_rtag_t tag) {
 }
 
 static inline lfs_rtag_t lfs_rtag_red(lfs_rtag_t tag) {
-    return tag | 0x4;
+    return tag | 0x1;
 }
 
 static inline lfs_rtag_t lfs_rtag_black(lfs_rtag_t tag) {
-    return tag & ~0x4;
+    return tag & ~0x1;
 }
 
 static inline lfs_rtag_t lfs_rtag_parallel(lfs_rtag_t a, lfs_rtag_t b) {
@@ -895,7 +898,7 @@ static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
     return i;
 }
 
-static int lfs_rbyd_fetchmatch(lfs_t *lfs,
+static int lfs_rbyd_fetch(lfs_t *lfs,
         lfs_rbyd_t *rbyd, lfs_block_t block,
         struct lfs_fetchpattern *patterns) {
     // read the revision count and get the crc started
@@ -941,7 +944,7 @@ static int lfs_rbyd_fetchmatch(lfs_t *lfs,
         }
 
         // found trunk of tree?
-        if (!wastrunk && (lfs_rtag_isalt(tag) || lfs_rtag_intree(tag))) {
+        if (!wastrunk && lfs_rtag_intree(tag)) {
             trunk = off;
             wastrunk = true;
         }
@@ -962,7 +965,7 @@ static int lfs_rbyd_fetchmatch(lfs_t *lfs,
         }
 
         // not an end-of-commit crc
-        if ((lfs_rtag_type1(tag) & ~0x8) != LFS_TYPE1_CRC0) {
+        if ((lfs_rtag_type1(tag) & ~0x1) != LFS_TYPE1_CRC0) {
             // fcrc is only valid if the last tag was a crc
             hasfcrc = false;
 
@@ -1054,10 +1057,6 @@ static int lfs_rbyd_fetchmatch(lfs_t *lfs,
     }
 
     return 0;
-}
-
-static int lfs_rbyd_fetch(lfs_t *lfs, lfs_rbyd_t *rbyd, lfs_block_t block) {
-    return lfs_rbyd_fetchmatch(lfs, rbyd, block, NULL);
 }
 
 //static lfs_ssize_t lfs_rbyd_lookup(lfs_t *lfs, lfs_rbyd_t *rbyd,
@@ -1474,8 +1473,8 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     // so we can really change any bit to make this happen, we've reserved a bit
     // in crc tags just for this purpose
     if ((lfs_popc(crc) & 1) == (perturb & 1)) {
-        buffer[0] ^= 0x10;
-        crc ^= 0xc00c303e; // note crc(a ^ b) == crc(a) ^ crc(b)
+        buffer[0] ^= 0x2;
+        crc ^= 0xdb8ca0c3; // note crc(a ^ b) == crc(a) ^ crc(b)
     }
     lfs_tole32_(crc, &buffer[1+5]);
 
