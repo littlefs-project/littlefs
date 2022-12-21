@@ -151,6 +151,7 @@ def main(disk, block_size, block1, block2=None, **args):
     while j < (block_size if args.get('all') else off):
         notes = []
 
+        j_ = j
         v, tag, size, delta = fromtag(data[j:])
         if v != popc(crc) & 1:
             notes.append('v!=%x' % (popc(crc) & 1))
@@ -168,22 +169,22 @@ def main(disk, block_size, block1, block2=None, **args):
             j += size
 
         print('%08x: %-57s%s' % (
-            j-delta-size,
+            j_,
             '%-22s%s' % (
-                tagrepr(tag, size, j),
-                '  %s' % next(xxd(data[j-size:j-size+min(size, 8)], 8), '')
+                tagrepr(tag, size, j_),
+                '  %s' % next(xxd(data[j_+delta:j_+delta+min(size, 8)], 8), '')
                     if not tag & 1 and not args.get('no_truncate') else ''),
             '  (%s)' % ', '.join(notes)
                 if notes else ''))
 
         if args.get('raw'):
-            for o, line in enumerate(xxd(data[j-delta-size:j-size])):
-                print('%8s: %s' % ('%04x' % (j-delta-size + o*16), line))
+            for o, line in enumerate(xxd(data[j_:j_+delta])):
+                print('%8s: %s' % ('%04x' % (j_ + o*16), line))
 
         if not tag & 0x1:
             if args.get('raw') or args.get('no_truncate'):
-                for o, line in enumerate(xxd(data[j-size:j])):
-                    print('%8s: %s' % ('%04x' % (j-size + o*16), line))
+                for o, line in enumerate(xxd(data[j_+delta:j_+delta+size])):
+                    print('%8s: %s' % ('%04x' % (j_+delta + o*16), line))
 
 
 if __name__ == "__main__":

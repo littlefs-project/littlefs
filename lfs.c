@@ -496,7 +496,7 @@ static inline lfs_rtag_t lfs_rtag_parallel(lfs_rtag_t a, lfs_rtag_t b) {
     return (a & 0x2) == (b & 0x2);
 }
 
-// operations on attributes in attribute lists
+// operations on attribute lists
 struct lfs_mattr {
     lfs_tag_t tag;
     const void *buffer;
@@ -515,7 +515,7 @@ struct lfs_rattr {
     lfs_rtag_t tag;
     const void *buffer;
     lfs_size_t size;
-    struct lfs_rattr *next;
+    const struct lfs_rattr *next;
 };
 
 #define LFS_MKRATTR_(...) \
@@ -523,6 +523,33 @@ struct lfs_rattr {
 
 #define LFS_MKRATTR(type1, type2, id, buffer, size, next) \
     (&(struct lfs_rattr){LFS_MKRTAG(type1, type2, id), buffer, size, next})
+
+
+// operations on pattern lists
+enum lfs_fetchpattern_type {
+    LFS_FETCHPATTERN_NAME = 0,
+    LFS_FETCHPATTERN_PAIR = 1,
+};
+
+struct lfs_fetchpattern {
+    lfs_rtag_t tag;
+    const void *buffer;
+    lfs_size_t size;
+    struct lfs_fetchpattern *next;
+};
+
+#define LFS_MKRPATTERN_(...) \
+    (&(struct lfs_fetchpattern){__VA_ARGS__})
+
+#define LFS_MKRPATTERN(type, type1, type2, buffer, size, next) \
+    (&(struct lfs_fetchpattern){ \
+        LFS_MKRTAG(LFS_FETCHPATTERN_##type | type1, type2, 0), \
+        buffer, size, next})
+
+static inline uint8_t lfs_fetchpattern_type(
+        const struct lfs_fetchpattern *pattern) {
+    return pattern->tag & 0x1;
+}
 
 // operations on global state
 static inline void lfs_gstate_xor(lfs_gstate_t *a, const lfs_gstate_t *b) {
@@ -868,7 +895,9 @@ static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
     return i;
 }
 
-static int lfs_rbyd_fetch(lfs_t *lfs, lfs_rbyd_t *rbyd, lfs_block_t block) {
+static int lfs_rbyd_fetchmatch(lfs_t *lfs,
+        lfs_rbyd_t *rbyd, lfs_block_t block,
+        struct lfs_fetchpattern *patterns) {
     // read the revision count and get the crc started
     uint32_t rev;
     int err = lfs_bd_read(lfs,
@@ -900,7 +929,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs, lfs_rbyd_t *rbyd, lfs_block_t block) {
         lfs_size_t size;
         lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
                 NULL, &lfs->rcache, lfs->cfg->block_size,
-                block, 0, &tag, &size, &crc);
+                block, off, &tag, &size, &crc);
         if (delta < 0) {
             if (delta == LFS_ERR_INVAL
                     || delta == LFS_ERR_CORRUPT
@@ -997,6 +1026,8 @@ static int lfs_rbyd_fetch(lfs_t *lfs, lfs_rbyd_t *rbyd, lfs_block_t block) {
             rbyd->noff = off;
             rbyd->crc = crc;
         }
+
+        off += size;
     }
 
     // no valid commits at all?
@@ -1023,6 +1054,10 @@ static int lfs_rbyd_fetch(lfs_t *lfs, lfs_rbyd_t *rbyd, lfs_block_t block) {
     }
 
     return 0;
+}
+
+static int lfs_rbyd_fetch(lfs_t *lfs, lfs_rbyd_t *rbyd, lfs_block_t block) {
+    return lfs_rbyd_fetchmatch(lfs, rbyd, block, NULL);
 }
 
 //static lfs_ssize_t lfs_rbyd_lookup(lfs_t *lfs, lfs_rbyd_t *rbyd,
@@ -1459,16 +1494,13 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     }
 
     // succesful commit, check checksum to make sure
-    uint32_t crc_ = 0;
+    uint32_t crc_ = rbyd->crc;
     err = lfs_bd_crc32c(lfs,
             NULL, &lfs->rcache, off-4,
             block, rbyd->noff, off-4 - rbyd->noff, &crc_);
     if (err) {
         return err;
     }
-
-    printf("%08x == %08x\n", crc_, crc);
-    assert(crc_ == crc);
 
     if (crc_ != crc) {
         // oh no, something went wrong
