@@ -39,18 +39,6 @@ code = '''
             LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
             NULL))) => 0;
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-
-//    // commit with three attributes
-//    rbyd = rbyd_init;
-//    lfs_bd_erase(&lfs, rbyd.block) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd,
-//            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-//            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-//            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4,
-//            NULL)))) => 0;
-//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block) => 0;
-
-    // TODO more?
 '''
 
 [cases.rbyd_multi_commit_fetch]
@@ -92,19 +80,6 @@ code = '''
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-
-//    // commit with three attributes
-//    rbyd = rbyd_init;
-//    lfs_bd_erase(&lfs, rbyd.block) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd,
-//            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd,
-//            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd,
-//            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4, NULL)) => 0;
-//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block) => 0;
-
-    // TODO more?
 '''
 
 [cases.rbyd_commit_lookup]
@@ -126,16 +101,23 @@ code = '''
 
     // try an empty commit
     lfs_rbyd_t rbyd = rbyd_init;
-    lfs_rtag_t ntag; // TODO assert on ntag?
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+    // TODO test in-between lookups for consistently finding the next >= tag?
+    lfs_off_t off;
+    lfs_size_t size;
+    lfs_rtag_t ntag;
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 
     // commit with one attribute
     rbyd = rbyd_init;
@@ -143,18 +125,28 @@ code = '''
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == 0);
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == 0);
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 
     // commit with two attributes
     rbyd = rbyd_init;
@@ -164,36 +156,36 @@ code = '''
             LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
             NULL))) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == 0);
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 3, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 3, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == 0);
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 3, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
-
-//    // commit with three attributes
-//    rbyd = rbyd_init;
-//    lfs_bd_erase(&lfs, rbyd.block) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd,
-//            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-//            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-//            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4,
-//            NULL)))) => 0;
-//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block) => 0;
-
-    // TODO more?
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 3, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 '''
 
 # TODO we should make sure lookup always returns <= the requested tag, 
@@ -218,16 +210,22 @@ code = '''
 
     // try an empty commit
     lfs_rbyd_t rbyd = rbyd_init;
-    lfs_rtag_t ntag; // TODO assert on ntag?
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+    lfs_off_t off;
+    lfs_size_t size;
+    lfs_rtag_t ntag;
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 
     // commit with one attribute
     rbyd = rbyd_init;
@@ -235,18 +233,28 @@ code = '''
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == 0);
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == 0);
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 
     // commit with two attributes
     rbyd = rbyd_init;
@@ -256,39 +264,107 @@ code = '''
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == 0);
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 3, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 3, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => 4;
-    assert(ntag == 0);
-    lfs_rbyd_lookup(&lfs, &rbyd,
-            LFS_MKRTAG(GSTATE, 3, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
-
-//    // commit with three attributes
-//    rbyd = rbyd_init;
-//    lfs_bd_erase(&lfs, rbyd.block) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd,
-//            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-//            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-//            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4,
-//            NULL)))) => 0;
-//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block) => 0;
-
-    // TODO more?
+    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 3, 0), &off, &size, &ntag)
+            => LFS_ERR_NOENT;
 '''
 
 # [cases.rbyd_commit_fetchmatch]
 # [cases.rbyd_multi_commit_fetchmatch]
-# [cases.rbyd_commit_traverse]
-# [cases.rbyd_multi_commit_traverse]
+
+[cases.rbyd_leaves]
+in = 'lfs.c'
+defines.ERASE_VALUE = [0xff, 0x00, 0x1b, -1]
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t rbyd_init = {
+        .block = 0,
+        .trunk = 0,
+        .noff = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+
+    // create a split in the leaves
+    //       <r
+    //   =>  /|
+    // 1    1 2
+    lfs_rbyd_t rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_off_t off;
+    lfs_size_t size;
+    lfs_rtag_t ntag;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd, 0x98, &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    assert(size == 4);
+    assert(ntag == LFS_ERR_NOENT);
+
+    // split the other direction
+    //       >r
+    //   =>  /|
+    // 2    2 1
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL))) => 0;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd, 0x98, &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    assert(size == 4);
+    //assert(ntag == LFS_ERR_NOENT);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size, &ntag)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    assert(size == 4);
+    assert(ntag == LFS_ERR_NOENT);
+'''
+

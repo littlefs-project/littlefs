@@ -176,6 +176,19 @@ def main(disk, block_size, block1, block2=None, **args):
             '  (%s)' % ', '.join(notes)
                 if notes else ''))
 
+        if args.get('device'):
+            print('%8s  %-47s  %08x %x' % (
+                '',
+                '%-22s%s' % (
+                    '%08x %08x' % (tag, size),
+                    '  %s' % ' '.join(
+                            '%08x' % struct.unpack('<I',
+                                data[j_+delta+i*4:j_+delta+i*4+4])
+                            for i in range(min(size//4, 3)))[:23]
+                        if not tag & 0x4 else ''),
+                crc,
+                popc(crc) & 1))
+
         if args.get('raw'):
             for o, line in enumerate(xxd(data[j_:j_+delta])):
                 print('%8s: %s' % ('%04x' % (j_ + o*16), line))
@@ -213,9 +226,13 @@ if __name__ == "__main__":
         action='store_true',
         help="Don't stop parsing on bad commits.")
     parser.add_argument(
-        '-R', '--raw',
+        '-r', '--raw',
         action='store_true',
         help="Show the raw data including tag encodings.")
+    parser.add_argument(
+        '-x', '--device',
+        action='store_true',
+        help="Show the device-side representation of tags.")
     parser.add_argument(
         '-T', '--no-truncate',
         action='store_true',
