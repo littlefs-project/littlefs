@@ -8,7 +8,7 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
 
-    lfs_rbyd_t rbyd = {
+    lfs_rbyd_t rbyd_init = {
         .block = 0,
         .trunk = 0,
         .noff = 0,
@@ -19,36 +19,36 @@ code = '''
     };
 
     // try an empty commit
-    lfs_rbyd_t rbyd_ = rbyd;
-    lfs_bd_erase(&lfs, rbyd_.block) => 0;
-    lfs_rbyd_commit(&lfs, &rbyd_, NULL) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
+    lfs_rbyd_t rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
 
     // commit with one attribute
-    rbyd_ = rbyd;
-    lfs_bd_erase(&lfs, rbyd_.block) => 0;
-    lfs_rbyd_commit(&lfs, &rbyd_,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
 
     // commit with two attributes
-    rbyd_ = rbyd;
-    lfs_bd_erase(&lfs, rbyd_.block) => 0;
-    lfs_rbyd_commit(&lfs, &rbyd_,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
             NULL))) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
 
 //    // commit with three attributes
-//    rbyd_ = rbyd;
-//    lfs_bd_erase(&lfs, rbyd_.block) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd_,
-//            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-//            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-//            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
+//    rbyd = rbyd_init;
+//    lfs_bd_erase(&lfs, rbyd.block) => 0;
+//    lfs_rbyd_commit(&lfs, &rbyd,
+//            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+//            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
+//            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4,
 //            NULL)))) => 0;
-//    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block) => 0;
+//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block) => 0;
 
     // TODO more?
 '''
@@ -60,7 +60,7 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
 
-    lfs_rbyd_t rbyd = {
+    lfs_rbyd_t rbyd_init = {
         .block = 0,
         .trunk = 0,
         .noff = 0,
@@ -71,46 +71,223 @@ code = '''
     };
 
     // try an empty commit
-    lfs_rbyd_t rbyd_ = rbyd;
-    lfs_bd_erase(&lfs, rbyd_.block) => 0;
-    lfs_rbyd_commit(&lfs, &rbyd_, NULL) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
+    lfs_rbyd_t rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
 
     // commit with one attribute
-    rbyd_ = rbyd;
-    lfs_bd_erase(&lfs, rbyd_.block) => 0;
-    lfs_rbyd_commit(&lfs, &rbyd_, NULL) => 0;
-    lfs_rbyd_commit(&lfs, &rbyd_,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
 
     // commit with two attributes
-    rbyd_ = rbyd;
-    lfs_bd_erase(&lfs, rbyd_.block) => 0;
-    lfs_rbyd_commit(&lfs, &rbyd_,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
-    lfs_rbyd_commit(&lfs, &rbyd_,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
-    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block, NULL) => 0;
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
 
 //    // commit with three attributes
-//    rbyd_ = rbyd;
-//    lfs_bd_erase(&lfs, rbyd_.block) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd_,
-//            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd_,
-//            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd_,
-//            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4, NULL)) => 0;
-//    lfs_rbyd_fetch(&lfs, &rbyd_, rbyd.block) => 0;
+//    rbyd = rbyd_init;
+//    lfs_bd_erase(&lfs, rbyd.block) => 0;
+//    lfs_rbyd_commit(&lfs, &rbyd,
+//            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+//    lfs_rbyd_commit(&lfs, &rbyd,
+//            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
+//    lfs_rbyd_commit(&lfs, &rbyd,
+//            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4, NULL)) => 0;
+//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block) => 0;
 
     // TODO more?
 '''
 
+[cases.rbyd_commit_lookup]
+in = 'lfs.c'
+defines.ERASE_VALUE = [0xff, 0x00, 0x1b, -1]
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
 
+    lfs_rbyd_t rbyd_init = {
+        .block = 0,
+        .trunk = 0,
+        .noff = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
 
-# [cases.rbyd_commit_lookup]
-# [cases.rbyd_multi_commit_lookup]
+    // try an empty commit
+    lfs_rbyd_t rbyd = rbyd_init;
+    lfs_rtag_t ntag; // TODO assert on ntag?
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
+
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+    // commit with one attribute
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == 0);
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == 0);
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+    // commit with two attributes
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
+            NULL))) => 0;
+
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == 0);
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 3, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == 0);
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 3, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+//    // commit with three attributes
+//    rbyd = rbyd_init;
+//    lfs_bd_erase(&lfs, rbyd.block) => 0;
+//    lfs_rbyd_commit(&lfs, &rbyd,
+//            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+//            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
+//            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4,
+//            NULL)))) => 0;
+//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block) => 0;
+
+    // TODO more?
+'''
+
+# TODO we should make sure lookup always returns <= the requested tag, 
+# this may require fixing in lfs_rbyd_commit to make sure the weights lean
+# one way
+[cases.rbyd_multi_commit_lookup]
+in = 'lfs.c'
+defines.ERASE_VALUE = [0xff, 0x00, 0x1b, -1]
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t rbyd_init = {
+        .block = 0,
+        .trunk = 0,
+        .noff = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+
+    // try an empty commit
+    lfs_rbyd_t rbyd = rbyd_init;
+    lfs_rtag_t ntag; // TODO assert on ntag?
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
+
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+    // commit with one attribute
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == 0);
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == 0);
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+    // commit with two attributes
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
+
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == 0);
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 3, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 1, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == LFS_MKRTAG(GSTATE, 2, 0));
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 2, 0), &(lfs_off_t){0}, &ntag) => 4;
+    assert(ntag == 0);
+    lfs_rbyd_lookup(&lfs, &rbyd,
+            LFS_MKRTAG(GSTATE, 3, 0), &(lfs_off_t){0}, &ntag) => LFS_ERR_NOENT;
+
+//    // commit with three attributes
+//    rbyd = rbyd_init;
+//    lfs_bd_erase(&lfs, rbyd.block) => 0;
+//    lfs_rbyd_commit(&lfs, &rbyd,
+//            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+//            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
+//            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4,
+//            NULL)))) => 0;
+//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block) => 0;
+
+    // TODO more?
+'''
+
 # [cases.rbyd_commit_fetchmatch]
 # [cases.rbyd_multi_commit_fetchmatch]
 # [cases.rbyd_commit_traverse]

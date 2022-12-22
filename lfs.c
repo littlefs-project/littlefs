@@ -452,7 +452,7 @@ static inline bool lfs_rtag_isalt(lfs_rtag_t tag) {
 }
 
 static inline bool lfs_rtag_intree(lfs_rtag_t tag) {
-    return !(tag & 0x6);
+    return (tag & 0x6) != 0x2;
 }
 
 static inline uint8_t lfs_rtag_type1(lfs_rtag_t tag) {
@@ -461,6 +461,10 @@ static inline uint8_t lfs_rtag_type1(lfs_rtag_t tag) {
 
 static inline uint8_t lfs_rtag_type2(lfs_rtag_t tag) {
     return (tag >> 7) & 0xff;
+}
+
+static inline uint16_t lfs_rtag_type3(lfs_rtag_t tag) {
+    return tag & 0x7fff;
 }
 
 static inline uint16_t lfs_rtag_id(lfs_rtag_t tag) {
@@ -944,6 +948,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
         }
 
         // found trunk of tree?
+        printf("%x: %08x => %d %d\n", off, tag, wastrunk, lfs_rtag_intree(tag));
         if (!wastrunk && lfs_rtag_intree(tag)) {
             trunk = off;
             wastrunk = true;
@@ -1025,6 +1030,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
             lfs->seed = lfs_crc32c(lfs->seed, &crc, sizeof(uint32_t));
 
             // save what we've found so far
+            printf("trunk => %x\n", trunk);
             rbyd->trunk = trunk;
             rbyd->noff = off;
             rbyd->crc = crc;
@@ -1059,11 +1065,112 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
     return 0;
 }
 
-//static lfs_ssize_t lfs_rbyd_lookup(lfs_t *lfs, lfs_rbyd_t *rbyd,
-//        lfs_rtag_t tag, lfs_off_t *off, lfs_rtag_t *ntag) {
-//    // TODO
-//    return 0;
+// TODO make these rtag functions?
+static inline bool lfs_rbyd_follow(lfs_rtag_t alt,
+        lfs_rtag_t lo, lfs_rtag_t hi) {
+    if (lfs_rtag_islt(alt)) {
+        return lfs_rtag_weight(alt) > lo;
+    } else {
+        return lfs_rtag_weight(alt) > hi;
+    }
+}
+
+static inline void lfs_rbyd_trim(lfs_rtag_t alt,
+        lfs_rtag_t *lo, lfs_rtag_t *hi) {
+    lfs_rtag_t lo_ = *lo;
+    lfs_rtag_t hi_ = *hi;
+
+    if (lfs_rtag_islt(alt)) {
+        if (lfs_rbyd_follow(alt, lo_, hi_)) {
+            *hi = lfs_rtag_weight(alt)-1 - *lo;
+        } else {
+            *lo = *lo - lfs_rtag_weight(alt);
+        }
+    } else {
+        if (lfs_rbyd_follow(alt, lo_, hi_)) {
+            *lo = lfs_rtag_weight(alt)-1 - *hi;
+        } else {
+            *hi = *hi - lfs_rtag_weight(alt);
+        }
+    }
+}
+        
+//static inline void lfs_rbyd_trim(lfs_rtag_t alt,
+//        lfs_rtag_t *lo, lfs_rtag_t *hi) {
+//    if (lfs_rtag_islt(alt)) {
+//        *lo = *lo - lfs_rtag_weight(alt);
+//    } else {
+//        *hi = *hi - lfs_rtag_weight(alt);
+//    }
 //}
+//
+//static inline void lfs_rbyd_trimf(lfs_rtag_t alt,
+//        lfs_rtag_t *lo, lfs_rtag_t *hi) {
+//    if (lfs_rtag_islt(alt)) {
+//        *hi = lfs_rtag_weight(alt)-1 - *lo;
+//    } else {
+//        *lo = lfs_rtag_weight(alt)-1 - *hi;
+//    }
+//}
+
+static lfs_ssize_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
+        lfs_rtag_t tag, lfs_off_t *off, lfs_rtag_t *ntag) {
+    // no trunk yet?
+    lfs_off_t branch = rbyd->trunk;
+    if (!branch) {
+        return LFS_ERR_NOENT;
+    }
+
+    // weights for pruning
+    lfs_rtag_t lo = lfs_rtag_weight(tag);
+    lfs_rtag_t hi = (((lfs_rtag_t)rbyd->count << 12) + 0xff8)-1
+            - lfs_rtag_weight(tag);
+    printf("lo, hi = (%x, %x)\n", lo, hi);
+
+    // descend down tree, building alt pointers
+    while (true) {
+        lfs_rtag_t alt;
+        lfs_off_t jump;
+        lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
+                &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
+                rbyd->block, branch, &alt, &jump, NULL);
+        if (delta < 0) {
+            return delta;
+        }
+
+        // found an alt?
+        if (lfs_rtag_isalt(alt)) {
+            printf("follow %x (%x, %x)? => %d\n", alt, lo, hi, lfs_rbyd_follow(alt, lo, hi));
+            if (lfs_rbyd_follow(alt, lo, hi)) {
+                lfs_rbyd_trim(alt, &lo, &hi);
+                branch = branch - jump;
+            } else {
+                lfs_rbyd_trim(alt, &lo, &hi);
+                branch += delta;
+            }
+
+        // found end of tree?
+        } else {
+            // different tag => not found
+            if (lfs_rtag_type3(alt) != lfs_rtag_type3(tag)) {
+                return LFS_ERR_NOENT;
+            }
+
+            // update with what we found
+            if (ntag) {
+                lfs_rtag_t ntag_ = tag + ((hi+1) << 3);
+                if (lfs_rtag_weight(ntag_)
+                        == ((lfs_rtag_t)rbyd->count << 12) + 0xff8) {
+                    ntag_ = 0;
+                }
+                *ntag = ntag_;
+            }
+            *off = branch;
+            return jump;
+        }
+
+    }
+}
 
 static int lfs_rbyd_prog(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache,
@@ -1276,12 +1383,12 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                 return delta;
             }
 
-            // make jump absolute
-            jump = branch - jump;
-
             // found an alt?
             if (lfs_rtag_isalt(alt)) {
                 LFS_ASSERT(false); // TODO
+
+                // make jump absolute
+                jump = branch - jump;
 
 //            // prune?
 //            if (lfs_rtag_weight(alt) >= lo+hi+1) {
