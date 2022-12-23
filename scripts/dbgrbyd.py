@@ -72,7 +72,7 @@ def tagrepr(tag, size, off=None):
             return 'fcrc x%02x %d' % (type2, size)
     elif type1 & 0x4:
         return 'alt%s%s x%x %s' % (
-            'r' if type1 & 4 else 'b',
+            'r' if type1 & 1 else 'b',
             'gt' if type1 & 2 else 'lt',
             tag >> 3,
             'x%x' % (0xffffffff & (off-size))
