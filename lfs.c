@@ -1542,26 +1542,25 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                         && lfs_rtag_isred(p_alts[0])
                         && (lt < 0 || gt < 0)) {
                     LFS_ASSERT(lfs_rtag_isblack(alt));
-                    printf("???\n");
+
+                    printf("rflip %s (%x,%x)\n",
+                            lfs_rtag_parallel(alt, p_alts[0]) ? "parallel" : "perpendicular",
+                            lt, gt);
 
                     if (lfs_rtag_parallel(alt, p_alts[0])) {
                         printf("rflip parallel (%x,%x)\n", lt, gt);
-                        lfs_rtag_t alt_ = p_alts[0];
-                        p_alts[0] = lfs_rtag_red(lfs_rbyd_flip(alt, lt, gt));
-                        alt = lfs_rtag_black(alt_);
-                        lfs_off_t jump_ = p_jumps[0];
-                        p_jumps[0] = branch;
-                        branch = jump;
-                        jump = jump_;
-                    } else {
-                        printf("rflip perpendicular\n");
-                        lfs_rtag_t alt_ = p_alts[0];
-                        p_alts[0] = lfs_rtag_red(alt);
-                        alt = lfs_rtag_black(alt_);
-                        lfs_off_t jump_ = p_jumps[0];
-                        p_jumps[0] = branch;
-                        jump = jump_;
+                        alt = lfs_rbyd_flip(alt, lt, gt);
+                        lfs_off_t jump_ = jump;
+                        jump = branch;
+                        branch = jump_;
                     }
+
+                    lfs_rtag_t alt_ = p_alts[0];
+                    lfs_off_t jump_ = p_jumps[0];
+                    p_alts[0] = lfs_rtag_red(alt);
+                    p_jumps[0] = jump;
+                    alt = lfs_rtag_black(alt_);
+                    jump = jump_;
 
                     lfs_rbyd_untrim(alt, &lt, &gt);
                     lfs_rbyd_trim(p_alts[0], &lt, &gt);
@@ -1698,7 +1697,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                     }
                     off += delta;
 
-                    //lfs_rbyd_p_red(p_alts, p_jumps);
+                    lfs_rbyd_p_red(p_alts, p_jumps);
                 }
 
                 // flush any pending alts

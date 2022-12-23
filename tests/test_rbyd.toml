@@ -626,8 +626,6 @@ code = '''
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 4, 0), &off, &size)
             => LFS_MKRTAG(GSTATE, 4, 0);
 
-    printf("-------------------------\n");
-    // TODO this doesn't work since 2!<1?  4 2 3 1 should work consistently
     // flip a red edge, ignore a black edge
     //                      >y
     //              .-------'|
