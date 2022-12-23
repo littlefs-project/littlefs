@@ -74,7 +74,7 @@ def tagrepr(tag, size, off=None):
         return 'alt%s%s x%x %s' % (
             'r' if type1 & 1 else 'b',
             'gt' if type1 & 2 else 'lt',
-            tag >> 3,
+            tag & ~0x7,
             'x%x' % (0xffffffff & (off-size))
                 if off is not None
                 else '-%d' % off)

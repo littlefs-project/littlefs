@@ -1095,7 +1095,7 @@ static inline lfs_rtag_t lfs_rbyd_flip(
     return LFS_MKRALT_(
             lfs_rtag_isred(alt),
             !lfs_rtag_isgt(alt),
-            (lt+gt-1) - lfs_rtag_weight(alt));
+            (lt+gt+1) - lfs_rtag_weight(alt));
     // TODO
 }
 
@@ -1227,6 +1227,9 @@ static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
                     lfs_rtag_type2(alt),
                     lfs_rtag_id(tag));
 
+            printf("lt, gt = (%x, %x)\n", lt, gt);
+            printf("lookup %08x => %08x (raw %08x)\n", tag, tag_, alt);
+
             // not what we're looking for?
             if (tag_ < tag) {
                 return LFS_ERR_NOENT;
@@ -1236,8 +1239,6 @@ static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
             *off = branch + delta;
             *size = jump;
 
-            printf("lt, gt = (%x, %x)\n", lt, gt);
-            printf("lookup %08x => %08x (raw %08x)\n", tag, tag_, alt);
             //return alt; // TODO adjust
             //return lt << 3;
             //return lfs_rtag_setid(alt, lt >> 12);
@@ -1458,7 +1459,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
         // queue of pending alts we can emulate rotations with
         lfs_rtag_t p_alts[3] = {0, 0, 0};
         lfs_off_t p_jumps[3] = {0, 0, 0};
-        lfs_rtag_t stump = 0;
+        lfs_rtag_t xylem = 0;
 
         // descend down tree, building alt pointers
         while (true) {
@@ -1524,7 +1525,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 //                    } else {
 //                        lfs_rtag_t alt_ = p_alts[0];
 //                        p_alts[0] = lfs_rtag_black(alt);
-//                        p_jumps[0] = stump;
+//                        p_jumps[0] = xylem;
 //
 //                        lfs_rbyd_trim(alt_, &lt, &gt);
 //                        lfs_rbyd_trim(alt, &lt, &gt);
@@ -1535,9 +1536,13 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 //                }
 
                 // should've taken red alt?
-                if (lt < 0 || gt < 0) {
-                    LFS_ASSERT(p_alts[0] && lfs_rtag_isred(p_alts[0]));
+                printf("lt,gt = (%x,%x)\n", lt, gt);
+                printf("p = %08x %d\n", p_alts[0], lfs_rtag_isred(p_alts[0]));
+                if (p_alts[0]
+                        && lfs_rtag_isred(p_alts[0])
+                        && (lt < 0 || gt < 0)) {
                     LFS_ASSERT(lfs_rtag_isblack(alt));
+                    printf("???\n");
 
                     if (lfs_rtag_parallel(alt, p_alts[0])) {
                         printf("rflip parallel (%x,%x)\n", lt, gt);
@@ -1560,6 +1565,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 
                     lfs_rbyd_untrim(alt, &lt, &gt);
                     lfs_rbyd_trim(p_alts[0], &lt, &gt);
+                    printf("=> (%x, %x)\n", lt, gt);
                 }
 
                     
@@ -1596,7 +1602,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 //                    off += delta;
 //
 //                    lfs_rbyd_trim(alt_, &lt, &gt);
-//                    stump = branch_;
+//                    xylem = branch_;
 //                    branch = jump_;
 //
 //                } else if (p_alts[0]
@@ -1621,7 +1627,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 //                    }
 //                    off += delta;
 //
-//                    stump = branch_;
+//                    xylem = branch_;
 //                    branch = jump_;
 
                 // take black alt?
@@ -1638,8 +1644,8 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                     }
                     off += delta;
 
-                    lfs_rbyd_trim(lfs_rbyd_flip(alt, lt, gt), &lt, &gt);
-                    stump = branch_;
+                    lfs_rbyd_trim(p_alts[0], &lt, &gt);
+                    xylem = branch_;
                     branch = jump;
 
                 // continue down current path
@@ -1656,20 +1662,28 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                     off += delta;
 
                     lfs_rbyd_trim(alt, &lt, &gt);
-                    stump = branch_;
+                    xylem = branch_;
                 }
 
             // found end of tree?
             } else {
+                // update the tag id
+                // TODO should this be a function? maybe see what create/delete need
+                // TODO alternatively can we do this a bit more directly here
+                lfs_rtag_t tag_ = LFS_MKRTAG_(
+                        lfs_rtag_type1(alt),
+                        lfs_rtag_type2(alt),
+                        lfs_rtag_id(attr->tag));
+
                 // split leaf?
-                if (alt != attr->tag) {
+                if (tag_ != attr->tag) {
+                    // bias the weights so that lookups always find the
+                    // next biggest tag
                     lfs_rtag_t alt_;
-                    if (lfs_rtag_weight(alt) < lfs_rtag_weight(attr->tag)) {
-                        // bias the weights so that lookups always find the
-                        // next biggest tag
-                        alt_ = LFS_MKRALT(B, LT, lt+1 - (
-                                lfs_rtag_weight(attr->tag)
-                                - lfs_rtag_weight(alt)));
+                    if (lfs_rtag_weight(tag_) < lfs_rtag_weight(attr->tag)) {
+                        alt_ = LFS_MKRALT(B, LT, lt+1
+                                + lfs_rtag_weight(tag_)
+                                - lfs_rtag_weight(attr->tag));
                     } else {
                         alt_ = LFS_MKRALT(B, GT, gt);
                     }
@@ -1684,7 +1698,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                     }
                     off += delta;
 
-                    lfs_rbyd_p_red(p_alts, p_jumps);
+                    //lfs_rbyd_p_red(p_alts, p_jumps);
                 }
 
                 // flush any pending alts
