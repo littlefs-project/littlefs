@@ -543,6 +543,10 @@ static inline void lfs_rtag_untrim(lfs_rtag_t alt,
     }
 }
 
+static inline lfs_rtag_t lfs_rtag_inc(lfs_rtag_t tag) {
+    return tag + 0x8;
+}
+
 static inline lfs_rtag_t lfs_rtag_red(lfs_rtag_t tag) {
     return tag | 0x1;
 }
@@ -1158,6 +1162,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
 
 static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
         lfs_rtag_t tag, lfs_off_t *off, lfs_size_t *size) {
+    printf("lookup(%08x)\n", tag);
     // no trunk yet?
     lfs_off_t branch = rbyd->trunk;
     if (!branch) {
@@ -1382,6 +1387,7 @@ static void lfs_rbyd_p_red(
 
 static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
         const struct lfs_rattr *attrs) {
+    printf("commit()\n");
     LFS_ASSERT(rbyd->erased);
 
     // setup commit state
