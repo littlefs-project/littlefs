@@ -1335,18 +1335,18 @@ static void lfs_rbyd_p_red(
             } else if (lfs_rtag_isparallel(p_alts[0], p_alts[2])) {
                 lfs_rtag_t alt_ = p_alts[1];
                 lfs_off_t jump_ = p_jumps[1];
-                p_alts[1] = p_alts[0];
+                p_alts[1] = lfs_rtag_red(p_alts[0]);
                 p_jumps[1] = p_jumps[0];
-                p_alts[0] = alt_;
+                p_alts[0] = lfs_rtag_black(alt_);
                 p_jumps[0] = jump_;
             } else if (lfs_rtag_isparallel(p_alts[0], p_alts[1])) {
                 lfs_rtag_t alt_ = p_alts[2];
                 lfs_off_t jump_ = p_jumps[2];
-                p_alts[2] = p_alts[1];
+                p_alts[2] = lfs_rtag_red(p_alts[1]);
                 p_jumps[2] = p_jumps[1];
-                p_alts[1] = p_alts[0];
+                p_alts[1] = lfs_rtag_red(p_alts[0]);
                 p_jumps[1] = p_jumps[0];
-                p_alts[0] = alt_;
+                p_alts[0] = lfs_rtag_black(alt_);
                 p_jumps[0] = jump_;
             } else {
                 LFS_ASSERT(false);
@@ -1540,20 +1540,19 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                 if (tag_ != attr->tag) {
                     // bias the weights so that lookups always find the
                     // next biggest tag
-                    lfs_rtag_t alt_;
                     if (lfs_rtag_weight(tag_) < lfs_rtag_weight(attr->tag)) {
-                        alt_ = LFS_MKRALT(B, LT, lt+1
+                        alt = LFS_MKRALT(B, LT, lt+1
                                 + lfs_rtag_weight(tag_)
                                 - lfs_rtag_weight(attr->tag));
                     } else {
-                        alt_ = LFS_MKRALT(B, GT, gt);
+                        alt = LFS_MKRALT(B, GT, gt);
                     }
 
                     lfs_ssize_t delta = lfs_rbyd_p_push(lfs,
                             &lfs->pcache, &lfs->rcache,
                             block, off,
                             p_alts, p_jumps,
-                            alt_, branch, &crc);
+                            alt, branch, &crc);
                     if (delta < 0) {
                         return delta;
                     }
