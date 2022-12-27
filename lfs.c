@@ -253,6 +253,16 @@ static int lfs_bd_prog(lfs_t *lfs,
     LFS_ASSERT(block == LFS_BLOCK_INLINE || block < lfs->cfg->block_count);
     LFS_ASSERT(off + size <= lfs->cfg->block_size);
 
+    // update rcache if we overlap
+    if (rcache
+            && block == rcache->block
+            && off < rcache->off + rcache->size
+            && off + size > rcache->off) {
+        lfs_off_t off_ = lfs_max(off, rcache->off);
+        lfs_size_t size_ = lfs_min(size, rcache->size - (off_-rcache->off));
+        memcpy(&rcache->buffer[off_-rcache->off], data+(off_-off), size_);
+    }
+
     while (size > 0) {
         if (block == pcache->block &&
                 off >= pcache->off &&
