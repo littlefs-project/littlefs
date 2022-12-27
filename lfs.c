@@ -696,14 +696,12 @@ static void lfs_fcrc_tole32(struct lfs_fcrc *fcrc) {
 struct lfs_rfcrc {
     uint32_t crc;
     lfs_size_t size;
-    // extra space for leb128 encoding
-    uint8_t spill[1];
 };
 
 static lfs_ssize_t lfs_rfcrc_todisk(struct lfs_rfcrc *fcrc) {
     lfs_tole32_(fcrc->crc, &fcrc->crc);
 
-    lfs_ssize_t delta = lfs_toleb128(fcrc->size, (uint8_t*)&fcrc->size, 5);
+    lfs_ssize_t delta = lfs_toleb128(fcrc->size, (uint8_t*)&fcrc->size, 4);
     if (delta < 0) {
         return delta;
     }
@@ -714,7 +712,7 @@ static lfs_ssize_t lfs_rfcrc_todisk(struct lfs_rfcrc *fcrc) {
 static lfs_ssize_t lfs_rfcrc_fromdisk(struct lfs_rfcrc *fcrc) {
     fcrc->crc = lfs_fromle32_(&fcrc->crc);
 
-    lfs_ssize_t delta = lfs_fromleb128(&fcrc->size, (uint8_t*)&fcrc->size, 5);
+    lfs_ssize_t delta = lfs_fromleb128(&fcrc->size, (uint8_t*)&fcrc->size, 4);
     if (delta < 0) {
         return delta;
     }
@@ -922,7 +920,7 @@ static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
     *tag = 0;
 
     // read a pair of leb128s
-    uint8_t buffer[2*5];
+    uint8_t buffer[2*4];
     lfs_size_t i = 0;
 
     // TODO allow different hint for lookup? bench this? does our hint work backwards?
@@ -935,14 +933,14 @@ static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
     }
 
     lfs_rtag_t tag_;
-    ssize_t delta = lfs_fromleb128(&tag_, &buffer[i], 5);
+    ssize_t delta = lfs_fromleb128(&tag_, &buffer[i], 4);
     if (delta < 0) {
         return delta;
     }
     i += delta;
 
     lfs_size_t size_;
-    delta = lfs_fromleb128(&size_, &buffer[i], 5);
+    delta = lfs_fromleb128(&size_, &buffer[i], 4);
     if (delta < 0) {
         return delta;
     }
@@ -1154,7 +1152,7 @@ static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
         lfs_rtag_t alt;
         lfs_off_t jump;
         lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
-                &lfs->pcache, &lfs->rcache, 2*5,
+                &lfs->pcache, &lfs->rcache, 2*4,
                 rbyd->block, branch, &alt, &jump, NULL);
         if (delta < 0) {
             return delta;
@@ -1224,16 +1222,16 @@ static lfs_ssize_t lfs_rbyd_progtag(lfs_t *lfs,
     tag |= lfs_popc(crc_) & 1;
 
     // compress into pair of leb128s
-    uint8_t buffer[2*5];
+    uint8_t buffer[2*4];
     lfs_size_t i = 0;
 
-    ssize_t delta = lfs_toleb128(tag, &buffer[i], 5);
+    ssize_t delta = lfs_toleb128(tag, &buffer[i], 4);
     if (delta < 0) {
         return delta;
     }
     i += delta;
 
-    delta = lfs_toleb128(size, &buffer[i], 5);
+    delta = lfs_toleb128(size, &buffer[i], 4);
     if (delta < 0) {
         return delta;
     }
@@ -1412,7 +1410,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
             lfs_rtag_t alt;
             lfs_off_t jump;
             lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
-                    &lfs->pcache, &lfs->rcache, 2*5,
+                    &lfs->pcache, &lfs->rcache, 2*4,
                     block, branch, &alt, &jump, NULL);
             if (delta < 0) {
                 return delta;
@@ -1607,19 +1605,19 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     //     1-byte fcrc tag
     //   + 1-byte fcrc len (worst case)
     //   + 4-byte fcrc crc
-    //   + 5-byte fcrc crc-len (worst case)
+    //   + 4-byte fcrc crc-len (worst case)
     //   + 1-byte crc tag
-    //   + 5-byte crc len (worst case)
+    //   + 4-byte crc len (worst case)
     //   + 4-byte crc crc
-    //   = 21 bytes
+    //   = 19 bytes
     // - 3-word crc with no following prog (end of block)
     //     1-byte crc tag
-    //   + 5-byte crc len (worst case)
+    //   + 4-byte crc len (worst case)
     //   + 4-byte crc crc
-    //   = 10 bytes
+    //   = 9 bytes
     // 
     const lfs_off_t aligned = lfs_alignup(
-            lfs_min(off + 1+1+4+5 + 1+5+4, lfs->cfg->block_size),
+            lfs_min(off + 1+1+4+4 + 1+4+4, lfs->cfg->block_size),
             lfs->cfg->prog_size);
 
     // space for fcrc?
@@ -1671,34 +1669,33 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     // note padding-size depends on leb-encoding depends on padding-size, to
     // get around this catch-22 we just always write a fully-expanded leb128
     // encoding
-    uint8_t buffer[1+5+4];
+    uint8_t buffer[1+4+4];
     buffer[0] = (LFS_MKRTAG(CRC0, 0, 0) << 1) | (lfs_popc(crc) & 1);
 
-    lfs_off_t padding = aligned - (off + 1+5);
+    lfs_off_t padding = aligned - (off + 1+4);
     buffer[1] = 0x80 | (0x7f & (padding >>  0));
     buffer[2] = 0x80 | (0x7f & (padding >>  7));
     buffer[3] = 0x80 | (0x7f & (padding >> 14));
-    buffer[4] = 0x80 | (0x7f & (padding >> 21));
-    buffer[5] = 0x00 | (0x7f & (padding >> 28));
+    buffer[4] = 0x00 | (0x7f & (padding >> 21));
 
-    crc = lfs_crc32c(crc, buffer, 1+5);
+    crc = lfs_crc32c(crc, buffer, 1+4);
     // we can't let the next tag appear as valid, so intentionally perturb the
     // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
     // so we can really change any bit to make this happen, we've reserved a bit
     // in crc tags just for this purpose
     if ((lfs_popc(crc) & 1) == (perturb & 1)) {
         buffer[0] ^= 0x2;
-        crc ^= 0xdb8ca0c3; // note crc(a ^ b) == crc(a) ^ crc(b)
+        crc ^= 0x7022df58; // note crc(a ^ b) == crc(a) ^ crc(b)
     }
-    lfs_tole32_(crc, &buffer[1+5]);
+    lfs_tole32_(crc, &buffer[1+4]);
 
     int err = lfs_bd_prog(lfs,
             &lfs->pcache, &lfs->rcache, false,
-            block, off, buffer, 1+5+4);
+            block, off, buffer, 1+4+4);
     if (err) {
         return err;
     }
-    off += 1+5+4;
+    off += 1+4+4;
 
     // flush our caches, finalizing the commit on-disk
     err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
@@ -1718,7 +1715,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     if (crc_ != crc) {
         // oh no, something went wrong
         printf("oh no %08x != %08x\n", crc_, crc);
-        //return LFS_ERR_CORRUPT;
+        return LFS_ERR_CORRUPT;
     }
 
     // ok, everything is good, save what we've committed
