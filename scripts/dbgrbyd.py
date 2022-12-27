@@ -103,7 +103,7 @@ def main(disk, block_size, block1, block2=None, *,
 
     # first figure out which block as the most recent revision
     def fetch(data):
-        rev, = struct.unpack('<I', data[0:4])
+        rev, = struct.unpack('<I', data[0:4].ljust(4, b'\0'))
         crc = crc32c(data[0:4])
         off = 0
         j = 4
@@ -119,7 +119,7 @@ def main(disk, block_size, block1, block2=None, *,
                     crc = crc32c(data[j:j+size], crc)
                 # found a crc?
                 else:
-                    crc_, = struct.unpack('<I', data[j:j+4])
+                    crc_, = struct.unpack('<I', data[j:j+4].ljust(4, b'\0'))
                     if crc != crc_:
                         break
                     # commit what we have
@@ -234,7 +234,7 @@ def main(disk, block_size, block1, block2=None, *,
                 crc = crc32c(data[j:j+size], crc)
             # found a crc?
             else:
-                crc_, = struct.unpack('<I', data[j:j+4])
+                crc_, = struct.unpack('<I', data[j:j+4].ljust(4, b'\0'))
                 if crc != crc_:
                     notes.append('crc!=%08x' % crc)
             j += size
