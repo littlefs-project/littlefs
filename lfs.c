@@ -437,7 +437,7 @@ enum lfs_rtag_type1 {
 #define LFS_ALT_GT true
 
 #define LFS_MKRTAG_(type1, type2, id) \
-    (((0x7f & (lfs_rtag_t)(type1)) << 0) \
+    (((0x7fff & (lfs_rtag_t)(type1)) << 0) \
         | ((0xff & (lfs_rtag_t)(type2)) << 7) \
         | ((0xffff & (lfs_rtag_t)(id)) << 15))
 
@@ -526,10 +526,6 @@ static inline lfs_srtag_t lfs_rtag_weight(lfs_rtag_t tag) {
 static inline lfs_rtag_t lfs_rtag_merge(lfs_rtag_t a, lfs_rtag_t b) {
     return a + (b & ~0x7);
 }
-
-//static inline lfs_srtag_t lfs_rtag_weight2(lfs_rtag_t tag, lfs_rtag_t tag2) {
-//    return lfs_rtag_weight(tag) + lfs_rtag_weight(tag2);
-//}
 
 static inline lfs_srtag_t lfs_rtag_weight_lt(lfs_rtag_t tag, uint16_t count) {
     (void)count;
@@ -977,6 +973,9 @@ static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
 static int lfs_rbyd_fetch(lfs_t *lfs,
         lfs_rbyd_t *rbyd, lfs_block_t block,
         struct lfs_fetchpattern *patterns) {
+    // TODO rm this
+    (void)patterns;
+
     // read the revision count and get the crc started
     uint32_t rev;
     int err = lfs_bd_read(lfs,
@@ -1136,46 +1135,6 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
     return 0;
 }
 
-// TODO make these rtag functions?
-//static inline bool lfs_rtag_follow2(
-//        lfs_rtag_t alt, lfs_rtag_t alt_, lfs_srtag_t lt, lfs_srtag_t gt) {
-//    if (lfs_rtag_islt(alt) && lfs_rtag_islt(alt_)) {
-//        return lfs_rtag_weight(alt) + lfs_rtag_weight(alt_) > lt;
-//    } else if (lfs_rtag_isgt(alt) && lfs_rtag_isgt(alt_)) {
-//        return lfs_rtag_weight(alt) + lfs_rtag_weight(alt_) > gt;
-//    } else {
-//        return lfs_rtag_follow(alt, lt, gt);
-//    }
-//    // TODO
-//}
-
-//static inline lfs_rtag_t lfs_rtag_flip2(
-//        lfs_rtag_t alt, lfs_rtag_t alt_, lfs_rtag_t lt, lfs_rtag_t gt) {
-//    return LFS_MKRALT_(
-//            lfs_rtag_isred(alt),
-//            !lfs_rtag_isgt(alt),
-//            (lt+gt-1) - (lfs_rtag_weight(alt)+lfs_rtag_weight(alt_)));
-//    // TODO
-//}
-
-//static inline void lfs_rtag_trim(lfs_rtag_t alt,
-//        lfs_rtag_t *lt, lfs_rtag_t *gt) {
-//    if (lfs_rtag_islt(alt)) {
-//        *lt = *lt - lfs_rtag_weight(alt);
-//    } else {
-//        *gt = *gt - lfs_rtag_weight(alt);
-//    }
-//}
-//
-//static inline void lfs_rtag_trimf(lfs_rtag_t alt,
-//        lfs_rtag_t *lt, lfs_rtag_t *gt) {
-//    if (lfs_rtag_islt(alt)) {
-//        *gt = lfs_rtag_weight(alt)-1 - *lt;
-//    } else {
-//        *lt = lfs_rtag_weight(alt)-1 - *gt;
-//    }
-//}
-
 static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
         lfs_rtag_t tag, lfs_off_t *off, lfs_size_t *size) {
     printf("lookup(%08x)\n", tag);
@@ -1195,7 +1154,7 @@ static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
         lfs_rtag_t alt;
         lfs_off_t jump;
         lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
-                &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
+                &lfs->pcache, &lfs->rcache, 2*5,
                 rbyd->block, branch, &alt, &jump, NULL);
         if (delta < 0) {
             return delta;
@@ -1214,11 +1173,6 @@ static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
 
         // found end of tree?
         } else {
-            // different tag => not found
-//            if (lfs_rtag_type3(alt) != lfs_rtag_type3(tag)) {
-//                return LFS_ERR_NOENT;
-//            }
-
             // update the tag id
             lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(tag));
 
@@ -1298,31 +1252,52 @@ static lfs_ssize_t lfs_rbyd_progtag(lfs_t *lfs,
     return i;
 }
 
-// TODO should crc be in a different argument position?
-static lfs_ssize_t lfs_rbyd_p_push(lfs_t *lfs,
+static lfs_ssize_t lfs_rbyd_p_flush(lfs_t *lfs,
+        lfs_cache_t *pcache, lfs_cache_t *rcache,
+        lfs_block_t block, lfs_off_t off,
+        lfs_rtag_t p_alts[static 3],
+        lfs_rtag_t p_jumps[static 3],
+        unsigned count,
+        uint32_t *crc) {
+    lfs_off_t off_ = off;
+
+    // write out some number of alt pointers in our queue
+    for (unsigned i = 0; i < count; i++) {
+        if (p_alts[3-1-i]) {
+            // change to a relative jump at the last minute
+            lfs_rtag_t alt = p_alts[3-1-i];
+            lfs_off_t jump = off_ - p_jumps[3-1-i];
+            printf("%x: writing %08x %08x\n", off_, alt, jump);
+
+            lfs_ssize_t delta = lfs_rbyd_progtag(lfs,
+                    pcache, rcache,
+                    block, off_,
+                    alt, jump, crc);
+            if (delta < 0) {
+                return delta;
+            }
+            off_ += delta;
+        }
+    }
+
+    return off_ - off;
+}
+
+static inline lfs_ssize_t lfs_rbyd_p_push(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache,
         lfs_block_t block, lfs_off_t off,
         lfs_rtag_t p_alts[static 3],
         lfs_off_t p_jumps[static 3],
-        lfs_rtag_t alt, lfs_off_t jump, uint32_t *crc) {
-    // too many alts, need to write one out?
-    lfs_ssize_t delta = 0;
-    if (p_alts[2]) {
-        // change to relative jump at the last minute
-        lfs_rtag_t alt_ = p_alts[2];
-        lfs_off_t jump_ = off - p_jumps[2];
-        printf("%x: writing %08x %08x\n", off, alt_, jump_);
-
-        delta = lfs_rbyd_progtag(lfs,
-                pcache, rcache,
-                block, off,
-                alt_, jump_, crc);
-        if (delta < 0) {
-            return delta;
-        }
+        lfs_rtag_t alt, lfs_off_t jump,
+        uint32_t *crc) {
+    lfs_ssize_t delta = lfs_rbyd_p_flush(lfs,
+            pcache, rcache,
+            block, off,
+            p_alts, p_jumps, 1, crc);
+    if (delta < 0) {
+        return delta;
     }
 
-    // push the alts
     p_alts[2] = p_alts[1];
     p_jumps[2] = p_jumps[1];
     p_alts[1] = p_alts[0];
@@ -1342,27 +1317,6 @@ static inline void lfs_rbyd_p_pop(
     p_jumps[1] = p_jumps[2];
     p_alts[2] = 0;
     p_jumps[2] = 0;
-}
-
-static lfs_ssize_t lfs_rbyd_p_flush(lfs_t *lfs,
-        lfs_cache_t *pcache, lfs_cache_t *rcache,
-        lfs_block_t block, lfs_off_t off,
-        lfs_rtag_t p_alts[static 3],
-        lfs_rtag_t p_jumps[static 3], uint32_t *crc) {
-    // just push zeros into everything is written out
-    lfs_ssize_t delta = 0;
-    for (unsigned i = 0; i < 3; i++) {
-        lfs_ssize_t delta_ = lfs_rbyd_p_push(lfs,
-                pcache, rcache,
-                block, off+delta,
-                p_alts, p_jumps, 0, 0, crc);
-        if (delta_ < 0) {
-            return delta_;
-        }
-        delta += delta_;
-    }
-
-    return delta;
 }
 
 static void lfs_rbyd_p_red(
@@ -1451,14 +1405,14 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
         // queue of pending alts we can emulate rotations with
         lfs_rtag_t p_alts[3] = {0, 0, 0};
         lfs_off_t p_jumps[3] = {0, 0, 0};
-        lfs_rtag_t xylem = 0;
+        lfs_off_t xylem = 0;
 
         // descend down tree, building alt pointers
         while (true) {
             lfs_rtag_t alt;
             lfs_off_t jump;
             lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
-                    &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
+                    &lfs->pcache, &lfs->rcache, 2*5,
                     block, branch, &alt, &jump, NULL);
             if (delta < 0) {
                 return delta;
@@ -1484,9 +1438,9 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                 }
 
                 // two reds makes a yellow, split?
-                if (p_alts[0]
-                        && lfs_rtag_isred(p_alts[0])
-                        && lfs_rtag_isred(alt)) {
+                if (lfs_rtag_isred(alt)
+                        && p_alts[0]
+                        && lfs_rtag_isred(p_alts[0])) {
                     LFS_ASSERT(lfs_rtag_isparallel(alt, p_alts[0]));
 
                     // if we take the red or yellow alt we can just point
@@ -1499,7 +1453,6 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                         p_alts[0] = lfs_rtag_black(
                                 lfs_rtag_flip(alt, lt, gt));
                         p_jumps[0] = branch_;
-
                         alt = lfs_rtag_black(alt_);
                         branch_ = jump;
                         jump = jump_;
@@ -1516,19 +1469,17 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 
                         lfs_rtag_trim(alt, &lt, &gt);
                         lfs_rbyd_p_red(p_alts, p_jumps);
-                        //xylem = branch;
+
+                        xylem = branch;
                         branch = branch_;
                         continue;
                     }
                 }
 
                 // should've taken red alt? needs a flip
-                printf("lt,gt = (%x,%x)\n", lt, gt);
-                printf("p = %08x %d\n", p_alts[0], lfs_rtag_isred(p_alts[0]));
-                if (p_alts[0]
-                        && lfs_rtag_isred(p_alts[0])
-                        && (lt < 0 || gt < 0)) {
+                if (lt < 0 || gt < 0) {
                     LFS_ASSERT(lfs_rtag_isblack(alt));
+                    LFS_ASSERT(p_alts[0] && lfs_rtag_isred(p_alts[0]));
 
                     printf("rflip %s (%x,%x)\n",
                             lfs_rtag_isparallel(alt, p_alts[0]) ? "parallel" : "perpendicular",
@@ -1536,7 +1487,6 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 
                     // if black alt would've been taken, it also needs a flip
                     if (lfs_rtag_isparallel(alt, p_alts[0])) {
-                        printf("rflip parallel (%x,%x)\n", lt, gt);
                         alt = lfs_rtag_flip(alt, lt, gt);
                         lfs_off_t jump_ = jump;
                         jump = branch_;
@@ -1552,44 +1502,32 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 
                     lfs_rtag_untrim(alt, &lt, &gt);
                     lfs_rtag_trim(p_alts[0], &lt, &gt);
-                    printf("=> (%x, %x)\n", lt, gt);
                 }
 
                 // take black alt? needs a flip
-                if (lfs_rtag_isblack(alt)
-                        && lfs_rtag_follow(alt, lt, gt)) {
+                if (lfs_rtag_isblack(alt) && lfs_rtag_follow(alt, lt, gt)) {
                     printf("bflip\n");
-                    lfs_ssize_t delta = lfs_rbyd_p_push(lfs,
-                            &lfs->pcache, &lfs->rcache,
-                            block, off,
-                            p_alts, p_jumps,
-                            lfs_rtag_flip(alt, lt, gt), branch_, &crc);
-                    if (delta < 0) {
-                        return delta;
-                    }
-                    off += delta;
-
-                    lfs_rtag_trim(p_alts[0], &lt, &gt);
-                    xylem = branch;
-                    branch = jump;
-
-                // continue down current path
-                } else {
-                    printf("continue\n");
-                    lfs_ssize_t delta = lfs_rbyd_p_push(lfs,
-                            &lfs->pcache, &lfs->rcache,
-                            block, off,
-                            p_alts, p_jumps,
-                            alt, jump, &crc);
-                    if (delta < 0) {
-                        return delta;
-                    }
-                    off += delta;
-
-                    lfs_rtag_trim(alt, &lt, &gt);
-                    xylem = branch;
-                    branch = branch_;
+                    alt = lfs_rtag_flip(alt, lt, gt);
+                    lfs_off_t jump_ = jump;
+                    jump = branch_;
+                    branch_ = jump_;
                 }
+
+                // push alt onto queue
+                lfs_ssize_t delta = lfs_rbyd_p_push(lfs,
+                        &lfs->pcache, &lfs->rcache,
+                        block, off,
+                        p_alts, p_jumps,
+                        alt, jump, &crc);
+                if (delta < 0) {
+                    return delta;
+                }
+                off += delta;
+
+                // continue to next alt
+                lfs_rtag_trim(alt, &lt, &gt);
+                xylem = branch;
+                branch = branch_;
 
             // found end of tree?
             } else {
@@ -1628,7 +1566,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                 delta = lfs_rbyd_p_flush(lfs,
                         &lfs->pcache, &lfs->rcache,
                         block, off,
-                        p_alts, p_jumps, &crc);
+                        p_alts, p_jumps, 3, &crc);
                 if (delta < 0) {
                     return delta;
                 }
@@ -1781,7 +1719,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     if (crc_ != crc) {
         // oh no, something went wrong
         printf("oh no %08x != %08x\n", crc_, crc);
-        return LFS_ERR_CORRUPT;
+        //return LFS_ERR_CORRUPT;
     }
 
     // ok, everything is good, save what we've committed
