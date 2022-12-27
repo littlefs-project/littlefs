@@ -1227,7 +1227,7 @@ code = '''
             LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4,
             LFS_MKRATTR(GSTATE, 4, 0, &(uint32_t){0xdddddddd}, 4,
             LFS_MKRATTR(GSTATE, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xeeeeeeee}, 4, NULL))))))) => 0;
+            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xffffffff}, 4, NULL))))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size)
@@ -1261,7 +1261,7 @@ code = '''
             LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4,
             LFS_MKRATTR(GSTATE, 4, 0, &(uint32_t){0xdddddddd}, 4,
             LFS_MKRATTR(GSTATE, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xeeeeeeee}, 4, NULL))))))) => 0;
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xffffffff}, 4, NULL))))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size)
@@ -1276,132 +1276,132 @@ code = '''
             => LFS_MKRTAG(GSTATE, 5, 0);
 '''
 
-#[cases.test_rbyd_sextifoliate]
-#in = 'lfs.c'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfs_rbyd_t rbyd_init = {
-#        .block = 0,
-#        .trunk = 0,
-#        .noff = 0,
-#        .rev = 1,
-#        .crc = 0,
-#        .count = 0,
-#        .erased = true,
-#    };
-#    lfs_rbyd_t rbyd;
-#    lfs_off_t off;
-#    lfs_size_t size;
-#
-#    // don't prune
-#    //                                  <b
-#    //                             .----'|
-#    //            <b              <y     |
-#    //          .-'|      .-------'|     |
-#    //         <y  |      |       <r     |
-#    // .-------'|  |      |  .----'      |
-#    // |       <r  |      |  |          <y
-#    // |  .----'   |  =>  |  |  .-------'|
-#    // |  |       <r      |  |  |       <r
-#    // |  |  .----'|      |  |  |  .----'|
-#    // |  |  |    <b      |  |  |  |    <b
-#    // |  |  |  .-'|      |  |  |  |  .-'|
-#    // 1  2  3  4  5      1  2  3  4  5  6
-#    rbyd = rbyd_init;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfs_rbyd_commit(&lfs, &rbyd,
-#            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-#            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-#            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4,
-#            LFS_MKRATTR(GSTATE, 4, 0, &(uint32_t){0xdddddddd}, 4,
-#            LFS_MKRATTR(GSTATE, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-#            LFS_MKRATTR(GSTATE, 6, 0, &(uint32_t){0xffffffff}, 4, NULL))))))) => 0;
-#
-#    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 1, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 2, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 3, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 3, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 4, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 4, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 5, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 5, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 6, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 6, 0);
-#
-#    // prune by taking a red alt
-#    //            <b                    >b
-#    //          .-'|                  .-'|
-#    //         <y  |                  | <r
-#    // .-------'|  |      .-----------|-'|
-#    // |       <r  |      |           | >b
-#    // |  .----'   |  =>  |  .--------|-'|
-#    // |  |       <r      |  |       <r  |
-#    // |  |  .----'|      |  |  .----'|  |
-#    // |  |  |    <b      |  |  |    <b  |
-#    // |  |  |  .-'|      |  |  |  .-'|  |
-#    // 1  3  4  5  6      1  3  4  5  6  2
-#    rbyd = rbyd_init;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfs_rbyd_commit(&lfs, &rbyd,
-#            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-#            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xbbbbbbbb}, 4,
-#            LFS_MKRATTR(GSTATE, 4, 0, &(uint32_t){0xcccccccc}, 4,
-#            LFS_MKRATTR(GSTATE, 5, 0, &(uint32_t){0xdddddddd}, 4,
-#            LFS_MKRATTR(GSTATE, 6, 0, &(uint32_t){0xeeeeeeee}, 4,
-#            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xeeeeeeee}, 4, NULL))))))) => 0;
-#
-#    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 1, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 2, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 3, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 3, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 4, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 4, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 5, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 5, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 6, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 6, 0);
-#
-#    // prune by taking a yellow alt (this needs to prune during the rflip)
-#    //            <b                    >b
-#    //          .-'|                  .-'|
-#    //         <y  |                  | >r
-#    // .-------'|  |         .--------|-'|
-#    // |       <r  |         |        | >b
-#    // |  .----'   |  =>  .--|--------|-'|
-#    // |  |       <r      |  |       <r  |
-#    // |  |  .----'|      |  |  .----'|  |
-#    // |  |  |    <b      |  |  |    <b  |
-#    // |  |  |  .-'|      |  |  |  .-'|  |
-#    // 2  3  4  5  6      2  3  4  5  6  1
-#    rbyd = rbyd_init;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfs_rbyd_commit(&lfs, &rbyd,
-#            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xaaaaaaaa}, 4,
-#            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xbbbbbbbb}, 4,
-#            LFS_MKRATTR(GSTATE, 4, 0, &(uint32_t){0xcccccccc}, 4,
-#            LFS_MKRATTR(GSTATE, 5, 0, &(uint32_t){0xdddddddd}, 4,
-#            LFS_MKRATTR(GSTATE, 6, 0, &(uint32_t){0xeeeeeeee}, 4,
-#            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xeeeeeeee}, 4, NULL))))))) => 0;
-#
-#    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 1, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 2, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 3, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 3, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 4, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 4, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 5, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 5, 0);
-#    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 6, 0), &off, &size)
-#            => LFS_MKRTAG(GSTATE, 6, 0);
-#'''
+[cases.test_rbyd_sextifoliate]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t rbyd_init = {
+        .block = 0,
+        .trunk = 0,
+        .noff = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    lfs_off_t off;
+    lfs_size_t size;
+
+    // don't prune
+    //                                  <b
+    //                             .----'|
+    //            <b              <y     |
+    //          .-'|      .-------'|     |
+    //         <y  |      |       <r     |
+    // .-------'|  |      |  .----'      |
+    // |       <r  |      |  |          <y
+    // |  .----'   |  =>  |  |  .-------'|
+    // |  |       <r      |  |  |       <r
+    // |  |  .----'|      |  |  |  .----'|
+    // |  |  |    <b      |  |  |  |    <b
+    // |  |  |  .-'|      |  |  |  |  .-'|
+    // 1  2  3  4  5      1  2  3  4  5  6
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
+            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xcccccccc}, 4,
+            LFS_MKRATTR(GSTATE, 4, 0, &(uint32_t){0xdddddddd}, 4,
+            LFS_MKRATTR(GSTATE, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
+            LFS_MKRATTR(GSTATE, 6, 0, &(uint32_t){0xffffffff}, 4, NULL))))))) => 0;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 3, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 3, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 4, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 5, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 5, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 6, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 6, 0);
+
+    // prune by taking a red alt
+    //            <b                    >b
+    //          .-'|                  .-'|
+    //         <y  |                  | <r
+    // .-------'|  |      .-----------|-'|
+    // |       <r  |      |           | >b
+    // |  .----'   |  =>  |  .--------|-'|
+    // |  |       <r      |  |       <r  |
+    // |  |  .----'|      |  |  .----'|  |
+    // |  |  |    <b      |  |  |    <b  |
+    // |  |  |  .-'|      |  |  |  .-'|  |
+    // 1  3  4  5  6      1  3  4  5  6  2
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xbbbbbbbb}, 4,
+            LFS_MKRATTR(GSTATE, 4, 0, &(uint32_t){0xcccccccc}, 4,
+            LFS_MKRATTR(GSTATE, 5, 0, &(uint32_t){0xdddddddd}, 4,
+            LFS_MKRATTR(GSTATE, 6, 0, &(uint32_t){0xeeeeeeee}, 4,
+            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xffffffff}, 4, NULL))))))) => 0;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 3, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 3, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 4, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 5, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 5, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 6, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 6, 0);
+
+    // prune by taking a yellow alt (this needs to prune during the rflip)
+    //            <b                    >b
+    //          .-'|                  .-'|
+    //         <y  |                  | >r
+    // .-------'|  |         .--------|-'|
+    // |       <r  |         |        | >b
+    // |  .----'   |  =>  .--|--------|-'|
+    // |  |       <r      |  |       <r  |
+    // |  |  .----'|      |  |  .----'|  |
+    // |  |  |    <b      |  |  |    <b  |
+    // |  |  |  .-'|      |  |  |  .-'|  |
+    // 2  3  4  5  6      2  3  4  5  6  1
+    rbyd = rbyd_init;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(GSTATE, 2, 0, &(uint32_t){0xaaaaaaaa}, 4,
+            LFS_MKRATTR(GSTATE, 3, 0, &(uint32_t){0xbbbbbbbb}, 4,
+            LFS_MKRATTR(GSTATE, 4, 0, &(uint32_t){0xcccccccc}, 4,
+            LFS_MKRATTR(GSTATE, 5, 0, &(uint32_t){0xdddddddd}, 4,
+            LFS_MKRATTR(GSTATE, 6, 0, &(uint32_t){0xeeeeeeee}, 4,
+            LFS_MKRATTR(GSTATE, 1, 0, &(uint32_t){0xffffffff}, 4, NULL))))))) => 0;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 1, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 1, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 2, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 3, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 3, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 4, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 5, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 5, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(GSTATE, 6, 0), &off, &size)
+            => LFS_MKRTAG(GSTATE, 6, 0);
+'''

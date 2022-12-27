@@ -1470,42 +1470,19 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                 jump = branch - jump;
                 lfs_rtag_t branch_ = branch + delta;
 
-//                // prune?
-//                printf("prune? %x >= %x (%x+%x+1)\n", lfs_rtag_weight(alt), lt+gt+1, lt, gt);
-//                if (lfs_rtag_weight(alt) >= lt+gt+1) {
-//                    printf("prune!\n");
-//                    LFS_ASSERT(p_alts[0]);
-//
-//                    branch = jump;
-//                    branch_ = 0; // TODO is this needed?
-//                    alt = lfs_rtag_black(p_alts[0]);
-//                    jump = p_jumps[0];
-//                    lfs_rbyd_p_pop(p_alts, p_jumps);
-//                }
+                // prune?
+                if (lfs_rtag_weight(alt) >= lt+gt+1) {
+                    printf("prune!\n");
+                    LFS_ASSERT(p_alts[0]);
 
-//                // prune?
-//                // TODO ugh, just clean this up later
-//                if (p_alts[0]
-//                        && lfs_rtag_isred(p_alts[0])
-//                        && lfs_rtag_weight2(alt, p_alts[0]) >= lt+gt+1) {
-//                    LFS_ASSERT(p_alts[0]);
-//                    
-//                    branch = jump;
-//                    alt = lfs_rtag_black(p_alts[0]);
-//                    jump = p_jumps[0];
-//                    lfs_rbyd_p_pop(p_alts, p_jumps);
-//
-//                } else if (lfs_rtag_weight(alt) >= lt+gt+1) {
-//                    // TODO does this get hit?
-//                    // TODO can we simplify these two?
-//                    LFS_ASSERT(p_alts[0]);
-//
-//                    branch = jump;
-//                    alt = lfs_rtag_black(p_alts[0]);
-//                    jump = p_jumps[0];
-//                    lfs_rbyd_p_pop(p_alts, p_jumps);
-//                }
-//
+                    alt = lfs_rtag_black(p_alts[0]);
+                    branch_ = jump;
+                    jump = p_jumps[0];
+                    lfs_rbyd_p_pop(p_alts, p_jumps);
+
+                    lfs_rtag_untrim(alt, &lt, &gt);
+                }
+
                 // two reds makes a yellow, split?
                 if (p_alts[0]
                         && lfs_rtag_isred(p_alts[0])
