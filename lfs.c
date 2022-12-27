@@ -394,6 +394,10 @@ static inline lfs_size_t lfs_tag_dsize(lfs_tag_t tag) {
     return sizeof(tag) + lfs_tag_size(tag + lfs_tag_isdelete(tag));
 }
 
+// 32-bit metadata tags
+//
+// in-device, these are effectively 31-bit unsigned integers
+// on-disk, these are encoded as leb128, so smaller constants are prefered
 typedef uint32_t lfs_rtag_t;
 typedef int32_t lfs_srtag_t;
 
@@ -416,15 +420,11 @@ enum lfs_rtag_type1 {
     LFS_TYPE1_ALTRGT = 0x07,
 };
 
-enum lfs_rtag_color {
-    LFS_COLOR_B = 0,
-    LFS_COLOR_R = 1,
-};
+#define LFS_ALT_B false
+#define LFS_ALT_R true
 
-enum lfs_rtag_dir {
-    LFS_DIR_LT = 0,
-    LFS_DIR_GT = 1,
-};
+#define LFS_ALT_LT false
+#define LFS_ALT_GT true
 
 #define LFS_MKRTAG_(type1, type2, id) \
     (((0x7f & (lfs_rtag_t)(type1)) << 0) \
@@ -441,8 +441,9 @@ enum lfs_rtag_dir {
         | ((0xfffffff & (lfs_rtag_t)(weight)) << 3))
 
 #define LFS_MKRALT(color, dir, weight) \
-    LFS_MKRALT_(LFS_COLOR_##color, LFS_DIR_##dir, weight)
+    LFS_MKRALT_(LFS_ALT_##color, LFS_ALT_##dir, weight)
 
+// tag operations
 static inline bool lfs_rtag_isvalid(lfs_rtag_t tag) {
     return !(tag & 0x80000000);
 }
@@ -471,12 +472,29 @@ static inline uint16_t lfs_rtag_id(lfs_rtag_t tag) {
     return tag >> 15;
 }
 
+static inline lfs_rtag_t lfs_rtag_setid(lfs_rtag_t tag, uint16_t id) {
+    return (tag & 0x7fff) | ((lfs_rtag_t)id << 15);
+}
+
+static inline lfs_rtag_t lfs_rtag_inc(lfs_rtag_t tag) {
+    return tag + 0x8;
+}
+
+// alt operations
 static inline bool lfs_rtag_isblack(lfs_rtag_t tag) {
     return !(tag & 0x1);
 }
 
 static inline bool lfs_rtag_isred(lfs_rtag_t tag) {
     return tag & 0x1;
+}
+
+static inline lfs_rtag_t lfs_rtag_red(lfs_rtag_t tag) {
+    return tag | 0x1;
+}
+
+static inline lfs_rtag_t lfs_rtag_black(lfs_rtag_t tag) {
+    return tag & ~0x1;
 }
 
 static inline bool lfs_rtag_islt(lfs_rtag_t tag) {
@@ -493,6 +511,10 @@ static inline lfs_rtag_t lfs_rtag_isparallel(lfs_rtag_t a, lfs_rtag_t b) {
 
 static inline lfs_srtag_t lfs_rtag_weight(lfs_rtag_t tag) {
     return tag >> 3;
+}
+
+static inline lfs_rtag_t lfs_rtag_merge(lfs_rtag_t a, lfs_rtag_t b) {
+    return a + (b & ~0x7);
 }
 
 //static inline lfs_srtag_t lfs_rtag_weight2(lfs_rtag_t tag, lfs_rtag_t tag2) {
@@ -541,22 +563,6 @@ static inline void lfs_rtag_untrim(lfs_rtag_t alt,
     } else {
         *gt = *gt + lfs_rtag_weight(alt);
     }
-}
-
-static inline lfs_rtag_t lfs_rtag_inc(lfs_rtag_t tag) {
-    return tag + 0x8;
-}
-
-static inline lfs_rtag_t lfs_rtag_red(lfs_rtag_t tag) {
-    return tag | 0x1;
-}
-
-static inline lfs_rtag_t lfs_rtag_black(lfs_rtag_t tag) {
-    return tag & ~0x1;
-}
-
-static inline lfs_rtag_t lfs_rtag_setid(lfs_rtag_t tag, uint16_t id) {
-    return (tag & 0x7fff) | ((lfs_rtag_t)id << 15);
 }
 
 // operations on attribute lists
@@ -1417,6 +1423,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 
     // append each tag to the tree
     for (const struct lfs_rattr *attr = attrs; attr; attr = attr->next) {
+        printf("append()\n");
         // assume we'll update our trunk
         lfs_off_t branch = trunk;
         trunk = off;
@@ -1454,6 +1461,19 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                 lfs_rtag_t branch_ = branch + delta;
 
 //                // prune?
+//                printf("prune? %x >= %x (%x+%x+1)\n", lfs_rtag_weight(alt), lt+gt+1, lt, gt);
+//                if (lfs_rtag_weight(alt) >= lt+gt+1) {
+//                    printf("prune!\n");
+//                    LFS_ASSERT(p_alts[0]);
+//
+//                    branch = jump;
+//                    branch_ = 0; // TODO is this needed?
+//                    alt = lfs_rtag_black(p_alts[0]);
+//                    jump = p_jumps[0];
+//                    lfs_rbyd_p_pop(p_alts, p_jumps);
+//                }
+
+//                // prune?
 //                // TODO ugh, just clean this up later
 //                if (p_alts[0]
 //                        && lfs_rtag_isred(p_alts[0])
@@ -1476,38 +1496,44 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 //                    lfs_rbyd_p_pop(p_alts, p_jumps);
 //                }
 //
-//
-//                // split?
-//                if (lfs_rtag_isred(alt)
-//                        && p_alts[0]
-//                        && lfs_rtag_isred(p_alts[0])) {
-//                    LFS_ASSERT(lfs_rtag_isparallel(alt, p_alts[0]));
-//
-//                    if (lfs_rtag_follow2(alt, p_alts[0], lt, gt)) {
-//                        lfs_rtag_t alt_ = p_alts[0];
-//                        lfs_off_t jump_ = p_jumps[0];
-//                        p_alts[0] = lfs_rtag_black(
-//                                lfs_rtag_flip2(alt, alt_, lt, gt));
-//                        p_jumps[0] = jump;
-//                        alt = lfs_rtag_black(alt_);
-//                        jump = jump_;
-//
-//                        lfs_rtag_trim(alt_, &lt, &gt);
-//                        lfs_rtag_trim(alt, &lt, &gt);
-//                        lfs_rbyd_p_red(p_alts, p_jumps);
-//
-//                    } else {
-//                        lfs_rtag_t alt_ = p_alts[0];
-//                        p_alts[0] = lfs_rtag_black(alt);
-//                        p_jumps[0] = xylem;
-//
-//                        lfs_rtag_trim(alt_, &lt, &gt);
-//                        lfs_rtag_trim(alt, &lt, &gt);
-//                        lfs_rbyd_p_red(p_alts, p_jumps);
-//
-//                        continue;
-//                    }
-//                }
+                // two reds makes a yellow, split?
+                if (p_alts[0]
+                        && lfs_rtag_isred(p_alts[0])
+                        && lfs_rtag_isred(alt)) {
+                    LFS_ASSERT(lfs_rtag_isparallel(alt, p_alts[0]));
+
+                    // if we take the red or yellow alt we can just point
+                    // to the black alt, otherwise we need to point to the
+                    // yellow alt and prune later
+                    if (lfs_rtag_follow(alt, lt, gt)) {
+                        printf("ysplit follow\n");
+                        lfs_rtag_t alt_ = p_alts[0];
+                        lfs_off_t jump_ = p_jumps[0];
+                        p_alts[0] = lfs_rtag_black(
+                                lfs_rtag_flip(alt, lt, gt));
+                        p_jumps[0] = branch_;
+
+                        alt = lfs_rtag_black(alt_);
+                        branch_ = jump;
+                        jump = jump_;
+
+                        lfs_rtag_untrim(alt, &lt, &gt);
+                        lfs_rtag_trim(p_alts[0], &lt, &gt);
+                        lfs_rbyd_p_red(p_alts, p_jumps);
+
+                    } else {
+                        printf("ysplit nofollow\n");
+                        p_alts[0] = lfs_rtag_black(
+                                lfs_rtag_merge(alt, p_alts[0]));
+                        p_jumps[0] = xylem;
+
+                        lfs_rtag_trim(alt, &lt, &gt);
+                        lfs_rbyd_p_red(p_alts, p_jumps);
+                        //xylem = branch;
+                        branch = branch_;
+                        continue;
+                    }
+                }
 
                 // should've taken red alt? needs a flip
                 printf("lt,gt = (%x,%x)\n", lt, gt);
