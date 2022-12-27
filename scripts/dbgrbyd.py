@@ -82,7 +82,17 @@ def tagrepr(tag, size, off=None):
         return 'x%02x x%02x id%d %d' % (type1, type2, id, size)
 
 
-def main(disk, block_size, block1, block2=None, **args):
+def main(disk, block_size, block1, block2=None, *,
+        color='auto',
+        **args):
+    # figure out what color should be
+    if color == 'auto':
+        color = sys.stdout.isatty()
+    elif color == 'always':
+        color = True
+    else:
+        color = False
+
     # read each block
     blocks = [block for block in [block1, block2] if block is not None]
     with open(disk, 'rb') as f:
@@ -145,7 +155,69 @@ def main(disk, block_size, block1, block2=None, **args):
     if args.get('raw'):
         print('%08x: %s' % (0, next(xxd(data[0:4]))))
 
+    # preprocess jumps
+    if args.get('jumps'):
+        jumps = []
+        j = 4
+        while j < (block_size if args.get('all') else off):
+            j_ = j
+            v, tag, size, delta = fromtag(data[j:])
+            j += delta
+            if not tag & 0x4:
+                j += size
+
+            if tag & 0x4:
+                # figure out which alt color
+                if tag & 0x1:
+                    _, ntag, _, _ = fromtag(data[j:])
+                    if ntag & 0x1:
+                        jumps.append((j_, j_-size, 0, 'y'))
+                    else:
+                        jumps.append((j_, j_-size, 0, 'r'))
+                else:
+                    jumps.append((j_, j_-size, 0, 'b'))
+
+        # figure out x-offsets to avoid collisions between jumps
+        for j in range(len(jumps)):
+            a, b, _, c = jumps[j]
+            x = 0
+            while any(
+                    max(a, b) >= min(a_, b_)
+                        and max(a_, b_) >= min(a, b)
+                        and x == x_
+                    for a_, b_, x_, _ in jumps[:j]):
+                x += 1
+            jumps[j] = a, b, x, c
+
+        def jumprepr(j):
+            # render jumps
+            chars = {}
+            for a, b, x, c in jumps:
+                c_start = (
+                    '\x1b[33m' if color and c == 'y'
+                    else '\x1b[31m' if color and c == 'r'
+                    else '\x1b[90m' if color
+                    else '')
+                c_stop = '\x1b[m' if color else ''
+
+                if j == a:
+                    for x_ in range(2*x+1):
+                        chars[x_] = '%s-%s' % (c_start, c_stop)
+                    chars[2*x+1] = '%s\'%s' % (c_start, c_stop)
+                elif j == b:
+                    for x_ in range(2*x+1):
+                        chars[x_] = '%s-%s' % (c_start, c_stop)
+                    chars[2*x+1] = '%s.%s' % (c_start, c_stop)
+                    chars[0] = '%s<%s' % (c_start, c_stop)
+                elif j >= min(a, b) and j <= max(a, b):
+                    chars[2*x+1] = '%s|%s' % (c_start, c_stop)
+
+            return ''.join(chars.get(x, ' ')
+                for x in range(max(chars.keys(), default=0)+1))
+
     # print tags
+    if args.get('rbyd'):
+        alts = []
     j = 4
     while j < (block_size if args.get('all') else off):
         notes = []
@@ -167,36 +239,74 @@ def main(disk, block_size, block1, block2=None, **args):
                     notes.append('crc!=%08x' % crc)
             j += size
 
-        print('%08x: %-57s%s' % (
-            j_,
-            '%-22s%s' % (
-                tagrepr(tag, size, j_),
-                '  %s' % next(xxd(data[j_+delta:j_+delta+min(size, 8)], 8), '')
-                    if not tag & 0x4 and not args.get('no_truncate') else ''),
-            '  (%s)' % ', '.join(notes)
-                if notes else ''))
+        if not args.get('in_tree') or (tag & 0x6) != 2:
+            if args.get('raw'):
+                # show on-disk encoding of tags
+                for o, line in enumerate(xxd(data[j_:j_+delta])):
+                    print('%s%8s: %s%s' % (
+                        '\x1b[90m' if color and j_ >= off else '',
+                        '%04x' % (j_ + o*16),
+                        line,
+                        '\x1b[m' if color and j_ >= off else ''))
 
-        if args.get('device'):
-            print('%8s  %-47s  %08x %x' % (
-                '',
+        if not args.get('in_tree') or (tag & 0x7) == 0:
+            # show human-readable tag representation
+            print('%s%08x: %-57s%s%s' % (
+                '\x1b[90m' if color and j_ >= off else '',
+                j_,
                 '%-22s%s' % (
-                    '%08x %08x' % (tag, size),
-                    '  %s' % ' '.join(
-                            '%08x' % struct.unpack('<I',
-                                data[j_+delta+i*4:j_+delta+i*4+4])
-                            for i in range(min(size//4, 3)))[:23]
-                        if not tag & 0x4 else ''),
-                crc,
-                popc(crc) & 1))
+                    tagrepr(tag, size, j_),
+                    '  %s' % next(xxd(
+                            data[j_+delta:j_+delta+min(size, 8)], 8), '')
+                        if not args.get('no_truncate')
+                            and not tag & 0x4 else ''),
+                '\x1b[m' if color and j_ >= off else '',
+                '  (%s)' % ', '.join(notes) if notes
+                else '  %s' % ''.join(
+                        ('\x1b[33my\x1b[m' if color else 'y')
+                            if alts[i] & 0x1
+                            and i+1 < len(alts)
+                            and alts[i+1] & 0x1
+                        else ('\x1b[31mr\x1b[m' if color else 'r')
+                            if alts[i] & 0x1
+                        else ('\x1b[90mb\x1b[m' if color else 'b')
+                        for i in range(len(alts)-1, -1, -1))
+                    if args.get('rbyd') and (tag & 0x7) == 0
+                else '  %s' % jumprepr(j_) if args.get('jumps')
+                else ''))
 
-        if args.get('raw'):
-            for o, line in enumerate(xxd(data[j_:j_+delta])):
-                print('%8s: %s' % ('%04x' % (j_ + o*16), line))
+            # show in-device representation, including some extra
+            # crc/parity info
+            if args.get('device'):
+                print('%s%8s  %-47s  %08x %x%s' % (
+                    '\x1b[90m' if color and j_ >= off else '',
+                    '',
+                    '%-22s%s' % (
+                        '%08x %08x' % (tag, size),
+                        '  %s' % ' '.join(
+                                '%08x' % struct.unpack('<I',
+                                    data[j_+delta+i*4:j_+delta+i*4+4])
+                                for i in range(min(size//4, 3)))[:23]
+                            if not tag & 0x4 else ''),
+                    crc,
+                    popc(crc) & 1,
+                    '\x1b[m' if color and j_ >= off else ''))
 
-        if not tag & 0x4:
+        if not tag & 0x4 and (not args.get('in_tree') or (tag & 0x6) != 2):
+            # show on-disk encoding of data
             if args.get('raw') or args.get('no_truncate'):
                 for o, line in enumerate(xxd(data[j_+delta:j_+delta+size])):
-                    print('%8s: %s' % ('%04x' % (j_+delta + o*16), line))
+                    print('%s%8s: %s%s' % (
+                        '\x1b[90m' if color and j_ >= off else '',
+                        '%04x' % (j_+delta + o*16),
+                        line,
+                        '\x1b[m' if color and j_ >= off else ''))
+
+        if args.get('rbyd'):
+            if tag & 0x4:
+                alts.append(tag)
+            else:
+                alts = []
 
 
 if __name__ == "__main__":
@@ -222,9 +332,18 @@ if __name__ == "__main__":
         type=lambda x: int(x, 0),
         help="Block address of the second metadata block.")
     parser.add_argument(
+        '--color',
+        choices=['never', 'always', 'auto'],
+        default='auto',
+        help="When to use terminal colors. Defaults to 'auto'.")
+    parser.add_argument(
         '-a', '--all',
         action='store_true',
         help="Don't stop parsing on bad commits.")
+    parser.add_argument(
+        '-i', '--in-tree',
+        action='store_true',
+        help="Only show tags in the tree.")
     parser.add_argument(
         '-r', '--raw',
         action='store_true',
@@ -237,6 +356,14 @@ if __name__ == "__main__":
         '-T', '--no-truncate',
         action='store_true',
         help="Don't truncate, show the full contents.")
+    parser.add_argument(
+        '-y', '--rbyd', 
+        action='store_true',
+        help="Show the rbyd tree in the margin.")
+    parser.add_argument(
+        '-j', '--jumps',
+        action='store_true',
+        help="Show alt pointer jumps in the margin.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))
