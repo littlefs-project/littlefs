@@ -938,11 +938,15 @@ static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
     uint8_t buffer[2*4];
     lfs_size_t i = 0;
 
+    // force leb decoding to overflow when truncated
+    memset(buffer, 0xff, 2*4);
+
     // TODO allow different hint for lookup? bench this? does our hint work backwards?
     // TODO should lfs_bd_read allow a range for reads?
     int err = lfs_bd_read(lfs,
             pcache, rcache, hint,
-            block, off, &buffer, sizeof(buffer));
+            block, off, &buffer,
+            lfs_min(sizeof(buffer), lfs->cfg->block_size-off));
     if (err) {
         return err;
     }
@@ -1215,8 +1219,14 @@ tryagain:;
 static int lfs_rbyd_prog(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache,
         lfs_block_t block, lfs_off_t off,
-        const void *buffer, lfs_size_t size,
-        uint32_t *crc) {
+        const void *buffer, lfs_size_t size, uint32_t *crc) {
+    // check for out-of-bounds here
+    // TODO should we just move this to lfs_bd_prog?
+    // TODO actually should we just build crc into lfs_bd_prog as well?
+    if (off+size > lfs->cfg->block_size) {
+        return LFS_ERR_RANGE;
+    }
+
     int err = lfs_bd_prog(lfs,
             pcache, rcache, false,
             block, off, buffer, size);
@@ -1240,8 +1250,7 @@ static lfs_ssize_t lfs_rbyd_progtag(lfs_t *lfs,
     tag <<= 1;
 
     // make sure to include the parity of the current crc
-    uint32_t crc_ = *crc;
-    tag |= lfs_popc(crc_) & 1;
+    tag |= lfs_popc(*crc) & 1;
 
     // compress into pair of leb128s
     uint8_t buffer[2*4];
@@ -1265,9 +1274,6 @@ static lfs_ssize_t lfs_rbyd_progtag(lfs_t *lfs,
     if (err) {
         return err;
     }
-
-    // crc
-    *crc = lfs_crc32c(crc_, buffer, i);
 
     return i;
 }
@@ -1639,7 +1645,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     //   = 9 bytes
     // 
     const lfs_off_t aligned = lfs_alignup(
-            lfs_min(off + 1+1+4+4 + 1+4+4, lfs->cfg->block_size),
+            off + 1+1+4+4 + 1+4+4,
             lfs->cfg->prog_size);
 
     // space for fcrc?
@@ -1711,9 +1717,9 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     }
     lfs_tole32_(crc, &buffer[1+4]);
 
-    int err = lfs_bd_prog(lfs,
-            &lfs->pcache, &lfs->rcache, false,
-            block, off, buffer, 1+4+4);
+    int err = lfs_rbyd_prog(lfs,
+            &lfs->pcache, &lfs->rcache,
+            block, off, buffer, 1+4+4, NULL);
     if (err) {
         return err;
     }

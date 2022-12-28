@@ -1507,9 +1507,8 @@ code = '''
 
         for (int j = 0; j < N; j++) {
             lfs_rbyd_commit(&lfs, &rbyd,
-                    LFS_MKRATTR(
-                        UATTR, perm[j]+1, 0,
-                        &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+                    LFS_MKRATTR(UATTR, perm[j]+1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+                    NULL)) => 0;
         }
 
         lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
@@ -1536,6 +1535,71 @@ code = '''
             stack[i] = 0;
             i += 1;
         }
+    }
+'''
+
+[cases.test_rbyd_large]
+in = 'lfs.c'
+# ORDER:
+# 0 = in-order
+# 1 = reverse-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    lfs_off_t off;
+    lfs_size_t size;
+
+    // create the rbyd tree
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+    // keep appending tags until we run out of space
+    //
+    // note, this will likely repeat tags, but that's ok
+    //
+    lfs_size_t count = 0;
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0;; i++) {
+        uint8_t x
+                = (ORDER == 0) ? (uint8_t)i
+                : (ORDER == 1) ? (uint8_t)(((lfs_size_t)-1) - i)
+                : (uint8_t)TEST_PRNG(&prng);
+        int err = lfs_rbyd_commit(&lfs, &rbyd,
+                LFS_MKRATTR(UATTR, x, 0, &(uint32_t){0xaaaaaaaa}, 4,
+                NULL));
+        // if we can't fit an fcrc, erased is set to false, but if we can,
+        // lfs_rbyd_commit may error later with LFS_ERR_RANGE
+        if (!rbyd.erased || err == LFS_ERR_RANGE) {
+            break;
+        }
+        assert(err == 0);
+
+        count = i;
+    }
+
+    // check that we can still lookup all the tags
+    prng = 42;
+    for (lfs_size_t i = 0; i < count; i++) {
+        uint8_t x
+                = (ORDER == 0) ? (uint8_t)i
+                : (ORDER == 1) ? (uint8_t)(((lfs_size_t)-1) - i)
+                : (uint8_t)TEST_PRNG(&prng);
+        lfs_rbyd_lookup(&lfs, &rbyd,
+                LFS_MKRTAG(UATTR, x, 0), &off, &size)
+                => LFS_MKRTAG(UATTR, x, 0);
     }
 '''
 
@@ -1879,9 +1943,8 @@ code = '''
 
         for (int j = 0; j < N; j++) {
             lfs_rbyd_commit(&lfs, &rbyd,
-                    LFS_MKRATTR(
-                        UATTR, perm[j]+1, 0,
-                        &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+                    LFS_MKRATTR(UATTR, perm[j]+1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+                    NULL)) => 0;
         }
 
         // copy block so we can reset after each remove
