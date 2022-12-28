@@ -111,15 +111,10 @@ code = '''
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
 
-    // TODO test in-between lookups for consistently finding the next >= tag?
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_ERR_NOENT;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_ERR_NOENT;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_ERR_NOENT;
 
@@ -129,16 +124,12 @@ code = '''
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
             => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
@@ -151,8 +142,6 @@ code = '''
             LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
             LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
@@ -161,8 +150,6 @@ code = '''
             => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
@@ -195,15 +182,10 @@ code = '''
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_ERR_NOENT;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    // TODO move these extra checks (for 0, in-between, enoent) to other tests
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_ERR_NOENT;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_ERR_NOENT;
 
@@ -213,16 +195,12 @@ code = '''
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
             => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
@@ -236,8 +214,6 @@ code = '''
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
 
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
@@ -246,8 +222,6 @@ code = '''
             => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size)
-            => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
