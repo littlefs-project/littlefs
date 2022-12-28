@@ -330,7 +330,7 @@ typedef struct lfs_cache {
 typedef struct lfs_rbyd {
     lfs_block_t block;
     lfs_off_t trunk;
-    lfs_off_t noff;
+    lfs_off_t off;
     uint32_t rev;
     uint32_t crc;
     uint16_t count;

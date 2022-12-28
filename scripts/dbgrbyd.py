@@ -45,31 +45,49 @@ def tagrepr(tag, size, off=None):
     type2 = (tag >> 7) & 0xff
     id = (tag >> 15) & 0xffff
 
-    if type1 == 0x40:
-        return 'create x%02x id%d %d' % (type2, id, size)
-    elif type1 == 0x48:
-        return 'delete x%02x id%d %d' % (type2, id, size)
-    elif type1 == 0x50:
-        return 'struct x%02x id%d %d' % (type2, id, size)
-    elif type1 == 0x60:
-        return 'uattr x%02x id%d %d' % (type2, id, size)
-    elif type1 == 0x08:
-        if type2 == 0:
-            return 'tail %d' % size
-        else:
-            return 'tail x%02x %d' % (type2, size)
-    elif type1 == 0x10:
-        return 'gstate x%02x %d' % (type2, size)
+    if (type1 & 0x7e) == 0x40:
+        return '%screate x%02x id%d%s' % (
+            '~' if type1 & 0x1 else '',
+            type2,
+            id,
+            ' %d' % size if not type1 & 0x1 else '')
+    elif (type1 & 0x7e) == 0x48:
+        return '%sdelete x%02x id%d%s' % (
+            '~' if type1 & 0x1 else '',
+            type2,
+            id,
+            ' %d' % size if not type1 & 0x1 else '')
+    elif (type1 & 0x7e) == 0x50:
+        return '%sstruct x%02x id%d%s' % (
+            '~' if type1 & 0x1 else '',
+            type2,
+            id,
+            ' %d' % size if not type1 & 0x1 else '')
+    elif (type1 & 0x7e) == 0x60:
+        return '%suattr x%02x id%d%s' % (
+            '~' if type1 & 0x1 else '',
+            type2,
+            id,
+            ' %d' % size if not type1 & 0x1 else '')
+    elif (type1 & 0x7e) == 0x08:
+        return '%stail%s%s' % (
+            '~' if type1 & 0x1 else '',
+            ' x%02x' % type2 if type2 else '',
+            ' %d' % size if not type1 & 0x1 else '')
+    elif (type1 & 0x7e) == 0x10:
+        return '%sgstate x%02x%s' % (
+            '~' if type1 & 0x1 else '',
+            type2,
+            ' %d' % size if not type1 & 0x1 else '')
     elif (type1 & 0x7e) == 0x02:
-        if type2 == 0:
-            return 'crc%x %d' % (type1 >> 3, size)
-        else:
-            return 'crc%x x%02x %d' % (type1 >> 3, type2, size)
+        return 'crc%x%s %d' % (
+            type1 >> 3,
+            ' x%02x' % type2 if type2 else '',
+            size)
     elif type1 == 0x0a:
-        if type2 == 0:
-            return 'fcrc %d' % (size)
-        else:
-            return 'fcrc x%02x %d' % (type2, size)
+        return 'fcrc%s %d' % (
+            ' x%02x' % type2 if type2 else '',
+            size)
     elif type1 & 0x4:
         return 'alt%s%s x%x %s' % (
             'r' if type1 & 1 else 'b',

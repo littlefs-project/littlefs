@@ -424,6 +424,8 @@ enum lfs_rtag_type1 {
     LFS_TYPE1_CRC1   = 0x03,
     LFS_TYPE1_FCRC   = 0x0a,
 
+    LFS_TYPE1_RM     = 0x01,
+
     LFS_TYPE1_ALTBLT = 0x04,
     LFS_TYPE1_ALTRLT = 0x05,
     LFS_TYPE1_ALTBGT = 0x06,
@@ -443,6 +445,12 @@ enum lfs_rtag_type1 {
 
 #define LFS_MKRTAG(type1, type2, id) \
     LFS_MKRTAG_(LFS_TYPE1_##type1, type2, id)
+
+#define LFS_MKRRMTAG_(type1, type2, id) \
+    LFS_MKRTAG_(LFS_TYPE1_RM | (type1), type2, id)
+
+#define LFS_MKRRMTAG(type1, type2, id) \
+    LFS_MKRRMTAG_(LFS_TYPE1_##type1, type2, id)
 
 #define LFS_MKRALT_(color, dir, weight) \
     (LFS_TYPE1_ALTBLT \
@@ -464,6 +472,10 @@ static inline bool lfs_rtag_isalt(lfs_rtag_t tag) {
 
 static inline bool lfs_rtag_intree(lfs_rtag_t tag) {
     return !(tag & 0x2);
+}
+
+static inline bool lfs_rtag_isrm(lfs_rtag_t tag) {
+    return tag & 0x1;
 }
 
 static inline uint8_t lfs_rtag_type1(lfs_rtag_t tag) {
@@ -598,6 +610,9 @@ struct lfs_rattr {
 
 #define LFS_MKRATTR(type1, type2, id, buffer, size, next) \
     (&(struct lfs_rattr){LFS_MKRTAG(type1, type2, id), buffer, size, next})
+
+#define LFS_MKRRMATTR(type1, type2, id, next) \
+    (&(struct lfs_rattr){LFS_MKRRMTAG(type1, type2, id), NULL, 0, next})
 
 
 // operations on pattern lists
@@ -992,7 +1007,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
     rbyd->block = block;
     rbyd->rev = lfs_fromle32_(&rev);
     rbyd->trunk = 0;
-    rbyd->noff = 0;
+    rbyd->off = 0;
 
     // assume unerased until proven otherwise
     bool maybeerased = false;
@@ -1100,7 +1115,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
             // save what we've found so far
             printf("trunk => %x\n", trunk);
             rbyd->trunk = trunk;
-            rbyd->noff = off;
+            rbyd->off = off;
             rbyd->crc = crc;
         }
 
@@ -1108,20 +1123,20 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
     }
 
     // no valid commits at all?
-    if (rbyd->noff == 0) {
+    if (rbyd->off == 0) {
         return LFS_ERR_CORRUPT;
     }
 
     // did we end on a valid commit? we may have an erased block
     rbyd->erased = false;
-    if (maybeerased && hasfcrc && rbyd->noff % lfs->cfg->prog_size == 0) {
+    if (maybeerased && hasfcrc && rbyd->off % lfs->cfg->prog_size == 0) {
         // check for an fcrc matching the next prog's erased state, if
         // this failed most likely a previous prog was interrupted, we
         // need a new erase
         uint32_t fcrc_ = 0xffffffff;
         int err = lfs_bd_crc32c(lfs,
                 NULL, &lfs->rcache, lfs->cfg->block_size,
-                rbyd->block, rbyd->noff, fcrc.size, &fcrc_);
+                rbyd->block, rbyd->off, fcrc.size, &fcrc_);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
@@ -1136,6 +1151,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
 static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
         lfs_rtag_t tag, lfs_off_t *off, lfs_size_t *size) {
     printf("lookup(%08x)\n", tag);
+tryagain:;
     // no trunk yet?
     lfs_off_t branch = rbyd->trunk;
     if (!branch) {
@@ -1173,6 +1189,12 @@ static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
         } else {
             // update the tag id
             lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(tag));
+
+            // was removed? go on to the next tag
+            if (lfs_rtag_isrm(tag_)) {
+                tag = lfs_rtag_inc(tag_);
+                goto tryagain;
+            }
 
             printf("lt, gt = (%x, %x)\n", lt, gt);
             printf("lookup %08x => %08x (raw %08x)\n", tag, tag_, alt);
@@ -1362,7 +1384,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     const lfs_block_t block = rbyd->block;
     lfs_off_t trunk = rbyd->trunk;
     uint16_t count = rbyd->count;
-    lfs_off_t off = rbyd->noff;
+    lfs_off_t off = rbyd->off;
     uint32_t crc = rbyd->crc;
     bool erased = false;
 
@@ -1707,7 +1729,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     uint32_t crc_ = rbyd->crc;
     err = lfs_bd_crc32c(lfs,
             NULL, &lfs->rcache, off-4,
-            block, rbyd->noff, off-4 - rbyd->noff, &crc_);
+            block, rbyd->off, off-4 - rbyd->off, &crc_);
     if (err) {
         return err;
     }
@@ -1720,7 +1742,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 
     // ok, everything is good, save what we've committed
     rbyd->trunk = trunk;
-    rbyd->noff = aligned;
+    rbyd->off = aligned;
     rbyd->crc = crc;
     rbyd->erased = erased;
 
