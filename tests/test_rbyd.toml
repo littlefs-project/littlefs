@@ -230,6 +230,151 @@ code = '''
             => LFS_ERR_NOENT;
 '''
 
+[cases.test_rbyd_get]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // try an empty commit
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
+
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // commit with one attribute
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, &(uint32_t){0xaaaaaaaa}, 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, &(uint32_t){0xaaaaaaaa}, 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // commit with two attributes
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
+
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => 4;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
+            => 4;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => 4;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
+            => 4;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_multi_get]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // try an empty commit
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
+
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // commit with one attribute
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, &(uint32_t){0xaaaaaaaa}, 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, &(uint32_t){0xaaaaaaaa}, 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // commit with two attributes
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
+
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => 4;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
+            => 4;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
+            => 4;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
+            => 4;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), buffer, 4)
+            => LFS_ERR_NOENT;
+'''
+
 [cases.test_rbyd_traverse]
 in = 'lfs.c'
 code = '''

@@ -1172,7 +1172,7 @@ tryagain:;
         lfs_rtag_t alt;
         lfs_off_t jump;
         lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
-                &lfs->pcache, &lfs->rcache, 2*4,
+                &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
                 rbyd->block, branch, &alt, &jump, NULL);
         if (delta < 0) {
             return delta;
@@ -1214,6 +1214,34 @@ tryagain:;
             return tag_;
         }
     }
+}
+
+static lfs_ssize_t lfs_rbyd_get(lfs_t *lfs, const lfs_rbyd_t *rbyd,
+        lfs_rtag_t tag, void *buffer, lfs_size_t size) {
+    lfs_off_t found_off;
+    lfs_size_t found_size;
+    lfs_srtag_t found_tag = lfs_rbyd_lookup(lfs, rbyd, tag,
+            &found_off, &found_size);
+    if (found_tag < 0) {
+        return found_tag;
+    }
+
+    // lookup finds the next-smallest tag, here we fail if it's not
+    // an exact match
+    if ((lfs_tag_t)found_tag != tag) {
+        return LFS_ERR_NOENT;
+    }
+
+    // note that it's highly likely the data is in our cache now
+    lfs_size_t delta = lfs_min(size, found_size);
+    int err = lfs_bd_read(lfs,
+            &lfs->pcache, &lfs->rcache, delta,
+            rbyd->block, found_off, buffer, delta);
+    if (err) {
+        return err;
+    }
+
+    return found_size;
 }
 
 static int lfs_rbyd_prog(lfs_t *lfs,
@@ -1438,7 +1466,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
             lfs_rtag_t alt;
             lfs_off_t jump;
             lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
-                    &lfs->pcache, &lfs->rcache, 2*4,
+                    &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
                     block, branch, &alt, &jump, NULL);
             if (delta < 0) {
                 return delta;
