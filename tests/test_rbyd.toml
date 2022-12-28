@@ -1486,3 +1486,81 @@ code = '''
         }
     }
 '''
+
+[cases.test_rbyd_multi_permutations]
+defines.N = 'range(1, 8)'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t rbyd_init = {
+        .block = 0,
+        .trunk = 0,
+        .noff = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    lfs_off_t off;
+    lfs_size_t size;
+
+    // test all permutations of a given size
+    uint8_t perm[N];
+    uint8_t stack[N];
+    for (uint8_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    uint8_t i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (int j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // test the given permutation with multiple commits
+        rbyd = rbyd_init;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+        for (int j = 0; j < N; j++) {
+            lfs_rbyd_commit(&lfs, &rbyd,
+                    LFS_MKRATTR(
+                        UATTR, perm[j]+1, 0,
+                        &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+        }
+
+        lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+        for (int j = 0; j < N; j++) {
+            lfs_rbyd_lookup(&lfs, &rbyd,
+                    LFS_MKRTAG(UATTR, j+1, 0), &off, &size)
+                    => LFS_MKRTAG(UATTR, j+1, 0);
+        }
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint8_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint8_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+'''
