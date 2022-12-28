@@ -326,6 +326,9 @@ def main(disk, block_size, block1, block2=None, *,
             else:
                 alts = []
 
+    if args.get('error_on_corrupt') and off == 0:
+        sys.exit(2)
+
 
 if __name__ == "__main__":
     import argparse
@@ -382,6 +385,10 @@ if __name__ == "__main__":
         '-j', '--jumps',
         action='store_true',
         help="Show alt pointer jumps in the margin.")
+    parser.add_argument(
+        '-e', '--error-on-corrupt',
+        action='store_true',
+        help="Error if no valid commit is found.")
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))
