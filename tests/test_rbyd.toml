@@ -87,6 +87,8 @@ code = '''
 # [cases.test_rbyd_fetchmatch]
 # [cases.test_rbyd_multi_fetchmatch]
 
+# TODO we really need to test dense keys...
+
 [cases.test_rbyd_lookup]
 in = 'lfs.c'
 code = '''
@@ -1737,6 +1739,7 @@ code = '''
 
     // check that we can still lookup all the tags
     prng = 42;
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     for (lfs_size_t i = 0; i < count; i++) {
         uint8_t x
                 = (ORDER == 0) ? (uint8_t)i
@@ -1749,7 +1752,7 @@ code = '''
 '''
 
 
-### removal testing ###
+### Removal testing ###
 
 [cases.test_rbyd_remove]
 in = 'lfs.c'
@@ -2144,5 +2147,576 @@ code = '''
             stack[i] = 0;
             i += 1;
         }
+    }
+'''
+
+### Insertion testing ###
+
+[cases.test_rbyd_insert]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // try to insert one id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
+
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+
+    // try to insert two ids
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+
+    // try to insert two in the other direction
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4, NULL))) => 0;
+
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+
+    // insert a third to the right
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
+
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    // insert a third to the left
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4, NULL)))) => 0;
+
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    // insert a third in the middle
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,  NULL)))) => 0;
+
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+'''
+
+[cases.test_rbyd_multi_insert]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // try to insert one id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
+
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+
+    // try to insert two ids
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
+
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+
+    // try to insert two in the other direction
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
+
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+
+    // insert a third to the right
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4, NULL)) => 0;
+
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    // insert a third to the left
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xcc\xcc\xcc\xcc", 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
+
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    // insert a third in the middle
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xcc\xcc\xcc\xcc", 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
+
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 3);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+'''
+
+[cases.test_rbyd_insert_permutations]
+defines.N = 'range(1, 8)'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+    uint8_t buffer[4];
+
+    // test all permutations of a given size
+    uint8_t perm[N];
+    uint8_t stack[N];
+    for (uint8_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    uint8_t i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (int j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // build the attribute list for the current permutation
+        struct lfs_rattr attrs[N];
+        for (int j = 0; j < N; j++) {
+            // adjust id based on future insertions
+            uint16_t id = perm[j];
+            for (int k = j+1; k < N; k++) {
+                if (perm[j] > perm[k]) {
+                    id -= 1;
+                }
+            }
+
+            attrs[j] = *LFS_MKRATTR(
+                    CREATEREG, 0, id+1,
+                    names[perm[j] % 6], 4,
+                    (j+1 < N) ? &attrs[j+1] : NULL);
+        }
+
+        // test the given permutation
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+        lfs_rbyd_commit(&lfs, &rbyd, attrs) => 0;
+
+        lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+        assert(rbyd.count == N);
+        for (int j = 0; j < N; j++) {
+            lfs_rbyd_get(&lfs, &rbyd,
+                    LFS_MKRTAG(CREATEREG, 0, j+1), buffer, 4) => 4;
+            assert(memcmp(buffer, names[j % 6], 4) == 0);
+        }
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint8_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint8_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+'''
+
+[cases.test_rbyd_multi_insert_permutations]
+defines.N = 'range(1, 8)'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+    uint8_t buffer[4];
+
+    // test all permutations of a given size
+    uint8_t perm[N];
+    uint8_t stack[N];
+    for (uint8_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    uint8_t i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (int j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // test the given permutation with multiple commits
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+        for (int j = 0; j < N; j++) {
+            // adjust id based on future insertions
+            uint16_t id = perm[j];
+            for (int k = j+1; k < N; k++) {
+                if (perm[j] > perm[k]) {
+                    id -= 1;
+                }
+            }
+
+            lfs_rbyd_commit(&lfs, &rbyd,
+                    LFS_MKRATTR(CREATEREG, 0, id+1, names[perm[j] % 6], 4,
+                    NULL)) => 0;
+        }
+
+        lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+        assert(rbyd.count == N);
+        for (int j = 0; j < N; j++) {
+            lfs_rbyd_get(&lfs, &rbyd,
+                    LFS_MKRTAG(CREATEREG, 0, j+1), buffer, 4) => 4;
+            assert(memcmp(buffer, names[j % 6], 4) == 0);
+        }
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint8_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint8_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+'''
+
+[cases.test_rbyd_insert_large]
+in = 'lfs.c'
+# ORDER:
+# 0 = in-order
+# 1 = reverse-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+
+    // create the rbyd tree
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+    // keep inserting tags until we run out of space
+    //
+    // note, the ids we create this way are both sparse and sometimes
+    // repeated, so we need to mod our current rbyd size to avoid invalid
+    // insertions
+    //
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0;; i++) {
+        uint16_t x
+                = (ORDER == 0) ? (uint16_t)i
+                : (ORDER == 1) ? (uint16_t)(((lfs_size_t)-1) - i)
+                : (uint16_t)TEST_PRNG(&prng);
+        x = x % (rbyd.count+1);
+
+        int err = lfs_rbyd_commit(&lfs, &rbyd,
+                LFS_MKRATTR(CREATEREG, 0, x+1, names[x % 6], 4, NULL));
+        // if we can't fit an fcrc, erased is set to false, but if we can,
+        // lfs_rbyd_commit may error later with LFS_ERR_RANGE
+        if (!rbyd.erased || err == LFS_ERR_RANGE) {
+            break;
+        }
+        assert(err == 0);
+    }
+
+    // check that we can at least lookup all the tags
+    lfs_off_t off;
+    lfs_size_t size;
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    for (uint16_t x = 0; x < rbyd.count; x++) {
+        lfs_rbyd_lookup(&lfs, &rbyd,
+                LFS_MKRTAG(CREATEREG, 0, x+1), &off, &size)
+                => LFS_MKRTAG(CREATEREG, 0, x+1);
     }
 '''

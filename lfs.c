@@ -412,24 +412,26 @@ typedef uint32_t lfs_rtag_t;
 typedef int32_t lfs_srtag_t;
 
 enum lfs_rtag_type1 {
-    LFS_TYPE1_CREATE = 0x40,
-    LFS_TYPE1_DELETE = 0x48,
-    LFS_TYPE1_STRUCT = 0x50,
-    LFS_TYPE1_UATTR  = 0x60,
+    LFS_TYPE1_CREATE    = 0x0040,
+    LFS_TYPE1_CREATEREG = 0x00c0,
+    LFS_TYPE1_CREATEDIR = 0x0140,
+    LFS_TYPE1_DELETE    = 0x0048,
+    LFS_TYPE1_STRUCT    = 0x0050,
+    LFS_TYPE1_UATTR     = 0x0060,
 
-    LFS_TYPE1_TAIL   = 0x08,
-    LFS_TYPE1_GSTATE = 0x10,
+    LFS_TYPE1_TAIL      = 0x0008,
+    LFS_TYPE1_GSTATE    = 0x0010,
 
-    LFS_TYPE1_CRC0   = 0x02,
-    LFS_TYPE1_CRC1   = 0x03,
-    LFS_TYPE1_FCRC   = 0x0a,
+    LFS_TYPE1_CRC       = 0x0002,
+    LFS_TYPE1_FCRC      = 0x000a,
 
-    LFS_TYPE1_RM     = 0x01,
+    LFS_TYPE1_RM        = 0x0001,
+    LFS_TYPE1_ALT       = 0x0004,
+};
 
-    LFS_TYPE1_ALTBLT = 0x04,
-    LFS_TYPE1_ALTRLT = 0x05,
-    LFS_TYPE1_ALTBGT = 0x06,
-    LFS_TYPE1_ALTRGT = 0x07,
+enum lfs_rtag_pat {
+    LFS_PAT_GET         = 0x0000,
+    LFS_PAT_FIND        = 0x0001,
 };
 
 #define LFS_ALT_B false
@@ -452,8 +454,14 @@ enum lfs_rtag_type1 {
 #define LFS_MKRRMTAG(type1, type2, id) \
     LFS_MKRRMTAG_(LFS_TYPE1_##type1, type2, id)
 
+#define LFS_MKRPATTAG_(pat, type1, type2, id) \
+    LFS_MKRTAG_((pat) | (type1), type2, id)
+
+#define LFS_MKRPATTAG(pat, type1, type2, id) \
+    LFS_MKRPATTAG_(LFS_PAT_##pat, type1, type2, id)
+
 #define LFS_MKRALT_(color, dir, weight) \
-    (LFS_TYPE1_ALTBLT \
+    (LFS_TYPE1_ALT \
         | ((0x1 & (lfs_rtag_t)(color)) << 0) \
         | ((0x1 & (lfs_rtag_t)(dir)) << 1) \
         | ((0xfffffff & (lfs_rtag_t)(weight)) << 3))
@@ -464,6 +472,14 @@ enum lfs_rtag_type1 {
 // tag operations
 static inline bool lfs_rtag_isvalid(lfs_rtag_t tag) {
     return !(tag & 0x80000000);
+}
+
+static inline lfs_rtag_t lfs_rtag_valid(lfs_rtag_t tag) {
+    return tag & ~0x80000000;
+}
+
+static inline lfs_rtag_t lfs_rtag_invalid(lfs_rtag_t tag) {
+    return tag | 0x80000000;
 }
 
 static inline bool lfs_rtag_isalt(lfs_rtag_t tag) {
@@ -498,8 +514,20 @@ static inline lfs_rtag_t lfs_rtag_setid(lfs_rtag_t tag, uint16_t id) {
     return (tag & 0x7fff) | ((lfs_rtag_t)id << 15);
 }
 
+static inline lfs_rtag_t lfs_rtag_incid(lfs_rtag_t tag) {
+    return tag + (1 << 15);
+}
+
+static inline lfs_rtag_t lfs_rtag_decid(lfs_rtag_t tag) {
+    return tag - (1 << 15);
+}
+
 static inline lfs_rtag_t lfs_rtag_inc(lfs_rtag_t tag) {
     return tag + 0x8;
+}
+
+static inline uint8_t lfs_rtag_pat(lfs_rtag_t tag) {
+    return tag & 0x7;
 }
 
 // alt operations
@@ -545,7 +573,7 @@ static inline lfs_srtag_t lfs_rtag_weight_lt(lfs_rtag_t tag, uint16_t count) {
 }
 
 static inline lfs_srtag_t lfs_rtag_weight_gt(lfs_rtag_t tag, uint16_t count) {
-    return (((lfs_srtag_t)count+1) << 12)-1 - lfs_rtag_weight(tag);
+    return (((lfs_srtag_t)count) << 12)-1 - lfs_rtag_weight(tag);
 }
 
 static inline bool lfs_rtag_follow(lfs_rtag_t alt,
@@ -606,40 +634,55 @@ struct lfs_rattr {
 };
 
 #define LFS_MKRATTR_(...) \
-    (&(struct lfs_rattr){__VA_ARGS__})
+    (&(const struct lfs_rattr){__VA_ARGS__})
 
 #define LFS_MKRATTR(type1, type2, id, buffer, size, next) \
-    (&(struct lfs_rattr){LFS_MKRTAG(type1, type2, id), buffer, size, next})
+    (&(const struct lfs_rattr){ \
+        LFS_MKRTAG(type1, type2, id), \
+        buffer, size, next})
 
 #define LFS_MKRRMATTR(type1, type2, id, next) \
-    (&(struct lfs_rattr){LFS_MKRRMTAG(type1, type2, id), NULL, 0, next})
+    (&(const struct lfs_rattr){ \
+        LFS_MKRRMTAG(type1, type2, id), \
+        NULL, 0, next})
 
 
 // operations on pattern lists
-enum lfs_fetchpattern_type {
-    LFS_FETCHPATTERN_NAME = 0,
-    LFS_FETCHPATTERN_PAIR = 1,
-};
-
-struct lfs_fetchpattern {
+struct lfs_rpat {
     lfs_rtag_t tag;
-    const void *buffer;
-    lfs_size_t size;
-    struct lfs_fetchpattern *next;
+    union {
+        struct {
+            void *buffer;
+            lfs_size_t size;
+        } get;
+        struct {
+            const void *buffer;
+            lfs_size_t size;
+        } find;
+    } u;
+    struct lfs_rpat *next;
 };
 
-#define LFS_MKRPATTERN_(...) \
-    (&(struct lfs_fetchpattern){__VA_ARGS__})
+#define LFS_MKRGETPAT_(tag, buffer, size, next) \
+    (&(struct lfs_rpat){ \
+        .tag = LFS_PAT_GET | (tag), \
+        .u.get.buffer = buffer, \
+        .u.get.size = size, \
+        .next = next})
 
-#define LFS_MKRPATTERN(type, type1, type2, buffer, size, next) \
-    (&(struct lfs_fetchpattern){ \
-        LFS_MKRTAG(LFS_FETCHPATTERN_##type | type1, type2, 0), \
-        buffer, size, next})
+#define LFS_MKRGETPAT(type1, type2, buffer, size, next) \
+    LFS_MKRGET_(LFS_MKRTAG(type1, type2, 0), buffer, size, next)
 
-static inline uint8_t lfs_fetchpattern_type(
-        const struct lfs_fetchpattern *pattern) {
-    return pattern->tag & 0x1;
-}
+#define LFS_MKRFINDPAT_(tag, buffer, size, next) \
+    (&(struct lfs_rpat){ \
+        .tag = LFS_PAT_FIND | (tag), \
+        .u.find.buffer = buffer, \
+        .u.find.size = size, \
+        .next = next})
+
+#define LFS_MKRFINDPAT(type1, type2, buffer, size, next) \
+    LFS_MKRFIND_(LFS_MKRTAG(type1, type2, 0), buffer, size, next)
+
 
 // operations on global state
 static inline void lfs_gstate_xor(lfs_gstate_t *a, const lfs_gstate_t *b) {
@@ -989,9 +1032,14 @@ static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
 
 static int lfs_rbyd_fetch(lfs_t *lfs,
         lfs_rbyd_t *rbyd, lfs_block_t block,
-        struct lfs_fetchpattern *patterns) {
-    // TODO rm this
-    (void)patterns;
+        struct lfs_rpat *patterns) {
+    // TODO this
+    // first mark patterns as invalid until we find matches
+    for (struct lfs_rpat *pattern = patterns;
+            pattern;
+            pattern = pattern->next) {
+        pattern->tag = lfs_rtag_invalid(pattern->tag);
+    }
 
     // read the revision count and get the crc started
     uint32_t rev;
@@ -1007,6 +1055,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
     lfs_off_t off = sizeof(uint32_t);
     lfs_off_t trunk = 0;
     bool wastrunk = false;
+    uint16_t count = 0;
 
     rbyd->block = block;
     rbyd->rev = lfs_fromle32_(&rev);
@@ -1057,7 +1106,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
         }
 
         // not an end-of-commit crc
-        if ((lfs_rtag_type1(tag) & ~0x1) != LFS_TYPE1_CRC0) {
+        if ((lfs_rtag_type1(tag) & ~0x1) != LFS_TYPE1_CRC) {
             // fcrc is only valid if the last tag was a crc
             hasfcrc = false;
 
@@ -1072,8 +1121,11 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
                 return err;
             }
 
-            // found an fcrc?
-            if (lfs_rtag_type1(tag) == LFS_TYPE1_FCRC) {
+            // found a create? increase count of ids
+            if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
+                count += 1;
+            // found an fcrc? save for later
+            } else if (lfs_rtag_type1(tag) == LFS_TYPE1_FCRC) {
                 err = lfs_bd_read(lfs,
                         NULL, &lfs->rcache, lfs->cfg->block_size,
                         block, off, &fcrc,
@@ -1121,6 +1173,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
             rbyd->trunk = trunk;
             rbyd->off = off;
             rbyd->crc = crc;
+            rbyd->count = count;
         }
 
         off += size;
@@ -1163,8 +1216,8 @@ tryagain:;
     }
 
     // weights for pruning
-    lfs_srtag_t lt = lfs_rtag_weight_lt(tag, rbyd->count);
-    lfs_srtag_t gt = lfs_rtag_weight_gt(tag, rbyd->count);
+    lfs_srtag_t lt = lfs_rtag_weight_lt(tag, rbyd->count+1);
+    lfs_srtag_t gt = lfs_rtag_weight_gt(tag, rbyd->count+1);
     printf("lt, gt = (%x, %x)\n", lt, gt);
 
     // descend down tree
@@ -1417,9 +1470,9 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     // setup commit state
     const lfs_block_t block = rbyd->block;
     lfs_off_t trunk = rbyd->trunk;
-    uint16_t count = rbyd->count;
     lfs_off_t off = rbyd->off;
     uint32_t crc = rbyd->crc;
+    uint16_t count = rbyd->count;
     bool erased = false;
 
     // mark as unerased in case we fail
@@ -1442,6 +1495,8 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     // append each tag to the tree
     for (const struct lfs_rattr *attr = attrs; attr; attr = attr->next) {
         printf("append()\n");
+        LFS_ASSERT(lfs_rtag_id(attr->tag) <= count+1);
+
         // assume we'll update our trunk
         lfs_off_t branch = trunk;
         trunk = off;
@@ -1452,8 +1507,25 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
         }
 
         // weights for pruning
-        lfs_srtag_t lt = lfs_rtag_weight_lt(attr->tag, count);
-        lfs_srtag_t gt = lfs_rtag_weight_gt(attr->tag, count);
+        lfs_srtag_t lt;
+        lfs_srtag_t gt;
+        if (lfs_rtag_type1(attr->tag) == LFS_TYPE1_CREATE) {
+            // inserting a new id? align down
+            // TODO special function for this?
+//            if (lfs_rtag_id(attr->tag) == count+1) {
+//                lt = (count+1) << 12;
+//                gt = 0;
+//            } else {
+//                lt = lfs_rtag_weight_lt(attr->tag & ~0x7fff, count+1);
+//                gt = lfs_rtag_weight_gt(attr->tag & ~0x7fff, count+1);
+//            }
+            lt = lfs_rtag_weight_lt(attr->tag & ~0x7fff, count+1);
+            gt = lfs_rtag_weight_gt(attr->tag & ~0x7fff, count+1) + 1;
+        } else {
+            lt = lfs_rtag_weight_lt(attr->tag, count+1);
+            gt = lfs_rtag_weight_gt(attr->tag, count+1);
+        }
+   
         printf("lt, gt = (%x, %x)\n", lt, gt);
 
         // queue of pending alts we can emulate rotations with
@@ -1533,7 +1605,8 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                 // should've taken red alt? needs a flip
                 if (lt < 0 || gt < 0) {
                     LFS_ASSERT(lfs_rtag_isblack(alt));
-                    LFS_ASSERT(p_alts[0] && lfs_rtag_isred(p_alts[0]));
+                    LFS_ASSERT(p_alts[0]);
+                    LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
 
                     printf("rflip %s (%x,%x)\n",
                             lfs_rtag_isparallel(alt, p_alts[0]) ? "parallel" : "perpendicular",
@@ -1588,18 +1661,83 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
                 // update the tag id
                 // TODO should this be a function? maybe see what create/delete need
                 // TODO alternatively can we do this a bit more directly here
+//                lfs_rtag_t tag_ = lfs_rtag_setid(alt,
+//                        lfs_min(lfs_rtag_id(attr->tag), count));
                 lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(attr->tag));
+                // TODO I don't really know why this works
+                if (lfs_rtag_type1(attr->tag) == LFS_TYPE1_CREATE && gt == 0) {
+                    tag_ = lfs_rtag_decid(tag_);
+                }
+                        //gt == 0 ? lfs_rtag_id(attr->tag)-1 : lfs_rtag_id(attr->tag));
+                printf("found %x (%d, %d)\n", tag_, lt >> 12, gt >> 12);
 
                 // split leaf?
-                if (tag_ != attr->tag) {
-                    // bias the weights so that lookups always find the
-                    // next biggest tag
-                    if (lfs_rtag_weight(tag_) < lfs_rtag_weight(attr->tag)) {
-                        alt = LFS_MKRALT(B, LT, lt+1
-                                + lfs_rtag_weight(tag_)
-                                - lfs_rtag_weight(attr->tag));
+                // TODO we might be able to rearrange this a bit better
+                if (lfs_rtag_type1(attr->tag) == LFS_TYPE1_CREATE
+                        || tag_ != attr->tag) {
+                    // inserting a new id?
+                    if (lfs_rtag_type1(attr->tag) == LFS_TYPE1_CREATE) {
+                        // bias the weights so that lookups always find the
+                        // next biggest tag
+                        if (lfs_rtag_weight(tag_)
+                                < lfs_rtag_weight(attr->tag & ~0x7fff)) {
+                            printf("lt insert\n");
+                            //
+                            //           lt            gt
+                            //      .----'---.       .-'.
+                            //        alt
+                            //      .--'--.
+                            // <---+------+---|--+--|---+------+--->
+                            //     a     old    new     d      e
+                            //
+                            alt = LFS_MKRALT(B, LT, lt
+                                    - (lfs_rtag_weight(attr->tag & ~0x7fff)-1
+                                        - lfs_rtag_weight(tag_))
+                                    + 1);
+                        } else {
+                            printf("gt insert\n");
+                            printf("hmmm? %08x %08x\n", lfs_rtag_weight(tag_), lfs_rtag_weight(attr->tag & ~0x7fff));
+                            //
+                            //            lt           gt
+                            //      .-----'--.       .-'.
+                            //                      alt
+                            //                    .--'--.
+                            // <---+------+---|--+--|---+------+--->
+                            //     a      b     new    old     e
+                            //
+                            alt = LFS_MKRALT(B, GT,
+                                    // TODO hm, can this be done differently?
+                                    lfs_rtag_weight(lfs_rtag_incid(tag_))
+                                        - lfs_rtag_weight(attr->tag));
+                        }
                     } else {
-                        alt = LFS_MKRALT(B, GT, gt);
+                        // bias the weights so that lookups always find the
+                        // next biggest tag
+                        if (lfs_rtag_weight(tag_)
+                                < lfs_rtag_weight(attr->tag)) {
+                            //
+                            //            lt         gt
+                            //      .-----'-----. .--'--.
+                            //        alt
+                            //      .--'--.
+                            // <---+------+------+------+------+--->
+                            //     a     old    new     d      e
+                            //
+                            alt = LFS_MKRALT(B, LT, lt
+                                    + 1
+                                    - (lfs_rtag_weight(attr->tag)
+                                        - lfs_rtag_weight(tag_)));
+                        } else {
+                            //
+                            //            lt         gt
+                            //      .-----'-----. .--'--.
+                            //                      alt
+                            //                    .--'--.
+                            // <---+------+------+------+------+--->
+                            //     a      b     new    old     e
+                            //
+                            alt = LFS_MKRALT(B, GT, gt);
+                        }
                     }
 
                     lfs_ssize_t delta = lfs_rbyd_p_push(lfs,
@@ -1650,6 +1788,15 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
             return err;
         }
         off += attr->size;
+
+        // if we're inserting, increase the id count, indirectly shifting
+        // all ids >= over one
+        //
+        // note we do this here since it is possible to insert into an
+        // empty tree
+        if (lfs_rtag_type1(attr->tag) == LFS_TYPE1_CREATE) {
+            count += 1;
+        }
 
         continue;
     }
@@ -1726,7 +1873,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     // get around this catch-22 we just always write a fully-expanded leb128
     // encoding
     uint8_t buffer[1+4+4];
-    buffer[0] = (LFS_MKRTAG(CRC0, 0, 0) << 1) | (lfs_popc(crc) & 1);
+    buffer[0] = (LFS_MKRTAG(CRC, 0, 0) << 1) | (lfs_popc(crc) & 1);
 
     lfs_off_t padding = aligned - (off + 1+4);
     buffer[1] = 0x80 | (0x7f & (padding >>  0));
@@ -1778,6 +1925,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     rbyd->trunk = trunk;
     rbyd->off = aligned;
     rbyd->crc = crc;
+    rbyd->count = count;
     rbyd->erased = erased;
 
     return 0;
