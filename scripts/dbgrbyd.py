@@ -4,6 +4,15 @@ import itertools as it
 import math as m
 import struct
 
+COLORS = [
+    '34',   # blue
+    '31',   # red
+    '32',   # green
+    '35',   # purple
+    '33',   # yellow
+    '36',   # cyan
+]
+
 
 def crc32c(data, crc=0):
     crc ^= 0xffffffff
@@ -236,6 +245,10 @@ def main(disk, block_size, block1, block2=None, *,
     # print tags
     if args.get('rbyd'):
         alts = []
+    if args.get('ids'):
+        count = 0
+        ids = []
+        ids_i = 0
     j = 4
     while j < (block_size if args.get('all') else off):
         notes = []
@@ -250,6 +263,16 @@ def main(disk, block_size, block1, block2=None, *,
         if not tag & 0x4:
             if (tag & 0x7e) != 0x2:
                 crc = crc32c(data[j:j+size], crc)
+                # adjust count
+                if args.get('ids'):
+                    if (tag & 0x7f) == 0x40:
+                        count += 1
+                        ids.insert(((tag >> 15) & 0xffff)-1,
+                            COLORS[ids_i % len(COLORS)])
+                        ids_i += 1
+                    elif (tag & 0x7f) == 0x48:
+                        count -= 1
+                        ids.pop(((tag >> 15) & 0xffff)-1)
             # found a crc?
             else:
                 crc_, = struct.unpack('<I', data[j:j+4].ljust(4, b'\0'))
@@ -290,7 +313,25 @@ def main(disk, block_size, block1, block2=None, *,
                         else ('\x1b[90mb\x1b[m' if color else 'b')
                         for i in range(len(alts)-1, -1, -1))
                     if args.get('rbyd') and (tag & 0x7) == 0
-                else '  %s' % jumprepr(j_) if args.get('jumps')
+                else '  %s' % jumprepr(j_)
+                    if args.get('jumps')
+                else '  %s' % ''.join(
+                    '%s%s%s' % (
+                        '\x1b[%sm' % ids[id] if color else '',
+                        '.' if (tag & 0x7f) == 0x40
+                            and id == ((tag >> 15) & 0xffff)-1
+                        else '\'' if (tag & 0x7f) == 0x48
+                            and id == ((tag >> 15) & 0xffff)-1
+                        else '* ' if not tag & 0x4
+                            and id == ((tag >> 15) & 0xffff)-1
+                        else '\ ' if (tag & 0x7f) == 0x40
+                            and id > ((tag >> 15) & 0xffff)-1
+                        else '/ ' if (tag & 0x7f) == 0x48
+                            and id > ((tag >> 15) & 0xffff)-1
+                        else '| ',
+                        '\x1b[m' if color else '')
+                        for id in range(count))
+                    if args.get('ids')
                 else ''))
 
             # show in-device representation, including some extra
@@ -362,7 +403,7 @@ if __name__ == "__main__":
         action='store_true',
         help="Don't stop parsing on bad commits.")
     parser.add_argument(
-        '-i', '--in-tree',
+        '-t', '--in-tree',
         action='store_true',
         help="Only show tags in the tree.")
     parser.add_argument(
@@ -385,6 +426,10 @@ if __name__ == "__main__":
         '-j', '--jumps',
         action='store_true',
         help="Show alt pointer jumps in the margin.")
+    parser.add_argument(
+        '-i', '--ids',
+        action='store_true',
+        help="Show inserts/deletes of ids in the margin.")
     parser.add_argument(
         '-e', '--error-on-corrupt',
         action='store_true',
