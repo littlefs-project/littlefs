@@ -167,14 +167,6 @@ def main(disk, block_size, block1, block2=None, *,
 
     # print contents of the winning metadata block
     block, data, rev, off = blocks[i], datas[i], revs[i], offs[i]
-    print('mdir 0x%x, rev %d, size %d%s' % (
-        block, rev, off,
-        ' (was 0x%x, %d, %d)' % (blocks[~i], revs[~i], offs[~i])
-            if len(blocks) > 1 else ''))
-    print('%-8s  %-22s  %s' % (
-        'off', 'tag',
-        'data (truncated)'
-            if not args.get('no_truncate') else ''))
 
     # print revision count
     crc = crc32c(data[0:4])
@@ -241,14 +233,86 @@ def main(disk, block_size, block1, block2=None, *,
             return ''.join(chars.get(x, ' ')
                 for x in range(max(chars.keys(), default=0)+1))
 
-    # print tags
-    if args.get('rbyd'):
-        alts = []
+    # preprocess lifetimes
     if args.get('lifetimes'):
         count = 0
+        max_count = 0
+        lifetimes = {}
         ids = []
         ids_i = 0
         deleted_id = ''
+        j = 4
+        while j < (block_size if args.get('all') else off):
+            j_ = j
+            v, tag, size, delta = fromtag(data[j:])
+            j += delta
+            if not tag & 0x4:
+                j += size
+
+            if (tag & 0x7f) == 0x40:
+                count += 1
+                max_count = max(max_count, count)
+                ids.insert(((tag >> 15) & 0xffff)-1,
+                    COLORS[ids_i % len(COLORS)])
+                ids_i += 1
+                lifetimes[j_] = (
+                    ''.join(
+                        '%s%s%s' % (
+                            '\x1b[%sm' % ids[id] if color else '',
+                            '.' if id == ((tag >> 15) & 0xffff)-1
+                                else '\ ' if id > ((tag >> 15) & 0xffff)-1
+                                else '| ',
+                            '\x1b[m' if color else '')
+                            for id in range(count))
+                        + ' ',
+                    count)
+            elif (tag & 0x7f) == 0x41:
+                lifetimes[j_] = (
+                    ''.join(
+                        '%s%s%s' % (
+                            '\x1b[%sm' % ids[id] if color else '',
+                            '\'' if id == ((tag >> 15) & 0xffff)-1
+                                else '/ ' if id > ((tag >> 15) & 0xffff)-1
+                                else '| ',
+                            '\x1b[m' if color else '')
+                            for id in range(count))
+                        + ' ',
+                    count)
+                count -= 1
+                deleted_id = ids.pop(((tag >> 15) & 0xffff)-1)
+            else:
+                lifetimes[j_] = (
+                    ''.join(
+                        '%s%s%s' % (
+                            '\x1b[%sm' % ids[id] if color else '',
+                            '* ' if not tag & 0x4
+                                and id == ((tag >> 15) & 0xffff)-1
+                                else '| ',
+                            '\x1b[m' if color else '')
+                            for id in range(count)),
+                    count)
+
+        def lifetimerepr(j):
+            lifetime, count = lifetimes.get(j, ('', 0))
+            return '%s%*s' % (lifetime, 2*(max_count-count), '')
+
+    # prepare other things
+    if args.get('rbyd'):
+        alts = []
+
+    # print header
+    print('mdir 0x%x, rev %d, size %d%s' % (
+        block, rev, off,
+        ' (was 0x%x, %d, %d)' % (blocks[~i], revs[~i], offs[~i])
+            if len(blocks) > 1 else ''))
+    print('%-8s  %s%-22s  %s' % (
+        'off',
+        lifetimerepr(0) if args.get('lifetimes') else '',
+        'tag',
+        'data (truncated)'
+            if not args.get('no_truncate') else ''))
+
+    # print tags
     j = 4
     while j < (block_size if args.get('all') else off):
         notes = []
@@ -263,22 +327,23 @@ def main(disk, block_size, block1, block2=None, *,
         if not tag & 0x4:
             if (tag & 0x7e) != 0x2:
                 crc = crc32c(data[j:j+size], crc)
-                # adjust count
-                if args.get('lifetimes'):
-                    if (tag & 0x7f) == 0x40:
-                        count += 1
-                        ids.insert(((tag >> 15) & 0xffff)-1,
-                            COLORS[ids_i % len(COLORS)])
-                        ids_i += 1
-                    elif (tag & 0x7f) == 0x41:
-                        count -= 1
-                        deleted_id = ids.pop(((tag >> 15) & 0xffff)-1)
             # found a crc?
             else:
                 crc_, = struct.unpack('<I', data[j:j+4].ljust(4, b'\0'))
                 if crc != crc_:
                     notes.append('crc!=%08x' % crc)
             j += size
+
+        # adjust count?
+        if args.get('lifetimes'):
+            if (tag & 0x7f) == 0x40:
+                count += 1
+                ids.insert(((tag >> 15) & 0xffff)-1,
+                    COLORS[ids_i % len(COLORS)])
+                ids_i += 1
+            elif (tag & 0x7f) == 0x41:
+                count -= 1
+                deleted_id = ids.pop(((tag >> 15) & 0xffff)-1)
 
         if not args.get('in_tree') or (tag & 0x6) != 2:
             if args.get('raw'):
@@ -292,9 +357,12 @@ def main(disk, block_size, block1, block2=None, *,
 
         if not args.get('in_tree') or (tag & 0x6) == 0:
             # show human-readable tag representation
-            print('%s%08x: %-57s%s%s' % (
+            print('%s%08x:%s %s%s%-57s%s%s' % (
                 '\x1b[90m' if color and j_ >= off else '',
                 j_,
+                '\x1b[m' if color and j_ >= off else '',
+                lifetimerepr(j_) if args.get('lifetimes') else '',
+                '\x1b[90m' if color and j_ >= off else '',
                 '%-22s%s' % (
                     tagrepr(tag, size, j_),
                     '  %s' % next(xxd(
@@ -302,7 +370,7 @@ def main(disk, block_size, block1, block2=None, *,
                         if not args.get('no_truncate')
                             and not tag & 0x4 else ''),
                 '\x1b[m' if color and j_ >= off else '',
-                '  (%s)' % ', '.join(notes) if notes
+                ' (%s)' % ', '.join(notes) if notes
                 else '  %s' % ''.join(
                         ('\x1b[33my\x1b[m' if color else 'y')
                             if alts[i] & 0x1
@@ -313,45 +381,17 @@ def main(disk, block_size, block1, block2=None, *,
                         else ('\x1b[90mb\x1b[m' if color else 'b')
                         for i in range(len(alts)-1, -1, -1))
                     if args.get('rbyd') and (tag & 0x7) == 0
-                else '  %s' % jumprepr(j_)
+                else ' %s' % jumprepr(j_)
                     if args.get('jumps')
-                else '  %s%s' % (
-                    ''.join(
-                        '%s%s%s%s' % (
-                            '%s\'%s' % (
-                                '\x1b[%sm' % deleted_id if color else '',
-                                '\x1b[m' if color else '')
-                                if (tag & 0x7f) == 0x41
-                                and id == ((tag >> 15) & 0xffff)-1
-                                else '',
-                            '\x1b[%sm' % ids[id] if color else '',
-                            '.' if (tag & 0x7f) == 0x40
-                                and id == ((tag >> 15) & 0xffff)-1
-                            else '* ' if not tag & 0x4
-                                and not (tag & 0x7f) == 0x41
-                                and id == ((tag >> 15) & 0xffff)-1
-                            else '\ ' if (tag & 0x7f) == 0x40
-                                and id > ((tag >> 15) & 0xffff)-1
-                            else '/ ' if (tag & 0x7f) == 0x41
-                                and id >= ((tag >> 15) & 0xffff)-1
-                            else '| ',
-                            '\x1b[m' if color else '')
-                            for id in range(count)),
-                    '%s\'%s' % (
-                        '\x1b[%sm' % deleted_id if color else '',
-                        '\x1b[m' if color else '')
-                        if (tag & 0x7f) == 0x41
-                        and count == ((tag >> 15) & 0xffff)-1
-                        else '')
-                    if args.get('lifetimes')
                 else ''))
 
             # show in-device representation, including some extra
             # crc/parity info
             if args.get('device'):
-                print('%s%8s  %-47s  %08x %x%s' % (
+                print('%s%8s  %s%-47s  %08x %x%s' % (
                     '\x1b[90m' if color and j_ >= off else '',
                     '',
+                    lifetimerepr(0) if args.get('lifetimes') else '',
                     '%-22s%s' % (
                         '%08x %08x' % (tag, size),
                         '  %s' % ' '.join(
