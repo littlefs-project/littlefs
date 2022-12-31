@@ -1568,9 +1568,9 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
             // should've taken red alt? needs a flip
             if (lt < 0 || gt < 0) {
-                LFS_ASSERT(lfs_rtag_isblack(alt));
                 LFS_ASSERT(p_alts[0]);
                 LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
+                LFS_ASSERT(lfs_rtag_isblack(alt));
 
                 printf("rflip %s (%x,%x)\n",
                         lfs_rtag_isparallel(alt, p_alts[0]) ? "parallel" : "perpendicular",
@@ -1777,7 +1777,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
     // queue of pending alts we can emulate rotations with
     lfs_rtag_t p_alts[3] = {0, 0, 0};
     lfs_off_t p_jumps[3] = {0, 0, 0};
-    lfs_off_t graft = 0;
+    lfs_off_t graft = lower_branch;
 
     // descend down tree, building alt pointers
     while (true) {
@@ -1804,7 +1804,14 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             if (!cut && lfs_rtag_follow(alt, lower_lt, lower_gt)
                     != lfs_rtag_follow(alt, upper_lt, upper_gt)) {
                 printf("beginning cut\n");
+                printf("lower, upper = (%x, %x), (%x, %x)\n", lower_lt, lower_gt, upper_lt, upper_gt);
                 cut = true;
+
+                // TODO do we need this if we flip red alts early?
+                if (p_alts[0] && lfs_rtag_isred(p_alts[0])) {
+                    upper_branch = graft;
+                    lfs_rtag_untrim(p_alts[0], &upper_lt, &upper_gt);
+                }
             }
 
             // prune?
@@ -1847,7 +1854,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
                 } else {
                     printf("ysplit nofollow\n");
-                    LFS_ASSERT(graft != 0);
+//                    LFS_ASSERT(graft != 0);
                     p_alts[0] = lfs_rtag_black(
                             lfs_rtag_merge(alt, p_alts[0]));
                     p_jumps[0] = graft;
@@ -1855,7 +1862,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                     lfs_rtag_trim(alt, &lt, &gt);
                     lfs_rbyd_p_red(p_alts, p_jumps);
 
-                    graft = 0;
+                    graft = branch;
                     branch = branch_;
                     goto next;
                 }
@@ -1863,13 +1870,12 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
             // should've taken red alt? needs a flip
             if (lt < 0 || gt < 0) {
-                LFS_ASSERT(lfs_rtag_isblack(alt));
-                LFS_ASSERT(p_alts[0]);
-                LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
-
                 printf("rflip %s (%x,%x)\n",
                         lfs_rtag_isparallel(alt, p_alts[0]) ? "parallel" : "perpendicular",
                         lt, gt);
+                LFS_ASSERT(p_alts[0]);
+                LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
+                LFS_ASSERT(lfs_rtag_isblack(alt));
 
                 // if black alt would've been taken, it also needs a flip
                 if (lfs_rtag_isparallel(alt, p_alts[0])) {
@@ -1901,13 +1907,16 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
             // TODO can this be combined with prune? maybe not?
             // cut?
-            if (cut && ((lower && lfs_rtag_isgt(alt))
-                    || (!lower && lfs_rtag_islt(alt)))) {
-                if (p_alts[0]) {
+            if (cut && lfs_rtag_isblack(alt)
+                    && ((lower && lfs_rtag_isgt(alt))
+                        || (!lower && lfs_rtag_islt(alt)))) {
+                if (p_alts[0] && lfs_rtag_isred(p_alts[0])) {
+                    printf("bcut\n");
                     p_alts[0] = lfs_rtag_black(p_alts[0]);
 
                     if ((lower && lfs_rtag_isgt(alt))
                             || (!lower && lfs_rtag_islt(alt))) {
+                        printf("rcut\n");
                         lfs_rbyd_p_pop(p_alts, p_jumps);
                     }
                 }
@@ -1941,9 +1950,9 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             }
 
             // switch bounds we are following?
-            if (cut && lfs_rtag_isblack(alt) && !other_done) {
-                printf("switch bounds\n");
+            if (cut && p_alts[0] && lfs_rtag_isblack(p_alts[0]) && !other_done) {
                 lower = !lower;
+                printf("switch bounds -> %s\n", lower ? "lower" : "upper");
             }
 
         // found end of tree?
@@ -1985,6 +1994,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             if (cut && !other_done) {
                 other_done = true;
                 lower = !lower;
+                printf("switch bounds -> %s\n", lower ? "lower" : "upper");
                 continue;
             }
 
