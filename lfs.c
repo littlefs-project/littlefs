@@ -1216,6 +1216,13 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
 static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
         lfs_rtag_t tag, lfs_off_t *off, lfs_size_t *size) {
     printf("lookup(%08x)\n", tag);
+    // TODO is this true?
+    // check for out-of-bound ids here, otherwise we have issues determining
+    // the found id
+    if (lfs_rtag_id(tag) >= rbyd->count+1) {
+        return LFS_ERR_NOENT;
+    }
+
 tryagain:;
     // no trunk yet?
     lfs_off_t branch = rbyd->trunk;

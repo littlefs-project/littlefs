@@ -2752,18 +2752,16 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     assert(rbyd.count == 1);
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => LFS_ERR_NOENT;
 
     // try to delete the other id
     rbyd = init_rbyd;
@@ -2778,18 +2776,16 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     assert(rbyd.count == 1);
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => LFS_ERR_NOENT;
 
     // try to delete the largest of three
     rbyd = init_rbyd;
@@ -2808,9 +2804,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     assert(rbyd.count == 2);
@@ -2820,9 +2815,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 
     // try to delete the smallest of three
     rbyd = init_rbyd;
@@ -2841,9 +2835,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     assert(rbyd.count == 2);
@@ -2853,9 +2846,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 
     // try to delete the middle
     rbyd = init_rbyd;
@@ -2874,9 +2866,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     assert(rbyd.count == 2);
@@ -2886,9 +2877,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 '''
 
 [cases.test_rbyd_delete_range]
@@ -2927,9 +2917,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     assert(rbyd.count == 1);
@@ -2938,9 +2927,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => LFS_ERR_NOENT;
 
     // try to delete the other id
     rbyd = init_rbyd;
@@ -2960,9 +2948,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     assert(rbyd.count == 1);
@@ -2972,9 +2959,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => LFS_ERR_NOENT;
 
     // try to delete the largest of three
     rbyd = init_rbyd;
@@ -3002,9 +2988,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     assert(rbyd.count == 2);
@@ -3020,9 +3005,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 
     // try to delete the smallest of three
     rbyd = init_rbyd;
@@ -3050,9 +3034,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     assert(rbyd.count == 2);
@@ -3068,9 +3051,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 
     // try to delete the middle
     rbyd = init_rbyd;
@@ -3098,9 +3080,8 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     assert(rbyd.count == 2);
@@ -3116,7 +3097,6 @@ code = '''
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
             => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-// TODO
-//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
-//            => LFS_ERR_NOENT;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+            => LFS_ERR_NOENT;
 '''
