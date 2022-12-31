@@ -371,7 +371,7 @@ def main(disk, block_size, block1, block2=None, *,
                             and not tag & 0x4 else ''),
                 '\x1b[m' if color and j_ >= off else '',
                 ' (%s)' % ', '.join(notes) if notes
-                else '  %s' % ''.join(
+                else ' %s' % ''.join(
                         ('\x1b[33my\x1b[m' if color else 'y')
                             if alts[i] & 0x1
                             and i+1 < len(alts)

@@ -1488,7 +1488,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 //                lt = lfs_rtag_weight_lt(attr->tag & ~0x7fff, count+1);
 //                gt = lfs_rtag_weight_gt(attr->tag & ~0x7fff, count+1);
 //            }
-        lt = lfs_rtag_weight_lt(tag & ~0x7fff, rbyd_->count+1);
+        lt = lfs_rtag_weight_lt(tag & ~0x7fff, rbyd_->count+1) - 1;
         gt = lfs_rtag_weight_gt(tag & ~0x7fff, rbyd_->count+1) + 1;
     } else {
         lt = lfs_rtag_weight_lt(tag, rbyd_->count+1);
@@ -1917,13 +1917,13 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             if (cut && lfs_rtag_isblack(alt)
                     && ((lower && lfs_rtag_isgt(alt))
                         || (!lower && lfs_rtag_islt(alt)))) {
+                printf("bcut (%s, %s)\n", lower ? "lower" : "upper", lfs_rtag_isgt(alt) ? "gt" : "lt");
                 if (p_alts[0] && lfs_rtag_isred(p_alts[0])) {
-                    printf("bcut\n");
                     p_alts[0] = lfs_rtag_black(p_alts[0]);
 
-                    if ((lower && lfs_rtag_isgt(alt))
-                            || (!lower && lfs_rtag_islt(alt))) {
-                        printf("rcut\n");
+                    if ((lower && lfs_rtag_isgt(p_alts[0]))
+                            || (!lower && lfs_rtag_islt(p_alts[0]))) {
+                        printf("rcut (%s, %s)\n", lower ? "lower" : "upper", lfs_rtag_isgt(p_alts[0]) ? "gt" : "lt");
                         lfs_rbyd_p_pop(p_alts, p_jumps);
                     }
                 }
