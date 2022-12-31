@@ -1778,7 +1778,6 @@ code = '''
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
-
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRRMATTR(UATTR, 1, 0, NULL)) => 0;
 
@@ -1799,7 +1798,6 @@ code = '''
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
             LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
-
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRRMATTR(UATTR, 1, 0, NULL)) => 0;
 
@@ -1824,7 +1822,6 @@ code = '''
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
             LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
-
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRRMATTR(UATTR, 2, 0, NULL)) => 0;
 
@@ -2719,4 +2716,407 @@ code = '''
                 LFS_MKRTAG(CREATEREG, 0, x+1), &off, &size)
                 => LFS_MKRTAG(CREATEREG, 0, x+1);
     }
+'''
+
+
+### Deletion testing ###
+
+[cases.test_rbyd_delete]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // try to delete one id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 2, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    // try to delete the other id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    // try to delete the largest of three
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 3, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    // try to delete the smallest of three
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    // try to delete the middle
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 2, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+//            => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_delete_range]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // try to delete one id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR,     0, 2, "\xbb\xbb\xbb\xbb", 4, NULL))))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 2, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    // try to delete the other id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR,     0, 2, "\xbb\xbb\xbb\xbb", 4, NULL))))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 1);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    // try to delete the largest of three
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR,     0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR,     0, 3, "\xcc\xcc\xcc\xcc", 4, NULL))))))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 3, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+//    // try to delete the smallest of three
+//    rbyd = init_rbyd;
+//    lfs_bd_erase(&lfs, rbyd.block) => 0;
+//    lfs_rbyd_commit(&lfs, &rbyd,
+//            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+//            LFS_MKRATTR(UATTR,     0, 1, "\xaa\xaa\xaa\xaa", 4,
+//            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+//            LFS_MKRATTR(UATTR,     0, 2, "\xbb\xbb\xbb\xbb", 4,
+//            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4,
+//            LFS_MKRATTR(UATTR,     0, 3, "\xcc\xcc\xcc\xcc", 4, NULL))))))) => 0;
+//    lfs_rbyd_commit(&lfs, &rbyd,
+//            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL)) => 0;
+//
+//    assert(rbyd.count == 2);
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+//            => 4;
+//    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
+//            => 4;
+//    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+//            => 4;
+//    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
+//            => 4;
+//    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+//// TODO
+////    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+////            => LFS_ERR_NOENT;
+//
+//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+//    assert(rbyd.count == 2);
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+//            => 4;
+//    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
+//            => 4;
+//    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+//            => 4;
+//    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
+//            => 4;
+//    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+//// TODO
+////    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+////            => LFS_ERR_NOENT;
+
+    // try to delete the middle
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR,     0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR,     0, 3, "\xcc\xcc\xcc\xcc", 4, NULL))))))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 2, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+//            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 2);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 1), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 0, 2), buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+// TODO
+//    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 3), buffer, 4)
+//            => LFS_ERR_NOENT;
 '''
