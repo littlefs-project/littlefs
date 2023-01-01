@@ -31,15 +31,15 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
 
     // commit with two attributes
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
 '''
 
@@ -71,16 +71,16 @@ code = '''
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd, NULL) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
 
     // commit with two attributes
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
 '''
 
@@ -124,7 +124,7 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
 
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
@@ -141,8 +141,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
 
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
@@ -195,7 +195,7 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
 
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
@@ -212,9 +212,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
 
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
             => LFS_MKRTAG(UATTR, 1, 0);
@@ -266,18 +266,18 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
 
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
             => 4;
-    assert(memcmp(buffer, &(uint32_t){0xaaaaaaaa}, 4) == 0);
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
             => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
             => 4;
-    assert(memcmp(buffer, &(uint32_t){0xaaaaaaaa}, 4) == 0);
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
             => LFS_ERR_NOENT;
 
@@ -285,8 +285,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
 
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
             => 4;
@@ -338,18 +338,18 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
 
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
             => 4;
-    assert(memcmp(buffer, &(uint32_t){0xaaaaaaaa}, 4) == 0);
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
             => LFS_ERR_NOENT;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
             => 4;
-    assert(memcmp(buffer, &(uint32_t){0xaaaaaaaa}, 4) == 0);
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), buffer, 4)
             => LFS_ERR_NOENT;
 
@@ -357,9 +357,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
 
     lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), buffer, 4)
             => 4;
@@ -404,8 +404,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
 
     tag = lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size);
     assert(tag == LFS_MKRTAG(UATTR, 1, 0));
@@ -450,9 +450,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
 
     tag = lfs_rbyd_lookup(&lfs, &rbyd, 0, &off, &size);
     assert(tag == LFS_MKRTAG(UATTR, 1, 0));
@@ -496,8 +496,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -512,8 +512,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL))) => 0;
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -548,9 +548,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL)))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -565,9 +565,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -604,9 +604,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4, NULL)))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -625,9 +625,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)))) => 0;
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -667,10 +667,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -689,10 +689,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -711,10 +711,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -733,10 +733,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -777,10 +777,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -803,10 +803,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -829,10 +829,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -855,10 +855,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -901,10 +901,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -927,10 +927,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -953,10 +953,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -979,10 +979,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4, NULL))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4, NULL))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1027,11 +1027,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4, NULL)))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4, NULL)))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1056,11 +1056,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4, NULL)))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4, NULL)))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1083,11 +1083,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL)))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1110,11 +1110,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1161,11 +1161,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4, NULL)))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4, NULL)))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1194,11 +1194,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4, NULL)))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4, NULL)))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1225,11 +1225,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL)))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL)))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1256,11 +1256,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)))))) => 0;
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1309,12 +1309,12 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4, NULL))))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4, NULL))))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1343,12 +1343,12 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1377,12 +1377,12 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL))))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL))))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1433,12 +1433,12 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(UATTR, 6, 0, &(uint32_t){0xffffffff}, 4, NULL))))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4,
+            LFS_MKRATTR(UATTR, 6, 0, "\xff\xff\xff\xff", 4, NULL))))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1469,12 +1469,12 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(UATTR, 6, 0, &(uint32_t){0xffffffff}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))))))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4,
+            LFS_MKRATTR(UATTR, 6, 0, "\xff\xff\xff\xff", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1505,12 +1505,12 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4,
-            LFS_MKRATTR(UATTR, 3, 0, &(uint32_t){0xcccccccc}, 4,
-            LFS_MKRATTR(UATTR, 4, 0, &(uint32_t){0xdddddddd}, 4,
-            LFS_MKRATTR(UATTR, 5, 0, &(uint32_t){0xeeeeeeee}, 4,
-            LFS_MKRATTR(UATTR, 6, 0, &(uint32_t){0xffffffff}, 4,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL))))))) => 0;
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4,
+            LFS_MKRATTR(UATTR, 6, 0, "\xff\xff\xff\xff", 4,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL))))))) => 0;
 
     lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
@@ -1549,17 +1549,17 @@ code = '''
 
     // test all permutations of a given size
     uint8_t perm[N];
-    uint8_t stack[N];
+    unsigned stack[N];
     for (uint8_t i = 0; i < N; i++) {
         perm[i] = i;
         stack[i] = 0;
     }
 
-    uint8_t i = 1;
+    unsigned i = 1;
     while (i < N) {
         // print permutation to help debugging
         printf("--- permutation: [");
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
             }
@@ -1569,10 +1569,10 @@ code = '''
 
         // build the attribute list for the current permutation
         struct lfs_rattr attrs[N];
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             attrs[j] = *LFS_MKRATTR(
                     UATTR, perm[j]+1, 0,
-                    &(uint32_t){0xaaaaaaaa}, 4,
+                    "\xaa\xaa\xaa\xaa", 4,
                     (j+1 < N) ? &attrs[j+1] : NULL);
         }
 
@@ -1582,7 +1582,7 @@ code = '''
         lfs_rbyd_commit(&lfs, &rbyd, attrs) => 0;
 
         lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             lfs_rbyd_lookup(&lfs, &rbyd,
                     LFS_MKRTAG(UATTR, j+1, 0), &off, &size)
                     => LFS_MKRTAG(UATTR, j+1, 0);
@@ -1630,17 +1630,17 @@ code = '''
 
     // test all permutations of a given size
     uint8_t perm[N];
-    uint8_t stack[N];
+    unsigned stack[N];
     for (uint8_t i = 0; i < N; i++) {
         perm[i] = i;
         stack[i] = 0;
     }
 
-    uint8_t i = 1;
+    unsigned i = 1;
     while (i < N) {
         // print permutation to help debugging
         printf("--- permutation: [");
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
             }
@@ -1652,14 +1652,14 @@ code = '''
         rbyd = init_rbyd;
         lfs_bd_erase(&lfs, rbyd.block) => 0;
 
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             lfs_rbyd_commit(&lfs, &rbyd,
-                    LFS_MKRATTR(UATTR, perm[j]+1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+                    LFS_MKRATTR(UATTR, perm[j]+1, 0, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
         }
 
         lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             lfs_rbyd_lookup(&lfs, &rbyd,
                     LFS_MKRTAG(UATTR, j+1, 0), &off, &size)
                     => LFS_MKRTAG(UATTR, j+1, 0);
@@ -1725,7 +1725,7 @@ code = '''
                 : (ORDER == 1) ? (uint8_t)(((lfs_size_t)-1) - i)
                 : (uint8_t)TEST_PRNG(&prng);
         int err = lfs_rbyd_commit(&lfs, &rbyd,
-                LFS_MKRATTR(UATTR, x, 0, &(uint32_t){0xaaaaaaaa}, 4,
+                LFS_MKRATTR(UATTR, x, 0, "\xaa\xaa\xaa\xaa", 4,
                 NULL));
         // if we can't fit an fcrc, erased is set to false, but if we can,
         // lfs_rbyd_commit may error later with LFS_ERR_RANGE
@@ -1777,7 +1777,7 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4, NULL)) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRRMATTR(UATTR, 1, 0, NULL)) => 0;
 
@@ -1796,8 +1796,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRRMATTR(UATTR, 1, 0, NULL)) => 0;
 
@@ -1820,8 +1820,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, &(uint32_t){0xaaaaaaaa}, 4,
-            LFS_MKRATTR(UATTR, 2, 0, &(uint32_t){0xbbbbbbbb}, 4, NULL))) => 0;
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
     lfs_rbyd_commit(&lfs, &rbyd,
             LFS_MKRRMATTR(UATTR, 2, 0, NULL)) => 0;
 
@@ -1863,17 +1863,17 @@ code = '''
 
     // test all permutations of a given size
     uint8_t perm[N];
-    uint8_t stack[N];
+    unsigned stack[N];
     for (uint8_t i = 0; i < N; i++) {
         perm[i] = i;
         stack[i] = 0;
     }
 
-    uint8_t i = 1;
+    unsigned i = 1;
     while (i < N) {
         // print permutation to help debugging
         printf("--- permutation: [");
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
             }
@@ -1885,9 +1885,9 @@ code = '''
         rbyd = init_rbyd;
         lfs_bd_erase(&lfs, rbyd.block) => 0;
 
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             lfs_rbyd_commit(&lfs, &rbyd,
-                    LFS_MKRATTR(UATTR, perm[j]+1, 0, &(uint32_t){0xaaaaaaaa}, 4,
+                    LFS_MKRATTR(UATTR, perm[j]+1, 0, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
         }
 
@@ -1898,7 +1898,7 @@ code = '''
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
 
         // try removing each tag
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             // print what we are removing to help debugging
             printf("--- remove: %d ---\n", j+1);
 
@@ -1911,7 +1911,7 @@ code = '''
                     LFS_MKRRMATTR(UATTR, j+1, 0, NULL)) => 0;
 
             lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-            for (int k = 0; k < N; k++) {
+            for (unsigned k = 0; k < N; k++) {
                 lfs_srtag_t tag = lfs_rbyd_lookup(&lfs, &rbyd,
                         LFS_MKRTAG(UATTR, k+1, 0), &off, &size);
                 if (k == j) {
@@ -2286,18 +2286,18 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    uint8_t stack[N];
-    for (uint8_t i = 0; i < N; i++) {
+    uint16_t perm[N];
+    unsigned stack[N];
+    for (uint16_t i = 0; i < N; i++) {
         perm[i] = i;
         stack[i] = 0;
     }
 
-    uint8_t i = 1;
+    unsigned i = 1;
     while (i < N) {
         // print permutation to help debugging
         printf("--- permutation: [");
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
             }
@@ -2307,10 +2307,10 @@ code = '''
 
         // build the attribute list for the current permutation
         struct lfs_rattr attrs[N];
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             // adjust id based on future insertions
             uint16_t id = perm[j];
-            for (int k = j+1; k < N; k++) {
+            for (unsigned k = j+1; k < N; k++) {
                 if (perm[j] > perm[k]) {
                     id -= 1;
                 }
@@ -2329,7 +2329,7 @@ code = '''
 
         lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
         assert(rbyd.count == N);
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             lfs_rbyd_get(&lfs, &rbyd,
                     LFS_MKRTAG(CREATEREG, 0, j+1), buffer, 4) => 4;
             assert(memcmp(buffer, names[j % 6], 4) == 0);
@@ -2338,11 +2338,11 @@ code = '''
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
-                uint8_t t = perm[0];
+                uint16_t t = perm[0];
                 perm[0] = perm[i];
                 perm[i] = t;
             } else {
-                uint8_t t = perm[stack[i]];
+                uint16_t t = perm[stack[i]];
                 perm[stack[i]] = perm[i];
                 perm[i] = t;
             }
@@ -2383,18 +2383,18 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    uint8_t stack[N];
-    for (uint8_t i = 0; i < N; i++) {
+    uint16_t perm[N];
+    unsigned stack[N];
+    for (uint16_t i = 0; i < N; i++) {
         perm[i] = i;
         stack[i] = 0;
     }
 
-    uint8_t i = 1;
+    unsigned i = 1;
     while (i < N) {
         // print permutation to help debugging
         printf("--- permutation: [");
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
             }
@@ -2406,10 +2406,10 @@ code = '''
         rbyd = init_rbyd;
         lfs_bd_erase(&lfs, rbyd.block) => 0;
 
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             // adjust id based on future insertions
             uint16_t id = perm[j];
-            for (int k = j+1; k < N; k++) {
+            for (unsigned k = j+1; k < N; k++) {
                 if (perm[j] > perm[k]) {
                     id -= 1;
                 }
@@ -2422,7 +2422,7 @@ code = '''
 
         lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
         assert(rbyd.count == N);
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             lfs_rbyd_get(&lfs, &rbyd,
                     LFS_MKRTAG(CREATEREG, 0, j+1), buffer, 4) => 4;
             assert(memcmp(buffer, names[j % 6], 4) == 0);
@@ -2431,11 +2431,11 @@ code = '''
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
-                uint8_t t = perm[0];
+                uint16_t t = perm[0];
                 perm[0] = perm[i];
                 perm[i] = t;
             } else {
-                uint8_t t = perm[stack[i]];
+                uint16_t t = perm[stack[i]];
                 perm[stack[i]] = perm[i];
                 perm[i] = t;
             }
@@ -2928,18 +2928,18 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    uint8_t stack[N];
-    for (uint8_t i = 0; i < N; i++) {
+    uint16_t perm[N];
+    unsigned stack[N];
+    for (uint16_t i = 0; i < N; i++) {
         perm[i] = i;
         stack[i] = 0;
     }
 
-    uint8_t i = 1;
+    unsigned i = 1;
     while (i < N) {
         // print permutation to help debugging
         printf("--- permutation: [");
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
             }
@@ -2951,10 +2951,10 @@ code = '''
         rbyd = init_rbyd;
         lfs_bd_erase(&lfs, rbyd.block) => 0;
 
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             // adjust id based on future insertions
             uint16_t id = perm[j];
-            for (int k = j+1; k < N; k++) {
+            for (unsigned k = j+1; k < N; k++) {
                 if (perm[j] > perm[k]) {
                     id -= 1;
                 }
@@ -2973,7 +2973,7 @@ code = '''
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
 
         // try deleting each id
-        for (int j = 0; j < N; j++) {
+        for (unsigned j = 0; j < N; j++) {
             // print what we are deleting to help debugging
             printf("--- delete: %d ---\n", j+1);
 
@@ -2987,7 +2987,7 @@ code = '''
             assert(rbyd.count == N-1);
 
             lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-            for (int k = 0; k < N-1; k++) {
+            for (unsigned k = 0; k < N-1; k++) {
                 lfs_rbyd_get(&lfs, &rbyd,
                         LFS_MKRTAG(CREATEREG, 0, k+1), buffer, 4) => 4;
                 if (k >= j) {
@@ -3004,11 +3004,11 @@ code = '''
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
-                uint8_t t = perm[0];
+                uint16_t t = perm[0];
                 perm[0] = perm[i];
                 perm[i] = t;
             } else {
-                uint8_t t = perm[stack[i]];
+                uint16_t t = perm[stack[i]];
                 perm[stack[i]] = perm[i];
                 perm[i] = t;
             }
@@ -3020,3 +3020,5 @@ code = '''
         }
     }
 '''
+
+# [cases.test_rbyd_delete_range_permutations]
