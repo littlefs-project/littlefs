@@ -469,6 +469,15 @@ enum lfs_rtag_pat {
 #define LFS_MKRALT(color, dir, weight) \
     LFS_MKRALT_(LFS_ALT_##color, LFS_ALT_##dir, weight)
 
+#define LFS_MKRALT___(color, dir, weight) \
+    (LFS_TYPE1_ALT \
+        | ((0x1 & (lfs_rtag_t)(color)) << 0) \
+        | ((0x1 & (lfs_rtag_t)(dir)) << 1) \
+        | ((0x1ffffff8 & (lfs_rtag_t)(weight))))
+
+#define LFS_MKRALT__(color, dir, weight) \
+    LFS_MKRALT___(LFS_ALT_##color, LFS_ALT_##dir, weight)
+
 // tag operations
 static inline bool lfs_rtag_isvalid(lfs_rtag_t tag) {
     return !(tag & 0x80000000);
@@ -563,6 +572,10 @@ static inline lfs_srtag_t lfs_rtag_weight(lfs_rtag_t tag) {
     return tag >> 3;
 }
 
+static inline lfs_rtag_t lfs_rtag_weight_(lfs_rtag_t tag) {
+    return tag & ~0x7;
+}
+
 static inline lfs_rtag_t lfs_rtag_merge(lfs_rtag_t a, lfs_rtag_t b) {
     return a + (b & ~0x7);
 }
@@ -585,12 +598,30 @@ static inline bool lfs_rtag_follow(lfs_rtag_t alt,
     }
 }
 
+static inline bool lfs_rtag_follow_(lfs_rtag_t alt,
+        lfs_rtag_t lower, lfs_rtag_t upper, lfs_rtag_t tag) {
+    // TODO should we expect weight as an argument here?
+    if (lfs_rtag_isgt(alt)) {
+        return lfs_rtag_weight_(tag) >= upper - lfs_rtag_weight_(alt);
+    } else {
+        return lfs_rtag_weight_(tag) < lower + lfs_rtag_weight_(alt);
+    }
+}
+
 static inline lfs_rtag_t lfs_rtag_flip(
         lfs_rtag_t alt, lfs_rtag_t lt, lfs_rtag_t gt) {
     return LFS_MKRALT_(
             lfs_rtag_isred(alt),
             !lfs_rtag_isgt(alt),
             (lt+gt+1) - lfs_rtag_weight(alt));
+}
+
+static inline lfs_rtag_t lfs_rtag_flip_(lfs_rtag_t alt,
+        lfs_rtag_t lower, lfs_rtag_t upper) {
+    return LFS_MKRALT___(
+            lfs_rtag_isred(alt),
+            !lfs_rtag_isgt(alt),
+            (upper-lower) - lfs_rtag_weight_(alt));
 }
 
 static inline void lfs_rtag_trim(lfs_rtag_t alt,
@@ -602,12 +633,30 @@ static inline void lfs_rtag_trim(lfs_rtag_t alt,
     }
 }
 
+static inline void lfs_rtag_trim_(lfs_rtag_t alt,
+        lfs_rtag_t *lower, lfs_rtag_t *upper) {
+    if (lfs_rtag_isgt(alt)) {
+        *upper -= lfs_rtag_weight_(alt);
+    } else {
+        *lower += lfs_rtag_weight_(alt);
+    }
+}
+
 static inline void lfs_rtag_untrim(lfs_rtag_t alt,
         lfs_srtag_t *lt, lfs_srtag_t *gt) {
     if (lfs_rtag_islt(alt)) {
         *lt = *lt + lfs_rtag_weight(alt);
     } else {
         *gt = *gt + lfs_rtag_weight(alt);
+    }
+}
+
+static inline void lfs_rtag_untrim_(lfs_rtag_t alt,
+        lfs_rtag_t *lower, lfs_rtag_t *upper) {
+    if (lfs_rtag_isgt(alt)) {
+        *upper += lfs_rtag_weight_(alt);
+    } else {
+        *lower -= lfs_rtag_weight_(alt);
     }
 }
 
@@ -1230,10 +1279,9 @@ tryagain:;
         return LFS_ERR_NOENT;
     }
 
-    // weights for pruning
-    lfs_srtag_t lt = lfs_rtag_weight_lt(tag, rbyd->count+1);
-    lfs_srtag_t gt = lfs_rtag_weight_gt(tag, rbyd->count+1);
-    printf("lt, gt = (%x, %x)\n", lt, gt);
+    // keep track of bounds as we descend down the tree
+    lfs_rtag_t lower = 0;
+    lfs_rtag_t upper = (rbyd->count+1) << 15;
 
     // descend down tree
     while (true) {
@@ -1248,21 +1296,22 @@ tryagain:;
 
         // found an alt?
         if (lfs_rtag_isalt(alt)) {
-            printf("follow %c%x (%x, %x)? => %d\n", lfs_rtag_isgt(alt) ? '>' : '<', lfs_rtag_weight(alt), lt, gt, lfs_rtag_follow(alt, lt, gt));
-            if (lfs_rtag_follow(alt, lt, gt)) {
-                lfs_rtag_trim(lfs_rtag_flip(alt, lt, gt), &lt, &gt);
+            printf("follow %c%x (%x, %x, %x)? => %d\n", lfs_rtag_isgt(alt) ? '>' : '<', lfs_rtag_weight_(alt), lower, upper, tag, lfs_rtag_follow_(alt, lower, upper, tag));
+            if (lfs_rtag_follow_(alt, lower, upper, tag)) {
+                lfs_rtag_trim_(lfs_rtag_flip_(alt, lower, upper), &lower, &upper);
                 branch = branch - jump;
             } else {
-                lfs_rtag_trim(alt, &lt, &gt);
+                lfs_rtag_trim_(alt, &lower, &upper);
                 branch = branch + delta;
             }
 
         // found end of tree?
         } else {
             // update the tag id
-            lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(tag));
+            //lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(tag));
+            lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(upper-1));
 
-            printf("lt, gt = (%x, %x)\n", lt, gt);
+            printf("lower, upper = (%x, %x)\n", lower, upper);
             printf("lookup %08x => %08x (raw %08x)\n", tag, tag_, alt);
 
             // not what we're looking for?
@@ -1270,6 +1319,7 @@ tryagain:;
                 return LFS_ERR_NOENT;
             }
 
+            // TODO we should make this impossible
             // was removed? go on to the next tag
             if (lfs_rtag_isrm(tag_)) {
                 tag = lfs_rtag_inc(tag_);
@@ -1475,6 +1525,16 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
         goto leaf;
     }
 
+    // keep track of bounds as we descend down the tree
+    lfs_rtag_t lower = 0;
+    lfs_rtag_t upper = (rbyd_->count+1) << 15;
+    lfs_rtag_t tag__;
+    if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
+        tag__ = (tag & ~0x7fff)-1;
+    } else {
+        tag__ = tag;
+    }
+
     // weights for pruning
     lfs_srtag_t lt;
     lfs_srtag_t gt;
@@ -1520,6 +1580,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             lfs_rtag_t branch_ = branch + delta;
 
             // prune?
+            assert((lfs_rtag_weight(alt) >= lt+gt+1) == (lfs_rtag_weight_(alt) >= (upper-lower)));
             if (lfs_rtag_weight(alt) >= lt+gt+1) {
                 printf("prune!\n");
                 LFS_ASSERT(p_alts[0]);
@@ -1531,6 +1592,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 lfs_rbyd_p_pop(p_alts, p_jumps);
 
                 lfs_rtag_untrim(alt, &lt, &gt);
+                lfs_rtag_untrim_(alt, &lower, &upper);
             }
 
             // two reds makes a yellow, split?
@@ -1542,6 +1604,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 // if we take the red or yellow alt we can just point
                 // to the black alt, otherwise we need to point to the
                 // yellow alt and prune later
+                assert(lfs_rtag_follow_(alt, lower, upper, tag__) == lfs_rtag_follow(alt, lt, gt));
                 if (lfs_rtag_follow(alt, lt, gt)) {
                     printf("ysplit follow\n");
                     lfs_rtag_t alt_ = p_alts[0];
@@ -1554,7 +1617,9 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                     jump = jump_;
 
                     lfs_rtag_untrim(alt, &lt, &gt);
+                    lfs_rtag_untrim_(alt, &lower, &upper);
                     lfs_rtag_trim(p_alts[0], &lt, &gt);
+                    lfs_rtag_trim_(p_alts[0], &lower, &upper);
                     lfs_rbyd_p_red(p_alts, p_jumps);
 
                 } else {
@@ -1565,6 +1630,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                     p_jumps[0] = graft;
 
                     lfs_rtag_trim(alt, &lt, &gt);
+                    lfs_rtag_trim_(alt, &lower, &upper);
                     lfs_rbyd_p_red(p_alts, p_jumps);
 
                     graft = 0;
@@ -1574,6 +1640,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             }
 
             // should've taken red alt? needs a flip
+            assert((lt < 0 || gt < 0) == (tag__ < lower || tag__ >= upper));
             if (lt < 0 || gt < 0) {
                 LFS_ASSERT(p_alts[0]);
                 LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
@@ -1599,10 +1666,13 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 jump = jump_;
 
                 lfs_rtag_untrim(alt, &lt, &gt);
+                lfs_rtag_untrim_(alt, &lower, &upper);
                 lfs_rtag_trim(p_alts[0], &lt, &gt);
+                lfs_rtag_trim_(p_alts[0], &lower, &upper);
             }
 
             // take black alt? needs a flip
+            assert(lfs_rtag_follow_(alt, lower, upper, tag__) == lfs_rtag_follow(alt, lt, gt));
             if (lfs_rtag_isblack(alt) && lfs_rtag_follow(alt, lt, gt)) {
                 printf("bflip\n");
                 alt = lfs_rtag_flip(alt, lt, gt);
@@ -1621,6 +1691,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
             // continue to next alt
             lfs_rtag_trim(alt, &lt, &gt);
+            lfs_rtag_trim_(alt, &lower, &upper);
             graft = branch;
             branch = branch_;
 
@@ -1631,11 +1702,13 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             // TODO alternatively can we do this a bit more directly here
 //                lfs_rtag_t tag_ = lfs_rtag_setid(alt,
 //                        lfs_min(lfs_rtag_id(attr->tag), count));
-            lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(tag));
+            //lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(tag));
             // TODO I don't really know why this works
-            if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE && gt == 0) {
-                tag_ = lfs_rtag_decid(tag_);
-            }
+//            if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE && gt == 0) {
+//                tag_ = lfs_rtag_decid(tag_);
+//            }
+            lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(upper-1));
+
                     //gt == 0 ? lfs_rtag_id(attr->tag)-1 : lfs_rtag_id(attr->tag));
             printf("found %x (%d, %d)\n", tag_, lt >> 12, gt >> 12);
 
@@ -1645,66 +1718,38 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                     || tag_ != tag) {
                 // inserting a new id?
                 if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
-                    // bias the weights so that lookups always find the
-                    // next biggest tag
+                    // note we bias the weights here so that lfs_rbyd_lookup
+                    // always finds the next biggest tag
                     if (lfs_rtag_weight(tag_)
                             < lfs_rtag_weight(tag & ~0x7fff)) {
-                        printf("lt insert\n");
-                        //
-                        //           lt            gt
-                        //      .----'---.       .-'.
-                        //        alt
-                        //      .--'--.
-                        // <---+------+---|--+--|---+------+--->
-                        //     a     old    new     d      e
-                        //
-                        alt = LFS_MKRALT(B, LT, lt
-                                - (lfs_rtag_weight(tag & ~0x7fff)-1
-                                    - lfs_rtag_weight(tag_))
-                                + 1);
+                        assert(
+                                ((lt
+                                    - (lfs_rtag_weight(tag & ~0x7fff)-1
+                                        - lfs_rtag_weight(tag_))
+                                    + 1) << 3)
+                                == (lfs_rtag_weight_(tag_)+0x8) - lower);
+                        alt = LFS_MKRALT__(B, LT,
+                                (lfs_rtag_weight_(tag_)+0x8) - lower);
                     } else {
-                        printf("gt insert\n");
-                        printf("hmmm? %08x %08x\n", lfs_rtag_weight(tag_), lfs_rtag_weight(tag & ~0x7fff));
-                        //
-                        //            lt           gt
-                        //      .-----'--.       .-'.
-                        //                      alt
-                        //                    .--'--.
-                        // <---+------+---|--+--|---+------+--->
-                        //     a      b     new    old     e
-                        //
-                        alt = LFS_MKRALT(B, GT,
+                        alt = LFS_MKRALT__(B, GT,
                                 // TODO hm, can this be done differently?
-                                lfs_rtag_weight(lfs_rtag_incid(tag_))
-                                    - lfs_rtag_weight(tag));
+                                lfs_rtag_weight_(lfs_rtag_incid(tag_))
+                                    - lfs_rtag_weight_(tag));
                     }
                 } else {
-                    // bias the weights so that lookups always find the
-                    // next biggest tag
-                    if (lfs_rtag_weight(tag_)
-                            < lfs_rtag_weight(tag)) {
-                        //
-                        //            lt         gt
-                        //      .-----'-----. .--'--.
-                        //        alt
-                        //      .--'--.
-                        // <---+------+------+------+------+--->
-                        //     a     old    new     d      e
-                        //
-                        alt = LFS_MKRALT(B, LT, lt
-                                + 1
-                                - (lfs_rtag_weight(tag)
-                                    - lfs_rtag_weight(tag_)));
+                    // note we bias the weights here so that lfs_rbyd_lookup
+                    // always finds the next biggest tag
+                    if (lfs_rtag_weight_(tag_) < lfs_rtag_weight_(tag)) {
+                        assert(((lt
+                            + 1
+                            - (lfs_rtag_weight(tag)
+                                - lfs_rtag_weight(tag_))) << 3) == lfs_rtag_weight_(tag_) - lower + 0x8);
+                        alt = LFS_MKRALT__(B, LT,
+                                (lfs_rtag_weight_(tag_)+0x8) - lower);
                     } else {
-                        //
-                        //            lt         gt
-                        //      .-----'-----. .--'--.
-                        //                      alt
-                        //                    .--'--.
-                        // <---+------+------+------+------+--->
-                        //     a      b     new    old     e
-                        //
-                        alt = LFS_MKRALT(B, GT, gt);
+                        assert((gt << 3) == upper - lfs_rtag_weight_(tag) - 0x8);
+                        alt = LFS_MKRALT__(B, GT,
+                                upper - (lfs_rtag_weight_(tag)+0x8));
                     }
                 }
 
