@@ -1175,11 +1175,15 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
 
             // found a create? increase count of ids
             if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
-                LFS_ASSERT(count < 0xffff);
+                // TODO put this somewhere? we can't check this here because
+                // we may be reading invalid tags
+                //LFS_ASSERT(count < 0xffff);
                 count += 1;
             // found a delete? decrease count of ids
             } else if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE) {
-                LFS_ASSERT(count > 0);
+                // TODO put this somewhere? we can't check this here because
+                // we may be reading invalid tags
+                //LFS_ASSERT(count > 0);
                 count -= 1;
             // found an fcrc? save for later
             } else if (lfs_rtag_type1(tag) == LFS_TYPE1_FCRC) {
