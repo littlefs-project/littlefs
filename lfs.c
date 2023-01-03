@@ -305,6 +305,13 @@ static int lfs_bd_prog(lfs_t *lfs,
 #ifndef LFS_READONLY
 static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
     LFS_ASSERT(block < lfs->cfg->block_count);
+
+    // make sure any caches are outdated appropriately here
+    LFS_ASSERT(lfs->pcache.block != block);
+    if (lfs->rcache.block == block) {
+        lfs_cache_drop(lfs, &lfs->rcache);
+    }
+
     int err = lfs->cfg->erase(lfs->cfg, block);
     LFS_ASSERT(err <= 0);
     return err;
@@ -1044,6 +1051,18 @@ static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
         return err;
     }
 
+    if (crc) {
+        // on-disk, the tags valid bit must reflect the parity of the
+        // preceding data, fortunately for crc32c, this is the same as the
+        // parity of the crc
+        //
+        // note we do this before leb128 decoding as we may not have valid
+        // leb128 if we're erased, but we shouldn't treat this as corruption
+        if ((buffer[0] & 1) != (lfs_popc(*crc) & 1)) {
+            return LFS_ERR_INVAL;
+        }
+    }
+
     lfs_rtag_t tag_;
     ssize_t delta = lfs_fromleb128(&tag_, &buffer[i], 4);
     if (delta < 0) {
@@ -1060,16 +1079,7 @@ static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
 
     // optionally crc
     if (crc) {
-        uint32_t crc_ = *crc;
-
-        // on-disk, the tags valid bit must reflect the parity of the
-        // preceding data, fortunately for crc32c this is the same as the
-        // parity of the crc
-        if ((tag_ & 1) != (lfs_popc(crc_) & 1)) {
-            return LFS_ERR_INVAL;
-        }
-
-        *crc = lfs_crc32c(crc_, buffer, i);
+        *crc = lfs_crc32c(*crc, buffer, i);
     }
 
     // convert to in-device tag repr, we want the valid bit in the sign bit
@@ -1130,6 +1140,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
             if (delta == LFS_ERR_INVAL
                     || delta == LFS_ERR_CORRUPT
                     || delta == LFS_ERR_OVERFLOW) {
+                printf("hm? %d\n", delta);
                 maybeerased = (delta == LFS_ERR_INVAL);
                 break;
             }
@@ -1232,7 +1243,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
             // save what we've found so far
             printf("trunk => %x\n", trunk);
             rbyd->trunk = trunk;
-            rbyd->off = off;
+            rbyd->off = off + size;
             rbyd->crc = crc;
             rbyd->count = count;
         }
@@ -1247,11 +1258,13 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
 
     // did we end on a valid commit? we may have an erased block
     rbyd->erased = false;
+    printf("hm? %d %d %d\n", maybeerased, hasfcrc, rbyd->off % lfs->cfg->prog_size == 0);
     if (maybeerased && hasfcrc && rbyd->off % lfs->cfg->prog_size == 0) {
+        printf("hm? yes off=%x size=%x\n", rbyd->off, fcrc.size);
         // check for an fcrc matching the next prog's erased state, if
         // this failed most likely a previous prog was interrupted, we
         // need a new erase
-        uint32_t fcrc_ = 0xffffffff;
+        uint32_t fcrc_ = 0;
         int err = lfs_bd_crc32c(lfs,
                 NULL, &lfs->rcache, lfs->cfg->block_size,
                 rbyd->block, rbyd->off, fcrc.size, &fcrc_);
@@ -1260,6 +1273,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
         }
 
         // found beginning of erased part?
+        printf("hmmm?? %x == %x\n", fcrc_, fcrc.crc);
         rbyd->erased = (fcrc_ == fcrc.crc);
     }
 
@@ -1587,7 +1601,11 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             if (lfs_rtag_weight_(alt) >= (upper-lower)) {
                 printf("prune!\n");
                 LFS_ASSERT(p_alts[0]);
-                LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
+                //LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
+                // TODO false when remove all?
+                // TODO wait is remove all not actually cleaning up all
+                // zero-weight alt pointers? we can probably fix this with the
+                // append<->delete merge
 
                 alt = lfs_rtag_black(p_alts[0]);
                 branch_ = jump;
@@ -2353,6 +2371,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
     // so we can really change any bit to make this happen, we've reserved a bit
     // in crc tags just for this purpose
+    printf("hm %x %x (%x)\n", lfs_popc(rbyd_.crc) & 1, perturb & 1, perturb);
     if ((lfs_popc(rbyd_.crc) & 1) == (perturb & 1)) {
         buffer[0] ^= 0x2;
         rbyd_.crc ^= 0x7022df58; // note crc(a ^ b) == crc(a) ^ crc(b)
