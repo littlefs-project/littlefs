@@ -1140,7 +1140,6 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
             if (delta == LFS_ERR_INVAL
                     || delta == LFS_ERR_CORRUPT
                     || delta == LFS_ERR_OVERFLOW) {
-                printf("hm? %d\n", delta);
                 maybeerased = (delta == LFS_ERR_INVAL);
                 break;
             }
@@ -1258,9 +1257,7 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
 
     // did we end on a valid commit? we may have an erased block
     rbyd->erased = false;
-    printf("hm? %d %d %d\n", maybeerased, hasfcrc, rbyd->off % lfs->cfg->prog_size == 0);
     if (maybeerased && hasfcrc && rbyd->off % lfs->cfg->prog_size == 0) {
-        printf("hm? yes off=%x size=%x\n", rbyd->off, fcrc.size);
         // check for an fcrc matching the next prog's erased state, if
         // this failed most likely a previous prog was interrupted, we
         // need a new erase
@@ -1273,7 +1270,6 @@ static int lfs_rbyd_fetch(lfs_t *lfs,
         }
 
         // found beginning of erased part?
-        printf("hmmm?? %x == %x\n", fcrc_, fcrc.crc);
         rbyd->erased = (fcrc_ == fcrc.crc);
     }
 
@@ -2371,7 +2367,6 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
     // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
     // so we can really change any bit to make this happen, we've reserved a bit
     // in crc tags just for this purpose
-    printf("hm %x %x (%x)\n", lfs_popc(rbyd_.crc) & 1, perturb & 1, perturb);
     if ((lfs_popc(rbyd_.crc) & 1) == (perturb & 1)) {
         buffer[0] ^= 0x2;
         rbyd_.crc ^= 0x7022df58; // note crc(a ^ b) == crc(a) ^ crc(b)

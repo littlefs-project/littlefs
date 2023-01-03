@@ -1976,140 +1976,6 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_remove_append_permutations]
-defines.N = 'range(1, 6)'
-in = 'lfs.c'
-code = '''
-    lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
-
-    lfs_rbyd_t init_rbyd = {
-        .block = 0,
-        .trunk = 0,
-        .off = 0,
-        .rev = 1,
-        .crc = 0,
-        .count = 0,
-        .erased = true,
-    };
-    lfs_rbyd_t rbyd;
-    lfs_off_t off;
-    lfs_size_t size;
-
-    // test all permutations of a given size
-    uint8_t perm[N];
-    unsigned stack[N];
-    for (uint8_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
-
-    unsigned i = 1;
-    while (i < N) {
-        // print permutation to help debugging
-        printf("--- permutation: [");
-        for (unsigned j = 0; j < N; j++) {
-            if (j > 0) {
-                printf(", ");
-            }
-            printf("%d", perm[j]+1);
-        }
-        printf("] ---\n");
-
-        // create given permutation with multiple commits
-        rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.block) => 0;
-
-        for (unsigned j = 0; j < N; j++) {
-            lfs_rbyd_commit(&lfs, &rbyd,
-                    LFS_MKRATTR(UATTR, perm[j]+1, 0, "\xaa\xaa\xaa\xaa", 4,
-                    NULL)) => 0;
-        }
-
-        // copy block so we can reset after each remove
-        lfs_rbyd_t backup_rbyd = rbyd;
-        uint8_t backup_block[BLOCK_SIZE];
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
-
-        // try removing each tag
-        for (unsigned j = 0; j < N; j++) {
-            for (unsigned l = 0; l < N; l++) {
-                // print what we are removing to help debugging
-                printf("--- remove: %d, append: %d ---\n", j+1, l+1);
-
-                rbyd = backup_rbyd;
-                lfs_bd_erase(&lfs, rbyd.block) => 0;
-                lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                        rbyd.block, 0, backup_block, rbyd.off) => 0;
-
-                lfs_rbyd_commit(&lfs, &rbyd,
-                        LFS_MKRRMATTR(UATTR, j+1, 0, NULL)) => 0;
-
-                lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-                for (unsigned k = 0; k < N; k++) {
-                    lfs_srtag_t tag = lfs_rbyd_lookup(&lfs, &rbyd,
-                            LFS_MKRTAG(UATTR, k+1, 0), &off, &size);
-                    if (k == j) {
-                        if (j == N-1) {
-                            assert(tag == LFS_ERR_NOENT);
-                        } else {
-                            assert(tag == LFS_MKRTAG(UATTR, j+1+1, 0));
-                        }
-                    } else {
-                        assert(tag == LFS_MKRTAG(UATTR, k+1, 0));
-                        assert(size == 4);
-                    }
-                }
-
-                // try appending each tag to make sure the rbyd tree
-                // is still usable
-                lfs_rbyd_commit(&lfs, &rbyd,
-                        LFS_MKRATTR(UATTR, l+1, 0,
-                            "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
-                        NULL)) => 0;
-
-                lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-                for (unsigned k = 0; k < N; k++) {
-                    lfs_srtag_t tag = lfs_rbyd_lookup(&lfs, &rbyd,
-                            LFS_MKRTAG(UATTR, k+1, 0), &off, &size);
-                    if (k == l) {
-                        assert(tag == LFS_MKRTAG(UATTR, l+1, 0));
-                        assert(size == 6);
-                    } else if (k == j) {
-                        if (j == N-1) {
-                            assert(tag == LFS_ERR_NOENT);
-                        } else {
-                            assert(tag == LFS_MKRTAG(UATTR, j+1+1, 0));
-                        }
-                    } else {
-                        assert(tag == LFS_MKRTAG(UATTR, k+1, 0));
-                        assert(size == 4);
-                    }
-                }
-            }
-        }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
-    }
-'''
-
 [cases.test_rbyd_remove_all]
 in = 'lfs.c'
 code = '''
@@ -2265,6 +2131,125 @@ code = '''
             lfs_rbyd_lookup(&lfs, &rbyd,
                     LFS_MKRTAG(UATTR, j+1, 0), &off, &size)
                     => LFS_ERR_NOENT;
+        }
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint8_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint8_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+'''
+
+[cases.test_rbyd_remove_append_permutations]
+defines.N = 'range(1, 6)'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    lfs_off_t off;
+    lfs_size_t size;
+
+    // test all permutations of a given size
+    uint8_t perm[N];
+    unsigned stack[N];
+    for (uint8_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    unsigned i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // create given permutation with multiple commits
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+        for (unsigned j = 0; j < N; j++) {
+            lfs_rbyd_commit(&lfs, &rbyd,
+                    LFS_MKRATTR(UATTR, perm[j]+1, 0, "\xaa\xaa\xaa\xaa", 4,
+                    NULL)) => 0;
+        }
+
+        // copy block so we can reset after each remove
+        lfs_rbyd_t backup_rbyd = rbyd;
+        uint8_t backup_block[BLOCK_SIZE];
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+                rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+        // try removing each tag
+        for (unsigned j = 0; j < N; j++) {
+            for (unsigned l = 0; l < N; l++) {
+                // print what we are removing to help debugging
+                printf("--- remove: %d, append: %d ---\n", j+1, l+1);
+
+                rbyd = backup_rbyd;
+                lfs_bd_erase(&lfs, rbyd.block) => 0;
+                lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                        rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+                // remove
+                lfs_rbyd_commit(&lfs, &rbyd,
+                        LFS_MKRRMATTR(UATTR, j+1, 0, NULL)) => 0;
+
+                // try appending each tag to make sure the rbyd tree
+                // is still usable
+                lfs_rbyd_commit(&lfs, &rbyd,
+                        LFS_MKRATTR(UATTR, l+1, 0,
+                            "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
+                        NULL)) => 0;
+
+                lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+                for (unsigned k = 0; k < N; k++) {
+                    lfs_srtag_t tag = lfs_rbyd_lookup(&lfs, &rbyd,
+                            LFS_MKRTAG(UATTR, k+1, 0), &off, &size);
+                    if (k == l) {
+                        assert(tag == LFS_MKRTAG(UATTR, l+1, 0));
+                        assert(size == 6);
+                    } else if (k == j) {
+                        if (j == N-1) {
+                            assert(tag == LFS_ERR_NOENT);
+                        } else {
+                            assert(tag == LFS_MKRTAG(UATTR, j+1+1, 0));
+                        }
+                    } else {
+                        assert(tag == LFS_MKRTAG(UATTR, k+1, 0));
+                        assert(size == 4);
+                    }
+                }
+            }
         }
 
         // next permutation using Heap's algorithm
@@ -3517,3 +3502,769 @@ code = '''
         }
     }
 '''
+
+[cases.test_rbyd_delete_all]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // create and delete one id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // create and delete two ids
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL))) => 0;
+
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // create and delete two ids in the other order
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 2, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL))) => 0;
+
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // create and delete three ids
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL)))) => 0;
+
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // create and delete three ids in the other order
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 3, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 2, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL)))) => 0;
+
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_delete_all_range]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // create and delete one id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xaa\xaa",         2, NULL))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // create and delete two ids
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xaa\xaa",         2,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xbb\xbb",         2, NULL))))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL))) => 0;
+
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // create and delete two ids in the other order
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xaa\xaa",         2,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xbb\xbb",         2, NULL))))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 2, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL))) => 0;
+
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // create and delete three ids
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xaa\xaa",         2,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xbb\xbb",         2,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xcc\xcc",         2, NULL))))))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL)))) => 0;
+
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // create and delete three ids in the other order
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xaa\xaa",         2,
+            LFS_MKRATTR(CREATEREG, 0, 2, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xbb\xbb",         2,
+            LFS_MKRATTR(CREATEREG, 0, 3, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR,     0, 1, "\xcc\xcc",         2, NULL))))))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(DELETE, 0, 3, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 2, NULL, 0,
+            LFS_MKRATTR(DELETE, 0, 1, NULL, 0, NULL)))) => 0;
+
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    assert(rbyd.count == 0);
+    lfs_rbyd_get(&lfs, &rbyd, LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+            => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_delete_all_permutations]
+defines.N = 'range(1, 7)'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+    uint8_t buffer[4];
+
+    // create one consistent block
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+    for (unsigned j = 0; j < N; j++) {
+        lfs_rbyd_commit(&lfs, &rbyd,
+                LFS_MKRATTR(CREATEREG, 0, j+1, names[j % 6], 4,
+                NULL)) => 0;
+    }
+    assert(rbyd.count == N);
+
+    // copy block so we can reset after each delete
+    lfs_rbyd_t backup_rbyd = rbyd;
+    uint8_t backup_block[BLOCK_SIZE];
+    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+            rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+    // test all permutations of a given size
+    uint16_t perm[N];
+    unsigned stack[N];
+    for (uint16_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    unsigned i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // restore backup
+        rbyd = backup_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+        // delete each id in permutation order
+        for (unsigned j = 0; j < N; j++) {
+            // adjust id based on previous deletions
+            uint16_t id = perm[j];
+            for (unsigned k = 0; k < j; k++) {
+                if (perm[k] < perm[j]) {
+                    id -= 1;
+                }
+            }
+
+            uint16_t rbyd_count_before = rbyd.count;
+            lfs_rbyd_commit(&lfs, &rbyd,
+                    LFS_MKRATTR(DELETE, 0, id+1, NULL, 0, NULL)) => 0;
+            assert(rbyd.count == rbyd_count_before-1);
+        }
+
+        // check that all tags are now removed
+        lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+        assert(rbyd.count == 0);
+        lfs_rbyd_get(&lfs, &rbyd,
+                LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+                => LFS_ERR_NOENT;
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint16_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint16_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+'''
+
+[cases.test_rbyd_delete_all_range_permutations]
+defines.N = 'range(1, 7)'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+    uint8_t buffer[4];
+
+    // create one consistent block
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+    for (unsigned j = 0; j < N; j++) {
+        lfs_rbyd_commit(&lfs, &rbyd,
+                LFS_MKRATTR(CREATEREG, 0, j+1, names[j % 6], 4,
+                LFS_MKRATTR(UATTR,     0, j+1, names[j % 6], 2,
+                NULL))) => 0;
+    }
+    assert(rbyd.count == N);
+
+    // copy block so we can reset after each delete
+    lfs_rbyd_t backup_rbyd = rbyd;
+    uint8_t backup_block[BLOCK_SIZE];
+    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+            rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+    // test all permutations of a given size
+    uint16_t perm[N];
+    unsigned stack[N];
+    for (uint16_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    unsigned i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // restore backup
+        rbyd = backup_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+        // delete each id in permutation order
+        for (unsigned j = 0; j < N; j++) {
+            // adjust id based on previous deletions
+            uint16_t id = perm[j];
+            for (unsigned k = 0; k < j; k++) {
+                if (perm[k] < perm[j]) {
+                    id -= 1;
+                }
+            }
+
+            uint16_t rbyd_count_before = rbyd.count;
+            lfs_rbyd_commit(&lfs, &rbyd,
+                    LFS_MKRATTR(DELETE, 0, id+1, NULL, 0, NULL)) => 0;
+            assert(rbyd.count == rbyd_count_before-1);
+        }
+
+        // check that all tags are now removed
+        lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+        assert(rbyd.count == 0);
+        lfs_rbyd_get(&lfs, &rbyd,
+                LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
+                => LFS_ERR_NOENT;
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint16_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint16_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+'''
+
+
+# [cases.test_rbyd_delete_create_permutations]
+# defines.N = 'range(1, 6)'
+# in = 'lfs.c'
+# code = '''
+#     lfs_t lfs;
+#     lfs_init(&lfs, cfg) => 0;
+# 
+#     lfs_rbyd_t init_rbyd = {
+#         .block = 0,
+#         .trunk = 0,
+#         .off = 0,
+#         .rev = 1,
+#         .crc = 0,
+#         .count = 0,
+#         .erased = true,
+#     };
+#     lfs_rbyd_t rbyd;
+#     const uint8_t names[6][6] = {
+#         "\xaa\xaa\xaa\xaa\xaa\xaa",
+#         "\xbb\xbb\xbb\xbb\xbb\xbb",
+#         "\xcc\xcc\xcc\xcc\xcc\xcc",
+#         "\xdd\xdd\xdd\xdd\xdd\xdd",
+#         "\xee\xee\xee\xee\xee\xee",
+#         "\xff\xff\xff\xff\xff\xff",
+#     };
+#     uint8_t buffer[6];
+# 
+#     // test all permutations of a given size
+#     uint16_t perm[N];
+#     unsigned stack[N];
+#     for (uint16_t i = 0; i < N; i++) {
+#         perm[i] = i;
+#         stack[i] = 0;
+#     }
+# 
+#     unsigned i = 1;
+#     while (i < N) {
+#         // print permutation to help debugging
+#         printf("--- permutation: [");
+#         for (unsigned j = 0; j < N; j++) {
+#             if (j > 0) {
+#                 printf(", ");
+#             }
+#             printf("%d", perm[j]+1);
+#         }
+#         printf("] ---\n");
+# 
+#         // create given permutation with multiple commits
+#         rbyd = init_rbyd;
+#         lfs_bd_erase(&lfs, rbyd.block) => 0;
+# 
+#         for (unsigned j = 0; j < N; j++) {
+#             // adjust id based on future insertions
+#             uint16_t id = perm[j];
+#             for (unsigned k = j+1; k < N; k++) {
+#                 if (perm[j] > perm[k]) {
+#                     id -= 1;
+#                 }
+#             }
+# 
+#             lfs_rbyd_commit(&lfs, &rbyd,
+#                     LFS_MKRATTR(CREATEREG, 0, id+1, names[perm[j] % 6], 4,
+#                     NULL)) => 0;
+#         }
+#         assert(rbyd.count == N);
+# 
+#         // copy block so we can reset after each delete
+#         lfs_rbyd_t backup_rbyd = rbyd;
+#         uint8_t backup_block[BLOCK_SIZE];
+#         lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+#                 rbyd.block, 0, backup_block, rbyd.off) => 0;
+# 
+#         // try deleting each id
+#         for (unsigned j = 0; j < N; j++) {
+#             for (unsigned l = 0; l < N; l++) {
+#                 // print what we are deleting to help debugging
+#                 printf("--- delete: %d, create: %d ---\n", j+1, l+1);
+# 
+#                 rbyd = backup_rbyd;
+#                 lfs_bd_erase(&lfs, rbyd.block) => 0;
+#                 lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+#                         rbyd.block, 0, backup_block, rbyd.off) => 0;
+# 
+#                 // delete
+#                 lfs_rbyd_commit(&lfs, &rbyd,
+#                         LFS_MKRATTR(DELETE, 0, j+1, NULL, 0,
+#                         NULL)) => 0;
+#                 assert(rbyd.count == N-1);
+# 
+#                 // try creating each tag to make sure the rbyd tree
+#                 // is still usable
+#                 lfs_rbyd_commit(&lfs, &rbyd,
+#                         LFS_MKRATTR(CREATEREG, 0, l+1, names[l % 6], 6,
+#                         NULL)) => 0;
+#                 assert(rbyd.count == N);
+# 
+#                 lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+#                 for (unsigned k = 0; k < N; k++) {
+#                     lfs_ssize_t size = lfs_rbyd_get(&lfs, &rbyd,
+#                             LFS_MKRTAG(CREATEREG, 0, k+1), buffer, 6);
+#                     if (k == l) {
+#                         assert(size == 6);
+#                         assert(memcmp(buffer, names[l % 6], 6) == 0);
+#                     } else {
+#                         uint16_t expected = k;
+#                         if (expected > l) {
+#                             expected -= 1;
+#                         }
+#                         if (expected >= j) {
+#                             expected += 1;
+#                         }
+#                         assert(size == 4);
+#                         assert(memcmp(buffer, names[expected % 6], 4) == 0);
+#                     }
+#                 }
+#             }
+#         }
+# 
+#         // next permutation using Heap's algorithm
+#         if (stack[i] < i) {
+#             if (i % 2 == 0) {
+#                 uint16_t t = perm[0];
+#                 perm[0] = perm[i];
+#                 perm[i] = t;
+#             } else {
+#                 uint16_t t = perm[stack[i]];
+#                 perm[stack[i]] = perm[i];
+#                 perm[i] = t;
+#             }
+#             stack[i] += 1;
+#             i = 1;
+#         } else {
+#             stack[i] = 0;
+#             i += 1;
+#         }
+#     }
+# '''
+# 
+# [cases.test_rbyd_delete_create_range_permutations]
+# defines.N = 'range(1, 6)'
+# in = 'lfs.c'
+# code = '''
+#     lfs_t lfs;
+#     lfs_init(&lfs, cfg) => 0;
+# 
+#     lfs_rbyd_t init_rbyd = {
+#         .block = 0,
+#         .trunk = 0,
+#         .off = 0,
+#         .rev = 1,
+#         .crc = 0,
+#         .count = 0,
+#         .erased = true,
+#     };
+#     lfs_rbyd_t rbyd;
+#     const uint8_t names[6][6] = {
+#         "\xaa\xaa\xaa\xaa\xaa\xaa",
+#         "\xbb\xbb\xbb\xbb\xbb\xbb",
+#         "\xcc\xcc\xcc\xcc\xcc\xcc",
+#         "\xdd\xdd\xdd\xdd\xdd\xdd",
+#         "\xee\xee\xee\xee\xee\xee",
+#         "\xff\xff\xff\xff\xff\xff",
+#     };
+#     uint8_t buffer[6];
+# 
+#     // test all permutations of a given size
+#     uint16_t perm[N];
+#     unsigned stack[N];
+#     for (uint16_t i = 0; i < N; i++) {
+#         perm[i] = i;
+#         stack[i] = 0;
+#     }
+# 
+#     unsigned i = 1;
+#     while (i < N) {
+#         // print permutation to help debugging
+#         printf("--- permutation: [");
+#         for (unsigned j = 0; j < N; j++) {
+#             if (j > 0) {
+#                 printf(", ");
+#             }
+#             printf("%d", perm[j]+1);
+#         }
+#         printf("] ---\n");
+# 
+#         // create given permutation with multiple commits
+#         rbyd = init_rbyd;
+#         lfs_bd_erase(&lfs, rbyd.block) => 0;
+# 
+#         for (unsigned j = 0; j < N; j++) {
+#             // adjust id based on future insertions
+#             uint16_t id = perm[j];
+#             for (unsigned k = j+1; k < N; k++) {
+#                 if (perm[j] > perm[k]) {
+#                     id -= 1;
+#                 }
+#             }
+# 
+#             lfs_rbyd_commit(&lfs, &rbyd,
+#                     LFS_MKRATTR(CREATEREG, 0, id+1, names[perm[j] % 6], 4,
+#                     LFS_MKRATTR(UATTR,     0, id+1, names[perm[j] % 6], 2,
+#                     NULL))) => 0;
+#         }
+#         assert(rbyd.count == N);
+# 
+#         // copy block so we can reset after each delete
+#         lfs_rbyd_t backup_rbyd = rbyd;
+#         uint8_t backup_block[BLOCK_SIZE];
+#         lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+#                 rbyd.block, 0, backup_block, rbyd.off) => 0;
+# 
+#         // try deleting each id
+#         for (unsigned j = 0; j < N; j++) {
+#             for (unsigned l = 0; l < N; l++) {
+#                 // print what we are deleting to help debugging
+#                 printf("--- delete: %d, create: %d ---\n", j+1, l+1);
+# 
+#                 rbyd = backup_rbyd;
+#                 lfs_bd_erase(&lfs, rbyd.block) => 0;
+#                 lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+#                         rbyd.block, 0, backup_block, rbyd.off) => 0;
+# 
+#                 // delete
+#                 lfs_rbyd_commit(&lfs, &rbyd,
+#                         LFS_MKRATTR(DELETE, 0, j+1, NULL, 0,
+#                         NULL)) => 0;
+#                 assert(rbyd.count == N-1);
+# 
+#                 // try creating each tag to make sure the rbyd tree
+#                 // is still usable
+#                 lfs_rbyd_commit(&lfs, &rbyd,
+#                         LFS_MKRATTR(CREATEREG, 0, l+1, names[l % 6], 6,
+#                         LFS_MKRATTR(UATTR,     0, l+1, names[l % 6], 3,
+#                         NULL))) => 0;
+#                 assert(rbyd.count == N);
+# 
+#                 lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+#                 for (unsigned k = 0; k < N; k++) {
+#                     lfs_ssize_t size = lfs_rbyd_get(&lfs, &rbyd,
+#                             LFS_MKRTAG(CREATEREG, 0, k+1), buffer, 6);
+#                     if (k == l) {
+#                         assert(size == 6);
+#                         assert(memcmp(buffer, names[l % 6], 6) == 0);
+#                     } else {
+#                         uint16_t expected = k;
+#                         if (expected > l) {
+#                             expected -= 1;
+#                         }
+#                         if (expected >= j) {
+#                             expected += 1;
+#                         }
+#                         assert(size == 4);
+#                         assert(memcmp(buffer, names[expected % 6], 4) == 0);
+#                     }
+# 
+#                     size = lfs_rbyd_get(&lfs, &rbyd,
+#                             LFS_MKRTAG(UATTR, 0, k+1), buffer, 6);
+#                     if (k == l) {
+#                         assert(size == 3);
+#                         assert(memcmp(buffer, names[l % 6], 3) == 0);
+#                     } else {
+#                         uint16_t expected = k;
+#                         if (expected > l) {
+#                             expected -= 1;
+#                         }
+#                         if (expected >= j) {
+#                             expected += 1;
+#                         }
+#                         assert(size == 2);
+#                         assert(memcmp(buffer, names[expected % 6], 2) == 0);
+#                     }
+#                 }
+#             }
+#         }
+# 
+#         // next permutation using Heap's algorithm
+#         if (stack[i] < i) {
+#             if (i % 2 == 0) {
+#                 uint16_t t = perm[0];
+#                 perm[0] = perm[i];
+#                 perm[i] = t;
+#             } else {
+#                 uint16_t t = perm[stack[i]];
+#                 perm[stack[i]] = perm[i];
+#                 perm[i] = t;
+#             }
+#             stack[i] += 1;
+#             i = 1;
+#         } else {
+#             stack[i] = 0;
+#             i += 1;
+#         }
+#     }
+# '''
