@@ -1595,20 +1595,22 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
             // prune?
             if (lfs_rtag_weight_(alt) >= (upper-lower)) {
-                printf("prune!\n");
-                LFS_ASSERT(p_alts[0]);
-                //LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
-                // TODO false when remove all?
-                // TODO wait is remove all not actually cleaning up all
-                // zero-weight alt pointers? we can probably fix this with the
-                // append<->delete merge
+                if (p_alts[0] && lfs_rtag_isred(p_alts[0])) {
+                    printf("prune red!\n");
 
-                alt = lfs_rtag_black(p_alts[0]);
-                branch_ = jump;
-                jump = p_jumps[0];
-                lfs_rbyd_p_pop(p_alts, p_jumps);
+                    alt = lfs_rtag_black(p_alts[0]);
+                    branch_ = jump;
+                    jump = p_jumps[0];
+                    lfs_rbyd_p_pop(p_alts, p_jumps);
 
-                lfs_rtag_untrim_(alt, &lower, &upper);
+                    lfs_rtag_untrim_(alt, &lower, &upper);
+                } else {
+                    printf("prune!\n");
+
+                    graft = branch; // TODO?
+                    branch = jump;
+                    continue;
+                }
             }
 
             // two reds makes a yellow, split?
@@ -1725,17 +1727,20 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
             // split leaf?
             // TODO we might be able to rearrange this a bit better
-            if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE
-                    || tag_ != tag) {
+            if ((lfs_rtag_type1(tag) == LFS_TYPE1_CREATE
+                    || tag_ != tag)
+                    && !lfs_rtag_isrm(tag_)) {
                 // inserting a new id?
                 if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
                     // note we bias the weights here so that lfs_rbyd_lookup
                     // always finds the next biggest tag
                     if (lfs_rtag_weight(tag_)
                             < lfs_rtag_weight(tag & ~0x7fff)) {
+                        printf("bsplit lt create\n");
                         alt = LFS_MKRALT__(B, LT,
                                 (lfs_rtag_weight_(tag_)+0x8) - lower);
                     } else {
+                        printf("bsplit gt create\n");
                         alt = LFS_MKRALT__(B, GT,
                                 (upper+0x8000) - (lfs_rtag_weight_(tag)+0x8));
 //                                // TODO hm, can this be done differently?
@@ -1746,9 +1751,11 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                     // note we bias the weights here so that lfs_rbyd_lookup
                     // always finds the next biggest tag
                     if (lfs_rtag_weight_(tag_) < lfs_rtag_weight_(tag)) {
+                        printf("bsplit lt\n");
                         alt = LFS_MKRALT__(B, LT,
                                 (lfs_rtag_weight_(tag_)+0x8) - lower);
                     } else {
+                        printf("bsplit gt\n");
                         alt = LFS_MKRALT__(B, GT,
                                 upper - (lfs_rtag_weight_(tag)+0x8));
                     }
@@ -1826,6 +1833,8 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
     lfs_rtag_t upper_upper = (rbyd_->count+1) << 15;
     lfs_rtag_t lower_tag__ = tag & ~0x7fff;
     lfs_rtag_t upper_tag__ = lower_tag__ + 0x8000;
+    lfs_rtag_t lower_tag_ = 0;
+    lfs_rtag_t upper_tag_ = 0;
 
 //    // weights for pruning
 //    lfs_srtag_t lower_lt = lfs_rtag_weight_lt(tag & ~0x7fff, rbyd_->count+1);
@@ -1887,6 +1896,26 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 }
             }
 
+            // prune?
+            if (lfs_rtag_weight_(alt) >= (upper-lower)) {
+                if (p_alts[0] && lfs_rtag_isred(p_alts[0])) {
+                    printf("prune red!\n");
+
+                    alt = lfs_rtag_black(p_alts[0]);
+                    branch_ = jump;
+                    jump = p_jumps[0];
+                    lfs_rbyd_p_pop(p_alts, p_jumps);
+
+                    lfs_rtag_untrim_(alt, &lower, &upper);
+                } else {
+                    printf("prune!\n");
+
+                    graft = branch; // TODO?
+                    branch = jump;
+                    goto next;
+                }
+            }
+
             // TODO can this be combined with prune? maybe not?
             // cut?
             if (is_cut) {
@@ -1942,26 +1971,6 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                         branch = branch_;
                         goto next;
                     }
-                }
-            }
-
-            // prune?
-            if (lfs_rtag_weight_(alt) >= (upper-lower)) {
-                if (p_alts[0] && lfs_rtag_isred(p_alts[0])) {
-                    printf("prune red!\n");
-
-                    alt = lfs_rtag_black(p_alts[0]);
-                    branch_ = jump;
-                    jump = p_jumps[0];
-                    lfs_rbyd_p_pop(p_alts, p_jumps);
-
-                    lfs_rtag_untrim_(alt, &lower, &upper);
-                } else {
-                    printf("prune!\n");
-
-                    graft = branch; // TODO?
-                    branch = jump;
-                    goto next;
                 }
             }
                     
@@ -2128,6 +2137,13 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             //lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(tag));
             lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(upper-1));
 
+            if (!is_cut || is_lower) {
+                lower_tag_ = tag_;
+            }
+            if (!is_cut || !is_lower) {
+                upper_tag_ = tag_;
+            }
+
 //            printf("found %x (%x, %x, lower=%d)\n", tag_, lt, gt, is_lower);
 //            printf("(%x, %x), (%x, %x)\n", lower_lt, lower_gt, upper_lt, upper_gt);
 
@@ -2158,48 +2174,49 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 //                }
 //            }
 
-            if (tag_ != tag) {
-                // note we bias the weights here so that lfs_rbyd_lookup
-                // always finds the next biggest tag
-                if (lfs_rtag_weight_(tag_)
-                            < lfs_rtag_weight_(tag & ~0x7fff)) {
-                    if (!is_cut || is_lower) {
-                        printf("bsplit lt\n");
-                        alt = LFS_MKRALT__(B, LT,
-                                (lfs_rtag_weight_(tag_)+0x8) - lower);
-
-                        // TODO can we rededuplicate this?
-                        int err = lfs_rbyd_p_push(lfs, rbyd_,
-                                p_alts, p_jumps,
-                                alt, branch);
-                        if (err) {
-                            return err;
-                        }
-
-                        // TODO hmmm, red while cutting causes problems?
-                        lfs_rbyd_p_red(p_alts, p_jumps);
-                    }
-                } else if (lfs_rtag_weight_(tag_)
-                            >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
-                    if (!is_cut || !is_lower) {
-                        printf("bsplit gt\n");
-                        alt = LFS_MKRALT__(B, GT,
-                                upper - (lfs_rtag_weight_(tag & ~0x7fff)
-                                    +0x8000+0x8));
-
-                        // TODO can we rededuplicate this?
-                        int err = lfs_rbyd_p_push(lfs, rbyd_,
-                                p_alts, p_jumps,
-                                alt, branch);
-                        if (err) {
-                            return err;
-                        }
-
-                        // TODO hmmm, red while cutting causes problems?
-                        lfs_rbyd_p_red(p_alts, p_jumps);
-                    }
-                }
-            }
+//            if (tag_ != tag) {
+//                // note we bias the weights here so that lfs_rbyd_lookup
+//                // always finds the next biggest tag
+//                if (lfs_rtag_weight_(tag_)
+//                            < lfs_rtag_weight_(tag & ~0x7fff)) {
+//                    if (!is_cut || is_lower) {
+//                        printf("bsplit lt\n");
+//                        alt = LFS_MKRALT__(B, LT,
+//                                (lfs_rtag_weight_(tag_)+0x8) - lower);
+//
+//                        // TODO can we rededuplicate this?
+//                        int err = lfs_rbyd_p_push(lfs, rbyd_,
+//                                p_alts, p_jumps,
+//                                alt, branch);
+//                        if (err) {
+//                            return err;
+//                        }
+//
+//                        // TODO hmmm, red while cutting causes problems?
+//                        lfs_rbyd_p_red(p_alts, p_jumps);
+//                    }
+//                } else if (lfs_rtag_weight_(tag_)
+//                            >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
+//                    if (!is_cut || !is_lower) {
+//                        printf("bsplit gt\n");
+//                        alt = LFS_MKRALT__(B, GT,
+//                                upper - (lfs_rtag_weight_(tag & ~0x7fff)
+//                                    +0x8000+0x8));
+//
+//                        // TODO can we rededuplicate this?
+//                        int err = lfs_rbyd_p_push(lfs, rbyd_,
+//                                p_alts, p_jumps,
+//                                alt, branch);
+//                        if (err) {
+//                            return err;
+//                        }
+//
+//                        // TODO hmmm, red while cutting causes problems?
+//                        lfs_rbyd_p_red(p_alts, p_jumps);
+//                    }
+//                }
+//            }
+//
 
             // TODO this should be restructured, it's a bit of mess
             if (is_cut && !is_other_done) {
@@ -2207,6 +2224,62 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 is_lower = !is_lower;
                 printf("switch bounds => %s\n", is_lower ? "lower" : "upper");
                 continue;
+            }
+
+            LFS_ASSERT(lower_tag_);
+            LFS_ASSERT(upper_tag_);
+
+//            // make sure to fill out the rest of the weight if we're
+//            // deleting the last tag in the tree
+//            if (lfs_rtag_id(tag) == rbyd_->count+1-1) {
+//                if (p_alts[0]) {
+//                    printf("expand lower\n");
+//                    LFS_ASSERT(lfs_rtag_islt(p_alts[0]));
+//                    p_alts[0] += upper_upper - lower_lower - 0x8000;
+//                } else {
+//                    // TODO
+//                    printf("expand empty\n");
+//                    LFS_ASSERT(false);
+//                }
+//            }
+
+            // split leaf nodes?
+            if (lower_tag_ != tag // TODO need this check?
+                    && lfs_rtag_weight_(lower_tag_)
+                        < lfs_rtag_weight_(tag & ~0x7fff)) {
+                printf("bsplit lower\n");
+                alt = LFS_MKRALT__(B, LT,
+                        (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
+
+                // TODO can we rededuplicate this?
+                int err = lfs_rbyd_p_push(lfs, rbyd_,
+                        p_alts, p_jumps,
+                        alt, lower_branch);
+                if (err) {
+                    return err;
+                }
+
+                lfs_rbyd_p_red(p_alts, p_jumps);
+            }
+
+            if (upper_tag_ != tag // TODO need this check?
+                    && lfs_rtag_weight_(upper_tag_)
+                        >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
+                printf("bsplit upper\n");
+                alt = LFS_MKRALT__(B, GT,
+                        upper_upper - (lfs_rtag_weight_(lower_tag_)+0x8));
+//                        upper_upper - (lfs_rtag_weight_(tag & ~0x7fff)
+//                            +0x8000+0x8));
+
+                // TODO can we rededuplicate this?
+                int err = lfs_rbyd_p_push(lfs, rbyd_,
+                        p_alts, p_jumps,
+                        alt, upper_branch);
+                if (err) {
+                    return err;
+                }
+
+                lfs_rbyd_p_red(p_alts, p_jumps);
             }
 
             // flush any pending alts
