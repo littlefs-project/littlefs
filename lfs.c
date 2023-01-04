@@ -1607,7 +1607,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 } else {
                     printf("prune!\n");
 
-                    graft = branch; // TODO?
+                    graft = 0; // TODO?
                     branch = jump;
                     continue;
                 }
@@ -1647,7 +1647,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                     lfs_rtag_trim_(alt, &lower, &upper);
                     lfs_rbyd_p_red(p_alts, p_jumps);
 
-                    graft = 0;
+                    graft = 0; // TODO
                     branch = branch_;
                     continue;
                 }
@@ -1847,7 +1847,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
     // queue of pending alts we can emulate rotations with
     lfs_rtag_t p_alts[3] = {0, 0, 0};
     lfs_off_t p_jumps[3] = {0, 0, 0};
-    lfs_off_t graft = lower_branch;
+    lfs_off_t graft = 0;
 
     // descend down tree, building alt pointers
     while (true) {
@@ -1880,20 +1880,20 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 //                printf("lower, upper = (%x, %x), (%x, %x)\n", lower_lt, lower_gt, upper_lt, upper_gt);
                 is_cut = true;
 
-                // TODO do we need this if we flip red alts early?
-                if (p_alts[0] && lfs_rtag_isred(p_alts[0])) {
-                    printf("cut on red %x?\n", graft);
-//                    upper_branch = graft;
-////                    lfs_rtag_untrim(p_alts[0], &upper_lt, &upper_gt);
-//                    lfs_rtag_untrim_(p_alts[0], &upper_lower, &upper_upper);
-//
-//                    lower_branch = graft;
-//                    lfs_rtag_untrim_(p_alts[0], &lower_lower, &lower_upper);
-//
-//                    lfs_rbyd_p_pop(p_alts, p_jumps);
-//
-//                    continue;
-                }
+//                // TODO do we need this if we flip red alts early?
+//                if (p_alts[0] && lfs_rtag_isred(p_alts[0])) {
+//                    printf("cut on red %x?\n", graft);
+////                    upper_branch = graft;
+//////                    lfs_rtag_untrim(p_alts[0], &upper_lt, &upper_gt);
+////                    lfs_rtag_untrim_(p_alts[0], &upper_lower, &upper_upper);
+////
+////                    lower_branch = graft;
+////                    lfs_rtag_untrim_(p_alts[0], &lower_lower, &lower_upper);
+////
+////                    lfs_rbyd_p_pop(p_alts, p_jumps);
+////
+////                    continue;
+//                }
             }
 
             // prune?
@@ -1910,7 +1910,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 } else {
                     printf("prune!\n");
 
-                    graft = branch; // TODO?
+                    graft = 0; // TODO?
                     branch = jump;
                     goto next;
                 }
@@ -1942,7 +1942,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                         lfs_rtag_trim_(lfs_rtag_flip_(alt, lower, upper),
                                 &lower, &upper);
 
-                        graft = branch; // TODO?
+                        graft = 0; // TODO?
                         branch = jump;
                         goto next;
                     }
@@ -1967,7 +1967,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                         printf("cut nofollow\n");
                         lfs_rtag_trim_(alt, &lower, &upper);
 
-                        graft = branch; // TODO?
+                        graft = 0; // TODO?
                         branch = branch_;
                         goto next;
                     }
@@ -2019,7 +2019,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
                 } else {
                     printf("ysplit nofollow\n");
-//                    LFS_ASSERT(graft != 0);
+                    LFS_ASSERT(graft != 0);
                     p_alts[0] = lfs_rtag_black(
                             lfs_rtag_merge(alt, p_alts[0]));
                     p_jumps[0] = graft;
@@ -2028,7 +2028,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                     lfs_rtag_trim_(alt, &lower, &upper);
                     lfs_rbyd_p_red(p_alts, p_jumps);
 
-                    graft = branch;
+                    graft = 0; // TODO
                     branch = branch_;
                     goto next;
                 }
