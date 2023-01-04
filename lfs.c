@@ -2259,7 +2259,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                     return err;
                 }
 
-                lfs_rbyd_p_red(p_alts, p_jumps);
+                // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
             }
 
             if (upper_tag_ != tag // TODO need this check?
@@ -2279,7 +2279,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                     return err;
                 }
 
-                lfs_rbyd_p_red(p_alts, p_jumps);
+                // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
             }
 
             // flush any pending alts
