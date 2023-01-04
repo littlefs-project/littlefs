@@ -139,6 +139,12 @@ static inline uint32_t lfs_npw2(uint32_t a) {
 #endif
 }
 
+// TODO we should eventually adopt this as the new name for npw2
+// Find the ceiling of log base 2 of the given number
+static inline uint32_t lfs_nlog2(uint32_t a) {
+    return lfs_npw2(a);
+}
+
 // Count the number of trailing binary zeros in a
 // lfs_ctz(0) may be undefined
 static inline uint32_t lfs_ctz(uint32_t a) {

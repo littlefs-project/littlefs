@@ -1577,6 +1577,9 @@ code = '''
     lfs_off_t off;
     lfs_size_t size;
 
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
     // test all permutations of a given size
     uint8_t perm[N];
     unsigned stack[N];
@@ -1618,6 +1621,9 @@ code = '''
                     => LFS_MKRTAG(UATTR, j+1, 0);
         }
 
+        // keep track of the worst size
+        worst_size = lfs_max(worst_size, rbyd.off);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -1636,6 +1642,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + N;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 [cases.test_rbyd_multi_permutations]
@@ -1657,6 +1672,9 @@ code = '''
     lfs_rbyd_t rbyd;
     lfs_off_t off;
     lfs_size_t size;
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
 
     // test all permutations of a given size
     uint8_t perm[N];
@@ -1695,6 +1713,9 @@ code = '''
                     => LFS_MKRTAG(UATTR, j+1, 0);
         }
 
+        // keep track of the worst size
+        worst_size = lfs_max(worst_size, rbyd.off);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -1713,6 +1734,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + N;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 [cases.test_rbyd_large]
@@ -1891,6 +1921,9 @@ code = '''
     lfs_off_t off;
     lfs_size_t size;
 
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
     // test all permutations of a given size
     uint8_t perm[N];
     unsigned stack[N];
@@ -1954,6 +1987,9 @@ code = '''
                     assert(tag == LFS_MKRTAG(UATTR, k+1, 0));
                 }
             }
+
+            // keep track of the worst size
+            worst_size = lfs_max(worst_size, rbyd.off);
         }
 
         // next permutation using Heap's algorithm
@@ -1974,6 +2010,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + N + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 [cases.test_rbyd_remove_all]
@@ -2077,6 +2122,9 @@ code = '''
     lfs_off_t off;
     lfs_size_t size;
 
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
     // create one consistent block
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -2133,6 +2181,24 @@ code = '''
                     => LFS_ERR_NOENT;
         }
 
+        // try resuming from all tags being removed
+        lfs_rbyd_commit(&lfs, &rbyd,
+                LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
+                NULL)) => 0;
+
+        lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+        lfs_rbyd_lookup(&lfs, &rbyd,
+                LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+                => LFS_MKRTAG(UATTR, 1, 0);
+        for (unsigned j = 1; j < N; j++) {
+            lfs_rbyd_lookup(&lfs, &rbyd,
+                    LFS_MKRTAG(UATTR, j+1, 0), &off, &size)
+                    => LFS_ERR_NOENT;
+        }
+
+        // keep track of the worst size
+        worst_size = lfs_max(worst_size, rbyd.off);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -2151,6 +2217,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + N + N + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 [cases.test_rbyd_remove_append_permutations]
@@ -2172,6 +2247,9 @@ code = '''
     lfs_rbyd_t rbyd;
     lfs_off_t off;
     lfs_size_t size;
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
 
     // test all permutations of a given size
     uint8_t perm[N];
@@ -2249,6 +2327,9 @@ code = '''
                         assert(size == 4);
                     }
                 }
+
+                // keep track of the worst size
+                worst_size = lfs_max(worst_size, rbyd.off);
             }
         }
 
@@ -2270,6 +2351,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + N + 1 + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 
@@ -2612,6 +2702,9 @@ code = '''
     };
     uint8_t buffer[4];
 
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
     // test all permutations of a given size
     uint16_t perm[N];
     unsigned stack[N];
@@ -2662,6 +2755,9 @@ code = '''
             assert(memcmp(buffer, names[j % 6], 4) == 0);
         }
 
+        // keep track of the worst size
+        worst_size = lfs_max(worst_size, rbyd.off);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -2680,6 +2776,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + N;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 [cases.test_rbyd_multi_create_permutations]
@@ -2708,6 +2813,9 @@ code = '''
         "\xff\xff\xff\xff",
     };
     uint8_t buffer[4];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
 
     // test all permutations of a given size
     uint16_t perm[N];
@@ -2755,6 +2863,9 @@ code = '''
             assert(memcmp(buffer, names[j % 6], 4) == 0);
         }
 
+        // keep track of the worst size
+        worst_size = lfs_max(worst_size, rbyd.off);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -2773,6 +2884,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + N;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 [cases.test_rbyd_create_large]
@@ -3275,6 +3395,9 @@ code = '''
     };
     uint8_t buffer[4];
 
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
     // test all permutations of a given size
     uint16_t perm[N];
     unsigned stack[N];
@@ -3347,6 +3470,9 @@ code = '''
             lfs_rbyd_get(&lfs, &rbyd,
                     LFS_MKRTAG(CREATEREG, 0, N-1+1), buffer, 4)
                     => LFS_ERR_NOENT;
+
+            // keep track of the worst size
+            worst_size = lfs_max(worst_size, rbyd.off);
         }
 
         // next permutation using Heap's algorithm
@@ -3367,6 +3493,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + N + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 [cases.test_rbyd_delete_range_permutations]
@@ -3395,6 +3530,9 @@ code = '''
         "\xff\xff\xff\xff",
     };
     uint8_t buffer[4];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
 
     // test all permutations of a given size
     uint16_t perm[N];
@@ -3481,6 +3619,9 @@ code = '''
             lfs_rbyd_get(&lfs, &rbyd,
                     LFS_MKRTAG(UATTR, 1, N-1+1), buffer, 4)
                     => LFS_ERR_NOENT;
+
+            // keep track of the worst size
+            worst_size = lfs_max(worst_size, rbyd.off);
         }
 
         // next permutation using Heap's algorithm
@@ -3501,6 +3642,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + 2*N + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 [cases.test_rbyd_delete_all]
@@ -3771,7 +3921,10 @@ code = '''
         "\xee\xee\xee\xee",
         "\xff\xff\xff\xff",
     };
-    uint8_t buffer[4];
+    uint8_t buffer[6];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
 
     // create one consistent block
     rbyd = init_rbyd;
@@ -3839,6 +3992,25 @@ code = '''
                 LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
                 => LFS_ERR_NOENT;
 
+        // try resuming from all tags being removed
+        lfs_rbyd_commit(&lfs, &rbyd,
+                LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
+                NULL)) => 0;
+        assert(rbyd.count == 1);
+
+        lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+        assert(rbyd.count == 1);
+        lfs_rbyd_get(&lfs, &rbyd,
+                LFS_MKRTAG(CREATEREG, 0, 1), buffer, 6)
+                => 6;
+        assert(memcmp(buffer, "\xaa\xaa\xaa\xaa\xaa\xaa", 6) == 0);
+        lfs_rbyd_get(&lfs, &rbyd,
+                LFS_MKRTAG(CREATEREG, 0, 2), buffer, 6)
+                => LFS_ERR_NOENT;
+
+        // keep track of the worst size
+        worst_size = lfs_max(worst_size, rbyd.off);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -3857,6 +4029,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + 2*N + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 [cases.test_rbyd_delete_all_range_permutations]
@@ -3884,7 +4065,10 @@ code = '''
         "\xee\xee\xee\xee",
         "\xff\xff\xff\xff",
     };
-    uint8_t buffer[4];
+    uint8_t buffer[6];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
 
     // create one consistent block
     rbyd = init_rbyd;
@@ -3953,6 +4137,33 @@ code = '''
                 LFS_MKRTAG(CREATEREG, 0, 1), buffer, 4)
                 => LFS_ERR_NOENT;
 
+        // try resuming from all tags being removed
+        lfs_rbyd_commit(&lfs, &rbyd,
+                LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
+                LFS_MKRATTR(UATTR,     1, 1, "\xaa\xaa\xaa",             3,
+                NULL))) => 0;
+        assert(rbyd.count == 1);
+
+        lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+        assert(rbyd.count == 1);
+        lfs_rbyd_get(&lfs, &rbyd,
+                LFS_MKRTAG(CREATEREG, 0, 1), buffer, 6)
+                => 6;
+        assert(memcmp(buffer, "\xaa\xaa\xaa\xaa\xaa\xaa", 6) == 0);
+        lfs_rbyd_get(&lfs, &rbyd,
+                LFS_MKRTAG(UATTR, 1, 1), buffer, 6)
+                => 3;
+        assert(memcmp(buffer, "\xaa\xaa\xaa", 3) == 0);
+        lfs_rbyd_get(&lfs, &rbyd,
+                LFS_MKRTAG(CREATEREG, 0, 2), buffer, 6)
+                => LFS_ERR_NOENT;
+        lfs_rbyd_get(&lfs, &rbyd,
+                LFS_MKRTAG(UATTR, 1, 2), buffer, 6)
+                => LFS_ERR_NOENT;
+
+        // keep track of the worst size
+        worst_size = lfs_max(worst_size, rbyd.off);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -3971,10 +4182,16 @@ code = '''
             i += 1;
         }
     }
-'''
 
-# TODO test delete-to-zero with fetches after explicitly?
-# TODO also remove-to-zero for removes
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + 2*N + N + 2;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+'''
 
 [cases.test_rbyd_delete_create_permutations]
 defines.N = 'range(1, 6)'
@@ -4002,6 +4219,9 @@ code = '''
         "\xff\xff\xff\xff\xff\xff",
     };
     uint8_t buffer[6];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
 
     // test all permutations of a given size
     uint16_t perm[N];
@@ -4091,6 +4311,9 @@ code = '''
                         assert(memcmp(buffer, names[expected % 6], 4) == 0);
                     }
                 }
+
+                // keep track of the worst size
+                worst_size = lfs_max(worst_size, rbyd.off);
             }
         }
 
@@ -4112,6 +4335,15 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + N + 1 + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
 
 [cases.test_rbyd_delete_create_range_permutations]
@@ -4140,6 +4372,9 @@ code = '''
         "\xff\xff\xff\xff\xff\xff",
     };
     uint8_t buffer[6];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
 
     // test all permutations of a given size
     uint16_t perm[N];
@@ -4248,6 +4483,9 @@ code = '''
                         assert(memcmp(buffer, names[expected % 6], 2) == 0);
                     }
                 }
+
+                // keep track of the worst size
+                worst_size = lfs_max(worst_size, rbyd.off);
             }
         }
 
@@ -4269,4 +4507,13 @@ code = '''
             i += 1;
         }
     }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    lfs_size_t n = 1 + N + 1 + 2;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+    assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
 '''
