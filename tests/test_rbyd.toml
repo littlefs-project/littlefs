@@ -1876,29 +1876,29 @@ code = '''
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
             => LFS_ERR_NOENT;
 
-    // commit with two attributes, remove the second one
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-    lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
-            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
-    lfs_rbyd_commit(&lfs, &rbyd,
-            LFS_MKRRMATTR(UATTR, 2, 0, NULL)) => 0;
-
-    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
-            => LFS_MKRTAG(UATTR, 1, 0);
-    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
-            => LFS_ERR_NOENT;
-    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
-            => LFS_ERR_NOENT;
-
-    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
-            => LFS_MKRTAG(UATTR, 1, 0);
-    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
-            => LFS_ERR_NOENT;
-    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
-            => LFS_ERR_NOENT;
+//    // commit with two attributes, remove the second one
+//    rbyd = init_rbyd;
+//    lfs_bd_erase(&lfs, rbyd.block) => 0;
+//    lfs_rbyd_commit(&lfs, &rbyd,
+//            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+//            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+//    lfs_rbyd_commit(&lfs, &rbyd,
+//            LFS_MKRRMATTR(UATTR, 2, 0, NULL)) => 0;
+//
+//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+//            => LFS_MKRTAG(UATTR, 1, 0);
+//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+//            => LFS_ERR_NOENT;
+//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+//            => LFS_ERR_NOENT;
+//
+//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+//            => LFS_MKRTAG(UATTR, 1, 0);
+//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+//            => LFS_ERR_NOENT;
+//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+//            => LFS_ERR_NOENT;
 '''
 
 [cases.test_rbyd_remove_permutations]

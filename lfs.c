@@ -1286,7 +1286,6 @@ static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
         return LFS_ERR_NOENT;
     }
 
-tryagain:;
     // no trunk yet?
     lfs_off_t branch = rbyd->trunk;
     if (!branch) {
@@ -1329,15 +1328,8 @@ tryagain:;
             printf("lookup %08x => %08x (raw %08x)\n", tag, tag_, alt);
 
             // not what we're looking for?
-            if (tag_ < tag) {
+            if (tag_ < tag || lfs_rtag_isrm(tag_)) {
                 return LFS_ERR_NOENT;
-            }
-
-            // TODO we should make this impossible
-            // was removed? go on to the next tag
-            if (lfs_rtag_isrm(tag_)) {
-                tag = lfs_rtag_inc(tag_);
-                goto tryagain;
             }
 
             // save what we found
@@ -1831,10 +1823,18 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
     lfs_rtag_t lower_upper = (rbyd_->count+1) << 15;
     lfs_rtag_t upper_lower = 0;
     lfs_rtag_t upper_upper = (rbyd_->count+1) << 15;
-    lfs_rtag_t lower_tag__ = tag & ~0x7fff;
-    lfs_rtag_t upper_tag__ = lower_tag__ + 0x8000;
+    lfs_rtag_t lower_tag__; // = tag & ~0x7fff;
+    lfs_rtag_t upper_tag__; // = lower_tag__ + 0x8000;
     lfs_rtag_t lower_tag_ = 0;
     lfs_rtag_t upper_tag_ = 0;
+
+    if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE) {
+        lower_tag__ = tag & ~0x7fff;
+        upper_tag__ = lower_tag__ + 0x8000;
+    } else {
+        lower_tag__ = tag & ~0x1;
+        upper_tag__ = lower_tag__ + 0x8;
+    }
 
 //    // weights for pruning
 //    lfs_srtag_t lower_lt = lfs_rtag_weight_lt(tag & ~0x7fff, rbyd_->count+1);
@@ -2244,42 +2244,83 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 //            }
 
             // split leaf nodes?
-            if (lower_tag_ != tag // TODO need this check?
-                    && lfs_rtag_weight_(lower_tag_)
-                        < lfs_rtag_weight_(tag & ~0x7fff)) {
-                printf("bsplit lower\n");
-                alt = LFS_MKRALT__(B, LT,
-                        (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
+            if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE) {
+                if (lower_tag_ != tag // TODO need this check?
+                        && lfs_rtag_weight_(lower_tag_)
+                            < lfs_rtag_weight_(tag & ~0x7fff)) {
+                    printf("bsplit lower\n");
+                    alt = LFS_MKRALT__(B, LT,
+                            (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
 
-                // TODO can we rededuplicate this?
-                int err = lfs_rbyd_p_push(lfs, rbyd_,
-                        p_alts, p_jumps,
-                        alt, lower_branch);
-                if (err) {
-                    return err;
+                    // TODO can we rededuplicate this?
+                    int err = lfs_rbyd_p_push(lfs, rbyd_,
+                            p_alts, p_jumps,
+                            alt, lower_branch);
+                    if (err) {
+                        return err;
+                    }
+
+                    // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
                 }
 
-                // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
-            }
+                if (upper_tag_ != tag // TODO need this check?
+                        && lfs_rtag_weight_(upper_tag_)
+                            >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
+                    printf("bsplit upper\n");
+                    alt = LFS_MKRALT__(B, GT,
+                            upper_upper - (lfs_rtag_weight_(lower_tag_)+0x8));
+    //                        upper_upper - (lfs_rtag_weight_(tag & ~0x7fff)
+    //                            +0x8000+0x8));
 
-            if (upper_tag_ != tag // TODO need this check?
-                    && lfs_rtag_weight_(upper_tag_)
-                        >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
-                printf("bsplit upper\n");
-                alt = LFS_MKRALT__(B, GT,
-                        upper_upper - (lfs_rtag_weight_(lower_tag_)+0x8));
-//                        upper_upper - (lfs_rtag_weight_(tag & ~0x7fff)
-//                            +0x8000+0x8));
+                    // TODO can we rededuplicate this?
+                    int err = lfs_rbyd_p_push(lfs, rbyd_,
+                            p_alts, p_jumps,
+                            alt, upper_branch);
+                    if (err) {
+                        return err;
+                    }
 
-                // TODO can we rededuplicate this?
-                int err = lfs_rbyd_p_push(lfs, rbyd_,
-                        p_alts, p_jumps,
-                        alt, upper_branch);
-                if (err) {
-                    return err;
+                    // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
+                }
+            } else {
+                if (lower_tag_ != tag // TODO need this check?
+                        && lfs_rtag_weight_(lower_tag_)
+                            < lfs_rtag_weight_(tag & ~0x1)) {
+                    printf("bsplit lower\n");
+                    alt = LFS_MKRALT__(B, LT,
+                            (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
+
+                    // TODO can we rededuplicate this?
+                    int err = lfs_rbyd_p_push(lfs, rbyd_,
+                            p_alts, p_jumps,
+                            alt, lower_branch);
+                    if (err) {
+                        return err;
+                    }
+
+                    // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
                 }
 
-                // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
+                if (upper_tag_ != tag // TODO need this check?
+                        && lfs_rtag_weight_(upper_tag_)
+                            >= lfs_rtag_weight_(tag & ~0x1)+0x8) {
+                    printf("bsplit upper\n");
+                    alt = LFS_MKRALT__(B, GT,
+                            upper_upper - (lfs_rtag_weight_(lower_tag_)+0x8)
+                                + 0x8);
+    //                        upper_upper - (lfs_rtag_weight_(tag & ~0x7fff)
+    //                            +0x8000+0x8));
+
+                    // TODO can we rededuplicate this?
+                    int err = lfs_rbyd_p_push(lfs, rbyd_,
+                            p_alts, p_jumps,
+                            alt, upper_branch);
+                    if (err) {
+                        return err;
+                    }
+
+                    // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
+                }
             }
 
             // flush any pending alts
@@ -2344,7 +2385,7 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 
     // append each tag to the tree
     for (const struct lfs_rattr *attr = attrs; attr; attr = attr->next) {
-        if (lfs_rtag_type1(attr->tag) == LFS_TYPE1_DELETE) {
+        if (lfs_rtag_isrm(attr->tag)) {
             // deletes require range-deletion, this is a bit more complicated
             // than normal tags
             int err = lfs_rbyd_delete(lfs, &rbyd_,
