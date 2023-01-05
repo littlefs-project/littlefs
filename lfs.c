@@ -1517,303 +1517,302 @@ static void lfs_rbyd_p_red(
     }
 }
 
-static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
-        lfs_rtag_t tag, const void *buffer, lfs_size_t size) {
-    printf("- append() -\n");
-    LFS_ASSERT(lfs_rtag_id(tag) <= rbyd_->count+1);
-
-    // assume we'll update our trunk
-    lfs_off_t branch = rbyd_->trunk;
-    rbyd_->trunk = rbyd_->off;
-
-    // no trunk yet?
-    if (!branch) {
-        goto leaf;
-    }
-
-    // keep track of bounds as we descend down the tree
-    lfs_rtag_t lower = 0;
-    lfs_rtag_t upper = (rbyd_->count+1) << 15;
-    lfs_rtag_t tag__;
-    if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
-        tag__ = tag & ~0x7fff;
-    } else {
-        tag__ = tag;
-    }
-
-//    // weights for pruning
-//    lfs_srtag_t lt;
-//    lfs_srtag_t gt;
-//    if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
-//        // inserting a new id? align down
-//        // TODO special function for this?
-////            if (lfs_rtag_id(attr->tag) == count+1) {
-////                lt = (count+1) << 12;
-////                gt = 0;
-////            } else {
-////                lt = lfs_rtag_weight_lt(attr->tag & ~0x7fff, count+1);
-////                gt = lfs_rtag_weight_gt(attr->tag & ~0x7fff, count+1);
-////            }
-//        lt = lfs_rtag_weight_lt(tag & ~0x7fff, rbyd_->count+1) - 1;
-//        gt = lfs_rtag_weight_gt(tag & ~0x7fff, rbyd_->count+1) + 1;
-//    } else {
-//        lt = lfs_rtag_weight_lt(tag, rbyd_->count+1);
-//        gt = lfs_rtag_weight_gt(tag, rbyd_->count+1);
+//static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
+//        lfs_rtag_t tag, const void *buffer, lfs_size_t size) {
+//    printf("- append() -\n");
+//    LFS_ASSERT(lfs_rtag_id(tag) <= rbyd_->count+1);
+//
+//    // assume we'll update our trunk
+//    lfs_off_t branch = rbyd_->trunk;
+//    rbyd_->trunk = rbyd_->off;
+//
+//    // no trunk yet?
+//    if (!branch) {
+//        goto leaf;
 //    }
 //
-//    printf("lt, gt = (%x, %x)\n", lt, gt);
-
-    // queue of pending alts we can emulate rotations with
-    lfs_rtag_t p_alts[3] = {0, 0, 0};
-    lfs_off_t p_jumps[3] = {0, 0, 0};
-    lfs_off_t graft = 0;
-
-    // descend down tree, building alt pointers
-    while (true) {
-        lfs_rtag_t alt;
-        lfs_off_t jump;
-        lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
-                &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
-                rbyd_->block, branch, &alt, &jump, NULL);
-        if (delta < 0) {
-            return delta;
-        }
-
-        // found an alt?
-        if (lfs_rtag_isalt(alt)) {
-            // make jump absolute
-            jump = branch - jump;
-            lfs_rtag_t branch_ = branch + delta;
-
-            // prune?
-            if (lfs_rtag_weight_(alt) >= (upper-lower)) {
-                if (p_alts[0] && lfs_rtag_isred(p_alts[0])) {
-                    printf("prune red!\n");
-
-                    alt = lfs_rtag_black(p_alts[0]);
-                    branch_ = jump;
-                    jump = p_jumps[0];
-                    lfs_rbyd_p_pop(p_alts, p_jumps);
-
-                    lfs_rtag_untrim_(alt, &lower, &upper);
-                } else {
-                    printf("prune!\n");
-
-                    graft = 0; // TODO?
-                    branch = jump;
-                    continue;
-                }
-            }
-
-            // two reds makes a yellow, split?
-            if (lfs_rtag_isred(alt)
-                    && p_alts[0]
-                    && lfs_rtag_isred(p_alts[0])) {
-                LFS_ASSERT(lfs_rtag_isparallel(alt, p_alts[0]));
-
-                // if we take the red or yellow alt we can just point
-                // to the black alt, otherwise we need to point to the
-                // yellow alt and prune later
-                if (lfs_rtag_follow_(alt, lower, upper, tag__)) {
-                    printf("ysplit follow\n");
-                    lfs_rtag_t alt_ = p_alts[0];
-                    lfs_off_t jump_ = p_jumps[0];
-                    p_alts[0] = lfs_rtag_black(
-                            lfs_rtag_flip_(alt, lower, upper));
-                    p_jumps[0] = branch_;
-                    alt = lfs_rtag_black(alt_);
-                    branch_ = jump;
-                    jump = jump_;
-
-                    lfs_rtag_untrim_(alt, &lower, &upper);
-                    lfs_rtag_trim_(p_alts[0], &lower, &upper);
-                    lfs_rbyd_p_red(p_alts, p_jumps);
-
-                } else {
-                    printf("ysplit nofollow\n");
-                    LFS_ASSERT(graft != 0);
-                    p_alts[0] = lfs_rtag_black(
-                            lfs_rtag_merge(alt, p_alts[0]));
-                    p_jumps[0] = graft;
-
-                    lfs_rtag_trim_(alt, &lower, &upper);
-                    lfs_rbyd_p_red(p_alts, p_jumps);
-
-                    graft = 0; // TODO
-                    branch = branch_;
-                    continue;
-                }
-            }
-
-            // should've taken red alt? needs a flip
-            //
-            // note we need a check for a valid red alt due to creates
-            // TODO note we can get rid of this if we create at the upper
-            // boundary of the previous id
-            if (p_alts[0]
-                    && ((lfs_rtag_islt(p_alts[0]) && tag__ < lower)
-                        || (lfs_rtag_isgt(p_alts[0]) && tag__ >= upper))) {
-                LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
-                LFS_ASSERT(lfs_rtag_isblack(alt));
-
-                printf("rflip %s\n",
-                        lfs_rtag_isparallel(alt, p_alts[0]) ? "parallel" : "perpendicular");
-
-                // if black alt would've been taken, it also needs a flip
-                if (lfs_rtag_isparallel(alt, p_alts[0])) {
-                    alt = lfs_rtag_flip_(alt, lower, upper);
-                    lfs_off_t jump_ = jump;
-                    jump = branch_;
-                    branch_ = jump_;
-                }
-
-                lfs_rtag_t alt_ = p_alts[0];
-                lfs_off_t jump_ = p_jumps[0];
-                p_alts[0] = lfs_rtag_red(alt);
-                p_jumps[0] = jump;
-                alt = lfs_rtag_black(alt_);
-                jump = jump_;
-
-                lfs_rtag_untrim_(alt, &lower, &upper);
-                lfs_rtag_trim_(p_alts[0], &lower, &upper);
-            }
-
-            // take black alt? needs a flip
-            if (lfs_rtag_isblack(alt) && lfs_rtag_follow_(alt, lower, upper, tag__)) {
-                printf("bflip\n");
-                alt = lfs_rtag_flip_(alt, lower, upper);
-                lfs_off_t jump_ = jump;
-                jump = branch_;
-                branch_ = jump_;
-            }
-
-            // push alt onto queue
-            int err = lfs_rbyd_p_push(lfs, rbyd_,
-                    p_alts, p_jumps,
-                    alt, jump);
-            if (err) {
-                return err;
-            }
-
-            // continue to next alt
-            lfs_rtag_trim_(alt, &lower, &upper);
-            graft = branch;
-            branch = branch_;
-
-        // found end of tree?
-        } else {
-            // update the tag id
-            // TODO should this be a function? maybe see what create/delete need
-            // TODO alternatively can we do this a bit more directly here
-//                lfs_rtag_t tag_ = lfs_rtag_setid(alt,
-//                        lfs_min(lfs_rtag_id(attr->tag), count));
-            //lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(tag));
-            // TODO I don't really know why this works
-//            if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE && gt == 0) {
-//                tag_ = lfs_rtag_decid(tag_);
+//    // keep track of bounds as we descend down the tree
+//    lfs_rtag_t lower = 0;
+//    lfs_rtag_t upper = (rbyd_->count+1) << 15;
+//    lfs_rtag_t tag__;
+//    if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
+//        tag__ = tag & ~0x7fff;
+//    } else {
+//        tag__ = tag;
+//    }
+//
+////    // weights for pruning
+////    lfs_srtag_t lt;
+////    lfs_srtag_t gt;
+////    if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
+////        // inserting a new id? align down
+////        // TODO special function for this?
+//////            if (lfs_rtag_id(attr->tag) == count+1) {
+//////                lt = (count+1) << 12;
+//////                gt = 0;
+//////            } else {
+//////                lt = lfs_rtag_weight_lt(attr->tag & ~0x7fff, count+1);
+//////                gt = lfs_rtag_weight_gt(attr->tag & ~0x7fff, count+1);
+//////            }
+////        lt = lfs_rtag_weight_lt(tag & ~0x7fff, rbyd_->count+1) - 1;
+////        gt = lfs_rtag_weight_gt(tag & ~0x7fff, rbyd_->count+1) + 1;
+////    } else {
+////        lt = lfs_rtag_weight_lt(tag, rbyd_->count+1);
+////        gt = lfs_rtag_weight_gt(tag, rbyd_->count+1);
+////    }
+////
+////    printf("lt, gt = (%x, %x)\n", lt, gt);
+//
+//    // queue of pending alts we can emulate rotations with
+//    lfs_rtag_t p_alts[3] = {0, 0, 0};
+//    lfs_off_t p_jumps[3] = {0, 0, 0};
+//    lfs_off_t graft = 0;
+//
+//    // descend down tree, building alt pointers
+//    while (true) {
+//        lfs_rtag_t alt;
+//        lfs_off_t jump;
+//        lfs_ssize_t delta = lfs_rbyd_readtag(lfs,
+//                &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
+//                rbyd_->block, branch, &alt, &jump, NULL);
+//        if (delta < 0) {
+//            return delta;
+//        }
+//
+//        // found an alt?
+//        if (lfs_rtag_isalt(alt)) {
+//            // make jump absolute
+//            jump = branch - jump;
+//            lfs_rtag_t branch_ = branch + delta;
+//
+//            // prune?
+//            if (lfs_rtag_weight_(alt) >= (upper-lower)) {
+//                if (p_alts[0] && lfs_rtag_isred(p_alts[0])) {
+//                    printf("prune red!\n");
+//
+//                    alt = lfs_rtag_black(p_alts[0]);
+//                    branch_ = jump;
+//                    jump = p_jumps[0];
+//                    lfs_rbyd_p_pop(p_alts, p_jumps);
+//
+//                    lfs_rtag_untrim_(alt, &lower, &upper);
+//                } else {
+//                    printf("prune!\n");
+//
+//                    graft = 0; // TODO?
+//                    branch = jump;
+//                    continue;
+//                }
 //            }
-            lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(upper-1));
+//
+//            // two reds makes a yellow, split?
+//            if (lfs_rtag_isred(alt)
+//                    && p_alts[0]
+//                    && lfs_rtag_isred(p_alts[0])) {
+//                LFS_ASSERT(lfs_rtag_isparallel(alt, p_alts[0]));
+//
+//                // if we take the red or yellow alt we can just point
+//                // to the black alt, otherwise we need to point to the
+//                // yellow alt and prune later
+//                if (lfs_rtag_follow_(alt, lower, upper, tag__)) {
+//                    printf("ysplit follow\n");
+//                    lfs_rtag_t alt_ = p_alts[0];
+//                    lfs_off_t jump_ = p_jumps[0];
+//                    p_alts[0] = lfs_rtag_black(
+//                            lfs_rtag_flip_(alt, lower, upper));
+//                    p_jumps[0] = branch_;
+//                    alt = lfs_rtag_black(alt_);
+//                    branch_ = jump;
+//                    jump = jump_;
+//
+//                    lfs_rtag_untrim_(alt, &lower, &upper);
+//                    lfs_rtag_trim_(p_alts[0], &lower, &upper);
+//                    lfs_rbyd_p_red(p_alts, p_jumps);
+//
+//                } else {
+//                    printf("ysplit nofollow\n");
+//                    LFS_ASSERT(graft != 0);
+//                    p_alts[0] = lfs_rtag_black(
+//                            lfs_rtag_merge(alt, p_alts[0]));
+//                    p_jumps[0] = graft;
+//
+//                    lfs_rtag_trim_(alt, &lower, &upper);
+//                    lfs_rbyd_p_red(p_alts, p_jumps);
+//
+//                    graft = 0; // TODO
+//                    branch = branch_;
+//                    continue;
+//                }
+//            }
+//
+//            // should've taken red alt? needs a flip
+//            //
+//            // note we need a check for a valid red alt due to creates
+//            // TODO note we can get rid of this if we create at the upper
+//            // boundary of the previous id
+//            if (p_alts[0]
+//                    && ((lfs_rtag_islt(p_alts[0]) && tag__ < lower)
+//                        || (lfs_rtag_isgt(p_alts[0]) && tag__ >= upper))) {
+//                LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
+//                LFS_ASSERT(lfs_rtag_isblack(alt));
+//
+//                printf("rflip %s\n",
+//                        lfs_rtag_isparallel(alt, p_alts[0]) ? "parallel" : "perpendicular");
+//
+//                // if black alt would've been taken, it also needs a flip
+//                if (lfs_rtag_isparallel(alt, p_alts[0])) {
+//                    alt = lfs_rtag_flip_(alt, lower, upper);
+//                    lfs_off_t jump_ = jump;
+//                    jump = branch_;
+//                    branch_ = jump_;
+//                }
+//
+//                lfs_rtag_t alt_ = p_alts[0];
+//                lfs_off_t jump_ = p_jumps[0];
+//                p_alts[0] = lfs_rtag_red(alt);
+//                p_jumps[0] = jump;
+//                alt = lfs_rtag_black(alt_);
+//                jump = jump_;
+//
+//                lfs_rtag_untrim_(alt, &lower, &upper);
+//                lfs_rtag_trim_(p_alts[0], &lower, &upper);
+//            }
+//
+//            // take black alt? needs a flip
+//            if (lfs_rtag_isblack(alt) && lfs_rtag_follow_(alt, lower, upper, tag__)) {
+//                printf("bflip\n");
+//                alt = lfs_rtag_flip_(alt, lower, upper);
+//                lfs_off_t jump_ = jump;
+//                jump = branch_;
+//                branch_ = jump_;
+//            }
+//
+//            // push alt onto queue
+//            int err = lfs_rbyd_p_push(lfs, rbyd_,
+//                    p_alts, p_jumps,
+//                    alt, jump);
+//            if (err) {
+//                return err;
+//            }
+//
+//            // continue to next alt
+//            lfs_rtag_trim_(alt, &lower, &upper);
+//            graft = branch;
+//            branch = branch_;
+//
+//        // found end of tree?
+//        } else {
+//            // update the tag id
+//            // TODO should this be a function? maybe see what create/delete need
+//            // TODO alternatively can we do this a bit more directly here
+////                lfs_rtag_t tag_ = lfs_rtag_setid(alt,
+////                        lfs_min(lfs_rtag_id(attr->tag), count));
+//            //lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(tag));
+//            // TODO I don't really know why this works
+////            if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE && gt == 0) {
+////                tag_ = lfs_rtag_decid(tag_);
+////            }
+//            lfs_rtag_t tag_ = lfs_rtag_setid(alt, lfs_rtag_id(upper-1));
+//
+//                    //gt == 0 ? lfs_rtag_id(attr->tag)-1 : lfs_rtag_id(attr->tag));
+//            printf("found %x (%x, %x)\n", tag_, lower, upper);
+//
+//            // split leaf?
+//            // TODO we might be able to rearrange this a bit better
+//            if ((lfs_rtag_type1(tag) == LFS_TYPE1_CREATE
+//                    || tag_ != tag)
+//                    && !lfs_rtag_isrm(tag_)) {
+//                // inserting a new id?
+//                if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
+//                    // note we bias the weights here so that lfs_rbyd_lookup
+//                    // always finds the next biggest tag
+//                    if (lfs_rtag_weight(tag_)
+//                            < lfs_rtag_weight(tag & ~0x7fff)) {
+//                        printf("bsplit lt create\n");
+//                        alt = LFS_MKRALT__(B, LT,
+//                                (lfs_rtag_weight_(tag_)+0x8) - lower);
+//                    } else {
+//                        printf("bsplit gt create\n");
+//                        alt = LFS_MKRALT__(B, GT,
+//                                (upper+0x8000) - (lfs_rtag_weight_(tag)+0x8));
+////                                // TODO hm, can this be done differently?
+////                                lfs_rtag_weight_(lfs_rtag_incid(tag_))
+////                                    - lfs_rtag_weight_(tag));
+//                    }
+//                } else {
+//                    // note we bias the weights here so that lfs_rbyd_lookup
+//                    // always finds the next biggest tag
+//                    if (lfs_rtag_weight_(tag_) < lfs_rtag_weight_(tag)) {
+//                        printf("bsplit lt\n");
+//                        alt = LFS_MKRALT__(B, LT,
+//                                (lfs_rtag_weight_(tag_)+0x8) - lower);
+//                    } else {
+//                        printf("bsplit gt\n");
+//                        alt = LFS_MKRALT__(B, GT,
+//                                upper - (lfs_rtag_weight_(tag)+0x8));
+//                    }
+//                }
+//
+//                int err = lfs_rbyd_p_push(lfs, rbyd_,
+//                        p_alts, p_jumps,
+//                        alt, branch);
+//                if (err) {
+//                    return err;
+//                }
+//
+//                lfs_rbyd_p_red(p_alts, p_jumps);
+//            }
+//
+//            // flush any pending alts
+//            int err = lfs_rbyd_p_flush(lfs, rbyd_,
+//                    p_alts, p_jumps, 3);
+//            if (err) {
+//                return err;
+//            }
+//
+//            // done! lets get out of here
+//            goto leaf;
+//        }
+//    }
+//
+//leaf:;
+//    // write the tag
+//    int err = lfs_rbyd_progtag(lfs, rbyd_, tag, size, &rbyd_->crc);
+//    if (err) {
+//        return err;
+//    }
+//
+//    // don't forget the actual data!
+//    err = lfs_rbyd_prog(lfs, rbyd_, buffer, size, &rbyd_->crc);
+//    if (err) {
+//        return err;
+//    }
+//
+//    // if we're inserting, increase the id count, indirectly shifting
+//    // all ids >= over one
+//    //
+//    // note we do this here since it is possible to insert into an
+//    // empty tree
+//    if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
+//        rbyd_->count += 1;
+//    }
+//
+//    return 0;
+//}
 
-                    //gt == 0 ? lfs_rtag_id(attr->tag)-1 : lfs_rtag_id(attr->tag));
-            printf("found %x (%x, %x)\n", tag_, lower, upper);
-
-            // split leaf?
-            // TODO we might be able to rearrange this a bit better
-            if ((lfs_rtag_type1(tag) == LFS_TYPE1_CREATE
-                    || tag_ != tag)
-                    && !lfs_rtag_isrm(tag_)) {
-                // inserting a new id?
-                if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
-                    // note we bias the weights here so that lfs_rbyd_lookup
-                    // always finds the next biggest tag
-                    if (lfs_rtag_weight(tag_)
-                            < lfs_rtag_weight(tag & ~0x7fff)) {
-                        printf("bsplit lt create\n");
-                        alt = LFS_MKRALT__(B, LT,
-                                (lfs_rtag_weight_(tag_)+0x8) - lower);
-                    } else {
-                        printf("bsplit gt create\n");
-                        alt = LFS_MKRALT__(B, GT,
-                                (upper+0x8000) - (lfs_rtag_weight_(tag)+0x8));
-//                                // TODO hm, can this be done differently?
-//                                lfs_rtag_weight_(lfs_rtag_incid(tag_))
-//                                    - lfs_rtag_weight_(tag));
-                    }
-                } else {
-                    // note we bias the weights here so that lfs_rbyd_lookup
-                    // always finds the next biggest tag
-                    if (lfs_rtag_weight_(tag_) < lfs_rtag_weight_(tag)) {
-                        printf("bsplit lt\n");
-                        alt = LFS_MKRALT__(B, LT,
-                                (lfs_rtag_weight_(tag_)+0x8) - lower);
-                    } else {
-                        printf("bsplit gt\n");
-                        alt = LFS_MKRALT__(B, GT,
-                                upper - (lfs_rtag_weight_(tag)+0x8));
-                    }
-                }
-
-                int err = lfs_rbyd_p_push(lfs, rbyd_,
-                        p_alts, p_jumps,
-                        alt, branch);
-                if (err) {
-                    return err;
-                }
-
-                lfs_rbyd_p_red(p_alts, p_jumps);
-            }
-
-            // flush any pending alts
-            int err = lfs_rbyd_p_flush(lfs, rbyd_,
-                    p_alts, p_jumps, 3);
-            if (err) {
-                return err;
-            }
-
-            // done! lets get out of here
-            goto leaf;
-        }
-    }
-
-leaf:;
-    // write the tag
-    int err = lfs_rbyd_progtag(lfs, rbyd_, tag, size, &rbyd_->crc);
-    if (err) {
-        return err;
-    }
-
-    // don't forget the actual data!
-    err = lfs_rbyd_prog(lfs, rbyd_, buffer, size, &rbyd_->crc);
-    if (err) {
-        return err;
-    }
-
-    // if we're inserting, increase the id count, indirectly shifting
-    // all ids >= over one
-    //
-    // note we do this here since it is possible to insert into an
-    // empty tree
-    if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
-        rbyd_->count += 1;
-    }
-
-    return 0;
-}
-
-static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
+static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
         lfs_rtag_t tag, const void *buffer, lfs_size_t size) {
-    printf("- delete() -\n");
     LFS_ASSERT(lfs_rtag_id(tag) <= rbyd_->count+1);
-
-    // no trunk yet?
-    if (!rbyd_->trunk) {
-        goto leaf;
-    }
 
     // assume we'll update our trunk
     lfs_off_t lower_branch = rbyd_->trunk;
     lfs_off_t upper_branch = rbyd_->trunk;
     rbyd_->trunk = rbyd_->off;
+
+    // no trunk yet?
+    if (!lower_branch) {
+        goto leaf;
+    }
 
     // keep track of bounds as we descend down the tree
     bool is_lower = true;
@@ -1831,9 +1830,15 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
     if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE) {
         lower_tag__ = tag & ~0x7fff;
         upper_tag__ = lower_tag__ + 0x8000;
-    } else {
+    } else if (lfs_rtag_isrm(tag)) {
         lower_tag__ = tag & ~0x1;
         upper_tag__ = lower_tag__ + 0x8;
+    } else if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
+        lower_tag__ = tag & ~0x7fff;
+        upper_tag__ = lower_tag__;
+    } else {
+        lower_tag__ = tag;
+        upper_tag__ = lower_tag__;
     }
 
 //    // weights for pruning
@@ -2226,8 +2231,8 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 continue;
             }
 
-            LFS_ASSERT(lower_tag_);
-            LFS_ASSERT(upper_tag_);
+            //LFS_ASSERT(lower_tag_);
+            //LFS_ASSERT(upper_tag_);
 
 //            // make sure to fill out the rest of the weight if we're
 //            // deleting the last tag in the tree
@@ -2282,7 +2287,7 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
                     // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
                 }
-            } else {
+            } else if (lfs_rtag_isrm(tag)) {
                 if (lower_tag_ != tag // TODO need this check?
                         && lfs_rtag_weight_(lower_tag_)
                             < lfs_rtag_weight_(tag & ~0x1)) {
@@ -2321,6 +2326,60 @@ static int lfs_rbyd_delete(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
                     // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
                 }
+            } else if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
+                // inserting a new id?
+                LFS_ASSERT(!is_cut);
+                // TODO rm should probably be handled generally
+                if (!lfs_rtag_isrm(tag_)) {
+                    // note we bias the weights here so that lfs_rbyd_lookup
+                    // always finds the next biggest tag
+                    if (lfs_rtag_weight(tag_)
+                            < lfs_rtag_weight(tag & ~0x7fff)) {
+                        printf("bsplit lt create\n");
+                        alt = LFS_MKRALT__(B, LT,
+                                (lfs_rtag_weight_(tag_)+0x8) - lower);
+                    } else {
+                        printf("bsplit gt create\n");
+                        alt = LFS_MKRALT__(B, GT,
+                                (upper+0x8000) - (lfs_rtag_weight_(tag)+0x8));
+    //                                // TODO hm, can this be done differently?
+    //                                lfs_rtag_weight_(lfs_rtag_incid(tag_))
+    //                                    - lfs_rtag_weight_(tag));
+                    }
+
+                    int err = lfs_rbyd_p_push(lfs, rbyd_,
+                            p_alts, p_jumps,
+                            alt, branch);
+                    if (err) {
+                        return err;
+                    }
+
+                    lfs_rbyd_p_red(p_alts, p_jumps);
+                }
+            } else {
+                LFS_ASSERT(!is_cut);
+                if (tag_ != tag) {
+                    // note we bias the weights here so that lfs_rbyd_lookup
+                    // always finds the next biggest tag
+                    if (lfs_rtag_weight_(tag_) < lfs_rtag_weight_(tag)) {
+                        printf("bsplit lt\n");
+                        alt = LFS_MKRALT__(B, LT,
+                                (lfs_rtag_weight_(tag_)+0x8) - lower);
+                    } else {
+                        printf("bsplit gt\n");
+                        alt = LFS_MKRALT__(B, GT,
+                                upper - (lfs_rtag_weight_(tag)+0x8));
+                    }
+
+                    int err = lfs_rbyd_p_push(lfs, rbyd_,
+                            p_alts, p_jumps,
+                            alt, branch);
+                    if (err) {
+                        return err;
+                    }
+
+                    lfs_rbyd_p_red(p_alts, p_jumps);
+                }
             }
 
             // flush any pending alts
@@ -2353,9 +2412,17 @@ leaf:;
     //
     // TODO handle an empty tree
     if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE) {
-        // TODO this assert should be earlier
+        // TODO this assert should be earlier?
         LFS_ASSERT(rbyd_->count > 0);
         rbyd_->count -= 1;
+
+    // if we're inserting, increase the id count, indirectly shifting
+    // all ids >= over one
+    //
+    // note we do this here since it is possible to insert into an
+    // empty tree
+    } else if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
+        rbyd_->count += 1;
     }
 
     return 0;
@@ -2385,20 +2452,21 @@ static int lfs_rbyd_commit(lfs_t *lfs, lfs_rbyd_t *rbyd,
 
     // append each tag to the tree
     for (const struct lfs_rattr *attr = attrs; attr; attr = attr->next) {
-        if (lfs_rtag_isrm(attr->tag)) {
-            // deletes require range-deletion, this is a bit more complicated
-            // than normal tags
-            int err = lfs_rbyd_delete(lfs, &rbyd_,
-                    attr->tag, attr->buffer, attr->size);
-            if (err) {
-                return err;
-            }
-        } else {
-            int err = lfs_rbyd_append(lfs, &rbyd_,
-                    attr->tag, attr->buffer, attr->size);
-            if (err) {
-                return err;
-            }
+//        //if (lfs_rtag_isrm(attr->tag)) {
+//        if (lfs_rtag_type1(attr->tag) != LFS_TYPE1_CREATE) {
+//            // deletes require range-deletion, this is a bit more complicated
+//            // than normal tags
+//            int err = lfs_rbyd_delete(lfs, &rbyd_,
+//                    attr->tag, attr->buffer, attr->size);
+//            if (err) {
+//                return err;
+//            }
+//        } else {
+
+        int err = lfs_rbyd_append(lfs, &rbyd_,
+                attr->tag, attr->buffer, attr->size);
+        if (err) {
+            return err;
         }
     }
 
