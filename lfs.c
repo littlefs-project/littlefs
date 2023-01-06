@@ -1518,22 +1518,22 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
     }
 
     // figure out the range of tags to replace
-    lfs_rtag_t lower_tag_;
-    lfs_rtag_t upper_tag_;
+    lfs_rtag_t lower_tag;
+    lfs_rtag_t upper_tag;
     if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
         LFS_ASSERT(rbyd_->count < 0xffff);
-        lower_tag_ = tag & ~0x7fff;
-        upper_tag_ = lower_tag_;
+        lower_tag = tag & ~0x7fff;
+        upper_tag = lower_tag;
     } else if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE) {
         LFS_ASSERT(rbyd_->count > 0);
-        lower_tag_ = tag & ~0x7fff;
-        upper_tag_ = lower_tag_ + 0x8000;
+        lower_tag = tag & ~0x7fff;
+        upper_tag = lower_tag + 0x8000;
     } else if (lfs_rtag_isrm(tag)) {
-        lower_tag_ = tag & ~0x7;
-        upper_tag_ = lower_tag_ + 0x8;
+        lower_tag = tag & ~0x7;
+        upper_tag = lower_tag + 0x8;
     } else {
-        lower_tag_ = tag;
-        upper_tag_ = lower_tag_;
+        lower_tag = tag;
+        upper_tag = lower_tag;
     }
 
     // keep track of bounds as we descend down the tree
@@ -1546,6 +1546,8 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
     lfs_rtag_t lower_upper = (rbyd_->count+1) << 15;
     lfs_rtag_t upper_lower = lower_lower;
     lfs_rtag_t upper_upper = lower_upper;
+    lfs_rtag_t lower_tag_ = 0;
+    lfs_rtag_t upper_tag_ = 0;
 
     // queue of pending alts we can emulate rotations with
     lfs_rtag_t p_alts[3] = {0, 0, 0};
@@ -1556,8 +1558,9 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
     while (true) {
         // do we need to flip bounds?
         if (diverged
-                && !(upper_tag_ & 0x2)
+                && !upper_tag_
                 && (!p_alts[0] || lfs_rtag_isblack(p_alts[0]))) {
+            lfs_swap(&lower_tag, &upper_tag);
             lfs_swap(&lower_tag_, &upper_tag_);
             lfs_swap(&lower_branch, &upper_branch);
             lfs_swap(&lower_lower, &upper_lower);
@@ -1581,8 +1584,8 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             lfs_rtag_t branch_ = lower_branch + delta;
 
             // do bounds want to take different paths? begin cutting
-            if (!diverged && lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag_)
-                    != lfs_rtag_follow_(alt, lower_lower, lower_upper, upper_tag_)) {
+            if (!diverged && lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag)
+                    != lfs_rtag_follow_(alt, lower_lower, lower_upper, upper_tag)) {
                 diverged = true;
                 upper_branch = lower_branch;
                 upper_lower = lower_lower;
@@ -1604,16 +1607,16 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 prune = true;
             // cut while following
             } else if (diverged
-                    && lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag_)
-                    && (lower_tag_ < upper_tag_) == lfs_rtag_islt(alt)) {
+                    && lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag)
+                    && (lower_tag < upper_tag) == lfs_rtag_islt(alt)) {
                 lfs_rtag_trim_(
                         lfs_rtag_flip_(alt, lower_lower, lower_upper),
                         &lower_lower, &lower_upper);
                 prune = true;
             // cut while not following
             } else if (diverged
-                    && !lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag_)
-                    && (lower_tag_ < upper_tag_) != lfs_rtag_islt(alt)) {
+                    && !lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag)
+                    && (lower_tag < upper_tag) != lfs_rtag_islt(alt)) {
                 lfs_rtag_trim_(alt, &lower_lower, &lower_upper);
                 lfs_swap(&jump, &branch_);
                 prune = true;
@@ -1648,7 +1651,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 // |  |    <b         |    <b  |
                 // |  |  .-'|         |  .-'|  |
                 // 1  2  3  4      1  2  3  4  1
-                if (lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag_)) {
+                if (lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag)) {
                     lfs_swap(&alt, &p_alts[0]);
                     lfs_swap(&jump, &branch_);
                     lfs_swap(&jump, &p_jumps[0]);
@@ -1691,7 +1694,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             // .-'|  =>     .-'|
             // 1  2      1  2  1
             if (lfs_rtag_isblack(alt)
-                    && lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag_)) {
+                    && lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag)) {
                 alt = lfs_rtag_flip_(alt, lower_lower, lower_upper);
                 lfs_swap(&jump, &branch_);
             }
@@ -1705,9 +1708,9 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             // 1  2  3      1  2  3  1
             if (p_alts[0]
                     && ((lfs_rtag_islt(p_alts[0])
-                            && lower_tag_ < lower_lower)
+                            && lower_tag < lower_lower)
                         || (lfs_rtag_isgt(p_alts[0])
-                            && lower_tag_ >= lower_upper))) {
+                            && lower_tag >= lower_upper))) {
                 LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
                 LFS_ASSERT(lfs_rtag_isblack(alt));
 
@@ -1741,11 +1744,9 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
         } else {
             // update the tag id
             lower_tag_ = lfs_rtag_setid(alt, lfs_rtag_id(lower_upper-1));
-            // mark as found
-            lower_tag_ |= 0x2;
 
             // if we diverged, we also need to find the other bound
-            if (diverged && !(upper_tag_ & 0x2)) {
+            if (diverged && !upper_tag_) {
                 continue;
             }
 
@@ -1763,7 +1764,8 @@ stem:;
         upper_lower = lower_lower;
         upper_upper = lower_upper;
     // unflip our bounds so lower_lower/upper_upper is correct
-    } else if (lower_tag_ > upper_tag_) {
+    } else if (lower_tag > upper_tag) {
+        lfs_swap(&lower_tag, &upper_tag);
         lfs_swap(&lower_tag_, &upper_tag_);
         lfs_swap(&lower_branch, &upper_branch);
         lfs_swap(&lower_lower, &upper_lower);
@@ -1781,35 +1783,33 @@ stem:;
         // no split needed, prune the removed tag
 
     } else if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE
-            && lfs_rtag_weight_(upper_tag_) >= lfs_rtag_weight_(tag & ~0x7fff)) {
+            && lfs_rtag_weight_(upper_tag_) >= upper_tag) {
         // increase biased weight when creating
         alt = LFS_MKRALT__(B, GT,
                 (upper_upper+0x8000) - (lfs_rtag_weight_(tag)+0x8));
         jump = upper_branch;
 
     } else if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE
-            && lfs_rtag_weight_(upper_tag_) >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
+            && lfs_rtag_weight_(upper_tag_) >= upper_tag) {
         // decrease biased weight when deleting
         alt = LFS_MKRALT__(B, GT,
                 upper_upper-0x8000 - lower_lower);
         jump = upper_branch;
 
-    } else if (lfs_rtag_type1(tag) != LFS_TYPE1_DELETE
-            && lfs_rtag_isrm(tag)
-            && lfs_rtag_weight_(upper_tag_) > lfs_rtag_weight_(tag)) {
+    } else if (lfs_rtag_isrm(tag)
+            && lfs_rtag_weight_(upper_tag_) >= upper_tag) {
         // hide our tag during removes
         alt = LFS_MKRALT__(B, GT,
                 upper_upper - lower_lower);
         jump = upper_branch;
 
-    } else if (!lfs_rtag_isrm(tag)
-            && lfs_rtag_weight_(upper_tag_) > lfs_rtag_weight_(tag)) {
+    } else if (lfs_rtag_weight_(upper_tag_) > upper_tag) {
         // split greater than
         alt = LFS_MKRALT__(B, GT,
                 upper_upper - (lfs_rtag_weight_(tag)+0x8));
         jump = upper_branch;
 
-    } else if (lfs_rtag_weight_(lower_tag_) < lfs_rtag_weight_(tag)) {
+    } else if (lfs_rtag_weight_(lower_tag_) < lower_tag) {
         // split less than, this is consistent for all appends and only happens
         // when appending to the end of the tree
         alt = LFS_MKRALT__(B, LT,
