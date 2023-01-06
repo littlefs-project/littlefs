@@ -1529,7 +1529,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
         lower_tag_ = tag & ~0x7fff;
         upper_tag_ = lower_tag_ + 0x8000;
     } else if (lfs_rtag_isrm(tag)) {
-        lower_tag_ = tag & ~0x7;
+        lower_tag_ = tag & ~0x1;
         upper_tag_ = lower_tag_ + 0x8;
     } else {
         lower_tag_ = tag;
@@ -1756,13 +1756,12 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
     }
 
 stem:;
-    // TODO need this?
+    // unflip our bounds so lower_lower/upper_upper is correct
     if (!diverged) {
         upper_tag_ = lower_tag_;
         upper_branch = lower_branch;
         upper_lower = lower_lower;
         upper_upper = lower_upper;
-    // unflip our bounds so lower_lower/upper_upper is correct
     } else if (lower_tag_ > upper_tag_) {
         lfs_swap(&lower_tag_, &upper_tag_);
         lfs_swap(&lower_branch, &upper_branch);
@@ -1780,41 +1779,46 @@ stem:;
     if (lfs_rtag_isrm(lower_tag_)) {
         // no split needed, prune the removed tag
 
-    } else if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE
-            && lfs_rtag_weight_(upper_tag_) >= lfs_rtag_weight_(tag & ~0x7fff)) {
-        // increase biased weight when creating
-        alt = LFS_MKRALT__(B, GT,
-                (upper_upper+0x8000) - (lfs_rtag_weight_(tag)+0x8));
-        jump = upper_branch;
-
-    } else if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE
-            && lfs_rtag_weight_(upper_tag_) >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
-        // decrease biased weight when deleting
-        alt = LFS_MKRALT__(B, GT,
-                upper_upper-0x8000 - lower_lower);
-        jump = upper_branch;
-
-    } else if (lfs_rtag_type1(tag) != LFS_TYPE1_DELETE
-            && lfs_rtag_isrm(tag)
-            && lfs_rtag_weight_(upper_tag_) > lfs_rtag_weight_(tag)) {
-        // hide our tag during removes
-        alt = LFS_MKRALT__(B, GT,
-                upper_upper - lower_lower);
-        jump = upper_branch;
-
-    } else if (!lfs_rtag_isrm(tag)
-            && lfs_rtag_weight_(upper_tag_) > lfs_rtag_weight_(tag)) {
-        // split greater than
-        alt = LFS_MKRALT__(B, GT,
-                upper_upper - (lfs_rtag_weight_(tag)+0x8));
-        jump = upper_branch;
-
     } else if (lfs_rtag_weight_(lower_tag_) < lfs_rtag_weight_(tag)) {
         // split less than, this is consistent for all appends and only happens
         // when appending to the end of the tree
         alt = LFS_MKRALT__(B, LT,
                 (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
         jump = lower_branch;
+
+    } else if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
+        if (lfs_rtag_weight_(upper_tag_)
+                >= lfs_rtag_weight_(tag & ~0x7fff)) {
+            // increase biased weight when creating
+            alt = LFS_MKRALT__(B, GT,
+                    (upper_upper+0x8000) - (lfs_rtag_weight_(tag)+0x8));
+            jump = upper_branch;
+        }
+
+    } else if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE) {
+        if (lfs_rtag_weight_(upper_tag_)
+                >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
+            // decrease biased weight when deleting
+            alt = LFS_MKRALT__(B, GT,
+                    upper_upper-0x8000 - lower_lower);
+            jump = upper_branch;
+        }
+
+    } else if (lfs_rtag_isrm(tag)) {
+        if (lfs_rtag_weight_(upper_tag_) > lfs_rtag_weight_(tag)) {
+            // hide our tag during removes
+            alt = LFS_MKRALT__(B, GT,
+                    upper_upper - lower_lower);
+            jump = upper_branch;
+        }
+
+    } else {
+        if (lfs_rtag_weight_(upper_tag_) > lfs_rtag_weight_(tag)) {
+            // split greater than
+            alt = LFS_MKRALT__(B, GT,
+                    upper_upper - (lfs_rtag_weight_(tag)+0x8));
+            jump = upper_branch;
+        }
     }
 
     if (alt) {
