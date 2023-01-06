@@ -1969,6 +1969,7 @@ code = '''
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
                     rbyd.block, 0, backup_block, rbyd.off) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfs_rbyd_commit(&lfs, &rbyd,
                     LFS_MKRRMATTR(UATTR, j+1, 0, NULL)) => 0;
@@ -2398,6 +2399,7 @@ code = '''
         lfs_bd_erase(&lfs, rbyd.block) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
         // remove each tag in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -2529,6 +2531,7 @@ code = '''
                 lfs_bd_erase(&lfs, rbyd.block) => 0;
                 lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
                         rbyd.block, 0, backup_block, rbyd.off) => 0;
+                lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
                 // remove
                 lfs_rbyd_commit(&lfs, &rbyd,
@@ -3684,6 +3687,7 @@ code = '''
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
                     rbyd.block, 0, backup_block, rbyd.off) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfs_rbyd_commit(&lfs, &rbyd,
                     LFS_MKRATTR(DELETE, 0, j+1, NULL, 0, NULL)) => 0;
@@ -3738,6 +3742,7 @@ code = '''
 
 [cases.test_rbyd_delete_range_permutations]
 defines.N = 'range(1, 7)'
+defines.M = 'range(1, 4)'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3801,9 +3806,13 @@ code = '''
 
             lfs_rbyd_commit(&lfs, &rbyd,
                     LFS_MKRATTR(CREATEREG, 0, id+1, names[perm[j] % 6], 4,
-                    // note uattrs have a smaller size
-                    LFS_MKRATTR(UATTR,     1, id+1, names[perm[j] % 6], 2,
-                    NULL))) => 0;
+                    NULL)) => 0;
+            // note uattrs have a smaller size to help debugging
+            for (unsigned u = 0; u < M; u++) {
+                lfs_rbyd_commit(&lfs, &rbyd,
+                        LFS_MKRATTR(UATTR, u+1, id+1, names[perm[j] % 6], 2,
+                        NULL)) => 0;
+            }
         }
         assert(rbyd.count == N);
 
@@ -3822,6 +3831,7 @@ code = '''
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
                     rbyd.block, 0, backup_block, rbyd.off) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfs_rbyd_commit(&lfs, &rbyd,
                     LFS_MKRATTR(DELETE, 0, j+1, NULL, 0, NULL)) => 0;
@@ -3837,12 +3847,14 @@ code = '''
                     assert(memcmp(buffer, names[k % 6], 4) == 0);
                 }
 
-                lfs_rbyd_get(&lfs, &rbyd,
-                        LFS_MKRTAG(UATTR, 1, k+1), buffer, 4) => 2;
-                if (k >= j) {
-                    assert(memcmp(buffer, names[(k+1) % 6], 2) == 0);
-                } else {
-                    assert(memcmp(buffer, names[k % 6], 2) == 0);
+                for (unsigned u = 0; u < M; u++) {
+                    lfs_rbyd_get(&lfs, &rbyd,
+                            LFS_MKRTAG(UATTR, u+1, k+1), buffer, 4) => 2;
+                    if (k >= j) {
+                        assert(memcmp(buffer, names[(k+1) % 6], 2) == 0);
+                    } else {
+                        assert(memcmp(buffer, names[k % 6], 2) == 0);
+                    }
                 }
             }
             lfs_rbyd_get(&lfs, &rbyd,
@@ -3877,7 +3889,7 @@ code = '''
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
-    lfs_size_t n = 1 + 2*N + 1;
+    lfs_size_t n = 1 + N+N*M + 1;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
     printf("avg height: %u B (N=%u, estimate=%u)\n",
@@ -4200,6 +4212,7 @@ code = '''
         lfs_bd_erase(&lfs, rbyd.block) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
         // delete each id in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -4274,6 +4287,7 @@ code = '''
 
 [cases.test_rbyd_delete_all_range_permutations]
 defines.N = 'range(1, 7)'
+defines.M = 'range(1, 4)'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4309,8 +4323,13 @@ code = '''
     for (unsigned j = 0; j < N; j++) {
         lfs_rbyd_commit(&lfs, &rbyd,
                 LFS_MKRATTR(CREATEREG, 0, j+1, names[j % 6], 4,
-                LFS_MKRATTR(UATTR,     1, j+1, names[j % 6], 2,
-                NULL))) => 0;
+                NULL)) => 0;
+        // note uattrs have a smaller size to help debugging
+        for (unsigned u = 0; u < M; u++) {
+            lfs_rbyd_commit(&lfs, &rbyd,
+                    LFS_MKRATTR(UATTR, u+1, j+1, names[j % 6], 2,
+                    NULL)) => 0;
+        }
     }
     assert(rbyd.count == N);
 
@@ -4345,6 +4364,7 @@ code = '''
         lfs_bd_erase(&lfs, rbyd.block) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
         // delete each id in permutation order
         for (unsigned j = 0; j < N; j++) {
@@ -4372,8 +4392,12 @@ code = '''
         // try resuming from all tags being removed
         lfs_rbyd_commit(&lfs, &rbyd,
                 LFS_MKRATTR(CREATEREG, 0, 1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
-                LFS_MKRATTR(UATTR,     1, 1, "\xaa\xaa\xaa",             3,
-                NULL))) => 0;
+                NULL)) => 0;
+        for (unsigned u = 0; u < M; u++) {
+            lfs_rbyd_commit(&lfs, &rbyd,
+                    LFS_MKRATTR(UATTR, u+1, 1, "\xaa\xaa\xaa", 3,
+                    NULL)) => 0;
+        }
         assert(rbyd.count == 1);
 
         lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
@@ -4382,10 +4406,12 @@ code = '''
                 LFS_MKRTAG(CREATEREG, 0, 1), buffer, 6)
                 => 6;
         assert(memcmp(buffer, "\xaa\xaa\xaa\xaa\xaa\xaa", 6) == 0);
-        lfs_rbyd_get(&lfs, &rbyd,
-                LFS_MKRTAG(UATTR, 1, 1), buffer, 6)
-                => 3;
-        assert(memcmp(buffer, "\xaa\xaa\xaa", 3) == 0);
+        for (unsigned u = 0; u < M; u++) {
+            lfs_rbyd_get(&lfs, &rbyd,
+                    LFS_MKRTAG(UATTR, u+1, 1), buffer, 6)
+                    => 3;
+            assert(memcmp(buffer, "\xaa\xaa\xaa", 3) == 0);
+        }
         lfs_rbyd_get(&lfs, &rbyd,
                 LFS_MKRTAG(CREATEREG, 0, 2), buffer, 6)
                 => LFS_ERR_NOENT;
@@ -4417,7 +4443,7 @@ code = '''
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
-    lfs_size_t n = 1 + 2*N + N + 2;
+    lfs_size_t n = 1 + N+N*M + N + 1+M;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
     printf("avg height: %u B (N=%u, estimate=%u)\n",
@@ -4510,6 +4536,7 @@ code = '''
                 lfs_bd_erase(&lfs, rbyd.block) => 0;
                 lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
                         rbyd.block, 0, backup_block, rbyd.off) => 0;
+                lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
                 // delete
                 lfs_rbyd_commit(&lfs, &rbyd,
@@ -4580,6 +4607,7 @@ code = '''
 
 [cases.test_rbyd_delete_create_range_permutations]
 defines.N = 'range(1, 6)'
+defines.M = 'range(1, 4)'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4643,8 +4671,13 @@ code = '''
 
             lfs_rbyd_commit(&lfs, &rbyd,
                     LFS_MKRATTR(CREATEREG, 0, id+1, names[perm[j] % 6], 4,
-                    LFS_MKRATTR(UATTR,     1, id+1, names[perm[j] % 6], 2,
-                    NULL))) => 0;
+                    NULL)) => 0;
+            // note uattrs have a smaller size to help debugging
+            for (unsigned u = 0; u < M; u++) {
+                lfs_rbyd_commit(&lfs, &rbyd,
+                        LFS_MKRATTR(UATTR, u+1, id+1, names[perm[j] % 6], 2,
+                        NULL)) => 0;
+            }
         }
         assert(rbyd.count == N);
 
@@ -4664,6 +4697,7 @@ code = '''
                 lfs_bd_erase(&lfs, rbyd.block) => 0;
                 lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
                         rbyd.block, 0, backup_block, rbyd.off) => 0;
+                lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
                 // delete
                 lfs_rbyd_commit(&lfs, &rbyd,
@@ -4675,8 +4709,12 @@ code = '''
                 // is still usable
                 lfs_rbyd_commit(&lfs, &rbyd,
                         LFS_MKRATTR(CREATEREG, 0, l+1, names[l % 6], 6,
-                        LFS_MKRATTR(UATTR,     1, l+1, names[l % 6], 3,
-                        NULL))) => 0;
+                        NULL)) => 0;
+                for (unsigned u = 0; u < M; u++) {
+                    lfs_rbyd_commit(&lfs, &rbyd,
+                            LFS_MKRATTR(UATTR, u+1, l+1, names[l % 6], 3,
+                            NULL)) => 0;
+                }
                 assert(rbyd.count == N);
 
                 lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
@@ -4698,21 +4736,23 @@ code = '''
                         assert(memcmp(buffer, names[expected % 6], 4) == 0);
                     }
 
-                    size = lfs_rbyd_get(&lfs, &rbyd,
-                            LFS_MKRTAG(UATTR, 1, k+1), buffer, 6);
-                    if (k == l) {
-                        assert(size == 3);
-                        assert(memcmp(buffer, names[l % 6], 3) == 0);
-                    } else {
-                        uint16_t expected = k;
-                        if (expected > l) {
-                            expected -= 1;
+                    for (unsigned u = 0; u < M; u++) {
+                        size = lfs_rbyd_get(&lfs, &rbyd,
+                                LFS_MKRTAG(UATTR, u+1, k+1), buffer, 6);
+                        if (k == l) {
+                            assert(size == 3);
+                            assert(memcmp(buffer, names[l % 6], 3) == 0);
+                        } else {
+                            uint16_t expected = k;
+                            if (expected > l) {
+                                expected -= 1;
+                            }
+                            if (expected >= j) {
+                                expected += 1;
+                            }
+                            assert(size == 2);
+                            assert(memcmp(buffer, names[expected % 6], 2) == 0);
                         }
-                        if (expected >= j) {
-                            expected += 1;
-                        }
-                        assert(size == 2);
-                        assert(memcmp(buffer, names[expected % 6], 2) == 0);
                     }
                 }
 
@@ -4742,7 +4782,7 @@ code = '''
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
-    lfs_size_t n = 1 + N + 1 + 2;
+    lfs_size_t n = 1 + N+N*M + 2 + 1+M;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
     printf("avg height: %u B (N=%u, estimate=%u)\n",

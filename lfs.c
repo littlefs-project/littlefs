@@ -575,9 +575,10 @@ static inline lfs_rtag_t lfs_rtag_isparallel(lfs_rtag_t a, lfs_rtag_t b) {
     return (a & 0x2) == (b & 0x2);
 }
 
-static inline lfs_srtag_t lfs_rtag_weight(lfs_rtag_t tag) {
-    return tag >> 3;
-}
+// TODO rm
+//static inline lfs_srtag_t lfs_rtag_weight(lfs_rtag_t tag) {
+//    return tag >> 3;
+//}
 
 static inline lfs_rtag_t lfs_rtag_weight_(lfs_rtag_t tag) {
     return tag & ~0x7;
@@ -587,23 +588,23 @@ static inline lfs_rtag_t lfs_rtag_merge(lfs_rtag_t a, lfs_rtag_t b) {
     return a + (b & ~0x7);
 }
 
-static inline lfs_srtag_t lfs_rtag_weight_lt(lfs_rtag_t tag, uint16_t count) {
-    (void)count;
-    return lfs_rtag_weight(tag);
-}
+//static inline lfs_srtag_t lfs_rtag_weight_lt(lfs_rtag_t tag, uint16_t count) {
+//    (void)count;
+//    return lfs_rtag_weight(tag);
+//}
+//
+//static inline lfs_srtag_t lfs_rtag_weight_gt(lfs_rtag_t tag, uint16_t count) {
+//    return (((lfs_srtag_t)count) << 12)-1 - lfs_rtag_weight(tag);
+//}
 
-static inline lfs_srtag_t lfs_rtag_weight_gt(lfs_rtag_t tag, uint16_t count) {
-    return (((lfs_srtag_t)count) << 12)-1 - lfs_rtag_weight(tag);
-}
-
-static inline bool lfs_rtag_follow(lfs_rtag_t alt,
-        lfs_srtag_t lt, lfs_srtag_t gt) {
-    if (lfs_rtag_islt(alt)) {
-        return lfs_rtag_weight(alt) > lt;
-    } else {
-        return lfs_rtag_weight(alt) > gt;
-    }
-}
+//static inline bool lfs_rtag_follow(lfs_rtag_t alt,
+//        lfs_srtag_t lt, lfs_srtag_t gt) {
+//    if (lfs_rtag_islt(alt)) {
+//        return lfs_rtag_weight(alt) > lt;
+//    } else {
+//        return lfs_rtag_weight(alt) > gt;
+//    }
+//}
 
 static inline bool lfs_rtag_follow_(lfs_rtag_t alt,
         lfs_rtag_t lower, lfs_rtag_t upper, lfs_rtag_t tag) {
@@ -615,13 +616,13 @@ static inline bool lfs_rtag_follow_(lfs_rtag_t alt,
     }
 }
 
-static inline lfs_rtag_t lfs_rtag_flip(
-        lfs_rtag_t alt, lfs_rtag_t lt, lfs_rtag_t gt) {
-    return LFS_MKRALT_(
-            lfs_rtag_isred(alt),
-            !lfs_rtag_isgt(alt),
-            (lt+gt+1) - lfs_rtag_weight(alt));
-}
+//static inline lfs_rtag_t lfs_rtag_flip(
+//        lfs_rtag_t alt, lfs_rtag_t lt, lfs_rtag_t gt) {
+//    return LFS_MKRALT_(
+//            lfs_rtag_isred(alt),
+//            !lfs_rtag_isgt(alt),
+//            (lt+gt+1) - lfs_rtag_weight(alt));
+//}
 
 static inline lfs_rtag_t lfs_rtag_flip_(lfs_rtag_t alt,
         lfs_rtag_t lower, lfs_rtag_t upper) {
@@ -631,14 +632,14 @@ static inline lfs_rtag_t lfs_rtag_flip_(lfs_rtag_t alt,
             (upper-lower) - lfs_rtag_weight_(alt));
 }
 
-static inline void lfs_rtag_trim(lfs_rtag_t alt,
-        lfs_srtag_t *lt, lfs_srtag_t *gt) {
-    if (lfs_rtag_islt(alt)) {
-        *lt = *lt - lfs_rtag_weight(alt);
-    } else {
-        *gt = *gt - lfs_rtag_weight(alt);
-    }
-}
+//static inline void lfs_rtag_trim(lfs_rtag_t alt,
+//        lfs_srtag_t *lt, lfs_srtag_t *gt) {
+//    if (lfs_rtag_islt(alt)) {
+//        *lt = *lt - lfs_rtag_weight(alt);
+//    } else {
+//        *gt = *gt - lfs_rtag_weight(alt);
+//    }
+//}
 
 static inline void lfs_rtag_trim_(lfs_rtag_t alt,
         lfs_rtag_t *lower, lfs_rtag_t *upper) {
@@ -649,14 +650,14 @@ static inline void lfs_rtag_trim_(lfs_rtag_t alt,
     }
 }
 
-static inline void lfs_rtag_untrim(lfs_rtag_t alt,
-        lfs_srtag_t *lt, lfs_srtag_t *gt) {
-    if (lfs_rtag_islt(alt)) {
-        *lt = *lt + lfs_rtag_weight(alt);
-    } else {
-        *gt = *gt + lfs_rtag_weight(alt);
-    }
-}
+//static inline void lfs_rtag_untrim(lfs_rtag_t alt,
+//        lfs_srtag_t *lt, lfs_srtag_t *gt) {
+//    if (lfs_rtag_islt(alt)) {
+//        *lt = *lt + lfs_rtag_weight(alt);
+//    } else {
+//        *gt = *gt + lfs_rtag_weight(alt);
+//    }
+//}
 
 static inline void lfs_rtag_untrim_(lfs_rtag_t alt,
         lfs_rtag_t *lower, lfs_rtag_t *upper) {
@@ -1035,11 +1036,10 @@ static lfs_ssize_t lfs_rbyd_readtag(lfs_t *lfs,
     *tag = 0;
 
     // read a pair of leb128s
-    uint8_t buffer[2*4];
+    //
+    // note we force leb decoding to overflow when truncated
+    uint8_t buffer[2*4] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     lfs_size_t i = 0;
-
-    // force leb decoding to overflow when truncated
-    memset(buffer, 0xff, 2*4);
 
     // TODO allow different hint for lookup? bench this? does our hint work backwards?
     // TODO should lfs_bd_read allow a range for reads?
@@ -1388,6 +1388,7 @@ static int lfs_rbyd_prog(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 static int lfs_rbyd_progtag(lfs_t *lfs, lfs_rbyd_t *rbyd_,
         lfs_rtag_t tag, lfs_size_t size, uint32_t *crc) {
     // convert to on-disk repr
+    LFS_ASSERT(lfs_rtag_isvalid(tag));
     tag <<= 1;
 
     // make sure to include the parity of the current crc
@@ -1770,125 +1771,62 @@ stem:;
     }
 
     // split leaf nodes?
-    lfs_rtag_t alt;
-    if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE) {
-        // TODO why are both paths never taken??
-        if (lfs_rtag_weight_(lower_tag_)
-                    < lfs_rtag_weight_(tag & ~0x7fff)) {
-            alt = LFS_MKRALT__(B, LT,
-                    (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
+    //
+    // note we bias the weights here so that lfs_rbyd_lookup
+    // always finds the next biggest tag
+    lfs_rtag_t alt = 0;
+    lfs_off_t jump = 0;
 
-            // TODO can we rededuplicate this?
-            int err = lfs_rbyd_p_push(lfs, rbyd_,
-                    p_alts, p_jumps,
-                    alt, lower_branch);
-            if (err) {
-                return err;
-            }
+    if (lfs_rtag_isrm(lower_tag_)) {
+        // no split needed, prune the removed tag
 
-            // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
-        }  else
+    } else if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE
+            && lfs_rtag_weight_(upper_tag_) >= lfs_rtag_weight_(tag & ~0x7fff)) {
+        // increase biased weight when creating
+        alt = LFS_MKRALT__(B, GT,
+                (upper_upper+0x8000) - (lfs_rtag_weight_(tag)+0x8));
+        jump = upper_branch;
 
-        if (lfs_rtag_weight_(upper_tag_)
-                    >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
-            alt = LFS_MKRALT__(B, GT,
-                    upper_upper - (lfs_rtag_weight_(lower_tag_)+0x8));
+    } else if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE
+            && lfs_rtag_weight_(upper_tag_) >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
+        // decrease biased weight when deleting
+        alt = LFS_MKRALT__(B, GT,
+                upper_upper-0x8000 - lower_lower);
+        jump = upper_branch;
 
-            // TODO can we rededuplicate this?
-            int err = lfs_rbyd_p_push(lfs, rbyd_,
-                    p_alts, p_jumps,
-                    alt, upper_branch);
-            if (err) {
-                return err;
-            }
+    } else if (lfs_rtag_type1(tag) != LFS_TYPE1_DELETE
+            && lfs_rtag_isrm(tag)
+            && lfs_rtag_weight_(upper_tag_) > lfs_rtag_weight_(tag)) {
+        // hide our tag during removes
+        alt = LFS_MKRALT__(B, GT,
+                upper_upper - lower_lower);
+        jump = upper_branch;
 
-            // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
+    } else if (!lfs_rtag_isrm(tag)
+            && lfs_rtag_weight_(upper_tag_) > lfs_rtag_weight_(tag)) {
+        // split greater than
+        alt = LFS_MKRALT__(B, GT,
+                upper_upper - (lfs_rtag_weight_(tag)+0x8));
+        jump = upper_branch;
+
+    } else if (lfs_rtag_weight_(lower_tag_) < lfs_rtag_weight_(tag)) {
+        // split less than, this is consistent for all appends and only happens
+        // when appending to the end of the tree
+        alt = LFS_MKRALT__(B, LT,
+                (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
+        jump = lower_branch;
+    }
+
+    if (alt) {
+        int err = lfs_rbyd_p_push(lfs, rbyd_,
+                p_alts, p_jumps,
+                alt, jump);
+        if (err) {
+            return err;
         }
-    } else if (lfs_rtag_isrm(tag)) {
-        // TODO why are both paths never taken??
-        if (lfs_rtag_weight_(lower_tag_)
-                    < lfs_rtag_weight_(tag & ~0x1)) {
-            alt = LFS_MKRALT__(B, LT,
-                    (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
 
-            // TODO can we rededuplicate this?
-            int err = lfs_rbyd_p_push(lfs, rbyd_,
-                    p_alts, p_jumps,
-                    alt, lower_branch);
-            if (err) {
-                return err;
-            }
-
-            // lfs_rbyd_p_red(p_alts, p_jumps); these should not be here
-        } else
-
-        if (lfs_rtag_weight_(upper_tag_)
-                    >= lfs_rtag_weight_(tag & ~0x1)+0x8) {
-            // remove found a tag
-            if (lfs_rtag_weight(lower_tag_) == lfs_rtag_weight(tag)) {
-                alt = LFS_MKRALT__(B, GT,
-                        upper_upper - (lfs_rtag_weight_(lower_tag_)+0x8)+0x8);
-            // remove found no tag?
-            } else {
-                alt = LFS_MKRALT__(B, GT,
-                        upper_upper - lower_lower);
-            }
-
-            // TODO can we rededuplicate this?
-            int err = lfs_rbyd_p_push(lfs, rbyd_,
-                    p_alts, p_jumps,
-                    alt, upper_branch);
-            if (err) {
-                return err;
-            }
-        }
-    } else if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
-        // inserting a new id?
-        LFS_ASSERT(!diverged);
-        // TODO rm should probably be handled generally
-        if (!lfs_rtag_isrm(lower_tag_)) {
-            // note we bias the weights here so that lfs_rbyd_lookup
-            // always finds the next biggest tag
-            if (lfs_rtag_weight(lower_tag_)
-                    < lfs_rtag_weight(tag & ~0x7fff)) {
-                alt = LFS_MKRALT__(B, LT,
-                        (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
-            } else {
-                alt = LFS_MKRALT__(B, GT,
-                        (lower_upper+0x8000) - (lfs_rtag_weight_(tag)+0x8));
-            }
-
-            int err = lfs_rbyd_p_push(lfs, rbyd_,
-                    p_alts, p_jumps,
-                    alt, lower_branch);
-            if (err) {
-                return err;
-            }
-
-            lfs_rbyd_p_red(p_alts, p_jumps);
-        }
-    } else {
-        LFS_ASSERT(!diverged);
-        // TODO use weights here?
-        if (lfs_rtag_weight_(lower_tag_) != lfs_rtag_weight_(tag)
-                && !lfs_rtag_isrm(lower_tag_)) {
-            // note we bias the weights here so that lfs_rbyd_lookup
-            // always finds the next biggest tag
-            if (lfs_rtag_weight_(lower_tag_) < lfs_rtag_weight_(tag)) {
-                alt = LFS_MKRALT__(B, LT,
-                        (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
-            } else {
-                alt = LFS_MKRALT__(B, GT,
-                        lower_upper - (lfs_rtag_weight_(tag)+0x8));
-            }
-
-            int err = lfs_rbyd_p_push(lfs, rbyd_,
-                    p_alts, p_jumps,
-                    alt, lower_branch);
-            if (err) {
-                return err;
-            }
-
+        if (!lfs_rtag_isrm(tag)) {
+            // introduce a red edge
             lfs_rbyd_p_red(p_alts, p_jumps);
         }
     }
