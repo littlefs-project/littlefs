@@ -240,7 +240,6 @@ def main(disk, block_size, block1, block2=None, *,
         lifetimes = {}
         ids = []
         ids_i = 0
-        deleted_id = ''
         j = 4
         while j < (block_size if args.get('all') else off):
             j_ = j
@@ -266,7 +265,8 @@ def main(disk, block_size, block1, block2=None, *,
                             for id in range(count))
                         + ' ',
                     count)
-            elif (tag & 0x7f) == 0x41:
+            elif ((tag & 0x7f) == 0x41
+                    and ((tag >> 15) & 0xffff)-1 < len(ids)):
                 lifetimes[j_] = (
                     ''.join(
                         '%s%s%s' % (
@@ -279,7 +279,7 @@ def main(disk, block_size, block1, block2=None, *,
                         + ' ',
                     count)
                 count -= 1
-                deleted_id = ids.pop(((tag >> 15) & 0xffff)-1)
+                ids.pop(((tag >> 15) & 0xffff)-1)
             else:
                 lifetimes[j_] = (
                     ''.join(
@@ -338,12 +338,9 @@ def main(disk, block_size, block1, block2=None, *,
         if args.get('lifetimes'):
             if (tag & 0x7f) == 0x40:
                 count += 1
-                ids.insert(((tag >> 15) & 0xffff)-1,
-                    COLORS[ids_i % len(COLORS)])
-                ids_i += 1
-            elif (tag & 0x7f) == 0x41:
+            elif ((tag & 0x7f) == 0x41
+                    and ((tag >> 15) & 0xffff)-1 < len(ids)):
                 count -= 1
-                deleted_id = ids.pop(((tag >> 15) & 0xffff)-1)
 
         if not args.get('in_tree') or (tag & 0x6) != 2:
             if args.get('raw'):

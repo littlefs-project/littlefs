@@ -114,6 +114,13 @@ static inline uint32_t lfs_min(uint32_t a, uint32_t b) {
     return (a < b) ? a : b;
 }
 
+// Swap two 32-bit numbers
+static inline void lfs_swap(uint32_t *a, uint32_t *b) {
+    uint32_t t = *a;
+    *a = *b;
+    *b = t;
+}
+
 // Align to nearest multiple of a size
 static inline uint32_t lfs_aligndown(uint32_t a, uint32_t alignment) {
     return a - (a % alignment);

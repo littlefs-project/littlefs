@@ -1876,29 +1876,29 @@ code = '''
     lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
             => LFS_ERR_NOENT;
 
-//    // commit with two attributes, remove the second one
-//    rbyd = init_rbyd;
-//    lfs_bd_erase(&lfs, rbyd.block) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd,
-//            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
-//            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
-//    lfs_rbyd_commit(&lfs, &rbyd,
-//            LFS_MKRRMATTR(UATTR, 2, 0, NULL)) => 0;
-//
-//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
-//            => LFS_MKRTAG(UATTR, 1, 0);
-//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
-//            => LFS_ERR_NOENT;
-//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
-//            => LFS_ERR_NOENT;
-//
-//    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
-//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
-//            => LFS_MKRTAG(UATTR, 1, 0);
-//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
-//            => LFS_ERR_NOENT;
-//    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
-//            => LFS_ERR_NOENT;
+    // commit with two attributes, remove the second one
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 2, 0, NULL)) => 0;
+
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 1, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 1, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_ERR_NOENT;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_ERR_NOENT;
 '''
 
 [cases.test_rbyd_remove_permutations]
@@ -2019,6 +2019,238 @@ code = '''
     printf("avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
     assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+'''
+
+[cases.test_rbyd_remove_missing]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    lfs_off_t off;
+    lfs_size_t size;
+
+    // create a tree two attributes
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            NULL))) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    // try to remove tags that aren't there, this should do nothing
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 1, 0, NULL)) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 3, 0, NULL)) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 5, 0, NULL)) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    // one last fetch to make sure nothing was broken
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_remove_again]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfs_rbyd_t init_rbyd = {
+        .block = 0,
+        .trunk = 0,
+        .off = 0,
+        .rev = 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true,
+    };
+    lfs_rbyd_t rbyd;
+    lfs_off_t off;
+    lfs_size_t size;
+
+    // create a tree
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRATTR(UATTR, 1, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFS_MKRATTR(UATTR, 2, 0, "\xbb\xbb\xbb\xbb", 4,
+            LFS_MKRATTR(UATTR, 3, 0, "\xcc\xcc\xcc\xcc", 4,
+            LFS_MKRATTR(UATTR, 4, 0, "\xdd\xdd\xdd\xdd", 4,
+            LFS_MKRATTR(UATTR, 5, 0, "\xee\xee\xee\xee", 4,
+            NULL)))))) => 0;
+    // remove several attributes
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 1, 0,
+            LFS_MKRRMATTR(UATTR, 3, 0,
+            LFS_MKRRMATTR(UATTR, 5, 0, NULL)))) => 0;
+
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    // try to remove tags that aren't there, this should do nothing
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 1, 0, NULL)) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 3, 0, NULL)) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 5, 0, NULL)) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    // try to remove the tags again, just to make sure (keep in mind
+    // these removes still commit to the rbyd)
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 1, 0, NULL)) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 3, 0, NULL)) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    lfs_rbyd_commit(&lfs, &rbyd,
+            LFS_MKRRMATTR(UATTR, 5, 0, NULL)) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
+
+    // one last fetch to make sure nothing was broken
+    lfs_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 1, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 2, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 2, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 3, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 4, 0), &off, &size)
+            => LFS_MKRTAG(UATTR, 4, 0);
+    lfs_rbyd_lookup(&lfs, &rbyd, LFS_MKRTAG(UATTR, 5, 0), &off, &size)
+            => LFS_ERR_NOENT;
 '''
 
 [cases.test_rbyd_remove_all]
