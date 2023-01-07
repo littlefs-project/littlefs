@@ -610,9 +610,9 @@ static inline bool lfs_rtag_follow_(lfs_rtag_t alt,
         lfs_rtag_t lower, lfs_rtag_t upper, lfs_rtag_t tag) {
     // TODO should we expect weight as an argument here?
     if (lfs_rtag_isgt(alt)) {
-        return lfs_rtag_weight_(tag) >= upper - lfs_rtag_weight_(alt);
+        return tag >= upper - lfs_rtag_weight_(alt);
     } else {
-        return lfs_rtag_weight_(tag) < lower + lfs_rtag_weight_(alt);
+        return tag < lower + lfs_rtag_weight_(alt);
     }
 }
 
@@ -1581,8 +1581,11 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             lfs_rtag_t branch_ = lower_branch + delta;
 
             // do bounds want to take different paths? begin cutting
-            if (!diverged && lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag_)
-                    != lfs_rtag_follow_(alt, lower_lower, lower_upper, upper_tag_)) {
+            if (!diverged
+                    && lfs_rtag_follow_(alt,
+                            lower_lower, lower_upper, lower_tag_)
+                        != lfs_rtag_follow_(alt,
+                            lower_lower, lower_upper, upper_tag_)) {
                 diverged = true;
                 upper_branch = lower_branch;
                 upper_lower = lower_lower;
@@ -1648,7 +1651,8 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 // |  |    <b         |    <b  |
                 // |  |  .-'|         |  .-'|  |
                 // 1  2  3  4      1  2  3  4  1
-                if (lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag_)) {
+                if (lfs_rtag_follow_(alt,
+                        lower_lower, lower_upper, lower_tag_)) {
                     lfs_swap(&alt, &p_alts[0]);
                     lfs_swap(&jump, &branch_);
                     lfs_swap(&jump, &p_jumps[0]);
@@ -1691,23 +1695,22 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             // .-'|  =>     .-'|
             // 1  2      1  2  1
             if (lfs_rtag_isblack(alt)
-                    && lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag_)) {
+                    && lfs_rtag_follow_(alt,
+                        lower_lower, lower_upper, lower_tag_)) {
                 alt = lfs_rtag_flip_(alt, lower_lower, lower_upper);
                 lfs_swap(&jump, &branch_);
             }
 
             // should've taken red alt? needs a flip
-            // TODO should we just get rid of follows and prefer explicit comparisons?
             //      <r              >r
             // .----'|            .-'|
             // |    <b  =>        | >b
             // |  .-'|         .--|-'|
             // 1  2  3      1  2  3  1
             if (p_alts[0]
-                    && ((lfs_rtag_islt(p_alts[0])
-                            && lower_tag_ < lower_lower)
-                        || (lfs_rtag_isgt(p_alts[0])
-                            && lower_tag_ >= lower_upper))) {
+                    && lfs_rtag_follow_(
+                        p_alts[0] - lfs_rtag_weight_(p_alts[0]),
+                        lower_lower, lower_upper, lower_tag_)) {
                 LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
                 LFS_ASSERT(lfs_rtag_isblack(alt));
 
@@ -1737,7 +1740,6 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             lower_branch = branch_;
 
         // found end of tree?
-        // TODO just break? the gotos above are smelly
         } else {
             // update the tag id
             lower_tag_ = lfs_rtag_setid(alt, lfs_rtag_id(lower_upper-1));
