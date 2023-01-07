@@ -471,19 +471,10 @@ enum lfs_rtag_pat {
     (LFS_TYPE1_ALT \
         | ((0x1 & (lfs_rtag_t)(color)) << 0) \
         | ((0x1 & (lfs_rtag_t)(dir)) << 1) \
-        | ((0xfffffff & (lfs_rtag_t)(weight)) << 3))
+        | ((0x1ffffff8 & (lfs_rtag_t)(weight))))
 
 #define LFS_MKRALT(color, dir, weight) \
     LFS_MKRALT_(LFS_ALT_##color, LFS_ALT_##dir, weight)
-
-#define LFS_MKRALT___(color, dir, weight) \
-    (LFS_TYPE1_ALT \
-        | ((0x1 & (lfs_rtag_t)(color)) << 0) \
-        | ((0x1 & (lfs_rtag_t)(dir)) << 1) \
-        | ((0x1ffffff8 & (lfs_rtag_t)(weight))))
-
-#define LFS_MKRALT__(color, dir, weight) \
-    LFS_MKRALT___(LFS_ALT_##color, LFS_ALT_##dir, weight)
 
 // tag operations
 static inline bool lfs_rtag_isvalid(lfs_rtag_t tag) {
@@ -575,96 +566,42 @@ static inline lfs_rtag_t lfs_rtag_isparallel(lfs_rtag_t a, lfs_rtag_t b) {
     return (a & 0x2) == (b & 0x2);
 }
 
-// TODO rm
-//static inline lfs_srtag_t lfs_rtag_weight(lfs_rtag_t tag) {
-//    return tag >> 3;
-//}
-
-static inline lfs_rtag_t lfs_rtag_weight_(lfs_rtag_t tag) {
+static inline lfs_rtag_t lfs_rtag_weight(lfs_rtag_t tag) {
     return tag & ~0x7;
 }
 
-static inline lfs_rtag_t lfs_rtag_merge(lfs_rtag_t a, lfs_rtag_t b) {
-    return a + (b & ~0x7);
-}
-
-//static inline lfs_srtag_t lfs_rtag_weight_lt(lfs_rtag_t tag, uint16_t count) {
-//    (void)count;
-//    return lfs_rtag_weight(tag);
-//}
-//
-//static inline lfs_srtag_t lfs_rtag_weight_gt(lfs_rtag_t tag, uint16_t count) {
-//    return (((lfs_srtag_t)count) << 12)-1 - lfs_rtag_weight(tag);
-//}
-
-//static inline bool lfs_rtag_follow(lfs_rtag_t alt,
-//        lfs_srtag_t lt, lfs_srtag_t gt) {
-//    if (lfs_rtag_islt(alt)) {
-//        return lfs_rtag_weight(alt) > lt;
-//    } else {
-//        return lfs_rtag_weight(alt) > gt;
-//    }
-//}
-
-static inline bool lfs_rtag_follow_(lfs_rtag_t alt,
+static inline bool lfs_rtag_follow(lfs_rtag_t alt,
         lfs_rtag_t lower, lfs_rtag_t upper, lfs_rtag_t tag) {
-    // TODO should we expect weight as an argument here?
     if (lfs_rtag_isgt(alt)) {
-        return tag >= upper - lfs_rtag_weight_(alt);
+        return tag >= upper - lfs_rtag_weight(alt);
     } else {
-        return tag < lower + lfs_rtag_weight_(alt);
+        return tag < lower + lfs_rtag_weight(alt);
     }
 }
 
-//static inline lfs_rtag_t lfs_rtag_flip(
-//        lfs_rtag_t alt, lfs_rtag_t lt, lfs_rtag_t gt) {
-//    return LFS_MKRALT_(
-//            lfs_rtag_isred(alt),
-//            !lfs_rtag_isgt(alt),
-//            (lt+gt+1) - lfs_rtag_weight(alt));
-//}
-
-static inline lfs_rtag_t lfs_rtag_flip_(lfs_rtag_t alt,
+static inline lfs_rtag_t lfs_rtag_flip(lfs_rtag_t alt,
         lfs_rtag_t lower, lfs_rtag_t upper) {
-    return LFS_MKRALT___(
+    return LFS_MKRALT_(
             lfs_rtag_isred(alt),
             !lfs_rtag_isgt(alt),
-            (upper-lower) - lfs_rtag_weight_(alt));
+            (upper-lower) - lfs_rtag_weight(alt));
 }
 
-//static inline void lfs_rtag_trim(lfs_rtag_t alt,
-//        lfs_srtag_t *lt, lfs_srtag_t *gt) {
-//    if (lfs_rtag_islt(alt)) {
-//        *lt = *lt - lfs_rtag_weight(alt);
-//    } else {
-//        *gt = *gt - lfs_rtag_weight(alt);
-//    }
-//}
-
-static inline void lfs_rtag_trim_(lfs_rtag_t alt,
+static inline void lfs_rtag_trim(lfs_rtag_t alt,
         lfs_rtag_t *lower, lfs_rtag_t *upper) {
     if (lfs_rtag_isgt(alt)) {
-        *upper -= lfs_rtag_weight_(alt);
+        *upper -= lfs_rtag_weight(alt);
     } else {
-        *lower += lfs_rtag_weight_(alt);
+        *lower += lfs_rtag_weight(alt);
     }
 }
 
-//static inline void lfs_rtag_untrim(lfs_rtag_t alt,
-//        lfs_srtag_t *lt, lfs_srtag_t *gt) {
-//    if (lfs_rtag_islt(alt)) {
-//        *lt = *lt + lfs_rtag_weight(alt);
-//    } else {
-//        *gt = *gt + lfs_rtag_weight(alt);
-//    }
-//}
-
-static inline void lfs_rtag_untrim_(lfs_rtag_t alt,
+static inline void lfs_rtag_untrim(lfs_rtag_t alt,
         lfs_rtag_t *lower, lfs_rtag_t *upper) {
     if (lfs_rtag_isgt(alt)) {
-        *upper += lfs_rtag_weight_(alt);
+        *upper += lfs_rtag_weight(alt);
     } else {
-        *lower -= lfs_rtag_weight_(alt);
+        *lower -= lfs_rtag_weight(alt);
     }
 }
 
@@ -1300,13 +1237,13 @@ static lfs_srtag_t lfs_rbyd_lookup(lfs_t *lfs, const lfs_rbyd_t *rbyd,
 
         // found an alt?
         if (lfs_rtag_isalt(alt)) {
-            if (lfs_rtag_follow_(alt, lower, upper, tag)) {
-                lfs_rtag_trim_(
-                        lfs_rtag_flip_(alt, lower, upper),
+            if (lfs_rtag_follow(alt, lower, upper, tag)) {
+                lfs_rtag_trim(
+                        lfs_rtag_flip(alt, lower, upper),
                         &lower, &upper);
                 branch = branch - jump;
             } else {
-                lfs_rtag_trim_(alt, &lower, &upper);
+                lfs_rtag_trim(alt, &lower, &upper);
                 branch = branch + delta;
             }
 
@@ -1582,9 +1519,9 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
 
             // do bounds want to take different paths? begin cutting
             if (!diverged
-                    && lfs_rtag_follow_(alt,
+                    && lfs_rtag_follow(alt,
                             lower_lower, lower_upper, lower_tag_)
-                        != lfs_rtag_follow_(alt,
+                        != lfs_rtag_follow(alt,
                             lower_lower, lower_upper, upper_tag_)) {
                 diverged = true;
                 upper_branch = lower_branch;
@@ -1603,21 +1540,21 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             // |  |  .----'|      |     .----'|  |
             // 1  2  3  4  4      1  2  3  4  4  2
             bool prune = false;
-            if (lfs_rtag_weight_(alt) >= (lower_upper-lower_lower)) {
+            if (lfs_rtag_weight(alt) >= (lower_upper-lower_lower)) {
                 prune = true;
             // cut while following
             } else if (diverged
-                    && lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag_)
+                    && lfs_rtag_follow(alt, lower_lower, lower_upper, lower_tag_)
                     && (lower_tag_ < upper_tag_) == lfs_rtag_islt(alt)) {
-                lfs_rtag_trim_(
-                        lfs_rtag_flip_(alt, lower_lower, lower_upper),
+                lfs_rtag_trim(
+                        lfs_rtag_flip(alt, lower_lower, lower_upper),
                         &lower_lower, &lower_upper);
                 prune = true;
             // cut while not following
             } else if (diverged
-                    && !lfs_rtag_follow_(alt, lower_lower, lower_upper, lower_tag_)
+                    && !lfs_rtag_follow(alt, lower_lower, lower_upper, lower_tag_)
                     && (lower_tag_ < upper_tag_) != lfs_rtag_islt(alt)) {
-                lfs_rtag_trim_(alt, &lower_lower, &lower_upper);
+                lfs_rtag_trim(alt, &lower_lower, &lower_upper);
                 lfs_swap(&jump, &branch_);
                 prune = true;
             }
@@ -1629,7 +1566,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                     jump = p_jumps[0];
                     lfs_rbyd_p_pop(p_alts, p_jumps);
 
-                    lfs_rtag_untrim_(alt, &lower_lower, &lower_upper);
+                    lfs_rtag_untrim(alt, &lower_lower, &lower_upper);
                 } else {
                     lower_branch = jump;
                     continue;
@@ -1651,18 +1588,18 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 // |  |    <b         |    <b  |
                 // |  |  .-'|         |  .-'|  |
                 // 1  2  3  4      1  2  3  4  1
-                if (lfs_rtag_follow_(alt,
+                if (lfs_rtag_follow(alt,
                         lower_lower, lower_upper, lower_tag_)) {
                     lfs_swap(&alt, &p_alts[0]);
                     lfs_swap(&jump, &branch_);
                     lfs_swap(&jump, &p_jumps[0]);
                     p_alts[0] = lfs_rtag_black(
-                            lfs_rtag_flip_(p_alts[0],
+                            lfs_rtag_flip(p_alts[0],
                                 lower_lower, lower_upper));
                     alt = lfs_rtag_black(alt);
 
-                    lfs_rtag_untrim_(alt, &lower_lower, &lower_upper);
-                    lfs_rtag_trim_(p_alts[0], &lower_lower, &lower_upper);
+                    lfs_rtag_untrim(alt, &lower_lower, &lower_upper);
+                    lfs_rtag_trim(p_alts[0], &lower_lower, &lower_upper);
                     lfs_rbyd_p_red(p_alts, p_jumps);
 
                 // otherwise we need to point to the yellow alt and
@@ -1679,10 +1616,10 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 } else {
                     LFS_ASSERT(graft != 0);
                     p_alts[0] = lfs_rtag_black(
-                            lfs_rtag_merge(alt, p_alts[0]));
+                            alt + lfs_rtag_weight(p_alts[0]));
                     p_jumps[0] = graft;
 
-                    lfs_rtag_trim_(alt, &lower_lower, &lower_upper);
+                    lfs_rtag_trim(alt, &lower_lower, &lower_upper);
                     lfs_rbyd_p_red(p_alts, p_jumps);
 
                     lower_branch = branch_;
@@ -1695,9 +1632,9 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             // .-'|  =>     .-'|
             // 1  2      1  2  1
             if (lfs_rtag_isblack(alt)
-                    && lfs_rtag_follow_(alt,
+                    && lfs_rtag_follow(alt,
                         lower_lower, lower_upper, lower_tag_)) {
-                alt = lfs_rtag_flip_(alt, lower_lower, lower_upper);
+                alt = lfs_rtag_flip(alt, lower_lower, lower_upper);
                 lfs_swap(&jump, &branch_);
             }
 
@@ -1708,8 +1645,8 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             // |  .-'|         .--|-'|
             // 1  2  3      1  2  3  1
             if (p_alts[0]
-                    && lfs_rtag_follow_(
-                        p_alts[0] - lfs_rtag_weight_(p_alts[0]),
+                    && lfs_rtag_follow(
+                        p_alts[0] - lfs_rtag_weight(p_alts[0]),
                         lower_lower, lower_upper, lower_tag_)) {
                 LFS_ASSERT(lfs_rtag_isred(p_alts[0]));
                 LFS_ASSERT(lfs_rtag_isblack(alt));
@@ -1719,10 +1656,10 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
                 p_alts[0] = lfs_rtag_red(p_alts[0]);
                 alt = lfs_rtag_black(alt);
 
-                lfs_rtag_untrim_(alt, &lower_lower, &lower_upper);
-                lfs_rtag_trim_(p_alts[0], &lower_lower, &lower_upper);
+                lfs_rtag_untrim(alt, &lower_lower, &lower_upper);
+                lfs_rtag_trim(p_alts[0], &lower_lower, &lower_upper);
 
-                alt = lfs_rtag_flip_(alt, lower_lower, lower_upper);
+                alt = lfs_rtag_flip(alt, lower_lower, lower_upper);
                 lfs_swap(&jump, &branch_);
             }
 
@@ -1735,7 +1672,7 @@ static int lfs_rbyd_append(lfs_t *lfs, lfs_rbyd_t *rbyd_,
             }
 
             // continue to next alt
-            lfs_rtag_trim_(alt, &lower_lower, &lower_upper);
+            lfs_rtag_trim(alt, &lower_lower, &lower_upper);
             graft = lower_branch;
             lower_branch = branch_;
 
@@ -1781,44 +1718,44 @@ stem:;
     if (lfs_rtag_isrm(lower_tag_)) {
         // no split needed, prune the removed tag
 
-    } else if (lfs_rtag_weight_(lower_tag_) < lfs_rtag_weight_(tag)) {
+    } else if (lfs_rtag_weight(lower_tag_) < lfs_rtag_weight(tag)) {
         // split less than, this is consistent for all appends and only happens
         // when appending to the end of the tree
-        alt = LFS_MKRALT__(B, LT,
-                (lfs_rtag_weight_(lower_tag_)+0x8) - lower_lower);
+        alt = LFS_MKRALT(B, LT,
+                (lfs_rtag_weight(lower_tag_)+0x8) - lower_lower);
         jump = lower_branch;
 
     } else if (lfs_rtag_type1(tag) == LFS_TYPE1_CREATE) {
-        if (lfs_rtag_weight_(upper_tag_)
-                >= lfs_rtag_weight_(tag & ~0x7fff)) {
+        if (lfs_rtag_weight(upper_tag_)
+                >= lfs_rtag_weight(tag & ~0x7fff)) {
             // increase biased weight when creating
-            alt = LFS_MKRALT__(B, GT,
-                    (upper_upper+0x8000) - (lfs_rtag_weight_(tag)+0x8));
+            alt = LFS_MKRALT(B, GT,
+                    (upper_upper+0x8000) - (lfs_rtag_weight(tag)+0x8));
             jump = upper_branch;
         }
 
     } else if (lfs_rtag_type1(tag) == LFS_TYPE1_DELETE) {
-        if (lfs_rtag_weight_(upper_tag_)
-                >= lfs_rtag_weight_(tag & ~0x7fff)+0x8000) {
+        if (lfs_rtag_weight(upper_tag_)
+                >= lfs_rtag_weight(tag & ~0x7fff)+0x8000) {
             // decrease biased weight when deleting
-            alt = LFS_MKRALT__(B, GT,
+            alt = LFS_MKRALT(B, GT,
                     upper_upper-0x8000 - lower_lower);
             jump = upper_branch;
         }
 
     } else if (lfs_rtag_isrm(tag)) {
-        if (lfs_rtag_weight_(upper_tag_) > lfs_rtag_weight_(tag)) {
+        if (lfs_rtag_weight(upper_tag_) > lfs_rtag_weight(tag)) {
             // hide our tag during removes
-            alt = LFS_MKRALT__(B, GT,
+            alt = LFS_MKRALT(B, GT,
                     upper_upper - lower_lower);
             jump = upper_branch;
         }
 
     } else {
-        if (lfs_rtag_weight_(upper_tag_) > lfs_rtag_weight_(tag)) {
+        if (lfs_rtag_weight(upper_tag_) > lfs_rtag_weight(tag)) {
             // split greater than
-            alt = LFS_MKRALT__(B, GT,
-                    upper_upper - (lfs_rtag_weight_(tag)+0x8));
+            alt = LFS_MKRALT(B, GT,
+                    upper_upper - (lfs_rtag_weight(tag)+0x8));
             jump = upper_branch;
         }
     }
