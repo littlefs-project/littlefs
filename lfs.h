@@ -329,7 +329,7 @@ typedef struct lfs_cache {
     uint8_t *buffer;
 } lfs_cache_t;
 
-typedef struct lfs_rbyd {
+typedef struct lfsr_rbyd {
     lfs_block_t block;
     lfs_off_t trunk;
     lfs_off_t off;
@@ -337,7 +337,7 @@ typedef struct lfs_rbyd {
     uint32_t crc;
     uint16_t count;
     bool erased;
-} lfs_rbyd_t;
+} lfsr_rbyd_t;
 
 typedef struct lfs_mdir {
     lfs_block_t pair[2];

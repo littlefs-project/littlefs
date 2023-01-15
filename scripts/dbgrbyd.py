@@ -50,62 +50,47 @@ def xxd(data, width=16, crc=False):
                 for b in map(chr, data[i:i+width])))
 
 def tagrepr(tag, size, off=None):
-    type1 = tag & 0x7f
-    type2 = (tag >> 7) & 0xff
+    type = tag & 0x7fff
+    suptype = tag & 0x7807
+    subtype = (tag >> 3) & 0xff
     id = (tag >> 15) & 0xffff
 
-    if (type1 & 0x7f) == 0x40:
-        return 'create%s id%d%s' % (
-            'reg' if type2 == 1
-                else ' x%02x' % type2,
+    if suptype == 0x0800:
+        return 'mk%s id%d%s' % (
+            'reg' if subtype == 0
+                else ' x%02x' % subtype,
             id,
-            ' %d' % size if not type1 & 0x1 else '')
-    elif (type1 & 0x7f) == 0x41:
-        return 'delete%s id%d%s' % (
-            ' x%02x' % type2 if type2 else '',
+            ' %d' % size if not tag & 0x1 else '')
+    elif suptype == 0x0801:
+        return 'rm%s id%d%s' % (
+            ' x%02x' % subtype if subtype else '',
             id,
-            ' %d' % size if not type1 & 0x1 else '')
-    elif (type1 & 0x7e) == 0x50:
-        return '%sstruct x%02x id%d%s' % (
-            '~' if type1 & 0x1 else '',
-            type2,
-            id,
-            ' %d' % size if not type1 & 0x1 else '')
-    elif (type1 & 0x7e) == 0x60:
+            ' %d' % size if not tag & 0x1 else '')
+    elif (suptype & ~0x1) == 0x1000:
         return '%suattr x%02x id%d%s' % (
-            '~' if type1 & 0x1 else '',
-            type2,
+            'rm' if suptype & 0x1 else '',
+            subtype,
             id,
-            ' %d' % size if not type1 & 0x1 else '')
-    elif (type1 & 0x7e) == 0x08:
-        return '%stail%s%s' % (
-            '~' if type1 & 0x1 else '',
-            ' x%02x' % type2 if type2 else '',
-            ' %d' % size if not type1 & 0x1 else '')
-    elif (type1 & 0x7e) == 0x10:
-        return '%sgstate x%02x%s' % (
-            '~' if type1 & 0x1 else '',
-            type2,
-            ' %d' % size if not type1 & 0x1 else '')
-    elif (type1 & 0x7e) == 0x02:
+            ' %d' % size if not tag & 0x1 else '')
+    elif (suptype & ~0x1) == 0x0002:
         return 'crc%x%s %d' % (
-            type1 >> 3,
-            ' x%02x' % type2 if type2 else '',
+            suptype & 0x1,
+            ' x%02x' % subtype if subtype else '',
             size)
-    elif type1 == 0x0a:
+    elif suptype == 0x0802:
         return 'fcrc%s %d' % (
-            ' x%02x' % type2 if type2 else '',
+            ' x%02x' % subtype if subtype else '',
             size)
-    elif type1 & 0x4:
+    elif suptype & 0x4:
         return 'alt%s%s x%x %s' % (
-            'r' if type1 & 1 else 'b',
-            'gt' if type1 & 2 else 'lt',
+            'r' if suptype & 0x1 else 'b',
+            'gt' if suptype & 0x2 else 'lt',
             tag & ~0x7,
             'x%x' % (0xffffffff & (off-size))
                 if off is not None
                 else '-%d' % off)
     else:
-        return 'x%02x x%02x id%d %d' % (type1, type2, id, size)
+        return 'x%02x id%d %d' % (type, id, size)
 
 
 def main(disk, block_size, block1, block2=None, *,
@@ -141,7 +126,7 @@ def main(disk, block_size, block1, block2=None, *,
             j += delta
 
             if not tag & 0x4:
-                if (tag & 0x7e) != 0x2:
+                if (tag & 0x7806) != 0x0002:
                     crc = crc32c(data[j:j+size], crc)
                 # found a crc?
                 else:
@@ -167,11 +152,7 @@ def main(disk, block_size, block1, block2=None, *,
 
     # print contents of the winning metadata block
     block, data, rev, off = blocks[i], datas[i], revs[i], offs[i]
-
-    # print revision count
     crc = crc32c(data[0:4])
-    if args.get('raw'):
-        print('%08x: %s' % (0, next(xxd(data[0:4]))))
 
     # preprocess jumps
     if args.get('jumps'):
@@ -248,7 +229,7 @@ def main(disk, block_size, block1, block2=None, *,
             if not tag & 0x4:
                 j += size
 
-            if (tag & 0x7f) == 0x40:
+            if (tag & 0x7807) == 0x0800:
                 count += 1
                 max_count = max(max_count, count)
                 ids.insert(((tag >> 15) & 0xffff)-1,
@@ -265,7 +246,7 @@ def main(disk, block_size, block1, block2=None, *,
                             for id in range(count))
                         + ' ',
                     count)
-            elif ((tag & 0x7f) == 0x41
+            elif ((tag & 0x7807) == 0x0801
                     and ((tag >> 15) & 0xffff)-1 < len(ids)):
                 lifetimes[j_] = (
                     ''.join(
@@ -312,6 +293,10 @@ def main(disk, block_size, block1, block2=None, *,
         'data (truncated)'
             if not args.get('no_truncate') else ''))
 
+    # print revision count
+    if args.get('raw'):
+        print('%8s: %s' % ('%04x' % 0, next(xxd(data[0:4]))))
+
     # print tags
     j = 4
     while j < (block_size if args.get('all') else off):
@@ -325,7 +310,7 @@ def main(disk, block_size, block1, block2=None, *,
         j += delta
 
         if not tag & 0x4:
-            if (tag & 0x7e) != 0x2:
+            if (tag & 0x7806) != 0x0002:
                 crc = crc32c(data[j:j+size], crc)
             # found a crc?
             else:
@@ -336,9 +321,9 @@ def main(disk, block_size, block1, block2=None, *,
 
         # adjust count?
         if args.get('lifetimes'):
-            if (tag & 0x7f) == 0x40:
+            if (tag & 0x7807) == 0x0800:
                 count += 1
-            elif ((tag & 0x7f) == 0x41
+            elif ((tag & 0x7807) == 0x0801
                     and ((tag >> 15) & 0xffff)-1 < len(ids)):
                 count -= 1
 
