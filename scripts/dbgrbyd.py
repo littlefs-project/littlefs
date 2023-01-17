@@ -53,7 +53,7 @@ def tagrepr(tag, size, off=None):
     type = tag & 0x7fff
     suptype = tag & 0x7807
     subtype = (tag >> 3) & 0xff
-    id = (tag >> 15) & 0xffff
+    id = ((tag >> 15) & 0xffff) - 1
 
     if suptype == 0x0800:
         return 'mk%s id%d%s' % (

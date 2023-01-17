@@ -647,15 +647,15 @@ struct lfs_diskoff {
     (struct lfs_mattr[]){__VA_ARGS__}, \
     sizeof((struct lfs_mattr[]){__VA_ARGS__}) / sizeof(struct lfs_mattr)
 
-struct lfs_rattr {
+struct lfsr_attr {
     lfsr_tag_t tag;
     const void *buffer;
     lfs_size_t size;
-    const struct lfs_rattr *next;
+    const struct lfsr_attr *next;
 };
 
 #define LFSR_ATTR_(tag, buffer, size, next) \
-    (&(const struct lfs_rattr){tag, buffer, size, next})
+    (&(const struct lfsr_attr){tag, buffer, size, next})
 
 #define LFSR_ATTR(type, id, buffer, size, next) \
     LFSR_ATTR_(LFSR_TAG(type, id), buffer, size, next)
@@ -664,21 +664,21 @@ struct lfs_rattr {
     LFSR_ATTR_(LFSR_TAG2(suptype, subtype, id), buffer, size, next)
 
 //#define LFS_MKRATTR_(...) 
-//    (&(const struct lfs_rattr){__VA_ARGS__})
+//    (&(const struct lfsr_attr){__VA_ARGS__})
 //
 //#define LFS_MKRATTR(type1, type2, id, buffer, size, next) 
-//    (&(const struct lfs_rattr){ 
+//    (&(const struct lfsr_attr){ 
 //        LFS_MKRTAG(type1, type2, id), 
 //        buffer, size, next})
 //
 //#define LFS_MKRRMATTR(type1, type2, id, next) 
-//    (&(const struct lfs_rattr){ 
+//    (&(const struct lfsr_attr){ 
 //        LFS_MKRRMTAG(type1, type2, id), 
 //        NULL, 0, next})
 
 
 // operations on pattern lists
-struct lfs_rpat {
+struct lfsr_pat {
     lfsr_tag_t tag;
     union {
         struct {
@@ -690,11 +690,11 @@ struct lfs_rpat {
             lfs_size_t size;
         } find;
     } u;
-    struct lfs_rpat *next;
+    struct lfsr_pat *next;
 };
 
 #define LFS_MKRGETPAT_(tag, buffer, size, next) \
-    (&(struct lfs_rpat){ \
+    (&(struct lfsr_pat){ \
         .tag = LFS_PAT_GET | (tag), \
         .u.get.buffer = buffer, \
         .u.get.size = size, \
@@ -704,7 +704,7 @@ struct lfs_rpat {
     LFS_MKRGET_(LFS_MKRTAG(type1, type2, 0), buffer, size, next)
 
 #define LFS_MKRFINDPAT_(tag, buffer, size, next) \
-    (&(struct lfs_rpat){ \
+    (&(struct lfsr_pat){ \
         .tag = LFS_PAT_FIND | (tag), \
         .u.find.buffer = buffer, \
         .u.find.size = size, \
@@ -1063,12 +1063,12 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
     return i;
 }
 
-static int lfsr_rbyd_fetch(lfs_t *lfs,
-        lfsr_rbyd_t *rbyd, lfs_block_t block,
-        struct lfs_rpat *patterns) {
+static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfs_block_t block,
+        struct lfsr_pat *patterns) {
     // TODO this
     // first mark patterns as invalid until we find matches
-    for (struct lfs_rpat *pattern = patterns;
+    for (struct lfsr_pat *pattern = patterns;
             pattern;
             pattern = pattern->next) {
         pattern->tag = lfsr_tag_mkinvalid(pattern->tag);
@@ -1296,8 +1296,12 @@ static lfsr_stag_t lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             }
 
             // save what we found
-            *off = branch + delta;
-            *size = jump;
+            if (off) {
+                *off = branch + delta;
+            }
+            if (size) {
+                *size = jump;
+            }
 
             return tag_;
         }
@@ -1329,6 +1333,39 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     }
 
     return size_;
+}
+
+static lfs_ssize_t lfsr_rbyd_rangesize(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfsr_tag_t start, lfsr_tag_t stop) {
+    // find the strict upper bound on the amount of disk taken by a range of
+    // tags immediately after compaction (when the tags should be perfectly
+    // rbyd balanced), this is used for a number of heuristics
+
+    // find the size/count of tags
+    lfs_size_t count = 0;
+    lfs_size_t sum = 0;
+    while (true) {
+        lfs_size_t size_;
+        lfsr_stag_t tag_ = lfsr_rbyd_lookup(lfs, rbyd, start, NULL, &size_);
+        if (tag_ < 0 && tag_ != LFS_ERR_NOENT) {
+            return tag_;
+        }
+
+        if (tag_ == LFS_ERR_NOENT || (lfsr_tag_t)tag_ >= stop) {
+            break;
+        }
+
+        count += 1;
+        sum += size_;
+        start = lfsr_tag_next(tag_);
+    }
+
+    // make sure to account for both tag and alt metametadata, and assume the
+    // worst-case leb128 encoding for tags. Note that since we assume this is
+    // immediately after compaciton, the tree should be perfectly rbyd
+    // balanced, which puts a strict upper bound of 2*log2(n)+1 on the space
+    // overhead per tag
+    return sum + count*2*4 + (2*lfs_nlog2(count)+1)*2*4;
 }
 
 static int lfsr_rbyd_prog(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
@@ -1851,7 +1888,7 @@ leaf:;
 }
 
 int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        const struct lfs_rattr *attrs) {
+        const struct lfsr_attr *attrs) {
     LFS_ASSERT(rbyd->erased);
 
     // mark as unerased in case we fail
@@ -1872,7 +1909,7 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // append each tag to the tree
-    for (const struct lfs_rattr *attr = attrs; attr; attr = attr->next) {
+    for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
         int err = lfsr_rbyd_append(lfs, &rbyd_,
                 attr->tag, attr->buffer, attr->size);
         if (err) {
@@ -2000,6 +2037,25 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
+
+/// Metadata pair operations ///
+
+//static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t mdir,
+//        lfs_block_t block1, lfs_block_t block2,
+//        struct lfsr_pat *patterns) {
+//}
+//
+//static lfsr_stag_t lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
+//        lfsr_tag_t tag, lfs_off_t *off, lfs_size_t *size) {
+//}
+//
+//static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
+//        lfsr_tag_t tag, void *buffer, lfs_size_t size) {
+//}
+//
+//static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
+//        const struct lfsr_attr *attrs) {
+//}
 
 /// Metadata pair and directory operations ///
 static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,

@@ -1601,7 +1601,7 @@ code = '''
         printf("] ---\n");
 
         // build the attribute list for the current permutation
-        struct lfs_rattr attrs[N];
+        struct lfsr_attr attrs[N];
         for (unsigned j = 0; j < N; j++) {
             attrs[j] = *LFSR_ATTR2(
                     UATTR, perm[j]+1, -1,
@@ -2961,7 +2961,7 @@ code = '''
         printf("] ---\n");
 
         // build the attribute list for the current permutation
-        struct lfs_rattr attrs[N];
+        struct lfsr_attr attrs[N];
         for (unsigned j = 0; j < N; j++) {
             // adjust id based on future insertions
             uint16_t id = perm[j];
