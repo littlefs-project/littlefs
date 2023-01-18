@@ -3,6 +3,7 @@
 import itertools as it
 import math as m
 import struct
+import bisect
 
 COLORS = [
     '34',   # blue
@@ -58,123 +59,66 @@ def tagrepr(tag, size, off=None):
     if suptype == 0x0800:
         return 'mk%s id%d%s' % (
             'reg' if subtype == 0
-                else ' x%02x' % subtype,
+                else ' 0x%02x' % subtype,
             id,
             ' %d' % size if not tag & 0x1 else '')
     elif suptype == 0x0801:
         return 'rm%s id%d%s' % (
-            ' x%02x' % subtype if subtype else '',
+            ' 0x%02x' % subtype if subtype else '',
             id,
             ' %d' % size if not tag & 0x1 else '')
     elif (suptype & ~0x1) == 0x1000:
-        return '%suattr x%02x id%d%s' % (
+        return '%suattr 0x%02x%s%s' % (
             'rm' if suptype & 0x1 else '',
             subtype,
-            id,
+            ' id%d' % id if id != -1 else '',
             ' %d' % size if not tag & 0x1 else '')
     elif (suptype & ~0x1) == 0x0002:
         return 'crc%x%s %d' % (
             suptype & 0x1,
-            ' x%02x' % subtype if subtype else '',
+            ' 0x%02x' % subtype if subtype else '',
             size)
     elif suptype == 0x0802:
         return 'fcrc%s %d' % (
-            ' x%02x' % subtype if subtype else '',
+            ' 0x%02x' % subtype if subtype else '',
             size)
     elif suptype & 0x4:
-        return 'alt%s%s x%x %s' % (
+        return 'alt%s%s 0x%x %s' % (
             'r' if suptype & 0x1 else 'b',
             'gt' if suptype & 0x2 else 'lt',
             tag & ~0x7,
-            'x%x' % (0xffffffff & (off-size))
+            '0x%x' % (0xffffffff & (off-size))
                 if off is not None
                 else '-%d' % off)
     else:
-        return 'x%02x id%d %d' % (type, id, size)
+        return '0x%02x id%d %d' % (type, id, size)
 
-
-def main(disk, block_size, block1, block2=None, *,
-        color='auto',
+def show_log(block_size, data, rev, off, *,
+        color=False,
         **args):
-    # figure out what color should be
-    if color == 'auto':
-        color = sys.stdout.isatty()
-    elif color == 'always':
-        color = True
-    else:
-        color = False
-
-    # read each block
-    blocks = [block for block in [block1, block2] if block is not None]
-    with open(disk, 'rb') as f:
-        datas = []
-        for block in blocks:
-            f.seek(block * block_size)
-            datas.append(f.read(block_size))
-
-    # first figure out which block as the most recent revision
-    def fetch(data):
-        rev, = struct.unpack('<I', data[0:4].ljust(4, b'\0'))
-        crc = crc32c(data[0:4])
-        off = 0
-        j = 4
-        while j < block_size:
-            v, tag, size, delta = fromtag(data[j:])
-            if v != popc(crc) & 1:
-                break
-            crc = crc32c(data[j:j+delta], crc)
-            j += delta
-
-            if not tag & 0x4:
-                if (tag & 0x7806) != 0x0002:
-                    crc = crc32c(data[j:j+size], crc)
-                # found a crc?
-                else:
-                    crc_, = struct.unpack('<I', data[j:j+4].ljust(4, b'\0'))
-                    if crc != crc_:
-                        break
-                    # commit what we have
-                    off = j + size
-                j += size
-
-        return rev, off
-
-    revs, offs = [], []
-    i = 0
-    for block, data in zip(blocks, datas):
-        rev, off = fetch(data)
-        revs.append(rev)
-        offs.append(off)
-
-        # compare with sequence arithmetic
-        if off and ((rev - revs[i]) & 0x80000000):
-            i = len(revs)-1
-
-    # print contents of the winning metadata block
-    block, data, rev, off = blocks[i], datas[i], revs[i], offs[i]
     crc = crc32c(data[0:4])
 
     # preprocess jumps
     if args.get('jumps'):
         jumps = []
-        j = 4
-        while j < (block_size if args.get('all') else off):
-            j_ = j
-            v, tag, size, delta = fromtag(data[j:])
-            j += delta
+        j_ = 4
+        while j_ < (block_size if args.get('all') else off):
+            j = j_
+            v, tag, size, delta = fromtag(data[j_:])
+            j_ += delta
             if not tag & 0x4:
-                j += size
+                j_ += size
 
             if tag & 0x4:
                 # figure out which alt color
                 if tag & 0x1:
-                    _, ntag, _, _ = fromtag(data[j:])
+                    _, ntag, _, _ = fromtag(data[j_:])
                     if ntag & 0x1:
-                        jumps.append((j_, j_-size, 0, 'y'))
+                        jumps.append((j, j-size, 0, 'y'))
                     else:
-                        jumps.append((j_, j_-size, 0, 'r'))
+                        jumps.append((j, j-size, 0, 'r'))
                 else:
-                    jumps.append((j_, j_-size, 0, 'b'))
+                    jumps.append((j, j-size, 0, 'b'))
 
         # figure out x-offsets to avoid collisions between jumps
         for j in range(len(jumps)):
@@ -221,13 +165,13 @@ def main(disk, block_size, block1, block2=None, *,
         lifetimes = {}
         ids = []
         ids_i = 0
-        j = 4
-        while j < (block_size if args.get('all') else off):
-            j_ = j
-            v, tag, size, delta = fromtag(data[j:])
-            j += delta
+        j_ = 4
+        while j_ < (block_size if args.get('all') else off):
+            j = j_
+            v, tag, size, delta = fromtag(data[j_:])
+            j_ += delta
             if not tag & 0x4:
-                j += size
+                j_ += size
 
             if (tag & 0x7807) == 0x0800:
                 count += 1
@@ -235,7 +179,7 @@ def main(disk, block_size, block1, block2=None, *,
                 ids.insert(((tag >> 15) & 0xffff)-1,
                     COLORS[ids_i % len(COLORS)])
                 ids_i += 1
-                lifetimes[j_] = (
+                lifetimes[j] = (
                     ''.join(
                         '%s%s%s' % (
                             '\x1b[%sm' % ids[id] if color else '',
@@ -248,7 +192,7 @@ def main(disk, block_size, block1, block2=None, *,
                     count)
             elif ((tag & 0x7807) == 0x0801
                     and ((tag >> 15) & 0xffff)-1 < len(ids)):
-                lifetimes[j_] = (
+                lifetimes[j] = (
                     ''.join(
                         '%s%s%s' % (
                             '\x1b[%sm' % ids[id] if color else '',
@@ -262,7 +206,7 @@ def main(disk, block_size, block1, block2=None, *,
                 count -= 1
                 ids.pop(((tag >> 15) & 0xffff)-1)
             else:
-                lifetimes[j_] = (
+                lifetimes[j] = (
                     ''.join(
                         '%s%s%s' % (
                             '\x1b[%sm' % ids[id] if color else '',
@@ -282,10 +226,6 @@ def main(disk, block_size, block1, block2=None, *,
         alts = []
 
     # print header
-    print('mdir 0x%x, rev %d, size %d%s' % (
-        block, rev, off,
-        ' (was 0x%x, %d, %d)' % (blocks[~i], revs[~i], offs[~i])
-            if len(blocks) > 1 else ''))
     print('%-8s  %s%-22s  %s' % (
         'off',
         lifetimerepr(0) if args.get('lifetimes') else '',
@@ -298,26 +238,26 @@ def main(disk, block_size, block1, block2=None, *,
         print('%8s: %s' % ('%04x' % 0, next(xxd(data[0:4]))))
 
     # print tags
-    j = 4
-    while j < (block_size if args.get('all') else off):
+    j_ = 4
+    while j_ < (block_size if args.get('all') else off):
         notes = []
 
-        j_ = j
-        v, tag, size, delta = fromtag(data[j:])
+        j = j_
+        v, tag, size, delta = fromtag(data[j_:])
         if v != popc(crc) & 1:
             notes.append('v!=%x' % (popc(crc) & 1))
-        crc = crc32c(data[j:j+delta], crc)
-        j += delta
+        crc = crc32c(data[j_:j_+delta], crc)
+        j_ += delta
 
         if not tag & 0x4:
             if (tag & 0x7806) != 0x0002:
-                crc = crc32c(data[j:j+size], crc)
+                crc = crc32c(data[j_:j_+size], crc)
             # found a crc?
             else:
-                crc_, = struct.unpack('<I', data[j:j+4].ljust(4, b'\0'))
+                crc_, = struct.unpack('<I', data[j_:j_+4].ljust(4, b'\0'))
                 if crc != crc_:
                     notes.append('crc!=%08x' % crc)
-            j += size
+            j_ += size
 
         # adjust count?
         if args.get('lifetimes'):
@@ -327,31 +267,21 @@ def main(disk, block_size, block1, block2=None, *,
                     and ((tag >> 15) & 0xffff)-1 < len(ids)):
                 count -= 1
 
-        if not args.get('in_tree') or (tag & 0x6) != 2:
-            if args.get('raw'):
-                # show on-disk encoding of tags
-                for o, line in enumerate(xxd(data[j_:j_+delta])):
-                    print('%s%8s: %s%s' % (
-                        '\x1b[90m' if color and j_ >= off else '',
-                        '%04x' % (j_ + o*16),
-                        line,
-                        '\x1b[m' if color and j_ >= off else ''))
-
         if not args.get('in_tree') or (tag & 0x6) == 0:
             # show human-readable tag representation
             print('%s%08x:%s %s%s%-57s%s%s' % (
-                '\x1b[90m' if color and j_ >= off else '',
-                j_,
-                '\x1b[m' if color and j_ >= off else '',
-                lifetimerepr(j_) if args.get('lifetimes') else '',
-                '\x1b[90m' if color and j_ >= off else '',
+                '\x1b[90m' if color and j >= off else '',
+                j,
+                '\x1b[m' if color and j >= off else '',
+                lifetimerepr(j) if args.get('lifetimes') else '',
+                '\x1b[90m' if color and j >= off else '',
                 '%-22s%s' % (
-                    tagrepr(tag, size, j_),
+                    tagrepr(tag, size, j),
                     '  %s' % next(xxd(
-                            data[j_+delta:j_+delta+min(size, 8)], 8), '')
+                            data[j+delta:j+delta+min(size, 8)], 8), '')
                         if not args.get('no_truncate')
                             and not tag & 0x4 else ''),
-                '\x1b[m' if color and j_ >= off else '',
+                '\x1b[m' if color and j >= off else '',
                 ' (%s)' % ', '.join(notes) if notes
                 else ' %s' % ''.join(
                         ('\x1b[33my\x1b[m' if color else 'y')
@@ -363,43 +293,365 @@ def main(disk, block_size, block1, block2=None, *,
                         else ('\x1b[90mb\x1b[m' if color else 'b')
                         for i in range(len(alts)-1, -1, -1))
                     if args.get('rbyd') and (tag & 0x7) == 0
-                else ' %s' % jumprepr(j_)
+                else ' %s' % jumprepr(j)
                     if args.get('jumps')
                 else ''))
+
+        if not args.get('in_tree') or (tag & 0x6) != 2:
+            if args.get('raw'):
+                # show on-disk encoding of tags
+                for o, line in enumerate(xxd(data[j:j+delta])):
+                    print('%s%8s: %s%s' % (
+                        '\x1b[90m' if color and j >= off else '',
+                        '%04x' % (j + o*16),
+                        line,
+                        '\x1b[m' if color and j >= off else ''))
 
             # show in-device representation, including some extra
             # crc/parity info
             if args.get('device'):
                 print('%s%8s  %s%-47s  %08x %x%s' % (
-                    '\x1b[90m' if color and j_ >= off else '',
+                    '\x1b[90m' if color and j >= off else '',
                     '',
                     lifetimerepr(0) if args.get('lifetimes') else '',
                     '%-22s%s' % (
                         '%08x %08x' % (tag, size),
                         '  %s' % ' '.join(
                                 '%08x' % struct.unpack('<I',
-                                    data[j_+delta+i*4:j_+delta+i*4+4])
+                                    data[j+delta+i*4:j+delta+i*4+4])
                                 for i in range(min(size//4, 3)))[:23]
                             if not tag & 0x4 else ''),
                     crc,
                     popc(crc) & 1,
-                    '\x1b[m' if color and j_ >= off else ''))
+                    '\x1b[m' if color and j >= off else ''))
 
         if not tag & 0x4 and (not args.get('in_tree') or (tag & 0x6) != 2):
             # show on-disk encoding of data
             if args.get('raw') or args.get('no_truncate'):
-                for o, line in enumerate(xxd(data[j_+delta:j_+delta+size])):
+                for o, line in enumerate(xxd(data[j+delta:j+delta+size])):
                     print('%s%8s: %s%s' % (
-                        '\x1b[90m' if color and j_ >= off else '',
-                        '%04x' % (j_+delta + o*16),
+                        '\x1b[90m' if color and j >= off else '',
+                        '%04x' % (j+delta + o*16),
                         line,
-                        '\x1b[m' if color and j_ >= off else ''))
+                        '\x1b[m' if color and j >= off else ''))
 
         if args.get('rbyd'):
             if tag & 0x4:
                 alts.append(tag)
             else:
                 alts = []
+
+
+def show_tree(block_size, data, rev, trunk, count, *,
+        color=False,
+        **args):
+    if trunk is None:
+        return
+
+    # lookup a tag, returning also the search path for decoration
+    # purposes
+    def lookup(tag):
+        lower = 0
+        upper = (count+1) << 15
+        path = []
+
+        # descend down tree
+        j = trunk
+        while True:
+            _, alt, jump, delta = fromtag(data[j:])
+
+            # founat alt?
+            if alt & 0x4:
+                # follow?
+                if (tag >= upper - (alt & ~0x7)
+                        if alt & 0x2
+                        else tag < lower + (alt & ~0x7)):
+                    lower += (upper-lower)-(alt & ~0x7) if alt & 0x2 else 0
+                    upper -= (upper-lower)-(alt & ~0x7) if not alt & 0x2 else 0
+                    j = j - jump
+
+                    if args.get('rbyd') or args.get('tree'):
+                        # figure out which color
+                        if alt & 0x1:
+                            _, nalt, _, _ = fromtag(data[j+jump+delta:])
+                            if nalt & 0x1:
+                                path.append((j+jump, j, 'y'))
+                            else:
+                                path.append((j+jump, j, 'r'))
+                        else:
+                            path.append((j+jump, j, 'b'))
+                # stay on path
+                else:
+                    lower += (alt & ~0x7) if not alt & 0x2 else 0
+                    upper -= (alt & ~0x7) if alt & 0x2 else 0
+                    j = j + delta
+
+                    if args.get('rbyd') or args.get('tree'):
+                        # figure out which color
+                        if alt & 0x1:
+                            _, nalt, _, _ = fromtag(data[j:])
+                            if nalt & 0x1:
+                                path.append((j-delta, j, 'y'))
+                            else:
+                                path.append((j-delta, j, 'r'))
+                        else:
+                            path.append((j-delta, j, 'b'))
+            # found tag
+            else:
+                tag_ = (((upper-0x8) & ~0x7fff)
+                    | (alt & 0x7fff))
+                return tag_, j, delta, jump, path
+
+    # precompute tree
+    if args.get('tree'):
+        tags = []
+        paths = {}
+
+        tag_ = 0
+        while True:
+            tag, j, delta, size, path = lookup(tag_)
+            # found end of tree?
+            if tag < tag_ or tag & 1:
+                break
+            tag_ = tag + 0x8
+
+            tags.append((j, tag))
+            for x, (a, b, c) in enumerate(path):
+                paths[a, b, x] = c
+
+        # align paths to nearest tag
+        tags.sort()
+        paths = {(
+            tags[bisect.bisect_left(tags, (a, 0), hi=len(tags)-1)],
+            tags[bisect.bisect_left(tags, (b, 0), hi=len(tags)-1)],
+            x): c for (a, b, x), c in paths.items()}
+
+        # also find the maximum depth
+        depth = max((x+1 for _, _, x in paths.keys()), default=0)
+
+        def treerepr(j):
+            if depth == 0:
+                return ''
+
+            _, tag = tags[bisect.bisect_left(tags, (j, 0), hi=len(tags)-1)]
+
+            def c_start(c):
+                return ('\x1b[33m' if color and c == 'y'
+                    else '\x1b[31m' if color and c == 'r'
+                    else '\x1b[90m' if color
+                    else '')
+
+            def c_stop(c):
+                return '\x1b[m' if color else ''
+
+            path = []
+            seen = None
+            for x in range(depth):
+                if any(x == x_ and tag == a_tag
+                        for (_, a_tag), _, x_ in paths.keys()):
+                    c = next(c
+                        for ((_, a_tag), _, x_), c in paths.items()
+                        if x == x_ and tag == a_tag)
+                    path.append('%s+%s' % (c_start(c), c_stop(c)))
+                elif any(x == x_ and tag == b_tag
+                        for _, (_, b_tag), x_ in paths.keys()):
+                    a_tag, c = next((a_tag, c)
+                        for ((_, a_tag), (_, b_tag), x_), c in paths.items()
+                        if x == x_ and tag == b_tag)
+                    if a_tag < tag:
+                        path.append('%s\'%s' % (c_start(c), c_stop(c)))
+                    else:
+                        path.append('%s.%s' % (c_start(c), c_stop(c)))
+                elif any(x == x_
+                        and tag >= min(a_tag, b_tag)
+                        and tag <= max(a_tag, b_tag)
+                        for (_, a_tag), (_, b_tag), x_ in paths.keys()):
+                    c = next(c
+                        for ((_, a_tag), (_, b_tag), x_), c in paths.items()
+                        if x == x_
+                            and tag >= min(a_tag, b_tag)
+                            and tag <= max(a_tag, b_tag))
+                    path.append('%s|%s' % (c_start(c), c_stop(c)))
+                elif seen:
+                    path.append('%s-%s' % (c_start(seen), c_stop(seen)))
+                else:
+                    path.append(' ')
+
+                if any(x == x_ and tag == b_tag
+                        for _, (_, b_tag), x_ in paths.keys()):
+                    c = next(c
+                        for (_, (_, b_tag), x_), c in paths.items()
+                        if x == x_ and tag == b_tag)
+                    seen = c
+
+                if seen and x == depth-1:
+                    path.append('%s>%s' % (c_start(seen), c_stop(seen)))
+                elif seen:
+                    path.append('%s-%s' % (c_start(seen), c_stop(seen)))
+                else:
+                    path.append(' ')
+
+            return ' %s' % ''.join(path)
+
+    # print header
+    print('%-8s  %*s%-22s  %s' % (
+        'off',
+        2*depth+1 if args.get('tree') and depth > 0 else 0, '',
+        'tag',
+        'data (truncated)'
+            if not args.get('no_truncate') else ''))
+
+    tag_ = 0
+    while True:
+        tag, j, delta, size, path = lookup(tag_)
+        # found end of tree?
+        if tag < tag_ or tag & 1:
+            break
+        tag_ = tag + 0x8
+
+        # show human-readable tag representation
+        print('%08x:%s %-57s%s' % (
+            j,
+            treerepr(j) if args.get('tree') else '',
+            '%-22s%s' % (
+                tagrepr(tag, size, j),
+                '  %s' % next(xxd(
+                        data[j+delta:j+delta+min(size, 8)], 8), '')
+                    if not args.get('no_truncate')
+                        and not tag & 0x4 else ''),
+            ' %s' % ''.join(
+                    ('\x1b[33my\x1b[m' if color else 'y')
+                        if path[i][2] == 'y'
+                    else ('\x1b[31mr\x1b[m' if color else 'r')
+                        if path[i][2] == 'r'
+                    else ('\x1b[90mb\x1b[m' if color else 'b')
+                    for i in range(len(path)-1, -1, -1))
+                if args.get('rbyd') else ''))
+
+        if args.get('raw'):
+            # show on-disk encoding of tags
+            for o, line in enumerate(xxd(data[j:j+delta])):
+                print('%8s: %s' % (
+                    '%04x' % (j + o*16),
+                    line))
+
+        # show in-device representation
+        if args.get('device'):
+            print('%8s  %*s%-47s' % (
+                '',
+                2*depth+1 if args.get('tree') and depth > 0 else 0, '',
+                '%-22s%s' % (
+                    '%08x %08x' % (tag, size),
+                    '  %s' % ' '.join(
+                            '%08x' % struct.unpack('<I',
+                                data[j+delta+i*4:j+delta+i*4+4])
+                            for i in range(min(size//4, 3)))[:23]
+                        if not tag & 0x4 else '')))
+
+        # show on-disk encoding of data
+        if args.get('raw') or args.get('no_truncate'):
+            for o, line in enumerate(xxd(data[j+delta:j+delta+size])):
+                print('%8s: %s' % (
+                    '%04x' % (j+delta + o*16),
+                    line))
+
+
+def main(disk, block_size, block1, block2=None, *,
+        trunk=None,
+        color='auto',
+        **args):
+    # figure out what color should be
+    if color == 'auto':
+        color = sys.stdout.isatty()
+    elif color == 'always':
+        color = True
+    else:
+        color = False
+
+    # read each block
+    blocks = [block for block in [block1, block2] if block is not None]
+    with open(disk, 'rb') as f:
+        datas = []
+        for block in blocks:
+            f.seek(block * block_size)
+            datas.append(f.read(block_size))
+
+    # first figure out which block as the most recent revision
+    def fetch(data):
+        rev, = struct.unpack('<I', data[0:4].ljust(4, b'\0'))
+        crc = crc32c(data[0:4])
+        off = 0
+        j_ = 4
+        trunk = None
+        trunk_ = None
+        count = 0
+        count_ = 0
+        wastrunk = False
+        while j_ < block_size:
+            v, tag, size, delta = fromtag(data[j_:])
+            if v != popc(crc) & 1:
+                break
+            crc = crc32c(data[j_:j_+delta], crc)
+            j_ += delta
+
+            if not wastrunk and (tag & 0x6) != 0x2:
+                trunk_ = j_ - delta
+                wastrunk = True
+
+            if not tag & 0x4:
+                if (tag & 0x7806) != 0x0002:
+                    crc = crc32c(data[j_:j_+size], crc)
+                    # keep track of id count
+                    if (tag & 0x7807) == 0x0800:
+                        count_ += 1
+                    elif (tag & 0x7807) == 0x0801:
+                        count_ = max(count_ - 1, 0)
+                # found a crc?
+                else:
+                    crc_, = struct.unpack('<I', data[j_:j_+4].ljust(4, b'\0'))
+                    if crc != crc_:
+                        break
+                    # commit what we have
+                    off = j_ + size
+                    trunk = trunk_
+                    count = count_
+                j_ += size
+                wastrunk = False
+
+        return rev, off, trunk, count
+
+    revs, offs, trunks, counts = [], [], [], []
+    i = 0
+    for block, data in zip(blocks, datas):
+        rev, off, trunk_, count = fetch(data)
+        revs.append(rev)
+        offs.append(off)
+        trunks.append(trunk_)
+        counts.append(count)
+
+        # compare with sequence arithmetic
+        if off and ((rev - revs[i]) & 0x80000000):
+            i = len(revs)-1
+
+    # print contents of the winning metadata block
+    block, data, rev, off, trunk, count = (
+        blocks[i], datas[i], revs[i], offs[i],
+        trunk if trunk is not None else trunks[i],
+        counts[i])
+
+    print('mdir 0x%x, rev %d, size %d%s' % (
+        block, rev, off,
+        ' (was 0x%x, %d, %d)' % (blocks[~i], revs[~i], offs[~i])
+            if len(blocks) > 1 else ''))
+
+    if args.get('log'):
+        show_log(block_size, data, rev, off,
+            color=color,
+            **args)
+    else:
+        show_tree(block_size, data, rev, trunk, count,
+            color=color,
+            **args)
 
     if args.get('error_on_corrupt') and off == 0:
         sys.exit(2)
@@ -428,6 +680,10 @@ if __name__ == "__main__":
         type=lambda x: int(x, 0),
         help="Block address of the second metadata block.")
     parser.add_argument(
+        '--trunk',
+        type=lambda x: int(x, 0),
+        help="Use this offset as the trunk of the tree.")
+    parser.add_argument(
         '--color',
         choices=['never', 'always', 'auto'],
         default='auto',
@@ -436,6 +692,10 @@ if __name__ == "__main__":
         '-a', '--all',
         action='store_true',
         help="Don't stop parsing on bad commits.")
+    parser.add_argument(
+        '-l', '--log',
+        action='store_true',
+        help="Show the raw tags as they appear in the log.")
     parser.add_argument(
         '-i', '--in-tree',
         action='store_true',
@@ -456,6 +716,10 @@ if __name__ == "__main__":
         '-y', '--rbyd', 
         action='store_true',
         help="Show the rbyd tree in the margin.")
+    parser.add_argument(
+        '-t', '--tree',
+        action='store_true',
+        help="Show the rbyd tree.")
     parser.add_argument(
         '-j', '--jumps',
         action='store_true',
