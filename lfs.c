@@ -466,7 +466,7 @@ enum lfsr_tag_type {
     LFSR_TAG_CRC     = 0x0002,
     LFSR_TAG_CRC0    = 0x0002,
     LFSR_TAG_CRC1    = 0x0003,
-    LFSR_TAG_FCRC    = 0x0802,
+    LFSR_TAG_FCRC    = 0x000a,
 
     LFSR_TAG_ALT     = 0x0004,
     LFSR_TAG_ALTBLT  = 0x0004,
@@ -586,8 +586,16 @@ static inline uint16_t lfsr_tag_suptype(lfsr_tag_t tag) {
     return tag & 0x7807;
 }
 
-static inline uint16_t lfsr_tag_subtype(lfsr_tag_t tag) {
+static inline uint8_t lfsr_tag_subtype(lfsr_tag_t tag) {
     return (tag >> 3) & 0xff;
+}
+
+static inline uint16_t lfsr_tag_xsuptype(lfsr_tag_t tag) {
+    return tag & 0x007e;
+}
+
+static inline uint8_t lfsr_tag_xsubtype(lfsr_tag_t tag) {
+    return (tag >> 7) & 0xff;
 }
 
 static inline uint16_t lfsr_tag_type(lfsr_tag_t tag) {
@@ -1179,7 +1187,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         // not an end-of-commit crc
-        if ((lfsr_tag_suptype(tag) & ~0x1) != LFSR_TAG_CRC) {
+        if (lfsr_tag_xsuptype(tag) != LFSR_TAG_CRC) {
             // fcrc is only valid if the last tag was a crc
             hasfcrc = false;
 
@@ -1209,7 +1217,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 // on a bad crc
                 count -= 1;
             // found an fcrc? save for later
-            } else if (lfsr_tag_suptype(tag) == LFSR_TAG_FCRC) {
+            } else if (lfsr_tag_xsuptype(tag) == LFSR_TAG_FCRC) {
                 err = lfs_bd_read(lfs,
                         NULL, &lfs->rcache, lfs->cfg->block_size,
                         block, off, &fcrc,
@@ -1963,14 +1971,14 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //
     // this gets a bit complicated as we have two types of crcs:
     // - 7-word crc with fcrc to check following prog (middle of block)
-    //     2-byte fcrc tag
+    //     1-byte fcrc tag
     //   + 1-byte fcrc len (worst case)
     //   + 4-byte fcrc crc
     //   + 4-byte fcrc crc-len (worst case)
     //   + 1-byte crc tag
     //   + 4-byte crc+padding len (worst case)
     //   + 4-byte crc crc
-    //   = 19 bytes
+    //   = 18 bytes
     // - 3-word crc with no following prog (end of block)
     //     1-byte crc tag
     //   + 4-byte crc+padding len (worst case)
@@ -1978,7 +1986,7 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //   = 9 bytes
     // 
     const lfs_off_t aligned = lfs_alignup(
-            rbyd_.off + 2+1+4+4 + 1+4+4,
+            rbyd_.off + 1+1+4+4 + 1+4+4,
             lfs->cfg->prog_size);
 
     // not even space for the crc?

@@ -54,6 +54,8 @@ def tagrepr(tag, size, off=None):
     type = tag & 0x7fff
     suptype = tag & 0x7807
     subtype = (tag >> 3) & 0xff
+    xsuptype = tag & 0x7e
+    xsubtype = (tag >> 7) & 0xff
     id = ((tag >> 15) & 0xffff) - 1
 
     if suptype == 0x0800:
@@ -73,14 +75,14 @@ def tagrepr(tag, size, off=None):
             subtype,
             ' id%d' % id if id != -1 else '',
             ' %d' % size if not tag & 0x1 else '')
-    elif (suptype & ~0x1) == 0x0002:
+    elif xsuptype == 0x0002:
         return 'crc%x%s %d' % (
-            suptype & 0x1,
-            ' 0x%02x' % subtype if subtype else '',
+            tag & 0x1,
+            ' 0x%02x' % xsubtype if xsubtype else '',
             size)
-    elif suptype == 0x0802:
+    elif xsuptype == 0x000a:
         return 'fcrc%s %d' % (
-            ' 0x%02x' % subtype if subtype else '',
+            ' 0x%02x' % xsubtype if xsubtype else '',
             size)
     elif suptype & 0x4:
         return 'alt%s%s 0x%x %s' % (
@@ -250,7 +252,7 @@ def show_log(block_size, data, rev, off, *,
         j_ += delta
 
         if not tag & 0x4:
-            if (tag & 0x7806) != 0x0002:
+            if (tag & 0x007e) != 0x0002:
                 crc = crc32c(data[j_:j_+size], crc)
             # found a crc?
             else:
@@ -599,7 +601,7 @@ def main(disk, block_size, block1, block2=None, *,
                 wastrunk = True
 
             if not tag & 0x4:
-                if (tag & 0x7806) != 0x0002:
+                if (tag & 0x007e) != 0x0002:
                     crc = crc32c(data[j_:j_+size], crc)
                     # keep track of id count
                     if (tag & 0x7807) == 0x0800:
