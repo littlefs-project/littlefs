@@ -97,6 +97,23 @@ static int lfs_bd_read(lfs_t *lfs,
                 return err;
             }
 
+            // TODO this was a quick hack, the entire cache system probably
+            // requires a deeper look
+            //
+            // fix overlaps with our pcache
+            if (pcache
+                    && block == pcache->block
+                    && off < pcache->off + pcache->size
+                    && off + diff > pcache->off) {
+                lfs_off_t off_ = lfs_max(off, pcache->off);
+                lfs_size_t diff_ = lfs_min(
+                        diff - (off_-off),
+                        pcache->size - (off_-pcache->off));
+                memcpy(&data[off_-off],
+                        &pcache->buffer[off_-pcache->off],
+                        diff_);
+            }
+
             data += diff;
             off += diff;
             size -= diff;
@@ -118,6 +135,23 @@ static int lfs_bd_read(lfs_t *lfs,
         LFS_ASSERT(err <= 0);
         if (err) {
             return err;
+        }
+
+        // TODO this was a quick hack, the entire cache system probably
+        // requires a deeper look
+        //
+        // fix overlaps with our pcache
+        if (pcache
+                && rcache->block == pcache->block
+                && rcache->off < pcache->off + pcache->size
+                && rcache->off + rcache->size > pcache->off) {
+            lfs_off_t off_ = lfs_max(rcache->off, pcache->off);
+            lfs_size_t size_ = lfs_min(
+                    rcache->size - (off_-rcache->off),
+                    pcache->size - (off_-pcache->off));
+            memcpy(&rcache->buffer[off_-rcache->off],
+                    &pcache->buffer[off_-pcache->off],
+                    size_);
         }
     }
 
@@ -259,8 +293,10 @@ static int lfs_bd_prog(lfs_t *lfs,
             && off < rcache->off + rcache->size
             && off + size > rcache->off) {
         lfs_off_t off_ = lfs_max(off, rcache->off);
-        lfs_size_t size_ = lfs_min(size, rcache->size - (off_-rcache->off));
-        memcpy(&rcache->buffer[off_-rcache->off], data+(off_-off), size_);
+        lfs_size_t size_ = lfs_min(
+                size - (off_-off),
+                rcache->size - (off_-rcache->off));
+        memcpy(&rcache->buffer[off_-rcache->off], &data[off_-off], size_);
     }
 
     while (size > 0) {
@@ -428,6 +464,8 @@ enum lfsr_tag_type {
     LFSR_TAG_RMUATTR = 0x1001,
 
     LFSR_TAG_CRC     = 0x0002,
+    LFSR_TAG_CRC0    = 0x0002,
+    LFSR_TAG_CRC1    = 0x0003,
     LFSR_TAG_FCRC    = 0x0802,
 
     LFSR_TAG_ALT     = 0x0004,
@@ -1158,15 +1196,17 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
             // found a create? increase count of ids
             if (lfsr_tag_suptype(tag) == LFSR_TAG_MK) {
-                // TODO put this somewhere? we can't check this here because
-                // we may be reading invalid tags
-                //LFS_ASSERT(count < 0xffff);
+                // NOTE we can't check for overflow/underflow here because we
+                // may be overeagerly parsing an invalid commit, it's ok for
+                // this to overflow/underflow as long as we throw it out later
+                // on a bad crc
                 count += 1;
             // found a delete? decrease count of ids
             } else if (lfsr_tag_suptype(tag) == LFSR_TAG_RM) {
-                // TODO put this somewhere? we can't check this here because
-                // we may be reading invalid tags
-                //LFS_ASSERT(count > 0);
+                // NOTE we can't check for overflow/underflow here because we
+                // may be overeagerly parsing an invalid commit, it's ok for
+                // this to overflow/underflow as long as we throw it out later
+                // on a bad crc
                 count -= 1;
             // found an fcrc? save for later
             } else if (lfsr_tag_suptype(tag) == LFSR_TAG_FCRC) {
@@ -1622,7 +1662,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                 prune = true;
             // cut while following
             } else if (diverged
-                    && lfsr_tag_follow(alt, lower_lower, lower_upper, lower_tag_)
+                    && lfsr_tag_follow(alt,
+                        lower_lower, lower_upper, lower_tag_)
                     && (lower_tag_ < upper_tag_) == lfsr_tag_islt(alt)) {
                 lfsr_tag_trim(
                         lfsr_tag_flip(alt, lower_lower, lower_upper),
@@ -1630,7 +1671,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                 prune = true;
             // cut while not following
             } else if (diverged
-                    && !lfsr_tag_follow(alt, lower_lower, lower_upper, lower_tag_)
+                    && !lfsr_tag_follow(alt,
+                        lower_lower, lower_upper, lower_tag_)
                     && (lower_tag_ < upper_tag_) != lfsr_tag_islt(alt)) {
                 lfsr_tag_trim(alt, &lower_lower, &lower_upper);
                 lfs_swap(&jump, &branch_);
@@ -1926,18 +1968,23 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //   + 4-byte fcrc crc
     //   + 4-byte fcrc crc-len (worst case)
     //   + 1-byte crc tag
-    //   + 4-byte crc len (worst case)
+    //   + 4-byte crc+padding len (worst case)
     //   + 4-byte crc crc
     //   = 19 bytes
     // - 3-word crc with no following prog (end of block)
     //     1-byte crc tag
-    //   + 4-byte crc len (worst case)
+    //   + 4-byte crc+padding len (worst case)
     //   + 4-byte crc crc
     //   = 9 bytes
     // 
     const lfs_off_t aligned = lfs_alignup(
             rbyd_.off + 2+1+4+4 + 1+4+4,
             lfs->cfg->prog_size);
+
+    // not even space for the crc?
+    if (aligned > lfs->cfg->block_size) {
+        return LFS_ERR_RANGE;
+    }
 
     // space for fcrc?
     uint8_t perturb = 0;
