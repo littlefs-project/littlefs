@@ -1057,7 +1057,7 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
     // read a pair of leb128s
     //
     // note we force leb decoding to overflow when truncated
-    uint8_t buffer[2*4] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+    uint8_t buffer[5+4] = {0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
     lfs_size_t i = 0;
 
     // TODO allow different hint for lookup? bench this? does our hint work backwards?
@@ -1083,7 +1083,7 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
     }
 
     lfsr_tag_t tag_;
-    ssize_t delta = lfs_fromleb128(&tag_, &buffer[i], 4);
+    ssize_t delta = lfs_fromleb128(&tag_, &buffer[i], 5);
     if (delta < 0) {
         return delta;
     }
@@ -1455,10 +1455,10 @@ static int lfsr_rbyd_progtag(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     tag |= lfs_popc(rbyd_->crc) & 1;
 
     // compress into pair of leb128s
-    uint8_t buffer[2*4];
+    uint8_t buffer[5+4];
     lfs_size_t delta = 0;
 
-    ssize_t delta_ = lfs_toleb128(tag, &buffer[delta], 4);
+    ssize_t delta_ = lfs_toleb128(tag, &buffer[delta], 5);
     if (delta_ < 0) {
         return delta_;
     }
