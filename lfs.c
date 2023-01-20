@@ -126,7 +126,7 @@ static int lfs_bd_read(lfs_t *lfs,
         rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
         rcache->size = lfs_min(
                 lfs_min(
-                    lfs_alignup(off+hint, lfs->cfg->read_size),
+                    lfs_alignup(off+lfs_max(size, hint), lfs->cfg->read_size),
                     lfs->cfg->block_size)
                 - rcache->off,
                 lfs->cfg->cache_size);
@@ -1313,7 +1313,7 @@ static lfsr_stag_t lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_tag_t alt;
         lfs_off_t jump;
         lfs_ssize_t delta = lfsr_rbyd_readtag(lfs,
-                &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
+                &lfs->pcache, &lfs->rcache, 0,
                 rbyd->block, branch, &alt, &jump, NULL);
         if (delta < 0) {
             return delta;
@@ -1350,7 +1350,6 @@ static lfsr_stag_t lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             if (size) {
                 *size = jump;
             }
-
             return tag_;
         }
     }
@@ -1371,7 +1370,6 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         return LFS_ERR_NOENT;
     }
 
-    // note that it's highly likely the data is in our cache now
     lfs_size_t delta = lfs_min(size, size_);
     int err = lfs_bd_read(lfs,
             &lfs->pcache, &lfs->rcache, delta,
@@ -1631,7 +1629,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_tag_t alt;
         lfs_off_t jump;
         lfs_ssize_t delta = lfsr_rbyd_readtag(lfs,
-                &lfs->pcache, &lfs->rcache, lfs->cfg->block_size,
+                &lfs->pcache, &lfs->rcache, 0,
                 rbyd_->block, lower_branch, &alt, &jump, NULL);
         if (delta < 0) {
             return delta;
