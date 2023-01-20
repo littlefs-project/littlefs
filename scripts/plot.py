@@ -1410,6 +1410,7 @@ def main(csv_paths, *,
 if __name__ == "__main__":
     import sys
     import argparse
+    import re
     parser = argparse.ArgumentParser(
         description="Plot CSV files in terminal.",
         allow_abbrev=False)
@@ -1476,8 +1477,10 @@ if __name__ == "__main__":
         help="Characters to use for lines.")
     parser.add_argument(
         '--labels',
-        type=lambda x: [x.strip() for x in x.split(',')],
-        help="Comma-separated legend labels.")
+        type=lambda x: [x.strip().replace('\,',',')
+            for x in re.split(r'(?<!\\),', x)],
+        help="Comma-separated legend labels. Allows '\,' as an "
+            "alternative for a literal ','.")
     parser.add_argument(
         '-W', '--width',
         nargs='?',
@@ -1533,16 +1536,18 @@ if __name__ == "__main__":
         help="Add a label to the y-axis.")
     parser.add_argument(
         '--xticklabels',
-        type=lambda x:
-            [x.strip() for x in x.split(',')]
+        type=lambda x: [x.strip().replace('\,',',')
+                for x in re.split(r'(?<!\\),', x)]
             if x.strip() else [],
-        help="Comma separated xticklabels.")
+        help="Comma separated xticklabels. Allows '\,' as an "
+            "alternative for a literal ','.")
     parser.add_argument(
         '--yticklabels',
-        type=lambda x:
-            [x.strip() for x in x.split(',')]
+        type=lambda x: [x.strip().replace('\,',',')
+                for x in re.split(r'(?<!\\),', x)]
             if x.strip() else [],
-        help="Comma separated yticklabels.")
+        help="Comma separated yticklabels. Allows '\,' as an "
+            "alternative for a literal ','.")
     parser.add_argument(
         '-t', '--title',
         help="Add a title.")

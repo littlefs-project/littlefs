@@ -1071,6 +1071,7 @@ def main(csv_paths, output, *,
 if __name__ == "__main__":
     import sys
     import argparse
+    import re
     parser = argparse.ArgumentParser(
         description="Plot CSV files with matplotlib.",
         allow_abbrev=False)
@@ -1137,13 +1138,16 @@ if __name__ == "__main__":
         help="Comma-separated hex colors to use.")
     parser.add_argument(
         '--formats',
-        type=lambda x: [x.strip().replace('0',',') for x in x.split(',')],
-        help="Comma-separated matplotlib formats to use. Allows '0' as an "
-            "alternative for ','.")
+        type=lambda x: [x.strip().replace('\,',',')
+            for x in re.split(r'(?<!\\),', x)],
+        help="Comma-separated matplotlib formats to use. Allows '\,' as an "
+            "alternative for a literal ','.")
     parser.add_argument(
         '--labels',
-        type=lambda x: [x.strip() for x in x.split(',')],
-        help="Comma-separated legend labels.")
+        type=lambda x: [x.strip().replace('\,',',')
+            for x in re.split(r'(?<!\\),', x)],
+        help="Comma-separated legend labels. Allows '\,' as an "
+            "alternative for a literal ','.")
     parser.add_argument(
         '-W', '--width',
         type=lambda x: int(x, 0),
@@ -1206,16 +1210,18 @@ if __name__ == "__main__":
         help="Add a label to the y-axis.")
     parser.add_argument(
         '--xticklabels',
-        type=lambda x:
-            [x.strip() for x in x.split(',')]
+        type=lambda x: [x.strip().replace('\,',',')
+                for x in re.split(r'(?<!\\),', x)]
             if x.strip() else [],
-        help="Comma separated xticklabels.")
+        help="Comma separated xticklabels. Allows '\,' as an "
+            "alternative for a literal ','.")
     parser.add_argument(
         '--yticklabels',
-        type=lambda x:
-            [x.strip() for x in x.split(',')]
+        type=lambda x: [x.strip().replace('\,',',')
+                for x in re.split(r'(?<!\\),', x)]
             if x.strip() else [],
-        help="Comma separated yticklabels.")
+        help="Comma separated yticklabels. Allows '\,' as an "
+            "alternative for a literal ','.")
     parser.add_argument(
         '-t', '--title',
         help="Add a title.")
