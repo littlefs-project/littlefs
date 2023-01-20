@@ -514,11 +514,11 @@ def datasets(results, by=None, x=None, y=None, define=[]):
     results = results_
 
     # if y not specified, try to guess from data
-    if y is None:
+    if not y:
         y = co.OrderedDict()
         for r in results:
             for k, v in r.items():
-                if (by is None or k not in by) and v.strip():
+                if (not by or k not in by) and v.strip():
                     try:
                         dat(v)
                         y[k] = True
@@ -526,7 +526,7 @@ def datasets(results, by=None, x=None, y=None, define=[]):
                         y[k] = False
         y = list(k for k,v in y.items() if v)
 
-    if by is not None:
+    if by:
         # find all 'by' values
         ks = set()
         for r in results:
@@ -535,8 +535,8 @@ def datasets(results, by=None, x=None, y=None, define=[]):
 
     # collect all datasets
     datasets = co.OrderedDict()
-    for ks_ in (ks if by is not None else [()]):
-        for x_ in (x if x is not None else [None]):
+    for ks_ in (ks if by else [()]):
+        for x_ in (x if x else [None]):
             for y_ in y:
                 # hide x/y if there is only one field
                 k_x = x_ if len(x or []) > 1 else ''
@@ -547,7 +547,7 @@ def datasets(results, by=None, x=None, y=None, define=[]):
                     x_,
                     y_,
                     [(by_, {k_}) for by_, k_ in zip(by, ks_)]
-                        if by is not None else [])
+                        if by else [])
 
     return datasets
 
@@ -787,7 +787,7 @@ class Grid:
                 self.yweights = new_yweights
                 self.map = other_map | {(x+len(other.xweights), y): s
                     for (x, y), s in self_map.items()}
-                    
+
 
     def scale(self, width, height):
         self.xweights = [s*width for s in self.xweights]
@@ -810,7 +810,7 @@ class Grid:
 
         grid.scale(width, height)
         return grid
-    
+
 
 def main(csv_paths, *,
         by=None,
@@ -822,6 +822,7 @@ def main(csv_paths, *,
         colors=None,
         chars=None,
         line_chars=None,
+        labels=None,
         points=False,
         points_and_lines=False,
         width=None,
@@ -876,26 +877,41 @@ def main(csv_paths, *,
     else:
         line_chars_ = [False]
 
+    if labels is not None:
+        labels_ = labels
+    else:
+        labels_ = ['']
+
     # allow escape codes in labels/titles
     title = escape(title).splitlines() if title is not None else []
     xlabel = escape(xlabel).splitlines() if xlabel is not None else []
     ylabel = escape(ylabel).splitlines() if ylabel is not None else []
 
+    # subplot can also contribute to subplots, resolve this here or things
+    # become a mess...
+    subplots += subplot.pop('subplots', [])
+
+    # allow any subplots to contribute to by/x/y
+    def subplots_get(k, *, subplots=[], **args):
+        v = args.get(k, []).copy()
+        for _, subargs in subplots:
+            v.extend(subplots_get(k, **subargs))
+        return v
+
+    all_by = (by or []) + subplots_get('by', **subplot, subplots=subplots)
+    all_x = (x or []) + subplots_get('x', **subplot, subplots=subplots)
+    all_y = (y or []) + subplots_get('y', **subplot, subplots=subplots)
+
     # separate out renames
     renames = list(it.chain.from_iterable(
         ((k, v) for v in vs)
-        for k, vs in it.chain(by or [], x or [], y or [])))
-    if by is not None:
-        by = [k for k, _ in by]
-    if x is not None:
-        x = [k for k, _ in x]
-    if y is not None:
-        y = [k for k, _ in y]
+        for k, vs in it.chain(all_by, all_x, all_y)))
+    all_by = [k for k, _ in all_by]
+    all_x = [k for k, _ in all_x]
+    all_y = [k for k, _ in all_y]
 
     # create a grid of subplots
-    grid = Grid.fromargs(
-        subplots=subplots + subplot.pop('subplots', []),
-        **subplot)
+    grid = Grid.fromargs(**subplot, subplots=subplots)
 
     for s in grid:
         # allow subplot params to override global params
@@ -980,7 +996,7 @@ def main(csv_paths, *,
         results = collect(csv_paths, renames)
 
         # then extract the requested datasets
-        datasets_ = datasets(results, by, x, y, define)
+        datasets_ = datasets(results, all_by, all_x, all_y, define)
 
         # figure out colors/chars here so that subplot defines
         # don't change them later, that'd be bad
@@ -993,6 +1009,9 @@ def main(csv_paths, *,
         dataline_chars_ = {
             name: line_chars_[i % len(line_chars_)]
             for i, name in enumerate(datasets_.keys())}
+        datalabels_ = {
+            name: labels_[i % len(labels_)]
+            for i, name in enumerate(datasets_.keys())}
 
         # build legend?
         legend_width = 0
@@ -1000,12 +1019,13 @@ def main(csv_paths, *,
             legend_ = []
             for i, k in enumerate(datasets_.keys()):
                 label = '%s%s' % (
-                    '%s ' % chars_[i % len(chars_)]
+                    '%s ' % datachars_[k]
                         if chars is not None
-                        else '%s ' % line_chars_[i % len(line_chars_)]
+                        else '%s ' % dataline_chars_[k]
                         if line_chars is not None
                         else '',
-                    ','.join(k_ for k_ in k if k_))
+                    datalabels_[k]
+                        or ','.join(k_ for k_ in k if k_))
 
                 if label:
                     legend_.append(label)
@@ -1104,6 +1124,8 @@ def main(csv_paths, *,
         # create a plot for each subplot
         for s in grid:
             # allow subplot params to override global params
+            x_ = {k for k,_ in (x or []) + s.args.get('x', [])}
+            y_ = {k for k,_ in (y or []) + s.args.get('y', [])}
             define_ = define + s.args.get('define', [])
             xlim_ = s.args.get('xlim', xlim)
             ylim_ = s.args.get('ylim', ylim)
@@ -1118,7 +1140,13 @@ def main(csv_paths, *,
 
             # data can be constrained by subplot-specific defines,
             # so re-extract for each plot
-            subdatasets = datasets(results, by, x, y, define_)
+            subdatasets = datasets(results, all_by, all_x, all_y, define_)
+
+            # filter by subplot x/y
+            subdatasets = co.OrderedDict([(name, dataset)
+                for name, dataset in subdatasets.items()
+                if not name[-2] or name[-2] in x_
+                if not name[-1] or name[-1] in y_])
 
             # find actual xlim/ylim
             xlim_ = (
@@ -1446,6 +1474,10 @@ if __name__ == "__main__":
     parser.add_argument(
         '--line-chars',
         help="Characters to use for lines.")
+    parser.add_argument(
+        '--labels',
+        type=lambda x: [x.strip() for x in x.split(',')],
+        help="Comma-separated legend labels.")
     parser.add_argument(
         '-W', '--width',
         nargs='?',

@@ -260,11 +260,11 @@ def datasets(results, by=None, x=None, y=None, define=[]):
     results = results_
 
     # if y not specified, try to guess from data
-    if y is None:
+    if not y:
         y = co.OrderedDict()
         for r in results:
             for k, v in r.items():
-                if (by is None or k not in by) and v.strip():
+                if (not by or k not in by) and v.strip():
                     try:
                         dat(v)
                         y[k] = True
@@ -272,7 +272,7 @@ def datasets(results, by=None, x=None, y=None, define=[]):
                         y[k] = False
         y = list(k for k,v in y.items() if v)
 
-    if by is not None:
+    if by:
         # find all 'by' values
         ks = set()
         for r in results:
@@ -281,8 +281,8 @@ def datasets(results, by=None, x=None, y=None, define=[]):
 
     # collect all datasets
     datasets = co.OrderedDict()
-    for ks_ in (ks if by is not None else [()]):
-        for x_ in (x if x is not None else [None]):
+    for ks_ in (ks if by else [()]):
+        for x_ in (x if x else [None]):
             for y_ in y:
                 # hide x/y if there is only one field
                 k_x = x_ if len(x or []) > 1 else ''
@@ -293,7 +293,7 @@ def datasets(results, by=None, x=None, y=None, define=[]):
                     x_,
                     y_,
                     [(by_, {k_}) for by_, k_ in zip(by, ks_)]
-                        if by is not None else [])
+                        if by else [])
 
     return datasets
 
@@ -533,7 +533,7 @@ class Grid:
                 self.yweights = new_yweights
                 self.map = other_map | {(x+len(other.xweights), y): s
                     for (x, y), s in self_map.items()}
-                    
+
 
     def scale(self, width, height):
         self.xweights = [s*width for s in self.xweights]
@@ -570,6 +570,7 @@ def main(csv_paths, output, *,
         points_and_lines=False,
         colors=None,
         formats=None,
+        labels=None,
         width=WIDTH,
         height=HEIGHT,
         xlim=(None,None),
@@ -644,6 +645,11 @@ def main(csv_paths, output, *,
         formats_ = FORMATS_POINTS
     else:
         formats_ = FORMATS
+
+    if labels is not None:
+        labels_ = labels
+    else:
+        labels_ = ['']
 
     if font_color is not None:
         font_color_ = font_color
@@ -723,24 +729,36 @@ def main(csv_paths, output, *,
     # equivalent to 96, maybe this is the default for SVG rendering?
     plt.rc('figure', dpi=96)
 
+    # subplot can also contribute to subplots, resolve this here or things
+    # become a mess...
+    subplots += subplot.pop('subplots', [])
+
+    # allow any subplots to contribute to by/x/y
+    def subplots_get(k, *, subplots=[], **args):
+        v = args.get(k, []).copy()
+        for _, subargs in subplots:
+            v.extend(subplots_get(k, **subargs))
+        return v
+
+    all_by = (by or []) + subplots_get('by', **subplot, subplots=subplots)
+    all_x = (x or []) + subplots_get('x', **subplot, subplots=subplots)
+    all_y = (y or []) + subplots_get('y', **subplot, subplots=subplots)
+
     # separate out renames
     renames = list(it.chain.from_iterable(
         ((k, v) for v in vs)
-        for k, vs in it.chain(by or [], x or [], y or [])))
-    if by is not None:
-        by = [k for k, _ in by]
-    if x is not None:
-        x = [k for k, _ in x]
-    if y is not None:
-        y = [k for k, _ in y]
+        for k, vs in it.chain(all_by, all_x, all_y)))
+    all_by = [k for k, _ in all_by]
+    all_x = [k for k, _ in all_x]
+    all_y = [k for k, _ in all_y]
 
     # first collect results from CSV files
     results = collect(csv_paths, renames)
 
     # then extract the requested datasets
-    datasets_ = datasets(results, by, x, y, define)
+    datasets_ = datasets(results, all_by, all_x, all_y, define)
 
-    # figure out formats/colors here so that subplot defines
+    # figure out formats/colors/labels here so that subplot defines
     # don't change them later, that'd be bad
     dataformats_ = {
         name: formats_[i % len(formats_)]
@@ -748,11 +766,12 @@ def main(csv_paths, output, *,
     datacolors_ = {
         name: colors_[i % len(colors_)]
         for i, name in enumerate(datasets_.keys())}
+    datalabels_ = {
+        name: labels_[i % len(labels_)]
+        for i, name in enumerate(datasets_.keys())}
 
     # create a grid of subplots
-    grid = Grid.fromargs(
-        subplots=subplots + subplot.pop('subplots', []),
-        **subplot)
+    grid = Grid.fromargs(**subplot, subplots=subplots)
 
     # create a matplotlib plot
     fig = plt.figure(figsize=(
@@ -785,6 +804,8 @@ def main(csv_paths, output, *,
     # now plot each subplot
     for s in grid:
         # allow subplot params to override global params
+        x_ = {k for k,_ in (x or []) + s.args.get('x', [])}
+        y_ = {k for k,_ in (y or []) + s.args.get('y', [])}
         define_ = define + s.args.get('define', [])
         xlim_ = s.args.get('xlim', xlim)
         ylim_ = s.args.get('ylim', ylim)
@@ -812,7 +833,13 @@ def main(csv_paths, output, *,
 
         # data can be constrained by subplot-specific defines,
         # so re-extract for each plot
-        subdatasets = datasets(results, by, x, y, define_)
+        subdatasets = datasets(results, all_by, all_x, all_y, define_)
+
+        # filter by subplot x/y
+        subdatasets = co.OrderedDict([(name, dataset)
+            for name, dataset in subdatasets.items()
+            if not name[-2] or name[-2] in x_
+            if not name[-1] or name[-1] in y_])
 
         # plot!
         ax = s.ax
@@ -924,17 +951,24 @@ def main(csv_paths, output, *,
     #
     # note this was written before constrained_layout supported legend
     # collisions, hopefully this is added in the future
-    labels = co.OrderedDict()
+    legend = {}
     for s in grid:
         for h, l in zip(*s.ax.get_legend_handles_labels()):
-            labels[l] = h
+            legend[l] = h
+    # sort in dataset order
+    legend_ = []
+    for name in datasets_.keys():
+        name_ = ','.join(k for k in name if k)
+        if name_ in legend:
+            legend_.append((datalabels_[name] or name_, legend[name_]))
+    legend = legend_
 
     if legend_right:
         ax = fig.add_subplot(gs[(1 if legend_above else 0):,-1])
         ax.set_axis_off()
         ax.legend(
-            labels.values(),
-            labels.keys(),
+            [h for _,h in legend],
+            [l for l,_ in legend],
             loc='upper left',
             fancybox=False,
             borderaxespad=0)
@@ -944,10 +978,19 @@ def main(csv_paths, output, *,
         ax.set_axis_off()
 
         # try different column counts until we fit in the axes
-        for ncol in reversed(range(1, len(labels)+1)):
+        for ncol in reversed(range(1, len(legend)+1)):
+            # permute the labels, mpl wants to order these column first
+            nrow = m.ceil(len(legend)/ncol)
+            legend_ = ncol*nrow*[None]
+            for x in range(ncol):
+                for y in range(nrow):
+                    if x+ncol*y < len(legend):
+                        legend_[x*nrow+y] = legend[x+ncol*y]
+            legend_ = [l for l in legend_ if l is not None]
+
             legend_ = ax.legend(
-                labels.values(),
-                labels.keys(),
+                [h for _,h in legend_],
+                [l for l,_ in legend_],
                 loc='upper center',
                 ncol=ncol,
                 fancybox=False,
@@ -969,10 +1012,19 @@ def main(csv_paths, output, *,
                 weight=plt.rcParams['axes.labelweight'])
 
         # try different column counts until we fit in the axes
-        for ncol in reversed(range(1, len(labels)+1)):
+        for ncol in reversed(range(1, len(legend)+1)):
+            # permute the labels, mpl wants to order these column first
+            nrow = m.ceil(len(legend)/ncol)
+            legend_ = ncol*nrow*[None]
+            for x in range(ncol):
+                for y in range(nrow):
+                    if x+ncol*y < len(legend):
+                        legend_[x*nrow+y] = legend[x+ncol*y]
+            legend_ = [l for l in legend_ if l is not None]
+
             legend_ = ax.legend(
-                labels.values(),
-                labels.keys(),
+                [h for _,h in legend_],
+                [l for l,_ in legend_],
                 loc='upper center',
                 ncol=ncol,
                 fancybox=False,
@@ -1088,6 +1140,10 @@ if __name__ == "__main__":
         type=lambda x: [x.strip().replace('0',',') for x in x.split(',')],
         help="Comma-separated matplotlib formats to use. Allows '0' as an "
             "alternative for ','.")
+    parser.add_argument(
+        '--labels',
+        type=lambda x: [x.strip() for x in x.split(',')],
+        help="Comma-separated legend labels.")
     parser.add_argument(
         '-W', '--width',
         type=lambda x: int(x, 0),

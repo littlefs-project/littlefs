@@ -493,7 +493,7 @@ def compile(bench_paths, **args):
                                     f.writeln('#endif')
                                 f.writeln()
 
-def find_runner(runner, **args):
+def find_runner(runner, id=None, **args):
     cmd = runner.copy()
 
     # run under some external command?
@@ -543,9 +543,17 @@ def find_runner(runner, **args):
         cmd.append('--erase-sleep=%s' % args['erase_sleep'])
 
     # defines?
-    if args.get('define'):
+    if args.get('define') and id is None:
         for define in args.get('define'):
             cmd.append('-D%s' % define)
+
+    # test id?
+    #
+    # note we disable defines above when id is explicit, defines override id
+    # in the test runner, which is not what we want when querying an explicit
+    # test id
+    if id is not None:
+        cmd.append(id)
 
     return cmd
 
@@ -568,7 +576,8 @@ def list_(runner, bench_ids=[], **args):
     return sp.call(cmd)
 
 
-def find_perms(runner_, ids=[], **args):
+def find_perms(runner, ids=[], **args):
+    runner_ = find_runner(runner, **args)
     case_suites = {}
     expected_case_perms = co.defaultdict(lambda: 0)
     expected_perms = 0
@@ -646,7 +655,8 @@ def find_perms(runner_, ids=[], **args):
         expected_perms,
         total_perms)
 
-def find_path(runner_, id, **args):
+def find_path(runner, id, **args):
+    runner_ = find_runner(runner, id, **args)
     path = None
     # query from runner
     cmd = runner_ + ['--list-case-paths', id]
@@ -677,7 +687,8 @@ def find_path(runner_, id, **args):
 
     return path
 
-def find_defines(runner_, id, **args):
+def find_defines(runner, id, **args):
+    runner_ = find_runner(runner, id, **args)
     # query permutation defines from runner
     cmd = runner_ + ['--list-permutation-defines', id]
     if args.get('verbose'):
@@ -749,13 +760,13 @@ class BenchFailure(Exception):
         self.stdout = stdout
         self.assert_ = assert_
 
-def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
+def run_stage(name, runner, ids, stdout_, trace_, output_, **args):
     # get expected suite/case/perm counts
     (case_suites,
         expected_suite_perms,
         expected_case_perms,
         expected_perms,
-        total_perms) = find_perms(runner_, ids, **args)
+        total_perms) = find_perms(runner, ids, **args)
 
     passed_suite_perms = co.defaultdict(lambda: 0)
     passed_case_perms = co.defaultdict(lambda: 0)
@@ -778,7 +789,7 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
     locals = th.local()
     children = set()
 
-    def run_runner(runner_, ids=[]):
+    def run_runner(runner_):
         nonlocal passed_suite_perms
         nonlocal passed_case_perms
         nonlocal passed_perms
@@ -788,7 +799,7 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
         nonlocal locals
 
         # run the benches!
-        cmd = runner_ + ids
+        cmd = runner_
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
 
@@ -843,7 +854,7 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
                         if output_:
                             # get defines and write to csv
                             defines = find_defines(
-                                runner_, m.group('id'), **args)
+                                runner, m.group('id'), **args)
                             output_.writerow({
                                 'suite': suite,
                                 'case': case,
@@ -875,7 +886,7 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
                 list(last_stdout),
                 last_assert)
 
-    def run_job(runner_, ids=[], start=None, step=None):
+    def run_job(start=None, step=None):
         nonlocal failures
         nonlocal killed
         nonlocal locals
@@ -883,16 +894,18 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
         start = start or 0
         step = step or 1
         while start < total_perms:
-            job_runner = runner_.copy()
+            runner_ = find_runner(runner, **args)
             if args.get('isolate') or args.get('valgrind'):
-                job_runner.append('-s%s,%s,%s' % (start, start+step, step))
+                runner_.append('-s%s,%s,%s' % (start, start+step, step))
             else:
-                job_runner.append('-s%s,,%s' % (start, step))
+                runner_.append('-s%s,,%s' % (start, step))
+
+            runner_.extend(ids)
 
             try:
                 # run the benches
                 locals.seen_perms = 0
-                run_runner(job_runner, ids)
+                run_runner(runner_)
                 assert locals.seen_perms > 0
                 start += locals.seen_perms*step
 
@@ -902,7 +915,7 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
                     case, _ = failure.id.split(':', 1)
                     suite = case_suites[case]
                     # get defines and write to csv
-                    defines = find_defines(runner_, failure.id, **args)
+                    defines = find_defines(runner, failure.id, **args)
                     output_.writerow({
                         'suite': suite,
                         'case': case,
@@ -932,11 +945,11 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
     if 'jobs' in args:
         for job in range(args['jobs']):
             runners.append(th.Thread(
-                target=run_job, args=(runner_, ids, job, args['jobs']),
+                target=run_job, args=(job, args['jobs']),
                 daemon=True))
     else:
         runners.append(th.Thread(
-            target=run_job, args=(runner_, ids, None, None),
+            target=run_job, args=(None, None),
             daemon=True))
 
     def print_update(done):
@@ -999,13 +1012,13 @@ def run_stage(name, runner_, ids, stdout_, trace_, output_, **args):
 
 def run(runner, bench_ids=[], **args):
     # query runner for benches
-    runner_ = find_runner(runner, **args)
-    print('using runner: %s' % ' '.join(shlex.quote(c) for c in runner_))
+    print('using runner: %s' % ' '.join(
+        shlex.quote(c) for c in find_runner(runner, **args)))
     (_,
         expected_suite_perms,
         expected_case_perms,
         expected_perms,
-        total_perms) = find_perms(runner_, bench_ids, **args)
+        total_perms) = find_perms(runner, bench_ids, **args)
     print('found %d suites, %d cases, %d/%d permutations' % (
         len(expected_suite_perms),
         len(expected_case_perms),
@@ -1053,7 +1066,7 @@ def run(runner, bench_ids=[], **args):
             failures_,
             killed) = run_stage(
                 by or 'benches',
-                runner_,
+                runner,
                 [by] if by is not None else [],
                 stdout,
                 trace,
@@ -1100,12 +1113,12 @@ def run(runner, bench_ids=[], **args):
     # print each failure
     for failure in failures:
         assert failure.id is not None, '%s broken? %r' % (
-            ' '.join(shlex.quote(c) for c in runner_),
+            ' '.join(shlex.quote(c) for c in find_runner(runner, **args)),
             failure)
 
         # get some extra info from runner
-        path, lineno = find_path(runner_, failure.id, **args)
-        defines = find_defines(runner_, failure.id, **args)
+        path, lineno = find_path(runner, failure.id, **args)
+        defines = find_defines(runner, failure.id, **args)
 
         # show summary of failure
         print('%s%s:%d:%sfailure:%s %s%s failed' % (
@@ -1142,19 +1155,19 @@ def run(runner, bench_ids=[], **args):
             or args.get('gdb_case')
             or args.get('gdb_main')):
         failure = failures[0]
-        cmd = runner_ + [failure.id]
+        cmd = find_runner(runner, failure.id, **args)
 
         if args.get('gdb_main'):
             # we don't really need the case breakpoint here, but it
             # can be helpful
-            path, lineno = find_path(runner_, failure.id, **args)
+            path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
                 '-ex', 'break main',
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
                 '--args']
         elif args.get('gdb_case'):
-            path, lineno = find_path(runner_, failure.id, **args)
+            path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
