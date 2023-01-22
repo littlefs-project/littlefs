@@ -455,24 +455,26 @@ typedef uint32_t lfsr_tag_t;
 typedef int32_t lfsr_stag_t;
 
 enum lfsr_tag_type {
-    LFSR_TAG_MK      = 0x0800,
-    LFSR_TAG_RM      = 0x0801,
-    LFSR_TAG_MKREG   = 0x0800,
-    LFSR_TAG_MKDIR   = 0x0808,
+    LFSR_TAG_MK       = 0x0800,
+    LFSR_TAG_RM       = 0x0801,
+    LFSR_TAG_MKREG    = 0x0800,
+    LFSR_TAG_MKDIR    = 0x0808,
+    LFSR_TAG_MKBRANCH = 0x0ff8,
 
-    LFSR_TAG_UATTR   = 0x1000,
-    LFSR_TAG_RMUATTR = 0x1001,
+    LFSR_TAG_UATTR    = 0x1000,
+    LFSR_TAG_RMUATTR  = 0x1001,
+    LFSR_TAG_BTREE    = 0x2010,
 
-    LFSR_TAG_CRC     = 0x0002,
-    LFSR_TAG_CRC0    = 0x0002,
-    LFSR_TAG_CRC1    = 0x0003,
-    LFSR_TAG_FCRC    = 0x000a,
+    LFSR_TAG_CRC      = 0x0002,
+    LFSR_TAG_CRC0     = 0x0002,
+    LFSR_TAG_CRC1     = 0x0003,
+    LFSR_TAG_FCRC     = 0x000a,
 
-    LFSR_TAG_ALT     = 0x0004,
-    LFSR_TAG_ALTBLT  = 0x0004,
-    LFSR_TAG_ALTRLT  = 0x0005,
-    LFSR_TAG_ALTBGT  = 0x0006,
-    LFSR_TAG_ALTRGT  = 0x0007,
+    LFSR_TAG_ALT      = 0x0004,
+    LFSR_TAG_ALTBLT   = 0x0004,
+    LFSR_TAG_ALTRLT   = 0x0005,
+    LFSR_TAG_ALTBGT   = 0x0006,
+    LFSR_TAG_ALTRGT   = 0x0007,
 };
 
 #define LFSR_TAG_(type, id) \
@@ -517,10 +519,10 @@ enum lfsr_tag_type {
 //    LFS_TYPE1_ALT       = 0x0004,
 //};
 
-enum lfsr_tag_pat {
-    LFS_PAT_GET         = 0x0000,
-    LFS_PAT_FIND        = 0x0001,
-};
+//enum lfsr_tag_pat {
+//    LFS_PAT_GET         = 0x0000,
+//    LFS_PAT_FIND        = 0x0001,
+//};
 
 //#define LFS_ALT_B false
 //#define LFS_ALT_R true
@@ -580,6 +582,26 @@ static inline bool lfsr_tag_intree(lfsr_tag_t tag) {
 
 static inline bool lfsr_tag_isrm(lfsr_tag_t tag) {
     return tag & 0x1;
+}
+
+static inline uint8_t lfsr_tag_pat(lfsr_tag_t tag) {
+    // note that this is only for driver bookkeeping and never
+    // exists on disk
+    return tag & 0x4;
+}
+
+static inline bool lfsr_tag_isfound(lfsr_tag_t tag) {
+    // note that this is only for driver bookkeeping and never
+    // exists on disk
+    return tag & 0x2;
+}
+
+static inline lfsr_tag_t lfsr_tag_mkfound(lfsr_tag_t tag) {
+    return tag | 0x2;
+}
+
+static inline lfsr_tag_t lfsr_tag_mknotfound(lfsr_tag_t tag) {
+    return tag & ~0x2;
 }
 
 static inline uint16_t lfsr_tag_suptype(lfsr_tag_t tag) {
@@ -723,41 +745,67 @@ struct lfsr_attr {
 //        NULL, 0, next})
 
 
-// operations on pattern lists
-struct lfsr_pat {
-    lfsr_tag_t tag;
-    union {
-        struct {
-            void *buffer;
-            lfs_size_t size;
-        } get;
-        struct {
-            const void *buffer;
-            lfs_size_t size;
-        } find;
-    } u;
-    struct lfsr_pat *next;
+
+// patterns we can look for during fetch
+enum lfsr_tag_pat {
+    LFSR_PAT_LEB128 = 0x0000,
+    LFSR_PAT_NAME   = 0x0004,
 };
 
-#define LFS_MKRGETPAT_(tag, buffer, size, next) \
-    (&(struct lfsr_pat){ \
-        .tag = LFS_PAT_GET | (tag), \
-        .u.get.buffer = buffer, \
-        .u.get.size = size, \
-        .next = next})
+struct lfsr_pat {
+    // set the lower bits of predicted with the pattern type
+    lfsr_tag_t predicted;
 
-#define LFS_MKRGETPAT(type1, type2, buffer, size, next) \
-    LFS_MKRGET_(LFS_MKRTAG(type1, type2, 0), buffer, size, next)
+    // the result will be placed in found, if the tag is not found,
+    // the id will at least contain where you should insert
+    lfsr_tag_t found;
 
-#define LFS_MKRFINDPAT_(tag, buffer, size, next) \
-    (&(struct lfsr_pat){ \
-        .tag = LFS_PAT_FIND | (tag), \
-        .u.find.buffer = buffer, \
-        .u.find.size = size, \
-        .next = next})
+    // what to search for
+    union {
+        uint32_t leb128;
+        struct {
+            const char *name;
+            lfs_size_t size;
+        } name;
+    } u;
+};
 
-#define LFS_MKRFINDPAT(type1, type2, buffer, size, next) \
-    LFS_MKRFIND_(LFS_MKRTAG(type1, type2, 0), buffer, size, next)
+
+//// operations on pattern lists
+//struct lfsr_pat {
+//    lfsr_tag_t tag;
+//    union {
+//        struct {
+//            void *buffer;
+//            lfs_size_t size;
+//        } get;
+//        struct {
+//            const void *buffer;
+//            lfs_size_t size;
+//        } find;
+//    } u;
+//    struct lfsr_pat *next;
+//};
+//
+//#define LFS_MKRGETPAT_(tag, buffer, size, next) 
+//    (&(struct lfsr_pat){ 
+//        .tag = LFS_PAT_GET | (tag), 
+//        .u.get.buffer = buffer, 
+//        .u.get.size = size, 
+//        .next = next})
+//
+//#define LFS_MKRGETPAT(type1, type2, buffer, size, next) 
+//    LFS_MKRGET_(LFS_MKRTAG(type1, type2, 0), buffer, size, next)
+//
+//#define LFS_MKRFINDPAT_(tag, buffer, size, next) 
+//    (&(struct lfsr_pat){ 
+//        .tag = LFS_PAT_FIND | (tag), 
+//        .u.find.buffer = buffer, 
+//        .u.find.size = size, 
+//        .next = next})
+//
+//#define LFS_MKRFINDPAT(type1, type2, buffer, size, next) 
+//    LFS_MKRFIND_(LFS_MKRTAG(type1, type2, 0), buffer, size, next)
 
 
 // operations on global state
@@ -827,15 +875,20 @@ static void lfs_fcrc_tole32(struct lfs_fcrc *fcrc) {
 }
 #endif
 
+// fcrc on-disk encoding
 struct lfsr_fcrc {
     uint32_t crc;
     lfs_size_t size;
 };
 
-static lfs_ssize_t lfsr_fcrc_todisk(struct lfsr_fcrc *fcrc) {
-    lfs_tole32_(fcrc->crc, &fcrc->crc);
+#define LFSR_FCRC_DSIZE 8
 
-    lfs_ssize_t delta = lfs_toleb128(fcrc->size, (uint8_t*)&fcrc->size, 4);
+static lfs_ssize_t lfsr_fcrc_todisk(
+        const struct lfsr_fcrc *fcrc,
+        uint8_t buf[static LFSR_FCRC_DSIZE]) {
+    lfs_tole32_(fcrc->crc, &buf[0]);
+
+    lfs_ssize_t delta = lfs_toleb128(fcrc->size, &buf[4], 4);
     if (delta < 0) {
         return delta;
     }
@@ -843,15 +896,70 @@ static lfs_ssize_t lfsr_fcrc_todisk(struct lfsr_fcrc *fcrc) {
     return sizeof(uint32_t) + delta;
 }
 
-static lfs_ssize_t lfsr_fcrc_fromdisk(struct lfsr_fcrc *fcrc) {
-    fcrc->crc = lfs_fromle32_(&fcrc->crc);
+static lfs_ssize_t lfsr_fcrc_fromdisk(
+        struct lfsr_fcrc *fcrc,
+        const uint8_t buf[static LFSR_FCRC_DSIZE]) {
+    fcrc->crc = lfs_fromle32_(&buf[0]);
 
-    lfs_ssize_t delta = lfs_fromleb128(&fcrc->size, (uint8_t*)&fcrc->size, 4);
+    lfs_ssize_t delta = lfs_fromleb128(&fcrc->size, &buf[4], 4);
     if (delta < 0) {
         return delta;
     }
 
     return sizeof(uint32_t) + delta;
+}
+
+// btree on-disk encoding
+#define LFSR_BTREE_DSIZE 14
+
+static lfs_ssize_t lfsr_btree_todisk(
+        const lfsr_btree_t *btree,
+        uint8_t buf[static LFSR_BTREE_DSIZE]) {
+    lfs_ssize_t delta = 0;
+    lfs_ssize_t delta_ = lfs_toleb128(btree->block, &buf[delta], 5);
+    if (delta_ < 0) {
+        return delta_;
+    }
+    delta += delta_;
+
+    delta_ = lfs_toleb128(btree->limit, &buf[delta], 4);
+    if (delta_ < 0) {
+        return delta_;
+    }
+    delta += delta_;
+
+    delta_ = lfs_toleb128(btree->weight, &buf[delta], 5);
+    if (delta_ < 0) {
+        return delta_;
+    }
+    delta += delta_;
+
+    return delta;
+}
+
+static lfs_ssize_t lfsr_btree_fromdisk(
+        lfsr_btree_t *btree,
+        const uint8_t buf[static LFSR_BTREE_DSIZE]) {
+    lfs_ssize_t delta = 0;
+    lfs_ssize_t delta_ = lfs_fromleb128(&btree->block, &buf[delta], 5);
+    if (delta_ < 0) {
+        return delta_;
+    }
+    delta += delta_;
+
+    delta_ = lfs_fromleb128(&btree->limit, &buf[delta], 4);
+    if (delta_ < 0) {
+        return delta_;
+    }
+    delta += delta_;
+
+    delta_ = lfs_fromleb128(&btree->weight, &buf[delta], 5);
+    if (delta_ < 0) {
+        return delta_;
+    }
+    delta += delta_;
+
+    return delta;
 }
 
 // other endianness operations
@@ -1109,21 +1217,19 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
     return i;
 }
 
-static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_block_t block,
-        struct lfsr_pat *patterns) {
-    // TODO this
-    // first mark patterns as invalid until we find matches
-    for (struct lfsr_pat *pattern = patterns;
-            pattern;
-            pattern = pattern->next) {
-        pattern->tag = lfsr_tag_mkinvalid(pattern->tag);
+static lfsr_stag_t lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfs_block_t block, lfs_size_t limit,
+        struct lfsr_pat *pattern) {
+    // clear any previous state in pattern
+    if (pattern) {
+        pattern->predicted &= 0x1;
+        pattern->found = 0;
     }
 
     // read the revision count and get the crc started
     uint32_t rev;
     int err = lfs_bd_read(lfs,
-            NULL, &lfs->rcache, lfs->cfg->block_size,
+            NULL, &lfs->rcache, limit,
             block, 0, &rev, sizeof(uint32_t));
     if (err) {
         return err;
@@ -1153,7 +1259,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t tag;
         lfs_size_t size;
         lfs_ssize_t delta = lfsr_rbyd_readtag(lfs,
-                NULL, &lfs->rcache, lfs->cfg->block_size,
+                NULL, &lfs->rcache, limit-off,
                 block, off, &tag, &size, &crc);
         if (delta < 0) {
             if (delta == LFS_ERR_INVAL
@@ -1182,7 +1288,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         wastrunk = false;
 
         // tag goes out of range?
-        if (off + size > lfs->cfg->block_size) {
+        if (off + size > limit) {
             break;
         }
 
@@ -1193,7 +1299,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
             // crc the entry first, hopefully leaving it in the cache
             err = lfs_bd_crc32c(lfs,
-                    NULL, &lfs->rcache, lfs->cfg->block_size,
+                    NULL, &lfs->rcache, limit-off,
                     block, off, size, &crc);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -1218,10 +1324,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 count -= 1;
             // found an fcrc? save for later
             } else if (lfsr_tag_xsuptype(tag) == LFSR_TAG_FCRC) {
+                uint8_t fbuf[LFSR_FCRC_DSIZE];
                 err = lfs_bd_read(lfs,
-                        NULL, &lfs->rcache, lfs->cfg->block_size,
-                        block, off, &fcrc,
-                        lfs_min(size, sizeof(struct lfsr_fcrc)));
+                        NULL, &lfs->rcache, limit-off,
+                        block, off, fbuf, lfs_min(size, LFSR_FCRC_DSIZE));
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         break;
@@ -1229,17 +1335,63 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     return err;
                 }
 
-                lfs_ssize_t delta = lfsr_fcrc_fromdisk(&fcrc);
+                lfs_ssize_t delta = lfsr_fcrc_fromdisk(&fcrc, fbuf);
                 if (delta < 0) {
                     return delta;
                 }
                 hasfcrc = true;
             }
+
+            // test if pattern matches?
+            if (pattern && lfsr_tag_suptype(tag) == LFSR_TAG_MK) {
+                int cmp;
+                if (lfsr_tag_pat(pattern->predicted) == LFSR_PAT_LEB128) {
+                    uint8_t buf[5];
+                    err = lfs_bd_read(lfs,
+                            NULL, &lfs->rcache, limit-off,
+                            block, off, buf, lfs_min(size, 5));
+                    if (err) {
+                        if (err == LFS_ERR_CORRUPT) {
+                            break;
+                        }
+                        return err;
+                    }
+
+                    uint32_t found;
+                    lfs_ssize_t delta = lfs_fromleb128(&found, buf, 5);
+                    if (delta < 0) {
+                        return delta;
+                    }
+
+                    cmp = pattern->u.leb128 - found;
+                } else if (lfsr_tag_pat(pattern->predicted) == LFSR_PAT_NAME) {
+                    // TODO handle names
+                    LFS_ASSERT(false);
+                }
+
+                // note this already handles the shifting of ids
+                if (cmp == 0) {
+                    pattern->predicted = lfsr_tag_mkfound(
+                            tag | lfsr_tag_pat(pattern->predicted));
+                } else if (cmp < 0) {
+                    pattern->predicted += 0x8000;
+                }
+
+            } else if (pattern && lfsr_tag_suptype(tag) == LFSR_TAG_RM) {
+                // update any found tags
+                if (lfsr_tag_id(tag) == lfsr_tag_id(pattern->predicted)) {
+                    pattern->predicted = lfsr_tag_mknotfound(
+                            pattern->predicted);
+                } else if (lfsr_tag_id(tag) < lfsr_tag_id(pattern->predicted)) {
+                    pattern->predicted -= 0x8000;
+                }
+            }
+
         // is an end-of-commit crc
         } else {
             uint32_t crc_ = 0;
             err = lfs_bd_read(lfs,
-                    NULL, &lfs->rcache, lfs->cfg->block_size,
+                    NULL, &lfs->rcache, limit-off,
                     block, off, &crc_, sizeof(uint32_t));
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -1265,6 +1417,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             rbyd->off = off + size;
             rbyd->crc = crc;
             rbyd->count = count;
+
+            if (pattern) {
+                pattern->found = pattern->predicted;
+            }
         }
 
         off += size;
@@ -1281,9 +1437,11 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // check for an fcrc matching the next prog's erased state, if
         // this failed most likely a previous prog was interrupted, we
         // need a new erase
+        //
+        // note this does go beyond limit
         uint32_t fcrc_ = 0;
         int err = lfs_bd_crc32c(lfs,
-                NULL, &lfs->rcache, lfs->cfg->block_size,
+                NULL, &lfs->rcache, limit-lfs_min(off, limit),
                 rbyd->block, rbyd->off, fcrc.size, &fcrc_);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -1293,7 +1451,16 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         rbyd->erased = (fcrc_ == fcrc.crc);
     }
 
-    return 0;
+    if (pattern) {
+        LFS_ASSERT(lfsr_tag_isvalid(pattern->found));
+        if (lfsr_tag_isfound(pattern->found)) {
+            return pattern->found;
+        } else {
+            return LFS_ERR_NOENT;
+        }
+    } else {
+        return 0;
+    }
 }
 
 static lfsr_stag_t lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
@@ -1617,7 +1784,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     while (true) {
         // do we need to flip bounds?
         if (diverged
-                && !(upper_tag_ & 0x2)
+                && !lfsr_tag_isfound(upper_tag_)
                 && (!p_alts[0] || lfsr_tag_isblack(p_alts[0]))) {
             lfs_swap(&lower_tag_, &upper_tag_);
             lfs_swap(&lower_branch, &upper_branch);
@@ -1805,12 +1972,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         // found end of tree?
         } else {
             // update the tag id, marking as found
-            lower_tag_ = LFSR_TAG_(
-                    lfsr_tag_type(alt) | 0x2,
-                    lfsr_tag_id(lower_upper-1));
+            lower_tag_ = lfsr_tag_mkfound(LFSR_TAG_(
+                    lfsr_tag_type(alt),
+                    lfsr_tag_id(lower_upper-1)));
 
             // if we diverged, we also need to find the other bound
-            if (diverged && !(upper_tag_ & 0x2)) {
+            if (diverged && !lfsr_tag_isfound(upper_tag_)) {
                 continue;
             }
 
@@ -1937,7 +2104,10 @@ leaf:;
 
 int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const struct lfsr_attr *attrs) {
-    LFS_ASSERT(rbyd->erased);
+    // we can't make progress if we're not erased
+    if (!rbyd->erased) {
+        return LFS_ERR_RANGE;
+    }
 
     // mark as unerased in case we fail
     rbyd->erased = false;
@@ -2014,7 +2184,8 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             return err;
         }
 
-        lfs_size_t fcrc_delta = lfsr_fcrc_todisk(&fcrc);
+        uint8_t fbuf[LFSR_FCRC_DSIZE];
+        lfs_size_t fcrc_delta = lfsr_fcrc_todisk(&fcrc, fbuf);
         err = lfsr_rbyd_progtag(lfs, &rbyd_,
                 LFSR_TAG(FCRC, -1), fcrc_delta, &rbyd_.crc);
         if (err) {
@@ -2022,7 +2193,7 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         err = lfsr_rbyd_prog(lfs, &rbyd_,
-                &fcrc, fcrc_delta, &rbyd_.crc);
+                fbuf, fcrc_delta, &rbyd_.crc);
         if (err) {
             return err;
         }
@@ -2087,6 +2258,121 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd_.off = aligned;
     *rbyd = rbyd_;
 
+    return 0;
+}
+
+
+/// Rbyd B-Tree operations ///
+
+static int lfsr_btree_alloc(lfs_t *lfs, lfsr_btree_t *btree,
+        lfs_size_t weight, const struct lfsr_attr *attrs) {
+    // create an rbyd block to act as the root of the tree
+    //
+    // note that for littlefs this should really only be called
+    // when we have at least two entries, otherwise a smaller representation
+    // should be used
+    lfs_block_t block;
+    int err = lfs_alloc(lfs, &block);
+    if (err) {
+        return err;
+    }
+
+    // read revision count so we make sure to change the contents of the block,
+    // this is important if erase is a noop
+    uint32_t rev;
+    err = lfs_bd_read(lfs,
+            NULL, &lfs->rcache, 0,
+            block, 0, &rev, sizeof(uint32_t));
+    if (err) {
+        return err;
+    }
+
+    // go ahead and erase the block
+    err = lfs_bd_erase(lfs, block);
+    if (err) {
+        return err;
+    }
+
+    // write the new root of our tree
+    lfsr_rbyd_t rbyd = {
+        .block = block,
+        .trunk = 0,
+        .off = 0,
+        .rev = rev + 1,
+        .crc = 0,
+        .count = 0,
+        .erased = true
+    };
+
+    err = lfsr_rbyd_commit(lfs, &rbyd, attrs);
+    if (err) {
+        return err;
+    }
+
+    btree->block = block;
+    btree->limit = rbyd.off;
+    btree->weight = weight;
+    return 0;
+}
+
+static lfsr_stag_t lfsr_btree_lookup(lfs_t *lfs, const lfsr_btree_t *btree,
+        lfsr_rbyd_t *rbyd, struct lfsr_pat *pattern) {
+    // most of the work here is done by lfsr_rbyd_fetch, we just descend
+    // down the tree until it fails
+    lfsr_btree_t branch = *btree;
+    while (true) {
+        lfsr_stag_t tag = lfsr_rbyd_fetch(lfs, rbyd,
+                branch.block, branch.limit,
+                pattern);
+        if (tag < 0 && tag != LFS_ERR_NOENT) {
+            return tag;
+        }
+
+        // found?
+        if (tag != LFS_ERR_NOENT && lfsr_tag_type(tag) != LFSR_TAG_MKBRANCH) {
+            return 0;
+        }
+
+        // TODO do we?
+        // TODO also can the pattern found on ENOENT be formed better for this?
+        //
+        // we always find ids <= our pattern, so if it's not found we descend
+        // down the left branch, but we need to make sure this is actually a
+        // btree branch
+        if (tag == LFS_ERR_NOENT) {
+            tag = lfsr_rbyd_lookup(lfs, rbyd,
+                    LFSR_TAG(MK, lfsr_tag_id(pattern->found)
+                        - lfs_min(1, lfsr_tag_id(pattern->found))),
+                    NULL, NULL);
+            if (tag < 0) {
+                return tag;
+            }
+
+            if (lfsr_tag_type(tag) != LFSR_TAG_MKBRANCH) {
+                return LFS_ERR_NOENT;
+            }
+        }
+
+        // continue search down tree
+        uint8_t bbuf[LFSR_BTREE_DSIZE];
+        lfs_ssize_t delta = lfsr_rbyd_get(lfs, rbyd,
+                LFSR_TAG(BTREE, lfsr_tag_id(tag)),
+                bbuf, LFSR_BTREE_DSIZE);
+        if (delta < 0) {
+            return delta;
+        }
+
+        delta = lfsr_btree_fromdisk(&branch, bbuf);
+        if (delta < 0) {
+            return delta;
+        }
+    }
+}
+
+static int lfsr_btree_insert(lfs_t *lfs, lfsr_btree_t *btree,
+        lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs) {
+    // TODO
+    LFS_ASSERT(false);
     return 0;
 }
 

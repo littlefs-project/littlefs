@@ -339,6 +339,12 @@ typedef struct lfsr_rbyd {
     bool erased;
 } lfsr_rbyd_t;
 
+typedef struct lfsr_btree {
+    lfs_block_t block;
+    lfs_size_t limit;
+    lfs_size_t weight;
+} lfsr_btree_t;
+
 typedef struct lfs_mdir {
     lfs_block_t pair[2];
     uint32_t rev;
