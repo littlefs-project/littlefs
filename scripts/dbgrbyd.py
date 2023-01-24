@@ -33,9 +33,10 @@ def fromleb128(data):
     return word, len(data)
 
 def fromtag(data):
-    tag, delta1 = fromleb128(data)
-    size, delta2 = fromleb128(data[delta1:])
-    return tag & 1, tag >> 1, size, delta1+delta2
+    tag, delta = fromleb128(data)
+    id, delta_ = fromleb128(data[delta:])
+    size, delta__ = fromleb128(data[delta+delta_:])
+    return tag&1, tag&~1, id-1, size, delta+delta_+delta__
 
 def popc(x):
     return bin(x).count('1')
@@ -50,50 +51,41 @@ def xxd(data, width=16, crc=False):
                 b if b >= ' ' and b <= '~' else '.'
                 for b in map(chr, data[i:i+width])))
 
-def tagrepr(tag, size, off=None):
-    type = tag & 0x7fff
-    suptype = tag & 0x7807
-    subtype = (tag >> 3) & 0xff
-    xsuptype = tag & 0x7e
-    xsubtype = (tag >> 7) & 0xff
-    id = ((tag >> 15) & 0xffff) - 1
-
-    if suptype == 0x0800:
-        return 'mk%s id%d%s' % (
-            'reg' if subtype == 0
+def tagrepr(tag, id, size, off=None):
+    if (tag & ~0x3f0) == 0x0400:
+        return 'mk%s id%d %d' % (
+            'branch' if ((tag & 0x3f0) >> 4) == 0x00
+                else 'reg' if ((tag & 0x3f0) >> 4) == 0x01
+                else 'dir' if ((tag & 0x3f0) >> 4) == 0x02
                 else ' 0x%02x' % subtype,
             id,
-            ' %d' % size if not tag & 0x1 else '')
-    elif suptype == 0x0801:
-        return 'rm%s id%d%s' % (
-            ' 0x%02x' % subtype if subtype else '',
-            id,
-            ' %d' % size if not tag & 0x1 else '')
-    elif (suptype & ~0x1) == 0x1000:
+            size)
+    elif (tag & ~0xff2) == 0x2000:
         return '%suattr 0x%02x%s%s' % (
-            'rm' if suptype & 0x1 else '',
-            subtype,
+            'rm' if tag & 0x1 else '',
+            (tag & 0xff0) >> 4,
             ' id%d' % id if id != -1 else '',
             ' %d' % size if not tag & 0x1 else '')
-    elif xsuptype == 0x0002:
+    elif (tag & ~0x10) == 0x24:
         return 'crc%x%s %d' % (
-            tag & 0x1,
-            ' 0x%02x' % xsubtype if xsubtype else '',
+            1 if tag & 0x10 else 0,
+            ' 0x%02x' % id if id != -1 else '',
             size)
-    elif xsuptype == 0x000a:
+    elif tag == 0x44:
         return 'fcrc%s %d' % (
-            ' 0x%02x' % xsubtype if xsubtype else '',
+            ' 0x%02x' % id if id != -1 else '',
             size)
-    elif suptype & 0x4:
-        return 'alt%s%s 0x%x %s' % (
-            'r' if suptype & 0x1 else 'b',
-            'gt' if suptype & 0x2 else 'lt',
-            tag & ~0x7,
+    elif tag & 0x8:
+        return 'alt%s%s 0x%x w%d %s' % (
+            'r' if tag & 0x2 else 'b',
+            'gt' if tag & 0x4 else 'le',
+            tag & 0x3ff0,
+            id+1,
             '0x%x' % (0xffffffff & (off-size))
                 if off is not None
                 else '-%d' % off)
     else:
-        return '0x%02x id%d %d' % (type, id, size)
+        return '0x%04x id%d %d' % (tag, id-1, size)
 
 def show_log(block_size, data, rev, off, *,
         color=False,
@@ -106,16 +98,16 @@ def show_log(block_size, data, rev, off, *,
         j_ = 4
         while j_ < (block_size if args.get('all') else off):
             j = j_
-            v, tag, size, delta = fromtag(data[j_:])
+            v, tag, id, size, delta = fromtag(data[j_:])
             j_ += delta
-            if not tag & 0x4:
+            if not tag & 0x8:
                 j_ += size
 
-            if tag & 0x4:
+            if tag & 0x8:
                 # figure out which alt color
-                if tag & 0x1:
-                    _, ntag, _, _ = fromtag(data[j_:])
-                    if ntag & 0x1:
+                if tag & 0x2:
+                    _, ntag, _, _, _ = fromtag(data[j_:])
+                    if ntag & 0x2:
                         jumps.append((j, j-size, 0, 'y'))
                     else:
                         jumps.append((j, j-size, 0, 'r'))
@@ -245,14 +237,15 @@ def show_log(block_size, data, rev, off, *,
         notes = []
 
         j = j_
-        v, tag, size, delta = fromtag(data[j_:])
-        if v != popc(crc) & 1:
+        v, tag, id, size, delta = fromtag(data[j_:])
+        if v != (popc(crc) & 1):
             notes.append('v!=%x' % (popc(crc) & 1))
+        tag &= ~1
         crc = crc32c(data[j_:j_+delta], crc)
         j_ += delta
 
-        if not tag & 0x4:
-            if (tag & 0x007e) != 0x0002:
+        if not tag & 0x8:
+            if (tag & ~0x10) != 0x24:
                 crc = crc32c(data[j_:j_+size], crc)
             # found a crc?
             else:
@@ -261,73 +254,72 @@ def show_log(block_size, data, rev, off, *,
                     notes.append('crc!=%08x' % crc)
             j_ += size
 
-        # adjust count?
-        if args.get('lifetimes'):
-            if (tag & 0x7807) == 0x0800:
-                count += 1
-            elif ((tag & 0x7807) == 0x0801
-                    and ((tag >> 15) & 0xffff)-1 < len(ids)):
-                count -= 1
+#        # adjust count?
+#        if args.get('lifetimes'):
+#            if (tag & 0x7807) == 0x0800:
+#                count += 1
+#            elif ((tag & 0x7807) == 0x0801
+#                    and ((tag >> 15) & 0xffff)-1 < len(ids)):
+#                count -= 1
 
-        if not args.get('in_tree') or (tag & 0x6) == 0:
-            # show human-readable tag representation
-            print('%s%08x:%s %s%s%-57s%s%s' % (
-                '\x1b[90m' if color and j >= off else '',
-                j,
-                '\x1b[m' if color and j >= off else '',
-                lifetimerepr(j) if args.get('lifetimes') else '',
-                '\x1b[90m' if color and j >= off else '',
-                '%-22s%s' % (
-                    tagrepr(tag, size, j),
-                    '  %s' % next(xxd(
-                            data[j+delta:j+delta+min(size, 8)], 8), '')
-                        if not args.get('no_truncate')
-                            and not tag & 0x4 else ''),
-                '\x1b[m' if color and j >= off else '',
-                ' (%s)' % ', '.join(notes) if notes
-                else ' %s' % ''.join(
-                        ('\x1b[33my\x1b[m' if color else 'y')
-                            if alts[i] & 0x1
-                            and i+1 < len(alts)
-                            and alts[i+1] & 0x1
-                        else ('\x1b[31mr\x1b[m' if color else 'r')
-                            if alts[i] & 0x1
-                        else ('\x1b[90mb\x1b[m' if color else 'b')
-                        for i in range(len(alts)-1, -1, -1))
-                    if args.get('rbyd') and (tag & 0x7) == 0
-                else ' %s' % jumprepr(j)
-                    if args.get('jumps')
-                else ''))
+        # show human-readable tag representation
+        print('%s%08x:%s %s%s%-57s%s%s' % (
+            '\x1b[90m' if color and j >= off else '',
+            j,
+            '\x1b[m' if color and j >= off else '',
+            lifetimerepr(j) if args.get('lifetimes') else '',
+            '\x1b[90m' if color and j >= off else '',
+            '%-22s%s' % (
+                tagrepr(tag, id, size, j),
+                '  %s' % next(xxd(
+                        data[j+delta:j+delta+min(size, 8)], 8), '')
+                    if not args.get('no_truncate')
+                        and not tag & 0x8 else ''),
+            '\x1b[m' if color and j >= off else '',
+            ' (%s)' % ', '.join(notes) if notes
+            else ' %s' % ''.join(
+                    ('\x1b[33my\x1b[m' if color else 'y')
+                        if alts[i] & 0x2
+                        and i+1 < len(alts)
+                        and alts[i+1] & 0x2
+                    else ('\x1b[31mr\x1b[m' if color else 'r')
+                        if alts[i] & 0x2
+                    else ('\x1b[90mb\x1b[m' if color else 'b')
+                    for i in range(len(alts)-1, -1, -1))
+                if args.get('rbyd') and (tag & 0x7) == 0
+            else ' %s' % jumprepr(j)
+                if args.get('jumps')
+            else ''))
 
-        if not args.get('in_tree') or (tag & 0x6) != 2:
-            if args.get('raw'):
-                # show on-disk encoding of tags
-                for o, line in enumerate(xxd(data[j:j+delta])):
-                    print('%s%8s: %s%s' % (
-                        '\x1b[90m' if color and j >= off else '',
-                        '%04x' % (j + o*16),
-                        line,
-                        '\x1b[m' if color and j >= off else ''))
-
-            # show in-device representation, including some extra
-            # crc/parity info
-            if args.get('device'):
-                print('%s%8s  %s%-47s  %08x %x%s' % (
+        if args.get('raw'):
+            # show on-disk encoding of tags
+            for o, line in enumerate(xxd(data[j:j+delta])):
+                print('%s%8s: %s%s' % (
                     '\x1b[90m' if color and j >= off else '',
-                    '',
-                    lifetimerepr(0) if args.get('lifetimes') else '',
-                    '%-22s%s' % (
-                        '%08x %08x' % (tag, size),
-                        '  %s' % ' '.join(
-                                '%08x' % struct.unpack('<I',
-                                    data[j+delta+i*4:j+delta+i*4+4])
-                                for i in range(min(size//4, 3)))[:23]
-                            if not tag & 0x4 else ''),
-                    crc,
-                    popc(crc) & 1,
+                    '%04x' % (j + o*16),
+                    line,
                     '\x1b[m' if color and j >= off else ''))
 
-        if not tag & 0x4 and (not args.get('in_tree') or (tag & 0x6) != 2):
+        # show in-device representation, including some extra
+        # crc/parity info
+        if args.get('device'):
+            print('%s%8s  %s%-47s  %08x %x%s' % (
+                '\x1b[90m' if color and j >= off else '',
+                '',
+                lifetimerepr(0) if args.get('lifetimes') else '',
+                '%-22s%s' % (
+                    '%04x %08x %07x' % (tag, 0xffffffff & id, size),
+                    '  %s' % ' '.join(
+                            '%08x' % struct.unpack('<I',
+                                data[j+delta+i*4:j+delta+min(i*4+4,size)]
+                                    .ljust(4, b'\0'))
+                            for i in range(min(m.ceil(size/4), 3)))[:23]
+                        if not tag & 0x8 else ''),
+                crc,
+                popc(crc) & 1,
+                '\x1b[m' if color and j >= off else ''))
+
+        if not tag & 0x8:
             # show on-disk encoding of data
             if args.get('raw') or args.get('no_truncate'):
                 for o, line in enumerate(xxd(data[j+delta:j+delta+size])):
@@ -338,7 +330,7 @@ def show_log(block_size, data, rev, off, *,
                         '\x1b[m' if color and j >= off else ''))
 
         if args.get('rbyd'):
-            if tag & 0x4:
+            if tag & 0x8:
                 alts.append(tag)
             else:
                 alts = []
@@ -590,24 +582,24 @@ def main(disk, block_size, block1, block2=None, *,
         count_ = 0
         wastrunk = False
         while j_ < block_size:
-            v, tag, size, delta = fromtag(data[j_:])
-            if v != popc(crc) & 1:
+            v, tag, id, size, delta = fromtag(data[j_:])
+            if v != (popc(crc) & 1):
                 break
             crc = crc32c(data[j_:j_+delta], crc)
             j_ += delta
 
-            if not wastrunk and (tag & 0x6) != 0x2:
+            if not wastrunk and (tag & 0xc) != 0x4:
                 trunk_ = j_ - delta
                 wastrunk = True
 
-            if not tag & 0x4:
-                if (tag & 0x007e) != 0x0002:
+            if not tag & 0x8:
+                if (tag & ~0x10) != 0x24:
                     crc = crc32c(data[j_:j_+size], crc)
-                    # keep track of id count
-                    if (tag & 0x7807) == 0x0800:
-                        count_ += 1
-                    elif (tag & 0x7807) == 0x0801:
-                        count_ = max(count_ - 1, 0)
+#                    # keep track of id count
+#                    if (tag & 0x7807) == 0x0800:
+#                        count_ += 1
+#                    elif (tag & 0x7807) == 0x0801:
+#                        count_ = max(count_ - 1, 0)
                 # found a crc?
                 else:
                     crc_, = struct.unpack('<I', data[j_:j_+4].ljust(4, b'\0'))
@@ -698,10 +690,10 @@ if __name__ == "__main__":
         '-l', '--log',
         action='store_true',
         help="Show the raw tags as they appear in the log.")
-    parser.add_argument(
-        '-i', '--in-tree',
-        action='store_true',
-        help="Only show tags in the tree.")
+#    parser.add_argument(
+#        '-i', '--in-tree',
+#        action='store_true',
+#        help="Only show tags in the tree.")
     parser.add_argument(
         '-r', '--raw',
         action='store_true',
