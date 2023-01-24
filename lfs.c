@@ -626,6 +626,14 @@ static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
     return tag & 0x8;
 }
 
+static inline bool lfsr_tag_iscrc(lfsr_tag_t tag) {
+    return (tag & ~0x0010) == LFSR_TAG_CRC;
+}
+
+static inline bool lfsr_tag_ismk(lfsr_tag_t tag) {
+    return (tag & ~0x03f0) == LFSR_TAG_MK;
+}
+
 //static inline bool lfsr_tag_iscrc(lfsr_tag_t tag) {
 //    return (tag & 0xe) == 0x6;
 //}
@@ -754,18 +762,16 @@ static inline bool lfsr_tag_follow(lfsr_tag_t alt, lfs_size_t weight,
         lfsr_tag_t tag, lfsr_sid_t id) {
     // TODO do we actually need lfsr_tag_key?
     // TODO hmm, are key and weight entirely exclusive?
-    if (!lfsr_tag_key(alt)) {
-        if (lfsr_tag_isgt(alt)) {
-            return id >= upper - (lfs_ssize_t)weight;
-        } else {
-            return id < lower + (lfs_ssize_t)weight;
-        }
+    if (lfsr_tag_isgt(alt)) {
+        return id >= upper - (lfs_ssize_t)weight
+                || (/*lfsr_tag_key(alt)
+                    &&*/ id == (upper - (lfs_ssize_t)weight)-1
+                    && lfsr_tag_key(tag) > lfsr_tag_key(alt));
     } else {
-        if (lfsr_tag_isgt(alt)) {
-            return lfsr_tag_key(tag) > lfsr_tag_key(alt);
-        } else {
-            return lfsr_tag_key(tag) <= lfsr_tag_key(alt);
-        }
+        return id < lower + (lfs_ssize_t)weight
+                || (/*lfsr_tag_key(alt)
+                    &&*/ id == lower + (lfs_ssize_t)weight
+                    && lfsr_tag_key(tag) <= lfsr_tag_key(alt));
     }
 }
 
@@ -775,32 +781,24 @@ static inline lfsr_tag_t lfsr_tag_flipalt(lfsr_tag_t alt) {
 
 static inline lfs_size_t lfsr_tag_flipweight(lfsr_tag_t alt, lfs_size_t weight,
         lfsr_sid_t lower, lfsr_sid_t upper) {
-    if (!lfsr_tag_key(alt)) {
-        return (upper-lower) - weight;
-    } else {
-        return weight;
-    }
+    return (upper-lower) - weight - 1;
 }
 
 static inline void lfsr_tag_trimweight(lfsr_tag_t alt, lfs_size_t weight,
         lfsr_sid_t *lower, lfsr_sid_t *upper) {
-    if (!lfsr_tag_key(alt)) {
-        if (lfsr_tag_isgt(alt)) {
-            *upper -= weight;
-        } else {
-            *lower += weight;
-        }
+    if (lfsr_tag_isgt(alt)) {
+        *upper -= weight;
+    } else {
+        *lower += weight;
     }
 }
 
 static inline void lfsr_tag_untrimweight(lfsr_tag_t alt, lfs_size_t weight,
         lfsr_sid_t *lower, lfsr_sid_t *upper) {
-    if (!lfsr_tag_key(alt)) {
-        if (lfsr_tag_isgt(alt)) {
-            *upper += weight;
-        } else {
-            *lower -= weight;
-        }
+    if (lfsr_tag_isgt(alt)) {
+        *upper += weight;
+    } else {
+        *lower -= weight;
     }
 }
 
@@ -808,7 +806,7 @@ static inline void lfsr_tag_trimtag(lfsr_tag_t alt,
         lfsr_sid_t lower_id, lfsr_sid_t upper_id,
         lfsr_tag_t *lower_tag, lfsr_tag_t *upper_tag,
         lfsr_sid_t id) {
-    if (lfsr_tag_key(alt)) {
+    //if (lfsr_tag_key(alt)) {
         // TODO test if we fit id???
         if (lfsr_tag_isgt(alt)) {
             if (id == upper_id-1) {
@@ -819,7 +817,7 @@ static inline void lfsr_tag_trimtag(lfsr_tag_t alt,
                 *lower_tag = alt;
             }
         }
-    }
+    //}
 }
         
 
@@ -1437,7 +1435,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         // not an end-of-commit crc
-        if ((tag & ~0x10) != LFSR_TAG_CRC) {
+        if (!lfsr_tag_iscrc(tag)) {
             // fcrc is only valid if the last tag was a crc
             hasfcrc = false;
 
@@ -1453,7 +1451,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
 
             // found a mk? update id count
-            if ((tag & ~0x3f0) == LFSR_TAG_MK) {
+            if (lfsr_tag_ismk(tag)) {
                 // NOTE we can't check for overflow/underflow here because we
                 // may be overeagerly parsing an invalid commit, it's ok for
                 // this to overflow/underflow as long as we throw it out later
@@ -1943,7 +1941,7 @@ static void lfsr_rbyd_p_red(
 static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_tag_t tag, lfsr_sid_t id, const void *buffer, lfs_size_t size) {
     // tags must be in a valid id range at this point
-    if ((tag & ~0x3f0) == LFSR_TAG_MK) {
+    if (lfsr_tag_ismk(tag)) {
         LFS_ASSERT(rbyd_->weight < 0xffff);
         LFS_ASSERT(id <= rbyd_->weight);
     } else {
@@ -1965,7 +1963,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     lfsr_sid_t lower_id_;
     lfsr_tag_t upper_tag_;
     lfsr_sid_t upper_id_;
-    if ((tag & ~0x3f0) == LFSR_TAG_MK) {
+    if (lfsr_tag_ismk(tag)) {
         lower_tag_ = 0;
         lower_id_ = id;
         upper_tag_ = lower_tag_;
@@ -2308,28 +2306,20 @@ stem:;
     if (lfsr_tag_isrm(lower_tag_)) {
         // no split needed, prune the removed tag
 
-    } else if (lower_id_ < id) {
-        // split less than id
-        //
-        // note this is consistent for all appends and only happens when
-        // appending to the end of the tree
-        alt = LFSR_TAG_ALT(B, LE, 0);
-        weight = lower_id_+1 - lower_lower_id;
-        jump = lower_branch;
-
-    } else if (lower_id_ == id
-            && lfsr_tag_key(lower_tag_) < lfsr_tag_key(tag)) {
-        // split less than tag
+    } else if (lower_id_ < id
+            || (lower_id_ == id
+                && lfsr_tag_key(lower_tag_) < lfsr_tag_key(tag))) {
+        // split less than
         //
         // note this is consistent for all appends and only happens when
         // appending to the end of the tree
         alt = LFSR_TAG_ALT(B, LE, lower_tag_);
-        weight = 0;
+        weight = lower_id_ - lower_lower_id;
         jump = lower_branch;
 
-    } else if ((tag & ~0x3f0) == LFSR_TAG_MK) {
+    } else if (lfsr_tag_ismk(tag)) {
         if (upper_id_ >= id) {
-            alt = LFSR_TAG_ALT(B, GT, 0);
+            alt = LFSR_TAG_ALT(B, GT, tag);
             weight = (upper_upper_id-1 - id) + 1;
             jump = upper_branch;
         }
@@ -2351,16 +2341,12 @@ stem:;
 //            jump = upper_branch;
 //        }
 //
-    } else if (upper_id_ > id) {
-        // split greater than id
-        alt = LFSR_TAG_ALT(B, GT, 0);
-        weight = upper_upper_id-1 - id;
-        jump = upper_branch;
-
-    } else if (lfsr_tag_key(upper_tag_) > lfsr_tag_key(tag)) {
-        // split greater than tag
+    } else if (upper_id_ > id
+            || (upper_id_ == id
+                && lfsr_tag_key(upper_tag_) > lfsr_tag_key(tag))) {
+        // split greater than
         alt = LFSR_TAG_ALT(B, GT, tag);
-        weight = 0;
+        weight = upper_upper_id-1 - id;
         jump = upper_branch;
     }
 
@@ -2405,7 +2391,7 @@ leaf:;
     // note we do this here since it is possible to insert into an
     // empty tree
     //
-    if ((tag & ~0x3f0) == LFSR_TAG_MK) {
+    if (lfsr_tag_ismk(tag)) {
         rbyd_->weight += 1;
     }
 
