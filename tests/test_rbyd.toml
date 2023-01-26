@@ -2110,15 +2110,15 @@ code = '''
     }
 
     // test that tree is self-balancing, we should be strictly bounded
-    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
     }
 '''
 
@@ -2209,15 +2209,15 @@ code = '''
     }
 
     // test that tree is self-balancing, we should be strictly bounded
-    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
     }
 '''
 
@@ -2655,808 +2655,1006 @@ code = '''
 '''
 
 
-#### Removal testing ###
-#
-#[cases.test_rbyd_remove]
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= 2'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    lfs_off_t off;
-#    lfs_size_t size;
-#
-#    // add and remove one attribute
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 1, -1, NULL, 0, NULL)) => 0;
-#
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    // commit with two attributes, remove the first one
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 1, -1, NULL, 0, NULL)) => 0;
-#
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    // commit with two attributes, remove the second one
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 2, -1, NULL, 0, NULL)) => 0;
-#
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(1), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(1), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#'''
-#
-#[cases.test_rbyd_remove_permutations]
-#defines.N = 'range(1, 7)'
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= N+1'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    lfs_off_t off;
-#    lfs_size_t size;
-#
-#    // keep track of the worst case log size
-#    lfs_size_t worst_size = 0;
-#
-#    // test all permutations of a given size
-#    uint8_t perm[N];
-#    unsigned stack[N];
-#    for (uint8_t i = 0; i < N; i++) {
-#        perm[i] = i;
-#        stack[i] = 0;
-#    }
-#
-#    unsigned i = 1;
-#    while (i < N) {
-#        // print permutation to help debugging
-#        printf("--- permutation: [");
-#        for (unsigned j = 0; j < N; j++) {
-#            if (j > 0) {
-#                printf(", ");
-#            }
-#            printf("%d", perm[j]+1);
-#        }
-#        printf("] ---\n");
-#
-#        // create given permutation with multiple commits
-#        rbyd = init_rbyd;
-#        lfs_bd_erase(&lfs, rbyd.block) => 0;
-#
-#        for (unsigned j = 0; j < N; j++) {
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(UATTR(perm[j]+1), -1, "\xaa\xaa\xaa\xaa", 4,
-#                    NULL)) => 0;
-#        }
-#
-#        // copy block so we can reset after each remove
-#        lfsr_rbyd_t backup_rbyd = rbyd;
-#        uint8_t backup_block[BLOCK_SIZE];
-#        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-#                rbyd.block, 0, backup_block, rbyd.off) => 0;
-#
-#        // try removing each tag
-#        for (unsigned j = 0; j < N; j++) {
-#            // print what we are removing to help debugging
-#            printf("--- remove: %d ---\n", j+1);
-#
-#            rbyd = backup_rbyd;
-#            lfs_bd_erase(&lfs, rbyd.block) => 0;
-#            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-#                    rbyd.block, 0, backup_block, rbyd.off) => 0;
-#            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
-#
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR2(RMUATTR, j+1, -1, NULL, 0, NULL)) => 0;
-#
-#            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
-#                    cfg->block_size, NULL) => 0;
-#            for (unsigned k = 0; k < N; k++) {
-#                lfsr_stag_t tag = lfsr_rbyd_lookup(&lfs, &rbyd,
-#                        LFSR_TAG_UATTR(k+1), -1, &off, &size);
-#                if (k == j) {
-#                    if (j == N-1) {
-#                        assert(tag == LFS_ERR_NOENT);
-#                    } else {
-#                        assert(tag == LFSR_TAG_UATTR(j+1+1), -1);
-#                    }
-#                } else {
-#                    assert(tag == LFSR_TAG_UATTR(k+1), -1);
-#                }
-#            }
-#
-#            // keep track of the worst size
-#            worst_size = lfs_max(worst_size, rbyd.off);
-#        }
-#
-#        // next permutation using Heap's algorithm
-#        if (stack[i] < i) {
-#            if (i % 2 == 0) {
-#                uint8_t t = perm[0];
-#                perm[0] = perm[i];
-#                perm[i] = t;
-#            } else {
-#                uint8_t t = perm[stack[i]];
-#                perm[stack[i]] = perm[i];
-#                perm[i] = t;
-#            }
-#            stack[i] += 1;
-#            i = 1;
-#        } else {
-#            stack[i] = 0;
-#            i += 1;
-#        }
-#    }
-#
-#    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
-#    lfs_size_t n = 1 + N + 1;
-#    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
-#    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
-#    // note this only holds true with byte-level progs
-#    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
-#    }
-#'''
-#
-#[cases.test_rbyd_remove_missing]
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= 4'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    lfs_off_t off;
-#    lfs_size_t size;
-#
-#    // create a tree two attributes
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4,
-#            LFSR_ATTR(UATTR(4), -1, "\xdd\xdd\xdd\xdd", 4,
-#            NULL))) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    // try to remove tags that aren't there, this should do nothing
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 1, -1, NULL, 0, NULL)) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 3, -1, NULL, 0, NULL)) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 5, -1, NULL, 0, NULL)) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    // one last fetch to make sure nothing was broken
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#'''
-#
-#[cases.test_rbyd_remove_again]
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= 8'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    lfs_off_t off;
-#    lfs_size_t size;
-#
-#    // create a tree
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4,
-#            LFSR_ATTR(UATTR(3), -1, "\xcc\xcc\xcc\xcc", 4,
-#            LFSR_ATTR(UATTR(4), -1, "\xdd\xdd\xdd\xdd", 4,
-#            LFSR_ATTR(UATTR(5), -1, "\xee\xee\xee\xee", 4,
-#            NULL)))))) => 0;
-#    // remove several attributes
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 1, -1, NULL, 0,
-#            LFSR_ATTR2(RMUATTR, 3, -1, NULL, 0,
-#            LFSR_ATTR2(RMUATTR, 5, -1, NULL, 0, NULL)))) => 0;
-#
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    // try to remove tags that aren't there, this should do nothing
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 1, -1, NULL, 0, NULL)) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 3, -1, NULL, 0, NULL)) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 5, -1, NULL, 0, NULL)) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    // try to remove the tags again, just to make sure (keep in mind
-#    // these removes still commit to the rbyd)
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 1, -1, NULL, 0, NULL)) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 3, -1, NULL, 0, NULL)) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 5, -1, NULL, 0, NULL)) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    // one last fetch to make sure nothing was broken
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFSR_TAG_UATTR(2), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1, &off, &size)
-#            => LFSR_TAG_UATTR(4), -1;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#'''
-#
-#[cases.test_rbyd_remove_all]
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= 2'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    lfs_off_t off;
-#    lfs_size_t size;
-#
-#    // commit with one attribute, remove it
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 1, -1, NULL, 0, NULL)) => 0;
-#
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    // commit with two attributes, remove both
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 1, -1, NULL, 0,
-#            LFSR_ATTR2(RMUATTR, 2, -1, NULL, 0, NULL))) => 0;
-#
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    // commit with two attributes, remove both in the other order
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(RMUATTR, 2, -1, NULL, 0,
-#            LFSR_ATTR2(RMUATTR, 1, -1, NULL, 0, NULL))) => 0;
-#
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1, &off, &size)
-#            => LFS_ERR_NOENT;
-#'''
-#
-#[cases.test_rbyd_remove_all_permutations]
-#defines.N = 'range(1, 7)'
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= 2*N+1'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    lfs_off_t off;
-#    lfs_size_t size;
-#
-#    // keep track of the worst case log size
-#    lfs_size_t worst_size = 0;
-#
-#    // create one consistent block
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#
-#    for (unsigned j = 0; j < N; j++) {
-#        lfsr_rbyd_commit(&lfs, &rbyd,
-#                LFSR_ATTR(UATTR(j+1), -1, "\xaa\xaa\xaa\xaa", 4,
-#                NULL)) => 0;
-#    }
-#
-#    // copy block so we can reset after each remove
-#    lfsr_rbyd_t backup_rbyd = rbyd;
-#    uint8_t backup_block[BLOCK_SIZE];
-#    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-#            rbyd.block, 0, backup_block, rbyd.off) => 0;
-#
-#    // test all permutations of a given size
-#    uint8_t perm[N];
-#    unsigned stack[N];
-#    for (uint8_t i = 0; i < N; i++) {
-#        perm[i] = i;
-#        stack[i] = 0;
-#    }
-#
-#    unsigned i = 1;
-#    while (i < N) {
-#        // print permutation to help debugging
-#        printf("--- permutation: [");
-#        for (unsigned j = 0; j < N; j++) {
-#            if (j > 0) {
-#                printf(", ");
-#            }
-#            printf("%d", perm[j]+1);
-#        }
-#        printf("] ---\n");
-#
-#        // restore backup
-#        rbyd = backup_rbyd;
-#        lfs_bd_erase(&lfs, rbyd.block) => 0;
-#        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-#                rbyd.block, 0, backup_block, rbyd.off) => 0;
-#        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
-#
-#        // remove each tag in permutation order
-#        for (unsigned j = 0; j < N; j++) {
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR2(RMUATTR, perm[j]+1, -1, NULL, 0, NULL)) => 0;
-#        }
-#
-#        // check that all tags are now removed
-#        lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#        for (unsigned j = 0; j < N; j++) {
-#            lfsr_rbyd_lookup(&lfs, &rbyd,
-#                    LFSR_TAG_UATTR(j+1), -1, &off, &size)
-#                    => LFS_ERR_NOENT;
-#        }
-#
-#        // try resuming from all tags being removed
-#        lfsr_rbyd_commit(&lfs, &rbyd,
-#                LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
-#                NULL)) => 0;
-#
-#        lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#        lfsr_rbyd_lookup(&lfs, &rbyd,
-#                LFSR_TAG_UATTR(1), -1, &off, &size)
-#                => LFSR_TAG_UATTR(1), -1;
-#        for (unsigned j = 1; j < N; j++) {
-#            lfsr_rbyd_lookup(&lfs, &rbyd,
-#                    LFSR_TAG_UATTR(j+1), -1, &off, &size)
-#                    => LFS_ERR_NOENT;
-#        }
-#
-#        // keep track of the worst size
-#        worst_size = lfs_max(worst_size, rbyd.off);
-#
-#        // next permutation using Heap's algorithm
-#        if (stack[i] < i) {
-#            if (i % 2 == 0) {
-#                uint8_t t = perm[0];
-#                perm[0] = perm[i];
-#                perm[i] = t;
-#            } else {
-#                uint8_t t = perm[stack[i]];
-#                perm[stack[i]] = perm[i];
-#                perm[i] = t;
-#            }
-#            stack[i] += 1;
-#            i = 1;
-#        } else {
-#            stack[i] = 0;
-#            i += 1;
-#        }
-#    }
-#
-#    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
-#    lfs_size_t n = 1 + N + N + 1;
-#    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
-#    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
-#    // note this only holds true with byte-level progs
-#    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
-#    }
-#'''
-#
-#[cases.test_rbyd_remove_append_permutations]
-#defines.N = 'range(1, 6)'
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= N+2'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    lfs_off_t off;
-#    lfs_size_t size;
-#
-#    // keep track of the worst case log size
-#    lfs_size_t worst_size = 0;
-#
-#    // test all permutations of a given size
-#    uint8_t perm[N];
-#    unsigned stack[N];
-#    for (uint8_t i = 0; i < N; i++) {
-#        perm[i] = i;
-#        stack[i] = 0;
-#    }
-#
-#    unsigned i = 1;
-#    while (i < N) {
-#        // print permutation to help debugging
-#        printf("--- permutation: [");
-#        for (unsigned j = 0; j < N; j++) {
-#            if (j > 0) {
-#                printf(", ");
-#            }
-#            printf("%d", perm[j]+1);
-#        }
-#        printf("] ---\n");
-#
-#        // create given permutation with multiple commits
-#        rbyd = init_rbyd;
-#        lfs_bd_erase(&lfs, rbyd.block) => 0;
-#
-#        for (unsigned j = 0; j < N; j++) {
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(UATTR(perm[j]+1), -1, "\xaa\xaa\xaa\xaa", 4,
-#                    NULL)) => 0;
-#        }
-#
-#        // copy block so we can reset after each remove
-#        lfsr_rbyd_t backup_rbyd = rbyd;
-#        uint8_t backup_block[BLOCK_SIZE];
-#        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-#                rbyd.block, 0, backup_block, rbyd.off) => 0;
-#
-#        // try removing each tag
-#        for (unsigned j = 0; j < N; j++) {
-#            for (unsigned l = 0; l < N; l++) {
-#                // print what we are removing to help debugging
-#                printf("--- remove: %d, append: %d ---\n", j+1, l+1);
-#
-#                rbyd = backup_rbyd;
-#                lfs_bd_erase(&lfs, rbyd.block) => 0;
-#                lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-#                        rbyd.block, 0, backup_block, rbyd.off) => 0;
-#                lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
-#
-#                // remove
-#                lfsr_rbyd_commit(&lfs, &rbyd,
-#                        LFSR_ATTR2(RMUATTR, j+1, -1, NULL, 0, NULL)) => 0;
-#
-#                // try appending each tag to make sure the rbyd tree
-#                // is still usable
-#                lfsr_rbyd_commit(&lfs, &rbyd,
-#                        LFSR_ATTR(UATTR(l+1), -1,
-#                            "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
-#                        NULL)) => 0;
-#
-#                lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
-#                        cfg->block_size, NULL) => 0;
-#                for (unsigned k = 0; k < N; k++) {
-#                    lfsr_stag_t tag = lfsr_rbyd_lookup(&lfs, &rbyd,
-#                            LFSR_TAG_UATTR(k+1), -1, &off, &size);
-#                    if (k == l) {
-#                        assert(tag == LFSR_TAG_UATTR(l+1), -1);
-#                        assert(size == 6);
-#                    } else if (k == j) {
-#                        if (j == N-1) {
-#                            assert(tag == LFS_ERR_NOENT);
-#                        } else {
-#                            assert(tag == LFSR_TAG_UATTR(j+1+1), -1);
-#                        }
-#                    } else {
-#                        assert(tag == LFSR_TAG_UATTR(k+1), -1);
-#                        assert(size == 4);
-#                    }
-#                }
-#
-#                // keep track of the worst size
-#                worst_size = lfs_max(worst_size, rbyd.off);
-#            }
-#        }
-#
-#        // next permutation using Heap's algorithm
-#        if (stack[i] < i) {
-#            if (i % 2 == 0) {
-#                uint8_t t = perm[0];
-#                perm[0] = perm[i];
-#                perm[i] = t;
-#            } else {
-#                uint8_t t = perm[stack[i]];
-#                perm[stack[i]] = perm[i];
-#                perm[i] = t;
-#            }
-#            stack[i] += 1;
-#            i = 1;
-#        } else {
-#            stack[i] = 0;
-#            i += 1;
-#        }
-#    }
-#
-#    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
-#    lfs_size_t n = 1 + N + 1 + 1;
-#    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
-#    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
-#    // note this only holds true with byte-level progs
-#    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
-#    }
-#'''
+### Removal testing ###
+
+[cases.test_rbyd_remove]
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= 2'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_tag_t tag_;
+    lfsr_sid_t id_;
+    lfs_off_t off_;
+    lfs_size_t size_;
+
+    // add and remove one attribute
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(1), -1, NULL, 0, NULL)) => 0;
+
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    // commit with two attributes, remove the first one
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(1), -1, NULL, 0, NULL)) => 0;
+
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    // commit with two attributes, remove the second one
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(2), -1, NULL, 0, NULL)) => 0;
+
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(1));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(1));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_remove_permutations]
+defines.N = 'range(1, 7)'
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= N+1'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_tag_t tag_;
+    lfsr_sid_t id_;
+    lfs_off_t off_;
+    lfs_size_t size_;
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
+    // test all permutations of a given size
+    uint8_t perm[N];
+    unsigned stack[N];
+    for (uint8_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    unsigned i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // create given permutation with multiple commits
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(UATTR(perm[j]+1), -1, "\xaa\xaa\xaa\xaa", 4,
+                    NULL)) => 0;
+        }
+
+        // copy block so we can reset after each remove
+        lfsr_rbyd_t backup_rbyd = rbyd;
+        uint8_t backup_block[BLOCK_SIZE];
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+                rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+        // try removing each tag
+        for (unsigned j = 0; j < N; j++) {
+            // print what we are removing to help debugging
+            printf("--- remove: %d ---\n", j+1);
+
+            rbyd = backup_rbyd;
+            lfs_bd_erase(&lfs, rbyd.block) => 0;
+            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(RMUATTR(j+1), -1, NULL, 0, NULL)) => 0;
+
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
+                    cfg->block_size, NULL) => 0;
+            for (unsigned k = 0; k < N; k++) {
+                int err = lfsr_rbyd_lookup(&lfs, &rbyd,
+                        LFSR_TAG_UATTR(k+1), -1,
+                        &tag_, &id_, &off_, &size_);
+                assert(!err || err == LFS_ERR_NOENT);
+                if (k == j) {
+                    if (j == N-1) {
+                        assert(err == LFS_ERR_NOENT);
+                    } else {
+                        assert(tag_ == LFSR_TAG_UATTR(j+1+1));
+                        assert(id_ == -1);
+                        assert(size_ == 4);
+                    }
+                } else {
+                    assert(tag_ == LFSR_TAG_UATTR(k+1));
+                    assert(id_ == -1);
+                    assert(size_ == 4);
+                }
+            }
+
+            // keep track of the worst size
+            worst_size = lfs_max(worst_size, rbyd.off);
+        }
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint8_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint8_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
+    lfs_size_t n = 1 + N + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+    // note this only holds true with byte-level progs
+    if (PROG_SIZE == 1) {
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+    }
+'''
+
+[cases.test_rbyd_remove_missing]
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= 4'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_tag_t tag_;
+    lfsr_sid_t id_;
+    lfs_off_t off_;
+    lfs_size_t size_;
+
+    // create a tree two attributes
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(UATTR(4), -1, "\xdd\xdd\xdd\xdd", 4,
+            NULL))) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    // try to remove tags that aren't there, this should do nothing
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(1), -1, NULL, 0, NULL)) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(3), -1, NULL, 0, NULL)) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(5), -1, NULL, 0, NULL)) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    // one last fetch to make sure nothing was broken
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_remove_again]
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= 8'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_tag_t tag_;
+    lfsr_sid_t id_;
+    lfs_off_t off_;
+    lfs_size_t size_;
+
+    // create a tree
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(UATTR(3), -1, "\xcc\xcc\xcc\xcc", 4,
+            LFSR_ATTR(UATTR(4), -1, "\xdd\xdd\xdd\xdd", 4,
+            LFSR_ATTR(UATTR(5), -1, "\xee\xee\xee\xee", 4,
+            NULL)))))) => 0;
+    // remove several attributes
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(1), -1, NULL, 0,
+            LFSR_ATTR(RMUATTR(3), -1, NULL, 0,
+            LFSR_ATTR(RMUATTR(5), -1, NULL, 0, NULL)))) => 0;
+
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    // try to remove tags that aren't there, this should do nothing
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(1), -1, NULL, 0, NULL)) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(3), -1, NULL, 0, NULL)) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(5), -1, NULL, 0, NULL)) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    // try to remove the tags again, just to make sure (keep in mind
+    // these removes still commit to the rbyd)
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(1), -1, NULL, 0, NULL)) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(3), -1, NULL, 0, NULL)) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(5), -1, NULL, 0, NULL)) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    // one last fetch to make sure nothing was broken
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(2));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(3), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(4), -1,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_UATTR(4));
+    assert(id_ == -1);
+    assert(size_ == 4);
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(5), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_remove_all]
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= 2'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_tag_t tag_;
+    lfsr_sid_t id_;
+    lfs_off_t off_;
+    lfs_size_t size_;
+
+    // commit with one attribute, remove it
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(1), -1, NULL, 0, NULL)) => 0;
+
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    // commit with two attributes, remove both
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(1), -1, NULL, 0,
+            LFSR_ATTR(RMUATTR(2), -1, NULL, 0, NULL))) => 0;
+
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    // commit with two attributes, remove both in the other order
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RMUATTR(2), -1, NULL, 0,
+            LFSR_ATTR(RMUATTR(1), -1, NULL, 0, NULL))) => 0;
+
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(2), -1,
+            &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_remove_all_permutations]
+defines.N = 'range(1, 7)'
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= 2*N+1'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_tag_t tag_;
+    lfsr_sid_t id_;
+    lfs_off_t off_;
+    lfs_size_t size_;
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
+    // create one consistent block
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+    for (unsigned j = 0; j < N; j++) {
+        lfsr_rbyd_commit(&lfs, &rbyd,
+                LFSR_ATTR(UATTR(j+1), -1, "\xaa\xaa\xaa\xaa", 4,
+                NULL)) => 0;
+    }
+
+    // copy block so we can reset after each remove
+    lfsr_rbyd_t backup_rbyd = rbyd;
+    uint8_t backup_block[BLOCK_SIZE];
+    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+            rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+    // test all permutations of a given size
+    uint8_t perm[N];
+    unsigned stack[N];
+    for (uint8_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    unsigned i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // restore backup
+        rbyd = backup_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+
+        // remove each tag in permutation order
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(RMUATTR(perm[j]+1), -1, NULL, 0, NULL)) => 0;
+        }
+
+        // check that all tags are now removed
+        lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(j+1), -1,
+                    &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+        }
+
+        // try resuming from all tags being removed
+        lfsr_rbyd_commit(&lfs, &rbyd,
+                LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
+                NULL)) => 0;
+
+        lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+        lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(1), -1,
+                &tag_, &id_, &off_, &size_) => 0;
+        assert(tag_ == LFSR_TAG_UATTR(1));
+        assert(id_ == -1);
+        assert(size_ == 6);
+        for (unsigned j = 1; j < N; j++) {
+            lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_UATTR(j+1), -1,
+                    &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
+        }
+
+        // keep track of the worst size
+        worst_size = lfs_max(worst_size, rbyd.off);
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint8_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint8_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
+    lfs_size_t n = 1 + N + N + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+    // note this only holds true with byte-level progs
+    if (PROG_SIZE == 1) {
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+    }
+'''
+
+[cases.test_rbyd_remove_append_permutations]
+defines.N = 'range(1, 6)'
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= N+2'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    lfsr_tag_t tag_;
+    lfsr_sid_t id_;
+    lfs_off_t off_;
+    lfs_size_t size_;
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
+    // test all permutations of a given size
+    uint8_t perm[N];
+    unsigned stack[N];
+    for (uint8_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    unsigned i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // create given permutation with multiple commits
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(UATTR(perm[j]+1), -1, "\xaa\xaa\xaa\xaa", 4,
+                    NULL)) => 0;
+        }
+
+        // copy block so we can reset after each remove
+        lfsr_rbyd_t backup_rbyd = rbyd;
+        uint8_t backup_block[BLOCK_SIZE];
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+                rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+        // try removing each tag
+        for (unsigned j = 0; j < N; j++) {
+            for (unsigned l = 0; l < N; l++) {
+                // print what we are removing to help debugging
+                printf("--- remove: %d, append: %d ---\n", j+1, l+1);
+
+                rbyd = backup_rbyd;
+                lfs_bd_erase(&lfs, rbyd.block) => 0;
+                lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                        rbyd.block, 0, backup_block, rbyd.off) => 0;
+                lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+
+                // remove
+                lfsr_rbyd_commit(&lfs, &rbyd,
+                        LFSR_ATTR(RMUATTR(j+1), -1, NULL, 0, NULL)) => 0;
+
+                // try appending each tag to make sure the rbyd tree
+                // is still usable
+                lfsr_rbyd_commit(&lfs, &rbyd,
+                        LFSR_ATTR(UATTR(l+1), -1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
+                        NULL)) => 0;
+
+                lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
+                        cfg->block_size, NULL) => 0;
+                for (unsigned k = 0; k < N; k++) {
+                    int err = lfsr_rbyd_lookup(&lfs, &rbyd,
+                            LFSR_TAG_UATTR(k+1), -1,
+                            &tag_, &id_, &off_, &size_);
+                    assert(!err || err == LFS_ERR_NOENT);
+                    if (k == l) {
+                        assert(tag_ == LFSR_TAG_UATTR(l+1));
+                        assert(id_ == -1);
+                        assert(size_ == 6);
+                    } else if (k == j) {
+                        if (j == N-1) {
+                            assert(err == LFS_ERR_NOENT);
+                        } else {
+                            assert(tag_ == LFSR_TAG_UATTR(j+1+1));
+                            assert(id_ == -1);
+                            assert(size_ == 4 || size_ == 6);
+                        }
+                    } else {
+                        assert(tag_ == LFSR_TAG_UATTR(k+1));
+                        assert(id_ == -1);
+                        assert(size_ == 4);
+                    }
+                }
+
+                // keep track of the worst size
+                worst_size = lfs_max(worst_size, rbyd.off);
+            }
+        }
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint8_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint8_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
+    lfs_size_t n = 1 + N + 1 + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+    // note this only holds true with byte-level progs
+    if (PROG_SIZE == 1) {
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+    }
+'''
 
 
 ### Insertion testing ###
@@ -3872,15 +4070,15 @@ code = '''
     }
 
     // test that tree is self-balancing, we should be strictly bounded
-    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
     }
 '''
 
@@ -3983,15 +4181,15 @@ code = '''
     }
 
     // test that tree is self-balancing, we should be strictly bounded
-    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
     }
 '''
 
@@ -5119,15 +5317,15 @@ code = '''
     }
 
     // test that tree is self-balancing, we should be strictly bounded
-    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
     }
 '''
 
@@ -5241,15 +5439,15 @@ code = '''
     }
 
     // test that tree is self-balancing, we should be strictly bounded
-    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
     }
 '''
 
@@ -5854,718 +6052,682 @@ code = '''
 '''
 
 
-#### Deletion testing ###
-#
-#[cases.test_rbyd_delete]
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= 2'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    uint8_t buffer[4];
-#
-#    // try to delete one id
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(MKREG, 0, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(MKREG, 1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(RM, 1, NULL, 0, NULL)) => 0;
-#
-#    assert(rbyd.weight == 1);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    assert(rbyd.weight == 1);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    // try to delete the other id
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(MKREG, 0, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(MKREG, 1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(RM, 0, NULL, 0, NULL)) => 0;
-#
-#    assert(rbyd.weight == 1);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    assert(rbyd.weight == 1);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    // try to delete the largest of three
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(MKREG, 0, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(MKREG, 1, "\xbb\xbb\xbb\xbb", 4,
-#            LFSR_ATTR(MKREG, 2, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(RM, 2, NULL, 0, NULL)) => 0;
-#
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    // try to delete the smallest of three
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(MKREG, 0, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(MKREG, 1, "\xbb\xbb\xbb\xbb", 4,
-#            LFSR_ATTR(MKREG, 2, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(RM, 0, NULL, 0, NULL)) => 0;
-#
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    // try to delete the middle
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(MKREG, 0, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(MKREG, 1, "\xbb\xbb\xbb\xbb", 4,
-#            LFSR_ATTR(MKREG, 2, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(RM, 1, NULL, 0, NULL)) => 0;
-#
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#'''
-#
-#[cases.test_rbyd_delete_range]
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= 2'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    uint8_t buffer[4];
-#
-#    // try to delete one id
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
-#            LFSR_ATTR2(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
-#            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2, NULL))))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(RM, 1, NULL, 0, NULL)) => 0;
-#
-#    assert(rbyd.weight == 1);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 0), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 1), buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    assert(rbyd.weight == 1);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 0), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 1), buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    // try to delete the other id
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
-#            LFSR_ATTR2(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
-#            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2, NULL))))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(RM, 0, NULL, 0, NULL)) => 0;
-#
-#    assert(rbyd.weight == 1);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 0), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 1), buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    assert(rbyd.weight == 1);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 0), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 1), buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    // try to delete the largest of three
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
-#            LFSR_ATTR2(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
-#            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2,
-#            LFSR_ATTR2(MKREG, 0, 2, "\xcc\xcc\xcc\xcc", 4,
-#            LFSR_ATTR(UATTR(1), 2, "\xcc\xcc",         2, NULL))))))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(RM, 2, NULL, 0, NULL)) => 0;
-#
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 0), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 1), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 2), buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 0), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 1), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 2), buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    // try to delete the smallest of three
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
-#            LFSR_ATTR2(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
-#            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2,
-#            LFSR_ATTR2(MKREG, 0, 2, "\xcc\xcc\xcc\xcc", 4,
-#            LFSR_ATTR(UATTR(1), 2, "\xcc\xcc",         2, NULL))))))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(RM, 0, NULL, 0, NULL)) => 0;
-#
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 0), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 1), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 2), buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 0), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 1), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 2), buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    // try to delete the middle
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
-#            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
-#            LFSR_ATTR2(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
-#            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2,
-#            LFSR_ATTR2(MKREG, 0, 2, "\xcc\xcc\xcc\xcc", 4,
-#            LFSR_ATTR(UATTR(1), 2, "\xcc\xcc",         2, NULL))))))) => 0;
-#    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR(RM, 1, NULL, 0, NULL)) => 0;
-#
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 0), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 1), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 2), buffer, 4)
-#            => LFS_ERR_NOENT;
-#
-#    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#    assert(rbyd.weight == 2);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 0), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
-#            => 4;
-#    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 1), buffer, 4)
-#            => 2;
-#    assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
-#            => LFS_ERR_NOENT;
-#    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, 1, 2), buffer, 4)
-#            => LFS_ERR_NOENT;
-#'''
-#
-#[cases.test_rbyd_delete_permutations]
-#defines.N = 'range(1, 7)'
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= N+1'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    const uint8_t names[6][4] = {
-#        "\xaa\xaa\xaa\xaa",
-#        "\xbb\xbb\xbb\xbb",
-#        "\xcc\xcc\xcc\xcc",
-#        "\xdd\xdd\xdd\xdd",
-#        "\xee\xee\xee\xee",
-#        "\xff\xff\xff\xff",
-#    };
-#    uint8_t buffer[4];
-#
-#    // keep track of the worst case log size
-#    lfs_size_t worst_size = 0;
-#
-#    // test all permutations of a given size
-#    uint16_t perm[N];
-#    unsigned stack[N];
-#    for (uint16_t i = 0; i < N; i++) {
-#        perm[i] = i;
-#        stack[i] = 0;
-#    }
-#
-#    unsigned i = 1;
-#    while (i < N) {
-#        // print permutation to help debugging
-#        printf("--- permutation: [");
-#        for (unsigned j = 0; j < N; j++) {
-#            if (j > 0) {
-#                printf(", ");
-#            }
-#            printf("%d", perm[j]+1);
-#        }
-#        printf("] ---\n");
-#
-#        // create given permutation with multiple commits
-#        rbyd = init_rbyd;
-#        lfs_bd_erase(&lfs, rbyd.block) => 0;
-#
-#        for (unsigned j = 0; j < N; j++) {
-#            // adjust id based on future insertions
-#            uint16_t id = perm[j];
-#            for (unsigned k = j+1; k < N; k++) {
-#                if (perm[j] > perm[k]) {
-#                    id -= 1;
-#                }
-#            }
-#
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(MKREG, id, names[perm[j] % 6], 4,
-#                    NULL)) => 0;
-#        }
-#        assert(rbyd.weight == N);
-#
-#        // copy block so we can reset after each delete
-#        lfsr_rbyd_t backup_rbyd = rbyd;
-#        uint8_t backup_block[BLOCK_SIZE];
-#        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-#                rbyd.block, 0, backup_block, rbyd.off) => 0;
-#
-#        // try deleting each id
-#        for (unsigned j = 0; j < N; j++) {
-#            // print what we are deleting to help debugging
-#            printf("--- delete: %d ---\n", j+1);
-#
-#            rbyd = backup_rbyd;
-#            lfs_bd_erase(&lfs, rbyd.block) => 0;
-#            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-#                    rbyd.block, 0, backup_block, rbyd.off) => 0;
-#            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
-#
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(RM, j, NULL, 0, NULL)) => 0;
-#            assert(rbyd.weight == N-1);
-#
-#            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
-#                    cfg->block_size, NULL) => 0;
-#            for (unsigned k = 0; k < N-1; k++) {
-#                lfsr_rbyd_get(&lfs, &rbyd,
-#                        LFSR_TAG_MKREG, k, buffer, 4) => 4;
-#                if (k >= j) {
-#                    assert(memcmp(buffer, names[(k+1) % 6], 4) == 0);
-#                } else {
-#                    assert(memcmp(buffer, names[k % 6], 4) == 0);
-#                }
-#            }
-#            lfsr_rbyd_get(&lfs, &rbyd,
-#                    LFSR_TAG_MKREG, N-1, buffer, 4)
-#                    => LFS_ERR_NOENT;
-#
-#            // keep track of the worst size
-#            worst_size = lfs_max(worst_size, rbyd.off);
-#        }
-#
-#        // next permutation using Heap's algorithm
-#        if (stack[i] < i) {
-#            if (i % 2 == 0) {
-#                uint16_t t = perm[0];
-#                perm[0] = perm[i];
-#                perm[i] = t;
-#            } else {
-#                uint16_t t = perm[stack[i]];
-#                perm[stack[i]] = perm[i];
-#                perm[i] = t;
-#            }
-#            stack[i] += 1;
-#            i = 1;
-#        } else {
-#            stack[i] = 0;
-#            i += 1;
-#        }
-#    }
-#
-#    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
-#    lfs_size_t n = 1 + N + 1;
-#    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
-#    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
-#    // note this only holds true with byte-level progs
-#    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
-#    }
-#'''
-#
-#[cases.test_rbyd_delete_range_permutations]
-#defines.N = 'range(1, 7)'
-#defines.M = 'range(1, 4)'
-#in = 'lfs.c'
-#if = '''
-#    BLOCK_SIZE/PROG_SIZE >= N+N*M+1
-#        && BLOCK_SIZE >= 4096
-#'''
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    const uint8_t names[6][4] = {
-#        "\xaa\xaa\xaa\xaa",
-#        "\xbb\xbb\xbb\xbb",
-#        "\xcc\xcc\xcc\xcc",
-#        "\xdd\xdd\xdd\xdd",
-#        "\xee\xee\xee\xee",
-#        "\xff\xff\xff\xff",
-#    };
-#    uint8_t buffer[4];
-#
-#    // keep track of the worst case log size
-#    lfs_size_t worst_size = 0;
-#
-#    // test all permutations of a given size
-#    uint16_t perm[N];
-#    unsigned stack[N];
-#    for (uint16_t i = 0; i < N; i++) {
-#        perm[i] = i;
-#        stack[i] = 0;
-#    }
-#
-#    unsigned i = 1;
-#    while (i < N) {
-#        // print permutation to help debugging
-#        printf("--- permutation: [");
-#        for (unsigned j = 0; j < N; j++) {
-#            if (j > 0) {
-#                printf(", ");
-#            }
-#            printf("%d", perm[j]+1);
-#        }
-#        printf("] ---\n");
-#
-#        // create given permutation with multiple commits
-#        rbyd = init_rbyd;
-#        lfs_bd_erase(&lfs, rbyd.block) => 0;
-#
-#        for (unsigned j = 0; j < N; j++) {
-#            // adjust id based on future insertions
-#            uint16_t id = perm[j];
-#            for (unsigned k = j+1; k < N; k++) {
-#                if (perm[j] > perm[k]) {
-#                    id -= 1;
-#                }
-#            }
-#
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(MKREG, id, names[perm[j] % 6], 4,
-#                    NULL)) => 0;
-#            // note uattrs have a smaller size to help debugging
-#            for (unsigned u = 0; u < M; u++) {
-#                lfsr_rbyd_commit(&lfs, &rbyd,
-#                        LFSR_ATTR(UATTR(u+1), id, names[perm[j] % 6], 2,
-#                        NULL)) => 0;
-#            }
-#        }
-#        assert(rbyd.weight == N);
-#
-#        // copy block so we can reset after each delete
-#        lfsr_rbyd_t backup_rbyd = rbyd;
-#        uint8_t backup_block[BLOCK_SIZE];
-#        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-#                rbyd.block, 0, backup_block, rbyd.off) => 0;
-#
-#        // try deleting each id
-#        for (unsigned j = 0; j < N; j++) {
-#            // print what we are deleting to help debugging
-#            printf("--- delete: %d ---\n", j+1);
-#
-#            rbyd = backup_rbyd;
-#            lfs_bd_erase(&lfs, rbyd.block) => 0;
-#            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-#                    rbyd.block, 0, backup_block, rbyd.off) => 0;
-#            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
-#
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(RM, j, NULL, 0, NULL)) => 0;
-#            assert(rbyd.weight == N-1);
-#
-#            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
-#                    cfg->block_size, NULL) => 0;
-#            for (unsigned k = 0; k < N-1; k++) {
-#                lfsr_rbyd_get(&lfs, &rbyd,
-#                        LFSR_TAG_MKREG, k, buffer, 4) => 4;
-#                if (k >= j) {
-#                    assert(memcmp(buffer, names[(k+1) % 6], 4) == 0);
-#                } else {
-#                    assert(memcmp(buffer, names[k % 6], 4) == 0);
-#                }
-#
-#                for (unsigned u = 0; u < M; u++) {
-#                    lfsr_rbyd_get(&lfs, &rbyd,
-#                            LFSR_TAG2(UATTR, u+1, k), buffer, 4) => 2;
-#                    if (k >= j) {
-#                        assert(memcmp(buffer, names[(k+1) % 6], 2) == 0);
-#                    } else {
-#                        assert(memcmp(buffer, names[k % 6], 2) == 0);
-#                    }
-#                }
-#            }
-#            lfsr_rbyd_get(&lfs, &rbyd,
-#                    LFSR_TAG_MKREG, N-1, buffer, 4)
-#                    => LFS_ERR_NOENT;
-#            lfsr_rbyd_get(&lfs, &rbyd,
-#                    LFSR_TAG2(UATTR, 1, N-1), buffer, 4)
-#                    => LFS_ERR_NOENT;
-#
-#            // keep track of the worst size
-#            worst_size = lfs_max(worst_size, rbyd.off);
-#        }
-#
-#        // next permutation using Heap's algorithm
-#        if (stack[i] < i) {
-#            if (i % 2 == 0) {
-#                uint16_t t = perm[0];
-#                perm[0] = perm[i];
-#                perm[i] = t;
-#            } else {
-#                uint16_t t = perm[stack[i]];
-#                perm[stack[i]] = perm[i];
-#                perm[i] = t;
-#            }
-#            stack[i] += 1;
-#            i = 1;
-#        } else {
-#            stack[i] = 0;
-#            i += 1;
-#        }
-#    }
-#
-#    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
-#    lfs_size_t n = 1 + N+N*M + 1;
-#    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
-#    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
-#    // note this only holds true with byte-level progs
-#    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
-#    }
-#'''
-#
+### Deletion testing ###
+
+[cases.test_rbyd_delete]
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= 2'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // try to delete one id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(MKREG, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(MKREG, 1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RM, 1, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.weight == 1);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    assert(rbyd.weight == 1);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => LFS_ERR_NOENT;
+
+    // try to delete the other id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(MKREG, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(MKREG, 1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RM, 0, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.weight == 1);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    assert(rbyd.weight == 1);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => LFS_ERR_NOENT;
+
+    // try to delete the largest of three
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(MKREG, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(MKREG, 1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(MKREG, 2, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RM, 2, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4) => LFS_ERR_NOENT;
+
+    // try to delete the smallest of three
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(MKREG, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(MKREG, 1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(MKREG, 2, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RM, 0, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4) => LFS_ERR_NOENT;
+
+    // try to delete the middle
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(MKREG, 0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(MKREG, 1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(MKREG, 2, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RM, 1, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4) => LFS_ERR_NOENT;
+
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4) => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_delete_range]
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= 2'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // try to delete one id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(MKREG,    0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
+            LFSR_ATTR(MKREG,    1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2, NULL))))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RM, 1, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.weight == 1);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
+            => LFS_ERR_NOENT;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    assert(rbyd.weight == 1);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
+            => LFS_ERR_NOENT;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // try to delete the other id
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(MKREG,    0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
+            LFSR_ATTR(MKREG,    1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2, NULL))))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RM, 0, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.weight == 1);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
+            => LFS_ERR_NOENT;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    assert(rbyd.weight == 1);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
+            => LFS_ERR_NOENT;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // try to delete the largest of three
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(MKREG,    0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
+            LFSR_ATTR(MKREG,    1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2,
+            LFSR_ATTR(MKREG,    2, "\xcc\xcc\xcc\xcc", 4,
+            LFSR_ATTR(UATTR(1), 2, "\xcc\xcc",         2, NULL))))))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RM, 2, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
+            => LFS_ERR_NOENT;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 2, buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
+            => LFS_ERR_NOENT;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 2, buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // try to delete the smallest of three
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(MKREG,    0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
+            LFSR_ATTR(MKREG,    1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2,
+            LFSR_ATTR(MKREG,    2, "\xcc\xcc\xcc\xcc", 4,
+            LFSR_ATTR(UATTR(1), 2, "\xcc\xcc",         2, NULL))))))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RM, 0, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
+            => LFS_ERR_NOENT;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 2, buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
+            => LFS_ERR_NOENT;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 2, buffer, 4)
+            => LFS_ERR_NOENT;
+
+    // try to delete the middle
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(MKREG,    0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
+            LFSR_ATTR(MKREG,    1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2,
+            LFSR_ATTR(MKREG,    2, "\xcc\xcc\xcc\xcc", 4,
+            LFSR_ATTR(UATTR(1), 2, "\xcc\xcc",         2, NULL))))))) => 0;
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(RM, 1, NULL, 0, NULL)) => 0;
+
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
+            => LFS_ERR_NOENT;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 2, buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    assert(rbyd.weight == 2);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4)
+            => 4;
+    assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4)
+            => 2;
+    assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4)
+            => LFS_ERR_NOENT;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 2, buffer, 4)
+            => LFS_ERR_NOENT;
+'''
+
+[cases.test_rbyd_delete_permutations]
+defines.N = 'range(1, 7)'
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= N+1'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+    uint8_t buffer[4];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
+    // test all permutations of a given size
+    uint16_t perm[N];
+    unsigned stack[N];
+    for (uint16_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    unsigned i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // create given permutation with multiple commits
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+        for (unsigned j = 0; j < N; j++) {
+            // adjust id based on future insertions
+            uint16_t id = perm[j];
+            for (unsigned k = j+1; k < N; k++) {
+                if (perm[j] > perm[k]) {
+                    id -= 1;
+                }
+            }
+
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(MKREG, id, names[perm[j] % 6], 4,
+                    NULL)) => 0;
+        }
+        assert(rbyd.weight == N);
+
+        // copy block so we can reset after each delete
+        lfsr_rbyd_t backup_rbyd = rbyd;
+        uint8_t backup_block[BLOCK_SIZE];
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+                rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+        // try deleting each id
+        for (unsigned j = 0; j < N; j++) {
+            // print what we are deleting to help debugging
+            printf("--- delete: %d ---\n", j+1);
+
+            rbyd = backup_rbyd;
+            lfs_bd_erase(&lfs, rbyd.block) => 0;
+            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(RM, j, NULL, 0, NULL)) => 0;
+            assert(rbyd.weight == N-1);
+
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
+                    cfg->block_size, NULL) => 0;
+            assert(rbyd.weight == N-1);
+            for (unsigned k = 0; k < N-1; k++) {
+                lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, k, buffer, 4) => 4;
+                if (k >= j) {
+                    assert(memcmp(buffer, names[(k+1) % 6], 4) == 0);
+                } else {
+                    assert(memcmp(buffer, names[k % 6], 4) == 0);
+                }
+            }
+            lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, N-1, buffer, 4)
+                    => LFS_ERR_NOENT;
+
+            // keep track of the worst size
+            worst_size = lfs_max(worst_size, rbyd.off);
+        }
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint16_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint16_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
+    lfs_size_t n = 1 + N + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+    // note this only holds true with byte-level progs
+    if (PROG_SIZE == 1) {
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+    }
+'''
+
+[cases.test_rbyd_delete_range_permutations]
+defines.N = 'range(1, 7)'
+defines.M = 'range(1, 4)'
+in = 'lfs.c'
+if = '''
+    BLOCK_SIZE/PROG_SIZE >= N+N*M+1
+        && BLOCK_SIZE >= 4096
+'''
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+    uint8_t buffer[4];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
+    // test all permutations of a given size
+    uint16_t perm[N];
+    unsigned stack[N];
+    for (uint16_t i = 0; i < N; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    unsigned i = 1;
+    while (i < N) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // create given permutation with multiple commits
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+        for (unsigned j = 0; j < N; j++) {
+            // adjust id based on future insertions
+            uint16_t id = perm[j];
+            for (unsigned k = j+1; k < N; k++) {
+                if (perm[j] > perm[k]) {
+                    id -= 1;
+                }
+            }
+
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(MKREG, id, names[perm[j] % 6], 4,
+                    NULL)) => 0;
+            // note uattrs have a smaller size to help debugging
+            for (unsigned u = 0; u < M; u++) {
+                lfsr_rbyd_commit(&lfs, &rbyd,
+                        LFSR_ATTR(UATTR(u+1), id, names[perm[j] % 6], 2,
+                        NULL)) => 0;
+            }
+        }
+        assert(rbyd.weight == N);
+
+        // copy block so we can reset after each delete
+        lfsr_rbyd_t backup_rbyd = rbyd;
+        uint8_t backup_block[BLOCK_SIZE];
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+                rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+        // try deleting each id
+        for (unsigned j = 0; j < N; j++) {
+            // print what we are deleting to help debugging
+            printf("--- delete: %d ---\n", j+1);
+
+            rbyd = backup_rbyd;
+            lfs_bd_erase(&lfs, rbyd.block) => 0;
+            lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+            lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(RM, j, NULL, 0, NULL)) => 0;
+            assert(rbyd.weight == N-1);
+
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
+                    cfg->block_size, NULL) => 0;
+            assert(rbyd.weight == N-1);
+            for (unsigned k = 0; k < N-1; k++) {
+                lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, k, buffer, 4) => 4;
+                if (k >= j) {
+                    assert(memcmp(buffer, names[(k+1) % 6], 4) == 0);
+                } else {
+                    assert(memcmp(buffer, names[k % 6], 4) == 0);
+                }
+
+                for (unsigned u = 0; u < M; u++) {
+                    lfsr_rbyd_get(&lfs, &rbyd,
+                            LFSR_TAG_UATTR(u+1), k, buffer, 4) => 2;
+                    if (k >= j) {
+                        assert(memcmp(buffer, names[(k+1) % 6], 2) == 0);
+                    } else {
+                        assert(memcmp(buffer, names[k % 6], 2) == 0);
+                    }
+                }
+            }
+            lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, N-1, buffer, 4)
+                    => LFS_ERR_NOENT;
+            lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), N-1, buffer, 4)
+                    => LFS_ERR_NOENT;
+
+            // keep track of the worst size
+            worst_size = lfs_max(worst_size, rbyd.off);
+        }
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint16_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint16_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
+    lfs_size_t n = 1 + N+N*M + 1;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+    // note this only holds true with byte-level progs
+    if (PROG_SIZE == 1) {
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+    }
+'''
+
 #[cases.test_rbyd_delete_all]
 #in = 'lfs.c'
 #if = 'BLOCK_SIZE/PROG_SIZE >= 2'
@@ -6706,7 +6868,7 @@ code = '''
 #    rbyd = init_rbyd;
 #    lfs_bd_erase(&lfs, rbyd.block) => 0;
 #    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
+#            LFSR_ATTR(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
 #            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2, NULL))) => 0;
 #    lfsr_rbyd_commit(&lfs, &rbyd,
 #            LFSR_ATTR(RM, 0, NULL, 0, NULL)) => 0;
@@ -6724,9 +6886,9 @@ code = '''
 #    rbyd = init_rbyd;
 #    lfs_bd_erase(&lfs, rbyd.block) => 0;
 #    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
+#            LFSR_ATTR(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
 #            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
-#            LFSR_ATTR2(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
+#            LFSR_ATTR(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
 #            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2, NULL))))) => 0;
 #    lfsr_rbyd_commit(&lfs, &rbyd,
 #            LFSR_ATTR(RM, 0, NULL, 0,
@@ -6745,9 +6907,9 @@ code = '''
 #    rbyd = init_rbyd;
 #    lfs_bd_erase(&lfs, rbyd.block) => 0;
 #    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
+#            LFSR_ATTR(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
 #            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
-#            LFSR_ATTR2(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
+#            LFSR_ATTR(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
 #            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2, NULL))))) => 0;
 #    lfsr_rbyd_commit(&lfs, &rbyd,
 #            LFSR_ATTR(RM, 1, NULL, 0,
@@ -6766,11 +6928,11 @@ code = '''
 #    rbyd = init_rbyd;
 #    lfs_bd_erase(&lfs, rbyd.block) => 0;
 #    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
+#            LFSR_ATTR(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
 #            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
-#            LFSR_ATTR2(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
+#            LFSR_ATTR(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
 #            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2,
-#            LFSR_ATTR2(MKREG, 0, 2, "\xcc\xcc\xcc\xcc", 4,
+#            LFSR_ATTR(MKREG, 0, 2, "\xcc\xcc\xcc\xcc", 4,
 #            LFSR_ATTR(UATTR(1), 2, "\xcc\xcc",         2, NULL))))))) => 0;
 #    lfsr_rbyd_commit(&lfs, &rbyd,
 #            LFSR_ATTR(RM, 0, NULL, 0,
@@ -6790,11 +6952,11 @@ code = '''
 #    rbyd = init_rbyd;
 #    lfs_bd_erase(&lfs, rbyd.block) => 0;
 #    lfsr_rbyd_commit(&lfs, &rbyd,
-#            LFSR_ATTR2(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
+#            LFSR_ATTR(MKREG, 0, 0, "\xaa\xaa\xaa\xaa", 4,
 #            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
-#            LFSR_ATTR2(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
+#            LFSR_ATTR(MKREG, 0, 1, "\xbb\xbb\xbb\xbb", 4,
 #            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2,
-#            LFSR_ATTR2(MKREG, 0, 2, "\xcc\xcc\xcc\xcc", 4,
+#            LFSR_ATTR(MKREG, 0, 2, "\xcc\xcc\xcc\xcc", 4,
 #            LFSR_ATTR(UATTR(1), 2, "\xcc\xcc",         2, NULL))))))) => 0;
 #    lfsr_rbyd_commit(&lfs, &rbyd,
 #            LFSR_ATTR(RM, 2, NULL, 0,
@@ -6951,15 +7113,15 @@ code = '''
 #    }
 #
 #    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+#    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
 #    lfs_size_t n = 1 + 2*N + 1;
 #    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
 #    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
 #    // note this only holds true with byte-level progs
 #    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
 #    }
 #'''
 #
@@ -7090,7 +7252,7 @@ code = '''
 #        assert(memcmp(buffer, "\xaa\xaa\xaa\xaa\xaa\xaa", 6) == 0);
 #        for (unsigned u = 0; u < M; u++) {
 #            lfsr_rbyd_get(&lfs, &rbyd,
-#                    LFSR_TAG2(UATTR, u+1, 0), buffer, 6)
+#                    LFSR_TAG_UATTR(u+1), 0, buffer, 6)
 #                    => 3;
 #            assert(memcmp(buffer, "\xaa\xaa\xaa", 3) == 0);
 #        }
@@ -7098,7 +7260,7 @@ code = '''
 #                LFSR_TAG_MKREG, 1, buffer, 6)
 #                => LFS_ERR_NOENT;
 #        lfsr_rbyd_get(&lfs, &rbyd,
-#                LFSR_TAG2(UATTR, 1, 1), buffer, 6)
+#                LFSR_TAG_UATTR(1), 1, buffer, 6)
 #                => LFS_ERR_NOENT;
 #
 #        // keep track of the worst size
@@ -7124,15 +7286,15 @@ code = '''
 #    }
 #
 #    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+#    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
 #    lfs_size_t n = 1 + N+N*M + N + 1+M;
 #    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
 #    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
 #    // note this only holds true with byte-level progs
 #    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
 #    }
 #'''
 #
@@ -7283,15 +7445,15 @@ code = '''
 #    }
 #
 #    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+#    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
 #    lfs_size_t n = 1 + N + 1 + 1;
 #    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
 #    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
 #    // note this only holds true with byte-level progs
 #    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
 #    }
 #'''
 #
@@ -7433,7 +7595,7 @@ code = '''
 #
 #                    for (unsigned u = 0; u < M; u++) {
 #                        size = lfsr_rbyd_get(&lfs, &rbyd,
-#                                LFSR_TAG2(UATTR, u+1, k), buffer, 6);
+#                                LFSR_TAG_UATTR(u+1), k, buffer, 6);
 #                        if (k == l) {
 #                            assert(size == 3);
 #                            assert(memcmp(buffer, names[l % 6], 3) == 0);
@@ -7476,14 +7638,14 @@ code = '''
 #    }
 #
 #    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are roughly ~8 bytes
+#    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
 #    lfs_size_t n = 1 + N+N*M + 1 + 1+M;
 #    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 8*n*(2*lfs_nlog2(n)+1));
+#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
 #    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 8*(2*lfs_nlog2(n)+1));
+#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
 #    // note this only holds true with byte-level progs
 #    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 8*(2*lfs_nlog2(n)+1));
+#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
 #    }
 #'''

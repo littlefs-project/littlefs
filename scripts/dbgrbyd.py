@@ -57,15 +57,21 @@ def tagrepr(tag, id, size, off=None):
             'branch' if ((tag & 0x3f0) >> 4) == 0x00
                 else 'reg' if ((tag & 0x3f0) >> 4) == 0x01
                 else 'dir' if ((tag & 0x3f0) >> 4) == 0x02
-                else ' 0x%02x' % subtype,
+                else ' 0x%02x' % ((tag & 0x3f0) >> 4),
             id,
             size)
+    elif (tag & ~0x3f0) == 0x0402:
+        return 'rm%s id%d%s' % (
+            ' 0x%02x' % ((tag & 0x3f0) >> 4)
+                if ((tag & 0x3f0) >> 4) else '',
+            id,
+            ' %d' % size if size else '')
     elif (tag & ~0xff2) == 0x2000:
         return '%suattr 0x%02x%s%s' % (
-            'rm' if tag & 0x1 else '',
+            'rm' if tag & 0x2 else '',
             (tag & 0xff0) >> 4,
             ' id%d' % id if id != -1 else '',
-            ' %d' % size if not tag & 0x1 else '')
+            ' %d' % size if not tag & 0x2 or size else '')
     elif (tag & ~0x10) == 0x24:
         return 'crc%x%s %d' % (
             1 if tag & 0x10 else 0,
@@ -154,66 +160,64 @@ def show_log(block_size, data, rev, off, *,
 
     # preprocess lifetimes
     if args.get('lifetimes'):
-        count = 0
-        max_count = 0
+        weight = 0
+        max_weight = 0
         lifetimes = {}
         ids = []
         ids_i = 0
         j_ = 4
         while j_ < (block_size if args.get('all') else off):
             j = j_
-            v, tag, size, delta = fromtag(data[j_:])
+            v, tag, id, size, delta = fromtag(data[j_:])
             j_ += delta
-            if not tag & 0x4:
+            if not tag & 0x8:
                 j_ += size
 
-            if (tag & 0x7807) == 0x0800:
-                count += 1
-                max_count = max(max_count, count)
-                ids.insert(((tag >> 15) & 0xffff)-1,
-                    COLORS[ids_i % len(COLORS)])
+            if (tag & ~0x3f0) == 0x0400:
+                weight += 1
+                max_weight = max(max_weight, weight)
+                ids.insert(id, COLORS[ids_i % len(COLORS)])
                 ids_i += 1
                 lifetimes[j] = (
                     ''.join(
                         '%s%s%s' % (
-                            '\x1b[%sm' % ids[id] if color else '',
-                            '.' if id == ((tag >> 15) & 0xffff)-1
-                                else '\ ' if id > ((tag >> 15) & 0xffff)-1
+                            '\x1b[%sm' % ids[id_] if color else '',
+                            '.' if id_ == id
+                                else '\ ' if id_ > id
                                 else '| ',
                             '\x1b[m' if color else '')
-                            for id in range(count))
+                            for id_ in range(weight))
                         + ' ',
-                    count)
-            elif ((tag & 0x7807) == 0x0801
-                    and ((tag >> 15) & 0xffff)-1 < len(ids)):
+                    weight)
+            elif ((tag & ~0x3f0) == 0x0402 and id < len(ids)):
                 lifetimes[j] = (
                     ''.join(
                         '%s%s%s' % (
-                            '\x1b[%sm' % ids[id] if color else '',
-                            '\'' if id == ((tag >> 15) & 0xffff)-1
-                                else '/ ' if id > ((tag >> 15) & 0xffff)-1
+                            '\x1b[%sm' % ids[id_] if color else '',
+                            '\'' if id_ == id
+                                else '/ ' if id_ > id
                                 else '| ',
                             '\x1b[m' if color else '')
-                            for id in range(count))
+                            for id_ in range(weight))
                         + ' ',
-                    count)
-                count -= 1
-                ids.pop(((tag >> 15) & 0xffff)-1)
+                    weight)
+                weight -= 1
+                ids.pop(id)
             else:
                 lifetimes[j] = (
                     ''.join(
                         '%s%s%s' % (
-                            '\x1b[%sm' % ids[id] if color else '',
-                            '* ' if not tag & 0x4
-                                and id == ((tag >> 15) & 0xffff)-1
+                            '\x1b[%sm' % ids[id_] if color else '',
+                            '* ' if not tag & 0x8
+                                and id_ == id
                                 else '| ',
                             '\x1b[m' if color else '')
-                            for id in range(count)),
-                    count)
+                            for id_ in range(weight)),
+                    weight)
 
         def lifetimerepr(j):
-            lifetime, count = lifetimes.get(j, ('', 0))
-            return '%s%*s' % (lifetime, 2*(max_count-count), '')
+            lifetime, weight = lifetimes.get(j, ('', 0))
+            return '%s%*s' % (lifetime, 2*(max_weight-weight), '')
 
     # prepare other things
     if args.get('rbyd'):
@@ -254,13 +258,13 @@ def show_log(block_size, data, rev, off, *,
                     notes.append('crc!=%08x' % crc)
             j_ += size
 
-#        # adjust count?
+#        # adjust weight?
 #        if args.get('lifetimes'):
-#            if (tag & 0x7807) == 0x0800:
-#                count += 1
-#            elif ((tag & 0x7807) == 0x0801
+#            if (tag & ~0x3f0) == 0x0400:
+#                weight += 1
+#            elif ((tag & ~0x3f0) == 0x0402
 #                    and ((tag >> 15) & 0xffff)-1 < len(ids)):
-#                count -= 1
+#                weight -= 1
 
         # show human-readable tag representation
         print('%s%08x:%s %s%s%-57s%s%s' % (
@@ -336,7 +340,7 @@ def show_log(block_size, data, rev, off, *,
                 alts = []
 
 
-def show_tree(block_size, data, rev, trunk, count, *,
+def show_tree(block_size, data, rev, trunk, weight, *,
         color=False,
         **args):
     if trunk is None:
@@ -346,7 +350,7 @@ def show_tree(block_size, data, rev, trunk, count, *,
     # purposes
     def lookup(tag):
         lower = 0
-        upper = (count+1) << 15
+        upper = (weight+1) << 15
         path = []
 
         # descend down tree
@@ -578,8 +582,8 @@ def main(disk, block_size, block1, block2=None, *,
         j_ = 4
         trunk = None
         trunk_ = None
-        count = 0
-        count_ = 0
+        weight = 0
+        weight_ = 0
         wastrunk = False
         while j_ < block_size:
             v, tag, id, size, delta = fromtag(data[j_:])
@@ -595,11 +599,11 @@ def main(disk, block_size, block1, block2=None, *,
             if not tag & 0x8:
                 if (tag & ~0x10) != 0x24:
                     crc = crc32c(data[j_:j_+size], crc)
-#                    # keep track of id count
-#                    if (tag & 0x7807) == 0x0800:
-#                        count_ += 1
-#                    elif (tag & 0x7807) == 0x0801:
-#                        count_ = max(count_ - 1, 0)
+                    # keep track of weight
+                    if (tag & ~0x3f0) == 0x0400:
+                        weight_ += 1
+                    elif (tag & ~0x3f0) == 0x0402:
+                        weight_ = max(weight_ - 1, 0)
                 # found a crc?
                 else:
                     crc_, = struct.unpack('<I', data[j_:j_+4].ljust(4, b'\0'))
@@ -608,34 +612,35 @@ def main(disk, block_size, block1, block2=None, *,
                     # commit what we have
                     off = j_ + size
                     trunk = trunk_
-                    count = count_
+                    weight = weight_
                 j_ += size
                 wastrunk = False
 
-        return rev, off, trunk, count
+        return rev, off, trunk, weight
 
-    revs, offs, trunks, counts = [], [], [], []
+    revs, offs, trunks, weights = [], [], [], []
     i = 0
     for block, data in zip(blocks, datas):
-        rev, off, trunk_, count = fetch(data)
+        rev, off, trunk_, weight = fetch(data)
         revs.append(rev)
         offs.append(off)
         trunks.append(trunk_)
-        counts.append(count)
+        weights.append(weight)
 
         # compare with sequence arithmetic
         if off and ((rev - revs[i]) & 0x80000000):
             i = len(revs)-1
 
     # print contents of the winning metadata block
-    block, data, rev, off, trunk, count = (
+    block, data, rev, off, trunk, weight = (
         blocks[i], datas[i], revs[i], offs[i],
         trunk if trunk is not None else trunks[i],
-        counts[i])
+        weights[i])
 
-    print('mdir 0x%x, rev %d, size %d%s' % (
-        block, rev, off,
-        ' (was 0x%x, %d, %d)' % (blocks[~i], revs[~i], offs[~i])
+    print('mdir 0x%x, rev %d, size %d, weight %d%s' % (
+        block, rev, off, weight,
+        ' (was 0x%x, %d, %d, %d)' % (
+            blocks[~i], revs[~i], offs[~i], weights[~i])
             if len(blocks) > 1 else ''))
 
     if args.get('log'):
@@ -643,7 +648,7 @@ def main(disk, block_size, block1, block2=None, *,
             color=color,
             **args)
     else:
-        show_tree(block_size, data, rev, trunk, count,
+        show_tree(block_size, data, rev, trunk, weight,
             color=color,
             **args)
 
