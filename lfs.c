@@ -824,7 +824,27 @@ static inline void lfsr_tag_trimtag(lfsr_tag_t alt,
         //}
     }
 }
-        
+
+static inline void lfsr_tag_trim_(lfsr_tag_t alt,
+        lfsr_sid_t lower_id, lfsr_sid_t upper_id,
+        lfsr_sid_t *lower_id_, lfsr_sid_t *upper_id_,
+        lfsr_tag_t *lower_tag, lfsr_tag_t *upper_tag) {
+    if (lower_id > *lower_id_) {
+        *lower_id_ = lower_id;
+        *lower_tag = 0;
+    }
+    if (upper_id < *upper_id_) {
+        *upper_id_ = upper_id;
+        *upper_tag = 0xffff;
+    }
+
+    // TODO need min/max here?
+    if (lfsr_tag_isgt(alt)) {
+        *upper_tag = lfs_min(*upper_tag, alt + 0x10);
+    } else {
+        *lower_tag = lfs_max(*lower_tag, alt + 0x10);
+    }
+}
 
 // operations on attribute lists
 struct lfs_mattr {
@@ -2007,6 +2027,10 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     lfsr_sid_t lower_upper_id = rbyd_->weight;
     lfsr_sid_t upper_lower_id = lower_lower_id;
     lfsr_sid_t upper_upper_id = lower_upper_id;
+    lfsr_sid_t lower_lower_id_ = lower_lower_id;
+    lfsr_sid_t lower_upper_id_ = lower_upper_id;
+    lfsr_sid_t upper_lower_id_ = upper_lower_id;
+    lfsr_sid_t upper_upper_id_ = upper_upper_id;
     lfsr_tag_t lower_lower_tag = 0;
     lfsr_tag_t lower_upper_tag = 0xffff;
     lfsr_tag_t upper_lower_tag = upper_lower_tag;
@@ -2029,6 +2053,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             lfs_swap32(&lower_branch, &upper_branch);
             lfs_swaps32(&lower_lower_id, &upper_lower_id);
             lfs_swaps32(&lower_upper_id, &upper_upper_id);
+            lfs_swaps32(&lower_lower_id_, &upper_lower_id_);
+            lfs_swaps32(&lower_upper_id_, &upper_upper_id_);
             lfs_swap16(&lower_lower_tag, &upper_lower_tag);
             lfs_swap16(&lower_upper_tag, &upper_upper_tag);
         }
@@ -2063,6 +2089,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                 upper_branch = lower_branch;
                 upper_lower_id = lower_lower_id;
                 upper_upper_id = lower_upper_id;
+                upper_lower_id_ = lower_lower_id_;
+                upper_upper_id_ = lower_upper_id_;
                 upper_lower_tag = lower_lower_tag;
                 upper_upper_tag = lower_upper_tag;
             }
@@ -2078,7 +2106,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             // |  |  .----'|      |     .----'|  |
             // 1  2  3  4  4      1  2  3  4  4  2
             bool prune = false;
-            printf("%c alt%c%s 0x%x w%d 0x%x (0x%x %d, 0x%x %d) f=%d (0x%x %d)\n",
+            printf("%c alt%c%s 0x%x w%d 0x%x (0x%x %d (%d), 0x%x %d (%d)) f=%d (0x%x %d)\n",
                 !diverged
                     ? '='
                     : (lower_id_ < upper_id_
@@ -2089,7 +2117,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                 lfsr_tag_isred(alt) ? 'r' : 'b',
                 lfsr_tag_isgt(alt) ? "gt" : "lt",
                 lfsr_tag_key(alt),
-                weight_, jump, lower_lower_tag, lower_lower_id, lower_upper_tag, lower_upper_id,
+                weight_, jump, lower_lower_tag, lower_lower_id_, lower_lower_id, lower_upper_tag, lower_upper_id_, lower_upper_id,
                 lfsr_tag_follow(alt, weight_,
                     lower_lower_id, lower_upper_id,
                     lower_tag_, lower_id_),
@@ -2106,8 +2134,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 //                        lower_id_);
 //            }
             // TODO can this be rewritten in terms of lfsr_tag_follow?
-            if (weight_ > (lfs_size_t)(lower_upper_id-lower_lower_id-1)
-                    || (weight_ == (lfs_size_t)(lower_upper_id-lower_lower_id-1)
+            if (weight_ > (lfs_size_t)(lower_upper_id_-lower_lower_id_-1)
+                    || (weight_ == (lfs_size_t)(lower_upper_id_-lower_lower_id_-1)
                         // TODO need key?
                         && (lfsr_tag_isgt(alt)
                             ? lfsr_tag_key(predicted_lower_tag) > lfsr_tag_key(alt)
@@ -2138,6 +2166,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                         lfsr_tag_flipweight(weight_,
                             lower_lower_id, lower_upper_id),
                         &lower_lower_id, &lower_upper_id);
+                if (p_alts[0] && lfsr_tag_isblack(p_alts[0])) {
+                    lfsr_tag_trim_(p_alts[0],
+                            lower_lower_id, lower_upper_id,
+                            &lower_lower_id_, &lower_upper_id_,
+                            &lower_lower_tag, &lower_upper_tag);
+                }
 //                lfsr_tag_trimtag(lfsr_tag_flipalt(alt),
 //                        lower_lower_id, lower_upper_id,
 //                        &lower_lower_tag, &lower_upper_tag,
@@ -2154,6 +2188,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                         != lfsr_tag_isle(alt)) {
                 lfsr_tag_trimweight(alt, weight_,
                         &lower_lower_id, &lower_upper_id);
+                if (p_alts[0] && lfsr_tag_isblack(p_alts[0])) {
+                    lfsr_tag_trim_(p_alts[0],
+                            lower_lower_id, lower_upper_id,
+                            &lower_lower_id_, &lower_upper_id_,
+                            &lower_lower_tag, &lower_upper_tag);
+                }
 //                lfsr_tag_trimtag(alt,
 //                        lower_lower_id, lower_upper_id,
 //                        &lower_lower_tag, &lower_upper_tag,
@@ -2251,11 +2291,16 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
                     lfsr_tag_trimweight(alt, weight_,
                             &lower_lower_id, &lower_upper_id);
-                    lfsr_tag_trimtag(alt,
-                            lower_lower_id, lower_upper_id,
-                            &lower_lower_tag, &lower_upper_tag,
-                            lower_id_);
+//                    lfsr_tag_trimtag(alt,
+//                            lower_lower_id, lower_upper_id,
+//                            &lower_lower_tag, &lower_upper_tag,
+//                            lower_id_);
                     lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+
+                    lfsr_tag_trim_(alt,
+                            lower_lower_id, lower_upper_id,
+                            &lower_lower_id_, &lower_upper_id_,
+                            &lower_lower_tag, &lower_upper_tag);
 
                     lower_branch = branch_;
                     continue;
@@ -2322,10 +2367,10 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             // continue to next alt
             lfsr_tag_trimweight(alt, weight_, &lower_lower_id, &lower_upper_id);
             if (lfsr_tag_isblack(alt)) {
-                lfsr_tag_trimtag(alt,
+                lfsr_tag_trim_(alt,
                         lower_lower_id, lower_upper_id,
-                        &lower_lower_tag, &lower_upper_tag,
-                        lower_id_);
+                        &lower_lower_id_, &lower_upper_id_,
+                        &lower_lower_tag, &lower_upper_tag);
 //                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
 //                    lfsr_tag_trimtag(p_alts[0],
 //                            lower_lower_id, lower_upper_id,
@@ -2370,6 +2415,8 @@ stem:;
         upper_branch = lower_branch;
         upper_lower_id = lower_lower_id;
         upper_upper_id = lower_upper_id;
+        upper_lower_id_ = lower_lower_id_;
+        upper_upper_id_ = lower_upper_id_;
         upper_lower_tag = lower_lower_tag;
         upper_upper_tag = lower_upper_tag;
     } else if (lower_id_ > upper_id_
@@ -2379,6 +2426,8 @@ stem:;
         lfs_swap32(&lower_branch, &upper_branch);
         lfs_swaps32(&lower_lower_id, &upper_lower_id);
         lfs_swaps32(&lower_upper_id, &upper_upper_id);
+        lfs_swaps32(&lower_lower_id_, &upper_lower_id_);
+        lfs_swaps32(&lower_upper_id_, &upper_upper_id_);
         lfs_swap16(&lower_lower_tag, &upper_lower_tag);
         lfs_swap16(&lower_upper_tag, &upper_upper_tag);
     }
