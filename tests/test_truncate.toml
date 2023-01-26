@@ -437,3 +437,37 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+[[case]] # barrier truncate
+code = '''
+    lfs_format(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, &cfg) => 0;
+    lfs_file_open(&lfs, &file, "barrier",
+            LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+    uint8_t bad_byte = 2;
+    uint8_t *rb = buffer + cfg.block_size;
+
+    /* Write a series of 1s to the first block */
+    memset(buffer, 1, cfg.block_size);
+    lfs_file_write(&lfs, &file, buffer,
+                   cfg.block_size) => cfg.block_size;
+
+    /* Write a single non-one to the second block */
+    lfs_file_write(&lfs, &file, &bad_byte, 1) => 1;
+    lfs_file_close(&lfs, &file) => 0;
+
+    lfs_file_open(&lfs, &file, "barrier", LFS_O_RDWR) => 0;
+    lfs_file_truncate(&lfs, &file, cfg.block_size) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+
+    /* Read the first block, which should match buffer */
+    lfs_file_open(&lfs, &file, "barrier", LFS_O_RDWR) => 0;
+    lfs_file_read(&lfs, &file, rb,
+                  cfg.block_size) => cfg.block_size;
+    lfs_file_close(&lfs, &file) => 0;
+
+    lfs_unmount(&lfs) => 0;
+
+    memcmp(buffer, rb, cfg.block_size) => 0;
+'''
