@@ -767,7 +767,6 @@ static inline bool lfsr_tag_follow(lfsr_tag_t alt, lfs_size_t weight,
         lfsr_sid_t lower, lfsr_sid_t upper,
         lfsr_tag_t tag, lfsr_sid_t id) {
     // TODO do we actually need lfsr_tag_key?
-    // TODO hmm, are key and weight entirely exclusive?
     if (lfsr_tag_isgt(alt)) {
         return id >= upper - (lfs_ssize_t)weight
                 || (/*lfsr_tag_key(alt)
@@ -781,6 +780,20 @@ static inline bool lfsr_tag_follow(lfsr_tag_t alt, lfs_size_t weight,
     }
 }
 
+static inline bool lfsr_tag_follow2(
+        lfsr_tag_t alt, lfs_size_t weight,
+        lfsr_tag_t alt2, lfs_size_t weight2,
+        lfsr_sid_t lower, lfsr_sid_t upper,
+        lfsr_tag_t tag, lfsr_sid_t id) {
+    if (alt2
+            && lfsr_tag_isred(alt2)
+            && lfsr_tag_isparallel(alt, alt2)) {
+        return lfsr_tag_follow(alt, weight+weight2, lower, upper, tag, id);
+    } else {
+        return lfsr_tag_follow(alt, weight, lower, upper, tag, id);
+    }
+}
+
 static inline lfsr_tag_t lfsr_tag_flipalt(lfsr_tag_t alt) {
     return alt ^ 0x4;
 }
@@ -788,6 +801,16 @@ static inline lfsr_tag_t lfsr_tag_flipalt(lfsr_tag_t alt) {
 static inline lfs_size_t lfsr_tag_flipweight(lfs_size_t weight,
         lfsr_sid_t lower, lfsr_sid_t upper) {
     return (upper-lower) - weight - 1;
+}
+
+static inline lfs_size_t lfsr_tag_flipweight2(lfs_size_t weight,
+        lfsr_tag_t alt2, lfs_size_t weight2,
+        lfsr_sid_t lower, lfsr_sid_t upper) {
+    if (alt2 && lfsr_tag_isred(alt2)) {
+        return lfsr_tag_flipweight(weight+weight2, lower, upper);
+    } else {
+        return lfsr_tag_flipweight(weight, lower, upper);
+    }
 }
 
 static inline void lfsr_tag_trimweight(lfsr_tag_t alt, lfs_size_t weight,
@@ -845,6 +868,42 @@ static inline void lfsr_tag_trim_(lfsr_tag_t alt,
         *lower_tag = lfs_max(*lower_tag, alt + 0x10);
     }
 }
+
+static inline void lfsr_tag_trim__(
+        lfsr_tag_t alt, lfs_size_t weight,
+        lfsr_sid_t *lower_id, lfsr_sid_t *upper_id,
+        lfsr_tag_t *lower_tag, lfsr_tag_t *upper_tag) {
+    if (lfsr_tag_isgt(alt)) {
+        *upper_id -= weight;
+        // TODO need min/max? can this be better?
+        if (weight) {
+            *upper_tag = 0xffff;
+        }
+        *upper_tag = lfs_min(*upper_tag, alt + 0x10);
+    } else {
+        *lower_id += weight;
+        // TODO need min/max? can this be better?
+        if (weight) {
+            *lower_tag = 0;
+        }
+        *lower_tag = lfs_max(*lower_tag, alt + 0x10);
+    }
+}
+
+static inline void lfsr_tag_trim2(
+        lfsr_tag_t alt, lfs_size_t weight,
+        lfsr_tag_t alt2, lfs_size_t weight2,
+        lfsr_sid_t *lower_id, lfsr_sid_t *upper_id,
+        lfsr_tag_t *lower_tag, lfsr_tag_t *upper_tag) {
+    if (alt2 && lfsr_tag_isred(alt2)) {
+        lfsr_tag_trim__(alt2, weight2,
+                lower_id, upper_id, lower_tag, upper_tag);
+    }
+
+    lfsr_tag_trim__(alt, weight, 
+            lower_id, upper_id, lower_tag, upper_tag);
+}
+
 
 // operations on attribute lists
 struct lfs_mattr {
@@ -2025,12 +2084,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     // TODO bool flipped? bool found?
     lfsr_sid_t lower_lower_id = -1;
     lfsr_sid_t lower_upper_id = rbyd_->weight;
-    lfsr_sid_t upper_lower_id = lower_lower_id;
-    lfsr_sid_t upper_upper_id = lower_upper_id;
-    lfsr_sid_t lower_lower_id_ = lower_lower_id;
-    lfsr_sid_t lower_upper_id_ = lower_upper_id;
-    lfsr_sid_t upper_lower_id_ = upper_lower_id;
-    lfsr_sid_t upper_upper_id_ = upper_upper_id;
+    lfsr_sid_t upper_lower_id = upper_lower_id;
+    lfsr_sid_t upper_upper_id = upper_upper_id;
     lfsr_tag_t lower_lower_tag = 0;
     lfsr_tag_t lower_upper_tag = 0xffff;
     lfsr_tag_t upper_lower_tag = upper_lower_tag;
@@ -2041,6 +2096,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     lfs_size_t p_weights[3] = {0, 0, 0};
     lfs_off_t p_jumps[3] = {0, 0, 0};
     lfs_off_t graft = 0;
+    graft = lower_branch; // TODO need?
 
     // descend down tree, building alt pointers
     while (true) {
@@ -2053,8 +2109,6 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             lfs_swap32(&lower_branch, &upper_branch);
             lfs_swaps32(&lower_lower_id, &upper_lower_id);
             lfs_swaps32(&lower_upper_id, &upper_upper_id);
-            lfs_swaps32(&lower_lower_id_, &upper_lower_id_);
-            lfs_swaps32(&lower_upper_id_, &upper_upper_id_);
             lfs_swap16(&lower_lower_tag, &upper_lower_tag);
             lfs_swap16(&lower_upper_tag, &upper_upper_tag);
         }
@@ -2079,20 +2133,44 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
             // do bounds want to take different paths? begin cutting
             if (!diverged
-                    && lfsr_tag_follow(alt, weight_,
+                    && lfsr_tag_follow2(alt, weight_,
+                            p_alts[0], p_weights[0],
                             lower_lower_id, lower_upper_id,
                             lower_tag_, lower_id_)
-                        != lfsr_tag_follow(alt, weight_,
+                        != lfsr_tag_follow2(alt, weight_,
+                            p_alts[0], p_weights[0],
                             lower_lower_id, lower_upper_id,
                             upper_tag_, upper_id_)) {
+                // first handle any lingering red alts
+                if (lfsr_tag_isred(p_alts[0])) {
+                    printf("diverging red!\n");
+                    alt = lfsr_tag_mkblack(p_alts[0]);
+                    weight_ = p_weights[0];
+                    jump = p_jumps[0];
+                    branch_ = lower_branch;
+                    lower_branch = graft; // TODO need this?
+
+                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+
+                    goto diverging_red;
+                }
+
                 diverged = true;
                 upper_branch = lower_branch;
                 upper_lower_id = lower_lower_id;
                 upper_upper_id = lower_upper_id;
-                upper_lower_id_ = lower_lower_id_;
-                upper_upper_id_ = lower_upper_id_;
+                upper_lower_id = lower_lower_id;
+                upper_upper_id = lower_upper_id;
                 upper_lower_tag = lower_lower_tag;
                 upper_upper_tag = lower_upper_tag;
+                
+
+//                // make sure upper path is in sync with red alts!
+//                if (lfsr_tag_isred(p_alts[0])) {
+////                    lfsr_tag_trim__(p_alts[0], p_weights[0],
+////                            &upper_lower_id, &upper_upper_id,
+////                            &upper_lower_tag, &upper_upper_tag);
+//                }
 
 //                // TODO ???
 //                // handle red edge before diverging
@@ -2118,12 +2196,29 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 //                    lfs_swap32(&lower_branch, &upper_branch);
 //                    lfs_swaps32(&lower_lower_id, &upper_lower_id);
 //                    lfs_swaps32(&lower_upper_id, &upper_upper_id);
-//                    lfs_swaps32(&lower_lower_id_, &upper_lower_id_);
-//                    lfs_swaps32(&lower_upper_id_, &upper_upper_id_);
+//                    lfs_swaps32(&lower_lower_id, &upper_lower_id);
+//                    lfs_swaps32(&lower_upper_id, &upper_upper_id);
 //                    lfs_swap16(&lower_lower_tag, &upper_lower_tag);
 //                    lfs_swap16(&lower_upper_tag, &upper_upper_tag);
 //                }
             }
+
+diverging_red:
+            printf("%c alt%c%s 0x%x w%d 0x%x (0x%x %d, 0x%x %d)\n",
+                !diverged
+                    ? '='
+                    : (lower_id_ < upper_id_
+                        || (lower_id_ == upper_id_
+                            && lower_tag_ < upper_tag_))
+                        ? '['
+                        : ']',
+                lfsr_tag_isred(alt) ? 'r' : 'b',
+                lfsr_tag_isgt(alt) ? "gt" : "le",
+                lfsr_tag_key(alt),
+                weight_,
+                jump,
+                lower_lower_tag, lower_lower_id,
+                lower_upper_tag, lower_upper_id);
 
             // prune?
             //            <b                    >b
@@ -2135,54 +2230,21 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             // |  |       <b      |          <b  |
             // |  |  .----'|      |     .----'|  |
             // 1  2  3  4  4      1  2  3  4  4  2
-//            bool prune = false;
-            printf("%c alt%c%s 0x%x w%d 0x%x (0x%x %d (%d), 0x%x %d (%d)) f=%d (0x%x %d)\n",
-                !diverged
-                    ? '='
-                    : (lower_id_ < upper_id_
-                        || (lower_id_ == upper_id_
-                            && lower_tag_ < upper_tag_))
-                        ? '['
-                        : ']',
-                lfsr_tag_isred(alt) ? 'r' : 'b',
-                lfsr_tag_isgt(alt) ? "gt" : "lt",
-                lfsr_tag_key(alt),
-                weight_, jump, lower_lower_tag, lower_lower_id_, lower_lower_id, lower_upper_tag, lower_upper_id_, lower_upper_id,
-                lfsr_tag_follow(alt, weight_,
-                    lower_lower_id, lower_upper_id,
-                    lower_tag_, lower_id_),
-                lower_tag_, lower_id_);
-            LFS_ASSERT(lower_upper_id - lower_lower_id >= 1);
-            // TODO something better than this
-            lfsr_tag_t predicted_lower_tag = lower_lower_tag;
-            lfsr_tag_t predicted_upper_tag = lower_upper_tag;
-//            if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
-//                // TODO need this?
-//                lfsr_tag_trimtag(p_alts[0],
-//                        lower_lower_id, lower_upper_id,
-//                        &predicted_lower_tag, &predicted_upper_tag,
-//                        lower_id_);
-//            }
             // TODO can this be rewritten in terms of lfsr_tag_follow?
-            if (weight_ > (lfs_size_t)(lower_upper_id_-lower_lower_id_-1)
-                    || (weight_ == (lfs_size_t)(lower_upper_id_-lower_lower_id_-1)
+            if (weight_+(lfsr_tag_isred(p_alts[0]) ? p_weights[0] : 0) > (lfs_size_t)(lower_upper_id-lower_lower_id-1)
+                    || (weight_+(lfsr_tag_isred(p_alts[0]) ? p_weights[0] : 0) == (lfs_size_t)(lower_upper_id-lower_lower_id-1)
                         // TODO need key?
                         && (lfsr_tag_isgt(alt)
-                            ? lfsr_tag_key(predicted_lower_tag) > lfsr_tag_key(alt)
-                            : lfsr_tag_key(predicted_upper_tag-0x10) <= lfsr_tag_key(alt)))) {
-//                        && (lfsr_tag_key(alt)
-//                                < lfsr_tag_key(lower_lower_tag)
-//                            || lfsr_tag_key(alt)
-//                                >= lfsr_tag_key(lower_upper_tag)))) {
+                            ? lfsr_tag_key(lower_lower_tag) > lfsr_tag_key(alt)
+                                && !(lfsr_tag_isred(p_alts[0]) && lfsr_tag_isle(p_alts[0]) && p_weights[0])
+                            : lfsr_tag_key(lower_upper_tag-0x10) <= lfsr_tag_key(alt)
+                                && !(lfsr_tag_isred(p_alts[0]) && lfsr_tag_isgt(p_alts[0]) && p_weights[0])))) {
                 printf("PRUUUUUUUUUUUUUUUUUUUUUUUNE\n");
-                printf("%d > %d-%d-1 => %d\n", weight_, lower_upper_id, lower_lower_id, weight_ > (lfs_size_t)(lower_upper_id-lower_lower_id-1));
-                printf("%d == %d-%d-1 => %d\n", weight_, lower_upper_id, lower_lower_id, weight_ == (lfs_size_t)(lower_upper_id-lower_lower_id-1));
-                printf("isgt = %d\n", lfsr_tag_isgt(alt));
-                printf("0x%x > 0x%x => %d\n", lfsr_tag_key(predicted_lower_tag), lfsr_tag_key(alt), lfsr_tag_key(predicted_lower_tag) > lfsr_tag_key(alt));
-                printf("0x%x <= 0x%x => %d\n", lfsr_tag_key(predicted_upper_tag-0x10), lfsr_tag_key(alt), lfsr_tag_key(predicted_upper_tag-0x10) <= lfsr_tag_key(alt));
-//                prune = true;
-//                lower_lower_tag = predicted_lower_tag;
-//                lower_upper_tag = predicted_upper_tag;
+                printf("w%d+w%d > id%d-id%d-1\n", weight_, (lfsr_tag_isred(p_alts[0]) ? p_weights[0] : 0), lower_upper_id, lower_lower_id);
+                printf("isgt=%d ? 0x%x > 0x%x : 0x%x <= 0x%x\n",
+                        lfsr_tag_isgt(alt),
+                        lfsr_tag_key(lower_lower_tag), lfsr_tag_key(alt),
+                        lfsr_tag_key(lower_upper_tag-0x10), lfsr_tag_key(alt));
 
                 if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
                     alt = lfsr_tag_mkblack(p_alts[0]);
@@ -2191,23 +2253,28 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                     jump = p_jumps[0];
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
 
-                    lfsr_tag_untrimweight(alt, weight_,
-                            &lower_lower_id, &lower_upper_id);
-
-                    printf("pruned into alt%c%s 0x%x w%d 0x%x (0x%x)\n",
-                        lfsr_tag_isred(alt) ? 'r' : 'b',
-                        lfsr_tag_isgt(alt) ? "gt" : "lt",
-                        lfsr_tag_key(alt),
-                        weight_,
-                        jump,
-                        branch_);
+//                    lfsr_tag_untrimweight(alt, weight_,
+//                            &lower_lower_id, &lower_upper_id);
+//
+//                    printf("pruned into alt%c%s 0x%x w%d 0x%x (0x%x)\n",
+//                        lfsr_tag_isred(alt) ? 'r' : 'b',
+//                        lfsr_tag_isgt(alt) ? "gt" : "lt",
+//                        lfsr_tag_key(alt),
+//                        weight_,
+//                        jump,
+//                        branch_);
                 } else {
+                    // TODO does this ever happen with normal prunes?
+                    //LFS_ASSERT(false);
+                    graft = lower_branch; // TODO need?
                     lower_branch = jump;
                     continue;
                 }
+
             // cut while following
             } else if (diverged
-                    && lfsr_tag_follow(alt, weight_,
+                    && lfsr_tag_follow2(alt, weight_,
+                        p_alts[0], p_weights[0],
                         lower_lower_id, lower_upper_id,
                         lower_tag_, lower_id_)
                     && (lower_id_ < upper_id_ 
@@ -2217,49 +2284,45 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 //                        lower_lower_id, lower_upper_id,
 //                        &lower_lower_tag, &lower_upper_tag,
 //                        lower_id_);
-                printf("trim-f\n");
 //                prune = true;
 
                 if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
-                    lfsr_tag_trimweight(
-                            lfsr_tag_flipalt(alt),
-                            lfsr_tag_flipweight(weight_,
-                                lower_lower_id, lower_upper_id),
-                            &lower_lower_id, &lower_upper_id);
+                    printf("trimfb\n");
+//                    if (!lfsr_tag_isparallel(alt, p_alts[0])) {
+////                        p_weights[0] += weight_;
+//                    } else {
+                        lfsr_tag_trim__(
+                                lfsr_tag_flipalt(alt),
+                                lfsr_tag_flipweight2(weight_,
+                                    p_alts[0], p_weights[0],
+                                    lower_lower_id, lower_upper_id),
+                                &lower_lower_id, &lower_upper_id,
+                                &lower_lower_tag, &lower_upper_tag);
+                    //}
+
                     alt = lfsr_tag_mkblack(p_alts[0]);
                     weight_ = p_weights[0];
                     branch_ = jump;
                     jump = p_jumps[0];
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-
-                    lfsr_tag_untrimweight(alt, weight_,
-                            &lower_lower_id, &lower_upper_id);
-
-                    printf("pruned into alt%c%s 0x%x w%d 0x%x (0x%x)\n",
-                        lfsr_tag_isred(alt) ? 'r' : 'b',
-                        lfsr_tag_isgt(alt) ? "gt" : "lt",
-                        lfsr_tag_key(alt),
-                        weight_,
-                        jump,
-                        branch_);
                 } else {
-                    lfsr_tag_trimweight(
+                    printf("trimfr\n");
+                    lfsr_tag_trim__(
                             lfsr_tag_flipalt(alt),
-                            lfsr_tag_flipweight(weight_,
+                            lfsr_tag_flipweight2(weight_,
+                                p_alts[0], p_weights[0],
                                 lower_lower_id, lower_upper_id),
-                            &lower_lower_id, &lower_upper_id);
-                    if (p_alts[0]) {
-                        lfsr_tag_trim_(p_alts[0],
-                                lower_lower_id, lower_upper_id,
-                                &lower_lower_id_, &lower_upper_id_,
-                                &lower_lower_tag, &lower_upper_tag);
-                    }
+                            &lower_lower_id, &lower_upper_id,
+                            &lower_lower_tag, &lower_upper_tag);
+
+                    graft = lower_branch; // TODO need?
                     lower_branch = jump;
                     continue;
                 }
             // cut while not following
             } else if (diverged
-                    && !lfsr_tag_follow(alt, weight_,
+                    && !lfsr_tag_follow2(alt, weight_,
+                        p_alts[0], p_weights[0],
                         lower_lower_id, lower_upper_id,
                         lower_tag_, lower_id_)
                     && (lower_id_ < upper_id_ 
@@ -2270,75 +2333,243 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 //                        &lower_lower_tag, &lower_upper_tag,
 //                        lower_id_);
 //                lfs_swap32(&jump, &branch_);
-                printf("trim-nf\n");
 //                prune = true;
 
                 if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
+                    printf("trimnfr\n");
 //                    if (lfsr_tag_isparallel(alt, p_alts[0])) {
-//                        p_weights[0] += weight_;
+//                        //p_weights[0] += weight_;
+//                    } else {
+                        lfsr_tag_trim__(
+                                alt, weight_,
+                                &lower_lower_id, &lower_upper_id,
+                                &lower_lower_tag, &lower_upper_tag);
 //                    }
-                    lfsr_tag_trimweight(alt, weight_,
-                            &lower_lower_id, &lower_upper_id);
+
                     alt = lfsr_tag_mkblack(p_alts[0]);
                     weight_ = p_weights[0];
                     jump = p_jumps[0];
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-
-                    lfsr_tag_untrimweight(alt, weight_,
-                            &lower_lower_id, &lower_upper_id);
-
-                    printf("pruned into alt%c%s 0x%x w%d 0x%x (0x%x)\n",
-                        lfsr_tag_isred(alt) ? 'r' : 'b',
-                        lfsr_tag_isgt(alt) ? "gt" : "lt",
-                        lfsr_tag_key(alt),
-                        weight_,
-                        jump,
-                        branch_);
-                    printf("p alt%c%s 0x%x w%d 0x%x (0x%x %d (%d), 0x%x %d (%d)) f=%d (0x%x %d)\n",
-                        !diverged
-                            ? '='
-                            : (lower_id_ < upper_id_
-                                || (lower_id_ == upper_id_
-                                    && lower_tag_ < upper_tag_))
-                                ? '['
-                                : ']',
-                        lfsr_tag_isred(alt) ? 'r' : 'b',
-                        lfsr_tag_isgt(alt) ? "gt" : "lt",
-                        lfsr_tag_key(alt),
-                        weight_, jump, lower_lower_tag, lower_lower_id_, lower_lower_id, lower_upper_tag, lower_upper_id_, lower_upper_id,
-                        lfsr_tag_follow(alt, weight_,
-                            lower_lower_id, lower_upper_id,
-                            lower_tag_, lower_id_),
-                        lower_tag_, lower_id_);
                 } else {
-                    lfsr_tag_trimweight(alt, weight_,
-                            &lower_lower_id, &lower_upper_id);
-                    if (p_alts[0]) {
-                        lfsr_tag_trim_(p_alts[0],
-                                lower_lower_id, lower_upper_id,
-                                &lower_lower_id_, &lower_upper_id_,
-                                &lower_lower_tag, &lower_upper_tag);
-                    }
+                    printf("trimnfb\n");
+                    lfsr_tag_trim__(
+                            alt, weight_,
+                            &lower_lower_id, &lower_upper_id,
+                            &lower_lower_tag, &lower_upper_tag);
+
+                    graft = lower_branch; // TODO need?
                     lower_branch = branch_;
                     continue;
                 }
             }
+            
 
-//            if (diverged
+
+
+//            bool prune = false;
+//            printf("%c alt%c%s 0x%x w%d 0x%x (0x%x %d (%d), 0x%x %d (%d)) f=%d (0x%x %d)\n",
+//                !diverged
+//                    ? '='
+//                    : (lower_id_ < upper_id_
+//                        || (lower_id_ == upper_id_
+//                            && lower_tag_ < upper_tag_))
+//                        ? '['
+//                        : ']',
+//                lfsr_tag_isred(alt) ? 'r' : 'b',
+//                lfsr_tag_isgt(alt) ? "gt" : "lt",
+//                lfsr_tag_key(alt),
+//                weight_, jump, lower_lower_tag, lower_lower_id, lower_lower_id, lower_upper_tag, lower_upper_id, lower_upper_id,
+//                lfsr_tag_follow(alt, weight_,
+//                    lower_lower_id, lower_upper_id,
+//                    lower_tag_, lower_id_),
+//                lower_tag_, lower_id_);
+//            LFS_ASSERT(lower_upper_id - lower_lower_id >= 1);
+//            // TODO something better than this
+//            lfsr_tag_t predicted_lower_tag = lower_lower_tag;
+//            lfsr_tag_t predicted_upper_tag = lower_upper_tag;
+////            if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
+////                // TODO need this?
+////                lfsr_tag_trimtag(p_alts[0],
+////                        lower_lower_id, lower_upper_id,
+////                        &predicted_lower_tag, &predicted_upper_tag,
+////                        lower_id_);
+////            }
+//            // TODO can this be rewritten in terms of lfsr_tag_follow?
+//            if (weight_ > (lfs_size_t)(lower_upper_id-lower_lower_id-1)
+//                    || (weight_ == (lfs_size_t)(lower_upper_id-lower_lower_id-1)
+//                        // TODO need key?
+//                        && (lfsr_tag_isgt(alt)
+//                            ? lfsr_tag_key(predicted_lower_tag) > lfsr_tag_key(alt)
+//                            : lfsr_tag_key(predicted_upper_tag-0x10) <= lfsr_tag_key(alt)))) {
+////                        && (lfsr_tag_key(alt)
+////                                < lfsr_tag_key(lower_lower_tag)
+////                            || lfsr_tag_key(alt)
+////                                >= lfsr_tag_key(lower_upper_tag)))) {
+//                printf("PRUUUUUUUUUUUUUUUUUUUUUUUNE\n");
+//                printf("%d > %d-%d-1 => %d\n", weight_, lower_upper_id, lower_lower_id, weight_ > (lfs_size_t)(lower_upper_id-lower_lower_id-1));
+//                printf("%d == %d-%d-1 => %d\n", weight_, lower_upper_id, lower_lower_id, weight_ == (lfs_size_t)(lower_upper_id-lower_lower_id-1));
+//                printf("isgt = %d\n", lfsr_tag_isgt(alt));
+//                printf("0x%x > 0x%x => %d\n", lfsr_tag_key(predicted_lower_tag), lfsr_tag_key(alt), lfsr_tag_key(predicted_lower_tag) > lfsr_tag_key(alt));
+//                printf("0x%x <= 0x%x => %d\n", lfsr_tag_key(predicted_upper_tag-0x10), lfsr_tag_key(alt), lfsr_tag_key(predicted_upper_tag-0x10) <= lfsr_tag_key(alt));
+////                prune = true;
+////                lower_lower_tag = predicted_lower_tag;
+////                lower_upper_tag = predicted_upper_tag;
+//
+//                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
+//                    alt = lfsr_tag_mkblack(p_alts[0]);
+//                    weight_ = p_weights[0];
+//                    branch_ = jump;
+//                    jump = p_jumps[0];
+//                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+//
+//                    lfsr_tag_untrimweight(alt, weight_,
+//                            &lower_lower_id, &lower_upper_id);
+//
+//                    printf("pruned into alt%c%s 0x%x w%d 0x%x (0x%x)\n",
+//                        lfsr_tag_isred(alt) ? 'r' : 'b',
+//                        lfsr_tag_isgt(alt) ? "gt" : "lt",
+//                        lfsr_tag_key(alt),
+//                        weight_,
+//                        jump,
+//                        branch_);
+//                } else {
+//                    lower_branch = jump;
+//                    continue;
+//                }
+//            // cut while following
+//            } else if (diverged
 //                    && lfsr_tag_follow(alt, weight_,
 //                        lower_lower_id, lower_upper_id,
-//                        lower_tag_, lower_id_)) {
-//                printf("? %d || %d == %d\n",
-//                    (lower_id_ < upper_id_),
-//                    (lower_id_ == upper_id_ && lower_tag_ < upper_tag_),
-//                    lfsr_tag_isle(alt));
-//                printf("(0x%x %d) (0x%x %d)\n", lower_tag_, lower_id_, upper_tag_, upper_id_);
+//                        lower_tag_, lower_id_)
+//                    && (lower_id_ < upper_id_ 
+//                        || (lower_id_ == upper_id_ && lower_tag_ < upper_tag_))
+//                        == lfsr_tag_isle(alt)) {
+////                lfsr_tag_trimtag(lfsr_tag_flipalt(alt),
+////                        lower_lower_id, lower_upper_id,
+////                        &lower_lower_tag, &lower_upper_tag,
+////                        lower_id_);
+//                printf("trim-f\n");
+////                prune = true;
+//
+//                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
+//                    lfsr_tag_trimweight(
+//                            lfsr_tag_flipalt(alt),
+//                            lfsr_tag_flipweight(weight_,
+//                                lower_lower_id, lower_upper_id),
+//                            &lower_lower_id, &lower_upper_id);
+//                    alt = lfsr_tag_mkblack(p_alts[0]);
+//                    weight_ = p_weights[0];
+//                    branch_ = jump;
+//                    jump = p_jumps[0];
+//                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+//
+//                    lfsr_tag_untrimweight(alt, weight_,
+//                            &lower_lower_id, &lower_upper_id);
+//
+//                    printf("pruned into alt%c%s 0x%x w%d 0x%x (0x%x)\n",
+//                        lfsr_tag_isred(alt) ? 'r' : 'b',
+//                        lfsr_tag_isgt(alt) ? "gt" : "lt",
+//                        lfsr_tag_key(alt),
+//                        weight_,
+//                        jump,
+//                        branch_);
+//                } else {
+//                    lfsr_tag_trimweight(
+//                            lfsr_tag_flipalt(alt),
+//                            lfsr_tag_flipweight(weight_,
+//                                lower_lower_id, lower_upper_id),
+//                            &lower_lower_id, &lower_upper_id);
+//                    if (p_alts[0]) {
+//                        lfsr_tag_trim_(p_alts[0],
+//                                lower_lower_id, lower_upper_id,
+//                                &lower_lower_id, &lower_upper_id,
+//                                &lower_lower_tag, &lower_upper_tag);
+//                    }
+//                    lower_branch = jump;
+//                    continue;
+//                }
+//            // cut while not following
+//            } else if (diverged
+//                    && !lfsr_tag_follow(alt, weight_,
+//                        lower_lower_id, lower_upper_id,
+//                        lower_tag_, lower_id_)
+//                    && (lower_id_ < upper_id_ 
+//                        || (lower_id_ == upper_id_ && lower_tag_ < upper_tag_))
+//                        != lfsr_tag_isle(alt)) {
+////                lfsr_tag_trimtag(alt,
+////                        lower_lower_id, lower_upper_id,
+////                        &lower_lower_tag, &lower_upper_tag,
+////                        lower_id_);
+////                lfs_swap32(&jump, &branch_);
+//                printf("trim-nf\n");
+////                prune = true;
+//
+//                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
+////                    if (lfsr_tag_isparallel(alt, p_alts[0])) {
+////                        p_weights[0] += weight_;
+////                    }
+//                    lfsr_tag_trimweight(alt, weight_,
+//                            &lower_lower_id, &lower_upper_id);
+//                    alt = lfsr_tag_mkblack(p_alts[0]);
+//                    weight_ = p_weights[0];
+//                    jump = p_jumps[0];
+//                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+//
+//                    lfsr_tag_untrimweight(alt, weight_,
+//                            &lower_lower_id, &lower_upper_id);
+//
+//                    printf("pruned into alt%c%s 0x%x w%d 0x%x (0x%x)\n",
+//                        lfsr_tag_isred(alt) ? 'r' : 'b',
+//                        lfsr_tag_isgt(alt) ? "gt" : "lt",
+//                        lfsr_tag_key(alt),
+//                        weight_,
+//                        jump,
+//                        branch_);
+//                    printf("p alt%c%s 0x%x w%d 0x%x (0x%x %d (%d), 0x%x %d (%d)) f=%d (0x%x %d)\n",
+//                        !diverged
+//                            ? '='
+//                            : (lower_id_ < upper_id_
+//                                || (lower_id_ == upper_id_
+//                                    && lower_tag_ < upper_tag_))
+//                                ? '['
+//                                : ']',
+//                        lfsr_tag_isred(alt) ? 'r' : 'b',
+//                        lfsr_tag_isgt(alt) ? "gt" : "lt",
+//                        lfsr_tag_key(alt),
+//                        weight_, jump, lower_lower_tag, lower_lower_id, lower_lower_id, lower_upper_tag, lower_upper_id, lower_upper_id,
+//                        lfsr_tag_follow(alt, weight_,
+//                            lower_lower_id, lower_upper_id,
+//                            lower_tag_, lower_id_),
+//                        lower_tag_, lower_id_);
+//                } else {
+//                    lfsr_tag_trimweight(alt, weight_,
+//                            &lower_lower_id, &lower_upper_id);
+//                    if (p_alts[0]) {
+//                        lfsr_tag_trim_(p_alts[0],
+//                                lower_lower_id, lower_upper_id,
+//                                &lower_lower_id, &lower_upper_id,
+//                                &lower_lower_tag, &lower_upper_tag);
+//                    }
+//                    lower_branch = branch_;
+//                    continue;
+//                }
 //            }
+//
+////            if (diverged
+////                    && lfsr_tag_follow(alt, weight_,
+////                        lower_lower_id, lower_upper_id,
+////                        lower_tag_, lower_id_)) {
+////                printf("? %d || %d == %d\n",
+////                    (lower_id_ < upper_id_),
+////                    (lower_id_ == upper_id_ && lower_tag_ < upper_tag_),
+////                    lfsr_tag_isle(alt));
+////                printf("(0x%x %d) (0x%x %d)\n", lower_tag_, lower_id_, upper_tag_, upper_id_);
+////            }
+//
+////            if (prune) {
+////            }
+//
 
-//            if (prune) {
-//            }
-
-redo_red:                    
             // two reds makes a yellow, split?
             if (lfsr_tag_isred(alt)
                     && p_alts[0]
@@ -2354,24 +2585,36 @@ redo_red:
                 // |  |    <b         |    <b  |
                 // |  |  .-'|         |  .-'|  |
                 // 1  2  3  4      1  2  3  4  1
-                if (lfsr_tag_follow(alt, weight_,
+                if (lfsr_tag_follow2(
+                        alt, weight_,
+                        p_alts[0], p_weights[0],
                         lower_lower_id, lower_upper_id,
                         lower_tag_, lower_id_)) {
+                    printf("ysplitf\n");
                     lfs_swap16(&alt, &p_alts[0]);
                     lfs_swap32(&weight_, &p_weights[0]);
                     lfs_swap32(&jump, &branch_);
                     lfs_swap32(&jump, &p_jumps[0]);
+                    // TODO move these? combine these flips?
+                    p_weights[0] = lfsr_tag_flipweight2(p_weights[0],
+                            alt, weight_,
+                            lower_lower_id, lower_upper_id);
                     p_alts[0] = lfsr_tag_mkblack(
                             lfsr_tag_flipalt(p_alts[0]));
-                    p_weights[0] = lfsr_tag_flipweight(p_weights[0],
-                            lower_lower_id, lower_upper_id);
                     alt = lfsr_tag_mkblack(alt);
 
-                    lfsr_tag_untrimweight(alt, weight_,
-                            &lower_lower_id, &lower_upper_id);
-                    lfsr_tag_trimweight(p_alts[0], p_weights[0],
-                            &lower_lower_id, &lower_upper_id);
-                    lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+//                    lfsr_tag_untrimweight(alt, weight_,
+//                            &lower_lower_id, &lower_upper_id);
+//                    lfsr_tag_trimweight(p_alts[0], p_weights[0],
+//                            &lower_lower_id, &lower_upper_id);
+
+                    lfsr_tag_trim__(
+                            p_alts[0], p_weights[0],
+                            &lower_lower_id, &lower_upper_id,
+                            &lower_lower_tag, &lower_upper_tag);
+                    if (!diverged) { // TODO can we not do this while diverging?
+                        lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+                    }
 
                 // otherwise we need to point to the yellow alt and
                 // prune later
@@ -2385,24 +2628,28 @@ redo_red:
                 // |  |  .-'|      |  |  .----'|
                 // 1  2  3  4      1  2  3  4  4
                 } else {
+                    printf("ysplitnf\n");
                     LFS_ASSERT(graft != 0);
                     p_alts[0] = lfsr_tag_mkblack(alt);
                     p_weights[0] += weight_;
                     p_jumps[0] = graft;
 
-                    lfsr_tag_trimweight(alt, weight_,
-                            &lower_lower_id, &lower_upper_id);
+//                    lfsr_tag_trimweight(alt, weight_,
+//                            &lower_lower_id, &lower_upper_id);
 //                    lfsr_tag_trimtag(alt,
 //                            lower_lower_id, lower_upper_id,
 //                            &lower_lower_tag, &lower_upper_tag,
 //                            lower_id_);
-                    lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
 
-                    lfsr_tag_trim_(alt,
-                            lower_lower_id, lower_upper_id,
-                            &lower_lower_id_, &lower_upper_id_,
+                    lfsr_tag_trim__(
+                            p_alts[0], p_weights[0],
+                            &lower_lower_id, &lower_upper_id,
                             &lower_lower_tag, &lower_upper_tag);
+                    if (!diverged) { // TODO can we not do this while diverging?
+                        lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
+                    }
 
+                    graft = lower_branch; // TODO need?
                     lower_branch = branch_;
                     continue;
                 }
@@ -2413,13 +2660,20 @@ redo_red:
             // .-'|  =>     .-'|
             // 1  2      1  2  1
             if (lfsr_tag_isblack(alt)
-                    && lfsr_tag_follow(alt, weight_,
+                    && lfsr_tag_follow2(
+                        alt, weight_,
+                        p_alts[0], p_weights[0],
                         lower_lower_id, lower_upper_id,
                         lower_tag_, lower_id_)) {
                 printf("bflip\n");
-                alt = lfsr_tag_flipalt(alt);
-                weight_ = lfsr_tag_flipweight(weight_,
+                weight_ = lfsr_tag_flipweight2(weight_,
+                        p_alts[0], p_weights[0],
                         lower_lower_id, lower_upper_id);
+                alt = lfsr_tag_flipalt(alt);
+//                weight_ = lfsr_tag_flipweight2(
+//                        alt, weight_,
+//                        p_alts[0], p_weights[0],
+//                        lower_lower_id, lower_upper_id);
                 lfs_swap32(&jump, &branch_);
             }
 
@@ -2430,10 +2684,12 @@ redo_red:
             // |  .-'|         .--|-'|
             // 1  2  3      1  2  3  1
             if (p_alts[0]
-                    && lfsr_tag_follow(p_alts[0], 0,
+                    && lfsr_tag_isred(p_alts[0])
+                    && lfsr_tag_follow(p_alts[0], p_weights[0],
                         lower_lower_id, lower_upper_id,
                         lower_tag_, lower_id_)) {
-                LFS_ASSERT(lfsr_tag_isred(p_alts[0]));
+                printf("rflop\n");
+//              LFS_ASSERT(lfsr_tag_isred(p_alts[0]));
                 LFS_ASSERT(lfsr_tag_isblack(alt));
 
                 lfs_swap16(&alt, &p_alts[0]);
@@ -2443,25 +2699,23 @@ redo_red:
                 p_alts[0] = lfsr_tag_mkred(p_alts[0]);
                 alt = lfsr_tag_mkblack(alt);
 
-                lfsr_tag_untrimweight(alt, weight_,
-                        &lower_lower_id, &lower_upper_id);
-                lfsr_tag_trimweight(p_alts[0], p_weights[0],
-                        &lower_lower_id, &lower_upper_id);
+//                lfsr_tag_untrimweight(alt, weight_,
+//                        &lower_lower_id, &lower_upper_id);
+//                lfsr_tag_trimweight(p_alts[0], p_weights[0],
+//                        &lower_lower_id, &lower_upper_id);
 
-                printf("whh? 0x%x w%d 0x%x\n", alt, weight_, jump);
-                printf("www? (0x%x w%d, 0x%x w%d)\n", 0, lower_lower_id, 0, upper_upper_id);
-                alt = lfsr_tag_flipalt(alt);
-                weight_ = lfsr_tag_flipweight(weight_,
+                weight_ = lfsr_tag_flipweight2(weight_,
+                        p_alts[0], p_weights[0],
                         lower_lower_id, lower_upper_id);
+                alt = lfsr_tag_flipalt(alt);
                 lfs_swap32(&jump, &branch_);
-                printf("waa? 0x%x w%d 0x%x\n", alt, weight_, jump);
             }
 
             // push alt onto queue
             LFS_ASSERT((lfs_ssize_t)weight_ >= 0);
             printf("pushed alt%c%s 0x%x w%d 0x%x\n",
                 lfsr_tag_isred(alt) ? 'r' : 'b',
-                lfsr_tag_isgt(alt) ? "gt" : "lt",
+                lfsr_tag_isgt(alt) ? "gt" : "le",
                 lfsr_tag_key(alt),
                 weight_,
                 jump);
@@ -2473,19 +2727,30 @@ redo_red:
             }
 
             // continue to next alt
-            lfsr_tag_trimweight(alt, weight_, &lower_lower_id, &lower_upper_id);
+            // TODO move this up?
             if (lfsr_tag_isblack(alt)) {
-                lfsr_tag_trim_(alt,
-                        lower_lower_id, lower_upper_id,
-                        &lower_lower_id_, &lower_upper_id_,
+                lfsr_tag_trim2(
+                        p_alts[0], p_weights[0],
+                        p_alts[1], p_weights[1],
+                        &lower_lower_id, &lower_upper_id,
                         &lower_lower_tag, &lower_upper_tag);
-//                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
-//                    lfsr_tag_trimtag(p_alts[0],
-//                            lower_lower_id, lower_upper_id,
-//                            &lower_lower_tag, &lower_upper_tag,
-//                            lower_id_);
-//                }
             }
+            graft = lower_branch;
+            lower_branch = branch_;
+
+//            lfsr_tag_trimweight(alt, weight_, &lower_lower_id, &lower_upper_id);
+//            if (lfsr_tag_isblack(alt)) {
+//                lfsr_tag_trim_(alt,
+//                        lower_lower_id, lower_upper_id,
+//                        &lower_lower_id, &lower_upper_id,
+//                        &lower_lower_tag, &lower_upper_tag);
+////                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
+////                    lfsr_tag_trimtag(p_alts[0],
+////                            lower_lower_id, lower_upper_id,
+////                            &lower_lower_tag, &lower_upper_tag,
+////                            lower_id_);
+////                }
+//            }
 //            // TODO need key?
 //            if (lfsr_tag_key(alt) >= lfsr_tag_key(lower_tag_)) {
 //                // TODO always max?
@@ -2495,11 +2760,10 @@ redo_red:
 //                // TODO always min?
 //                lower_upper_tag = lfs_min(lfsr_tag_key(alt), lower_upper_tag);
 //            }
-            graft = lower_branch;
-            lower_branch = branch_;
 
         // found end of tree?
         } else {
+            LFS_ASSERT(!p_alts[0] || lfsr_tag_isblack(p_alts[0]));
             // update the tag id, marking as found
             lower_tag_ = lfsr_tag_mkfound(alt);
             lower_id_ = lower_upper_id-1;
@@ -2523,8 +2787,6 @@ stem:;
         upper_branch = lower_branch;
         upper_lower_id = lower_lower_id;
         upper_upper_id = lower_upper_id;
-        upper_lower_id_ = lower_lower_id_;
-        upper_upper_id_ = lower_upper_id_;
         upper_lower_tag = lower_lower_tag;
         upper_upper_tag = lower_upper_tag;
     } else if (lower_id_ > upper_id_
@@ -2534,8 +2796,6 @@ stem:;
         lfs_swap32(&lower_branch, &upper_branch);
         lfs_swaps32(&lower_lower_id, &upper_lower_id);
         lfs_swaps32(&lower_upper_id, &upper_upper_id);
-        lfs_swaps32(&lower_lower_id_, &upper_lower_id_);
-        lfs_swaps32(&lower_upper_id_, &upper_upper_id_);
         lfs_swap16(&lower_lower_tag, &upper_lower_tag);
         lfs_swap16(&lower_upper_tag, &upper_upper_tag);
     }

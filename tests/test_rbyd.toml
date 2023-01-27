@@ -6535,7 +6535,7 @@ code = '''
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
-    lfs_size_t n = 1 + N + N;
+    lfs_size_t n = 1 + N+N*M + 2;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
     printf("avg height: %u B (N=%u, estimate=%u)\n",
@@ -6546,140 +6546,140 @@ code = '''
     }
 '''
 
-#[cases.test_rbyd_mixed_remove_all_permutations]
-#defines.N = 'range(1, 4)'
-#defines.M = 'range(1, 3)'
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= N'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    const uint8_t names[6][4] = {
-#        "\xaa\xaa\xaa\xaa",
-#        "\xbb\xbb\xbb\xbb",
-#        "\xcc\xcc\xcc\xcc",
-#        "\xdd\xdd\xdd\xdd",
-#        "\xee\xee\xee\xee",
-#        "\xff\xff\xff\xff",
-#    };
-#    lfsr_rbyd_t rbyd;
-#    uint8_t buffer[4];
-#
-#    // keep track of the worst case log size
-#    lfs_size_t worst_size = 0;
-#
-#    // create one consistent block
-#    rbyd = init_rbyd;
-#    lfs_bd_erase(&lfs, rbyd.block) => 0;
-#
-#    for (unsigned j = 0; j < N; j++) {
-#        lfsr_rbyd_commit(&lfs, &rbyd,
-#                LFSR_ATTR(MKREG, j, names[j % 6], 4,
-#                NULL)) => 0;
-#        // note uattrs have a smaller size to help debugging
-#        for (unsigned u = 0; u < M; u++) {
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(UATTR(u+1), j, names[j % 6], 2,
-#                    NULL)) => 0;
-#        }
-#    }
-#
-#    // copy block so we can reset after each remove
-#    lfsr_rbyd_t backup_rbyd = rbyd;
-#    uint8_t backup_block[BLOCK_SIZE];
-#    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-#            rbyd.block, 0, backup_block, rbyd.off) => 0;
-#
-#    // test all permutations of a given size
-#    uint8_t perm[N*M];
-#    unsigned stack[N*M];
-#    for (uint8_t i = 0; i < N*M; i++) {
-#        perm[i] = i;
-#        stack[i] = 0;
-#    }
-#
-#    unsigned i = 1;
-#    while (i < N*M) {
-#        // print permutation to help debugging
-#        printf("--- permutation: [");
-#        for (unsigned j = 0; j < N*M; j++) {
-#            if (j > 0) {
-#                printf(", ");
-#            }
-#            printf("%d", perm[j]+1);
-#        }
-#        printf("] ---\n");
-#
-#        // restore backup
-#        rbyd = backup_rbyd;
-#        lfs_bd_erase(&lfs, rbyd.block) => 0;
-#        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-#                rbyd.block, 0, backup_block, rbyd.off) => 0;
-#        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
-#
-#        // remove each tag in permutation order
-#        for (unsigned j = 0; j < N*M; j++) {
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(RMUATTR(perm[j]%M+1), perm[j]/M, NULL, 0,
-#                    NULL)) => 0;
-#        }
-#
-#        // check that all tags have been removed 
-#        lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-#        for (unsigned j = 0; j < N; j++) {
-#            lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, j, buffer, 4) => 4;
-#            assert(memcmp(buffer, names[j % 6], 4) == 0);
-#
-#            for (unsigned u = 0; u < M; u++) {
-#                lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(u+1), j, buffer, 4)
-#                        => LFS_ERR_NOENT;
-#            }
-#        }
-#
-#        // keep track of the worst size
-#        worst_size = lfs_max(worst_size, rbyd.off);
-#
-#        // next permutation using Heap's algorithm
-#        if (stack[i] < i) {
-#            if (i % 2 == 0) {
-#                uint8_t t = perm[0];
-#                perm[0] = perm[i];
-#                perm[i] = t;
-#            } else {
-#                uint8_t t = perm[stack[i]];
-#                perm[stack[i]] = perm[i];
-#                perm[i] = t;
-#            }
-#            stack[i] += 1;
-#            i = 1;
-#        } else {
-#            stack[i] = 0;
-#            i += 1;
-#        }
-#    }
-#
-#    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
-#    lfs_size_t n = 1 + N + N*M + N*M;
-#    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
-#    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
-#    // note this only holds true with byte-level progs
-#    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
-#    }
-#'''
+[cases.test_rbyd_mixed_remove_all_permutations]
+defines.N = 'range(1, 4)'
+defines.M = 'range(1, 3)'
+in = 'lfs.c'
+if = 'BLOCK_SIZE/PROG_SIZE >= N'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+    lfsr_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+
+    // create one consistent block
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+    for (unsigned j = 0; j < N; j++) {
+        lfsr_rbyd_commit(&lfs, &rbyd,
+                LFSR_ATTR(MKREG, j, names[j % 6], 4,
+                NULL)) => 0;
+        // note uattrs have a smaller size to help debugging
+        for (unsigned u = 0; u < M; u++) {
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(UATTR(u+1), j, names[j % 6], 2,
+                    NULL)) => 0;
+        }
+    }
+
+    // copy block so we can reset after each remove
+    lfsr_rbyd_t backup_rbyd = rbyd;
+    uint8_t backup_block[BLOCK_SIZE];
+    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
+            rbyd.block, 0, backup_block, rbyd.off) => 0;
+
+    // test all permutations of a given size
+    uint8_t perm[N*M];
+    unsigned stack[N*M];
+    for (uint8_t i = 0; i < N*M; i++) {
+        perm[i] = i;
+        stack[i] = 0;
+    }
+
+    unsigned i = 1;
+    while (i < N*M) {
+        // print permutation to help debugging
+        printf("--- permutation: [");
+        for (unsigned j = 0; j < N*M; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]+1);
+        }
+        printf("] ---\n");
+
+        // restore backup
+        rbyd = backup_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+        lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
+                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
+
+        // remove each tag in permutation order
+        for (unsigned j = 0; j < N*M; j++) {
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(RMUATTR(perm[j]%M+1), perm[j]/M, NULL, 0,
+                    NULL)) => 0;
+        }
+
+        // check that all tags have been removed 
+        lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, j, buffer, 4) => 4;
+            assert(memcmp(buffer, names[j % 6], 4) == 0);
+
+            for (unsigned u = 0; u < M; u++) {
+                lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(u+1), j, buffer, 4)
+                        => LFS_ERR_NOENT;
+            }
+        }
+
+        // keep track of the worst size
+        worst_size = lfs_max(worst_size, rbyd.off);
+
+        // next permutation using Heap's algorithm
+        if (stack[i] < i) {
+            if (i % 2 == 0) {
+                uint8_t t = perm[0];
+                perm[0] = perm[i];
+                perm[i] = t;
+            } else {
+                uint8_t t = perm[stack[i]];
+                perm[stack[i]] = perm[i];
+                perm[i] = t;
+            }
+            stack[i] += 1;
+            i = 1;
+        } else {
+            stack[i] = 0;
+            i += 1;
+        }
+    }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
+    lfs_size_t n = 1 + N + N*M + N*M;
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+    printf("avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+    // note this only holds true with byte-level progs
+    if (PROG_SIZE == 1) {
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+    }
+'''
 
 [cases.test_rbyd_mixed_large]
 in = 'lfs.c'
