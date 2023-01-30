@@ -330,7 +330,7 @@ def show_tree(block_size, data, rev, trunk, weight, *,
         while True:
             _, alt, weight_, jump, delta = fromtag(data[j:])
 
-            # founat alt?
+            # found an alt?
             if alt & 0x8:
                 weight_ += 1
                 # follow?
@@ -371,22 +371,22 @@ def show_tree(block_size, data, rev, trunk, weight, *,
             else:
                 tag_ = alt
                 id_ = upper-1
-                return tag_, id_, j, delta, jump, path
+
+                done = (id_, tag_) < (id, tag) or tag_ & 2
+
+                return done, tag_, id_, j, delta, jump, path
 
     # precompute tree
     if args.get('tree'):
         tags = []
         paths = {}
 
-        tag_ = 0
-        id_ = -1
+        tag, id = 0, -1
         while True:
-            tag, id, j, delta, size, path = lookup(tag_, id_)
+            done, tag, id, j, delta, size, path = lookup(tag+0x10, id)
             # found end of tree?
-            if (id, tag) < (id_, tag_) or tag & 2:
+            if done:
                 break
-            tag_ = tag + 0x10
-            id_ = id
 
             tags.append((j, tag, id))
             for x, (a, b, c) in enumerate(path):
@@ -478,15 +478,12 @@ def show_tree(block_size, data, rev, trunk, weight, *,
         'data (truncated)'
             if not args.get('no_truncate') else ''))
 
-    tag_ = 0
-    id_ = -1
+    tag, id = 0, -1
     while True:
-        tag, id, j, delta, size, path = lookup(tag_, id_)
+        done, tag, id, j, delta, size, path = lookup(tag+0x10, id)
         # found end of tree?
-        if (id, tag) < (id_, tag_) or tag & 2:
+        if done:
             break
-        tag_ = tag + 0x10
-        id_ = id
 
         # show human-readable tag representation
         print('%08x:%s %-57s' % (

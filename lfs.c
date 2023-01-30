@@ -1737,6 +1737,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_tag_t tag, lfsr_sid_t id,
         lfsr_tag_t *tag_, lfsr_sid_t *id_, lfs_off_t *off_, lfs_size_t *size_) {
+    // tag must be non-zero! zero tags may deceptively look like they work but
+    // fail when the tree contains a deleted id0
+    LFS_ASSERT(tag != 0);
+
     // no trunk yet?
     lfs_off_t branch = rbyd->trunk;
     if (!branch) {
