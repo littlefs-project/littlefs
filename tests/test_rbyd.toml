@@ -2113,12 +2113,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -2212,12 +2212,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -2697,12 +2697,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -3035,12 +3035,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + 2;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -3646,12 +3646,186 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N + 1;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
+    }
+'''
+
+# the main purpose of this test is to try to fuzz for failures in the
+# balancing algorithm
+[cases.test_rbyd_random_append_removes]
+defines.N = 'range(1, 33)'
+defines.ITER = 1000
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    const char *alpha = "abcdefghijklmnopqrstuvwxyz";
+    uint8_t buffer[4];
+
+    // keep track of the worst case size and seed
+    lfs_size_t worst_size = 0;
+    uint32_t worst_seed = 0;
+
+    // iterate through seeds so we can reproduce easily
+    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+        printf("--- seed: %d ---\n", seed);
+        printf("perm: [");
+        uint32_t prng = seed;
+        for (unsigned i = 0; i < N; i++) {
+            // choose an attr
+            uint8_t attr = TEST_PRNG(&prng) % N;
+            // choose append or remove
+            if (TEST_PRNG(&prng) & 1) {
+                printf("a0x%02x=%c", attr, alpha[i % 26]);
+            } else {
+                printf("r0x%02x", attr);
+            }
+            if (i < N-1) {
+                printf(", ");
+            }
+        }
+        printf("]\n");
+
+        // set up a simulation to compare against
+        char *sim = malloc(N);
+        memset(sim, 0, N);
+
+        // set up rbyd block
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+        prng = seed;
+        for (unsigned i = 0; i < N; i++) {
+            // choose an attr
+            uint8_t attr = TEST_PRNG(&prng) % N;
+            // choose append or remove
+            if (TEST_PRNG(&prng) & 1) {
+                // update our sim
+                sim[attr] = alpha[i % 26];
+                // update our rbyd
+                lfsr_rbyd_commit(&lfs, &rbyd,
+                        LFSR_ATTR(UATTR(attr), -1, &alpha[i % 26], 1,
+                        NULL)) => 0;
+            } else {
+                // update our sim
+                sim[attr] = '\0';
+                // update our rbyd
+                lfsr_rbyd_commit(&lfs, &rbyd,
+                        LFSR_ATTR(RMUATTR(attr), -1, NULL, 0,
+                        NULL)) => 0;
+            }
+        }
+
+        // compare rbyd vs simulation
+        printf("expd: [");
+        bool first = true;
+        for (unsigned attr = 0; attr < N; attr++) {
+            if (sim[attr]) {
+                if (!first) {
+                    printf(", ");
+                }
+                first = false;
+                printf("0x%02x=%c", attr, sim[attr]);
+            }
+        }
+        printf("]\n");
+        printf("rbyd: [");
+        first = true;
+        for (unsigned attr = 0; attr < N; attr++) {
+            lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
+                    LFSR_TAG_UATTR(attr), -1, buffer, 4);
+            if (size >= 0) {
+                if (!first) {
+                    printf(", ");
+                }
+                first = false;
+                printf("0x%02x=%.*s", attr, size, buffer);
+            }
+        }
+        printf("]\n");
+
+        for (unsigned attr = 0; attr < N; attr++) {
+            lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
+                    LFSR_TAG_UATTR(attr), -1, buffer, 4);
+            if (sim[attr]) {
+                assert(size == 1);
+                assert(memcmp(&sim[attr], buffer, 1) == 0);
+            } else {
+                assert(size == LFS_ERR_NOENT);
+            }
+        }
+
+        // keep track of the worst permutation
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_seed = seed;
+        }
+    }
+
+    // print the worst seed + size, and rerun it so it's left on the disk
+    // if used with -ddisk
+    printf("--- worst ---\n");
+    printf("worst_seed: %d\n", worst_seed);
+    printf("worst_size: %d\n", worst_size);
+    printf("worst_perm: [");
+    uint32_t prng = worst_seed;
+    for (unsigned i = 0; i < N; i++) {
+        // choose an attr
+        uint8_t attr = TEST_PRNG(&prng) % N;
+        // choose append or remove
+        if (TEST_PRNG(&prng) & 1) {
+            printf("a0x%02x=%c", attr, alpha[i % 26]);
+        } else {
+            printf("r0x%02x", attr);
+        }
+        if (i < N-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+
+    // set up rbyd block
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+    prng = worst_seed;
+    for (unsigned i = 0; i < N; i++) {
+        // choose an attr
+        uint8_t attr = TEST_PRNG(&prng) % N;
+        // choose append or remove
+        if (TEST_PRNG(&prng) & 1) {
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(UATTR(attr), -1, &alpha[i % 26], 1,
+                    NULL)) => 0;
+        } else {
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(RMUATTR(attr), -1, NULL, 0,
+                    NULL)) => 0;
+        }
+    }
+
+    // our tree should be strictly <= 2*log(n)+1, assume tags are strictly
+    // <=12 bytes, note this only holds true with byte-level progs
+    if (PROG_SIZE == 1) {
+        assert(worst_size <= N*12*(2*lfs_nlog2(N)+1)+1);
     }
 '''
 
@@ -3796,12 +3970,12 @@ code = '''
 #    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
 #    lfs_size_t n = 1 + N + 1 + 1;
 #    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
 #    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
 #    // note this only holds true with byte-level progs
 #    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
 #    }
 #'''
 
@@ -4222,12 +4396,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -4333,12 +4507,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -5471,12 +5645,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -5593,12 +5767,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -6330,12 +6504,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M + N*M;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -6535,12 +6709,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N+N*M + 2;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -6670,12 +6844,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M + N*M;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -7301,12 +7475,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + 2;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -7503,12 +7677,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N+N*M + 1 + 1+M;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -7900,12 +8074,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + 2*N + 1;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -8073,12 +8247,12 @@ code = '''
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N+N*M + N + 1+M;
     printf("worst size: %u B (N=%u, estimate=%u)\n",
-            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
     printf("avg height: %u B (N=%u, estimate=%u)\n",
-            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
-        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
     }
 '''
 
@@ -8233,12 +8407,12 @@ code = '''
 #    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
 #    lfs_size_t n = 1 + N + 1 + 1;
 #    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
 #    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
 #    // note this only holds true with byte-level progs
 #    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
 #    }
 #'''
 #
@@ -8426,11 +8600,190 @@ code = '''
 #    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
 #    lfs_size_t n = 1 + N+N*M + 1 + 1+M;
 #    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1));
+#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
 #    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1));
+#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
 #    // note this only holds true with byte-level progs
 #    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1));
+#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
 #    }
 #'''
+
+# the main purpose of this test is to try to fuzz for failures in the
+# balancing algorithm
+[cases.test_rbyd_random_create_deletes]
+defines.N = 'range(1, 33)'
+defines.ITER = 1000
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    const char *alpha = "abcdefghijklmnopqrstuvwxyz";
+    uint8_t buffer[4];
+
+    // keep track of the worst case size and seed
+    lfs_size_t worst_size = 0;
+    uint32_t worst_seed = 0;
+
+    // iterate through seeds so we can reproduce easily
+    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+        printf("--- seed: %d ---\n", seed);
+        printf("perm: [");
+        uint32_t prng = seed;
+        lfs_size_t count = 0;
+        for (unsigned i = 0; i < N; i++) {
+            // choose an id
+            lfsr_sid_t id = TEST_PRNG(&prng) % (count+1);
+            // choose create or delete
+            if (id == (lfsr_sid_t)count || (TEST_PRNG(&prng) & 1)) {
+                printf("c%d=%c", id, alpha[i % 26]);
+                count += 1;
+            } else {
+                printf("d%d", id);
+                count -= 1;
+            }
+            if (i < N-1) {
+                printf(", ");
+            }
+        }
+        printf("]\n");
+
+        // set up a simulation to compare against, fun fact this performs
+        // worst than our actual rbyd block!
+        char *sim = malloc(N);
+        memset(sim, 0, N);
+
+        // set up rbyd block
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+        prng = seed;
+        count = 0;
+        for (unsigned i = 0; i < N; i++) {
+            // choose an id
+            lfsr_sid_t id = TEST_PRNG(&prng) % (count+1);
+            // choose create or delete
+            if (id == (lfsr_sid_t)count || (TEST_PRNG(&prng) & 1)) {
+                // update our sim
+                memmove(sim+id+1, sim+id, count-id);
+                sim[id] = alpha[i % 26];
+                count += 1;
+                // update our rbyd
+                lfsr_rbyd_commit(&lfs, &rbyd,
+                        LFSR_ATTR(MKREG, id, &alpha[i % 26], 1,
+                        NULL)) => 0;
+            } else {
+                // update our sim
+                memmove(sim+id, sim+id+1, count-id-1);
+                count -= 1;
+                // update our rbyd
+                lfsr_rbyd_commit(&lfs, &rbyd,
+                        LFSR_ATTR(RM, id, NULL, 0,
+                        NULL)) => 0;
+            }
+        }
+
+        // compare rbyd vs simulation
+        printf("expd: [");
+        for (lfsr_sid_t id = 0; id < (lfsr_sid_t)count; id++) {
+            printf("%c", sim[id]);
+            if (id < (lfsr_sid_t)count-1) {
+                printf(", ");
+            }
+        }
+        printf("]\n");
+        printf("rbyd: [");
+        for (lfsr_sid_t id = 0; id < (lfsr_sid_t)rbyd.weight; id++) {
+            lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
+                    LFSR_TAG_MKREG, id, buffer, 4);
+            if (size >= 0) {
+                printf("%.*s", size, buffer);
+            } else {
+                printf("?");
+            }
+            if (id < (lfsr_sid_t)count-1) {
+                printf(", ");
+            }
+        }
+        printf("]\n");
+
+        assert(count == rbyd.weight);
+        for (lfsr_sid_t id = 0; id < (lfsr_sid_t)count; id++) {
+            lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, id, buffer, 4) => 1;
+            assert(memcmp(&sim[id], buffer, 1) == 0);
+        }
+
+        // keep track of the worst permutation
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_seed = seed;
+        }
+    }
+
+    // print the worst seed + size, and rerun it so it's left on the disk
+    // if used with -ddisk
+    printf("--- worst ---\n");
+    printf("worst_seed: %d\n", worst_seed);
+    printf("worst_size: %d\n", worst_size);
+    printf("worst_perm: [");
+    uint32_t prng = worst_seed;
+    lfs_size_t count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose an id
+        lfsr_sid_t id = TEST_PRNG(&prng) % (count+1);
+        // choose create or delete
+        if (id == (lfsr_sid_t)count || (TEST_PRNG(&prng) & 1)) {
+            printf("c%d=%c", id, alpha[i % 26]);
+            count += 1;
+        } else {
+            printf("d%d", id);
+            count -= 1;
+        }
+        if (i < N-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+
+    // set up rbyd block
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+    prng = worst_seed;
+    count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose an id
+        lfsr_sid_t id = TEST_PRNG(&prng) % (count+1);
+        // choose create or delete
+        if (id == (lfsr_sid_t)count || (TEST_PRNG(&prng) & 1)) {
+            count += 1;
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(MKREG, id, &alpha[i % 26], 1,
+                    NULL)) => 0;
+        } else {
+            count -= 1;
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(RM, id, NULL, 0,
+                    NULL)) => 0;
+        }
+    }
+
+    // our tree should be strictly <= 2*log(n)+1, assume tags are strictly
+    // <=12 bytes, note this only holds true with byte-level progs
+    if (PROG_SIZE == 1) {
+        assert(worst_size <= N*12*(2*lfs_nlog2(N)+1)+1);
+    }
+'''
