@@ -219,10 +219,6 @@ def show_log(block_size, data, rev, off, *,
             lifetime, weight = lifetimes.get(j, ('', 0))
             return '%s%*s' % (lifetime, 2*(max_weight-weight), '')
 
-    # prepare other things
-    if args.get('rbyd'):
-        alts = []
-
     # print header
     print('%-8s  %s%-22s  %s' % (
         'off',
@@ -258,14 +254,6 @@ def show_log(block_size, data, rev, off, *,
                     notes.append('crc!=%08x' % crc)
             j_ += size
 
-#        # adjust weight?
-#        if args.get('lifetimes'):
-#            if (tag & ~0x3f0) == 0x0400:
-#                weight += 1
-#            elif ((tag & ~0x3f0) == 0x0402
-#                    and ((tag >> 15) & 0xffff)-1 < len(ids)):
-#                weight -= 1
-
         # show human-readable tag representation
         print('%s%08x:%s %s%s%-57s%s%s' % (
             '\x1b[90m' if color and j >= off else '',
@@ -281,16 +269,6 @@ def show_log(block_size, data, rev, off, *,
                         and not tag & 0x8 else ''),
             '\x1b[m' if color and j >= off else '',
             ' (%s)' % ', '.join(notes) if notes
-            else ' %s' % ''.join(
-                    ('\x1b[33my\x1b[m' if color else 'y')
-                        if alts[i] & 0x2
-                        and i+1 < len(alts)
-                        and alts[i+1] & 0x2
-                    else ('\x1b[31mr\x1b[m' if color else 'r')
-                        if alts[i] & 0x2
-                    else ('\x1b[90mb\x1b[m' if color else 'b')
-                    for i in range(len(alts)-1, -1, -1))
-                if args.get('rbyd') and (tag & 0x7) == 0
             else ' %s' % jumprepr(j)
                 if args.get('jumps')
             else ''))
@@ -333,12 +311,6 @@ def show_log(block_size, data, rev, off, *,
                         line,
                         '\x1b[m' if color and j >= off else ''))
 
-        if args.get('rbyd'):
-            if tag & 0x8:
-                alts.append(tag)
-            else:
-                alts = []
-
 
 def show_tree(block_size, data, rev, trunk, weight, *,
         color=False,
@@ -348,31 +320,32 @@ def show_tree(block_size, data, rev, trunk, weight, *,
 
     # lookup a tag, returning also the search path for decoration
     # purposes
-    def lookup(tag):
-        lower = 0
-        upper = (weight+1) << 15
+    def lookup(tag, id):
+        lower = -1
+        upper = weight
         path = []
 
         # descend down tree
         j = trunk
         while True:
-            _, alt, jump, delta = fromtag(data[j:])
+            _, alt, weight_, jump, delta = fromtag(data[j:])
 
             # founat alt?
-            if alt & 0x4:
+            if alt & 0x8:
+                weight_ += 1
                 # follow?
-                if (tag >= upper - (alt & ~0x7)
-                        if alt & 0x2
-                        else tag < lower + (alt & ~0x7)):
-                    lower += (upper-lower)-(alt & ~0x7) if alt & 0x2 else 0
-                    upper -= (upper-lower)-(alt & ~0x7) if not alt & 0x2 else 0
+                if ((id, tag & ~0xf) > (upper-weight_-1, alt & ~0xf)
+                        if alt & 0x4
+                        else ((id, tag & ~0xf) <= (lower+weight_, alt & ~0xf))):
+                    lower += upper-lower-1-weight_ if alt & 0x4 else 0
+                    upper -= upper-lower-1-weight_ if not alt & 0x4 else 0
                     j = j - jump
 
-                    if args.get('rbyd') or args.get('tree'):
+                    if args.get('tree'):
                         # figure out which color
-                        if alt & 0x1:
-                            _, nalt, _, _ = fromtag(data[j+jump+delta:])
-                            if nalt & 0x1:
+                        if alt & 0x2:
+                            _, nalt, _, _, _ = fromtag(data[j+jump+delta:])
+                            if nalt & 0x2:
                                 path.append((j+jump, j, 'y'))
                             else:
                                 path.append((j+jump, j, 'r'))
@@ -380,15 +353,15 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                             path.append((j+jump, j, 'b'))
                 # stay on path
                 else:
-                    lower += (alt & ~0x7) if not alt & 0x2 else 0
-                    upper -= (alt & ~0x7) if alt & 0x2 else 0
+                    lower += weight_ if not alt & 0x4 else 0
+                    upper -= weight_ if alt & 0x4 else 0
                     j = j + delta
 
-                    if args.get('rbyd') or args.get('tree'):
+                    if args.get('tree'):
                         # figure out which color
-                        if alt & 0x1:
-                            _, nalt, _, _ = fromtag(data[j:])
-                            if nalt & 0x1:
+                        if alt & 0x2:
+                            _, nalt, _, _, _ = fromtag(data[j:])
+                            if nalt & 0x2:
                                 path.append((j-delta, j, 'y'))
                             else:
                                 path.append((j-delta, j, 'r'))
@@ -396,9 +369,9 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                             path.append((j-delta, j, 'b'))
             # found tag
             else:
-                tag_ = (((upper-0x8) & ~0x7fff)
-                    | (alt & 0x7fff))
-                return tag_, j, delta, jump, path
+                tag_ = alt
+                id_ = upper-1
+                return tag_, id_, j, delta, jump, path
 
     # precompute tree
     if args.get('tree'):
@@ -406,22 +379,24 @@ def show_tree(block_size, data, rev, trunk, weight, *,
         paths = {}
 
         tag_ = 0
+        id_ = -1
         while True:
-            tag, j, delta, size, path = lookup(tag_)
+            tag, id, j, delta, size, path = lookup(tag_, id_)
             # found end of tree?
-            if tag < tag_ or tag & 1:
+            if (id, tag) < (id_, tag_) or tag & 2:
                 break
-            tag_ = tag + 0x8
+            tag_ = tag + 0x10
+            id_ = id
 
-            tags.append((j, tag))
+            tags.append((j, tag, id))
             for x, (a, b, c) in enumerate(path):
                 paths[a, b, x] = c
 
         # align paths to nearest tag
         tags.sort()
         paths = {(
-            tags[bisect.bisect_left(tags, (a, 0), hi=len(tags)-1)],
-            tags[bisect.bisect_left(tags, (b, 0), hi=len(tags)-1)],
+            tags[bisect.bisect_left(tags, (a, 0, -1), hi=len(tags)-1)],
+            tags[bisect.bisect_left(tags, (b, 0, -1), hi=len(tags)-1)],
             x): c for (a, b, x), c in paths.items()}
 
         # also find the maximum depth
@@ -431,7 +406,8 @@ def show_tree(block_size, data, rev, trunk, weight, *,
             if depth == 0:
                 return ''
 
-            _, tag = tags[bisect.bisect_left(tags, (j, 0), hi=len(tags)-1)]
+            _, tag, id = tags[bisect.bisect_left(
+                tags, (j, 0, -1), hi=len(tags)-1)]
 
             def c_start(c):
                 return ('\x1b[33m' if color and c == 'y'
@@ -445,41 +421,44 @@ def show_tree(block_size, data, rev, trunk, weight, *,
             path = []
             seen = None
             for x in range(depth):
-                if any(x == x_ and tag == a_tag
-                        for (_, a_tag), _, x_ in paths.keys()):
+                if any(x == x_ and tag == a_tag and id == a_id
+                        for (_, a_tag, a_id), _, x_ in paths.keys()):
                     c = next(c
-                        for ((_, a_tag), _, x_), c in paths.items()
-                        if x == x_ and tag == a_tag)
+                        for ((_, a_tag, a_id), _, x_), c in paths.items()
+                        if x == x_ and tag == a_tag and id == a_id)
                     path.append('%s+%s' % (c_start(c), c_stop(c)))
-                elif any(x == x_ and tag == b_tag
-                        for _, (_, b_tag), x_ in paths.keys()):
-                    a_tag, c = next((a_tag, c)
-                        for ((_, a_tag), (_, b_tag), x_), c in paths.items()
-                        if x == x_ and tag == b_tag)
-                    if a_tag < tag:
+                elif any(x == x_ and tag == b_tag and id == b_id
+                        for _, (_, b_tag, b_id), x_ in paths.keys()):
+                    a_tag, a_id, c = next((a_tag, a_id, c)
+                        for ((_, a_tag, a_id), (_, b_tag, b_id), x_), c
+                            in paths.items()
+                        if x == x_ and tag == b_tag and id == b_id)
+                    if (a_id, a_tag) < (id, tag):
                         path.append('%s\'%s' % (c_start(c), c_stop(c)))
                     else:
                         path.append('%s.%s' % (c_start(c), c_stop(c)))
                 elif any(x == x_
-                        and tag >= min(a_tag, b_tag)
-                        and tag <= max(a_tag, b_tag)
-                        for (_, a_tag), (_, b_tag), x_ in paths.keys()):
+                        and (id, tag) >= min((a_id, a_tag), (b_id, b_tag))
+                        and (id, tag) <= max((a_id, a_tag), (b_id, b_tag))
+                        for (_, a_tag, a_id), (_, b_tag, b_id), x_
+                            in paths.keys()):
                     c = next(c
-                        for ((_, a_tag), (_, b_tag), x_), c in paths.items()
+                        for ((_, a_tag, a_id), (_, b_tag, b_id), x_), c
+                            in paths.items()
                         if x == x_
-                            and tag >= min(a_tag, b_tag)
-                            and tag <= max(a_tag, b_tag))
+                            and (id, tag) >= min((a_id, a_tag), (b_id, b_tag))
+                            and (id, tag) <= max((a_id, a_tag), (b_id, b_tag)))
                     path.append('%s|%s' % (c_start(c), c_stop(c)))
                 elif seen:
                     path.append('%s-%s' % (c_start(seen), c_stop(seen)))
                 else:
                     path.append(' ')
 
-                if any(x == x_ and tag == b_tag
-                        for _, (_, b_tag), x_ in paths.keys()):
+                if any(x == x_ and tag == b_tag and id == b_id
+                        for _, (_, b_tag, b_id), x_ in paths.keys()):
                     c = next(c
-                        for (_, (_, b_tag), x_), c in paths.items()
-                        if x == x_ and tag == b_tag)
+                        for (_, (_, b_tag, b_id), x_), c in paths.items()
+                        if x == x_ and tag == b_tag and id == b_id)
                     seen = c
 
                 if seen and x == depth-1:
@@ -500,31 +479,25 @@ def show_tree(block_size, data, rev, trunk, weight, *,
             if not args.get('no_truncate') else ''))
 
     tag_ = 0
+    id_ = -1
     while True:
-        tag, j, delta, size, path = lookup(tag_)
+        tag, id, j, delta, size, path = lookup(tag_, id_)
         # found end of tree?
-        if tag < tag_ or tag & 1:
+        if (id, tag) < (id_, tag_) or tag & 2:
             break
-        tag_ = tag + 0x8
+        tag_ = tag + 0x10
+        id_ = id
 
         # show human-readable tag representation
-        print('%08x:%s %-57s%s' % (
+        print('%08x:%s %-57s' % (
             j,
             treerepr(j) if args.get('tree') else '',
             '%-22s%s' % (
-                tagrepr(tag, size, j),
+                tagrepr(tag, id, size, j),
                 '  %s' % next(xxd(
                         data[j+delta:j+delta+min(size, 8)], 8), '')
                     if not args.get('no_truncate')
-                        and not tag & 0x4 else ''),
-            ' %s' % ''.join(
-                    ('\x1b[33my\x1b[m' if color else 'y')
-                        if path[i][2] == 'y'
-                    else ('\x1b[31mr\x1b[m' if color else 'r')
-                        if path[i][2] == 'r'
-                    else ('\x1b[90mb\x1b[m' if color else 'b')
-                    for i in range(len(path)-1, -1, -1))
-                if args.get('rbyd') else ''))
+                        and not tag & 0x8 else '')))
 
         if args.get('raw'):
             # show on-disk encoding of tags
@@ -533,25 +506,28 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                     '%04x' % (j + o*16),
                     line))
 
-        # show in-device representation
+        # show in-device representation, including some extra
+        # crc/parity info
         if args.get('device'):
-            print('%8s  %*s%-47s' % (
+            print('%8s  %s%-47s' % (
                 '',
-                2*depth+1 if args.get('tree') and depth > 0 else 0, '',
+                lifetimerepr(0) if args.get('lifetimes') else '',
                 '%-22s%s' % (
-                    '%08x %08x' % (tag, size),
+                    '%04x %08x %07x' % (tag, 0xffffffff & id, size),
                     '  %s' % ' '.join(
                             '%08x' % struct.unpack('<I',
-                                data[j+delta+i*4:j+delta+i*4+4])
-                            for i in range(min(size//4, 3)))[:23]
-                        if not tag & 0x4 else '')))
+                                data[j+delta+i*4:j+delta+min(i*4+4,size)]
+                                    .ljust(4, b'\0'))
+                            for i in range(min(m.ceil(size/4), 3)))[:23]
+                        if not tag & 0x8 else '')))
 
-        # show on-disk encoding of data
-        if args.get('raw') or args.get('no_truncate'):
-            for o, line in enumerate(xxd(data[j+delta:j+delta+size])):
-                print('%8s: %s' % (
-                    '%04x' % (j+delta + o*16),
-                    line))
+        if not tag & 0x8:
+            # show on-disk encoding of data
+            if args.get('raw') or args.get('no_truncate'):
+                for o, line in enumerate(xxd(data[j+delta:j+delta+size])):
+                    print('%8s: %s' % (
+                        '%04x' % (j+delta + o*16),
+                        line))
 
 
 def main(disk, block_size, block1, block2=None, *,
@@ -695,10 +671,6 @@ if __name__ == "__main__":
         '-l', '--log',
         action='store_true',
         help="Show the raw tags as they appear in the log.")
-#    parser.add_argument(
-#        '-i', '--in-tree',
-#        action='store_true',
-#        help="Only show tags in the tree.")
     parser.add_argument(
         '-r', '--raw',
         action='store_true',
@@ -711,10 +683,6 @@ if __name__ == "__main__":
         '-T', '--no-truncate',
         action='store_true',
         help="Don't truncate, show the full contents.")
-    parser.add_argument(
-        '-y', '--rbyd', 
-        action='store_true',
-        help="Show the rbyd tree in the margin.")
     parser.add_argument(
         '-t', '--tree',
         action='store_true',
