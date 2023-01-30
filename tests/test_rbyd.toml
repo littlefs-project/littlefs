@@ -6339,8 +6339,6 @@ code = '''
     }
 '''
 
-# TODO this
-# TODO also remove "all"?
 [cases.test_rbyd_mixed_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
