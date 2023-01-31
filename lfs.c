@@ -2100,7 +2100,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     // this gets a bit confusing as we also may need to keep
     // track of both the lower and upper bounds of diverging paths
     // in the case of range deletions
-    bool diverged = false;
+    //bool diverged = false;
     // TODO bool flipped? bool found?
     lfsr_sid_t lower_lower_id = -1;
     lfsr_sid_t lower_upper_id = rbyd_->weight;
@@ -2120,18 +2120,19 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
     // descend down tree, building alt pointers
     while (true) {
-        // do we need to flip bounds?
-        if (diverged
-                && !lfsr_tag_isfound(upper_tag_)
-                && (!p_alts[0] || lfsr_tag_isblack(p_alts[0]))) {
-            lfs_swap16(&lower_tag_, &upper_tag_);
-            lfs_swaps32(&lower_id_, &upper_id_);
-            lfs_swap32(&lower_branch, &upper_branch);
-            lfs_swaps32(&lower_lower_id, &upper_lower_id);
-            lfs_swaps32(&lower_upper_id, &upper_upper_id);
-            lfs_swap16(&lower_lower_tag, &upper_lower_tag);
-            lfs_swap16(&lower_upper_tag, &upper_upper_tag);
-        }
+//        // do we need to flip bounds?
+//        if (diverged
+//                && !lfsr_tag_isfound(upper_tag_)
+//                && (!p_alts[0] || lfsr_tag_isblack(p_alts[0]))) {
+//            LFS_ASSERT(false);
+//            lfs_swap16(&lower_tag_, &upper_tag_);
+//            lfs_swaps32(&lower_id_, &upper_id_);
+//            lfs_swap32(&lower_branch, &upper_branch);
+//            lfs_swaps32(&lower_lower_id, &upper_lower_id);
+//            lfs_swaps32(&lower_upper_id, &upper_upper_id);
+//            lfs_swap16(&lower_lower_tag, &upper_lower_tag);
+//            lfs_swap16(&lower_upper_tag, &upper_upper_tag);
+//        }
 
         // read the alt pointer
         lfsr_tag_t alt;
@@ -2152,8 +2153,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             lfs_off_t branch_ = lower_branch + delta;
 
             // do bounds want to take different paths? begin cutting
-            if (!diverged
-                    && lfsr_tag_follow2(alt, weight_,
+            if (/*!diverged
+                    &&*/ lfsr_tag_follow2(alt, weight_,
                             p_alts[0], p_weights[0],
                             lower_lower_id, lower_upper_id,
                             lower_tag_, lower_id_)
@@ -2175,7 +2176,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                     goto diverging_red;
                 }
 
-                diverged = true;
+                //diverged = true;
                 upper_branch = lower_branch;
                 upper_lower_id = lower_lower_id;
                 upper_upper_id = lower_upper_id;
@@ -2183,6 +2184,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                 upper_upper_id = lower_upper_id;
                 upper_lower_tag = lower_lower_tag;
                 upper_upper_tag = lower_upper_tag;
+                goto diverged;
                 
 
 //                // make sure upper path is in sync with red alts!
@@ -2296,174 +2298,10 @@ diverging_red:
                     continue;
                 }
 
-            // cut while following
-            } else if (diverged
-                    && lfsr_tag_follow2(alt, weight_,
-                        p_alts[0], p_weights[0],
-                        lower_lower_id, lower_upper_id,
-                        lower_tag_, lower_id_)
-                    && (lower_id_ < upper_id_ 
-                        || (lower_id_ == upper_id_ && lower_tag_ < upper_tag_))
-                        == lfsr_tag_isle(alt)) {
-//                lfsr_tag_trimtag(lfsr_tag_flipalt(alt),
-//                        lower_lower_id, lower_upper_id,
-//                        &lower_lower_tag, &lower_upper_tag,
-//                        lower_id_);
-//                prune = true;
-
-                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
-//                    printf("trimfb\n");
-//                    if (!lfsr_tag_isparallel(alt, p_alts[0])) {
-////                        p_weights[0] += weight_;
-//                    } else {
-                        lfsr_tag_trim__(
-                                lfsr_tag_flipalt(alt),
-                                lfsr_tag_flipweight2(weight_,
-                                    p_alts[0], p_weights[0],
-                                    lower_lower_id, lower_upper_id),
-                                &lower_lower_id, &lower_upper_id,
-                                &lower_lower_tag, &lower_upper_tag);
-                    //}
-
-                    alt = lfsr_tag_mkblack(p_alts[0]);
-                    weight_ = p_weights[0];
-                    branch_ = jump;
-                    jump = p_jumps[0];
-                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-                } else {
-//                    printf("trimfr\n");
-                    lfsr_tag_trim__(
-                            lfsr_tag_flipalt(alt),
-                            lfsr_tag_flipweight2(weight_,
-                                p_alts[0], p_weights[0],
-                                lower_lower_id, lower_upper_id),
-                            &lower_lower_id, &lower_upper_id,
-                            &lower_lower_tag, &lower_upper_tag);
-
-                    graft = lower_branch; // TODO need?
-                    lower_branch = jump;
-                    continue;
-                }
-            // cut while not following
-            } else if (diverged
-                    && !lfsr_tag_follow2(alt, weight_,
-                        p_alts[0], p_weights[0],
-                        lower_lower_id, lower_upper_id,
-                        lower_tag_, lower_id_)
-                    && (lower_id_ < upper_id_ 
-                        || (lower_id_ == upper_id_ && lower_tag_ < upper_tag_))
-                        != lfsr_tag_isle(alt)) {
-//                lfsr_tag_trimtag(alt,
-//                        lower_lower_id, lower_upper_id,
-//                        &lower_lower_tag, &lower_upper_tag,
-//                        lower_id_);
-//                lfs_swap32(&jump, &branch_);
-//                prune = true;
-
-                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
-//                    printf("trimnfr\n");
-//                    if (lfsr_tag_isparallel(alt, p_alts[0])) {
-//                        //p_weights[0] += weight_;
-//                    } else {
-                        lfsr_tag_trim__(
-                                alt, weight_,
-                                &lower_lower_id, &lower_upper_id,
-                                &lower_lower_tag, &lower_upper_tag);
-//                    }
-
-                    alt = lfsr_tag_mkblack(p_alts[0]);
-                    weight_ = p_weights[0];
-                    jump = p_jumps[0];
-                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-                } else {
-//                    printf("trimnfb\n");
-                    lfsr_tag_trim__(
-                            alt, weight_,
-                            &lower_lower_id, &lower_upper_id,
-                            &lower_lower_tag, &lower_upper_tag);
-
-                    graft = lower_branch; // TODO need?
-                    lower_branch = branch_;
-                    continue;
-                }
-            }
-            
-
-
-
-//            bool prune = false;
-//            printf("%c alt%c%s 0x%x w%d 0x%x (0x%x %d (%d), 0x%x %d (%d)) f=%d (0x%x %d)\n",
-//                !diverged
-//                    ? '='
-//                    : (lower_id_ < upper_id_
-//                        || (lower_id_ == upper_id_
-//                            && lower_tag_ < upper_tag_))
-//                        ? '['
-//                        : ']',
-//                lfsr_tag_isred(alt) ? 'r' : 'b',
-//                lfsr_tag_isgt(alt) ? "gt" : "lt",
-//                lfsr_tag_key(alt),
-//                weight_, jump, lower_lower_tag, lower_lower_id, lower_lower_id, lower_upper_tag, lower_upper_id, lower_upper_id,
-//                lfsr_tag_follow(alt, weight_,
-//                    lower_lower_id, lower_upper_id,
-//                    lower_tag_, lower_id_),
-//                lower_tag_, lower_id_);
-//            LFS_ASSERT(lower_upper_id - lower_lower_id >= 1);
-//            // TODO something better than this
-//            lfsr_tag_t predicted_lower_tag = lower_lower_tag;
-//            lfsr_tag_t predicted_upper_tag = lower_upper_tag;
-////            if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
-////                // TODO need this?
-////                lfsr_tag_trimtag(p_alts[0],
-////                        lower_lower_id, lower_upper_id,
-////                        &predicted_lower_tag, &predicted_upper_tag,
-////                        lower_id_);
-////            }
-//            // TODO can this be rewritten in terms of lfsr_tag_follow?
-//            if (weight_ > (lfs_size_t)(lower_upper_id-lower_lower_id-1)
-//                    || (weight_ == (lfs_size_t)(lower_upper_id-lower_lower_id-1)
-//                        // TODO need key?
-//                        && (lfsr_tag_isgt(alt)
-//                            ? lfsr_tag_key(predicted_lower_tag) > lfsr_tag_key(alt)
-//                            : lfsr_tag_key(predicted_upper_tag-0x10) <= lfsr_tag_key(alt)))) {
-////                        && (lfsr_tag_key(alt)
-////                                < lfsr_tag_key(lower_lower_tag)
-////                            || lfsr_tag_key(alt)
-////                                >= lfsr_tag_key(lower_upper_tag)))) {
-//                printf("PRUUUUUUUUUUUUUUUUUUUUUUUNE\n");
-//                printf("%d > %d-%d-1 => %d\n", weight_, lower_upper_id, lower_lower_id, weight_ > (lfs_size_t)(lower_upper_id-lower_lower_id-1));
-//                printf("%d == %d-%d-1 => %d\n", weight_, lower_upper_id, lower_lower_id, weight_ == (lfs_size_t)(lower_upper_id-lower_lower_id-1));
-//                printf("isgt = %d\n", lfsr_tag_isgt(alt));
-//                printf("0x%x > 0x%x => %d\n", lfsr_tag_key(predicted_lower_tag), lfsr_tag_key(alt), lfsr_tag_key(predicted_lower_tag) > lfsr_tag_key(alt));
-//                printf("0x%x <= 0x%x => %d\n", lfsr_tag_key(predicted_upper_tag-0x10), lfsr_tag_key(alt), lfsr_tag_key(predicted_upper_tag-0x10) <= lfsr_tag_key(alt));
-////                prune = true;
-////                lower_lower_tag = predicted_lower_tag;
-////                lower_upper_tag = predicted_upper_tag;
-//
-//                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
-//                    alt = lfsr_tag_mkblack(p_alts[0]);
-//                    weight_ = p_weights[0];
-//                    branch_ = jump;
-//                    jump = p_jumps[0];
-//                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-//
-//                    lfsr_tag_untrimweight(alt, weight_,
-//                            &lower_lower_id, &lower_upper_id);
-//
-//                    printf("pruned into alt%c%s 0x%x w%d 0x%x (0x%x)\n",
-//                        lfsr_tag_isred(alt) ? 'r' : 'b',
-//                        lfsr_tag_isgt(alt) ? "gt" : "lt",
-//                        lfsr_tag_key(alt),
-//                        weight_,
-//                        jump,
-//                        branch_);
-//                } else {
-//                    lower_branch = jump;
-//                    continue;
-//                }
 //            // cut while following
 //            } else if (diverged
-//                    && lfsr_tag_follow(alt, weight_,
+//                    && lfsr_tag_follow2(alt, weight_,
+//                        p_alts[0], p_weights[0],
 //                        lower_lower_id, lower_upper_id,
 //                        lower_tag_, lower_id_)
 //                    && (lower_id_ < upper_id_ 
@@ -2473,49 +2311,45 @@ diverging_red:
 ////                        lower_lower_id, lower_upper_id,
 ////                        &lower_lower_tag, &lower_upper_tag,
 ////                        lower_id_);
-//                printf("trim-f\n");
 ////                prune = true;
 //
 //                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
-//                    lfsr_tag_trimweight(
-//                            lfsr_tag_flipalt(alt),
-//                            lfsr_tag_flipweight(weight_,
-//                                lower_lower_id, lower_upper_id),
-//                            &lower_lower_id, &lower_upper_id);
+////                    printf("trimfb\n");
+////                    if (!lfsr_tag_isparallel(alt, p_alts[0])) {
+//////                        p_weights[0] += weight_;
+////                    } else {
+//                        lfsr_tag_trim__(
+//                                lfsr_tag_flipalt(alt),
+//                                lfsr_tag_flipweight2(weight_,
+//                                    p_alts[0], p_weights[0],
+//                                    lower_lower_id, lower_upper_id),
+//                                &lower_lower_id, &lower_upper_id,
+//                                &lower_lower_tag, &lower_upper_tag);
+//                    //}
+//
 //                    alt = lfsr_tag_mkblack(p_alts[0]);
 //                    weight_ = p_weights[0];
 //                    branch_ = jump;
 //                    jump = p_jumps[0];
 //                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-//
-//                    lfsr_tag_untrimweight(alt, weight_,
-//                            &lower_lower_id, &lower_upper_id);
-//
-//                    printf("pruned into alt%c%s 0x%x w%d 0x%x (0x%x)\n",
-//                        lfsr_tag_isred(alt) ? 'r' : 'b',
-//                        lfsr_tag_isgt(alt) ? "gt" : "lt",
-//                        lfsr_tag_key(alt),
-//                        weight_,
-//                        jump,
-//                        branch_);
 //                } else {
-//                    lfsr_tag_trimweight(
+////                    printf("trimfr\n");
+//                    lfsr_tag_trim__(
 //                            lfsr_tag_flipalt(alt),
-//                            lfsr_tag_flipweight(weight_,
+//                            lfsr_tag_flipweight2(weight_,
+//                                p_alts[0], p_weights[0],
 //                                lower_lower_id, lower_upper_id),
-//                            &lower_lower_id, &lower_upper_id);
-//                    if (p_alts[0]) {
-//                        lfsr_tag_trim_(p_alts[0],
-//                                lower_lower_id, lower_upper_id,
-//                                &lower_lower_id, &lower_upper_id,
-//                                &lower_lower_tag, &lower_upper_tag);
-//                    }
+//                            &lower_lower_id, &lower_upper_id,
+//                            &lower_lower_tag, &lower_upper_tag);
+//
+//                    graft = lower_branch; // TODO need?
 //                    lower_branch = jump;
 //                    continue;
 //                }
 //            // cut while not following
 //            } else if (diverged
-//                    && !lfsr_tag_follow(alt, weight_,
+//                    && !lfsr_tag_follow2(alt, weight_,
+//                        p_alts[0], p_weights[0],
 //                        lower_lower_id, lower_upper_id,
 //                        lower_tag_, lower_id_)
 //                    && (lower_id_ < upper_id_ 
@@ -2526,74 +2360,35 @@ diverging_red:
 ////                        &lower_lower_tag, &lower_upper_tag,
 ////                        lower_id_);
 ////                lfs_swap32(&jump, &branch_);
-//                printf("trim-nf\n");
 ////                prune = true;
 //
 //                if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
+////                    printf("trimnfr\n");
 ////                    if (lfsr_tag_isparallel(alt, p_alts[0])) {
-////                        p_weights[0] += weight_;
+////                        //p_weights[0] += weight_;
+////                    } else {
+//                        lfsr_tag_trim__(
+//                                alt, weight_,
+//                                &lower_lower_id, &lower_upper_id,
+//                                &lower_lower_tag, &lower_upper_tag);
 ////                    }
-//                    lfsr_tag_trimweight(alt, weight_,
-//                            &lower_lower_id, &lower_upper_id);
+//
 //                    alt = lfsr_tag_mkblack(p_alts[0]);
 //                    weight_ = p_weights[0];
 //                    jump = p_jumps[0];
 //                    lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
-//
-//                    lfsr_tag_untrimweight(alt, weight_,
-//                            &lower_lower_id, &lower_upper_id);
-//
-//                    printf("pruned into alt%c%s 0x%x w%d 0x%x (0x%x)\n",
-//                        lfsr_tag_isred(alt) ? 'r' : 'b',
-//                        lfsr_tag_isgt(alt) ? "gt" : "lt",
-//                        lfsr_tag_key(alt),
-//                        weight_,
-//                        jump,
-//                        branch_);
-//                    printf("p alt%c%s 0x%x w%d 0x%x (0x%x %d (%d), 0x%x %d (%d)) f=%d (0x%x %d)\n",
-//                        !diverged
-//                            ? '='
-//                            : (lower_id_ < upper_id_
-//                                || (lower_id_ == upper_id_
-//                                    && lower_tag_ < upper_tag_))
-//                                ? '['
-//                                : ']',
-//                        lfsr_tag_isred(alt) ? 'r' : 'b',
-//                        lfsr_tag_isgt(alt) ? "gt" : "lt",
-//                        lfsr_tag_key(alt),
-//                        weight_, jump, lower_lower_tag, lower_lower_id, lower_lower_id, lower_upper_tag, lower_upper_id, lower_upper_id,
-//                        lfsr_tag_follow(alt, weight_,
-//                            lower_lower_id, lower_upper_id,
-//                            lower_tag_, lower_id_),
-//                        lower_tag_, lower_id_);
 //                } else {
-//                    lfsr_tag_trimweight(alt, weight_,
-//                            &lower_lower_id, &lower_upper_id);
-//                    if (p_alts[0]) {
-//                        lfsr_tag_trim_(p_alts[0],
-//                                lower_lower_id, lower_upper_id,
-//                                &lower_lower_id, &lower_upper_id,
-//                                &lower_lower_tag, &lower_upper_tag);
-//                    }
+////                    printf("trimnfb\n");
+//                    lfsr_tag_trim__(
+//                            alt, weight_,
+//                            &lower_lower_id, &lower_upper_id,
+//                            &lower_lower_tag, &lower_upper_tag);
+//
+//                    graft = lower_branch; // TODO need?
 //                    lower_branch = branch_;
 //                    continue;
 //                }
-//            }
-//
-////            if (diverged
-////                    && lfsr_tag_follow(alt, weight_,
-////                        lower_lower_id, lower_upper_id,
-////                        lower_tag_, lower_id_)) {
-////                printf("? %d || %d == %d\n",
-////                    (lower_id_ < upper_id_),
-////                    (lower_id_ == upper_id_ && lower_tag_ < upper_tag_),
-////                    lfsr_tag_isle(alt));
-////                printf("(0x%x %d) (0x%x %d)\n", lower_tag_, lower_id_, upper_tag_, upper_id_);
-////            }
-//
-////            if (prune) {
-////            }
-//
+            }
 
             // two reds makes a yellow, split?
             if (lfsr_tag_isred(alt)
@@ -2637,9 +2432,9 @@ diverging_red:
                             p_alts[0], p_weights[0],
                             &lower_lower_id, &lower_upper_id,
                             &lower_lower_tag, &lower_upper_tag);
-                    if (!diverged) { // TODO can we not do this while diverging?
+//                    if (!diverged) { // TODO can we not do this while diverging?
                         lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
-                    }
+//                    }
 
                 // otherwise we need to point to the yellow alt and
                 // prune later
@@ -2670,9 +2465,9 @@ diverging_red:
                             p_alts[0], p_weights[0],
                             &lower_lower_id, &lower_upper_id,
                             &lower_lower_tag, &lower_upper_tag);
-                    if (!diverged) { // TODO can we not do this while diverging?
+//                    if (!diverged) { // TODO can we not do this while diverging?
                         lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
-                    }
+//                    }
 
                     graft = lower_branch; // TODO need?
                     lower_branch = branch_;
@@ -2788,15 +2583,23 @@ diverging_red:
 
         // found end of tree?
         } else {
-            LFS_ASSERT(!p_alts[0] || lfsr_tag_isblack(p_alts[0]));
             // update the tag id, marking as found
             lower_tag_ = lfsr_tag_mkfound(alt);
             lower_id_ = lower_upper_id-1;
 
-            // if we diverged, we also need to find the other bound
-            if (diverged && !lfsr_tag_isfound(upper_tag_)) {
-                continue;
-            }
+//            // if we diverged, we also need to find the other bound
+//            if (diverged && !lfsr_tag_isfound(upper_tag_)) {
+//                continue;
+//            }
+
+            // if we hit this we didn't diverge, and need to update upper bound
+            upper_tag_ = lower_tag_;
+            upper_id_ = lower_id_;
+            upper_branch = lower_branch;
+            upper_lower_id = lower_lower_id;
+            upper_upper_id = lower_upper_id;
+            upper_lower_tag = lower_lower_tag;
+            upper_upper_tag = lower_upper_tag;
 
             // almost done, we just need to insert a new alt pointer
             // to connect our leaf to the tree
@@ -2804,26 +2607,241 @@ diverging_red:
         }
     }
 
-stem:;
-    // unflip our bounds so lower_lower/upper_upper is correct
-    if (!diverged) {
-        upper_tag_ = lower_tag_;
-        upper_id_ = lower_id_;
-        upper_branch = lower_branch;
-        upper_lower_id = lower_lower_id;
-        upper_upper_id = lower_upper_id;
-        upper_lower_tag = lower_lower_tag;
-        upper_upper_tag = lower_upper_tag;
-    } else if (lower_id_ > upper_id_
-            || (lower_id_ == upper_id_ && lower_tag_ > upper_tag_)) {
-        lfs_swap16(&lower_tag_, &upper_tag_);
-        lfs_swaps32(&lower_id_, &upper_id_);
-        lfs_swap32(&lower_branch, &upper_branch);
-        lfs_swaps32(&lower_lower_id, &upper_lower_id);
-        lfs_swaps32(&lower_upper_id, &upper_upper_id);
-        lfs_swap16(&lower_lower_tag, &upper_lower_tag);
-        lfs_swap16(&lower_upper_tag, &upper_upper_tag);
+diverged:;
+    // descend down two branches of the tree, trimming inner branches
+    // and building alt pointers
+    while (!lfsr_tag_isfound(lower_tag_) || !lfsr_tag_isfound(upper_tag_)) {
+//        // do we need to flip bounds?
+//        if (diverged
+//                && !lfsr_tag_isfound(upper_tag_)
+//                && (!p_alts[0] || lfsr_tag_isblack(p_alts[0]))) {
+//            lfs_swap16(&lower_tag_, &upper_tag_);
+//            lfs_swaps32(&lower_id_, &upper_id_);
+//            lfs_swap32(&lower_branch, &upper_branch);
+//            lfs_swaps32(&lower_lower_id, &upper_lower_id);
+//            lfs_swaps32(&lower_upper_id, &upper_upper_id);
+//            lfs_swap16(&lower_lower_tag, &upper_lower_tag);
+//            lfs_swap16(&lower_upper_tag, &upper_upper_tag);
+//        }
+
+        // lower bound
+        if (!lfsr_tag_isfound(lower_tag_)) {
+            // read the alt pointer
+            lfsr_tag_t alt;
+            lfsr_sid_t weight;
+            lfs_off_t jump;
+            lfs_ssize_t delta = lfsr_rbyd_readtag(lfs,
+                    &lfs->pcache, &lfs->rcache, 0,
+                    rbyd_->block, lower_branch, &alt, &weight, &jump, NULL);
+            if (delta < 0) {
+                return delta;
+            }
+
+            // found an alt?
+            if (lfsr_tag_isalt(alt)) {
+                // TODO get rid of weight_
+                lfs_size_t weight_ = weight + 1;
+                // make jump absolute
+                jump = lower_branch - jump;
+                lfs_off_t branch_ = lower_branch + delta;
+
+                // go ahead and make alt black, this isn't perfect but it's
+                // simpler and compact will take care of any balance issues
+                // that may occur
+                alt = lfsr_tag_mkblack(alt);
+
+                // prune?
+                //            <b                    >b
+                //          .-'|                  .-'|
+                //         <y  |                  |  |
+                // .-------'|  |                  |  |
+                // |       <r  |  =>              | <b
+                // |  .----'   |      .-----------|-'|
+                // |  |       <b      |          <b  |
+                // |  |  .----'|      |     .----'|  |
+                // 1  2  3  4  4      1  2  3  4  4  2
+                // TODO prune1?
+                if (lfsr_tag_prune2(
+                        alt, weight_,
+                        p_alts[0], p_weights[0],
+                        lower_lower_id, lower_upper_id,
+                        lower_lower_tag, lower_upper_tag)) {
+                    LFS_ASSERT(!lfsr_tag_isred(p_alts[0]));
+//                    if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
+//                        alt = lfsr_tag_mkblack(p_alts[0]);
+//                        weight_ = p_weights[0];
+//                        branch_ = jump;
+//                        jump = p_jumps[0];
+//                        lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+//                    } else {
+                        // TODO does this ever happen with normal prunes?
+                        //LFS_ASSERT(false);
+                        lower_branch = jump;
+                        continue;
+//                    }
+                }
+
+                // take alt? needs a flip
+                //   <b           >b
+                // .-'|  =>     .-'|
+                // 1  2      1  2  1
+                if (lfsr_tag_follow(
+                        alt, weight_,
+                        lower_lower_id, lower_upper_id,
+                        lower_tag_, lower_id_)) {
+                    alt = lfsr_tag_flipalt(alt);
+                    weight_ = lfsr_tag_flipweight(weight_,
+                            lower_lower_id, lower_upper_id);
+                    lfs_swap32(&jump, &branch_);
+                }
+
+                // only keep outer alts, push onto queue
+                if (lfsr_tag_isle(alt)) {
+                    LFS_ASSERT((lfs_ssize_t)weight_ >= 0);
+                    int err = lfsr_rbyd_p_push(lfs, rbyd_,
+                            p_alts, p_weights, p_jumps,
+                            alt, weight_, jump);
+                    if (err) {
+                        return err;
+                    }
+                }
+
+                // continue to next alt
+                lfsr_tag_trim__(
+                        alt, weight_,
+                        &lower_lower_id, &lower_upper_id,
+                        &lower_lower_tag, &lower_upper_tag);
+                lower_branch = branch_;
+
+            // found end of tree?
+            } else {
+                // update the tag id, marking as found
+                lower_tag_ = lfsr_tag_mkfound(alt);
+                lower_id_ = lower_upper_id-1;
+            }
+        }
+
+        // upper bound
+        if (!lfsr_tag_isfound(upper_tag_)) {
+            // read the alt pointer
+            lfsr_tag_t alt;
+            lfsr_sid_t weight;
+            lfs_off_t jump;
+            lfs_ssize_t delta = lfsr_rbyd_readtag(lfs,
+                    &lfs->pcache, &lfs->rcache, 0,
+                    rbyd_->block, upper_branch, &alt, &weight, &jump, NULL);
+            if (delta < 0) {
+                return delta;
+            }
+
+            // found an alt?
+            if (lfsr_tag_isalt(alt)) {
+                // TODO get rid of weight_
+                lfs_size_t weight_ = weight + 1;
+                // make jump absolute
+                jump = upper_branch - jump;
+                lfs_off_t branch_ = upper_branch + delta;
+
+                // go ahead and make alt black, this isn't perfect but it's
+                // simpler and compact will take care of any balance issues
+                // that may occur
+                alt = lfsr_tag_mkblack(alt);
+
+                // prune?
+                //            <b                    >b
+                //          .-'|                  .-'|
+                //         <y  |                  |  |
+                // .-------'|  |                  |  |
+                // |       <r  |  =>              | <b
+                // |  .----'   |      .-----------|-'|
+                // |  |       <b      |          <b  |
+                // |  |  .----'|      |     .----'|  |
+                // 1  2  3  4  4      1  2  3  4  4  2
+                // TODO prune1?
+                if (lfsr_tag_prune2(
+                        alt, weight_,
+                        p_alts[0], p_weights[0],
+                        upper_lower_id, upper_upper_id,
+                        upper_lower_tag, upper_upper_tag)) {
+                    LFS_ASSERT(!lfsr_tag_isred(p_alts[0]));
+//                    if (p_alts[0] && lfsr_tag_isred(p_alts[0])) {
+//                        alt = lfsr_tag_mkblack(p_alts[0]);
+//                        weight_ = p_weights[0];
+//                        branch_ = jump;
+//                        jump = p_jumps[0];
+//                        lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
+//                    } else {
+                        // TODO does this ever happen with normal prunes?
+                        //LFS_ASSERT(false);
+                        upper_branch = jump;
+                        continue;
+//                    }
+                }
+
+                // take alt? needs a flip
+                //   <b           >b
+                // .-'|  =>     .-'|
+                // 1  2      1  2  1
+                if (lfsr_tag_follow(
+                        alt, weight_,
+                        upper_lower_id, upper_upper_id,
+                        upper_tag_, upper_id_)) {
+                    alt = lfsr_tag_flipalt(alt);
+                    weight_ = lfsr_tag_flipweight(weight_,
+                            upper_lower_id, upper_upper_id);
+                    lfs_swap32(&jump, &branch_);
+                }
+
+                // only keep outer alts, push onto queue
+                if (lfsr_tag_isgt(alt)) {
+                    LFS_ASSERT((lfs_ssize_t)weight_ >= 0);
+                    int err = lfsr_rbyd_p_push(lfs, rbyd_,
+                            p_alts, p_weights, p_jumps,
+                            alt, weight_, jump);
+                    if (err) {
+                        return err;
+                    }
+                }
+
+                // continue to next alt
+                lfsr_tag_trim__(
+                        alt, weight_,
+                        &upper_lower_id, &upper_upper_id,
+                        &upper_lower_tag, &upper_upper_tag);
+                upper_branch = branch_;
+
+            // found end of tree?
+            } else {
+                // update the tag id, marking as found
+                upper_tag_ = lfsr_tag_mkfound(alt);
+                upper_id_ = upper_upper_id-1;
+            }
+        }
     }
+
+stem:;
+    LFS_ASSERT(!p_alts[0] || lfsr_tag_isblack(p_alts[0]));
+
+//    // TODO need this?
+//    // unflip our bounds so lower_lower/upper_upper is correct
+//    if (!diverged) {
+//        upper_tag_ = lower_tag_;
+//        upper_id_ = lower_id_;
+//        upper_branch = lower_branch;
+//        upper_lower_id = lower_lower_id;
+//        upper_upper_id = lower_upper_id;
+//        upper_lower_tag = lower_lower_tag;
+//        upper_upper_tag = lower_upper_tag;
+////    } else if (lower_id_ > upper_id_
+////            || (lower_id_ == upper_id_ && lower_tag_ > upper_tag_)) {
+////        lfs_swap16(&lower_tag_, &upper_tag_);
+////        lfs_swaps32(&lower_id_, &upper_id_);
+////        lfs_swap32(&lower_branch, &upper_branch);
+////        lfs_swaps32(&lower_lower_id, &upper_lower_id);
+////        lfs_swaps32(&lower_upper_id, &upper_upper_id);
+////        lfs_swap16(&lower_lower_tag, &upper_lower_tag);
+////        lfs_swap16(&lower_upper_tag, &upper_upper_tag);
+//    }
 
     // split leaf nodes?
     //
