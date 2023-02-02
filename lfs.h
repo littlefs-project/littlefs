@@ -46,8 +46,6 @@ typedef uint32_t lfs_block_t;
 
 typedef uint16_t lfsr_tag_t;
 typedef int16_t lfsr_stag_t;
-typedef uint32_t lfsr_id_t;
-typedef int32_t lfsr_sid_t;
 
 // Maximum name size in bytes, may be redefined to reduce the size of the
 // info struct. Limited to <= 1022. Stored in superblock and must be

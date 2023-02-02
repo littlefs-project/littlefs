@@ -137,7 +137,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -263,7 +263,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -579,7 +579,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -645,7 +645,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -713,7 +713,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -795,7 +795,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -941,7 +941,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -1115,7 +1115,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -1289,7 +1289,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -1471,7 +1471,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -1681,7 +1681,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -1850,7 +1850,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -2037,7 +2037,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -2141,7 +2141,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -2238,7 +2238,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -2331,7 +2331,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -2426,7 +2426,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -2516,7 +2516,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -2603,7 +2603,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -2728,7 +2728,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -2797,7 +2797,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -2906,7 +2906,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -3063,7 +3063,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -3178,7 +3178,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -3332,7 +3332,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -3572,7 +3572,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -3657,7 +3657,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
 
@@ -3965,7 +3965,7 @@ code = '''
 #    };
 #    lfsr_rbyd_t rbyd;
 #    lfsr_tag_t tag_;
-#    lfsr_sid_t id_;
+#    lfs_ssize_t id_;
 #    lfs_off_t off_;
 #    lfs_size_t size_;
 #
@@ -4649,7 +4649,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -4759,7 +4759,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -4879,7 +4879,7 @@ code = '''
         "\xff\xff\xff\xff",
     };
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -4990,7 +4990,7 @@ code = '''
         "\xff\xff\xff\xff",
     };
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -5132,7 +5132,7 @@ code = '''
     //
     // note with random order we can't check that stored values reliably
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
@@ -5909,7 +5909,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -6078,7 +6078,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -6263,7 +6263,7 @@ code = '''
         "\xff\xff\xff\xff",
     };
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -6394,7 +6394,7 @@ code = '''
         "\xff\xff\xff\xff",
     };
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -6657,7 +6657,7 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -7044,7 +7044,7 @@ code = '''
     //
     // note with random order we can't check that stored values reliably
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
@@ -7829,7 +7829,7 @@ code = '''
         "\xff\xff\xff\xff",
     };
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -7971,7 +7971,7 @@ code = '''
         "\xff\xff\xff\xff",
     };
     lfsr_tag_t tag_;
-    lfsr_sid_t id_;
+    lfs_ssize_t id_;
     lfs_off_t off_;
     lfs_size_t size_;
     uint8_t buffer[4];
@@ -9061,9 +9061,9 @@ code = '''
         lfs_size_t count = 0;
         for (unsigned i = 0; i < N; i++) {
             // choose an id
-            lfsr_sid_t id = TEST_PRNG(&prng) % (count+1);
+            lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
             // choose create or delete
-            if (id == (lfsr_sid_t)count || (TEST_PRNG(&prng) & 1)) {
+            if (id == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
                 printf("c%d=%c", id, alpha[i % 26]);
                 count += 1;
             } else {
@@ -9089,9 +9089,9 @@ code = '''
         count = 0;
         for (unsigned i = 0; i < N; i++) {
             // choose an id
-            lfsr_sid_t id = TEST_PRNG(&prng) % (count+1);
+            lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
             // choose create or delete
-            if (id == (lfsr_sid_t)count || (TEST_PRNG(&prng) & 1)) {
+            if (id == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
                 // update our sim
                 memmove(sim+id+1, sim+id, count-id);
                 sim[id] = alpha[i % 26];
@@ -9113,15 +9113,15 @@ code = '''
 
         // compare rbyd vs simulation
         printf("expd: [");
-        for (lfsr_sid_t id = 0; id < (lfsr_sid_t)count; id++) {
+        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
             printf("%c", sim[id]);
-            if (id < (lfsr_sid_t)count-1) {
+            if (id < (lfs_ssize_t)count-1) {
                 printf(", ");
             }
         }
         printf("]\n");
         printf("rbyd: [");
-        for (lfsr_sid_t id = 0; id < (lfsr_sid_t)rbyd.weight; id++) {
+        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)rbyd.weight; id++) {
             lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
                     LFSR_TAG_MKREG, id, buffer, 4);
             if (size >= 0) {
@@ -9129,14 +9129,14 @@ code = '''
             } else {
                 printf("?");
             }
-            if (id < (lfsr_sid_t)count-1) {
+            if (id < (lfs_ssize_t)count-1) {
                 printf(", ");
             }
         }
         printf("]\n");
 
         assert(count == rbyd.weight);
-        for (lfsr_sid_t id = 0; id < (lfsr_sid_t)count; id++) {
+        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
             lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, id, buffer, 4) => 1;
             assert(memcmp(&sim[id], buffer, 1) == 0);
         }
@@ -9158,9 +9158,9 @@ code = '''
     lfs_size_t count = 0;
     for (unsigned i = 0; i < N; i++) {
         // choose an id
-        lfsr_sid_t id = TEST_PRNG(&prng) % (count+1);
+        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
         // choose create or delete
-        if (id == (lfsr_sid_t)count || (TEST_PRNG(&prng) & 1)) {
+        if (id == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
             printf("c%d=%c", id, alpha[i % 26]);
             count += 1;
         } else {
@@ -9181,9 +9181,9 @@ code = '''
     count = 0;
     for (unsigned i = 0; i < N; i++) {
         // choose an id
-        lfsr_sid_t id = TEST_PRNG(&prng) % (count+1);
+        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
         // choose create or delete
-        if (id == (lfsr_sid_t)count || (TEST_PRNG(&prng) & 1)) {
+        if (id == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
             count += 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd,
