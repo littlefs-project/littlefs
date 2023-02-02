@@ -831,14 +831,14 @@ struct lfsr_fcrc {
     lfs_size_t size;
 };
 
-#define LFSR_FCRC_DSIZE 8
+#define LFSR_FCRC_DSIZE (4+5)
 
 static lfs_ssize_t lfsr_fcrc_todisk(
         const struct lfsr_fcrc *fcrc,
         uint8_t buf[static LFSR_FCRC_DSIZE]) {
     lfs_tole32_(fcrc->crc, &buf[0]);
 
-    lfs_ssize_t delta = lfs_toleb128(fcrc->size, &buf[4], 4);
+    lfs_ssize_t delta = lfs_toleb128(fcrc->size, &buf[4], 5);
     if (delta < 0) {
         return delta;
     }
@@ -851,7 +851,7 @@ static lfs_ssize_t lfsr_fcrc_fromdisk(
         const uint8_t buf[static LFSR_FCRC_DSIZE]) {
     fcrc->crc = lfs_fromle32_(&buf[0]);
 
-    lfs_ssize_t delta = lfs_fromleb128(&fcrc->size, &buf[4], 4);
+    lfs_ssize_t delta = lfs_fromleb128(&fcrc->size, &buf[4], 5);
     if (delta < 0) {
         return delta;
     }
@@ -1110,10 +1110,10 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 //
 // - 14-bit type      => 2 byte leb128 (worst case)
 // - 32-bit id/weight => 5 byte leb128 (worst case)
-// - 28-bit size/jump => 4 byte leb128 (worst case)
-//                    => 11 bytes total
+// - 32-bit size/jump => 5 byte leb128 (worst case)
+//                    => 12 bytes total
 //
-#define LFSR_TAG_DSIZE (2+5+4)
+#define LFSR_TAG_DSIZE (2+5+5)
 
 // TODO actually should this be an lfs_bd_ operation?
 static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
@@ -1130,7 +1130,7 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
     uint8_t buffer[LFSR_TAG_DSIZE] = {
         0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff,
     };
 
     // TODO allow different hint for lookup? bench this? does our hint work backwards?
@@ -1172,7 +1172,7 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
     delta += delta_;
 
     lfs_size_t size_;
-    delta_ = lfs_fromleb128(&size_, &buffer[delta], 4);
+    delta_ = lfs_fromleb128(&size_, &buffer[delta], 5);
     if (delta_ < 0) {
         return delta_;
     }
@@ -1662,7 +1662,7 @@ static int lfsr_rbyd_progtag(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     }
     delta += delta_;
 
-    delta_ = lfs_toleb128(size, &buf[delta], 4);
+    delta_ = lfs_toleb128(size, &buf[delta], 5);
     if (delta_ < 0) {
         return delta_;
     }
@@ -2243,30 +2243,23 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //   - fcrc tag id   => 1 byte leb128
     //   - fcrc tag size => 1 byte leb128 (worst case)
     //   - fcrc crc      => 4 byte le32
-    //   - fcrc size     => 4 byte leb128 (worst case)
+    //   - fcrc size     => 5 byte leb128 (worst case)
     //   - crc tag type  => 1 byte leb128
     //   - crc tag id    => 1 byte leb128
-    //   - crc tag size  => 4 byte leb128 (worst case)
+    //   - crc tag size  => 5 byte leb128 (worst case)
     //   - crc crc       => 4 byte le32
-    //                   => 21 bytes total
+    //                   => 23 bytes total
     //
     // - 4-word crc with no following prog (end of block)
     //   - crc tag type => 1 byte leb128
     //   - crc tag id   => 1 byte leb128
-    //   - crc tag size => 4 byte leb128 (worst case)
+    //   - crc tag size => 5 byte leb128 (worst case)
     //   - crc crc      => 4 byte le32
-    //                  => 10 bytes total
+    //                  => 11 bytes total
     // 
-    const lfs_off_t aligned = lfs_alignup(
-            rbyd_.off + 1+1+1+4+4 + 1+1+4+4,
+    lfs_off_t aligned = lfs_alignup(
+            rbyd_.off + 1+1+1+4+5 + 1+1+5+4,
             lfs->cfg->prog_size);
-
-    // TODO we can accept a tighter limit here if we recalculate aligned
-    // after failing to include an fcrc
-    // not even space for the crc?
-    if (aligned > lfs->cfg->block_size) {
-        return LFS_ERR_RANGE;
-    }
 
     // space for fcrc?
     uint8_t perturb = 0;
@@ -2305,6 +2298,16 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         rbyd_.erased = true;
+    } else {
+        // recalculate aligned without fcrc
+        aligned = lfs_alignup(
+            rbyd_.off + 1+1+5+4,
+            lfs->cfg->prog_size);
+    }
+
+    // not even space for the crc?
+    if (aligned > lfs->cfg->block_size) {
+        return LFS_ERR_RANGE;
     }
 
     // build end-of-commit crc
@@ -2312,28 +2315,29 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // note padding-size depends on leb-encoding depends on padding-size, to
     // get around this catch-22 we just always write a fully-expanded leb128
     // encoding
-    uint8_t buffer[1+1+4+4];
+    uint8_t buffer[1+1+5+4];
     buffer[0] = LFSR_TAG_CRC | (lfs_popc(rbyd_.crc) & 1);
     buffer[1] = 0;
 
-    lfs_off_t padding = aligned - (rbyd_.off + 1+1+4);
+    lfs_off_t padding = aligned - (rbyd_.off + 1+1+5);
     buffer[2] = 0x80 | (0x7f & (padding >>  0));
     buffer[3] = 0x80 | (0x7f & (padding >>  7));
     buffer[4] = 0x80 | (0x7f & (padding >> 14));
-    buffer[5] = 0x00 | (0x7f & (padding >> 21));
+    buffer[5] = 0x80 | (0x7f & (padding >> 21));
+    buffer[6] = 0x00 | (0x7f & (padding >> 28));
 
-    rbyd_.crc = lfs_crc32c(rbyd_.crc, buffer, 1+1+4);
+    rbyd_.crc = lfs_crc32c(rbyd_.crc, buffer, 1+1+5);
     // we can't let the next tag appear as valid, so intentionally perturb the
     // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
     // so we can really change any bit to make this happen, we've reserved a bit
     // in crc tags just for this purpose
     if ((lfs_popc(rbyd_.crc) & 1) == (perturb & 1)) {
         buffer[0] ^= 0x10;
-        rbyd_.crc ^= 0xc00c303e; // note crc(a ^ b) == crc(a) ^ crc(b)
+        rbyd_.crc ^= 0x9c5bfaa6; // note crc(a ^ b) == crc(a) ^ crc(b)
     }
-    lfs_tole32_(rbyd_.crc, &buffer[1+1+4]);
+    lfs_tole32_(rbyd_.crc, &buffer[1+1+5]);
 
-    int err = lfsr_rbyd_prog(lfs, &rbyd_, buffer, 1+1+4+4, NULL);
+    int err = lfsr_rbyd_prog(lfs, &rbyd_, buffer, 1+1+5+4, NULL);
     if (err) {
         return err;
     }
