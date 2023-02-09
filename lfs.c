@@ -518,15 +518,15 @@ static inline bool lfsr_tag_ismk(lfsr_tag_t tag) {
     return (tag & ~0x03f0) == LFSR_TAG_MK;
 }
 
-static inline bool lfsr_tag_isfound(lfsr_tag_t tag) {
-    // note that this is only for driver bookkeeping and never
-    // exists on disk
-    return tag & 0x1;
-}
-
-static inline lfsr_tag_t lfsr_tag_mkfound(lfsr_tag_t tag) {
-    return tag | 0x1;
-}
+//static inline bool lfsr_tag_isfound(lfsr_tag_t tag) {
+//    // note that this is only for driver bookkeeping and never
+//    // exists on disk
+//    return tag & 0x1;
+//}
+//
+//static inline lfsr_tag_t lfsr_tag_mkfound(lfsr_tag_t tag) {
+//    return tag | 0x1;
+//}
 
 static inline lfsr_tag_t lfsr_tag_next(lfsr_tag_t tag) {
     return tag + 0x10;
@@ -1838,6 +1838,13 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     //
     // note we can't just perform two searches sequentially, or else our tree
     // will end up very unbalanced.
+    //
+    // we end up going through several states when diverging:
+    // diverged=0 => not diverged
+    // diverged=4 => diverged, on lower path
+    // diverged=5 => diverged, on upper path
+    // diverged=2 => diverged, found one tag, on lower path
+    // diverged=3 => diverged, found one tag, on upper path
     uint8_t diverged = 0;
     lfs_off_t other_branch = 0;
     lfs_ssize_t other_lower_id = 0;
@@ -1853,18 +1860,6 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
     // descend down tree, building alt pointers
     while (true) {
-        // do we need to flip bounds?
-        if (diverged && !lfsr_tag_isfound(other_tag_)) {
-            diverged ^= 3;
-            lfs_swap16(&tag_, &other_tag_);
-            lfs_swaps32(&id_, &other_id_);
-            lfs_swap32(&branch, &other_branch);
-            lfs_swaps32(&lower_id, &other_lower_id);
-            lfs_swaps32(&upper_id, &other_upper_id);
-            lfs_swap16(&lower_tag, &other_lower_tag);
-            lfs_swap16(&upper_tag, &other_upper_tag);
-        }
-
         // read the alt pointer
         lfsr_tag_t alt;
         lfs_ssize_t weight;
@@ -1901,7 +1896,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
                     branch_ = branch;
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
                 } else {
-                    diverged = 1;
+                    diverged = 4;
                     other_branch = branch;
                     other_lower_id = lower_id;
                     other_upper_id = upper_id;
@@ -2058,7 +2053,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             branch = branch_;
 
             // prune inner alts if our tags diverged
-            if (diverged && (diverged == 2) != lfsr_tag_isgt(alt)) {
+            if (diverged && (diverged & 0x1) != lfsr_tag_isgt(alt)) {
                 continue;
             }
 
@@ -2073,28 +2068,44 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
         // found end of tree?
         } else {
-            // update the tag id, marking as found
-            tag_ = lfsr_tag_mkfound(alt);
+            // update the found tag/id
+            tag_ = alt;
             id_ = upper_id-1;
 
-            if (diverged && !lfsr_tag_isfound(other_tag_)) {
-                continue;
+            // done?
+            if (diverged >= 4) {
+                diverged -= 2;
+            } else {
+                break;
             }
+        }
 
-            // almost done, we just need to insert a new alt pointer
-            // to connect our leaf to the tree
-            break;
+        // switch to the other path if we have diverged
+        if (diverged >= 4 || !lfsr_tag_isalt(alt)) {
+            diverged ^= 0x1;
+            lfs_swap16(&tag_, &other_tag_);
+            lfs_swaps32(&id_, &other_id_);
+            lfs_swap32(&branch, &other_branch);
+            lfs_swaps32(&lower_id, &other_lower_id);
+            lfs_swaps32(&upper_id, &other_upper_id);
+            lfs_swap16(&lower_tag, &other_lower_tag);
+            lfs_swap16(&upper_tag, &other_upper_tag);
         }
     }
+
+    // the last alt should always end up black
     LFS_ASSERT(lfsr_tag_isblack(p_alts[0]));
 
-    // extract bounds from diverged tags
-    if (diverged == 1) {
+    // if we diverged, merge the bounds
+    LFS_ASSERT(diverged < 4);
+    if (diverged == 2) {
+        // finished on upper path
         tag_ = other_tag_;
         id_ = other_id_;
         branch = other_branch;
         upper_id = other_upper_id;
-    } else if (diverged == 2) {
+    } else if (diverged == 3) {
+        // finished on lower path
         lower_id = other_lower_id;
     }
 
@@ -2104,8 +2115,6 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     // always finds the next biggest tag
     lfsr_tag_t alt = 0;
     lfs_size_t weight = 0;
-    lfs_off_t jump = 0;
-
     if (lfsr_tag_isrm(tag_)) {
         // no split needed, prune the removed tag
 
@@ -2117,14 +2126,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         // appending to the end of the tree
         alt = LFSR_TAG_ALT(B, LE, tag_);
         weight = id_ - lower_id;
-        jump = branch;
 
     } else if (lfsr_tag_ismk(tag)) {
         if (id_ >= id) {
             // increase weight when creating
             alt = LFSR_TAG_ALT(B, GT, tag);
             weight = upper_id - id - 1 + 1;
-            jump = branch;
         }
 
     } else if (tag == LFSR_TAG_RM) {
@@ -2132,30 +2139,25 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             // decrease weight when deleting
             alt = LFSR_TAG_ALT(B, GT, 0);
             weight = upper_id - lower_id - 1 - 1;
-            jump = branch;
-        }
-
-    } else if (lfsr_tag_isrm(tag)) {
-        if (id_ > id
-                || (id_ == id && lfsr_tag_key(tag_) > lfsr_tag_key(tag))) {
-            // hide our tag during removes
-            alt = LFSR_TAG_ALT(B, GT, 0);
-            weight = upper_id - lower_id;
-            jump = branch;
         }
 
     } else if (id_ > id
             || (id_ == id && lfsr_tag_key(tag_) > lfsr_tag_key(tag))) {
-        // split greater than
-        alt = LFSR_TAG_ALT(B, GT, tag);
-        weight = upper_id - id - 1;
-        jump = branch;
+        if (lfsr_tag_isrm(tag)) {
+            // hide our tag during removes
+            alt = LFSR_TAG_ALT(B, GT, 0);
+            weight = upper_id - lower_id;
+        } else {
+            // split greater than
+            alt = LFSR_TAG_ALT(B, GT, tag);
+            weight = upper_id - id - 1;
+        }
     }
 
     if (alt) {
         int err = lfsr_rbyd_p_push(lfs, rbyd_,
                 p_alts, p_weights, p_jumps,
-                alt, weight, jump);
+                alt, weight, branch);
         if (err) {
             return err;
         }
@@ -2191,7 +2193,6 @@ leaf:;
     //
     // note we do this here since it is possible to insert into an
     // empty tree
-    //
     if (lfsr_tag_ismk(tag)) {
         rbyd_->weight += 1;
     } else if (tag == LFSR_TAG_RM) {
