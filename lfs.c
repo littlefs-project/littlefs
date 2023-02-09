@@ -1187,8 +1187,11 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
     // - clear the valid bit from tag, we checked this earlier
     // - adjust id so reserved id is -1, so we don't have mixed zero/one indexed
     //
+    if (!lfsr_tag_isalt(tag_)) {
+        id_ -= 1;
+    }
     *tag = tag_ & ~0x1;
-    *id = id_ - 1;
+    *id = id_;
     *size = size_;
 
     return delta;
@@ -1506,7 +1509,6 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // found an alt?
         if (lfsr_tag_isalt(alt)) {
-            weight += 1;
             if (lfsr_tag_follow(alt, weight, lower, upper, tag, id)) {
                 lfsr_tag_flip(&alt, &weight, lower, upper);
                 lfsr_tag_trim(alt, weight, &lower, &upper, NULL, NULL);
@@ -1645,7 +1647,9 @@ static int lfsr_rbyd_progtag(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     tag |= lfs_popc(rbyd_->crc) & 1;
 
     // change ids to on-disk representation
-    id += 1;
+    if (!lfsr_tag_isalt(tag)) {
+        id += 1;
+    }
 
     // compress into a trio of leb128s
     uint8_t buf[LFSR_TAG_DSIZE];
@@ -1686,7 +1690,7 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         if (p_alts[3-1-i]) {
             // change to a relative jump at the last minute
             lfsr_tag_t alt = p_alts[3-1-i];
-            lfs_ssize_t weight = p_weights[3-1-i] - 1;
+            lfs_ssize_t weight = p_weights[3-1-i];
             lfs_off_t jump = rbyd_->off - p_jumps[3-1-i];
 
             int err = lfsr_rbyd_progtag(lfs, rbyd_,
@@ -1874,7 +1878,6 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         // found an alt?
         if (lfsr_tag_isalt(alt)) {
             // make jump absolute
-            weight += 1;
             jump = branch - jump;
             lfs_off_t branch_ = branch + delta;
 
