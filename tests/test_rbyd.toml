@@ -2,7 +2,7 @@
 # Test this inner rbyd data-structure
 
 # test with a number of different erase values
-defines.ERASE_VALUE = [0xff, 0x00, 0x1b, -1]
+defines.ERASE_VALUE = [0xff, 0x00, 0x1b]
 
 [cases.test_rbyd_commit]
 in = 'lfs.c'
@@ -2750,9 +2750,7 @@ code = '''
         int err = lfsr_rbyd_commit(&lfs, &rbyd,
                 LFSR_ATTR(UATTR(x), -1, "\xaa\xaa\xaa\xaa", 4,
                 NULL));
-        // if we can't fit an fcrc, erased is set to false, but if we can,
-        // lfsr_rbyd_commit may error later with LFS_ERR_RANGE
-        if (!rbyd.erased || err == LFS_ERR_RANGE) {
+        if (err == LFS_ERR_RANGE) {
             break;
         }
         assert(err == 0);
@@ -3892,6 +3890,9 @@ code = '''
             worst_size = rbyd.off;
             worst_seed = seed;
         }
+
+        // cleanup
+        free(sim);
     }
 
     // print the worst seed + size, and rerun it so it's left on the disk
@@ -3944,156 +3945,6 @@ code = '''
         assert(worst_size <= N*12*(2*lfs_nlog2(N)+1)+1);
     }
 '''
-
-# TODO rm me
-#[cases.test_rbyd_remove_append_permutations]
-#defines.N = 'range(1, 6)'
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= N+2'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    lfsr_tag_t tag_;
-#    lfs_ssize_t id_;
-#    lfs_off_t off_;
-#    lfs_size_t size_;
-#
-#    // keep track of the worst case log size
-#    lfs_size_t worst_size = 0;
-#
-#    // test all permutations of a given size
-#    uint8_t perm[N];
-#    unsigned stack[N];
-#    for (uint8_t i = 0; i < N; i++) {
-#        perm[i] = i;
-#        stack[i] = 0;
-#    }
-#
-#    unsigned i = 1;
-#    while (i < N) {
-#        // print permutation to help debugging
-#        printf("--- permutation: [");
-#        for (unsigned j = 0; j < N; j++) {
-#            if (j > 0) {
-#                printf(", ");
-#            }
-#            printf("%d", perm[j]+1);
-#        }
-#        printf("] ---\n");
-#
-#        // create given permutation with multiple commits
-#        rbyd = init_rbyd;
-#        lfs_bd_erase(&lfs, rbyd.block) => 0;
-#
-#        for (unsigned j = 0; j < N; j++) {
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(UATTR(perm[j]+1), -1, "\xaa\xaa\xaa\xaa", 4,
-#                    NULL)) => 0;
-#        }
-#
-#        // copy block so we can reset after each remove
-#        lfsr_rbyd_t backup_rbyd = rbyd;
-#        uint8_t backup_block[BLOCK_SIZE];
-#        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-#                rbyd.block, 0, backup_block, rbyd.off) => 0;
-#
-#        // try removing each tag
-#        for (unsigned j = 0; j < N; j++) {
-#            for (unsigned l = 0; l < N; l++) {
-#                // print what we are removing to help debugging
-#                printf("--- remove: %d, append: %d ---\n", j+1, l+1);
-#
-#                rbyd = backup_rbyd;
-#                lfs_bd_erase(&lfs, rbyd.block) => 0;
-#                lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-#                        rbyd.block, 0, backup_block, rbyd.off) => 0;
-#                lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
-#
-#                // remove
-#                lfsr_rbyd_commit(&lfs, &rbyd,
-#                        LFSR_ATTR(RMUATTR(j+1), -1, NULL, 0, NULL)) => 0;
-#
-#                // try appending each tag to make sure the rbyd tree
-#                // is still usable
-#                lfsr_rbyd_commit(&lfs, &rbyd,
-#                        LFSR_ATTR(UATTR(l+1), -1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6,
-#                        NULL)) => 0;
-#
-#                lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
-#                        cfg->block_size, NULL) => 0;
-#                for (unsigned k = 0; k < N; k++) {
-#                    int err = lfsr_rbyd_lookup(&lfs, &rbyd,
-#                            LFSR_TAG_UATTR(k+1), -1,
-#                            &tag_, &id_, &off_, &size_);
-#                    assert(!err || err == LFS_ERR_NOENT);
-#                    if (k == l) {
-#                        assert(tag_ == LFSR_TAG_UATTR(l+1));
-#                        assert(id_ == -1);
-#                        assert(size_ == 6);
-#                    } else if (k == j) {
-#                        if (j == N-1) {
-#                            assert(err == LFS_ERR_NOENT);
-#                        } else {
-#                            assert(!err);
-#                            assert(tag_ == LFSR_TAG_UATTR(j+1+1));
-#                            assert(id_ == -1);
-#                            assert(size_ == 4 || size_ == 6);
-#                        }
-#                    } else {
-#                        assert(!err);
-#                        assert(tag_ == LFSR_TAG_UATTR(k+1));
-#                        assert(id_ == -1);
-#                        assert(size_ == 4);
-#                    }
-#                }
-#
-#                // keep track of the worst size
-#                worst_size = lfs_max(worst_size, rbyd.off);
-#            }
-#        }
-#
-#        // next permutation using Heap's algorithm
-#        if (stack[i] < i) {
-#            if (i % 2 == 0) {
-#                uint8_t t = perm[0];
-#                perm[0] = perm[i];
-#                perm[i] = t;
-#            } else {
-#                uint8_t t = perm[stack[i]];
-#                perm[stack[i]] = perm[i];
-#                perm[i] = t;
-#            }
-#            stack[i] += 1;
-#            i = 1;
-#        } else {
-#            stack[i] = 0;
-#            i += 1;
-#        }
-#    }
-#
-#    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
-#    lfs_size_t n = 1 + N + 1 + 1;
-#    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-#    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
-#    // note this only holds true with byte-level progs
-#    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
-#    }
-#'''
 
 
 ### Insertion testing ###
@@ -5120,9 +4971,7 @@ code = '''
 
         int err = lfsr_rbyd_commit(&lfs, &rbyd,
                 LFSR_ATTR(MKREG, x, names[x % 6], 4, NULL));
-        // if we can't fit an fcrc, erased is set to false, but if we can,
-        // lfsr_rbyd_commit may error later with LFS_ERR_RANGE
-        if (!rbyd.erased || err == LFS_ERR_RANGE) {
+        if (err == LFS_ERR_RANGE) {
             break;
         }
         assert(err == 0);
@@ -7032,9 +6881,7 @@ code = '''
         }
 
         int err = lfsr_rbyd_commit(&lfs, &rbyd, attrs);
-        // if we can't fit an fcrc, erased is set to false, but if we can,
-        // lfsr_rbyd_commit may error later with LFS_ERR_RANGE
-        if (!rbyd.erased || err == LFS_ERR_RANGE) {
+        if (err == LFS_ERR_RANGE) {
             break;
         }
         assert(err == 0);
@@ -8673,359 +8520,6 @@ code = '''
     }
 '''
 
-# TODO rm me
-#[cases.test_rbyd_delete_create_permutations]
-#defines.N = 'range(1, 6)'
-#in = 'lfs.c'
-#if = 'BLOCK_SIZE/PROG_SIZE >= N+2'
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    const uint8_t names[6][6] = {
-#        "\xaa\xaa\xaa\xaa\xaa\xaa",
-#        "\xbb\xbb\xbb\xbb\xbb\xbb",
-#        "\xcc\xcc\xcc\xcc\xcc\xcc",
-#        "\xdd\xdd\xdd\xdd\xdd\xdd",
-#        "\xee\xee\xee\xee\xee\xee",
-#        "\xff\xff\xff\xff\xff\xff",
-#    };
-#    uint8_t buffer[6];
-#
-#    // keep track of the worst case log size
-#    lfs_size_t worst_size = 0;
-#
-#    // test all permutations of a given size
-#    uint16_t perm[N];
-#    unsigned stack[N];
-#    for (uint16_t i = 0; i < N; i++) {
-#        perm[i] = i;
-#        stack[i] = 0;
-#    }
-#
-#    unsigned i = 1;
-#    while (i < N) {
-#        // print permutation to help debugging
-#        printf("--- permutation: [");
-#        for (unsigned j = 0; j < N; j++) {
-#            if (j > 0) {
-#                printf(", ");
-#            }
-#            printf("%d", perm[j]+1);
-#        }
-#        printf("] ---\n");
-#
-#        // create given permutation with multiple commits
-#        rbyd = init_rbyd;
-#        lfs_bd_erase(&lfs, rbyd.block) => 0;
-#
-#        for (unsigned j = 0; j < N; j++) {
-#            // adjust id based on future insertions
-#            uint16_t id = perm[j];
-#            for (unsigned k = j+1; k < N; k++) {
-#                if (perm[j] > perm[k]) {
-#                    id -= 1;
-#                }
-#            }
-#
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(MKREG, id, names[perm[j] % 6], 4,
-#                    NULL)) => 0;
-#        }
-#        assert(rbyd.weight == N);
-#
-#        // copy block so we can reset after each delete
-#        lfsr_rbyd_t backup_rbyd = rbyd;
-#        uint8_t backup_block[BLOCK_SIZE];
-#        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-#                rbyd.block, 0, backup_block, rbyd.off) => 0;
-#
-#        // try deleting each id
-#        for (unsigned j = 0; j < N; j++) {
-#            for (unsigned l = 0; l < N; l++) {
-#                // print what we are deleting to help debugging
-#                printf("--- delete: %d, create: %d ---\n", j+1, l+1);
-#
-#                rbyd = backup_rbyd;
-#                lfs_bd_erase(&lfs, rbyd.block) => 0;
-#                lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-#                        rbyd.block, 0, backup_block, rbyd.off) => 0;
-#                lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
-#
-#                // delete
-#                lfsr_rbyd_commit(&lfs, &rbyd,
-#                        LFSR_ATTR(RM, j, NULL, 0,
-#                        NULL)) => 0;
-#                assert(rbyd.weight == N-1);
-#
-#                // try creating each tag to make sure the rbyd tree
-#                // is still usable
-#                lfsr_rbyd_commit(&lfs, &rbyd,
-#                        LFSR_ATTR(MKREG, l, names[l % 6], 6,
-#                        NULL)) => 0;
-#                assert(rbyd.weight == N);
-#
-#                lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
-#                        cfg->block_size, NULL) => 0;
-#                for (unsigned k = 0; k < N; k++) {
-#                    lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
-#                            LFSR_TAG_MKREG, k, buffer, 6);
-#                    if (k == l) {
-#                        assert(size == 6);
-#                        assert(memcmp(buffer, names[l % 6], 6) == 0);
-#                    } else {
-#                        uint16_t expected = k;
-#                        if (expected > l) {
-#                            expected -= 1;
-#                        }
-#                        if (expected >= j) {
-#                            expected += 1;
-#                        }
-#                        assert(size == 4);
-#                        assert(memcmp(buffer, names[expected % 6], 4) == 0);
-#                    }
-#                }
-#
-#                // keep track of the worst size
-#                worst_size = lfs_max(worst_size, rbyd.off);
-#            }
-#        }
-#
-#        // next permutation using Heap's algorithm
-#        if (stack[i] < i) {
-#            if (i % 2 == 0) {
-#                uint16_t t = perm[0];
-#                perm[0] = perm[i];
-#                perm[i] = t;
-#            } else {
-#                uint16_t t = perm[stack[i]];
-#                perm[stack[i]] = perm[i];
-#                perm[i] = t;
-#            }
-#            stack[i] += 1;
-#            i = 1;
-#        } else {
-#            stack[i] = 0;
-#            i += 1;
-#        }
-#    }
-#
-#    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
-#    lfs_size_t n = 1 + N + 1 + 1;
-#    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-#    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
-#    // note this only holds true with byte-level progs
-#    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
-#    }
-#'''
-#
-#[cases.test_rbyd_delete_create_range_permutations]
-#defines.N = 'range(1, 6)'
-#defines.M = 'range(1, 4)'
-#in = 'lfs.c'
-#if = '''
-#    BLOCK_SIZE/PROG_SIZE >= N+N*M + 1 + 1+M
-#        && BLOCK_SIZE >= 4096
-#'''
-#code = '''
-#    lfs_t lfs;
-#    lfs_init(&lfs, cfg) => 0;
-#
-#    lfsr_rbyd_t init_rbyd = {
-#        .block = 0,
-#        .rev = 1,
-#        .off = 0,
-#        .crc = 0,
-#        .trunk = 0,
-#        .weight = 0,
-#        .erased = true,
-#    };
-#    lfsr_rbyd_t rbyd;
-#    const uint8_t names[6][6] = {
-#        "\xaa\xaa\xaa\xaa\xaa\xaa",
-#        "\xbb\xbb\xbb\xbb\xbb\xbb",
-#        "\xcc\xcc\xcc\xcc\xcc\xcc",
-#        "\xdd\xdd\xdd\xdd\xdd\xdd",
-#        "\xee\xee\xee\xee\xee\xee",
-#        "\xff\xff\xff\xff\xff\xff",
-#    };
-#    uint8_t buffer[6];
-#
-#    // keep track of the worst case log size
-#    lfs_size_t worst_size = 0;
-#
-#    // test all permutations of a given size
-#    uint16_t perm[N];
-#    unsigned stack[N];
-#    for (uint16_t i = 0; i < N; i++) {
-#        perm[i] = i;
-#        stack[i] = 0;
-#    }
-#
-#    unsigned i = 1;
-#    while (i < N) {
-#        // print permutation to help debugging
-#        printf("--- permutation: [");
-#        for (unsigned j = 0; j < N; j++) {
-#            if (j > 0) {
-#                printf(", ");
-#            }
-#            printf("%d", perm[j]+1);
-#        }
-#        printf("] ---\n");
-#
-#        // create given permutation with multiple commits
-#        rbyd = init_rbyd;
-#        lfs_bd_erase(&lfs, rbyd.block) => 0;
-#
-#        for (unsigned j = 0; j < N; j++) {
-#            // adjust id based on future insertions
-#            uint16_t id = perm[j];
-#            for (unsigned k = j+1; k < N; k++) {
-#                if (perm[j] > perm[k]) {
-#                    id -= 1;
-#                }
-#            }
-#
-#            lfsr_rbyd_commit(&lfs, &rbyd,
-#                    LFSR_ATTR(MKREG, id, names[perm[j] % 6], 4,
-#                    NULL)) => 0;
-#            // note uattrs have a smaller size to help debugging
-#            for (unsigned u = 0; u < M; u++) {
-#                lfsr_rbyd_commit(&lfs, &rbyd,
-#                        LFSR_ATTR(UATTR(u+1), id, names[perm[j] % 6], 2,
-#                        NULL)) => 0;
-#            }
-#        }
-#        assert(rbyd.weight == N);
-#
-#        // copy block so we can reset after each delete
-#        lfsr_rbyd_t backup_rbyd = rbyd;
-#        uint8_t backup_block[BLOCK_SIZE];
-#        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-#                rbyd.block, 0, backup_block, rbyd.off) => 0;
-#
-#        // try deleting each id
-#        for (unsigned j = 0; j < N; j++) {
-#            for (unsigned l = 0; l < N; l++) {
-#                // print what we are deleting to help debugging
-#                printf("--- delete: %d, create: %d ---\n", j+1, l+1);
-#
-#                rbyd = backup_rbyd;
-#                lfs_bd_erase(&lfs, rbyd.block) => 0;
-#                lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-#                        rbyd.block, 0, backup_block, rbyd.off) => 0;
-#                lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
-#
-#                // delete
-#                lfsr_rbyd_commit(&lfs, &rbyd,
-#                        LFSR_ATTR(RM, j, NULL, 0,
-#                        NULL)) => 0;
-#                assert(rbyd.weight == N-1);
-#
-#                // try creating each tag to make sure the rbyd tree
-#                // is still usable
-#                lfsr_rbyd_commit(&lfs, &rbyd,
-#                        LFSR_ATTR(MKREG, l, names[l % 6], 6,
-#                        NULL)) => 0;
-#                for (unsigned u = 0; u < M; u++) {
-#                    lfsr_rbyd_commit(&lfs, &rbyd,
-#                            LFSR_ATTR(UATTR(u+1), l, names[l % 6], 3,
-#                            NULL)) => 0;
-#                }
-#                assert(rbyd.weight == N);
-#
-#                lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
-#                        cfg->block_size, NULL) => 0;
-#                for (unsigned k = 0; k < N; k++) {
-#                    lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
-#                            LFSR_TAG_MKREG, k, buffer, 6);
-#                    if (k == l) {
-#                        assert(size == 6);
-#                        assert(memcmp(buffer, names[l % 6], 6) == 0);
-#                    } else {
-#                        uint16_t expected = k;
-#                        if (expected > l) {
-#                            expected -= 1;
-#                        }
-#                        if (expected >= j) {
-#                            expected += 1;
-#                        }
-#                        assert(size == 4);
-#                        assert(memcmp(buffer, names[expected % 6], 4) == 0);
-#                    }
-#
-#                    for (unsigned u = 0; u < M; u++) {
-#                        size = lfsr_rbyd_get(&lfs, &rbyd,
-#                                LFSR_TAG_UATTR(u+1), k, buffer, 6);
-#                        if (k == l) {
-#                            assert(size == 3);
-#                            assert(memcmp(buffer, names[l % 6], 3) == 0);
-#                        } else {
-#                            uint16_t expected = k;
-#                            if (expected > l) {
-#                                expected -= 1;
-#                            }
-#                            if (expected >= j) {
-#                                expected += 1;
-#                            }
-#                            assert(size == 2);
-#                            assert(memcmp(buffer, names[expected % 6], 2) == 0);
-#                        }
-#                    }
-#                }
-#
-#                // keep track of the worst size
-#                worst_size = lfs_max(worst_size, rbyd.off);
-#            }
-#        }
-#
-#        // next permutation using Heap's algorithm
-#        if (stack[i] < i) {
-#            if (i % 2 == 0) {
-#                uint16_t t = perm[0];
-#                perm[0] = perm[i];
-#                perm[i] = t;
-#            } else {
-#                uint16_t t = perm[stack[i]];
-#                perm[stack[i]] = perm[i];
-#                perm[i] = t;
-#            }
-#            stack[i] += 1;
-#            i = 1;
-#        } else {
-#            stack[i] = 0;
-#            i += 1;
-#        }
-#    }
-#
-#    // test that tree is self-balancing, we should be strictly bounded
-#    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
-#    lfs_size_t n = 1 + N+N*M + 1 + 1+M;
-#    printf("worst size: %u B (N=%u, estimate=%u)\n",
-#            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-#    printf("avg height: %u B (N=%u, estimate=%u)\n",
-#            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
-#    // note this only holds true with byte-level progs
-#    if (PROG_SIZE == 1) {
-#        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
-#    }
-#'''
-
 # the main purpose of this test is to try to fuzz for failures in the
 # balancing algorithm
 [cases.test_rbyd_random_create_deletes]
@@ -9146,6 +8640,9 @@ code = '''
             worst_size = rbyd.off;
             worst_seed = seed;
         }
+
+        // cleanup
+        free(sim);
     }
 
     // print the worst seed + size, and rerun it so it's left on the disk
