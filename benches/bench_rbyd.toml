@@ -1,3 +1,10 @@
+
+
+# set block_size to the full size of disk so we can test arbitrarily
+# large rbyd trees, we don't really care about block sizes at this
+# abstraction level
+defines.BLOCK_SIZE = 'DISK_SIZE'
+
 [cases.bench_rbyd_attr_commit]
 # 0 = in-order
 # 1 = reversed-order
@@ -10,23 +17,16 @@ defines.N = [8, 16, 32, 64, 128, 256]
 in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
-    // set block_size to the full size of disk so we can test arbitrarily
-    // large rbyd trees, we don't really care about block sizes at this
-    // abstraction level
-    struct lfs_config cfg_ = *cfg;
-    cfg_.block_size = cfg->block_size*cfg->block_count;
-    cfg_.block_count = 1;
-
     lfs_t lfs;
-    lfs_init(&lfs, &cfg_) => 0;
+    lfs_init(&lfs, cfg) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .trunk = 0,
-        .off = 0,
         .rev = 1,
+        .off = 0,
         .crc = 0,
-        .count = 0,
+        .trunk = 0,
+        .weight = 0,
         .erased = true,
     };
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -44,8 +44,8 @@ code = '''
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? (N-1-i)
                     : BENCH_PRNG(&prng) % N;
-            attrs[i] = *LFSR_ATTR2(
-                    UATTR, i_, -1, "\xaa\xaa\xaa\xaa", 4,
+            attrs[i] = *LFSR_ATTR(
+                    UATTR(i_ & 0xff), -1, "\xaa\xaa\xaa\xaa", 4,
                     (i+1 < N) ? &attrs[i+1] : NULL);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs) => 0;
@@ -56,13 +56,13 @@ code = '''
                     : (ORDER == 1) ? (N-1-i)
                     : BENCH_PRNG(&prng) % N;
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR2(UATTR, i_ & 0xff, -1, "\xaa\xaa\xaa\xaa", 4,
+                    LFSR_ATTR(UATTR(i_ & 0xff), -1, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
         }
     }
     BENCH_STOP();
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
 '''
 
 [cases.bench_rbyd_attr_fetch]
@@ -77,23 +77,16 @@ defines.N = [8, 16, 32, 64, 128, 256]
 in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
-    // set block_size to the full size of disk so we can test arbitrarily
-    // large rbyd trees, we don't really care about block sizes at this
-    // abstraction level
-    struct lfs_config cfg_ = *cfg;
-    cfg_.block_size = cfg->block_size*cfg->block_count;
-    cfg_.block_count = 1;
-
     lfs_t lfs;
-    lfs_init(&lfs, &cfg_) => 0;
+    lfs_init(&lfs, cfg) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .trunk = 0,
-        .off = 0,
         .rev = 1,
+        .off = 0,
         .crc = 0,
-        .count = 0,
+        .trunk = 0,
+        .weight = 0,
         .erased = true,
     };
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -110,8 +103,8 @@ code = '''
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? (N-1-i)
                     : BENCH_PRNG(&prng) % N;
-            attrs[i] = *LFSR_ATTR2(
-                    UATTR, i_, -1, "\xaa\xaa\xaa\xaa", 4,
+            attrs[i] = *LFSR_ATTR(
+                    UATTR(i_ & 0xff), -1, "\xaa\xaa\xaa\xaa", 4,
                     (i+1 < N) ? &attrs[i+1] : NULL);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs) => 0;
@@ -122,13 +115,13 @@ code = '''
                     : (ORDER == 1) ? (N-1-i)
                     : BENCH_PRNG(&prng) % N;
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR2(UATTR, i_ & 0xff, -1, "\xaa\xaa\xaa\xaa", 4,
+                    LFSR_ATTR(UATTR(i_ & 0xff), -1, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
         }
     }
 
     BENCH_START();
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
     BENCH_STOP();
 '''
 
@@ -144,23 +137,16 @@ defines.N = [8, 16, 32, 64, 128, 256]
 in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
-    // set block_size to the full size of disk so we can test arbitrarily
-    // large rbyd trees, we don't really care about block sizes at this
-    // abstraction level
-    struct lfs_config cfg_ = *cfg;
-    cfg_.block_size = cfg->block_size*cfg->block_count;
-    cfg_.block_count = 1;
-
     lfs_t lfs;
-    lfs_init(&lfs, &cfg_) => 0;
+    lfs_init(&lfs, cfg) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .trunk = 0,
-        .off = 0,
         .rev = 1,
+        .off = 0,
         .crc = 0,
-        .count = 0,
+        .trunk = 0,
+        .weight = 0,
         .erased = true,
     };
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -177,8 +163,8 @@ code = '''
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? (N-1-i)
                     : BENCH_PRNG(&prng) % N;
-            attrs[i] = *LFSR_ATTR2(
-                    UATTR, i_, -1, "\xaa\xaa\xaa\xaa", 4,
+            attrs[i] = *LFSR_ATTR(
+                    UATTR(i_ & 0xff), -1, "\xaa\xaa\xaa\xaa", 4,
                     (i+1 < N) ? &attrs[i+1] : NULL);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs) => 0;
@@ -189,18 +175,24 @@ code = '''
                     : (ORDER == 1) ? (N-1-i)
                     : BENCH_PRNG(&prng) % N;
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR2(UATTR, i_ & 0xff, -1, "\xaa\xaa\xaa\xaa", 4,
+                    LFSR_ATTR(UATTR(i_ & 0xff), -1, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
-    lfs_off_t off;
-    lfs_size_t size;
-    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG2(UATTR, i_ & 0xff, -1), &off, &size);
+    lfsr_tag_t tag_;
+    lfs_ssize_t id_;
+    lfs_off_t off_;
+    lfs_size_t size_;
+    int err = lfsr_rbyd_lookup(&lfs, &rbyd,
+            LFSR_TAG_UATTR(i_ & 0xff), -1,
+            &tag_, &id_, &off_, &size_);
+    // note that random order may have some collisions
+    assert(!err || err == LFS_ERR_NOENT);
     BENCH_STOP();
 '''
 
@@ -216,23 +208,16 @@ defines.N = [8, 16, 32, 64, 128, 256]
 in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*(N+1) <= BLOCK_SIZE'
 code = '''
-    // set block_size to the full size of disk so we can test arbitrarily
-    // large rbyd trees, we don't really care about block sizes at this
-    // abstraction level
-    struct lfs_config cfg_ = *cfg;
-    cfg_.block_size = cfg->block_size*cfg->block_count;
-    cfg_.block_count = 1;
-
     lfs_t lfs;
-    lfs_init(&lfs, &cfg_) => 0;
+    lfs_init(&lfs, cfg) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .trunk = 0,
-        .off = 0,
         .rev = 1,
+        .off = 0,
         .crc = 0,
-        .count = 0,
+        .trunk = 0,
+        .weight = 0,
         .erased = true,
     };
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -249,8 +234,8 @@ code = '''
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? (N-1-i)
                     : BENCH_PRNG(&prng) % N;
-            attrs[i] = *LFSR_ATTR2(
-                    UATTR, i_, -1, "\xaa\xaa\xaa\xaa", 4,
+            attrs[i] = *LFSR_ATTR(
+                    UATTR(i_ & 0xff), -1, "\xaa\xaa\xaa\xaa", 4,
                     (i+1 < N) ? &attrs[i+1] : NULL);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs) => 0;
@@ -261,21 +246,21 @@ code = '''
                     : (ORDER == 1) ? (N-1-i)
                     : BENCH_PRNG(&prng) % N;
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR2(UATTR, i_ & 0xff, -1, "\xaa\xaa\xaa\xaa", 4,
+                    LFSR_ATTR(UATTR(i_ & 0xff), -1, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSR_ATTR2(UATTR, i_, -1, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
+            LFSR_ATTR(UATTR(i_ & 0xff), -1, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
     BENCH_STOP();
 
     uint8_t buffer[4];
-    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, i_, -1), buffer, 4) => 4;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(i_ & 0xff), -1, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
 '''
 
@@ -291,23 +276,16 @@ defines.N = [8, 16, 32, 64, 128, 256]
 in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*(N+1) <= BLOCK_SIZE'
 code = '''
-    // set block_size to the full size of disk so we can test arbitrarily
-    // large rbyd trees, we don't really care about block sizes at this
-    // abstraction level
-    struct lfs_config cfg_ = *cfg;
-    cfg_.block_size = cfg->block_size*cfg->block_count;
-    cfg_.block_count = 1;
-
     lfs_t lfs;
-    lfs_init(&lfs, &cfg_) => 0;
+    lfs_init(&lfs, cfg) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .trunk = 0,
-        .off = 0,
         .rev = 1,
+        .off = 0,
         .crc = 0,
-        .count = 0,
+        .trunk = 0,
+        .weight = 0,
         .erased = true,
     };
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -324,8 +302,8 @@ code = '''
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? (N-1-i)
                     : BENCH_PRNG(&prng) % N;
-            attrs[i] = *LFSR_ATTR2(
-                    UATTR, i_, -1, "\xaa\xaa\xaa\xaa", 4,
+            attrs[i] = *LFSR_ATTR(
+                    UATTR(i_ & 0xff), -1, "\xaa\xaa\xaa\xaa", 4,
                     (i+1 < N) ? &attrs[i+1] : NULL);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs) => 0;
@@ -336,21 +314,21 @@ code = '''
                     : (ORDER == 1) ? (N-1-i)
                     : BENCH_PRNG(&prng) % N;
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR2(UATTR, i_ & 0xff, -1, "\xaa\xaa\xaa\xaa", 4,
+                    LFSR_ATTR(UATTR(i_ & 0xff), -1, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSR_ATTR2(RMUATTR, i_, -1, NULL, 0, NULL)) => 0;
+            LFSR_ATTR(RMUATTR(i_ & 0xff), -1, NULL, 0, NULL)) => 0;
     BENCH_STOP();
 
     uint8_t buffer[4];
-    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG2(UATTR, i_, -1), buffer, 4)
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(i_ & 0xff), -1, buffer, 4)
             => LFS_ERR_NOENT;
 '''
 
@@ -366,23 +344,16 @@ defines.N = [8, 16, 32, 64, 128, 256, 1024, 2048, 4096]
 in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
-    // set block_size to the full size of disk so we can test arbitrarily
-    // large rbyd trees, we don't really care about block sizes at this
-    // abstraction level
-    struct lfs_config cfg_ = *cfg;
-    cfg_.block_size = cfg->block_size*cfg->block_count;
-    cfg_.block_count = 1;
-
     lfs_t lfs;
-    lfs_init(&lfs, &cfg_) => 0;
+    lfs_init(&lfs, cfg) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .trunk = 0,
-        .off = 0,
         .rev = 1,
+        .off = 0,
         .crc = 0,
-        .count = 0,
+        .trunk = 0,
+        .weight = 0,
         .erased = true,
     };
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -397,7 +368,7 @@ code = '''
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
-                    : BENCH_PRNG(&prng) % (rbyd.count+1);
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
             attrs[i] = *LFSR_ATTR(
                     MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
                     (i+1 < N) ? &attrs[i+1] : NULL);
@@ -408,7 +379,7 @@ code = '''
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
-                    : BENCH_PRNG(&prng) % (rbyd.count+1);
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd,
                     LFSR_ATTR(MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
@@ -416,7 +387,7 @@ code = '''
     }
     BENCH_STOP();
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
 '''
 
 [cases.bench_rbyd_id_fetch]
@@ -431,23 +402,16 @@ defines.N = [8, 16, 32, 64, 128, 256, 1024, 2048, 4096]
 in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
-    // set block_size to the full size of disk so we can test arbitrarily
-    // large rbyd trees, we don't really care about block sizes at this
-    // abstraction level
-    struct lfs_config cfg_ = *cfg;
-    cfg_.block_size = cfg->block_size*cfg->block_count;
-    cfg_.block_count = 1;
-
     lfs_t lfs;
-    lfs_init(&lfs, &cfg_) => 0;
+    lfs_init(&lfs, cfg) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .trunk = 0,
-        .off = 0,
         .rev = 1,
+        .off = 0,
         .crc = 0,
-        .count = 0,
+        .trunk = 0,
+        .weight = 0,
         .erased = true,
     };
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -461,7 +425,7 @@ code = '''
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
-                    : BENCH_PRNG(&prng) % (rbyd.count+1);
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
             attrs[i] = *LFSR_ATTR(
                     MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
                     (i+1 < N) ? &attrs[i+1] : NULL);
@@ -472,7 +436,7 @@ code = '''
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
-                    : BENCH_PRNG(&prng) % (rbyd.count+1);
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd,
                     LFSR_ATTR(MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
@@ -480,7 +444,7 @@ code = '''
     }
 
     BENCH_START();
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
     BENCH_STOP();
 '''
 
@@ -496,23 +460,16 @@ defines.N = [8, 16, 32, 64, 128, 256, 1024, 2048, 4096]
 in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
-    // set block_size to the full size of disk so we can test arbitrarily
-    // large rbyd trees, we don't really care about block sizes at this
-    // abstraction level
-    struct lfs_config cfg_ = *cfg;
-    cfg_.block_size = cfg->block_size*cfg->block_count;
-    cfg_.block_count = 1;
-
     lfs_t lfs;
-    lfs_init(&lfs, &cfg_) => 0;
+    lfs_init(&lfs, cfg) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .trunk = 0,
-        .off = 0,
         .rev = 1,
+        .off = 0,
         .crc = 0,
-        .count = 0,
+        .trunk = 0,
+        .weight = 0,
         .erased = true,
     };
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -526,7 +483,7 @@ code = '''
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
-                    : BENCH_PRNG(&prng) % (rbyd.count+1);
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
             attrs[i] = *LFSR_ATTR(
                     MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
                     (i+1 < N) ? &attrs[i+1] : NULL);
@@ -537,21 +494,25 @@ code = '''
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
-                    : BENCH_PRNG(&prng) % (rbyd.count+1);
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd,
                     LFSR_ATTR(MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
-    lfs_off_t off;
-    lfs_size_t size;
-    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG(MKREG, i_), &off, &size)
-            => LFSR_TAG(MKREG, i_);
+    lfsr_tag_t tag_;
+    lfs_ssize_t id_;
+    lfs_off_t off_;
+    lfs_size_t size_;
+    lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_MKREG, i_,
+            &tag_, &id_, &off_, &size_) => 0;
+    assert(tag_ == LFSR_TAG_MKREG);
+    assert(id_ == i_);
     BENCH_STOP();
 '''
 
@@ -567,23 +528,16 @@ defines.N = [8, 16, 32, 64, 128, 256, 1024, 2048, 4096]
 in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*(N+1) <= BLOCK_SIZE'
 code = '''
-    // set block_size to the full size of disk so we can test arbitrarily
-    // large rbyd trees, we don't really care about block sizes at this
-    // abstraction level
-    struct lfs_config cfg_ = *cfg;
-    cfg_.block_size = cfg->block_size*cfg->block_count;
-    cfg_.block_count = 1;
-
     lfs_t lfs;
-    lfs_init(&lfs, &cfg_) => 0;
+    lfs_init(&lfs, cfg) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .trunk = 0,
-        .off = 0,
         .rev = 1,
+        .off = 0,
         .crc = 0,
-        .count = 0,
+        .trunk = 0,
+        .weight = 0,
         .erased = true,
     };
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -597,7 +551,7 @@ code = '''
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
-                    : BENCH_PRNG(&prng) % (rbyd.count+1);
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
             attrs[i] = *LFSR_ATTR(
                     MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
                     (i+1 < N) ? &attrs[i+1] : NULL);
@@ -608,14 +562,14 @@ code = '''
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
-                    : BENCH_PRNG(&prng) % (rbyd.count+1);
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd,
                     LFSR_ATTR(MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % (N+1);
@@ -625,7 +579,7 @@ code = '''
     BENCH_STOP();
 
     uint8_t buffer[4];
-    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG(MKREG, i_), buffer, 4) => 4;
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, i_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
 '''
 
@@ -641,23 +595,16 @@ defines.N = [8, 16, 32, 64, 128, 256, 1024, 2048, 4096]
 in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*(N+1) <= BLOCK_SIZE'
 code = '''
-    // set block_size to the full size of disk so we can test arbitrarily
-    // large rbyd trees, we don't really care about block sizes at this
-    // abstraction level
-    struct lfs_config cfg_ = *cfg;
-    cfg_.block_size = cfg->block_size*cfg->block_count;
-    cfg_.block_count = 1;
-
     lfs_t lfs;
-    lfs_init(&lfs, &cfg_) => 0;
+    lfs_init(&lfs, cfg) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .trunk = 0,
-        .off = 0,
         .rev = 1,
+        .off = 0,
         .crc = 0,
-        .count = 0,
+        .trunk = 0,
+        .weight = 0,
         .erased = true,
     };
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -671,7 +618,7 @@ code = '''
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
-                    : BENCH_PRNG(&prng) % (rbyd.count+1);
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
             attrs[i] = *LFSR_ATTR(
                     MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
                     (i+1 < N) ? &attrs[i+1] : NULL);
@@ -682,14 +629,14 @@ code = '''
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
-                    : BENCH_PRNG(&prng) % (rbyd.count+1);
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd,
                     LFSR_ATTR(MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
                     NULL)) => 0;
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
