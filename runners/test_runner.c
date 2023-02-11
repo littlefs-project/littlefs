@@ -1276,12 +1276,16 @@ static void list_implicit_defines(void) {
 // geometries to test
 
 const test_geometry_t builtin_geometries[] = {
-    {"default", {{0}, TEST_CONST(16),   TEST_CONST(512),   {0}}},
-    {"eeprom",  {{0}, TEST_CONST(1),    TEST_CONST(512),   {0}}},
-    {"emmc",    {{0}, {0},              TEST_CONST(512),   {0}}},
-    {"nor",     {{0}, TEST_CONST(1),    TEST_CONST(4096),  {0}}},
-    {"nand",    {{0}, TEST_CONST(4096), TEST_CONST(32768), {0}}},
-    {NULL, {{0}, {0}, {0}, {0}}},
+    #define TEST_GEO(name, read_size, prog_size, block_size) \
+        {name, { \
+            TEST_CONST(read_size), \
+            TEST_CONST(prog_size), \
+            TEST_CONST(block_size), \
+        }},
+
+        TEST_GEOMETRIES
+    #undef TEST_GEO
+    {NULL, {{0}, {0}, {0}}},
 };
 
 const test_geometry_t *test_geometries = builtin_geometries;
@@ -1314,7 +1318,7 @@ static void list_geometries(void) {
                 PROG_SIZE,
                 BLOCK_SIZE,
                 BLOCK_COUNT,
-                BLOCK_SIZE*BLOCK_COUNT);
+                DISK_SIZE);
     }
 }
 
@@ -2188,7 +2192,7 @@ int main(int argc, char **argv) {
                                 stop = start;
                                 start = 0;
                             }
-                            
+
                             if (*optarg != ')') {
                                 goto invalid_define;
                             }
@@ -2269,13 +2273,13 @@ invalid_define:
                         }
                     }
 
-                    // comma-separated read/prog/erase/count
+                    // comma-separated read/prog/erase
                     if (*optarg == '{') {
-                        lfs_size_t sizes[4];
+                        lfs_size_t sizes[3];
                         size_t count = 0;
 
                         char *s = optarg + 1;
-                        while (count < 4) {
+                        while (count < 3) {
                             char *parsed = NULL;
                             sizes[count] = strtoumax(s, &parsed, 0);
                             count += 1;
@@ -2310,24 +2314,20 @@ invalid_define:
                             geometry->defines[BLOCK_SIZE_i]
                                     = TEST_LIT(sizes[0]);
                         }
-                        if (count >= 4) {
-                            geometry->defines[BLOCK_COUNT_i]
-                                    = TEST_LIT(sizes[3]);
-                        }
                         optarg = s;
                         goto geometry_next;
                     }
 
                     // leb16-encoded read/prog/erase/count
                     if (*optarg == ':') {
-                        lfs_size_t sizes[4];
+                        lfs_size_t sizes[3];
                         size_t count = 0;
 
                         char *s = optarg + 1;
                         while (true) {
                             char *parsed = NULL;
                             uintmax_t x = leb16_parse(s, &parsed);
-                            if (parsed == s || count >= 4) {
+                            if (parsed == s || count >= 3) {
                                 break;
                             }
 
@@ -2353,10 +2353,6 @@ invalid_define:
                         } else {
                             geometry->defines[BLOCK_SIZE_i]
                                     = TEST_LIT(sizes[0]);
-                        }
-                        if (count >= 4) {
-                            geometry->defines[BLOCK_COUNT_i]
-                                    = TEST_LIT(sizes[3]);
                         }
                         optarg = s;
                         goto geometry_next;

@@ -4,6 +4,15 @@
 # test with a number of different erase values
 defines.ERASE_VALUE = [0xff, 0x00, 0x1b]
 
+# set block_size to the full size of disk so we can test arbitrarily
+# large rbyd trees, we don't really care about block sizes at this
+# abstraction level
+#
+# ok not quite full disk size (we do use the full disk size in bench_rbyd),
+# but a bit less since erasing the full disk takes time and we don't want to
+# waste time when testing
+defines.BLOCK_SIZE = 32768
+
 [cases.test_rbyd_commit]
 in = 'lfs.c'
 code = '''
@@ -45,7 +54,6 @@ code = '''
 
 [cases.test_rbyd_multi_commit]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -86,7 +94,6 @@ code = '''
 
 [cases.test_rbyd_commit_fetch_commit]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -247,7 +254,6 @@ code = '''
 
 [cases.test_rbyd_multi_lookup]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -468,7 +474,6 @@ code = '''
 
 [cases.test_rbyd_multi_get]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -2124,8 +2129,9 @@ code = '''
 
 [cases.test_rbyd_multi_permutations]
 defines.N = 'range(1, 8)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= N'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -2315,7 +2321,6 @@ code = '''
 
 [cases.test_rbyd_multi_traverse]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -2500,6 +2505,8 @@ code = '''
 
 [cases.test_rbyd_multi_traverse_permutations]
 defines.N = 'range(1, 8)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2584,10 +2591,13 @@ code = '''
     }
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_update_permutations]
 defines.N = 'range(1, 8)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= N'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -2622,7 +2632,7 @@ code = '''
 
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t backup_block[BLOCK_SIZE];
+    uint8_t *backup_block = malloc(rbyd.off);
     lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -2692,6 +2702,9 @@ code = '''
             i += 1;
         }
     }
+
+    // cleanup
+    free(backup_block);
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
@@ -2779,7 +2792,6 @@ code = '''
 
 [cases.test_rbyd_remove]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -2885,10 +2897,13 @@ code = '''
             &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_remove_permutations]
 defines.N = 'range(1, 7)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= N+1'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -2942,7 +2957,7 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t backup_block[BLOCK_SIZE];
+        uint8_t *backup_block = malloc(rbyd.off);
         lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -3010,6 +3025,9 @@ code = '''
             worst_size = lfs_max(worst_size, rbyd.off);
         }
 
+        // cleanup
+        free(backup_block);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -3042,10 +3060,13 @@ code = '''
     }
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_remove_traverse_permutations]
 defines.N = 'range(1, 7)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= N+1'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -3096,7 +3117,7 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t backup_block[BLOCK_SIZE];
+        uint8_t *backup_block = malloc(rbyd.off);
         lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -3138,6 +3159,9 @@ code = '''
                     &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
         }
 
+        // cleanup
+        free(backup_block);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -3160,7 +3184,6 @@ code = '''
 
 [cases.test_rbyd_remove_missing]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 4'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -3314,7 +3337,6 @@ code = '''
 
 [cases.test_rbyd_remove_again]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 8'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -3554,7 +3576,6 @@ code = '''
 
 [cases.test_rbyd_remove_all]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -3636,10 +3657,13 @@ code = '''
             &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_remove_all_permutations]
 defines.N = 'range(1, 7)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2*N+1'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -3674,7 +3698,7 @@ code = '''
 
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t backup_block[BLOCK_SIZE];
+    uint8_t *backup_block = malloc(rbyd.off);
     lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -3756,6 +3780,9 @@ code = '''
         }
     }
 
+    // cleanup
+    free(backup_block);
+
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N + 1;
@@ -3774,6 +3801,8 @@ code = '''
 [cases.test_rbyd_random_append_removes]
 defines.N = 'range(1, 33)'
 defines.ITER = 1000
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4100,7 +4129,6 @@ code = '''
 
 [cases.test_rbyd_multi_create]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 3'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -4374,8 +4402,9 @@ code = '''
 
 [cases.test_rbyd_multi_create_permutations]
 defines.N = 'range(1, 8)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= N'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -4594,7 +4623,6 @@ code = '''
 
 [cases.test_rbyd_multi_create_traverse]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -4817,6 +4845,8 @@ code = '''
 
 [cases.test_rbyd_multi_create_traverse_permutations]
 defines.N = 'range(1, 8)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -5622,6 +5652,8 @@ code = '''
 [cases.test_rbyd_multi_mixed_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -6219,6 +6251,8 @@ code = '''
 [cases.test_rbyd_multi_mixed_traverse_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -6341,11 +6375,14 @@ code = '''
     }
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_mixed_update_permutations]
 defines.N = 'range(1, 4)'
 defines.M = 'range(1, 3)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= N'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -6391,7 +6428,7 @@ code = '''
 
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t backup_block[BLOCK_SIZE];
+    uint8_t *backup_block = malloc(rbyd.off);
     lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -6465,6 +6502,9 @@ code = '''
         }
     }
 
+    // cleanup
+    free(backup_block);
+
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M + N*M;
@@ -6478,11 +6518,14 @@ code = '''
     }
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_mixed_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= N+1'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -6559,7 +6602,7 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t backup_block[BLOCK_SIZE];
+        uint8_t *backup_block = malloc(rbyd.off);
         lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -6651,6 +6694,9 @@ code = '''
             worst_size = lfs_max(worst_size, rbyd.off);
         }
 
+        // cleanup
+        free(backup_block);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -6683,11 +6729,14 @@ code = '''
     }
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_mixed_remove_all_permutations]
 defines.N = 'range(1, 4)'
 defines.M = 'range(1, 3)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= N'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -6733,7 +6782,7 @@ code = '''
 
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t backup_block[BLOCK_SIZE];
+    uint8_t *backup_block = malloc(rbyd.off);
     lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -6804,6 +6853,9 @@ code = '''
             i += 1;
         }
     }
+
+    // cleanup
+    free(backup_block);
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
@@ -6917,7 +6969,6 @@ code = '''
 
 [cases.test_rbyd_delete]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -7046,7 +7097,6 @@ code = '''
 
 [cases.test_rbyd_delete_range]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -7285,10 +7335,13 @@ code = '''
             => LFS_ERR_NOENT;
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_permutations]
 defines.N = 'range(1, 7)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= N+1'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -7357,7 +7410,7 @@ code = '''
 
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t backup_block[BLOCK_SIZE];
+        uint8_t *backup_block = malloc(rbyd.off);
         lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -7415,6 +7468,9 @@ code = '''
             worst_size = lfs_max(worst_size, rbyd.off);
         }
 
+        // cleanup
+        free(backup_block);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -7447,14 +7503,14 @@ code = '''
     }
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = '''
-    BLOCK_SIZE/PROG_SIZE >= N+N*M+1
-        && BLOCK_SIZE >= 4096
-'''
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -7529,7 +7585,7 @@ code = '''
 
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t backup_block[BLOCK_SIZE];
+        uint8_t *backup_block = malloc(rbyd.off);
         lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -7617,6 +7673,9 @@ code = '''
             worst_size = lfs_max(worst_size, rbyd.off);
         }
 
+        // cleanup
+        free(backup_block);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -7649,10 +7708,13 @@ code = '''
     }
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_traverse_permutations]
 defines.N = 'range(1, 7)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= N+1'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -7722,7 +7784,7 @@ code = '''
 
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t backup_block[BLOCK_SIZE];
+        uint8_t *backup_block = malloc(rbyd.off);
         lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -7767,6 +7829,9 @@ code = '''
                     &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
         }
 
+        // cleanup
+        free(backup_block);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -7787,14 +7852,14 @@ code = '''
     }
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_traverse_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = '''
-    BLOCK_SIZE/PROG_SIZE >= N+N*M+1
-        && BLOCK_SIZE >= 4096
-'''
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -7870,7 +7935,7 @@ code = '''
 
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t backup_block[BLOCK_SIZE];
+        uint8_t *backup_block = malloc(rbyd.off);
         lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
                 rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -7930,6 +7995,9 @@ code = '''
                     &tag_, &id_, &off_, &size_) => LFS_ERR_NOENT;
         }
 
+        // cleanup
+        free(backup_block);
+
         // next permutation using Heap's algorithm
         if (stack[i] < i) {
             if (i % 2 == 0) {
@@ -7952,7 +8020,6 @@ code = '''
 
 [cases.test_rbyd_delete_all]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -8069,7 +8136,6 @@ code = '''
 
 [cases.test_rbyd_delete_all_range]
 in = 'lfs.c'
-if = 'BLOCK_SIZE/PROG_SIZE >= 2'
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -8195,13 +8261,13 @@ code = '''
             => LFS_ERR_NOENT;
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_all_permutations]
 defines.N = 'range(1, 7)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = '''
-    BLOCK_SIZE/PROG_SIZE >= 2*N+1
-        && BLOCK_SIZE >= 1024
-'''
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -8242,7 +8308,7 @@ code = '''
 
     // copy block so we can reset after each delete
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t backup_block[BLOCK_SIZE];
+    uint8_t *backup_block = malloc(rbyd.off);
     lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -8334,6 +8400,9 @@ code = '''
         }
     }
 
+    // cleanup
+    free(backup_block);
+
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + 2*N + 1;
@@ -8347,14 +8416,14 @@ code = '''
     }
 '''
 
+# NOTE if we separate physical/logical block sizes we may be able to
+# use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_all_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
-if = '''
-    BLOCK_SIZE/PROG_SIZE >= N+N*M + N + 1+M
-        && BLOCK_SIZE >= 4096
-'''
 code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
@@ -8401,7 +8470,7 @@ code = '''
 
     // copy block so we can reset after each delete
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t backup_block[BLOCK_SIZE];
+    uint8_t *backup_block = malloc(rbyd.off);
     lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
@@ -8507,6 +8576,9 @@ code = '''
         }
     }
 
+    // cleanup
+    free(backup_block);
+
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N+N*M + N + 1+M;
@@ -8525,6 +8597,8 @@ code = '''
 [cases.test_rbyd_random_create_deletes]
 defines.N = 'range(1, 33)'
 defines.ITER = 1000
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
