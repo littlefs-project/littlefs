@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+import bisect
 import itertools as it
 import math as m
+import os
 import struct
-import bisect
 
 COLORS = [
     '34',   # blue
@@ -91,7 +92,7 @@ def tagrepr(tag, id, size, off=None):
                 if off is not None
                 else '-%d' % off)
     else:
-        return '0x%04x id%d %d' % (tag, id-1, size)
+        return '0x%04x id%d %d' % (tag, id, size)
 
 def show_log(block_size, data, rev, off, *,
         color=False,
@@ -527,7 +528,7 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                         line))
 
 
-def main(disk, block_size, block1, block2=None, *,
+def main(disk, block_size=None, block1=0, block2=None, *,
         trunk=None,
         color='auto',
         **args):
@@ -539,9 +540,14 @@ def main(disk, block_size, block1, block2=None, *,
     else:
         color = False
 
-    # read each block
-    blocks = [block for block in [block1, block2] if block is not None]
     with open(disk, 'rb') as f:
+        # if block_size is omitted, assume the block device is one big block
+        if block_size is None:
+            f.seek(0, os.SEEK_END)
+            block_size = f.tell()
+
+        # read each block
+        blocks = [block for block in [block1, block2] if block is not None]
         datas = []
         for block in blocks:
             f.seek(block * block_size)
@@ -640,10 +646,12 @@ if __name__ == "__main__":
         help="File containing the block device.")
     parser.add_argument(
         'block_size',
+        nargs='?',
         type=lambda x: int(x, 0),
         help="Block size in bytes.")
     parser.add_argument(
         'block1',
+        nargs='?',
         type=lambda x: int(x, 0),
         help="Block address of the first metadata block.")
     parser.add_argument(

@@ -140,6 +140,8 @@ def main(command, *,
         sleep=None,
         keep_open=False,
         keep_open_paths=None,
+        buffer=False,
+        ignore_errors=False,
         exit_on_error=False):
     returncode = 0
     try:
@@ -151,7 +153,7 @@ def main(command, *,
                 ring = LinesIO(lines)
 
             try:
-                # run the command under a pseudoterminal 
+                # run the command under a pseudoterminal
                 mpty, spty = pty.openpty()
 
                 # forward terminal size
@@ -179,14 +181,19 @@ def main(command, *,
                         break
 
                     ring.write(line)
-                    if not cat:
+                    if not cat and not buffer and not ignore_errors:
                         ring.draw()
 
                 mpty.close()
                 proc.wait()
+
+                if ((buffer or ignore_errors)
+                        and not (ignore_errors and proc.returncode != 0)):
+                    ring.draw()
                 if exit_on_error and proc.returncode != 0:
                     returncode = proc.returncode
                     break
+
             except OSError as e:
                 if e.errno != errno.ETXTBSY:
                     raise
@@ -256,6 +263,14 @@ if __name__ == "__main__":
         dest='keep_open_paths',
         action='append',
         help="Use this path for inotify. Defaults to guessing.")
+    parser.add_argument(
+        '-b', '--buffer',
+        action='store_true',
+        help="Wait until command finishes to show the output.")
+    parser.add_argument(
+        '-i', '--ignore-errors',
+        action='store_true',
+        help="Only show output after successful runs. Implies --buffer.")
     parser.add_argument(
         '-e', '--exit-on-error',
         action='store_true',
