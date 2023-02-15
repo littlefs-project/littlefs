@@ -52,33 +52,36 @@ def xxd(data, width=16, crc=False):
                 b if b >= ' ' and b <= '~' else '.'
                 for b in map(chr, data[i:i+width])))
 
-def tagrepr(tag, id, size, off=None):
+def tagrepr(tag, id, w, size, off=None):
     if (tag & ~0x3f0) == 0x0400:
-        return 'mk%s id%d %d' % (
+        return 'mk%s id%d%s %d' % (
             'branch' if ((tag & 0x3f0) >> 4) == 0x00
                 else 'reg' if ((tag & 0x3f0) >> 4) == 0x01
                 else 'dir' if ((tag & 0x3f0) >> 4) == 0x02
                 else ' 0x%02x' % ((tag & 0x3f0) >> 4),
             id,
+            ' w%d' % w if w is not None else '',
             size)
-    elif (tag & ~0x3f0) == 0x0402:
-        return 'rm%s id%d%s' % (
-            ' 0x%02x' % ((tag & 0x3f0) >> 4)
-                if ((tag & 0x3f0) >> 4) else '',
-            id,
-            ' %d' % size if size else '')
     elif (tag & ~0xff2) == 0x2000:
         return '%suattr 0x%02x%s%s' % (
             'rm' if tag & 0x2 else '',
             (tag & 0xff0) >> 4,
             ' id%d' % id if id != -1 else '',
             ' %d' % size if not tag & 0x2 or size else '')
-    elif (tag & ~0x10) == 0x24:
+    elif tag == 0x0006:
+        return 'grow id%d w%d' % (
+            id,
+            size)
+    elif tag == 0x0016:
+        return 'shrink id%d w%d' % (
+            id,
+            size)
+    elif (tag & ~0x10) == 0x0004:
         return 'crc%x%s %d' % (
             1 if tag & 0x10 else 0,
             ' 0x%02x' % id if id != -1 else '',
             size)
-    elif tag == 0x44:
+    elif tag == 0x0024:
         return 'fcrc%s %d' % (
             ' 0x%02x' % id if id != -1 else '',
             size)
@@ -107,7 +110,7 @@ def show_log(block_size, data, rev, off, *,
             j = j_
             v, tag, id, size, delta = fromtag(data[j_:])
             j_ += delta
-            if not tag & 0x8:
+            if (tag & 0xe) <= 0x4:
                 j_ += size
 
             if tag & 0x8:
@@ -161,64 +164,88 @@ def show_log(block_size, data, rev, off, *,
 
     # preprocess lifetimes
     if args.get('lifetimes'):
-        weight = 0
-        max_weight = 0
-        lifetimes = {}
-        ids = []
-        ids_i = 0
+        def index(weights, id):
+            for i, w in enumerate(weights):
+                if id < w:
+                    return i, id
+                id -= w
+            return len(weights)-1, -1
+
+        def ranges(weights):
+            return zip(
+                    it.chain([0], it.accumulate(weights)),
+                    it.accumulate(weights))
+
+        weights = [0]
+        grow = None
+        colors = ['']
+        colors_i = 0
+        lifetimes = [(0, 0, -1, weights.copy(), colors.copy())]
+
         j_ = 4
         while j_ < (block_size if args.get('all') else off):
             j = j_
             v, tag, id, size, delta = fromtag(data[j_:])
             j_ += delta
-            if not tag & 0x8:
+            if (tag & 0xe) <= 0x4:
                 j_ += size
 
-            if (tag & ~0x3f0) == 0x0400:
-                weight += 1
-                max_weight = max(max_weight, weight)
-                ids.insert(id, COLORS[ids_i % len(COLORS)])
-                ids_i += 1
-                lifetimes[j] = (
-                    ''.join(
-                        '%s%s%s' % (
-                            '\x1b[%sm' % ids[id_] if color else '',
-                            '.' if id_ == id
-                                else '\ ' if id_ > id
-                                else '| ',
-                            '\x1b[m' if color else '')
-                            for id_ in range(weight))
-                        + ' ',
-                    weight)
-            elif ((tag & ~0x3f0) == 0x0402 and id < len(ids)):
-                lifetimes[j] = (
-                    ''.join(
-                        '%s%s%s' % (
-                            '\x1b[%sm' % ids[id_] if color else '',
-                            '\'' if id_ == id
-                                else '/ ' if id_ > id
-                                else '| ',
-                            '\x1b[m' if color else '')
-                            for id_ in range(weight))
-                        + ' ',
-                    weight)
-                weight -= 1
-                ids.pop(id)
-            else:
-                lifetimes[j] = (
-                    ''.join(
-                        '%s%s%s' % (
-                            '\x1b[%sm' % ids[id_] if color else '',
-                            '* ' if not tag & 0x8
-                                and id_ == id
-                                else '| ',
-                            '\x1b[m' if color else '')
-                            for id_ in range(weight)),
-                    weight)
+            # note these slices are also copying the arrays
+            if grow is not None:
+                if (tag & ~0x3f0) == 0x0400 and id == grow[1]:
+                    i, p = index(weights, id)
+                    weights[i:i+1] = [p+1, weights[i]-(p+1)]
+                    colors[i:i+1] = [COLORS[colors_i % len(COLORS)], colors[i]]
+                    colors_i += 1
+                    lifetimes.append((grow[0],
+                        +1, id, weights[:-1], colors[:-1]))
+                    grow = None
+                elif not tag & 0x8:
+                    lifetimes.append((grow[0],
+                        0, grow[1], weights[:-1], colors[:-1]))
+                    grow = None
+
+            if tag == 0x0006:
+                i, _ = index(weights, id)
+                weights[i] += size
+                grow = j, id
+            elif tag == 0x0016:
+                i, _ = index(weights, id)
+                if weights[i] == size and len(weights) > 1:
+                    lifetimes.append((j,
+                        -1, id, weights[:-1], colors[:-1]))
+                    weights[i:i+1] = []
+                    colors[i:i+1] = []
+                else:
+                    weights[i] = max(weights[i] - size, 0)
+                    lifetimes.append((j,
+                        0, id-size, weights[:-1], colors[:-1]))
+            elif not tag & 0x8:
+                lifetimes.append((j,
+                    0, id, weights[:-1], colors[:-1]))
+
+        lifetimes_j = [j for j, _, _, _, _ in lifetimes]
+        width = 2*max(len(weights) for _, _, _, weights, _ in lifetimes)
 
         def lifetimerepr(j):
-            lifetime, weight = lifetimes.get(j, ('', 0))
-            return '%s%*s' % (lifetime, 2*(max_weight-weight), '')
+            j_, g, id, weights, colors = lifetimes[
+                bisect.bisect(lifetimes_j, j)-1]
+            if j != j_:
+                g, id = 0, -1
+
+            return '%s%*s' % (
+                ''.join(
+                    '%s%s%s' % (
+                        '\x1b[%sm' % c if color else '',
+                        '.' if g > 0 and id >= a and id < b
+                            else '\\ ' if g > 0 and id < a
+                            else '\'' if g < 0 and id >= a and id < b
+                            else '/ ' if g < 0 and id < a
+                            else '* ' if not tag & 0x8 and id >= a and id < b
+                            else '| ',
+                        '\x1b[m' if color else '')
+                        for (a, b), c in zip(ranges(weights), colors)),
+                width - 2*len(weights) + (1 if g else 0), '')
 
     # print header
     print('%-8s  %s%-22s  %s' % (
@@ -245,8 +272,8 @@ def show_log(block_size, data, rev, off, *,
         crc = crc32c(data[j_:j_+delta], crc)
         j_ += delta
 
-        if not tag & 0x8:
-            if (tag & ~0x10) != 0x24:
+        if (tag & 0xe) <= 0x4:
+            if (tag & ~0x10) != 0x04:
                 crc = crc32c(data[j_:j_+size], crc)
             # found a crc?
             else:
@@ -263,11 +290,11 @@ def show_log(block_size, data, rev, off, *,
             lifetimerepr(j) if args.get('lifetimes') else '',
             '\x1b[90m' if color and j >= off else '',
             '%-22s%s' % (
-                tagrepr(tag, id, size, j),
+                tagrepr(tag, id, None, size, j),
                 '  %s' % next(xxd(
                         data[j+delta:j+delta+min(size, 8)], 8), '')
                     if not args.get('no_truncate')
-                        and not tag & 0x8 else ''),
+                        and (tag & 0xe) <= 0x4 else ''),
             '\x1b[m' if color and j >= off else '',
             ' (%s)' % ', '.join(notes) if notes
             else ' %s' % jumprepr(j)
@@ -297,12 +324,12 @@ def show_log(block_size, data, rev, off, *,
                                 data[j+delta+i*4:j+delta+min(i*4+4,size)]
                                     .ljust(4, b'\0'))
                             for i in range(min(m.ceil(size/4), 3)))[:23]
-                        if not tag & 0x8 else ''),
+                        if (tag & 0xe) <= 0x4 else ''),
                 crc,
                 popc(crc) & 1,
                 '\x1b[m' if color and j >= off else ''))
 
-        if not tag & 0x8:
+        if (tag & 0xe) <= 0x4:
             # show on-disk encoding of data
             if args.get('raw') or args.get('no_truncate'):
                 for o, line in enumerate(xxd(data[j+delta:j+delta+size])):
@@ -372,10 +399,11 @@ def show_tree(block_size, data, rev, trunk, weight, *,
             else:
                 tag_ = alt
                 id_ = upper-1
+                w_ = id_-lower
 
                 done = (id_, tag_) < (id, tag) or tag_ & 2
 
-                return done, tag_, id_, j, delta, jump, path
+                return done, tag_, id_, w_, j, delta, jump, path
 
     # precompute tree
     if args.get('tree'):
@@ -384,7 +412,7 @@ def show_tree(block_size, data, rev, trunk, weight, *,
 
         tag, id = 0, -1
         while True:
-            done, tag, id, j, delta, size, path = lookup(tag+0x10, id)
+            done, tag, id, w, j, delta, size, path = lookup(tag+0x10, id)
             # found end of tree?
             if done:
                 break
@@ -481,7 +509,7 @@ def show_tree(block_size, data, rev, trunk, weight, *,
 
     tag, id = 0, -1
     while True:
-        done, tag, id, j, delta, size, path = lookup(tag+0x10, id)
+        done, tag, id, w, j, delta, size, path = lookup(tag+0x10, id)
         # found end of tree?
         if done:
             break
@@ -491,11 +519,11 @@ def show_tree(block_size, data, rev, trunk, weight, *,
             j,
             treerepr(j) if args.get('tree') else '',
             '%-22s%s' % (
-                tagrepr(tag, id, size, j),
+                tagrepr(tag, id, w, size, j),
                 '  %s' % next(xxd(
                         data[j+delta:j+delta+min(size, 8)], 8), '')
                     if not args.get('no_truncate')
-                        and not tag & 0x8 else '')))
+                        and (tag & 0xe) <= 0x4 else '')))
 
         if args.get('raw'):
             # show on-disk encoding of tags
@@ -517,9 +545,9 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                                 data[j+delta+i*4:j+delta+min(i*4+4,size)]
                                     .ljust(4, b'\0'))
                             for i in range(min(m.ceil(size/4), 3)))[:23]
-                        if not tag & 0x8 else '')))
+                        if (tag & 0xe) <= 0x4 else '')))
 
-        if not tag & 0x8:
+        if (tag & 0xe) <= 0x4:
             # show on-disk encoding of data
             if args.get('raw') or args.get('no_truncate'):
                 for o, line in enumerate(xxd(data[j+delta:j+delta+size])):
@@ -571,18 +599,21 @@ def main(disk, block_size=None, block1=0, block2=None, *,
             crc = crc32c(data[j_:j_+delta], crc)
             j_ += delta
 
-            if not wastrunk and (tag & 0xc) != 0x4:
+            # find trunk
+            if not wastrunk and (tag & 0xe) != 0x4:
                 trunk_ = j_ - delta
-                wastrunk = True
+            wastrunk = not not tag & 0x8
 
-            if not tag & 0x8:
-                if (tag & ~0x10) != 0x24:
+            # keep track of weight
+            if tag == 0x0006:
+                weight_ += size
+            elif tag == 0x0016:
+                weight_ = max(weight_ - size, 0)
+
+            # take care of crcs
+            if (tag & 0xe) <= 0x4:
+                if (tag & ~0x10) != 0x04:
                     crc = crc32c(data[j_:j_+size], crc)
-                    # keep track of weight
-                    if (tag & ~0x3f0) == 0x0400:
-                        weight_ += 1
-                    elif (tag & ~0x3f0) == 0x0402:
-                        weight_ = max(weight_ - 1, 0)
                 # found a crc?
                 else:
                     crc_, = struct.unpack('<I', data[j_:j_+4].ljust(4, b'\0'))
@@ -593,7 +624,6 @@ def main(disk, block_size=None, block1=0, block2=None, *,
                     trunk = trunk_
                     weight = weight_
                 j_ += size
-                wastrunk = False
 
         return rev, off, trunk, weight
 

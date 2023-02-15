@@ -463,9 +463,8 @@ enum lfsr_tag_type {
     LFSR_TAG_RMUATTR  = 0x2002,
     LFSR_TAG_BTREE    = 0x0820,
 
-// TODO these
-//    LFSR_TAG_WIDEN    = 0x0004,
-//    LFSR_TAG_SHRINK   = 0x0014,
+    LFSR_TAG_GROW     = 0x0006,
+    LFSR_TAG_SHRINK   = 0x0016,
 
     LFSR_TAG_ALT      = 0x0008,
     LFSR_TAG_ALTBLE   = 0x0008,
@@ -473,10 +472,10 @@ enum lfsr_tag_type {
     LFSR_TAG_ALTBGT   = 0x000c,
     LFSR_TAG_ALTRGT   = 0x000e,
 
-    LFSR_TAG_CRC      = 0x0024,
-    LFSR_TAG_CRC0     = 0x0024,
-    LFSR_TAG_CRC1     = 0x0034,
-    LFSR_TAG_FCRC     = 0x0044,
+    LFSR_TAG_CRC      = 0x0004,
+    LFSR_TAG_CRC0     = 0x0004,
+    LFSR_TAG_CRC1     = 0x0014,
+    LFSR_TAG_FCRC     = 0x0024,
 };
 
 #define LFSR_TAG_ALT_(color, dir, key) \
@@ -502,8 +501,12 @@ static inline bool lfsr_tag_isrm(lfsr_tag_t tag) {
     return tag & 0x2;
 }
 
+static inline bool lfsr_tag_hasdata(lfsr_tag_t tag) {
+    return (tag & 0xe) <= 0x4;
+}
+
 static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
-    return (tag & 0xc) != 0x4;
+    return (tag & 0xe) != 0x4;
 }
 
 static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
@@ -675,16 +678,41 @@ struct lfs_diskoff {
 struct lfsr_attr {
     lfsr_tag_t tag;
     lfs_ssize_t id;
-    const void *buffer;
-    lfs_size_t size;
+    union {
+        struct {
+            const void *buffer;
+            lfs_size_t size;
+        } data;
+        struct {
+            lfs_size_t from;
+            lfs_size_t to;
+        } grow;
+    } u;
     const struct lfsr_attr *next;
 };
 
-#define LFSR_ATTR_(tag, id, buffer, size, next) \
-    (&(const struct lfsr_attr){tag, id, buffer, size, next})
+#define LFSR_ATTR_(_tag, _id, _buffer, _size, _next) \
+    (&(const struct lfsr_attr){ \
+        .tag=(_tag), \
+        .id=(_id), \
+        .u.data.buffer=(_buffer), \
+        .u.data.size=(_size), \
+        .next=(_next) })
 
-#define LFSR_ATTR(type, id, buffer, size, next) \
-    LFSR_ATTR_(LFSR_TAG_##type, id, buffer, size, next)
+#define LFSR_ATTR(_type, _id, _buffer, _size, _next) \
+    LFSR_ATTR_(LFSR_TAG_##_type, _id, _buffer, _size, _next)
+
+#define LFSR_ATTR_SHIFT_(_tag, _id, _from, _to, _next) \
+    (&(const struct lfsr_attr){ \
+        .tag=(_tag), \
+        .id=(_id), \
+        .u.grow.from=(_from), \
+        .u.grow.to=(_to), \
+        .next=(_next) })
+
+#define LFSR_ATTR_SHIFT(_tag, _id, _from, _to, _next) \
+    LFSR_ATTR_SHIFT_(LFSR_TAG_##_type, _id, _from, _to, _next)
+    
 
 //#define LFS_MKRATTR_(...) 
 //    (&(const struct lfsr_attr){__VA_ARGS__})
@@ -1260,13 +1288,28 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
         off += delta;
 
-        // we mostly just skip alt pointers here
-        if (lfsr_tag_isalt(tag)) {
-            continue;
+        // update our id count
+        //
+        // NOTE we can't check for overflow/underflow here because we
+        // may be overeagerly parsing an invalid commit, it's ok for
+        // this to overflow/underflow as long as we throw it out later
+        // on a bad crc
+        if (tag == LFSR_TAG_GROW) {
+            weight += size;
+        } else if (tag == LFSR_TAG_SHRINK) {
+            weight -= size;
         }
 
-        // trunk ends at non-alt tag
-        wastrunk = false;
+        // TODO could this be better?
+        if (!lfsr_tag_isalt(tag)) {
+            // trunk ends at non-alt tag
+            wastrunk = false;
+        }
+
+        // we mostly just skip alt pointers here
+        if (!lfsr_tag_hasdata(tag)) {
+            continue;
+        }
 
         // tag goes out of range?
         if (off + size > limit) {
@@ -1289,53 +1332,53 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 return err;
             }
 
-            // found a mk? update id count
-            if (lfsr_tag_ismk(tag)) {
-                // NOTE we can't check for overflow/underflow here because we
-                // may be overeagerly parsing an invalid commit, it's ok for
-                // this to overflow/underflow as long as we throw it out later
-                // on a bad crc
-                weight += 1;
-
-            } else if (tag == LFSR_TAG_RM) {
-                // NOTE we can't check for overflow/underflow here because we
-                // may be overeagerly parsing an invalid commit, it's ok for
-                // this to overflow/underflow as long as we throw it out later
-                // on a bad crc
-                weight -= 1;
-
-// TODO this
-//            // found an expand/shrink? update id count
-//            } else if (tag == LFSR_TAG_EXPAND || tag == LFSR_TAG_SHRINK) {
-//                uint8_t buf[5];
-//                err = lfs_bd_read(lfs,
-//                        NULL, &lfs->rcache, limit-off,
-//                        block, off, buf, lfs_min(size, 5));
-//                if (err) {
-//                    if (err == LFS_ERR_CORRUPT) {
-//                        break;
-//                    }
-//                    return err;
-//                }
-//
-//                lfs_size_t weight_;
-//                lfs_ssize_t delta = lfs_fromleb128(&weight_, buf, 5);
-//                if (delta < 0) {
-//                    return delta;
-//                }
-//
+//            // found a mk? update id count
+//            if (lfsr_tag_ismk(tag)) {
 //                // NOTE we can't check for overflow/underflow here because we
 //                // may be overeagerly parsing an invalid commit, it's ok for
 //                // this to overflow/underflow as long as we throw it out later
 //                // on a bad crc
-//                if (tag == LFSR_TAG_EXPAND) {
-//                    weight += weight_;
-//                } else {
-//                    weight -= weight_;
-//                }
+//                weight += 1;
+//
+//            } else if (tag == LFSR_TAG_RM) {
+//                // NOTE we can't check for overflow/underflow here because we
+//                // may be overeagerly parsing an invalid commit, it's ok for
+//                // this to overflow/underflow as long as we throw it out later
+//                // on a bad crc
+//                weight -= 1;
+//
+//// TODO this
+////            // found an expand/shrink? update id count
+////            } else if (tag == LFSR_TAG_EXPAND || tag == LFSR_TAG_SHRINK) {
+////                uint8_t buf[5];
+////                err = lfs_bd_read(lfs,
+////                        NULL, &lfs->rcache, limit-off,
+////                        block, off, buf, lfs_min(size, 5));
+////                if (err) {
+////                    if (err == LFS_ERR_CORRUPT) {
+////                        break;
+////                    }
+////                    return err;
+////                }
+////
+////                lfs_size_t weight_;
+////                lfs_ssize_t delta = lfs_fromleb128(&weight_, buf, 5);
+////                if (delta < 0) {
+////                    return delta;
+////                }
+////
+////                // NOTE we can't check for overflow/underflow here because we
+////                // may be overeagerly parsing an invalid commit, it's ok for
+////                // this to overflow/underflow as long as we throw it out later
+////                // on a bad crc
+////                if (tag == LFSR_TAG_EXPAND) {
+////                    weight += weight_;
+////                } else {
+////                    weight -= weight_;
+////                }
 
             // found an fcrc? save for later
-            } else if (tag == LFSR_TAG_FCRC) {
+            if (tag == LFSR_TAG_FCRC) {
                 uint8_t fbuf[LFSR_FCRC_DSIZE];
                 err = lfs_bd_read(lfs,
                         NULL, &lfs->rcache, limit-off,
@@ -1479,7 +1522,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
 static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_tag_t tag, lfs_ssize_t id,
-        lfsr_tag_t *tag_, lfs_ssize_t *id_,
+        lfsr_tag_t *tag_, lfs_ssize_t *id_, lfs_size_t *weight_,
         lfs_off_t *off_, lfs_size_t *size_) {
     // tag must be non-zero! zero tags may deceptively look like they work but
     // fail when the tree contains a deleted id0
@@ -1535,6 +1578,9 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             // TODO how many of these need to be conditional?
             *tag_ = tag__;
             *id_ = id__;
+            if (weight_) {
+                *weight_ = id__ - lower;
+            }
             if (off_) {
                 *off_ = branch + delta;
             }
@@ -1554,7 +1600,7 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     lfs_off_t off_;
     lfs_size_t size_;
     int err = lfsr_rbyd_lookup(lfs, rbyd, tag, id,
-            &tag_, &id_, &off_, &size_);
+            &tag_, &id_, NULL, &off_, &size_);
     if (err) {
         return err;
     }
@@ -1780,6 +1826,8 @@ static void lfsr_rbyd_p_red(
     }
 }
 
+// TODO s/rbyd_/rbyd/g
+// TODO s/size/len/g
 // core rbyd algorithm
 static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_tag_t tag, lfs_ssize_t id, const void *buffer, lfs_size_t size) {
@@ -1787,30 +1835,48 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     lfs_off_t branch = rbyd_->trunk;
     rbyd_->trunk = rbyd_->off;
 
-    // no trunk yet?
-    if (!branch) {
-        goto leaf;
-    }
+    // TODO where should this go?
+//    // no trunk yet?
+//    if (!branch) {
+//        goto leaf;
+//    }
 
+    // TODO these can probably be rearranged
     // figure out the range of tags to operate on
     lfsr_tag_t tag_;
     lfs_ssize_t id_;
     lfsr_tag_t other_tag_;
     lfs_ssize_t other_id_;
     if (lfsr_tag_ismk(tag)) {
-        LFS_ASSERT(rbyd_->weight < 0xffff);
+        // TODO these asserts are missed because of the above goto
         LFS_ASSERT(id <= rbyd_->weight);
         tag_ = 0;
         id_ = id;
         other_tag_ = tag_;
         other_id_ = id_;
     } else if (tag == LFSR_TAG_RM) {
-        LFS_ASSERT(rbyd_->weight > 0);
+        // TODO these asserts are missed because of the above goto
+        LFS_ASSERT(rbyd_->weight >= size);
         LFS_ASSERT(id < rbyd_->weight);
+        LFS_ASSERT(id >= size-1);
         tag_ = 0;
         id_ = id;
         other_tag_ = tag_;
         other_id_ = id_ + 1;
+    } else if (tag == LFSR_TAG_GROW) {
+        LFS_ASSERT(id < rbyd_->weight);
+        tag_ = 0;
+        id_ = id;
+        other_tag_ = tag_;
+        other_id_ = id_;
+    } else if (tag == LFSR_TAG_SHRINK) {
+        LFS_ASSERT(rbyd_->weight >= size);
+        LFS_ASSERT(id < rbyd_->weight);
+        LFS_ASSERT(id >= size-1);
+        tag_ = 0;
+        id_ = id;
+        other_tag_ = tag_;
+        other_id_ = id_;
     } else if (lfsr_tag_isrm(tag)) {
         LFS_ASSERT(id < rbyd_->weight);
         tag_ = tag & ~0x2;
@@ -1834,6 +1900,37 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     lfs_ssize_t upper_id = rbyd_->weight;
     lfsr_tag_t lower_tag = 0;
     lfsr_tag_t upper_tag = 0xffff;
+
+    // TODO move this? we need weight above but maybe we can save it earlier?
+    // TODO rename rbyd_ -> rbyd
+    // TODO combine all these mk/rm conditions?
+
+    // create grow/shrink tags if necessary
+    if (lfsr_tag_ismk(tag)) {
+        int err = lfsr_rbyd_progtag(lfs, rbyd_,
+                LFSR_TAG_GROW, id, 1, &rbyd_->crc);
+        if (err) {
+            return err;
+        }
+
+        // update our trunk so grow/shrink isn't in it
+        rbyd_->trunk = rbyd_->off;
+
+//    } else if (tag == LFSR_TAG_RM) {
+//        int err = lfsr_rbyd_progtag(lfs, rbyd_,
+//                LFSR_TAG_SHRINK, id, 1, &rbyd_->crc);
+//        if (err) {
+//            return err;
+//        }
+//
+//        // update our trunk so grow/shrink isn't in it
+//        rbyd_->trunk = rbyd_->off;
+    }
+
+    // no trunk yet?
+    if (!branch) {
+        goto leaf;
+    }
 
     // diverged state in case we are removing a range from the tree
     //
@@ -2131,6 +2228,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         weight = id_ - lower_id;
 
     } else if (lfsr_tag_ismk(tag)) {
+        // TODO what is this id check doing?
         if (id_ >= id) {
             // increase weight when creating
             alt = LFSR_TAG_ALT(B, GT, tag);
@@ -2138,10 +2236,27 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         }
 
     } else if (tag == LFSR_TAG_RM) {
+        // TODO what is this id check doing?
         if (id_ > id) {
             // decrease weight when deleting
             alt = LFSR_TAG_ALT(B, GT, 0);
-            weight = upper_id - lower_id - 1 - 1;
+            weight = upper_id - lower_id - 1 - size;
+        }
+
+    } else if (tag == LFSR_TAG_GROW) {
+        // TODO what is this id check doing?
+        if (id_ >= id) {
+            // decrease weight when deleting
+            alt = LFSR_TAG_ALT(B, GT, 0);
+            weight = upper_id - lower_id - 1 + size;
+        }
+
+    } else if (tag == LFSR_TAG_SHRINK) {
+        // TODO what is this id check doing?
+        if (id_ >= id) {
+            // decrease weight when deleting
+            alt = LFSR_TAG_ALT(B, GT, 0);
+            weight = upper_id - lower_id - 1 - size;
         }
 
     } else if (id_ > id
@@ -2149,7 +2264,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         if (lfsr_tag_isrm(tag)) {
             // hide our tag during removes
             alt = LFSR_TAG_ALT(B, GT, 0);
-            weight = upper_id - lower_id;
+            weight = upper_id - lower_id - 1;
         } else {
             // split greater than
             alt = LFSR_TAG_ALT(B, GT, tag);
@@ -2179,18 +2294,36 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     }
 
 leaf:;
-    // write the tag
-    err = lfsr_rbyd_progtag(lfs, rbyd_, tag, id, size, &rbyd_->crc);
-    if (err) {
-        return err;
+    // write the actual tag
+    //
+    // note we always need something after the alts! without something between
+    // alts we may not be able to find the trunk of our tree
+    if (tag == LFSR_TAG_RM) {
+        // TODO note this is tricky, we normally expect tags between alts to
+        // find the trunk, should we have a test for this explicitly?
+        // write a grow/shrink
+        err = lfsr_rbyd_progtag(lfs, rbyd_,
+                LFSR_TAG_SHRINK, id, size, &rbyd_->crc);
+        if (err) {
+            return err;
+        }
+    } else {
+        // write the tag
+        err = lfsr_rbyd_progtag(lfs, rbyd_, tag, id, size, &rbyd_->crc);
+        if (err) {
+            return err;
+        }
+
+        if (lfsr_tag_hasdata(tag)) {
+            // don't forget the actual data!
+            err = lfsr_rbyd_prog(lfs, rbyd_, buffer, size, &rbyd_->crc);
+            if (err) {
+                return err;
+            }
+        }
     }
 
-    // don't forget the actual data!
-    err = lfsr_rbyd_prog(lfs, rbyd_, buffer, size, &rbyd_->crc);
-    if (err) {
-        return err;
-    }
-
+    // TODO move this above?
     // if we're inserting or deleting, adjust the id count, indirectly
     // shifting all greater ids by one
     //
@@ -2199,7 +2332,11 @@ leaf:;
     if (lfsr_tag_ismk(tag)) {
         rbyd_->weight += 1;
     } else if (tag == LFSR_TAG_RM) {
-        rbyd_->weight -= 1;
+        rbyd_->weight -= size;
+    } else if (tag == LFSR_TAG_GROW) {
+        rbyd_->weight += size;
+    } else if (tag == LFSR_TAG_SHRINK) {
+        rbyd_->weight -= size;
     }
 
     return 0;
@@ -2232,7 +2369,7 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // append each tag to the tree
     for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
         int err = lfsr_rbyd_append(lfs, &rbyd_,
-                attr->tag, attr->id, attr->buffer, attr->size);
+                attr->tag, attr->id, attr->u.data.buffer, attr->u.data.size);
         if (err) {
             return err;
         }
