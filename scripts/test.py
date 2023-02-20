@@ -174,7 +174,7 @@ class TestSuite:
             # sort in case toml parsing did not retain order
             case_linenos.sort()
 
-            cases = config.pop('cases')
+            cases = config.pop('cases', {})
             for (lineno, name), (nlineno, _) in it.zip_longest(
                     case_linenos, case_linenos[1:],
                     fillvalue=(float('inf'), None)):
@@ -214,7 +214,7 @@ class TestSuite:
                     args=args))
 
             # combine per-case defines
-            self.defines = set.union(*(
+            self.defines = set.union(set(), *(
                 set(case.defines) for case in self.cases))
 
             # combine other per-case things
@@ -436,29 +436,30 @@ def compile(test_paths, **args):
                     f.writeln(4*' '+'},')
                     f.writeln(4*' '+'.define_count = '
                         'TEST_IMPLICIT_DEFINE_COUNT+%d,' % len(suite.defines))
-                f.writeln(4*' '+'.cases = (const struct test_case[]){')
-                for case in suite.cases:
-                    # create case structs
-                    f.writeln(8*' '+'{')
-                    f.writeln(12*' '+'.name = "%s",' % case.name)
-                    f.writeln(12*' '+'.path = "%s",' % case.path)
-                    f.writeln(12*' '+'.flags = %s,'
-                        % (' | '.join(filter(None, [
-                            'TEST_REENTRANT' if case.reentrant else None]))
-                            or 0))
-                    f.writeln(12*' '+'.permutations = %d,'
-                        % len(case.permutations))
-                    if case.defines:
-                        f.writeln(12*' '+'.defines '
-                            '= (const test_define_t*)__test__%s__defines,'
+                if suite.cases:
+                    f.writeln(4*' '+'.cases = (const struct test_case[]){')
+                    for case in suite.cases:
+                        # create case structs
+                        f.writeln(8*' '+'{')
+                        f.writeln(12*' '+'.name = "%s",' % case.name)
+                        f.writeln(12*' '+'.path = "%s",' % case.path)
+                        f.writeln(12*' '+'.flags = %s,'
+                            % (' | '.join(filter(None, [
+                                'TEST_REENTRANT' if case.reentrant else None]))
+                                or 0))
+                        f.writeln(12*' '+'.permutations = %d,'
+                            % len(case.permutations))
+                        if case.defines:
+                            f.writeln(12*' '+'.defines '
+                                '= (const test_define_t*)__test__%s__defines,'
+                                % (case.name))
+                        if suite.if_ is not None or case.if_ is not None:
+                            f.writeln(12*' '+'.filter = __test__%s__filter,'
+                                % (case.name))
+                        f.writeln(12*' '+'.run = __test__%s__run,'
                             % (case.name))
-                    if suite.if_ is not None or case.if_ is not None:
-                        f.writeln(12*' '+'.filter = __test__%s__filter,'
-                            % (case.name))
-                    f.writeln(12*' '+'.run = __test__%s__run,'
-                        % (case.name))
-                    f.writeln(8*' '+'},')
-                f.writeln(4*' '+'},')
+                        f.writeln(8*' '+'},')
+                    f.writeln(4*' '+'},')
                 f.writeln(4*' '+'.case_count = %d,' % len(suite.cases))
                 f.writeln('};')
                 f.writeln()
