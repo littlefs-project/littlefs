@@ -343,10 +343,43 @@ typedef struct lfsr_rbyd {
     bool erased;
 } lfsr_rbyd_t;
 
-typedef struct lfsr_btree {
+//typedef struct lfsr_btree {
+//    // TODO do we need this field? it's needed for inlined
+//    // btrees but is redundent when we have an rbyd
+//    // a weight of zero indicates no tree
+//    lfs_size_t weight;
+//    // a limit of zero indicates an inlined tree
+//    lfs_size_t limit;
+//    lfs_block_t trunk;
+//} lfsr_btree_t;
+
+// The maximum size of inlined pointers in a btree, this depends on littlefs's
+// on-disk pointer representations (there are several), but doesn't change at
+// runtime.
+//
+// Pointers we store:
+// - block addresses => 1 leb128 => 5 bytes (worst case)
+#define LFSR_BTREE_INLINE_SIZE 5
+
+typedef struct lfsr_branch {
     lfs_block_t block;
     lfs_size_t limit;
-    lfs_size_t weight;
+} lfsr_branch_t;
+
+typedef struct lfsr_btree {
+    // TODO do we need full tag actually? this fits in a byte?
+    lfsr_tag_t tag;
+    // how can we take advantage of byte packing with union alignment?
+    union {
+        struct {
+            lfs_size_t weight;
+            uint8_t size;
+            uint8_t buf[LFSR_BTREE_INLINE_SIZE];
+        } inlined;
+
+        // if we're not inlined, point to the trunk rbyd block of the btree
+        lfsr_branch_t trunk;
+    } u;
 } lfsr_btree_t;
 
 typedef struct lfs_mdir {

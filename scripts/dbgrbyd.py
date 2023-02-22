@@ -62,6 +62,12 @@ def tagrepr(tag, id, w, size, off=None):
             id,
             ' w%d' % w if w is not None else '',
             size)
+    elif tag == 0x0810:
+        return 'block id%d %d' % (id, size)
+    elif tag == 0x0820:
+        return 'btree id%d %d' % (id, size)
+    elif tag == 0x0830:
+        return 'branch id%d %d' % (id, size)
     elif (tag & ~0xff2) == 0x2000:
         return '%suattr 0x%02x%s%s' % (
             'rm' if tag & 0x2 else '',
@@ -180,7 +186,8 @@ def show_log(block_size, data, rev, off, *,
         grow = None
         colors = ['']
         colors_i = 0
-        lifetimes = [(0, 0, -1, weights.copy(), colors.copy())]
+        # note these slices are also copying the arrays
+        lifetimes = [(0, 0, -1, weights[:-1], colors[:-1])]
 
         j_ = 4
         while j_ < (block_size if args.get('all') else off):
@@ -190,7 +197,6 @@ def show_log(block_size, data, rev, off, *,
             if (tag & 0xe) <= 0x4:
                 j_ += size
 
-            # note these slices are also copying the arrays
             if grow is not None:
                 if (tag & ~0x3f0) == 0x0400 and id == grow[1]:
                     i, p = index(weights, id)
@@ -241,7 +247,7 @@ def show_log(block_size, data, rev, off, *,
                             else '\\ ' if g > 0 and id < a
                             else '\'' if g < 0 and id >= a and id < b
                             else '/ ' if g < 0 and id < a
-                            else '* ' if not tag & 0x8 and id >= a and id < b
+                            else '* ' if id >= a and id < b
                             else '| ',
                         '\x1b[m' if color else '')
                         for (a, b), c in zip(ranges(weights), colors)),
