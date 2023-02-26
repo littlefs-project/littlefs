@@ -457,7 +457,6 @@ enum lfsr_tag_type {
     LFSR_TAG_MKBRANCH = 0x0400,
     LFSR_TAG_MKREG    = 0x0410,
     LFSR_TAG_MKDIR    = 0x0420,
-    LFSR_TAG_RM       = 0x0402, // in-device only
 
     LFSR_TAG_STRUCT   = 0x0800,
     LFSR_TAG_INLINED  = 0x0800,
@@ -1508,6 +1507,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_tag_t tag, lfs_ssize_t id,
         lfsr_tag_t *tag_, lfs_ssize_t *id_, lfs_size_t *weight_,
+        // TODO should this take lfsr_data_t for consistency?
         lfs_off_t *off_, lfs_size_t *size_) {
     // tag must be non-zero! zero tags may deceptively look like they work but
     // fail when the tree contains a deleted id0
@@ -1596,6 +1596,7 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         return LFS_ERR_NOENT;
     }
 
+    // TODO should this be its own lfsr_data_ function?
     lfs_size_t delta = lfs_min(size, size_);
     err = lfs_bd_read(lfs,
             &lfs->pcache, &lfs->rcache, delta,
@@ -1606,6 +1607,120 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
     return size_;
 }
+
+//// TODO should we merge this into lfsr_rbyd_lookup?
+//static int lfsr_rbyd_lookupattrs(lfs_t *lfs,
+//        const lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs,
+//        lfsr_tag_t tag, lfs_ssize_t id,
+//        lfsr_tag_t *tag_, lfs_ssize_t *id_,
+//        lfsr_data_t *data_, lfs_size_t *weight_) {
+//    // tag must be non-zero! zero tags may deceptively look like they work but
+//    // fail when the tree contains a deleted id0
+//    LFS_ASSERT(tag != 0);
+//
+//    lfs_ssize_t lower_id = -1;
+//    lfs_ssize_t upper_id = rbyd->weight;
+//    lfsr_tag_t upper_tag = -1;
+//
+//
+//    // TODO hmm, reverse iteration over a linked-list? this is a bad design
+//    // first try to find tag in the unwritten attributes
+//    lfs_ssize_t attr_best_id = 0;
+//    lfs_tag_t attr_best_tag = 0;
+//    lfs_ssize_t attr_weight = 0;
+//    unsigned attr_count = 0;
+//    for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
+//        attr_count += 1;
+//    }
+//    for (unsigned i = 0; i < count; i++) {
+//        const struct lfsr_attr *attr = attrs;
+//        for (unsigned j = 0; j < count-1-i; j++) {
+//            attr = attr->next;
+//        }
+//
+//        // TODO can this be simplified a bit?
+//        if (lfsr_tag_ismk(attr->tag)) {
+//            if (attr->id < id) {
+//                id -= 1;
+//            }
+//        } else if (attr->tag == LFSR_TAG_RM) {
+//            if (attr->id < id) {
+//                id += attr->size;
+//            }
+//        } else if (attr->tag == LFSR_TAG_GROW) {
+//            if (attr->id < id) {
+//                id -= attr->size;
+//            }
+//        } else if (attr->tag == LFSR_TAG_SHRINK) {
+//            if (attr->id < id) {
+//                id += attr->size;
+//            }
+//        } else if (attr->tag == LFSR_TAG_FROM) {
+//            // TODO
+//            LFS_ASSERT(false);
+//        } else if (lfsr_tag_isrm(attr->tag)) {
+//        } else {
+//            if (attr->id == id
+//                    && attr->tag >= tag
+//                    && (attr->id < best_attr_id
+//                        || (attr->id == best_attr_id
+//                            && attr->tag < best_attr_tag))) {
+//                // TODO track best attr?
+//                best_attr_id = attr->id;
+//                best_attr_tag = attr->tag;
+//            }
+//        }
+//    }
+//
+//    lfs_off_t off_;
+//    lfs_size_t size_;
+//    int err = lfsr_rbyd_lookup(lfs, rbyd, tag, id,
+//            tag_, id_, weight_, &off_, &size_);
+//    if (err) {
+//        return err;
+//    }
+//
+//    if (data_) {
+//        *data_ = LFSR_DATA_DISK(rbyd->block, off_, size_);
+//    }
+//
+//    return 0;
+//}
+//
+//// TODO do we need this function?
+//static lfs_ssize_t lfsr_rbyd_getattrs(lfs_t *lfs,
+//        const lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs,
+//        lfsr_tag_t tag, lfs_ssize_t id, void *buffer, lfs_size_t size) {
+//    lfsr_tag_t tag_;
+//    lfs_ssize_t id_;
+//    lfsr_data_t data_;
+//    int err = lfsr_rbyd_lookupattrs(lfs, rbyd, attrs, tag, id,
+//            &tag_, &id_, &data_, NULL);
+//    if (err) {
+//        return err;
+//    }
+//
+//    // lookup finds the next-smallest tag, for get, we need to fail
+//    // if it's not an exact match
+//    if (id_ != id || tag_ != tag) {
+//        return LFS_ERR_NOENT;
+//    }
+//
+//    // TODO should this be its own lfsr_data_ function?
+//    lfs_size_t delta = lfs_min(size, lfsr_data_len(data_));
+//    if (!lfsr_data_ondisk(data_)) {
+//        memcpy(buffer, data_.u.buf, delta);
+//    } else {
+//        err = lfs_bd_read(lfs,
+//                &lfs->pcache, &lfs->rcache, delta,
+//                data_.u.disk.block, data_.u.disk.off, buffer, delta);
+//        if (err) {
+//            return err;
+//        }
+//    }
+//
+//    return lfsr_data_len(data_);
+//}
 
 static lfs_ssize_t lfsr_rbyd_compactedsize(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_ssize_t start, lfs_ssize_t stop) {
@@ -1838,44 +1953,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     lfs_ssize_t id_;
     lfsr_tag_t other_tag_;
     lfs_ssize_t other_id_;
-    if (lfsr_tag_ismk(tag)) {
+    if (tag == LFSR_TAG_GROW) {
         LFS_ASSERT(id <= rbyd_->weight);
-        rbyd_->weight += 1;
-
-        // In-driver, mk tags implicitly grows the weight by one, this
-        // simplifies a few things. On-disk, however, we want to make this
-        // explicit so fetch parses fewer things.
-        //
-        // We can do this by prepending mk trunks with isolated grow tags. But
-        // this only works because we always immediately replace the grow trunk
-        // with our mk trunk!
-        //
-        // Note this also makes the order of operations with our current branch
-        // above and new trunk below a bit sensitive.
-        int err = lfsr_rbyd_progtag(lfs, rbyd_,
-                LFSR_TAG_GROW, id, 1, &rbyd_->crc);
-        if (err) {
-            return err;
-        }
-
-        tag_ = 0;
-        id_ = id;
-        other_tag_ = tag_;
-        other_id_ = id_;
-    } else if (tag == LFSR_TAG_RM) {
-        LFS_ASSERT(id < rbyd_->weight);
-        LFS_ASSERT(id >= size-1);
-        rbyd_->weight -= size;
-
-        // rm tags are just an in-driver convenience
-        tag = LFSR_TAG_SHRINK;
-
-        tag_ = 0;
-        id_ = id;
-        other_tag_ = tag_;
-        other_id_ = id_ + 1;
-    } else if (tag == LFSR_TAG_GROW) {
-        LFS_ASSERT(id < rbyd_->weight);
         // noop?
         if (size == 0) {
             return 0;
@@ -1888,7 +1967,6 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         other_id_ = id_;
     } else if (tag == LFSR_TAG_SHRINK) {
         LFS_ASSERT(id < rbyd_->weight);
-        LFS_ASSERT(id >= size-1);
         // noop?
         if (size == 0) {
             return 0;
@@ -1898,7 +1976,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         tag_ = 0;
         id_ = id;
         other_tag_ = tag_;
-        other_id_ = id_;
+        other_id_ = id_ + size;
     } else if (lfsr_tag_isrm(tag)) {
         LFS_ASSERT(id < rbyd_->weight);
 
@@ -2217,11 +2295,6 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         // appending to the end of the tree
         alt = LFSR_TAG_ALT(R, LE, tag_);
         weight = id_ - lower_id;
-
-    } else if (lfsr_tag_ismk(tag)) {
-        // increase weight when creating
-        alt = LFSR_TAG_ALT(R, GT, tag);
-        weight = upper_id - id - 1 + 1;
 
     } else if (tag == LFSR_TAG_GROW) {
         // decrease weight when growing
@@ -2922,9 +2995,9 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         return delta2;
                     }
 
-                    scratch_attrs[0] = *LFSR_ATTR(
-                            RM, pid, NULL, pweight,
-                            &scratch_attrs[1]);
+//                    scratch_attrs[0] = *LFSR_ATTR(
+//                            RM, pid, NULL, pweight,
+//                            &scratch_attrs[1]);
 
                     scratch_attrs[1] = *LFSR_ATTR(
                             MKBRANCH, pid, NULL, 0,

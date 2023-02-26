@@ -198,7 +198,9 @@ def show_log(block_size, data, rev, off, *,
                 j_ += size
 
             if grow is not None:
-                if (tag & ~0x3f0) == 0x0400 and id == grow[1]:
+                if ((tag & ~0x3f0) == 0x0400
+                        and id >= grow[1]
+                        and id < grow[1]+grow[2]):
                     i, p = index(weights, id)
                     weights[i:i+1] = [p+1, weights[i]-(p+1)]
                     colors[i:i+1] = [COLORS[colors_i % len(COLORS)], colors[i]]
@@ -214,7 +216,7 @@ def show_log(block_size, data, rev, off, *,
             if tag == 0x0006:
                 i, _ = index(weights, id)
                 weights[i] += size
-                grow = j, id
+                grow = j, id, size
             elif tag == 0x0016:
                 i, _ = index(weights, id)
                 if weights[i] == size and len(weights) > 1:
