@@ -679,6 +679,9 @@ typedef struct lfsr_data {
     } u;
 } lfsr_data_t;
 
+#define LFSR_DATA_NULL \
+    ((lfsr_data_t){.u.buf=NULL, .len=0})
+
 #define LFSR_DATA_BUF(_buf, _len) \
     ((lfsr_data_t){.u.buf=_buf, .len=_len})
 
@@ -1608,119 +1611,184 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     return size_;
 }
 
-//// TODO should we merge this into lfsr_rbyd_lookup?
-//static int lfsr_rbyd_lookupattrs(lfs_t *lfs,
-//        const lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs,
-//        lfsr_tag_t tag, lfs_ssize_t id,
-//        lfsr_tag_t *tag_, lfs_ssize_t *id_,
-//        lfsr_data_t *data_, lfs_size_t *weight_) {
-//    // tag must be non-zero! zero tags may deceptively look like they work but
-//    // fail when the tree contains a deleted id0
-//    LFS_ASSERT(tag != 0);
-//
-//    lfs_ssize_t lower_id = -1;
-//    lfs_ssize_t upper_id = rbyd->weight;
-//    lfsr_tag_t upper_tag = -1;
-//
-//
-//    // TODO hmm, reverse iteration over a linked-list? this is a bad design
-//    // first try to find tag in the unwritten attributes
-//    lfs_ssize_t attr_best_id = 0;
-//    lfs_tag_t attr_best_tag = 0;
-//    lfs_ssize_t attr_weight = 0;
-//    unsigned attr_count = 0;
-//    for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
-//        attr_count += 1;
-//    }
-//    for (unsigned i = 0; i < count; i++) {
-//        const struct lfsr_attr *attr = attrs;
-//        for (unsigned j = 0; j < count-1-i; j++) {
-//            attr = attr->next;
-//        }
-//
-//        // TODO can this be simplified a bit?
-//        if (lfsr_tag_ismk(attr->tag)) {
-//            if (attr->id < id) {
-//                id -= 1;
-//            }
-//        } else if (attr->tag == LFSR_TAG_RM) {
-//            if (attr->id < id) {
-//                id += attr->size;
-//            }
-//        } else if (attr->tag == LFSR_TAG_GROW) {
-//            if (attr->id < id) {
-//                id -= attr->size;
-//            }
-//        } else if (attr->tag == LFSR_TAG_SHRINK) {
-//            if (attr->id < id) {
-//                id += attr->size;
-//            }
-//        } else if (attr->tag == LFSR_TAG_FROM) {
-//            // TODO
-//            LFS_ASSERT(false);
-//        } else if (lfsr_tag_isrm(attr->tag)) {
-//        } else {
-//            if (attr->id == id
-//                    && attr->tag >= tag
-//                    && (attr->id < best_attr_id
-//                        || (attr->id == best_attr_id
-//                            && attr->tag < best_attr_tag))) {
-//                // TODO track best attr?
-//                best_attr_id = attr->id;
-//                best_attr_tag = attr->tag;
-//            }
-//        }
-//    }
-//
-//    lfs_off_t off_;
-//    lfs_size_t size_;
-//    int err = lfsr_rbyd_lookup(lfs, rbyd, tag, id,
-//            tag_, id_, weight_, &off_, &size_);
-//    if (err) {
-//        return err;
-//    }
-//
-//    if (data_) {
-//        *data_ = LFSR_DATA_DISK(rbyd->block, off_, size_);
-//    }
-//
-//    return 0;
-//}
-//
-//// TODO do we need this function?
-//static lfs_ssize_t lfsr_rbyd_getattrs(lfs_t *lfs,
-//        const lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs,
-//        lfsr_tag_t tag, lfs_ssize_t id, void *buffer, lfs_size_t size) {
-//    lfsr_tag_t tag_;
-//    lfs_ssize_t id_;
-//    lfsr_data_t data_;
-//    int err = lfsr_rbyd_lookupattrs(lfs, rbyd, attrs, tag, id,
-//            &tag_, &id_, &data_, NULL);
-//    if (err) {
-//        return err;
-//    }
-//
-//    // lookup finds the next-smallest tag, for get, we need to fail
-//    // if it's not an exact match
-//    if (id_ != id || tag_ != tag) {
-//        return LFS_ERR_NOENT;
-//    }
-//
-//    // TODO should this be its own lfsr_data_ function?
-//    lfs_size_t delta = lfs_min(size, lfsr_data_len(data_));
-//    if (!lfsr_data_ondisk(data_)) {
-//        memcpy(buffer, data_.u.buf, delta);
-//    } else {
-//        err = lfs_bd_read(lfs,
-//                &lfs->pcache, &lfs->rcache, delta,
-//                data_.u.disk.block, data_.u.disk.off, buffer, delta);
-//        if (err) {
-//            return err;
-//        }
-//    }
-//
-//    return lfsr_data_len(data_);
-//}
+// TODO should we merge this into lfsr_rbyd_lookup?
+static int lfsr_rbyd_pendinglookup(lfs_t *lfs,
+        const lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs,
+        lfsr_tag_t tag, lfs_ssize_t id,
+        lfsr_tag_t *tag_, lfs_ssize_t *id_,
+        lfsr_data_t *data_, lfs_size_t *weight_) {
+    printf("pendinglookup(%x, %d)\n", tag, id);
+    
+again:;
+    // tag must be non-zero! zero tags may deceptively look like they work but
+    // fail when the tree contains a deleted id0
+    LFS_ASSERT(tag != 0);
+
+    lfsr_tag_t tag__ = 0xffff;
+    lfsr_data_t data__ = LFSR_DATA_NULL;
+    lfs_size_t weight = 0;
+    const struct lfsr_attr *attrs__ = attrs;
+
+    // first search backwards through tags to find the smallest, non-deleted,
+    // >= id, then search through tags in-order to find the most recent update,
+    // two passes are required to adjust for weight changes.
+    // TODO hmm, reverse iteration over a linked-list? this is a bad design
+    unsigned attr_count = 0;
+    for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
+        attr_count += 1;
+    }
+    for (unsigned i = 0; i < attr_count; i++) {
+        const struct lfsr_attr *attr = attrs;
+        for (unsigned j = 0; j < attr_count-1-i; j++) {
+            attr = attr->next;
+        }
+
+        if (attr->tag == LFSR_TAG_GROW) {
+            printf("g %d %d\n", attr->id, attr->size);
+            if (id >= attr->id) {
+                if (id < attr->id + attr->size) {
+                    // TODO
+                    id = attr->id + attr->size-1;
+                    weight = attr->size;
+                    attrs__ = attr->next;
+                    goto grown;
+                }
+                id -= attr->size;
+            }
+        } else if (attr->tag == LFSR_TAG_SHRINK) {
+            if (id >= attr->id) {
+                id += attr->size;
+            }
+        } else if (attr->tag == LFSR_TAG_FROM) {
+            // TODO
+            LFS_ASSERT(false);
+
+        }
+    }
+
+    // this id can't exist in our rbyd
+    if (id >= (lfs_ssize_t)rbyd->weight) {
+        printf("? %d >= %d\n", id, rbyd->weight);
+        return LFS_ERR_NOENT;
+    }
+
+    // if not created in attr list our id must have been created in the rbyd
+    lfs_off_t off__;
+    lfs_size_t size__;
+    int err = lfsr_rbyd_lookup(lfs, rbyd, tag, id,
+            &tag__, &id, &weight, &off__, &size__);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+
+    if (err != LFS_ERR_NOENT) {
+        data__ = LFSR_DATA_DISK(rbyd->block, off__, size__);
+    }
+
+grown:;
+    // TODO different way to encode weight?
+    lfs_ssize_t lower = id-weight+1;
+    printf("raw %d %d (%d)\n", id, weight, lower);
+
+    // now replay the attr list, keeping track of changes to id, weight, tag
+    for (const struct lfsr_attr *attr = attrs__; attr; attr = attr->next) {
+        if (attr->tag == LFSR_TAG_GROW) {
+            if (lower >= attr->id) {
+                lower += attr->size;
+            }
+            if (id >= attr->id) {
+                id += attr->size;
+            }
+        } else if (attr->tag == LFSR_TAG_SHRINK) {
+            if (lower >= attr->id) {
+                lower -= attr->size;
+            }
+            if (id >= attr->id) {
+                id -= attr->size;
+            }
+        } else if (attr->tag == LFSR_TAG_FROM) {
+            // TODO
+            LFS_ASSERT(false);
+
+        } else if (attr->id == id
+                && lfsr_tag_key(attr->tag) >= lfsr_tag_key(tag)
+                && lfsr_tag_key(attr->tag) <= lfsr_tag_key(tag__)) {
+            tag__ = attr->tag;
+            data__ = LFSR_DATA_BUF(attr->buffer, attr->size);
+        }
+    }
+
+    // TODO if we can't get rid of this we can at least move it into the
+    // below condition
+    weight = id-lower+1;
+    printf("fix %d %d (%d)\n", id, weight, lower);
+
+    // not found? increase id
+    if (tag__ == 0xffff) {
+        tag = 0x10;
+        id = id + 1;
+        goto again;
+    }
+
+    // found rm? should continue
+    if (lfsr_tag_isrm(tag__)) {
+        tag = tag__ + 0x10;
+        goto again;
+    }
+
+    // found
+
+    // TODO how many of these should be conditional?
+    if (tag_) {
+        *tag_ = tag__;
+    }
+    if (id_) {
+        *id_ = id;
+    }
+    if (data_) {
+        *data_ = data__;
+    }
+    if (weight_) {
+        *weight_ = weight;
+    }
+
+    return 0;
+}
+
+// TODO do we need this function?
+static lfs_ssize_t lfsr_rbyd_pendingget(lfs_t *lfs,
+        const lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs,
+        lfsr_tag_t tag, lfs_ssize_t id, void *buffer, lfs_size_t size) {
+    lfsr_tag_t tag_;
+    lfs_ssize_t id_;
+    lfsr_data_t data_;
+    int err = lfsr_rbyd_pendinglookup(lfs, rbyd, attrs, tag, id,
+            &tag_, &id_, &data_, NULL);
+    if (err) {
+        return err;
+    }
+
+    // lookup finds the next-smallest tag, for get, we need to fail
+    // if it's not an exact match
+    if (id_ != id || tag_ != tag) {
+        return LFS_ERR_NOENT;
+    }
+
+    // TODO should this be its own lfsr_data_ function?
+    lfs_size_t delta = lfs_min(size, lfsr_data_len(data_));
+    if (!lfsr_data_ondisk(data_)) {
+        memcpy(buffer, data_.u.buf, delta);
+    } else {
+        err = lfs_bd_read(lfs,
+                &lfs->pcache, &lfs->rcache, delta,
+                data_.u.disk.block, data_.u.disk.off, buffer, delta);
+        if (err) {
+            return err;
+        }
+    }
+
+    return lfsr_data_len(data_);
+}
 
 static lfs_ssize_t lfsr_rbyd_compactedsize(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_ssize_t start, lfs_ssize_t stop) {
