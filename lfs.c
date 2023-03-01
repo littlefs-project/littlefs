@@ -1615,23 +1615,30 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 static int lfsr_rbyd_pendinglookup(lfs_t *lfs,
         const lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs,
         lfsr_tag_t tag, lfs_ssize_t id,
-        lfsr_tag_t *tag_, lfs_ssize_t *id_,
-        lfsr_data_t *data_, lfs_size_t *weight_) {
-    printf("pendinglookup(%x, %d)\n", tag, id);
+        lfsr_tag_t *tag_, lfs_ssize_t *id_, lfsr_data_t *data_) {
+    // For this lookup to work it requires a lot of caveats:
+    //
+    // 1. Finding the weight is much more difficult when attrs aren't on disk
+    //    so we don't do this. Note that weight can still be derived during
+    //    traversal by diffing ids.
+    //
+    // 2. Our grow/shrink checks expect the grow/shrink ids to always be on the
+    //    lowest id. This is notably different from our rbyd bias. Fortunately
+    //    this is only a requirement of in-flight attrs so this isn't a
+    //    requirement on-disk.
     
 again:;
     // tag must be non-zero! zero tags may deceptively look like they work but
     // fail when the tree contains a deleted id0
     LFS_ASSERT(tag != 0);
 
-    lfsr_tag_t tag__ = 0xffff;
-    lfsr_data_t data__ = LFSR_DATA_NULL;
-    lfs_size_t weight = 0;
-    const struct lfsr_attr *attrs__ = attrs;
+    // keep track of best id/tag and upper/lower bounds to determine weight
+    lfs_ssize_t id__ = id;
+    lfs_ssize_t best_id = -2;
+    lfsr_tag_t best_tag = 0;
+    lfsr_data_t best_data = LFSR_DATA_NULL;
 
-    // first search backwards through tags to find the smallest, non-deleted,
-    // >= id, then search through tags in-order to find the most recent update,
-    // two passes are required to adjust for weight changes.
+    // search through our tags backwards to figure out the best tag/id
     // TODO hmm, reverse iteration over a linked-list? this is a bad design
     unsigned attr_count = 0;
     for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
@@ -1644,112 +1651,119 @@ again:;
         }
 
         if (attr->tag == LFSR_TAG_GROW) {
-            printf("g %d %d\n", attr->id, attr->size);
-            if (id >= attr->id) {
-                if (id < attr->id + attr->size) {
-                    // TODO
-                    id = attr->id + attr->size-1;
-                    weight = attr->size;
-                    attrs__ = attr->next;
-                    goto grown;
+            // found grow which includes both target and best ids? this
+            // must be the source of the best tag
+            if (attr->id <= id__
+                    && best_id != -2
+                    && attr->id+(lfs_ssize_t)attr->size > best_id) {
+                goto found;
+
+            // found grow which only includes target id? this must be a
+            // weight-changing grow so we can just adjust our target id to
+            // follow the upper edge of the grow
+            } else if (attr->id <= id__
+                    && attr->id+(lfs_ssize_t)attr->size > id__) {
+                id__ = attr->id;
+                tag = 0x10;
+                id += id__-attr->id+1;
+
+            // adjust ids
+            } else if (attr->id <= id__) {
+                id__ -= attr->size;
+                if (best_id != -2) {
+                    best_id -= attr->size;
                 }
-                id -= attr->size;
+
+            // use grow as upper bound
+            } else if (best_id == -2 || attr->id <= best_id) {
+                best_id = attr->id-1;
+                best_tag = 0;
             }
         } else if (attr->tag == LFSR_TAG_SHRINK) {
-            if (id >= attr->id) {
-                id += attr->size;
+            // adjust ids
+            if (attr->id <= id__) {
+                id__ += attr->size;
+                if (best_id != -2) {
+                    best_id += attr->size;
+                }
+
+            // use shrink as upper bound
+            } else if (best_id == -2 || attr->id <= best_id) {
+                best_id = attr->id-1;
+                best_tag = 0;
             }
+
         } else if (attr->tag == LFSR_TAG_FROM) {
             // TODO
             LFS_ASSERT(false);
 
+        } else {
+            // found better tag?
+            if ((attr->id > id__
+                        || (attr->id == id__
+                            && lfsr_tag_key(attr->tag)
+                                >= lfsr_tag_key(tag)))
+                    && (best_id == -2
+                        || attr->id < best_id
+                        || (attr->id == best_id
+                            && (!best_tag
+                                || lfsr_tag_key(attr->tag)
+                                    < lfsr_tag_key(best_tag))))) {
+                best_id = attr->id;
+                best_tag = attr->tag;
+                best_data = LFSR_DATA_BUF(attr->buffer, attr->size);
+            }
         }
     }
 
-    // this id can't exist in our rbyd
-    if (id >= (lfs_ssize_t)rbyd->weight) {
-        printf("? %d >= %d\n", id, rbyd->weight);
-        return LFS_ERR_NOENT;
-    }
-
-    // if not created in attr list our id must have been created in the rbyd
-    lfs_off_t off__;
-    lfs_size_t size__;
-    int err = lfsr_rbyd_lookup(lfs, rbyd, tag, id,
-            &tag__, &id, &weight, &off__, &size__);
+    // try to found our id/tag on disk
+    lfsr_tag_t rbyd_tag;
+    lfs_ssize_t rbyd_id;
+    lfs_off_t rbyd_off;
+    lfs_size_t rbyd_size;
+    int err = lfsr_rbyd_lookup(lfs, rbyd, tag, id__,
+            &rbyd_tag, &rbyd_id, NULL, &rbyd_off, &rbyd_size);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
 
     if (err != LFS_ERR_NOENT) {
-        data__ = LFSR_DATA_DISK(rbyd->block, off__, size__);
-    }
-
-grown:;
-    // TODO different way to encode weight?
-    lfs_ssize_t lower = id-weight+1;
-    printf("raw %d %d (%d)\n", id, weight, lower);
-
-    // now replay the attr list, keeping track of changes to id, weight, tag
-    for (const struct lfsr_attr *attr = attrs__; attr; attr = attr->next) {
-        if (attr->tag == LFSR_TAG_GROW) {
-            if (lower >= attr->id) {
-                lower += attr->size;
-            }
-            if (id >= attr->id) {
-                id += attr->size;
-            }
-        } else if (attr->tag == LFSR_TAG_SHRINK) {
-            if (lower >= attr->id) {
-                lower -= attr->size;
-            }
-            if (id >= attr->id) {
-                id -= attr->size;
-            }
-        } else if (attr->tag == LFSR_TAG_FROM) {
-            // TODO
-            LFS_ASSERT(false);
-
-        } else if (attr->id == id
-                && lfsr_tag_key(attr->tag) >= lfsr_tag_key(tag)
-                && lfsr_tag_key(attr->tag) <= lfsr_tag_key(tag__)) {
-            tag__ = attr->tag;
-            data__ = LFSR_DATA_BUF(attr->buffer, attr->size);
+        // found a better tag?
+        if (best_id == -2
+                || rbyd_id < best_id
+                || (rbyd_id == best_id
+                    && (!best_tag
+                        || lfsr_tag_key(rbyd_tag)
+                            < lfsr_tag_key(best_tag)))) {
+            best_id = rbyd_id;
+            best_tag = rbyd_tag;
+            best_data = LFSR_DATA_DISK(rbyd->block, rbyd_off, rbyd_size);
         }
     }
 
-    // TODO if we can't get rid of this we can at least move it into the
-    // below condition
-    weight = id-lower+1;
-    printf("fix %d %d (%d)\n", id, weight, lower);
+found:;
+    // no better id found
+    if (best_id == -2) {
+        return LFS_ERR_NOENT;
+    }
 
-    // not found? increase id
-    if (tag__ == 0xffff) {
-        tag = 0x10;
-        id = id + 1;
+    // no tag found? increase id
+    if (!best_tag || lfsr_tag_isrm(best_tag)) {
+        tag = best_tag + 0x10;
+        id = best_id+(id-id__) + 1;
         goto again;
     }
 
-    // found rm? should continue
-    if (lfsr_tag_isrm(tag__)) {
-        tag = tag__ + 0x10;
-        goto again;
-    }
-
-    // found
-
+    // found an id/tag
     // TODO how many of these should be conditional?
     if (tag_) {
-        *tag_ = tag__;
+        *tag_ = best_tag;
     }
     if (id_) {
-        *id_ = id;
+        *id_ = best_id+(id-id__);
     }
     if (data_) {
-        *data_ = data__;
-    }
-    if (weight_) {
-        *weight_ = weight;
+        *data_ = best_data;
     }
 
     return 0;
@@ -1763,7 +1777,7 @@ static lfs_ssize_t lfsr_rbyd_pendingget(lfs_t *lfs,
     lfs_ssize_t id_;
     lfsr_data_t data_;
     int err = lfsr_rbyd_pendinglookup(lfs, rbyd, attrs, tag, id,
-            &tag_, &id_, &data_, NULL);
+            &tag_, &id_, &data_);
     if (err) {
         return err;
     }

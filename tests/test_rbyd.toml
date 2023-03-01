@@ -11416,7 +11416,6 @@ code = '''
     lfsr_tag_t tag_ = 0;
     lfs_ssize_t id_ = -1;
     lfsr_data_t data_ = LFSR_DATA_NULL;
-    lfs_size_t weight_ = 0;
 
     // test all permutations of a given size
     uint16_t perm[N];
@@ -11448,8 +11447,8 @@ code = '''
                         UATTR(perm[j]+1), -1, "\xaa\xaa\xaa\xaa", 4,
                         (j+1 < N && j+1 != w) ? &attrs[j+1] : NULL);
             }
-            struct lfsr_attr *written = w > 0 ? &attrs[0] : NULL;
-            struct lfsr_attr *unwritten = w < N ? &attrs[w] : NULL;
+            const struct lfsr_attr *written = w > 0 ? &attrs[0] : NULL;
+            const struct lfsr_attr *unwritten = w < N ? &attrs[w] : NULL;
 
             // create rbyd with written attr
             rbyd = init_rbyd;
@@ -11463,11 +11462,10 @@ code = '''
             for (unsigned j = 0; j < N; j++) {
                 lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
                         LFSR_TAG_UATTR(j+1), -1,
-                        &tag_, &id_, &data_, &weight_) => 0;
+                        &tag_, &id_, &data_) => 0;
                 assert(tag_ == LFSR_TAG_UATTR(j+1));
                 assert(id_ == -1);
                 assert(lfsr_data_len(data_) == 4);
-                assert(weight_ == 0);
             }
 
             // test traverse both written/unwritten
@@ -11476,15 +11474,14 @@ code = '''
             for (unsigned j = 0; j < N; j++) {
                 lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
                         lfsr_tag_next(tag_), id_,
-                        &tag_, &id_, &data_, &weight_) => 0;
+                        &tag_, &id_, &data_) => 0;
                 assert(tag_ == LFSR_TAG_UATTR(j+1));
                 assert(id_ == -1);
                 assert(lfsr_data_len(data_) == 4);
-                assert(weight_ == 0);
             }
             lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
                     lfsr_tag_next(tag_), id_,
-                    &tag_, &id_, &data_, &weight_) => LFS_ERR_NOENT;
+                    &tag_, &id_, &data_) => LFS_ERR_NOENT;
         }
 
         // next permutation using Heap's algorithm
@@ -11608,6 +11605,7 @@ code = '''
                     }
                 }
             }
+            const struct lfsr_attr *unwritten = w < N ? attrs : NULL;
 
             // compare rbyd vs simulation
             printf("expd: [");
@@ -11625,7 +11623,7 @@ code = '''
             printf("rbyd: [");
             first = true;
             for (unsigned attr = 0; attr < N; attr++) {
-                lfs_ssize_t size = lfsr_rbyd_pendingget(&lfs, &rbyd, attrs,
+                lfs_ssize_t size = lfsr_rbyd_pendingget(&lfs, &rbyd, unwritten,
                         LFSR_TAG_UATTR(attr), -1, buffer, 4);
                 if (size >= 0) {
                     if (!first) {
@@ -11638,7 +11636,7 @@ code = '''
             printf("]\n");
 
             for (unsigned attr = 0; attr < N; attr++) {
-                lfs_ssize_t size = lfsr_rbyd_pendingget(&lfs, &rbyd, attrs,
+                lfs_ssize_t size = lfsr_rbyd_pendingget(&lfs, &rbyd, unwritten,
                         LFSR_TAG_UATTR(attr), -1, buffer, 4);
                 if (sim[attr]) {
                     assert(size == 1);
@@ -11677,7 +11675,6 @@ code = '''
     lfsr_tag_t tag_ = 0;
     lfs_ssize_t id_ = -1;
     lfsr_data_t data_ = LFSR_DATA_NULL;
-    lfs_size_t weight_ = 0;
     const uint8_t names[6][4] = {
         "\xaa\xaa\xaa\xaa",
         "\xbb\xbb\xbb\xbb",
@@ -11729,8 +11726,8 @@ code = '''
                         MKREG, id, names[perm[j] % 6], 4,
                         (j+1 < N && j+1 != w) ? &attrs[2*j+2] : NULL);
             }
-            struct lfsr_attr *written = w > 0 ? &attrs[0] : NULL;
-            struct lfsr_attr *unwritten = w < N ? &attrs[2*w] : NULL;
+            const struct lfsr_attr *written = w > 0 ? &attrs[0] : NULL;
+            const struct lfsr_attr *unwritten = w < N ? &attrs[2*w] : NULL;
 
             // create rbyd with written attr
             rbyd = init_rbyd;
@@ -11754,15 +11751,14 @@ code = '''
             for (unsigned j = 0; j < N; j++) {
                 lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
                         lfsr_tag_next(tag_), id_,
-                        &tag_, &id_, &data_, &weight_) => 0;
+                        &tag_, &id_, &data_) => 0;
                 assert(tag_ == LFSR_TAG_MKREG);
                 assert(id_ == j);
                 assert(lfsr_data_len(data_) == 4);
-                assert(weight_ == 1);
             }
             lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
                     lfsr_tag_next(tag_), id_,
-                    &tag_, &id_, &data_, NULL) => LFS_ERR_NOENT;
+                    &tag_, &id_, &data_) => LFS_ERR_NOENT;
         }
 
         // next permutation using Heap's algorithm
@@ -11896,6 +11892,7 @@ code = '''
                     }
                 }
             }
+            const struct lfsr_attr *unwritten = w < N ? attrs : NULL;
 
             // compare rbyd vs simulation
             printf("expd: [");
@@ -11908,7 +11905,7 @@ code = '''
             printf("]\n");
             printf("rbyd: [");
             for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
-                lfs_ssize_t size = lfsr_rbyd_pendingget(&lfs, &rbyd, attrs,
+                lfs_ssize_t size = lfsr_rbyd_pendingget(&lfs, &rbyd, unwritten,
                         LFSR_TAG_MKREG, id, buffer, 4);
                 if (size >= 0) {
                     printf("%.*s", size, buffer);
@@ -11922,7 +11919,7 @@ code = '''
             printf("]\n");
 
             for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
-                lfsr_rbyd_pendingget(&lfs, &rbyd, attrs,
+                lfsr_rbyd_pendingget(&lfs, &rbyd, unwritten,
                         LFSR_TAG_MKREG, id, buffer, 4) => 1;
                 assert(memcmp(&sim[id], buffer, 1) == 0);
             }
@@ -11957,7 +11954,6 @@ code = '''
     lfsr_tag_t tag_ = 0;
     lfs_ssize_t id_ = -1;
     lfsr_data_t data_ = LFSR_DATA_NULL;
-    lfs_size_t weight_ = 0;
     const uint8_t names[6][4] = {
         "\xaa\xaa\xaa\xaa",
         "\xbb\xbb\xbb\xbb",
@@ -11980,7 +11976,7 @@ code = '''
     while (i < N) {
         // test each number of written/unwritten tags, this gives us a quick
         // way to test several unwritten situations
-        for (unsigned w = 0; w <= N; w++) {
+        for (signed w = -1; w <= N; w++) {
             // print permutation to help debugging
             printf("--- permutation: [");
             for (unsigned j = 0; j < N; j++) {
@@ -11992,7 +11988,9 @@ code = '''
             printf("], written: %d/%jd ---\n", w, N);
 
             // build the attribute lists for the current permutation
-            struct lfsr_attr attrs[(2+M)*N];
+            struct lfsr_attr attrs[1+(2+M)*N];
+            attrs[0] = *LFSR_ATTR(UATTR(3), -1, "unrelated", 9, &attrs[1]);
+
             for (unsigned j = 0; j < N; j++) {
                 // adjust id based on future insertions
                 uint16_t id = perm[j];
@@ -12002,24 +12000,29 @@ code = '''
                     }
                 }
 
-                attrs[(2+M)*j+0] = *LFSR_ATTR(
+                attrs[1+(2+M)*j+0] = *LFSR_ATTR(
                         GROW, id, NULL, 1,
-                        &attrs[(2+M)*j+1]);
-                attrs[(2+M)*j+1] = *LFSR_ATTR(
+                        &attrs[1+(2+M)*j+1]);
+                attrs[1+(2+M)*j+1] = *LFSR_ATTR(
                         MKREG, id, names[perm[j] % 6], 4,
-                        &attrs[(2+M)*j+2]);
+                        &attrs[1+(2+M)*j+2]);
                 for (unsigned u = 0; u < M; u++) {
-                    attrs[(2+M)*j+2+u] = *LFSR_ATTR(
+                    attrs[1+(2+M)*j+2+u] = *LFSR_ATTR(
                             UATTR(u+1), id, names[perm[j] % 6], 2,
-                            &attrs[(2+M)*j+2+u+1]);
+                            &attrs[1+(2+M)*j+2+u+1]);
                 }
             }
-            if (w > 0) {
-                attrs[(2+M)*w-1].next = NULL;
+            if (w >= 0) {
+                attrs[1+(2+M)*w-1].next = NULL;
             }
-            attrs[(2+M)*N-1].next = NULL;
-            struct lfsr_attr *written = w > 0 ? &attrs[0] : NULL;
-            struct lfsr_attr *unwritten = w < N ? &attrs[(2+M)*w] : NULL;
+            attrs[1+(2+M)*N-1].next = NULL;
+            const struct lfsr_attr *written
+                    = w >= 0 ? &attrs[0]
+                    : NULL;
+            const struct lfsr_attr *unwritten
+                    = w < 0 ? &attrs[0]
+                    : w < N ? &attrs[1+(2+M)*w]
+                    : NULL;
 
             // create rbyd with written attr
             rbyd = init_rbyd;
@@ -12028,9 +12031,16 @@ code = '''
 
             lfsr_rbyd_fetch(&lfs, &rbyd,
                     rbyd.block, cfg->block_size, NULL) => 0;
-            assert(rbyd.weight == w);
+            assert(rbyd.weight == (w >= 0 ? w : 0));
 
             // test lookup both written/unwritten
+            lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
+                    LFSR_TAG_UATTR(3), -1,
+                    &tag_, &id_, &data_) => 0;
+            assert(tag_ == LFSR_TAG_UATTR(3));
+            assert(id_ == -1);
+            assert(lfsr_data_len(data_) == 9);
+
             for (unsigned j = 0; j < N; j++) {
                 lfsr_rbyd_pendingget(&lfs, &rbyd, unwritten,
                         LFSR_TAG_MKREG, j, buffer, 4) => 4;
@@ -12046,28 +12056,33 @@ code = '''
             // test traverse both written/unwritten
             tag_ = 0;
             id_ = -1;
+            lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
+                    lfsr_tag_next(tag_), id_,
+                    &tag_, &id_, &data_) => 0;
+            assert(tag_ == LFSR_TAG_UATTR(3));
+            assert(id_ == -1);
+            assert(lfsr_data_len(data_) == 9);
+
             for (unsigned j = 0; j < N; j++) {
                 lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
                         lfsr_tag_next(tag_), id_,
-                        &tag_, &id_, &data_, &weight_) => 0;
+                        &tag_, &id_, &data_) => 0;
                 assert(tag_ == LFSR_TAG_MKREG);
                 assert(id_ == j);
                 assert(lfsr_data_len(data_) == 4);
-                assert(weight_ == 1);
 
                 for (unsigned u = 0; u < M; u++) {
                     lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
                             lfsr_tag_next(tag_), id_,
-                            &tag_, &id_, &data_, &weight_) => 0;
+                            &tag_, &id_, &data_) => 0;
                     assert(tag_ == LFSR_TAG_UATTR(u+1));
                     assert(id_ == j);
                     assert(lfsr_data_len(data_) == 2);
-                    assert(weight_ == 1);
                 }
             }
             lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
                     lfsr_tag_next(tag_), id_,
-                    &tag_, &id_, &data_, NULL) => LFS_ERR_NOENT;
+                    &tag_, &id_, &data_) => LFS_ERR_NOENT;
         }
 
         // next permutation using Heap's algorithm
@@ -12113,7 +12128,6 @@ code = '''
     lfsr_tag_t tag_ = 0;
     lfs_ssize_t id_ = -1;
     lfsr_data_t data_ = LFSR_DATA_NULL;
-    lfs_size_t weight_ = 0;
     const uint8_t names[6][4] = {
         "\xaa\xaa\xaa\xaa",
         "\xbb\xbb\xbb\xbb",
@@ -12165,8 +12179,8 @@ code = '''
                         MKREG, id*W+W-1, names[perm[j] % 6], 4,
                         (j+1 < N && j+1 != w) ? &attrs[2*j+2] : NULL);
             }
-            struct lfsr_attr *written = w > 0 ? &attrs[0] : NULL;
-            struct lfsr_attr *unwritten = w < N ? &attrs[2*w] : NULL;
+            const struct lfsr_attr *written = w > 0 ? &attrs[0] : NULL;
+            const struct lfsr_attr *unwritten = w < N ? &attrs[2*w] : NULL;
 
             // create rbyd with written attr
             rbyd = init_rbyd;
@@ -12190,15 +12204,14 @@ code = '''
             for (unsigned j = 0; j < N; j++) {
                 lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
                         lfsr_tag_next(tag_), id_,
-                        &tag_, &id_, &data_, &weight_) => 0;
+                        &tag_, &id_, &data_) => 0;
                 assert(tag_ == LFSR_TAG_MKREG);
                 assert(id_ == j*W+W-1);
                 assert(lfsr_data_len(data_) == 4);
-                assert(weight_ == W);
             }
             lfsr_rbyd_pendinglookup(&lfs, &rbyd, unwritten,
                     lfsr_tag_next(tag_), id_,
-                    &tag_, &id_, &data_, NULL) => LFS_ERR_NOENT;
+                    &tag_, &id_, &data_) => LFS_ERR_NOENT;
         }
 
         // next permutation using Heap's algorithm
