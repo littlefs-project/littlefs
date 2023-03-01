@@ -1663,9 +1663,9 @@ again:;
             // follow the upper edge of the grow
             } else if (attr->id <= id__
                     && attr->id+(lfs_ssize_t)attr->size > id__) {
+                id += attr->id+attr->size - id__;
                 id__ = attr->id;
                 tag = 0x10;
-                id += id__-attr->id+1;
 
             // adjust ids
             } else if (attr->id <= id__) {
