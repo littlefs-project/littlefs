@@ -186,11 +186,12 @@ code = '''
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
     lfsr_tag_t tag_;
     lfs_ssize_t id_;
+    lfs_size_t weight_;
     lfs_off_t off_;
     lfs_size_t size_;
     int err = lfsr_rbyd_lookup(&lfs, &rbyd,
             LFSR_TAG_UATTR(i_ & 0xff), -1,
-            &tag_, &id_, &off_, &size_);
+            &tag_, &id_, &weight_, &off_, &size_);
     // note that random order may have some collisions
     assert(!err || err == LFS_ERR_NOENT);
     BENCH_STOP();
@@ -363,15 +364,18 @@ code = '''
     uint32_t prng = 42;
     BENCH_START();
     if (COMMIT == 0) {
-        struct lfsr_attr attrs[N];
+        struct lfsr_attr attrs[2*N];
         for (lfs_size_t i = 0; i < N; i++) {
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
-            attrs[i] = *LFSR_ATTR(
+            attrs[2*i+0] = *LFSR_ATTR(
+                    GROW, i_, NULL, 1,
+                    &attrs[2*i+1]);
+            attrs[2*i+1] = *LFSR_ATTR(
                     MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
-                    (i+1 < N) ? &attrs[i+1] : NULL);
+                    (i+1 < N) ? &attrs[2*i+2] : NULL);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs) => 0;
     } else {
@@ -381,8 +385,9 @@ code = '''
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(GROW, i_, NULL, 1,
                     LFSR_ATTR(MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
-                    NULL)) => 0;
+                    NULL))) => 0;
         }
     }
     BENCH_STOP();
@@ -420,15 +425,18 @@ code = '''
     // indexes within a valid range as the rbyd grows
     uint32_t prng = 42;
     if (COMMIT == 0) {
-        struct lfsr_attr attrs[N];
+        struct lfsr_attr attrs[2*N];
         for (lfs_size_t i = 0; i < N; i++) {
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
-            attrs[i] = *LFSR_ATTR(
+            attrs[2*i+0] = *LFSR_ATTR(
+                    GROW, i_, NULL, 1,
+                    &attrs[2*i+1]);
+            attrs[2*i+1] = *LFSR_ATTR(
                     MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
-                    (i+1 < N) ? &attrs[i+1] : NULL);
+                    (i+1 < N) ? &attrs[2*i+2] : NULL);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs) => 0;
     } else {
@@ -438,8 +446,9 @@ code = '''
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(GROW, i_, NULL, 1,
                     LFSR_ATTR(MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
-                    NULL)) => 0;
+                    NULL))) => 0;
         }
     }
 
@@ -478,15 +487,18 @@ code = '''
     // indexes within a valid range as the rbyd grows
     uint32_t prng = 42;
     if (COMMIT == 0) {
-        struct lfsr_attr attrs[N];
+        struct lfsr_attr attrs[2*N];
         for (lfs_size_t i = 0; i < N; i++) {
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
-            attrs[i] = *LFSR_ATTR(
+            attrs[2*i+0] = *LFSR_ATTR(
+                    GROW, i_, NULL, 1,
+                    &attrs[2*i+1]);
+            attrs[2*i+1] = *LFSR_ATTR(
                     MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
-                    (i+1 < N) ? &attrs[i+1] : NULL);
+                    (i+1 < N) ? &attrs[2*i+2] : NULL);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs) => 0;
     } else {
@@ -496,8 +508,9 @@ code = '''
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(GROW, i_, NULL, 1,
                     LFSR_ATTR(MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
-                    NULL)) => 0;
+                    NULL))) => 0;
         }
     }
 
@@ -507,10 +520,11 @@ code = '''
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
     lfsr_tag_t tag_;
     lfs_ssize_t id_;
+    lfs_size_t weight_;
     lfs_off_t off_;
     lfs_size_t size_;
     lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_MKREG, i_,
-            &tag_, &id_, &off_, &size_) => 0;
+            &tag_, &id_, &weight_, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_MKREG);
     assert(id_ == i_);
     BENCH_STOP();
@@ -546,15 +560,18 @@ code = '''
     // indexes within a valid range as the rbyd grows
     uint32_t prng = 42;
     if (COMMIT == 0) {
-        struct lfsr_attr attrs[N];
+        struct lfsr_attr attrs[2*N];
         for (lfs_size_t i = 0; i < N; i++) {
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
-            attrs[i] = *LFSR_ATTR(
+            attrs[2*i+0] = *LFSR_ATTR(
+                    GROW, i_, NULL, 1,
+                    &attrs[2*i+1]);
+            attrs[2*i+1] = *LFSR_ATTR(
                     MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
-                    (i+1 < N) ? &attrs[i+1] : NULL);
+                    (i+1 < N) ? &attrs[2*i+2] : NULL);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs) => 0;
     } else {
@@ -564,8 +581,9 @@ code = '''
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(GROW, i_, NULL, 1,
                     LFSR_ATTR(MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
-                    NULL)) => 0;
+                    NULL))) => 0;
         }
     }
 
@@ -574,8 +592,9 @@ code = '''
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % (N+1);
     lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(GROW, i_, NULL, 1,
             LFSR_ATTR(MKREG, i_, "\xbb\xbb\xbb\xbb", 4,
-            NULL)) => 0;
+            NULL))) => 0;
     BENCH_STOP();
 
     uint8_t buffer[4];
@@ -613,15 +632,18 @@ code = '''
     // indexes within a valid range as the rbyd grows
     uint32_t prng = 42;
     if (COMMIT == 0) {
-        struct lfsr_attr attrs[N];
+        struct lfsr_attr attrs[2*N];
         for (lfs_size_t i = 0; i < N; i++) {
             lfs_off_t i_
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
-            attrs[i] = *LFSR_ATTR(
+            attrs[2*i+0] = *LFSR_ATTR(
+                    GROW, i_, NULL, 1,
+                    &attrs[2*i+1]);
+            attrs[2*i+1] = *LFSR_ATTR(
                     MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
-                    (i+1 < N) ? &attrs[i+1] : NULL);
+                    (i+1 < N) ? &attrs[2*i+2] : NULL);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs) => 0;
     } else {
@@ -631,8 +653,9 @@ code = '''
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSR_ATTR(GROW, i_, NULL, 1,
                     LFSR_ATTR(MKREG, i_, "\xaa\xaa\xaa\xaa", 4,
-                    NULL)) => 0;
+                    NULL))) => 0;
         }
     }
 
@@ -641,7 +664,7 @@ code = '''
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSR_ATTR(RM, i_, NULL, 0,
+            LFSR_ATTR(SHRINK, i_, NULL, 1,
             NULL)) => 0;
     BENCH_STOP();
 '''
