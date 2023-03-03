@@ -1,0 +1,217 @@
+
+# maximize lookahead buffer, we don't actually gc so we only get one pass
+# of the disk for these tests
+defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
+
+
+# test an empty tree
+[cases.test_btree_zero]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+    // create free lookahead
+    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.free.off = 0;
+    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+            lfs.cfg->block_count);
+    lfs.free.i = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create an empty tree
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+
+    // try looking up tags
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t id_;
+    lfs_size_t weight_;
+
+    lfsr_btree_get(&lfs, &btree, 0,
+            &tag_, &id_, &weight_,
+            buffer, 4) => LFS_ERR_NOENT;
+'''
+
+# test an inlined tree
+[cases.test_btree_one]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+    // create free lookahead
+    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.free.off = 0;
+    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+            lfs.cfg->block_count);
+    lfs.free.i = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a single-entry tree
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1, "a", 1) => 0;
+
+    // try looking up tags
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t id_;
+    lfs_size_t weight_;
+
+    lfsr_btree_get(&lfs, &btree, 0,
+            &tag_, &id_, &weight_,
+            buffer, 4) => 1;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(id_ == 0);
+    assert(weight_ == 1);
+    assert(memcmp(buffer, "a", 1) == 0);
+
+    lfsr_btree_get(&lfs, &btree, 1,
+            &tag_, &id_, &weight_,
+            buffer, 4) => LFS_ERR_NOENT;
+'''
+
+# test a single-rbyd tree
+[cases.test_btree_two]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+    // create free lookahead
+    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.free.off = 0;
+    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+            lfs.cfg->block_count);
+    lfs.free.i = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a two-entry tree
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1, "a", 1) => 0;
+    lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_INLINED, 1, "b", 1) => 0;
+
+    // try looking up tags
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t id_;
+    lfs_size_t weight_;
+
+    lfsr_btree_get(&lfs, &btree, 0,
+            &tag_, &id_, &weight_,
+            buffer, 4) => 1;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(id_ == 0);
+    assert(weight_ == 1);
+    assert(memcmp(buffer, "a", 1) == 0);
+
+    lfsr_btree_get(&lfs, &btree, 1,
+            &tag_, &id_, &weight_,
+            buffer, 4) => 1;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(id_ == 1);
+    assert(weight_ == 1);
+    assert(memcmp(buffer, "b", 1) == 0);
+
+    lfsr_btree_get(&lfs, &btree, 2,
+            &tag_, &id_, &weight_,
+            buffer, 4) => LFS_ERR_NOENT;
+'''
+
+# still a single-rbyd tree, just making sure it works
+[cases.test_btree_three]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+    // create free lookahead
+    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.free.off = 0;
+    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+            lfs.cfg->block_count);
+    lfs.free.i = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a two-entry tree
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1, "a", 1) => 0;
+    lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_INLINED, 1, "b", 1) => 0;
+    lfsr_btree_push(&lfs, &btree, 2, LFSR_TAG_INLINED, 1, "c", 1) => 0;
+
+    // try looking up tags
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t id_;
+    lfs_size_t weight_;
+
+    lfsr_btree_get(&lfs, &btree, 0,
+            &tag_, &id_, &weight_,
+            buffer, 4) => 1;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(id_ == 0);
+    assert(weight_ == 1);
+    assert(memcmp(buffer, "a", 1) == 0);
+
+    lfsr_btree_get(&lfs, &btree, 1,
+            &tag_, &id_, &weight_,
+            buffer, 4) => 1;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(id_ == 1);
+    assert(weight_ == 1);
+    assert(memcmp(buffer, "b", 1) == 0);
+
+    lfsr_btree_get(&lfs, &btree, 2,
+            &tag_, &id_, &weight_,
+            buffer, 4) => 1;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(id_ == 2);
+    assert(weight_ == 1);
+    assert(memcmp(buffer, "c", 1) == 0);
+
+    lfsr_btree_get(&lfs, &btree, 3,
+            &tag_, &id_, &weight_,
+            buffer, 4) => LFS_ERR_NOENT;
+'''
+
+# try larger trees, when exactly a tree splits depends on the disk geometry, so
+# we don't really have a better way of testing multi-rbyd trees
+[cases.test_btree_more]
+defines.N = 'range(10, 1001, 50)'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+    // create free lookahead
+    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.free.off = 0;
+    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+            lfs.cfg->block_count);
+    lfs.free.i = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a tree with N elements
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                &alphas[i % 26], 1) => 0;
+    }
+
+    // check that the elements are in the tree
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t id_;
+    lfs_size_t weight_;
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_btree_get(&lfs, &btree, i,
+                &tag_, &id_, &weight_,
+                buffer, 4) => 1;
+        assert(tag_ == LFSR_TAG_INLINED);
+        assert(id_ == i);
+        assert(weight_ == 1);
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    }
+
+    // and check that we can't lookup elements that aren't in the tree
+    lfsr_btree_get(&lfs, &btree, N,
+            &tag_, &id_, &weight_,
+            buffer, 4) => LFS_ERR_NOENT;
+'''

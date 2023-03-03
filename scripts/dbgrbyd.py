@@ -62,6 +62,8 @@ def tagrepr(tag, id, w, size, off=None):
             id,
             ' w%d' % w if w is not None else '',
             size)
+    elif tag == 0x0800:
+        return 'inlined id%d %d' % (id, size)
     elif tag == 0x0810:
         return 'block id%d %d' % (id, size)
     elif tag == 0x0820:
@@ -565,6 +567,7 @@ def show_tree(block_size, data, rev, trunk, weight, *,
 
 
 def main(disk, block_size=None, block1=0, block2=None, *,
+        limit=None,
         trunk=None,
         color='auto',
         **args):
@@ -581,6 +584,10 @@ def main(disk, block_size=None, block1=0, block2=None, *,
         if block_size is None:
             f.seek(0, os.SEEK_END)
             block_size = f.tell()
+
+        # default limit to the block_size
+        if limit is None:
+            limit = block_size
 
         # read each block
         blocks = [block for block in [block1, block2] if block is not None]
@@ -600,7 +607,7 @@ def main(disk, block_size=None, block1=0, block2=None, *,
         weight = 0
         weight_ = 0
         wastrunk = False
-        while j_ < block_size:
+        while j_ < limit:
             v, tag, id, size, delta = fromtag(data[j_:])
             if v != (popc(crc) & 1):
                 break
@@ -683,11 +690,6 @@ if __name__ == "__main__":
         'disk',
         help="File containing the block device.")
     parser.add_argument(
-        'block_size',
-        nargs='?',
-        type=lambda x: int(x, 0),
-        help="Block size in bytes.")
-    parser.add_argument(
         'block1',
         nargs='?',
         type=lambda x: int(x, 0),
@@ -697,6 +699,14 @@ if __name__ == "__main__":
         nargs='?',
         type=lambda x: int(x, 0),
         help="Block address of the second metadata block.")
+    parser.add_argument(
+        '-B', '--block-size',
+        type=lambda x: int(x, 0),
+        help="Block size in bytes.")
+    parser.add_argument(
+        '-L', '--limit',
+        type=lambda x: int(x, 0),
+        help="Use this offset as the rbyd limit.")
     parser.add_argument(
         '--trunk',
         type=lambda x: int(x, 0),
