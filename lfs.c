@@ -1170,6 +1170,23 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
 /// Red-black-yellow Dhara tree operations ///
 
+
+// allocate an rbyd block
+static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
+    *rbyd = (lfsr_rbyd_t){.erased=true, .rev=rev};
+    int err = lfs_alloc(lfs, &rbyd->block);
+    if (err) {
+        return err;
+    }
+            
+    // TODO should erase be implicit in alloc eventually?
+    err = lfs_bd_erase(lfs, rbyd->block);
+    if (err) {
+        return err;
+    }
+    return 0;
+}
+
 // TODO is id actually 31-bits? do we rely on sign anywhere? we should really
 // nail this down for all the types
 
@@ -1849,6 +1866,66 @@ static lfs_ssize_t lfsr_rbyd_predictedsize(
     return dsize + count*(12 + (2*lfs_nlog2(count)+1)*12);
 }
 
+static lfs_ssize_t lfsr_rbyd_bisect(lfs_t *lfs, const lfsr_rbyd_t *rbyd) {
+    // find the best id to split an rbyd evenly
+    //
+    // theres a few heuristics we can use here, this attempts to split to
+    // maintain even on-disk size across the rbyds
+    //
+    // TODO try a purely id based heuristic?
+    // TODO does an id based heuristic even work? we might end up overflowing
+    // our sibling. should look into this
+
+    // find the total on-disk size
+    lfsr_tag_t tag = 0;
+    lfs_ssize_t id = 0;
+    lfs_size_t dsize = 0;
+    while (true) {
+        lfs_size_t size;
+        int err = lfsr_rbyd_lookup(lfs, rbyd,
+                lfsr_tag_next(tag), id,
+                &tag, &id, NULL, NULL, &size);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        // assume worst case tag encoding so many small tags aren't missed
+        dsize += LFSR_TAG_DSIZE + size;
+    }
+
+    // traverse again to find the actual midpoint, 
+    tag = 0;
+    id = 0;
+    lfs_size_t bsize = 0;
+    while (true) {
+        lfs_size_t size;
+        int err = lfsr_rbyd_lookup(lfs, rbyd,
+                lfsr_tag_next(tag), id,
+                &tag, &id, NULL, NULL, &size);
+        if (err) {
+            return err;
+        }
+
+        // assume worst case tag encoding so many small tags aren't missed
+        bsize += LFSR_TAG_DSIZE + size;
+
+        if (bsize >= dsize/2) {
+            // round up so that we always include at least one id in the
+            // first rbyd
+            if ((lfs_size_t)id + 1 >= rbyd->weight) {
+                // well this shouldn't happen unless attr limits have gone wrong
+                return LFS_ERR_RANGE;
+            }
+
+            return id + 1;
+        }
+    }
+}
+
 // TODO this should be a bd operation of some sort
 static int lfsr_rbyd_prog(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         const void *buffer, lfs_size_t size, uint32_t *crc) {
@@ -2085,18 +2162,35 @@ static void lfsr_rbyd_p_red(
 }
 
 // core rbyd algorithm
-static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
+static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t tag, lfs_ssize_t id, lfsr_data_t data) {
     LFS_ASSERT(tag != 0);
+
+    // we can't do anything if we're not erased
+    if (!rbyd->erased) {
+        return LFS_ERR_RANGE;
+    }
+
+    // make sure every rbyd starts with its revision count
+    if (rbyd->off == 0) {
+        uint32_t rev;
+        lfs_tole32_(rbyd->rev, &rev);
+        int err = lfsr_rbyd_prog(lfs, rbyd,
+                &rev, sizeof(uint32_t), &rbyd->crc);
+        if (err) {
+            rbyd->erased = false;
+            return err;
+        }
+    }
 
     // keep track of bounds as we descend down the tree
     //
     // this gets a bit confusing as we also may need to keep
     // track of both the lower and upper bounds of diverging paths
     // in the case of range deletions
-    lfs_off_t branch = rbyd_->trunk;
+    lfs_off_t branch = rbyd->trunk;
     lfs_ssize_t lower_id = -1;
-    lfs_ssize_t upper_id = rbyd_->weight;
+    lfs_ssize_t upper_id = rbyd->weight;
     lfsr_tag_t lower_tag = 0;
     lfsr_tag_t upper_tag = 0xffff;
 
@@ -2110,38 +2204,38 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     lfsr_tag_t other_tag_;
     lfs_ssize_t other_id_;
     if (tag == LFSR_TAG_GROW) {
-        LFS_ASSERT(id <= rbyd_->weight);
+        LFS_ASSERT(id <= rbyd->weight);
         // noop?
         if (lfsr_data_len(data) == 0) {
             return 0;
         }
-        rbyd_->weight += lfsr_data_len(data);
+        rbyd->weight += lfsr_data_len(data);
 
         tag_ = 0;
         id_ = id;
         other_tag_ = tag_;
         other_id_ = id_;
     } else if (tag == LFSR_TAG_SHRINK) {
-        LFS_ASSERT(id < rbyd_->weight);
+        LFS_ASSERT(id < rbyd->weight);
         // noop?
         if (lfsr_data_len(data) == 0) {
             return 0;
         }
-        rbyd_->weight -= lfsr_data_len(data);
+        rbyd->weight -= lfsr_data_len(data);
 
         tag_ = 0;
         id_ = id;
         other_tag_ = tag_;
         other_id_ = id_ + lfsr_data_len(data);
     } else if (lfsr_tag_isrm(tag)) {
-        LFS_ASSERT(id < rbyd_->weight);
+        LFS_ASSERT(id < rbyd->weight);
 
         tag_ = tag & ~0x2;
         id_ = id;
         other_tag_ = tag_ + 0x10;
         other_id_ = id_;
     } else {
-        LFS_ASSERT(id < rbyd_->weight);
+        LFS_ASSERT(id < rbyd->weight);
 
         tag_ = tag;
         id_ = id;
@@ -2171,7 +2265,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     lfsr_tag_t other_upper_tag = 0;
 
     // assume we'll update our trunk
-    rbyd_->trunk = rbyd_->off;
+    rbyd->trunk = rbyd->off;
 
     // no trunk yet?
     if (!branch) {
@@ -2192,8 +2286,9 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfs_off_t jump;
         lfs_ssize_t delta = lfsr_rbyd_readtag(lfs,
                 &lfs->pcache, &lfs->rcache, 0,
-                rbyd_->block, branch, &alt, &weight, &jump, NULL);
+                rbyd->block, branch, &alt, &weight, &jump, NULL);
         if (delta < 0) {
+            rbyd->erased = false;
             return delta;
         }
 
@@ -2383,10 +2478,11 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
             // push alt onto our queue
             LFS_ASSERT(weight >= 0);
-            int err = lfsr_rbyd_p_push(lfs, rbyd_,
+            int err = lfsr_rbyd_p_push(lfs, rbyd,
                     p_alts, p_weights, p_jumps,
                     alt, weight, jump);
             if (err) {
+                rbyd->erased = false;
                 return err;
             }
 
@@ -2476,10 +2572,11 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     }
 
     if (alt) {
-        int err = lfsr_rbyd_p_push(lfs, rbyd_,
+        int err = lfsr_rbyd_p_push(lfs, rbyd,
                 p_alts, p_weights, p_jumps,
                 alt, weight, branch);
         if (err) {
+            rbyd->erased = false;
             return err;
         }
 
@@ -2490,9 +2587,10 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
     }
 
     // flush any pending alts
-    int err = lfsr_rbyd_p_flush(lfs, rbyd_,
+    int err = lfsr_rbyd_p_flush(lfs, rbyd,
             p_alts, p_weights, p_jumps, 3);
     if (err) {
+        rbyd->erased = false;
         return err;
     }
 
@@ -2501,16 +2599,18 @@ leaf:;
     //
     // note we always need something after the alts! without something between
     // alts we may not be able to find the trunk of our tree
-    err = lfsr_rbyd_progtag(lfs, rbyd_,
-            tag, id, lfsr_data_len(data), &rbyd_->crc);
+    err = lfsr_rbyd_progtag(lfs, rbyd,
+            tag, id, lfsr_data_len(data), &rbyd->crc);
     if (err) {
+        rbyd->erased = false;
         return err;
     }
 
     if (lfsr_tag_hasdata(tag)) {
         // don't forget the data!
-        err = lfsr_rbyd_progdata(lfs, rbyd_, data, &rbyd_->crc);
+        err = lfsr_rbyd_progdata(lfs, rbyd, data, &rbyd->crc);
         if (err) {
+            rbyd->erased = false;
             return err;
         }
     }
@@ -2518,21 +2618,186 @@ leaf:;
     return 0;
 }
 
-int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+//static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
+//    LFS_ASSERT(rbyd->erased);
+//    LFS_ASSERT(rbyd->off == 0);
+//
+//    // append revision count, this should start every rbyd
+//    uint32_t rev;
+//    lfs_tole32_(rbyd->rev, &rev);
+//    int err = lfsr_rbyd_prog(lfs, rbyd,
+//            &rev, sizeof(uint32_t), &rbyd->crc);
+//    if (err) {
+//        rbyd->erased = false;
+//        return err;
+//    }
+//
+//    return 0;
+//}
+
+//static int lfsr_rbyd_appendcrc(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+//        lfs_off_t off, uint32_t crc) {
+//    LFS_ASSERT(rbyd->erased);
+//
+//    // align to the next prog unit
+//    //
+//    // this gets a bit complicated as we have two types of crcs:
+//    //
+//    // - 9-word crc with fcrc to check following prog (middle of block)
+//    //   - fcrc tag type => 1 byte leb128
+//    //   - fcrc tag id   => 1 byte leb128
+//    //   - fcrc tag size => 1 byte leb128 (worst case)
+//    //   - fcrc crc      => 4 byte le32
+//    //   - fcrc size     => 5 byte leb128 (worst case)
+//    //   - crc tag type  => 1 byte leb128
+//    //   - crc tag id    => 1 byte leb128
+//    //   - crc tag size  => 5 byte leb128 (worst case)
+//    //   - crc crc       => 4 byte le32
+//    //                   => 23 bytes total
+//    //
+//    // - 4-word crc with no following prog (end of block)
+//    //   - crc tag type => 1 byte leb128
+//    //   - crc tag id   => 1 byte leb128
+//    //   - crc tag size => 5 byte leb128 (worst case)
+//    //   - crc crc      => 4 byte le32
+//    //                  => 11 bytes total
+//    //
+//    lfs_off_t aligned = lfs_alignup(
+//            rbyd->off + 1+1+1+4+5 + 1+1+5+4,
+//            lfs->cfg->prog_size);
+//
+//    // space for fcrc?
+//    uint8_t perturb = 0;
+//    if (aligned <= lfs->cfg->block_size - lfs->cfg->prog_size) {
+//        // read the leading byte in case we need to change the expected
+//        // value of the next tag's valid bit
+//        int err = lfs_bd_read(lfs,
+//                &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
+//                rbyd->block, aligned, &perturb, 1);
+//        if (err && err != LFS_ERR_CORRUPT) {
+//            rbyd->erased = false;
+//            return err;
+//        }
+//
+//        // find the expected fcrc, don't bother avoiding a reread of the
+//        // perturb byte, as it should still be in our cache
+//        struct lfsr_fcrc fcrc = {.crc=0, .size=lfs->cfg->prog_size};
+//        err = lfs_bd_crc32c(lfs,
+//                &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
+//                rbyd->block, aligned, fcrc.size, &fcrc.crc);
+//        if (err && err != LFS_ERR_CORRUPT) {
+//            rbyd->erased = false;
+//            return err;
+//        }
+//
+//        uint8_t fbuf[LFSR_FCRC_DSIZE];
+//        lfs_size_t fcrc_delta = lfsr_fcrc_todisk(&fcrc, fbuf);
+//        err = lfsr_rbyd_progtag(lfs, rbyd,
+//                LFSR_TAG_FCRC, -1, fcrc_delta, &rbyd->crc);
+//        if (err) {
+//            rbyd->erased = false;
+//            return err;
+//        }
+//
+//        err = lfsr_rbyd_prog(lfs, rbyd,
+//                fbuf, fcrc_delta, &rbyd->crc);
+//        if (err) {
+//            rbyd->erased = false;
+//            return err;
+//        }
+//    } else {
+//        // recalculate aligned without fcrc
+//        aligned = lfs_alignup(
+//            rbyd->off + 1+1+5+4,
+//            lfs->cfg->prog_size);
+//        rbyd->erased = false;
+//    }
+//
+//    // not even space for the crc?
+//    if (aligned > lfs->cfg->block_size) {
+//        lfs_cache_zero(lfs, &lfs->pcache);
+//        rbyd->erased = false;
+//        return LFS_ERR_RANGE;
+//    }
+//
+//    // build end-of-commit crc
+//    //
+//    // note padding-size depends on leb-encoding depends on padding-size, to
+//    // get around this catch-22 we just always write a fully-expanded leb128
+//    // encoding
+//    uint8_t buffer[1+1+5+4];
+//    buffer[0] = LFSR_TAG_CRC | (lfs_popc(rbyd->crc) & 1);
+//    buffer[1] = 0;
+//
+//    lfs_off_t padding = aligned - (rbyd->off + 1+1+5);
+//    buffer[2] = 0x80 | (0x7f & (padding >>  0));
+//    buffer[3] = 0x80 | (0x7f & (padding >>  7));
+//    buffer[4] = 0x80 | (0x7f & (padding >> 14));
+//    buffer[5] = 0x80 | (0x7f & (padding >> 21));
+//    buffer[6] = 0x00 | (0x7f & (padding >> 28));
+//
+//    rbyd->crc = lfs_crc32c(rbyd->crc, buffer, 1+1+5);
+//    // we can't let the next tag appear as valid, so intentionally perturb the
+//    // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
+//    // so we can really change any bit to make this happen, we've reserved a bit
+//    // in crc tags just for this purpose
+//    if ((lfs_popc(rbyd->crc) & 1) == (perturb & 1)) {
+//        buffer[0] ^= 0x10;
+//        rbyd->crc ^= 0x9c5bfaa6; // note crc(a ^ b) == crc(a) ^ crc(b)
+//    }
+//    lfs_tole32_(rbyd->crc, &buffer[1+1+5]);
+//
+//    int err = lfsr_rbyd_prog(lfs, rbyd, buffer, 1+1+5+4, NULL);
+//    if (err) {
+//        rbyd->erased = false;
+//        return err;
+//    }
+//
+//    // flush our caches, finalizing the commit on-disk
+//    err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
+//    if (err) {
+//        rbyd->erased = false;
+//        return err;
+//    }
+//
+//    // succesful commit, check checksum to make sure
+//    uint32_t crc_ = crc;
+//    err = lfs_bd_crc32c(lfs,
+//            NULL, &lfs->rcache, rbyd->off-4,
+//            rbyd->block, off, rbyd->off-4 - off, &crc_);
+//    if (err) {
+//        rbyd->erased = false;
+//        return err;
+//    }
+//
+//    if (rbyd->crc != crc_) {
+//        // oh no, something went wrong
+//        LFS_ERROR("Rbyd corrupted during commit "
+//                "(block=0x%"PRIx32", 0x%08"PRIx32" != 0x%08"PRIx32")",
+//                rbyd->block, rbyd->crc, crc_);
+//        rbyd->erased = false;
+//        return LFS_ERR_CORRUPT;
+//    }
+//
+//    // ok, everything is good, save what we've committed
+//    rbyd->off = aligned;
+//    return 0;
+//}
+
+static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const struct lfsr_attr *attrs) {
-    // we can't make progress if we're not erased
+    // we can't do anything if we're not erased
     if (!rbyd->erased) {
         return LFS_ERR_RANGE;
     }
 
-    // mark as unerased in case we fail
-    rbyd->erased = false;
-
     // setup commit state
     lfsr_rbyd_t rbyd_ = *rbyd;
+    // mark erased in case we fail
+    rbyd->erased = false;
 
-    // include revision count?
-    if (!rbyd_.off) {
+    // make sure every rbyd starts with its revision count
+    if (rbyd_.off == 0) {
         uint32_t rev;
         lfs_tole32_(rbyd_.rev, &rev);
         int err = lfsr_rbyd_prog(lfs, &rbyd_,
@@ -2544,8 +2809,11 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // append each tag to the tree
     for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
+        // TODO can FROM/COMPACT share more logic?
         // indirect set of attributes from another rbyd
         if (attr->tag == LFSR_TAG_FROM) {
+            LFS_ASSERT(false);
+
             const struct lfsr_attr_from *from = attr->buffer;
 
 //            // first create one grow for the entire from range
@@ -2592,6 +2860,7 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     }
                 }
 
+                // append the attr
                 err = lfsr_rbyd_append(lfs, &rbyd_,
                         tag_, attr->id+(id_-from->start), data_);
                 if (err) {
@@ -2602,6 +2871,13 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 id = id_;
             }
 
+//        // attempting to compact an rbyd, this is the same as LFSR_TAG_FROM,
+//        // except we may abort if we exceed our compaction threshold
+//        // (1/2 block_size)
+//        } else if (attr->tag == LFSR_TAG_COMPACT) {
+//            
+//        
+//
         // a normal attribute
         } else {
             int err = lfsr_rbyd_append(lfs, &rbyd_,
@@ -2649,6 +2925,7 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
                 rbyd_.block, aligned, &perturb, 1);
         if (err && err != LFS_ERR_CORRUPT) {
+            rbyd_.erased = false;
             return err;
         }
 
@@ -2659,6 +2936,7 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
                 rbyd_.block, aligned, fcrc.size, &fcrc.crc);
         if (err && err != LFS_ERR_CORRUPT) {
+            rbyd_.erased = false;
             return err;
         }
 
@@ -2667,26 +2945,28 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         err = lfsr_rbyd_progtag(lfs, &rbyd_,
                 LFSR_TAG_FCRC, -1, fcrc_delta, &rbyd_.crc);
         if (err) {
+            rbyd_.erased = false;
             return err;
         }
 
         err = lfsr_rbyd_prog(lfs, &rbyd_,
                 fbuf, fcrc_delta, &rbyd_.crc);
         if (err) {
+            rbyd_.erased = false;
             return err;
         }
-
-        rbyd_.erased = true;
     } else {
         // recalculate aligned without fcrc
         aligned = lfs_alignup(
             rbyd_.off + 1+1+5+4,
             lfs->cfg->prog_size);
+        rbyd_.erased = false;
     }
 
     // not even space for the crc?
     if (aligned > lfs->cfg->block_size) {
         lfs_cache_zero(lfs, &lfs->pcache);
+        rbyd_.erased = false;
         return LFS_ERR_RANGE;
     }
 
@@ -2719,12 +2999,14 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     int err = lfsr_rbyd_prog(lfs, &rbyd_, buffer, 1+1+5+4, NULL);
     if (err) {
+        rbyd_.erased = false;
         return err;
     }
 
     // flush our caches, finalizing the commit on-disk
     err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
     if (err) {
+        rbyd_.erased = false;
         return err;
     }
 
@@ -2734,6 +3016,7 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             NULL, &lfs->rcache, rbyd_.off-4,
             rbyd_.block, rbyd->off, rbyd_.off-4 - rbyd->off, &crc_);
     if (err) {
+        rbyd_.erased = false;
         return err;
     }
 
@@ -2742,13 +3025,13 @@ int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         LFS_ERROR("Rbyd corrupted during commit "
                 "(block=0x%"PRIx32", 0x%08"PRIx32" != 0x%08"PRIx32")",
                 rbyd_.block, rbyd_.crc, crc_);
+        rbyd_.erased = false;
         return LFS_ERR_CORRUPT;
     }
 
     // ok, everything is good, save what we've committed
     rbyd_.off = aligned;
     *rbyd = rbyd_;
-
     return 0;
 }
 
@@ -3088,226 +3371,524 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             *rbyd = parent;
             attrs = scratch_attrs;
+            continue;
+        }
             
-        // no?
-        } else {
-            // the first question is will we fit comfortably after compaction
-            lfs_ssize_t predicted = lfsr_rbyd_predictedsize(
-                    lfs, rbyd, attrs, 0, rbyd->weight);
-            if (predicted < 0) {
-                return predicted;
+        // no? try to compact
+
+        // TODO were we doing something funky with rev?
+        // first allocate a new rbyd
+        lfsr_rbyd_t rbyd_;
+        err = lfsr_rbyd_alloc(lfs, &rbyd_, rbyd->rev+1);
+        if (err) {
+            return err;
+        }
+
+        // now copy over ids
+        lfsr_tag_t tag = 0;
+        lfs_ssize_t id = 0;
+        while (true) {
+            lfs_off_t off;
+            lfs_size_t size;
+            lfs_size_t weight;
+            err = lfsr_rbyd_lookup(lfs, rbyd, lfsr_tag_next(tag), id,
+                    &tag, &id, &weight, &off, &size);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
             }
 
-//            printf("predicted: %d/%d\n", predicted, lfs->cfg->block_size/2);
+            if (err == LFS_ERR_NOENT) {
+                goto nosplit;
+            }
 
-            // keep rbyd < 1/2 to avoid degenerate cases with full rbyd
-            if ((lfs_size_t)predicted <= lfs->cfg->block_size/2) {
-                lfsr_rbyd_t rbyd_ = {.erased=true};
-                err = lfs_alloc(lfs, &rbyd_.block);
+            // TODO this is really wasteful and throws off our predicted
+            // size, can we combine grows into the tag append in the rbyd
+            // somehow?
+            // create grows as necessary
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    LFSR_TAG_GROW,
+                    id - (weight-1),
+                    // TODO also this is a weird way to use lfsr_data_t
+                    LFSR_DATA_BUF(NULL, weight));
+            if (err) {
+                return err;
+            }
+
+            // append the attr
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    tag, id, LFSR_DATA_DISK(rbyd->block, off, size));
+            if (err) {
+                return err;
+            }
+
+            // keep rbyd < our compaction threshold (1/2) to avoid
+            // degenerate cases
+            if (rbyd_.off > lfs->cfg->block_size/2){
+                goto split;
+            }
+        }
+
+    nosplit:;
+        // done?
+        if (pid == -1) {
+            *rbyd = rbyd_;
+            break;
+        }
+
+        // prepare commit to parent, tail recursing upwards
+        lfs_ssize_t delta = lfsr_branch_todisk(
+                &(const lfsr_branch_t){rbyd_.block, rbyd_.off},
+                scratch_buf1);
+        if (delta < 0) {
+            return delta;
+        }
+
+        // TODO can we combine weight changes with normal tag updates?
+        // maybe this should be looked at again
+        scratch_attrs[0] = *LFSR_ATTR(
+                BRANCH, pid, scratch_buf1, delta,
+                &scratch_attrs[1]);
+        // note grow/shrink with 0 is treated as a noop in rbyd
+        if (rbyd_.weight >= pweight) {
+            scratch_attrs[1] = *LFSR_ATTR(
+                    GROW, pid-(pweight-1), NULL, rbyd_.weight-pweight,
+                    NULL);
+        } else {
+            scratch_attrs[1] = *LFSR_ATTR(
+                    SHRINK, pid-(pweight-1), NULL, pweight-rbyd_.weight,
+                    NULL);
+        }
+
+        *rbyd = parent;
+        attrs = scratch_attrs;
+        continue;
+
+    split:;
+        // find out which id we need to split around
+        lfs_ssize_t bisect = lfsr_rbyd_bisect(lfs, rbyd);
+        if (bisect < 0) {
+            return bisect;
+        }
+
+        // we can keep our attempted compact, we just need to remove any
+        // ids that belong in the sibling
+        // TODO does this work if we're removing nothing/oob?
+        // add an rbyd and btree test?
+        if ((lfs_size_t)bisect < rbyd_.weight) {
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    LFSR_TAG_SHRINK,
+                    bisect,
+                    LFSR_DATA_BUF(NULL, rbyd_.weight-bisect));
+            if (err) {
+                return err;
+            }
+        }
+        
+        // create a sibling and copy remaining ids there, upper layers
+        // should make sure this can't fail by limiting the maximum
+        // commit size
+        lfsr_rbyd_t sibling;
+        err = lfsr_rbyd_alloc(lfs, &sibling, rbyd->rev+1);
+        if (err) {
+            return err;
+        }
+
+        tag = 0;
+        id = bisect;
+        while (true) {
+            lfs_off_t off;
+            lfs_size_t size;
+            lfs_size_t weight;
+            err = lfsr_rbyd_lookup(lfs, rbyd, lfsr_tag_next(tag), id,
+                    &tag, &id, &weight, &off, &size);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+
+            // TODO this is really wasteful and throws off our predicted
+            // size, can we combine grows into the tag append in the rbyd
+            // somehow?
+            // create grows as necessary
+            err = lfsr_rbyd_append(lfs, &sibling,
+                    LFSR_TAG_GROW,
+                    id - bisect - (weight-1),
+                    // TODO also this is a weird way to use lfsr_data_t
+                    LFSR_DATA_BUF(NULL, weight));
+            if (err) {
+                return err;
+            }
+
+            // append the attr
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    tag, id - bisect,
+                    LFSR_DATA_DISK(rbyd->block, off, size));
+            if (err) {
+                return err;
+            }
+        }
+
+        // commit pending attrs, these may need to go into both rbyds,
+        // upper layers should make sure this can't fail by limiting the
+        // maximum commit size
+        for (const struct lfsr_attr *attr = attrs;
+                attr;
+                attr = attr->next) {
+            if (attr->id < bisect) {
+                err = lfsr_rbyd_append(lfs, &rbyd_,
+                        attr->tag, attr->id,
+                        LFSR_DATA_BUF(attr->buffer, attr->size));
                 if (err) {
                     return err;
                 }
-//                printf("compacting %x->%x...\n", rbyd->block, rbyd_.block);
-            
-                // TODO should erase be implicit in alloc eventually?
-                err = lfs_bd_erase(lfs, rbyd_.block);
-                if (err) {
-                    return err;
-                }
-
-                // TODO wait, should from reuse next for attrs?
-                err = lfsr_rbyd_commit(lfs, &rbyd_,
-                        // TODO this extra +1 is a hack, need to get the
-                        // actual predictedweight from the attr list!
-                        LFSR_ATTR_FROM(0, rbyd, attrs, 0, rbyd->weight+1, NULL));
-                if (err) {
-                    printf("ah %d\n", err);
-                    return err;
-                }
-
-                // done?
-                if (pid == -1) {
-                    *rbyd = rbyd_;
-                    break;
-                }
-
-                // prepare commit to parent, tail recursing upwards
-                lfs_ssize_t delta = lfsr_branch_todisk(
-                        &(const lfsr_branch_t){rbyd_.block, rbyd_.off},
-                        scratch_buf1);
-                if (delta < 0) {
-                    return delta;
-                }
-
-                // TODO can we combine weight changes with normal tag updates?
-                // maybe this should be looked at again
-                scratch_attrs[0] = *LFSR_ATTR(
-                        BRANCH, pid, scratch_buf1, delta,
-                        &scratch_attrs[1]);
-                // note grow/shrink with 0 is treated as a noop in rbyd
-                if (rbyd_.weight >= pweight) {
-                    scratch_attrs[1] = *LFSR_ATTR(
-                            GROW, pid-(pweight-1), NULL, rbyd_.weight-pweight,
-                            NULL);
-                } else {
-                    scratch_attrs[1] = *LFSR_ATTR(
-                            SHRINK, pid-(pweight-1), NULL, pweight-rbyd_.weight,
-                            NULL);
-                }
-
-                *rbyd = parent;
-                attrs = scratch_attrs;
-
-            // time to split
             } else {
-//                printf("splitting...\n");
-                lfsr_rbyd_t children[2] = {{.erased=true}, {.erased=true}};
-                // TODO is this a hack or the correct way to do this?
-                lfs_size_t consumed = 0;
-                for (unsigned i = 0; i < 2; i++) {
-                    err = lfs_alloc(lfs, &children[i].block);
-                    if (err) {
-                        return err;
-                    }
-                
-                    // TODO should erase be implicit in alloc eventually?
-                    err = lfs_bd_erase(lfs, children[i].block);
-                    if (err) {
-                        return err;
-                    }
-
-                    // copy over half the ids, note we round up here to avoid
-                    // missing any ids during the copy
-//                    printf("child %d: %d..%d\n", i, (i+0)*((rbyd->weight+1)/2), (i+1)*((rbyd->weight+1)/2));
-                    err = lfsr_rbyd_commit(lfs, &children[i],
-                            LFSR_ATTR_FROM(0, rbyd, attrs,
-                                // TODO this extra +1 is a hack, need to get the
-                                // actual predictedweight from the attr list!
-                                consumed,
-                                (i+1)*((rbyd->weight+1+1)/2),
-                                NULL));
-                    if (err) {
-                        return err;
-                    }
-
-                    consumed += children[i].weight;
-                }
-
-                // no parent? introduce a new trunk
-                if (pid == -1) {
-                    parent = (lfsr_rbyd_t){.erased=true};
-                    err = lfs_alloc(lfs, &parent.block);
-                    if (err) {
-                        return err;
-                    }
-                
-                    // TODO should erase be implicit in alloc eventually?
-                    err = lfs_bd_erase(lfs, parent.block);
-                    if (err) {
-                        return err;
-                    }
-
-                    // TODO this can also probably be deduplicated
-                    // prepare commit to parent, tail recursing upwards
-                    lfs_ssize_t delta1 = lfsr_branch_todisk(
-                            &(const lfsr_branch_t){
-                                children[0].block, children[0].off},
-                            scratch_buf1);
-                    if (delta1 < 0) {
-                        return delta1;
-                    }
-                    lfs_ssize_t delta2 = lfsr_branch_todisk(
-                            &(const lfsr_branch_t){
-                                children[1].block, children[1].off},
-                            scratch_buf2);
-                    if (delta2 < 0) {
-                        return delta2;
-                    }
-
-                    scratch_attrs[0] = *LFSR_ATTR(
-                            GROW, 0,
-                                NULL, children[0].weight,
-                            &scratch_attrs[1]);
-                    scratch_attrs[1] = *LFSR_ATTR(
-                            MKBRANCH, 0+children[0].weight-1,
-                                NULL, 0,
-                            &scratch_attrs[2]);
-                    scratch_attrs[2] = *LFSR_ATTR(
-                            BRANCH, 0+children[0].weight-1,
-                                scratch_buf1, delta1,
-                            &scratch_attrs[3]);
-
-                    scratch_attrs[3] = *LFSR_ATTR(
-                            GROW, 0+children[0].weight,
-                                NULL, children[1].weight,
-                            &scratch_attrs[4]);
-                    scratch_attrs[4] = *LFSR_ATTR(
-                            MKBRANCH, 0+children[0].weight+children[1].weight-1,
-                                NULL, 0,
-                            &scratch_attrs[5]);
-                    scratch_attrs[5] = *LFSR_ATTR(
-                            BRANCH, 0+children[0].weight+children[1].weight-1,
-                                scratch_buf2, delta2,
-                            NULL);
-
-                    *rbyd = parent;
-                    attrs = scratch_attrs;
-
-                // yes parent? push up split
-                } else {
-                    // prepare commit to parent, tail recursing upwards
-                    lfs_ssize_t delta1 = lfsr_branch_todisk(
-                            &(const lfsr_branch_t){
-                                children[0].block, children[0].off},
-                            scratch_buf1);
-                    if (delta1 < 0) {
-                        return delta1;
-                    }
-                    lfs_ssize_t delta2 = lfsr_branch_todisk(
-                            &(const lfsr_branch_t){
-                                children[1].block, children[1].off},
-                            scratch_buf2);
-                    if (delta2 < 0) {
-                        return delta2;
-                    }
-
-                    scratch_attrs[0] = *LFSR_ATTR(
-                            SHRINK, pid-(pweight-1), NULL, pweight,
-                            &scratch_attrs[1]);
-
-                    scratch_attrs[1] = *LFSR_ATTR(
-                            GROW, pid-(pweight-1),
-                                NULL, children[0].weight,
-                            &scratch_attrs[2]);
-                    scratch_attrs[2] = *LFSR_ATTR(
-                            MKBRANCH, pid-(pweight-1)+children[0].weight-1,
-                                NULL, 0,
-                            &scratch_attrs[3]);
-                    scratch_attrs[3] = *LFSR_ATTR(
-                            BRANCH, pid-(pweight-1)+children[0].weight-1,
-                                scratch_buf1, delta1,
-                            &scratch_attrs[4]);
-
-                    scratch_attrs[4] = *LFSR_ATTR(
-                            GROW, pid-(pweight-1)+children[0].weight,
-                                NULL, children[1].weight,
-                            &scratch_attrs[5]);
-                    scratch_attrs[5] = *LFSR_ATTR(
-                            MKBRANCH, pid-(pweight-1)+children[0].weight
-                                    +children[1].weight-1,
-                                NULL, 0,
-                            &scratch_attrs[6]);
-                    scratch_attrs[6] = *LFSR_ATTR(
-                            BRANCH, pid-(pweight-1)+children[0].weight
-                                    +children[1].weight-1,
-                                scratch_buf2, delta2,
-                            NULL);
-
-                    *rbyd = parent;
-                    attrs = scratch_attrs;
+                err = lfsr_rbyd_append(lfs, &sibling,
+                        attr->tag, attr->id-bisect,
+                        LFSR_DATA_BUF(attr->buffer, attr->size));
+                if (err) {
+                    return err;
                 }
             }
         }
+
+        // finalize both commits
+        err = lfsr_rbyd_commit(lfs, &rbyd_, NULL);
+        if (err) {
+            return err;
+        }
+
+        err = lfsr_rbyd_commit(lfs, &sibling, NULL);
+        if (err) {
+            return err;
+        }
+
+        // no parent? introduce a new trunk
+        if (pid == -1) {
+            int err = lfsr_rbyd_alloc(lfs, &parent, 1);
+            if (err) {
+                return err;
+            }
+        
+            // TODO this can also probably be deduplicated
+            // prepare commit to parent, tail recursing upwards
+            lfs_ssize_t delta1 = lfsr_branch_todisk(
+                    &(const lfsr_branch_t){
+                        rbyd_.block, rbyd_.off},
+                    scratch_buf1);
+            if (delta1 < 0) {
+                return delta1;
+            }
+            lfs_ssize_t delta2 = lfsr_branch_todisk(
+                    &(const lfsr_branch_t){
+                        sibling.block, sibling.off},
+                    scratch_buf2);
+            if (delta2 < 0) {
+                return delta2;
+            }
+
+            scratch_attrs[0] = *LFSR_ATTR(
+                    GROW, 0,
+                        NULL, rbyd_.weight,
+                    &scratch_attrs[1]);
+            scratch_attrs[1] = *LFSR_ATTR(
+                    MKBRANCH, 0+rbyd_.weight-1,
+                        NULL, 0,
+                    &scratch_attrs[2]);
+            scratch_attrs[2] = *LFSR_ATTR(
+                    BRANCH, 0+rbyd_.weight-1,
+                        scratch_buf1, delta1,
+                    &scratch_attrs[3]);
+
+            scratch_attrs[3] = *LFSR_ATTR(
+                    GROW, 0+rbyd_.weight,
+                        NULL, sibling.weight,
+                    &scratch_attrs[4]);
+            scratch_attrs[4] = *LFSR_ATTR(
+                    MKBRANCH, 0+rbyd_.weight+sibling.weight-1,
+                        NULL, 0,
+                    &scratch_attrs[5]);
+            scratch_attrs[5] = *LFSR_ATTR(
+                    BRANCH, 0+rbyd_.weight+sibling.weight-1,
+                        scratch_buf2, delta2,
+                    NULL);
+
+            *rbyd = parent;
+            attrs = scratch_attrs;
+            continue;
+
+        // yes parent? push up split
+        } else {
+            // prepare commit to parent, tail recursing upwards
+            lfs_ssize_t delta1 = lfsr_branch_todisk(
+                    &(const lfsr_branch_t){
+                        rbyd_.block, rbyd_.off},
+                    scratch_buf1);
+            if (delta1 < 0) {
+                return delta1;
+            }
+            lfs_ssize_t delta2 = lfsr_branch_todisk(
+                    &(const lfsr_branch_t){
+                        sibling.block, sibling.off},
+                    scratch_buf2);
+            if (delta2 < 0) {
+                return delta2;
+            }
+
+            scratch_attrs[0] = *LFSR_ATTR(
+                    SHRINK, pid-(pweight-1), NULL, pweight,
+                    &scratch_attrs[1]);
+
+            scratch_attrs[1] = *LFSR_ATTR(
+                    GROW, pid-(pweight-1),
+                        NULL, rbyd_.weight,
+                    &scratch_attrs[2]);
+            scratch_attrs[2] = *LFSR_ATTR(
+                    MKBRANCH, pid-(pweight-1)+rbyd_.weight-1,
+                        NULL, 0,
+                    &scratch_attrs[3]);
+            scratch_attrs[3] = *LFSR_ATTR(
+                    BRANCH, pid-(pweight-1)+rbyd_.weight-1,
+                        scratch_buf1, delta1,
+                    &scratch_attrs[4]);
+
+            scratch_attrs[4] = *LFSR_ATTR(
+                    GROW, pid-(pweight-1)+rbyd_.weight,
+                        NULL, sibling.weight,
+                    &scratch_attrs[5]);
+            scratch_attrs[5] = *LFSR_ATTR(
+                    MKBRANCH, pid-(pweight-1)+rbyd_.weight
+                            +sibling.weight-1,
+                        NULL, 0,
+                    &scratch_attrs[6]);
+            scratch_attrs[6] = *LFSR_ATTR(
+                    BRANCH, pid-(pweight-1)+rbyd_.weight
+                            +sibling.weight-1,
+                        scratch_buf2, delta2,
+                    NULL);
+
+            *rbyd = parent;
+            attrs = scratch_attrs;
+            continue;
+        }
+
+//        done:;
+//
+//
+//            // the first question is will we fit comfortably after compaction
+//            lfs_ssize_t predicted = lfsr_rbyd_predictedsize(
+//                    lfs, rbyd, attrs, 0, rbyd->weight);
+//            if (predicted < 0) {
+//                return predicted;
+//            }
+//
+////            printf("predicted: %d/%d\n", predicted, lfs->cfg->block_size/2);
+//
+//            // keep rbyd < 1/2 to avoid degenerate cases with full rbyd
+//            if ((lfs_size_t)predicted <= lfs->cfg->block_size/2) {
+//                lfsr_rbyd_t rbyd_ = {.erased=true};
+//                err = lfs_alloc(lfs, &rbyd_.block);
+//                if (err) {
+//                    return err;
+//                }
+////                printf("compacting %x->%x...\n", rbyd->block, rbyd_.block);
+//            
+//                // TODO should erase be implicit in alloc eventually?
+//                err = lfs_bd_erase(lfs, rbyd_.block);
+//                if (err) {
+//                    return err;
+//                }
+//
+//                // TODO wait, should from reuse next for attrs?
+//                err = lfsr_rbyd_commit(lfs, &rbyd_,
+//                        // TODO this extra +1 is a hack, need to get the
+//                        // actual predictedweight from the attr list!
+//                        LFSR_ATTR_FROM(0, rbyd, attrs, 0, rbyd->weight+1, NULL));
+//                if (err) {
+//                    printf("ah %d\n", err);
+//                    return err;
+//                }
+//
+//                // done?
+//                if (pid == -1) {
+//                    *rbyd = rbyd_;
+//                    break;
+//                }
+//
+//                // prepare commit to parent, tail recursing upwards
+//                lfs_ssize_t delta = lfsr_branch_todisk(
+//                        &(const lfsr_branch_t){rbyd_.block, rbyd_.off},
+//                        scratch_buf1);
+//                if (delta < 0) {
+//                    return delta;
+//                }
+//
+//                // TODO can we combine weight changes with normal tag updates?
+//                // maybe this should be looked at again
+//                scratch_attrs[0] = *LFSR_ATTR(
+//                        BRANCH, pid, scratch_buf1, delta,
+//                        &scratch_attrs[1]);
+//                // note grow/shrink with 0 is treated as a noop in rbyd
+//                if (rbyd_.weight >= pweight) {
+//                    scratch_attrs[1] = *LFSR_ATTR(
+//                            GROW, pid-(pweight-1), NULL, rbyd_.weight-pweight,
+//                            NULL);
+//                } else {
+//                    scratch_attrs[1] = *LFSR_ATTR(
+//                            SHRINK, pid-(pweight-1), NULL, pweight-rbyd_.weight,
+//                            NULL);
+//                }
+//
+//                *rbyd = parent;
+//                attrs = scratch_attrs;
+//
+//            // time to split
+//            } else {
+////                printf("splitting...\n");
+//                lfsr_rbyd_t children[2] = {{.erased=true}, {.erased=true}};
+//                // TODO is this a hack or the correct way to do this?
+//                lfs_size_t consumed = 0;
+//                for (unsigned i = 0; i < 2; i++) {
+//                    err = lfs_alloc(lfs, &children[i].block);
+//                    if (err) {
+//                        return err;
+//                    }
+//                
+//                    // TODO should erase be implicit in alloc eventually?
+//                    err = lfs_bd_erase(lfs, children[i].block);
+//                    if (err) {
+//                        return err;
+//                    }
+//
+//                    // copy over half the ids, note we round up here to avoid
+//                    // missing any ids during the copy
+////                    printf("child %d: %d..%d\n", i, (i+0)*((rbyd->weight+1)/2), (i+1)*((rbyd->weight+1)/2));
+//                    err = lfsr_rbyd_commit(lfs, &children[i],
+//                            LFSR_ATTR_FROM(0, rbyd, attrs,
+//                                // TODO this extra +1 is a hack, need to get the
+//                                // actual predictedweight from the attr list!
+//                                consumed,
+//                                (i+1)*((rbyd->weight+1+1)/2),
+//                                NULL));
+//                    if (err) {
+//                        return err;
+//                    }
+//
+//                    consumed += children[i].weight;
+//                }
+//
+//                // no parent? introduce a new trunk
+//                if (pid == -1) {
+//                    parent = (lfsr_rbyd_t){.erased=true};
+//                    err = lfs_alloc(lfs, &parent.block);
+//                    if (err) {
+//                        return err;
+//                    }
+//                
+//                    // TODO should erase be implicit in alloc eventually?
+//                    err = lfs_bd_erase(lfs, parent.block);
+//                    if (err) {
+//                        return err;
+//                    }
+//
+//                    // TODO this can also probably be deduplicated
+//                    // prepare commit to parent, tail recursing upwards
+//                    lfs_ssize_t delta1 = lfsr_branch_todisk(
+//                            &(const lfsr_branch_t){
+//                                children[0].block, children[0].off},
+//                            scratch_buf1);
+//                    if (delta1 < 0) {
+//                        return delta1;
+//                    }
+//                    lfs_ssize_t delta2 = lfsr_branch_todisk(
+//                            &(const lfsr_branch_t){
+//                                children[1].block, children[1].off},
+//                            scratch_buf2);
+//                    if (delta2 < 0) {
+//                        return delta2;
+//                    }
+//
+//                    scratch_attrs[0] = *LFSR_ATTR(
+//                            GROW, 0,
+//                                NULL, children[0].weight,
+//                            &scratch_attrs[1]);
+//                    scratch_attrs[1] = *LFSR_ATTR(
+//                            MKBRANCH, 0+children[0].weight-1,
+//                                NULL, 0,
+//                            &scratch_attrs[2]);
+//                    scratch_attrs[2] = *LFSR_ATTR(
+//                            BRANCH, 0+children[0].weight-1,
+//                                scratch_buf1, delta1,
+//                            &scratch_attrs[3]);
+//
+//                    scratch_attrs[3] = *LFSR_ATTR(
+//                            GROW, 0+children[0].weight,
+//                                NULL, children[1].weight,
+//                            &scratch_attrs[4]);
+//                    scratch_attrs[4] = *LFSR_ATTR(
+//                            MKBRANCH, 0+children[0].weight+children[1].weight-1,
+//                                NULL, 0,
+//                            &scratch_attrs[5]);
+//                    scratch_attrs[5] = *LFSR_ATTR(
+//                            BRANCH, 0+children[0].weight+children[1].weight-1,
+//                                scratch_buf2, delta2,
+//                            NULL);
+//
+//                    *rbyd = parent;
+//                    attrs = scratch_attrs;
+//
+//                // yes parent? push up split
+//                } else {
+//                    // prepare commit to parent, tail recursing upwards
+//                    lfs_ssize_t delta1 = lfsr_branch_todisk(
+//                            &(const lfsr_branch_t){
+//                                children[0].block, children[0].off},
+//                            scratch_buf1);
+//                    if (delta1 < 0) {
+//                        return delta1;
+//                    }
+//                    lfs_ssize_t delta2 = lfsr_branch_todisk(
+//                            &(const lfsr_branch_t){
+//                                children[1].block, children[1].off},
+//                            scratch_buf2);
+//                    if (delta2 < 0) {
+//                        return delta2;
+//                    }
+//
+//                    scratch_attrs[0] = *LFSR_ATTR(
+//                            SHRINK, pid-(pweight-1), NULL, pweight,
+//                            &scratch_attrs[1]);
+//
+//                    scratch_attrs[1] = *LFSR_ATTR(
+//                            GROW, pid-(pweight-1),
+//                                NULL, children[0].weight,
+//                            &scratch_attrs[2]);
+//                    scratch_attrs[2] = *LFSR_ATTR(
+//                            MKBRANCH, pid-(pweight-1)+children[0].weight-1,
+//                                NULL, 0,
+//                            &scratch_attrs[3]);
+//                    scratch_attrs[3] = *LFSR_ATTR(
+//                            BRANCH, pid-(pweight-1)+children[0].weight-1,
+//                                scratch_buf1, delta1,
+//                            &scratch_attrs[4]);
+//
+//                    scratch_attrs[4] = *LFSR_ATTR(
+//                            GROW, pid-(pweight-1)+children[0].weight,
+//                                NULL, children[1].weight,
+//                            &scratch_attrs[5]);
+//                    scratch_attrs[5] = *LFSR_ATTR(
+//                            MKBRANCH, pid-(pweight-1)+children[0].weight
+//                                    +children[1].weight-1,
+//                                NULL, 0,
+//                            &scratch_attrs[6]);
+//                    scratch_attrs[6] = *LFSR_ATTR(
+//                            BRANCH, pid-(pweight-1)+children[0].weight
+//                                    +children[1].weight-1,
+//                                scratch_buf2, delta2,
+//                            NULL);
+//
+//                    *rbyd = parent;
+//                    attrs = scratch_attrs;
+//                }
+//            }
     }
 
     // at this point rbyd should be the trunk of our tree
@@ -3337,16 +3918,8 @@ static int lfsr_btree_push(lfs_t *lfs,
     } else if (btree->tag) {
         LFS_ASSERT(id == btree->u.inlined.weight);
 
-        // TODO can we move this into lfsr_btree_commit somehow?
-        // TODO we should have an lfsr_rbyd_alloc
-        lfsr_rbyd_t rbyd = {.erased=true};
-        int err = lfs_alloc(lfs, &rbyd.block);
-        if (err) {
-            return err;
-        }
-    
-        // TODO should erase be implicit in alloc eventually?
-        err = lfs_bd_erase(lfs, rbyd.block);
+        lfsr_rbyd_t rbyd;
+        int err = lfsr_rbyd_alloc(lfs, &rbyd, 1);
         if (err) {
             return err;
         }
