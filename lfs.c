@@ -1888,7 +1888,6 @@ static lfs_ssize_t lfsr_rbyd_bisect(lfs_t *lfs, const lfsr_rbyd_t *rbyd) {
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
-
         if (err == LFS_ERR_NOENT) {
             break;
         }
@@ -3215,7 +3214,7 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
 static int lfsr_btree_parent(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t id, const lfsr_rbyd_t *child,
         lfsr_rbyd_t *rbyd_, lfs_ssize_t *rid_) {
-    // inlined?
+    // inlined? root?
     if (btree->tag || (
             btree->u.trunk.block == child->block
             && btree->u.trunk.limit == child->off)) {
@@ -3319,6 +3318,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         lfs_ssize_t pid;
         int err = lfsr_btree_parent(lfs, btree, id, rbyd, &parent, &pid);
         if (err && err != LFS_ERR_NOENT) {
+            assert(!err);
             return err;
         }
         if (err == LFS_ERR_NOENT) {
@@ -3334,6 +3334,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         err = lfsr_rbyd_commit(lfs, rbyd, attrs);
         if (err && err != LFS_ERR_RANGE) {
             // TODO wait should we also move if there is corruption here?
+            assert(!err);
             return err;
         }
 
@@ -3396,9 +3397,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
-
             if (err == LFS_ERR_NOENT) {
-                goto nosplit;
+                break;
             }
 
             // TODO this is really wasteful and throws off our predicted
@@ -3423,12 +3423,19 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             // keep rbyd < our compaction threshold (1/2) to avoid
             // degenerate cases
-            if (rbyd_.off > lfs->cfg->block_size/2){
+            if (rbyd_.off > lfs->cfg->block_size/2) {
                 goto split;
             }
         }
 
-    nosplit:;
+        // finalize commit with new attrs, it's up to upper
+        // layers to make sure these always fit
+        err = lfsr_rbyd_commit(lfs, &rbyd_, attrs);
+        if (err) {
+            assert(!err);
+            return err;
+        }
+
         // done?
         if (pid == -1) {
             *rbyd = rbyd_;
@@ -3467,6 +3474,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // find out which id we need to split around
         lfs_ssize_t bisect = lfsr_rbyd_bisect(lfs, rbyd);
         if (bisect < 0) {
+            assert(!err);
             return bisect;
         }
 
@@ -3480,8 +3488,32 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     bisect,
                     LFSR_DATA_BUF(NULL, rbyd_.weight-bisect));
             if (err) {
+                assert(!err);
                 return err;
             }
+        }
+
+        // commit pending attrs, these may need to go into both rbyds,
+        // upper layers should make sure this can't fail by limiting the
+        // maximum commit size
+        // TODO filter-like tag? "from" but from device?
+        for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
+            if (attr->id < bisect) {
+                err = lfsr_rbyd_append(lfs, &rbyd_,
+                        attr->tag, attr->id,
+                        LFSR_DATA_BUF(attr->buffer, attr->size));
+                if (err) {
+                    assert(!err);
+                    return err;
+                }
+            }
+        }
+
+        // finalize commit
+        err = lfsr_rbyd_commit(lfs, &rbyd_, NULL);
+        if (err) {
+            assert(!err);
+            return err;
         }
         
         // create a sibling and copy remaining ids there, upper layers
@@ -3490,6 +3522,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         lfsr_rbyd_t sibling;
         err = lfsr_rbyd_alloc(lfs, &sibling, rbyd->rev+1);
         if (err) {
+            assert(!err);
             return err;
         }
 
@@ -3502,7 +3535,11 @@ static int lfsr_btree_commit(lfs_t *lfs,
             err = lfsr_rbyd_lookup(lfs, rbyd, lfsr_tag_next(tag), id,
                     &tag, &id, &weight, &off, &size);
             if (err && err != LFS_ERR_NOENT) {
+                assert(!err);
                 return err;
+            }
+            if (err == LFS_ERR_NOENT) {
+                break;
             }
 
             // TODO this is really wasteful and throws off our predicted
@@ -3515,14 +3552,16 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     // TODO also this is a weird way to use lfsr_data_t
                     LFSR_DATA_BUF(NULL, weight));
             if (err) {
+                assert(!err);
                 return err;
             }
 
             // append the attr
-            err = lfsr_rbyd_append(lfs, &rbyd_,
+            err = lfsr_rbyd_append(lfs, &sibling,
                     tag, id - bisect,
                     LFSR_DATA_DISK(rbyd->block, off, size));
             if (err) {
+                assert(!err);
                 return err;
             }
         }
@@ -3530,34 +3569,22 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // commit pending attrs, these may need to go into both rbyds,
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        for (const struct lfsr_attr *attr = attrs;
-                attr;
-                attr = attr->next) {
-            if (attr->id < bisect) {
-                err = lfsr_rbyd_append(lfs, &rbyd_,
-                        attr->tag, attr->id,
-                        LFSR_DATA_BUF(attr->buffer, attr->size));
-                if (err) {
-                    return err;
-                }
-            } else {
+        for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
+            if (attr->id >= bisect) {
                 err = lfsr_rbyd_append(lfs, &sibling,
                         attr->tag, attr->id-bisect,
                         LFSR_DATA_BUF(attr->buffer, attr->size));
                 if (err) {
+                    assert(!err);
                     return err;
                 }
             }
         }
 
-        // finalize both commits
-        err = lfsr_rbyd_commit(lfs, &rbyd_, NULL);
-        if (err) {
-            return err;
-        }
-
+        // finalize commit
         err = lfsr_rbyd_commit(lfs, &sibling, NULL);
         if (err) {
+            assert(!err);
             return err;
         }
 
