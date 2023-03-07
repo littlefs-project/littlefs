@@ -367,12 +367,12 @@ typedef struct lfsr_branch {
 } lfsr_branch_t;
 
 typedef struct lfsr_btree {
+    lfs_size_t weight;
     // TODO do we need full tag actually? this fits in a byte?
     lfsr_tag_t tag;
     // how can we take advantage of byte packing with union alignment?
     union {
         struct {
-            lfs_size_t weight;
             uint8_t size;
             uint8_t buf[LFSR_BTREE_INLINE_SIZE];
         } inlined;
