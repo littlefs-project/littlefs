@@ -1,0 +1,90 @@
+
+# maximize lookahead buffer, we don't actually gc so we only get one pass
+# of the disk for these tests
+defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
+
+[cases.bench_btree_lookup]
+defines.N = [8, 16, 32, 64, 128, 256, 1024]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+    // create free lookahead
+    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.free.off = 0;
+    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+            lfs.cfg->block_count);
+    lfs.free.i = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a tree with N elements
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                &alphas[i % 26], 1) => 0;
+    }
+
+    // bench lookup
+    BENCH_START();
+    uint32_t prng = 42;
+    lfs_size_t i = BENCH_PRNG(&prng) % N;
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t id_;
+    lfs_size_t weight_;
+    
+    lfsr_btree_get(&lfs, &btree, i,
+            &tag_, &id_, &weight_,
+            buffer, 4) => 1;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(id_ == i);
+    assert(weight_ == 1);
+    assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    BENCH_STOP();
+'''
+
+[cases.bench_btree_append]
+defines.N = [8, 16, 32, 64, 128, 256, 1024]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+    // create free lookahead
+    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.free.off = 0;
+    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+            lfs.cfg->block_count);
+    lfs.free.i = 0;
+    lfs_alloc_ack(&lfs);
+
+    uint32_t prng = 42;
+
+    // create a tree with N elements
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                &alphas[i % 26], 1) => 0;
+    }
+
+    // bench appending a new id
+    BENCH_START();
+    lfs_size_t i = N;
+    lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+            &alphas[i % 26], 1) => 0;
+    BENCH_STOP();
+
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t id_;
+    lfs_size_t weight_;
+
+    lfsr_btree_get(&lfs, &btree, i,
+            &tag_, &id_, &weight_,
+            buffer, 4) => 1;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(id_ == i);
+    assert(weight_ == 1);
+    assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+'''
