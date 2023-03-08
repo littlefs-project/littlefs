@@ -11691,7 +11691,7 @@ code = '''
             // choose an id
             lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
             // choose a weight
-            lfs_size_t weight = 1 + (TEST_PRNG(&prng) % (W-1));
+            lfs_size_t weight = 1 + (TEST_PRNG(&prng) % W);
 
             if (id == (lfs_ssize_t)count || op == 0) {
                 printf("c%dw%d=%c", id, weight, alpha[i % 26]);
@@ -11729,12 +11729,12 @@ code = '''
             // choose an id
             lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
             // choose a weight
-            lfs_size_t weight = 1 + (TEST_PRNG(&prng) % (W-1));
+            lfs_size_t weight = 1 + (TEST_PRNG(&prng) % W);
 
             // calculate actual id in rbyd space
-            lfs_ssize_t id__ = 0;
+            lfs_ssize_t weighted_id = 0;
             for (lfs_ssize_t j = 0; j < id; j++) {
-                id__ += sim_weights[j];
+                weighted_id += sim_weights[j];
             }
 
             if (id == (lfs_ssize_t)count || op == 0) {
@@ -11747,8 +11747,9 @@ code = '''
                 count += 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd,
-                        LFSR_ATTR(GROW, id__, NULL, weight,
-                        LFSR_ATTR(MKREG, id__+weight-1, &alpha[i % 26], 1,
+                        LFSR_ATTR(GROW, weighted_id, NULL, weight,
+                        LFSR_ATTR(MKREG, weighted_id+weight-1,
+                                &alpha[i % 26], 1,
                         NULL))) => 0;
             } else if (op == 1) {
                 // get the correct weight from the sim
@@ -11760,14 +11761,14 @@ code = '''
                 count -= 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd,
-                        LFSR_ATTR(SHRINK, id__, NULL, weight,
+                        LFSR_ATTR(SHRINK, weighted_id, NULL, weight,
                         NULL)) => 0;
             } else if (op == 2) {
                 // update our sim
                 sim_weights[id] += weight;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd,
-                        LFSR_ATTR(GROW, id__, NULL, weight,
+                        LFSR_ATTR(GROW, weighted_id, NULL, weight,
                         NULL)) => 0;
             } else if (op == 3) {
                 // don't let shrink go to zero here! this is already hard enough
@@ -11777,7 +11778,7 @@ code = '''
                 sim_weights[id] -= weight;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd,
-                        LFSR_ATTR(SHRINK, id__, NULL, weight,
+                        LFSR_ATTR(SHRINK, weighted_id, NULL, weight,
                         NULL)) => 0;
             }
         }
@@ -11794,13 +11795,13 @@ code = '''
         printf("rbyd: [");
         for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
             // calculate actual id in rbyd space
-            lfs_ssize_t id__ = 0;
+            lfs_ssize_t weighted_id = 0;
             for (lfs_ssize_t j = 0; j < id; j++) {
-                id__ += sim_weights[j];
+                weighted_id += sim_weights[j];
             }
 
             int err = lfsr_rbyd_lookup(&lfs, &rbyd,
-                    LFSR_TAG_MKREG, id__,
+                    LFSR_TAG_MKREG, weighted_id,
                     &tag_, &id_, &weight_, &off_, &size_);
             if (!err) {
                 lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
@@ -11828,13 +11829,13 @@ code = '''
 
         for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
             // calculate actual id in rbyd space
-            lfs_ssize_t id__ = 0;
+            lfs_ssize_t weighted_id = 0;
             for (lfs_ssize_t j = 0; j < id; j++) {
-                id__ += sim_weights[j];
+                weighted_id += sim_weights[j];
             }
 
             lfsr_rbyd_lookup(&lfs, &rbyd,
-                    LFSR_TAG_MKREG, id__,
+                    LFSR_TAG_MKREG, weighted_id,
                     &tag_, &id_, &weight_, &off_, &size_) => 0;
             lfsr_rbyd_get(&lfs, &rbyd, tag_, id_, buffer, 4) => 1;
             assert(memcmp(&sim[id], buffer, 1) == 0);
@@ -11908,9 +11909,9 @@ code = '''
         lfs_size_t weight = 1 + (TEST_PRNG(&prng) % (W-1));
 
         // calculate actual id in rbyd space
-        lfs_ssize_t id__ = 0;
+        lfs_ssize_t weighted_id = 0;
         for (lfs_ssize_t j = 0; j < id; j++) {
-            id__ += sim_weights[j];
+            weighted_id += sim_weights[j];
         }
 
         if (id == (lfs_ssize_t)count || op == 0) {
@@ -11923,8 +11924,8 @@ code = '''
             count += 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(GROW, id__, NULL, weight,
-                    LFSR_ATTR(MKREG, id__+weight-1, &alpha[i % 26], 1,
+                    LFSR_ATTR(GROW, weighted_id, NULL, weight,
+                    LFSR_ATTR(MKREG, weighted_id+weight-1, &alpha[i % 26], 1,
                     NULL))) => 0;
         } else if (op == 1) {
             // get the correct weight from the sim
@@ -11936,14 +11937,14 @@ code = '''
             count -= 1;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(SHRINK, id__, NULL, weight,
+                    LFSR_ATTR(SHRINK, weighted_id, NULL, weight,
                     NULL)) => 0;
         } else if (op == 2) {
             // update our sim
             sim_weights[id] += weight;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(GROW, id__, NULL, weight,
+                    LFSR_ATTR(GROW, weighted_id, NULL, weight,
                     NULL)) => 0;
         } else if (op == 3) {
             // don't let shrink go to zero here! this is already hard enough
@@ -11953,7 +11954,7 @@ code = '''
             sim_weights[id] -= weight;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(SHRINK, id__, NULL, weight,
+                    LFSR_ATTR(SHRINK, weighted_id, NULL, weight,
                     NULL)) => 0;
         }
     }
@@ -13074,7 +13075,7 @@ code = '''
                 // choose an id
                 lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
                 // choose a weight
-                lfs_size_t weight = 1 + (TEST_PRNG(&prng) % (W-1));
+                lfs_size_t weight = 1 + (TEST_PRNG(&prng) % W);
 
                 if (id == (lfs_ssize_t)count || op == 0) {
                     printf("c%dw%d=%c", id, weight, alpha[i % 26]);
@@ -13116,12 +13117,12 @@ code = '''
                 // choose an id
                 lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
                 // choose a weight
-                lfs_size_t weight = 1 + (TEST_PRNG(&prng) % (W-1));
+                lfs_size_t weight = 1 + (TEST_PRNG(&prng) % W);
 
                 // calculate actual id in rbyd space
-                lfs_ssize_t id__ = 0;
+                lfs_ssize_t weighted_id = 0;
                 for (lfs_ssize_t j = 0; j < id; j++) {
-                    id__ += sim_weights[j];
+                    weighted_id += sim_weights[j];
                 }
 
                 if (id == (lfs_ssize_t)count || op == 0) {
@@ -13135,8 +13136,8 @@ code = '''
                     // update our rbyd
                     if (i < w) {
                         lfsr_rbyd_commit(&lfs, &rbyd,
-                                LFSR_ATTR(GROW, id__, NULL, weight,
-                                LFSR_ATTR(MKREG, id__+weight-1,
+                                LFSR_ATTR(GROW, weighted_id, NULL, weight,
+                                LFSR_ATTR(MKREG, weighted_id+weight-1,
                                     &alpha[i % 26], 1,
                                 NULL))) => 0;
                     } else {
@@ -13144,10 +13145,10 @@ code = '''
                             attrs[a-1].next = &attrs[a];
                         }
                         attrs[a] = *LFSR_ATTR(
-                                GROW, id__, NULL, weight,
+                                GROW, weighted_id, NULL, weight,
                                 &attrs[a+1]);
                         attrs[a+1] = *LFSR_ATTR(
-                                MKREG, id__+weight-1, &alpha[i % 26], 1,
+                                MKREG, weighted_id+weight-1, &alpha[i % 26], 1,
                                 NULL);
                         a += 2;
                     }
@@ -13162,14 +13163,14 @@ code = '''
                     // update our rbyd
                     if (i < w) {
                         lfsr_rbyd_commit(&lfs, &rbyd,
-                                LFSR_ATTR(SHRINK, id__, NULL, weight,
+                                LFSR_ATTR(SHRINK, weighted_id, NULL, weight,
                                 NULL)) => 0;
                     } else {
                         if (a > 0) {
                             attrs[a-1].next = &attrs[a];
                         }
                         attrs[a] = *LFSR_ATTR(
-                                SHRINK, id__, NULL, weight,
+                                SHRINK, weighted_id, NULL, weight,
                                 NULL);
                         a += 1;
                     }
@@ -13179,14 +13180,14 @@ code = '''
                     // update our rbyd
                     if (i < w) {
                         lfsr_rbyd_commit(&lfs, &rbyd,
-                                LFSR_ATTR(GROW, id__, NULL, weight,
+                                LFSR_ATTR(GROW, weighted_id, NULL, weight,
                                 NULL)) => 0;
                     } else {
                         if (a > 0) {
                             attrs[a-1].next = &attrs[a];
                         }
                         attrs[a] = *LFSR_ATTR(
-                                GROW, id__, NULL, weight,
+                                GROW, weighted_id, NULL, weight,
                                 NULL);
                         a += 1;
                     }
@@ -13199,14 +13200,14 @@ code = '''
                     // update our rbyd
                     if (i < w) {
                         lfsr_rbyd_commit(&lfs, &rbyd,
-                                LFSR_ATTR(SHRINK, id__, NULL, weight,
+                                LFSR_ATTR(SHRINK, weighted_id, NULL, weight,
                                 NULL)) => 0;
                     } else {
                         if (a > 0) {
                             attrs[a-1].next = &attrs[a];
                         }
                         attrs[a] = *LFSR_ATTR(
-                                SHRINK, id__, NULL, weight,
+                                SHRINK, weighted_id, NULL, weight,
                                 NULL);
                         a += 1;
                     }
@@ -13227,14 +13228,14 @@ code = '''
             printf("rbyd: [");
             for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
                 // calculate actual id in rbyd space
-                lfs_ssize_t id__ = 0;
+                lfs_ssize_t weighted_id = 0;
                 for (lfs_ssize_t j = 0; j < id; j++) {
-                    id__ += sim_weights[j];
+                    weighted_id += sim_weights[j];
                 }
 
                 int err = lfsr_rbyd_predictedlookup(
                         &lfs, &rbyd, unwritten,
-                        LFSR_TAG_MKREG, id__,
+                        LFSR_TAG_MKREG, weighted_id,
                         &tag_, &id_, &data_);
                 if (!err) {
                     lfs_ssize_t size = lfsr_rbyd_predictedget(
@@ -13256,13 +13257,13 @@ code = '''
 
             for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
                 // calculate actual id in rbyd space
-                lfs_ssize_t id__ = 0;
+                lfs_ssize_t weighted_id = 0;
                 for (lfs_ssize_t j = 0; j < id; j++) {
-                    id__ += sim_weights[j];
+                    weighted_id += sim_weights[j];
                 }
 
                 lfsr_rbyd_predictedlookup(&lfs, &rbyd, unwritten,
-                        LFSR_TAG_MKREG, id__,
+                        LFSR_TAG_MKREG, weighted_id,
                         &tag_, &id_, &data_) => 0;
                 lfsr_rbyd_predictedget(&lfs, &rbyd, unwritten,
                         tag_, id_, buffer, 4) => 1;

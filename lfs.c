@@ -3495,14 +3495,24 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
         // TODO filter-like tag? "from" but from device?
+        lfs_ssize_t bisect_ = bisect;
         for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
-            if (attr->id < bisect) {
+            if (attr->id < bisect_) {
                 err = lfsr_rbyd_append(lfs, &rbyd_,
                         attr->tag, attr->id,
                         LFSR_DATA_BUF(attr->buffer, attr->size));
                 if (err) {
                     assert(!err);
                     return err;
+                }
+            }
+
+            // we need to make sure we keep bisect updated with weight changes
+            if (attr->id < bisect_) {
+                if (attr->tag == LFSR_TAG_GROW) {
+                    bisect_ += attr->size;
+                } else if (attr->tag == LFSR_TAG_SHRINK) {
+                    bisect_ -= attr->size;
                 }
             }
         }
@@ -3567,14 +3577,24 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // commit pending attrs, these may need to go into both rbyds,
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
+        bisect_ = bisect;
         for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
-            if (attr->id >= bisect) {
+            if (attr->id >= bisect_) {
                 err = lfsr_rbyd_append(lfs, &sibling,
-                        attr->tag, attr->id-bisect,
+                        attr->tag, attr->id-bisect_,
                         LFSR_DATA_BUF(attr->buffer, attr->size));
                 if (err) {
                     assert(!err);
                     return err;
+                }
+            }
+
+            // we need to make sure we keep bisect updated with weight changes
+            if (attr->id < bisect_) {
+                if (attr->tag == LFSR_TAG_GROW) {
+                    bisect_ += attr->size;
+                } else if (attr->tag == LFSR_TAG_SHRINK) {
+                    bisect_ -= attr->size;
                 }
             }
         }
@@ -3978,16 +3998,19 @@ static int lfsr_btree_push(lfs_t *lfs,
         // return ENOENT, is this ok?
         lfsr_rbyd_t rbyd;
         lfs_ssize_t rid;
+        lfs_size_t rweight;
         lfs_ssize_t size = lfsr_btree_lookup(lfs, btree,
                 lfs_min32(id, btree->weight-1),
-                NULL, NULL, &rbyd, &rid, NULL, NULL, 0);
+                NULL, NULL, &rbyd, &rid, &rweight, NULL, 0);
         if (size < 0) {
             return size;
         }
 
-        // adjust rid if we're appending
+        // adjust rid for push
         if (id >= btree->weight) {
             rid += 1;
+        } else {
+            rid -= rweight-1;
         }
 
         // commit our id into the tree, letting lfsr_btree_commit take care
