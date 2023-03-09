@@ -16,6 +16,25 @@ COLORS = [
 ]
 
 
+def blocklim(s):
+    if '.' in s:
+        s = s.strip()
+        b = 10
+        if s.startswith('0x') or s.startswith('0X'):
+            s = s[2:]
+            b = 16
+        elif s.startswith('0o') or s.startswith('0O'):
+            s = s[2:]
+            b = 8
+        elif s.startswith('0b') or s.startswith('0B'):
+            s = s[2:]
+            b = 2
+
+        s0, s1 = s.split('.', 1)
+        return int(s0, b), int(s1, b)
+    else:
+        return int(s, 0)
+
 def crc32c(data, crc=0):
     crc ^= 0xffffffff
     for b in data:
@@ -37,7 +56,7 @@ def fromtag(data):
     tag, delta = fromleb128(data)
     id, delta_ = fromleb128(data[delta:])
     size, delta__ = fromleb128(data[delta+delta_:])
-    return tag&1, tag&~1, id-1, size, delta+delta_+delta__
+    return tag&1, tag&~1, id if tag&0x8 else id-1, size, delta+delta_+delta__
 
 def popc(x):
     return bin(x).count('1')
@@ -52,15 +71,14 @@ def xxd(data, width=16, crc=False):
                 b if b >= ' ' and b <= '~' else '.'
                 for b in map(chr, data[i:i+width])))
 
-def tagrepr(tag, id, w, size, off=None):
+def tagrepr(tag, id, size, off=None):
     if (tag & ~0x3f0) == 0x0400:
-        return 'mk%s id%d%s %d' % (
+        return 'mk%s id%d %d' % (
             'branch' if ((tag & 0x3f0) >> 4) == 0x00
                 else 'reg' if ((tag & 0x3f0) >> 4) == 0x01
                 else 'dir' if ((tag & 0x3f0) >> 4) == 0x02
                 else ' 0x%02x' % ((tag & 0x3f0) >> 4),
             id,
-            ' w%d' % w if w is not None else '',
             size)
     elif tag == 0x0800:
         return 'inlined id%d %d' % (id, size)
@@ -98,7 +116,7 @@ def tagrepr(tag, id, w, size, off=None):
             'r' if tag & 0x2 else 'b',
             'gt' if tag & 0x4 else 'le',
             tag & 0x3ff0,
-            id+1,
+            id,
             '0x%x' % (0xffffffff & (off-size))
                 if off is not None
                 else '-%d' % off)
@@ -300,7 +318,7 @@ def show_log(block_size, data, rev, off, *,
             lifetimerepr(j) if args.get('lifetimes') else '',
             '\x1b[90m' if color and j >= off else '',
             '%-22s%s' % (
-                tagrepr(tag, id, None, size, j),
+                tagrepr(tag, id, size, j),
                 '  %s' % next(xxd(
                         data[j+delta:j+delta+min(size, 8)], 8), '')
                     if not args.get('no_truncate')
@@ -334,7 +352,8 @@ def show_log(block_size, data, rev, off, *,
                                 data[j+delta+i*4:j+delta+min(i*4+4,size)]
                                     .ljust(4, b'\0'))
                             for i in range(min(m.ceil(size/4), 3)))[:23]
-                        if (tag & 0xe) <= 0x4 else ''),
+                        if not args.get('no_truncate')
+                            and (tag & 0xe) <= 0x4 else ''),
                 crc,
                 popc(crc) & 1,
                 '\x1b[m' if color and j >= off else ''))
@@ -370,7 +389,6 @@ def show_tree(block_size, data, rev, trunk, weight, *,
 
             # found an alt?
             if alt & 0x8:
-                weight_ += 1
                 # follow?
                 if ((id, tag & ~0xf) > (upper-weight_-1, alt & ~0xf)
                         if alt & 0x4
@@ -510,9 +528,11 @@ def show_tree(block_size, data, rev, trunk, weight, *,
             return ' %s' % ''.join(path)
 
     # print header
-    print('%-8s  %*s%-22s  %s' % (
+    w_width = 2*m.ceil(m.log10(max(1, weight)+1))+1
+    print('%-8s  %*s%-*s %-22s  %s' % (
         'off',
         2*depth+1 if args.get('tree') and depth > 0 else 0, '',
+        w_width, 'ids',
         'tag',
         'data (truncated)'
             if not args.get('no_truncate') else ''))
@@ -525,29 +545,25 @@ def show_tree(block_size, data, rev, trunk, weight, *,
             break
 
         # show human-readable tag representation
-        print('%08x:%s %-57s' % (
+        print('%08x:%s %*s %-57s' % (
             j,
             treerepr(j) if args.get('tree') else '',
+            w_width, '%d-%d' % (id-(w-1), id)
+                if w > 1 else id
+                if w > 0 else '',
             '%-22s%s' % (
-                tagrepr(tag, id, w, size, j),
+                tagrepr(tag, id, size, j),
                 '  %s' % next(xxd(
                         data[j+delta:j+delta+min(size, 8)], 8), '')
                     if not args.get('no_truncate')
                         and (tag & 0xe) <= 0x4 else '')))
 
-        if args.get('raw'):
-            # show on-disk encoding of tags
-            for o, line in enumerate(xxd(data[j:j+delta])):
-                print('%8s: %s' % (
-                    '%04x' % (j + o*16),
-                    line))
-
-        # show in-device representation, including some extra
-        # crc/parity info
+        # show in-device representation
         if args.get('device'):
-            print('%8s  %s%-47s' % (
+            print('%8s  %*s%*s %s' % (
                 '',
-                lifetimerepr(0) if args.get('lifetimes') else '',
+                2*depth+1 if args.get('tree') and depth > 0 else 0, '',
+                w_width, '',
                 '%-22s%s' % (
                     '%04x %08x %07x' % (tag, 0xffffffff & id, size),
                     '  %s' % ' '.join(
@@ -555,7 +571,15 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                                 data[j+delta+i*4:j+delta+min(i*4+4,size)]
                                     .ljust(4, b'\0'))
                             for i in range(min(m.ceil(size/4), 3)))[:23]
-                        if (tag & 0xe) <= 0x4 else '')))
+                        if not args.get('no_truncate')
+                            and (tag & 0xe) <= 0x4 else '')))
+
+        if args.get('raw'):
+            # show on-disk encoding of tags
+            for o, line in enumerate(xxd(data[j:j+delta])):
+                print('%8s: %s' % (
+                    '%04x' % (j + o*16),
+                    line))
 
         if (tag & 0xe) <= 0x4:
             # show on-disk encoding of data
@@ -585,16 +609,23 @@ def main(disk, block_size=None, block1=0, block2=None, *,
             f.seek(0, os.SEEK_END)
             block_size = f.tell()
 
-        # default limit to the block_size
-        if limit is None:
-            limit = block_size
+        # blocks may also encode limits
+        blocks = [
+            block[0] if isinstance(block, tuple) else block
+            for block in [block1, block2]
+            if block is not None]
+        limits = [
+            limit if limit is not None
+                else block[1] if isinstance(block, tuple)
+                else None
+            for block in [block1, block2]
+            if block is not None]
 
         # read each block
-        blocks = [block for block in [block1, block2] if block is not None]
         datas = []
-        for block in blocks:
+        for block, limit in zip(blocks, limits):
             f.seek(block * block_size)
-            datas.append(f.read(block_size))
+            datas.append(f.read(limit if limit is not None else block_size))
 
     # first figure out which block as the most recent revision
     def fetch(data):
@@ -607,7 +638,7 @@ def main(disk, block_size=None, block1=0, block2=None, *,
         weight = 0
         weight_ = 0
         wastrunk = False
-        while j_ < limit:
+        while j_ < len(data):
             v, tag, id, size, delta = fromtag(data[j_:])
             if v != (popc(crc) & 1):
                 break
@@ -644,7 +675,7 @@ def main(disk, block_size=None, block1=0, block2=None, *,
 
     revs, offs, trunks, weights = [], [], [], []
     i = 0
-    for block, data in zip(blocks, datas):
+    for data in datas:
         rev, off, trunk_, weight = fetch(data)
         revs.append(rev)
         offs.append(off)
@@ -656,15 +687,17 @@ def main(disk, block_size=None, block1=0, block2=None, *,
             i = len(revs)-1
 
     # print contents of the winning metadata block
-    block, data, rev, off, trunk, weight = (
-        blocks[i], datas[i], revs[i], offs[i],
+    block, limit, data, rev, off, trunk, weight = (
+        blocks[i], limits[i], datas[i], revs[i], offs[i],
         trunk if trunk is not None else trunks[i],
         weights[i])
 
-    print('mdir 0x%x, rev %d, size %d, weight %d%s' % (
-        block, rev, off, weight,
-        ' (was 0x%x, %d, %d, %d)' % (
-            blocks[~i], revs[~i], offs[~i], weights[~i])
+    print('rbyd 0x%x%s, rev %d, size %d, weight %d%s' % (
+        block, '.%x' % limit if limit is not None else '',
+        rev, off, weight,
+        ' (was 0x%x%s, %d, %d, %d)' % (
+            blocks[~i], '.%x' % limits[~i] if limits[~i] is not None else '',
+            revs[~i], offs[~i], weights[~i])
             if len(blocks) > 1 else ''))
 
     if args.get('log'):
@@ -692,12 +725,12 @@ if __name__ == "__main__":
     parser.add_argument(
         'block1',
         nargs='?',
-        type=lambda x: int(x, 0),
+        type=blocklim,
         help="Block address of the first metadata block.")
     parser.add_argument(
         'block2',
         nargs='?',
-        type=lambda x: int(x, 0),
+        type=blocklim,
         help="Block address of the second metadata block.")
     parser.add_argument(
         '-B', '--block-size',
