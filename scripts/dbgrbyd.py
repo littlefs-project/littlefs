@@ -189,25 +189,41 @@ def show_log(block_size, data, rev, off, *,
                 for x in range(max(chars.keys(), default=0)+1))
 
     # preprocess lifetimes
+    lifetime_width = 0
     if args.get('lifetimes'):
+        class Lifetime:
+            color_i = 0
+            def __init__(self, j):
+                self.origin = j
+                self.tags = set()
+                self.color = COLORS[self.__class__.color_i]
+                self.__class__.color_i = (
+                    self.__class__.color_i + 1) % len(COLORS)
+
+            def add(self, j):
+                self.tags.add(j)
+
+            def __bool__(self):
+                return bool(self.tags)
+
+
+        # first figure out where each id comes from
+        weights = []
+        lifetimes = []
         def index(weights, id):
             for i, w in enumerate(weights):
                 if id < w:
                     return i, id
                 id -= w
-            return len(weights)-1, -1
+            return len(weights), 0
 
-        def ranges(weights):
-            return zip(
-                    it.chain([0], it.accumulate(weights)),
-                    it.accumulate(weights))
-
-        weights = [0]
-        grow = None
-        colors = ['']
-        colors_i = 0
-        # note these slices are also copying the arrays
-        lifetimes = [(0, 0, -1, weights[:-1], colors[:-1])]
+        checkpoint_js = []
+        checkpoints = []
+        def checkpoint(j, weights, lifetimes, grows, shrinks, tags):
+            checkpoint_js.append(j)
+            checkpoints.append((
+                weights.copy(), lifetimes.copy(),
+                grows, shrinks, tags))
 
         j_ = 4
         while j_ < (block_size if args.get('all') else off):
@@ -217,68 +233,104 @@ def show_log(block_size, data, rev, off, *,
             if (tag & 0xe) <= 0x4:
                 j_ += size
 
-            if grow is not None:
-                if ((tag & ~0x3f0) == 0x0400
-                        and id >= grow[1]
-                        and id < grow[1]+grow[2]):
-                    i, p = index(weights, id)
-                    weights[i:i+1] = [p+1, weights[i]-(p+1)]
-                    colors[i:i+1] = [COLORS[colors_i % len(COLORS)], colors[i]]
-                    colors_i += 1
-                    lifetimes.append((grow[0],
-                        +1, id, weights[:-1], colors[:-1]))
-                    grow = None
-                elif not tag & 0x8:
-                    lifetimes.append((grow[0],
-                        0, grow[1], weights[:-1], colors[:-1]))
-                    grow = None
-
+            # note we ignore out-of-bounds here for debugging
             if tag == 0x0006:
-                i, _ = index(weights, id)
-                weights[i] += size
-                grow = j, id, size
-            elif tag == 0x0016:
-                i, _ = index(weights, id)
-                if weights[i] == size and len(weights) > 1:
-                    lifetimes.append((j,
-                        -1, id, weights[:-1], colors[:-1]))
-                    weights[i:i+1] = []
-                    colors[i:i+1] = []
+                # grow lifetimes
+                i, id_ = index(weights, id)
+                if id_ > 0:
+                    weights[i:i+1] = [id_, size, weights[i]-id_]
+                    lifetimes[i:i+1] = [lifetimes[i], Lifetime(j), lifetimes[i]]
                 else:
-                    weights[i] = max(weights[i] - size, 0)
-                    lifetimes.append((j,
-                        0, id-size, weights[:-1], colors[:-1]))
-            elif not tag & 0x8:
-                lifetimes.append((j,
-                    0, id, weights[:-1], colors[:-1]))
+                    weights[i:i] = [size]
+                    lifetimes[i:i] = [Lifetime(j)]
 
-        lifetimes_j = [j for j, _, _, _, _ in lifetimes]
-        width = 2*max(len(weights) for _, _, _, weights, _ in lifetimes)
+                checkpoint(j, weights, lifetimes, {i}, set(), {i})
+
+            elif tag == 0x0016:
+                # shrink lifetimes
+                i, id_ = index(weights, id)
+                size_ = size
+                weights_ = weights.copy()
+                lifetimes_ = lifetimes.copy()
+                shrinks = set()
+                while size_ > 0 and i < len(weights_):
+                    if id_ > 0:
+                        diff = min(size_, weights_[i]-id_)
+                        size_ -= diff
+                        weights_[i] -= diff
+                        i += 1
+                        id_ = 0
+                    elif weights_[i] > size_:
+                        weights_[i] -= size_
+                        size_ = 0
+                    else:
+                        size_ -= weights_[i]
+                        weights_[i:i+1] = []
+                        lifetimes_[i:i+1] = []
+                        shrinks.add(i + len(shrinks))
+
+                checkpoint(j, weights, lifetimes, set(), shrinks, shrinks)
+                weights = weights_
+                lifetimes = lifetimes_
+
+            elif (tag & 0xc) == 0x0:
+                # attach tag to lifetime
+                i, id_ = index(weights, id)
+                if i < len(weights):
+                    lifetimes[i].add(j)
+
+                checkpoint(j, weights, lifetimes, set(), set(), {i})
+
+        lifetime_width = 2*max((
+            sum(1 for lifetime in lifetimes if lifetime)
+            for _, lifetimes, _, _, _ in checkpoints),
+            default=0)
 
         def lifetimerepr(j):
-            j_, g, id, weights, colors = lifetimes[
-                bisect.bisect(lifetimes_j, j)-1]
-            if j != j_:
-                g, id = 0, -1
+            x = bisect.bisect(checkpoint_js, j)-1
+            j_ = checkpoint_js[x]
+            weights, lifetimes, grows, shrinks, tags = checkpoints[x]
+
+            reprs = []
+            colors = []
+            was = None
+            for i, (w, lifetime) in enumerate(zip(weights, lifetimes)):
+                # skip lifetimes with no tags and shrinks
+                if not lifetime or (j != j_ and i in shrinks):
+                    if i in grows or i in shrinks or i in tags:
+                        tags = tags.copy()
+                        tags.add(i+1)
+                    continue
+
+                if j == j_ and i in grows:
+                    reprs.append('.')
+                    was = 'grow'
+                elif j == j_ and i in shrinks:
+                    reprs.append('\'')
+                    was = 'shrink'
+                elif j == j_ and i in tags:
+                    reprs.append('* ')
+                elif was == 'grow':
+                    reprs.append('\\ ')
+                elif was == 'shrink':
+                    reprs.append('/ ')
+                else:
+                    reprs.append('| ')
+
+                colors.append(lifetime.color)
 
             return '%s%*s' % (
-                ''.join(
-                    '%s%s%s' % (
-                        '\x1b[%sm' % c if color else '',
-                        '.' if g > 0 and id >= a and id < b
-                            else '\\ ' if g > 0 and id < a
-                            else '\'' if g < 0 and id >= a and id < b
-                            else '/ ' if g < 0 and id < a
-                            else '* ' if id >= a and id < b
-                            else '| ',
-                        '\x1b[m' if color else '')
-                        for (a, b), c in zip(ranges(weights), colors)),
-                width - 2*len(weights) + (1 if g else 0), '')
+                ''.join('%s%s%s' % (
+                    '\x1b[%sm' % c if color else '',
+                    r,
+                    '\x1b[m' if color else '')
+                    for r, c in zip(reprs, colors)),
+                lifetime_width - sum(len(r) for r in reprs), '')
 
     # print header
-    print('%-8s  %s%-22s  %s' % (
+    print('%-8s  %*s%-22s  %s' % (
         'off',
-        lifetimerepr(0) if args.get('lifetimes') else '',
+        lifetime_width, '',
         'tag',
         'data (truncated)'
             if not args.get('no_truncate') else ''))
@@ -341,10 +393,10 @@ def show_log(block_size, data, rev, off, *,
         # show in-device representation, including some extra
         # crc/parity info
         if args.get('device'):
-            print('%s%8s  %s%-47s  %08x %x%s' % (
+            print('%s%8s  %*s%-47s  %08x %x%s' % (
                 '\x1b[90m' if color and j >= off else '',
                 '',
-                lifetimerepr(0) if args.get('lifetimes') else '',
+                lifetime_width, '',
                 '%-22s%s' % (
                     '%04x %08x %07x' % (tag, 0xffffffff & id, size),
                     '  %s' % ' '.join(
