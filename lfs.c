@@ -2515,13 +2515,13 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // if we diverged, merge the bounds
     LFS_ASSERT(diverged < 4);
     if (diverged == 2) {
-        // finished on upper path
+        // finished on lower path
         tag_ = other_tag_;
         id_ = other_id_;
         branch = other_branch;
         upper_id = other_upper_id;
     } else if (diverged == 3) {
-        // finished on lower path
+        // finished on upper path
         lower_id = other_lower_id;
     }
 
@@ -2535,8 +2535,10 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // found an old removed tag, no split needed, just prune the
         // removed tag
 
-    } else if ((id_ < id
-            || (id_ == id && lfsr_tag_key(tag_) < lfsr_tag_key(tag)))) {
+    } else if (id_ < id
+            || (id_ == id && lfsr_tag_key(tag_) < lfsr_tag_key(tag)
+                && tag != LFSR_TAG_GROW
+                && tag != LFSR_TAG_SHRINK)) {
         // split less than
         //
         // note this is consistent for all appends and only happens when
@@ -2551,8 +2553,10 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     } else if (tag == LFSR_TAG_SHRINK) {
         // decrease weight when shrinking
-        alt = LFSR_TAG_ALT(B, GT, 0);
-        weight = upper_id - lower_id - 1 - lfsr_data_len(data);
+        if (upper_id - lower_id - 1 > (lfs_ssize_t)lfsr_data_len(data)) {
+            alt = LFSR_TAG_ALT(B, GT, 0);
+            weight = upper_id - lower_id - 1 - lfsr_data_len(data);
+        }
 
     } else if (id_ > id
             || (id_ == id && lfsr_tag_key(tag_) > lfsr_tag_key(tag))) {
@@ -3360,11 +3364,11 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // note grow/shrink with 0 is treated as a noop in rbyd
             if (rbyd->weight >= pweight) {
                 scratch_attrs[1] = *LFSR_ATTR(
-                        GROW, pid, NULL, rbyd->weight-pweight,
+                        GROW, pid-(pweight-1), NULL, rbyd->weight-pweight,
                         NULL);
             } else {
                 scratch_attrs[1] = *LFSR_ATTR(
-                        SHRINK, pid, NULL, pweight-rbyd->weight,
+                        SHRINK, pid-(pweight-1), NULL, pweight-rbyd->weight,
                         NULL);
             }
 

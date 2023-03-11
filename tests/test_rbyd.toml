@@ -8930,6 +8930,89 @@ code = '''
     }
 '''
 
+# this test is to catch the mistake of letting deletes unconditionally
+# append an "altgt 0x0 w0"
+[cases.test_rbyd_delete_end]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    uint8_t buffer[4];
+
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+    // create three ids
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(GROW,     0, NULL, 1,
+            LFSR_ATTR(MKREG,    0, "\xaa\xaa\xaa\xaa", 4,
+            LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2,
+            LFSR_ATTR(GROW,     1, NULL, 1,
+            LFSR_ATTR(MKREG,    1, "\xbb\xbb\xbb\xbb", 4,
+            LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2,
+            LFSR_ATTR(GROW,     2, NULL, 1,
+            LFSR_ATTR(MKREG,    2, "\xcc\xcc\xcc\xcc", 4,
+            NULL))))))))) => 0;
+
+    // delete the last two
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(SHRINK,   1, NULL, 2, NULL)) => 0;
+
+    // create some new ids, if unconditional altgts are used this
+    // will end up losing tags
+    lfsr_rbyd_commit(&lfs, &rbyd,
+            LFSR_ATTR(GROW,     1, NULL, 1,
+            LFSR_ATTR(MKREG,    1, "\xdd\xdd\xdd\xdd", 4,
+            LFSR_ATTR(UATTR(1), 1, "\xdd\xdd",         2,
+            LFSR_ATTR(GROW,     2, NULL, 1,
+            LFSR_ATTR(MKREG,    2, "\xee\xee\xee\xee", 4,
+            LFSR_ATTR(UATTR(1), 2, "\xee\xee",         2,
+            NULL))))))) => 0;
+
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xdd\xdd\xdd\xdd", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xdd\xdd", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 2, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 3, buffer, 4)
+            => LFS_ERR_NOENT;
+
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    assert(rbyd.weight == 3);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 0, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 0, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 1, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xdd\xdd\xdd\xdd", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 1, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xdd\xdd", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 2, buffer, 4) => 4;
+    assert(memcmp(buffer, "\xee\xee\xee\xee", 4) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(1), 2, buffer, 4) => 2;
+    assert(memcmp(buffer, "\xee\xee", 2) == 0);
+    lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, 3, buffer, 4)
+            => LFS_ERR_NOENT;
+'''
+
 
 # Test rbyd weights
 [cases.test_rbyd_grow]
@@ -11498,7 +11581,7 @@ code = '''
                 lfsr_rbyd_commit(&lfs, &rbyd,
                         LFSR_ATTR(UATTR(u), id, &alpha[i % 26], 1,
                         NULL)) => 0;
-                
+
             } else if (op == 3) {
                 // update our sim
                 sim[id*(M+1) + u+1] = '\0';
@@ -11630,7 +11713,7 @@ code = '''
             lfsr_rbyd_commit(&lfs, &rbyd,
                     LFSR_ATTR(UATTR(u), id, &alpha[i % 26], 1,
                     NULL)) => 0;
-            
+
         } else if (op == 3) {
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd,
