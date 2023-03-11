@@ -345,12 +345,12 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                         branches_.append('+')
                     elif i+1 < len(t_branches):
                         if (id-(w-1) == t_branches[i+1][0]
-                                and t_branches[i+1][0] == t_branches[i][0]
+                                and t_branches[i][0] == t_branches[i+1][0]
                                 and (not args.get('inner')
                                     or (i == 0 and d == 0))):
                             branches_.append('+-')
                         elif (id-(w-1) == t_branches[i+1][0]
-                                and t_branches[i+1][1]-1 == t_branches[i][1]-1
+                                and t_branches[i][1] == t_branches[i+1][1]
                                 and (not args.get('inner') or d == i)):
                             branches_.append('\'-')
                         elif (id-(w-1) == t_branches[i+1][0]
@@ -358,7 +358,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                             branches_.append('|-')
                         elif (id-(w-1) >= t_branches[i][0]
                                 and id-(w-1) < t_branches[i][1]
-                                and t_branches[i+1][1]-1 != t_branches[i][1]-1):
+                                and t_branches[i][1] != t_branches[i+1][1]):
                             branches_.append('| ')
                         else:
                             branches_.append('  ')
@@ -366,9 +366,9 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                         if (id-(w-1) == t_branches[i][0]
                                 and (not args.get('inner') or i == 0)):
                             branches_.append('+-%s> ' % ('-'*2*(t_depth-i-1)))
-                        elif id-(w-1) == t_branches[i][1]-1:
+                        elif id == t_branches[i][1]-1:
                             branches_.append('\'-%s> ' % ('-'*2*(t_depth-i-1)))
-                        elif (id-(w-1) >= t_branches[i][0]
+                        elif (id >= t_branches[i][0]
                                 and id-(w-1) < t_branches[i][1]):
                             branches_.append('|-%s> ' % ('-'*2*(t_depth-i-1)))
 

@@ -486,6 +486,7 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                 return done, tag_, id_, w_, j, delta, jump, path
 
     # precompute tree
+    tree_width = 0
     if args.get('tree'):
         tags = []
         paths = {}
@@ -510,6 +511,8 @@ def show_tree(block_size, data, rev, trunk, weight, *,
 
         # also find the maximum depth
         depth = max((x+1 for _, _, x in paths.keys()), default=0)
+        if depth > 0:
+            tree_width = 2*depth + 2
 
         def treerepr(j):
             if depth == 0:
@@ -571,7 +574,7 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                     seen = c
 
                 if seen and x == depth-1:
-                    path.append('%s>%s' % (c_start(seen), c_stop(seen)))
+                    path.append('%s->%s' % (c_start(seen), c_stop(seen)))
                 elif seen:
                     path.append('%s-%s' % (c_start(seen), c_stop(seen)))
                 else:
@@ -583,7 +586,7 @@ def show_tree(block_size, data, rev, trunk, weight, *,
     w_width = 2*m.ceil(m.log10(max(1, weight)+1))+1
     print('%-8s  %*s%-*s %-22s  %s' % (
         'off',
-        2*depth+1 if args.get('tree') and depth > 0 else 0, '',
+        tree_width, '',
         w_width, 'ids',
         'tag',
         'data (truncated)'
@@ -614,7 +617,7 @@ def show_tree(block_size, data, rev, trunk, weight, *,
         if args.get('device'):
             print('%8s  %*s%*s %s' % (
                 '',
-                2*depth+1 if args.get('tree') and depth > 0 else 0, '',
+                tree_width, '',
                 w_width, '',
                 '%-22s%s' % (
                     '%04x %08x %07x' % (tag, 0xffffffff & id, size),
