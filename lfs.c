@@ -2232,6 +2232,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         other_id_ = id_;
     } else if (tag == LFSR_TAG_SHRINK) {
         LFS_ASSERT(id < rbyd->weight);
+        LFS_ASSERT(lfsr_data_len(data) <= rbyd->weight);
         // noop?
         if (lfsr_data_len(data) == 0) {
             return 0;
@@ -3320,8 +3321,6 @@ static lfs_ssize_t lfsr_btree_get(lfs_t *lfs,
             buffer, size);
 }
 
-// TODO drop the root during merges
-// TODO inline?
 static int lfsr_btree_commit(lfs_t *lfs,
         lfsr_btree_t *btree, lfs_size_t id,
         lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs) {
@@ -3818,6 +3817,11 @@ static int lfsr_btree_commit(lfs_t *lfs,
     merge:;
         // no parent? can't merge
         if (pid == -1) {
+            goto abort;
+        }
+
+        // only child? can't merge
+        if (pweight == parent.weight) {
             goto abort;
         }
 
