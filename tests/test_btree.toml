@@ -449,9 +449,10 @@ code = '''
                     &alphas[i % 26], 1) => 0;
 
             // add to sim
-            memcpy(&sim[id+1], &sim[id], sim_size-id);
+            memmove(&sim[id+1], &sim[id], sim_size-id);
             sim[id] = alphas[i % 26];
             sim_size += 1;
+            printf("%c\n", alphas[i % 26]);
         }
 
         // check that btree matches sim
@@ -493,6 +494,7 @@ code = '''
 
         // clean up sim
         free(sim);
+        lfs_deinit(&lfs) => 0;
     }
 '''
 
@@ -615,8 +617,8 @@ code = '''
                     &alphas[i % 26], 1) => 0;
 
             // add to sim
-            memcpy(&sim[id+1], &sim[id], sim_size-id);
-            memcpy(&sim_weights[id+1], &sim_weights[id],
+            memmove(&sim[id+1], &sim[id], sim_size-id);
+            memmove(&sim_weights[id+1], &sim_weights[id],
                     (sim_size-id)*sizeof(lfs_size_t));
             sim[id] = alphas[i % 26];
             sim_weights[id] = weight;
@@ -1756,7 +1758,7 @@ code = '''
             lfsr_btree_pop(&lfs, &btree, id) => 0;
 
             // remove from sim
-            memcpy(&sim[id], &sim[id+1], sim_size-(id+1));
+            memmove(&sim[id], &sim[id+1], sim_size-(id+1));
             sim_size -= 1;
         }
 
@@ -1979,8 +1981,8 @@ code = '''
             lfsr_btree_pop(&lfs, &btree, weighted_id+sim_weights[id]-1) => 0;
 
             // remove from sim
-            memcpy(&sim[id], &sim[id+1], sim_size-(id+1));
-            memcpy(&sim_weights[id], &sim_weights[id+1],
+            memmove(&sim[id], &sim[id+1], sim_size-(id+1));
+            memmove(&sim_weights[id], &sim_weights[id+1],
                     (sim_size-(id+1))*sizeof(lfs_size_t));
             sim_size -= 1;
         }
