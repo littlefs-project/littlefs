@@ -4225,6 +4225,74 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t id) {
     }
 }
 
+// lfsr_btree_split can be done with a pop+push+push, but this function
+// does all this in one commit, which is much more efficient
+static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
+        lfs_size_t id,
+        lfsr_tag_t tag1, lfs_size_t weight1,
+        const void *buffer1, lfs_size_t size1,
+        lfsr_tag_t tag2, lfs_size_t weight2,
+        const void *buffer2, lfs_size_t size2) {
+    LFS_ASSERT(id < btree->weight);
+
+    // inlined btree, need to expand into an rbyd
+    if (btree->tag) {
+        lfsr_rbyd_t rbyd;
+        int err = lfsr_rbyd_alloc(lfs, &rbyd, 1);
+        if (err) {
+            return err;
+        }
+
+        // commit our entries
+        err = lfsr_rbyd_commit(lfs, &rbyd,
+                LFSR_ATTR(GROW, 0, NULL, weight1,
+                LFSR_ATTR(MKBRANCH, 0+weight1-1, NULL, 0,
+                LFSR_ATTR_(tag1, 0+weight1-1,
+                    buffer1, size1,
+                LFSR_ATTR(GROW, weight1, NULL, weight2,
+                LFSR_ATTR(MKBRANCH, weight1+weight2-1, NULL, 0,
+                LFSR_ATTR_(tag2, weight1+weight2-1,
+                    buffer2, size2,
+                NULL)))))));
+        if (err) {
+            return err;
+        }
+
+        btree->tag = 0;
+        btree->weight = rbyd.weight;
+        btree->u.trunk.block = rbyd.block;
+        btree->u.trunk.limit = rbyd.off;
+        return 0;
+
+    // a normal btree
+    } else {
+        // lookup in which leaf our id resides
+        lfsr_rbyd_t rbyd;
+        lfs_ssize_t rid;
+        lfs_size_t rweight;
+        lfs_ssize_t size = lfsr_btree_lookup(lfs, btree, id,
+                NULL, NULL, &rbyd, &rid, &rweight, NULL, 0);
+        if (size < 0) {
+            return size;
+        }
+
+        // commit our id into the tree, letting lfsr_btree_commit take care
+        // of the rest
+        return lfsr_btree_commit(lfs, btree, id, &rbyd,
+                LFSR_ATTR(SHRINK, rid-(rweight-1), NULL, rweight,
+                LFSR_ATTR(GROW, rid-(rweight-1), NULL, weight1,
+                LFSR_ATTR(MKBRANCH, rid-(rweight-1)+weight1-1, NULL, 0,
+                LFSR_ATTR_(tag1, rid-(rweight-1)+weight1-1,
+                    buffer1, size1,
+                LFSR_ATTR(GROW, rid-(rweight-1)+weight1, NULL, weight2,
+                LFSR_ATTR(MKBRANCH, rid-(rweight-1)+weight1+weight2-1, NULL, 0,
+                LFSR_ATTR_(tag2, rid-(rweight-1)+weight1+weight2-1,
+                    buffer2, size2,
+                NULL))))))));
+    }
+}
+
+
         
 
 

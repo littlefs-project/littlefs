@@ -457,7 +457,7 @@ code = '''
         // check that btree matches sim
         printf("expd: [");
         bool first = true;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs_size_t i = 0; i < sim_size; i++) {
             if (!first) {
                 printf(", ");
             }
@@ -470,13 +470,13 @@ code = '''
             btree.u.trunk.limit,
             btree.tag,
             btree.weight);
-        assert(btree.weight == N);
+        assert(btree.weight == sim_size);
 
         uint8_t buffer[4];
         lfsr_tag_t tag_;
         lfs_size_t id_;
         lfs_size_t weight_;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs_size_t i = 0; i < sim_size; i++) {
             lfsr_btree_get(&lfs, &btree, i,
                     &tag_, &id_, &weight_,
                     buffer, 4) => 1;
@@ -487,7 +487,7 @@ code = '''
         }
 
         // and no extra elements
-        lfsr_btree_get(&lfs, &btree, N,
+        lfsr_btree_get(&lfs, &btree, sim_size,
                 &tag_, &id_, &weight_,
                 buffer, 4) => LFS_ERR_NOENT;
 
@@ -627,7 +627,7 @@ code = '''
         // check that btree matches sim
         printf("expd: [");
         bool first = true;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs_size_t i = 0; i < sim_size; i++) {
             // calculate actual id in btree space
             lfs_size_t weighted_id = 0;
             for (lfs_size_t j = 0; j < i; j++) {
@@ -649,7 +649,7 @@ code = '''
             btree.weight);
 
         lfs_size_t total_weight = 0;
-        for (lfs_size_t j = 0; j < N; j++) {
+        for (lfs_size_t j = 0; j < sim_size; j++) {
             total_weight += sim_weights[j];
         }
         assert(btree.weight == total_weight);
@@ -658,7 +658,7 @@ code = '''
         lfsr_tag_t tag_;
         lfs_size_t id_;
         lfs_size_t weight_;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs_size_t i = 0; i < sim_size; i++) {
             // calculate actual id in btree space
             lfs_size_t weighted_id = 0;
             for (lfs_size_t j = 0; j < i; j++) {
@@ -681,7 +681,7 @@ code = '''
 
         // also test that we can traverse the tree without prior knowledge
         id_ = -1;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs_size_t i = 0; i < sim_size; i++) {
             // calculate actual id in btree space
             lfs_size_t weighted_id = 0;
             for (lfs_size_t j = 0; j < i; j++) {
@@ -2068,8 +2068,360 @@ code = '''
 '''
 
 
-# TODO [cases.test_btree_split]
-# TODO [cases.test_btree_split_fuzz]
+# test btree splits
+[cases.test_btree_split]
+defines.N = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+    // create free lookahead
+    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.free.off = 0;
+    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+            lfs.cfg->block_count);
+    lfs.free.i = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a tree with N elements
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
+            &alphas[0 % 26], 1) => 0;
+    for (lfs_size_t i = 1; i < N; i++) {
+        lfsr_btree_split(&lfs, &btree, i-1,
+                LFSR_TAG_INLINED, 1, &alphas[(i-1) % 26], 1,
+                LFSR_TAG_INLINED, 1, &alphas[(i-0) % 26], 1) => 0;
+    }
+    printf("btree: 0x%x.%x 0x%x w%d\n",
+        btree.u.trunk.block,
+        btree.u.trunk.limit,
+        btree.tag,
+        btree.weight);
+    assert(btree.weight == N);
+
+    // check that the elements are in the tree
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t id_;
+    lfs_size_t weight_;
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_btree_get(&lfs, &btree, i,
+                &tag_, &id_, &weight_,
+                buffer, 4) => 1;
+        assert(tag_ == LFSR_TAG_INLINED);
+        assert(id_ == i);
+        assert(weight_ == 1);
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    }
+
+    // and check that we can't lookup elements that aren't in the tree
+    lfsr_btree_get(&lfs, &btree, N,
+            &tag_, &id_, &weight_,
+            buffer, 4) => LFS_ERR_NOENT;
+'''
+
+[cases.test_btree_split_fuzz]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.ITER = 10
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    // iterate through severals seeds that we can reproduce easily
+    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+        // create lfs here since we need to reset each iteration, we're
+        // space constrained and we can't expect gc to work at this point
+        lfs_t lfs;
+        lfs_init(&lfs, cfg) => 0;
+        // create free lookahead
+        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.free.off = 0;
+        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+                lfs.cfg->block_count);
+        lfs.free.i = 0;
+        lfs_alloc_ack(&lfs);
+
+        // create a btree
+        lfsr_btree_t btree = LFSR_BTREE_NULL;
+        lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
+                &alphas[0 % 26], 1) => 0;
+
+        // set up a simulation to compare against
+        //
+        // fun fact this is slower than our actual tree! unfun fact this is
+        // starting to be a problem...
+        char *sim = malloc(N);
+        lfs_size_t sim_size = 1;
+        memset(sim, 0, N);
+        sim[0] = alphas[0 % 26];
+
+        uint32_t prng = seed;
+        for (lfs_size_t i = 1; i < N; i++) {
+            // choose a pseudo-random id
+            lfs_size_t id = TEST_PRNG(&prng) % sim_size;
+
+            // split btree
+            lfsr_btree_split(&lfs, &btree, id,
+                    LFSR_TAG_INLINED, 1, &alphas[i % 26], 1,
+                    LFSR_TAG_INLINED, 1, &uppers[i % 26], 1) => 0;
+
+            // split sim
+            memmove(&sim[id+1], &sim[id], sim_size-id);
+            sim[id+0] = alphas[i % 26];
+            sim[id+1] = uppers[i % 26];
+            sim_size += 1;
+        }
+
+        // check that btree matches sim
+        printf("expd: [");
+        bool first = true;
+        for (lfs_size_t i = 0; i < sim_size; i++) {
+            if (!first) {
+                printf(", ");
+            }
+            first = false;
+            printf("%c", sim[i]);
+        }
+        printf("]\n");
+        printf("btree: 0x%x.%x 0x%x w%d\n",
+            btree.u.trunk.block,
+            btree.u.trunk.limit,
+            btree.tag,
+            btree.weight);
+        assert(btree.weight == sim_size);
+
+        uint8_t buffer[4];
+        lfsr_tag_t tag_;
+        lfs_size_t id_;
+        lfs_size_t weight_;
+        for (lfs_size_t i = 0; i < sim_size; i++) {
+            lfsr_btree_get(&lfs, &btree, i,
+                    &tag_, &id_, &weight_,
+                    buffer, 4) => 1;
+            assert(tag_ == LFSR_TAG_INLINED);
+            assert(id_ == i);
+            assert(weight_ == 1);
+            assert(memcmp(buffer, &sim[i], 1) == 0);
+        }
+
+        // and no extra elements
+        lfsr_btree_get(&lfs, &btree, sim_size,
+                &tag_, &id_, &weight_,
+                buffer, 4) => LFS_ERR_NOENT;
+
+        // clean up sim
+        free(sim);
+        lfs_deinit(&lfs) => 0;
+    }
+'''
+
+[cases.test_btree_split_sparse]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+defines.W = 5
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+    // create free lookahead
+    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.free.off = 0;
+    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+            lfs.cfg->block_count);
+    lfs.free.i = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a tree with N elements
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, W,
+            &alphas[0 % 26], 1) => 0;
+    for (lfs_size_t i = 1; i < N; i++) {
+        lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1,
+                LFSR_TAG_INLINED, W, &alphas[(i-1) % 26], 1,
+                LFSR_TAG_INLINED, W, &alphas[(i-0) % 26], 1) => 0;
+    }
+    printf("btree: 0x%x.%x 0x%x w%d\n",
+        btree.u.trunk.block,
+        btree.u.trunk.limit,
+        btree.tag,
+        btree.weight);
+    assert(btree.weight == N*W);
+
+    // check that the elements are in the tree
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t id_;
+    lfs_size_t weight_;
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_btree_get(&lfs, &btree, i*W+W-1,
+                &tag_, &id_, &weight_,
+                buffer, 4) => 1;
+        assert(tag_ == LFSR_TAG_INLINED);
+        assert(id_ == i*W+W-1);
+        assert(weight_ == W);
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    }
+
+    // and check that we can't lookup elements that aren't in the tree
+    lfsr_btree_get(&lfs, &btree, N*W,
+            &tag_, &id_, &weight_,
+            buffer, 4) => LFS_ERR_NOENT;
+'''
+
+[cases.test_btree_split_sparse_fuzz]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.W = 5
+defines.ITER = 10
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    // iterate through severals seeds that we can reproduce easily
+    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+        // create lfs here since we need to reset each iteration, we're
+        // space constrained and we can't expect gc to work at this point
+        lfs_t lfs;
+        lfs_init(&lfs, cfg) => 0;
+        // create free lookahead
+        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.free.off = 0;
+        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+                lfs.cfg->block_count);
+        lfs.free.i = 0;
+        lfs_alloc_ack(&lfs);
+
+        // create a btree
+        lfsr_btree_t btree = LFSR_BTREE_NULL;
+        lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, W,
+                &alphas[0 % 26], 1) => 0;
+
+        // set up a simulation to compare against
+        //
+        // fun fact this is slower than our actual tree! unfun fact this is
+        // starting to be a problem...
+        char *sim = malloc(N);
+        lfs_size_t *sim_weights = malloc(N*sizeof(lfs_size_t));
+        lfs_size_t sim_size = 1;
+        memset(sim, 0, N);
+        memset(sim_weights, 0, N*sizeof(lfs_size_t));
+        sim[0] = alphas[0 % 26];
+        sim_weights[0] = W;
+
+        uint32_t prng = seed;
+        for (lfs_size_t i = 1; i < N; i++) {
+            // choose a pseudo-random id
+            lfs_size_t id = TEST_PRNG(&prng) % sim_size;
+            // choose pseudo-random weights
+            lfs_size_t weight1 = 1 + (TEST_PRNG(&prng) % W);
+            lfs_size_t weight2 = 1 + (TEST_PRNG(&prng) % W);
+
+            // calculate actual id in btree space
+            lfs_size_t weighted_id = 0;
+            for (lfs_size_t j = 0; j < id; j++) {
+                weighted_id += sim_weights[j];
+            }
+
+            // split btree
+            lfsr_btree_split(&lfs, &btree, weighted_id+sim_weights[id]-1,
+                    LFSR_TAG_INLINED, weight1, &alphas[i % 26], 1,
+                    LFSR_TAG_INLINED, weight2, &uppers[i % 26], 1) => 0;
+
+            // add to sim
+            memmove(&sim[id+1], &sim[id], sim_size-id);
+            memmove(&sim_weights[id+1], &sim_weights[id],
+                    (sim_size-id)*sizeof(lfs_size_t));
+            sim[id+0] = alphas[i % 26];
+            sim[id+1] = uppers[i % 26];
+            sim_weights[id+0] = weight1;
+            sim_weights[id+1] = weight2;
+            sim_size += 1;
+        }
+
+        // check that btree matches sim
+        printf("expd: [");
+        bool first = true;
+        for (lfs_size_t i = 0; i < sim_size; i++) {
+            // calculate actual id in btree space
+            lfs_size_t weighted_id = 0;
+            for (lfs_size_t j = 0; j < i; j++) {
+                weighted_id += sim_weights[j];
+            }
+
+            if (!first) {
+                printf(", ");
+            }
+            first = false;
+            printf("%dw%d=%c", weighted_id+sim_weights[i]-1,
+                    sim_weights[i], sim[i]);
+        }
+        printf("]\n");
+        printf("btree: 0x%x.%x 0x%x w%d\n",
+            btree.u.trunk.block,
+            btree.u.trunk.limit,
+            btree.tag,
+            btree.weight);
+
+        lfs_size_t total_weight = 0;
+        for (lfs_size_t j = 0; j < N; j++) {
+            total_weight += sim_weights[j];
+        }
+        assert(btree.weight == total_weight);
+
+        uint8_t buffer[4];
+        lfsr_tag_t tag_;
+        lfs_size_t id_;
+        lfs_size_t weight_;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // calculate actual id in btree space
+            lfs_size_t weighted_id = 0;
+            for (lfs_size_t j = 0; j < i; j++) {
+                weighted_id += sim_weights[j];
+            }
+
+            lfsr_btree_get(&lfs, &btree, weighted_id+sim_weights[i]-1,
+                    &tag_, &id_, &weight_,
+                    buffer, 4) => 1;
+            assert(tag_ == LFSR_TAG_INLINED);
+            assert(id_ == weighted_id+sim_weights[i]-1);
+            assert(weight_ == sim_weights[i]);
+            assert(memcmp(buffer, &sim[i], 1) == 0);
+        }
+
+        // and no extra elements
+        lfsr_btree_get(&lfs, &btree, total_weight,
+                &tag_, &id_, &weight_,
+                buffer, 4) => LFS_ERR_NOENT;
+
+        // also test that we can traverse the tree without prior knowledge
+        id_ = -1;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // calculate actual id in btree space
+            lfs_size_t weighted_id = 0;
+            for (lfs_size_t j = 0; j < i; j++) {
+                weighted_id += sim_weights[j];
+            }
+
+            lfsr_btree_get(&lfs, &btree, id_+1,
+                    &tag_, &id_, &weight_,
+                    buffer, 4) => 1;
+            assert(tag_ == LFSR_TAG_INLINED);
+            assert(id_ == weighted_id+sim_weights[i]-1);
+            assert(weight_ == sim_weights[i]);
+            assert(memcmp(buffer, &sim[i], 1) == 0);
+        }
+        lfsr_btree_get(&lfs, &btree, id_+1,
+                &tag_, &id_, &weight_,
+                buffer, 4) => LFS_ERR_NOENT;
+
+        // clean up sim
+        free(sim);
+    }
+'''
 
 
 
