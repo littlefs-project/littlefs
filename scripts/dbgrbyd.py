@@ -269,7 +269,7 @@ def show_log(block_size, data, rev, off, *,
                         lifetimes_[i:i+1] = []
                         shrinks.add(i + len(shrinks))
 
-                checkpoint(j, weights, lifetimes, set(), shrinks, shrinks)
+                checkpoint(j, weights, lifetimes, set(), shrinks, {i})
                 weights = weights_
                 lifetimes = lifetimes_
 
