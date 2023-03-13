@@ -727,7 +727,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    for (int j = 2; j < COUNT; j++) {
+    for (int j = 2; j < COUNT + 2; j++) {
         lfs_mount(&lfs, &cfg) => 0;
         lfs_dir_open(&lfs, &dir, "hello") => 0;
         lfs_dir_read(&lfs, &dir, &info) => 1;
@@ -787,7 +787,7 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    for (int j = 2; j < COUNT; j++) {
+    for (int j = 2; j < COUNT + 2; j++) {
         lfs_mount(&lfs, &cfg) => 0;
         lfs_dir_open(&lfs, &dir, "/") => 0;
         lfs_dir_read(&lfs, &dir, &info) => 1;
