@@ -80,6 +80,13 @@ uint32_t bench_prng(uint32_t *state);
 
 #define BENCH_PRNG(state) bench_prng(state)
 
+// generation of specific permutations of an array for exhaustive benching
+size_t bench_factorial(size_t x);
+void bench_permutation(size_t i, uint32_t *buffer, size_t size);
+
+#define BENCH_FACTORIAL(x) bench_factorial(x)
+#define BENCH_PERMUTATION(i, buffer, size) bench_permutation(i, buffer, size)
+
 
 // access generated bench defines
 intmax_t bench_define(size_t define);

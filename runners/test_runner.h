@@ -73,6 +73,13 @@ uint32_t test_prng(uint32_t *state);
 
 #define TEST_PRNG(state) test_prng(state)
 
+// generation of specific permutations of an array for exhaustive testing
+size_t test_factorial(size_t x);
+void test_permutation(size_t i, uint32_t *buffer, size_t size);
+
+#define TEST_FACTORIAL(x) test_factorial(x)
+#define TEST_PERMUTATION(i, buffer, size) test_permutation(i, buffer, size)
+
 
 // access generated test defines
 intmax_t test_define(size_t define);

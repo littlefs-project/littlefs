@@ -2026,6 +2026,9 @@ code = '''
 
 [cases.test_rbyd_permutations]
 defines.N = 'range(1, 8)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2048,19 +2051,19 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    unsigned stack[N];
-    for (uint8_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -2093,33 +2096,20 @@ code = '''
         }
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
+    printf("--- summary --\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -2129,6 +2119,9 @@ code = '''
 
 [cases.test_rbyd_multi_permutations]
 defines.N = 'range(1, 8)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -2153,19 +2146,19 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    unsigned stack[N];
-    for (uint8_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -2193,33 +2186,20 @@ code = '''
         }
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
+    printf("--- summary --\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -2415,6 +2395,9 @@ code = '''
 
 [cases.test_rbyd_traverse_permutations]
 defines.N = 'range(1, 8)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2436,17 +2419,16 @@ code = '''
     lfs_size_t size_;
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    unsigned stack[N];
-    for (uint8_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -2482,29 +2464,14 @@ code = '''
         }
         lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
                 &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_multi_traverse_permutations]
 defines.N = 'range(1, 8)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -2528,17 +2495,16 @@ code = '''
     lfs_size_t size_;
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    unsigned stack[N];
-    for (uint8_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -2570,24 +2536,6 @@ code = '''
         }
         lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
                 &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
@@ -2595,6 +2543,9 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_update_permutations]
 defines.N = 'range(1, 8)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -2619,6 +2570,7 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // create one consistent block
     rbyd = init_rbyd;
@@ -2637,17 +2589,16 @@ code = '''
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    unsigned stack[N];
-    for (uint8_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -2682,24 +2633,9 @@ code = '''
         }
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
@@ -2709,9 +2645,11 @@ code = '''
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N;
+    printf("--- summary --\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -2901,6 +2839,9 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_remove_permutations]
 defines.N = 'range(1, 7)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -2925,19 +2866,19 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    unsigned stack[N];
-    for (uint8_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -3022,37 +2963,24 @@ code = '''
             }
 
             // keep track of the worst size
-            worst_size = lfs_max(worst_size, rbyd.off);
+            if (rbyd.off > worst_size) {
+                worst_size = rbyd.off;
+                worst_perm_i = perm_i;
+            }
         }
 
         // cleanup
         free(backup_block);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + 2;
+    printf("--- summary --\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -3064,6 +2992,9 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_remove_traverse_permutations]
 defines.N = 'range(1, 7)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -3087,17 +3018,16 @@ code = '''
     lfs_size_t size_;
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    unsigned stack[N];
-    for (uint8_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -3161,24 +3091,6 @@ code = '''
 
         // cleanup
         free(backup_block);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
@@ -3661,6 +3573,9 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_remove_all_permutations]
 defines.N = 'range(1, 7)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -3685,6 +3600,7 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // create one consistent block
     rbyd = init_rbyd;
@@ -3703,17 +3619,16 @@ code = '''
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    unsigned stack[N];
-    for (uint8_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -3759,24 +3674,9 @@ code = '''
         }
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
@@ -3786,9 +3686,11 @@ code = '''
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N + 1;
+    printf("--- summary --\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -3800,7 +3702,10 @@ code = '''
 # balancing algorithm
 [cases.test_rbyd_fuzz_append_removes]
 defines.N = 'range(1, 33)'
-defines.ITER = 1000
+defines.SAMPLES = 1000
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -3826,7 +3731,9 @@ code = '''
     uint32_t worst_seed = 0;
 
     // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
         printf("--- seed: %d ---\n", seed);
         printf("perm: [");
         uint32_t prng = seed;
@@ -3914,7 +3821,7 @@ code = '''
             }
         }
 
-        // keep track of the worst permutation
+        // keep track of the worst seed
         if (rbyd.off > worst_size) {
             worst_size = rbyd.off;
             worst_seed = seed;
@@ -3924,49 +3831,10 @@ code = '''
         free(sim);
     }
 
-    // print the worst seed + size, and rerun it so it's left on the disk
-    // if used with -ddisk
-    printf("--- worst ---\n");
-    printf("worst_seed: %d\n", worst_seed);
-    printf("worst_size: %d\n", worst_size);
-    printf("worst_perm: [");
-    uint32_t prng = worst_seed;
-    for (unsigned i = 0; i < N; i++) {
-        // choose an attr
-        uint8_t attr = TEST_PRNG(&prng) % N;
-        // choose append or remove
-        if (TEST_PRNG(&prng) & 1) {
-            printf("a0x%02x=%c", attr, alpha[i % 26]);
-        } else {
-            printf("r0x%02x", attr);
-        }
-        if (i < N-1) {
-            printf(", ");
-        }
-    }
-    printf("]\n");
-
-    // set up rbyd block
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-
-    prng = worst_seed;
-    for (unsigned i = 0; i < N; i++) {
-        // choose an attr
-        uint8_t attr = TEST_PRNG(&prng) % N;
-        // choose append or remove
-        if (TEST_PRNG(&prng) & 1) {
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(UATTR(attr), -1, &alpha[i % 26], 1,
-                    NULL)) => 0;
-        } else {
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(RMUATTR(attr), -1, NULL, 0,
-                    NULL)) => 0;
-        }
-    }
+    // print the worst seed + size
+    printf("--- summary ---\n");
+    printf("worst seed: %d\n", worst_seed);
+    printf("worst size: %d\n", worst_size);
 
     // our tree should be strictly <= 2*log(n)+1, assume tags are strictly
     // <=12 bytes, note this only holds true with byte-level progs
@@ -4316,6 +4184,9 @@ code = '''
 
 [cases.test_rbyd_create_permutations]
 defines.N = 'range(1, 8)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4343,19 +4214,19 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -4396,33 +4267,20 @@ code = '''
         }
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -4432,6 +4290,9 @@ code = '''
 
 [cases.test_rbyd_multi_create_permutations]
 defines.N = 'range(1, 8)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -4461,19 +4322,19 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -4509,33 +4370,20 @@ code = '''
         }
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -4773,6 +4621,9 @@ code = '''
 
 [cases.test_rbyd_create_traverse_permutations]
 defines.N = 'range(1, 8)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4803,17 +4654,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -4863,29 +4713,14 @@ code = '''
         }
         lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
                 &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_multi_create_traverse_permutations]
 defines.N = 'range(1, 8)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -4918,17 +4753,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -4972,24 +4806,6 @@ code = '''
         }
         lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
                 &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
@@ -5595,6 +5411,9 @@ code = '''
 [cases.test_rbyd_mixed_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -5622,19 +5441,19 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -5689,33 +5508,20 @@ code = '''
         }
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -5726,6 +5532,9 @@ code = '''
 [cases.test_rbyd_multi_mixed_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -5755,19 +5564,19 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -5814,33 +5623,20 @@ code = '''
         }
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -6203,6 +5999,9 @@ code = '''
 [cases.test_rbyd_mixed_traverse_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -6233,17 +6032,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -6313,30 +6111,15 @@ code = '''
         }
         lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
                 &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_multi_mixed_traverse_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -6369,17 +6152,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -6441,24 +6223,6 @@ code = '''
         }
         lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
                 &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
@@ -6467,6 +6231,9 @@ code = '''
 [cases.test_rbyd_mixed_update_permutations]
 defines.N = 'range(1, 4)'
 defines.M = 'range(1, 3)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -6496,6 +6263,7 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // create one consistent block
     rbyd = init_rbyd;
@@ -6521,17 +6289,16 @@ code = '''
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
     // test all permutations of a given size
-    uint8_t perm[N*M];
-    unsigned stack[N*M];
-    for (uint8_t i = 0; i < N*M; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N*M);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N*M];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N*M);
 
-    unsigned i = 1;
-    while (i < N*M) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N*M; j++) {
             if (j > 0) {
                 printf(", ");
@@ -6569,24 +6336,9 @@ code = '''
         }
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
@@ -6596,9 +6348,11 @@ code = '''
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M + N*M;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -6611,6 +6365,9 @@ code = '''
 [cases.test_rbyd_mixed_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -6644,19 +6401,19 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // test all permutations of a given size
-    uint8_t perm[N];
-    unsigned stack[N];
-    for (uint8_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -6780,37 +6537,24 @@ code = '''
             }
 
             // keep track of the worst size
-            worst_size = lfs_max(worst_size, rbyd.off);
+            if (rbyd.off > worst_size) {
+                worst_size = rbyd.off;
+                worst_perm_i = perm_i;
+            }
         }
 
         // cleanup
         free(backup_block);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N+N*M + 2;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -6823,6 +6567,9 @@ code = '''
 [cases.test_rbyd_mixed_remove_all_permutations]
 defines.N = 'range(1, 4)'
 defines.M = 'range(1, 3)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -6852,6 +6599,7 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // create one consistent block
     rbyd = init_rbyd;
@@ -6877,17 +6625,16 @@ code = '''
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
     // test all permutations of a given size
-    uint8_t perm[N*M];
-    unsigned stack[N*M];
-    for (uint8_t i = 0; i < N*M; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N*M);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N*M];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N*M);
 
-    unsigned i = 1;
-    while (i < N*M) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N*M; j++) {
             if (j > 0) {
                 printf(", ");
@@ -6923,24 +6670,9 @@ code = '''
         }
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint8_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint8_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
@@ -6950,9 +6682,11 @@ code = '''
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + N*M + N*M;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -7457,6 +7191,9 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_permutations]
 defines.N = 'range(1, 7)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -7486,19 +7223,19 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -7585,37 +7322,24 @@ code = '''
             }
 
             // keep track of the worst size
-            worst_size = lfs_max(worst_size, rbyd.off);
+            if (rbyd.off > worst_size) {
+                worst_size = rbyd.off;
+                worst_perm_i = perm_i;
+            }
         }
 
         // cleanup
         free(backup_block);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N + 2;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -7628,6 +7352,9 @@ code = '''
 [cases.test_rbyd_delete_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -7657,19 +7384,19 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -7792,37 +7519,24 @@ code = '''
             }
 
             // keep track of the worst size
-            worst_size = lfs_max(worst_size, rbyd.off);
+            if (rbyd.off > worst_size) {
+                worst_size = rbyd.off;
+                worst_perm_i = perm_i;
+            }
         }
 
         // cleanup
         free(backup_block);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N+N*M + 1 + 1+M;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -7834,6 +7548,9 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_traverse_permutations]
 defines.N = 'range(1, 7)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -7866,17 +7583,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -7954,24 +7670,6 @@ code = '''
 
         // cleanup
         free(backup_block);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
@@ -7980,6 +7678,9 @@ code = '''
 [cases.test_rbyd_delete_traverse_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -8012,17 +7713,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -8121,24 +7821,6 @@ code = '''
 
         // cleanup
         free(backup_block);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
@@ -8413,6 +8095,9 @@ code = '''
 # use emubd's copy-on-write copy to speed this up significantly
 [cases.test_rbyd_delete_all_permutations]
 defines.N = 'range(1, 7)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -8442,6 +8127,7 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // create one consistent block
     rbyd = init_rbyd;
@@ -8462,17 +8148,16 @@ code = '''
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -8529,24 +8214,9 @@ code = '''
                 => LFS_ERR_NOENT;
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
@@ -8556,9 +8226,11 @@ code = '''
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + 2*N + 1;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -8571,6 +8243,9 @@ code = '''
 [cases.test_rbyd_delete_all_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -8600,6 +8275,7 @@ code = '''
 
     // keep track of the worst case log size
     lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
 
     // create one consistent block
     rbyd = init_rbyd;
@@ -8626,17 +8302,16 @@ code = '''
             rbyd.block, 0, backup_block, rbyd.off) => 0;
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -8707,24 +8382,9 @@ code = '''
                 => LFS_ERR_NOENT;
 
         // keep track of the worst size
-        worst_size = lfs_max(worst_size, rbyd.off);
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
         }
     }
 
@@ -8734,9 +8394,11 @@ code = '''
     // test that tree is self-balancing, we should be strictly bounded
     // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
     lfs_size_t n = 1 + N+N*M + N + 1+M;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
     printf("worst size: %u B (N=%u, estimate=%u)\n",
             worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
-    printf("avg height: %u B (N=%u, estimate=%u)\n",
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
             worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
     // note this only holds true with byte-level progs
     if (PROG_SIZE == 1) {
@@ -8748,7 +8410,10 @@ code = '''
 # balancing algorithm
 [cases.test_rbyd_fuzz_create_deletes]
 defines.N = 'range(1, 33)'
-defines.ITER = 1000
+defines.SAMPLES = 1000
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -8774,7 +8439,9 @@ code = '''
     uint32_t worst_seed = 0;
 
     // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
         printf("--- seed: %d ---\n", seed);
         printf("perm: [");
         uint32_t prng = seed;
@@ -8862,7 +8529,7 @@ code = '''
             assert(memcmp(&sim[id], buffer, 1) == 0);
         }
 
-        // keep track of the worst permutation
+        // keep track of the worst seed
         if (rbyd.off > worst_size) {
             worst_size = rbyd.off;
             worst_seed = seed;
@@ -8874,54 +8541,9 @@ code = '''
 
     // print the worst seed + size, and rerun it so it's left on the disk
     // if used with -ddisk
-    printf("--- worst ---\n");
+    printf("--- summary ---\n");
     printf("worst_seed: %d\n", worst_seed);
     printf("worst_size: %d\n", worst_size);
-    printf("worst_perm: [");
-    uint32_t prng = worst_seed;
-    lfs_size_t count = 0;
-    for (unsigned i = 0; i < N; i++) {
-        // choose an id
-        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-        // choose create or delete
-        if (id == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
-            printf("c%d=%c", id, alpha[i % 26]);
-            count += 1;
-        } else {
-            printf("d%d", id);
-            count -= 1;
-        }
-        if (i < N-1) {
-            printf(", ");
-        }
-    }
-    printf("]\n");
-
-    // set up rbyd block
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-
-    prng = worst_seed;
-    count = 0;
-    for (unsigned i = 0; i < N; i++) {
-        // choose an id
-        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-        // choose create or delete
-        if (id == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
-            count += 1;
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(GROW, id, NULL, 1,
-                    LFSR_ATTR(MKREG, id, &alpha[i % 26], 1,
-                    NULL))) => 0;
-        } else {
-            count -= 1;
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(SHRINK, id, NULL, 1,
-                    NULL)) => 0;
-        }
-    }
 
     // our tree should be strictly <= 2*log(n)+1, assume tags are strictly
     // <=12 bytes, note this only holds true with byte-level progs
@@ -9378,6 +9000,9 @@ code = '''
 [cases.test_rbyd_grow_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -9411,17 +9036,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -9461,30 +9085,15 @@ code = '''
             lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, j*W+W-1, buffer, 4) => 4;
             assert(memcmp(buffer, names[j % 6], 4) == 0);
         }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_grow_traverse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -9518,17 +9127,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -9573,24 +9181,6 @@ code = '''
         }
         lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
                 &tag_, &id_, &weight_, &off_, &size_) => LFS_ERR_NOENT;
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
@@ -10540,6 +10130,9 @@ code = '''
 [cases.test_rbyd_mixed_grow_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -10573,17 +10166,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -10647,30 +10239,15 @@ code = '''
             lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_MKREG, j*W+W-1, buffer, 4) => 4;
             assert(memcmp(buffer, names[j % 6], 4) == 0);
         }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_mixed_grow_traverse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -10704,17 +10281,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -10784,30 +10360,15 @@ code = '''
         }
         lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
                 &tag_, &id_, &weight_, &off_, &size_) => LFS_ERR_NOENT;
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_sparse_grow_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -10841,17 +10402,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -10931,30 +10491,15 @@ code = '''
                 assert(memcmp(buffer, names[k % 6], 4) == 0);
             }
         }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_sparse_shrink_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -10988,17 +10533,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -11078,30 +10622,15 @@ code = '''
                 assert(memcmp(buffer, names[k % 6], 4) == 0);
             }
         }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_sparse_delete_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -11135,17 +10664,16 @@ code = '''
     uint8_t buffer[6];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -11256,30 +10784,15 @@ code = '''
                 }
             }
         }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_sparse_attr_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -11313,17 +10826,16 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // print permutation to help debugging
-        printf("--- permutation: [");
+        printf("--- permutation: %zd [", perm_i);
         for (unsigned j = 0; j < N; j++) {
             if (j > 0) {
                 printf(", ");
@@ -11453,24 +10965,6 @@ code = '''
                 }
             }
         }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
@@ -11480,7 +10974,10 @@ code = '''
 [cases.test_rbyd_fuzz_mixed]
 defines.N = 'range(1, 33)'
 defines.M = 3
-defines.ITER = 1000
+defines.SAMPLES = 1000
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -11506,7 +11003,9 @@ code = '''
     uint32_t worst_seed = 0;
 
     // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
         printf("--- seed: %d ---\n", seed);
         printf("perm: [");
         uint32_t prng = seed;
@@ -11638,7 +11137,7 @@ code = '''
             assert(memcmp(&sim[id*(M+1)], buffer, 1) == 0);
         }
 
-        // keep track of the worst permutation
+        // keep track of the worst seed
         if (rbyd.off > worst_size) {
             worst_size = rbyd.off;
             worst_seed = seed;
@@ -11650,77 +11149,9 @@ code = '''
 
     // print the worst seed + size, and rerun it so it's left on the disk
     // if used with -ddisk
-    printf("--- worst ---\n");
+    printf("--- summary ---\n");
     printf("worst_seed: %d\n", worst_seed);
     printf("worst_size: %d\n", worst_size);
-    printf("worst_perm: [");
-    uint32_t prng = worst_seed;
-    lfs_size_t count = 0;
-    for (unsigned i = 0; i < N; i++) {
-        // choose create/delete or attr append/remove
-        uint8_t op = TEST_PRNG(&prng) % 4;
-        // choose an id
-        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-        // choose an attr
-        uint8_t u = TEST_PRNG(&prng) % M;
-
-        if (id == (lfs_ssize_t)count || op == 0) {
-            printf("c%d=%c", id, alpha[i % 26]);
-            count += 1;
-        } else if (op == 1) {
-            printf("d%d", id);
-            count -= 1;
-        } else if (op == 2) {
-            printf("a%d,%d=%c", id, u, alpha[i % 26]);
-        } else if (op == 3) {
-            printf("r%d,%d", id, u);
-        }
-        if (i < N-1) {
-            printf(", ");
-        }
-    }
-    printf("]\n");
-
-    // set up rbyd block
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-
-    prng = worst_seed;
-    count = 0;
-    for (unsigned i = 0; i < N; i++) {
-        // choose create/delete or attr append/remove
-        uint8_t op = TEST_PRNG(&prng) % 4;
-        // choose an id
-        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-        // choose an attr
-        uint8_t u = TEST_PRNG(&prng) % M;
-
-        if (id == (lfs_ssize_t)count || op == 0) {
-            count += 1;
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(GROW, id, NULL, 1,
-                    LFSR_ATTR(MKREG, id, &alpha[i % 26], 1,
-                    NULL))) => 0;
-        } else if (op == 1) {
-            count -= 1;
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(SHRINK, id, NULL, 1,
-                    NULL)) => 0;
-        } else if (op == 2) {
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(UATTR(u), id, &alpha[i % 26], 1,
-                    NULL)) => 0;
-
-        } else if (op == 3) {
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(RMUATTR(u), id, NULL, 0,
-                    NULL)) => 0;
-        }
-    }
 
     // our tree should be strictly <= 2*log(n)+1, assume tags are strictly
     // <=12 bytes, note this only holds true with byte-level progs
@@ -11732,7 +11163,10 @@ code = '''
 [cases.test_rbyd_fuzz_sparse]
 defines.N = 'range(1, 33)'
 defines.W = 5
-defines.ITER = 1000
+defines.SAMPLES = 1000
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -11763,7 +11197,9 @@ code = '''
     uint32_t worst_seed = 0;
 
     // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
         printf("--- seed: %d ---\n", seed);
         printf("perm: [");
         uint32_t prng = seed;
@@ -11924,7 +11360,7 @@ code = '''
             assert(memcmp(&sim[id], buffer, 1) == 0);
         }
 
-        // keep track of the worst permutation
+        // keep track of the worst seed
         if (rbyd.off > worst_size) {
             worst_size = rbyd.off;
             worst_seed = seed;
@@ -11937,114 +11373,9 @@ code = '''
 
     // print the worst seed + size, and rerun it so it's left on the disk
     // if used with -ddisk
-    printf("--- worst ---\n");
+    printf("--- summary ---\n");
     printf("worst_seed: %d\n", worst_seed);
     printf("worst_size: %d\n", worst_size);
-    printf("worst_perm: [");
-    uint32_t prng = worst_seed;
-    lfs_size_t count = 0;
-    for (unsigned i = 0; i < N; i++) {
-        // choose create/delete/grow/shrink
-        uint8_t op = TEST_PRNG(&prng) % 4;
-        // choose an id
-        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-        // choose a weight
-        lfs_size_t weight = 1 + (TEST_PRNG(&prng) % (W-1));
-
-        if (id == (lfs_ssize_t)count || op == 0) {
-            printf("c%dw%d=%c", id, weight, alpha[i % 26]);
-            count += 1;
-        } else if (op == 1) {
-            printf("d%d", id);
-            count -= 1;
-        } else if (op == 2) {
-            printf("g%dw%d", id, weight);
-        } else if (op == 3) {
-            printf("s%dw%d", id, weight);
-        }
-        if (i < N-1) {
-            printf(", ");
-        }
-    }
-    printf("]\n");
-
-    // note we still need sim here, since we use it to calculate shrink limits
-
-    // set up a simulation to compare against, fun fact this performs
-    // worst than our actual rbyd block!
-    char *sim = malloc(N);
-    lfs_size_t *sim_weights = malloc(N*sizeof(lfs_size_t));
-    memset(sim, 0, N);
-    memset(sim_weights, 0, N*sizeof(lfs_size_t));
-
-    // set up rbyd block
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-
-    prng = worst_seed;
-    count = 0;
-    for (unsigned i = 0; i < N; i++) {
-        // choose create/delete/grow/shrink
-        uint8_t op = TEST_PRNG(&prng) % 4;
-        // choose an id
-        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-        // choose a weight
-        lfs_size_t weight = 1 + (TEST_PRNG(&prng) % (W-1));
-
-        // calculate actual id in rbyd space
-        lfs_ssize_t weighted_id = 0;
-        for (lfs_ssize_t j = 0; j < id; j++) {
-            weighted_id += sim_weights[j];
-        }
-
-        if (id == (lfs_ssize_t)count || op == 0) {
-            // update our sim
-            memmove(sim+id+1, sim+id, count-id);
-            memmove(sim_weights+id+1, sim_weights+id,
-                    (count-id)*sizeof(lfs_size_t));
-            sim[id] = alpha[i % 26];
-            sim_weights[id] = weight;
-            count += 1;
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(GROW, weighted_id, NULL, weight,
-                    LFSR_ATTR(MKREG, weighted_id+weight-1, &alpha[i % 26], 1,
-                    NULL))) => 0;
-        } else if (op == 1) {
-            // get the correct weight from the sim
-            weight = sim_weights[id];
-            // update our sim
-            memmove(sim+id, sim+id+1, count-id-1);
-            memmove(sim_weights+id, sim_weights+id+1,
-                    (count-id-1)*sizeof(lfs_size_t));
-            count -= 1;
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(SHRINK, weighted_id, NULL, weight,
-                    NULL)) => 0;
-        } else if (op == 2) {
-            // update our sim
-            sim_weights[id] += weight;
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(GROW, weighted_id, NULL, weight,
-                    NULL)) => 0;
-        } else if (op == 3) {
-            // don't let shrink go to zero here! this is already hard enough
-            // to simulate
-            weight = lfs_min(weight, sim_weights[id]-1);
-            // update our sim
-            sim_weights[id] -= weight;
-            // update our rbyd
-            lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSR_ATTR(SHRINK, weighted_id, NULL, weight,
-                    NULL)) => 0;
-        }
-    }
-
-    // cleanup
-    free(sim);
-    free(sim_weights);
 
     // our tree should be strictly <= 2*log(n)+1, assume tags are strictly
     // <=12 bytes, note this only holds true with byte-level progs
@@ -12059,6 +11390,9 @@ code = '''
 
 [cases.test_rbyd_unwritten_permutations]
 defines.N = 'range(1, 7)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -12081,20 +11415,19 @@ code = '''
     lfsr_data_t data_ = LFSR_DATA_NULL;
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // test each number of written/unwritten tags, this gives us a quick
         // way to test several unwritten situations
         for (unsigned w = 0; w <= N; w++) {
             // print permutation to help debugging
-            printf("--- permutation: [");
+            printf("--- permutation: %zd [", perm_i);
             for (unsigned j = 0; j < N; j++) {
                 if (j > 0) {
                     printf(", ");
@@ -12146,30 +11479,15 @@ code = '''
                     lfsr_tag_next(tag_), id_,
                     &tag_, &id_, &data_) => LFS_ERR_NOENT;
         }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_unwritten_fuzz]
 defines.N = 'range(1, 13)'
-defines.ITER = 1000
+defines.SAMPLES = 1000
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -12191,7 +11509,9 @@ code = '''
     uint8_t buffer[4];
 
     // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
         // test each number of written/unwritten tags, this gives us a quick
         // way to test several unwritten situations
         for (unsigned w = 0; w <= N; w++) {
@@ -12320,6 +11640,9 @@ code = '''
 
 [cases.test_rbyd_unwritten_create_permutations]
 defines.N = 'range(1, 7)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -12351,20 +11674,19 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // test each number of written/unwritten tags, this gives us a quick
         // way to test several unwritten situations
         for (unsigned w = 0; w <= N; w++) {
             // print permutation to help debugging
-            printf("--- permutation: [");
+            printf("--- permutation: %zd [", perm_i);
             for (unsigned j = 0; j < N; j++) {
                 if (j > 0) {
                     printf(", ");
@@ -12425,30 +11747,15 @@ code = '''
                     lfsr_tag_next(tag_), id_,
                     &tag_, &id_, &data_) => LFS_ERR_NOENT;
         }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_unwritten_create_fuzz]
 defines.N = 'range(1, 13)'
-defines.ITER = 1000
+defines.SAMPLES = 1000
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -12470,7 +11777,9 @@ code = '''
     uint8_t buffer[4];
 
     // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
         // test each number of written/unwritten tags, this gives us a quick
         // way to test several unwritten situations
         for (unsigned w = 0; w <= N; w++) {
@@ -12600,6 +11909,9 @@ code = '''
 [cases.test_rbyd_unwritten_mixed_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -12631,20 +11943,19 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // test each number of written/unwritten tags, this gives us a quick
         // way to test several unwritten situations
         for (signed w = -1; w <= N; w++) {
             // print permutation to help debugging
-            printf("--- permutation: [");
+            printf("--- permutation: %zd [", perm_i);
             for (unsigned j = 0; j < N; j++) {
                 if (j > 0) {
                     printf(", ");
@@ -12750,31 +12061,16 @@ code = '''
                     lfsr_tag_next(tag_), id_,
                     &tag_, &id_, &data_) => LFS_ERR_NOENT;
         }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_unwritten_mixed_fuzz]
 defines.N = 'range(1, 13)'
 defines.M = 3
-defines.ITER = 1000
+defines.SAMPLES = 1000
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -12796,7 +12092,9 @@ code = '''
     uint8_t buffer[4];
 
     // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
         // test each number of written/unwritten tags, this gives us a quick
         // way to test several unwritten situations
         for (unsigned w = 0; w <= N; w++) {
@@ -12990,6 +12288,9 @@ code = '''
 [cases.test_rbyd_unwritten_sparse_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -13021,20 +12322,19 @@ code = '''
     uint8_t buffer[4];
 
     // test all permutations of a given size
-    uint16_t perm[N];
-    unsigned stack[N];
-    for (uint16_t i = 0; i < N; i++) {
-        perm[i] = i;
-        stack[i] = 0;
-    }
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
 
-    unsigned i = 1;
-    while (i < N) {
         // test each number of written/unwritten tags, this gives us a quick
         // way to test several unwritten situations
         for (unsigned w = 0; w <= N; w++) {
             // print permutation to help debugging
-            printf("--- permutation: [");
+            printf("--- permutation: %zd [", perm_i);
             for (unsigned j = 0; j < N; j++) {
                 if (j > 0) {
                     printf(", ");
@@ -13095,31 +12395,16 @@ code = '''
                     lfsr_tag_next(tag_), id_,
                     &tag_, &id_, &data_) => LFS_ERR_NOENT;
         }
-
-        // next permutation using Heap's algorithm
-        if (stack[i] < i) {
-            if (i % 2 == 0) {
-                uint16_t t = perm[0];
-                perm[0] = perm[i];
-                perm[i] = t;
-            } else {
-                uint16_t t = perm[stack[i]];
-                perm[stack[i]] = perm[i];
-                perm[i] = t;
-            }
-            stack[i] += 1;
-            i = 1;
-        } else {
-            stack[i] = 0;
-            i += 1;
-        }
     }
 '''
 
 [cases.test_rbyd_unwritten_sparse_fuzz]
 defines.N = 'range(1, 13)'
 defines.W = 5
-defines.ITER = 1000
+defines.SAMPLES = 1000
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -13144,7 +12429,9 @@ code = '''
     uint8_t buffer[4];
 
     // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
         // test each number of written/unwritten tags, this gives us a quick
         // way to test several unwritten situations
         for (unsigned w = 0; w <= N; w++) {

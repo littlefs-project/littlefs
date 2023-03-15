@@ -603,6 +603,42 @@ uint32_t bench_prng(uint32_t *state) {
     return x;
 }
 
+// bench factorial
+size_t bench_factorial(size_t x) {
+    size_t y = 1;
+    for (size_t i = 2; i <= x; i++) {
+        y *= i;
+    }
+    return y;
+}
+
+// bench array permutations
+void bench_permutation(size_t i, uint32_t *buffer, size_t size) {
+    // https://stackoverflow.com/a/7919887 and
+    // https://stackoverflow.com/a/24257996 helped a lot with this, but
+    // changed to run in O(n) with no extra memory. This has a tradeoff
+    // of generating the permutations in an unintuitive order.
+
+    // initialize array
+    for (size_t j = 0; j < size; j++) {
+        buffer[j] = j;
+    }
+
+    for (size_t j = 0; j < size; j++) {
+        // swap index with digit
+        //
+        //      .- i%rem --.
+        //      v     .----+----.
+        // [p0 p1 |-> r0 r1 r2 r3]
+        //
+        size_t t = buffer[j + (i % (size-j))];
+        buffer[j + (i % (size-j))] = buffer[j];
+        buffer[j] = t;
+        // update i
+        i /= (size-j);
+    }
+}
+
 
 // bench recording state
 static struct lfs_config *bench_cfg = NULL;

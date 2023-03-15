@@ -409,13 +409,19 @@ code = '''
 
 [cases.test_btree_push_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-defines.ITER = 10
+defines.SAMPLES = 10
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
         // create lfs here since we need to reset each iteration, we're
         // space constrained and we can't expect gc to work at this point
         lfs_t lfs;
@@ -566,13 +572,19 @@ code = '''
 [cases.test_btree_push_sparse_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.W = 5
-defines.ITER = 10
+defines.SAMPLES = 10
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
         // create lfs here since we need to reset each iteration, we're
         // space constrained and we can't expect gc to work at this point
         lfs_t lfs;
@@ -929,14 +941,20 @@ code = '''
 
 [cases.test_btree_update_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-defines.ITER = 10
+defines.SAMPLES = 10
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
         // create lfs here since we need to reset each iteration, we're
         // space constrained and we can't expect gc to work at this point
         lfs_t lfs;
@@ -1095,14 +1113,20 @@ code = '''
 [cases.test_btree_update_sparse_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.W = 5
-defines.ITER = 10
+defines.SAMPLES = 10
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
         // create lfs here since we need to reset each iteration, we're
         // space constrained and we can't expect gc to work at this point
         lfs_t lfs;
@@ -1711,14 +1735,20 @@ code = '''
 [cases.test_btree_pop_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMAINING = [64, 2, 1, 0]
-defines.ITER = 10
+defines.SAMPLES = 10
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 if = 'N > REMAINING'
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
         // create lfs here since we need to reset each iteration, we're
         // space constrained and we can't expect gc to work at this point
         lfs_t lfs;
@@ -1915,14 +1945,20 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMAINING = [64, 2, 1, 0]
 defines.W = 5
-defines.ITER = 10
+defines.SAMPLES = 10
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 if = 'N > REMAINING'
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
         // create lfs here since we need to reset each iteration, we're
         // space constrained and we can't expect gc to work at this point
         lfs_t lfs;
@@ -2124,14 +2160,20 @@ code = '''
 
 [cases.test_btree_split_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-defines.ITER = 10
+defines.SAMPLES = 10
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
         // create lfs here since we need to reset each iteration, we're
         // space constrained and we can't expect gc to work at this point
         lfs_t lfs;
@@ -2275,14 +2317,20 @@ code = '''
 [cases.test_btree_split_sparse_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.W = 5
-defines.ITER = 10
+defines.SAMPLES = 10
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
         // create lfs here since we need to reset each iteration, we're
         // space constrained and we can't expect gc to work at this point
         lfs_t lfs;
@@ -2428,13 +2476,19 @@ code = '''
 # Some more general fuzz testing
 [cases.test_btree_general_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
-defines.ITER = 100
+defines.SAMPLES = 100
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
         // create lfs here since we need to reset each iteration, we're
         // space constrained and we can't expect gc to work at this point
         lfs_t lfs;
@@ -2540,13 +2594,19 @@ code = '''
 [cases.test_btree_general_sparse_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 defines.W = 5
-defines.ITER = 100
+defines.SAMPLES = 100
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = 1; seed < ITER+1; seed++) {
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
         // create lfs here since we need to reset each iteration, we're
         // space constrained and we can't expect gc to work at this point
         lfs_t lfs;
