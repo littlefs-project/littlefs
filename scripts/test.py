@@ -1227,7 +1227,7 @@ def run(runner, test_ids=[], **args):
 
     # drop into gdb?
     if failures and (args.get('gdb')
-            or args.get('gdb_case')
+            or args.get('gdb_perm')
             or args.get('gdb_main')
             or args.get('gdb_pl') is not None
             or args.get('gdb_pl_before')
@@ -1244,7 +1244,7 @@ def run(runner, test_ids=[], **args):
                 '-ex', 'break %s:%d' % (path, lineno),
                 '-ex', 'run',
                 '--args']
-        elif args.get('gdb_case'):
+        elif args.get('gdb_perm'):
             path, lineno = find_path(runner, failure.id, **args)
             cmd[:0] = args['gdb_path'] + [
                 '-ex', 'break %s:%d' % (path, lineno),
@@ -1470,10 +1470,10 @@ if __name__ == "__main__":
         action='store_true',
         help="Drop into gdb on test failure.")
     test_parser.add_argument(
-        '--gdb-case',
+        '--gdb-perm', '--gdb-permutation',
         action='store_true',
         help="Drop into gdb on test failure but stop at the beginning "
-            "of the failing test case.")
+            "of the failing test permutation.")
     test_parser.add_argument(
         '--gdb-main',
         action='store_true',
