@@ -2459,7 +2459,7 @@ code = '''
         memset(sim, 0, N);
 
         uint32_t prng = seed;
-        for (lfs_size_t i = 0; i < (N-REMAINING); i++) {
+        for (lfs_size_t i = 0; i < N; i++) {
             // choose a pseudo-random op
             uint8_t op = TEST_PRNG(&prng) % 3;
             // choose a pseudo-random id
@@ -2573,7 +2573,7 @@ code = '''
         memset(sim_weights, 0, N*sizeof(lfs_size_t));
 
         uint32_t prng = seed;
-        for (lfs_size_t i = 0; i < (N-REMAINING); i++) {
+        for (lfs_size_t i = 0; i < N; i++) {
             // choose a pseudo-random op
             uint8_t op = TEST_PRNG(&prng) % 3;
             // choose a pseudo-random id

@@ -38,17 +38,18 @@ enum test_flags {
 typedef uint8_t test_flags_t;
 
 typedef struct test_define {
-    intmax_t (*cb)(void *data);
+    intmax_t (*cb)(void *data, size_t i);
     void *data;
+    size_t permutations;
 } test_define_t;
 
 struct test_case {
     const char *name;
     const char *path;
     test_flags_t flags;
-    size_t permutations;
 
     const test_define_t *defines;
+    size_t permutations;
 
     bool (*filter)(void);
     void (*run)(struct lfs_config *cfg);

@@ -142,17 +142,19 @@ typedef struct bench_define_names {
     size_t count;
 } bench_define_names_t;
 
-intmax_t bench_define_lit(void *data) {
+intmax_t bench_define_lit(void *data, size_t i) {
+    (void)i;
     return (intptr_t)data;
 }
 
-#define BENCH_CONST(x) {bench_define_lit, (void*)(uintptr_t)(x)}
+#define BENCH_CONST(x) {bench_define_lit, (void*)(uintptr_t)(x), 1}
 #define BENCH_LIT(x) ((bench_define_t)BENCH_CONST(x))
 
 
 #define BENCH_DEF(k, v) \
-    intmax_t bench_define_##k(void *data) { \
+    intmax_t bench_define_##k(void *data, size_t i) { \
         (void)data; \
+        (void)i; \
         return v; \
     }
 
@@ -161,7 +163,7 @@ intmax_t bench_define_lit(void *data) {
 
 #define BENCH_DEFINE_MAP_OVERRIDE    0
 #define BENCH_DEFINE_MAP_EXPLICIT    1
-#define BENCH_DEFINE_MAP_PERMUTATION 2
+#define BENCH_DEFINE_MAP_CASE        2
 #define BENCH_DEFINE_MAP_GEOMETRY    3
 #define BENCH_DEFINE_MAP_IMPLICIT    4
 #define BENCH_DEFINE_MAP_COUNT       5
@@ -170,7 +172,7 @@ bench_define_map_t bench_define_maps[BENCH_DEFINE_MAP_COUNT] = {
     [BENCH_DEFINE_MAP_IMPLICIT] = {
         (const bench_define_t[BENCH_IMPLICIT_DEFINE_COUNT]) {
             #define BENCH_DEF(k, v) \
-                [k##_i] = {bench_define_##k, NULL},
+                [k##_i] = {bench_define_##k, NULL, 1},
 
                 BENCH_IMPLICIT_DEFINES
             #undef BENCH_DEF
@@ -196,9 +198,20 @@ bench_define_names_t bench_define_names[BENCH_DEFINE_NAMES_COUNT] = {
     },
 };
 
-intmax_t *bench_define_cache;
-size_t bench_define_cache_count;
-unsigned *bench_define_cache_mask;
+size_t bench_define_count;
+
+typedef struct bench_define_cache_entry {
+    // - >=0 => not cached
+    // - -1  => cached
+    ssize_t permutation;
+    union {
+        intmax_t value;
+        const bench_define_t *define;
+    } u;
+} bench_define_cache_entry_t;
+
+bench_define_cache_entry_t *bench_define_cache;
+size_t bench_define_cache_capacity;
 
 const char *bench_define_name(size_t define) {
     // lookup in our bench names
@@ -225,47 +238,109 @@ bool bench_define_ispermutation(size_t define) {
     return false;
 }
 
-intmax_t bench_define(size_t define) {
-    // is the define in our cache?
-    if (define < bench_define_cache_count
-            && (bench_define_cache_mask[define/(8*sizeof(unsigned))]
-                & (1 << (define%(8*sizeof(unsigned)))))) {
-        return bench_define_cache[define];
-    }
-
-    // lookup in our bench defines
+size_t bench_define_permutations(size_t define) {
     for (size_t i = 0; i < BENCH_DEFINE_MAP_COUNT; i++) {
         if (define < bench_define_maps[i].count
                 && bench_define_maps[i].defines[define].cb) {
-            intmax_t v = bench_define_maps[i].defines[define].cb(
-                    bench_define_maps[i].defines[define].data);
-
-            // insert into cache!
-            bench_define_cache[define] = v;
-            bench_define_cache_mask[define / (8*sizeof(unsigned))]
-                    |= 1 << (define%(8*sizeof(unsigned)));
-
-            return v;
+            return bench_define_maps[i].defines[define].permutations
+                    ? bench_define_maps[i].defines[define].permutations
+                    : 1;
         }
     }
 
     return 0;
-
-    // not found?
-    const char *name = bench_define_name(define);
-    fprintf(stderr, "error: undefined define %s (%zd)\n",
-            name ? name : "(unknown)",
-            define);
-    assert(false);
-    exit(-1);
 }
 
-void bench_define_flush(void) {
-    // clear cache between permutations
-    memset(bench_define_cache_mask, 0,
-            sizeof(unsigned)*(
-                (bench_define_cache_count+(8*sizeof(unsigned))-1)
-                / (8*sizeof(unsigned))));
+size_t bench_define_permutationpermutations(void) {
+    size_t prod = 1;
+    for (size_t d = 0; d < bench_define_count; d++) {
+        size_t permutations = bench_define_permutations(d);
+        if (permutations > 0) {
+            prod *= permutations;
+        }
+    }
+    return prod;
+}
+
+intmax_t bench_define(size_t define) {
+    // cached?
+    if (bench_define_cache[define].permutation == -1) {
+        return bench_define_cache[define].u.value;
+
+    // lazily defined?
+    } else if (bench_define_cache[define].u.define) {
+        // evaluate and store in cache
+        bench_define_cache[define].u.value
+                = bench_define_cache[define].u.define->cb(
+                    bench_define_cache[define].u.define->data,
+                    bench_define_cache[define].permutation);
+        bench_define_cache[define].permutation = -1;
+        return bench_define_cache[define].u.value;
+
+    // not defined?
+    } else {
+        const char *name = bench_define_name(define);
+        fprintf(stderr, "error: undefined define %s (%zd)\n",
+                name ? name : "(unknown)",
+                define);
+        assert(false);
+        exit(-1);
+    }
+}
+
+// permutation updates
+void bench_define_permutation(size_t perm) {
+    // We can't completely precompute the defines easily, since they may be
+    // mutually recursive. But we can precompute the permutations, which is
+    // expensive otherwise.
+    //
+    // Note that it's not really worth it to make define lookup completely
+    // lazy, the first thing we do is evaluate all defines for 1. deduplication
+    // and 2. logging.
+
+    if (bench_define_cache_capacity < bench_define_count) {
+        // align to power of two to avoid any superlinear growth
+        bench_define_cache_capacity = 1 << lfs_npw2(bench_define_count);
+        bench_define_cache = realloc(
+                bench_define_cache,
+                bench_define_cache_capacity*sizeof(bench_define_cache_entry_t));
+    }
+
+    for (size_t d = 0; d < bench_define_count; d++) {
+        // lookup our bench defines
+        for (size_t i = 0; i < BENCH_DEFINE_MAP_COUNT; i++) {
+            if (d < bench_define_maps[i].count
+                    && bench_define_maps[i].defines[d].cb) {
+                // note we can't precompute these due to mutual recursion
+                const bench_define_t *define = &bench_define_maps[i].defines[d];
+                bench_define_cache[d] = (bench_define_cache_entry_t){
+                    .permutation = perm % define->permutations,
+                    .u.define = define,
+                };
+                perm /= bench_define_maps[i].defines[d].permutations;
+                goto next;
+            }
+        }
+
+        // default to a null value, these should be unreachable
+        bench_define_cache[d] = (bench_define_cache_entry_t){0};
+    next:;
+    }
+}
+
+// case updates
+void bench_define_case(
+        const struct bench_suite *suite,
+        const struct bench_case *case_,
+        size_t perm) {
+    if (case_->defines) {
+        bench_define_maps[BENCH_DEFINE_MAP_CASE] = (bench_define_map_t){
+                &case_->defines[perm*suite->define_count],
+                suite->define_count};
+    } else {
+        bench_define_maps[BENCH_DEFINE_MAP_CASE] = (bench_define_map_t){
+                NULL, 0};
+    }
 }
 
 // geometry updates
@@ -279,120 +354,94 @@ void bench_define_geometry(const bench_geometry_t *geometry) {
 // override updates
 typedef struct bench_override {
     const char *name;
-    const intmax_t *defines;
-    size_t permutations;
+    bench_define_t define;
 } bench_override_t;
+
+typedef struct bench_override_value {
+    intmax_t start;
+    intmax_t stop;
+    // step == 0 indicates a single value
+    intmax_t step;
+} bench_override_value_t;
+
+typedef struct bench_override_data {
+    bench_override_value_t *values;
+    size_t value_count;
+} bench_override_data_t;
+
+intmax_t bench_override_cb(void *data, size_t i) {
+    const bench_override_data_t *data_ = data;
+    for (size_t j = 0; j < data_->value_count; j++) {
+        const bench_override_value_t *v = &data_->values[j];
+        // range?
+        if (v->step) {
+            size_t range_count;
+            if (v->step > 0) {
+                range_count = (v->stop-1 - v->start) / v->step + 1;
+            } else {
+                range_count = (v->start-1 - v->stop) / -v->step + 1;
+            }
+
+            if (i < range_count) {
+                return i*v->step + v->start;
+            }
+            i -= range_count;
+        // value?
+        } else {
+            if (i == 0) {
+                return v->start;
+            }
+            i -= 1;
+        }
+    }
+
+    // should never get here
+    assert(false);
+    __builtin_unreachable();
+}
 
 const bench_override_t *bench_overrides = NULL;
 size_t bench_override_count = 0;
 
 bench_define_t *bench_override_defines = NULL;
-size_t bench_override_define_count = 0;
-size_t bench_override_define_permutations = 1;
 size_t bench_override_define_capacity = 0;
 
 // suite/perm updates
 void bench_define_suite(const struct bench_suite *suite) {
+    // set define names
     bench_define_names[BENCH_DEFINE_NAMES_SUITE] = (bench_define_names_t){
             suite->define_names, suite->define_count};
 
-    // make sure our cache is large enough
-    if (lfs_max(suite->define_count, BENCH_IMPLICIT_DEFINE_COUNT)
-            > bench_define_cache_count) {
-        // align to power of two to avoid any superlinear growth
-        size_t ncount = 1 << lfs_npw2(
-                lfs_max(suite->define_count, BENCH_IMPLICIT_DEFINE_COUNT));
-        bench_define_cache = realloc(bench_define_cache, ncount*sizeof(intmax_t));
-        bench_define_cache_mask = realloc(bench_define_cache_mask,
-                sizeof(unsigned)*(
-                    (ncount+(8*sizeof(unsigned))-1)
-                    / (8*sizeof(unsigned))));
-        bench_define_cache_count = ncount;
-    }
+    // set define count
+    bench_define_count = suite->define_count > BENCH_IMPLICIT_DEFINE_COUNT
+            ? suite->define_count
+            : BENCH_IMPLICIT_DEFINE_COUNT;
 
     // map any overrides
     if (bench_override_count > 0) {
-        // first figure out the total size of override permutations
-        size_t count = 0;
-        size_t permutations = 1;
-        for (size_t i = 0; i < bench_override_count; i++) {
-            for (size_t d = 0;
-                    d < lfs_max(
-                        suite->define_count,
-                        BENCH_IMPLICIT_DEFINE_COUNT);
-                    d++) {
-                // define name match?
-                const char *name = bench_define_name(d);
-                if (name && strcmp(name, bench_overrides[i].name) == 0) {
-                    count = lfs_max(count, d+1);
-                    permutations *= bench_overrides[i].permutations;
-                    break;
-                }
-            }
-        }
-        bench_override_define_count = count;
-        bench_override_define_permutations = permutations;
-
-        // make sure our override arrays are big enough
-        if (count * permutations > bench_override_define_capacity) {
+        if (bench_define_count > bench_override_define_capacity) {
             // align to power of two to avoid any superlinear growth
-            size_t ncapacity = 1 << lfs_npw2(count * permutations);
+            bench_override_define_capacity = 1 << lfs_npw2(bench_define_count);
             bench_override_defines = realloc(
                     bench_override_defines,
-                    sizeof(bench_define_t)*ncapacity);
-            bench_override_define_capacity = ncapacity;
+                    bench_override_define_capacity*sizeof(bench_define_t));
         }
 
-        // zero unoverridden defines
         memset(bench_override_defines, 0,
-                sizeof(bench_define_t) * count * permutations);
-
-        // compute permutations
-        size_t p = 1;
+                bench_define_count*sizeof(bench_define_t));
         for (size_t i = 0; i < bench_override_count; i++) {
-            for (size_t d = 0;
-                    d < lfs_max(
-                        suite->define_count,
-                        BENCH_IMPLICIT_DEFINE_COUNT);
-                    d++) {
-                // define name match?
+            for (size_t d = 0; d < bench_define_count; d++) {
+                // name match?
                 const char *name = bench_define_name(d);
                 if (name && strcmp(name, bench_overrides[i].name) == 0) {
-                    // scatter the define permutations based on already
-                    // seen permutations
-                    for (size_t j = 0; j < permutations; j++) {
-                        bench_override_defines[j*count + d] = BENCH_LIT(
-                                bench_overrides[i].defines[(j/p)
-                                    % bench_overrides[i].permutations]);
-                    }
-
-                    // keep track of how many permutations we've seen so far
-                    p *= bench_overrides[i].permutations;
-                    break;
+                    bench_override_defines[d] = bench_overrides[i].define;
                 }
             }
         }
-    }
-}
 
-void bench_define_perm(
-        const struct bench_suite *suite,
-        const struct bench_case *case_,
-        size_t perm) {
-    if (case_->defines) {
-        bench_define_maps[BENCH_DEFINE_MAP_PERMUTATION] = (bench_define_map_t){
-                case_->defines + perm*suite->define_count,
-                suite->define_count};
-    } else {
-        bench_define_maps[BENCH_DEFINE_MAP_PERMUTATION] = (bench_define_map_t){
-                NULL, 0};
+        bench_define_maps[BENCH_DEFINE_MAP_OVERRIDE] = (bench_define_map_t){
+                bench_override_defines, bench_define_count};
     }
-}
-
-void bench_define_override(size_t perm) {
-    bench_define_maps[BENCH_DEFINE_MAP_OVERRIDE] = (bench_define_map_t){
-            bench_override_defines + perm*bench_override_define_count,
-            bench_override_define_count};
 }
 
 void bench_define_explicit(
@@ -405,7 +454,6 @@ void bench_define_explicit(
 void bench_define_cleanup(void) {
     // bench define management can allocate a few things
     free(bench_define_cache);
-    free(bench_define_cache_mask);
     free(bench_override_defines);
 }
 
@@ -610,11 +658,7 @@ static void perm_printid(
     (void)suite;
     // case[:permutation]
     printf("%s:", case_->name);
-    for (size_t d = 0;
-            d < lfs_max(
-                suite->define_count,
-                BENCH_IMPLICIT_DEFINE_COUNT);
-            d++) {
+    for (size_t d = 0; d < bench_define_count; d++) {
         if (bench_define_ispermutation(d)) {
             leb16_print(d);
             leb16_print(BENCH_DEFINE(d));
@@ -634,19 +678,10 @@ struct bench_seen_branch {
     struct bench_seen branch;
 };
 
-bool bench_seen_insert(
-        bench_seen_t *seen,
-        const struct bench_suite *suite,
-        const struct bench_case *case_) {
-    (void)case_;
-    bool was_seen = true;
-
+bool bench_seen_insert(bench_seen_t *seen) {
     // use the currently set defines
-    for (size_t d = 0;
-            d < lfs_max(
-                suite->define_count,
-                BENCH_IMPLICIT_DEFINE_COUNT);
-            d++) {
+    bool was_seen = true;
+    for (size_t d = 0; d < bench_define_count; d++) {
         // treat unpermuted defines the same as 0
         intmax_t define = bench_define_ispermutation(d) ? BENCH_DEFINE(d) : 0;
 
@@ -699,10 +734,10 @@ static void case_forperm(
     if (defines) {
         bench_define_explicit(defines, define_count);
 
-        for (size_t v = 0; v < bench_override_define_permutations; v++) {
-            // define override permutation
-            bench_define_override(v);
-            bench_define_flush();
+        size_t permutations = bench_define_permutationpermutations();
+        for (size_t p = 0; p < permutations; p++) {
+            // define permutation permutation
+            bench_define_permutation(p);
 
             cb(data, suite, case_);
         }
@@ -710,24 +745,31 @@ static void case_forperm(
         return;
     }
 
+    // deduplicate permutations with the same defines
+    //
+    // this can easily happen when overriding multiple case permutations,
+    // we can't tell that multiple case permutations don't change defines,
+    // duplicating results
     bench_seen_t seen = {NULL, 0, 0};
 
-    for (size_t k = 0; k < case_->permutations; k++) {
-        // define permutation
-        bench_define_perm(suite, case_, k);
+    for (size_t k = 0;
+            k < (case_->permutations ? case_->permutations : 1);
+            k++) {
+        // define case permutation
+        bench_define_case(suite, case_, k);
 
-        for (size_t v = 0; v < bench_override_define_permutations; v++) {
-            // define override permutation
-            bench_define_override(v);
+        for (size_t g = 0; g < bench_geometry_count; g++) {
+            // define geometry
+            bench_define_geometry(&bench_geometries[g]);
 
-            for (size_t g = 0; g < bench_geometry_count; g++) {
-                // define geometry
-                bench_define_geometry(&bench_geometries[g]);
-                bench_define_flush();
+            size_t permutations = bench_define_permutationpermutations();
+            for (size_t p = 0; p < permutations; p++) {
+                // define permutation permutation
+                bench_define_permutation(p);
 
                 // have we seen this permutation before?
-                bool was_seen = bench_seen_insert(&seen, suite, case_);
-                if (!(k == 0 && v == 0 && g == 0) && was_seen) {
+                bool was_seen = bench_seen_insert(&seen);
+                if (!(k == 0 && g == 0 && p == 0) && was_seen) {
                     continue;
                 }
 
@@ -1070,10 +1112,7 @@ void perm_list_defines(
     (void)case_;
 
     // collect defines
-    for (size_t d = 0;
-            d < lfs_max(suite->define_count,
-                BENCH_IMPLICIT_DEFINE_COUNT);
-            d++) {
+    for (size_t d = 0; d < bench_define_count; d++) {
         if (d < BENCH_IMPLICIT_DEFINE_COUNT
                 || bench_define_ispermutation(d)) {
             list_defines_add(defines, d);
@@ -1090,10 +1129,7 @@ void perm_list_permutation_defines(
     (void)case_;
 
     // collect permutation_defines
-    for (size_t d = 0;
-            d < lfs_max(suite->define_count,
-                BENCH_IMPLICIT_DEFINE_COUNT);
-            d++) {
+    for (size_t d = 0; d < bench_define_count; d++) {
         if (bench_define_ispermutation(d)) {
             list_defines_add(defines, d);
         }
@@ -1205,7 +1241,7 @@ static void list_implicit_defines(void) {
     extern const bench_geometry_t builtin_geometries[];
     for (size_t g = 0; builtin_geometries[g].name; g++) {
         bench_define_geometry(&builtin_geometries[g]);
-        bench_define_flush();
+        bench_define_permutation(0);
 
         // add implicit defines
         for (size_t d = 0; d < BENCH_IMPLICIT_DEFINE_COUNT; d++) {
@@ -1269,7 +1305,7 @@ static void list_geometries(void) {
             name_width, "geometry", "read", "prog", "erase", "count", "size");
     for (size_t g = 0; builtin_geometries[g].name; g++) {
         bench_define_geometry(&builtin_geometries[g]);
-        bench_define_flush();
+        bench_define_permutation(0);
         printf("%-*s  %7ju %7ju %7ju %7ju %11ju\n",
                 name_width,
                 builtin_geometries[g].name,
@@ -1595,9 +1631,10 @@ int main(int argc, char **argv) {
 
                 // parse comma-separated permutations
                 {
-                    override->defines = NULL;
-                    override->permutations = 0;
-                    size_t override_capacity = 0;
+                    bench_override_value_t *override_values = NULL;
+                    size_t override_value_count = 0;
+                    size_t override_value_capacity = 0;
+                    size_t override_permutations = 0;
                     while (true) {
                         optarg += strspn(optarg, " ");
 
@@ -1660,31 +1697,43 @@ int main(int argc, char **argv) {
                             }
                             optarg += 1;
 
-                            // calculate the range of values
-                            assert(step != 0);
-                            for (intmax_t i = start;
-                                    (step < 0)
-                                        ? i > stop
-                                        : (uintmax_t)i < (uintmax_t)stop;
-                                    i += step) {
-                                *(intmax_t*)mappend(
-                                        (void**)&override->defines,
-                                        sizeof(intmax_t),
-                                        &override->permutations,
-                                        &override_capacity) = i;
+                            // append range
+                            *(bench_override_value_t*)mappend(
+                                    (void**)&override_values,
+                                    sizeof(bench_override_value_t),
+                                    &override_value_count,
+                                    &override_value_capacity)
+                                    = (bench_override_value_t){
+                                .start = start,
+                                .stop = stop,
+                                .step = step,
+                            };
+                            if (step > 0) {
+                                override_permutations += (stop-1 - start)
+                                        / step + 1;
+                            } else {
+                                override_permutations += (start-1 - stop)
+                                        / -step + 1;
                             }
                         } else if (*optarg != '\0') {
                             // single value
-                            intmax_t define = strtoimax(optarg, &parsed, 0);
+                            intmax_t define = strtoumax(optarg, &parsed, 0);
                             if (parsed == optarg) {
                                 goto invalid_define;
                             }
                             optarg = parsed + strspn(parsed, " ");
-                            *(intmax_t*)mappend(
-                                    (void**)&override->defines,
-                                    sizeof(intmax_t),
-                                    &override->permutations,
-                                    &override_capacity) = define;
+
+                            // append value
+                            *(bench_override_value_t*)mappend(
+                                    (void**)&override_values,
+                                    sizeof(bench_override_value_t),
+                                    &override_value_count,
+                                    &override_value_capacity)
+                                    = (bench_override_value_t){
+                                .start = define,
+                                .step = 0,
+                            };
+                            override_permutations += 1;
                         } else {
                             break;
                         }
@@ -1693,8 +1742,17 @@ int main(int argc, char **argv) {
                             optarg += 1;
                         }
                     }
+
+                    override->define.cb = bench_override_cb;
+                    override->define.data = malloc(
+                            sizeof(bench_override_data_t));
+                    *(bench_override_data_t*)override->define.data
+                            = (bench_override_data_t){
+                        .values = override_values,
+                        .value_count = override_value_count,
+                    };
+                    override->define.permutations = override_permutations;
                 }
-                assert(override->permutations > 0);
                 break;
 
 invalid_define:
@@ -2031,7 +2089,7 @@ getopt_done: ;
     bench_define_cleanup();
     if (bench_overrides) {
         for (size_t i = 0; i < bench_override_count; i++) {
-            free((void*)bench_overrides[i].defines);
+            free((void*)bench_overrides[i].define.data);
         }
         free((void*)bench_overrides);
     }

@@ -90,13 +90,13 @@ class BenchCase:
         def parse_define(v):
             # a define entry can be a list
             if isinstance(v, list):
-                for v_ in v:
-                    yield from parse_define(v_)
+                return sum((parse_define(v_) for v_ in v), [])
             # or a string
             elif isinstance(v, str):
                 # which can be comma-separated values, with optional
                 # range statements. This matches the runtime define parser in
                 # the runner itself.
+                vs = []
                 for v_ in csplit(v):
                     m = re.search(r'\brange\b\s*\('
                         '(?P<start>[^,\s]*)'
@@ -112,25 +112,24 @@ class BenchCase:
                             if m.group('step') else 1)
                         if m.lastindex <= 1:
                             start, stop = 0, start
-                        for x in range(start, stop, step):
-                            yield from parse_define('%s(%d)%s' % (
-                                v_[:m.start()], x, v_[m.end():]))
+                        vs.append(range(start, stop, step))
                     else:
-                        yield v_
+                        vs.append(v_)
+                return vs
             # or a literal value
             elif isinstance(v, bool):
-                yield 'true' if v else 'false'
+                return ['true' if v else 'false']
             else:
-                yield v
+                return [v]
 
         # build possible permutations
         for suite_defines_ in suite_defines:
             self.defines |= suite_defines_.keys()
             for defines_ in defines:
                 self.defines |= defines_.keys()
-                self.permutations.extend(dict(perm) for perm in it.product(*(
-                    [(k, v) for v in parse_define(vs)]
-                    for k, vs in sorted((suite_defines_ | defines_).items()))))
+                self.permutations.append({
+                    k: parse_define(v)
+                    for k, v in (suite_defines_ | defines_).items()})
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
@@ -308,34 +307,32 @@ def compile(bench_paths, **args):
             # the bench defines
             def write_case_functions(f, suite, case):
                     # create case define functions
-                    if case.defines:
-                        # deduplicate defines by value to try to reduce the
-                        # number of functions we generate
-                        define_cbs = {}
-                        for i, defines in enumerate(case.permutations):
-                            for k, v in sorted(defines.items()):
-                                if v not in define_cbs:
-                                    name = ('__bench__%s__%s__%d'
-                                        % (case.name, k, i))
-                                    define_cbs[v] = name
-                                    f.writeln('intmax_t %s('
-                                        '__attribute__((unused)) '
-                                        'void *data) {' % name)
-                                    f.writeln(4*' '+'return %s;' % v)
-                                    f.writeln('}')
-                                    f.writeln()
-                        f.writeln('const bench_define_t '
-                            '__bench__%s__defines[]['
-                            'BENCH_IMPLICIT_DEFINE_COUNT+%d] = {'
-                            % (case.name, len(suite.defines)))
-                        for defines in case.permutations:
-                            f.writeln(4*' '+'{')
-                            for k, v in sorted(defines.items()):
-                                f.writeln(8*' '+'[%-24s] = {%s, NULL},' % (
-                                    k+'_i', define_cbs[v]))
-                            f.writeln(4*' '+'},')
-                        f.writeln('};')
-                        f.writeln()
+                    for i, permutation in enumerate(case.permutations):
+                        for k, vs in sorted(permutation.items()):
+                            f.writeln('intmax_t __bench__%s__%s__%d('
+                                '__attribute__((unused)) void *data, '
+                                'size_t i) {'
+                                % (case.name, k, i))
+                            j = 0
+                            for v in vs:
+                                # generate range
+                                if isinstance(v, range):
+                                    f.writeln(
+                                        4*' '+'if (i < %d) '
+                                        'return (i-%d)*%d + %d;'
+                                        % (j+len(v), j, v.step, v.start))
+                                    j += len(v)
+                                # translate index to define
+                                else:
+                                    f.writeln(
+                                        4*' '+'if (i == %d) '
+                                        'return %s;'
+                                        % (j, v))
+                                    j += 1;
+
+                            f.writeln(4*' '+'__builtin_unreachable();')
+                            f.writeln('}')
+                            f.writeln()
 
                     # create case filter function
                     if suite.if_ is not None or case.if_ is not None:
@@ -389,11 +386,11 @@ def compile(bench_paths, **args):
                     if case.in_ is None:
                         write_case_functions(f, suite, case)
                     else:
-                        if case.defines:
-                            f.writeln('extern const bench_define_t '
-                                '__bench__%s__defines[]['
-                                'BENCH_IMPLICIT_DEFINE_COUNT+%d];'
-                                % (case.name, len(suite.defines)))
+                        for i, permutation in enumerate(case.permutations):
+                            for k, vs in sorted(permutation.items()):
+                                f.writeln('extern intmax_t __bench__%s__%s__%d('
+                                    'void *data, size_t i);'
+                                    % (case.name, k, i))
                         if suite.if_ is not None or case.if_ is not None:
                             f.writeln('extern bool __bench__%s__filter('
                                 'void);'
@@ -418,13 +415,14 @@ def compile(bench_paths, **args):
                 if suite.defines:
                     # create suite define names
                     f.writeln(4*' '+'.define_names = (const char *const['
-                        'BENCH_IMPLICIT_DEFINE_COUNT+%d]){' % (
-                        len(suite.defines)))
+                        'BENCH_IMPLICIT_DEFINE_COUNT+%d]){'
+                        % (len(suite.defines)))
                     for k in sorted(suite.defines):
                         f.writeln(8*' '+'[%-24s] = "%s",' % (k+'_i', k))
                     f.writeln(4*' '+'},')
                     f.writeln(4*' '+'.define_count = '
-                        'BENCH_IMPLICIT_DEFINE_COUNT+%d,' % len(suite.defines))
+                        'BENCH_IMPLICIT_DEFINE_COUNT+%d,'
+                        % len(suite.defines))
                 if suite.cases:
                     f.writeln(4*' '+'.cases = (const struct bench_case[]){')
                     for case in suite.cases:
@@ -433,12 +431,26 @@ def compile(bench_paths, **args):
                         f.writeln(12*' '+'.name = "%s",' % case.name)
                         f.writeln(12*' '+'.path = "%s",' % case.path)
                         f.writeln(12*' '+'.flags = 0,')
-                        f.writeln(12*' '+'.permutations = %d,'
-                            % len(case.permutations))
                         if case.defines:
-                            f.writeln(12*' '+'.defines '
-                                '= (const bench_define_t*)__bench__%s__defines,'
-                                % (case.name))
+                            f.writeln(12*' '+'.defines = '
+                                '(const bench_define_t*)(const bench_define_t[]['
+                                'BENCH_IMPLICIT_DEFINE_COUNT+%d]){'
+                                % (len(suite.defines)))
+                            for i, permutation in enumerate(case.permutations):
+                                f.writeln(16*' '+'{')
+                                for k, vs in sorted(permutation.items()):
+                                    f.writeln(20*' '
+                                        +'[%-24s] = {__bench__%s__%s__%d, NULL, '
+                                        '%d},'
+                                        % (k+'_i', case.name, k, i,
+                                            sum(len(v)
+                                                if isinstance(v, range)
+                                                else 1
+                                            for v in vs)))
+                                f.writeln(16*' '+'},')
+                            f.writeln(12*' '+'},')
+                            f.writeln(12*' '+'.permutations = %d,'
+                                % len(case.permutations))
                         if suite.if_ is not None or case.if_ is not None:
                             f.writeln(12*' '+'.filter = __bench__%s__filter,'
                                 % (case.name))
@@ -457,7 +469,7 @@ def compile(bench_paths, **args):
                     shutil.copyfileobj(sf, f)
                 f.writeln()
 
-                # write any internal benches
+                # write any internal benchs
                 for suite in suites:
                     for case in suite.cases:
                         if (case.in_ is not None

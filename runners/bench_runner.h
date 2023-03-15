@@ -45,17 +45,18 @@ enum bench_flags {
 typedef uint8_t bench_flags_t;
 
 typedef struct bench_define {
-    intmax_t (*cb)(void *data);
+    intmax_t (*cb)(void *data, size_t i);
     void *data;
+    size_t permutations;
 } bench_define_t;
 
 struct bench_case {
     const char *name;
     const char *path;
     bench_flags_t flags;
-    size_t permutations;
 
     const bench_define_t *defines;
+    size_t permutations;
 
     bool (*filter)(void);
     void (*run)(struct lfs_config *cfg);
