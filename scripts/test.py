@@ -12,6 +12,7 @@
 import collections as co
 import csv
 import errno
+import fnmatch
 import glob
 import itertools as it
 import math as m
@@ -586,35 +587,15 @@ def find_runner(runner, id=None, **args):
 
     return cmd
 
-def list_(runner, test_ids=[], **args):
-    cmd = find_runner(runner, **args) + test_ids
-    if args.get('summary'):          cmd.append('--summary')
-    if args.get('list_suites'):      cmd.append('--list-suites')
-    if args.get('list_cases'):       cmd.append('--list-cases')
-    if args.get('list_suite_paths'): cmd.append('--list-suite-paths')
-    if args.get('list_case_paths'):  cmd.append('--list-case-paths')
-    if args.get('list_defines'):     cmd.append('--list-defines')
-    if args.get('list_permutation_defines'):
-                                     cmd.append('--list-permutation-defines')
-    if args.get('list_implicit_defines'):
-                                     cmd.append('--list-implicit-defines')
-    if args.get('list_geometries'):  cmd.append('--list-geometries')
-    if args.get('list_powerlosses'): cmd.append('--list-powerlosses')
-
-    if args.get('verbose'):
-        print(' '.join(shlex.quote(c) for c in cmd))
-    return sp.call(cmd)
-
-
-def find_perms(runner, ids=[], **args):
+def find_perms(runner, test_ids=[], **args):
     runner_ = find_runner(runner, **args)
     case_suites = {}
-    expected_case_perms = co.defaultdict(lambda: 0)
+    expected_case_perms = co.OrderedDict()
     expected_perms = 0
     total_perms = 0
 
     # query cases from the runner
-    cmd = runner_ + ['--list-cases'] + ids
+    cmd = runner_ + ['--list-cases'] + test_ids
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -633,7 +614,9 @@ def find_perms(runner, ids=[], **args):
         if m:
             filtered = int(m.group('filtered'))
             perms = int(m.group('perms'))
-            expected_case_perms[m.group('case')] += filtered
+            expected_case_perms[m.group('case')] = (
+                expected_case_perms.get(m.group('case'), 0)
+                + filtered)
             expected_perms += filtered
             total_perms += perms
     proc.wait()
@@ -644,7 +627,7 @@ def find_perms(runner, ids=[], **args):
         sys.exit(-1)
 
     # get which suite each case belongs to via paths
-    cmd = runner_ + ['--list-case-paths'] + ids
+    cmd = runner_ + ['--list-case-paths'] + test_ids
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -674,9 +657,11 @@ def find_perms(runner, ids=[], **args):
         sys.exit(-1)
 
     # figure out expected suite perms
-    expected_suite_perms = co.defaultdict(lambda: 0)
+    expected_suite_perms = co.OrderedDict()
     for case, suite in case_suites.items():
-        expected_suite_perms[suite] += expected_case_perms[case]
+        expected_suite_perms[suite] = (
+            expected_suite_perms.get(suite, 0)
+            + expected_case_perms.get(case, 0))
 
     return (
         case_suites,
@@ -746,6 +731,83 @@ def find_defines(runner, id, **args):
 
     return defines
 
+def find_ids(runner, test_ids=[], **args):
+    otest_ids = test_ids
+
+    # we can avoid an extra lookup if all ids are explicit
+    if not (args.get('by_cases')
+            or args.get('by_suites')
+            or any('*' in id for id in test_ids)):
+        return test_ids
+
+    # lookup suites/cases
+    (suite_cases,
+        expected_suite_perms,
+        expected_case_perms,
+        _,
+        _) = find_perms(runner, **args)
+
+    # no ids => all ids, only before globs!
+    if not test_ids and args.get('by_cases'):
+        return [case_ for case_ in expected_case_perms.keys()]
+    if not test_ids and args.get('by_suites'):
+        return [suite for suite in expected_suite_perms.keys()]
+
+    # first resolve globs
+    test_ids_ = []
+    for id in test_ids:
+        if '*' in id:
+            test_ids_.extend(suite
+                for suite in expected_suite_perms.keys()
+                if fnmatch.fnmatch(suite, id))
+            test_ids_.extend(case_
+                for case_ in expected_case_perms.keys()
+                if fnmatch.fnmatch(case_, id))
+        else:
+            test_ids_.append(id)
+    test_ids = test_ids_
+
+    # expand suites to cases?
+    if args.get('by_cases'):
+        test_ids_ = []
+        for id in test_ids:
+            if id in expected_suite_perms:
+                for case_, suite in suite_cases.items():
+                    if suite == id:
+                        test_ids_.append(case_)
+            else:
+                test_ids_.append(id)
+        test_ids = test_ids_
+
+    # no test ids found? return a garbage id for consistency
+    if not test_ids:
+        return '?'
+
+    return test_ids
+
+
+def list_(runner, test_ids=[], **args):
+    cmd = find_runner(runner, **args)
+    cmd.extend(find_ids(runner, test_ids, **args))
+
+    if args.get('summary'):          cmd.append('--summary')
+    if args.get('list_suites'):      cmd.append('--list-suites')
+    if args.get('list_cases'):       cmd.append('--list-cases')
+    if args.get('list_suite_paths'): cmd.append('--list-suite-paths')
+    if args.get('list_case_paths'):  cmd.append('--list-case-paths')
+    if args.get('list_defines'):     cmd.append('--list-defines')
+    if args.get('list_permutation_defines'):
+                                     cmd.append('--list-permutation-defines')
+    if args.get('list_implicit_defines'):
+                                     cmd.append('--list-implicit-defines')
+    if args.get('list_geometries'):  cmd.append('--list-geometries')
+    if args.get('list_powerlosses'): cmd.append('--list-powerlosses')
+
+    if args.get('verbose'):
+        print(' '.join(shlex.quote(c) for c in cmd))
+    return sp.call(cmd)
+
+
 
 # Thread-safe CSV writer
 class TestOutput:
@@ -790,13 +852,13 @@ class TestFailure(Exception):
         self.stdout = stdout
         self.assert_ = assert_
 
-def run_stage(name, runner, ids, stdout_, trace_, output_, **args):
+def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
     # get expected suite/case/perm counts
     (case_suites,
         expected_suite_perms,
         expected_case_perms,
         expected_perms,
-        total_perms) = find_perms(runner, ids, **args)
+        total_perms) = find_perms(runner, test_ids, **args)
 
     passed_suite_perms = co.defaultdict(lambda: 0)
     passed_case_perms = co.defaultdict(lambda: 0)
@@ -918,7 +980,7 @@ def run_stage(name, runner, ids, stdout_, trace_, output_, **args):
             else:
                 runner_.append('-s%s,,%s' % (start, step))
 
-            runner_.extend(ids)
+            runner_.extend(test_ids)
 
             try:
                 # run the tests
@@ -1033,6 +1095,9 @@ def run(runner, test_ids=[], **args):
     # query runner for tests
     print('using runner: %s' % ' '.join(
         shlex.quote(c) for c in find_runner(runner, **args)))
+
+    # query ids, perms, etc
+    test_ids = find_ids(runner, test_ids, **args)
     (_,
         expected_suite_perms,
         expected_case_perms,
@@ -1070,10 +1135,7 @@ def run(runner, test_ids=[], **args):
     passed = 0
     powerlosses = 0
     failures = []
-    for by in (test_ids if test_ids
-            else expected_case_perms.keys() if args.get('by_cases')
-            else expected_suite_perms.keys() if args.get('by_suites')
-            else [None]):
+    for by in (test_ids if test_ids else [None]):
         # spawn jobs for stage
         (expected_,
             passed_,
