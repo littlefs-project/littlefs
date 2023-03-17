@@ -468,7 +468,7 @@ def collect(csv_paths, renames=[]):
 
 def dataset(results, x=None, y=None, define=[]):
     # organize by 'by', x, and y
-    dataset = {}
+    dataset = []
     i = 0
     for r in results:
         # filter results by matching defines
@@ -498,10 +498,7 @@ def dataset(results, x=None, y=None, define=[]):
         else:
             y_ = None
 
-        if y_ is not None:
-            dataset[x_] = y_ + dataset.get(x_, 0)
-        else:
-            dataset[x_] = y_ or dataset.get(x_, None)
+        dataset.append((x_, y_))
 
     return dataset
 
@@ -880,7 +877,7 @@ def main(csv_paths, *,
     if labels is not None:
         labels_ = labels
     else:
-        labels_ = ['']
+        labels_ = [None]
 
     # allow escape codes in labels/titles
     title = escape(title).splitlines() if title is not None else []
@@ -1018,6 +1015,8 @@ def main(csv_paths, *,
         if legend_right or legend_above or legend_below:
             legend_ = []
             for i, k in enumerate(datasets_.keys()):
+                if datalabels_[k] is not None and not datalabels_[k]:
+                    continue
                 label = '%s%s' % (
                     '%s ' % datachars_[k]
                         if chars is not None
@@ -1028,7 +1027,7 @@ def main(csv_paths, *,
                         or ','.join(k_ for k_ in k if k_))
 
                 if label:
-                    legend_.append(label)
+                    legend_.append((label, colors_[i % len(colors_)]))
                     legend_width = max(legend_width, len(label)+1)
 
         # figure out our canvas size
@@ -1064,7 +1063,7 @@ def main(csv_paths, *,
             legend_cols = len(legend_)
             while True:
                 legend_widths = [
-                    max(len(l) for l in legend_[i::legend_cols])
+                    max(len(l) for l, _ in legend_[i::legend_cols])
                     for i in range(legend_cols)]
                 if (legend_cols <= 1
                         or sum(legend_widths)+2*(legend_cols-1)
@@ -1077,7 +1076,7 @@ def main(csv_paths, *,
             legend_cols = len(legend_)
             while True:
                 legend_widths = [
-                    max(len(l) for l in legend_[i::legend_cols])
+                    max(len(l) for l, _ in legend_[i::legend_cols])
                     for i in range(legend_cols)]
                 if (legend_cols <= 1
                         or sum(legend_widths)+2*(legend_cols-1)
@@ -1151,27 +1150,27 @@ def main(csv_paths, *,
             # find actual xlim/ylim
             xlim_ = (
                 xlim_[0] if xlim_[0] is not None
-                    else min(it.chain([0], (k
-                        for r in subdatasets.values()
-                        for k, v in r.items()
-                        if v is not None))),
+                    else min(it.chain([0], (x
+                        for dataset in subdatasets.values()
+                        for x, y in dataset
+                        if y is not None))),
                 xlim_[1] if xlim_[1] is not None
-                    else max(it.chain([0], (k
-                        for r in subdatasets.values()
-                        for k, v in r.items()
-                        if v is not None))))
+                    else max(it.chain([0], (x
+                        for dataset in subdatasets.values()
+                        for x, y in dataset
+                        if y is not None))))
 
             ylim_ = (
                 ylim_[0] if ylim_[0] is not None
-                    else min(it.chain([0], (v
-                        for r in subdatasets.values()
-                        for _, v in r.items()
-                        if v is not None))),
+                    else min(it.chain([0], (y
+                        for dataset in subdatasets.values()
+                        for _, y in dataset
+                        if y is not None))),
                 ylim_[1] if ylim_[1] is not None
-                    else max(it.chain([0], (v
-                        for r in subdatasets.values()
-                        for _, v in r.items()
-                        if v is not None))))
+                    else max(it.chain([0], (y
+                        for dataset in subdatasets.values()
+                        for _, y in dataset
+                        if y is not None))))
 
             # find actual width/height
             subwidth = sum(widths[s.x:s.x+s.xspan]) - sum(s.xmargin)
@@ -1190,7 +1189,7 @@ def main(csv_paths, *,
 
             for name, dataset in subdatasets.items():
                 plot.plot(
-                    sorted((x,y) for x,y in dataset.items()),
+                    sorted((x,y) for x,y in dataset),
                     color=datacolors_[name],
                     char=datachars_[name],
                     line_char=dataline_chars_[name])
@@ -1230,11 +1229,9 @@ def main(csv_paths, *,
                             // 2,
                         0), '',
                     '  '.join('%s%s%s' % (
-                        '\x1b[%sm' % colors_[(i+j) % len(colors_)]
-                            if color else '',
-                        '%-*s' % (legend_widths[j], legend_[i+j]),
-                        '\x1b[m'
-                            if color else '')
+                        '\x1b[%sm' % legend_[i+j][1] if color else '',
+                        '%-*s' % (legend_widths[j], legend_[i+j][0]),
+                        '\x1b[m' if color else '')
                         for j in range(min(legend_cols, len(legend_)-i)))))
 
         for row in range(height_):
@@ -1344,8 +1341,8 @@ def main(csv_paths, *,
                     and row-ymargin[-1] < len(legend_)):
                 j = row-ymargin[-1]
                 f.write(' %s%s%s' % (
-                    '\x1b[%sm' % colors_[j % len(colors_)] if color else '',
-                    legend_[j],
+                    '\x1b[%sm' % legend_[j][1] if color else '',
+                    legend_[j][0],
                     '\x1b[m' if color else ''))
 
             f.writeln()
@@ -1366,9 +1363,9 @@ def main(csv_paths, *,
                             // 2,
                         0), '',
                     '  '.join('%s%s%s' % (
-                        '\x1b[%sm' % colors_[(i+j) % len(colors_)]
+                        '\x1b[%sm' % legend_[i+j][1]
                             if color else '',
-                        '%-*s' % (legend_widths[j], legend_[i+j]),
+                        '%-*s' % (legend_widths[j], legend_[i+j][0]),
                         '\x1b[m'
                             if color else '')
                         for j in range(min(legend_cols, len(legend_)-i)))))
@@ -1552,7 +1549,8 @@ if __name__ == "__main__":
         '-t', '--title',
         help="Add a title.")
     parser.add_argument(
-        '-l', '--legend-right',
+        '-l', '--legend', '--legend-right',
+        dest='legend_right',
         action='store_true',
         help="Place a legend to the right.")
     parser.add_argument(

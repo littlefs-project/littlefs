@@ -214,7 +214,7 @@ def collect(csv_paths, renames=[]):
 
 def dataset(results, x=None, y=None, define=[]):
     # organize by 'by', x, and y
-    dataset = {}
+    dataset = []
     i = 0
     for r in results:
         # filter results by matching defines
@@ -244,10 +244,7 @@ def dataset(results, x=None, y=None, define=[]):
         else:
             y_ = None
 
-        if y_ is not None:
-            dataset[x_] = y_ + dataset.get(x_, 0)
-        else:
-            dataset[x_] = y_ or dataset.get(x_, None)
+        dataset.append((x_, y_))
 
     return dataset
 
@@ -649,7 +646,7 @@ def main(csv_paths, output, *,
     if labels is not None:
         labels_ = labels
     else:
-        labels_ = ['']
+        labels_ = [None]
 
     if font_color is not None:
         font_color_ = font_color
@@ -844,7 +841,7 @@ def main(csv_paths, output, *,
         # plot!
         ax = s.ax
         for name, dataset in subdatasets.items():
-            dats = sorted((x,y) for x,y in dataset.items())
+            dats = sorted((x,y) for x,y in dataset)
             ax.plot([x for x,_ in dats], [y for _,y in dats],
                 dataformats_[name],
                 color=datacolors_[name],
@@ -860,26 +857,26 @@ def main(csv_paths, output, *,
         # axes limits
         ax.set_xlim(
             xlim_[0] if xlim_[0] is not None
-                else min(it.chain([0], (k
-                    for r in subdatasets.values()
-                    for k, v in r.items()
-                    if v is not None))),
+                else min(it.chain([0], (x
+                    for dataset in subdatasets.values()
+                    for x, y in dataset
+                    if y is not None))),
             xlim_[1] if xlim_[1] is not None
-                else max(it.chain([0], (k
+                else max(it.chain([0], (x
                     for r in subdatasets.values()
-                    for k, v in r.items()
-                    if v is not None))))
+                    for x, y in dataset
+                    if y is not None))))
         ax.set_ylim(
             ylim_[0] if ylim_[0] is not None
-                else min(it.chain([0], (v
-                    for r in subdatasets.values()
-                    for _, v in r.items()
-                    if v is not None))),
+                else min(it.chain([0], (y
+                    for dataset in subdatasets.values()
+                    for _, y in dataset
+                    if y is not None))),
             ylim_[1] if ylim_[1] is not None
-                else max(it.chain([0], (v
-                    for r in subdatasets.values()
-                    for _, v in r.items()
-                    if v is not None))))
+                else max(it.chain([0], (y
+                    for dataset in subdatasets.values()
+                    for _, y in dataset
+                    if y is not None))))
         # axes ticks
         if x2_:
             ax.xaxis.set_major_formatter(lambda x, pos:
@@ -960,7 +957,10 @@ def main(csv_paths, output, *,
     for name in datasets_.keys():
         name_ = ','.join(k for k in name if k)
         if name_ in legend:
-            legend_.append((datalabels_[name] or name_, legend[name_]))
+            if datalabels_[name] is None:
+                legend_.append((name_, legend[name_]))
+            elif datalabels_[name]:
+                legend_.append((datalabels_[name], legend[name_]))
     legend = legend_
 
     if legend_right:
@@ -1226,7 +1226,8 @@ if __name__ == "__main__":
         '-t', '--title',
         help="Add a title.")
     parser.add_argument(
-        '-l', '--legend-right',
+        '-l', '--legend', '--legend-right',
+        dest='legend_right',
         action='store_true',
         help="Place a legend to the right.")
     parser.add_argument(
