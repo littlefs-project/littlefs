@@ -226,6 +226,9 @@ License Identifiers that are here available: http://spdx.org/licenses/
   to create images of the filesystem on your PC. Check if littlefs will fit
   your needs, create images for a later download to the target memory or
   inspect the content of a binary image of the target memory.
+  
+- [littlefs2-rust] - Idiomatic Rust API for the littlefs microcontroller
+  filesystem with ow-level bindings provided by the [littlefs2-sys] crate.
 
 - [littlefs-disk-img-viewer] - A memory-efficient web application for viewing
   littlefs disk images in your web browser.
@@ -263,4 +266,6 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [SPIFFS]: https://github.com/pellepl/spiffs
 [Dhara]: https://github.com/dlbeer/dhara
 [littlefs-python]: https://pypi.org/project/littlefs-python/
+[littlefs2-rust]: https://crates.io/crates/littlefs2
+[littlefs2-sys]: https://crates.io/crates/littlefs2-sys
 [chamelon]: https://github.com/yomimono/chamelon
