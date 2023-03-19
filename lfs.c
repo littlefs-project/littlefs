@@ -944,59 +944,6 @@ static lfs_ssize_t lfsr_fcrc_fromdisk(
     return sizeof(uint32_t) + delta;
 }
 
-//// btree on-disk encoding
-//#define LFSR_BTREE_DSIZE 14
-//
-//static lfs_ssize_t lfsr_btree_todisk(
-//        const lfsr_btree_t *btree,
-//        uint8_t buf[static LFSR_BTREE_DSIZE]) {
-//    lfs_ssize_t delta = 0;
-//    lfs_ssize_t delta_ = lfs_toleb128(btree->block, &buf[delta], 5);
-//    if (delta_ < 0) {
-//        return delta_;
-//    }
-//    delta += delta_;
-//
-//    delta_ = lfs_toleb128(btree->limit, &buf[delta], 4);
-//    if (delta_ < 0) {
-//        return delta_;
-//    }
-//    delta += delta_;
-//
-//    delta_ = lfs_toleb128(btree->weight, &buf[delta], 5);
-//    if (delta_ < 0) {
-//        return delta_;
-//    }
-//    delta += delta_;
-//
-//    return delta;
-//}
-//
-//static lfs_ssize_t lfsr_btree_fromdisk(
-//        lfsr_btree_t *btree,
-//        const uint8_t buf[static LFSR_BTREE_DSIZE]) {
-//    lfs_ssize_t delta = 0;
-//    lfs_ssize_t delta_ = lfs_fromleb128(&btree->block, &buf[delta], 5);
-//    if (delta_ < 0) {
-//        return delta_;
-//    }
-//    delta += delta_;
-//
-//    delta_ = lfs_fromleb128(&btree->limit, &buf[delta], 4);
-//    if (delta_ < 0) {
-//        return delta_;
-//    }
-//    delta += delta_;
-//
-//    delta_ = lfs_fromleb128(&btree->weight, &buf[delta], 5);
-//    if (delta_ < 0) {
-//        return delta_;
-//    }
-//    delta += delta_;
-//
-//    return delta;
-//}
-
 // other endianness operations
 static void lfs_ctz_fromle32(struct lfs_ctz *ctz) {
     ctz->head = lfs_fromle32(ctz->head);
@@ -1650,239 +1597,6 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     }
 
     return size_;
-}
-
-// TODO should we merge this into lfsr_rbyd_lookup?
-static int lfsr_rbyd_predictedlookup(lfs_t *lfs,
-        const lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs,
-        lfsr_tag_t tag, lfs_ssize_t id,
-        lfsr_tag_t *tag_, lfs_ssize_t *id_, lfsr_data_t *data_) {
-    // For this lookup to work it requires a lot of caveats:
-    //
-    // 1. Finding the weight is much more difficult when attrs aren't on disk
-    //    so we don't do this. Note that weight can still be derived during
-    //    traversal by diffing ids.
-    //
-    // 2. Our grow/shrink checks expect the grow/shrink ids to always be on the
-    //    lowest id. This is notably different from our rbyd bias. Fortunately
-    //    this is only a requirement of in-flight attrs so this isn't a
-    //    requirement on-disk.
-    
-again:;
-    // tag must be non-zero! zero tags may deceptively look like they work but
-    // fail when the tree contains a deleted id0
-    LFS_ASSERT(tag != 0);
-
-    // keep track of best id/tag and upper/lower bounds to determine weight
-    lfs_ssize_t id__ = id;
-    lfs_ssize_t best_id = -2;
-    lfsr_tag_t best_tag = 0;
-    lfsr_data_t best_data = LFSR_DATA_NULL;
-
-    // search through our tags backwards to figure out the best tag/id
-    // TODO hmm, reverse iteration over a linked-list? this is a bad design
-    unsigned attr_count = 0;
-    for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
-        attr_count += 1;
-    }
-    for (unsigned i = 0; i < attr_count; i++) {
-        const struct lfsr_attr *attr = attrs;
-        for (unsigned j = 0; j < attr_count-1-i; j++) {
-            attr = attr->next;
-        }
-
-        if (attr->tag == LFSR_TAG_GROW) {
-            // found grow which includes both target and best ids? this
-            // must be the source of the best tag
-            if (attr->id <= id__
-                    && best_id != -2
-                    && attr->id+(lfs_ssize_t)attr->size > best_id) {
-                goto found;
-
-            // found grow which only includes target id? this must be a
-            // weight-changing grow so we can just adjust our target id to
-            // follow the upper edge of the grow
-            } else if (attr->id <= id__
-                    && attr->id+(lfs_ssize_t)attr->size > id__) {
-                id += attr->id+attr->size - id__;
-                id__ = attr->id;
-                tag = 0x10;
-
-            // adjust ids
-            } else if (attr->id <= id__) {
-                id__ -= attr->size;
-                if (best_id != -2) {
-                    best_id -= attr->size;
-                }
-
-            // use grow as upper bound
-            } else if (best_id == -2 || attr->id <= best_id) {
-                best_id = attr->id-1;
-                best_tag = 0;
-            }
-        } else if (attr->tag == LFSR_TAG_SHRINK) {
-            // adjust ids
-            if (attr->id <= id__) {
-                id__ += attr->size;
-                if (best_id != -2) {
-                    best_id += attr->size;
-                }
-
-            // use shrink as upper bound
-            } else if (best_id == -2 || attr->id <= best_id) {
-                best_id = attr->id-1;
-                best_tag = 0;
-            }
-
-        } else if (attr->tag == LFSR_TAG_FROM) {
-            // TODO
-            LFS_ASSERT(false);
-
-        } else {
-            // found better tag?
-            if ((attr->id > id__
-                        || (attr->id == id__
-                            && lfsr_tag_key(attr->tag)
-                                >= lfsr_tag_key(tag)))
-                    && (best_id == -2
-                        || attr->id < best_id
-                        || (attr->id == best_id
-                            && (!best_tag
-                                || lfsr_tag_key(attr->tag)
-                                    < lfsr_tag_key(best_tag))))) {
-                best_id = attr->id;
-                best_tag = attr->tag;
-                best_data = LFSR_DATA_BUF(attr->buffer, attr->size);
-            }
-        }
-    }
-
-    // try to found our id/tag on disk
-    lfsr_tag_t rbyd_tag;
-    lfs_ssize_t rbyd_id;
-    lfs_off_t rbyd_off;
-    lfs_size_t rbyd_size;
-    int err = lfsr_rbyd_lookup(lfs, rbyd, tag, id__,
-            &rbyd_tag, &rbyd_id, NULL, &rbyd_off, &rbyd_size);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-
-    if (err != LFS_ERR_NOENT) {
-        // found a better tag?
-        if (best_id == -2
-                || rbyd_id < best_id
-                || (rbyd_id == best_id
-                    && (!best_tag
-                        || lfsr_tag_key(rbyd_tag)
-                            < lfsr_tag_key(best_tag)))) {
-            best_id = rbyd_id;
-            best_tag = rbyd_tag;
-            best_data = LFSR_DATA_DISK(rbyd->block, rbyd_off, rbyd_size);
-        }
-    }
-
-found:;
-    // no better id found
-    if (best_id == -2) {
-        return LFS_ERR_NOENT;
-    }
-
-    // no tag found? increase id
-    if (!best_tag || lfsr_tag_isrm(best_tag)) {
-        tag = best_tag + 0x10;
-        id = best_id+(id-id__) + 1;
-        goto again;
-    }
-
-    // found an id/tag
-    // TODO how many of these should be conditional?
-    if (tag_) {
-        *tag_ = best_tag;
-    }
-    if (id_) {
-        *id_ = best_id+(id-id__);
-    }
-    if (data_) {
-        *data_ = best_data;
-    }
-
-    return 0;
-}
-
-// TODO do we need this function?
-static lfs_ssize_t lfsr_rbyd_predictedget(lfs_t *lfs,
-        const lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs,
-        lfsr_tag_t tag, lfs_ssize_t id, void *buffer, lfs_size_t size) {
-    lfsr_tag_t tag_;
-    lfs_ssize_t id_;
-    lfsr_data_t data_;
-    int err = lfsr_rbyd_predictedlookup(lfs, rbyd, attrs, tag, id,
-            &tag_, &id_, &data_);
-    if (err) {
-        return err;
-    }
-
-    // lookup finds the next-smallest tag, for get, we need to fail
-    // if it's not an exact match
-    if (id_ != id || tag_ != tag) {
-        return LFS_ERR_NOENT;
-    }
-
-    // TODO should this be its own lfsr_data_ function?
-    lfs_size_t delta = lfs_min(size, lfsr_data_len(data_));
-    if (!lfsr_data_ondisk(data_)) {
-        memcpy(buffer, data_.u.buf, delta);
-    } else {
-        err = lfs_bd_read(lfs,
-                &lfs->pcache, &lfs->rcache, delta,
-                data_.u.disk.block, data_.u.disk.off, buffer, delta);
-        if (err) {
-            return err;
-        }
-    }
-
-    return lfsr_data_len(data_);
-}
-
-static lfs_ssize_t lfsr_rbyd_predictedsize(
-        lfs_t *lfs, const lfsr_rbyd_t *rbyd, const struct lfsr_attr *attrs,
-        lfs_ssize_t start, lfs_ssize_t stop) {
-    // find the strict upper bound on the amount of disk taken by a range of
-    // tags immediately after compaction (when the tags should be perfectly
-    // rbyd balanced), this is used for a number of heuristics
-
-    // find the size/count of tags
-    lfsr_tag_t tag = 0;
-    lfs_ssize_t id = start;
-    lfs_size_t count = 0;
-    lfs_size_t dsize = 0;
-    while (true) {
-        lfsr_data_t data;
-        int err = lfsr_rbyd_predictedlookup(lfs, rbyd, attrs,
-                lfsr_tag_next(tag), id,
-                &tag, &id, &data);
-        if (err < 0 && err != LFS_ERR_NOENT) {
-            return err;
-        }
-
-        if (err == LFS_ERR_NOENT || id >= stop) {
-            break;
-        }
-
-        count += 1;
-        dsize += lfsr_data_len(data);
-    }
-
-    // make sure to account for both tag and alt metametadata, and assume the
-    // worst-case leb128 encoding for tags. Note that since we assume this is
-    // immediately after compaciton, the tree should be perfectly rbyd
-    // balanced, which puts a strict upper bound of 2*log2(n)+1 on the space
-    // overhead per tag
-//    printf("predictedsize: %d + %d*(12 + 2*log2(%d)+1)*12 = %d\n",
-//            dsize, count, count,
-//            dsize + count*(12 + (2*lfs_nlog2(count)+1)*12));
-    return dsize + count*(12 + (2*lfs_nlog2(count)+1)*12);
 }
 
 static lfs_ssize_t lfsr_rbyd_bisect(lfs_t *lfs, const lfsr_rbyd_t *rbyd) {
@@ -2638,172 +2352,6 @@ leaf:;
     return 0;
 }
 
-//static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
-//    LFS_ASSERT(rbyd->erased);
-//    LFS_ASSERT(rbyd->off == 0);
-//
-//    // append revision count, this should start every rbyd
-//    uint32_t rev;
-//    lfs_tole32_(rbyd->rev, &rev);
-//    int err = lfsr_rbyd_prog(lfs, rbyd,
-//            &rev, sizeof(uint32_t), &rbyd->crc);
-//    if (err) {
-//        rbyd->erased = false;
-//        return err;
-//    }
-//
-//    return 0;
-//}
-
-//static int lfsr_rbyd_appendcrc(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-//        lfs_off_t off, uint32_t crc) {
-//    LFS_ASSERT(rbyd->erased);
-//
-//    // align to the next prog unit
-//    //
-//    // this gets a bit complicated as we have two types of crcs:
-//    //
-//    // - 9-word crc with fcrc to check following prog (middle of block)
-//    //   - fcrc tag type => 1 byte leb128
-//    //   - fcrc tag id   => 1 byte leb128
-//    //   - fcrc tag size => 1 byte leb128 (worst case)
-//    //   - fcrc crc      => 4 byte le32
-//    //   - fcrc size     => 5 byte leb128 (worst case)
-//    //   - crc tag type  => 1 byte leb128
-//    //   - crc tag id    => 1 byte leb128
-//    //   - crc tag size  => 5 byte leb128 (worst case)
-//    //   - crc crc       => 4 byte le32
-//    //                   => 23 bytes total
-//    //
-//    // - 4-word crc with no following prog (end of block)
-//    //   - crc tag type => 1 byte leb128
-//    //   - crc tag id   => 1 byte leb128
-//    //   - crc tag size => 5 byte leb128 (worst case)
-//    //   - crc crc      => 4 byte le32
-//    //                  => 11 bytes total
-//    //
-//    lfs_off_t aligned = lfs_alignup(
-//            rbyd->off + 1+1+1+4+5 + 1+1+5+4,
-//            lfs->cfg->prog_size);
-//
-//    // space for fcrc?
-//    uint8_t perturb = 0;
-//    if (aligned <= lfs->cfg->block_size - lfs->cfg->prog_size) {
-//        // read the leading byte in case we need to change the expected
-//        // value of the next tag's valid bit
-//        int err = lfs_bd_read(lfs,
-//                &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
-//                rbyd->block, aligned, &perturb, 1);
-//        if (err && err != LFS_ERR_CORRUPT) {
-//            rbyd->erased = false;
-//            return err;
-//        }
-//
-//        // find the expected fcrc, don't bother avoiding a reread of the
-//        // perturb byte, as it should still be in our cache
-//        struct lfsr_fcrc fcrc = {.crc=0, .size=lfs->cfg->prog_size};
-//        err = lfs_bd_crc32c(lfs,
-//                &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
-//                rbyd->block, aligned, fcrc.size, &fcrc.crc);
-//        if (err && err != LFS_ERR_CORRUPT) {
-//            rbyd->erased = false;
-//            return err;
-//        }
-//
-//        uint8_t fbuf[LFSR_FCRC_DSIZE];
-//        lfs_size_t fcrc_delta = lfsr_fcrc_todisk(&fcrc, fbuf);
-//        err = lfsr_rbyd_progtag(lfs, rbyd,
-//                LFSR_TAG_FCRC, -1, fcrc_delta, &rbyd->crc);
-//        if (err) {
-//            rbyd->erased = false;
-//            return err;
-//        }
-//
-//        err = lfsr_rbyd_prog(lfs, rbyd,
-//                fbuf, fcrc_delta, &rbyd->crc);
-//        if (err) {
-//            rbyd->erased = false;
-//            return err;
-//        }
-//    } else {
-//        // recalculate aligned without fcrc
-//        aligned = lfs_alignup(
-//            rbyd->off + 1+1+5+4,
-//            lfs->cfg->prog_size);
-//        rbyd->erased = false;
-//    }
-//
-//    // not even space for the crc?
-//    if (aligned > lfs->cfg->block_size) {
-//        lfs_cache_zero(lfs, &lfs->pcache);
-//        rbyd->erased = false;
-//        return LFS_ERR_RANGE;
-//    }
-//
-//    // build end-of-commit crc
-//    //
-//    // note padding-size depends on leb-encoding depends on padding-size, to
-//    // get around this catch-22 we just always write a fully-expanded leb128
-//    // encoding
-//    uint8_t buffer[1+1+5+4];
-//    buffer[0] = LFSR_TAG_CRC | (lfs_popc(rbyd->crc) & 1);
-//    buffer[1] = 0;
-//
-//    lfs_off_t padding = aligned - (rbyd->off + 1+1+5);
-//    buffer[2] = 0x80 | (0x7f & (padding >>  0));
-//    buffer[3] = 0x80 | (0x7f & (padding >>  7));
-//    buffer[4] = 0x80 | (0x7f & (padding >> 14));
-//    buffer[5] = 0x80 | (0x7f & (padding >> 21));
-//    buffer[6] = 0x00 | (0x7f & (padding >> 28));
-//
-//    rbyd->crc = lfs_crc32c(rbyd->crc, buffer, 1+1+5);
-//    // we can't let the next tag appear as valid, so intentionally perturb the
-//    // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
-//    // so we can really change any bit to make this happen, we've reserved a bit
-//    // in crc tags just for this purpose
-//    if ((lfs_popc(rbyd->crc) & 1) == (perturb & 1)) {
-//        buffer[0] ^= 0x10;
-//        rbyd->crc ^= 0x9c5bfaa6; // note crc(a ^ b) == crc(a) ^ crc(b)
-//    }
-//    lfs_tole32_(rbyd->crc, &buffer[1+1+5]);
-//
-//    int err = lfsr_rbyd_prog(lfs, rbyd, buffer, 1+1+5+4, NULL);
-//    if (err) {
-//        rbyd->erased = false;
-//        return err;
-//    }
-//
-//    // flush our caches, finalizing the commit on-disk
-//    err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
-//    if (err) {
-//        rbyd->erased = false;
-//        return err;
-//    }
-//
-//    // succesful commit, check checksum to make sure
-//    uint32_t crc_ = crc;
-//    err = lfs_bd_crc32c(lfs,
-//            NULL, &lfs->rcache, rbyd->off-4,
-//            rbyd->block, off, rbyd->off-4 - off, &crc_);
-//    if (err) {
-//        rbyd->erased = false;
-//        return err;
-//    }
-//
-//    if (rbyd->crc != crc_) {
-//        // oh no, something went wrong
-//        LFS_ERROR("Rbyd corrupted during commit "
-//                "(block=0x%"PRIx32", 0x%08"PRIx32" != 0x%08"PRIx32")",
-//                rbyd->block, rbyd->crc, crc_);
-//        rbyd->erased = false;
-//        return LFS_ERR_CORRUPT;
-//    }
-//
-//    // ok, everything is good, save what we've committed
-//    rbyd->off = aligned;
-//    return 0;
-//}
-
 static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const struct lfsr_attr *attrs) {
     // we can't do anything if we're not erased
@@ -2829,83 +2377,11 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // append each tag to the tree
     for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
-        // TODO can FROM/COMPACT share more logic?
-        // indirect set of attributes from another rbyd
-        if (attr->tag == LFSR_TAG_FROM) {
-            LFS_ASSERT(false);
-
-            const struct lfsr_attr_from *from = attr->buffer;
-
-//            // first create one grow for the entire from range
-//            // TODO should LFSR_DATA_BUF be used this way? smells fishy
-//            int err = lfsr_rbyd_append(lfs, &rbyd_,
-//                    LFSR_TAG_GROW, attr->id, LFSR_DATA_BUF(NULL, attr->size));
-//            if (err) {
-//                return err;
-//            }
-
-            // now copy over ids
-            lfsr_tag_t tag = 0;
-            lfs_ssize_t id = from->start;
-            while (true) {
-                lfsr_tag_t tag_;
-                lfs_ssize_t id_;
-                lfsr_data_t data_;
-                int err = lfsr_rbyd_predictedlookup(
-                        lfs, from->rbyd, from->attrs,
-                        lfsr_tag_next(tag), id,
-                        &tag_, &id_, &data_);
-                if (err && err != LFS_ERR_NOENT) {
-                    return err;
-                }
-
-                if (err == LFS_ERR_NOENT || id_-from->start >= attr->size) {
-                    break;
-                }
-
-                // TODO this is really wasteful and throws off our predicted
-                // size, can we combine grows into the tag append in the rbyd
-                // somehow?
-                // create grows as necessary
-                lfs_size_t weight_ = id_-id + (tag == 0 ? 1 : 0);
-//                printf("from %d %x w%d\n", id_, tag_, weight_);
-                if (weight_ > 0) {
-                    int err = lfsr_rbyd_append(lfs, &rbyd_,
-                            LFSR_TAG_GROW,
-                            attr->id+(id_-from->start)-(weight_-1),
-                            // TODO also this is a weird way to use lfsr_data_t
-                            LFSR_DATA_BUF(NULL, weight_));
-                    if (err) {
-                        return err;
-                    }
-                }
-
-                // append the attr
-                err = lfsr_rbyd_append(lfs, &rbyd_,
-                        tag_, attr->id+(id_-from->start), data_);
-                if (err) {
-                    return err;
-                }
-
-                tag = tag_;
-                id = id_;
-            }
-
-//        // attempting to compact an rbyd, this is the same as LFSR_TAG_FROM,
-//        // except we may abort if we exceed our compaction threshold
-//        // (1/2 block_size)
-//        } else if (attr->tag == LFSR_TAG_COMPACT) {
-//            
-//        
-//
-        // a normal attribute
-        } else {
-            int err = lfsr_rbyd_append(lfs, &rbyd_,
-                    attr->tag, attr->id,
-                    LFSR_DATA_BUF(attr->buffer, attr->size));
-            if (err) {
-                return err;
-            }
+        int err = lfsr_rbyd_append(lfs, &rbyd_,
+                attr->tag, attr->id,
+                LFSR_DATA_BUF(attr->buffer, attr->size));
+        if (err) {
+            return err;
         }
     }
 
@@ -3177,8 +2653,6 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
             return err;
         }
 
-//        printf("lookup %x#%x %d => %d %x %d\n", branch.block, branch.limit, rid, rid__, tag__, size_);
-
         // found another branch
         if (tag__ == LFSR_TAG_BRANCH) {
             // adjust rid with subtree's weight
@@ -3198,8 +2672,6 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
             if (delta < 0) {
                 return delta;
             }
-
-//            printf("branch %x#%x\n", branch.block, branch.limit);
 
         // found our id
         } else {
@@ -3347,12 +2819,10 @@ static int lfsr_btree_commit(lfs_t *lfs,
             pid = -1;
         }
         lfs_size_t pweight = rbyd->weight;
-//        printf("parent: %x#%x %dw%d\n", parent.block, parent.off, pid, pweight);
 
         // is rbyd erased? can we sneak our commit into any remaining
         // erased bytes? note that the btree limit prevents this from mutating
         // other references to the rbyd
-//        printf("committing to %x+%x...\n", rbyd->block, rbyd->off);
         err = lfsr_rbyd_commit(lfs, rbyd, attrs);
         if (err && err != LFS_ERR_RANGE) {
             // TODO wait should we also move if there is corruption here?
@@ -3400,76 +2870,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // no? try to compact
     compact:;
-//        // wait are we root? is our root+attrs degenerate? we might be able to
-//        // inline/collapse our root
-//        //
-//        // we really need to figure this out before allocation/erasing, but
-//        // determining if our root+attrs is degenerate without writing to the
-//        // rbyd is a bit difficult
-//        if (pid == -1) {
-//            
-//        }
-//
-// goddammit this doesn't work if we have attrs, needs more thought
-//
-//        // wait, are we root and a single branch?
-//        if (pid == -1) {
-//            lfs_size_t weight;
-//            err = lfsr_rbyd_lookup(lfs, rbyd, LFSR_TAG_MK, 0,
-//                    NULL, NULL, &weight, NULL, NULL);
-//            if (err) {
-//                assert(!err);
-//                return err;
-//            }
-//
-//            if (weight == rbyd->weight) {
-//                lfsr_tag_t tag;
-//                lfs_off_t off;
-//                lfs_size_t size;
-//                err = lfsr_rbyd_lookup(lfs, rbyd, LFSR_TAG_STRUCT, weight-1,
-//                        &tag, NULL, NULL, &off, &size);
-//                if (err) {
-//                    assert(!err);
-//                    return err;
-//                }
-//
-//                // TODO we can probably use the inlined buf in both branches
-//                // TODO deduplicate?
-//                if (tag == LFSR_TAG_BRANCH) {
-//                    uint8_t buf[LFSR_BRANCH_DSIZE];
-//                    // TODO wait, why min and not an assert?
-//                    lfs_ssize_t delta = lfs_min(LFSR_BRANCH_DSIZE, size);
-//                    err = lfs_bd_read(lfs,
-//                            &lfs->pcache, &lfs->rcache, delta,
-//                            rbyd->block, off, buf, delta);
-//                    if (err) {
-//                        assert(!err);
-//                        return err;
-//                    }
-//
-//                    delta = lfsr_branch_fromdisk(&btree->u.trunk, buf);
-//                    if (delta < 0) {
-//                        assert(!delta);
-//                        return delta;
-//                    }
-//
-//                    return 0;
-//                } else {
-//                    LFS_ASSERT(size <= LFSR_BTREE_INLINE_SIZE);
-//                    err = lfs_bd_read(lfs,
-//                            &lfs->pcache, &lfs->rcache, size,
-//                            rbyd->block, off, btree->u.inlined.buf, size);
-//                    if (err) {
-//                        assert(!err);
-//                        return err;
-//                    }
-//
-//                    btree->tag = tag;
-//                    btree->u.inlined.size = size;
-//                }
-//            }
-//        }
-
         // TODO were we doing something funky with rev?
         // first allocate a new rbyd
         lfsr_rbyd_t rbyd_;
@@ -4291,9 +3691,6 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
                 NULL))))))));
     }
 }
-
-
-        
 
 
 
