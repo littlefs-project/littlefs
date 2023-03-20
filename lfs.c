@@ -691,7 +691,7 @@ typedef struct lfsr_data {
     ((lfsr_data_t){.u.buf=NULL, .len=0})
 
 #define LFSR_DATA_BUF(_buf, _len) \
-    ((lfsr_data_t){.u.buf=_buf, .len=_len})
+    ((lfsr_data_t){.u.buf=(const void*)(_buf), .len=_len})
 
 #define LFSR_DATA_DISK(_block, _off, _len) \
     ((lfsr_data_t){.u.disk.block=_block, .u.disk.off=_off, .len=-(_len)})
@@ -738,27 +738,38 @@ struct lfs_diskoff {
 struct lfsr_attr {
     lfsr_tag_t tag;
     lfs_ssize_t id;
-    const void *buffer;
-    lfs_size_t size;
+    lfsr_data_t data;
     const struct lfsr_attr *next;
 };
 
-#define LFSR_ATTR_(_tag, _id, _buffer, _size, _next) \
-    (&(const struct lfsr_attr){_tag, _id, _buffer, _size, _next})
+#define LFSR_ATTR_(_tag, _id, _buf, _len, _next) \
+    (&(const struct lfsr_attr){ \
+        _tag, _id, \
+        LFSR_DATA_BUF(_buf, _len), \
+        _next})
 
-#define LFSR_ATTR(_type, _id, _buffer, _size, _next) \
-    LFSR_ATTR_(LFSR_TAG_##_type, _id, _buffer, _size, _next)
+#define LFSR_ATTR(_type, _id, _buf, _len, _next) \
+    LFSR_ATTR_(LFSR_TAG_##_type, _id, _buf, _len, _next)
 
-#define LFSR_ATTR_IF_(_pred, _tag, _id, _buffer, _size, _next) \
+#define LFSR_ATTR_DISK_(_tag, _id, _block, _off, _len, _next) \
+    (&(const struct lfsr_attr){ \
+        _tag, _id, \
+        LFSR_DATA_DISK(_block, _off, _len), \
+        _next})
+
+#define LFSR_ATTR_DISK(_type, _id, _block, _off, _len, _next) \
+    LFSR_ATTR_DISK_(LFSR_TAG_##_type, _id, _block, _off, _len, _next)
+
+#define LFSR_ATTR_IF_(_pred, _tag, _id, _buf, _len, _next) \
     LFSR_ATTR_( \
         (_pred) ? (_tag) : LFSR_TAG_GROW, \
         _id, \
-        _buffer, \
-        (_pred) ? (_size) : 0, \
+        _buf, \
+        (_pred) ? (_len) : 0, \
         _next)
 
-#define LFSR_ATTR_IF(_pred, _type, _id, _buffer, _size, _next) \
-    LFSR_ATTR_IF_(_pred, LFSR_TAG_##_type, _id, _buffer, _size, _next)
+#define LFSR_ATTR_IF(_pred, _type, _id, _buf, _len, _next) \
+    LFSR_ATTR_IF_(_pred, LFSR_TAG_##_type, _id, _buf, _len, _next)
 
 struct lfsr_attr_from {
     const lfsr_rbyd_t *rbyd;
@@ -786,24 +797,19 @@ struct lfsr_attr_from {
 
 
 
-//// patterns we can look for during fetch
-//enum lfsr_tag_pat {
-//    LFSR_PAT_LEB128 = 0x0000,
-//    LFSR_PAT_NAME   = 0x0004,
-//};
-
-struct lfsr_pat {
+// find state when looking up by name
+typedef struct lfsr_find {
     // what to search for
     const char *name;
-    lfs_size_t size;
+    lfs_size_t name_len;
 
-    // the result will be placed in found, or, if the tag is not found,
-    // the id will at least contain where you should insert
-    lfsr_tag_t predicted_type;
-    lfsr_tag_t found_type;
+    // if found, the tag/id will be placed in found_tag/found_id, otherwise
+    // found_tag will be zero and found_id will be set to where to insert
+    lfsr_tag_t predicted_tag;
+    lfsr_tag_t found_tag;
     lfs_ssize_t predicted_id;
     lfs_ssize_t found_id;
-};
+} lfsr_find_t;
 
 
 //// operations on pattern lists
@@ -1249,12 +1255,14 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
 
 static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_block_t block, lfs_size_t limit,
-        struct lfsr_pat *pattern) {
-//    // clear any previous state in pattern
-//    if (pattern) {
-//        pattern->predicted &= 0x1;
-//        pattern->found = 0;
-//    }
+        lfsr_find_t *find) {
+    // clear any previous state in our find
+    if (find) {
+        find->predicted_tag = 0;
+        find->predicted_id = -1;
+        find->found_tag = 0;
+        find->found_id = -1;
+    }
 
     // read the revision count and get the crc started
     uint32_t rev;
@@ -1317,8 +1325,22 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // on a bad crc
         if (tag == LFSR_TAG_GROW) {
             weight += size;
+
+            // adjust find
+            if (find && find->predicted_id >= id) {
+                find->predicted_id += size;
+            }
         } else if (tag == LFSR_TAG_SHRINK) {
             weight -= size;
+
+            // adjust find
+            if (find && find->predicted_id >= id) {
+                if (find->predicted_id < id+(lfs_ssize_t)size) {
+                    find->predicted_tag = 0;
+                    find->predicted_id = id;
+                }
+                find->predicted_id -= size;
+            }
         }
 
         // we mostly just skip non-data tags here
@@ -1364,8 +1386,38 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 hasfcrc = true;
             }
 
-//            // test if pattern matches?
-//            if (pattern && lfsr_tag_suptype(tag) == LFSR_TAG_MK) {
+            // found our find?
+            if (find && lfsr_tag_ismk(tag)) {
+                // compare with disk
+                lfs_size_t diff = lfs_min(size, find->name_len);
+                int cmp = lfs_bd_cmp(lfs,
+                        NULL, &lfs->rcache, diff,
+                        block, off, find->name, diff);
+                if (cmp < 0) {
+                    return cmp;
+                }
+
+                if (cmp == LFS_CMP_EQ) {
+                    if (size < find->name_len) {
+                        cmp = LFS_CMP_LT;
+                    } else if (size > find->name_len) {
+                        cmp = LFS_CMP_GT;
+                    }
+                }
+
+                printf("cmp 0x%x.%x \"%.*s\" => %d (id%d > id%d?)\n", block, off, find->name_len, find->name, cmp, id, find->predicted_id);
+
+                // found match?
+                if (cmp == LFS_CMP_EQ) {
+                    find->predicted_tag = tag;
+                    find->predicted_id = id;
+                // didn't find a match, but found a better insertion point
+                } else if (cmp == LFS_CMP_LT && id > find->predicted_id) {
+                    find->predicted_tag = 0;
+                    find->predicted_id = id;
+                }
+            }
+
 //                int cmp;
 //                if (lfsr_tag_pat(pattern->predicted) == LFSR_PAT_LEB128) {
 //                    uint8_t buf[5];
@@ -1390,6 +1442,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 //                    // TODO handle names
 //                    LFS_ASSERT(false);
 //                }
+//
+//                
 //
 //                // note this already handles the shifting of ids
 //                if (cmp == 0) {
@@ -1444,9 +1498,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             rbyd->trunk = trunk;
             rbyd->weight = weight;
 
-//            if (pattern) {
-//                pattern->found = pattern->predicted;
-//            }
+            if (find) {
+                find->found_tag = find->predicted_tag;
+                find->found_id = find->predicted_id;
+            }
         }
 
         off += size;
@@ -2378,8 +2433,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // append each tag to the tree
     for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
         int err = lfsr_rbyd_append(lfs, &rbyd_,
-                attr->tag, attr->id,
-                LFSR_DATA_BUF(attr->buffer, attr->size));
+                attr->tag, attr->id, attr->data);
         if (err) {
             return err;
         }
@@ -2583,13 +2637,6 @@ static lfs_ssize_t lfsr_branch_fromdisk(
 
 // B-tree operations
 
-//static int lfsr_btree_find(lfs_t *lfs,
-//        const lfsr_btree_t *btree, const char *name, lfs_size_t namelen,
-//        lfsr_rbyd_t *rbyd_, lfsr_tag_t *tag_, lfs_size_t *id_,
-//        lfs_size_t *rid_, lfs_size_t *weight_,
-//        void *buffer, lfs_size_t size) {
-//}
-
 static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t id,
         lfsr_tag_t *tag_, lfs_size_t *id_,
@@ -2624,12 +2671,13 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
     }
 
     // descend down the btree looking for our id
+    lfsr_rbyd_t rbyd;
     lfs_ssize_t rid = id;
     lfsr_branch_t branch = btree->u.trunk;
     while (true) {
         // fetch each block, this is the main cost of lookup with each fetch
         // needing O(m), and isn't really avoidable
-        int err = lfsr_rbyd_fetch(lfs, rbyd_, branch.block, branch.limit, NULL);
+        int err = lfsr_rbyd_fetch(lfs, &rbyd, branch.block, branch.limit, NULL);
         if (err) {
             return err;
         }
@@ -2637,7 +2685,7 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
         // each branch is a pair of optional name + on-disk structure
         lfs_ssize_t rid__;
         lfs_size_t weight__;
-        err = lfsr_rbyd_lookup(lfs, rbyd_, LFSR_TAG_MK, rid,
+        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, rid,
                 NULL, &rid__, &weight__, NULL, NULL);
         if (err) {
             return err;
@@ -2647,7 +2695,7 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
         lfsr_tag_t tag__;
         lfs_off_t off_;
         lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, rbyd_, LFSR_TAG_STRUCT, rid__,
+        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
                 &tag__, NULL, NULL, &off_, &size_);
         if (err) {
             return err;
@@ -2663,7 +2711,7 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
             lfs_ssize_t delta = lfs_min(LFSR_BRANCH_DSIZE, size_);
             err = lfs_bd_read(lfs,
                     &lfs->pcache, &lfs->rcache, delta,
-                    rbyd_->block, off_, buf, delta);
+                    rbyd.block, off_, buf, delta);
             if (err) {
                 return err;
             }
@@ -2682,6 +2730,9 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
             if (tag_) {
                 *tag_ = tag__;
             }
+            if (rbyd_) {
+                *rbyd_ = rbyd;
+            }
             if (rid_) {
                 *rid_ = rid__;
             }
@@ -2693,7 +2744,7 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
             lfs_ssize_t delta = lfs_min(size, size_);
             err = lfs_bd_read(lfs,
                     &lfs->pcache, &lfs->rcache, delta,
-                    rbyd_->block, off_, buffer, delta);
+                    rbyd.block, off_, buffer, delta);
             if (err) {
                 return err;
             }
@@ -2716,12 +2767,13 @@ static int lfsr_btree_parent(lfs_t *lfs,
     }
 
     // descend down the btree looking for our id
+    lfsr_rbyd_t rbyd;
     lfs_ssize_t rid = id;
     lfsr_branch_t branch = btree->u.trunk;
     while (true) {
         // fetch each block, this is the main cost of traversal with each fetch
         // needing O(m), and isn't really avoidable
-        int err = lfsr_rbyd_fetch(lfs, rbyd_, branch.block, branch.limit, NULL);
+        int err = lfsr_rbyd_fetch(lfs, &rbyd, branch.block, branch.limit, NULL);
         if (err) {
             return err;
         }
@@ -2729,7 +2781,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
         // each branch is a pair of optional name + on-disk structure
         lfs_ssize_t rid__;
         lfs_size_t weight__;
-        err = lfsr_rbyd_lookup(lfs, rbyd_, LFSR_TAG_MK, rid,
+        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, rid,
                 NULL, &rid__, &weight__, NULL, NULL);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -2740,7 +2792,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
         lfsr_tag_t tag__;
         lfs_off_t off_;
         lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, rbyd_, LFSR_TAG_STRUCT, rid__,
+        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
                 &tag__, NULL, NULL, &off_, &size_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -2760,7 +2812,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
         lfs_ssize_t delta = lfs_min(LFSR_BRANCH_DSIZE, size_);
         err = lfs_bd_read(lfs,
                 &lfs->pcache, &lfs->rcache, delta,
-                rbyd_->block, off_, buf, delta);
+                rbyd.block, off_, buf, delta);
         if (err) {
             return err;
         }
@@ -2773,6 +2825,9 @@ static int lfsr_btree_parent(lfs_t *lfs,
         // found our child?
         if (branch.block == child->block && branch.limit == child->off) {
             // TODO how many of these should be conditional?
+            if (rbyd_) {
+                *rbyd_ = rbyd;
+            }
             if (rid_) {
                 *rid_ = rid__;
             }
@@ -2787,9 +2842,145 @@ static lfs_ssize_t lfsr_btree_get(lfs_t *lfs,
         lfsr_tag_t *tag_, lfs_size_t *id_, lfs_size_t *weight_,
         void *buffer, lfs_size_t size) {
     // note we need an allocated rbyd in btree lookup
-    lfsr_rbyd_t rbyd_;
     return lfsr_btree_lookup(lfs, btree, id,
-            tag_, id_, &rbyd_, NULL, weight_,
+            tag_, id_, NULL, NULL, weight_,
+            buffer, size);
+}
+
+static lfs_ssize_t lfsr_btree_find_(lfs_t *lfs,
+        const lfsr_btree_t *btree, const char *name, lfs_size_t name_len,
+        lfsr_tag_t *tag_, lfs_size_t *id_,
+        lfsr_rbyd_t *rbyd_, lfs_ssize_t *rid_,
+        lfs_size_t *weight_,
+        void *buffer, lfs_size_t size) {
+    // inlined?
+    if (btree->tag) {
+        // TODO how many of these should be conditional?
+        if (id_) {
+            *id_ = btree->weight-1;
+        }
+        if (tag_) {
+            *tag_ = btree->tag;
+        }
+        // TODO need rid here?
+        if (rid_) {
+            *rid_ = -1;
+        }
+        if (weight_) {
+            *weight_ = btree->weight;
+        }
+
+        memcpy(buffer, btree->u.inlined.buf,
+                lfs_min(size, btree->u.inlined.size));
+        return btree->u.inlined.size;
+    }
+
+    // descend down the btree looking for our name
+    lfs_ssize_t id = 0;
+    lfsr_rbyd_t rbyd;
+    lfsr_find_t find = {.name=name, .name_len=name_len};
+    lfsr_branch_t branch = btree->u.trunk;
+    while (true) {
+        // fetch is the main cost of lookup, but we can exploit this to do our
+        // name search in the same pass
+        int err = lfsr_rbyd_fetch(lfs, &rbyd,
+                branch.block, branch.limit, &find);
+        if (err) {
+            return err;
+        }
+
+        printf("find 0x%x.%x \"%.*s\" => %d\n", branch.block, branch.limit, find.name_len, find.name, find.found_id);
+
+//        // TODO this doesn't work if id is weighted, how do we make that work?
+//        if (find.found_id == rbyd.weight) {
+//            find.found_id -= 1;
+//        }
+
+        // TODO is this a hack? happens if we have a name on id0
+        //LFS_ASSERT(find.found_id >= 0);
+        if (find.found_id < 0) {
+            find.found_id = 0;
+        }
+
+        // the find may not match exactly, but it will indicate which id we
+        // should follow
+        lfs_ssize_t rid__;
+        lfs_size_t weight__;
+        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, find.found_id,
+                NULL, &rid__, &weight__, NULL, NULL);
+        if (err) {
+            return err;
+        }
+
+        // TODO what if we don't find a struct? ENOENT?
+        lfsr_tag_t tag__;
+        lfs_off_t off_;
+        lfs_size_t size_;
+        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
+                &tag__, NULL, NULL, &off_, &size_);
+        if (err) {
+            return err;
+        }
+
+        // found another branch
+        if (tag__ == LFSR_TAG_BRANCH) {
+            // update our id
+            id += rid__-(weight__-1);
+
+            // fetch the next branch
+            uint8_t buf[LFSR_BRANCH_DSIZE];
+            lfs_ssize_t delta = lfs_min(LFSR_BRANCH_DSIZE, size_);
+            err = lfs_bd_read(lfs,
+                    &lfs->pcache, &lfs->rcache, delta,
+                    rbyd.block, off_, buf, delta);
+            if (err) {
+                return err;
+            }
+
+            delta = lfsr_branch_fromdisk(&branch, buf);
+            if (delta < 0) {
+                return delta;
+            }
+
+        // found our id
+        } else {
+            // TODO how many of these should be conditional?
+            if (id_) {
+                *id_ = id + rid__;
+            }
+            if (tag_) {
+                *tag_ = tag__;
+            }
+            if (rbyd_) {
+                *rbyd_ = rbyd;
+            }
+            if (rid_) {
+                *rid_ = rid__;
+            }
+            if (weight_) {
+                *weight_ = weight__;
+            }
+
+            // TODO should we make sure this is a noop if buffer size is zero?
+            lfs_ssize_t delta = lfs_min(size, size_);
+            err = lfs_bd_read(lfs,
+                    &lfs->pcache, &lfs->rcache, delta,
+                    rbyd.block, off_, buffer, delta);
+            if (err) {
+                return err;
+            }
+
+            return size_;
+        }
+    }
+}
+
+static lfs_ssize_t lfsr_btree_find(lfs_t *lfs,
+        const lfsr_btree_t *btree, const char *name, lfs_size_t name_len,
+        lfsr_tag_t *tag_, lfs_size_t *id_, lfs_size_t *weight_,
+        void *buffer, lfs_size_t size) {
+    return lfsr_btree_find_(lfs, btree, name, name_len,
+            tag_, id_, NULL, NULL, weight_,
             buffer, size);
 }
 
@@ -2802,23 +2993,23 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
     // TODO should upper btree layers provide this storage? reuse
     // with entry attrs?
-    struct lfsr_attr scratch_attrs[7];
+    struct lfsr_attr scratch_attrs[6];
     uint8_t scratch_buf1[LFSR_BRANCH_DSIZE];
     uint8_t scratch_buf2[LFSR_BRANCH_DSIZE];
 
     while (true) {
         // we will always need our parent, so go ahead and find it
         lfsr_rbyd_t parent;
-        lfs_ssize_t pid;
-        int err = lfsr_btree_parent(lfs, btree, id, rbyd, &parent, &pid);
+        lfs_ssize_t rid;
+        int err = lfsr_btree_parent(lfs, btree, id, rbyd, &parent, &rid);
         if (err && err != LFS_ERR_NOENT) {
             assert(!err);
             return err;
         }
         if (err == LFS_ERR_NOENT) {
-            pid = -1;
+            rid = -1;
         }
-        lfs_size_t pweight = rbyd->weight;
+        lfs_size_t rweight = rbyd->weight;
 
         // is rbyd erased? can we sneak our commit into any remaining
         // erased bytes? note that the btree limit prevents this from mutating
@@ -2836,7 +3027,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // TODO can we deduplicate these somehow?
         // done?
-        if (pid == -1) {
+        if (rid == -1) {
             break;
         }
 
@@ -2851,16 +3042,16 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // TODO can we combine weight changes with normal tag updates?
         // maybe this should be looked at again
         scratch_attrs[0] = *LFSR_ATTR(
-                BRANCH, pid, scratch_buf1, delta,
+                BRANCH, rid, scratch_buf1, delta,
                 &scratch_attrs[1]);
         // note grow/shrink with 0 is treated as a noop in rbyd
-        if (rbyd->weight >= pweight) {
+        if (rbyd->weight >= rweight) {
             scratch_attrs[1] = *LFSR_ATTR(
-                    GROW, pid-(pweight-1), NULL, rbyd->weight-pweight,
+                    GROW, rid-(rweight-1), NULL, rbyd->weight-rweight,
                     NULL);
         } else {
             scratch_attrs[1] = *LFSR_ATTR(
-                    SHRINK, pid-(pweight-1), NULL, pweight-rbyd->weight,
+                    SHRINK, rid-(rweight-1), NULL, rweight-rbyd->weight,
                     NULL);
         }
 
@@ -2938,7 +3129,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         // done?
-        if (pid == -1) {
+        if (rid == -1) {
             *rbyd = rbyd_;
             break;
         }
@@ -2954,16 +3145,16 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // TODO can we combine weight changes with normal tag updates?
         // maybe this should be looked at again
         scratch_attrs[0] = *LFSR_ATTR(
-                BRANCH, pid, scratch_buf1, delta,
+                BRANCH, rid, scratch_buf1, delta,
                 &scratch_attrs[1]);
         // note grow/shrink with 0 is treated as a noop in rbyd
-        if (rbyd_.weight >= pweight) {
+        if (rbyd_.weight >= rweight) {
             scratch_attrs[1] = *LFSR_ATTR(
-                    GROW, pid-(pweight-1), NULL, rbyd_.weight-pweight,
+                    GROW, rid-(rweight-1), NULL, rbyd_.weight-rweight,
                     NULL);
         } else {
             scratch_attrs[1] = *LFSR_ATTR(
-                    SHRINK, pid-(pweight-1), NULL, pweight-rbyd_.weight,
+                    SHRINK, rid-(rweight-1), NULL, rweight-rbyd_.weight,
                     NULL);
         }
 
@@ -3002,8 +3193,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
             if (attr->id < bisect_) {
                 err = lfsr_rbyd_append(lfs, &rbyd_,
-                        attr->tag, attr->id,
-                        LFSR_DATA_BUF(attr->buffer, attr->size));
+                        attr->tag, attr->id, attr->data);
                 if (err) {
                     assert(!err);
                     return err;
@@ -3013,9 +3203,9 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // we need to make sure we keep bisect updated with weight changes
             if (attr->id < bisect_) {
                 if (attr->tag == LFSR_TAG_GROW) {
-                    bisect_ += attr->size;
+                    bisect_ += attr->data.len;
                 } else if (attr->tag == LFSR_TAG_SHRINK) {
-                    bisect_ -= attr->size;
+                    bisect_ -= attr->data.len;
                 }
             }
         }
@@ -3037,6 +3227,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return err;
         }
 
+        // keep track of the sibling name to split later
         tag = 0;
         id = bisect;
         while (true) {
@@ -3084,8 +3275,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
             if (attr->id >= bisect_) {
                 err = lfsr_rbyd_append(lfs, &sibling,
-                        attr->tag, attr->id-bisect_,
-                        LFSR_DATA_BUF(attr->buffer, attr->size));
+                        attr->tag, attr->id-bisect_, attr->data);
                 if (err) {
                     assert(!err);
                     return err;
@@ -3095,9 +3285,9 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // we need to make sure we keep bisect updated with weight changes
             if (attr->id < bisect_) {
                 if (attr->tag == LFSR_TAG_GROW) {
-                    bisect_ += attr->size;
+                    bisect_ += attr->data.len;
                 } else if (attr->tag == LFSR_TAG_SHRINK) {
-                    bisect_ -= attr->size;
+                    bisect_ -= attr->data.len;
                 }
             }
         }
@@ -3109,8 +3299,21 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return err;
         }
 
+        // lookup first name in sibling to use as the split name
+        //
+        // note we need to do this after playing out pending attrs in case
+        // they introduce a new name!
+        lfs_off_t soff;
+        lfs_size_t ssize;
+        err = lfsr_rbyd_lookup(lfs, &sibling, LFSR_TAG_MK, 0,
+                NULL, NULL, NULL, &soff, &ssize);
+        if (err && err != LFS_ERR_NOENT) {
+            assert(!err);
+            return err;
+        }
+
         // no parent? introduce a new trunk
-        if (pid == -1) {
+        if (rid == -1) {
             int err = lfsr_rbyd_alloc(lfs, &parent, 1);
             if (err) {
                 return err;
@@ -3150,9 +3353,9 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     GROW, 0+rbyd_.weight,
                         NULL, sibling.weight,
                     &scratch_attrs[4]);
-            scratch_attrs[4] = *LFSR_ATTR(
+            scratch_attrs[4] = *LFSR_ATTR_DISK(
                     MKBRANCH, 0+rbyd_.weight+sibling.weight-1,
-                        NULL, 0,
+                        sibling.block, soff, ssize,
                     &scratch_attrs[5]);
             scratch_attrs[5] = *LFSR_ATTR(
                     BRANCH, 0+rbyd_.weight+sibling.weight-1,
@@ -3177,34 +3380,30 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 return delta2;
             }
 
-            scratch_attrs[0] = *LFSR_ATTR(
-                    SHRINK, pid-(pweight-1), NULL, pweight,
+            scratch_attrs[0] = *LFSR_ATTR_(
+                    (rbyd_.weight > rweight) ? LFSR_TAG_GROW : LFSR_TAG_SHRINK,
+                        rid-(rweight-1),
+                        NULL,
+                        (rbyd_.weight > rweight)
+                            ? rbyd_.weight - rweight
+                            : rweight - rbyd_.weight,
                     &scratch_attrs[1]);
-
             scratch_attrs[1] = *LFSR_ATTR(
-                    GROW, pid-(pweight-1),
-                        NULL, rbyd_.weight,
-                    &scratch_attrs[2]);
-            scratch_attrs[2] = *LFSR_ATTR(
-                    MKBRANCH, pid-(pweight-1)+rbyd_.weight-1,
-                        NULL, 0,
-                    &scratch_attrs[3]);
-            scratch_attrs[3] = *LFSR_ATTR(
-                    BRANCH, pid-(pweight-1)+rbyd_.weight-1,
+                    BRANCH, rid-(rweight-1)+rbyd_.weight-1,
                         scratch_buf1, delta1,
-                    &scratch_attrs[4]);
+                    &scratch_attrs[2]);
 
-            scratch_attrs[4] = *LFSR_ATTR(
-                    GROW, pid-(pweight-1)+rbyd_.weight,
+            scratch_attrs[2] = *LFSR_ATTR(
+                    GROW, rid-(rweight-1)+rbyd_.weight,
                         NULL, sibling.weight,
-                    &scratch_attrs[5]);
-            scratch_attrs[5] = *LFSR_ATTR(
-                    MKBRANCH, pid-(pweight-1)+rbyd_.weight
+                    &scratch_attrs[3]);
+            scratch_attrs[3] = *LFSR_ATTR_DISK(
+                    MKBRANCH, rid-(rweight-1)+rbyd_.weight
                             +sibling.weight-1,
-                        NULL, 0,
-                    &scratch_attrs[6]);
-            scratch_attrs[6] = *LFSR_ATTR(
-                    BRANCH, pid-(pweight-1)+rbyd_.weight
+                        sibling.block, soff, ssize,
+                    &scratch_attrs[4]);
+            scratch_attrs[4] = *LFSR_ATTR(
+                    BRANCH, rid-(rweight-1)+rbyd_.weight
                             +sibling.weight-1,
                         scratch_buf2, delta2,
                     NULL);
@@ -3216,25 +3415,25 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
     merge:;
         // no parent? can't merge
-        if (pid == -1) {
+        if (rid == -1) {
             goto abort;
         }
 
         // only child? can't merge
-        if (pweight == parent.weight) {
+        if (rweight == parent.weight) {
             goto abort;
         }
 
         // last child? try the left sibling
         lfs_ssize_t sid;
         lfs_ssize_t sdelta;
-        if ((lfs_size_t)pid == parent.weight-1) {
-            sid = pid-pweight;
+        if ((lfs_size_t)rid == parent.weight-1) {
+            sid = rid-rweight;
             sdelta = 0;
         // not last child? try the right sibling
         } else {
-            sid = pid+1;
-            sdelta = pweight;
+            sid = rid+1;
+            sdelta = rweight;
         }
 
         // try looking up the sibling
@@ -3333,7 +3532,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         LFSR_TAG_SHRINK,
                         sdelta,
                         // TODO also this is a weird way to use lfsr_data_t
-                        LFSR_DATA_BUF(NULL, rbyd_.weight - pweight));
+                        LFSR_DATA_BUF(NULL, rbyd_.weight - rweight));
                 if (err) {
                     assert(!err);
                     return err;
@@ -3349,7 +3548,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             err = lfsr_rbyd_append(lfs, &rbyd_,
                     // TODO can this be expressed better?
                     attr->tag, attr->id + (sdelta == 0 ? sweight : 0),
-                    LFSR_DATA_BUF(attr->buffer, attr->size));
+                    attr->data);
             if (err) {
                 assert(!err);
                 return err;
@@ -3362,12 +3561,9 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return err;
         }
 
-        lfs_ssize_t mid = lfs_smax32(pid, sid);
-        lfs_size_t mweight = pweight + sweight;
-
         // we must have a parent at this point, but is our parent degenerate?
-        LFS_ASSERT(pid != -1);
-        if (mweight == btree->weight) {
+        LFS_ASSERT(rid != -1);
+        if (rweight+sweight == btree->weight) {
             // collapse our parent, decreasing the height of the tree
             LFS_ASSERT(btree->u.trunk.block == parent.block
                     && btree->u.trunk.limit == parent.off);
@@ -3377,6 +3573,10 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return 0;
 
         } else {
+
+//            lfs_ssize_t mid = lfs_smax32(rid, sid);
+//            lfs_size_t mweight = rweight + sweight;
+
             // push up merge
             lfs_ssize_t delta1 = lfsr_branch_todisk(
                     &(const lfsr_branch_t){rbyd_.block, rbyd_.off},
@@ -3386,20 +3586,27 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 return delta1;
             }
 
+            // make rid the lower child so the following math is easier
+            if (rid > sid) {
+                lfs_sswap32(&rid, &sid);
+                lfs_swap32(&rweight, &sweight);
+            }
+
             scratch_attrs[0] = *LFSR_ATTR(
-                    SHRINK, mid-(mweight-1), NULL, mweight,
+                    SHRINK, sid-(sweight-1),
+                        NULL, sweight,
                     &scratch_attrs[1]);
 
-            scratch_attrs[1] = *LFSR_ATTR(
-                    GROW, mid-(mweight-1),
-                        NULL, rbyd_.weight,
+            scratch_attrs[1] = *LFSR_ATTR_(
+                    (rbyd_.weight > rweight) ? LFSR_TAG_GROW : LFSR_TAG_SHRINK,
+                        rid-(rweight-1),
+                        NULL,
+                        (rbyd_.weight > rweight)
+                            ? rbyd_.weight - rweight
+                            : rweight - rbyd_.weight,
                     &scratch_attrs[2]);
             scratch_attrs[2] = *LFSR_ATTR(
-                    MKBRANCH, mid-(mweight-1)+rbyd_.weight-1,
-                        NULL, 0,
-                    &scratch_attrs[3]);
-            scratch_attrs[3] = *LFSR_ATTR(
-                    BRANCH, mid-(mweight-1)+rbyd_.weight-1,
+                    BRANCH, rid-(rweight-1)+rbyd_.weight-1,
                         scratch_buf1, delta1,
                     NULL);
         }
@@ -3627,8 +3834,13 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t id) {
 
 // lfsr_btree_split can be done with a pop+push+push, but this function
 // does all this in one commit, which is much more efficient
+//
+// this is also the only btree function that creates name entries, in theory
+// push/update could as well, we just don't need the functionality for littlefs
+//
 static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         lfs_size_t id,
+        const char *name, lfs_size_t name_len,
         lfsr_tag_t tag1, lfs_size_t weight1,
         const void *buffer1, lfs_size_t size1,
         lfsr_tag_t tag2, lfs_size_t weight2,
@@ -3650,7 +3862,8 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
                 LFSR_ATTR_(tag1, 0+weight1-1,
                     buffer1, size1,
                 LFSR_ATTR(GROW, weight1, NULL, weight2,
-                LFSR_ATTR(MKBRANCH, weight1+weight2-1, NULL, 0,
+                LFSR_ATTR(MKBRANCH, weight1+weight2-1,
+                    name, name_len,
                 LFSR_ATTR_(tag2, weight1+weight2-1,
                     buffer2, size2,
                 NULL)))))));
@@ -3679,16 +3892,20 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         // commit our id into the tree, letting lfsr_btree_commit take care
         // of the rest
         return lfsr_btree_commit(lfs, btree, id, &rbyd,
-                LFSR_ATTR(SHRINK, rid-(rweight-1), NULL, rweight,
-                LFSR_ATTR(GROW, rid-(rweight-1), NULL, weight1,
-                LFSR_ATTR(MKBRANCH, rid-(rweight-1)+weight1-1, NULL, 0,
+                // TODO can we avoid conditions like this?
+                LFSR_ATTR_(
+                    (weight1 > rweight) ? LFSR_TAG_GROW : LFSR_TAG_SHRINK,
+                    rid-(rweight-1),
+                    NULL,
+                    (weight1 > rweight) ? weight1-rweight : rweight-weight1,
                 LFSR_ATTR_(tag1, rid-(rweight-1)+weight1-1,
                     buffer1, size1,
                 LFSR_ATTR(GROW, rid-(rweight-1)+weight1, NULL, weight2,
-                LFSR_ATTR(MKBRANCH, rid-(rweight-1)+weight1+weight2-1, NULL, 0,
+                LFSR_ATTR(MKBRANCH, rid-(rweight-1)+weight1+weight2-1,
+                    name, name_len,
                 LFSR_ATTR_(tag2, rid-(rweight-1)+weight1+weight2-1,
                     buffer2, size2,
-                NULL))))))));
+                NULL))))));
     }
 }
 
