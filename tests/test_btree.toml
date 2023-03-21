@@ -3458,14 +3458,25 @@ code = '''
                 }
 
                 // split btree
-                lfsr_btree_split(&lfs, &btree, id, name, 3,
-                        LFSR_TAG_INLINED, 1, &nums[i % 10], 1,
-                        LFSR_TAG_INLINED, 1, &nums[i % 10], 1) => 0;
+                lfs_size_t split_id;
+                uint8_t split_buf[4];
+                lfsr_btree_find(&lfs, &btree, name, 3,
+                        NULL, &split_id, NULL, split_buf, 4) => 1;
+                if (split_id > id) {
+                    lfsr_btree_split(&lfs, &btree,
+                            split_id, sim_names[split_id], 3,
+                            LFSR_TAG_INLINED, 1, &nums[i % 10], 1,
+                            LFSR_TAG_INLINED, 1, split_buf,     1) => 0;
+                } else {
+                    lfsr_btree_split(&lfs, &btree,
+                            split_id, name, 3,
+                            LFSR_TAG_INLINED, 1, split_buf,     1,
+                            LFSR_TAG_INLINED, 1, &nums[i % 10], 1) => 0;
+                }
 
                 // split sim
                 memmove(&sim[id+1], &sim[id], sim_size-id);
                 memmove(&sim_names[id+1], &sim_names[id], (sim_size-id)*3);
-                sim[id+0] = nums[i % 10];
                 sim[id+1] = nums[i % 10];
                 memcpy(&sim_names[id+1], name, 3);
                 sim_size += 1;

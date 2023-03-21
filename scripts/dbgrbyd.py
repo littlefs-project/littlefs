@@ -73,7 +73,8 @@ def xxd(data, width=16, crc=False):
 
 def tagrepr(tag, id, size, off=None):
     if (tag & ~0x3f0) == 0x0400:
-        return 'mk%s id%d %d' % (
+        return '%smk%s id%d %d' % (
+            'rm' if tag & 0x2 else '',
             'branch' if ((tag & 0x3f0) >> 4) == 0x00
                 else 'reg' if ((tag & 0x3f0) >> 4) == 0x01
                 else 'dir' if ((tag & 0x3f0) >> 4) == 0x02

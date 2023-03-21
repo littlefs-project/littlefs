@@ -453,34 +453,35 @@ static inline lfs_size_t lfs_tag_dsize(lfs_tag_t tag) {
 // on-disk, these are encoded in leb128, so smaller constants are prefered
 //
 enum lfsr_tag_type {
-    LFSR_TAG_MK       = 0x0400,
-    LFSR_TAG_MKBRANCH = 0x0400,
-    LFSR_TAG_MKREG    = 0x0410,
-    LFSR_TAG_MKDIR    = 0x0420,
+    LFSR_TAG_MK         = 0x0400,
+    LFSR_TAG_MKBRANCH   = 0x0400,
+    LFSR_TAG_MKREG      = 0x0410,
+    LFSR_TAG_MKDIR      = 0x0420,
+    LFSR_TAG_RMMKBRANCH = 0x0402,
 
-    LFSR_TAG_STRUCT   = 0x0800,
-    LFSR_TAG_INLINED  = 0x0800,
-    LFSR_TAG_BLOCK    = 0x0810,
-    LFSR_TAG_BTREE    = 0x0820,
-    LFSR_TAG_BRANCH   = 0x0830,
+    LFSR_TAG_STRUCT     = 0x0800,
+    LFSR_TAG_INLINED    = 0x0800,
+    LFSR_TAG_BLOCK      = 0x0810,
+    LFSR_TAG_BTREE      = 0x0820,
+    LFSR_TAG_BRANCH     = 0x0830,
 
-    LFSR_TAG_UATTR    = 0x2000,
-    LFSR_TAG_RMUATTR  = 0x2002,
+    LFSR_TAG_UATTR      = 0x2000,
+    LFSR_TAG_RMUATTR    = 0x2002,
 
-    LFSR_TAG_GROW     = 0x0006,
-    LFSR_TAG_SHRINK   = 0x0016,
-    LFSR_TAG_FROM     = 0x0026, // in-device only
+    LFSR_TAG_GROW       = 0x0006,
+    LFSR_TAG_SHRINK     = 0x0016,
+    LFSR_TAG_FROM       = 0x0026, // in-device only
 
-    LFSR_TAG_ALT      = 0x0008,
-    LFSR_TAG_ALTBLE   = 0x0008,
-    LFSR_TAG_ALTRLE   = 0x000a,
-    LFSR_TAG_ALTBGT   = 0x000c,
-    LFSR_TAG_ALTRGT   = 0x000e,
+    LFSR_TAG_ALT        = 0x0008,
+    LFSR_TAG_ALTBLE     = 0x0008,
+    LFSR_TAG_ALTRLE     = 0x000a,
+    LFSR_TAG_ALTBGT     = 0x000c,
+    LFSR_TAG_ALTRGT     = 0x000e,
 
-    LFSR_TAG_CRC      = 0x0004,
-    LFSR_TAG_CRC0     = 0x0004,
-    LFSR_TAG_CRC1     = 0x0014,
-    LFSR_TAG_FCRC     = 0x0024,
+    LFSR_TAG_CRC        = 0x0004,
+    LFSR_TAG_CRC0       = 0x0004,
+    LFSR_TAG_CRC1       = 0x0014,
+    LFSR_TAG_FCRC       = 0x0024,
 };
 
 #define LFSR_TAG_ALT_(color, dir, key) \
@@ -770,6 +771,18 @@ struct lfsr_attr {
 
 #define LFSR_ATTR_IF(_pred, _type, _id, _buf, _len, _next) \
     LFSR_ATTR_IF_(_pred, LFSR_TAG_##_type, _id, _buf, _len, _next)
+
+#define LFSR_ATTR_DISK_IF_(_pred, _tag, _id, _block, _off, _len, _next) \
+    LFSR_ATTR_DISK_( \
+        (_pred) ? (_tag) : LFSR_TAG_GROW, \
+        _id, \
+        _block, \
+        _off, \
+        (_pred) ? (_len) : 0, \
+        _next)
+
+#define LFSR_ATTR_DISK_IF(_pred, _type, _id, _block, _off, _len, _next) \
+    LFSR_ATTR_DISK_IF_(_pred, LFSR_TAG_##_type, _id, _block, _off, _len, _next)
 
 struct lfsr_attr_from {
     const lfsr_rbyd_t *rbyd;
@@ -1337,9 +1350,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             if (find && find->predicted_id >= id) {
                 if (find->predicted_id < id+(lfs_ssize_t)size) {
                     find->predicted_tag = 0;
-                    find->predicted_id = id;
+                    find->predicted_id = id-1;
+                } else {
+                    find->predicted_id -= size;
                 }
-                find->predicted_id -= size;
             }
         }
 
@@ -1988,11 +2002,11 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_tag_t other_tag_;
     lfs_ssize_t other_id_;
     if (tag == LFSR_TAG_GROW) {
-        LFS_ASSERT(id <= rbyd->weight);
         // noop?
         if (lfsr_data_len(data) == 0) {
             return 0;
         }
+        LFS_ASSERT(id <= rbyd->weight);
         rbyd->weight += lfsr_data_len(data);
 
         tag_ = 0;
@@ -2000,12 +2014,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         other_tag_ = tag_;
         other_id_ = id_;
     } else if (tag == LFSR_TAG_SHRINK) {
-        LFS_ASSERT(id < rbyd->weight);
-        LFS_ASSERT(lfsr_data_len(data) <= rbyd->weight);
         // noop?
         if (lfsr_data_len(data) == 0) {
             return 0;
         }
+        LFS_ASSERT(id < rbyd->weight);
+        LFS_ASSERT(lfsr_data_len(data) <= rbyd->weight);
         rbyd->weight -= lfsr_data_len(data);
 
         tag_ = 0;
@@ -2904,6 +2918,7 @@ static lfs_ssize_t lfsr_btree_find_(lfs_t *lfs,
 
         // the find may not match exactly, but it will indicate which id we
         // should follow
+        // TODO can we actually get weight in follow?
         lfs_ssize_t rid__;
         lfs_size_t weight__;
         err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, find.found_id,
@@ -3292,22 +3307,41 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
         }
 
-        // finalize commit
-        err = lfsr_rbyd_commit(lfs, &sibling, NULL);
-        if (err) {
-            assert(!err);
-            return err;
-        }
-
         // lookup first name in sibling to use as the split name
         //
         // note we need to do this after playing out pending attrs in case
         // they introduce a new name!
+        lfsr_tag_t stag;
+        lfs_ssize_t sid;
         lfs_off_t soff;
         lfs_size_t ssize;
         err = lfsr_rbyd_lookup(lfs, &sibling, LFSR_TAG_MK, 0,
-                NULL, NULL, NULL, &soff, &ssize);
+                &stag, &sid, NULL, &soff, &ssize);
         if (err && err != LFS_ERR_NOENT) {
+            assert(!err);
+            return err;
+        }
+
+//        // remove the first name since we are moving it up as part of our split
+//        //
+//        // note if we wanted to just not write out the first name it would
+//        // checking the attr last for mks that insert a new first name last
+//        // minute, this is just easier as long as split fixups are not the block
+//        // size bottleneck
+//        if (lfsr_tag_ismk(stag)) {
+//            err = lfsr_rbyd_append(lfs, &sibling,
+//                    lfsr_tag_mkrm(stag), sid,
+//                    LFSR_DATA_NULL);
+//            if (err) {
+//                assert(!err);
+//                return err;
+//            }
+//        }
+
+        // TODO can move this up?
+        // finalize commit
+        err = lfsr_rbyd_commit(lfs, &sibling, NULL);
+        if (err) {
             assert(!err);
             return err;
         }
@@ -3341,23 +3375,20 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         NULL, rbyd_.weight,
                     &scratch_attrs[1]);
             scratch_attrs[1] = *LFSR_ATTR(
-                    MKBRANCH, 0+rbyd_.weight-1,
-                        NULL, 0,
-                    &scratch_attrs[2]);
-            scratch_attrs[2] = *LFSR_ATTR(
                     BRANCH, 0+rbyd_.weight-1,
                         scratch_buf1, delta1,
-                    &scratch_attrs[3]);
+                    &scratch_attrs[2]);
 
-            scratch_attrs[3] = *LFSR_ATTR(
+            scratch_attrs[2] = *LFSR_ATTR(
                     GROW, 0+rbyd_.weight,
                         NULL, sibling.weight,
-                    &scratch_attrs[4]);
-            scratch_attrs[4] = *LFSR_ATTR_DISK(
+                    &scratch_attrs[3]);
+            scratch_attrs[3] = *LFSR_ATTR_DISK_IF(
+                    lfsr_tag_ismk(stag),
                     MKBRANCH, 0+rbyd_.weight+sibling.weight-1,
                         sibling.block, soff, ssize,
-                    &scratch_attrs[5]);
-            scratch_attrs[5] = *LFSR_ATTR(
+                    &scratch_attrs[4]);
+            scratch_attrs[4] = *LFSR_ATTR(
                     BRANCH, 0+rbyd_.weight+sibling.weight-1,
                         scratch_buf2, delta2,
                     NULL);
@@ -3397,7 +3428,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     GROW, rid-(rweight-1)+rbyd_.weight,
                         NULL, sibling.weight,
                     &scratch_attrs[3]);
-            scratch_attrs[3] = *LFSR_ATTR_DISK(
+            scratch_attrs[3] = *LFSR_ATTR_DISK_IF(
+                    lfsr_tag_ismk(stag),
                     MKBRANCH, rid-(rweight-1)+rbyd_.weight
                             +sibling.weight-1,
                         sibling.block, soff, ssize,
@@ -3425,7 +3457,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         // last child? try the left sibling
-        lfs_ssize_t sid;
+        // lfs_ssize_t sid;
         lfs_ssize_t sdelta;
         if ((lfs_size_t)rid == parent.weight-1) {
             sid = rid-rweight;
@@ -3438,8 +3470,13 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // try looking up the sibling
         lfs_size_t sweight;
+        // keep track of our siblings name
+        lfsr_tag_t  split_tag;
+        lfs_off_t split_off;
+        lfs_size_t split_size;
+        
         err = lfsr_rbyd_lookup(lfs, &parent, LFSR_TAG_MK, sid,
-                NULL, &sid, &sweight, NULL, NULL);
+                &split_tag, &sid, &sweight, &split_off, &split_size);
         if (err && err != LFS_ERR_NOENT) {
             assert(!err);
             return err;
@@ -3450,7 +3487,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             goto abort;
         }
 
-        lfsr_tag_t stag;
+        // lfsr_tag_t stag;
         lfs_off_t off;
         lfs_size_t size;
         err = lfsr_rbyd_lookup(lfs, &parent, LFSR_TAG_BRANCH, sid,
@@ -3539,6 +3576,38 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 }
 
                 goto abort;
+            }
+        }
+
+        // bring in name that previously split the siblings
+        if (sdelta == 0) {
+            // if we're merging left we need to actually use our name
+            err = lfsr_rbyd_lookup(lfs, &parent, LFSR_TAG_MK, rid,
+                    &split_tag, NULL, NULL, &split_off, &split_size);
+            if (err) {
+                assert(!err);
+                return err;
+            }
+        }
+
+        if (lfsr_tag_ismk(split_tag)) {
+            // TODO can we avoid this?
+            // lookup the id of the previously-split entry
+            lfs_ssize_t split_id;
+            err = lfsr_rbyd_lookup(lfs, &rbyd_,
+                    LFSR_TAG_MK, (sdelta == 0 ? sweight : rweight),
+                    NULL, &split_id, NULL, NULL, NULL);
+            if (err) {
+                assert(!err);
+                return err;
+            }
+
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    LFSR_TAG_MKBRANCH, (sdelta == 0 ? sweight : rweight),
+                    LFSR_DATA_DISK(parent.block, split_off, split_size));
+            if (err) {
+                assert(!err);
+                return err;
             }
         }
 
@@ -3651,14 +3720,12 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         // commit our entries
         err = lfsr_rbyd_commit(lfs, &rbyd,
                 LFSR_ATTR(GROW, 0, NULL, btree->weight,
-                LFSR_ATTR(MKBRANCH, 0+btree->weight-1, NULL, 0,
                 LFSR_ATTR_(btree->tag, 0+btree->weight-1,
                     btree->u.inlined.buf, btree->u.inlined.size,
                 LFSR_ATTR(GROW, id, NULL, weight,
-                LFSR_ATTR(MKBRANCH, id+weight-1, NULL, 0,
                 LFSR_ATTR_(tag, id+weight-1,
                     buffer, size,
-                NULL)))))));
+                NULL)))));
         if (err) {
             return err;
         }
@@ -3694,9 +3761,8 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         return lfsr_btree_commit(lfs, btree,
                 lfs_min32(id, btree->weight-1), &rbyd,
                 LFSR_ATTR(GROW, rid, NULL, weight,
-                LFSR_ATTR(MKBRANCH, rid+weight-1, NULL, 0,
                 LFSR_ATTR_(tag, rid+weight-1, buffer, size,
-                NULL))));
+                NULL)));
     }
 }
 
@@ -3828,6 +3894,10 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t id) {
         // of the rest
         return lfsr_btree_commit(lfs, btree, id, &rbyd,
                 LFSR_ATTR(SHRINK, rid-(rweight-1), NULL, rweight,
+//                // TODO conditional? merge with above?
+//                LFSR_ATTR_IF(
+//                    rid-(rweight-1) == 0 && rweight < rbyd.weight,
+//                    RMMKBRANCH, 0, NULL, 0,
                 NULL));
     }
 }
@@ -3858,7 +3928,6 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         // commit our entries
         err = lfsr_rbyd_commit(lfs, &rbyd,
                 LFSR_ATTR(GROW, 0, NULL, weight1,
-                LFSR_ATTR(MKBRANCH, 0+weight1-1, NULL, 0,
                 LFSR_ATTR_(tag1, 0+weight1-1,
                     buffer1, size1,
                 LFSR_ATTR(GROW, weight1, NULL, weight2,
@@ -3866,7 +3935,7 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
                     name, name_len,
                 LFSR_ATTR_(tag2, weight1+weight2-1,
                     buffer2, size2,
-                NULL)))))));
+                NULL))))));
         if (err) {
             return err;
         }
@@ -3883,11 +3952,21 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t rbyd;
         lfs_ssize_t rid;
         lfs_size_t rweight;
-        lfs_ssize_t size = lfsr_btree_lookup(lfs, btree, id,
-                NULL, NULL, &rbyd, &rid, &rweight, NULL, 0);
-        if (size < 0) {
-            return size;
-        }
+//        // TODO should we have two split functions?
+//        // TODO should we bother with id splits if we usually split on names?
+//        if (name_len == 0) {
+            lfs_ssize_t size = lfsr_btree_lookup(lfs, btree, id,
+                    NULL, NULL, &rbyd, &rid, &rweight, NULL, 0);
+            if (size < 0) {
+                return size;
+            }
+//        } else {
+//            lfs_ssize_t size = lfsr_btree_find_(lfs, btree, name, name_len,
+//                    NULL, &id, &rbyd, &rid, &rweight, NULL, 0);
+//            if (size < 0) {
+//                return size;
+//            }
+//        }
 
         // commit our id into the tree, letting lfsr_btree_commit take care
         // of the rest

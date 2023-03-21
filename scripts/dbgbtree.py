@@ -283,10 +283,12 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
 
             while True:
                 # first lookup id/name
-                (done, _, rid_, w,
+                (done, name_tag, rid_, w,
                     name_j, name_d, name) = rbyd.lookup(0x400, rid)
                 if done:
                     return True, id, 0, rbyd, -1, 0, 0, 0, b'', 0, 0, b'', path
+                if name_tag & 0xf00 != 0x400:
+                    name_j, name_d, name = name_j, 0, b''
 
                 # then lookup struct
                 (done, tag, _, _,
