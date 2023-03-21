@@ -491,6 +491,16 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                 corrupted = True
                 continue
 
+            # if we're not showing inner nodes, prefer names higher in the tree
+            # since this avoids showing vestigial names
+            if not args.get('inner'):
+                for (id_, w_, rbyd_, rid_, tag_,
+                        name_j_, name_d_, name_,
+                        struct_j_, struct_d_, struct__) in reversed(path):
+                    name_j, name_d, name = name_j_, name_d_, name_
+                    if rid_-(w_-1) != 0:
+                        break
+
             # show human-readable representation
             print('%10s %s%*s %-8s %-22s  %s' % (
                 '%04x.%04x:' % (rbyd.block, rbyd.limit)
