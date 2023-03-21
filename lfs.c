@@ -3603,7 +3603,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
 
             err = lfsr_rbyd_append(lfs, &rbyd_,
-                    LFSR_TAG_MKBRANCH, (sdelta == 0 ? sweight : rweight),
+                    LFSR_TAG_MKBRANCH, split_id,
                     LFSR_DATA_DISK(parent.block, split_off, split_size));
             if (err) {
                 assert(!err);
