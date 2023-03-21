@@ -3081,6 +3081,16 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
         }
 
+        // append any pending attrs, it's up to upper
+        // layers to make sure these always fit
+        for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    attr->tag, attr->id, attr->data);
+            if (err) {
+                return err;
+            }
+        }
+
         // is our compacted size too small? try to merge with one of
         // our siblings
         if (rbyd_.off < lfs->cfg->block_size/4
@@ -3092,9 +3102,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
         merge_abort:;
         }
 
-        // finalize commit with new attrs, it's up to upper
-        // layers to make sure these always fit
-        err = lfsr_rbyd_commit(lfs, &rbyd_, attrs);
+        // finalize commit
+        err = lfsr_rbyd_commit(lfs, &rbyd_, NULL);
         if (err) {
             return err;
         }
@@ -3383,7 +3392,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // not last child? try the right sibling
         } else {
             sid = rid+1;
-            sdelta = rweight;
+            sdelta = rbyd_.weight;
         }
 
         // try looking up the sibling
@@ -3434,6 +3443,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         // try to add our sibling's tags to our rbyd
+        lfs_size_t rweight_ = rbyd_.weight;
         tag = 0;
         id = 0;
         while (true) {
@@ -3474,7 +3484,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         LFSR_TAG_SHRINK,
                         sdelta,
                         // TODO also this is a weird way to use lfsr_data_t
-                        LFSR_DATA_BUF(NULL, rbyd_.weight - rweight));
+                        LFSR_DATA_BUF(NULL, rbyd_.weight - rweight_));
                 if (err) {
                     return err;
                 }
@@ -3484,7 +3494,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         // bring in name that previously split the siblings
-        lfsr_tag_t  split_tag;
+        lfsr_tag_t split_tag;
         lfs_off_t split_off;
         lfs_size_t split_size;
         err = lfsr_rbyd_lookup(lfs, &parent,
@@ -3499,7 +3509,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // lookup the id of the previously-split entry
             lfs_ssize_t split_id;
             err = lfsr_rbyd_lookup(lfs, &rbyd_,
-                    LFSR_TAG_MK, (sdelta == 0 ? sweight : rweight),
+                    LFSR_TAG_MK, (sdelta == 0 ? sweight : rweight_),
                     NULL, &split_id, NULL, NULL, NULL);
             if (err) {
                 return err;
@@ -3508,18 +3518,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
             err = lfsr_rbyd_append(lfs, &rbyd_,
                     LFSR_TAG_MKBRANCH, split_id,
                     LFSR_DATA_DISK(parent.block, split_off, split_size));
-            if (err) {
-                return err;
-            }
-        }
-
-        // finalize commit with new attrs, it's up to upper
-        // layers to make sure these always fit
-        for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
-            err = lfsr_rbyd_append(lfs, &rbyd_,
-                    // TODO can this be expressed better?
-                    attr->tag, attr->id + (sdelta == 0 ? sweight : 0),
-                    attr->data);
             if (err) {
                 return err;
             }
