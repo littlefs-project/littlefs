@@ -457,7 +457,6 @@ enum lfsr_tag_type {
     LFSR_TAG_MKBRANCH   = 0x0400,
     LFSR_TAG_MKREG      = 0x0410,
     LFSR_TAG_MKDIR      = 0x0420,
-    LFSR_TAG_RMMKBRANCH = 0x0402,
 
     LFSR_TAG_STRUCT     = 0x0800,
     LFSR_TAG_INLINED    = 0x0800,
@@ -1419,8 +1418,6 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     }
                 }
 
-                printf("cmp 0x%x.%x \"%.*s\" => %d (id%d > id%d?)\n", block, off, find->name_len, find->name, cmp, id, find->predicted_id);
-
                 // found match?
                 if (cmp == LFS_CMP_EQ) {
                     find->predicted_tag = tag;
@@ -1431,51 +1428,6 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     find->predicted_id = id;
                 }
             }
-
-//                int cmp;
-//                if (lfsr_tag_pat(pattern->predicted) == LFSR_PAT_LEB128) {
-//                    uint8_t buf[5];
-//                    err = lfs_bd_read(lfs,
-//                            NULL, &lfs->rcache, limit-off,
-//                            block, off, buf, lfs_min(size, 5));
-//                    if (err) {
-//                        if (err == LFS_ERR_CORRUPT) {
-//                            break;
-//                        }
-//                        return err;
-//                    }
-//
-//                    uint32_t found;
-//                    lfs_ssize_t delta = lfs_fromleb128(&found, buf, 5);
-//                    if (delta < 0) {
-//                        return delta;
-//                    }
-//
-//                    cmp = pattern->u.leb128 - found;
-//                } else if (lfsr_tag_pat(pattern->predicted) == LFSR_PAT_NAME) {
-//                    // TODO handle names
-//                    LFS_ASSERT(false);
-//                }
-//
-//                
-//
-//                // note this already handles the shifting of ids
-//                if (cmp == 0) {
-//                    pattern->predicted = lfsr_tag_mkfound(
-//                            tag | lfsr_tag_pat(pattern->predicted));
-//                } else if (cmp < 0) {
-//                    pattern->predicted += 0x8000;
-//                }
-//
-//            } else if (pattern && lfsr_tag_suptype(tag) == LFSR_TAG_RM) {
-//                // update any found tags
-//                if (lfsr_tag_id(tag) == lfsr_tag_id(pattern->predicted)) {
-//                    pattern->predicted = lfsr_tag_mknotfound(
-//                            pattern->predicted);
-//                } else if (lfsr_tag_id(tag) < lfsr_tag_id(pattern->predicted)) {
-//                    pattern->predicted -= 0x8000;
-//                }
-//            }
 
         // is an end-of-commit crc
         } else {
@@ -1545,17 +1497,6 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // found beginning of erased part?
         rbyd->erased = (fcrc_ == fcrc.crc);
     }
-
-//    if (pattern) {
-//        LFS_ASSERT(lfsr_tag_isvalid(pattern->found));
-//        if (lfsr_tag_isfound(pattern->found)) {
-//            return pattern->found;
-//        } else {
-//            return LFS_ERR_NOENT;
-//        }
-//    } else {
-//        return 0;
-//    }
 
     return 0;
 }
@@ -2697,22 +2638,24 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
         }
 
         // each branch is a pair of optional name + on-disk structure
+        lfsr_tag_t tag__;
         lfs_ssize_t rid__;
         lfs_size_t weight__;
+        lfs_off_t off_;
+        lfs_size_t size_;
         err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, rid,
-                NULL, &rid__, &weight__, NULL, NULL);
+                &tag__, &rid__, &weight__, &off_, &size_);
         if (err) {
             return err;
         }
 
-        // TODO what if we don't find a struct? ENOENT?
-        lfsr_tag_t tag__;
-        lfs_off_t off_;
-        lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
-                &tag__, NULL, NULL, &off_, &size_);
-        if (err) {
-            return err;
+        if (lfsr_tag_ismk(tag__)) {
+            // TODO what if we don't find a struct? ENOENT?
+            err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
+                    &tag__, NULL, NULL, &off_, &size_);
+            if (err) {
+                return err;
+            }
         }
 
         // found another branch
@@ -2793,24 +2736,26 @@ static int lfsr_btree_parent(lfs_t *lfs,
         }
 
         // each branch is a pair of optional name + on-disk structure
+        lfsr_tag_t tag__;
         lfs_ssize_t rid__;
         lfs_size_t weight__;
+        lfs_off_t off_;
+        lfs_size_t size_;
         err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, rid,
-                NULL, &rid__, &weight__, NULL, NULL);
+                &tag__, &rid__, &weight__, &off_, &size_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
-        // TODO what if we don't find a struct? ENOENT?
-        lfsr_tag_t tag__;
-        lfs_off_t off_;
-        lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
-                &tag__, NULL, NULL, &off_, &size_);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
+        if (lfsr_tag_ismk(tag__)) {
+            // TODO what if we don't find a struct? ENOENT?
+            err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
+                    &tag__, NULL, NULL, &off_, &size_);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
         }
 
         // didn't find our child?
@@ -2903,15 +2848,11 @@ static lfs_ssize_t lfsr_btree_find_(lfs_t *lfs,
             return err;
         }
 
-        printf("find 0x%x.%x \"%.*s\" => %d\n", branch.block, branch.limit, find.name_len, find.name, find.found_id);
-
-//        // TODO this doesn't work if id is weighted, how do we make that work?
-//        if (find.found_id == rbyd.weight) {
-//            find.found_id -= 1;
-//        }
-
-        // TODO is this a hack? happens if we have a name on id0
-        //LFS_ASSERT(find.found_id >= 0);
+        // assume lowest id if no name found
+        //
+        // note this ignore any name attached to the lowest id, this is
+        // intentional as allowing for "vestigial" names in our blocks helps
+        // simplify some of the more complicated merge/split interactions
         if (find.found_id < 0) {
             find.found_id = 0;
         }
@@ -2919,22 +2860,24 @@ static lfs_ssize_t lfsr_btree_find_(lfs_t *lfs,
         // the find may not match exactly, but it will indicate which id we
         // should follow
         // TODO can we actually get weight in follow?
+        lfsr_tag_t tag__;
         lfs_ssize_t rid__;
         lfs_size_t weight__;
+        lfs_off_t off_;
+        lfs_size_t size_;
         err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, find.found_id,
-                NULL, &rid__, &weight__, NULL, NULL);
+                &tag__, &rid__, &weight__, &off_, &size_);
         if (err) {
             return err;
         }
 
-        // TODO what if we don't find a struct? ENOENT?
-        lfsr_tag_t tag__;
-        lfs_off_t off_;
-        lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
-                &tag__, NULL, NULL, &off_, &size_);
-        if (err) {
-            return err;
+        if (lfsr_tag_ismk(tag__)) {
+            // TODO what if we don't find a struct? ENOENT?
+            err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
+                    &tag__, NULL, NULL, &off_, &size_);
+            if (err) {
+                return err;
+            }
         }
 
         // found another branch
@@ -3018,7 +2961,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         lfs_ssize_t rid;
         int err = lfsr_btree_parent(lfs, btree, id, rbyd, &parent, &rid);
         if (err && err != LFS_ERR_NOENT) {
-            assert(!err);
             return err;
         }
         if (err == LFS_ERR_NOENT) {
@@ -3032,7 +2974,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         err = lfsr_rbyd_commit(lfs, rbyd, attrs);
         if (err && err != LFS_ERR_RANGE) {
             // TODO wait should we also move if there is corruption here?
-            assert(!err);
             return err;
         }
 
@@ -3114,6 +3055,18 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 return err;
             }
 
+            // Because it makes a lot of the split-sensitive cross-id operations
+            // easier, we can end up with an occasional "vestigial" name tag on
+            // the first id in a block. We make sure to ignore these during
+            // lookup, but it would be more complicated then it's worth to
+            // clean these up proactively.
+            //
+            // Discarding these during compaction is easy and prevents any
+            // real storage cost.
+            if (lfsr_tag_ismk(tag) && id-(weight-1) == 0) {
+                continue;
+            }
+
             // append the attr
             err = lfsr_rbyd_append(lfs, &rbyd_,
                     tag, id, LFSR_DATA_DISK(rbyd->block, off, size));
@@ -3130,16 +3083,19 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // is our compacted size too small? try to merge with one of
         // our siblings
-        if (rbyd_.off < lfs->cfg->block_size/4) {
+        if (rbyd_.off < lfs->cfg->block_size/4
+                // no parent? can't merge
+                && rid != -1
+                // only child? can't merge
+                && rweight != parent.weight) {
             goto merge;
-        abort:;
+        merge_abort:;
         }
 
         // finalize commit with new attrs, it's up to upper
         // layers to make sure these always fit
         err = lfsr_rbyd_commit(lfs, &rbyd_, attrs);
         if (err) {
-            assert(!err);
             return err;
         }
 
@@ -3181,7 +3137,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // find out which id we need to split around
         lfs_ssize_t bisect = lfsr_rbyd_bisect(lfs, rbyd);
         if (bisect < 0) {
-            assert(!err);
             return bisect;
         }
 
@@ -3195,7 +3150,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     bisect,
                     LFSR_DATA_BUF(NULL, rbyd_.weight-bisect));
             if (err) {
-                assert(!err);
                 return err;
             }
         }
@@ -3210,7 +3164,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 err = lfsr_rbyd_append(lfs, &rbyd_,
                         attr->tag, attr->id, attr->data);
                 if (err) {
-                    assert(!err);
                     return err;
                 }
             }
@@ -3228,7 +3181,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // finalize commit
         err = lfsr_rbyd_commit(lfs, &rbyd_, NULL);
         if (err) {
-            assert(!err);
             return err;
         }
         
@@ -3238,7 +3190,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         lfsr_rbyd_t sibling;
         err = lfsr_rbyd_alloc(lfs, &sibling, rbyd->rev+1);
         if (err) {
-            assert(!err);
             return err;
         }
 
@@ -3252,7 +3203,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
             err = lfsr_rbyd_lookup(lfs, rbyd, lfsr_tag_next(tag), id,
                     &tag, &id, &weight, &off, &size);
             if (err && err != LFS_ERR_NOENT) {
-                assert(!err);
                 return err;
             }
             if (err == LFS_ERR_NOENT) {
@@ -3269,7 +3219,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     // TODO also this is a weird way to use lfsr_data_t
                     LFSR_DATA_BUF(NULL, weight));
             if (err) {
-                assert(!err);
                 return err;
             }
 
@@ -3278,7 +3227,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     tag, id - bisect,
                     LFSR_DATA_DISK(rbyd->block, off, size));
             if (err) {
-                assert(!err);
                 return err;
             }
         }
@@ -3292,7 +3240,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 err = lfsr_rbyd_append(lfs, &sibling,
                         attr->tag, attr->id-bisect_, attr->data);
                 if (err) {
-                    assert(!err);
                     return err;
                 }
             }
@@ -3307,6 +3254,12 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
         }
 
+        // finalize commit
+        err = lfsr_rbyd_commit(lfs, &sibling, NULL);
+        if (err) {
+            return err;
+        }
+
         // lookup first name in sibling to use as the split name
         //
         // note we need to do this after playing out pending attrs in case
@@ -3318,31 +3271,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         err = lfsr_rbyd_lookup(lfs, &sibling, LFSR_TAG_MK, 0,
                 &stag, &sid, NULL, &soff, &ssize);
         if (err && err != LFS_ERR_NOENT) {
-            assert(!err);
-            return err;
-        }
-
-//        // remove the first name since we are moving it up as part of our split
-//        //
-//        // note if we wanted to just not write out the first name it would
-//        // checking the attr last for mks that insert a new first name last
-//        // minute, this is just easier as long as split fixups are not the block
-//        // size bottleneck
-//        if (lfsr_tag_ismk(stag)) {
-//            err = lfsr_rbyd_append(lfs, &sibling,
-//                    lfsr_tag_mkrm(stag), sid,
-//                    LFSR_DATA_NULL);
-//            if (err) {
-//                assert(!err);
-//                return err;
-//            }
-//        }
-
-        // TODO can move this up?
-        // finalize commit
-        err = lfsr_rbyd_commit(lfs, &sibling, NULL);
-        if (err) {
-            assert(!err);
             return err;
         }
 
@@ -3446,16 +3374,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         continue;
 
     merge:;
-        // no parent? can't merge
-        if (rid == -1) {
-            goto abort;
-        }
-
-        // only child? can't merge
-        if (rweight == parent.weight) {
-            goto abort;
-        }
-
         // last child? try the left sibling
         // lfs_ssize_t sid;
         lfs_ssize_t sdelta;
@@ -3470,21 +3388,15 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // try looking up the sibling
         lfs_size_t sweight;
-        // keep track of our siblings name
-        lfsr_tag_t  split_tag;
-        lfs_off_t split_off;
-        lfs_size_t split_size;
-        
         err = lfsr_rbyd_lookup(lfs, &parent, LFSR_TAG_MK, sid,
-                &split_tag, &sid, &sweight, &split_off, &split_size);
+                NULL, &sid, &sweight, NULL, NULL);
         if (err && err != LFS_ERR_NOENT) {
-            assert(!err);
             return err;
         }
 
         // no sibling? can't merge
         if (err == LFS_ERR_NOENT) {
-            goto abort;
+            goto merge_abort;
         }
 
         // lfsr_tag_t stag;
@@ -3493,13 +3405,12 @@ static int lfsr_btree_commit(lfs_t *lfs,
         err = lfsr_rbyd_lookup(lfs, &parent, LFSR_TAG_BRANCH, sid,
                 &stag, NULL, NULL, &off, &size);
         if (err && err != LFS_ERR_NOENT) {
-            assert(!err);
             return err;
         }
 
         // no sibling? can't merge
         if (err == LFS_ERR_NOENT || stag != LFSR_TAG_BRANCH) {
-            goto abort;
+            goto merge_abort;
         }
 
         uint8_t buf[LFSR_BRANCH_DSIZE];
@@ -3508,20 +3419,17 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 &lfs->pcache, &lfs->rcache, delta,
                 parent.block, off, buf, delta);
         if (err) {
-            assert(!err);
             return err;
         }
 
         lfsr_branch_t branch;
         delta = lfsr_branch_fromdisk(&branch, buf);
         if (delta < 0) {
-            assert(!delta);
             return delta;
         }
 
         err = lfsr_rbyd_fetch(lfs, &sibling, branch.block, branch.limit, NULL);
         if (err) {
-            assert(!err);
             return err;
         }
 
@@ -3533,7 +3441,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
             err = lfsr_rbyd_lookup(lfs, &sibling, lfsr_tag_next(tag), id,
                     &tag, &id, &weight, &off, &size);
             if (err && err != LFS_ERR_NOENT) {
-                assert(!err);
                 return err;
             }
             if (err == LFS_ERR_NOENT) {
@@ -3550,7 +3457,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     // TODO also this is a weird way to use lfsr_data_t
                     LFSR_DATA_BUF(NULL, weight));
             if (err) {
-                assert(!err);
                 return err;
             }
 
@@ -3558,12 +3464,11 @@ static int lfsr_btree_commit(lfs_t *lfs,
             err = lfsr_rbyd_append(lfs, &rbyd_,
                     tag, sdelta + id, LFSR_DATA_DISK(sibling.block, off, size));
             if (err) {
-                assert(!err);
                 return err;
             }
 
             // if we exceed our compaction threshold our merge has
-            // failed, clean up ids and abort
+            // failed, clean up ids and merge_abort
             if (rbyd_.off > lfs->cfg->block_size/2) {
                 err = lfsr_rbyd_append(lfs, &rbyd_,
                         LFSR_TAG_SHRINK,
@@ -3571,23 +3476,22 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         // TODO also this is a weird way to use lfsr_data_t
                         LFSR_DATA_BUF(NULL, rbyd_.weight - rweight));
                 if (err) {
-                    assert(!err);
                     return err;
                 }
 
-                goto abort;
+                goto merge_abort;
             }
         }
 
         // bring in name that previously split the siblings
-        if (sdelta == 0) {
-            // if we're merging left we need to actually use our name
-            err = lfsr_rbyd_lookup(lfs, &parent, LFSR_TAG_MK, rid,
-                    &split_tag, NULL, NULL, &split_off, &split_size);
-            if (err) {
-                assert(!err);
-                return err;
-            }
+        lfsr_tag_t  split_tag;
+        lfs_off_t split_off;
+        lfs_size_t split_size;
+        err = lfsr_rbyd_lookup(lfs, &parent,
+                LFSR_TAG_MK, (sdelta == 0 ? rid : sid),
+                &split_tag, NULL, NULL, &split_off, &split_size);
+        if (err) {
+            return err;
         }
 
         if (lfsr_tag_ismk(split_tag)) {
@@ -3598,7 +3502,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     LFSR_TAG_MK, (sdelta == 0 ? sweight : rweight),
                     NULL, &split_id, NULL, NULL, NULL);
             if (err) {
-                assert(!err);
                 return err;
             }
 
@@ -3606,7 +3509,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     LFSR_TAG_MKBRANCH, split_id,
                     LFSR_DATA_DISK(parent.block, split_off, split_size));
             if (err) {
-                assert(!err);
                 return err;
             }
         }
@@ -3619,14 +3521,12 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     attr->tag, attr->id + (sdelta == 0 ? sweight : 0),
                     attr->data);
             if (err) {
-                assert(!err);
                 return err;
             }
         }
 
         err = lfsr_rbyd_commit(lfs, &rbyd_, NULL);
         if (err) {
-            assert(!err);
             return err;
         }
 
@@ -3642,16 +3542,11 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return 0;
 
         } else {
-
-//            lfs_ssize_t mid = lfs_smax32(rid, sid);
-//            lfs_size_t mweight = rweight + sweight;
-
             // push up merge
             lfs_ssize_t delta1 = lfsr_branch_todisk(
                     &(const lfsr_branch_t){rbyd_.block, rbyd_.off},
                     scratch_buf1);
             if (delta1 < 0) {
-                assert(!delta1);
                 return delta1;
             }
 
@@ -3894,10 +3789,6 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t id) {
         // of the rest
         return lfsr_btree_commit(lfs, btree, id, &rbyd,
                 LFSR_ATTR(SHRINK, rid-(rweight-1), NULL, rweight,
-//                // TODO conditional? merge with above?
-//                LFSR_ATTR_IF(
-//                    rid-(rweight-1) == 0 && rweight < rbyd.weight,
-//                    RMMKBRANCH, 0, NULL, 0,
                 NULL));
     }
 }
