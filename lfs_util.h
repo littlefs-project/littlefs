@@ -261,6 +261,17 @@ static inline uint32_t lfs_tobe32(uint32_t a) {
     return lfs_frombe32(a);
 }
 
+// Convert to/from 16-bit little-endian
+static inline void lfs_tole16_(uint16_t word, void *buffer) {
+    ((uint8_t*)buffer)[0] = word >>  0;
+    ((uint8_t*)buffer)[1] = word >>  8;
+}
+
+static inline uint16_t lfs_fromle16_(const void *buffer) {
+    return (((uint8_t*)buffer)[0] <<  0)
+         | (((uint8_t*)buffer)[1] <<  8);
+}
+
 // Convert to/from 32-bit little-endian
 static inline void lfs_tole32_(uint32_t word, void *buffer) {
     ((uint8_t*)buffer)[0] = word >>  0;
@@ -277,6 +288,7 @@ static inline uint32_t lfs_fromle32_(const void *buffer) {
 }
 
 // Convert to/from leb128 encoding
+// TODO should we really be using ssize_t here and not lfs_ssize_t?
 ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size);
 
 ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size);

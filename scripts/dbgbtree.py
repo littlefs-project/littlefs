@@ -7,6 +7,22 @@ import os
 import struct
 
 
+TAG_NAME       = 0x1000
+TAG_BNAME      = 0x1000
+TAG_REG        = 0x1010
+TAG_DIR        = 0x1020
+TAG_STRUCT     = 0x3000
+TAG_INLINED    = 0x3000
+TAG_BLOCK      = 0x3100
+TAG_BRANCH     = 0x3200
+TAG_BTREE      = 0x3300
+TAG_UATTR      = 0x4000
+TAG_GROW       = 0x0006
+TAG_SHRINK     = 0x0016
+TAG_ALT        = 0x0008
+TAG_CRC        = 0x0004
+TAG_FCRC       = 0x1004
+
 def blocklim(s):
     if '.' in s:
         s = s.strip()
@@ -34,6 +50,11 @@ def crc32c(data, crc=0):
             crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
     return 0xffffffff ^ crc
 
+def fromle16(data):
+    if len(data) < 2:
+        return 0
+    return struct.unpack('<H', data[:2])[0]
+
 def fromleb128(data):
     word = 0
     for i, b in enumerate(data):
@@ -44,10 +65,10 @@ def fromleb128(data):
     return word, len(data)
 
 def fromtag(data):
-    tag, delta = fromleb128(data)
-    id, delta_ = fromleb128(data[delta:])
-    size, delta__ = fromleb128(data[delta+delta_:])
-    return tag&1, tag&~1, id if tag&0x8 else id-1, size, delta+delta_+delta__
+    tag = fromle16(data)
+    id, delta = fromleb128(data[2:])
+    size, delta_ = fromleb128(data[2+delta:])
+    return tag&1, tag&~1, id if tag&0x8 else id-1, size, 2+delta+delta_
 
 def popc(x):
     return bin(x).count('1')
@@ -63,42 +84,45 @@ def xxd(data, width=16, crc=False):
                 for b in map(chr, data[i:i+width])))
 
 def tagrepr(tag, id, size, off=None):
-    if (tag & ~0x3f0) == 0x0400:
-        return 'mk%s id%d %d' % (
-            'branch' if ((tag & 0x3f0) >> 4) == 0x00
-                else 'reg' if ((tag & 0x3f0) >> 4) == 0x01
-                else 'dir' if ((tag & 0x3f0) >> 4) == 0x02
-                else ' 0x%02x' % ((tag & 0x3f0) >> 4),
+    if (tag & 0xf00c) == TAG_NAME:
+        return '%s%s id%d %d' % (
+            'rm' if tag & 0x2 else '',
+            'bname' if (tag & 0xfffe) == TAG_BNAME
+                else 'reg' if (tag & 0xfffe) == TAG_REG
+                else 'dir' if (tag & 0xfffe) == TAG_DIR
+                else 'name 0x%02x' % ((tag & 0x0ff0) >> 4),
             id,
             size)
-    elif tag == 0x0800:
-        return 'inlined id%d %d' % (id, size)
-    elif tag == 0x0810:
-        return 'block id%d %d' % (id, size)
-    elif tag == 0x0820:
-        return 'btree id%d %d' % (id, size)
-    elif tag == 0x0830:
-        return 'branch id%d %d' % (id, size)
-    elif (tag & ~0xff2) == 0x2000:
+    elif (tag & 0xf00c) == TAG_STRUCT:
+        return '%s%s id%d %d' % (
+            'rm' if tag & 0x2 else '',
+            'inlined' if (tag & 0xfffe) == TAG_INLINED
+                else 'block' if (tag & 0xfffe) == TAG_BLOCK
+                else 'branch' if (tag & 0xfffe) == TAG_BRANCH
+                else 'btree' if (tag & 0xfffe) == TAG_BTREE
+                else 'struct 0x%02x' % ((tag & 0x0ff0) >> 4),
+            id,
+            size)
+    elif (tag & 0xf00c) == TAG_UATTR:
         return '%suattr 0x%02x%s%s' % (
             'rm' if tag & 0x2 else '',
-            (tag & 0xff0) >> 4,
+            (tag & 0x0ff0) >> 4,
             ' id%d' % id if id != -1 else '',
             ' %d' % size if not tag & 0x2 or size else '')
-    elif tag == 0x0006:
+    elif (tag & 0xfffe) == TAG_GROW:
         return 'grow id%d w%d' % (
             id,
             size)
-    elif tag == 0x0016:
+    elif (tag & 0xfffe) == TAG_SHRINK:
         return 'shrink id%d w%d' % (
             id,
             size)
-    elif (tag & ~0x10) == 0x0004:
+    elif (tag & 0xf00e) == TAG_CRC:
         return 'crc%x%s %d' % (
             1 if tag & 0x10 else 0,
             ' 0x%02x' % id if id != -1 else '',
             size)
-    elif tag == 0x0024:
+    elif (tag & 0xfffe) == TAG_FCRC:
         return 'fcrc%s %d' % (
             ' 0x%02x' % id if id != -1 else '',
             size)
@@ -106,14 +130,13 @@ def tagrepr(tag, id, size, off=None):
         return 'alt%s%s 0x%x w%d %s' % (
             'r' if tag & 0x2 else 'b',
             'gt' if tag & 0x4 else 'le',
-            tag & 0x3ff0,
+            tag & 0xfff0,
             id,
             '0x%x' % (0xffffffff & (off-size))
                 if off is not None
                 else '-%d' % off)
     else:
         return '0x%04x id%d %d' % (tag, id, size)
-
 
 class Rbyd:
     def __init__(self, block, limit, data, rev, off, trunk, weight):
@@ -154,14 +177,14 @@ class Rbyd:
             wastrunk = not not tag & 0x8
 
             # keep track of weight
-            if tag == 0x0006:
+            if tag == TAG_GROW:
                 weight_ += size
-            elif tag == 0x0016:
+            elif tag == TAG_SHRINK:
                 weight_ = max(weight_ - size, 0)
 
             # take care of crcs
             if (tag & 0xe) <= 0x4:
-                if (tag & ~0x10) != 0x04:
+                if (tag & 0xf00f) != TAG_CRC:
                     crc = crc32c(data[j_:j_+size], crc)
                 # found a crc?
                 else:
@@ -284,24 +307,34 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
             while True:
                 # first lookup id/name
                 (done, name_tag, rid_, w,
-                    name_j, name_d, name) = rbyd.lookup(0x400, rid)
+                    name_j, name_d, name) = rbyd.lookup(TAG_NAME, rid)
                 if done:
-                    return True, id, 0, rbyd, -1, 0, 0, 0, b'', 0, 0, b'', path
-                if name_tag & 0xf00 != 0x400:
-                    name_j, name_d, name = name_j, 0, b''
+                    return (True, id, 0, rbyd, -1, 0,
+                        0, 0, b'',
+                        0, 0, b'',
+                        path)
 
-                # then lookup struct
-                (done, tag, _, _,
-                    struct_j, struct_d, struct_) = rbyd.lookup(0x800, rid_)
-                if done:
-                    return True, id, 0, rbyd, -1, 0, 0, 0, b'', 0, 0, b'', path
+                if name_tag & 0xf00f == TAG_NAME:
+                    # then lookup struct
+                    (done, tag, _, _,
+                        struct_j, struct_d, struct_) = rbyd.lookup(
+                            TAG_STRUCT, rid_)
+                    if done:
+                        return (True, id, 0, rbyd, -1, 0,
+                            0, 0, b'',
+                            0, 0, b'',
+                            path)
+                else:
+                    tag = name_tag
+                    struct_j, struct_d, struct_ = name_j, name_d, name
+                    name_j, name_d, name = name_j, 0, b''
 
                 path.append((id + (rid_-rid), w, rbyd, rid_, tag,
                     name_j, name_d, name,
                     struct_j, struct_d, struct_))
 
                 # is it another branch? continue down tree
-                if tag == 0x830 and (depth is None or depth_ < depth):
+                if tag == TAG_BRANCH and (depth is None or depth_ < depth):
                     block, delta = fromleb128(struct_)
                     limit, _ = fromleb128(struct_[delta:])
                     rbyd = Rbyd.fetch(f, block_size, block, limit)

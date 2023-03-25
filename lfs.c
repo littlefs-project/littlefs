@@ -447,25 +447,21 @@ static inline lfs_size_t lfs_tag_dsize(lfs_tag_t tag) {
     return sizeof(tag) + lfs_tag_size(tag + lfs_tag_isdelete(tag));
 }
 
-// 14-bit metadata tags
-//
-// in-device, these are effectively 14-bit unsigned integers,
-// on-disk, these are encoded in leb128, so smaller constants are prefered
-//
+// 16-bit metadata tags
 enum lfsr_tag_type {
-    LFSR_TAG_MK         = 0x0400,
-    LFSR_TAG_MKBRANCH   = 0x0400,
-    LFSR_TAG_MKREG      = 0x0410,
-    LFSR_TAG_MKDIR      = 0x0420,
+    LFSR_TAG_NAME       = 0x1000,
+    LFSR_TAG_BNAME      = 0x1000,
+    LFSR_TAG_REG        = 0x1010,
+    LFSR_TAG_DIR        = 0x1020,
 
-    LFSR_TAG_STRUCT     = 0x0800,
-    LFSR_TAG_INLINED    = 0x0800,
-    LFSR_TAG_BLOCK      = 0x0810,
-    LFSR_TAG_BTREE      = 0x0820,
-    LFSR_TAG_BRANCH     = 0x0830,
+    LFSR_TAG_STRUCT     = 0x3000,
+    LFSR_TAG_INLINED    = 0x3000,
+    LFSR_TAG_BLOCK      = 0x3100,
+    LFSR_TAG_BRANCH     = 0x3200,
+    LFSR_TAG_BTREE      = 0x3300,
 
-    LFSR_TAG_UATTR      = 0x2000,
-    LFSR_TAG_RMUATTR    = 0x2002,
+    LFSR_TAG_UATTR      = 0x4000,
+    LFSR_TAG_RMUATTR    = 0x4002,
 
     LFSR_TAG_GROW       = 0x0006,
     LFSR_TAG_SHRINK     = 0x0016,
@@ -478,20 +474,18 @@ enum lfsr_tag_type {
     LFSR_TAG_ALTRGT     = 0x000e,
 
     LFSR_TAG_CRC        = 0x0004,
-    LFSR_TAG_CRC0       = 0x0004,
-    LFSR_TAG_CRC1       = 0x0014,
-    LFSR_TAG_FCRC       = 0x0024,
+    LFSR_TAG_FCRC       = 0x1004,
 };
 
 #define LFSR_TAG_ALT_(color, dir, key) \
     (LFSR_TAG_ALT \
         | ((0x1 & (lfsr_tag_t)(color)) << 1) \
         | ((0x1 & (lfsr_tag_t)(dir)) << 2) \
-        | ((0x3ff0 & (lfsr_tag_t)(key))))
+        | ((0xfff0 & (lfsr_tag_t)(key))))
 
 #define LFSR_TAG_ALT(color, dir, key) \
     (LFSR_TAG_ALT##color##dir \
-        | ((0x3ff0 & (lfsr_tag_t)(key))))
+        | ((0xfff0 & (lfsr_tag_t)(key))))
 
 #define LFSR_TAG_UATTR(attr) \
     (LFSR_TAG_UATTR \
@@ -502,6 +496,14 @@ enum lfsr_tag_type {
         | ((0xff & (lfsr_tag_t)(attr)) << 4))
 
 // tag type operations
+static inline lfsr_tag_t lfsr_tag_suptype(lfsr_tag_t tag) {
+    return tag & 0xf00f;
+}
+
+static inline uint8_t lfsr_tag_subtype(lfsr_tag_t tag) {
+    return (tag & 0x0ff0) >> 4;
+}
+
 static inline bool lfsr_tag_isrm(lfsr_tag_t tag) {
     return tag & 0x2;
 }
@@ -520,18 +522,6 @@ static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
 
 static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
     return tag & 0x8;
-}
-
-static inline bool lfsr_tag_iscrc(lfsr_tag_t tag) {
-    return (tag & ~0x0010) == LFSR_TAG_CRC;
-}
-
-static inline bool lfsr_tag_ismk(lfsr_tag_t tag) {
-    return (tag & ~0x03f0) == LFSR_TAG_MK;
-}
-
-static inline bool lfsr_tag_isstruct(lfsr_tag_t tag) {
-    return (tag & ~0x03f0) == LFSR_TAG_STRUCT;
 }
 
 //static inline bool lfsr_tag_isfound(lfsr_tag_t tag) {
@@ -1174,9 +1164,9 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
 // TODO is id actually 31-bits? do we rely on sign anywhere? we should really
 // nail this down for all the types
 
-// each piece of metadata in an rbyd tree is prefixed with a 3-leb128 piece tag:
+// each piece of metadata in an rbyd tree is prefixed with a 3-piece tag:
 //
-// - 14-bit type      => 2 byte leb128 (worst case)
+// - 16-bit type      => 2 byte le16
 // - 32-bit id/weight => 5 byte leb128 (worst case)
 // - 32-bit size/jump => 5 byte leb128 (worst case)
 //                    => 12 bytes total
@@ -1224,16 +1214,11 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
         }
     }
 
-    lfs_size_t delta = 0;
-    uint32_t tag_;
-    ssize_t delta_ = lfs_fromleb128(&tag_, &buffer[delta], 2);
-    if (delta_ < 0) {
-        return delta_;
-    }
-    delta += delta_;
+    uint16_t tag_ = lfs_fromle16_(&buffer[0]);
 
     lfs_size_t id_;
-    delta_ = lfs_fromleb128(&id_, &buffer[delta], 5);
+    ssize_t delta = 2;
+    lfs_ssize_t delta_ = lfs_fromleb128(&id_, &buffer[delta], 5);
     if (delta_ < 0) {
         return delta_;
     }
@@ -1367,7 +1352,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         // not an end-of-commit crc
-        if (!lfsr_tag_iscrc(tag)) {
+        if (lfsr_tag_suptype(tag) != LFSR_TAG_CRC) {
             // crc the entry first, hopefully leaving it in the cache
             err = lfs_bd_crc32c(lfs,
                     NULL, &lfs->rcache, limit-off,
@@ -1400,7 +1385,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
 
             // found our find?
-            if (find && lfsr_tag_ismk(tag)) {
+            if (find && lfsr_tag_suptype(tag) == LFSR_TAG_NAME) {
                 // compare with disk
                 lfs_size_t diff = lfs_min(size, find->name_len);
                 int cmp = lfs_bd_cmp(lfs,
@@ -1761,8 +1746,6 @@ static int lfsr_rbyd_progdata(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
 static int lfsr_rbyd_progtag(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_tag_t tag, lfs_ssize_t id, lfs_size_t size, uint32_t *crc) {
-    LFS_ASSERT(tag <= 0x3fff);
-
     // make sure to include the parity of the current crc
     tag |= lfs_popc(rbyd_->crc) & 1;
 
@@ -1771,16 +1754,12 @@ static int lfsr_rbyd_progtag(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         id += 1;
     }
 
-    // compress into a trio of leb128s
+    // compress into an le16 and pair of leb128s
     uint8_t buf[LFSR_TAG_DSIZE];
-    lfs_size_t delta = 0;
-    ssize_t delta_ = lfs_toleb128(tag, &buf[delta], 2);
-    if (delta_ < 0) {
-        return delta_;
-    }
-    delta += delta_;
+    lfs_tole16_(tag, &buf[0]);
 
-    delta_ = lfs_toleb128(id, &buf[delta], 5);
+    lfs_size_t delta = 2;
+    ssize_t delta_ = lfs_toleb128(id, &buf[delta], 5);
     if (delta_ < 0) {
         return delta_;
     }
@@ -2399,26 +2378,26 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // this gets a bit complicated as we have two types of crcs:
     //
     // - 9-word crc with fcrc to check following prog (middle of block)
-    //   - fcrc tag type => 1 byte leb128
+    //   - fcrc tag type => 2 byte le16
     //   - fcrc tag id   => 1 byte leb128
     //   - fcrc tag size => 1 byte leb128 (worst case)
     //   - fcrc crc      => 4 byte le32
     //   - fcrc size     => 5 byte leb128 (worst case)
-    //   - crc tag type  => 1 byte leb128
+    //   - crc tag type  => 2 byte le16
     //   - crc tag id    => 1 byte leb128
     //   - crc tag size  => 5 byte leb128 (worst case)
     //   - crc crc       => 4 byte le32
-    //                   => 23 bytes total
+    //                   => 25 bytes total
     //
     // - 4-word crc with no following prog (end of block)
-    //   - crc tag type => 1 byte leb128
+    //   - crc tag type => 2 byte le16
     //   - crc tag id   => 1 byte leb128
     //   - crc tag size => 5 byte leb128 (worst case)
     //   - crc crc      => 4 byte le32
-    //                  => 11 bytes total
+    //                  => 12 bytes total
     //
     lfs_off_t aligned = lfs_alignup(
-            rbyd_.off + 1+1+1+4+5 + 1+1+5+4,
+            rbyd_.off + 2+1+1+4+5 + 2+1+5+4,
             lfs->cfg->prog_size);
 
     // space for fcrc?
@@ -2480,29 +2459,29 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // note padding-size depends on leb-encoding depends on padding-size, to
     // get around this catch-22 we just always write a fully-expanded leb128
     // encoding
-    uint8_t buffer[1+1+5+4];
-    buffer[0] = LFSR_TAG_CRC | (lfs_popc(rbyd_.crc) & 1);
-    buffer[1] = 0;
+    uint8_t buffer[2+1+5+4];
+    lfs_tole16_(LFSR_TAG_CRC | (lfs_popc(rbyd_.crc) & 1), &buffer[0]);
+    buffer[2] = 0;
 
-    lfs_off_t padding = aligned - (rbyd_.off + 1+1+5);
-    buffer[2] = 0x80 | (0x7f & (padding >>  0));
-    buffer[3] = 0x80 | (0x7f & (padding >>  7));
-    buffer[4] = 0x80 | (0x7f & (padding >> 14));
-    buffer[5] = 0x80 | (0x7f & (padding >> 21));
-    buffer[6] = 0x00 | (0x7f & (padding >> 28));
+    lfs_off_t padding = aligned - (rbyd_.off + 2+1+5);
+    buffer[3] = 0x80 | (0x7f & (padding >>  0));
+    buffer[4] = 0x80 | (0x7f & (padding >>  7));
+    buffer[5] = 0x80 | (0x7f & (padding >> 14));
+    buffer[6] = 0x80 | (0x7f & (padding >> 21));
+    buffer[7] = 0x00 | (0x7f & (padding >> 28));
 
-    rbyd_.crc = lfs_crc32c(rbyd_.crc, buffer, 1+1+5);
+    rbyd_.crc = lfs_crc32c(rbyd_.crc, buffer, 2+1+5);
     // we can't let the next tag appear as valid, so intentionally perturb the
     // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
     // so we can really change any bit to make this happen, we've reserved a bit
     // in crc tags just for this purpose
     if ((lfs_popc(rbyd_.crc) & 1) == (perturb & 1)) {
         buffer[0] ^= 0x10;
-        rbyd_.crc ^= 0x9c5bfaa6; // note crc(a ^ b) == crc(a) ^ crc(b)
+        rbyd_.crc ^= 0x847609b4; // note crc(a ^ b) == crc(a) ^ crc(b)
     }
-    lfs_tole32_(rbyd_.crc, &buffer[1+1+5]);
+    lfs_tole32_(rbyd_.crc, &buffer[2+1+5]);
 
-    int err = lfsr_rbyd_prog(lfs, &rbyd_, buffer, 1+1+5+4, NULL);
+    int err = lfsr_rbyd_prog(lfs, &rbyd_, buffer, 2+1+5+4, NULL);
     if (err) {
         rbyd_.erased = false;
         return err;
@@ -2643,13 +2622,13 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
         lfs_size_t weight__;
         lfs_off_t off_;
         lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, rid,
+        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_NAME, rid,
                 &tag__, &rid__, &weight__, &off_, &size_);
         if (err) {
             return err;
         }
 
-        if (lfsr_tag_ismk(tag__)) {
+        if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
             // TODO what if we don't find a struct? ENOENT?
             err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
                     &tag__, NULL, NULL, &off_, &size_);
@@ -2741,14 +2720,14 @@ static int lfsr_btree_parent(lfs_t *lfs,
         lfs_size_t weight__;
         lfs_off_t off_;
         lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, rid,
+        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_NAME, rid,
                 &tag__, &rid__, &weight__, &off_, &size_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
-        if (lfsr_tag_ismk(tag__)) {
+        if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
             // TODO what if we don't find a struct? ENOENT?
             err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
                     &tag__, NULL, NULL, &off_, &size_);
@@ -2865,13 +2844,13 @@ static lfs_ssize_t lfsr_btree_find_(lfs_t *lfs,
         lfs_size_t weight__;
         lfs_off_t off_;
         lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, find.found_id,
+        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_NAME, find.found_id,
                 &tag__, &rid__, &weight__, &off_, &size_);
         if (err) {
             return err;
         }
 
-        if (lfsr_tag_ismk(tag__)) {
+        if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
             // TODO what if we don't find a struct? ENOENT?
             err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_STRUCT, rid__,
                     &tag__, NULL, NULL, &off_, &size_);
@@ -3063,7 +3042,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             //
             // Discarding these during compaction is easy and prevents any
             // real storage cost.
-            if (lfsr_tag_ismk(tag) && id-(weight-1) == 0) {
+            if (lfsr_tag_suptype(tag) == LFSR_TAG_NAME && id-(weight-1) == 0) {
                 continue;
             }
 
@@ -3277,7 +3256,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         lfs_ssize_t sid;
         lfs_off_t soff;
         lfs_size_t ssize;
-        err = lfsr_rbyd_lookup(lfs, &sibling, LFSR_TAG_MK, 0,
+        err = lfsr_rbyd_lookup(lfs, &sibling, LFSR_TAG_NAME, 0,
                 &stag, &sid, NULL, &soff, &ssize);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -3321,8 +3300,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         NULL, sibling.weight,
                     &scratch_attrs[3]);
             scratch_attrs[3] = *LFSR_ATTR_DISK_IF(
-                    lfsr_tag_ismk(stag),
-                    MKBRANCH, 0+rbyd_.weight+sibling.weight-1,
+                    lfsr_tag_suptype(stag) == LFSR_TAG_NAME,
+                    BNAME, 0+rbyd_.weight+sibling.weight-1,
                         sibling.block, soff, ssize,
                     &scratch_attrs[4]);
             scratch_attrs[4] = *LFSR_ATTR(
@@ -3366,8 +3345,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         NULL, sibling.weight,
                     &scratch_attrs[3]);
             scratch_attrs[3] = *LFSR_ATTR_DISK_IF(
-                    lfsr_tag_ismk(stag),
-                    MKBRANCH, rid-(rweight-1)+rbyd_.weight
+                    lfsr_tag_suptype(stag) == LFSR_TAG_NAME,
+                    BNAME, rid-(rweight-1)+rbyd_.weight
                             +sibling.weight-1,
                         sibling.block, soff, ssize,
                     &scratch_attrs[4]);
@@ -3397,7 +3376,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // try looking up the sibling
         lfs_size_t sweight;
-        err = lfsr_rbyd_lookup(lfs, &parent, LFSR_TAG_MK, sid,
+        err = lfsr_rbyd_lookup(lfs, &parent, LFSR_TAG_NAME, sid,
                 NULL, &sid, &sweight, NULL, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -3498,25 +3477,25 @@ static int lfsr_btree_commit(lfs_t *lfs,
         lfs_off_t split_off;
         lfs_size_t split_size;
         err = lfsr_rbyd_lookup(lfs, &parent,
-                LFSR_TAG_MK, (sdelta == 0 ? rid : sid),
+                LFSR_TAG_NAME, (sdelta == 0 ? rid : sid),
                 &split_tag, NULL, NULL, &split_off, &split_size);
         if (err) {
             return err;
         }
 
-        if (lfsr_tag_ismk(split_tag)) {
+        if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
             // TODO can we avoid this?
             // lookup the id of the previously-split entry
             lfs_ssize_t split_id;
             err = lfsr_rbyd_lookup(lfs, &rbyd_,
-                    LFSR_TAG_MK, (sdelta == 0 ? sweight : rweight_),
+                    LFSR_TAG_NAME, (sdelta == 0 ? sweight : rweight_),
                     NULL, &split_id, NULL, NULL, NULL);
             if (err) {
                 return err;
             }
 
             err = lfsr_rbyd_append(lfs, &rbyd_,
-                    LFSR_TAG_MKBRANCH, split_id,
+                    LFSR_TAG_BNAME, split_id,
                     LFSR_DATA_DISK(parent.block, split_off, split_size));
             if (err) {
                 return err;
@@ -3740,7 +3719,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t id) {
 
             // try looking up the sibling
             lfs_size_t sweight;
-            int err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_MK, sid,
+            int err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_NAME, sid,
                     NULL, &sid, &sweight, NULL, NULL);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -3762,7 +3741,8 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t id) {
             }
 
             // no sibling? null btree
-            if (err == LFS_ERR_NOENT || !lfsr_tag_isstruct(stag)) {
+            if (err == LFS_ERR_NOENT
+                    || lfsr_tag_suptype(stag) != LFSR_TAG_STRUCT) {
                 btree->weight = 0;
                 return 0;
             }
@@ -3820,7 +3800,7 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
                 LFSR_ATTR_(tag1, 0+weight1-1,
                     buffer1, size1,
                 LFSR_ATTR(GROW, weight1, NULL, weight2,
-                LFSR_ATTR(MKBRANCH, weight1+weight2-1,
+                LFSR_ATTR(BNAME, weight1+weight2-1,
                     name, name_len,
                 LFSR_ATTR_(tag2, weight1+weight2-1,
                     buffer2, size2,
@@ -3869,7 +3849,7 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
                 LFSR_ATTR_(tag1, rid-(rweight-1)+weight1-1,
                     buffer1, size1,
                 LFSR_ATTR(GROW, rid-(rweight-1)+weight1, NULL, weight2,
-                LFSR_ATTR(MKBRANCH, rid-(rweight-1)+weight1+weight2-1,
+                LFSR_ATTR(BNAME, rid-(rweight-1)+weight1+weight2-1,
                     name, name_len,
                 LFSR_ATTR_(tag2, rid-(rweight-1)+weight1+weight2-1,
                     buffer2, size2,
