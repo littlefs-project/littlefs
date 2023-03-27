@@ -309,7 +309,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
             while True:
                 # first lookup id/name
                 (done, name_tag, rid_, w,
-                    name_j, name_d, name) = rbyd.lookup(TAG_NAME, rid)
+                    name_j, name_d, name) = rbyd.lookup(0, rid)
                 if done:
                     return (True, id, 0, rbyd, -1, 0,
                         0, 0, b'',

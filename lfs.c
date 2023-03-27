@@ -1504,10 +1504,6 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_tag_t *tag_, lfs_ssize_t *id_, lfs_size_t *weight_,
         // TODO should this take lfsr_data_t for consistency?
         lfs_off_t *off_, lfs_size_t *size_) {
-    // tag must be non-zero! zero tags may deceptively look like they work but
-    // fail when the tree contains a deleted id0
-    LFS_ASSERT(tag != 0);
-
     // keep track of bounds as we descend down the tree
     lfs_off_t branch = rbyd->trunk;
     lfs_ssize_t lower = -1;
@@ -2284,13 +2280,13 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     } else if (tag == LFSR_TAG_GROW) {
         // decrease weight when growing
-        alt = LFSR_TAG_ALT(B, GT, 0);
+        alt = LFSR_TAG_ALT(B, LE, 0xfff0);
         weight = upper_id - lower_id - 1 + lfsr_data_len(data);
 
     } else if (tag == LFSR_TAG_SHRINK) {
         // decrease weight when shrinking
         if (upper_id - lower_id - 1 > (lfs_ssize_t)lfsr_data_len(data)) {
-            alt = LFSR_TAG_ALT(B, GT, 0);
+            alt = LFSR_TAG_ALT(B, LE, 0xfff0);
             weight = upper_id - lower_id - 1 - lfsr_data_len(data);
         }
 
@@ -2298,7 +2294,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             || (id_ == id && lfsr_tag_key(tag_) > lfsr_tag_key(tag))) {
         if (lfsr_tag_isrm(tag)) {
             // hide our tag during removes
-            alt = LFSR_TAG_ALT(B, GT, 0);
+            alt = LFSR_TAG_ALT(B, LE, 0xfff0);
             weight = upper_id - lower_id - 1;
         } else {
             // split greater than
@@ -2638,7 +2634,7 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
         lfs_size_t weight__;
         lfs_off_t off_;
         lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_NAME, rid,
+        err = lfsr_rbyd_lookup(lfs, &rbyd, 0, rid,
                 &tag__, &rid__, &weight__, &off_, &size_);
         if (err) {
             return err;
@@ -2736,7 +2732,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
         lfs_size_t weight__;
         lfs_off_t off_;
         lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_NAME, rid,
+        err = lfsr_rbyd_lookup(lfs, &rbyd, 0, rid,
                 &tag__, &rid__, &weight__, &off_, &size_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -2860,7 +2856,7 @@ static lfs_ssize_t lfsr_btree_find_(lfs_t *lfs,
         lfs_size_t weight__;
         lfs_off_t off_;
         lfs_size_t size_;
-        err = lfsr_rbyd_lookup(lfs, &rbyd, LFSR_TAG_NAME, find.found_id,
+        err = lfsr_rbyd_lookup(lfs, &rbyd, 0, find.found_id,
                 &tag__, &rid__, &weight__, &off_, &size_);
         if (err) {
             return err;

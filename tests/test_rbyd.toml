@@ -2237,7 +2237,7 @@ code = '''
             LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4,
             LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(id_ == -1);
@@ -2251,7 +2251,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(id_ == -1);
@@ -2271,7 +2271,7 @@ code = '''
             LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4,
             LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4, NULL))) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(id_ == -1);
@@ -2285,7 +2285,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(id_ == -1);
@@ -2330,7 +2330,7 @@ code = '''
     lfsr_rbyd_commit(&lfs, &rbyd,
             LFSR_ATTR(UATTR(2), -1, "\xbb\xbb\xbb\xbb", 4, NULL)) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(id_ == -1);
@@ -2344,7 +2344,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(id_ == -1);
@@ -2365,7 +2365,7 @@ code = '''
     lfsr_rbyd_commit(&lfs, &rbyd,
             LFSR_ATTR(UATTR(1), -1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(id_ == -1);
@@ -2379,7 +2379,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(id_ == -1);
@@ -4424,7 +4424,7 @@ code = '''
             LFSR_ATTR(GROW, 1, NULL, 1,
             LFSR_ATTR(REG, 1, "\xbb\xbb\xbb\xbb", 4, NULL))))) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -4442,7 +4442,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -4468,7 +4468,7 @@ code = '''
             LFSR_ATTR(GROW, 0, NULL, 1,
             LFSR_ATTR(REG, 0, "\xaa\xaa\xaa\xaa", 4, NULL))))) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -4486,7 +4486,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -4538,7 +4538,7 @@ code = '''
             LFSR_ATTR(GROW, 1, NULL, 1,
             LFSR_ATTR(REG, 1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -4556,7 +4556,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -4583,7 +4583,7 @@ code = '''
             LFSR_ATTR(GROW, 0, NULL, 1,
             LFSR_ATTR(REG, 0, "\xaa\xaa\xaa\xaa", 4, NULL))) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -4601,7 +4601,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -5679,7 +5679,7 @@ code = '''
             LFSR_ATTR(REG,    1, "\xbb\xbb\xbb\xbb", 4,
             LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2, NULL))))))) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -5711,7 +5711,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -5753,7 +5753,7 @@ code = '''
             LFSR_ATTR(REG,    0, "\xaa\xaa\xaa\xaa", 4,
             LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2, NULL))))))) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -5785,7 +5785,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -5855,7 +5855,7 @@ code = '''
     lfsr_rbyd_commit(&lfs, &rbyd,
             LFSR_ATTR(UATTR(1), 1, "\xbb\xbb",         2, NULL)) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -5887,7 +5887,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -5932,7 +5932,7 @@ code = '''
     lfsr_rbyd_commit(&lfs, &rbyd,
             LFSR_ATTR(UATTR(1), 0, "\xaa\xaa",         2, NULL)) => 0;
 
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -5964,7 +5964,7 @@ code = '''
             &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, NULL, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -8929,7 +8929,7 @@ code = '''
             NULL))))))))))) => 0;
 
     // traverse, finding tags and weights
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, &weight_, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -8963,7 +8963,7 @@ code = '''
             &tag_, &id_, &weight_, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, &weight_, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(id_ == 0);
@@ -9927,7 +9927,7 @@ code = '''
             NULL)))))))))))))))))))))))))) => 0;
 
     // traverse, finding tags and weights
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, &weight_, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(3));
     assert(id_ == -1);
@@ -10027,7 +10027,7 @@ code = '''
             &tag_, &id_, &weight_, &off_, &size_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
-    lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(0), -1,
+    lfsr_rbyd_lookup(&lfs, &rbyd, 0, -1,
             &tag_, &id_, &weight_, &off_, &size_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(3));
     assert(id_ == -1);
