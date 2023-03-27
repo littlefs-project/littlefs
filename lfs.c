@@ -449,32 +449,35 @@ static inline lfs_size_t lfs_tag_dsize(lfs_tag_t tag) {
 
 // 16-bit metadata tags
 enum lfsr_tag_type {
-    LFSR_TAG_NAME       = 0x1000,
-    LFSR_TAG_BNAME      = 0x1000,
-    LFSR_TAG_REG        = 0x1010,
-    LFSR_TAG_DIR        = 0x1020,
+    LFSR_TAG_UNREACHABLE    = 0x0002,
 
-    LFSR_TAG_STRUCT     = 0x3000,
-    LFSR_TAG_INLINED    = 0x3000,
-    LFSR_TAG_BLOCK      = 0x3100,
-    LFSR_TAG_BRANCH     = 0x3200,
-    LFSR_TAG_BTREE      = 0x3300,
+    LFSR_TAG_NAME           = 0x1000,
+    LFSR_TAG_BNAME          = 0x1000,
+    LFSR_TAG_REG            = 0x1010,
+    LFSR_TAG_DIR            = 0x1020,
 
-    LFSR_TAG_UATTR      = 0x4000,
-    LFSR_TAG_RMUATTR    = 0x4002,
+    LFSR_TAG_STRUCT         = 0x3000,
+    LFSR_TAG_INLINED        = 0x3000,
+    LFSR_TAG_BLOCK          = 0x3100,
+    LFSR_TAG_BRANCH         = 0x3200,
+    LFSR_TAG_BTREE          = 0x3300,
 
-    LFSR_TAG_GROW       = 0x0006,
-    LFSR_TAG_SHRINK     = 0x0016,
-    LFSR_TAG_FROM       = 0x0026, // in-device only
+    LFSR_TAG_UATTR          = 0x4000,
+    LFSR_TAG_RMUATTR        = 0x4002,
 
-    LFSR_TAG_ALT        = 0x0008,
-    LFSR_TAG_ALTBLE     = 0x0008,
-    LFSR_TAG_ALTRLE     = 0x000a,
-    LFSR_TAG_ALTBGT     = 0x000c,
-    LFSR_TAG_ALTRGT     = 0x000e,
+    LFSR_TAG_ALT            = 0x0008,
+    LFSR_TAG_ALTBLE         = 0x0008,
+    LFSR_TAG_ALTRLE         = 0x000a,
+    LFSR_TAG_ALTBGT         = 0x000c,
+    LFSR_TAG_ALTRGT         = 0x000e,
 
-    LFSR_TAG_CRC        = 0x0004,
-    LFSR_TAG_FCRC       = 0x1004,
+    LFSR_TAG_CRC            = 0x0004,
+    LFSR_TAG_FCRC           = 0x1004,
+
+    // in-device only
+    LFSR_TAG_GROW           = 0x0006,
+    LFSR_TAG_SHRINK         = 0x0016,
+    LFSR_TAG_FROM           = 0x0026,
 };
 
 #define LFSR_TAG_ALT_(color, dir, key) \
@@ -512,12 +515,8 @@ static inline lfsr_tag_t lfsr_tag_mkrm(lfsr_tag_t tag) {
     return tag | 0x2;
 }
 
-static inline bool lfsr_tag_hasdata(lfsr_tag_t tag) {
-    return (tag & 0xe) <= 0x4;
-}
-
 static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
-    return (tag & 0xe) != 0x4;
+    return (tag & 0xc) != 0x4;
 }
 
 static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
@@ -1282,6 +1281,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfs_off_t off = sizeof(uint32_t);
     lfs_off_t trunk = 0;
     bool wastrunk = false;
+    lfs_size_t lower = 0;
+    lfs_size_t upper = 0;
     lfs_size_t weight = 0;
 
     // assume unerased until proven otherwise
@@ -1310,39 +1311,51 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // found trunk of tree?
         if (!wastrunk && lfsr_tag_istrunk(tag)) {
             trunk = off;
+            lower = 0;
+            upper = 0;
         }
         wastrunk = lfsr_tag_isalt(tag);
         off += delta;
 
-        // keep track of weight
+        // derive the new weight of the tree from alt pointers
         //
         // NOTE we can't check for overflow/underflow here because we
         // may be overeagerly parsing an invalid commit, it's ok for
         // this to overflow/underflow as long as we throw it out later
         // on a bad crc
-        if (tag == LFSR_TAG_GROW) {
-            weight += size;
-
-            // adjust find
-            if (find && find->predicted_id >= id) {
-                find->predicted_id += size;
+        if (lfsr_tag_isalt(tag)) {
+            if (lfsr_tag_isgt(tag)) {
+                upper += id;
+            } else {
+                lower += id;
             }
-        } else if (tag == LFSR_TAG_SHRINK) {
-            weight -= size;
 
-            // adjust find
+        } else if (lfsr_tag_istrunk(tag)) {
+            // note we need to include our id's weight in our weight
+            // calculation, but only when our id is included in the tree
+            lfs_ssize_t delta = (lower+upper) - weight;
+            if (!lfsr_tag_isrm(tag)
+                    && tag != LFSR_TAG_GROW
+                    && tag != LFSR_TAG_SHRINK) {
+                delta += id+1-lower;
+            }
+
+            // adjust any pending finds
             if (find && find->predicted_id >= id) {
-                if (find->predicted_id < id+(lfs_ssize_t)size) {
+                // pending find removed?
+                if (delta < 0 && find->predicted_id < id-delta) {
                     find->predicted_tag = 0;
                     find->predicted_id = id-1;
                 } else {
-                    find->predicted_id -= size;
+                    find->predicted_id += delta;
                 }
             }
+
+            weight += delta;
         }
 
         // we mostly just skip non-data tags here
-        if (!lfsr_tag_hasdata(tag)) {
+        if (lfsr_tag_isalt(tag)) {
             continue;
         }
 
@@ -2322,6 +2335,11 @@ leaf:;
     //
     // note we always need something after the alts! without something between
     // alts we may not be able to find the trunk of our tree
+    if (tag == LFSR_TAG_GROW || tag == LFSR_TAG_SHRINK) {
+        tag = LFSR_TAG_UNREACHABLE;
+        data = LFSR_DATA_NULL;
+    }
+
     err = lfsr_rbyd_progtag(lfs, rbyd,
             tag, id, lfsr_data_len(data), &rbyd->crc);
     if (err) {
@@ -2329,13 +2347,11 @@ leaf:;
         return err;
     }
 
-    if (lfsr_tag_hasdata(tag)) {
-        // don't forget the data!
-        err = lfsr_rbyd_progdata(lfs, rbyd, data, &rbyd->crc);
-        if (err) {
-            rbyd->erased = false;
-            return err;
-        }
+    // don't forget the data!
+    err = lfsr_rbyd_progdata(lfs, rbyd, data, &rbyd->crc);
+    if (err) {
+        rbyd->erased = false;
+        return err;
     }
 
     return 0;

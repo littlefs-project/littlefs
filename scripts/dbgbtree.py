@@ -7,21 +7,20 @@ import os
 import struct
 
 
-TAG_NAME       = 0x1000
-TAG_BNAME      = 0x1000
-TAG_REG        = 0x1010
-TAG_DIR        = 0x1020
-TAG_STRUCT     = 0x3000
-TAG_INLINED    = 0x3000
-TAG_BLOCK      = 0x3100
-TAG_BRANCH     = 0x3200
-TAG_BTREE      = 0x3300
-TAG_UATTR      = 0x4000
-TAG_GROW       = 0x0006
-TAG_SHRINK     = 0x0016
-TAG_ALT        = 0x0008
-TAG_CRC        = 0x0004
-TAG_FCRC       = 0x1004
+TAG_UNREACHABLE = 0x0002
+TAG_NAME        = 0x1000
+TAG_BNAME       = 0x1000
+TAG_REG         = 0x1010
+TAG_DIR         = 0x1020
+TAG_STRUCT      = 0x3000
+TAG_INLINED     = 0x3000
+TAG_BLOCK       = 0x3100
+TAG_BRANCH      = 0x3200
+TAG_BTREE       = 0x3300
+TAG_UATTR       = 0x4000
+TAG_ALT         = 0x0008
+TAG_CRC         = 0x0004
+TAG_FCRC        = 0x1004
 
 def blocklim(s):
     if '.' in s:
@@ -84,7 +83,11 @@ def xxd(data, width=16, crc=False):
                 for b in map(chr, data[i:i+width])))
 
 def tagrepr(tag, id, size, off=None):
-    if (tag & 0xf00c) == TAG_NAME:
+    if (tag & 0xfffe) == TAG_UNREACHABLE:
+        return 'unreachable id%d%s' % (
+            id,
+            ' %d' % size if size else '')
+    elif (tag & 0xf00c) == TAG_NAME:
         return '%s%s id%d %d' % (
             'rm' if tag & 0x2 else '',
             'bname' if (tag & 0xfffe) == TAG_BNAME
@@ -109,14 +112,6 @@ def tagrepr(tag, id, size, off=None):
             (tag & 0x0ff0) >> 4,
             ' id%d' % id if id != -1 else '',
             ' %d' % size if not tag & 0x2 or size else '')
-    elif (tag & 0xfffe) == TAG_GROW:
-        return 'grow id%d w%d' % (
-            id,
-            size)
-    elif (tag & 0xfffe) == TAG_SHRINK:
-        return 'shrink id%d w%d' % (
-            id,
-            size)
     elif (tag & 0xf00e) == TAG_CRC:
         return 'crc%x%s %d' % (
             1 if tag & 0x10 else 0,
@@ -162,6 +157,7 @@ class Rbyd:
         trunk = None
         trunk_ = None
         weight = 0
+        lower_, upper_ = 0, 0
         weight_ = 0
         wastrunk = False
         while j_ < limit:
@@ -172,18 +168,24 @@ class Rbyd:
             j_ += delta
 
             # find trunk
-            if not wastrunk and (tag & 0xe) != 0x4:
+            if not wastrunk and (tag & 0xc) != 0x4:
                 trunk_ = j_ - delta
+                lower_, upper_ = 0, 0
             wastrunk = not not tag & 0x8
 
             # keep track of weight
-            if tag == TAG_GROW:
-                weight_ += size
-            elif tag == TAG_SHRINK:
-                weight_ = max(weight_ - size, 0)
+            if tag & 0x8:
+                if tag & 0x4:
+                    upper_ += id
+                else:
+                    lower_ += id
+            elif (tag & 0xc) == 0x0:
+                weight_ = lower_+upper_
+                if not tag & 0x2:
+                    weight_ += id+1-lower_
 
             # take care of crcs
-            if (tag & 0xe) <= 0x4:
+            if not tag & 0x8:
                 if (tag & 0xf00f) != TAG_CRC:
                     crc = crc32c(data[j_:j_+size], crc)
                 # found a crc?
