@@ -90,6 +90,7 @@ int lfs_testbd_destroy(const struct lfs_config *cfg) {
     lfs_testbd_t *bd = cfg->context;
     if (bd->cfg->erase_cycles && !bd->cfg->wear_buffer) {
         lfs_free(bd->wear);
+        bd->wear = NULL;
     }
 
     if (bd->persist) {
