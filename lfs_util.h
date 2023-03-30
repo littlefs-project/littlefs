@@ -100,6 +100,14 @@ extern "C"
 #endif
 #endif
 
+#ifndef LFS_UNREACHABLE
+#ifndef LFS_NO_ASSERT
+#define LFS_UNREACHABLE() __builtin_unreachable()
+#else
+#define LFS_UNREACHABLE() LFS_ASSERT(false)
+#endif
+#endif
+
 
 // Builtin functions, these may be replaced by more efficient
 // toolchain-specific implementations. LFS_NO_INTRINSICS falls back to a more

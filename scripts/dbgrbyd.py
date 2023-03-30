@@ -16,20 +16,20 @@ COLORS = [
 ]
 
 
-TAG_UNREACHABLE = 0x0002
-TAG_NAME        = 0x1000
-TAG_BNAME       = 0x1000
-TAG_REG         = 0x1010
-TAG_DIR         = 0x1020
-TAG_STRUCT      = 0x3000
-TAG_INLINED     = 0x3000
-TAG_BLOCK       = 0x3100
-TAG_BRANCH      = 0x3200
-TAG_BTREE       = 0x3300
-TAG_UATTR       = 0x4000
-TAG_ALT         = 0x0008
-TAG_CRC         = 0x0004
-TAG_FCRC        = 0x1004
+TAG_UNR     = 0x0002
+TAG_NAME    = 0x1000
+TAG_BNAME   = 0x1000
+TAG_REG     = 0x1010
+TAG_DIR     = 0x1020
+TAG_STRUCT  = 0x3000
+TAG_INLINED = 0x3000
+TAG_BLOCK   = 0x3100
+TAG_BRANCH  = 0x3200
+TAG_BTREE   = 0x3300
+TAG_UATTR   = 0x4000
+TAG_ALT     = 0x0008
+TAG_CRC     = 0x0004
+TAG_FCRC    = 0x1004
 
 def blocklim(s):
     if '.' in s:
@@ -92,8 +92,8 @@ def xxd(data, width=16, crc=False):
                 for b in map(chr, data[i:i+width])))
 
 def tagrepr(tag, id, size, off=None):
-    if (tag & 0xfffe) == TAG_UNREACHABLE:
-        return 'unreachable id%d%s' % (
+    if (tag & 0xfffe) == TAG_UNR:
+        return 'unr id%d%s' % (
             id,
             ' %d' % size if size else '')
     elif (tag & 0xf00c) == TAG_NAME:
