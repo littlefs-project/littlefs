@@ -315,7 +315,7 @@ def show_log(block_size, data, rev, off, *,
 
                 if not tag & 0x2:
                     # attach tag to lifetime
-                    i, id_ = index(weights, lower_)
+                    i, id_ = index(weights, id)
                     if i < len(weights):
                         lifetimes[i].add(j)
 
