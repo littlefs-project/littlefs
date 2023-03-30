@@ -66,6 +66,7 @@ int lfs_rambd_destroy(const struct lfs_config *cfg) {
     lfs_rambd_t *bd = cfg->context;
     if (!bd->cfg->buffer) {
         lfs_free(bd->buffer);
+        bd->buffer = NULL;
     }
     LFS_RAMBD_TRACE("lfs_rambd_destroy -> %d", 0);
     return 0;
