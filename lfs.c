@@ -450,19 +450,25 @@ static inline lfs_size_t lfs_tag_dsize(lfs_tag_t tag) {
 // 16-bit metadata tags
 enum lfsr_tag_type {
     LFSR_TAG_UNR            = 0x0002,
+    LFSR_TAG_MKUNR          = 0x0006, // in-device only
 
     LFSR_TAG_NAME           = 0x1000,
     LFSR_TAG_BNAME          = 0x1000,
+    LFSR_TAG_MKBNAME        = 0x1004, // in-device only
     LFSR_TAG_REG            = 0x1010,
+    LFSR_TAG_MKREG          = 0x1014, // in-device only
     LFSR_TAG_DIR            = 0x1020,
+    LFSR_TAG_MKDIR          = 0x1024, // in-device only
 
     LFSR_TAG_STRUCT         = 0x3000,
     LFSR_TAG_INLINED        = 0x3000,
     LFSR_TAG_BLOCK          = 0x3100,
     LFSR_TAG_BRANCH         = 0x3200,
+    LFSR_TAG_MKBRANCH       = 0x3204, // in-device only
     LFSR_TAG_BTREE          = 0x3300,
 
     LFSR_TAG_UATTR          = 0x4000,
+    LFSR_TAG_MKUATTR        = 0x4004, // in-device only
     LFSR_TAG_RMUATTR        = 0x4002,
 
     LFSR_TAG_ALT            = 0x0008,
@@ -475,15 +481,9 @@ enum lfsr_tag_type {
     LFSR_TAG_FCRC           = 0x1004,
 
     // in-device only
-    LFSR_TAG_MKBNAME        = 0x1004,
-    LFSR_TAG_MKREG          = 0x1014,
-    LFSR_TAG_MKDIR          = 0x1024,
-
-    LFSR_TAG_MKUATTR        = 0x4004,
-
-    LFSR_TAG_GROW           = 0x0006,
-    LFSR_TAG_SHRINK         = 0x0016,
-    LFSR_TAG_FROM           = 0x0026,
+    LFSR_TAG_GROW           = 0xf000,
+    LFSR_TAG_SHRINK         = 0xf010,
+    LFSR_TAG_FROM           = 0xf020,
 };
 
 #define LFSR_TAG_ALT_(color, dir, key) \
@@ -1964,21 +1964,14 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // 0 tags shouldn't be written to disk, use unr if tag is unreachable
     LFS_ASSERT(tag != 0);
 
-    // we can't do anything if we're not erased
-    if (!rbyd->erased) {
-        return LFS_ERR_RANGE;
-    }
-
     // ignore noops
-    if (tag == LFSR_TAG_UNR && delta == 0) {
+    if (lfsr_tag_setnomk(tag) == LFSR_TAG_UNR && delta == 0) {
         return 0;
     }
 
-    // treat weightless mks the same as non-mks, easier to just clear
-    // the bit here than make sure the following logic works out
-    if (lfsr_tag_ismk(tag) && delta <= 0) {
-        LFS_ASSERT(delta >= 0);
-        tag = lfsr_tag_setnomk(tag);
+    // we can't do anything if we're not erased
+    if (!rbyd->erased) {
+        return LFS_ERR_RANGE;
     }
 
     // make sure every rbyd starts with its revision count
@@ -1993,6 +1986,47 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
     }
 
+    // figure out the range of tags we're operating on
+    lfs_ssize_t id_;
+    lfs_ssize_t other_id_;
+    lfsr_tag_t tag_;
+    lfsr_tag_t other_tag_;
+    if (lfsr_tag_ismk(tag) && delta > 0) {
+        LFS_ASSERT(id <= rbyd->weight);
+
+        // it's a bit ugly, but adjusting the id here makes the following
+        // logic work out more consistently
+        id -= 1;
+        id_ = id + 1;
+        other_id_ = id + 1;
+        tag_ = 0;
+        other_tag_ = 0;
+    } else if (lfsr_tag_ismk(tag) && delta < 0) {
+        LFS_ASSERT(id < rbyd->weight);
+
+        // it's a bit ugly, but adjusting the id here makes the following
+        // logic work out more consistently
+        id += 1;
+        id_ = id - lfs_smax32(-delta, 0);
+        other_id_ = id;
+        tag_ = 0;
+        other_tag_ = 0;
+    } else if (lfsr_tag_isrm(tag)) {
+        LFS_ASSERT(id < rbyd->weight);
+
+        id_ = id - lfs_smax32(-delta, 0);
+        other_id_ = id;
+        tag_ = tag & ~0x2;
+        other_tag_ = (tag & ~0x2) + 0x10;
+    } else {
+        LFS_ASSERT(id < rbyd->weight);
+
+        id_ = id - lfs_smax32(-delta, 0);
+        other_id_ = id;
+        tag_ = tag;
+        other_tag_ = tag;
+    }
+
     // keep track of bounds as we descend down the tree
     //
     // this gets a bit confusing as we also may need to keep
@@ -2003,47 +2037,6 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfs_ssize_t upper_id = rbyd->weight;
     lfsr_tag_t lower_tag = 0;
     lfsr_tag_t upper_tag = 0xffff;
-
-    // figure out the range of tags we're operating on and go ahead and
-    // update the rbyd's weight
-    //
-    // note lfsr_rbyd_commit will throw out this copy of the rbyd if an
-    // error occurs
-    lfs_ssize_t id_;
-    lfs_ssize_t other_id_;
-    lfsr_tag_t tag_;
-    lfsr_tag_t other_tag_;
-    if (lfsr_tag_ismk(tag) && delta > 0) {
-        LFS_ASSERT(id < rbyd->weight+delta);
-        LFS_ASSERT(delta >= -(lfs_ssize_t)rbyd->weight);
-        rbyd->weight += delta;
-
-        // it's a bit ugly, but adjusting the id here makes the following
-        // logic work out more consistently
-        id -= delta;
-        id_ = id + 1;
-        other_id_ = id + 1;
-        tag_ = 0;
-        other_tag_ = 0;
-    } else if (lfsr_tag_isrm(tag)) {
-        LFS_ASSERT(id <= rbyd->weight);
-        LFS_ASSERT(delta >= -(lfs_ssize_t)rbyd->weight);
-        rbyd->weight += delta;
-
-        id_ = id - lfs_smax32(-delta, 0);
-        other_id_ = id;
-        tag_ = tag & ~0x2;
-        other_tag_ = (tag & ~0x2) + 0x10;
-    } else {
-        LFS_ASSERT(id < rbyd->weight);
-        LFS_ASSERT(delta >= -(lfs_ssize_t)rbyd->weight);
-        rbyd->weight += delta;
-
-        id_ = id - lfs_smax32(-delta, 0);
-        other_id_ = id;
-        tag_ = tag;
-        other_tag_ = tag;
-    }
 
     // diverged state in case we are removing a range from the tree
     //
@@ -2065,6 +2058,11 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfs_ssize_t other_upper_id = 0;
     lfsr_tag_t other_lower_tag = 0;
     lfsr_tag_t other_upper_tag = 0;
+
+    // go ahead and update the rbyd's weight, note that lfsr_rbyd_commit
+    // will through out this copy of the rbyd if an error occurs
+    LFS_ASSERT(delta >= -(lfs_ssize_t)rbyd->weight);
+    rbyd->weight += delta;
 
     // assume we'll update our trunk
     rbyd->trunk = rbyd->off;
@@ -2343,7 +2341,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     } else if (id_ < id-lfs_smax32(-delta, 0)
             || (id_ == id-lfs_smax32(-delta, 0)
-                && (lfsr_tag_ismk(tag)
+                && ((lfsr_tag_ismk(tag) && delta > 0)
                     || lfsr_tag_key(tag_) < lfsr_tag_key(tag)))) {
         if (lfsr_tag_isrm(tag)) {
             // if removed make our tag unreachable
@@ -2357,7 +2355,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     } else if (id_ > id
             || (id_ == id
-                && (lfsr_tag_ismk(tag)
+                && ((lfsr_tag_ismk(tag) && delta > 0)
                     || lfsr_tag_key(tag_) > lfsr_tag_key(tag)))) {
         if (lfsr_tag_isrm(tag)) {
             // if removed make our tag unreachable

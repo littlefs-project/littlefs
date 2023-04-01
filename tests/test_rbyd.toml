@@ -6723,7 +6723,7 @@ code = '''
             LFSD_ATTR(MKREG, 0, +1, "\xaa\xaa\xaa\xaa", 4,
             LFSD_ATTR(MKREG, 1, +1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 1+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 1, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4) => 4;
@@ -6743,7 +6743,7 @@ code = '''
             LFSD_ATTR(MKREG, 0, +1, "\xaa\xaa\xaa\xaa", 4,
             LFSD_ATTR(MKREG, 1, +1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4) => 4;
@@ -6764,7 +6764,7 @@ code = '''
             LFSD_ATTR(MKREG, 1, +1, "\xbb\xbb\xbb\xbb", 4,
             LFSD_ATTR(MKREG, 2, +1, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 2+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 2, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4) => 4;
@@ -6787,7 +6787,7 @@ code = '''
             LFSD_ATTR(MKREG, 1, +1, "\xbb\xbb\xbb\xbb", 4,
             LFSD_ATTR(MKREG, 2, +1, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4) => 4;
@@ -6810,7 +6810,7 @@ code = '''
             LFSD_ATTR(MKREG, 1, +1, "\xbb\xbb\xbb\xbb", 4,
             LFSD_ATTR(MKREG, 2, +1, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 1+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 1, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4) => 4;
@@ -6853,7 +6853,7 @@ code = '''
             LFSD_ATTR(MKREG,      1, +1, "\xbb\xbb\xbb\xbb", 4,
             LFSD_ATTR(UATTR(1), 1, 0,  "\xbb\xbb",         2, NULL))))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 1+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 1, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -6889,7 +6889,7 @@ code = '''
             LFSD_ATTR(MKREG,      1, +1, "\xbb\xbb\xbb\xbb", 4,
             LFSD_ATTR(UATTR(1), 1, 0,  "\xbb\xbb",         2, NULL))))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -6927,7 +6927,7 @@ code = '''
             LFSD_ATTR(MKREG,      2, +1, "\xcc\xcc\xcc\xcc", 4,
             LFSD_ATTR(UATTR(1), 2, 0,  "\xcc\xcc",         2, NULL))))))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 2+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 2, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4) => 4;
@@ -6976,7 +6976,7 @@ code = '''
             LFSD_ATTR(MKREG,      2, +1, "\xcc\xcc\xcc\xcc", 4,
             LFSD_ATTR(UATTR(1), 2, 0,  "\xcc\xcc",         2, NULL))))))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7026,7 +7026,7 @@ code = '''
             LFSD_ATTR(MKREG,      2, +1, "\xcc\xcc\xcc\xcc", 4,
             LFSD_ATTR(UATTR(1), 2, 0,  "\xcc\xcc",         2, NULL))))))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 1+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 1, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7160,7 +7160,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(UNR, j+1, -1, NULL, 0, NULL)) => 0;
+                    LFSD_ATTR(MKUNR, j, -1, NULL, 0, NULL)) => 0;
             assert(rbyd.weight == N-1);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
@@ -7325,7 +7325,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(UNR, j+1, -1, NULL, 0, NULL)) => 0;
+                    LFSD_ATTR(MKUNR, j, -1, NULL, 0, NULL)) => 0;
             assert(rbyd.weight == N-1);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
@@ -7513,7 +7513,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(UNR, j+1, -1, NULL, 0, NULL)) => 0;
+                    LFSD_ATTR(MKUNR, j, -1, NULL, 0, NULL)) => 0;
             assert(rbyd.weight == N-1);
 
             // try traversing over the tags
@@ -7648,7 +7648,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(UNR, j+1, -1, NULL, 0, NULL)) => 0;
+                    LFSD_ATTR(MKUNR, j, -1, NULL, 0, NULL)) => 0;
             assert(rbyd.weight == N-1);
 
             // try traversing over the tags
@@ -7723,7 +7723,7 @@ code = '''
     lfsr_rbyd_commit(&lfs, &rbyd,
             LFSD_ATTR(MKREG, 0, +1, "\xaa\xaa\xaa\xaa", 4, NULL)) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7741,8 +7741,8 @@ code = '''
             LFSD_ATTR(MKREG, 0, +1, "\xaa\xaa\xaa\xaa", 4,
             LFSD_ATTR(MKREG, 1, +1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL))) => 0;
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7760,8 +7760,8 @@ code = '''
             LFSD_ATTR(MKREG, 0, +1, "\xaa\xaa\xaa\xaa", 4,
             LFSD_ATTR(MKREG, 1, +1, "\xbb\xbb\xbb\xbb", 4, NULL))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 1+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL))) => 0;
+            LFSD_ATTR(MKUNR, 1, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7780,9 +7780,9 @@ code = '''
             LFSD_ATTR(MKREG, 1, +1, "\xbb\xbb\xbb\xbb", 4,
             LFSD_ATTR(MKREG, 2, +1, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL)))) => 0;
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL)))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7801,9 +7801,9 @@ code = '''
             LFSD_ATTR(MKREG, 1, +1, "\xbb\xbb\xbb\xbb", 4,
             LFSD_ATTR(MKREG, 2, +1, "\xcc\xcc\xcc\xcc", 4, NULL)))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 2+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 1+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL)))) => 0;
+            LFSD_ATTR(MKUNR, 2, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 1, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL)))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7840,7 +7840,7 @@ code = '''
             LFSD_ATTR(MKREG,      0, +1, "\xaa\xaa\xaa\xaa", 4,
             LFSD_ATTR(UATTR(1), 0, 0,  "\xaa\xaa",         2, NULL))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL)) => 0;
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL)) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7860,8 +7860,8 @@ code = '''
             LFSD_ATTR(MKREG,      1, +1, "\xbb\xbb\xbb\xbb", 4,
             LFSD_ATTR(UATTR(1), 1, 0,  "\xbb\xbb",         2, NULL))))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL))) => 0;
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7881,8 +7881,8 @@ code = '''
             LFSD_ATTR(MKREG,      1, +1, "\xbb\xbb\xbb\xbb", 4,
             LFSD_ATTR(UATTR(1), 1, 0,  "\xbb\xbb",         2, NULL))))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 1+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL))) => 0;
+            LFSD_ATTR(MKUNR, 1, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7904,9 +7904,9 @@ code = '''
             LFSD_ATTR(MKREG,      2, +1, "\xcc\xcc\xcc\xcc", 4,
             LFSD_ATTR(UATTR(1), 2, 0,  "\xcc\xcc",         2, NULL))))))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL)))) => 0;
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL)))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -7928,9 +7928,9 @@ code = '''
             LFSD_ATTR(MKREG,      2, +1, "\xcc\xcc\xcc\xcc", 4,
             LFSD_ATTR(UATTR(1), 2, 0,  "\xcc\xcc",         2, NULL))))))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR, 2+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 1+1, -1, NULL, 0,
-            LFSD_ATTR(UNR, 0+1, -1, NULL, 0, NULL)))) => 0;
+            LFSD_ATTR(MKUNR, 2, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 1, -1, NULL, 0,
+            LFSD_ATTR(MKUNR, 0, -1, NULL, 0, NULL)))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, 0, buffer, 4)
@@ -8035,7 +8035,7 @@ code = '''
 
             lfs_size_t rbyd_weight_before = rbyd.weight;
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(UNR, id+1, -1, NULL, 0, NULL)) => 0;
+                    LFSD_ATTR(MKUNR, id, -1, NULL, 0, NULL)) => 0;
             assert(rbyd.weight == rbyd_weight_before-1);
         }
 
@@ -8187,7 +8187,7 @@ code = '''
 
             lfs_size_t rbyd_weight_before = rbyd.weight;
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(UNR, id+1, -1, NULL, 0, NULL)) => 0;
+                    LFSD_ATTR(MKUNR, id, -1, NULL, 0, NULL)) => 0;
             assert(rbyd.weight == rbyd_weight_before-1);
         }
 
@@ -8340,7 +8340,7 @@ code = '''
                 count -= 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd,
-                        LFSD_ATTR(UNR, id+1, -1, NULL, 0,
+                        LFSD_ATTR(MKUNR, id, -1, NULL, 0,
                         NULL)) => 0;
             }
         }
@@ -8431,7 +8431,7 @@ code = '''
 
     // delete the last two
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(UNR,      2+1, -2, NULL, 0,
+            LFSD_ATTR(MKUNR,    2, -2, NULL, 0,
             NULL)) => 0;
 
     // create some new ids, if unconditional altgts are used this
@@ -8525,7 +8525,7 @@ code = '''
 
     // make id2 with weight w2
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(MKREG, 2, +2, "\xbb\xbb\xbb\xbb", 4,
+            LFSD_ATTR(MKREG, 1, +2, "\xbb\xbb\xbb\xbb", 4,
             NULL)) => 0;
 
     lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_REG, 0,
@@ -8557,7 +8557,7 @@ code = '''
 
     // make id5 with weight w3
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(MKREG, 5, +3, "\xcc\xcc\xcc\xcc", 4,
+            LFSD_ATTR(MKREG, 3, +3, "\xcc\xcc\xcc\xcc", 4,
             NULL)) => 0;
 
     lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_REG, 0,
@@ -8601,7 +8601,7 @@ code = '''
 
     // make id9 with weight w4
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(MKREG, 9, +4, "\xdd\xdd\xdd\xdd", 4,
+            LFSD_ATTR(MKREG, 6, +4, "\xdd\xdd\xdd\xdd", 4,
             NULL)) => 0;
 
     lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_REG, 0,
@@ -8657,7 +8657,7 @@ code = '''
 
     // make id14 with weight w5
     lfsr_rbyd_commit(&lfs, &rbyd,
-            LFSD_ATTR(MKREG, 14, +5, "\xee\xee\xee\xee", 4,
+            LFSD_ATTR(MKREG, 10, +5, "\xee\xee\xee\xee", 4,
             NULL)) => 0;
 
     lfsr_rbyd_lookup(&lfs, &rbyd, LFSR_TAG_REG, 0,
@@ -8752,13 +8752,13 @@ code = '''
             // make id0 with weight w1
             LFSD_ATTR(MKREG, 0, +1, "\xaa\xaa\xaa\xaa", 4,
             // make id2 with weight w2
-            LFSD_ATTR(MKREG, 2, +2, "\xbb\xbb\xbb\xbb", 4,
+            LFSD_ATTR(MKREG, 1, +2, "\xbb\xbb\xbb\xbb", 4,
             // make id5 with weight w3
-            LFSD_ATTR(MKREG, 5, +3, "\xcc\xcc\xcc\xcc", 4,
+            LFSD_ATTR(MKREG, 3, +3, "\xcc\xcc\xcc\xcc", 4,
             // make id9 with weight w4
-            LFSD_ATTR(MKREG, 9, +4, "\xdd\xdd\xdd\xdd", 4,
+            LFSD_ATTR(MKREG, 6, +4, "\xdd\xdd\xdd\xdd", 4,
             // make id14 with weight w5
-            LFSD_ATTR(MKREG, 14, +5, "\xee\xee\xee\xee", 4,
+            LFSD_ATTR(MKREG, 10, +5, "\xee\xee\xee\xee", 4,
             NULL)))))) => 0;
 
     // traverse, finding tags and weights
@@ -8900,7 +8900,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKREG, id*W+W-1, +W, names[perm[j] % 6], 4,
+                    LFSD_ATTR(MKREG, id*W, +W, names[perm[j] % 6], 4,
                     NULL)) => 0;
         }
 
@@ -8990,7 +8990,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKREG, id*W+W-1, +W, names[perm[j] % 6], 4,
+                    LFSD_ATTR(MKREG, id*W, +W, names[perm[j] % 6], 4,
                     NULL)) => 0;
         }
 
@@ -10256,7 +10256,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKREG, id*W+W-1, +W, names[perm[j] % 6], 4,
+                    LFSD_ATTR(MKREG, id*W, +W, names[perm[j] % 6], 4,
                     NULL)) => 0;
         }
         assert(rbyd.weight == N*W);
@@ -10388,7 +10388,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKREG, id*W+W-1, +W, names[perm[j] % 6], 4,
+                    LFSD_ATTR(MKREG, id*W, +W, names[perm[j] % 6], 4,
                     NULL)) => 0;
         }
         assert(rbyd.weight == N*W);
@@ -10528,7 +10528,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKUATTR(2), id*W+W-1, +W, names[perm[j] % 6], 4,
+                    LFSD_ATTR(MKUATTR(2), id*W, +W, names[perm[j] % 6], 4,
                     NULL)) => 0;
         }
         assert(rbyd.weight == N*W);
@@ -10676,7 +10676,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKREG, id*W+W-1, +W, names[perm[j] % 6], 4,
+                    LFSD_ATTR(MKREG, id*W, +W, names[perm[j] % 6], 4,
                     NULL)) => 0;
         }
         assert(rbyd.weight == N*W);
@@ -10807,7 +10807,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKREG, id*W+W-1, +W, names[perm[j] % 6], 4,
+                    LFSD_ATTR(MKREG, id*W, +W, names[perm[j] % 6], 4,
                     NULL)) => 0;
         }
         assert(rbyd.weight == N*W);
@@ -10947,7 +10947,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKUATTR(2), id*W+W-1, +W, names[perm[j] % 6], 4,
+                    LFSD_ATTR(MKUATTR(2), id*W, +W, names[perm[j] % 6], 4,
                     NULL)) => 0;
         }
         assert(rbyd.weight == N*W);
@@ -11094,7 +11094,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKREG, id*W+W-1, +W, names[perm[j] % 6], 4,
+                    LFSD_ATTR(MKREG, id*W, +W, names[perm[j] % 6], 4,
                     NULL)) => 0;
         }
         assert(rbyd.weight == N*W);
@@ -11117,7 +11117,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(UNR, j*W+W-1+1, -W, NULL, 0, NULL)) => 0;
+                    LFSD_ATTR(MKUNR, j*W+W-1, -W, NULL, 0, NULL)) => 0;
             assert(rbyd.weight == (N-1)*W);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block,
@@ -11150,7 +11150,7 @@ code = '''
             // try recreating the id to make sure things still work
             printf("--- create: %d ---\n", j);
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKREG, j*W+W-1, +W, names[j % 6], 6,
+                    LFSD_ATTR(MKREG, j*W, +W, names[j % 6], 6,
                     NULL)) => 0;
             assert(rbyd.weight == N*W);
 
@@ -11254,7 +11254,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd,
-                    LFSD_ATTR(MKREG, id*W+W-1, +W, names[perm[j] % 6], 4,
+                    LFSD_ATTR(MKREG, id*W, +W, names[perm[j] % 6], 4,
                     NULL)) => 0;
         }
         assert(rbyd.weight == N*W);
@@ -11469,7 +11469,7 @@ code = '''
                 count -= 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd,
-                        LFSD_ATTR(UNR, id+1, -1, NULL, 0,
+                        LFSD_ATTR(MKUNR, id, -1, NULL, 0,
                         NULL)) => 0;
             } else if (op == 2) {
                 // update our sim
@@ -11664,7 +11664,7 @@ code = '''
                 count += 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd,
-                        LFSD_ATTR(MKREG, weighted_id+weight-1,
+                        LFSD_ATTR(MKREG, weighted_id,
                             +weight, &alpha[i % 26], 1,
                         NULL)) => 0;
             } else if (op == 1) {
@@ -11677,7 +11677,7 @@ code = '''
                 count -= 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd,
-                        LFSD_ATTR(UNR, weighted_id+weight_-1+1,
+                        LFSD_ATTR(MKUNR, weighted_id+weight_-1,
                             -weight_, NULL, 0,
                         NULL)) => 0;
             } else if (op == 2) {
