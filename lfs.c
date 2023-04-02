@@ -1410,12 +1410,14 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
 
             // adjust any pending finds
-            if (find && find->predicted_id >= id) {
+            if (find && find->predicted_id >= id-lfs_smax32(delta-1, 0)+(delta < 0 ? 1 : 0)) {
                 // pending find removed?
-                if (delta < 0 && find->predicted_id < id-delta) {
+                if (delta < 0 && find->predicted_id <= id+lfs_smin32(delta+1, 0)) {
+                    printf("%x: a %d v %d+%d\n", off, find->predicted_id, id-(delta-1), delta);
                     find->predicted_tag = 0;
                     find->predicted_id = id-1;
                 } else {
+                    printf("%x: b %d v %d+%d\n", off, find->predicted_id, id-(delta-1), delta);
                     find->predicted_id += delta;
                 }
             }
@@ -2016,15 +2018,15 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
         id_ = id - lfs_smax32(-delta, 0);
         other_id_ = id;
-        tag_ = tag & ~0x2;
-        other_tag_ = (tag & ~0x2) + 0x10;
+        tag_ = lfsr_tag_key(tag);
+        other_tag_ = lfsr_tag_key(tag) + 0x10;
     } else {
         LFS_ASSERT(id < rbyd->weight);
 
         id_ = id - lfs_smax32(-delta, 0);
         other_id_ = id;
-        tag_ = tag;
-        other_tag_ = tag;
+        tag_ = lfsr_tag_key(tag);
+        other_tag_ = lfsr_tag_key(tag);
     }
 
     // keep track of bounds as we descend down the tree
@@ -3087,19 +3089,18 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return delta;
         }
 
-        // TODO can we combine weight changes with normal tag updates?
-        // maybe this should be looked at again
-        scratch_attrs[0] = *LFSR_ATTR(
-                BRANCH, rid, scratch_buf1, delta,
-                &scratch_attrs[1]);
-        // note grow/shrink with 0 is treated as a noop in rbyd
-        if (rbyd->weight >= rweight) {
-            scratch_attrs[1] = *LFSR_ATTR(
-                    GROW, rid-(rweight-1), NULL, rbyd->weight-rweight,
+        // note that since we defer merges to compaction time, we can
+        // end up removing an rbyd here
+        if (rbyd->weight == 0) {
+            scratch_attrs[0] = *LFSD_ATTR(
+                    MKUNR, rid, +rbyd->weight-rweight, scratch_buf1, delta,
                     NULL);
         } else {
-            scratch_attrs[1] = *LFSR_ATTR(
-                    SHRINK, rid-(rweight-1), NULL, rweight-rbyd->weight,
+            scratch_attrs[0] = *LFSD_ATTR(
+                    BRANCH, rid, 0, scratch_buf1, delta,
+                    &scratch_attrs[1]);
+            scratch_attrs[1] = *LFSD_ATTR(
+                    UNR, rid, +rbyd->weight-rweight, NULL, 0,
                     NULL);
         }
 
@@ -3124,9 +3125,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
         while (true) {
             lfs_off_t off;
             lfs_size_t size;
-            lfs_size_t weight;
             err = lfsr_rbyd_lookup(lfs, rbyd, lfsr_tag_next(tag), id,
-                    &tag, &id, &weight, &off, &size);
+                    &tag, &id, NULL, &off, &size);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
@@ -3134,18 +3134,18 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 break;
             }
 
-            // TODO this is really wasteful and throws off our predicted
-            // size, can we combine grows into the tag append in the rbyd
-            // somehow?
-            // create grows as necessary
-            err = lfsr_rbyd_append_(lfs, &rbyd_,
-                    LFSR_TAG_GROW,
-                    id - (weight-1),
-                    // TODO also this is a weird way to use lfsr_data_t
-                    LFSR_DATA_BUF(NULL, weight));
-            if (err) {
-                return err;
-            }
+//            // TODO this is really wasteful and throws off our predicted
+//            // size, can we combine grows into the tag append in the rbyd
+//            // somehow?
+//            // create grows as necessary
+//            err = lfsr_rbyd_append_(lfs, &rbyd_,
+//                    LFSR_TAG_GROW,
+//                    id - (weight-1),
+//                    // TODO also this is a weird way to use lfsr_data_t
+//                    LFSR_DATA_BUF(NULL, weight));
+//            if (err) {
+//                return err;
+//            }
 
             // Because it makes a lot of the split-sensitive cross-id operations
             // easier, we can end up with an occasional "vestigial" name tag on
@@ -3155,13 +3155,20 @@ static int lfsr_btree_commit(lfs_t *lfs,
             //
             // Discarding these during compaction is easy and prevents any
             // real storage cost.
-            if (lfsr_tag_suptype(tag) == LFSR_TAG_NAME && id-(weight-1) == 0) {
+            if (lfsr_tag_suptype(tag) == LFSR_TAG_NAME && rbyd_.weight == 0) {
                 continue;
             }
 
+            // note we need to account for the missing weight of vestigial name
+            // tags in the following branch tag, which is why we calculate
+            // weight like this
+            lfs_size_t weight = id+1 - rbyd_.weight;
+
             // append the attr
-            err = lfsr_rbyd_append_(lfs, &rbyd_,
-                    tag, id, LFSR_DATA_DISK(rbyd->block, off, size));
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    lfsr_tag_setmk(tag),
+                    id-lfs_smax32(weight-1, 0), +weight,
+                    LFSR_DATA_DISK(rbyd->block, off, size));
             if (err) {
                 return err;
             }
@@ -3176,8 +3183,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // append any pending attrs, it's up to upper
         // layers to make sure these always fit
         for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
-            err = lfsr_rbyd_append_(lfs, &rbyd_,
-                    attr->tag, attr->id, attr->data);
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    attr->tag, attr->id, attr->delta, attr->data);
             if (err) {
                 return err;
             }
@@ -3214,19 +3221,18 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return delta;
         }
 
-        // TODO can we combine weight changes with normal tag updates?
-        // maybe this should be looked at again
-        scratch_attrs[0] = *LFSR_ATTR(
-                BRANCH, rid, scratch_buf1, delta,
-                &scratch_attrs[1]);
-        // note grow/shrink with 0 is treated as a noop in rbyd
-        if (rbyd_.weight >= rweight) {
-            scratch_attrs[1] = *LFSR_ATTR(
-                    GROW, rid-(rweight-1), NULL, rbyd_.weight-rweight,
+        // note that since we defer merges to compaction time, we can
+        // end up removing an rbyd here
+        if (rbyd_.weight == 0) {
+            scratch_attrs[0] = *LFSD_ATTR(
+                    MKUNR, rid, +rbyd_.weight-rweight, scratch_buf1, delta,
                     NULL);
         } else {
-            scratch_attrs[1] = *LFSR_ATTR(
-                    SHRINK, rid-(rweight-1), NULL, rweight-rbyd_.weight,
+            scratch_attrs[0] = *LFSD_ATTR(
+                    BRANCH, rid, 0, scratch_buf1, delta,
+                    &scratch_attrs[1]);
+            scratch_attrs[1] = *LFSD_ATTR(
+                    UNR, rid, +rbyd_.weight-rweight, NULL, 0,
                     NULL);
         }
 
@@ -3235,6 +3241,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         continue;
 
     split:;
+        printf("B SPLIT %x %d\n", rbyd_.block, rbyd_.weight);
         // find out which id we need to split around
         lfs_ssize_t bisect = lfsr_rbyd_bisect(lfs, rbyd);
         if (bisect < 0) {
@@ -3246,10 +3253,9 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // TODO does this work if we're removing nothing/oob?
         // add an rbyd and btree test?
         if ((lfs_size_t)bisect < rbyd_.weight) {
-            err = lfsr_rbyd_append_(lfs, &rbyd_,
-                    LFSR_TAG_SHRINK,
-                    bisect,
-                    LFSR_DATA_BUF(NULL, rbyd_.weight-bisect));
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    LFSR_TAG_MKUNR, rbyd_.weight-1, -(rbyd_.weight-bisect),
+                    LFSR_DATA_NULL);
             if (err) {
                 return err;
             }
@@ -3262,8 +3268,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
         lfs_ssize_t bisect_ = bisect;
         for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
             if (attr->id < bisect_) {
-                err = lfsr_rbyd_append_(lfs, &rbyd_,
-                        attr->tag, attr->id, attr->data);
+                err = lfsr_rbyd_append(lfs, &rbyd_,
+                        attr->tag, attr->id, attr->delta, attr->data);
                 if (err) {
                     return err;
                 }
@@ -3271,11 +3277,13 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             // we need to make sure we keep bisect updated with weight changes
             if (attr->id < bisect_) {
-                if (attr->tag == LFSR_TAG_GROW) {
-                    bisect_ += attr->data.len;
-                } else if (attr->tag == LFSR_TAG_SHRINK) {
-                    bisect_ -= attr->data.len;
-                }
+                // TODO do we need to check for mk?
+                bisect_ += attr->delta;
+//                if (attr->tag == LFSR_TAG_GROW) {
+//                    bisect_ += attr->data.len;
+//                } else if (attr->tag == LFSR_TAG_SHRINK) {
+//                    bisect_ -= attr->data.len;
+//                }
             }
         }
 
@@ -3310,22 +3318,23 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 break;
             }
 
-            // TODO this is really wasteful and throws off our predicted
-            // size, can we combine grows into the tag append in the rbyd
-            // somehow?
-            // create grows as necessary
-            err = lfsr_rbyd_append_(lfs, &sibling,
-                    LFSR_TAG_GROW,
-                    id - bisect - (weight-1),
-                    // TODO also this is a weird way to use lfsr_data_t
-                    LFSR_DATA_BUF(NULL, weight));
-            if (err) {
-                return err;
-            }
+//            // TODO this is really wasteful and throws off our predicted
+//            // size, can we combine grows into the tag append in the rbyd
+//            // somehow?
+//            // create grows as necessary
+//            err = lfsr_rbyd_append_(lfs, &sibling,
+//                    LFSR_TAG_GROW,
+//                    id - bisect - (weight-1),
+//                    // TODO also this is a weird way to use lfsr_data_t
+//                    LFSR_DATA_BUF(NULL, weight));
+//            if (err) {
+//                return err;
+//            }
 
             // append the attr
-            err = lfsr_rbyd_append_(lfs, &sibling,
-                    tag, id - bisect,
+            err = lfsr_rbyd_append(lfs, &sibling,
+                    lfsr_tag_setmk(tag),
+                    id-bisect-lfs_smax32(weight-1, 0), +weight,
                     LFSR_DATA_DISK(rbyd->block, off, size));
             if (err) {
                 return err;
@@ -3338,8 +3347,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
         bisect_ = bisect;
         for (const struct lfsr_attr *attr = attrs; attr; attr = attr->next) {
             if (attr->id >= bisect_) {
-                err = lfsr_rbyd_append_(lfs, &sibling,
-                        attr->tag, attr->id-bisect_, attr->data);
+                err = lfsr_rbyd_append(lfs, &sibling,
+                        attr->tag, attr->id-bisect_, attr->delta, attr->data);
                 if (err) {
                     return err;
                 }
@@ -3347,11 +3356,13 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             // we need to make sure we keep bisect updated with weight changes
             if (attr->id < bisect_) {
-                if (attr->tag == LFSR_TAG_GROW) {
-                    bisect_ += attr->data.len;
-                } else if (attr->tag == LFSR_TAG_SHRINK) {
-                    bisect_ -= attr->data.len;
-                }
+                // TODO do we need to check for mk?
+                bisect_ += attr->delta;
+//                if (attr->tag == LFSR_TAG_GROW) {
+//                    bisect_ += attr->data.len;
+//                } else if (attr->tag == LFSR_TAG_SHRINK) {
+//                    bisect_ -= attr->data.len;
+//                }
             }
         }
 
@@ -3399,28 +3410,25 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 return delta2;
             }
 
-            scratch_attrs[0] = *LFSR_ATTR(
-                    GROW, 0,
-                        NULL, rbyd_.weight,
+            scratch_attrs[0] = *LFSD_ATTR(
+                    MKBRANCH, 0, +rbyd_.weight, scratch_buf1, delta1,
                     &scratch_attrs[1]);
-            scratch_attrs[1] = *LFSR_ATTR(
-                    BRANCH, 0+rbyd_.weight-1,
-                        scratch_buf1, delta1,
-                    &scratch_attrs[2]);
 
-            scratch_attrs[2] = *LFSR_ATTR(
-                    GROW, 0+rbyd_.weight,
-                        NULL, sibling.weight,
-                    &scratch_attrs[3]);
-            scratch_attrs[3] = *LFSR_ATTR_DISK_IF(
-                    lfsr_tag_suptype(stag) == LFSR_TAG_NAME,
-                    BNAME, 0+rbyd_.weight+sibling.weight-1,
-                        sibling.block, soff, ssize,
-                    &scratch_attrs[4]);
-            scratch_attrs[4] = *LFSR_ATTR(
-                    BRANCH, 0+rbyd_.weight+sibling.weight-1,
-                        scratch_buf2, delta2,
-                    NULL);
+            if (lfsr_tag_suptype(stag) == LFSR_TAG_NAME) {
+                scratch_attrs[1] = *LFSD_ATTR_DISK(
+                        MKBNAME, rbyd_.weight, +sibling.weight,
+                            sibling.block, soff, ssize,
+                        &scratch_attrs[2]);
+                scratch_attrs[2] = *LFSD_ATTR(
+                        BRANCH, 0+rbyd_.weight+sibling.weight-1, 0,
+                            scratch_buf2, delta2,
+                        NULL);
+            } else {
+                scratch_attrs[1] = *LFSD_ATTR(
+                        MKBRANCH, 0+rbyd_.weight, +sibling.weight,
+                            scratch_buf2, delta2,
+                        NULL);
+            }
 
         // yes parent? push up split
         } else {
@@ -3440,41 +3448,39 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 return delta2;
             }
 
-            scratch_attrs[0] = *LFSR_ATTR_(
-                    (rbyd_.weight > rweight) ? LFSR_TAG_GROW : LFSR_TAG_SHRINK,
-                        rid-(rweight-1),
-                        NULL,
-                        (rbyd_.weight > rweight)
-                            ? rbyd_.weight - rweight
-                            : rweight - rbyd_.weight,
+            scratch_attrs[0] = *LFSD_ATTR(
+                    UNR, rid, +rbyd_.weight-rweight, NULL, 0,
                     &scratch_attrs[1]);
-            scratch_attrs[1] = *LFSR_ATTR(
-                    BRANCH, rid-(rweight-1)+rbyd_.weight-1,
+            scratch_attrs[1] = *LFSD_ATTR(
+                    BRANCH, rid-(rweight-1)+rbyd_.weight-1, 0,
                         scratch_buf1, delta1,
                     &scratch_attrs[2]);
 
-            scratch_attrs[2] = *LFSR_ATTR(
-                    GROW, rid-(rweight-1)+rbyd_.weight,
-                        NULL, sibling.weight,
-                    &scratch_attrs[3]);
-            scratch_attrs[3] = *LFSR_ATTR_DISK_IF(
-                    lfsr_tag_suptype(stag) == LFSR_TAG_NAME,
-                    BNAME, rid-(rweight-1)+rbyd_.weight
-                            +sibling.weight-1,
-                        sibling.block, soff, ssize,
-                    &scratch_attrs[4]);
-            scratch_attrs[4] = *LFSR_ATTR(
-                    BRANCH, rid-(rweight-1)+rbyd_.weight
-                            +sibling.weight-1,
-                        scratch_buf2, delta2,
-                    NULL);
-
+            if (lfsr_tag_suptype(stag) == LFSR_TAG_NAME) {
+                scratch_attrs[2] = *LFSD_ATTR_DISK(
+                        MKBNAME, rid-(rweight-1)+rbyd_.weight,
+                            +sibling.weight,
+                            sibling.block, soff, ssize,
+                        &scratch_attrs[3]);
+                scratch_attrs[3] = *LFSD_ATTR(
+                        BRANCH, rid-(rweight-1)+rbyd_.weight+sibling.weight-1,
+                            0,
+                            scratch_buf2, delta2,
+                        NULL);
+            } else {
+                scratch_attrs[2] = *LFSD_ATTR(
+                        MKBRANCH, rid-(rweight-1)+rbyd_.weight,
+                            +sibling.weight,
+                            scratch_buf2, delta2,
+                        NULL);
+            }
         }
         *rbyd = parent;
         attrs = scratch_attrs;
         continue;
 
     merge:;
+        printf("B MERGE %x %d\n", rbyd_.block, rbyd_.weight);
         // last child? try the left sibling
         // lfs_ssize_t sid;
         lfs_ssize_t sdelta;
@@ -3549,22 +3555,24 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 break;
             }
 
-            // TODO this is really wasteful and throws off our predicted
-            // size, can we combine grows into the tag append in the rbyd
-            // somehow?
-            // create grows as necessary
-            err = lfsr_rbyd_append_(lfs, &rbyd_,
-                    LFSR_TAG_GROW,
-                    sdelta + id - (weight-1),
-                    // TODO also this is a weird way to use lfsr_data_t
-                    LFSR_DATA_BUF(NULL, weight));
-            if (err) {
-                return err;
-            }
+//            // TODO this is really wasteful and throws off our predicted
+//            // size, can we combine grows into the tag append in the rbyd
+//            // somehow?
+//            // create grows as necessary
+//            err = lfsr_rbyd_append_(lfs, &rbyd_,
+//                    LFSR_TAG_GROW,
+//                    sdelta + id - (weight-1),
+//                    // TODO also this is a weird way to use lfsr_data_t
+//                    LFSR_DATA_BUF(NULL, weight));
+//            if (err) {
+//                return err;
+//            }
 
             // append the attr
-            err = lfsr_rbyd_append_(lfs, &rbyd_,
-                    tag, sdelta + id, LFSR_DATA_DISK(sibling.block, off, size));
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    lfsr_tag_setmk(tag),
+                    sdelta+id-lfs_smax32(weight-1, 0), +weight,
+                    LFSR_DATA_DISK(sibling.block, off, size));
             if (err) {
                 return err;
             }
@@ -3572,11 +3580,10 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // if we exceed our compaction threshold our merge has
             // failed, clean up ids and merge_abort
             if (rbyd_.off > lfs->cfg->block_size/2) {
-                err = lfsr_rbyd_append_(lfs, &rbyd_,
-                        LFSR_TAG_SHRINK,
-                        sdelta,
-                        // TODO also this is a weird way to use lfsr_data_t
-                        LFSR_DATA_BUF(NULL, rbyd_.weight - rweight_));
+                err = lfsr_rbyd_append(lfs, &rbyd_,
+                        LFSR_TAG_MKUNR, sdelta+(rbyd_.weight-rweight_)-1,
+                            -(rbyd_.weight-rweight_),
+                        LFSR_DATA_NULL);
                 if (err) {
                     return err;
                 }
@@ -3607,8 +3614,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 return err;
             }
 
-            err = lfsr_rbyd_append_(lfs, &rbyd_,
-                    LFSR_TAG_BNAME, split_id,
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    LFSR_TAG_BNAME, split_id, 0,
                     LFSR_DATA_DISK(parent.block, split_off, split_size));
             if (err) {
                 return err;
@@ -3646,22 +3653,11 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 lfs_swap32(&rweight, &sweight);
             }
 
-            scratch_attrs[0] = *LFSR_ATTR(
-                    SHRINK, sid-(sweight-1),
-                        NULL, sweight,
+            scratch_attrs[0] = *LFSD_ATTR(
+                    MKUNR, sid, -sweight, NULL, 0,
                     &scratch_attrs[1]);
-
-            scratch_attrs[1] = *LFSR_ATTR_(
-                    (rbyd_.weight > rweight) ? LFSR_TAG_GROW : LFSR_TAG_SHRINK,
-                        rid-(rweight-1),
-                        NULL,
-                        (rbyd_.weight > rweight)
-                            ? rbyd_.weight - rweight
-                            : rweight - rbyd_.weight,
-                    &scratch_attrs[2]);
-            scratch_attrs[2] = *LFSR_ATTR(
-                    BRANCH, rid-(rweight-1)+rbyd_.weight-1,
-                        scratch_buf1, delta1,
+            scratch_attrs[1] = *LFSD_ATTR(
+                    BRANCH, rid, +rbyd_.weight-rweight, scratch_buf1, delta1,
                     NULL);
         }
 
@@ -3704,13 +3700,13 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
 
         // commit our entries
         err = lfsr_rbyd_commit(lfs, &rbyd,
-                LFSR_ATTR(GROW, 0, NULL, btree->weight,
-                LFSR_ATTR_(btree->tag, 0+btree->weight-1,
+                LFSD_ATTR_(
+                    lfsr_tag_setmk(btree->tag), 0, +btree->weight,
                     btree->u.inlined.buf, btree->u.inlined.size,
-                LFSR_ATTR(GROW, id, NULL, weight,
-                LFSR_ATTR_(tag, id+weight-1,
+                LFSD_ATTR_(
+                    lfsr_tag_setmk(tag), id, +weight,
                     buffer, size,
-                NULL)))));
+                NULL)));
         if (err) {
             return err;
         }
@@ -3744,10 +3740,9 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         // commit our id into the tree, letting lfsr_btree_commit take care
         // of the rest
         return lfsr_btree_commit(lfs, btree,
-                lfs_min32(id, btree->weight-1), &rbyd,
-                LFSR_ATTR(GROW, rid, NULL, weight,
-                LFSR_ATTR_(tag, rid+weight-1, buffer, size,
-                NULL)));
+                    lfs_min32(id, btree->weight-1), &rbyd,
+                LFSD_ATTR_(lfsr_tag_setmk(tag), rid, +weight, buffer, size,
+                NULL));
     }
 }
 
@@ -3784,15 +3779,11 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
         // commit our id into the tree, letting lfsr_btree_commit take care
         // of the rest
         return lfsr_btree_commit(lfs, btree, id, &rbyd,
-                LFSR_ATTR_IF_(tag != rtag,
-                    lfsr_tag_setrm(rtag), rid, NULL, 0,
-                LFSR_ATTR_(tag, rid, buffer, size,
-                LFSR_ATTR_(
-                    weight >= rweight ? LFSR_TAG_GROW : LFSR_TAG_SHRINK,
-                    rid-(rweight-1),
-                    NULL,
-                    weight >= rweight ? weight - rweight : rweight - weight,
-                NULL))));
+                LFSD_ATTR_IF_(tag != rtag,
+                    lfsr_tag_setrm(rtag), rid, 0, NULL, 0,
+                LFSD_ATTR_(tag, rid, +weight-rweight,
+                    buffer, size,
+                NULL)));
     }
 }
 
@@ -3879,7 +3870,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t id) {
         // remove our id, letting lfsr_btree_commit take care
         // of the rest
         return lfsr_btree_commit(lfs, btree, id, &rbyd,
-                LFSR_ATTR(SHRINK, rid-(rweight-1), NULL, rweight,
+                LFSD_ATTR(MKUNR, rid, -rweight, NULL, 0,
                 NULL));
     }
 }
@@ -3909,15 +3900,13 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
 
         // commit our entries
         err = lfsr_rbyd_commit(lfs, &rbyd,
-                LFSR_ATTR(GROW, 0, NULL, weight1,
-                LFSR_ATTR_(tag1, 0+weight1-1,
+                LFSD_ATTR_(lfsr_tag_setmk(tag1), 0, +weight1,
                     buffer1, size1,
-                LFSR_ATTR(GROW, weight1, NULL, weight2,
-                LFSR_ATTR(BNAME, weight1+weight2-1,
+                LFSD_ATTR(MKBNAME, weight1, +weight2,
                     name, name_len,
-                LFSR_ATTR_(tag2, weight1+weight2-1,
+                LFSD_ATTR_(tag2, weight1+weight2-1, 0,
                     buffer2, size2,
-                NULL))))));
+                NULL))));
         if (err) {
             return err;
         }
@@ -3953,20 +3942,15 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         // commit our id into the tree, letting lfsr_btree_commit take care
         // of the rest
         return lfsr_btree_commit(lfs, btree, id, &rbyd,
-                // TODO can we avoid conditions like this?
-                LFSR_ATTR_(
-                    (weight1 > rweight) ? LFSR_TAG_GROW : LFSR_TAG_SHRINK,
-                    rid-(rweight-1),
-                    NULL,
-                    (weight1 > rweight) ? weight1-rweight : rweight-weight1,
-                LFSR_ATTR_(tag1, rid-(rweight-1)+weight1-1,
+                LFSD_ATTR(UNR, rid, +weight1-rweight, NULL, 0,
+                LFSD_ATTR_(tag1, rid-(rweight-1)+weight1-1, 0,
                     buffer1, size1,
-                LFSR_ATTR(GROW, rid-(rweight-1)+weight1, NULL, weight2,
-                LFSR_ATTR(BNAME, rid-(rweight-1)+weight1+weight2-1,
+                // TODO should we always be making name entries?
+                LFSD_ATTR(MKBNAME, rid-(rweight-1)+weight1, +weight2,
                     name, name_len,
-                LFSR_ATTR_(tag2, rid-(rweight-1)+weight1+weight2-1,
+                LFSD_ATTR_(tag2, rid-(rweight-1)+weight1+weight2-1, 0,
                     buffer2, size2,
-                NULL))))));
+                NULL)))));
     }
 }
 

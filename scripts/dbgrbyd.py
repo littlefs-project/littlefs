@@ -275,7 +275,7 @@ def show_log(block_size, data, rev, off, *,
                 # note we ignore out-of-bounds here for debugging
                 if delta > 0:
                     # grow lifetimes
-                    i, id_ = index(weights, lower_)
+                    i, id_ = index(weights, id-(delta-1))
                     if id_ > 0:
                         weights[i:i+1] = [id_, delta, weights[i]-id_]
                         lifetimes[i:i+1] = [
@@ -288,7 +288,7 @@ def show_log(block_size, data, rev, off, *,
 
                 elif delta < 0:
                     # shrink lifetimes
-                    i, id_ = index(weights, lower_)
+                    i, id_ = index(weights, id+1)
                     delta_ = -delta
                     weights_ = weights.copy()
                     lifetimes_ = lifetimes.copy()
