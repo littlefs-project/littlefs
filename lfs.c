@@ -1403,21 +1403,18 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // note we need to include our id's weight in our weight
             // calculation, but only when our id is included in the tree
             lfs_ssize_t delta = (lower+upper) - weight;
-            if (!lfsr_tag_isrm(tag)
-                    && tag != LFSR_TAG_GROW
-                    && tag != LFSR_TAG_SHRINK) {
+            if (!lfsr_tag_isrm(tag)) {
                 delta += id+1-lower;
             }
 
             // adjust any pending finds
-            if (find && find->predicted_id >= id-lfs_smax32(delta-1, 0)+(delta < 0 ? 1 : 0)) {
+            if (find && find->predicted_id >= (lfs_ssize_t)lower) {
                 // pending find removed?
-                if (delta < 0 && find->predicted_id <= id+lfs_smin32(delta+1, 0)) {
-                    printf("%x: a %d v %d+%d\n", off, find->predicted_id, id-(delta-1), delta);
+                if (delta < 0
+                        && find->predicted_id < (lfs_ssize_t)lower + -delta) {
                     find->predicted_tag = 0;
-                    find->predicted_id = id-1;
+                    find->predicted_id = lower-1; // TODO id-1?
                 } else {
-                    printf("%x: b %d v %d+%d\n", off, find->predicted_id, id-(delta-1), delta);
                     find->predicted_id += delta;
                 }
             }
@@ -1579,6 +1576,10 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     lfs_off_t branch = rbyd->trunk;
     lfs_ssize_t lower = -1;
     lfs_ssize_t upper = rbyd->weight;
+
+    // make sure we never look up zero tags, the way we create
+    // unreachable tags has a hole here
+    tag = lfs_max16(tag, 0x10);
 
     // no trunk yet?
     if (!branch) {
@@ -1963,7 +1964,7 @@ static void lfsr_rbyd_p_red(
 static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t tag, lfs_ssize_t id, lfs_ssize_t delta,
         lfsr_data_t data) {
-    // 0 tags shouldn't be written to disk, use unr if tag is unreachable
+    // never write zero tags to disk, use unr if tag contains no data
     LFS_ASSERT(tag != 0);
 
     // ignore noops
@@ -2001,8 +2002,9 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         id -= 1;
         id_ = id + 1;
         other_id_ = id + 1;
-        tag_ = 0;
-        other_tag_ = 0;
+        // also note these tags MUST NOT be zero, due to unreachable tag holes
+        tag_ = 0x10;
+        other_tag_ = 0x10;
     } else if (lfsr_tag_ismk(tag) && delta < 0) {
         LFS_ASSERT(id < rbyd->weight);
 
@@ -2011,8 +2013,9 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         id += 1;
         id_ = id - lfs_smax32(-delta, 0);
         other_id_ = id;
-        tag_ = 0;
-        other_tag_ = 0;
+        // also note these tags MUST NOT be zero, due to unreachable tag holes
+        tag_ = 0x10;
+        other_tag_ = 0x10;
     } else if (lfsr_tag_isrm(tag)) {
         LFS_ASSERT(id < rbyd->weight);
 
@@ -2347,7 +2350,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     || lfsr_tag_key(tag_) < lfsr_tag_key(tag)))) {
         if (lfsr_tag_isrm(tag)) {
             // if removed make our tag unreachable
-            alt = LFSR_TAG_ALT(B, LE, 0xfff0);
+            alt = LFSR_TAG_ALT(B, GT, 0);
             weight = upper_id - lower_id - 1 + delta;
         } else {
             // split less than
@@ -2361,7 +2364,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     || lfsr_tag_key(tag_) > lfsr_tag_key(tag)))) {
         if (lfsr_tag_isrm(tag)) {
             // if removed make our tag unreachable
-            alt = LFSR_TAG_ALT(B, LE, 0xfff0);
+            alt = LFSR_TAG_ALT(B, GT, 0);
             weight = upper_id - lower_id - 1 + delta;
         } else {
             // split greater than
@@ -3241,7 +3244,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         continue;
 
     split:;
-        printf("B SPLIT %x %d\n", rbyd_.block, rbyd_.weight);
         // find out which id we need to split around
         lfs_ssize_t bisect = lfsr_rbyd_bisect(lfs, rbyd);
         if (bisect < 0) {
@@ -3480,7 +3482,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         continue;
 
     merge:;
-        printf("B MERGE %x %d\n", rbyd_.block, rbyd_.weight);
         // last child? try the left sibling
         // lfs_ssize_t sid;
         lfs_ssize_t sdelta;
@@ -3657,7 +3658,10 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     MKUNR, sid, -sweight, NULL, 0,
                     &scratch_attrs[1]);
             scratch_attrs[1] = *LFSD_ATTR(
-                    BRANCH, rid, +rbyd_.weight-rweight, scratch_buf1, delta1,
+                    BRANCH, rid, 0, scratch_buf1, delta1,
+                    &scratch_attrs[2]);
+            scratch_attrs[2] = *LFSD_ATTR(
+                    UNR, rid, +rbyd_.weight-rweight, NULL, 0,
                     NULL);
         }
 
@@ -3781,9 +3785,9 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
         return lfsr_btree_commit(lfs, btree, id, &rbyd,
                 LFSD_ATTR_IF_(tag != rtag,
                     lfsr_tag_setrm(rtag), rid, 0, NULL, 0,
-                LFSD_ATTR_(tag, rid, +weight-rweight,
-                    buffer, size,
-                NULL)));
+                LFSD_ATTR_(tag, rid, 0, buffer, size,
+                LFSD_ATTR(UNR, rid, +weight-rweight, NULL, 0,
+                NULL))));
     }
 }
 

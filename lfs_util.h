@@ -138,6 +138,14 @@ static inline int32_t lfs_smin32(int32_t a, int32_t b) {
     return (a < b) ? a : b;
 }
 
+static inline uint16_t lfs_max16(uint16_t a, uint16_t b) {
+    return (a > b) ? a : b;
+}
+
+static inline uint16_t lfs_min16(uint16_t a, uint16_t b) {
+    return (a < b) ? a : b;
+}
+
 // TODO how many of these do we actually need
 // Swap two 16-bit numbers
 static inline void lfs_swap16(uint16_t *a, uint16_t *b) {
