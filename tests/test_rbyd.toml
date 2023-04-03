@@ -6696,6 +6696,313 @@ code = '''
 '''
 
 
+### Test unrelated no-id tags ###
+
+[cases.test_rbyd_unrelated_create_permutations]
+defines.N = 'range(1, 8)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+    uint8_t buffer[4];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
+
+    // test all permutations of a given size
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
+
+        // print permutation to help debugging
+        printf("--- permutation: %zd [", perm_i);
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]);
+        }
+        printf("] ---\n");
+
+        // test the given permutation with multiple commits
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+        for (unsigned j = 0; j < N; j++) {
+            // adjust id based on future insertions
+            uint16_t id = perm[j];
+            for (unsigned k = j+1; k < N; k++) {
+                if (perm[j] > perm[k]) {
+                    id -= 1;
+                }
+            }
+
+            // note the data size differences here
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSD_ATTR(UATTR(perm[j]+1), -1, 0, names[perm[j] % 6], 1,
+                    NULL)) => 0;
+
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSD_ATTR(MKREG, id, +1, names[perm[j] % 6], 4,
+                    NULL)) => 0;
+        }
+
+        // try looking up each tag
+        lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+        assert(rbyd.weight == N);
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_get(&lfs, &rbyd,
+                    LFSR_TAG_UATTR(j+1), -1, buffer, 4) => 1;
+            assert(memcmp(buffer, names[j % 6], 1) == 0);
+        }
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_get(&lfs, &rbyd,
+                    LFSR_TAG_REG, j, buffer, 4) => 4;
+            assert(memcmp(buffer, names[j % 6], 4) == 0);
+        }
+
+        // try traversing tags
+        lfsr_tag_t tag_ = 0;
+        lfs_ssize_t id_ = -1;
+        lfs_off_t off_;
+        lfs_size_t size_;
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
+                    &tag_, &id_, NULL, &off_, &size_) => 0;
+            assert(tag_ == LFSR_TAG_UATTR(j+1));
+            assert(id_ == -1);
+            assert(size_ == 1);
+
+            lfsr_rbyd_get(&lfs, &rbyd, tag_, id_, buffer, 4) => 1;
+            assert(memcmp(buffer, names[j % 6], 1) == 0);
+        }
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
+                    &tag_, &id_, NULL, &off_, &size_) => 0;
+            assert(tag_ == LFSR_TAG_REG);
+            assert(id_ == j);
+            assert(size_ == 4);
+
+            lfsr_rbyd_get(&lfs, &rbyd, tag_, id_, buffer, 4) => 4;
+            assert(memcmp(buffer, names[j % 6], 4) == 0);
+        }
+        lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
+                &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
+
+        // keep track of the worst size
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
+        }
+    }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
+    lfs_size_t n = 1 + N;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
+    // note this only holds true with byte-level progs
+    if (PROG_SIZE == 1) {
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
+    }
+'''
+
+[cases.test_rbyd_unrelated_mixed_permutations]
+defines.N = 'range(1, 7)'
+defines.M = 'range(1, 4)'
+# -1 => exhaust all permutations
+#  n => reproduce a specific permutation
+defines.PERMUTATION = -1
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+
+    lfsr_rbyd_t init_rbyd = {
+        .block = 0,
+        .rev = 1,
+        .off = 0,
+        .crc = 0,
+        .trunk = 0,
+        .weight = 0,
+        .erased = true,
+    };
+    lfsr_rbyd_t rbyd;
+    const uint8_t names[6][4] = {
+        "\xaa\xaa\xaa\xaa",
+        "\xbb\xbb\xbb\xbb",
+        "\xcc\xcc\xcc\xcc",
+        "\xdd\xdd\xdd\xdd",
+        "\xee\xee\xee\xee",
+        "\xff\xff\xff\xff",
+    };
+    uint8_t buffer[4];
+
+    // keep track of the worst case log size
+    lfs_size_t worst_size = 0;
+    size_t worst_perm_i = 0;
+
+    // test all permutations of a given size
+    size_t perm_count = TEST_FACTORIAL(N);
+    for (size_t i = 0;
+            i < (PERMUTATION == -1 ? perm_count : 1);
+            i++) {
+        uint32_t perm[N];
+        size_t perm_i = PERMUTATION == -1 ? i : (size_t)PERMUTATION;
+        TEST_PERMUTATION(perm_i, perm, N);
+
+        // print permutation to help debugging
+        printf("--- permutation: %zd [", perm_i);
+        for (unsigned j = 0; j < N; j++) {
+            if (j > 0) {
+                printf(", ");
+            }
+            printf("%d", perm[j]);
+        }
+        printf("] ---\n");
+
+        // test the given permutation
+        rbyd = init_rbyd;
+        lfs_bd_erase(&lfs, rbyd.block) => 0;
+        for (unsigned j = 0; j < N; j++) {
+            // adjust id based on future insertions
+            uint16_t id = perm[j];
+            for (unsigned k = j+1; k < N; k++) {
+                if (perm[j] > perm[k]) {
+                    id -= 1;
+                }
+            }
+
+            // note the data size differences here
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSD_ATTR(UATTR(perm[j]+1), -1, 0, names[perm[j] % 6], 1,
+                    NULL)) => 0;
+
+            lfsr_rbyd_commit(&lfs, &rbyd,
+                    LFSD_ATTR(MKREG, id, +1, names[perm[j] % 6], 4,
+                    NULL)) => 0;
+            for (unsigned u = 0; u < M; u++) {
+                lfsr_rbyd_commit(&lfs, &rbyd,
+                        LFSD_ATTR(UATTR(u+1), id, 0, names[perm[j] % 6], 2,
+                        NULL)) => 0;
+            }
+        }
+
+        // try looking up each tag
+        lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+        assert(rbyd.weight == N);
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_get(&lfs, &rbyd,
+                    LFSR_TAG_UATTR(j+1), -1, buffer, 4) => 1;
+            assert(memcmp(buffer, names[j % 6], 1) == 0);
+        }
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_REG, j, buffer, 4) => 4;
+            assert(memcmp(buffer, names[j % 6], 4) == 0);
+
+            for (unsigned u = 0; u < M; u++) {
+                lfsr_rbyd_get(&lfs, &rbyd, LFSR_TAG_UATTR(u+1), j, buffer, 4)
+                        => 2;
+                assert(memcmp(buffer, names[j % 6], 2) == 0);
+            }
+        }
+
+        // try traversing tags
+        lfsr_tag_t tag_ = 0;
+        lfs_ssize_t id_ = -1;
+        lfs_off_t off_;
+        lfs_size_t size_;
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
+                    &tag_, &id_, NULL, &off_, &size_) => 0;
+            assert(tag_ == LFSR_TAG_UATTR(j+1));
+            assert(id_ == -1);
+            assert(size_ == 1);
+
+            lfsr_rbyd_get(&lfs, &rbyd, tag_, id_, buffer, 4) => 1;
+            assert(memcmp(buffer, names[j % 6], 1) == 0);
+        }
+        for (unsigned j = 0; j < N; j++) {
+            lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
+                    &tag_, &id_, NULL, &off_, &size_) => 0;
+            assert(tag_ == LFSR_TAG_REG);
+            assert(id_ == j);
+            assert(size_ == 4);
+
+            lfsr_rbyd_get(&lfs, &rbyd, tag_, id_, buffer, 4) => 4;
+            assert(memcmp(buffer, names[j % 6], 4) == 0);
+
+            for (unsigned u = 0; u < M; u++) {
+                lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
+                        &tag_, &id_, NULL, &off_, &size_) => 0;
+                assert(tag_ == LFSR_TAG_UATTR(u+1));
+                assert(id_ == j);
+                assert(size_ == 2);
+
+                lfsr_rbyd_get(&lfs, &rbyd, tag_, id_, buffer, 4) => 2;
+                assert(memcmp(buffer, names[j % 6], 2) == 0);
+            }
+        }
+        lfsr_rbyd_lookup(&lfs, &rbyd, lfsr_tag_next(tag_), id_,
+                &tag_, &id_, NULL, &off_, &size_) => LFS_ERR_NOENT;
+
+        // keep track of the worst size
+        if (rbyd.off > worst_size) {
+            worst_size = rbyd.off;
+            worst_perm_i = perm_i;
+        }
+    }
+
+    // test that tree is self-balancing, we should be strictly bounded
+    // by height <= 2*log(n)+1, assume tags are strictly <=12 bytes
+    lfs_size_t n = 1 + N + N*M;
+    printf("--- summary ---\n");
+    printf("worst permutation: %zd\n", worst_perm_i);
+    printf("worst size: %u B (N=%u, estimate=%u)\n",
+            worst_size, n, 12*n*(2*lfs_nlog2(n)+1)+4);
+    printf("worst avg height: %u B (N=%u, estimate=%u)\n",
+            worst_size / n, n, 12*(2*lfs_nlog2(n)+1)+4);
+    // note this only holds true with byte-level progs
+    if (PROG_SIZE == 1) {
+        assert(worst_size / n <= 12*(2*lfs_nlog2(n)+1)+4);
+    }
+'''
+
+
 ### Deletion testing ###
 
 [cases.test_rbyd_delete]
