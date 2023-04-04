@@ -88,8 +88,6 @@ enum lfs_error {
     LFS_ERR_NOATTR      = -61,  // No data/attr available
     LFS_ERR_NAMETOOLONG = -36,  // File name too long
     LFS_ERR_RANGE       = -34,  // Result out of range
-    // TODO should all overflow errors actually be corrupt errors?
-    LFS_ERR_OVERFLOW    = -75,  // Value too large for defined data type
 };
 
 // File types

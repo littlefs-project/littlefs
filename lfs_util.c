@@ -30,7 +30,7 @@ ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size) {
         }
     }
 
-    return LFS_ERR_OVERFLOW;
+    return LFS_ERR_CORRUPT;
 }
 
 ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size) {
@@ -46,7 +46,7 @@ ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size) {
         }
     }
 
-    return LFS_ERR_OVERFLOW;
+    return LFS_ERR_CORRUPT;
 }
 
 

@@ -1311,12 +1311,20 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
     }
     delta += delta_;
 
+    if (id_ > 0x7fffffff) {
+        return LFS_ERR_CORRUPT;
+    }
+
     lfs_size_t size_;
     delta_ = lfs_fromleb128(&size_, &buffer[delta], 5);
     if (delta_ < 0) {
         return delta_;
     }
     delta += delta_;
+
+    if (size_ > 0x7fffffff) {
+        return LFS_ERR_CORRUPT;
+    }
 
     // optionally crc
     if (crc) {
@@ -1387,9 +1395,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 NULL, &lfs->rcache, limit-off,
                 block, off, &tag, &id, &size, &crc);
         if (delta < 0) {
-            if (delta == LFS_ERR_INVAL
-                    || delta == LFS_ERR_CORRUPT
-                    || delta == LFS_ERR_OVERFLOW) {
+            if (delta == LFS_ERR_INVAL || delta == LFS_ERR_CORRUPT) {
                 maybeerased = maybeerased && delta == LFS_ERR_INVAL;
                 break;
             }
@@ -1846,6 +1852,10 @@ static int lfsr_rbyd_progdata(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
 static int lfsr_rbyd_progtag(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_tag_t tag, lfs_ssize_t id, lfs_size_t size, uint32_t *crc) {
+    // check for underflow issues
+    LFS_ASSERT((lfs_size_t)(id+1) < 0x80000000);
+    LFS_ASSERT(size < 0x80000000);
+
     // make sure to include the parity of the current crc
     tag |= lfs_popc(rbyd_->crc) & 1;
 
