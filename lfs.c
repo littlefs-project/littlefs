@@ -611,23 +611,23 @@ static inline lfsr_tag_t lfsr_tag_key(lfsr_tag_t tag) {
     return tag & ~0xf;
 }
 
-static inline bool lfsr_tag_follow(lfsr_tag_t alt, lfs_ssize_t weight,
+static inline bool lfsr_tag_follow(lfsr_tag_t alt, lfs_size_t weight,
         lfs_ssize_t lower, lfs_ssize_t upper,
         lfsr_tag_t tag, lfs_ssize_t id) {
     if (lfsr_tag_isgt(alt)) {
-        return id > upper - weight - 1
-                || (id == upper - weight - 1
+        return id > upper - (lfs_ssize_t)weight - 1
+                || (id == upper - (lfs_ssize_t)weight - 1
                     && lfsr_tag_key(tag) > lfsr_tag_key(alt));
     } else {
-        return id < lower + weight
-                || (id == lower + weight
+        return id < lower + (lfs_ssize_t)weight
+                || (id == lower + (lfs_ssize_t)weight
                     && lfsr_tag_key(tag) <= lfsr_tag_key(alt));
     }
 }
 
 static inline bool lfsr_tag_follow2(
-        lfsr_tag_t alt, lfs_ssize_t weight,
-        lfsr_tag_t alt2, lfs_ssize_t weight2,
+        lfsr_tag_t alt, lfs_size_t weight,
+        lfsr_tag_t alt2, lfs_size_t weight2,
         lfs_ssize_t lower, lfs_ssize_t upper,
         lfsr_tag_t tag, lfs_ssize_t id) {
     if (lfsr_tag_isred(alt2) && lfsr_tag_isparallel(alt, alt2)) {
@@ -657,13 +657,13 @@ static inline bool lfsr_tag_prune2(
     }
 }
 
-static inline void lfsr_tag_flip(lfsr_tag_t *alt, lfs_ssize_t *weight,
+static inline void lfsr_tag_flip(lfsr_tag_t *alt, lfs_size_t *weight,
         lfs_ssize_t lower, lfs_ssize_t upper) {
     *alt = *alt ^ 0x4;
     *weight = (upper-lower) - *weight - 1;
 }
 
-static inline void lfsr_tag_flip2(lfsr_tag_t *alt, lfs_ssize_t *weight,
+static inline void lfsr_tag_flip2(lfsr_tag_t *alt, lfs_size_t *weight,
         lfsr_tag_t alt2, lfs_size_t weight2,
         lfs_ssize_t lower, lfs_ssize_t upper) {
     if (lfsr_tag_isred(alt2)) {
@@ -674,7 +674,7 @@ static inline void lfsr_tag_flip2(lfsr_tag_t *alt, lfs_ssize_t *weight,
 }
 
 static inline void lfsr_tag_trim(
-        lfsr_tag_t alt, lfs_ssize_t weight,
+        lfsr_tag_t alt, lfs_size_t weight,
         lfs_ssize_t *lower_id, lfs_ssize_t *upper_id,
         lfsr_tag_t *lower_tag, lfsr_tag_t *upper_tag) {
     if (lfsr_tag_isgt(alt)) {
@@ -691,8 +691,8 @@ static inline void lfsr_tag_trim(
 }
 
 static inline void lfsr_tag_trim2(
-        lfsr_tag_t alt, lfs_ssize_t weight,
-        lfsr_tag_t alt2, lfs_ssize_t weight2,
+        lfsr_tag_t alt, lfs_size_t weight,
+        lfsr_tag_t alt2, lfs_size_t weight2,
         lfs_ssize_t *lower_id, lfs_ssize_t *upper_id,
         lfsr_tag_t *lower_tag, lfsr_tag_t *upper_tag) {
     if (lfsr_tag_isred(alt2)) {
@@ -1264,7 +1264,7 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
 static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
         const lfs_cache_t *pcache, lfs_cache_t *rcache, lfs_size_t hint,
         lfs_block_t block, lfs_off_t off,
-        lfsr_tag_t *tag, lfs_ssize_t *id, lfs_size_t *size, uint32_t *crc) {
+        lfsr_tag_t *tag, lfs_size_t *weight, lfs_size_t *size, uint32_t *crc) {
 //    // needed to quiet an uninitialized warning, zeroing tag on error is
 //    // probably a good idea anyways
 //    *tag = 0;
@@ -1303,15 +1303,15 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
 
     uint16_t tag_ = lfs_fromle16_(&buffer[0]);
 
-    lfs_size_t id_;
+    lfs_size_t weight_;
     ssize_t delta = 2;
-    lfs_ssize_t delta_ = lfs_fromleb128(&id_, &buffer[delta], 5);
+    lfs_ssize_t delta_ = lfs_fromleb128(&weight_, &buffer[delta], 5);
     if (delta_ < 0) {
         return delta_;
     }
     delta += delta_;
 
-    if (id_ > 0x7fffffff) {
+    if (weight_ > 0x7fffffff) {
         return LFS_ERR_CORRUPT;
     }
 
@@ -1335,11 +1335,11 @@ static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
     // - clear the valid bit from tag, we checked this earlier
     // - adjust id so reserved id is -1, so we don't have mixed zero/one indexed
     //
-    if (!lfsr_tag_isalt(tag_)) {
-        id_ -= 1;
-    }
+//    if (!lfsr_tag_isalt(tag_)) {
+//        id_ -= 1;
+//    }
     *tag = tag_ & ~0x1;
-    *id = id_;
+    *weight = weight_;
     *size = size_;
 
     return delta;
@@ -1389,11 +1389,11 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // scan tags, checking valid bits, crcs, etc
     while (off < limit) {
         lfsr_tag_t tag;
-        lfs_ssize_t id;
+        lfs_size_t w;
         lfs_size_t size;
         lfs_ssize_t delta = lfsr_rbyd_readtag(lfs,
                 NULL, &lfs->rcache, limit-off,
-                block, off, &tag, &id, &size, &crc);
+                block, off, &tag, &w, &size, &crc);
         if (delta < 0) {
             if (delta == LFS_ERR_INVAL || delta == LFS_ERR_CORRUPT) {
                 maybeerased = maybeerased && delta == LFS_ERR_INVAL;
@@ -1419,18 +1419,16 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // on a bad crc
         if (lfsr_tag_isalt(tag)) {
             if (lfsr_tag_isgt(tag)) {
-                upper += id;
+                upper += w;
             } else {
-                lower += id;
+                lower += w;
             }
 
         } else if (lfsr_tag_istrunk(tag)) {
             // note we need to include our id's weight in our weight
             // calculation, but only when our id is included in the tree
-            lfs_ssize_t delta = (lower+upper) - weight;
-            if (!lfsr_tag_isrm(tag)) {
-                delta += id+1-lower;
-            }
+            lfs_ssize_t delta = (lower+upper+w) - weight;
+            weight = lower+upper+ w;
 
             // adjust any pending finds
             if (find && find->predicted_id >= (lfs_ssize_t)lower) {
@@ -1438,13 +1436,11 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 if (delta < 0
                         && find->predicted_id < (lfs_ssize_t)lower + -delta) {
                     find->predicted_tag = 0;
-                    find->predicted_id = lower-1; // TODO id-1?
+                    find->predicted_id = lower-1; // TODO is this correct for insertion behavior?
                 } else {
                     find->predicted_id += delta;
                 }
             }
-
-            weight += delta;
         }
 
         // we mostly just skip non-data tags here
@@ -1510,6 +1506,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 }
 
                 // found match?
+                lfs_ssize_t id = lower+w-1;
                 if (cmp == LFS_CMP_EQ) {
                     find->predicted_tag = tag;
                     find->predicted_id = id;
@@ -1614,7 +1611,7 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     // descend down tree
     while (true) {
         lfsr_tag_t alt;
-        lfs_ssize_t weight;
+        lfs_size_t weight;
         lfs_off_t jump;
         lfs_ssize_t delta = lfsr_rbyd_readtag(lfs,
                 &lfs->pcache, &lfs->rcache, 0,
@@ -1851,25 +1848,25 @@ static int lfsr_rbyd_progdata(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 }
 
 static int lfsr_rbyd_progtag(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        lfsr_tag_t tag, lfs_ssize_t id, lfs_size_t size, uint32_t *crc) {
+        lfsr_tag_t tag, lfs_size_t weight, lfs_size_t size, uint32_t *crc) {
     // check for underflow issues
-    LFS_ASSERT((lfs_size_t)(id+1) < 0x80000000);
+    LFS_ASSERT(weight < 0x80000000);
     LFS_ASSERT(size < 0x80000000);
 
     // make sure to include the parity of the current crc
     tag |= lfs_popc(rbyd_->crc) & 1;
 
-    // change ids to on-disk representation
-    if (!lfsr_tag_isalt(tag)) {
-        id += 1;
-    }
+//    // change ids to on-disk representation
+//    if (!lfsr_tag_isalt(tag)) {
+//        id += 1;
+//    }
 
     // compress into an le16 and pair of leb128s
     uint8_t buf[LFSR_TAG_DSIZE];
     lfs_tole16_(tag, &buf[0]);
 
     lfs_size_t delta = 2;
-    ssize_t delta_ = lfs_toleb128(id, &buf[delta], 5);
+    ssize_t delta_ = lfs_toleb128(weight, &buf[delta], 5);
     if (delta_ < 0) {
         return delta_;
     }
@@ -1891,7 +1888,7 @@ static int lfsr_rbyd_progtag(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
 static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_tag_t p_alts[static 3],
-        lfs_ssize_t p_weights[static 3],
+        lfs_size_t p_weights[static 3],
         lfs_off_t p_jumps[static 3],
         unsigned count) {
     // write out some number of alt pointers in our queue
@@ -1899,7 +1896,7 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         if (p_alts[3-1-i]) {
             // change to a relative jump at the last minute
             lfsr_tag_t alt = p_alts[3-1-i];
-            lfs_ssize_t weight = p_weights[3-1-i];
+            lfs_size_t weight = p_weights[3-1-i];
             lfs_off_t jump = rbyd_->off - p_jumps[3-1-i];
 
             int err = lfsr_rbyd_progtag(lfs, rbyd_,
@@ -1915,7 +1912,7 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
 static inline int lfsr_rbyd_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_tag_t p_alts[static 3],
-        lfs_ssize_t p_weights[static 3],
+        lfs_size_t p_weights[static 3],
         lfs_off_t p_jumps[static 3],
         lfsr_tag_t alt, lfs_ssize_t weight, lfs_off_t jump) {
     int err = lfsr_rbyd_p_flush(lfs, rbyd_, p_alts, p_weights, p_jumps, 1);
@@ -1935,10 +1932,10 @@ static inline int lfsr_rbyd_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 
 static inline void lfsr_rbyd_p_pop(
         lfsr_tag_t p_alts[static 3],
-        lfs_ssize_t p_weights[static 3],
+        lfs_size_t p_weights[static 3],
         lfs_off_t p_jumps[static 3]) {
     memmove(p_alts, p_alts+1, 2*sizeof(lfsr_tag_t));
-    memmove(p_weights, p_weights+1, 2*sizeof(lfs_ssize_t));
+    memmove(p_weights, p_weights+1, 2*sizeof(lfs_size_t));
     memmove(p_jumps, p_jumps+1, 2*sizeof(lfs_off_t));
     p_alts[2] = 0;
     p_weights[2] = 0;
@@ -1947,7 +1944,7 @@ static inline void lfsr_rbyd_p_pop(
 
 static void lfsr_rbyd_p_red(
         lfsr_tag_t p_alts[static 3],
-        lfs_ssize_t p_weights[static 3],
+        lfs_size_t p_weights[static 3],
         lfs_off_t p_jumps[static 3]) {
     // propagate a red edge upwards
     p_alts[0] = lfsr_tag_setblack(p_alts[0]);
@@ -1961,7 +1958,7 @@ static void lfsr_rbyd_p_red(
                 // no reorder needed
             } else if (lfsr_tag_isparallel(p_alts[0], p_alts[2])) {
                 lfsr_tag_t alt_ = p_alts[1];
-                lfs_ssize_t weight_ = p_weights[1];
+                lfs_size_t weight_ = p_weights[1];
                 lfs_off_t jump_ = p_jumps[1];
                 p_alts[1] = lfsr_tag_setred(p_alts[0]);
                 p_weights[1] = p_weights[0];
@@ -1971,7 +1968,7 @@ static void lfsr_rbyd_p_red(
                 p_jumps[0] = jump_;
             } else if (lfsr_tag_isparallel(p_alts[0], p_alts[1])) {
                 lfsr_tag_t alt_ = p_alts[2];
-                lfs_ssize_t weight_ = p_weights[2];
+                lfs_size_t weight_ = p_weights[2];
                 lfs_off_t jump_ = p_jumps[2];
                 p_alts[2] = lfsr_tag_setred(p_alts[1]);
                 p_weights[2] = p_weights[1];
@@ -2103,7 +2100,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // queue of pending alts we can emulate rotations with
     lfsr_tag_t p_alts[3] = {0, 0, 0};
-    lfs_ssize_t p_weights[3] = {0, 0, 0};
+    lfs_size_t p_weights[3] = {0, 0, 0};
     lfs_off_t p_jumps[3] = {0, 0, 0};
     lfs_off_t graft = 0;
 
@@ -2111,7 +2108,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     while (true) {
         // read the alt pointer
         lfsr_tag_t alt;
-        lfs_ssize_t weight;
+        lfs_size_t weight;
         lfs_off_t jump;
         lfs_ssize_t d = lfsr_rbyd_readtag(lfs,
                 &lfs->pcache, &lfs->rcache, 0,
@@ -2213,7 +2210,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     lfs_swap32(&jump, &branch_);
 
                     lfs_swap16(&p_alts[0], &alt);
-                    lfs_sswap32(&p_weights[0], &weight);
+                    lfs_swap32(&p_weights[0], &weight);
                     lfs_swap32(&p_jumps[0], &jump);
                     alt = lfsr_tag_setblack(alt);
 
@@ -2278,7 +2275,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                         lower_id, upper_id,
                         tag_, id_)) {
                 lfs_swap16(&p_alts[0], &alt);
-                lfs_sswap32(&p_weights[0], &weight);
+                lfs_swap32(&p_weights[0], &weight);
                 lfs_swap32(&p_jumps[0], &jump);
                 p_alts[0] = lfsr_tag_setred(p_alts[0]);
                 alt = lfsr_tag_setblack(alt);
@@ -2383,10 +2380,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // if removed make our tag unreachable
             alt = LFSR_TAG_ALT(B, GT, 0);
             weight = upper_id - lower_id - 1 + delta;
+            upper_id -= weight;
         } else {
             // split less than
             alt = LFSR_TAG_ALT(R, LE, tag_);
             weight = id_ - lower_id;
+            lower_id += weight;
         }
 
     } else if (id_ > id
@@ -2397,10 +2396,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // if removed make our tag unreachable
             alt = LFSR_TAG_ALT(B, GT, 0);
             weight = upper_id - lower_id - 1 + delta;
+            upper_id -= weight;
         } else {
             // split greater than
             alt = LFSR_TAG_ALT(R, GT, tag);
             weight = upper_id - id - 1;
+            upper_id -= weight;
         }
     }
 
@@ -2433,7 +2434,8 @@ leaf:;
     // note we always need something after the alts! without something between
     // alts we may not be able to find the trunk of our tree
     err = lfsr_rbyd_progtag(lfs, rbyd,
-            lfsr_tag_setnomk(tag), id + delta, lfsr_data_len(data), &rbyd->crc);
+            lfsr_tag_setnomk(tag), upper_id - lower_id - 1 + delta,
+            lfsr_data_len(data), &rbyd->crc);
     if (err) {
         rbyd->erased = false;
         return err;
@@ -2576,7 +2578,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         uint8_t fbuf[LFSR_FCRC_DSIZE];
         lfs_size_t fcrc_delta = lfsr_fcrc_todisk(&fcrc, fbuf);
         err = lfsr_rbyd_progtag(lfs, &rbyd_,
-                LFSR_TAG_FCRC, -1, fcrc_delta, &rbyd_.crc);
+                LFSR_TAG_FCRC, 0, fcrc_delta, &rbyd_.crc);
         if (err) {
             rbyd_.erased = false;
             return err;

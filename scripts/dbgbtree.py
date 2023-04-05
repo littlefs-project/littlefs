@@ -65,9 +65,9 @@ def fromleb128(data):
 
 def fromtag(data):
     tag = fromle16(data)
-    id, delta = fromleb128(data[2:])
+    weight, delta = fromleb128(data[2:])
     size, delta_ = fromleb128(data[2+delta:])
-    return tag&1, tag&~1, id if tag&0x8 else id-1, size, 2+delta+delta_
+    return tag&1, tag&~1, weight, size, 2+delta+delta_
 
 def popc(x):
     return bin(x).count('1')
@@ -82,56 +82,56 @@ def xxd(data, width=16, crc=False):
                 b if b >= ' ' and b <= '~' else '.'
                 for b in map(chr, data[i:i+width])))
 
-def tagrepr(tag, id, size, off=None):
+def tagrepr(tag, w, size, off=None):
     if (tag & 0xfffe) == TAG_UNR:
-        return 'unr id%d%s' % (
-            id,
+        return 'unr%s%s' % (
+            ' w%d' % w if w else '',
             ' %d' % size if size else '')
     elif (tag & 0xf00c) == TAG_NAME:
-        return '%s%s id%d %d' % (
+        return '%s%s%s %d' % (
             'rm' if tag & 0x2 else '',
             'bname' if (tag & 0xfffe) == TAG_BNAME
                 else 'reg' if (tag & 0xfffe) == TAG_REG
                 else 'dir' if (tag & 0xfffe) == TAG_DIR
                 else 'name 0x%02x' % ((tag & 0x0ff0) >> 4),
-            id,
+            ' w%d' % w if w else '',
             size)
     elif (tag & 0xf00c) == TAG_STRUCT:
-        return '%s%s id%d %d' % (
+        return '%s%s%s %d' % (
             'rm' if tag & 0x2 else '',
             'inlined' if (tag & 0xfffe) == TAG_INLINED
                 else 'block' if (tag & 0xfffe) == TAG_BLOCK
                 else 'branch' if (tag & 0xfffe) == TAG_BRANCH
                 else 'btree' if (tag & 0xfffe) == TAG_BTREE
                 else 'struct 0x%02x' % ((tag & 0x0ff0) >> 4),
-            id,
+            ' w%d' % w if w else '',
             size)
     elif (tag & 0xf00c) == TAG_UATTR:
         return '%suattr 0x%02x%s%s' % (
             'rm' if tag & 0x2 else '',
             (tag & 0x0ff0) >> 4,
-            ' id%d' % id if id != -1 else '',
+            ' w%d' % w if w else '',
             ' %d' % size if not tag & 0x2 or size else '')
     elif (tag & 0xf00e) == TAG_CRC:
         return 'crc%x%s %d' % (
             1 if tag & 0x10 else 0,
-            ' 0x%02x' % id if id != -1 else '',
+            ' 0x%x' % w if w > 0 else '',
             size)
     elif (tag & 0xfffe) == TAG_FCRC:
         return 'fcrc%s %d' % (
-            ' 0x%02x' % id if id != -1 else '',
+            ' 0x%x' % w if w > 0 else '',
             size)
     elif tag & 0x8:
         return 'alt%s%s 0x%x w%d %s' % (
             'r' if tag & 0x2 else 'b',
             'gt' if tag & 0x4 else 'le',
             tag & 0xfff0,
-            id,
+            w,
             '0x%x' % (0xffffffff & (off-size))
                 if off is not None
                 else '-%d' % off)
     else:
-        return '0x%04x id%d %d' % (tag, id, size)
+        return '0x%04x w%d %d' % (tag, w, size)
 
 class Rbyd:
     def __init__(self, block, limit, data, rev, off, trunk, weight):
@@ -161,7 +161,7 @@ class Rbyd:
         weight_ = 0
         wastrunk = False
         while j_ < limit:
-            v, tag, id, size, delta = fromtag(data[j_:])
+            v, tag, w, size, delta = fromtag(data[j_:])
             if v != (popc(crc) & 1):
                 break
             crc = crc32c(data[j_:j_+delta], crc)
@@ -176,13 +176,11 @@ class Rbyd:
             # keep track of weight
             if tag & 0x8:
                 if tag & 0x4:
-                    upper_ += id
+                    upper_ += w
                 else:
-                    lower_ += id
+                    lower_ += w
             elif (tag & 0xc) == 0x0:
-                weight_ = lower_+upper_
-                if not tag & 0x2:
-                    weight_ += id+1-lower_
+                weight_ = lower_+upper_+w
 
             # take care of crcs
             if not tag & 0x8:
@@ -301,9 +299,9 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
 
             # corrupted? return a corrupted block once
             if not rbyd:
-                return (id > 0, id, 0, rbyd, -1, 0,
-                    0, 0, b'',
-                    0, 0, b'',
+                return (id > 0, id, 0, rbyd, -1,
+                    (0, 0, 0, b''),
+                    (0, 0, 0, b''),
                     path)
 
             while True:
@@ -311,49 +309,51 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                 (done, name_tag, rid_, w,
                     name_j, name_d, name) = rbyd.lookup(0, rid)
                 if done:
-                    return (True, id, 0, rbyd, -1, 0,
-                        0, 0, b'',
-                        0, 0, b'',
+                    return (True, id, 0, rbyd, -1,
+                        (0, 0, 0, b''),
+                        (0, 0, 0, b''),
                         path)
 
                 if name_tag & 0xf00f == TAG_NAME:
                     # then lookup struct
-                    (done, tag, _, _,
+                    (done, struct_tag, _, _,
                         struct_j, struct_d, struct_) = rbyd.lookup(
                             TAG_STRUCT, rid_)
                     if done:
-                        return (True, id, 0, rbyd, -1, 0,
-                            0, 0, b'',
-                            0, 0, b'',
+                        return (True, id, 0, rbyd, -1,
+                            (0, 0, 0, b''),
+                            (0, 0, 0, b''),
                             path)
                 else:
                     tag = name_tag
-                    struct_j, struct_d, struct_ = name_j, name_d, name
-                    name_j, name_d, name = name_j, 0, b''
+                    struct_tag, struct_j, struct_d, struct_ = (
+                        name_tag, name_j, name_d, name)
+                    name_tag, name_j, name_d, name = 0, 0, 0, b''
 
-                path.append((id + (rid_-rid), w, rbyd, rid_, tag,
-                    name_j, name_d, name,
-                    struct_j, struct_d, struct_))
+                path.append((id + (rid_-rid), w, rbyd, rid_,
+                    (name_tag, name_j, name_d, name),
+                    (struct_tag, struct_j, struct_d, struct_)))
 
                 # is it another branch? continue down tree
-                if tag == TAG_BRANCH and (depth is None or depth_ < depth):
+                if struct_tag == TAG_BRANCH and (
+                        depth is None or depth_ < depth):
                     block, delta = fromleb128(struct_)
                     limit, _ = fromleb128(struct_[delta:])
                     rbyd = Rbyd.fetch(f, block_size, block, limit)
 
                     # corrupted? bail here so we can keep traversing the tree
                     if not rbyd:
-                        return (False, id + (rid_-rid), w, rbyd, -1, 0,
-                            0, 0, b'',
-                            0, 0, b'',
+                        return (False, id + (rid_-rid), w, rbyd, -1,
+                            (0, 0, 0, b''),
+                            (0, 0, 0, b''),
                             path)
 
                     rid -= (rid_-(w-1))
                     depth_ += 1
                 else:
-                    return (False, id + (rid_-rid), w, rbyd, rid_, tag,
-                        name_j, name_d, name,
-                        struct_j, struct_d, struct_,
+                    return (False, id + (rid_-rid), w, rbyd, rid_,
+                        (name_tag, name_j, name_d, name),
+                        (struct_tag, struct_j, struct_d, struct_),
                         path)
 
         # if we're printing the tree, first find the max depth so we know how
@@ -363,9 +363,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
             t_depth = 0
             id = -1
             while True:
-                (done, id, w, rbyd, rid, tag,
-                    name_j, name_d, name,
-                    struct_j, struct_d, struct_,
+                (done, id, w, rbyd, rid, _, _,
                     path) = (lookup(id+1, depth=args.get('depth')))
                 if done:
                     break
@@ -375,23 +373,28 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
             t_width = 2*t_depth+2 if t_depth > 0 else 0
             t_branches = [(0, trunk.weight)]
 
-            def t_repr(id, w, d=None):
+            def t_repr(id, w, leaf=True, depth=None):
                 branches_ = []
                 for i in range(len(t_branches)):
-                    if d is not None and d == i-1:
-                        branches_.append('+')
-                    elif i+1 < len(t_branches):
-                        if (id-(w-1) == t_branches[i+1][0]
+                    if depth is not None and depth == i-1:
+                        branches_.append('+' if leaf else '|')
+                        break
+
+                    if i+1 < len(t_branches):
+                        if (leaf
+                                and id-(w-1) == t_branches[i+1][0]
                                 and t_branches[i][0] == t_branches[i+1][0]
                                 and (not args.get('inner')
-                                    or (i == 0 and d == 0))):
+                                    or (i == 0 and depth == 0))):
                             branches_.append('+-')
-                        elif (id-(w-1) == t_branches[i+1][0]
+                        elif (leaf
+                                and id-(w-1) == t_branches[i+1][0]
                                 and t_branches[i][1] == t_branches[i+1][1]
-                                and (not args.get('inner') or d == i)):
+                                and (not args.get('inner') or depth == i)):
                             branches_.append('\'-')
-                        elif (id-(w-1) == t_branches[i+1][0]
-                                and (not args.get('inner') or d == i)):
+                        elif (leaf
+                                and id-(w-1) == t_branches[i+1][0]
+                                and (not args.get('inner') or depth == i)):
                             branches_.append('|-')
                         elif (id-(w-1) >= t_branches[i][0]
                                 and id-(w-1) < t_branches[i][1]
@@ -400,14 +403,22 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                         else:
                             branches_.append('  ')
                     else:
-                        if (id-(w-1) == t_branches[i][0]
+                        if (leaf
+                                and id-(w-1) == t_branches[i][0]
                                 and (not args.get('inner') or i == 0)):
                             branches_.append('+-%s> ' % ('-'*2*(t_depth-i-1)))
-                        elif id == t_branches[i][1]-1:
+                        elif (leaf
+                                and id == t_branches[i][1]-1):
                             branches_.append('\'-%s> ' % ('-'*2*(t_depth-i-1)))
-                        elif (id >= t_branches[i][0]
+                        elif (leaf
+                                and id >= t_branches[i][0]
                                 and id-(w-1) < t_branches[i][1]):
                             branches_.append('|-%s> ' % ('-'*2*(t_depth-i-1)))
+                        elif (id >= t_branches[i][0]
+                                and id < t_branches[i][1]-1):
+                            branches_.append('|')
+                        else:
+                            branches_.append(' ')
 
                 return '%s%-*s%s' % (
                     '\x1b[90m' if color else '',
@@ -416,14 +427,113 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
 
         # print header
         w_width = 2*m.ceil(m.log10(max(1, trunk.weight)+1))+1
-        print('%-9s  %*s%-*s %-8s %-22s  %s' % (
+        print('%-9s  %*s%-*s %-22s  %s' % (
             'block',
             t_width, '',
             w_width, 'ids',
-            'name',
             'tag',
             'data (truncated)'
                 if not args.get('no_truncate') else ''))
+
+        # prbyd here means the last rendered rbyd, we update
+        # in show_entry to always print interleaved addresses
+        prbyd = None
+        def show_entry(id, w, rbyd, rid,
+                name_tag, name_j, name_d, name,
+                struct_tag, struct_j, struct_d, struct_,
+                depth=None):
+            nonlocal prbyd
+
+            # show human-readable representation
+            if name_tag:
+                print('%10s %s%*s %-22s  %s' % (
+                    '%04x.%04x:' % (rbyd.block, rbyd.limit)
+                        if prbyd is None or rbyd != prbyd
+                        else '',
+                    t_repr(id, w, True, depth) if args.get('tree') else '',
+                    w_width, '%d-%d' % (id-(w-1), id) if w > 1
+                        else id if w > 0
+                        else '',
+                    tagrepr(name_tag, w, len(name), None),
+                    ''.join(
+                        b if b >= ' ' and b <= '~' else '.'
+                        for b in map(chr, name))))
+                prbyd = rbyd
+            print('%10s %s%*s %-22s  %s' % (
+                '%04x.%04x:' % (rbyd.block, rbyd.limit)
+                    if prbyd is None or rbyd != prbyd
+                    else '',
+                t_repr(id, w, not name_tag, depth) if args.get('tree') else '',
+                w_width, '' if name_tag
+                    else '%d-%d' % (id-(w-1), id) if w > 1
+                    else id if w > 0
+                    else '',
+                tagrepr(struct_tag,
+                    w if not name_tag else 0,
+                    len(struct_), None),
+                next(xxd(struct_, 8), '')
+                    if not args.get('no_truncate') else ''))
+            prbyd = rbyd
+
+            # show in-device representation
+            if args.get('device'):
+                if name_tag:
+                    print('%9s  %*s%*s %-22s%s' % (
+                        '',
+                        t_width, '',
+                        w_width, '',
+                        '%04x %08x %07x' % (name_tag, w, len(name)),
+                        '  %s' % ' '.join(
+                            '%08x' % struct.unpack('<I',
+                                rbyd.data[name_j+name_d+i*4
+                                    : name_j+name_d + min(i*4+4,len(name))]
+                                    .ljust(4, b'\0'))
+                            for i in range(min(m.ceil(len(name)/4), 3)))[:23]))
+                print('%9s  %*s%*s %-22s%s' % (
+                    '',
+                    t_width, '',
+                    w_width, '',
+                    '%04x %08x %07x' % (
+                        struct_tag, w if not name_tag else 0, len(struct_)),
+                    '  %s' % ' '.join(
+                        '%08x' % struct.unpack('<I',
+                            rbyd.data[struct_j+struct_d+i*4
+                                : struct_j+struct_d + min(i*4+4,len(struct_))]
+                                .ljust(4, b'\0'))
+                        for i in range(min(m.ceil(len(struct_)/4), 3)))[:23]))
+
+            # show on-disk encoding of tags/data
+            if args.get('raw'):
+                for o, line in enumerate(xxd(
+                        rbyd.data[name_j:name_j+name_d])):
+                    print('%9s: %*s%*s %s' % (
+                        '%04x' % (name_j + o*16),
+                        t_width, '',
+                        w_width, '',
+                        line))
+            if args.get('raw'):
+                for o, line in enumerate(xxd(name)):
+                    print('%9s: %*s%*s %s' % (
+                        '%04x' % (name_j+name_d + o*16),
+                        t_width, '',
+                        w_width, '',
+                        line))
+            if args.get('raw'):
+                for o, line in enumerate(xxd(
+                        rbyd.data[struct_j:struct_j+struct_d])):
+                    print('%9s: %*s%*s %s' % (
+                        '%04x' % (struct_j + o*16),
+                        t_width, '',
+                        w_width, '',
+                        line))
+            if args.get('raw') or args.get('no_truncate'):
+                for o, line in enumerate(xxd(struct_)):
+                    print('%9s: %*s%*s %s' % (
+                        '%04x' % (struct_j+struct_d + o*16),
+                        t_width, '',
+                        w_width, '',
+                        line))
+
 
         # traverse and print entries
         id = -1
@@ -431,9 +541,9 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
         ppath = []
         corrupted = False
         while True:
-            (done, id, w, rbyd, rid, tag,
-                name_j, name_d, name,
-                struct_j, struct_d, struct_,
+            (done, id, w, rbyd, rid,
+                (name_tag, name_j, name_d, name),
+                (struct_tag, struct_j, struct_d, struct_),
                 path) = (lookup(id+1, depth=args.get('depth')))
             if done:
                 break
@@ -446,9 +556,9 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                     if x is None:
                         break
 
-                    (id_, w_, rbyd_, rid_, tag_,
-                        name_j_, name_d_, name_,
-                        struct_j_, struct_d_, struct__) = x
+                    (id_, w_, rbyd_, rid_,
+                        (name_tag_, name_j_, name_d_, name_),
+                        (struct_tag_, struct_j_, struct_d_, struct__)) = x
                     t_branches.append((id_-(w_-1), id_+1))
 
                     if args.get('inner'):
@@ -456,61 +566,11 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                             continue
                         changed = True
 
-                        # show human-readable representation
-                        print('%10s %s%*s %-8s %-22s  %s' % (
-                            '%04x.%04x:' % (rbyd_.block, rbyd_.limit)
-                                if prbyd is None or rbyd_ != prbyd
-                                else '',
-                            t_repr(id_, w_, i) if args.get('tree') else '',
-                            w_width, '%d-%d' % (id_-(w_-1), id_)
-                                if w_ > 1 else id_
-                                if w_ > 0 else '',
-                            ''.join(
-                                b if b >= ' ' and b <= '~' else '.'
-                                for b in map(chr, name_)),
-                            tagrepr(tag_, rid_, len(struct__), None),
-                            next(xxd(struct__, 8), '')
-                                if not args.get('no_truncate') else ''))
-
-                        # show in-device representation
-                        if args.get('device'):
-                            print('%9s  %*s%*s %8s %-22s%s' % (
-                                '',
-                                t_width, '',
-                                w_width, '',
-                                '',
-                                '%04x %08x %07x' % (
-                                    tag_, 0xffffffff & rid_, len(struct__)),
-                                '  %s' % ' '.join(
-                                    '%08x' % struct.unpack('<I',
-                                        rbyd_.data[struct_j_+struct_d_+i*4
-                                            : struct_j_+struct_d_
-                                                + min(i*4+4,len(struct__))]
-                                            .ljust(4, b'\0'))
-                                    for i in range(
-                                        min(m.ceil(len(struct__)/4), 3)))[:23]))
-
-                        # show on-disk encoding of tags/data
-                        for j, d, data in [
-                                (name_j_, name_d_, name_),
-                                (struct_j_, struct_d_, struct__)]:
-                            if args.get('raw'):
-                                for o, line in enumerate(
-                                        xxd(rbyd_.data[j:j+d])):
-                                    print('%9s: %s' % (
-                                        '%04x' % (j + o*16),
-                                        line))
-
-                            # show on-disk encoding of tags
-                            if args.get('raw') or args.get('no_truncate'):
-                                for o, line in enumerate(xxd(data)):
-                                    print('%9s: %s' % (
-                                        '%04x' % (j+d + o*16),
-                                        line))
-
-                        # prbyd here means the last rendered rbyd, we update
-                        # here to always print interleaved addresses
-                        prbyd = rbyd_
+                        # show the inner entry
+                        show_entry(id_, w_, rbyd_, rid_,
+                            name_tag_, name_j_, name_d_, name_,
+                            struct_tag_, struct_j_, struct_d_, struct__,
+                            i)
 
             # corrupted? try to keep printing the tree
             if not rbyd:
@@ -529,65 +589,16 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
             # if we're not showing inner nodes, prefer names higher in the tree
             # since this avoids showing vestigial names
             if not args.get('inner'):
-                for (id_, w_, rbyd_, rid_, tag_,
-                        name_j_, name_d_, name_,
-                        struct_j_, struct_d_, struct__) in reversed(path):
-                    name_j, name_d, name = name_j_, name_d_, name_
+                for id_, w_, rbyd_, rid_, name_, struct__ in reversed(path):
+                    name_tag_, name_j, name_d, name = name_
                     if rid_-(w_-1) != 0:
                         break
 
-            # show human-readable representation
-            print('%10s %s%*s %-8s %-22s  %s' % (
-                '%04x.%04x:' % (rbyd.block, rbyd.limit)
-                    if prbyd is None or rbyd != prbyd
-                    else '',
-                t_repr(id, w) if args.get('tree') else '',
-                w_width, '%d-%d' % (id-(w-1), id)
-                    if w > 1 else id
-                    if w > 0 else '',
-                ''.join(
-                    b if b >= ' ' and b <= '~' else '.'
-                    for b in map(chr, name)),
-                tagrepr(tag, rid, len(struct_), None),
-                next(xxd(struct_, 8), '')
-                    if not args.get('no_truncate') else ''))
+            # show the entry
+            show_entry(id, w, rbyd, rid,
+                name_tag, name_j, name_d, name,
+                struct_tag, struct_j, struct_d, struct_)
 
-            # show in-device representation
-            if args.get('device'):
-                print('%9s  %*s%*s %8s %-22s%s' % (
-                    '',
-                    t_width, '',
-                    w_width, '',
-                    '',
-                    '%04x %08x %07x' % (
-                        tag, 0xffffffff & rid, len(struct_)),
-                    '  %s' % ' '.join(
-                        '%08x' % struct.unpack('<I',
-                            rbyd.data[struct_j+struct_d+i*4
-                                : struct_j+struct_d
-                                    + min(i*4+4,len(struct_))]
-                                .ljust(4, b'\0'))
-                        for i in range(
-                            min(m.ceil(len(struct_)/4), 3)))[:23]))
-
-            # show on-disk encoding of tags/data
-            for j, d, data in [
-                    (name_j, name_d, name),
-                    (struct_j, struct_d, struct_)]:
-                if args.get('raw'):
-                    for o, line in enumerate(xxd(rbyd.data[j:j+d])):
-                        print('%9s: %s' % (
-                            '%04x' % (j + o*16),
-                            line))
-
-                # show on-disk encoding of tags
-                if args.get('raw') or args.get('no_truncate'):
-                    for o, line in enumerate(xxd(data)):
-                        print('%9s: %s' % (
-                            '%04x' % (j+d + o*16),
-                            line))
-
-            prbyd = rbyd
             ppath = path
 
         if args.get('error_on_corrupt') and corrupted:
