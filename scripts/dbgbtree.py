@@ -373,7 +373,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
             t_width = 2*t_depth+2 if t_depth > 0 else 0
             t_branches = [(0, trunk.weight)]
 
-            def t_repr(id, w, leaf=True, depth=None):
+            def treerepr(id, w, leaf=True, depth=None):
                 branches_ = []
                 for i in range(len(t_branches)):
                     if depth is not None and depth == i-1:
@@ -425,6 +425,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                     t_width, ''.join(branches_),
                     '\x1b[m' if color else '')
 
+
         # print header
         w_width = 2*m.ceil(m.log10(max(1, trunk.weight)+1))+1
         print('%-9s  %*s%-*s %-22s  %s' % (
@@ -450,7 +451,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                     '%04x.%04x:' % (rbyd.block, rbyd.limit)
                         if prbyd is None or rbyd != prbyd
                         else '',
-                    t_repr(id, w, True, depth) if args.get('tree') else '',
+                    treerepr(id, w, True, depth) if args.get('tree') else '',
                     w_width, '%d-%d' % (id-(w-1), id) if w > 1
                         else id if w > 0
                         else '',
@@ -463,7 +464,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                 '%04x.%04x:' % (rbyd.block, rbyd.limit)
                     if prbyd is None or rbyd != prbyd
                     else '',
-                t_repr(id, w, not name_tag, depth) if args.get('tree') else '',
+                treerepr(id, w, not name_tag, depth) if args.get('tree') else '',
                 w_width, '' if name_tag
                     else '%d-%d' % (id-(w-1), id) if w > 1
                     else id if w > 0
@@ -576,7 +577,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
             if not rbyd:
                 print('%04x.%04x: %s%s%s%s' % (
                     rbyd.block, rbyd.limit,
-                    t_repr(id, w) if args.get('tree') else '',
+                    treerepr(id, w) if args.get('tree') else '',
                     '\x1b[31m' if color else '',
                     '(corrupted rbyd 0x%x.%x)' % (rbyd.block, rbyd.limit),
                     '\x1b[m' if color else ''))

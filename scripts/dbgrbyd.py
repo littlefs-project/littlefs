@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import bisect
+import collections as co
 import itertools as it
 import math as m
 import os
@@ -364,6 +365,7 @@ def show_log(block_size, data, rev, off, weight, *,
                     for r, c in zip(reprs, colors)),
                 lifetime_width - sum(len(r) for r in reprs), '')
 
+
     # print header
     w_width = 2*m.ceil(m.log10(max(1, weight)+1))+1
     print('%-8s  %*s%-*s %-22s  %s' % (
@@ -516,11 +518,11 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                         if alt & 0x2:
                             _, nalt, _, _, _ = fromtag(data[j+jump+delta:])
                             if nalt & 0x2:
-                                path.append((j+jump, j, 'y'))
+                                path.append((j+jump, j, True, 'y'))
                             else:
-                                path.append((j+jump, j, 'r'))
+                                path.append((j+jump, j, True, 'r'))
                         else:
-                            path.append((j+jump, j, 'b'))
+                            path.append((j+jump, j, True, 'b'))
                 # stay on path
                 else:
                     lower += w if not alt & 0x4 else 0
@@ -532,11 +534,11 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                         if alt & 0x2:
                             _, nalt, _, _, _ = fromtag(data[j:])
                             if nalt & 0x2:
-                                path.append((j-delta, j, 'y'))
+                                path.append((j-delta, j, False, 'y'))
                             else:
-                                path.append((j-delta, j, 'r'))
+                                path.append((j-delta, j, False, 'r'))
                         else:
-                            path.append((j-delta, j, 'b'))
+                            path.append((j-delta, j, False, 'b'))
             # found tag
             else:
                 tag_ = alt
@@ -550,8 +552,8 @@ def show_tree(block_size, data, rev, trunk, weight, *,
     # precompute tree
     tree_width = 0
     if args.get('tree'):
-        tags = []
-        paths = {}
+        trunks = co.defaultdict(lambda: (-1, 0))
+        alts = co.defaultdict(lambda: {})
 
         tag, id = 0, -1
         while True:
@@ -560,89 +562,123 @@ def show_tree(block_size, data, rev, trunk, weight, *,
             if done:
                 break
 
-            tags.append((j, tag, id))
-            for x, (a, b, c) in enumerate(path):
-                paths[a, b, x] = c
+            # keep track of trunks/alts
+            trunks[j] = (id, tag)
 
-        # align paths to nearest tag
-        tags.sort()
-        paths = {(
-            tags[bisect.bisect_left(tags, (a, 0, -1), hi=len(tags)-1)],
-            tags[bisect.bisect_left(tags, (b, 0, -1), hi=len(tags)-1)],
-            x): c for (a, b, x), c in paths.items()}
+            for j_, j__, followed, c in path:
+                if followed:
+                    alts[j_] |= {'f': j__, 'c': c}
+                else:
+                    alts[j_] |= {'nf': j__, 'c': c}
 
-        # also find the maximum depth
-        depth = max((x+1 for _, _, x in paths.keys()), default=0)
-        if depth > 0:
-            tree_width = 2*depth + 2
+        # prune any alts with unreachable edges
+        pruned = {}
+        for j_, alt in alts.items():
+            if 'f' not in alt:
+                pruned[j_] = alt['nf']
+            elif 'nf' not in alt:
+                pruned[j_] = alt['f']
+        for j_ in pruned.keys():
+            del alts[j_]
+
+        for j_, alt in alts.items():
+            while alt['f'] in pruned:
+                alt['f'] = pruned[alt['f']]
+            while alt['nf'] in pruned:
+                alt['nf'] = pruned[alt['nf']]
+
+        # find the trunk and depth of each alt, assuming pruned alts
+        # didn't exist
+        def rec_trunk(j_):
+            if j_ not in alts:
+                return j_
+            else:
+                if 't' not in alts[j_]:
+                    alts[j_]['t'] = rec_trunk(alts[j_]['nf'])
+                return alts[j_]['t']
+
+        for j_ in alts.keys():
+            rec_trunk(j_)
+        for j_, alt in alts.items():
+            if alt['f'] in alts:
+                alt['ft'] = alts[alt['f']]['t']
+            else:
+                alt['ft'] = alt['f']
+
+        def rec_depth(j_):
+            if j_ not in alts:
+                return 0
+            else:
+                if 'd' not in alts[j_]:
+                    alts[j_]['d'] = max(
+                        rec_depth(alts[j_]['f']),
+                        rec_depth(alts[j_]['nf'])) + 1
+                return alts[j_]['d']
+
+        for j_ in alts.keys():
+            rec_depth(j_)
+
+        # oh hey this also gives us the max depth
+        tree_depth = max((alt['d'] for alt in alts.values()), default=0)
+        if tree_depth > 0:
+            tree_width = 2*tree_depth + 2
 
         def treerepr(j):
-            if depth == 0:
+            if tree_depth == 0:
                 return ''
 
-            _, tag, id = tags[bisect.bisect_left(
-                tags, (j, 0, -1), hi=len(tags)-1)]
+            def c(s, c):
+                return '%s%s%s' % (
+                    '\x1b[33m' if color and c == 'y'
+                        else '\x1b[31m' if color and c == 'r'
+                        else '\x1b[90m' if color
+                        else '',
+                    s,
+                    '\x1b[m' if color else '')
 
-            def c_start(c):
-                return ('\x1b[33m' if color and c == 'y'
-                    else '\x1b[31m' if color and c == 'r'
-                    else '\x1b[90m' if color
-                    else '')
+            trunk = []
+            def altrepr(j, x, was=None):
+                # note all non-trunk edges should be black
+                for alt in alts.values():
+                    if alt['d'] == x and alt['t'] == j:
+                        return '+-', alt['c'], alt['c']
+                for alt in alts.values():
+                    if (alt['d'] == x
+                            and alt['ft'] == j
+                            and trunks[j] <= trunks[alt['t']]):
+                        return '.-', 'b', 'b'
+                for alt in alts.values():
+                    if (alt['d'] == x
+                            and alt['ft'] == j
+                            and trunks[j] >= trunks[alt['t']]):
+                        return '\'-', 'b', 'b'
+                for alt in alts.values():
+                    if (alt['d'] == x
+                            and trunks[j] >= min(
+                                trunks[alt['t']], trunks[alt['ft']])
+                            and trunks[j] <= max(
+                                trunks[alt['t']], trunks[alt['ft']])):
+                        return '| ', 'b', was
+                if was:
+                    return '--', was, was
+                return '  ', None, None
 
-            def c_stop(c):
-                return '\x1b[m' if color else ''
+            was = None
+            for x in reversed(range(1, tree_depth+1)):
+                t, c, was = altrepr(j, x, was)
 
-            path = []
-            seen = None
-            for x in range(depth):
-                if any(x == x_ and tag == a_tag and id == a_id
-                        for (_, a_tag, a_id), _, x_ in paths.keys()):
-                    c = next(c
-                        for ((_, a_tag, a_id), _, x_), c in paths.items()
-                        if x == x_ and tag == a_tag and id == a_id)
-                    path.append('%s+%s' % (c_start(c), c_stop(c)))
-                elif any(x == x_ and tag == b_tag and id == b_id
-                        for _, (_, b_tag, b_id), x_ in paths.keys()):
-                    a_tag, a_id, c = next((a_tag, a_id, c)
-                        for ((_, a_tag, a_id), (_, b_tag, b_id), x_), c
-                            in paths.items()
-                        if x == x_ and tag == b_tag and id == b_id)
-                    if (a_id, a_tag) < (id, tag):
-                        path.append('%s\'%s' % (c_start(c), c_stop(c)))
-                    else:
-                        path.append('%s.%s' % (c_start(c), c_stop(c)))
-                elif any(x == x_
-                        and (id, tag) >= min((a_id, a_tag), (b_id, b_tag))
-                        and (id, tag) <= max((a_id, a_tag), (b_id, b_tag))
-                        for (_, a_tag, a_id), (_, b_tag, b_id), x_
-                            in paths.keys()):
-                    c = next(c
-                        for ((_, a_tag, a_id), (_, b_tag, b_id), x_), c
-                            in paths.items()
-                        if x == x_
-                            and (id, tag) >= min((a_id, a_tag), (b_id, b_tag))
-                            and (id, tag) <= max((a_id, a_tag), (b_id, b_tag)))
-                    path.append('%s|%s' % (c_start(c), c_stop(c)))
-                elif seen:
-                    path.append('%s-%s' % (c_start(seen), c_stop(seen)))
-                else:
-                    path.append(' ')
+                trunk.append('%s%s%s%s' % (
+                    '\x1b[33m' if color and c == 'y'
+                        else '\x1b[31m' if color and c == 'r'
+                        else '\x1b[90m' if color
+                        else '',
+                    t,
+                    ('>' if was else ' ')
+                        if x == 1 else '',
+                    '\x1b[m' if color else ''))
 
-                if any(x == x_ and tag == b_tag and id == b_id
-                        for _, (_, b_tag, b_id), x_ in paths.keys()):
-                    c = next(c
-                        for (_, (_, b_tag, b_id), x_), c in paths.items()
-                        if x == x_ and tag == b_tag and id == b_id)
-                    seen = c
+            return ' %s' % ''.join(trunk)
 
-                if seen and x == depth-1:
-                    path.append('%s->%s' % (c_start(seen), c_stop(seen)))
-                elif seen:
-                    path.append('%s-%s' % (c_start(seen), c_stop(seen)))
-                else:
-                    path.append(' ')
-
-            return ' %s' % ''.join(path)
 
     # print header
     w_width = 2*m.ceil(m.log10(max(1, weight)+1))+1
