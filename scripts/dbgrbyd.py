@@ -493,7 +493,7 @@ def show_tree(block_size, data, rev, trunk, weight, *,
 
     # lookup a tag, returning also the search path for decoration
     # purposes
-    def lookup(tag, id):
+    def lookup(id, tag):
         lower = -1
         upper = weight
         path = []
@@ -541,13 +541,13 @@ def show_tree(block_size, data, rev, trunk, weight, *,
                             path.append((j-delta, j, False, 'b'))
             # found tag
             else:
-                tag_ = alt
                 id_ = upper-1
+                tag_ = alt
                 w_ = id_-lower
 
                 done = (id_, tag_) < (id, tag) or tag_ & 2
 
-                return done, tag_, id_, w_, j, delta, jump, path
+                return done, id_, tag_, w_, j, delta, jump, path
 
     # precompute tree
     tree_width = 0
@@ -555,9 +555,9 @@ def show_tree(block_size, data, rev, trunk, weight, *,
         trunks = co.defaultdict(lambda: (-1, 0))
         alts = co.defaultdict(lambda: {})
 
-        tag, id = 0, -1
+        id, tag = -1, 0
         while True:
-            done, tag, id, w, j, delta, size, path = lookup(tag+0x10, id)
+            done, id, tag, w, j, delta, size, path = lookup(id, tag+0x10)
             # found end of tree?
             if done:
                 break
@@ -690,9 +690,9 @@ def show_tree(block_size, data, rev, trunk, weight, *,
         'data (truncated)'
             if not args.get('no_truncate') else ''))
 
-    tag, id = 0, -1
+    id, tag = -1, 0
     while True:
-        done, tag, id, w, j, delta, size, path = lookup(tag+0x10, id)
+        done, id, tag, w, j, delta, size, path = lookup(id, tag+0x10)
         # found end of tree?
         if done:
             break

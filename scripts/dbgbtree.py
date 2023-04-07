@@ -199,7 +199,7 @@ class Rbyd:
 
         return Rbyd(block, limit, data, rev, off, trunk, weight)
 
-    def lookup(self, tag, id):
+    def lookup(self, id, tag):
         if not self:
             return True, 0, -1, 0, 0, 0, b''
 
@@ -227,13 +227,13 @@ class Rbyd:
                     j = j + delta
             # found tag
             else:
-                tag_ = alt
                 id_ = upper-1
+                tag_ = alt
                 w_ = id_-lower
 
                 done = (id_, tag_) < (id, tag) or tag_ & 2
 
-                return (done, tag_, id_, w_,
+                return (done, id_, tag_, w_,
                     j, delta, self.data[j+delta:j+delta+jump])
 
     def __bool__(self):
@@ -250,11 +250,11 @@ class Rbyd:
         id = 0
 
         while True:
-            done, tag, id, w, j, d, data = self.lookup(tag+0x10, id)
+            done, id, tag, w, j, d, data = self.lookup(id, tag+0x10)
             if done:
                 break
 
-            yield tag, id, w, j, d, data
+            yield id, tag, w, j, d, data
 
 
 def main(disk, block_size=None, trunk=0, limit=None, *,
@@ -306,8 +306,8 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
 
             while True:
                 # first lookup id/name
-                (done, name_tag, rid_, w,
-                    name_j, name_d, name) = rbyd.lookup(0, rid)
+                (done, rid_, name_tag, w,
+                    name_j, name_d, name) = rbyd.lookup(rid, 0)
                 if done:
                     return (True, id, 0, rbyd, -1,
                         (0, 0, 0, b''),
@@ -316,9 +316,9 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
 
                 if name_tag & 0xf00f == TAG_NAME:
                     # then lookup struct
-                    (done, struct_tag, _, _,
+                    (done, _, struct_tag, _,
                         struct_j, struct_d, struct_) = rbyd.lookup(
-                            TAG_STRUCT, rid_)
+                            rid_, TAG_STRUCT)
                     if done:
                         return (True, id, 0, rbyd, -1,
                             (0, 0, 0, b''),
