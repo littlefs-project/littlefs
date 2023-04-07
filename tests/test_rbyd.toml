@@ -26,7 +26,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
 
@@ -65,7 +64,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
 
@@ -105,7 +103,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
 
@@ -140,7 +137,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -265,7 +261,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -392,7 +387,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
@@ -485,7 +479,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
@@ -580,7 +573,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -646,7 +638,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -714,7 +705,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -796,7 +786,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -942,7 +931,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -1116,7 +1104,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -1290,7 +1277,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -1472,7 +1458,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -1682,7 +1667,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -1851,7 +1835,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -2041,7 +2024,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -2135,7 +2117,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -2219,7 +2200,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -2311,7 +2291,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -2409,7 +2388,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -2484,7 +2462,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -2558,7 +2535,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -2671,7 +2647,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -2736,7 +2711,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -2851,7 +2825,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -3006,7 +2979,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -3104,7 +3076,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -3256,7 +3227,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -3494,7 +3464,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -3585,7 +3554,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -3714,7 +3682,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const char *alpha = "abcdefghijklmnopqrstuvwxyz";
@@ -3851,7 +3818,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
@@ -4000,7 +3966,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
@@ -4163,7 +4128,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -4267,7 +4231,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -4362,7 +4325,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -4471,7 +4433,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -4586,7 +4547,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -4681,7 +4641,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -4771,7 +4730,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -4842,7 +4800,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
@@ -5078,7 +5035,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
@@ -5341,7 +5297,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -5457,7 +5412,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -5563,7 +5517,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -5732,7 +5685,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -5912,7 +5864,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -6025,7 +5976,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -6137,7 +6087,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     const uint8_t names[6][4] = {
         "\xaa\xaa\xaa\xaa",
@@ -6267,7 +6216,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     const uint8_t names[6][4] = {
         "\xaa\xaa\xaa\xaa",
@@ -6466,7 +6414,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     const uint8_t names[6][4] = {
         "\xaa\xaa\xaa\xaa",
@@ -6592,7 +6539,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -6686,7 +6632,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -6828,7 +6773,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -6987,7 +6931,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
@@ -7115,7 +7058,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
@@ -7363,7 +7305,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][6] = {
@@ -7521,7 +7462,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][6] = {
@@ -7715,7 +7655,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -7843,7 +7782,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -7985,7 +7923,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
@@ -8101,7 +8038,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
@@ -8236,7 +8172,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -8380,7 +8315,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -8542,7 +8476,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const char *alpha = "abcdefghijklmnopqrstuvwxyz";
@@ -8678,7 +8611,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -8918,7 +8850,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -9030,7 +8961,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -9119,7 +9049,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -9207,7 +9136,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -9882,7 +9810,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;
@@ -10141,7 +10068,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -10255,7 +10181,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -10379,7 +10304,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -10509,7 +10433,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][6] = {
@@ -10647,7 +10570,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][6] = {
@@ -10794,7 +10716,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -10924,7 +10845,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][6] = {
@@ -11062,7 +10982,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][6] = {
@@ -11208,7 +11127,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][6] = {
@@ -11366,7 +11284,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const uint8_t names[6][4] = {
@@ -11549,7 +11466,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     const char *alpha = "abcdefghijklmnopqrstuvwxyz";
@@ -11733,7 +11649,6 @@ code = '''
         .crc = 0,
         .trunk = 0,
         .weight = 0,
-        .erased = true,
     };
     lfsr_rbyd_t rbyd;
     lfsr_tag_t tag_;

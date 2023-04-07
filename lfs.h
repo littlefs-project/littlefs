@@ -332,13 +332,12 @@ typedef struct lfs_cache {
 
 typedef struct lfsr_rbyd {
     lfs_block_t block;
-    uint32_t rev;
+    // off=block_size => rbyd not erased/needs compaction
     lfs_off_t off;
-    uint32_t crc;
     lfs_off_t trunk;
     lfs_size_t weight;
-    // TODO can we get rid of erased? use sign bit of off maybe?
-    bool erased;
+    uint32_t rev;
+    uint32_t crc;
 } lfsr_rbyd_t;
 
 //typedef struct lfsr_btree {

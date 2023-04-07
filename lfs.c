@@ -1168,7 +1168,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
 // allocate an rbyd block
 static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
-    *rbyd = (lfsr_rbyd_t){.erased=true, .rev=rev};
+    *rbyd = (lfsr_rbyd_t){.rev=rev, .off=0};
     int err = lfs_alloc(lfs, &rbyd->block);
     if (err) {
         return err;
@@ -1501,7 +1501,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // did we end on a valid commit? we may have an erased block
-    rbyd->erased = false;
+    bool erased = false;
     if (maybeerased && rbyd->off % lfs->cfg->prog_size == 0) {
         // check for an fcrc matching the next prog's erased state, if
         // this failed most likely a previous prog was interrupted, we
@@ -1517,7 +1517,11 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         // found beginning of erased part?
-        rbyd->erased = (fcrc_ == fcrc.crc);
+        erased = (fcrc_ == fcrc.crc);
+    }
+
+    if (!erased) {
+        rbyd->off = lfs->cfg->block_size;
     }
 
     return 0;
@@ -1927,25 +1931,26 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // never write zero tags to disk, use unr if tag contains no data
     LFS_ASSERT(tag != 0);
 
+    // we can't do anything if we're not erased
+    int err;
+    if (rbyd->off >= lfs->cfg->block_size) {
+        err = LFS_ERR_RANGE;
+        goto failed;
+    }
+
     // ignore noops
     if (lfsr_tag_setnomk(tag) == LFSR_TAG_UNR && delta == 0) {
         return 0;
-    }
-
-    // we can't do anything if we're not erased
-    if (!rbyd->erased) {
-        return LFS_ERR_RANGE;
     }
 
     // make sure every rbyd starts with its revision count
     if (rbyd->off == 0) {
         uint32_t rev;
         lfs_tole32_(rbyd->rev, &rev);
-        int err = lfsr_rbyd_prog(lfs, rbyd,
+        err = lfsr_rbyd_prog(lfs, rbyd,
                 &rev, sizeof(uint32_t), &rbyd->crc);
         if (err) {
-            rbyd->erased = false;
-            return err;
+            goto failed;
         }
     }
 
@@ -1958,7 +1963,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_tag_t tag_;
     lfsr_tag_t other_tag_;
     if (lfsr_tag_ismk(tag) && delta > 0) {
-        LFS_ASSERT(id <= rbyd->weight);
+        LFS_ASSERT(id <= (lfs_ssize_t)rbyd->weight);
 
         // it's a bit ugly, but adjusting the id here makes the following
         // logic work out more consistently
@@ -1969,7 +1974,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         tag_ = 0x10;
         other_tag_ = lfsr_tag_setupper(0x10);
     } else if (lfsr_tag_ismk(tag) && delta < 0) {
-        LFS_ASSERT(id < rbyd->weight);
+        LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
 
         // it's a bit ugly, but adjusting the id here makes the following
         // logic work out more consistently
@@ -1980,14 +1985,14 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         tag_ = 0x10;
         other_tag_ = lfsr_tag_setupper(0x10);
     } else if (lfsr_tag_isrm(tag)) {
-        LFS_ASSERT(id < rbyd->weight);
+        LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
 
         id_ = id - lfs_smax32(-delta, 0);
         other_id_ = id;
         tag_ = lfsr_tag_key(tag);
         other_tag_ = lfsr_tag_setupper(lfsr_tag_key(tag) + 0x10);
     } else {
-        LFS_ASSERT(id < rbyd->weight);
+        LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
 
         id_ = id - lfs_smax32(-delta, 0);
         other_id_ = id;
@@ -2048,8 +2053,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 &lfs->pcache, &lfs->rcache, 0,
                 rbyd->block, branch, &alt, &weight, &jump, NULL);
         if (d < 0) {
-            rbyd->erased = false;
-            return d;
+            err = d;
+            goto failed;
         }
 
         // found an alt?
@@ -2239,13 +2244,11 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
 
             // push alt onto our queue
-            LFS_ASSERT(weight >= 0);
-            int err = lfsr_rbyd_p_push(lfs, rbyd,
+            err = lfsr_rbyd_p_push(lfs, rbyd,
                     p_alts, p_weights, p_jumps,
                     alt, weight, jump);
             if (err) {
-                rbyd->erased = false;
-                return err;
+                goto failed;
             }
 
         // found end of tree?
@@ -2340,12 +2343,11 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     if (alt) {
-        int err = lfsr_rbyd_p_push(lfs, rbyd,
+        err = lfsr_rbyd_p_push(lfs, rbyd,
                 p_alts, p_weights, p_jumps,
                 alt, weight, branch);
         if (err) {
-            rbyd->erased = false;
-            return err;
+            goto failed;
         }
 
         if (lfsr_tag_isred(p_alts[0])) {
@@ -2355,11 +2357,10 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // flush any pending alts
-    int err = lfsr_rbyd_p_flush(lfs, rbyd,
+    err = lfsr_rbyd_p_flush(lfs, rbyd,
             p_alts, p_weights, p_jumps, 3);
     if (err) {
-        rbyd->erased = false;
-        return err;
+        goto failed;
     }
 
 leaf:;
@@ -2371,49 +2372,53 @@ leaf:;
             lfsr_tag_setnomk(tag), upper_id - lower_id - 1 + delta,
             lfsr_data_len(data), &rbyd->crc);
     if (err) {
-        rbyd->erased = false;
-        return err;
+        goto failed;
     }
 
     // don't forget the data!
     err = lfsr_rbyd_progdata(lfs, rbyd, data, &rbyd->crc);
     if (err) {
-        rbyd->erased = false;
-        return err;
+        goto failed;
     }
 
     return 0;
+
+failed:;
+    // if we fail mark the rbyd as unerased and release the pcache
+    lfs_cache_zero(lfs, &lfs->pcache);
+    rbyd->off = lfs->cfg->block_size;
+    return err;
 }
 
 static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // we can't do anything if we're not erased
-    if (!rbyd->erased) {
-        return LFS_ERR_RANGE;
+    int err;
+    if (rbyd->off >= lfs->cfg->block_size) {
+        err = LFS_ERR_RANGE;
+        goto failed;
     }
 
     // setup commit state
     lfsr_rbyd_t rbyd_ = *rbyd;
-    // mark erased in case we fail
-    rbyd->erased = false;
 
     // make sure every rbyd starts with its revision count
     if (rbyd_.off == 0) {
         uint32_t rev;
         lfs_tole32_(rbyd_.rev, &rev);
-        int err = lfsr_rbyd_prog(lfs, &rbyd_,
+        err = lfsr_rbyd_prog(lfs, &rbyd_,
                 &rev, sizeof(uint32_t), &rbyd_.crc);
         if (err) {
-            return err;
+            goto failed;
         }
     }
 
     // append each tag to the tree
     for (lfs_size_t i = 0; i < attr_count; i++) {
-        int err = lfsr_rbyd_append(lfs, &rbyd_,
+        err = lfsr_rbyd_append(lfs, &rbyd_,
                 attrs[i].id, attrs[i].tag, attrs[i].delta, attrs[i].data);
         if (err) {
-            return err;
+            goto failed;
         }
     }
 
@@ -2446,14 +2451,14 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // space for fcrc?
     uint8_t perturb = 0;
-    if (aligned <= lfs->cfg->block_size - lfs->cfg->prog_size) {
+    if (aligned < lfs->cfg->block_size) {
         // read the leading byte in case we need to change the expected
         // value of the next tag's valid bit
         int err = lfs_bd_read(lfs,
                 &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
                 rbyd_.block, aligned, &perturb, 1);
         if (err && err != LFS_ERR_CORRUPT) {
-            rbyd_.erased = false;
+            rbyd->off = lfs->cfg->block_size;
             return err;
         }
 
@@ -2464,8 +2469,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
                 rbyd_.block, aligned, fcrc.size, &fcrc.crc);
         if (err && err != LFS_ERR_CORRUPT) {
-            rbyd_.erased = false;
-            return err;
+            goto failed;
         }
 
         uint8_t fbuf[LFSR_FCRC_DSIZE];
@@ -2473,29 +2477,24 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         err = lfsr_rbyd_progtag(lfs, &rbyd_,
                 LFSR_TAG_FCRC, 0, fcrc_delta, &rbyd_.crc);
         if (err) {
-            rbyd_.erased = false;
-            return err;
+            goto failed;
         }
 
         err = lfsr_rbyd_prog(lfs, &rbyd_,
                 fbuf, fcrc_delta, &rbyd_.crc);
         if (err) {
-            rbyd_.erased = false;
-            return err;
+            goto failed;
         }
-    } else {
-        // recalculate aligned without fcrc
-        aligned = lfs_alignup(
-            rbyd_.off + 1+1+5+4,
-            lfs->cfg->prog_size);
-        rbyd_.erased = false;
-    }
 
-    // not even space for the crc?
-    if (aligned > lfs->cfg->block_size) {
-        lfs_cache_zero(lfs, &lfs->pcache);
-        rbyd_.erased = false;
-        return LFS_ERR_RANGE;
+    // at least space for a crc?
+    } else if (rbyd_.off + 2+1+5+4 <= lfs->cfg->block_size) {
+        // note this implicitly marks the rbyd as unerased
+        aligned = lfs->cfg->block_size;
+
+    // not even space for a crc? we can't finish the commit
+    } else {
+        err = LFS_ERR_RANGE;
+        goto failed;
     }
 
     // build end-of-commit crc
@@ -2525,17 +2524,15 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
     lfs_tole32_(rbyd_.crc, &buffer[2+1+5]);
 
-    int err = lfsr_rbyd_prog(lfs, &rbyd_, buffer, 2+1+5+4, NULL);
+    err = lfsr_rbyd_prog(lfs, &rbyd_, buffer, 2+1+5+4, NULL);
     if (err) {
-        rbyd_.erased = false;
-        return err;
+        goto failed;
     }
 
     // flush our caches, finalizing the commit on-disk
     err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
     if (err) {
-        rbyd_.erased = false;
-        return err;
+        goto failed;
     }
 
     // succesful commit, check checksum to make sure
@@ -2544,8 +2541,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             NULL, &lfs->rcache, rbyd_.off-4,
             rbyd_.block, rbyd->off, rbyd_.off-4 - rbyd->off, &crc_);
     if (err) {
-        rbyd_.erased = false;
-        return err;
+        goto failed;
     }
 
     if (rbyd_.crc != crc_) {
@@ -2553,14 +2549,20 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         LFS_ERROR("Rbyd corrupted during commit "
                 "(block=0x%"PRIx32", 0x%08"PRIx32" != 0x%08"PRIx32")",
                 rbyd_.block, rbyd_.crc, crc_);
-        rbyd_.erased = false;
-        return LFS_ERR_CORRUPT;
+        err = LFS_ERR_CORRUPT;
+        goto failed;
     }
 
     // ok, everything is good, save what we've committed
     rbyd_.off = aligned;
     *rbyd = rbyd_;
     return 0;
+
+failed:;
+    // if we fail mark the rbyd as unerased and release the pcache
+    lfs_cache_zero(lfs, &lfs->pcache);
+    rbyd->off = lfs->cfg->block_size;
+    return err;
 }
 
 
