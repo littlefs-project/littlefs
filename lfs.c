@@ -940,37 +940,38 @@ static void lfs_fcrc_tole32(struct lfs_fcrc *fcrc) {
 #endif
 
 // fcrc on-disk encoding
-struct lfsr_fcrc {
-    uint32_t crc;
+typedef struct lfsr_fcrc {
     lfs_size_t size;
-};
+    uint32_t crc;
+} lfsr_fcrc_t;
 
-#define LFSR_FCRC_DSIZE (4+5)
+// 1 leb128 + 1 crc32c => 9 bytes (worst case)
+#define LFSR_FCRC_DSIZE (5+4)
 
 static lfs_ssize_t lfsr_fcrc_todisk(
-        const struct lfsr_fcrc *fcrc,
+        const lfsr_fcrc_t *fcrc,
         uint8_t buf[static LFSR_FCRC_DSIZE]) {
-    lfs_tole32_(fcrc->crc, &buf[0]);
-
-    lfs_ssize_t delta = lfs_toleb128(fcrc->size, &buf[4], 5);
-    if (delta < 0) {
-        return delta;
+    lfs_ssize_t d = lfs_toleb128(fcrc->size, &buf[0], 5);
+    if (d < 0) {
+        return d;
     }
 
-    return sizeof(uint32_t) + delta;
+    lfs_tole32_(fcrc->crc, &buf[d]);
+
+    return d + sizeof(uint32_t);
 }
 
 static lfs_ssize_t lfsr_fcrc_fromdisk(
-        struct lfsr_fcrc *fcrc,
+        lfsr_fcrc_t *fcrc,
         const uint8_t buf[static LFSR_FCRC_DSIZE]) {
-    fcrc->crc = lfs_fromle32_(&buf[0]);
-
-    lfs_ssize_t delta = lfs_fromleb128(&fcrc->size, &buf[4], 5);
-    if (delta < 0) {
-        return delta;
+    lfs_ssize_t d = lfs_fromleb128(&fcrc->size, &buf[0], 5);
+    if (d < 0) {
+        return d;
     }
 
-    return sizeof(uint32_t) + delta;
+    fcrc->crc = lfs_fromle32_(&buf[d]);
+
+    return d + sizeof(uint32_t);
 }
 
 // other endianness operations
@@ -1321,7 +1322,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfs_size_t weight = 0;
 
     // assume unerased until proven otherwise
-    struct lfsr_fcrc fcrc;
+    lfsr_fcrc_t fcrc;
     bool hasfcrc = false;
     bool maybeerased = false;
 
@@ -2478,7 +2479,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
         // find the expected fcrc, don't bother avoiding a reread of the
         // perturb byte, as it should still be in our cache
-        struct lfsr_fcrc fcrc = {.crc=0, .size=lfs->cfg->prog_size};
+        lfsr_fcrc_t fcrc = {.size=lfs->cfg->prog_size, .crc=0};
         err = lfs_bd_crc32c(lfs,
                 &lfs->pcache, &lfs->rcache, lfs->cfg->prog_size,
                 rbyd_.block, aligned, fcrc.size, &fcrc.crc);
