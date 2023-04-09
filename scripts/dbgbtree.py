@@ -22,7 +22,7 @@ TAG_ALT     = 0x0008
 TAG_CRC     = 0x0004
 TAG_FCRC    = 0x1004
 
-def blocklim(s):
+def rbydaddr(s):
     if '.' in s:
         s = s.strip()
         b = 10
@@ -50,9 +50,10 @@ def crc32c(data, crc=0):
     return 0xffffffff ^ crc
 
 def fromle16(data):
-    if len(data) < 2:
-        return 0
-    return struct.unpack('<H', data[:2])[0]
+    return struct.unpack('<H', data[0:2].ljust(2, b'\0'))[0]
+
+def fromle32(data):
+    return struct.unpack('<I', data[0:4].ljust(4, b'\0'))[0]
 
 def fromleb128(data):
     word = 0
@@ -65,9 +66,9 @@ def fromleb128(data):
 
 def fromtag(data):
     tag = fromle16(data)
-    weight, delta = fromleb128(data[2:])
-    size, delta_ = fromleb128(data[2+delta:])
-    return tag&1, tag&~1, weight, size, 2+delta+delta_
+    weight, d = fromleb128(data[2:])
+    size, d_ = fromleb128(data[2+d:])
+    return tag&1, tag&~1, weight, size, 2+d+d_
 
 def popc(x):
     return bin(x).count('1')
@@ -134,9 +135,8 @@ def tagrepr(tag, w, size, off=None):
         return '0x%04x w%d %d' % (tag, w, size)
 
 class Rbyd:
-    def __init__(self, block, limit, data, rev, off, trunk, weight):
+    def __init__(self, block, data, rev, off, trunk, weight):
         self.block = block
-        self.limit = limit
         self.data = data
         self.rev = rev
         self.off = off
@@ -144,60 +144,74 @@ class Rbyd:
         self.weight = weight
 
     @classmethod
-    def fetch(cls, f, block_size, block, limit):
+    def fetch(cls, f, block_size, block, trunk):
         # seek to the block
         f.seek(block * block_size)
-        data = f.read(limit)
+        data = f.read(block_size)
 
         # fetch the rbyd
-        rev, = struct.unpack('<I', data[0:4].ljust(4, b'\0'))
-        crc = crc32c(data[0:4])
+        rev = fromle32(data[0:4])
+        crc = 0
+        crc_ = crc32c(data[0:4])
         off = 0
         j_ = 4
-        trunk = None
-        trunk_ = None
+        trunk_ = 0
+        trunk__ = 0
         weight = 0
         lower_, upper_ = 0, 0
         weight_ = 0
         wastrunk = False
-        while j_ < limit:
-            v, tag, w, size, delta = fromtag(data[j_:])
-            if v != (popc(crc) & 1):
+        trunkoff = None
+        while j_ < len(data) and (not trunk or off <= trunk):
+            v, tag, w, size, d = fromtag(data[j_:])
+            if v != (popc(crc_) & 1):
                 break
-            crc = crc32c(data[j_:j_+delta], crc)
-            j_ += delta
-
-            # find trunk
-            if not wastrunk and (tag & 0xc) != 0x4:
-                trunk_ = j_ - delta
-                lower_, upper_ = 0, 0
-            wastrunk = not not tag & 0x8
-
-            # keep track of weight
-            if tag & 0x8:
-                if tag & 0x4:
-                    upper_ += w
-                else:
-                    lower_ += w
-            elif (tag & 0xc) == 0x0:
-                weight_ = lower_+upper_+w
+            crc_ = crc32c(data[j_:j_+d], crc_)
+            j_ += d
+            if not tag & 0x8 and j_ + size > len(data):
+                break
 
             # take care of crcs
             if not tag & 0x8:
                 if (tag & 0xf00f) != TAG_CRC:
-                    crc = crc32c(data[j_:j_+size], crc)
+                    crc_ = crc32c(data[j_:j_+size], crc_)
                 # found a crc?
                 else:
-                    crc_, = struct.unpack('<I', data[j_:j_+4].ljust(4, b'\0'))
-                    if crc != crc_:
+                    crc__ = fromle32(data[j_:j_+4])
+                    if crc_ != crc__:
                         break
                     # commit what we have
-                    off = j_ + size
-                    trunk = trunk_
+                    off = trunkoff if trunkoff else j_ + size
+                    crc = crc_
+                    trunk_ = trunk__
                     weight = weight_
+
+            # evaluate trunks
+            if (tag & 0xc) != 0x4 and (
+                    not trunk or trunk >= j_-d or wastrunk):
+                # new trunk?
+                if not wastrunk:
+                    trunk__ = j_-d
+                    lower_, upper_ = 0, 0
+                    wastrunk = True
+
+                # keep track of weight
+                if tag & 0x8:
+                    if tag & 0x4:
+                        upper_ += w
+                    else:
+                        lower_ += w
+                else:
+                    weight_ = lower_+upper_+w
+                    wastrunk = False
+                    # keep track of off for best matching trunk
+                    if trunk and j_ + size > trunk:
+                        trunkoff = j_ + size
+
+            if not tag & 0x8:
                 j_ += size
 
-        return Rbyd(block, limit, data, rev, off, trunk, weight)
+        return Rbyd(block, data, rev, off, trunk_, weight)
 
     def lookup(self, id, tag):
         if not self:
@@ -209,7 +223,7 @@ class Rbyd:
         # descend down tree
         j = self.trunk
         while True:
-            _, alt, weight_, jump, delta = fromtag(self.data[j:])
+            _, alt, weight_, jump, d = fromtag(self.data[j:])
 
             # found an alt?
             if alt & 0x8:
@@ -224,7 +238,7 @@ class Rbyd:
                 else:
                     lower += weight_ if not alt & 0x4 else 0
                     upper -= weight_ if alt & 0x4 else 0
-                    j = j + delta
+                    j = j + d
             # found tag
             else:
                 id_ = upper-1
@@ -234,13 +248,13 @@ class Rbyd:
                 done = (id_, tag_) < (id, tag) or tag_ & 2
 
                 return (done, id_, tag_, w_,
-                    j, delta, self.data[j+delta:j+delta+jump])
+                    j, d, self.data[j+d:j+d+jump])
 
     def __bool__(self):
-        return self.trunk is not None
+        return bool(self.trunk)
 
     def __eq__(self, other):
-        return self.block == other.block and self.limit == other.limit
+        return self.block == other.block and self.trunk == other.trunk
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -257,7 +271,9 @@ class Rbyd:
             yield id, tag, w, j, d, data
 
 
-def main(disk, block_size=None, trunk=0, limit=None, *,
+def main(disk, root=0, *,
+        block_size=None,
+        trunk=None,
         color='auto',
         **args):
     # figure out what color should be
@@ -268,11 +284,11 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
     else:
         color = False
 
-    # trunk may include a limit
-    if isinstance(trunk, tuple):
-        if limit is None:
-            limit = trunk[1]
-        trunk = trunk[0]
+    # root may encode a trunk
+    if isinstance(root, tuple):
+        if trunk is None:
+            trunk = root[1]
+        root = root[0]
 
     # we seek around a bunch, so just keep the disk open
     with open(disk, 'rb') as f:
@@ -281,18 +297,14 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
             f.seek(0, os.SEEK_END)
             block_size = f.tell()
 
-        # default limit to the block_size
-        if limit is None:
-            limit = block_size
-
-        # fetch the trunk
-        trunk = Rbyd.fetch(f, block_size, trunk, limit)
+        # fetch the root
+        btree = Rbyd.fetch(f, block_size, root, trunk)
         print('btree 0x%x.%x, rev %d, weight %d' % (
-            trunk.block, trunk.limit, trunk.rev, trunk.weight))
+            btree.block, btree.trunk, btree.rev, btree.weight))
 
         # look up an id, while keeping track of the search path
         def lookup(id, depth=None):
-            rbyd = trunk
+            rbyd = btree
             rid = id
             depth_ = 1
             path = []
@@ -337,9 +349,10 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                 # is it another branch? continue down tree
                 if struct_tag == TAG_BRANCH and (
                         depth is None or depth_ < depth):
-                    block, delta = fromleb128(struct_)
-                    limit, _ = fromleb128(struct_[delta:])
-                    rbyd = Rbyd.fetch(f, block_size, block, limit)
+                    trunk, d1 = fromleb128(struct_)
+                    block, d2 = fromleb128(struct_[d1:])
+                    crc = fromle32(struct_[d1+d2:])
+                    rbyd = Rbyd.fetch(f, block_size, block, trunk)
 
                     # corrupted? bail here so we can keep traversing the tree
                     if not rbyd:
@@ -371,7 +384,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                 t_depth = max(t_depth, len(path))
 
             t_width = 2*t_depth+2 if t_depth > 0 else 0
-            t_branches = [(0, trunk.weight)]
+            t_branches = [(0, btree.weight)]
 
             def treerepr(id, w, leaf=True, depth=None):
                 branches_ = []
@@ -427,7 +440,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
 
 
         # print header
-        w_width = 2*m.ceil(m.log10(max(1, trunk.weight)+1))+1
+        w_width = 2*m.ceil(m.log10(max(1, btree.weight)+1))+1
         print('%-9s  %*s%-*s %-22s  %s' % (
             'block',
             t_width, '',
@@ -448,7 +461,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
             # show human-readable representation
             if name_tag:
                 print('%10s %s%*s %-22s  %s' % (
-                    '%04x.%04x:' % (rbyd.block, rbyd.limit)
+                    '%04x.%04x:' % (rbyd.block, rbyd.trunk)
                         if prbyd is None or rbyd != prbyd
                         else '',
                     treerepr(id, w, True, depth) if args.get('tree') else '',
@@ -461,7 +474,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                         for b in map(chr, name))))
                 prbyd = rbyd
             print('%10s %s%*s %-22s  %s' % (
-                '%04x.%04x:' % (rbyd.block, rbyd.limit)
+                '%04x.%04x:' % (rbyd.block, rbyd.trunk)
                     if prbyd is None or rbyd != prbyd
                     else '',
                 treerepr(id, w, not name_tag, depth) if args.get('tree') else '',
@@ -485,10 +498,9 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                         w_width, '',
                         '%04x %08x %07x' % (name_tag, w, len(name)),
                         '  %s' % ' '.join(
-                            '%08x' % struct.unpack('<I',
+                            '%08x' % fromle32(
                                 rbyd.data[name_j+name_d+i*4
-                                    : name_j+name_d + min(i*4+4,len(name))]
-                                    .ljust(4, b'\0'))
+                                    : name_j+name_d + min(i*4+4,len(name))])
                             for i in range(min(m.ceil(len(name)/4), 3)))[:23]))
                 print('%9s  %*s%*s %-22s%s' % (
                     '',
@@ -497,10 +509,9 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                     '%04x %08x %07x' % (
                         struct_tag, w if not name_tag else 0, len(struct_)),
                     '  %s' % ' '.join(
-                        '%08x' % struct.unpack('<I',
+                        '%08x' % fromle32(
                             rbyd.data[struct_j+struct_d+i*4
-                                : struct_j+struct_d + min(i*4+4,len(struct_))]
-                                .ljust(4, b'\0'))
+                                : struct_j+struct_d + min(i*4+4,len(struct_))])
                         for i in range(min(m.ceil(len(struct_)/4), 3)))[:23]))
 
             # show on-disk encoding of tags/data
@@ -550,7 +561,7 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
                 break
 
             if args.get('inner') or args.get('tree'):
-                t_branches = [(0, trunk.weight)]
+                t_branches = [(0, btree.weight)]
                 changed = False
                 for i, (x, px) in enumerate(
                         it.zip_longest(path[:-1], ppath[:-1])):
@@ -576,10 +587,10 @@ def main(disk, block_size=None, trunk=0, limit=None, *,
             # corrupted? try to keep printing the tree
             if not rbyd:
                 print('%04x.%04x: %s%s%s%s' % (
-                    rbyd.block, rbyd.limit,
+                    rbyd.block, rbyd.trunk,
                     treerepr(id, w) if args.get('tree') else '',
                     '\x1b[31m' if color else '',
-                    '(corrupted rbyd 0x%x.%x)' % (rbyd.block, rbyd.limit),
+                    '(corrupted rbyd 0x%x.%x)' % (rbyd.block, rbyd.trunk),
                     '\x1b[m' if color else ''))
 
                 prbyd = rbyd
@@ -616,18 +627,18 @@ if __name__ == "__main__":
         'disk',
         help="File containing the block device.")
     parser.add_argument(
-        'trunk',
+        'root',
         nargs='?',
-        type=blocklim,
-        help="Block address of the trunk of the tree.")
+        type=rbydaddr,
+        help="Block address of the root of the tree.")
     parser.add_argument(
         '-B', '--block-size',
         type=lambda x: int(x, 0),
         help="Block size in bytes.")
     parser.add_argument(
-        '-L', '--limit',
+        '--trunk',
         type=lambda x: int(x, 0),
-        help="Rbyd limit of the trunk of the tree (alias).")
+        help="Use this offset as the trunk of the tree.")
     parser.add_argument(
         '--color',
         choices=['never', 'always', 'auto'],

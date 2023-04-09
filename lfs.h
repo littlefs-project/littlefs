@@ -330,12 +330,16 @@ typedef struct lfs_cache {
     uint8_t *buffer;
 } lfs_cache_t;
 
+// TODO do we get ram savings with a lfsr_rorbyd_t substruct? need to measure
 typedef struct lfsr_rbyd {
+    // note this lines up with weight in lfsr_btree_t
+    lfs_size_t weight;
     lfs_block_t block;
+    // off=0, trunk=0 => not yet committed
+    // off=0, trunk>0 => not yet fetched
     // off=block_size => rbyd not erased/needs compaction
     lfs_off_t off;
     lfs_off_t trunk;
-    lfs_size_t weight;
     uint32_t rev;
     uint32_t crc;
 } lfsr_rbyd_t;
@@ -358,26 +362,42 @@ typedef struct lfsr_rbyd {
 // - block addresses => 1 leb128 => 5 bytes (worst case)
 #define LFSR_BTREE_INLINE_SIZE 5
 
-typedef struct lfsr_branch {
-    lfs_block_t block;
-    lfs_size_t limit;
-} lfsr_branch_t;
-
-typedef struct lfsr_btree {
-    lfs_size_t weight;
-    // TODO do we need full tag actually? this fits in a byte?
-    lfsr_tag_t tag;
-    // how can we take advantage of byte packing with union alignment?
-    union {
-        struct {
-            uint8_t size;
-            uint8_t buf[LFSR_BTREE_INLINE_SIZE];
-        } inlined;
-
-        // if we're not inlined, point to the trunk rbyd block of the btree
-        lfsr_branch_t trunk;
-    } u;
+typedef union lfsr_btree {
+    // note this lines up with weight in lfsr_rbyd_t
+    //
+    // weight=0 => null btree
+    // weight<0 => inlined btree
+    // weight>0 => normal btree
+    lfs_ssize_t weight;
+    lfsr_rbyd_t root;
+    struct {
+        lfs_ssize_t weight;
+        lfsr_tag_t tag;
+        uint16_t len;
+        uint8_t buf[LFSR_BTREE_INLINE_SIZE];
+    } inlined;
 } lfsr_btree_t;
+
+//typedef struct lfsr_branch {
+//    lfs_block_t block;
+//    lfs_size_t limit;
+//} lfsr_branch_t;
+//
+//typedef struct lfsr_btree {
+//    lfs_size_t weight;
+//    // TODO do we need full tag actually? this fits in a byte?
+//    lfsr_tag_t tag;
+//    // how can we take advantage of byte packing with union alignment?
+//    union {
+//        struct {
+//            uint8_t size;
+//            uint8_t buf[LFSR_BTREE_INLINE_SIZE];
+//        } inlined;
+//
+//        // if we're not inlined, point to the trunk rbyd block of the btree
+//        lfsr_branch_t trunk;
+//    } u;
+//} lfsr_btree_t;
 
 typedef struct lfs_mdir {
     lfs_block_t pair[2];

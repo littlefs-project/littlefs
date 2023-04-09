@@ -146,6 +146,11 @@ static inline uint16_t lfs_min16(uint16_t a, uint16_t b) {
     return (a < b) ? a : b;
 }
 
+// Absolute value of signed numbers
+static inline int32_t lfs_abs32(int32_t a) {
+    return a < 0 ? -a : a;
+}
+
 // TODO how many of these do we actually need
 // Swap two 16-bit numbers
 static inline void lfs_swap16(uint16_t *a, uint16_t *b) {
