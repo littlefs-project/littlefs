@@ -1602,62 +1602,6 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     return size_;
 }
 
-static lfs_ssize_t lfsr_rbyd_bisect(lfs_t *lfs, const lfsr_rbyd_t *rbyd) {
-    // find the best id to split an rbyd evenly
-    //
-    // theres a few heuristics we can use here, this attempts to split to
-    // maintain even on-disk size across the rbyds
-    //
-    // TODO try a purely id based heuristic?
-    // TODO does an id based heuristic even work? we might end up overflowing
-    // our sibling. should look into this
-
-    // find the total on-disk size
-    lfsr_tag_t tag = 0;
-    lfs_ssize_t id = 0;
-    lfs_size_t dsize = 0;
-    while (true) {
-        lfs_size_t size;
-        int err = lfsr_rbyd_lookup(lfs, rbyd,
-                id, lfsr_tag_next(tag),
-                &id, &tag, NULL, NULL, &size);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
-        }
-        if (err == LFS_ERR_NOENT) {
-            break;
-        }
-
-        // assume worst case tag encoding so many small tags aren't missed
-        dsize += LFSR_TAG_DSIZE + size;
-    }
-
-    // traverse again to find the actual midpoint, 
-    tag = 0;
-    id = 0;
-    lfs_size_t bsize = 0;
-    while (true) {
-        lfs_size_t size;
-        int err = lfsr_rbyd_lookup(lfs, rbyd,
-                id, lfsr_tag_next(tag),
-                &id, &tag, NULL, NULL, &size);
-        if (err) {
-            return err;
-        }
-
-        // assume worst case tag encoding so many small tags aren't missed
-        bsize += LFSR_TAG_DSIZE + size;
-
-        if (bsize >= dsize/2) {
-            // well this shouldn't happen unless attr limits have gone wrong
-            LFS_ASSERT((lfs_size_t)id + 1 < rbyd->weight);
-            // round up so that we always include at least one id in the
-            // first rbyd
-            return id + 1;
-        }
-    }
-}
-
 // TODO this should be a bd operation of some sort
 static int lfsr_rbyd_prog(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         const void *buffer, lfs_size_t size, uint32_t *crc) {
@@ -2533,27 +2477,117 @@ failed:;
 }
 
 
+// the following are mostly btree helpers, but since they operate on rbyds,
+// exist in the rbyd namespace
+
+static int lfsr_rbyd_cutoff(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfs_ssize_t cutoff) {
+    // determine if there are fewer than "cutoff" unique ids in the rbyd,
+    // this is used to determine if the underlying rbyd is degenerate and can
+    // be reverted to an inlined btree
+    //
+    // note cutoff is expected to be quite small, <= 2, so we should make sure
+    // to exit our traverse early
+
+    // cutoff=-1 => no cutoff
+    if (cutoff < 0) {
+        return false;
+    }
+
+    // count ids until we exceed our cutoff
+    lfs_ssize_t id = -1;
+    lfs_size_t count = 0;
+    while (true) {
+        int err = lfsr_rbyd_lookup(lfs, rbyd, id+1, 0,
+                &id, NULL, NULL, NULL, NULL);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        if (err == LFS_ERR_NOENT) {
+            return true;
+        }
+
+        count += 1;
+        if (count > (lfs_size_t)cutoff) {
+            return false;
+        }
+    }
+}
+
+static lfs_ssize_t lfsr_rbyd_bisect(lfs_t *lfs, const lfsr_rbyd_t *rbyd) {
+    // find the best id to split an rbyd evenly
+    //
+    // theres a few heuristics we can use here, this attempts to split to
+    // maintain even on-disk size across the rbyds
+    //
+    // TODO try a purely id based heuristic?
+    // TODO does an id based heuristic even work? we might end up overflowing
+    // our sibling. should look into this
+
+    // find the total on-disk size
+    lfsr_tag_t tag = 0;
+    lfs_ssize_t id = 0;
+    lfs_size_t dsize = 0;
+    while (true) {
+        lfs_size_t size;
+        int err = lfsr_rbyd_lookup(lfs, rbyd,
+                id, lfsr_tag_next(tag),
+                &id, &tag, NULL, NULL, &size);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        // assume worst case tag encoding so many small tags aren't missed
+        dsize += LFSR_TAG_DSIZE + size;
+    }
+
+    // traverse again to find the actual midpoint, 
+    tag = 0;
+    id = 0;
+    lfs_size_t bsize = 0;
+    while (true) {
+        lfs_size_t size;
+        int err = lfsr_rbyd_lookup(lfs, rbyd,
+                id, lfsr_tag_next(tag),
+                &id, &tag, NULL, NULL, &size);
+        if (err) {
+            return err;
+        }
+
+        // assume worst case tag encoding so many small tags aren't missed
+        bsize += LFSR_TAG_DSIZE + size;
+
+        if (bsize >= dsize/2) {
+            // well this shouldn't happen unless attr limits have gone wrong
+            LFS_ASSERT((lfs_size_t)id + 1 < rbyd->weight);
+            // round up so that we always include at least one id in the
+            // first rbyd
+            return id + 1;
+        }
+    }
+}
+
+
 /// Rbyd b-tree operations ///
 
 
 // convenience operations
 
-#define LFSR_BTREE_NULL ((lfsr_btree_t){.weight=0})
-
-static bool lfsr_btree_isnull(const lfsr_btree_t *btree) {
-    return btree->weight == 0;
-}
+#define LFSR_BTREE_NULL ((lfsr_btree_t){.weight=0x80000000})
 
 static bool lfsr_btree_isinlined(const lfsr_btree_t *btree) {
-    return btree->weight < 0;
-}
-
-static bool lfsr_btree_istree(const lfsr_btree_t *btree) {
-    return btree->weight > 0;
+    return btree->weight & 0x80000000;
 }
 
 static lfs_size_t lfsr_btree_weight(const lfsr_btree_t *btree) {
-    return lfs_abs32(btree->weight);
+    return btree->weight & 0x7fffffff;
+}
+
+static lfs_size_t lfsr_btree_setinlined(lfs_size_t weight) {
+    return weight | 0x80000000;
 }
 
 
@@ -2643,9 +2677,6 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
                 lfs_min(size, btree->inlined.size));
         return btree->inlined.size;
     }
-
-    // a this point we must be a tree
-    LFS_ASSERT(lfsr_btree_istree(btree));
 
     // descend down the btree looking for our bid
     lfsr_rbyd_t branch = btree->root;
@@ -2842,6 +2873,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
 }
 
 // TODO do we really need this?
+// TODO why doesn't this match lookup/get in rbyd?
 static lfs_ssize_t lfsr_btree_get(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t id,
         lfs_size_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
@@ -2858,7 +2890,7 @@ static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs,
         lfsr_tag_t *tag_, lfs_size_t *weight_,
         void *buffer, lfs_size_t size) {
     // an empty tree?
-    if (lfsr_btree_isnull(btree)) {
+    if (lfsr_btree_weight(btree) == 0) {
         return LFS_ERR_NOENT;
     }
 
@@ -3034,11 +3066,12 @@ static lfs_ssize_t lfsr_btree_nameget(lfs_t *lfs,
 
 // core btree algorithm
 static int lfsr_btree_commit(lfs_t *lfs,
-        lfsr_btree_t *btree, lfs_size_t bid, lfsr_rbyd_t *rbyd,
+        lfsr_btree_t *btree, lfs_size_t bid, lfs_ssize_t cutoff,
+        lfsr_rbyd_t *rbyd,
         lfsr_attr_t attrs[static LFSR_BTREE_SCRATCHATTRS],
         lfs_size_t attr_count) {
     // other layers should check for inlined btrees before this
-    LFS_ASSERT(lfsr_btree_istree(btree));
+    LFS_ASSERT(!lfsr_btree_isinlined(btree));
 
     while (true) {
         // we will always need our parent, so go ahead and find it
@@ -3079,6 +3112,24 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // try to compact
         lfsr_rbyd_t rbyd_;
         if (err) {
+            // first check if we are a degenerate root and can be reverted to
+            // an inlined btree
+            //
+            // This gets a bit weird since we're defering our pending
+            // attributes to after the compaction. When we can/can't be inlined
+            // depends on those attributes, but trying to evaluate attributes
+            // is complicated and expensive.
+            //
+            // Instead we just let the upper layers indicate a cutoff for when
+            // an rbyd can be inlined, and leave the inlining work up to the
+            // upper layers.
+            if (pid == -1) {
+                int degenerate = lfsr_rbyd_cutoff(lfs, rbyd, cutoff);
+                if (degenerate) {
+                    return degenerate;
+                }
+            }
+
             // TODO were we doing something funky with rev?
             // allocate a new rbyd
             err = lfsr_rbyd_alloc(lfs, &rbyd_, rbyd->rev+1);
@@ -3196,6 +3247,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         *rbyd = parent;
+        cutoff = -1;
         continue;
 
     split:;
@@ -3386,6 +3438,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         *rbyd = parent;
+        cutoff = -1;
         continue;
 
     merge:;
@@ -3530,8 +3583,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // collapse our parent, decreasing the height of the tree
             LFS_ASSERT(btree->root.block == parent.block
                     && btree->root.trunk == parent.trunk);
-            btree->root = rbyd_;
-            return 0;
+            *rbyd = rbyd_;
+            break;
 
         } else {
             // make pid the lower child so the following math is easier
@@ -3556,12 +3609,13 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         *rbyd = parent;
+        cutoff = -1;
         continue;
     }
 
     // at this point rbyd should be the trunk of our tree
     btree->root = *rbyd;
-    return 0;
+    return false;
 }
 
 static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
@@ -3570,13 +3624,13 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
     LFS_ASSERT(bid <= lfsr_btree_weight(btree));
 
     // null btree?
-    if (lfsr_btree_isnull(btree)) {
+    if (lfsr_btree_isinlined(btree) && lfsr_btree_weight(btree) == 0) {
         LFS_ASSERT(bid == 0);
 
-        btree->weight = -weight;
+        btree->weight = lfsr_btree_setinlined(weight);
         btree->inlined.tag = tag;
 
-        LFS_ASSERT(size <= LFSR_BTREE_INLINE_SIZE);
+        LFS_ASSERT(size <= LFSR_BTREE_INLINESIZE);
         memcpy(btree->inlined.buffer, buffer, size);
         btree->inlined.size = size;
         return 0;
@@ -3612,14 +3666,18 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         // for lfsr_btree_commit operations to work out, we need to
         // limit our bid to an id in the tree, which is what this min
         // is doing
-        lfs_ssize_t bid_ = lfs_min32(bid, lfsr_btree_weight(btree)-1);
-        lfsr_rbyd_t rbyd;
-        lfs_ssize_t rid;
-        lfs_size_t rweight;
-        lfs_ssize_t size = lfsr_btree_lookup(lfs, btree, bid_,
+        //
+        // note it is possible for our btree to have a weight of zero here,
+        // since we defer inlining until compaction time
+        lfs_size_t bid_ = lfs_min32(bid,
+                lfs_smax32(lfsr_btree_weight(btree)-1, 0));
+        lfsr_rbyd_t rbyd = btree->root;
+        lfs_ssize_t rid = -1;
+        lfs_size_t rweight = 0;
+        lfs_ssize_t rsize = lfsr_btree_lookup(lfs, btree, bid_,
                 NULL, &rbyd, &rid, NULL, &rweight, NULL, 0, false);
-        if (size < 0) {
-            return size;
+        if (rsize < 0 && rsize != LFS_ERR_NOENT) {
+            return rsize;
         }
 
         // adjust rid for push
@@ -3631,8 +3689,26 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
 
         // commit our id into the tree, letting lfsr_btree_commit take care
         // of the rest
-        return lfsr_btree_commit(lfs, btree, bid_, &rbyd, LFSR_BTREE_ATTRS(
-                LFSR_ATTR_(rid, lfsr_tag_setmk(tag), +weight, buffer, size)));
+        int degenerate = lfsr_btree_commit(lfs, btree, bid_, 0, &rbyd,
+                LFSR_BTREE_ATTRS(
+                    LFSR_ATTR_(rid, lfsr_tag_setmk(tag), +weight,
+                        buffer, size)));
+        if (degenerate < 0) {
+            return degenerate;
+        }
+
+        // revert to an inlined btree
+        if (degenerate) {
+            btree->weight = lfsr_btree_setinlined(weight);
+            btree->inlined.tag = tag;
+
+            LFS_ASSERT(size <= LFSR_BTREE_INLINESIZE);
+            memcpy(btree->inlined.buffer, buffer, size);
+            btree->inlined.size = size;
+            return 0;
+        }
+
+        return 0;
     }
 }
 
@@ -3640,15 +3716,16 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
         lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight,
         const void *buffer, lfs_size_t size) {
     LFS_ASSERT(bid < lfsr_btree_weight(btree));
+    LFS_ASSERT(lfsr_btree_weight(btree) > 0);
 
     // inlined btree?
     if (lfsr_btree_isinlined(btree)) {
         LFS_ASSERT(bid == lfsr_btree_weight(btree)-1);
 
-        btree->weight = -weight;
+        btree->weight = lfsr_btree_setinlined(weight);
         btree->inlined.tag = tag;
 
-        LFS_ASSERT(size <= LFSR_BTREE_INLINE_SIZE);
+        LFS_ASSERT(size <= LFSR_BTREE_INLINESIZE);
         memcpy(btree->inlined.buffer, buffer, size);
         btree->inlined.size = size;
         return 0;
@@ -3660,30 +3737,47 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_tag_t rtag;
         lfs_ssize_t rid;
         lfs_size_t rweight;
-        lfs_ssize_t size = lfsr_btree_lookup(lfs, btree, bid,
+        lfs_ssize_t rsize = lfsr_btree_lookup(lfs, btree, bid,
                 NULL, &rbyd, &rid, &rtag, &rweight, NULL, 0, false);
-        if (size < 0) {
-            return size;
+        if (rsize < 0) {
+            return rsize;
         }
 
         // commit our id into the tree, letting lfsr_btree_commit take care
         // of the rest
-        return lfsr_btree_commit(lfs, btree, bid, &rbyd, LFSR_BTREE_ATTRS(
-                (tag != rtag
-                    ? LFSR_ATTR_(rid, lfsr_tag_setrm(rtag), 0, NULL, 0)
-                    : LFSR_ATTR_NOOP),
-                LFSR_ATTR_(rid, tag, 0, buffer, size),
-                LFSR_ATTR(rid, UNR, +weight-rweight, NULL, 0)));
+        int degenerate = lfsr_btree_commit(lfs, btree, bid, 1, &rbyd,
+                LFSR_BTREE_ATTRS(
+                    (tag != rtag
+                        ? LFSR_ATTR_(rid, lfsr_tag_setrm(rtag), 0, NULL, 0)
+                        : LFSR_ATTR_NOOP),
+                    LFSR_ATTR_(rid, tag, 0, buffer, size),
+                    LFSR_ATTR(rid, UNR, +weight-rweight, NULL, 0)));
+        if (degenerate < 0) {
+            return degenerate;
+        }
+
+        // revert to an inlined btree
+        if (degenerate) {
+            btree->weight = lfsr_btree_setinlined(weight);
+            btree->inlined.tag = tag;
+
+            LFS_ASSERT(size <= LFSR_BTREE_INLINESIZE);
+            memcpy(btree->inlined.buffer, buffer, size);
+            btree->inlined.size = size;
+        }
+
+        return 0;
     }
 }
 
 static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
     LFS_ASSERT(bid < lfsr_btree_weight(btree));
+    LFS_ASSERT(lfsr_btree_weight(btree) > 0);
 
     // inlined btree?
     if (lfsr_btree_isinlined(btree)) {
         LFS_ASSERT(bid == lfsr_btree_weight(btree)-1);
-        btree->weight = 0;
+        btree->weight = lfsr_btree_setinlined(0);
         return 0;
 
     // a normal btree
@@ -3693,75 +3787,74 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
         lfsr_tag_t rtag;
         lfs_ssize_t rid;
         lfs_size_t rweight;
-        lfs_ssize_t size = lfsr_btree_lookup(lfs, btree, bid,
+        lfs_ssize_t rsize = lfsr_btree_lookup(lfs, btree, bid,
                 NULL, &rbyd, &rid, &rtag, &rweight, NULL, 0, false);
-        if (size < 0) {
-            return size;
-        }
-
-        // can we collapse into an inlined btree?
-        if (btree->root.block == rbyd.block
-                && btree->root.trunk == rbyd.trunk) {
-            // last child? try the left sibling
-            lfs_ssize_t sid;
-            if ((lfs_size_t)rid == rbyd.weight-1) {
-                sid = rid-rweight;
-            // not last child? try the right sibling
-            } else {
-                sid = rid+1;
-            }
-
-            // try looking up the sibling
-            lfs_size_t sweight;
-            int err = lfsr_rbyd_lookup(lfs, &rbyd, sid, LFSR_TAG_NAME,
-                    &sid, NULL, &sweight, NULL, NULL);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            // no sibling? null btree
-            if (err == LFS_ERR_NOENT) {
-                btree->weight = 0;
-                return 0;
-            }
-
-            lfsr_tag_t stag;
-            lfs_off_t off;
-            lfs_size_t size;
-            err = lfsr_rbyd_lookup(lfs, &rbyd, sid, LFSR_TAG_STRUCT,
-                    NULL, &stag, NULL, &off, &size);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            // no sibling? null btree
-            if (err == LFS_ERR_NOENT
-                    || lfsr_tag_suptype(stag) != LFSR_TAG_STRUCT) {
-                btree->weight = 0;
-                return 0;
-            }
-
-            // one sibling? inline!
-            if (rweight + sweight == lfsr_btree_weight(btree)) {
-                btree->weight = -sweight;
-                btree->inlined.tag = stag;
-
-                LFS_ASSERT(size <= LFSR_BTREE_INLINE_SIZE);
-                err = lfs_bd_read(lfs,
-                        &lfs->pcache, &lfs->rcache, size,
-                        rbyd.block, off, btree->inlined.buffer, size);
-                if (err) {
-                    return err;
-                }
-                btree->inlined.size = size;
-                return 0;
-            }
+        if (rsize < 0) {
+            return rsize;
         }
 
         // remove our id, letting lfsr_btree_commit take care
         // of the rest
-        return lfsr_btree_commit(lfs, btree, bid, &rbyd, LFSR_BTREE_ATTRS(
-                LFSR_ATTR(rid, MKUNR, -rweight, NULL, 0)));
+        //
+        // note we use a cutoff of 2 here, if we have 2 entries before
+        // the commit, we should have 1 entry after the commit and can
+        // revert to an inlined btree
+        int degenerate = lfsr_btree_commit(lfs, btree, bid, 2, &rbyd,
+                LFSR_BTREE_ATTRS(
+                    LFSR_ATTR(rid, MKUNR, -rweight, NULL, 0)));
+        if (degenerate < 0) {
+            return degenerate;
+        }
+
+        // revert to an inlined btree
+        if (degenerate && rweight < rbyd.weight) {
+            lfs_ssize_t sid;
+            // left sibling
+            if ((lfs_size_t)rid == rbyd.weight-1) {
+                sid = rid-rweight;
+            // right sibling
+            } else {
+                sid = rid+1;
+            }
+
+            lfsr_tag_t stag;
+            lfs_size_t sweight;
+            lfs_off_t off;
+            lfs_size_t size;
+            int err = lfsr_rbyd_lookup(lfs, &rbyd, sid, LFSR_TAG_NAME,
+                    &sid, &stag, &sweight, &off, &size);
+            if (err) {
+                return err;
+            }
+
+            if (lfsr_tag_suptype(stag) == LFSR_TAG_NAME) {
+                // TODO what if we don't find a struct? ENOENT?
+                err = lfsr_rbyd_lookup(lfs, &rbyd, sid, LFSR_TAG_STRUCT,
+                        NULL, &stag, NULL, &off, &size);
+                if (err) {
+                    return err;
+                }
+            }
+
+            LFS_ASSERT(sweight+rweight == rbyd.weight);
+            btree->weight = lfsr_btree_setinlined(sweight);
+            btree->inlined.tag = stag;
+
+            LFS_ASSERT(size <= LFSR_BTREE_INLINESIZE);
+            err = lfs_bd_read(lfs,
+                    &lfs->pcache, &lfs->rcache, size,
+                    rbyd.block, off, btree->inlined.buffer, size);
+            if (err) {
+                return err;
+            }
+            btree->inlined.size = size;
+
+        // revert to a null btree
+        } else if (degenerate) {
+            btree->weight = lfsr_btree_setinlined(0);
+        }
+
+        return 0;
     }
 }
 
@@ -3779,6 +3872,7 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_tag_t tag2, lfs_size_t weight2,
         const void *buffer2, lfs_size_t size2) {
     LFS_ASSERT(bid < lfsr_btree_weight(btree));
+    LFS_ASSERT(lfsr_btree_weight(btree) > 0);
 
     // inlined btree, need to expand into an rbyd
     if (lfsr_btree_isinlined(btree)) {
@@ -3809,23 +3903,31 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t rbyd;
         lfs_ssize_t rid;
         lfs_size_t rweight;
-        lfs_ssize_t size = lfsr_btree_lookup(lfs, btree, bid,
+        lfs_ssize_t rsize = lfsr_btree_lookup(lfs, btree, bid,
                 NULL, &rbyd, &rid, NULL, &rweight, NULL, 0, false);
-        if (size < 0) {
-            return size;
+        if (rsize < 0) {
+            return rsize;
         }
 
         // commit our bid into the tree, letting lfsr_btree_commit take care
         // of the rest
-        return lfsr_btree_commit(lfs, btree, bid, &rbyd, LFSR_BTREE_ATTRS(
-                LFSR_ATTR(rid, UNR, +weight1-rweight, NULL, 0),
-                LFSR_ATTR_(rid-(rweight-1)+weight1-1, tag1, 0,
-                    buffer1, size1),
-                // TODO should we always be making name entries?
-                LFSR_ATTR(rid-(rweight-1)+weight1, MKBNAME, +weight2,
-                    name, name_size),
-                LFSR_ATTR_(rid-(rweight-1)+weight1+weight2-1, tag2, 0,
-                    buffer2, size2)));
+        int degenerate = lfsr_btree_commit(lfs, btree, bid, -1, &rbyd,
+                LFSR_BTREE_ATTRS(
+                    LFSR_ATTR(rid, UNR, +weight1-rweight, NULL, 0),
+                    LFSR_ATTR_(rid-(rweight-1)+weight1-1, tag1, 0,
+                        buffer1, size1),
+                    // TODO should we always be making name entries?
+                    LFSR_ATTR(rid-(rweight-1)+weight1, MKBNAME, +weight2,
+                        name, name_size),
+                    LFSR_ATTR_(rid-(rweight-1)+weight1+weight2-1, tag2, 0,
+                        buffer2, size2)));
+        if (degenerate < 0) {
+            return degenerate;
+        }
+
+        // this should never happen
+        LFS_ASSERT(!degenerate);
+        return 0;
     }
 }
 

@@ -360,21 +360,23 @@ typedef struct lfsr_rbyd {
 //
 // Pointers we store:
 // - block addresses => 1 leb128 => 5 bytes (worst case)
-#define LFSR_BTREE_INLINE_SIZE 5
+#define LFSR_BTREE_INLINESIZE 5
 
 typedef union lfsr_btree {
     // note this lines up with weight in lfsr_rbyd_t
     //
-    // weight=0 => null btree
-    // weight<0 => inlined btree
-    // weight>0 => normal btree
-    lfs_ssize_t weight;
+    // sign(weight)=1 => inlined btree
+    // sign(weight)=0 => normal btree
+    //
+    // note due to defered inlining, both normal and inlined
+    // btrees can have a weight of 0
+    lfs_size_t weight;
     lfsr_rbyd_t root;
     struct {
         lfs_ssize_t weight;
         lfsr_tag_t tag;
         uint16_t size;
-        uint8_t buffer[LFSR_BTREE_INLINE_SIZE];
+        uint8_t buffer[LFSR_BTREE_INLINESIZE];
     } inlined;
 } lfsr_btree_t;
 
@@ -391,7 +393,7 @@ typedef union lfsr_btree {
 //    union {
 //        struct {
 //            uint8_t size;
-//            uint8_t buffer[LFSR_BTREE_INLINE_SIZE];
+//            uint8_t buffer[LFSR_BTREE_INLINESIZE];
 //        } inlined;
 //
 //        // if we're not inlined, point to the trunk rbyd block of the btree
