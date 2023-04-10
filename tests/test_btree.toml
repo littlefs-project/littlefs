@@ -2791,7 +2791,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    lfsr_btree_find(&lfs, &btree, "aaa", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aaa", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => LFS_ERR_NOENT;
 '''
@@ -2824,7 +2824,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    lfsr_btree_find(&lfs, &btree, "aaa", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aaa", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -2832,7 +2832,7 @@ code = '''
     assert(weight_ == 1);
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_find(&lfs, &btree, "aab", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aab", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -2872,7 +2872,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    lfsr_btree_find(&lfs, &btree, "aaa", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aaa", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -2880,7 +2880,7 @@ code = '''
     assert(weight_ == 1);
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_find(&lfs, &btree, "aab", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aab", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -2888,7 +2888,7 @@ code = '''
     assert(weight_ == 1);
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_find(&lfs, &btree, "aac", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aac", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -2931,7 +2931,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    lfsr_btree_find(&lfs, &btree, "aaa", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aaa", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -2939,7 +2939,7 @@ code = '''
     assert(weight_ == 1);
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_find(&lfs, &btree, "aab", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aab", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -2947,7 +2947,7 @@ code = '''
     assert(weight_ == 1);
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_find(&lfs, &btree, "aac", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aac", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -2955,7 +2955,7 @@ code = '''
     assert(weight_ == 1);
     assert(memcmp(buffer, "2", 1) == 0);
 
-    lfsr_btree_find(&lfs, &btree, "aad", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aad", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -2998,7 +2998,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    lfsr_btree_find(&lfs, &btree, "aaa", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aaa", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -3006,7 +3006,7 @@ code = '''
     assert(weight_ == 1);
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_find(&lfs, &btree, "aab", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aab", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -3014,7 +3014,7 @@ code = '''
     assert(weight_ == 1);
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_find(&lfs, &btree, "aac", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aac", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -3022,7 +3022,7 @@ code = '''
     assert(weight_ == 1);
     assert(memcmp(buffer, "2", 1) == 0);
 
-    lfsr_btree_find(&lfs, &btree, "aad", 3,
+    lfsr_btree_nameget(&lfs, &btree, "aad", 3,
             &id_, &tag_, &weight_,
             buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
@@ -3076,7 +3076,7 @@ code = '''
             alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
         };
 
-        lfsr_btree_find(&lfs, &btree, name, 3,
+        lfsr_btree_nameget(&lfs, &btree, name, 3,
                 &id_, &tag_, &weight_,
                 buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_INLINED);
@@ -3185,7 +3185,7 @@ code = '''
         lfs_size_t id_;
         lfs_size_t weight_;
         for (lfs_size_t i = 0; i < sim_size; i++) {
-            lfsr_btree_find(&lfs, &btree, sim_names[i], 3,
+            lfsr_btree_nameget(&lfs, &btree, sim_names[i], 3,
                     &id_, &tag_, &weight_,
                     buffer, 4) => 1;
             assert(tag_ == LFSR_TAG_INLINED);
@@ -3247,7 +3247,7 @@ code = '''
             alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
         };
 
-        lfsr_btree_find(&lfs, &btree, name, 3,
+        lfsr_btree_nameget(&lfs, &btree, name, 3,
                 &id_, &tag_, &weight_,
                 buffer, 4) => 1;
         assert(tag_ == LFSR_TAG_INLINED);
@@ -3395,7 +3395,7 @@ code = '''
                 weighted_id += sim_weights[j];
             }
 
-            lfsr_btree_find(&lfs, &btree, sim_names[i], 3,
+            lfsr_btree_nameget(&lfs, &btree, sim_names[i], 3,
                     &id_, &tag_, &weight_,
                     buffer, 4) => 1;
             assert(tag_ == LFSR_TAG_INLINED);
@@ -3486,7 +3486,7 @@ code = '''
                 // split btree
                 lfs_size_t split_id;
                 uint8_t split_buf[4];
-                lfsr_btree_find(&lfs, &btree, name, 3,
+                lfsr_btree_nameget(&lfs, &btree, name, 3,
                         &split_id, NULL, NULL, split_buf, 4) => 1;
                 if (split_id > id) {
                     lfsr_btree_split(&lfs, &btree,
@@ -3555,7 +3555,7 @@ code = '''
         lfs_size_t id_;
         lfs_size_t weight_;
         for (lfs_size_t i = 0; i < sim_size; i++) {
-            lfsr_btree_find(&lfs, &btree, sim_names[i], 3,
+            lfsr_btree_nameget(&lfs, &btree, sim_names[i], 3,
                     &id_, &tag_, &weight_,
                     buffer, 4) => 1;
             assert(tag_ == LFSR_TAG_INLINED);
@@ -3662,7 +3662,7 @@ code = '''
                 lfs_size_t split_id;
                 lfs_size_t split_weight;
                 uint8_t split_buf[4];
-                lfsr_btree_find(&lfs, &btree, name, 3,
+                lfsr_btree_nameget(&lfs, &btree, name, 3,
                         &split_id, NULL, &split_weight, split_buf, 4) => 1;
                 if (split_id > weighted_id+sim_weights[id]-1) {
                     lfsr_btree_split(&lfs, &btree,
@@ -3761,7 +3761,7 @@ code = '''
                 weighted_id += sim_weights[j];
             }
 
-            lfsr_btree_find(&lfs, &btree, sim_names[i], 3,
+            lfsr_btree_nameget(&lfs, &btree, sim_names[i], 3,
                     &id_, &tag_, &weight_,
                     buffer, 4) => 1;
             assert(tag_ == LFSR_TAG_INLINED);

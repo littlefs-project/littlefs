@@ -373,8 +373,8 @@ typedef union lfsr_btree {
     struct {
         lfs_ssize_t weight;
         lfsr_tag_t tag;
-        uint16_t len;
-        uint8_t buf[LFSR_BTREE_INLINE_SIZE];
+        uint16_t size;
+        uint8_t buffer[LFSR_BTREE_INLINE_SIZE];
     } inlined;
 } lfsr_btree_t;
 
@@ -391,7 +391,7 @@ typedef union lfsr_btree {
 //    union {
 //        struct {
 //            uint8_t size;
-//            uint8_t buf[LFSR_BTREE_INLINE_SIZE];
+//            uint8_t buffer[LFSR_BTREE_INLINE_SIZE];
 //        } inlined;
 //
 //        // if we're not inlined, point to the trunk rbyd block of the btree
