@@ -835,12 +835,13 @@ typedef struct lfsr_find {
     const char *name;
     lfs_size_t name_size;
 
-    // if found, the tag/id will be placed in found_tag/found_id, otherwise
-    // found_tag will be zero and found_id will be set to where to insert
-    lfsr_tag_t predicted_tag;
-    lfsr_tag_t found_tag;
+    // if found, the tag/id will be placed in found_tag/found_id,
+    // otherwise found_tag will be zero and found_id will be set to
+    // the largest, smaller id (a good place to insert)
     lfs_ssize_t predicted_id;
     lfs_ssize_t found_id;
+    lfsr_tag_t predicted_tag;
+    lfsr_tag_t found_tag;
 } lfsr_find_t;
 
 
@@ -1256,10 +1257,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_find_t *find) {
     // clear any previous state in our find
     if (find) {
-        find->predicted_tag = 0;
         find->predicted_id = -1;
-        find->found_tag = 0;
+        find->predicted_tag = 0;
         find->found_id = -1;
+        find->found_tag = 0;
     }
 
     // read the revision count and get the crc started
@@ -1383,8 +1384,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             rbyd->weight = weight;
 
             if (find) {
-                find->found_tag = find->predicted_tag;
                 find->found_id = find->predicted_id;
+                find->found_tag = find->predicted_tag;
             }
         }
 
@@ -1415,22 +1416,20 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             } else {
                 lfs_ssize_t delta = (lower+upper+w) - weight;
                 weight = lower+upper+w;
+                lfs_ssize_t id = lower+w-1;
 
                 // adjust any pending finds
                 if (find && find->predicted_id >= (lfs_ssize_t)lower) {
                     // pending find removed?
-                    if (delta < 0
-                            && find->predicted_id
-                                < (lfs_ssize_t)lower + -delta) {
-                        find->predicted_tag = 0;
-                        // TODO is this correct for insertion behavior?
+                    if (find->predicted_id + delta < (lfs_ssize_t)lower) {
                         find->predicted_id = lower-1;
+                        find->predicted_tag = 0;
                     } else {
                         find->predicted_id += delta;
                     }
                 }
 
-                // found our find?
+                // found our find request?
                 if (find && lfsr_tag_suptype(tag) == LFSR_TAG_NAME) {
                     // compare with disk
                     lfs_size_t d = lfs_min(size, find->name_size);
@@ -1450,14 +1449,13 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     }
 
                     // found match?
-                    lfs_ssize_t id = lower+w-1;
                     if (cmp == LFS_CMP_EQ) {
-                        find->predicted_tag = tag;
                         find->predicted_id = id;
+                        find->predicted_tag = tag;
                     // didn't find a match, but found a better insertion point
                     } else if (cmp == LFS_CMP_LT && id > find->predicted_id) {
-                        find->predicted_tag = 0;
                         find->predicted_id = id;
+                        find->predicted_tag = 0;
                     }
                 }
 
@@ -1484,9 +1482,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // need a new erase
         uint32_t fcrc_ = 0;
         int err = lfs_bd_crc32c(lfs,
-                // TODO is this the correct hint?
-                NULL, &lfs->rcache, lfs->cfg->block_size
-                    - lfs_min(off, lfs->cfg->block_size),
+                NULL, &lfs->rcache, fcrc.size,
                 rbyd->block, rbyd->off, fcrc.size, &fcrc_);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -2969,7 +2965,12 @@ static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs,
 
         // the find may not match exactly, but it will indicate which id we
         // should follow
-        // TODO can we actually get weight in find?
+        //
+        // Note that we can't reliably find the weight in fetch. If, during our
+        // linear search, we match an id that is later deleted, we know id-1
+        // should be the new id, but we don't have enough information to
+        // determine the new weight. So unfortunately we need an additional
+        // lookup to find the weight.
         lfsr_tag_t tag__;
         lfs_ssize_t rid__;
         lfs_size_t weight__;
