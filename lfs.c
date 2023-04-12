@@ -2630,7 +2630,12 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
         // if we're validating during our lookup, we need to fetch each branch,
         // otherwise we can get away with assuming our stored block+trunk is
         // correct
-        if (validate) {
+        //
+        // though we assume fetched branches have already been validated, this
+        // generally only affects the root rbyd but note the root rbyd is the
+        // most heavily accessed
+        //
+        if (validate && !lfsr_rbyd_isfetched(&branch)) {
             lfsr_rbyd_t branch_;
             int err = lfsr_rbyd_fetch(lfs, &branch_,
                     branch.block, branch.trunk, NULL);
@@ -2672,14 +2677,15 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
         int err = lfsr_rbyd_lookup(lfs, &branch, rid, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            // TODO what if we don't find a struct? ENOENT?
             err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_STRUCT,
                     NULL, &tag__, NULL, &data__);
             if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
         }
@@ -2750,18 +2756,17 @@ static int lfsr_btree_parent(lfs_t *lfs,
         lfs_ssize_t rid__;
         lfsr_tag_t tag__;
         lfs_size_t weight__;
-        lfsr_data_t data_;
+        lfsr_data_t data__;
         int err = lfsr_rbyd_lookup(lfs, &branch, rid, 0,
-                &rid__, &tag__, &weight__, &data_);
+                &rid__, &tag__, &weight__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            // TODO what if we don't find a struct? ENOENT?
             err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_STRUCT,
-                    NULL, &tag__, NULL, &data_);
+                    NULL, &tag__, NULL, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -2778,10 +2783,10 @@ static int lfsr_btree_parent(lfs_t *lfs,
 
         // fetch the next branch
         uint8_t buf[LFSR_BRANCH_DSIZE];
-        lfs_ssize_t d = lfs_min(LFSR_BRANCH_DSIZE, lfsr_data_size(data_));
+        lfs_ssize_t d = lfs_min(LFSR_BRANCH_DSIZE, lfsr_data_size(data__));
         err = lfs_bd_read(lfs,
                 &lfs->pcache, &lfs->rcache, d,
-                data_.disk.block, data_.disk.off, buf, d);
+                data__.disk.block, data__.disk.off, buf, d);
         if (err) {
             return err;
         }
@@ -2808,8 +2813,6 @@ static int lfsr_btree_parent(lfs_t *lfs,
     }
 }
 
-// TODO do we really need this?
-// TODO why doesn't this match lookup/get in rbyd?
 static lfs_ssize_t lfsr_btree_get(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t bid,
         lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
@@ -2924,14 +2927,15 @@ static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs,
         err = lfsr_rbyd_lookup(lfs, &branch, find.found_id, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            // TODO what if we don't find a struct? ENOENT?
             err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_STRUCT,
                     NULL, &tag__, NULL, &data__);
             if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
         }
@@ -3107,11 +3111,9 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 return err;
             }
 
-            // TODO wait do we need to guarantee an id boundary here? will we
-            // always shrink?
-            // copy over ids
-            lfsr_tag_t tag = 0;
+            // try to copy over ids
             lfs_ssize_t id = 0;
+            lfsr_tag_t tag = 0;
             while (true) {
                 lfsr_data_t data;
                 err = lfsr_rbyd_lookup(lfs, rbyd, id, lfsr_tag_next(tag),
@@ -3139,7 +3141,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 // note we need to account for the missing weight of vestigial
                 // name tags in the following branch tag, which is why we
                 // calculate weight like this
-                lfs_size_t weight = id+1 - rbyd_.weight;
+                lfs_size_t w = id+1 - rbyd_.weight;
 
                 // keep track of worst-case encoding size in case we need to
                 // split
@@ -3147,8 +3149,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
                 // append the attr
                 err = lfsr_rbyd_append(lfs, &rbyd_,
-                        id-lfs_smax32(weight-1, 0),
-                        lfsr_tag_setmk(tag), +weight,
+                        id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
                         data);
                 if (err) {
                     return err;
@@ -3174,11 +3175,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             // is our compacted size too small? try to merge with one of
             // our siblings
-            if (rbyd_.off < lfs->cfg->block_size/4
-                    // no parent? can't merge
-                    && pid != -1
-                    // only child? can't merge
-                    && pweight != parent.weight) {
+            if (rbyd_.off < lfs->cfg->block_size/4) {
                 goto merge;
             merge_abort:;
             }
@@ -3237,8 +3234,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // note this is the most expensive operation in lfsr_btree_commit
         //
         lfs_ssize_t id = rbyd->weight-1;
-        lfs_size_t upper_dsize = 0;
         lfs_size_t split_id = rbyd_.weight;
+        lfs_size_t upper_dsize = 0;
         while (true) {
             lfsr_tag_t tag = 0;
             lfs_size_t w = 0;
@@ -3334,13 +3331,13 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return err;
         }
 
-        lfsr_tag_t tag = 0;
         id = split_id;
+        lfsr_tag_t tag = 0;
         while (true) {
-            lfs_size_t weight;
+            lfs_size_t w;
             lfsr_data_t data;
             err = lfsr_rbyd_lookup(lfs, rbyd, id, lfsr_tag_next(tag),
-                    &id, &tag, &weight, &data);
+                    &id, &tag, &w, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
@@ -3350,8 +3347,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             // append the attr
             err = lfsr_rbyd_append(lfs, &sibling,
-                    id-split_id-lfs_smax32(weight-1, 0),
-                    lfsr_tag_setmk(tag), +weight,
+                    id-split_id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
                     data);
             if (err) {
                 return err;
@@ -3389,11 +3385,11 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // note we need to do this after playing out pending attrs in case
         // they introduce a new name!
         lfsr_tag_t stag;
-        lfs_ssize_t sid;
         lfsr_data_t sdata;
         err = lfsr_rbyd_lookup(lfs, &sibling, 0, LFSR_TAG_NAME,
-                &sid, &stag, NULL, &sdata);
-        if (err && err != LFS_ERR_NOENT) {
+                NULL, &stag, NULL, &sdata);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
@@ -3477,6 +3473,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         // last child? try the left sibling
+        lfs_ssize_t sid;
         lfs_ssize_t sdelta;
         if ((lfs_size_t)pid == parent.weight-1) {
             sid = pid-pweight;
@@ -3490,24 +3487,26 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // try looking up the sibling
         lfs_size_t sweight;
         err = lfsr_rbyd_lookup(lfs, &parent, sid, LFSR_TAG_NAME,
-                &sid, NULL, &sweight, NULL);
-        if (err && err != LFS_ERR_NOENT) {
+                &sid, &stag, &sweight, &sdata);
+        if (err) {
+            // no sibling? can't merge
+            if (err == LFS_ERR_NOENT) {
+                goto merge_abort;
+            }
             return err;
         }
 
-        // no sibling? can't merge
-        if (err == LFS_ERR_NOENT) {
-            goto merge_abort;
-        }
-
-        err = lfsr_rbyd_lookup(lfs, &parent, sid, LFSR_TAG_BRANCH,
-                NULL, &stag, NULL, &sdata);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
+        if (stag == LFSR_TAG_NAME) {
+            err = lfsr_rbyd_lookup(lfs, &parent, sid, LFSR_TAG_STRUCT,
+                    NULL, &stag, NULL, &sdata);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
         }
 
         // no sibling? can't merge
-        if (err == LFS_ERR_NOENT || stag != LFSR_TAG_BRANCH) {
+        if (stag != LFSR_TAG_BRANCH) {
             goto merge_abort;
         }
 
@@ -3527,13 +3526,13 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // try to add our sibling's tags to our rbyd
         lfs_size_t rweight_ = rbyd_.weight;
-        tag = 0;
         id = 0;
+        tag = 0;
         while (true) {
-            lfs_size_t weight;
+            lfs_size_t w;
             lfsr_data_t data;
             err = lfsr_rbyd_lookup(lfs, &sibling, id, lfsr_tag_next(tag),
-                    &id, &tag, &weight, &data);
+                    &id, &tag, &w, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
@@ -3543,8 +3542,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             // append the attr
             err = lfsr_rbyd_append(lfs, &rbyd_,
-                    sdelta+id-lfs_smax32(weight-1, 0),
-                    lfsr_tag_setmk(tag), +weight,
+                    sdelta+id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
                     data);
             if (err) {
                 return err;
@@ -3576,19 +3574,18 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-            // TODO can we avoid this?
-            // lookup the id of the previously-split entry
+            // lookup the id (weight really) of the previously-split entry
             lfs_ssize_t split_id;
             err = lfsr_rbyd_lookup(lfs, &rbyd_,
                     (sdelta == 0 ? sweight : rweight_), LFSR_TAG_NAME,
                     &split_id, NULL, NULL, NULL);
             if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
 
             err = lfsr_rbyd_append(lfs, &rbyd_,
-                    split_id, LFSR_TAG_BNAME, 0,
-                    split_data);
+                    split_id, LFSR_TAG_BNAME, 0, split_data);
             if (err) {
                 return err;
             }
@@ -3728,7 +3725,6 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
             LFS_ASSERT(size <= LFSR_BTREE_INLINESIZE);
             memcpy(btree->inlined.buffer, buffer, size);
             btree->inlined.size = size;
-            return 0;
         }
 
         return 0;
@@ -3831,8 +3827,12 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
             return degenerate;
         }
 
+        // revert to a null btree
+        if (degenerate && rweight >= rbyd.weight) {
+            btree->weight = lfsr_btree_setinlined(0);
+
         // revert to an inlined btree
-        if (degenerate && rweight < rbyd.weight) {
+        } else if (degenerate) {
             lfs_ssize_t sid;
             // left sibling
             if ((lfs_size_t)rid == rbyd.weight-1) {
@@ -3848,14 +3848,15 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
             int err = lfsr_rbyd_lookup(lfs, &rbyd, sid, LFSR_TAG_NAME,
                     &sid, &stag, &sweight, &sdata);
             if (err) {
+                LFS_ASSERT(err == LFS_ERR_NOENT);
                 return err;
             }
 
             if (lfsr_tag_suptype(stag) == LFSR_TAG_NAME) {
-                // TODO what if we don't find a struct? ENOENT?
                 err = lfsr_rbyd_lookup(lfs, &rbyd, sid, LFSR_TAG_STRUCT,
                         NULL, &stag, NULL, &sdata);
                 if (err) {
+                    LFS_ASSERT(err == LFS_ERR_NOENT);
                     return err;
                 }
             }
@@ -3873,10 +3874,6 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
                 return err;
             }
             btree->inlined.size = lfsr_data_size(sdata);
-
-        // revert to a null btree
-        } else if (degenerate) {
-            btree->weight = lfsr_btree_setinlined(0);
         }
 
         return 0;
