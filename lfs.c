@@ -3211,8 +3211,9 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     scratch_buf, d);
             attr_count = 1;
         } else {
-            attrs[0] = LFSR_ATTR(pid, BRANCH, 0, scratch_buf, d);
-            attrs[1] = LFSR_ATTR(pid, UNR, +rbyd->weight-pweight, NULL, 0);
+            attrs[0] = LFSR_ATTR(pid, UNR, +rbyd->weight-pweight, NULL, 0);
+            attrs[1] = LFSR_ATTR(pid+rbyd->weight-pweight, BRANCH, 0,
+                    scratch_buf, d);
             attr_count = 2;
         }
 
@@ -3416,45 +3417,36 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // prepare commit to parent, tail recursing upwards
             attrs[0] = LFSR_ATTR(0, MKBRANCH, +rbyd_.weight,
                     scratch_buf1, d1);
-            if (lfsr_tag_suptype(stag) == LFSR_TAG_NAME) {
-                attrs[1] = LFSR_ATTR_DATA(
-                        rbyd_.weight, MKBNAME, +sibling.weight,
-                        sdata);
-                attrs[2] = LFSR_ATTR(
-                        0+rbyd_.weight+sibling.weight-1, BRANCH, 0,
-                            scratch_buf2, d2);
-                attr_count = 3;
-            } else {
-                attrs[1] = LFSR_ATTR(
-                        0+rbyd_.weight, MKBRANCH, +sibling.weight,
-                            scratch_buf2, d2);
-                attr_count = 2;
-            }
+            attrs[1] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
+                    ? LFSR_ATTR_DATA(rbyd_.weight, MKBNAME, +sibling.weight,
+                        sdata)
+                    : LFSR_ATTR_NOOP);
+            attrs[2] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
+                    ? LFSR_ATTR(0+rbyd_.weight+sibling.weight-1, BRANCH, 0,
+                        scratch_buf2, d2)
+                    : LFSR_ATTR(0+rbyd_.weight, MKBRANCH, +sibling.weight,
+                        scratch_buf2, d2));
+            attr_count = 3;
 
         // yes parent? push up split
         } else {
             // prepare commit to parent, tail recursing upwards
-            attrs[0] = LFSR_ATTR(
-                    pid, UNR, +rbyd_.weight-pweight, NULL, 0);
-            attrs[1] = LFSR_ATTR(
-                    pid-(pweight-1)+rbyd_.weight-1, BRANCH, 0,
-                        scratch_buf1, d1);
-            if (lfsr_tag_suptype(stag) == LFSR_TAG_NAME) {
-                attrs[2] = LFSR_ATTR_DATA(
-                        pid-(pweight-1)+rbyd_.weight, MKBNAME, +sibling.weight,
-                            sdata);
-                attrs[3] = LFSR_ATTR(
-                        pid-(pweight-1)+rbyd_.weight+sibling.weight-1,
-                            BRANCH, 0,
-                            scratch_buf2, d2);
-                attr_count = 4;
-            } else {
-                attrs[2] = LFSR_ATTR(
-                        pid-(pweight-1)+rbyd_.weight, MKBRANCH,
-                            +sibling.weight,
-                            scratch_buf2, d2);
-                attr_count = 3;
-            }
+            attrs[0] = LFSR_ATTR(pid, UNR, +rbyd_.weight-pweight, NULL, 0);
+            attrs[1] = LFSR_ATTR(pid-(pweight-1)+rbyd_.weight-1, BRANCH, 0,
+                    scratch_buf1, d1);
+            attrs[2] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
+                    ? LFSR_ATTR_DATA(pid-(pweight-1)+rbyd_.weight,
+                        MKBNAME, +sibling.weight,
+                        sdata)
+                    : LFSR_ATTR_NOOP);
+            attrs[3] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
+                    ? LFSR_ATTR(pid-(pweight-1)+rbyd_.weight+sibling.weight-1,
+                        BRANCH, 0,
+                        scratch_buf2, d2)
+                    : LFSR_ATTR(pid-(pweight-1)+rbyd_.weight,
+                        MKBRANCH, +sibling.weight,
+                        scratch_buf2, d2));
+            attr_count = 4;
         }
 
         *rbyd = parent;
@@ -3622,8 +3614,9 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             // prepare commit to parent, tail recursing upwards
             attrs[0] = LFSR_ATTR(sid, MKUNR, -sweight, NULL, 0);
-            attrs[1] = LFSR_ATTR(pid, BRANCH, 0, scratch_buf, d);
-            attrs[2] = LFSR_ATTR(pid, UNR, +rbyd_.weight-pweight, NULL, 0);
+            attrs[1] = LFSR_ATTR(pid, UNR, +rbyd_.weight-pweight, NULL, 0);
+            attrs[2] = LFSR_ATTR(pid+rbyd_.weight-pweight, BRANCH, 0,
+                    scratch_buf, d);
             attr_count = 3;
         }
 
@@ -3880,15 +3873,14 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
     }
 }
 
-// lfsr_btree_split can be done with a pop+push+push, but this function
+// lfsr_btree_split can be done with a update+push, but this function
 // does all this in one commit, which is much more efficient
 //
 // this is also the only btree function that creates name entries, in theory
-// push/update could as well, we just don't need the functionality for littlefs
+// push could as well, we just don't need the functionality for littlefs
 //
 static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
-        lfs_size_t bid,
-        const char *name, lfs_size_t name_size,
+        lfs_size_t bid, const char *name, lfs_size_t name_size,
         lfsr_tag_t tag1, lfs_size_t weight1,
         const void *buffer1, lfs_size_t size1,
         lfsr_tag_t tag2, lfs_size_t weight2,
@@ -3908,10 +3900,15 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
                 LFSR_ATTR_(0, lfsr_tag_setmk(tag1), +weight1,
                     buffer1, size1),
-                LFSR_ATTR(weight1, MKBNAME, +weight2,
-                    name, name_size),
-                LFSR_ATTR_(weight1+weight2-1, tag2, 0,
-                    buffer2, size2)));
+                (name_size > 0
+                    ? LFSR_ATTR(weight1, MKBNAME, +weight2,
+                        name, name_size)
+                    : LFSR_ATTR_NOOP),
+                (name_size > 0
+                    ? LFSR_ATTR_(weight1+weight2-1, tag2, 0,
+                        buffer2, size2)
+                    : LFSR_ATTR_(weight1, lfsr_tag_setmk(tag2), +weight2,
+                        buffer2, size2))));
         if (err) {
             return err;
         }
@@ -3939,11 +3936,16 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
                     LFSR_ATTR(rid, UNR, +weight1-rweight, NULL, 0),
                     LFSR_ATTR_(rid-(rweight-1)+weight1-1, tag1, 0,
                         buffer1, size1),
-                    // TODO should we always be making name entries?
-                    LFSR_ATTR(rid-(rweight-1)+weight1, MKBNAME, +weight2,
-                        name, name_size),
-                    LFSR_ATTR_(rid-(rweight-1)+weight1+weight2-1, tag2, 0,
-                        buffer2, size2)));
+                    (name_size > 0
+                        ? LFSR_ATTR(rid-(rweight-1)+weight1, MKBNAME, +weight2,
+                            name, name_size)
+                        : LFSR_ATTR_NOOP),
+                    (name_size > 0
+                        ? LFSR_ATTR_(rid-(rweight-1)+weight1+weight2-1, tag2, 0,
+                            buffer2, size2)
+                        : LFSR_ATTR_(rid-(rweight-1)+weight1,
+                            lfsr_tag_setmk(tag2), +weight2,
+                            buffer2, size2))));
         if (degenerate < 0) {
             return degenerate;
         }
