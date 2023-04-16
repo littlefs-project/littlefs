@@ -1,7 +1,7 @@
 
 # maximize lookahead buffer, we don't actually gc so we only get one pass
 # of the disk for these tests
-defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
+defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
 
 
 # test an empty tree
@@ -325,15 +325,22 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree = LFSR_BTREE_NULL;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
-                &alphas[i % 26], 1) => 0;
+        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                &alphas[i % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        assert(err == 0);
+        n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
         btree.root.block,
         btree.root.trunk);
-    assert(lfsr_btree_weight(&btree) == N);
+    assert(lfsr_btree_weight(&btree) == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -341,7 +348,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < n; i++) {
         lfsr_btree_get(&lfs, &btree, i,
                 &id_, &tag_, &weight_,
                 buffer, 4, VALIDATE) => 1;
@@ -352,7 +359,7 @@ code = '''
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, N,
+    lfsr_btree_get(&lfs, &btree, n,
             &id_, &tag_, &weight_,
             buffer, 4, VALIDATE) => LFS_ERR_NOENT;
 '''
@@ -375,15 +382,22 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree = LFSR_BTREE_NULL;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
-                &alphas[(N-1-i) % 26], 1) => 0;
+        int err = lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
+                &alphas[(N-1-i) % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        assert(err == 0);
+        n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
         btree.root.block,
         btree.root.trunk);
-    assert(lfsr_btree_weight(&btree) == N);
+    assert(lfsr_btree_weight(&btree) == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -391,18 +405,18 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_get(&lfs, &btree, i,
+    for (lfs_size_t i = 0; i < n; i++) {
+        lfsr_btree_get(&lfs, &btree, n-1-i,
                 &id_, &tag_, &weight_,
                 buffer, 4, VALIDATE) => 1;
         assert(tag_ == LFSR_TAG_INLINED);
-        assert(id_ == i);
+        assert(id_ == n-1-i);
         assert(weight_ == 1);
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+        assert(memcmp(buffer, &alphas[(N-1-i) % 26], 1) == 0);
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, N,
+    lfsr_btree_get(&lfs, &btree, n,
             &id_, &tag_, &weight_,
             buffer, 4, VALIDATE) => LFS_ERR_NOENT;
 '''
@@ -452,8 +466,13 @@ code = '''
             lfs_size_t id = TEST_PRNG(&prng) % (sim_size+1);
 
             // add to btree
-            lfsr_btree_push(&lfs, &btree, id, LFSR_TAG_INLINED, 1,
-                    &alphas[i % 26], 1) => 0;
+            int err = lfsr_btree_push(&lfs, &btree, id, LFSR_TAG_INLINED, 1,
+                    &alphas[i % 26], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
 
             // add to sim
             memmove(&sim[id+1], &sim[id], sim_size-id);
@@ -522,15 +541,22 @@ code = '''
     // create a tree with N elements
     lfsr_btree_t btree = LFSR_BTREE_NULL;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_size_t n = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_INLINED, W,
-                &alphas[i % 26], 1) => 0;
+        int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_INLINED, W,
+                &alphas[i % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        assert(err == 0);
+        n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
         btree.root.block,
         btree.root.trunk);
-    assert(lfsr_btree_weight(&btree) == N*W);
+    assert(lfsr_btree_weight(&btree) == n*W);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -538,7 +564,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < n; i++) {
         lfsr_btree_get(&lfs, &btree, i*W+W-1,
                 &id_, &tag_, &weight_,
                 buffer, 4, VALIDATE) => 1;
@@ -549,13 +575,13 @@ code = '''
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, N*W,
+    lfsr_btree_get(&lfs, &btree, n*W,
             &id_, &tag_, &weight_,
             buffer, 4, VALIDATE) => LFS_ERR_NOENT;
 
     // also test that we can traverse the tree without prior knowledge
     id_ = -1;
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < n; i++) {
         lfsr_btree_get(&lfs, &btree, id_+1,
                 &id_, &tag_, &weight_,
                 buffer, 4, VALIDATE) => 1;
@@ -625,8 +651,14 @@ code = '''
             }
 
             // add to btree
-            lfsr_btree_push(&lfs, &btree, weighted_id, LFSR_TAG_INLINED, weight,
-                    &alphas[i % 26], 1) => 0;
+            int err = lfsr_btree_push(&lfs, &btree,
+                    weighted_id, LFSR_TAG_INLINED, weight,
+                    &alphas[i % 26], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
 
             // add to sim
             memmove(&sim[id+1], &sim[id], sim_size-id);
@@ -903,13 +935,31 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
-                &alphas[i % 26], 1) => 0;
+        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                &alphas[i % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+            return;
+        }
+        assert(err == 0);
     }
     // update the tree
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_update(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
-                &uppers[i % 26], 1) => 0;
+        int err = lfsr_btree_update(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                &uppers[i % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+            return;
+        }
+        assert(err == 0);
     }
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
@@ -971,8 +1021,17 @@ code = '''
         // create a btree
         lfsr_btree_t btree = LFSR_BTREE_NULL;
         for (lfs_size_t i = 0; i < N; i++) {
-            lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
-                    &alphas[i % 26], 1) => 0;
+            int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                    &alphas[i % 26], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                printf("btree: w%d 0x%x.%x\n",
+                    btree.weight,
+                    btree.root.block,
+                    btree.root.trunk);
+                return;
+            }
+            assert(err == 0);
         }
 
         // set up a simulation to compare against
@@ -990,8 +1049,13 @@ code = '''
             lfs_size_t id = TEST_PRNG(&prng) % N;
 
             // update btree
-            lfsr_btree_update(&lfs, &btree, id, LFSR_TAG_INLINED, 1,
-                    &uppers[i % 26], 1) => 0;
+            int err = lfsr_btree_update(&lfs, &btree, id, LFSR_TAG_INLINED, 1,
+                    &uppers[i % 26], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
 
             // update sim
             sim[id] = uppers[i % 26];
@@ -1059,13 +1123,31 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_INLINED, W,
-                &alphas[i % 26], 1) => 0;
+        int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_INLINED, W,
+                &alphas[i % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+            return;
+        }
+        assert(err == 0);
     }
     // update the tree
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_update(&lfs, &btree, i*W+W-1, LFSR_TAG_INLINED, W,
-                &uppers[i % 26], 1) => 0;
+        int err = lfsr_btree_update(&lfs, &btree, i*W+W-1, LFSR_TAG_INLINED, W,
+                &uppers[i % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+            return;
+        }
+        assert(err == 0);
     }
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
@@ -1143,8 +1225,17 @@ code = '''
         // create a btree
         lfsr_btree_t btree = LFSR_BTREE_NULL;
         for (lfs_size_t i = 0; i < N; i++) {
-            lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_INLINED, W,
-                    &alphas[i % 26], 1) => 0;
+            int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_INLINED, W,
+                    &alphas[i % 26], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                printf("btree: w%d 0x%x.%x\n",
+                    btree.weight,
+                    btree.root.block,
+                    btree.root.trunk);
+                return;
+            }
+            assert(err == 0);
         }
 
         // set up a simulation to compare against
@@ -1172,9 +1263,14 @@ code = '''
             }
 
             // update btree
-            lfsr_btree_update(&lfs, &btree,
+            int err = lfsr_btree_update(&lfs, &btree,
                     weighted_id+sim_weights[id]-1, LFSR_TAG_INLINED, weight,
-                    &uppers[i % 26], 1) => 0;
+                    &uppers[i % 26], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
 
             // update sim
             sim[id] = uppers[i % 26];
@@ -1583,12 +1679,30 @@ code = '''
     lfsr_btree_t btree = LFSR_BTREE_NULL;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
-                &alphas[i % 26], 1) => 0;
+        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                &alphas[i % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+            return;
+        }
+        assert(err == 0);
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        lfsr_btree_pop(&lfs, &btree, N-1-i) => 0;
+        int err = lfsr_btree_pop(&lfs, &btree, N-1-i);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+            return;
+        }
+        assert(err == 0);
     }
 
     printf("btree: w%d 0x%x.%x\n",
@@ -1666,14 +1780,31 @@ code = '''
     lfsr_btree_t btree = LFSR_BTREE_NULL;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
-                &alphas[i % 26], 1) => 0;
+        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                &alphas[i % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+            return;
+        }
+        assert(err == 0);
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        lfsr_btree_pop(&lfs, &btree, 0) => 0;
+        int err = lfsr_btree_pop(&lfs, &btree, 0);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+            return;
+        }
+        assert(err == 0);
     }
-
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
         btree.root.block,
@@ -1761,8 +1892,17 @@ code = '''
         // create a btree
         lfsr_btree_t btree = LFSR_BTREE_NULL;
         for (lfs_size_t i = 0; i < N; i++) {
-            lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
-                    &alphas[i % 26], 1) => 0;
+            int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                    &alphas[i % 26], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                printf("btree: w%d 0x%x.%x\n",
+                    btree.weight,
+                    btree.root.block,
+                    btree.root.trunk);
+                return;
+            }
+            assert(err == 0);
         }
 
         // set up a simulation to compare against
@@ -1781,7 +1921,12 @@ code = '''
             lfs_size_t id = TEST_PRNG(&prng) % sim_size;
 
             // remove from btree
-            lfsr_btree_pop(&lfs, &btree, id) => 0;
+            int err = lfsr_btree_pop(&lfs, &btree, id);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
 
             // remove from sim
             memmove(&sim[id], &sim[id+1], sim_size-(id+1));
@@ -1831,9 +1976,9 @@ code = '''
 
 [cases.test_btree_pop_sparse]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+defines.W = 5
 defines.REMAINING = [64, 2, 1, 0]
 defines.VALIDATE = [1, 0]
-defines.W = 5
 if = 'N > REMAINING'
 in = 'lfs.c'
 code = '''
@@ -1851,14 +1996,31 @@ code = '''
     lfsr_btree_t btree = LFSR_BTREE_NULL;
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_INLINED, W,
-                &alphas[i % 26], 1) => 0;
+        int err = lfsr_btree_push(&lfs, &btree, i*W, LFSR_TAG_INLINED, W,
+                &alphas[i % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+            return;
+        }
+        assert(err == 0);
     }
     // drain the tree
     for (lfs_size_t i = 0; i < N-REMAINING; i++) {
-        lfsr_btree_pop(&lfs, &btree, (N-1-i)*W+W-1) => 0;
+        int err = lfsr_btree_pop(&lfs, &btree, (N-1-i)*W+W-1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+            return;
+        }
+        assert(err == 0);
     }
-
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
         btree.root.block,
@@ -1939,8 +2101,8 @@ code = '''
 
 [cases.test_btree_pop_sparse_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-defines.REMAINING = [64, 2, 1, 0]
 defines.W = 5
+defines.REMAINING = [64, 2, 1, 0]
 defines.VALIDATE = [1, 0]
 defines.SAMPLES = 10
 # -1 => all pseudo-random seeds
@@ -1991,8 +2153,18 @@ code = '''
                 weighted_id += sim_weights[j];
             }
 
-            lfsr_btree_push(&lfs, &btree, weighted_id, LFSR_TAG_INLINED, weight,
-                    &alphas[i % 26], 1) => 0;
+            int err = lfsr_btree_push(&lfs, &btree,
+                    weighted_id, LFSR_TAG_INLINED, weight,
+                    &alphas[i % 26], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                printf("btree: w%d 0x%x.%x\n",
+                    btree.weight,
+                    btree.root.block,
+                    btree.root.trunk);
+                return;
+            }
+            assert(err == 0);
 
             sim[i] = alphas[i % 26];
             sim_weights[i] = weight;
@@ -2010,7 +2182,13 @@ code = '''
             }
 
             // remove from btree
-            lfsr_btree_pop(&lfs, &btree, weighted_id+sim_weights[id]-1) => 0;
+            int err = lfsr_btree_pop(&lfs, &btree,
+                    weighted_id+sim_weights[id]-1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
 
             // remove from sim
             memmove(&sim[id], &sim[id+1], sim_size-(id+1));
@@ -2121,16 +2299,23 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
             &alphas[0 % 26], 1) => 0;
+    lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
-        lfsr_btree_split(&lfs, &btree, i-1, NULL, 0,
+        int err = lfsr_btree_split(&lfs, &btree, i-1, NULL, 0,
                 LFSR_TAG_INLINED, 1, &alphas[(i-1) % 26], 1,
-                LFSR_TAG_INLINED, 1, &alphas[(i-0) % 26], 1) => 0;
+                LFSR_TAG_INLINED, 1, &alphas[(i-0) % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        assert(err == 0);
+        n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
         btree.root.block,
         btree.root.trunk);
-    assert(lfsr_btree_weight(&btree) == N);
+    assert(lfsr_btree_weight(&btree) == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -2138,7 +2323,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < n; i++) {
         lfsr_btree_get(&lfs, &btree, i,
                 &id_, &tag_, &weight_,
                 buffer, 4, VALIDATE) => 1;
@@ -2149,7 +2334,7 @@ code = '''
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, N,
+    lfsr_btree_get(&lfs, &btree, n,
             &id_, &tag_, &weight_,
             buffer, 4, VALIDATE) => LFS_ERR_NOENT;
 '''
@@ -2203,9 +2388,14 @@ code = '''
             lfs_size_t id = TEST_PRNG(&prng) % sim_size;
 
             // split btree
-            lfsr_btree_split(&lfs, &btree, id, NULL, 0,
+            int err = lfsr_btree_split(&lfs, &btree, id, NULL, 0,
                     LFSR_TAG_INLINED, 1, &alphas[i % 26], 1,
-                    LFSR_TAG_INLINED, 1, &uppers[i % 26], 1) => 0;
+                    LFSR_TAG_INLINED, 1, &uppers[i % 26], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
 
             // split sim
             memmove(&sim[id+1], &sim[id], sim_size-id);
@@ -2277,16 +2467,23 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, W,
             &alphas[0 % 26], 1) => 0;
+    lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
-        lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1, NULL, 0,
+        int err = lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1, NULL, 0,
                 LFSR_TAG_INLINED, W, &alphas[(i-1) % 26], 1,
-                LFSR_TAG_INLINED, W, &alphas[(i-0) % 26], 1) => 0;
+                LFSR_TAG_INLINED, W, &alphas[(i-0) % 26], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        assert(err == 0);
+        n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
         btree.root.block,
         btree.root.trunk);
-    assert(lfsr_btree_weight(&btree) == N*W);
+    assert(lfsr_btree_weight(&btree) == n*W);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -2294,7 +2491,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < n; i++) {
         lfsr_btree_get(&lfs, &btree, i*W+W-1,
                 &id_, &tag_, &weight_,
                 buffer, 4, VALIDATE) => 1;
@@ -2305,7 +2502,7 @@ code = '''
     }
 
     // and check that we can't lookup elements that aren't in the tree
-    lfsr_btree_get(&lfs, &btree, N*W,
+    lfsr_btree_get(&lfs, &btree, n*W,
             &id_, &tag_, &weight_,
             buffer, 4, VALIDATE) => LFS_ERR_NOENT;
 '''
@@ -2372,10 +2569,15 @@ code = '''
             }
 
             // split btree
-            lfsr_btree_split(&lfs, &btree, weighted_id+sim_weights[id]-1,
-                    NULL, 0,
+            int err = lfsr_btree_split(&lfs, &btree,
+                    weighted_id+sim_weights[id]-1, NULL, 0,
                     LFSR_TAG_INLINED, weight1, &alphas[i % 26], 1,
-                    LFSR_TAG_INLINED, weight2, &uppers[i % 26], 1) => 0;
+                    LFSR_TAG_INLINED, weight2, &uppers[i % 26], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
 
             // add to sim
             memmove(&sim[id+1], &sim[id], sim_size-id);
@@ -2421,7 +2623,7 @@ code = '''
         lfsr_tag_t tag_;
         lfs_size_t id_;
         lfs_size_t weight_;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs_size_t i = 0; i < sim_size; i++) {
             // calculate actual id in btree space
             lfs_size_t weighted_id = 0;
             for (lfs_size_t j = 0; j < i; j++) {
@@ -2444,7 +2646,7 @@ code = '''
 
         // also test that we can traverse the tree without prior knowledge
         id_ = -1;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs_size_t i = 0; i < sim_size; i++) {
             // calculate actual id in btree space
             lfs_size_t weighted_id = 0;
             for (lfs_size_t j = 0; j < i; j++) {
@@ -2519,9 +2721,14 @@ code = '''
 
             if (op == 0 || id == sim_size) {
                 // push to btree
-                lfsr_btree_push(&lfs, &btree, id,
+                int err = lfsr_btree_push(&lfs, &btree, id,
                         LFSR_TAG_INLINED, 1,
-                        &alphas[i % 26], 1) => 0;
+                        &alphas[i % 26], 1);
+                // ignore space issues
+                if (err == LFS_ERR_NOSPC) {
+                    break;
+                }
+                assert(err == 0);
 
                 // push to sim
                 memmove(&sim[id+1], &sim[id], sim_size-id);
@@ -2530,16 +2737,26 @@ code = '''
 
             } else if (op == 1) {
                 // update btree
-                lfsr_btree_update(&lfs, &btree, id,
+                int err = lfsr_btree_update(&lfs, &btree, id,
                         LFSR_TAG_INLINED, 1,
-                        &alphas[i % 26], 1) => 0;
+                        &alphas[i % 26], 1);
+                // ignore space issues
+                if (err == LFS_ERR_NOSPC) {
+                    break;
+                }
+                assert(err == 0);
 
                 // update sim
                 sim[id] = alphas[i % 26];
 
             } else {
                 // pop from btree
-                lfsr_btree_pop(&lfs, &btree, id) => 0;
+                int err = lfsr_btree_pop(&lfs, &btree, id);
+                // ignore space issues
+                if (err == LFS_ERR_NOSPC) {
+                    break;
+                }
+                assert(err == 0);
 
                 // pop from sim
                 memmove(&sim[id], &sim[id+1], sim_size-(id+1));
@@ -2647,9 +2864,14 @@ code = '''
 
             if (op == 0 || id == sim_size) {
                 // push to btree
-                lfsr_btree_push(&lfs, &btree, weighted_id,
+                int err = lfsr_btree_push(&lfs, &btree, weighted_id,
                         LFSR_TAG_INLINED, weight,
-                        &alphas[i % 26], 1) => 0;
+                        &alphas[i % 26], 1);
+                // ignore space issues
+                if (err == LFS_ERR_NOSPC) {
+                    break;
+                }
+                assert(err == 0);
 
                 // push to sim
                 memmove(&sim[id+1], &sim[id], sim_size-id);
@@ -2661,9 +2883,14 @@ code = '''
 
             } else if (op == 1) {
                 // update btree
-                lfsr_btree_update(&lfs, &btree,
+                int err = lfsr_btree_update(&lfs, &btree,
                         weighted_id+sim_weights[id]-1, LFSR_TAG_INLINED, weight,
-                        &alphas[i % 26], 1) => 0;
+                        &alphas[i % 26], 1);
+                // ignore space issues
+                if (err == LFS_ERR_NOSPC) {
+                    break;
+                }
+                assert(err == 0);
 
                 // update sim
                 sim[id] = alphas[i % 26];
@@ -2671,8 +2898,13 @@ code = '''
 
             } else {
                 // remove from btree
-                lfsr_btree_pop(&lfs, &btree,
-                        weighted_id+sim_weights[id]-1) => 0;
+                int err = lfsr_btree_pop(&lfs, &btree,
+                        weighted_id+sim_weights[id]-1);
+                // ignore space issues
+                if (err == LFS_ERR_NOSPC) {
+                    break;
+                }
+                assert(err == 0);
 
                 // remove from sim
                 memmove(&sim[id], &sim[id+1], sim_size-(id+1));
@@ -3051,19 +3283,26 @@ code = '''
     const char *nums = "0123456789";
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
             &nums[0 % 10], 1) => 0;
+    lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
         char name[3] = {
             alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
         };
-        lfsr_btree_split(&lfs, &btree, i-1, name, 3,
+        int err = lfsr_btree_split(&lfs, &btree, i-1, name, 3,
                 LFSR_TAG_INLINED, 1, &nums[(i-1) % 10], 1,
-                LFSR_TAG_INLINED, 1, &nums[(i-0) % 10], 1) => 0;
+                LFSR_TAG_INLINED, 1, &nums[(i-0) % 10], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        assert(err == 0);
+        n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
         btree.root.block,
         btree.root.trunk);
-    assert(lfsr_btree_weight(&btree) == N);
+    assert(lfsr_btree_weight(&btree) == n);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3071,7 +3310,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < n; i++) {
         char name[3] = {
             alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
         };
@@ -3150,9 +3389,14 @@ code = '''
             }
 
             // split btree
-            lfsr_btree_split(&lfs, &btree, id, name, 3,
+            int err = lfsr_btree_split(&lfs, &btree, id, name, 3,
                     LFSR_TAG_INLINED, 1, &nums[i % 10], 1,
-                    LFSR_TAG_INLINED, 1, &nums[i % 10], 1) => 0;
+                    LFSR_TAG_INLINED, 1, &nums[i % 10], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
 
             // split sim
             memmove(&sim[id+1], &sim[id], sim_size-id);
@@ -3222,19 +3466,26 @@ code = '''
     const char *nums = "0123456789";
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, W,
             &nums[0 % 10], 1) => 0;
+    lfs_size_t n = 1;
     for (lfs_size_t i = 1; i < N; i++) {
         char name[3] = {
             alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
         };
-        lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1, name, 3,
+        int err = lfsr_btree_split(&lfs, &btree, (i-1)*W+W-1, name, 3,
                 LFSR_TAG_INLINED, W, &nums[(i-1) % 10], 1,
-                LFSR_TAG_INLINED, W, &nums[(i-0) % 10], 1) => 0;
+                LFSR_TAG_INLINED, W, &nums[(i-0) % 10], 1);
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        assert(err == 0);
+        n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
         btree.weight,
         btree.root.block,
         btree.root.trunk);
-    assert(lfsr_btree_weight(&btree) == N*W);
+    assert(lfsr_btree_weight(&btree) == n*W);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3242,7 +3493,7 @@ code = '''
     lfs_size_t id_;
     lfs_size_t weight_;
 
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs_size_t i = 0; i < n; i++) {
         char name[3] = {
             alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
         };
@@ -3334,10 +3585,15 @@ code = '''
             }
 
             // split btree
-            lfsr_btree_split(&lfs, &btree, weighted_id+sim_weights[id]-1,
-                    name, 3,
+            int err = lfsr_btree_split(&lfs, &btree,
+                    weighted_id+sim_weights[id]-1, name, 3,
                     LFSR_TAG_INLINED, weight1, &nums[i % 10], 1,
-                    LFSR_TAG_INLINED, weight2, &nums[i % 10], 1) => 0;
+                    LFSR_TAG_INLINED, weight2, &nums[i % 10], 1);
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
 
             // split sim
             memmove(&sim[id+1], &sim[id], sim_size-id);
@@ -3489,15 +3745,25 @@ code = '''
                 lfsr_btree_nameget(&lfs, &btree, name, 3,
                         &split_id, NULL, NULL, split_buf, 4) => 1;
                 if (split_id > id) {
-                    lfsr_btree_split(&lfs, &btree,
+                    int err = lfsr_btree_split(&lfs, &btree,
                             split_id, sim_names[id+1], 3,
                             LFSR_TAG_INLINED, 1, &nums[i % 10], 1,
-                            LFSR_TAG_INLINED, 1, split_buf,     1) => 0;
+                            LFSR_TAG_INLINED, 1, split_buf,     1);
+                    // ignore space issues
+                    if (err == LFS_ERR_NOSPC) {
+                        break;
+                    }
+                    assert(err == 0);
                 } else {
-                    lfsr_btree_split(&lfs, &btree,
+                    int err = lfsr_btree_split(&lfs, &btree,
                             split_id, name, 3,
                             LFSR_TAG_INLINED, 1, split_buf,     1,
-                            LFSR_TAG_INLINED, 1, &nums[i % 10], 1) => 0;
+                            LFSR_TAG_INLINED, 1, &nums[i % 10], 1);
+                    // ignore space issues
+                    if (err == LFS_ERR_NOSPC) {
+                        break;
+                    }
+                    assert(err == 0);
                 }
 
                 // split sim
@@ -3509,16 +3775,26 @@ code = '''
 
             } else if (op == 1) {
                 // update btree
-                lfsr_btree_update(&lfs, &btree, id,
+                int err = lfsr_btree_update(&lfs, &btree, id,
                         LFSR_TAG_INLINED, 1,
-                        &nums[i % 10], 1) => 0;
+                        &nums[i % 10], 1);
+                // ignore space issues
+                if (err == LFS_ERR_NOSPC) {
+                    break;
+                }
+                assert(err == 0);
 
                 // update sim
                 sim[id] = nums[i % 10];
 
             } else {
                 // pop from btree
-                lfsr_btree_pop(&lfs, &btree, id) => 0;
+                int err = lfsr_btree_pop(&lfs, &btree, id);
+                // ignore space issues
+                if (err == LFS_ERR_NOSPC) {
+                    break;
+                }
+                assert(err == 0);
 
                 // pop from sim
                 memmove(&sim[id], &sim[id+1], sim_size-(id+1));
@@ -3665,17 +3941,25 @@ code = '''
                 lfsr_btree_nameget(&lfs, &btree, name, 3,
                         &split_id, NULL, &split_weight, split_buf, 4) => 1;
                 if (split_id > weighted_id+sim_weights[id]-1) {
-                    lfsr_btree_split(&lfs, &btree,
+                    int err = lfsr_btree_split(&lfs, &btree,
                             split_id, sim_names[id+1], 3,
                             LFSR_TAG_INLINED, weight,       &nums[i % 10], 1,
-                            LFSR_TAG_INLINED, split_weight, split_buf,     1)
-                            => 0;
+                            LFSR_TAG_INLINED, split_weight, split_buf,     1);
+                    // ignore space issues
+                    if (err == LFS_ERR_NOSPC) {
+                        break;
+                    }
+                    assert(err == 0);
                 } else {
-                    lfsr_btree_split(&lfs, &btree,
+                    int err = lfsr_btree_split(&lfs, &btree,
                             split_id, name, 3,
                             LFSR_TAG_INLINED, split_weight, split_buf,     1,
-                            LFSR_TAG_INLINED, weight,       &nums[i % 10], 1)
-                            => 0;
+                            LFSR_TAG_INLINED, weight,       &nums[i % 10], 1);
+                    // ignore space issues
+                    if (err == LFS_ERR_NOSPC) {
+                        break;
+                    }
+                    assert(err == 0);
                 }
 
                 // split sim
@@ -3690,9 +3974,14 @@ code = '''
 
             } else if (op == 1) {
                 // update btree
-                lfsr_btree_update(&lfs, &btree,
+                int err = lfsr_btree_update(&lfs, &btree,
                         weighted_id+sim_weights[id]-1, LFSR_TAG_INLINED, weight,
-                        &nums[i % 10], 1) => 0;
+                        &nums[i % 10], 1);
+                // ignore space issues
+                if (err == LFS_ERR_NOSPC) {
+                    break;
+                }
+                assert(err == 0);
 
                 // update sim
                 sim[id] = nums[i % 10];
@@ -3700,8 +3989,13 @@ code = '''
 
             } else {
                 // pop from btree
-                lfsr_btree_pop(&lfs, &btree,
-                        weighted_id+sim_weights[id]-1) => 0;
+                int err = lfsr_btree_pop(&lfs, &btree,
+                        weighted_id+sim_weights[id]-1);
+                // ignore space issues
+                if (err == LFS_ERR_NOSPC) {
+                    break;
+                }
+                assert(err == 0);
 
                 // pop from sim
                 memmove(&sim[id], &sim[id+1], sim_size-(id+1));

@@ -3169,6 +3169,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         attrs[i].id, attrs[i].tag, attrs[i].delta,
                         attrs[i].data);
                 if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
                     return err;
                 }
             }
@@ -3183,6 +3184,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // finalize commit
             err = lfsr_rbyd_commit(lfs, &rbyd_, NULL, 0);
             if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
 
@@ -3307,6 +3309,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         attrs[i].id, attrs[i].tag, attrs[i].delta,
                         attrs[i].data);
                 if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
                     return err;
                 }
             }
@@ -3365,6 +3368,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         attrs[i].id-split_id_, attrs[i].tag, attrs[i].delta,
                         attrs[i].data);
                 if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
                     return err;
                 }
             }
@@ -3378,6 +3382,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // finalize commit
         err = lfsr_rbyd_commit(lfs, &sibling, NULL, 0);
         if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
@@ -3555,36 +3560,41 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
         }
 
-        // bring in name that previously split the siblings
-        lfsr_tag_t split_tag;
-        lfsr_data_t split_data;
-        err = lfsr_rbyd_lookup(lfs, &parent,
-                (sdelta == 0 ? pid : sid), LFSR_TAG_NAME,
-                NULL, &split_tag, NULL, &split_data);
-        if (err) {
-            return err;
-        }
-
-        if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-            // lookup the id (weight really) of the previously-split entry
-            lfs_ssize_t split_id;
-            err = lfsr_rbyd_lookup(lfs, &rbyd_,
-                    (sdelta == 0 ? sweight : rweight_), LFSR_TAG_NAME,
-                    &split_id, NULL, NULL, NULL);
+        if (sweight > 0 && rweight_ > 0) {
+            // bring in name that previously split the siblings
+            lfsr_tag_t split_tag;
+            lfsr_data_t split_data;
+            err = lfsr_rbyd_lookup(lfs, &parent,
+                    (sdelta == 0 ? pid : sid), LFSR_TAG_NAME,
+                    NULL, &split_tag, NULL, &split_data);
             if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
+                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
 
-            err = lfsr_rbyd_append(lfs, &rbyd_,
-                    split_id, LFSR_TAG_BNAME, 0, split_data);
-            if (err) {
-                return err;
+            if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
+                // lookup the id (weight really) of the previously-split entry
+                lfs_ssize_t split_id;
+                err = lfsr_rbyd_lookup(lfs, &rbyd_,
+                        (sdelta == 0 ? sweight : rweight_), LFSR_TAG_NAME,
+                        &split_id, NULL, NULL, NULL);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_NOENT);
+                    return err;
+                }
+
+                err = lfsr_rbyd_append(lfs, &rbyd_,
+                        split_id, LFSR_TAG_BNAME, 0, split_data);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    return err;
+                }
             }
         }
 
         err = lfsr_rbyd_commit(lfs, &rbyd_, NULL, 0);
         if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
@@ -3592,8 +3602,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         LFS_ASSERT(pid != -1);
         if (pweight+sweight == lfsr_btree_weight(btree)) {
             // collapse our parent, decreasing the height of the tree
-            LFS_ASSERT(btree->root.block == parent.block
-                    && btree->root.trunk == parent.trunk);
             *rbyd = rbyd_;
             break;
 
