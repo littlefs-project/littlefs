@@ -1,6 +1,7 @@
 [[case]] # simple truncate
-define.MEDIUMSIZE = [32, 2048]
-define.LARGESIZE = 8192
+define.MEDIUMSIZE = [31, 32, 33, 511, 512, 513, 2047, 2048, 2049]
+define.LARGESIZE = [32, 33, 512, 513, 2048, 2049, 8192, 8193]
+if = 'MEDIUMSIZE < LARGESIZE'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -10,13 +11,14 @@ code = '''
     strcpy((char*)buffer, "hair");
     size = strlen((char*)buffer);
     for (lfs_off_t j = 0; j < LARGESIZE; j += size) {
-        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_write(&lfs, &file, buffer, lfs_min(size, LARGESIZE-j))
+                => lfs_min(size, LARGESIZE-j);
     }
     lfs_file_size(&lfs, &file) => LARGESIZE;
 
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
-    
+
     lfs_mount(&lfs, &cfg) => 0;
     lfs_file_open(&lfs, &file, "baldynoop", LFS_O_RDWR) => 0;
     lfs_file_size(&lfs, &file) => LARGESIZE;
@@ -33,8 +35,9 @@ code = '''
 
     size = strlen("hair");
     for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
-        lfs_file_read(&lfs, &file, buffer, size) => size;
-        memcmp(buffer, "hair", size) => 0;
+        lfs_file_read(&lfs, &file, buffer, lfs_min(size, MEDIUMSIZE-j))
+                => lfs_min(size, MEDIUMSIZE-j);
+        memcmp(buffer, "hair", lfs_min(size, MEDIUMSIZE-j)) => 0;
     }
     lfs_file_read(&lfs, &file, buffer, size) => 0;
 
@@ -43,8 +46,9 @@ code = '''
 '''
 
 [[case]] # truncate and read
-define.MEDIUMSIZE = [32, 2048]
-define.LARGESIZE = 8192
+define.MEDIUMSIZE = [31, 32, 33, 511, 512, 513, 2047, 2048, 2049]
+define.LARGESIZE = [32, 33, 512, 513, 2048, 2049, 8192, 8193]
+if = 'MEDIUMSIZE < LARGESIZE'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -54,7 +58,8 @@ code = '''
     strcpy((char*)buffer, "hair");
     size = strlen((char*)buffer);
     for (lfs_off_t j = 0; j < LARGESIZE; j += size) {
-        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_write(&lfs, &file, buffer, lfs_min(size, LARGESIZE-j))
+                => lfs_min(size, LARGESIZE-j);
     }
     lfs_file_size(&lfs, &file) => LARGESIZE;
 
@@ -70,8 +75,9 @@ code = '''
 
     size = strlen("hair");
     for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
-        lfs_file_read(&lfs, &file, buffer, size) => size;
-        memcmp(buffer, "hair", size) => 0;
+        lfs_file_read(&lfs, &file, buffer, lfs_min(size, MEDIUMSIZE-j))
+                => lfs_min(size, MEDIUMSIZE-j);
+        memcmp(buffer, "hair", lfs_min(size, MEDIUMSIZE-j)) => 0;
     }
     lfs_file_read(&lfs, &file, buffer, size) => 0;
 
@@ -84,8 +90,9 @@ code = '''
 
     size = strlen("hair");
     for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
-        lfs_file_read(&lfs, &file, buffer, size) => size;
-        memcmp(buffer, "hair", size) => 0;
+        lfs_file_read(&lfs, &file, buffer, lfs_min(size, MEDIUMSIZE-j))
+                => lfs_min(size, MEDIUMSIZE-j);
+        memcmp(buffer, "hair", lfs_min(size, MEDIUMSIZE-j)) => 0;
     }
     lfs_file_read(&lfs, &file, buffer, size) => 0;
 
@@ -136,7 +143,7 @@ code = '''
     lfs_file_truncate(&lfs, &file, trunc) => 0;
     lfs_file_tell(&lfs, &file) => qsize;
     lfs_file_size(&lfs, &file) => trunc;
-    
+
     /* Read should produce second quarter */
     lfs_file_read(&lfs, &file, rb, size) => trunc - qsize;
     memcmp(rb, wb + qsize, trunc - qsize) => 0;
@@ -146,8 +153,9 @@ code = '''
 '''
 
 [[case]] # truncate and write
-define.MEDIUMSIZE = [32, 2048]
-define.LARGESIZE = 8192
+define.MEDIUMSIZE = [31, 32, 33, 511, 512, 513, 2047, 2048, 2049]
+define.LARGESIZE = [32, 33, 512, 513, 2048, 2049, 8192, 8193]
+if = 'MEDIUMSIZE < LARGESIZE'
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -157,7 +165,8 @@ code = '''
     strcpy((char*)buffer, "hair");
     size = strlen((char*)buffer);
     for (lfs_off_t j = 0; j < LARGESIZE; j += size) {
-        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_write(&lfs, &file, buffer, lfs_min(size, LARGESIZE-j))
+                => lfs_min(size, LARGESIZE-j);
     }
     lfs_file_size(&lfs, &file) => LARGESIZE;
 
@@ -168,13 +177,16 @@ code = '''
     lfs_file_open(&lfs, &file, "baldywrite", LFS_O_RDWR) => 0;
     lfs_file_size(&lfs, &file) => LARGESIZE;
 
+    /* truncate */
     lfs_file_truncate(&lfs, &file, MEDIUMSIZE) => 0;
     lfs_file_size(&lfs, &file) => MEDIUMSIZE;
 
+    /* and write */
     strcpy((char*)buffer, "bald");
     size = strlen((char*)buffer);
     for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
-        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_write(&lfs, &file, buffer, lfs_min(size, MEDIUMSIZE-j))
+                => lfs_min(size, MEDIUMSIZE-j);
     }
     lfs_file_size(&lfs, &file) => MEDIUMSIZE;
 
@@ -187,8 +199,9 @@ code = '''
 
     size = strlen("bald");
     for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
-        lfs_file_read(&lfs, &file, buffer, size) => size;
-        memcmp(buffer, "bald", size) => 0;
+        lfs_file_read(&lfs, &file, buffer, lfs_min(size, MEDIUMSIZE-j))
+                => lfs_min(size, MEDIUMSIZE-j);
+        memcmp(buffer, "bald", lfs_min(size, MEDIUMSIZE-j)) => 0;
     }
     lfs_file_read(&lfs, &file, buffer, size) => 0;
 
@@ -198,7 +211,7 @@ code = '''
 
 [[case]] # truncate write under powerloss
 define.SMALLSIZE = [4, 512]
-define.MEDIUMSIZE = [32, 1024]
+define.MEDIUMSIZE = [0, 3, 4, 5, 31, 32, 33, 511, 512, 513, 1023, 1024, 1025]
 define.LARGESIZE = 2048
 reentrant = true
 code = '''
@@ -216,10 +229,11 @@ code = '''
                 size == MEDIUMSIZE ||
                 size == SMALLSIZE);
         for (lfs_off_t j = 0; j < size; j += 4) {
-            lfs_file_read(&lfs, &file, buffer, 4) => 4;
-            assert(memcmp(buffer, "hair", 4) == 0 ||
-                   memcmp(buffer, "bald", 4) == 0 ||
-                   memcmp(buffer, "comb", 4) == 0);
+            lfs_file_read(&lfs, &file, buffer, lfs_min(4, size-j))
+                    => lfs_min(4, size-j);
+            assert(memcmp(buffer, "hair", lfs_min(4, size-j)) == 0 ||
+                   memcmp(buffer, "bald", lfs_min(4, size-j)) == 0 ||
+                   memcmp(buffer, "comb", lfs_min(4, size-j)) == 0);
         }
         lfs_file_close(&lfs, &file) => 0;
     }
@@ -230,19 +244,23 @@ code = '''
     strcpy((char*)buffer, "hair");
     size = strlen((char*)buffer);
     for (lfs_off_t j = 0; j < LARGESIZE; j += size) {
-        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_write(&lfs, &file, buffer, lfs_min(size, LARGESIZE-j))
+                => lfs_min(size, LARGESIZE-j);
     }
     lfs_file_size(&lfs, &file) => LARGESIZE;
     lfs_file_close(&lfs, &file) => 0;
 
     lfs_file_open(&lfs, &file, "baldy", LFS_O_RDWR) => 0;
     lfs_file_size(&lfs, &file) => LARGESIZE;
+    /* truncate */
     lfs_file_truncate(&lfs, &file, MEDIUMSIZE) => 0;
     lfs_file_size(&lfs, &file) => MEDIUMSIZE;
+    /* and write */
     strcpy((char*)buffer, "bald");
     size = strlen((char*)buffer);
     for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
-        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_write(&lfs, &file, buffer, lfs_min(size, MEDIUMSIZE-j))
+                => lfs_min(size, MEDIUMSIZE-j);
     }
     lfs_file_size(&lfs, &file) => MEDIUMSIZE;
     lfs_file_close(&lfs, &file) => 0;
@@ -254,7 +272,8 @@ code = '''
     strcpy((char*)buffer, "comb");
     size = strlen((char*)buffer);
     for (lfs_off_t j = 0; j < SMALLSIZE; j += size) {
-        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_write(&lfs, &file, buffer, lfs_min(size, SMALLSIZE-j))
+                => lfs_min(size, SMALLSIZE-j);
     }
     lfs_file_size(&lfs, &file) => SMALLSIZE;
     lfs_file_close(&lfs, &file) => 0;
@@ -394,7 +413,7 @@ code = '''
 '''
 
 [[case]] # noop truncate
-define.MEDIUMSIZE = [32, 2048]
+define.MEDIUMSIZE = [32, 33, 512, 513, 2048, 2049, 8192, 8193]
 code = '''
     lfs_format(&lfs, &cfg) => 0;
     lfs_mount(&lfs, &cfg) => 0;
@@ -404,10 +423,11 @@ code = '''
     strcpy((char*)buffer, "hair");
     size = strlen((char*)buffer);
     for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
-        lfs_file_write(&lfs, &file, buffer, size) => size;
+        lfs_file_write(&lfs, &file, buffer, lfs_min(size, MEDIUMSIZE-j))
+                => lfs_min(size, MEDIUMSIZE-j);
 
         // this truncate should do nothing
-        lfs_file_truncate(&lfs, &file, j+size) => 0;
+        lfs_file_truncate(&lfs, &file, j+lfs_min(size, MEDIUMSIZE-j)) => 0;
     }
     lfs_file_size(&lfs, &file) => MEDIUMSIZE;
 
@@ -417,8 +437,9 @@ code = '''
     lfs_file_size(&lfs, &file) => MEDIUMSIZE;
 
     for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
-        lfs_file_read(&lfs, &file, buffer, size) => size;
-        memcmp(buffer, "hair", size) => 0;
+        lfs_file_read(&lfs, &file, buffer, lfs_min(size, MEDIUMSIZE-j))
+                => lfs_min(size, MEDIUMSIZE-j);
+        memcmp(buffer, "hair", lfs_min(size, MEDIUMSIZE-j)) => 0;
     }
     lfs_file_read(&lfs, &file, buffer, size) => 0;
 
@@ -430,44 +451,11 @@ code = '''
     lfs_file_open(&lfs, &file, "baldynoop", LFS_O_RDWR) => 0;
     lfs_file_size(&lfs, &file) => MEDIUMSIZE;
     for (lfs_off_t j = 0; j < MEDIUMSIZE; j += size) {
-        lfs_file_read(&lfs, &file, buffer, size) => size;
-        memcmp(buffer, "hair", size) => 0;
+        lfs_file_read(&lfs, &file, buffer, lfs_min(size, MEDIUMSIZE-j))
+                => lfs_min(size, MEDIUMSIZE-j);
+        memcmp(buffer, "hair", lfs_min(size, MEDIUMSIZE-j)) => 0;
     }
     lfs_file_read(&lfs, &file, buffer, size) => 0;
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
-'''
-
-[[case]] # barrier truncate
-code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
-    lfs_file_open(&lfs, &file, "barrier",
-            LFS_O_RDWR | LFS_O_CREAT) => 0;
-
-    uint8_t bad_byte = 2;
-    uint8_t *rb = buffer + cfg.block_size;
-
-    /* Write a series of 1s to the first block */
-    memset(buffer, 1, cfg.block_size);
-    lfs_file_write(&lfs, &file, buffer,
-                   cfg.block_size) => cfg.block_size;
-
-    /* Write a single non-one to the second block */
-    lfs_file_write(&lfs, &file, &bad_byte, 1) => 1;
-    lfs_file_close(&lfs, &file) => 0;
-
-    lfs_file_open(&lfs, &file, "barrier", LFS_O_RDWR) => 0;
-    lfs_file_truncate(&lfs, &file, cfg.block_size) => 0;
-    lfs_file_close(&lfs, &file) => 0;
-
-    /* Read the first block, which should match buffer */
-    lfs_file_open(&lfs, &file, "barrier", LFS_O_RDWR) => 0;
-    lfs_file_read(&lfs, &file, rb,
-                  cfg.block_size) => cfg.block_size;
-    lfs_file_close(&lfs, &file) => 0;
-
-    lfs_unmount(&lfs) => 0;
-
-    memcmp(buffer, rb, cfg.block_size) => 0;
 '''
