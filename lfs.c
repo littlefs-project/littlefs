@@ -3348,7 +3348,7 @@ static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
                     // find out which block we're extending from
                     int err = lfs_ctz_find(lfs, NULL, &file->cache,
                             file->ctz.head, file->ctz.size,
-                            file->pos-1, &file->block, &file->off);
+                            file->pos-1, &file->block, &(lfs_off_t){0});
                     if (err) {
                         file->flags |= LFS_F_ERRED;
                         return err;
@@ -3535,7 +3535,7 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         // lookup new head in ctz skip list
         err = lfs_ctz_find(lfs, NULL, &file->cache,
                 file->ctz.head, file->ctz.size,
-                size, &file->block, &file->off);
+                size-lfs_min(1, size), &file->block, &(lfs_off_t){0});
         if (err) {
             return err;
         }
