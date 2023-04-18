@@ -2595,11 +2595,6 @@ static int lfs_dir_rawseek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
     dir->id = (off > 0 && lfs_pair_cmp(dir->head, lfs->root) == 0);
 
     while (off > 0) {
-        int diff = lfs_min(dir->m.count - dir->id, off);
-        dir->id += diff;
-        dir->pos += diff;
-        off -= diff;
-
         if (dir->id == dir->m.count) {
             if (!dir->m.split) {
                 return LFS_ERR_INVAL;
@@ -2612,6 +2607,11 @@ static int lfs_dir_rawseek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off) {
 
             dir->id = 0;
         }
+
+        int diff = lfs_min(dir->m.count - dir->id, off);
+        dir->id += diff;
+        dir->pos += diff;
+        off -= diff;
     }
 
     return 0;
