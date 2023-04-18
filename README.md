@@ -227,9 +227,9 @@ License Identifiers that are here available: http://spdx.org/licenses/
   your needs, create images for a later download to the target memory or
   inspect the content of a binary image of the target memory.
   
-- [littlefs2-rust] - Idiomatic Rust API for the littlefs microcontroller
-  filesystem with ow-level bindings provided by the [littlefs2-sys] crate.
-  
+- [littlefs2-rust] - A Rust wrapper for littlefs. This project allows you
+  to use littlefs in a Rust-friendly API, reaping the benefits of Rust's memory
+  safety and other guarantees.
 
 - [mklfs] - A command line tool built by the [Lua RTOS] guys for making
   littlefs images from a host PC. Supports Windows, Mac OS, and Linux.
@@ -261,4 +261,3 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [Dhara]: https://github.com/dlbeer/dhara
 [littlefs-python]: https://pypi.org/project/littlefs-python/
 [littlefs2-rust]: https://crates.io/crates/littlefs2
-[littlefs2-sys]: https://crates.io/crates/littlefs2-sys
