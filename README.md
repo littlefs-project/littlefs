@@ -248,7 +248,7 @@ License Identifiers that are here available: http://spdx.org/licenses/
 
 
 [BSD-3-Clause]: https://spdx.org/licenses/BSD-3-Clause.html
-[littlefs-disk-img-viewer]: https://tniessen.github.io/littlefs-disk-img-viewer/
+[littlefs-disk-img-viewer]: https://github.com/tniessen/littlefs-disk-img-viewer
 [littlefs-fuse]: https://github.com/geky/littlefs-fuse
 [FUSE]: https://github.com/libfuse/libfuse
 [littlefs-js]: https://github.com/geky/littlefs-js
