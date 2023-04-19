@@ -107,7 +107,10 @@ def main(from_prefix, to_prefix, paths=[], *,
         elif no_renames:
             to_path = from_path
         else:
-            to_path, _ = changeprefix(from_prefix, to_prefix, from_path)
+            to_path = os.path.join(
+                os.path.dirname(from_path),
+                changeprefix(from_prefix, to_prefix,
+                    os.path.basename(from_path))[0])
 
         # rename contents
         changefile(from_prefix, to_prefix, from_path, to_path,
