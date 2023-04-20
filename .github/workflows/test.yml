@@ -473,6 +473,42 @@ jobs:
           path: status
           retention-days: 1
 
+  # run compatibility tests using the current master as the previous version
+  test-compat:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+        if: ${{github.event_name == 'pull_request'}}
+      # checkout the current pr target into lfsp
+      - uses: actions/checkout@v2
+        if: ${{github.event_name == 'pull_request'}}
+        with:
+          ref: ${{github.event.pull_request.base.ref}}
+          path: lfsp
+      - name: install
+        if: ${{github.event_name == 'pull_request'}}
+        run: |
+          # need a few things
+          sudo apt-get update -qq
+          sudo apt-get install -qq gcc python3 python3-pip
+          pip3 install toml
+          gcc --version
+          python3 --version
+      # adjust prefix of lfsp
+      - name: changeprefix
+        if: ${{github.event_name == 'pull_request'}}
+        run: |
+          ./scripts/changeprefix.py lfs lfsp lfsp/*.h lfsp/*.c
+      - name: test-compat
+        if: ${{github.event_name == 'pull_request'}}
+        run: |
+          TESTS=tests/test_compat.toml \
+            SRC="$(find . lfsp -name '*.c' -maxdepth 1 \
+                -and -not -name '*.t.*' \
+                -and -not -name '*.b.*')" \
+            CFLAGS="-DLFSP=lfsp/lfsp.h" \
+            make test
+
   # self-host with littlefs-fuse for a fuzz-like test
   fuse:
     runs-on: ubuntu-22.04
