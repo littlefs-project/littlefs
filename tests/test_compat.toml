@@ -1276,3 +1276,85 @@ code = '''
     // mount should now fail
     lfs_mount(&lfs, cfg) => LFS_ERR_INVAL;
 '''
+
+# test that we correctly bump the minor version
+[cases.test_compat_minor_bump]
+in = 'lfs.c'
+if = 'LFS_DISK_VERSION_MINOR > 0'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "test",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs_file_write(&lfs, &file, "testtest", 8) => 8;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // write an old minor version
+    //
+    // note we're messing around with internals to do this! this
+    // is not a user API
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_mdir_t mdir;
+    lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
+    lfs_superblock_t superblock = {
+        .version     = LFS_DISK_VERSION - 0x00000001,
+        .block_size  = lfs.cfg->block_size,
+        .block_count = lfs.cfg->block_count,
+        .name_max    = lfs.name_max,
+        .file_max    = lfs.file_max,
+        .attr_max    = lfs.attr_max,
+    };
+    lfs_superblock_tole32(&superblock);
+    lfs_dir_commit(&lfs, &mdir, LFS_MKATTRS(
+            {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock})) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // mount should still work
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_open(&lfs, &file, "test", LFS_O_RDONLY) => 0;
+    uint8_t buffer[8];
+    lfs_file_read(&lfs, &file, buffer, 8) => 8;
+    assert(memcmp(buffer, "testtest", 8) == 0);
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // if we write, we need to bump the minor version
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_open(&lfs, &file, "test", LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+    lfs_file_write(&lfs, &file, "teeeeest", 8) => 8;
+    lfs_file_close(&lfs, &file) => 0;
+
+    // minor version should have changed
+    lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
+    lfs_dir_get(&lfs, &mdir, LFS_MKTAG(0x7ff, 0x3ff, 0),
+            LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+            &superblock)
+            => LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock));
+    lfs_superblock_fromle32(&superblock);
+    assert((superblock.version >> 16) & 0xffff == LFS_DISK_VERSION_MAJOR);
+    assert((superblock.version >>  0) & 0xffff == LFS_DISK_VERSION_MINOR);
+    lfs_unmount(&lfs) => 0;
+
+    // and of course mount should still work
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_open(&lfs, &file, "test", LFS_O_RDONLY) => 0;
+    lfs_file_read(&lfs, &file, buffer, 8) => 8;
+    assert(memcmp(buffer, "teeeeest", 8) == 0);
+    lfs_file_close(&lfs, &file) => 0;
+
+    // minor version should have changed
+    lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
+    lfs_dir_get(&lfs, &mdir, LFS_MKTAG(0x7ff, 0x3ff, 0),
+            LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+            &superblock)
+            => LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock));
+    lfs_superblock_fromle32(&superblock);
+    assert((superblock.version >> 16) & 0xffff == LFS_DISK_VERSION_MAJOR);
+    assert((superblock.version >>  0) & 0xffff == LFS_DISK_VERSION_MINOR);
+    lfs_unmount(&lfs) => 0;
+'''

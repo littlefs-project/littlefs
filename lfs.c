@@ -411,11 +411,15 @@ static inline bool lfs_gstate_hasorphans(const lfs_gstate_t *a) {
 }
 
 static inline uint8_t lfs_gstate_getorphans(const lfs_gstate_t *a) {
-    return lfs_tag_size(a->tag);
+    return lfs_tag_size(a->tag) & 0x1ff;
 }
 
 static inline bool lfs_gstate_hasmove(const lfs_gstate_t *a) {
     return lfs_tag_type1(a->tag);
+}
+
+static inline bool lfs_gstate_needssuperblock(const lfs_gstate_t *a) {
+    return lfs_tag_size(a->tag) >> 9;
 }
 #endif
 
@@ -533,6 +537,7 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file);
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file);
 
 static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss);
+static void lfs_fs_prepsuperblock(lfs_t *lfs, bool needssuperblock);
 static int lfs_fs_preporphans(lfs_t *lfs, int8_t orphans);
 static void lfs_fs_prepmove(lfs_t *lfs,
         uint16_t id, const lfs_block_t pair[2]);
@@ -4258,10 +4263,27 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
             uint16_t minor_version = (0xffff & (superblock.version >>  0));
             if ((major_version != LFS_DISK_VERSION_MAJOR ||
                  minor_version > LFS_DISK_VERSION_MINOR)) {
-                LFS_ERROR("Invalid version v%"PRIu16".%"PRIu16,
-                        major_version, minor_version);
+                LFS_ERROR("Invalid version "
+                        "v%"PRIu16".%"PRIu16" != v%"PRIu16".%"PRIu16,
+                        major_version, minor_version,
+                        LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
                 err = LFS_ERR_INVAL;
                 goto cleanup;
+            }
+
+            // found older minor version? set an in-device only bit in the
+            // gstate so we know we need to rewrite the superblock before
+            // the first write
+            if (minor_version < LFS_DISK_VERSION_MINOR) {
+                LFS_DEBUG("Found older minor version "
+                        "v%"PRIu16".%"PRIu16" < v%"PRIu16".%"PRIu16,
+                        major_version, minor_version,
+                        LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
+            #ifndef LFS_READONLY
+                // note this bit is reserved on disk, so fetching more gstate
+                // will not interfere here
+                lfs_fs_prepsuperblock(lfs, true);
+            #endif
             }
 
             // check superblock configuration
@@ -4538,9 +4560,16 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
 #endif
 
 #ifndef LFS_READONLY
+static void lfs_fs_prepsuperblock(lfs_t *lfs, bool needssuperblock) {
+    lfs->gstate.tag = (lfs->gstate.tag & ~LFS_MKTAG(0, 0, 0x200))
+            | (uint32_t)needssuperblock << 9;
+}
+#endif
+
+#ifndef LFS_READONLY
 static int lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
     LFS_ASSERT(lfs_tag_size(lfs->gstate.tag) > 0x000 || orphans >= 0);
-    LFS_ASSERT(lfs_tag_size(lfs->gstate.tag) < 0x3ff || orphans <= 0);
+    LFS_ASSERT(lfs_tag_size(lfs->gstate.tag) < 0x1ff || orphans <= 0);
     lfs->gstate.tag += orphans;
     lfs->gstate.tag = ((lfs->gstate.tag & ~LFS_MKTAG(0x800, 0, 0)) |
             ((uint32_t)lfs_gstate_hasorphans(&lfs->gstate) << 31));
@@ -4556,6 +4585,45 @@ static void lfs_fs_prepmove(lfs_t *lfs,
             ((id != 0x3ff) ? LFS_MKTAG(LFS_TYPE_DELETE, id, 0) : 0));
     lfs->gstate.pair[0] = (id != 0x3ff) ? pair[0] : 0;
     lfs->gstate.pair[1] = (id != 0x3ff) ? pair[1] : 0;
+}
+#endif
+
+#ifndef LFS_READONLY
+static int lfs_fs_desuperblock(lfs_t *lfs) {
+    if (!lfs_gstate_needssuperblock(&lfs->gstate)) {
+        return 0;
+    }
+
+    LFS_DEBUG("Rewriting superblock {0x%"PRIx32", 0x%"PRIx32"}",
+            lfs->root[0],
+            lfs->root[1]);
+
+    lfs_mdir_t root;
+    int err = lfs_dir_fetch(lfs, &root, lfs->root);
+    if (err) {
+        return err;
+    }
+
+    // write a new superblock
+    lfs_superblock_t superblock = {
+        .version     = LFS_DISK_VERSION,
+        .block_size  = lfs->cfg->block_size,
+        .block_count = lfs->cfg->block_count,
+        .name_max    = lfs->name_max,
+        .file_max    = lfs->file_max,
+        .attr_max    = lfs->attr_max,
+    };
+
+    lfs_superblock_tole32(&superblock);
+    err = lfs_dir_commit(lfs, &root, LFS_MKATTRS(
+            {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock}));
+    if (err) {
+        return err;
+    }
+
+    lfs_fs_prepsuperblock(lfs, false);
+    return 0;
 }
 #endif
 
@@ -4736,7 +4804,12 @@ static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss) {
 
 #ifndef LFS_READONLY
 static int lfs_fs_forceconsistency(lfs_t *lfs) {
-    int err = lfs_fs_demove(lfs);
+    int err = lfs_fs_desuperblock(lfs);
+    if (err) {
+        return err;
+    }
+
+    err = lfs_fs_demove(lfs);
     if (err) {
         return err;
     }
