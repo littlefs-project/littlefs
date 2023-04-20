@@ -2236,7 +2236,7 @@ static int lfs_dir_orphaningcommit(lfs_t *lfs, lfs_mdir_t *dir,
 
     // need to relocate?
     bool orphans = false;
-    while (state == LFS_OK_RELOCATED) {
+    do {
         LFS_DEBUG("Relocating {0x%"PRIx32", 0x%"PRIx32"} "
                     "-> {0x%"PRIx32", 0x%"PRIx32"}",
                 lpair[0], lpair[1], ldir.pair[0], ldir.pair[1]);
@@ -2357,7 +2357,7 @@ static int lfs_dir_orphaningcommit(lfs_t *lfs, lfs_mdir_t *dir,
 
             ldir = pdir;
         }
-    }
+    }while (state == LFS_OK_RELOCATED);
 
     return orphans ? LFS_OK_ORPHANED : 0;
 }
