@@ -1,15 +1,5 @@
-ifdef BUILDDIR
-# bit of a hack, but we want to make sure BUILDDIR directory structure
-# is correct before any commands
-$(if $(findstring n,$(MAKEFLAGS)),, $(shell mkdir -p \
-	$(BUILDDIR)/ \
-	$(BUILDDIR)/bd \
-	$(BUILDDIR)/runners \
-	$(BUILDDIR)/tests \
-	$(BUILDDIR)/benches))
-endif
+# overrideable build dir, default is in-place
 BUILDDIR ?= .
-
 # overridable target/src/tools/flags/etc
 ifneq ($(wildcard test.c main.c),)
 TARGET ?= $(BUILDDIR)/lfs
@@ -161,6 +151,18 @@ endif
 ifneq ($(PERF),perf)
 TESTFLAGS  += --perf-path="$(PERF)"
 BENCHFLAGS += --perf-path="$(PERF)"
+endif
+
+# this is a bit of a hack, but we want to make sure the BUILDDIR
+# directory structure is correct before we run any commands
+ifneq ($(BUILDDIR),.)
+$(if $(findstring n,$(MAKEFLAGS)),, $(shell mkdir -p \
+	$(addprefix $(BUILDDIR)/,$(dir \
+		$(SRC) \
+		$(TESTS) \
+		$(TEST_SRC) \
+		$(BENCHES) \
+		$(BENCH_SRC)))))
 endif
 
 
@@ -512,6 +514,9 @@ $(BUILDDIR)/runners/bench_runner: $(BENCH_OBJ)
 # our main build rule generates .o, .d, and .ci files, the latter
 # used for stack analysis
 $(BUILDDIR)/%.o $(BUILDDIR)/%.ci: %.c
+	$(CC) -c -MMD $(CFLAGS) $< -o $(BUILDDIR)/$*.o
+
+$(BUILDDIR)/%.o $(BUILDDIR)/%.ci: $(BUILDDIR)/%.c
 	$(CC) -c -MMD $(CFLAGS) $< -o $(BUILDDIR)/$*.o
 
 $(BUILDDIR)/%.s: %.c
