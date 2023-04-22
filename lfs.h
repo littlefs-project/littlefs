@@ -344,16 +344,6 @@ typedef struct lfsr_rbyd {
     uint32_t crc;
 } lfsr_rbyd_t;
 
-//typedef struct lfsr_btree {
-//    // TODO do we need this field? it's needed for inlined
-//    // btrees but is redundent when we have an rbyd
-//    // a weight of zero indicates no tree
-//    lfs_size_t weight;
-//    // a limit of zero indicates an inlined tree
-//    lfs_size_t limit;
-//    lfs_block_t trunk;
-//} lfsr_btree_t;
-
 // The maximum size of inlined pointers in a btree, this depends on littlefs's
 // on-disk pointer representations (there are several), but doesn't change at
 // runtime.
@@ -380,26 +370,11 @@ typedef union lfsr_btree {
     } inlined;
 } lfsr_btree_t;
 
-//typedef struct lfsr_branch {
-//    lfs_block_t block;
-//    lfs_size_t limit;
-//} lfsr_branch_t;
-//
-//typedef struct lfsr_btree {
-//    lfs_size_t weight;
-//    // TODO do we need full tag actually? this fits in a byte?
-//    lfsr_tag_t tag;
-//    // how can we take advantage of byte packing with union alignment?
-//    union {
-//        struct {
-//            uint8_t size;
-//            uint8_t buffer[LFSR_BTREE_INLINESIZE];
-//        } inlined;
-//
-//        // if we're not inlined, point to the trunk rbyd block of the btree
-//        lfsr_branch_t trunk;
-//    } u;
-//} lfsr_btree_t;
+typedef struct lfsr_mdir {
+    lfsr_rbyd_t rbyd;
+    lfs_block_t other_block;
+} lfsr_mdir_t;
+
 
 typedef struct lfs_mdir {
     lfs_block_t pair[2];
@@ -506,6 +481,7 @@ typedef struct lfs {
 //
 // Returns a negative error code on failure.
 int lfs_format(lfs_t *lfs, const struct lfs_config *config);
+int lfsr_format(lfs_t *lfs, const struct lfs_config *config);
 #endif
 
 // Mounts a littlefs
@@ -517,12 +493,14 @@ int lfs_format(lfs_t *lfs, const struct lfs_config *config);
 //
 // Returns a negative error code on failure.
 int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
+int lfsr_mount(lfs_t *lfs, const struct lfs_config *config);
 
 // Unmounts a littlefs
 //
 // Does nothing besides releasing any allocated resources.
 // Returns a negative error code on failure.
 int lfs_unmount(lfs_t *lfs);
+int lfsr_unmount(lfs_t *lfs);
 
 /// General operations ///
 

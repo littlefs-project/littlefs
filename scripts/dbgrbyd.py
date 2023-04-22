@@ -17,20 +17,23 @@ COLORS = [
 ]
 
 
-TAG_UNR     = 0x0002
-TAG_NAME    = 0x1000
-TAG_BNAME   = 0x1000
-TAG_REG     = 0x1010
-TAG_DIR     = 0x1020
-TAG_STRUCT  = 0x3000
-TAG_INLINED = 0x3000
-TAG_BLOCK   = 0x3100
-TAG_BRANCH  = 0x3200
-TAG_BTREE   = 0x3300
-TAG_UATTR   = 0x4000
-TAG_ALT     = 0x0008
-TAG_CRC     = 0x0004
-TAG_FCRC    = 0x1004
+TAG_UNR         = 0x0002
+TAG_SUPERMAGIC  = 0x0030
+TAG_SUPERCONFIG = 0x0040
+TAG_SUPERMDIR   = 0x0110
+TAG_NAME        = 0x1000
+TAG_BNAME       = 0x1000
+TAG_REG         = 0x1010
+TAG_DIR         = 0x1020
+TAG_STRUCT      = 0x3000
+TAG_INLINED     = 0x3000
+TAG_BLOCK       = 0x3100
+TAG_BRANCH      = 0x3200
+TAG_BTREE       = 0x3300
+TAG_UATTR       = 0x4000
+TAG_ALT         = 0x0008
+TAG_CRC         = 0x0004
+TAG_FCRC        = 0x1004
 
 def rbydaddr(s):
     if '.' in s:
@@ -98,6 +101,21 @@ def tagrepr(tag, w, size, off=None):
         return 'unr%s%s' % (
             ' w%d' % w if w else '',
             ' %d' % size if size else '')
+    elif (tag & 0xfffc) == TAG_SUPERMAGIC:
+        return '%ssupermagic%s %d' % (
+            'rm' if tag & 0x2 else '',
+            ' w%d' % w if w else '',
+            size)
+    elif (tag & 0xfffc) == TAG_SUPERCONFIG:
+        return '%ssuperconfig%s %d' % (
+            'rm' if tag & 0x2 else '',
+            ' w%d' % w if w else '',
+            size)
+    elif (tag & 0xfffc) == TAG_SUPERMDIR:
+        return '%ssupermdir%s %d' % (
+            'rm' if tag & 0x2 else '',
+            ' w%d' % w if w else '',
+            size)
     elif (tag & 0xf00c) == TAG_NAME:
         return '%s%s%s %d' % (
             'rm' if tag & 0x2 else '',

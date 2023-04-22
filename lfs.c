@@ -452,6 +452,10 @@ enum lfsr_tag_type {
     LFSR_TAG_UNR            = 0x0002,
     LFSR_TAG_MKUNR          = 0x0006, // in-device only
 
+    LFSR_TAG_SUPERMAGIC     = 0x0030,
+    LFSR_TAG_SUPERCONFIG    = 0x0040,
+    LFSR_TAG_SUPERMDIR      = 0x0110,
+
     LFSR_TAG_NAME           = 0x1000,
     LFSR_TAG_BNAME          = 0x1000,
     LFSR_TAG_MKBNAME        = 0x1004, // in-device only
@@ -2589,7 +2593,7 @@ static lfs_ssize_t lfsr_branch_fromdisk(
     branch->crc = lfs_fromle32_(&buffer[d]);
     d += 4;
 
-    return 4;
+    return d;
 }
 
 
@@ -3968,22 +3972,503 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
 
 /// Metadata pair operations ///
 
-//static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t mdir,
-//        lfs_block_t block1, lfs_block_t block2,
-//        struct lfsr_pat *patterns) {
-//}
+typedef struct lfsr_mpair {
+    lfs_block_t blocks[2];
+} lfsr_mpair_t;
+
+#define LFSR_MPAIR(block0, block1) ((lfsr_mpair_t){.blocks={block0, block1}})
+
+// 2 leb128 => 10 bytes (worst case)
+#define LFSR_MPAIR_DSIZE (5+5)
+
+static lfs_ssize_t lfsr_mpair_todisk(
+        lfsr_mpair_t mpair,
+        uint8_t buffer[static LFSR_MPAIR_DSIZE]) {
+    lfs_ssize_t d = 0;
+    for (int i = 0; i < 2; i++) {
+        lfs_ssize_t d_ = lfs_toleb128(mpair.blocks[i], &buffer[d], 5);
+        if (d_ < 0) {
+            return d_;
+        }
+        d += d_;
+    }
+
+    return d;
+}
+
+// TODO should our fromdisk functions accept an lfsr_data_t?
+static lfs_ssize_t lfsr_mpair_fromdisk(
+        lfsr_mpair_t *mpair,
+        const uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
+    lfs_ssize_t d = 0;
+    for (int i = 0; i < 2; i++) {
+        lfs_ssize_t d_ = lfs_fromleb128(&mpair->blocks[i], &buffer[d], 5);
+        if (d_ < 0) {
+            return d_;
+        }
+        d += d_;
+    }
+
+    return d;
+}
+
+static lfsr_mpair_t lfsr_mdir_mpair(const lfsr_mdir_t *mdir) {
+    return LFSR_MPAIR(mdir->rbyd.block, mdir->other_block);
+}
+
+static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mpair_t mpair,
+        lfsr_find_t *find) {
+    // read both revision counts, try to figure out which block
+    // has the most recent revision
+    uint32_t revs[2] = {0, 0};
+    for (int i = 0; i < 2; i++) {
+        int err = lfs_bd_read(lfs,
+                NULL, &lfs->rcache, sizeof(revs[0]),
+                mpair.blocks[0], 0, &revs[0], sizeof(revs[0]));
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+
+        if (i == 0
+                || err == LFS_ERR_CORRUPT
+                || lfs_scmp(revs[1], revs[0]) > 0) {
+            lfs_swap32(&mpair.blocks[0], &mpair.blocks[1]);
+            lfs_swap32(&revs[0], &revs[1]);
+        }
+    }
+
+    // try to fetch rbyds in the order of most recent to least recent
+    for (int i = 0;; i++) {
+        int err = lfsr_rbyd_fetch(lfs, &mdir->rbyd, mpair.blocks[0], 0, find);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+
+        if (err) {
+            // could not find a non-corrupt rbyd
+            if (i >= 2-1) {
+                return LFS_ERR_CORRUPT;
+            }
+
+            lfs_swap32(&mpair.blocks[0], &mpair.blocks[1]);
+            lfs_swap32(&revs[0], &revs[1]);
+            continue;
+        }
+
+        break;
+    }
+
+    // keep track of other block for compactions
+    mdir->other_block = mpair.blocks[1];
+    return 0;
+}
+
+static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
+        lfs_ssize_t id, lfsr_tag_t tag,
+        lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
+        lfsr_data_t *data_) {
+    return lfsr_rbyd_lookup(lfs, &mdir->rbyd, id, tag,
+            id_, tag_, weight_, data_);
+}
+
+static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
+        lfs_ssize_t id, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
+    return lfsr_rbyd_get(lfs, &mdir->rbyd, id, tag, buffer, size);
+}
+
+static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
+        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+    // try to commit
+    int err = lfsr_rbyd_commit(lfs, &mdir->rbyd, attrs, attr_count);
+    if (err && err != LFS_ERR_RANGE) {
+        //TODO should we also move if there is corruption here?
+        return err;
+    }
+
+    // can't commit, try to compact
+    // TODO splits
+    // TODO relocations
+    if (err) {
+        // prepare the other block
+        // TODO rev quirks?
+        lfsr_rbyd_t rbyd_ = (lfsr_rbyd_t){
+            .block=mdir->other_block,
+            .rev=mdir->rbyd.rev+1,
+            .off=0,
+            .trunk=0
+        };
+
+        int err = lfs_bd_erase(lfs, rbyd_.block);
+        if (err) {
+            return err;
+        }
+
+        // try to copy over ids
+        lfs_ssize_t id = 0;
+        lfsr_tag_t tag = 0;
+        while (true) {
+            lfs_size_t w;
+            lfsr_data_t data;
+            err = lfsr_rbyd_lookup(lfs, &mdir->rbyd, id, lfsr_tag_next(tag),
+                    &id, &tag, &w, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            // append the attr
+            err = lfsr_rbyd_append(lfs, &rbyd_,
+                    id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
+                    data);
+            if (err) {
+                return err;
+            }
+
+            // TODO split on exceeding 1/2 block size
+            // keep rbyd < our compaction threshold (1/2) to avoid
+            // degenerate cases
+            if (rbyd_.off > lfs->cfg->block_size/2) {
+                // TODO
+            }
+        }
+
+        // append any pending attrs, it's up to upper
+        // layers to make sure these always fit
+        err = lfsr_rbyd_commit(lfs, &rbyd_, attrs, attr_count);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        // update our mdir
+        mdir->other_block = mdir->rbyd.block;
+        mdir->rbyd = rbyd_;
+    }
+
+    // done
+    return 0;
+}
+
+
+/// Superblock things ///
+
+typedef struct lfsr_superconfig {
+    uint8_t major_version;
+    uint8_t minor_version;
+    uint8_t csum_type;
+    uint8_t flags;
+    lfs_size_t block_size;
+    lfs_off_t block_count;
+    uint8_t utag_limit;
+    lfs_size_t attr_limit;
+    lfs_size_t name_limit;
+    lfs_off_t file_limit;
+} lfsr_superconfig_t;
+
+// These are all leb128s, but we can expect smaller encodings
+// if we assume the version.
 //
-//static lfsr_stag_t lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
-//        lfsr_tag_t tag, lfs_off_t *off, lfs_size_t *size) {
-//}
-//
-//static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
-//        lfsr_tag_t tag, void *buffer, lfs_size_t size) {
-//}
-//
-//static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
-//        const struct lfsr_attr *attrs) {
-//}
+// - 7-bit major_version => 1 byte leb128 (worst case)
+// - 7-bit minor_version => 1 byte leb128 (worst case)
+// - 7-bit csum_type     => 1 byte leb128 (worst case)
+// - 7-bit flags         => 1 byte leb128 (worst case)
+// - 32-bit block_size   => 5 byte leb128 (worst case)
+// - 32-bit block_count  => 5 byte leb128 (worst case)
+// - 7-bit utag_limit    => 1 byte leb128 (worst case)
+// - 32-bit attr_limit   => 5 byte leb128 (worst case)
+// - 32-bit name_limit   => 5 byte leb128 (worst case)
+// - 32-bit file_limit   => 5 byte leb128 (worst case)
+//                       => 30 bytes total
+// 
+#define LFSR_SUPERCONFIG_DSIZE (1+1+1+1+5+5+1+5+5+5)
+
+static lfs_ssize_t lfsr_superconfig_todisk(
+        const lfsr_superconfig_t *superconfig,
+        uint8_t buffer[static LFSR_SUPERCONFIG_DSIZE]) {
+    // shortcut the single-byte lebs
+    buffer[0] = superconfig->major_version;
+    buffer[1] = superconfig->minor_version;
+    buffer[2] = superconfig->csum_type;
+    buffer[3] = superconfig->flags;
+
+    lfs_ssize_t d = 4;
+    lfs_ssize_t d_ = lfs_toleb128(superconfig->block_size, &buffer[d], 5);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
+
+    d_ = lfs_toleb128(superconfig->block_count, &buffer[d], 5);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
+
+    buffer[d] = superconfig->utag_limit;
+    d += 1;
+
+    d_ = lfs_toleb128(superconfig->attr_limit, &buffer[d], 5);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
+
+    d_ = lfs_toleb128(superconfig->name_limit, &buffer[d], 5);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
+
+    d_ = lfs_toleb128(superconfig->file_limit, &buffer[d], 5);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
+
+    return d;
+}
+
+
+/// Filesystem init functions ///
+
+static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg);
+static int lfs_deinit(lfs_t *lfs);
+
+int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
+    int err = lfs_init(lfs, cfg);
+    if (err) {
+        return err;
+    }
+
+    uint8_t buf[LFSR_SUPERCONFIG_DSIZE];
+    lfs_ssize_t d = lfsr_superconfig_todisk(
+            &(lfsr_superconfig_t){
+                .major_version=LFS_DISK_VERSION_MAJOR,
+                .minor_version=LFS_DISK_VERSION_MINOR,
+                .csum_type=2,
+                .flags=0,
+                .block_size=lfs->cfg->block_size,
+                .block_count=lfs->cfg->block_count,
+                // TODO these should be defines
+                .utag_limit=0x7f,
+                .attr_limit=0x7fffffff,
+                .name_limit=0xff,
+                .file_limit=0x7fffffff,
+            },
+            buf);
+    if (d < 0) {
+        err = d;
+        goto failed;
+    }
+
+    for (int i = 0; i < 2; i++) {
+        // write superblock to both rbyds in the root supermdir to hopefully
+        // avoid mounting an older filesystem on disk
+        lfsr_rbyd_t rbyd = {.block=i, .rev=1, .off=0, .trunk=0};
+
+        err = lfs_bd_erase(lfs, rbyd.block);
+        if (err) {
+            goto failed;
+        }
+
+        err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
+                LFSR_ATTR(-1, SUPERMAGIC, 0, "littlefs", 8),
+                LFSR_ATTR(-1, SUPERCONFIG, 0, buf, d)));
+        if (err) {
+            goto failed;
+        }
+    }
+
+    // try to fetch the supermdir to check if format completed successfully
+    lfsr_mdir_t mdir;
+    err = lfsr_mdir_fetch(lfs, &mdir, LFSR_MPAIR(0, 1), NULL);
+    if (err) {
+        goto failed;
+    }
+
+    return lfs_deinit(lfs);
+
+failed:
+    lfs_deinit(lfs);
+    return err;
+}
+
+int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
+    int err = lfs_init(lfs, cfg);
+    if (err) {
+        return err;
+    }
+
+    // scan for the first non-fake superblock
+    lfsr_mpair_t mpair = LFSR_MPAIR(0, 1);
+    lfsr_mdir_t mdir;
+    while (true) {
+        // TODO detect cycles with Brent's algorithm
+
+        // fetch next possible superblock
+        int err = lfsr_mdir_fetch(lfs, &mdir, mpair, NULL);
+        if (err) {
+            LFS_ERROR("No littlefs superblock found");
+            goto failed;
+        }
+
+        // has magic string?
+        lfs_ssize_t id;
+        lfsr_tag_t tag;
+        lfsr_data_t data;
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERMAGIC,
+                &id, &tag, NULL, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            goto failed;
+        }
+
+        if (err
+                || id != -1
+                || tag != LFSR_TAG_SUPERMAGIC
+                || lfsr_data_size(data) != 8) {
+            LFS_ERROR("No littlefs magic found");
+            err = LFS_ERR_INVAL;
+            goto failed;
+        }
+
+        // TODO we should have a function for this with lfsr_data_t
+        LFS_ASSERT(lfsr_data_ondisk(data));
+        int cmp = lfs_bd_cmp(lfs,
+                NULL, &lfs->rcache, 8,
+                data.disk.block, data.disk.off, "littlefs", 8);
+        if (cmp < 0) {
+            err = cmp;
+            goto failed;
+        }
+
+        if (cmp != LFS_CMP_EQ) {
+            LFS_ERROR("No littlefs magic found");
+            err = LFS_ERR_INVAL;
+            goto failed;
+        }
+
+        // lookup the superconfig
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERCONFIG,
+                &id, &tag, NULL, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            goto failed;
+        }
+
+        if (!(err
+                || id != -1
+                || tag != LFSR_TAG_SUPERCONFIG)) {
+            // check the major/minor version
+            uint32_t major_version;
+            uint32_t minor_version;
+
+            // TODO leb128 decoder for lfsr_data_t?
+            uint8_t buf[5];
+            lfs_size_t d = 0;
+            LFS_ASSERT(lfsr_data_ondisk(data));
+            // TODO can we do this differently?
+            // force truncated to overflow
+            memset(buf, 0xff, 5);
+            int err = lfs_bd_read(lfs,
+                    NULL, &lfs->rcache, 5,
+                    data.disk.block, data.disk.off+d, buf,
+                    // TODO this is a bit gross, and repeated a bunch,
+                    // can we simplify this?
+                    lfs_min32(5, lfs_max32(lfsr_data_size(data), d)-d));
+            if (err) {
+                goto failed;
+            }
+
+            lfs_ssize_t d_ = lfs_fromleb128(&major_version, buf, 5);
+            if (d_ < 0) {
+                // just treat overflow as an out-of-range value
+                major_version = -1;
+                d_ = 5;
+            }
+            d += d_;
+
+            // force truncated lebs to overflow
+            memset(buf, 0xff, 5);
+            err = lfs_bd_read(lfs,
+                    NULL, &lfs->rcache, 5,
+                    data.disk.block, data.disk.off+d, buf,
+                    lfs_min32(5, lfs_max32(lfsr_data_size(data), d)-d));
+            if (err) {
+                goto failed;
+            }
+
+            d_ = lfs_fromleb128(&minor_version, buf, 5);
+            if (d_ < 0) {
+                // just treat overflow as an out-of-range value
+                minor_version = -1;
+                d_ = 5;
+            }
+            d += d_;
+
+            if (major_version != LFS_DISK_VERSION_MAJOR
+                    || minor_version > LFS_DISK_VERSION_MINOR) {
+                LFS_ERROR("Invalid version v%"PRIu32".%"PRIu32,
+                        major_version, minor_version);
+                err = LFS_ERR_INVAL;
+                goto failed;
+            }
+
+            // TODO parse rest of the superblock
+        }
+
+        // lookup supermdir
+        //
+        // if we have a supermdir, this is actually a fake superblock and
+        // we need to parse the next superblock in the chain
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERMDIR,
+                &id, &tag, NULL, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            goto failed;
+        }
+
+        // no more supermdirs means we found our real superblock!
+        if (err
+                || id != -1
+                || tag != LFSR_TAG_SUPERMDIR) {
+            break;
+        }
+
+        // TODO mdir dsize/mdir fromleb128
+        uint8_t buf_[LFSR_MPAIR_DSIZE];
+        LFS_ASSERT(lfsr_data_ondisk(data));
+        // force truncated lebs to overflow
+        memset(buf_, 0xff, LFSR_MPAIR_DSIZE);
+        err = lfs_bd_read(lfs,
+                NULL, &lfs->rcache,
+                    lfs_min32(LFSR_MPAIR_DSIZE, lfsr_data_size(data)),
+                data.disk.block, data.disk.off, buf_,
+                    lfs_min32(LFSR_MPAIR_DSIZE, lfsr_data_size(data)));
+        if (err) {
+            goto failed;
+        }
+
+        lfs_ssize_t d_ = lfsr_mpair_fromdisk(&mpair, buf_);
+        if (d_ < 0) {
+            err = d_;
+            goto failed;
+        }
+    }
+
+    return 0;
+
+failed:
+    lfs_deinit(lfs);
+    return err;
+}
+
+int lfsr_unmount(lfs_t *lfs) {
+    return lfs_deinit(lfs);
+}
+
+
+
+
 
 /// Metadata pair and directory operations ///
 static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
