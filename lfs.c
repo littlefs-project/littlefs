@@ -164,6 +164,8 @@ static int lfs_bd_cmp(lfs_t *lfs,
         const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
     lfs_size_t diff = 0;
+    // make sure our hint is at least as big as our buffer
+    hint = lfs_max(hint, size);
 
     for (lfs_off_t i = 0; i < size; i += diff) {
         uint8_t dat[8];
@@ -1000,6 +1002,21 @@ static inline lfs_size_t lfsr_data_setondisk(lfs_size_t size) {
     return size | 0x80000000;
 }
 
+static lfsr_data_t lfsr_data_add(lfsr_data_t data, lfs_off_t off) {
+    // limit our off to data range
+    lfs_off_t off_ = lfs_min32(off, lfsr_data_size(data));
+
+    if (lfsr_data_ondisk(data)) {
+        data.disk.off += off_;
+        data.disk.size -= off_;
+    } else {
+        data.buf.buffer += off_;
+        data.buf.size -= off_;
+    }
+
+    return data;
+}
+
 // data<->bd interactions
 static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t data,
         lfs_off_t off, void *buffer, lfs_size_t size) {
@@ -1021,6 +1038,34 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t data,
     }
 
     return size_;
+}
+
+static lfs_ssize_t lfsr_data_readle32(lfs_t *lfs, lfsr_data_t data,
+        lfs_off_t off, uint32_t *word) {
+    lfs_ssize_t d = lfsr_data_read(lfs, data, off, word, sizeof(uint32_t));
+    if (d < 0) {
+        return d;
+    }
+
+    // truncated?
+    if ((lfs_size_t)d < sizeof(uint32_t)) {
+        return LFS_ERR_CORRUPT;
+    }
+
+    *word = lfs_fromle32_(word);
+    return sizeof(uint32_t);
+}
+
+static lfs_ssize_t lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t data,
+        lfs_off_t off, uint32_t *word) {
+    // for 32-bits we can assume worst-case leb128 size is 5-bytes
+    uint8_t buf[5];
+    lfs_ssize_t d = lfsr_data_read(lfs, data, off, buf, 5);
+    if (d < 0) {
+        return d;
+    }
+
+    return lfs_fromleb128(word, buf, d);
 }
 
 static int lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
@@ -1051,34 +1096,6 @@ static int lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
     }
 
     return 0;
-}
-
-static lfs_ssize_t lfsr_data_readle32(lfs_t *lfs, lfsr_data_t data,
-        lfs_off_t off, uint32_t *word) {
-    lfs_ssize_t d = lfsr_data_read(lfs, data, off, word, sizeof(uint32_t));
-    if (d < 0) {
-        return d;
-    }
-
-    // truncated?
-    if ((lfs_size_t)d < sizeof(uint32_t)) {
-        return LFS_ERR_CORRUPT;
-    }
-
-    *word = lfs_fromle32_(word);
-    return sizeof(uint32_t);
-}
-
-static lfs_ssize_t lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t data,
-        lfs_off_t off, uint32_t *word) {
-    // for 32-bits we can assume worst-case leb128 size is 5-bytes
-    uint8_t buf[5];
-    lfs_ssize_t d = lfsr_data_read(lfs, data, off, buf, 5);
-    if (d < 0) {
-        return d;
-    }
-
-    return lfs_fromleb128(word, buf, d);
 }
 
 static lfs_ssize_t lfsr_bd_progdata(lfs_t *lfs,
