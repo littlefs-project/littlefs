@@ -854,19 +854,19 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off, lfs_size_t hint,
         lfsr_tag_t *tag_, lfs_size_t *weight_, lfs_size_t *size_,
         uint32_t *csum_) {
-    // decode from an le16 and pair of leb128s
-    // note we force leb decoding to overflow when truncated
-    uint8_t buffer[LFSR_TAG_DSIZE] = {
-        0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff,
-    };
-
-    int err = lfsr_bd_read(lfs, block, off, hint,
-            &buffer, lfs_min(LFSR_TAG_DSIZE, lfs->cfg->block_size-off));
+    // read the largest possible tag size
+    lfs_size_t tsize = lfs_min32(LFSR_TAG_DSIZE, lfs->cfg->block_size-off);
+    uint8_t buf[LFSR_TAG_DSIZE];
+    int err = lfsr_bd_read(lfs, block, off, hint, &buf, tsize);
     if (err) {
         return err;
     }
+
+    if (tsize < 2) {
+        return LFS_ERR_CORRUPT;
+    }
+    uint16_t tag = lfs_fromle16_(&buf[0]);
+    ssize_t d = 2;
 
     if (csum_) {
         // on-disk, the tags valid bit must reflect the parity of the
@@ -876,16 +876,13 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         // note we need to do this before leb128 decoding as we may not have
         // valid leb128 if we're erased, but we shouldn't treat a truncated
         // leb128 here as corruption
-        if ((buffer[0] & 1) != (lfs_popc(*csum_) & 1)) {
+        if ((tag & 1) != (lfs_popc(*csum_) & 1)) {
             return LFS_ERR_INVAL;
         }
     }
 
-    uint16_t tag = lfs_fromle16_(&buffer[0]);
-
     lfs_size_t weight;
-    ssize_t d = 2;
-    lfs_ssize_t d_ = lfs_fromleb128(&weight, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_fromleb128(&weight, &buf[d], tsize-d);
     if (d_ < 0) {
         return d_;
     }
@@ -896,7 +893,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     }
 
     lfs_size_t size;
-    d_ = lfs_fromleb128(&size, &buffer[d], 5);
+    d_ = lfs_fromleb128(&size, &buf[d], tsize-d);
     if (d_ < 0) {
         return d_;
     }
@@ -908,7 +905,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
 
     // optionally crc
     if (csum_) {
-        *csum_ = lfs_crc32c(*csum_, buffer, d);
+        *csum_ = lfs_crc32c(*csum_, buf, d);
     }
 
     // save what we found, note we make a few tweaks on-disk => in-device
@@ -918,7 +915,6 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     *tag_ = tag & ~0x1;
     *weight_ = weight;
     *size_ = size;
-
     return d;
 }
 
@@ -976,18 +972,6 @@ typedef union lfsr_data {
         lfs_block_t block;
         lfs_off_t off;
     } disk;
-
-//    // - positive => in-device
-//    // - negative => on-disk
-//    // - zero     => same for both, neat!
-//    lfs_ssize_t size;
-//    union {
-//        const uint8_t *buffer;
-//        struct {
-//            lfs_block_t block;
-//            lfs_off_t off;
-//        } disk;
-//    } u;
 } lfsr_data_t;
 
 #define LFSR_DATA_NULL \
@@ -1014,6 +998,127 @@ static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
 
 static inline lfs_size_t lfsr_data_setondisk(lfs_size_t size) {
     return size | 0x80000000;
+}
+
+// data<->bd interactions
+static inline lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t data,
+        lfs_off_t off, void *buffer, lfs_size_t size) {
+    // limit our off/size to data range
+    lfs_off_t off_ = lfs_min32(off, lfsr_data_size(data));
+    lfs_size_t hint_ = lfsr_data_size(data)-off_;
+    lfs_size_t size_ = lfs_min32(size, hint_);
+
+    if (lfsr_data_ondisk(data)) {
+        int err = lfsr_bd_read(lfs, data.disk.block, data.disk.off+off_,
+                // note our hint includes the full data range
+                hint_,
+                buffer, size_);
+        if (err) {
+            return err;
+        }
+    } else {
+        memcpy(buffer, data.buf.buffer+off_, size_);
+    }
+
+    return size_;
+}
+
+static inline int lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
+        lfs_off_t off, const void *buffer, lfs_size_t size,
+        int *cmp) {
+    // limit our off/size to data range
+    lfs_off_t off_ = lfs_min32(off, lfsr_data_size(data));
+    lfs_size_t hint_ = lfsr_data_size(data)-off_;
+
+    // return early if our size doesn't match
+    if (hint_ < size) {
+        *cmp = -1;
+        return 0;
+    } else if (hint_ > size) {
+        *cmp = +1;
+        return 0;
+    }
+
+    if (lfsr_data_ondisk(data)) {
+        int err = lfsr_bd_cmp(lfs, data.disk.block, data.disk.off+off_, 0,
+                buffer, size,
+                cmp);
+        if (err) {
+            return err;
+        }
+    } else {
+        *cmp = memcmp(data.buf.buffer+off_, buffer, size);
+    }
+
+    return 0;
+}
+
+static inline lfs_ssize_t lfsr_data_readle32(lfs_t *lfs, lfsr_data_t data,
+        lfs_off_t off, uint32_t *word) {
+    uint8_t buf[sizeof(uint32_t)];
+    lfs_ssize_t d = lfsr_data_read(lfs, data, off, buf, sizeof(uint32_t));
+    if (d < 0) {
+        return d;
+    }
+
+    // truncated?
+    if ((lfs_size_t)d < sizeof(uint32_t)) {
+        return LFS_ERR_CORRUPT;
+    }
+
+    *word = lfs_fromle32_(buf);
+    return sizeof(uint32_t);
+}
+
+static inline lfs_ssize_t lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t data,
+        lfs_off_t off, uint32_t *word) {
+    // for 32-bits we can assume worst-case leb128 size is 5-bytes
+    uint8_t buf[5];
+    lfs_ssize_t d = lfsr_data_read(lfs, data, off, buf, 5);
+    if (d < 0) {
+        return d;
+    }
+
+    return lfs_fromleb128(word, buf, d);
+}
+
+// TODO should we handle this consistently to lfsr_bd_prog/progcsum?
+// should lfsr_bd_progcsum be rethought?
+static lfs_ssize_t lfsr_bd_progdata(lfs_t *lfs,
+        lfs_block_t block, lfs_off_t off,
+        lfsr_data_t data,
+        uint32_t *crc) {
+    if (lfsr_data_ondisk(data)) {
+        // TODO byte-level copies have been a pain point, works for prototyping
+        // but can this be better? configurable? leverage
+        // rcache/pcache directly?
+        uint8_t dat;
+        for (lfs_size_t i = 0; i < lfsr_data_size(data); i++) {
+            int err = lfsr_bd_read(lfs, data.disk.block, data.disk.off+i,
+                    lfsr_data_size(data)-i,
+                    &dat, 1);
+            if (err) {
+                return err;
+            }
+
+            err = lfsr_bd_progcsum(lfs, block, off+i,
+                    &dat, 1,
+                    crc);
+            if (err) {
+                return err;
+            }
+        }
+
+    } else {
+        int err = lfsr_bd_progcsum(lfs, block, off,
+                data.buf.buffer, lfsr_data_size(data),
+                crc);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
 }
 
 
@@ -1182,30 +1287,38 @@ typedef struct lfsr_fcrc {
 // 1 leb128 + 1 crc32c => 9 bytes (worst case)
 #define LFSR_FCRC_DSIZE (5+4)
 
-static lfs_ssize_t lfsr_fcrc_todisk(
-        const lfsr_fcrc_t *fcrc,
+static lfs_ssize_t lfsr_fcrc_todisk(lfs_t *lfs, const lfsr_fcrc_t *fcrc,
         uint8_t buffer[static LFSR_FCRC_DSIZE]) {
-    lfs_ssize_t d = lfs_toleb128(fcrc->size, &buffer[0], 5);
-    if (d < 0) {
-        return d;
+    (void)lfs;
+    lfs_ssize_t d = 0;
+    lfs_ssize_t d_ = lfs_toleb128(fcrc->size, &buffer[0], 5);
+    if (d_ < 0) {
+        return d_;
     }
+    d += d_;
 
     lfs_tole32_(fcrc->crc, &buffer[d]);
+    d += 4;
 
-    return d + sizeof(uint32_t);
+    return d;
 }
 
-static lfs_ssize_t lfsr_fcrc_fromdisk(
-        lfsr_fcrc_t *fcrc,
-        const uint8_t buffer[static LFSR_FCRC_DSIZE]) {
-    lfs_ssize_t d = lfs_fromleb128(&fcrc->size, &buffer[0], 5);
-    if (d < 0) {
-        return d;
+static lfs_ssize_t lfsr_fcrc_fromdisk(lfs_t *lfs, lfsr_fcrc_t *fcrc,
+        lfsr_data_t data) {
+    lfs_ssize_t d = 0;
+    lfs_ssize_t d_ = lfsr_data_readleb128(lfs, data, d, &fcrc->size);
+    if (d_ < 0) {
+        return d_;
     }
+    d += d_;
 
-    fcrc->crc = lfs_fromle32_(&buffer[d]);
+    d_ = lfsr_data_readle32(lfs, data, d, &fcrc->crc);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
 
-    return d + sizeof(uint32_t);
+    return d;
 }
 
 // other endianness operations
@@ -1422,94 +1535,6 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
     return 0;
 }
 
-// TODO is id actually 31-bits? do we rely on sign anywhere? we should really
-// nail this down for all the types
-
-// each piece of metadata in an rbyd tree is prefixed with a 3-piece tag:
-//
-// - 16-bit type      => 2 byte le16
-// - 32-bit id/weight => 5 byte leb128 (worst case)
-// - 32-bit size/jump => 5 byte leb128 (worst case)
-//                    => 12 bytes total
-//
-#define LFSR_TAG_DSIZE (2+5+5)
-
-// TODO actually should this be an lfsr_bd_ operation?
-static lfs_ssize_t lfsr_rbyd_readtag(lfs_t *lfs,
-        lfs_block_t block, lfs_off_t off, lfs_size_t hint,
-        lfsr_tag_t *tag, lfs_size_t *weight, lfs_size_t *size,
-        uint32_t *crc) {
-    // read a trio of leb128s
-    //
-    // note we force leb decoding to overflow when truncated
-    uint8_t buffer[LFSR_TAG_DSIZE] = {
-        0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff,
-    };
-
-    // TODO allow different hint for lookup? bench this? does our hint work backwards?
-    // TODO should lfsr_bd_read allow a range for reads?
-    int err = lfsr_bd_read(lfs, block, off, hint,
-            &buffer, lfs_min(LFSR_TAG_DSIZE, lfs->cfg->block_size-off));
-    if (err) {
-        return err;
-    }
-
-    if (crc) {
-        // on-disk, the tags valid bit must reflect the parity of the
-        // preceding data, fortunately for crc32c, this is the same as the
-        // parity of the crc
-        //
-        // note we need to do this before leb128 decoding as we may not have
-        // valid leb128 if we're erased, but we shouldn't treat a truncated
-        // leb128 here as corruption
-        if ((buffer[0] & 1) != (lfs_popc(*crc) & 1)) {
-            return LFS_ERR_INVAL;
-        }
-    }
-
-    uint16_t tag_ = lfs_fromle16_(&buffer[0]);
-
-    lfs_size_t weight_;
-    ssize_t d = 2;
-    lfs_ssize_t d_ = lfs_fromleb128(&weight_, &buffer[d], 5);
-    if (d_ < 0) {
-        return d_;
-    }
-    d += d_;
-
-    if (weight_ > 0x7fffffff) {
-        return LFS_ERR_CORRUPT;
-    }
-
-    lfs_size_t size_;
-    d_ = lfs_fromleb128(&size_, &buffer[d], 5);
-    if (d_ < 0) {
-        return d_;
-    }
-    d += d_;
-
-    if (size_ > 0x7fffffff) {
-        return LFS_ERR_CORRUPT;
-    }
-
-    // optionally crc
-    if (crc) {
-        *crc = lfs_crc32c(*crc, buffer, d);
-    }
-
-    // save what we found, note we make a few tweaks on-disk => in-device
-    // - clear the valid bit from tag, we checked this earlier
-    // - adjust id so reserved id is -1, so we don't have mixed zero/one indexed
-    //
-    *tag = tag_ & ~0x1;
-    *weight = weight_;
-    *size = size_;
-
-    return d;
-}
-
 static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_block_t block, lfs_size_t trunk,
         lfsr_find_t *find) {
@@ -1585,9 +1610,9 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
             // found an fcrc? save for later
             if (tag == LFSR_TAG_FCRC) {
-                uint8_t fbuf[LFSR_FCRC_DSIZE];
+                uint8_t buf[LFSR_FCRC_DSIZE];
                 err = lfsr_bd_read(lfs, block, off, lfs->cfg->block_size,
-                        fbuf, lfs_min(size, LFSR_FCRC_DSIZE));
+                        buf, lfs_min32(size, LFSR_FCRC_DSIZE));
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         break;
@@ -1595,11 +1620,14 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     return err;
                 }
 
-                lfs_ssize_t d = lfsr_fcrc_fromdisk(&fcrc, fbuf);
-                if (d < 0) {
+                lfs_ssize_t d = lfsr_fcrc_fromdisk(lfs, &fcrc,
+                        LFSR_DATA_BUF(buf, lfs_min32(size, LFSR_FCRC_DSIZE)));
+                if (d < 0 && d != LFS_ERR_CORRUPT) {
                     return d;
                 }
-                hasfcrc = true;
+
+                // ignore malformed fcrcs
+                hasfcrc = (d != LFS_ERR_CORRUPT);
             }
 
         // is an end-of-commit crc
@@ -1825,6 +1853,7 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     }
 }
 
+// TODO still need this?
 static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_ssize_t id, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
     lfs_ssize_t id_;
@@ -1842,98 +1871,12 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         return LFS_ERR_NOENT;
     }
 
-    // TODO should this be its own lfsr_data_ function?
-    lfs_size_t d = lfs_min(size, lfsr_data_size(data_));
-    err = lfsr_bd_read(lfs, data_.disk.block, data_.disk.off, 0, buffer, d);
-    if (err) {
-        return err;
-    }
-
-    return lfsr_data_size(data_);
+    return lfsr_data_read(lfs, data_, 0, buffer, size);
 }
 
-// TODO this should be a bd operation of some sort
-static int lfsr_rbyd_prog(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        const void *buffer, lfs_size_t size, uint32_t *crc) {
-    // check for out-of-bounds here
-    // TODO should we just move this to lfsr_bd_prog?
-    // TODO actually should we just build crc into lfsr_bd_prog as well?
-    if (rbyd_->off+size > lfs->cfg->block_size) {
-        lfs_cache_zero(lfs, &lfs->pcache);
-        return LFS_ERR_RANGE;
-    }
 
-    int err = lfsr_bd_prog(lfs, rbyd_->block, rbyd_->off, buffer, size);
-    if (err) {
-        return err;
-    }
-
-    // update off
-    rbyd_->off += size;
-    // TODO should this not be optional? should we move the range check
-    // into bd_prog? so we can get rid of the one use of this in
-    // lfsr_rbyd_commit?
-    // optionally crc
-    if (crc) {
-        *crc = lfs_crc32c(*crc, buffer, size);
-    }
-
-    return 0;
-}
-
-// TODO this should be a bd operation of some sort
-static int lfsr_rbyd_progtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfsr_tag_t tag, lfs_size_t weight, lfs_size_t size, uint32_t *crc) {
-    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
-            tag, weight, size, crc);
-    if (d < 0) {
-        return d;
-    }
-
-    // update rbyd struct
-    rbyd->off += d;
-    return 0;
-}
-
-// TODO this should be a bd operation of some sort
-static int lfsr_rbyd_progdata(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfsr_data_t data, uint32_t *crc) {
-    if (lfsr_data_ondisk(data)) {
-        // TODO byte-level copies have been a pain point, works for prototyping
-        // but can this be better? configurable? leverage
-        // rcache/pcache directly?
-        uint8_t dat;
-        for (lfs_size_t i = 0; i < lfsr_data_size(data); i++) {
-            int err = lfsr_bd_read(lfs, data.disk.block, data.disk.off+i,
-                    lfsr_data_size(data)-i,
-                    &dat, 1);
-            if (err) {
-                return err;
-            }
-
-            err = lfsr_bd_progcsum(lfs, rbyd->block, rbyd->off+i,
-                    &dat, 1,
-                    crc);
-            if (err) {
-                return err;
-            }
-        }
-
-    } else {
-        int err = lfsr_bd_progcsum(lfs, rbyd->block, rbyd->off,
-                data.buf.buffer, lfsr_data_size(data),
-                crc);
-        if (err) {
-            return err;
-        }
-    }
-
-    // update rbyd struct
-    rbyd->off += lfsr_data_size(data);
-    return 0;
-}
-
-static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
+// helper functions for managing the 3-element fifo used in lfsr_rbyd_append
+static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t p_alts[static 3],
         lfs_size_t p_weights[static 3],
         lfs_off_t p_jumps[static 3],
@@ -1944,25 +1887,27 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             // change to a relative jump at the last minute
             lfsr_tag_t alt = p_alts[3-1-i];
             lfs_size_t weight = p_weights[3-1-i];
-            lfs_off_t jump = rbyd_->off - p_jumps[3-1-i];
+            lfs_off_t jump = rbyd->off - p_jumps[3-1-i];
 
-            int err = lfsr_rbyd_progtag(lfs, rbyd_,
-                    alt, weight, jump, &rbyd_->crc);
-            if (err) {
-                return err;
+            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+                    alt, weight, jump,
+                    &rbyd->crc);
+            if (d < 0) {
+                return d;
             }
+            rbyd->off += d;
         }
     }
 
     return 0;
 }
 
-static inline int lfsr_rbyd_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
+static inline int lfsr_rbyd_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t p_alts[static 3],
         lfs_size_t p_weights[static 3],
         lfs_off_t p_jumps[static 3],
         lfsr_tag_t alt, lfs_ssize_t weight, lfs_off_t jump) {
-    int err = lfsr_rbyd_p_flush(lfs, rbyd_, p_alts, p_weights, p_jumps, 1);
+    int err = lfsr_rbyd_p_flush(lfs, rbyd, p_alts, p_weights, p_jumps, 1);
     if (err) {
         return err;
     }
@@ -2056,13 +2001,14 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // make sure every rbyd starts with its revision count
     if (rbyd->off == 0) {
-        uint32_t rev;
-        lfs_tole32_(rbyd->rev, &rev);
-        err = lfsr_rbyd_prog(lfs, rbyd,
-                &rev, sizeof(uint32_t), &rbyd->crc);
+        uint8_t buf[sizeof(uint32_t)];
+        lfs_tole32_(rbyd->rev, &buf);
+        err = lfsr_bd_progcsum(lfs, rbyd->block, rbyd->off,
+                &buf, sizeof(uint32_t), &rbyd->crc);
         if (err) {
             goto failed;
         }
+        rbyd->off += sizeof(uint32_t);
     }
 
     // figure out the range of tags we're operating on
@@ -2479,18 +2425,22 @@ leaf:;
     //
     // note we always need something after the alts! without something between
     // alts we may not be able to find the trunk of our tree
-    err = lfsr_rbyd_progtag(lfs, rbyd,
+    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
             lfsr_tag_setnomk(tag), upper_id - lower_id - 1 + delta,
-            lfsr_data_size(data), &rbyd->crc);
-    if (err) {
+            lfsr_data_size(data),
+            &rbyd->crc);
+    if (d < 0) {
+        err = d;
         goto failed;
     }
+    rbyd->off += d;
 
     // don't forget the data!
-    err = lfsr_rbyd_progdata(lfs, rbyd, data, &rbyd->crc);
+    err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->off, data, &rbyd->crc);
     if (err) {
         goto failed;
     }
+    rbyd->off += lfsr_data_size(data);
 
     return 0;
 
@@ -2518,13 +2468,14 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // make sure every rbyd starts with its revision count
     if (rbyd_.off == 0) {
-        uint32_t rev;
-        lfs_tole32_(rbyd_.rev, &rev);
-        err = lfsr_rbyd_prog(lfs, &rbyd_,
-                &rev, sizeof(uint32_t), &rbyd_.crc);
+        uint8_t buf[sizeof(uint32_t)];
+        lfs_tole32_(rbyd_.rev, &buf);
+        err = lfsr_bd_progcsum(lfs, rbyd_.block, rbyd_.off,
+                &buf, sizeof(uint32_t), &rbyd_.crc);
         if (err) {
             goto failed;
         }
+        rbyd_.off += sizeof(uint32_t);
     }
 
     // append each tag to the tree
@@ -2585,19 +2536,23 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             goto failed;
         }
 
-        uint8_t fbuf[LFSR_FCRC_DSIZE];
-        lfs_size_t fcrc_d = lfsr_fcrc_todisk(&fcrc, fbuf);
-        err = lfsr_rbyd_progtag(lfs, &rbyd_,
-                LFSR_TAG_FCRC, 0, fcrc_d, &rbyd_.crc);
-        if (err) {
+        uint8_t buf[LFSR_FCRC_DSIZE];
+        lfs_size_t d = lfsr_fcrc_todisk(lfs, &fcrc, buf);
+        lfs_ssize_t d_ = lfsr_bd_progtag(lfs, rbyd_.block, rbyd_.off,
+                LFSR_TAG_FCRC, 0, d,
+                &rbyd_.crc);
+        if (d_ < 0) {
+            err = d_;
             goto failed;
         }
+        rbyd_.off += d_;
 
-        err = lfsr_rbyd_prog(lfs, &rbyd_,
-                fbuf, fcrc_d, &rbyd_.crc);
+        err = lfsr_bd_progcsum(lfs, rbyd_.block, rbyd_.off,
+                buf, d, &rbyd_.crc);
         if (err) {
             goto failed;
         }
+        rbyd_.off += d;
 
     // at least space for a crc?
     } else if (rbyd_.off + 2+1+5+4 <= lfs->cfg->block_size) {
@@ -2615,32 +2570,33 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // note padding-size depends on leb-encoding depends on padding-size, to
     // get around this catch-22 we just always write a fully-expanded leb128
     // encoding
-    uint8_t buffer[2+1+5+4];
-    lfs_tole16_(LFSR_TAG_CRC | (lfs_popc(rbyd_.crc) & 1), &buffer[0]);
-    buffer[2] = 0;
+    uint8_t buf[2+1+5+4];
+    lfs_tole16_(LFSR_TAG_CRC | (lfs_popc(rbyd_.crc) & 1), &buf[0]);
+    buf[2] = 0;
 
     lfs_off_t padding = aligned - (rbyd_.off + 2+1+5);
-    buffer[3] = 0x80 | (0x7f & (padding >>  0));
-    buffer[4] = 0x80 | (0x7f & (padding >>  7));
-    buffer[5] = 0x80 | (0x7f & (padding >> 14));
-    buffer[6] = 0x80 | (0x7f & (padding >> 21));
-    buffer[7] = 0x00 | (0x7f & (padding >> 28));
+    buf[3] = 0x80 | (0x7f & (padding >>  0));
+    buf[4] = 0x80 | (0x7f & (padding >>  7));
+    buf[5] = 0x80 | (0x7f & (padding >> 14));
+    buf[6] = 0x80 | (0x7f & (padding >> 21));
+    buf[7] = 0x00 | (0x7f & (padding >> 28));
 
-    rbyd_.crc = lfs_crc32c(rbyd_.crc, buffer, 2+1+5);
+    rbyd_.crc = lfs_crc32c(rbyd_.crc, buf, 2+1+5);
     // we can't let the next tag appear as valid, so intentionally perturb the
     // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
     // so we can really change any bit to make this happen, we've reserved a bit
     // in crc tags just for this purpose
     if ((lfs_popc(rbyd_.crc) & 1) == (perturb & 1)) {
-        buffer[0] ^= 0x10;
+        buf[0] ^= 0x10;
         rbyd_.crc ^= 0x847609b4; // note crc(a ^ b) == crc(a) ^ crc(b)
     }
-    lfs_tole32_(rbyd_.crc, &buffer[2+1+5]);
+    lfs_tole32_(rbyd_.crc, &buf[2+1+5]);
 
-    err = lfsr_rbyd_prog(lfs, &rbyd_, buffer, 2+1+5+4, NULL);
+    err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off, buf, 2+1+5+4);
     if (err) {
         goto failed;
     }
+    rbyd_.off += 2+1+5+4;
 
     // flush our caches, finalizing the commit on-disk
     err = lfsr_bd_sync(lfs);
@@ -2717,8 +2673,8 @@ static int lfsr_rbyd_cutoff(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 }
 
 
-/// Rbyd b-tree operations ///
 
+/// Rbyd b-tree operations ///
 
 // convenience operations
 
@@ -2742,9 +2698,9 @@ static lfs_size_t lfsr_btree_setinlined(lfs_size_t weight) {
 // 2 leb128 + 1 crc32c => 14 bytes (worst case)
 #define LFSR_BRANCH_DSIZE (5+5+4)
 
-static lfs_ssize_t lfsr_branch_todisk(
-        const lfsr_rbyd_t *branch,
+static lfs_ssize_t lfsr_branch_todisk(lfs_t *lfs, const lfsr_rbyd_t *branch,
         uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
+    (void)lfs;
     lfs_ssize_t d = 0;
     lfs_ssize_t d_ = lfs_toleb128(branch->trunk, &buffer[d], 5);
     if (d_ < 0) {
@@ -2764,11 +2720,8 @@ static lfs_ssize_t lfsr_branch_todisk(
     return d;
 }
 
-// TODO should our fromdisk functions accept an lfsr_data_t?
-static lfs_ssize_t lfsr_branch_fromdisk(
-        lfsr_rbyd_t *branch,
-        lfs_size_t weight,
-        const uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
+static lfs_ssize_t lfsr_branch_fromdisk(lfs_t *lfs, lfsr_rbyd_t *branch,
+        lfs_size_t weight, lfsr_data_t data) {
     // we usually inherit weight from the parent
     branch->weight = weight;
     // setting off to 0 here will trigger asserts if we try to append
@@ -2776,20 +2729,23 @@ static lfs_ssize_t lfsr_branch_fromdisk(
     branch->off = 0;
 
     lfs_ssize_t d = 0;
-    lfs_ssize_t d_ = lfs_fromleb128(&branch->trunk, &buffer[d], 5);
+    lfs_ssize_t d_ = lfsr_data_readleb128(lfs, data, d, &branch->trunk);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    d_ = lfs_fromleb128(&branch->block, &buffer[d], 5);
+    d_ = lfsr_data_readleb128(lfs, data, d, &branch->block);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    branch->crc = lfs_fromle32_(&buffer[d]);
-    d += 4;
+    d_ = lfsr_data_readle32(lfs, data, d, &branch->crc);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
 
     return d;
 }
@@ -2898,15 +2854,8 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
             rid -= (rid__ - (weight__-1));
 
             // fetch the next branch
-            uint8_t buf[LFSR_BRANCH_DSIZE];
-            lfs_ssize_t d = lfs_min(LFSR_BRANCH_DSIZE, lfsr_data_size(data__));
-            err = lfsr_bd_read(lfs, data__.disk.block, data__.disk.off, 0,
-                    buf, d);
-            if (err) {
-                return err;
-            }
-
-            d = lfsr_branch_fromdisk(&branch, weight__, buf);
+            lfs_ssize_t d = lfsr_branch_fromdisk(lfs, &branch,
+                    weight__, data__);
             if (d < 0) {
                 return d;
             }
@@ -2983,16 +2932,9 @@ static int lfsr_btree_parent(lfs_t *lfs,
         rid -= (rid__ - (weight__-1));
 
         // fetch the next branch
-        uint8_t buf[LFSR_BRANCH_DSIZE];
-        lfs_ssize_t d = lfs_min(LFSR_BRANCH_DSIZE, lfsr_data_size(data__));
-        err = lfsr_bd_read(lfs, data__.disk.block, data__.disk.off, 0,
-                buf, d);
-        if (err) {
-            return err;
-        }
-
         lfsr_rbyd_t branch_;
-        d = lfsr_branch_fromdisk(&branch_, weight__, buf);
+        lfs_ssize_t d = lfsr_branch_fromdisk(lfs, &branch_,
+                weight__, data__);
         if (d < 0) {
             return d;
         }
@@ -3026,19 +2968,7 @@ static lfs_ssize_t lfsr_btree_get(lfs_t *lfs,
         return err;
     }
 
-    // TODO we should have a function for this
-    lfs_size_t d = lfs_min(size, lfsr_data_size(data_));
-    if (!lfsr_data_ondisk(data_)) {
-        memcpy(buffer, data_.buf.buffer, d);
-    } else {
-        err = lfsr_bd_read(lfs, data_.disk.block, data_.disk.off, 0,
-                buffer, d);
-        if (err) {
-            return err;
-        }
-    }
-
-    return lfsr_data_size(data_);
+    return lfsr_data_read(lfs, data_, 0, buffer, size);
 }
 
 static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs,
@@ -3145,15 +3075,8 @@ static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs,
             bid += rid__-(weight__-1);
 
             // fetch the next branch
-            uint8_t buf[LFSR_BRANCH_DSIZE];
-            lfs_ssize_t d = lfs_min(LFSR_BRANCH_DSIZE, lfsr_data_size(data__));
-            err = lfsr_bd_read(lfs, data__.disk.block, data__.disk.off, 0,
-                    buf, d);
-            if (err) {
-                return err;
-            }
-
-            d = lfsr_branch_fromdisk(&branch, weight__, buf);
+            lfs_ssize_t d = lfsr_branch_fromdisk(lfs, &branch,
+                    weight__, data__);
             if (d < 0) {
                 return d;
             }
@@ -3195,19 +3118,7 @@ static lfs_ssize_t lfsr_btree_nameget(lfs_t *lfs,
         return err;
     }
 
-    // TODO we should have a function for this
-    lfs_size_t d = lfs_min(size, lfsr_data_size(data_));
-    if (!lfsr_data_ondisk(data_)) {
-        memcpy(buffer, data_.buf.buffer, d);
-    } else {
-        err = lfsr_bd_read(lfs, data_.disk.block, data_.disk.off, 0,
-                buffer, d);
-        if (err) {
-            return err;
-        }
-    }
-
-    return lfsr_data_size(data_);
+    return lfsr_data_read(lfs, data_, 0, buffer, size);
 }
 
 
@@ -3396,7 +3307,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // cannibalize some attributes in our attr list to store
         // our branch
         uint8_t *scratch_buf = (uint8_t*)&attrs[2];
-        lfs_ssize_t d = lfsr_branch_todisk(rbyd, scratch_buf);
+        lfs_ssize_t d = lfsr_branch_todisk(lfs, rbyd, scratch_buf);
         if (d < 0) {
             return d;
         }
@@ -3600,11 +3511,11 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // our branches
         uint8_t *scratch_buf1 = (uint8_t*)&attrs[4];
         uint8_t *scratch_buf2 = (uint8_t*)&attrs[4] + LFSR_BRANCH_DSIZE;
-        lfs_ssize_t d1 = lfsr_branch_todisk(&rbyd_, scratch_buf1);
+        lfs_ssize_t d1 = lfsr_branch_todisk(lfs, &rbyd_, scratch_buf1);
         if (d1 < 0) {
             return d1;
         }
-        lfs_ssize_t d2 = lfsr_branch_todisk(&sibling, scratch_buf2);
+        lfs_ssize_t d2 = lfsr_branch_todisk(lfs, &sibling, scratch_buf2);
         if (d2 < 0) {
             return d2;
         }
@@ -3704,15 +3615,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             goto merge_abort;
         }
 
-        uint8_t buf[LFSR_BRANCH_DSIZE];
-        d = lfs_min(LFSR_BRANCH_DSIZE, lfsr_data_size(sdata));
-        err = lfsr_bd_read(lfs, sdata.disk.block, sdata.disk.off, 0,
-                buf, d);
-        if (err) {
-            return err;
-        }
-
-        d = lfsr_branch_fromdisk(&sibling, sweight, buf);
+        d = lfsr_branch_fromdisk(lfs, &sibling, sweight, sdata);
         if (d < 0) {
             return d;
         }
@@ -3811,7 +3714,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // cannibalize some attributes in our attr list to store
             // our branch
             uint8_t *scratch_buf = (uint8_t*)&attrs[3];
-            lfs_ssize_t d = lfsr_branch_todisk(&rbyd_, scratch_buf);
+            lfs_ssize_t d = lfsr_branch_todisk(lfs, &rbyd_, scratch_buf);
             if (d < 0) {
                 return d;
             }
@@ -4171,9 +4074,9 @@ typedef struct lfsr_mpair {
 // 2 leb128 => 10 bytes (worst case)
 #define LFSR_MPAIR_DSIZE (5+5)
 
-static lfs_ssize_t lfsr_mpair_todisk(
-        lfsr_mpair_t mpair,
+static lfs_ssize_t lfsr_mpair_todisk(lfs_t *lfs, lfsr_mpair_t mpair,
         uint8_t buffer[static LFSR_MPAIR_DSIZE]) {
+    (void)lfs;
     lfs_ssize_t d = 0;
     for (int i = 0; i < 2; i++) {
         lfs_ssize_t d_ = lfs_toleb128(mpair.blocks[i], &buffer[d], 5);
@@ -4187,12 +4090,11 @@ static lfs_ssize_t lfsr_mpair_todisk(
 }
 
 // TODO should our fromdisk functions accept an lfsr_data_t?
-static lfs_ssize_t lfsr_mpair_fromdisk(
-        lfsr_mpair_t *mpair,
-        const uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
+static lfs_ssize_t lfsr_mpair_fromdisk(lfs_t *lfs, lfsr_mpair_t *mpair,
+        lfsr_data_t data) {
     lfs_ssize_t d = 0;
     for (int i = 0; i < 2; i++) {
-        lfs_ssize_t d_ = lfs_fromleb128(&mpair->blocks[i], &buffer[d], 5);
+        lfs_ssize_t d_ = lfsr_data_readleb128(lfs, data, d, &mpair->blocks[i]);
         if (d_ < 0) {
             return d_;
         }
@@ -4320,6 +4222,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // degenerate cases
             if (rbyd_.off > lfs->cfg->block_size/2) {
                 // TODO
+                LFS_ASSERT(false);
             }
         }
 
@@ -4373,9 +4276,12 @@ typedef struct lfsr_superconfig {
 // 
 #define LFSR_SUPERCONFIG_DSIZE (1+1+1+1+5+5+1+5+5+5)
 
-static lfs_ssize_t lfsr_superconfig_todisk(
+static lfs_ssize_t lfsr_superconfig_todisk(lfs_t *lfs,
         const lfsr_superconfig_t *superconfig,
         uint8_t buffer[static LFSR_SUPERCONFIG_DSIZE]) {
+    // TODO wait, isn't this all derived from lfs_t? do we even need the
+    // lfsr_superconfig_t at all?
+    (void)lfs;
     // shortcut the single-byte lebs
     buffer[0] = superconfig->major_version;
     buffer[1] = superconfig->minor_version;
@@ -4432,7 +4338,7 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     uint8_t buf[LFSR_SUPERCONFIG_DSIZE];
-    lfs_ssize_t d = lfsr_superconfig_todisk(
+    lfs_ssize_t d = lfsr_superconfig_todisk(lfs,
             &(lfsr_superconfig_t){
                 .major_version=LFS_DISK_VERSION_MAJOR,
                 .minor_version=LFS_DISK_VERSION_MINOR,
@@ -4522,11 +4428,8 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             goto failed;
         }
 
-        // TODO we should have a function for this with lfsr_data_t
-        LFS_ASSERT(lfsr_data_ondisk(data));
         int cmp;
-        err = lfsr_bd_cmp(lfs, data.disk.block, data.disk.off, 0,
-                "littlefs", 8, &cmp);
+        err = lfsr_data_cmp(lfs, data, 0, "littlefs", 8, &cmp);
         if (err) {
             goto failed;
         }
@@ -4551,50 +4454,31 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             uint32_t major_version;
             uint32_t minor_version;
 
-            // TODO leb128 decoder for lfsr_data_t?
-            uint8_t buf[5];
             lfs_size_t d = 0;
-            LFS_ASSERT(lfsr_data_ondisk(data));
-            // TODO can we do this differently?
-            // force truncated to overflow
-            memset(buf, 0xff, 5);
-            int err = lfsr_bd_read(lfs,
-                    data.disk.block, data.disk.off+d, 0,
-                    // TODO this is a bit gross, and repeated a bunch,
-                    // can we simplify this?
-                    buf, lfs_min32(5, lfs_max32(lfsr_data_size(data), d)-d));
-            if (err) {
-                goto failed;
-            }
-
-            lfs_ssize_t d_ = lfs_fromleb128(&major_version, buf, 5);
+            lfs_ssize_t d_ = lfsr_data_readleb128(lfs, data, d, &major_version);
             if (d_ < 0) {
-                // just treat overflow as an out-of-range value
-                major_version = -1;
-                d_ = 5;
+                // treat leb128 overflow as an out-of-range value
+                if (d_ == LFS_ERR_CORRUPT) {
+                    LFS_ERROR("Undecodable major version");
+                    err = LFS_ERR_INVAL;
+                }
+                goto failed;
             }
             d += d_;
 
-            // force truncated lebs to overflow
-            memset(buf, 0xff, 5);
-            err = lfsr_bd_read(lfs,
-                    data.disk.block, data.disk.off+d, 0,
-                    buf, lfs_min32(5, lfs_max32(lfsr_data_size(data), d)-d));
-            if (err) {
+            d_ = lfsr_data_readleb128(lfs, data, d, &minor_version);
+            if (d_ < 0) {
+                // treat leb128 overflow as an out-of-range value
+                if (d_ == LFS_ERR_CORRUPT) {
+                    LFS_ERROR("Undecodable minor version");
+                    err = LFS_ERR_INVAL;
+                }
                 goto failed;
             }
-
-            d_ = lfs_fromleb128(&minor_version, buf, 5);
-            if (d_ < 0) {
-                // just treat overflow as an out-of-range value
-                minor_version = -1;
-                d_ = 5;
-            }
-            d += d_;
-
+            
             if (major_version != LFS_DISK_VERSION_MAJOR
                     || minor_version > LFS_DISK_VERSION_MINOR) {
-                LFS_ERROR("Invalid version v%"PRIu32".%"PRIu32,
+                LFS_ERROR("Incompatible version v%"PRIu32".%"PRIu32,
                         major_version, minor_version);
                 err = LFS_ERR_INVAL;
                 goto failed;
@@ -4620,20 +4504,9 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             break;
         }
 
-        // TODO mdir dsize/mdir fromleb128
-        uint8_t buf_[LFSR_MPAIR_DSIZE];
-        LFS_ASSERT(lfsr_data_ondisk(data));
-        // force truncated lebs to overflow
-        memset(buf_, 0xff, LFSR_MPAIR_DSIZE);
-        err = lfsr_bd_read(lfs, data.disk.block, data.disk.off, 0,
-                    buf_, lfs_min32(LFSR_MPAIR_DSIZE, lfsr_data_size(data)));
-        if (err) {
-            goto failed;
-        }
-
-        lfs_ssize_t d_ = lfsr_mpair_fromdisk(&mpair, buf_);
-        if (d_ < 0) {
-            err = d_;
+        lfs_ssize_t d = lfsr_mpair_fromdisk(lfs, &mpair, data);
+        if (d < 0) {
+            err = d;
             goto failed;
         }
     }
