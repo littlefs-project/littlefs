@@ -4377,12 +4377,142 @@ static lfs_ssize_t lfsr_superconfig_todisk(lfs_t *lfs,
 static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg);
 static int lfs_deinit(lfs_t *lfs);
 
-int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
+static int lfsr_mountinited(lfs_t *lfs) {
+    // scan for the first non-fake superblock
+    lfsr_mpair_t mpair = LFSR_MPAIR(0, 1);
+    lfsr_mdir_t mdir;
+    while (true) {
+        // TODO detect cycles with Brent's algorithm
+
+        // fetch next possible superblock
+        int err = lfsr_mdir_fetch(lfs, &mdir, mpair, NULL);
+        if (err) {
+            LFS_ERROR("No littlefs superblock found");
+            return err;
+        }
+
+        // has magic string?
+        lfs_ssize_t id;
+        lfsr_tag_t tag;
+        lfsr_data_t data;
+        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERMAGIC,
+                &id, &tag, NULL, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        if (err
+                || id != -1
+                || tag != LFSR_TAG_SUPERMAGIC
+                || lfsr_data_size(data) != 8) {
+            LFS_ERROR("No littlefs magic found");
+            return LFS_ERR_INVAL;
+        }
+
+        int cmp;
+        err = lfsr_data_cmp(lfs, data, 0, "littlefs", 8, &cmp);
+        if (err) {
+            return err;
+        }
+
+        if (cmp != 0) {
+            LFS_ERROR("No littlefs magic found");
+            return LFS_ERR_INVAL;
+        }
+
+        // lookup the superconfig
+        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERCONFIG,
+                &id, &tag, NULL, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        if (!(err
+                || id != -1
+                || tag != LFSR_TAG_SUPERCONFIG)) {
+            // check the major/minor version
+            uint32_t major_version;
+            uint32_t minor_version;
+
+            lfs_size_t d = 0;
+            lfs_ssize_t d_ = lfsr_data_readleb128(lfs, data, d, &major_version);
+            if (d_ < 0) {
+                // treat leb128 overflow as an out-of-range value
+                if (d_ == LFS_ERR_CORRUPT) {
+                    LFS_ERROR("Undecodable major version");
+                    return LFS_ERR_INVAL;
+                }
+                return d_;
+            }
+            d += d_;
+
+            d_ = lfsr_data_readleb128(lfs, data, d, &minor_version);
+            if (d_ < 0) {
+                // treat leb128 overflow as an out-of-range value
+                if (d_ == LFS_ERR_CORRUPT) {
+                    LFS_ERROR("Undecodable minor version");
+                    return LFS_ERR_INVAL;
+                }
+                return d_;
+            }
+            
+            if (major_version != LFS_DISK_VERSION_MAJOR
+                    || minor_version > LFS_DISK_VERSION_MINOR) {
+                LFS_ERROR("Incompatible version v%"PRIu32".%"PRIu32,
+                        major_version, minor_version);
+                return LFS_ERR_INVAL;
+            }
+
+            // TODO parse rest of the superblock
+        }
+
+        // lookup supermdir
+        //
+        // if we have a supermdir, this is actually a fake superblock and
+        // we need to parse the next superblock in the chain
+        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERMDIR,
+                &id, &tag, NULL, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        // no more supermdirs means we found our real superblock!
+        if (err
+                || id != -1
+                || tag != LFSR_TAG_SUPERMDIR) {
+            break;
+        }
+
+        lfs_ssize_t d = lfsr_mpair_fromdisk(lfs, &mpair, data);
+        if (d < 0) {
+            return d;
+        }
+    }
+
+    return 0;
+}
+
+int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     int err = lfs_init(lfs, cfg);
     if (err) {
         return err;
     }
 
+    err = lfsr_mountinited(lfs);
+    if (err) {
+        // make sure we clean up on error
+        lfs_deinit(lfs);
+        return err;
+    }
+
+    return 0;
+}
+
+int lfsr_unmount(lfs_t *lfs) {
+    return lfs_deinit(lfs);
+}
+
+static int lfsr_formatinited(lfs_t *lfs) {
     uint8_t buf[LFSR_SUPERCONFIG_DSIZE];
     lfs_ssize_t d = lfsr_superconfig_todisk(lfs,
             &(lfsr_superconfig_t){
@@ -4400,8 +4530,7 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
             },
             buf);
     if (d < 0) {
-        err = d;
-        goto failed;
+        return d;
     }
 
     for (int i = 0; i < 2; i++) {
@@ -4409,162 +4538,41 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
         // avoid mounting an older filesystem on disk
         lfsr_rbyd_t rbyd = {.block=i, .rev=1, .off=0, .trunk=0};
 
-        err = lfsr_bd_erase(lfs, rbyd.block);
+        int err = lfsr_bd_erase(lfs, rbyd.block);
         if (err) {
-            goto failed;
+            return err;
         }
 
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
                 LFSR_ATTR(-1, SUPERMAGIC, 0, "littlefs", 8),
                 LFSR_ATTR(-1, SUPERCONFIG, 0, buf, d)));
         if (err) {
-            goto failed;
+            return err;
         }
     }
 
-    // try to fetch the supermdir to check if format completed successfully
-    lfsr_mdir_t mdir;
-    err = lfsr_mdir_fetch(lfs, &mdir, LFSR_MPAIR(0, 1), NULL);
+    // test that mount works with our formatted disk
+    int err = lfsr_mountinited(lfs);
     if (err) {
-        goto failed;
+        return err;
     }
 
-    return lfs_deinit(lfs);
-
-failed:
-    lfs_deinit(lfs);
-    return err;
+    return 0;
 }
 
-int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
+int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
     int err = lfs_init(lfs, cfg);
     if (err) {
         return err;
     }
 
-    // scan for the first non-fake superblock
-    lfsr_mpair_t mpair = LFSR_MPAIR(0, 1);
-    lfsr_mdir_t mdir;
-    while (true) {
-        // TODO detect cycles with Brent's algorithm
-
-        // fetch next possible superblock
-        int err = lfsr_mdir_fetch(lfs, &mdir, mpair, NULL);
-        if (err) {
-            LFS_ERROR("No littlefs superblock found");
-            goto failed;
-        }
-
-        // has magic string?
-        lfs_ssize_t id;
-        lfsr_tag_t tag;
-        lfsr_data_t data;
-        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERMAGIC,
-                &id, &tag, NULL, &data);
-        if (err && err != LFS_ERR_NOENT) {
-            goto failed;
-        }
-
-        if (err
-                || id != -1
-                || tag != LFSR_TAG_SUPERMAGIC
-                || lfsr_data_size(data) != 8) {
-            LFS_ERROR("No littlefs magic found");
-            err = LFS_ERR_INVAL;
-            goto failed;
-        }
-
-        int cmp;
-        err = lfsr_data_cmp(lfs, data, 0, "littlefs", 8, &cmp);
-        if (err) {
-            goto failed;
-        }
-
-        if (cmp != 0) {
-            LFS_ERROR("No littlefs magic found");
-            err = LFS_ERR_INVAL;
-            goto failed;
-        }
-
-        // lookup the superconfig
-        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERCONFIG,
-                &id, &tag, NULL, &data);
-        if (err && err != LFS_ERR_NOENT) {
-            goto failed;
-        }
-
-        if (!(err
-                || id != -1
-                || tag != LFSR_TAG_SUPERCONFIG)) {
-            // check the major/minor version
-            uint32_t major_version;
-            uint32_t minor_version;
-
-            lfs_size_t d = 0;
-            lfs_ssize_t d_ = lfsr_data_readleb128(lfs, data, d, &major_version);
-            if (d_ < 0) {
-                // treat leb128 overflow as an out-of-range value
-                if (d_ == LFS_ERR_CORRUPT) {
-                    LFS_ERROR("Undecodable major version");
-                    err = LFS_ERR_INVAL;
-                }
-                goto failed;
-            }
-            d += d_;
-
-            d_ = lfsr_data_readleb128(lfs, data, d, &minor_version);
-            if (d_ < 0) {
-                // treat leb128 overflow as an out-of-range value
-                if (d_ == LFS_ERR_CORRUPT) {
-                    LFS_ERROR("Undecodable minor version");
-                    err = LFS_ERR_INVAL;
-                }
-                goto failed;
-            }
-            
-            if (major_version != LFS_DISK_VERSION_MAJOR
-                    || minor_version > LFS_DISK_VERSION_MINOR) {
-                LFS_ERROR("Incompatible version v%"PRIu32".%"PRIu32,
-                        major_version, minor_version);
-                err = LFS_ERR_INVAL;
-                goto failed;
-            }
-
-            // TODO parse rest of the superblock
-        }
-
-        // lookup supermdir
-        //
-        // if we have a supermdir, this is actually a fake superblock and
-        // we need to parse the next superblock in the chain
-        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERMDIR,
-                &id, &tag, NULL, &data);
-        if (err && err != LFS_ERR_NOENT) {
-            goto failed;
-        }
-
-        // no more supermdirs means we found our real superblock!
-        if (err
-                || id != -1
-                || tag != LFSR_TAG_SUPERMDIR) {
-            break;
-        }
-
-        lfs_ssize_t d = lfsr_mpair_fromdisk(lfs, &mpair, data);
-        if (d < 0) {
-            err = d;
-            goto failed;
-        }
+    err = lfsr_formatinited(lfs);
+    if (err) {
+        // make sure we clean up on error
+        lfs_deinit(lfs);
+        return err;
     }
 
-    return 0;
-
-failed:
-    lfs_deinit(lfs);
-    return err;
-}
-
-int lfsr_unmount(lfs_t *lfs) {
     return lfs_deinit(lfs);
 }
 
