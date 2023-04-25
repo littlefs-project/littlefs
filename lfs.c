@@ -426,27 +426,27 @@ static int lfsr_bd_cmp(lfs_t *lfs,
     return 0;
 }
 
+// program data with optional checksum
 static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
-        const void *buffer, lfs_size_t size) {
+        const void *buffer, lfs_size_t size,
+        uint32_t *csum_) {
     // check for in-bounds
     if (off+size > lfs->cfg->block_size) {
         lfs_cache_zero(lfs, &lfs->pcache);
         return LFS_ERR_RANGE;
     }
 
-    return lfs_bd_prog(lfs, &lfs->pcache, &lfs->rcache, false,
+    int err = lfs_bd_prog(lfs, &lfs->pcache, &lfs->rcache, false,
             block, off, buffer, size);
-}
-
-static int lfsr_bd_progcsum(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
-        const void *buffer, lfs_size_t size,
-        uint32_t *csum_) {
-    int err = lfsr_bd_prog(lfs, block, off, buffer, size);
     if (err) {
         return err;
     }
 
-    *csum_ = lfs_crc32c(*csum_, buffer, size);
+    // optional checksum
+    if (csum_) {
+        *csum_ = lfs_crc32c(*csum_, buffer, size);
+    }
+
     return 0;
 }
 
@@ -454,28 +454,27 @@ static int lfsr_bd_sync(lfs_t *lfs) {
     return lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
 }
 
+// TODO do we need this? should everything be checked by crc and validation
+// be an optional ifdef?
 static int lfsr_bd_progvalidate(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
-        const void *buffer, lfs_size_t size) {
+        const void *buffer, lfs_size_t size,
+        uint32_t *csum_) {
     // check for in-bounds
     if (off+size > lfs->cfg->block_size) {
         lfs_cache_zero(lfs, &lfs->pcache);
         return LFS_ERR_RANGE;
     }
 
-    return lfs_bd_prog(lfs, &lfs->pcache, &lfs->rcache, true,
+    int err = lfs_bd_prog(lfs, &lfs->pcache, &lfs->rcache, true,
             block, off, buffer, size);
-}
-
-static int lfsr_bd_progcsumvalidate(lfs_t *lfs,
-        lfs_block_t block, lfs_off_t off,
-        const void *buffer, lfs_size_t size,
-        uint32_t *csum_) {
-    int err = lfsr_bd_progvalidate(lfs, block, off, buffer, size);
     if (err) {
         return err;
     }
 
-    *csum_ = lfs_crc32c(*csum_, buffer, size);
+    if (csum_) {
+        *csum_ = lfs_crc32c(*csum_, buffer, size);
+    }
+
     return 0;
 }
 
@@ -486,6 +485,7 @@ static int lfsr_bd_syncvalidate(lfs_t *lfs) {
 static int lfsr_bd_erase(lfs_t *lfs, lfs_block_t block) {
     return lfs_bd_erase(lfs, block);
 }
+
 
 
 /// Small type-level utilities ///
@@ -921,13 +921,13 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
 static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         lfsr_tag_t tag, lfs_size_t weight, lfs_size_t size,
-        uint32_t *crc) {
+        uint32_t *csum_) {
     // check for underflow issues
     LFS_ASSERT(weight < 0x80000000);
     LFS_ASSERT(size < 0x80000000);
 
     // make sure to include the parity of the current crc
-    tag |= lfs_popc(*crc) & 1;
+    tag |= lfs_popc(*csum_) & 1;
 
     // encode into an le16 and pair of leb128s
     uint8_t buf[LFSR_TAG_DSIZE];
@@ -946,7 +946,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     }
     d += d_;
 
-    int err = lfsr_bd_progcsum(lfs, block, off, &buf, d, crc);
+    int err = lfsr_bd_prog(lfs, block, off, &buf, d, csum_);
     if (err) {
         return err;
     }
@@ -1001,7 +1001,7 @@ static inline lfs_size_t lfsr_data_setondisk(lfs_size_t size) {
 }
 
 // data<->bd interactions
-static inline lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t data,
+static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t data,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     // limit our off/size to data range
     lfs_off_t off_ = lfs_min32(off, lfsr_data_size(data));
@@ -1023,7 +1023,7 @@ static inline lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t data,
     return size_;
 }
 
-static inline int lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
+static int lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
         lfs_off_t off, const void *buffer, lfs_size_t size,
         int *cmp) {
     // limit our off/size to data range
@@ -1053,10 +1053,9 @@ static inline int lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
     return 0;
 }
 
-static inline lfs_ssize_t lfsr_data_readle32(lfs_t *lfs, lfsr_data_t data,
+static lfs_ssize_t lfsr_data_readle32(lfs_t *lfs, lfsr_data_t data,
         lfs_off_t off, uint32_t *word) {
-    uint8_t buf[sizeof(uint32_t)];
-    lfs_ssize_t d = lfsr_data_read(lfs, data, off, buf, sizeof(uint32_t));
+    lfs_ssize_t d = lfsr_data_read(lfs, data, off, word, sizeof(uint32_t));
     if (d < 0) {
         return d;
     }
@@ -1066,11 +1065,11 @@ static inline lfs_ssize_t lfsr_data_readle32(lfs_t *lfs, lfsr_data_t data,
         return LFS_ERR_CORRUPT;
     }
 
-    *word = lfs_fromle32_(buf);
+    *word = lfs_fromle32_(word);
     return sizeof(uint32_t);
 }
 
-static inline lfs_ssize_t lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t data,
+static lfs_ssize_t lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t data,
         lfs_off_t off, uint32_t *word) {
     // for 32-bits we can assume worst-case leb128 size is 5-bytes
     uint8_t buf[5];
@@ -1082,12 +1081,10 @@ static inline lfs_ssize_t lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t data,
     return lfs_fromleb128(word, buf, d);
 }
 
-// TODO should we handle this consistently to lfsr_bd_prog/progcsum?
-// should lfsr_bd_progcsum be rethought?
 static lfs_ssize_t lfsr_bd_progdata(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         lfsr_data_t data,
-        uint32_t *crc) {
+        uint32_t *csum_) {
     if (lfsr_data_ondisk(data)) {
         // TODO byte-level copies have been a pain point, works for prototyping
         // but can this be better? configurable? leverage
@@ -1101,18 +1098,18 @@ static lfs_ssize_t lfsr_bd_progdata(lfs_t *lfs,
                 return err;
             }
 
-            err = lfsr_bd_progcsum(lfs, block, off+i,
+            err = lfsr_bd_prog(lfs, block, off+i,
                     &dat, 1,
-                    crc);
+                    csum_);
             if (err) {
                 return err;
             }
         }
 
     } else {
-        int err = lfsr_bd_progcsum(lfs, block, off,
+        int err = lfsr_bd_prog(lfs, block, off,
                 data.buf.buffer, lfsr_data_size(data),
-                crc);
+                csum_);
         if (err) {
             return err;
         }
@@ -2003,7 +2000,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     if (rbyd->off == 0) {
         uint8_t buf[sizeof(uint32_t)];
         lfs_tole32_(rbyd->rev, &buf);
-        err = lfsr_bd_progcsum(lfs, rbyd->block, rbyd->off,
+        err = lfsr_bd_prog(lfs, rbyd->block, rbyd->off,
                 &buf, sizeof(uint32_t), &rbyd->crc);
         if (err) {
             goto failed;
@@ -2470,7 +2467,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     if (rbyd_.off == 0) {
         uint8_t buf[sizeof(uint32_t)];
         lfs_tole32_(rbyd_.rev, &buf);
-        err = lfsr_bd_progcsum(lfs, rbyd_.block, rbyd_.off,
+        err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off,
                 &buf, sizeof(uint32_t), &rbyd_.crc);
         if (err) {
             goto failed;
@@ -2547,7 +2544,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
         rbyd_.off += d_;
 
-        err = lfsr_bd_progcsum(lfs, rbyd_.block, rbyd_.off,
+        err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off,
                 buf, d, &rbyd_.crc);
         if (err) {
             goto failed;
@@ -2592,7 +2589,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
     lfs_tole32_(rbyd_.crc, &buf[2+1+5]);
 
-    err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off, buf, 2+1+5+4);
+    err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off, buf, 2+1+5+4, NULL);
     if (err) {
         goto failed;
     }
@@ -4115,10 +4112,11 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mpair_t mpair,
     uint32_t revs[2] = {0, 0};
     for (int i = 0; i < 2; i++) {
         int err = lfsr_bd_read(lfs, mpair.blocks[0], 0, 0,
-                &revs[0], sizeof(revs[0]));
+                &revs[0], sizeof(uint32_t));
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
+        revs[i] = lfs_fromle32_(&revs[i]);
 
         if (i == 0
                 || err == LFS_ERR_CORRUPT
