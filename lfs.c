@@ -1794,7 +1794,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
-static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_ssize_t id, lfsr_tag_t tag,
         lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
@@ -1867,25 +1867,37 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     }
 }
 
-// TODO still need this?
-static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t id, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
+static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfs_ssize_t id, lfsr_tag_t tag,
+        lfsr_data_t *data_) {
     lfs_ssize_t id_;
     lfsr_tag_t tag_;
-    lfsr_data_t data_;
-    int err = lfsr_rbyd_lookup(lfs, rbyd, id, tag,
-            &id_, &tag_, NULL, &data_);
+    int err = lfsr_rbyd_lookupnext(lfs, rbyd, id, tag,
+            &id_, &tag_, NULL, data_);
     if (err) {
         return err;
     }
 
-    // lookup finds the next-smallest tag, for get, we need to fail
-    // if it's not an exact match
+    // lookup finds the next-smallest tag, all we need to do is fail if it
+    // picks up the wrong tag
     if (id_ != id || tag_ != tag) {
         return LFS_ERR_NOENT;
     }
 
-    return lfsr_data_read(lfs, data_, 0, buffer, size);
+    return 0;
+}
+
+// TODO still need this?
+// TODO move this into the tests?
+static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfs_ssize_t id, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
+    lfsr_data_t data;
+    int err = lfsr_rbyd_lookup(lfs, rbyd, id, tag, &data);
+    if (err) {
+        return err;
+    }
+
+    return lfsr_data_read(lfs, data, 0, buffer, size);
 }
 
 
@@ -2372,7 +2384,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // split leaf nodes?
     //
-    // note we bias the weights here so that lfsr_rbyd_lookup
+    // note we bias the weights here so that lfsr_rbyd_lookupnext
     // always finds the next biggest tag
     lfsr_tag_t alt = 0;
     lfs_size_t weight = 0;
@@ -2670,7 +2682,7 @@ static int lfsr_rbyd_cutoff(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     lfs_ssize_t id = -1;
     lfs_size_t count = 0;
     while (true) {
-        int err = lfsr_rbyd_lookup(lfs, rbyd, id+1, 0,
+        int err = lfsr_rbyd_lookupnext(lfs, rbyd, id+1, 0,
                 &id, NULL, NULL, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -2767,11 +2779,12 @@ static lfs_ssize_t lfsr_branch_fromdisk(lfs_t *lfs, lfsr_rbyd_t *branch,
 
 // B-tree operations
 
-static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
+// TODO should there be a different lfsr_btree_lookupnext without rbyd_/rid_?
+static int lfsr_btree_lookupnext(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t bid,
         lfs_size_t *bid_, lfsr_rbyd_t *rbyd_, lfs_ssize_t *rid_,
-        lfsr_tag_t *tag_, lfs_size_t *weight_, lfsr_data_t *data_,
-        bool validate) {
+        lfsr_tag_t *tag_, lfs_size_t *weight_,
+        lfsr_data_t *data_, bool validate) {
     // in range?
     if (bid >= lfsr_btree_weight(btree)) {
         return LFS_ERR_NOENT;
@@ -2846,7 +2859,7 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
         lfsr_tag_t tag__;
         lfs_size_t weight__;
         lfsr_data_t data__;
-        int err = lfsr_rbyd_lookup(lfs, &branch, rid, 0,
+        int err = lfsr_rbyd_lookupnext(lfs, &branch, rid, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -2854,7 +2867,7 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_STRUCT,
+            err = lfsr_rbyd_lookupnext(lfs, &branch, rid__, LFSR_TAG_STRUCT,
                     NULL, &tag__, NULL, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -2900,7 +2913,46 @@ static lfs_ssize_t lfsr_btree_lookup(lfs_t *lfs,
     }
 }
 
-// TODO should lfsr_btree_lookup/lfsr_btree_parent be deduplicated?
+static int lfsr_btree_lookup(lfs_t *lfs,
+        const lfsr_btree_t *btree, lfs_size_t bid,
+        lfsr_tag_t *tag_, lfs_size_t *weight_,
+        lfsr_data_t *data_, bool validate) {
+    lfs_size_t bid_;
+    int err = lfsr_btree_lookupnext(lfs, btree, bid,
+            &bid_, NULL, NULL, tag_, weight_, data_,
+            validate);
+    if (err) {
+        return err;
+    }
+
+    // lookup finds the next-smallest bid, all we need to do is fail if it
+    // picks up the wrong bid
+    if (bid_ != bid) {
+        return LFS_ERR_NOENT;
+    }
+
+    return 0;
+}
+
+// TODO still need this?
+// TODO move this into the tests?
+static int lfsr_btree_get(lfs_t *lfs,
+        const lfsr_btree_t *btree, lfs_size_t bid,
+        lfsr_tag_t *tag_, lfs_size_t *weight_,
+        void *buffer, lfs_size_t size,
+        bool validate) {
+    lfsr_data_t data;
+    int err = lfsr_btree_lookup(lfs, btree, bid,
+            tag_, weight_, &data,
+            validate);
+    if (err) {
+        return err;
+    }
+
+    return lfsr_data_read(lfs, data, 0, buffer, size);
+}
+
+// TODO should lfsr_btree_lookupnext/lfsr_btree_parent be deduplicated?
 static int lfsr_btree_parent(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t bid, const lfsr_rbyd_t *child,
         lfsr_rbyd_t *rbyd_, lfs_ssize_t *rid_) {
@@ -2921,7 +2973,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
         lfsr_tag_t tag__;
         lfs_size_t weight__;
         lfsr_data_t data__;
-        int err = lfsr_rbyd_lookup(lfs, &branch, rid, 0,
+        int err = lfsr_rbyd_lookupnext(lfs, &branch, rid, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -2929,7 +2981,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_STRUCT,
+            err = lfsr_rbyd_lookupnext(lfs, &branch, rid__, LFSR_TAG_STRUCT,
                     NULL, &tag__, NULL, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -2969,23 +3021,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
     }
 }
 
-static lfs_ssize_t lfsr_btree_get(lfs_t *lfs,
-        const lfsr_btree_t *btree, lfs_size_t bid,
-        lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
-        void *buffer, lfs_size_t size,
-        bool validate) {
-    lfsr_data_t data_;
-    int err = lfsr_btree_lookup(lfs, btree, bid,
-            bid_, NULL, NULL, tag_, weight_, &data_,
-            validate);
-    if (err) {
-        return err;
-    }
-
-    return lfsr_data_read(lfs, data_, 0, buffer, size);
-}
-
-static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs,
+static lfs_ssize_t lfsr_btree_namelookupnext(lfs_t *lfs,
         const lfsr_btree_t *btree, const char *name, lfs_size_t name_size,
         lfs_size_t *bid_, lfsr_rbyd_t *rbyd_, lfs_ssize_t *rid_,
         lfsr_tag_t *tag_, lfs_size_t *weight_, lfsr_data_t *data_) {
@@ -3067,7 +3103,7 @@ static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs,
         lfs_ssize_t rid__;
         lfs_size_t weight__;
         lfsr_data_t data__;
-        err = lfsr_rbyd_lookup(lfs, &branch, find.found_id, 0,
+        err = lfsr_rbyd_lookupnext(lfs, &branch, find.found_id, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -3075,7 +3111,7 @@ static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs,
         }
 
         if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_STRUCT,
+            err = lfsr_rbyd_lookupnext(lfs, &branch, rid__, LFSR_TAG_STRUCT,
                     NULL, &tag__, NULL, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -3119,20 +3155,6 @@ static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs,
             return 0;
         }
     }
-}
-
-static lfs_ssize_t lfsr_btree_nameget(lfs_t *lfs,
-        const lfsr_btree_t *btree, const char *name, lfs_size_t name_size,
-        lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
-        void *buffer, lfs_size_t size) {
-    lfsr_data_t data_;
-    int err = lfsr_btree_namelookup(lfs, btree, name, name_size,
-            bid_, NULL, NULL, tag_, weight_, &data_);
-    if (err) {
-        return err;
-    }
-
-    return lfsr_data_read(lfs, data_, 0, buffer, size);
 }
 
 
@@ -3238,7 +3260,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             lfsr_tag_t tag = 0;
             while (true) {
                 lfsr_data_t data;
-                err = lfsr_rbyd_lookup(lfs, rbyd, id, lfsr_tag_next(tag),
+                err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
                         &id, &tag, NULL, &data);
                 if (err && err != LFS_ERR_NOENT) {
                     return err;
@@ -3369,7 +3391,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 lfs_ssize_t id_;
                 lfs_size_t w_;
                 lfsr_data_t data;
-                int err = lfsr_rbyd_lookup(lfs, rbyd, id, lfsr_tag_next(tag),
+                int err = lfsr_rbyd_lookupnext(lfs, rbyd,
+                        id, lfsr_tag_next(tag),
                         &id_, &tag, &w_, &data);
                 if (err && err != LFS_ERR_NOENT) {
                     return err;
@@ -3462,7 +3485,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         while (true) {
             lfs_size_t w;
             lfsr_data_t data;
-            err = lfsr_rbyd_lookup(lfs, rbyd, id, lfsr_tag_next(tag),
+            err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
                     &id, &tag, &w, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -3514,7 +3537,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // they introduce a new name!
         lfsr_tag_t stag;
         lfsr_data_t sdata;
-        err = lfsr_rbyd_lookup(lfs, &sibling, 0, LFSR_TAG_NAME,
+        err = lfsr_rbyd_lookupnext(lfs, &sibling, 0, LFSR_TAG_NAME,
                 NULL, &stag, NULL, &sdata);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -3605,7 +3628,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // try looking up the sibling
         lfs_size_t sweight;
-        err = lfsr_rbyd_lookup(lfs, &parent, sid, LFSR_TAG_NAME,
+        err = lfsr_rbyd_lookupnext(lfs, &parent, sid, LFSR_TAG_NAME,
                 &sid, &stag, &sweight, &sdata);
         if (err) {
             // no sibling? can't merge
@@ -3616,7 +3639,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         if (stag == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookup(lfs, &parent, sid, LFSR_TAG_STRUCT,
+            err = lfsr_rbyd_lookupnext(lfs, &parent, sid, LFSR_TAG_STRUCT,
                     NULL, &stag, NULL, &sdata);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -3641,7 +3664,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         while (true) {
             lfs_size_t w;
             lfsr_data_t data;
-            err = lfsr_rbyd_lookup(lfs, &sibling, id, lfsr_tag_next(tag),
+            err = lfsr_rbyd_lookupnext(lfs, &sibling, id, lfsr_tag_next(tag),
                     &id, &tag, &w, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -3677,7 +3700,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // bring in name that previously split the siblings
             lfsr_tag_t split_tag;
             lfsr_data_t split_data;
-            err = lfsr_rbyd_lookup(lfs, &parent,
+            err = lfsr_rbyd_lookupnext(lfs, &parent,
                     (sdelta == 0 ? pid : sid), LFSR_TAG_NAME,
                     NULL, &split_tag, NULL, &split_data);
             if (err) {
@@ -3688,7 +3711,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
                 // lookup the id (weight really) of the previously-split entry
                 lfs_ssize_t split_id;
-                err = lfsr_rbyd_lookup(lfs, &rbyd_,
+                err = lfsr_rbyd_lookupnext(lfs, &rbyd_,
                         (sdelta == 0 ? sweight : rweight_), LFSR_TAG_NAME,
                         &split_id, NULL, NULL, NULL);
                 if (err) {
@@ -3807,7 +3830,7 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t rbyd = btree->root;
         lfs_ssize_t rid = -1;
         lfs_size_t rweight = 0;
-        int err = lfsr_btree_lookup(lfs, btree, bid_,
+        int err = lfsr_btree_lookupnext(lfs, btree, bid_,
                 NULL, &rbyd, &rid, NULL, &rweight, NULL,
                 false);
         if (err && err != LFS_ERR_NOENT) {
@@ -3870,7 +3893,7 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_tag_t rtag;
         lfs_ssize_t rid;
         lfs_size_t rweight;
-        int err = lfsr_btree_lookup(lfs, btree, bid,
+        int err = lfsr_btree_lookupnext(lfs, btree, bid,
                 NULL, &rbyd, &rid, &rtag, &rweight, NULL,
                 false);
         if (err) {
@@ -3921,7 +3944,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
         lfsr_tag_t rtag;
         lfs_ssize_t rid;
         lfs_size_t rweight;
-        int err = lfsr_btree_lookup(lfs, btree, bid,
+        int err = lfsr_btree_lookupnext(lfs, btree, bid,
                 NULL, &rbyd, &rid, &rtag, &rweight, NULL,
                 false);
         if (err) {
@@ -3959,7 +3982,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
             lfsr_tag_t stag;
             lfs_size_t sweight;
             lfsr_data_t sdata;
-            int err = lfsr_rbyd_lookup(lfs, &rbyd, sid, LFSR_TAG_NAME,
+            int err = lfsr_rbyd_lookupnext(lfs, &rbyd, sid, LFSR_TAG_NAME,
                     &sid, &stag, &sweight, &sdata);
             if (err) {
                 LFS_ASSERT(err == LFS_ERR_NOENT);
@@ -3967,7 +3990,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
             }
 
             if (lfsr_tag_suptype(stag) == LFSR_TAG_NAME) {
-                err = lfsr_rbyd_lookup(lfs, &rbyd, sid, LFSR_TAG_STRUCT,
+                err = lfsr_rbyd_lookupnext(lfs, &rbyd, sid, LFSR_TAG_STRUCT,
                         NULL, &stag, NULL, &sdata);
                 if (err) {
                     LFS_ASSERT(err == LFS_ERR_NOENT);
@@ -4041,7 +4064,7 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t rbyd;
         lfs_ssize_t rid;
         lfs_size_t rweight;
-        int err = lfsr_btree_lookup(lfs, btree, bid,
+        int err = lfsr_btree_lookupnext(lfs, btree, bid,
                 NULL, &rbyd, &rid, NULL, &rweight, NULL,
                 false);
         if (err) {
@@ -4169,14 +4192,22 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mpair_t mpair,
     return 0;
 }
 
-static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
+static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfs_ssize_t id, lfsr_tag_t tag,
         lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
-    return lfsr_rbyd_lookup(lfs, &mdir->rbyd, id, tag,
+    return lfsr_rbyd_lookupnext(lfs, &mdir->rbyd, id, tag,
             id_, tag_, weight_, data_);
 }
 
+static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
+        lfs_ssize_t id, lfsr_tag_t tag,
+        lfsr_data_t *data_) {
+    return lfsr_rbyd_lookup(lfs, &mdir->rbyd, id, tag, data_);
+}
+
+// TODO do we need this?
+// TODO move this into the tests?
 static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfs_ssize_t id, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
     return lfsr_rbyd_get(lfs, &mdir->rbyd, id, tag, buffer, size);
@@ -4215,7 +4246,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         while (true) {
             lfs_size_t w;
             lfsr_data_t data;
-            err = lfsr_rbyd_lookup(lfs, &mdir->rbyd, id, lfsr_tag_next(tag),
+            err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd, id, lfsr_tag_next(tag),
                     &id, &tag, &w, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -4428,7 +4459,7 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         lfs_ssize_t id;
         lfsr_tag_t tag;
         lfsr_data_t data;
-        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERMAGIC,
+        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERMAGIC,
                 &id, &tag, NULL, &data);
         if (err && err != LFS_ERR_NOENT) {
             goto failed;
@@ -4456,7 +4487,7 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         }
 
         // lookup the superconfig
-        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERCONFIG,
+        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERCONFIG,
                 &id, &tag, NULL, &data);
         if (err && err != LFS_ERR_NOENT) {
             goto failed;
@@ -4506,7 +4537,7 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         //
         // if we have a supermdir, this is actually a fake superblock and
         // we need to parse the next superblock in the chain
-        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERMDIR,
+        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERMDIR,
                 &id, &tag, NULL, &data);
         if (err && err != LFS_ERR_NOENT) {
             goto failed;
