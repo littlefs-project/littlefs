@@ -2,19 +2,23 @@
 # Note that these tests are intended for 512 byte inline sizes. They should
 # still pass with other inline sizes but wouldn't be testing anything.
 
-define.LFS_CACHE_SIZE = 512
-if = 'LFS_CACHE_SIZE % LFS_PROG_SIZE == 0 && LFS_CACHE_SIZE == 512'
+defines.CACHE_SIZE = 512
+if = 'CACHE_SIZE % PROG_SIZE == 0 && CACHE_SIZE == 512'
 
-[[case]] # entry grow test
+[cases.test_entries_grow]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
 
     // write hi0 20
+    char path[1024];
+    lfs_size_t size;
     sprintf(path, "hi0"); size = 20;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     memset(wbuffer, 'c', size);
@@ -94,16 +98,20 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # entry shrink test
+[cases.test_entries_shrink]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
 
     // write hi0 20
+    char path[1024];
+    lfs_size_t size;
     sprintf(path, "hi0"); size = 20;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     memset(wbuffer, 'c', size);
@@ -183,16 +191,20 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # entry spill test
+[cases.test_entries_spill]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
 
     // write hi0 200
+    char path[1024];
+    lfs_size_t size;
     sprintf(path, "hi0"); size = 200;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     memset(wbuffer, 'c', size);
@@ -256,16 +268,20 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # entry push spill test
+[cases.test_entries_push_spill]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
 
     // write hi0 200
+    char path[1024];
+    lfs_size_t size;
     sprintf(path, "hi0"); size = 200;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     memset(wbuffer, 'c', size);
@@ -345,16 +361,20 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # entry push spill two test
+[cases.test_entries_push_spill_two]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
 
     // write hi0 200
+    char path[1024];
+    lfs_size_t size;
     sprintf(path, "hi0"); size = 200;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     memset(wbuffer, 'c', size);
@@ -449,16 +469,20 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # entry drop test
+[cases.test_entries_drop]
 code = '''
     uint8_t wbuffer[1024];
     uint8_t rbuffer[1024];
 
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
 
     // write hi0 200
+    char path[1024];
+    lfs_size_t size;
     sprintf(path, "hi0"); size = 200;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     memset(wbuffer, 'c', size);
@@ -491,6 +515,7 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
 
     lfs_remove(&lfs, "hi1") => 0;
+    struct lfs_info info;
     lfs_stat(&lfs, "hi1", &info) => LFS_ERR_NOENT;
     // read hi0 200
     sprintf(path, "hi0"); size = 200;
@@ -547,15 +572,18 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # create too big
+[cases.test_entries_create_too_big]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    char path[1024];
     memset(path, 'm', 200);
     path[200] = '\0';
 
-    size = 400;
+    lfs_size_t size = 400;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     uint8_t wbuffer[1024];
@@ -572,15 +600,18 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # resize too big
+[cases.test_entries_resize_too_big]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    char path[1024];
     memset(path, 'm', 200);
     path[200] = '\0';
 
-    size = 40;
+    lfs_size_t size = 40;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
     uint8_t wbuffer[1024];

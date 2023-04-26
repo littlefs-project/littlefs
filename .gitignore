@@ -4,11 +4,31 @@
 *.a
 *.ci
 *.csv
+*.t.*
+*.b.*
+*.gcno
+*.gcda
+*.perf
+lfs
+liblfs.a
 
 # Testing things
-blocks/
-lfs
-test.c
-tests/*.toml.*
-scripts/__pycache__
+runners/test_runner
+runners/bench_runner
+lfs.code.csv
+lfs.data.csv
+lfs.stack.csv
+lfs.structs.csv
+lfs.cov.csv
+lfs.perf.csv
+lfs.perfbd.csv
+lfs.test.csv
+lfs.bench.csv
+
+# Misc
+tags
 .gdb_history
+scripts/__pycache__
+
+# Historical, probably should remove at some point
+tests/*.toml.*

@@ -1,13 +1,16 @@
 
-[[case]] # simple path test
+# simple path test
+[cases.test_paths_normal]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
     lfs_mkdir(&lfs, "tea/coldtea") => 0;
 
+    struct lfs_info info;
     lfs_stat(&lfs, "tea/hottea", &info) => 0;
     assert(strcmp(info.name, "hottea") == 0);
     lfs_stat(&lfs, "/tea/hottea", &info) => 0;
@@ -21,15 +24,18 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # redundant slashes
+# redundant slashes
+[cases.test_paths_redundant_slashes]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
     lfs_mkdir(&lfs, "tea/coldtea") => 0;
 
+    struct lfs_info info;
     lfs_stat(&lfs, "/tea/hottea", &info) => 0;
     assert(strcmp(info.name, "hottea") == 0);
     lfs_stat(&lfs, "//tea//hottea", &info) => 0;
@@ -45,15 +51,18 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # dot path test
+# dot path test
+[cases.test_paths_dot]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
     lfs_mkdir(&lfs, "tea/coldtea") => 0;
 
+    struct lfs_info info;
     lfs_stat(&lfs, "./tea/hottea", &info) => 0;
     assert(strcmp(info.name, "hottea") == 0);
     lfs_stat(&lfs, "/./tea/hottea", &info) => 0;
@@ -71,10 +80,12 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # dot dot path test
+# dot dot path test
+[cases.test_paths_dot_dot]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
@@ -84,6 +95,7 @@ code = '''
     lfs_mkdir(&lfs, "coffee/warmcoffee") => 0;
     lfs_mkdir(&lfs, "coffee/coldcoffee") => 0;
 
+    struct lfs_info info;
     lfs_stat(&lfs, "coffee/../tea/hottea", &info) => 0;
     assert(strcmp(info.name, "hottea") == 0);
     lfs_stat(&lfs, "tea/coldtea/../hottea", &info) => 0;
@@ -101,15 +113,18 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # trailing dot path test
+# trailing dot path test
+[cases.test_paths_trailing_dot]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
     lfs_mkdir(&lfs, "tea/coldtea") => 0;
 
+    struct lfs_info info;
     lfs_stat(&lfs, "tea/hottea/", &info) => 0;
     assert(strcmp(info.name, "hottea") == 0);
     lfs_stat(&lfs, "tea/hottea/.", &info) => 0;
@@ -123,11 +138,14 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # leading dot path test
+# leading dot path test
+[cases.test_paths_leading_dot]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, ".milk") => 0;
+    struct lfs_info info;
     lfs_stat(&lfs, ".milk", &info) => 0;
     strcmp(info.name, ".milk") => 0;
     lfs_stat(&lfs, "tea/.././.milk", &info) => 0;
@@ -135,10 +153,12 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # root dot dot path test
+# root dot dot path test
+[cases.test_paths_root_dot_dot]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "tea") => 0;
     lfs_mkdir(&lfs, "tea/hottea") => 0;
     lfs_mkdir(&lfs, "tea/warmtea") => 0;
@@ -148,6 +168,7 @@ code = '''
     lfs_mkdir(&lfs, "coffee/warmcoffee") => 0;
     lfs_mkdir(&lfs, "coffee/coldcoffee") => 0;
 
+    struct lfs_info info;
     lfs_stat(&lfs, "coffee/../../../../../../tea/hottea", &info) => 0;
     strcmp(info.name, "hottea") => 0;
 
@@ -159,10 +180,13 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # invalid path tests
+# invalid path tests
+[cases.test_paths_invalid]
 code = '''
-    lfs_format(&lfs, &cfg);
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg);
+    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_info info;
     lfs_stat(&lfs, "dirt", &info) => LFS_ERR_NOENT;
     lfs_stat(&lfs, "dirt/ground", &info) => LFS_ERR_NOENT;
     lfs_stat(&lfs, "dirt/ground/earth", &info) => LFS_ERR_NOENT;
@@ -172,6 +196,7 @@ code = '''
     lfs_remove(&lfs, "dirt/ground/earth") => LFS_ERR_NOENT;
 
     lfs_mkdir(&lfs, "dirt/ground") => LFS_ERR_NOENT;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, "dirt/ground", LFS_O_WRONLY | LFS_O_CREAT)
             => LFS_ERR_NOENT;
     lfs_mkdir(&lfs, "dirt/ground/earth") => LFS_ERR_NOENT;
@@ -180,15 +205,19 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # root operations
+# root operations
+[cases.test_paths_root]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_info info;
     lfs_stat(&lfs, "/", &info) => 0;
     assert(strcmp(info.name, "/") == 0);
     assert(info.type == LFS_TYPE_DIR);
 
     lfs_mkdir(&lfs, "/") => LFS_ERR_EXIST;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, "/", LFS_O_WRONLY | LFS_O_CREAT)
             => LFS_ERR_ISDIR;
 
@@ -196,10 +225,13 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # root representations
+# root representations
+[cases.test_paths_root_reprs]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_info info;
     lfs_stat(&lfs, "/", &info) => 0;
     assert(strcmp(info.name, "/") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -221,10 +253,13 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # superblock conflict test
+# superblock conflict test
+[cases.test_paths_superblock_conflict]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_info info;
     lfs_stat(&lfs, "littlefs", &info) => LFS_ERR_NOENT;
     lfs_remove(&lfs, "littlefs") => LFS_ERR_NOENT;
 
@@ -237,18 +272,22 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # max path test
+# max path test
+[cases.test_paths_max]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "coffee") => 0;
     lfs_mkdir(&lfs, "coffee/hotcoffee") => 0;
     lfs_mkdir(&lfs, "coffee/warmcoffee") => 0;
     lfs_mkdir(&lfs, "coffee/coldcoffee") => 0;
 
+    char path[1024];
     memset(path, 'w', LFS_NAME_MAX+1);
     path[LFS_NAME_MAX+1] = '\0';
     lfs_mkdir(&lfs, path) => LFS_ERR_NAMETOOLONG;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT)
             => LFS_ERR_NAMETOOLONG;
 
@@ -261,19 +300,23 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # really big path test
+# really big path test
+[cases.test_paths_really_big]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "coffee") => 0;
     lfs_mkdir(&lfs, "coffee/hotcoffee") => 0;
     lfs_mkdir(&lfs, "coffee/warmcoffee") => 0;
     lfs_mkdir(&lfs, "coffee/coldcoffee") => 0;
 
+    char path[1024];
     memset(path, 'w', LFS_NAME_MAX);
     path[LFS_NAME_MAX] = '\0';
     lfs_mkdir(&lfs, path) => 0;
     lfs_remove(&lfs, path) => 0;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, path,
             LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_close(&lfs, &file) => 0;
