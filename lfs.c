@@ -4040,7 +4040,10 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->prog_size == 0);
     LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->cache_size == 0);
 
-    // check that the block size is large enough to fit ctz pointers
+    // check that the block size is large enough to fit all ctz pointers
+    LFS_ASSERT(lfs->cfg->block_size >= 128);
+    // this is the exact calculation for all ctz pointers, if this fails
+    // and the simpler assert above does not, math must be broken
     LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
 
