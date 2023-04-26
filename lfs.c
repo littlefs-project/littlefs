@@ -4292,19 +4292,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
 /// Superblock things ///
 
-typedef struct lfsr_superconfig {
-    uint8_t major_version;
-    uint8_t minor_version;
-    uint8_t csum_type;
-    uint8_t flags;
-    lfs_size_t block_size;
-    lfs_off_t block_count;
-    uint8_t utag_limit;
-    lfs_size_t attr_limit;
-    lfs_size_t name_limit;
-    lfs_off_t file_limit;
-} lfsr_superconfig_t;
-
 // These are all leb128s, but we can expect smaller encodings
 // if we assume the version.
 //
@@ -4323,46 +4310,56 @@ typedef struct lfsr_superconfig {
 #define LFSR_SUPERCONFIG_DSIZE (1+1+1+1+5+5+1+5+5+5)
 
 static lfs_ssize_t lfsr_superconfig_todisk(lfs_t *lfs,
-        const lfsr_superconfig_t *superconfig,
         uint8_t buffer[static LFSR_SUPERCONFIG_DSIZE]) {
-    // TODO wait, isn't this all derived from lfs_t? do we even need the
-    // lfsr_superconfig_t at all?
-    (void)lfs;
-    // shortcut the single-byte lebs
-    buffer[0] = superconfig->major_version;
-    buffer[1] = superconfig->minor_version;
-    buffer[2] = superconfig->csum_type;
-    buffer[3] = superconfig->flags;
+    // TODO most of these should also be in the lfs_config/lfs_t structs
 
+    // note we take a shortcut for for single-byte leb128s, but these
+    // are still leb128s! the top bit must be zero!
+
+    // on-disk major version
+    buffer[0] = LFS_DISK_VERSION_MAJOR;
+    // on-disk minor version
+    buffer[1] = LFS_DISK_VERSION_MINOR;
+    // on-disk csum type
+    buffer[2] = 2;
+    // on-disk flags
+    buffer[3] = 0;
+
+    // on-disk block size
     lfs_ssize_t d = 4;
-    lfs_ssize_t d_ = lfs_toleb128(superconfig->block_size, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(lfs->cfg->block_size, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    d_ = lfs_toleb128(superconfig->block_count, &buffer[d], 5);
+    // on-disk block count
+    d_ = lfs_toleb128(lfs->cfg->block_count, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    buffer[d] = superconfig->utag_limit;
+    // on-disk utag limit
+    buffer[d] = 0x7f;
     d += 1;
 
-    d_ = lfs_toleb128(superconfig->attr_limit, &buffer[d], 5);
+    // on-disk attr limit
+    d_ = lfs_toleb128(0x7fffffff, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    d_ = lfs_toleb128(superconfig->name_limit, &buffer[d], 5);
+    // on-disk name limit
+    d_ = lfs_toleb128(0xff, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    d_ = lfs_toleb128(superconfig->file_limit, &buffer[d], 5);
+    // on-disk file limit
+    d_ = lfs_toleb128(0x7fffffff, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
@@ -4392,94 +4389,242 @@ static int lfsr_mountinited(lfs_t *lfs) {
         }
 
         // has magic string?
-        lfs_ssize_t id;
-        lfsr_tag_t tag;
         lfsr_data_t data;
-        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERMAGIC,
-                &id, &tag, NULL, &data);
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERMAGIC, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
-        if (err
-                || id != -1
-                || tag != LFSR_TAG_SUPERMAGIC
-                || lfsr_data_size(data) != 8) {
-            LFS_ERROR("No littlefs magic found");
-            return LFS_ERR_INVAL;
+        if (err != LFS_ERR_NOENT) {
+            int cmp;
+            err = lfsr_data_cmp(lfs, data, 0, "littlefs", 8, &cmp);
+            if (err) {
+                return err;
+            }
+
+            // treat corrupted magic as no magic
+            if (cmp != 0) {
+                err = LFS_ERR_NOENT;
+            }
         }
 
-        int cmp;
-        err = lfsr_data_cmp(lfs, data, 0, "littlefs", 8, &cmp);
-        if (err) {
-            return err;
-        }
-
-        if (cmp != 0) {
+        if (err == LFS_ERR_NOENT) {
             LFS_ERROR("No littlefs magic found");
             return LFS_ERR_INVAL;
         }
 
         // lookup the superconfig
-        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERCONFIG,
-                &id, &tag, NULL, &data);
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERCONFIG, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
-        if (!(err
-                || id != -1
-                || tag != LFSR_TAG_SUPERCONFIG)) {
+        if (err != LFS_ERR_NOENT) {
             // check the major/minor version
             uint32_t major_version;
             uint32_t minor_version;
 
             lfs_size_t d = 0;
             lfs_ssize_t d_ = lfsr_data_readleb128(lfs, data, d, &major_version);
-            if (d_ < 0) {
-                // treat leb128 overflow as an out-of-range value
-                if (d_ == LFS_ERR_CORRUPT) {
-                    LFS_ERROR("Undecodable major version");
-                    return LFS_ERR_INVAL;
-                }
+            // treat any leb128 overflows as out-of-range values
+            if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
                 return d_;
             }
-            d += d_;
+            if (d_ != LFS_ERR_CORRUPT) {
+                d += d_;
 
-            d_ = lfsr_data_readleb128(lfs, data, d, &minor_version);
-            if (d_ < 0) {
-                // treat leb128 overflow as an out-of-range value
-                if (d_ == LFS_ERR_CORRUPT) {
-                    LFS_ERROR("Undecodable minor version");
-                    return LFS_ERR_INVAL;
+                d_ = lfsr_data_readleb128(lfs, data, d, &minor_version);
+                // treat any leb128 overflows as out-of-range values
+                if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
+                    return d_;
                 }
-                return d_;
+                if (d_ != LFS_ERR_CORRUPT) {
+                    d += d_;
+                }
             }
             
-            if (major_version != LFS_DISK_VERSION_MAJOR
+            if (d_ == LFS_ERR_CORRUPT
+                    || major_version != LFS_DISK_VERSION_MAJOR
                     || minor_version > LFS_DISK_VERSION_MINOR) {
-                LFS_ERROR("Incompatible version v%"PRIu32".%"PRIu32,
-                        major_version, minor_version);
+                LFS_ERROR("Incompatible version v%"PRIu32".%"PRIu32
+                        " (!= v%"PRIu32".%"PRIu32")",
+                        (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : major_version),
+                        (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : minor_version),
+                        LFS_DISK_VERSION_MAJOR,
+                        LFS_DISK_VERSION_MINOR);
                 return LFS_ERR_INVAL;
             }
 
-            // TODO parse rest of the superblock
+            // check the on-disk csum type
+            uint32_t csum_type;
+            d_ = lfsr_data_readleb128(lfs, data, d, &csum_type);
+            // treat any leb128 overflows as out-of-range values
+            if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
+                return d_;
+            }
+            if (d_ != LFS_ERR_CORRUPT) {
+                d += d_;
+            }
+
+            if (d_ == LFS_ERR_CORRUPT || csum_type != 2) {
+                LFS_ERROR("Incompatible csum type 0x%"PRIx32
+                        " (!= 0x%"PRIx32")",
+                        (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : csum_type),
+                        2);
+                return LFS_ERR_INVAL;
+            }
+
+            // check for any on-disk flags
+            uint32_t flags;
+            d_ = lfsr_data_readleb128(lfs, data, d, &flags);
+            // treat any leb128 overflows as out-of-range values
+            if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
+                return d_;
+            }
+            if (d_ != LFS_ERR_CORRUPT) {
+                d += d_;
+            }
+
+            if (d_ == LFS_ERR_CORRUPT || flags != 0) {
+                LFS_ERROR("Incompatible flags 0x%"PRIx32
+                        " (!= 0x%"PRIx32")",
+                        (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : flags),
+                        0);
+                return LFS_ERR_INVAL;
+            }
+
+            // check the on-disk block size
+            // TODO actually use this
+            uint32_t block_size;
+            d_ = lfsr_data_readleb128(lfs, data, d, &block_size);
+            // treat any leb128 overflows as out-of-range values
+            if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
+                return d_;
+            }
+            if (d_ != LFS_ERR_CORRUPT) {
+                d += d_;
+            }
+
+            if (d_ == LFS_ERR_CORRUPT || block_size != lfs->cfg->block_size) {
+                LFS_ERROR("Incompatible block size 0x%"PRIx32
+                        " (!= 0x%"PRIx32")",
+                        (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : block_size),
+                        lfs->cfg->block_size);
+                return LFS_ERR_INVAL;
+            }
+
+            // check the on-disk block count
+            // TODO actually use this
+            uint32_t block_count;
+            d_ = lfsr_data_readleb128(lfs, data, d, &block_count);
+            // treat any leb128 overflows as out-of-range values
+            if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
+                return d_;
+            }
+            if (d_ != LFS_ERR_CORRUPT) {
+                d += d_;
+            }
+
+            if (d_ == LFS_ERR_CORRUPT || block_count != lfs->cfg->block_count) {
+                LFS_ERROR("Incompatible block count 0x%"PRIx32
+                        " (!= 0x%"PRIx32")",
+                        (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : block_count),
+                        lfs->cfg->block_count);
+                return LFS_ERR_INVAL;
+            }
+
+            // check the on-disk utag limit
+            // TODO actually use this
+            uint32_t utag_limit;
+            d_ = lfsr_data_readleb128(lfs, data, d, &utag_limit);
+            // treat any leb128 overflows as out-of-range values
+            if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
+                return d_;
+            }
+            if (d_ != LFS_ERR_CORRUPT) {
+                d += d_;
+            }
+
+            if (d_ == LFS_ERR_CORRUPT || utag_limit != 0x7f) {
+                LFS_ERROR("Incompatible utag limit 0x%"PRIx32
+                        " (> 0x%"PRIx32")",
+                        (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : utag_limit),
+                        0x7f);
+                return LFS_ERR_INVAL;
+            }
+
+            // check the on-disk attr limit
+            // TODO actually use this
+            uint32_t attr_limit;
+            d_ = lfsr_data_readleb128(lfs, data, d, &attr_limit);
+            // treat any leb128 overflows as out-of-range values
+            if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
+                return d_;
+            }
+            if (d_ != LFS_ERR_CORRUPT) {
+                d += d_;
+            }
+
+            if (d_ == LFS_ERR_CORRUPT || attr_limit != 0x7fffffff) {
+                LFS_ERROR("Incompatible attr limit 0x%"PRIx32
+                        " (> 0x%"PRIx32")",
+                        (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : attr_limit),
+                        0x7fffffff);
+                return LFS_ERR_INVAL;
+            }
+
+            // check the on-disk name limit
+            // TODO actually use this
+            uint32_t name_limit;
+            d_ = lfsr_data_readleb128(lfs, data, d, &name_limit);
+            // treat any leb128 overflows as out-of-range values
+            if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
+                return d_;
+            }
+            if (d_ != LFS_ERR_CORRUPT) {
+                d += d_;
+            }
+
+            if (d_ == LFS_ERR_CORRUPT || name_limit != 0xff) {
+                LFS_ERROR("Incompatible name limit 0x%"PRIx32
+                        " (> 0x%"PRIx32")",
+                        (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : name_limit),
+                        0xff);
+                return LFS_ERR_INVAL;
+            }
+
+            // check the on-disk file limit
+            // TODO actually use this
+            uint32_t file_limit;
+            d_ = lfsr_data_readleb128(lfs, data, d, &file_limit);
+            // treat any leb128 overflows as out-of-range values
+            if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
+                return d_;
+            }
+            if (d_ != LFS_ERR_CORRUPT) {
+                d += d_;
+            }
+
+            if (d_ == LFS_ERR_CORRUPT || file_limit != 0x7fffffff) {
+                LFS_ERROR("Incompatible file limit 0x%"PRIx32
+                        " (> 0x%"PRIx32")",
+                        (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : file_limit),
+                        0x7fffffff);
+                return LFS_ERR_INVAL;
+            }
         }
 
         // lookup supermdir
         //
         // if we have a supermdir, this is actually a fake superblock and
         // we need to parse the next superblock in the chain
-        err = lfsr_mdir_lookupnext(lfs, &mdir, -1, LFSR_TAG_SUPERMDIR,
-                &id, &tag, NULL, &data);
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERMDIR, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
-        // no more supermdirs means we found our real superblock!
-        if (err
-                || id != -1
-                || tag != LFSR_TAG_SUPERMDIR) {
+        // no more supermdirs means we found our real superblock
+        if (err == LFS_ERR_NOENT) {
             break;
         }
 
@@ -4514,21 +4659,7 @@ int lfsr_unmount(lfs_t *lfs) {
 
 static int lfsr_formatinited(lfs_t *lfs) {
     uint8_t buf[LFSR_SUPERCONFIG_DSIZE];
-    lfs_ssize_t d = lfsr_superconfig_todisk(lfs,
-            &(lfsr_superconfig_t){
-                .major_version=LFS_DISK_VERSION_MAJOR,
-                .minor_version=LFS_DISK_VERSION_MINOR,
-                .csum_type=2,
-                .flags=0,
-                .block_size=lfs->cfg->block_size,
-                .block_count=lfs->cfg->block_count,
-                // TODO these should be defines
-                .utag_limit=0x7f,
-                .attr_limit=0x7fffffff,
-                .name_limit=0xff,
-                .file_limit=0x7fffffff,
-            },
-            buf);
+    lfs_ssize_t d = lfsr_superconfig_todisk(lfs, buf);
     if (d < 0) {
         return d;
     }
