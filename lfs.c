@@ -3465,7 +3465,7 @@ static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
                     // find out which block we're extending from
                     int err = lfs_ctz_find(lfs, NULL, &file->cache,
                             file->ctz.head, file->ctz.size,
-                            file->pos-1, &file->block, &file->off);
+                            file->pos-1, &file->block, &(lfs_off_t){0});
                     if (err) {
                         file->flags |= LFS_F_ERRED;
                         return err;
@@ -3643,26 +3643,55 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     lfs_off_t pos = file->pos;
     lfs_off_t oldsize = lfs_file_rawsize(lfs, file);
     if (size < oldsize) {
-        // need to flush since directly changing metadata
-        int err = lfs_file_flush(lfs, file);
-        if (err) {
-            return err;
-        }
+        // revert to inline file?
+        if (size <= lfs_min(0x3fe, lfs_min(
+                lfs->cfg->cache_size,
+                (lfs->cfg->metadata_max ?
+                    lfs->cfg->metadata_max : lfs->cfg->block_size) / 8))) {
+            // flush+seek to head
+            lfs_soff_t res = lfs_file_rawseek(lfs, file, 0, LFS_SEEK_SET);
+            if (res < 0) {
+                return (int)res;
+            }
 
-        // lookup new head in ctz skip list
-        err = lfs_ctz_find(lfs, NULL, &file->cache,
-                file->ctz.head, file->ctz.size,
-                size, &file->block, &file->off);
-        if (err) {
-            return err;
-        }
+            // read our data into rcache temporarily
+            lfs_cache_drop(lfs, &lfs->rcache);
+            res = lfs_file_flushedread(lfs, file,
+                    lfs->rcache.buffer, size);
+            if (res < 0) {
+                return (int)res;
+            }
 
-        // need to set pos/block/off consistently so seeking back to
-        // the old position does not get confused
-        file->pos = size;
-        file->ctz.head = file->block;
-        file->ctz.size = size;
-        file->flags |= LFS_F_DIRTY | LFS_F_READING;
+            file->ctz.head = LFS_BLOCK_INLINE;
+            file->ctz.size = size;
+            file->flags |= LFS_F_DIRTY | LFS_F_READING | LFS_F_INLINE;
+            file->cache.block = file->ctz.head;
+            file->cache.off = 0;
+            file->cache.size = lfs->cfg->cache_size;
+            memcpy(file->cache.buffer, lfs->rcache.buffer, size);
+
+        } else {
+            // need to flush since directly changing metadata
+            int err = lfs_file_flush(lfs, file);
+            if (err) {
+                return err;
+            }
+
+            // lookup new head in ctz skip list
+            err = lfs_ctz_find(lfs, NULL, &file->cache,
+                    file->ctz.head, file->ctz.size,
+                    size-1, &file->block, &(lfs_off_t){0});
+            if (err) {
+                return err;
+            }
+
+            // need to set pos/block/off consistently so seeking back to
+            // the old position does not get confused
+            file->pos = size;
+            file->ctz.head = file->block;
+            file->ctz.size = size;
+            file->flags |= LFS_F_DIRTY | LFS_F_READING;
+        }
     } else if (size > oldsize) {
         // flush+seek if not already at end
         lfs_soff_t res = lfs_file_rawseek(lfs, file, 0, LFS_SEEK_END);
