@@ -4022,6 +4022,12 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->cfg = cfg;
     int err = 0;
 
+    // check that bool is a truthy-preserving type
+    //
+    // note the most common reason for this failure is a before-c99 compiler,
+    // which littlefs currently does not support
+    LFS_ASSERT((bool)0x80000000);
+
     // validate that the lfs-cfg sizes were initiated properly before
     // performing any arithmetic logics with them
     LFS_ASSERT(lfs->cfg->read_size != 0);
