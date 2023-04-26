@@ -1927,11 +1927,20 @@ static int lfs_dir_splittingcompact(lfs_t *lfs, lfs_mdir_t *dir,
                 return err;
             }
 
-            // space is complicated, we need room for tail, crc, gstate,
-            // cleanup delete, and we cap at half a block to give room
-            // for metadata updates.
+            // space is complicated, we need room for:
+            //
+            // - tail:         4+2*4 = 12 bytes
+            // - gstate:       4+3*4 = 16 bytes
+            // - move delete:  4     = 4 bytes
+            // - crc:          4+4   = 8 bytes
+            //                 total = 40 bytes
+            //
+            // And we cap at half a block to avoid degenerate cases with
+            // nearly-full metadata blocks.
+            //
             if (end - split < 0xff
-                    && size <= lfs_min(lfs->cfg->block_size - 36,
+                    && size <= lfs_min(
+                        lfs->cfg->block_size - 40,
                         lfs_alignup(
                             (lfs->cfg->metadata_max
                                 ? lfs->cfg->metadata_max
@@ -4483,8 +4492,17 @@ static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss) {
     }
 
     int8_t found = 0;
+
 restart:
-    {
+    // Check for orphans in two separate passes:
+    // - 1 for half-orphans (relocations)
+    // - 2 for full-orphans (removes/renames)
+    //
+    // Two separate passes are needed as half-orphans can contain outdated
+    // references to full-orphans, effectively hiding them from the deorphan
+    // search.
+    //
+    for (int pass = 0; pass < 2; pass++) {
         // Fix any orphans
         lfs_mdir_t pdir = {.split = true, .tail = {0, 1}};
         lfs_mdir_t dir;
@@ -4505,42 +4523,7 @@ restart:
                     return tag;
                 }
 
-                // note we only check for full orphans if we may have had a
-                // power-loss, otherwise orphans are created intentionally
-                // during operations such as lfs_mkdir
-                if (tag == LFS_ERR_NOENT && powerloss) {
-                    // we are an orphan
-                    LFS_DEBUG("Fixing orphan {0x%"PRIx32", 0x%"PRIx32"}",
-                            pdir.tail[0], pdir.tail[1]);
-
-                    // steal state
-                    err = lfs_dir_getgstate(lfs, &dir, &lfs->gdelta);
-                    if (err) {
-                        return err;
-                    }
-
-                    // steal tail
-                    lfs_pair_tole32(dir.tail);
-                    int state = lfs_dir_orphaningcommit(lfs, &pdir, LFS_MKATTRS(
-                            {LFS_MKTAG(LFS_TYPE_TAIL + dir.split, 0x3ff, 8),
-                                dir.tail}));
-                    lfs_pair_fromle32(dir.tail);
-                    if (state < 0) {
-                        return state;
-                    }
-
-                    found += 1;
-
-                    // did our commit create more orphans?
-                    if (state == LFS_OK_ORPHANED) {
-                        goto restart;
-                    }
-
-                    // refetch tail
-                    continue;
-                }
-
-                if (tag != LFS_ERR_NOENT) {
+                if (pass == 0 && tag != LFS_ERR_NOENT) {
                     lfs_block_t pair[2];
                     lfs_stag_t state = lfs_dir_get(lfs, &parent,
                             LFS_MKTAG(0x7ff, 0x3ff, 0), tag, pair);
@@ -4589,6 +4572,41 @@ restart:
                         // refetch tail
                         continue;
                     }
+                }
+
+                // note we only check for full orphans if we may have had a
+                // power-loss, otherwise orphans are created intentionally
+                // during operations such as lfs_mkdir
+                if (pass == 1 && tag == LFS_ERR_NOENT && powerloss) {
+                    // we are an orphan
+                    LFS_DEBUG("Fixing orphan {0x%"PRIx32", 0x%"PRIx32"}",
+                            pdir.tail[0], pdir.tail[1]);
+
+                    // steal state
+                    err = lfs_dir_getgstate(lfs, &dir, &lfs->gdelta);
+                    if (err) {
+                        return err;
+                    }
+
+                    // steal tail
+                    lfs_pair_tole32(dir.tail);
+                    int state = lfs_dir_orphaningcommit(lfs, &pdir, LFS_MKATTRS(
+                            {LFS_MKTAG(LFS_TYPE_TAIL + dir.split, 0x3ff, 8),
+                                dir.tail}));
+                    lfs_pair_fromle32(dir.tail);
+                    if (state < 0) {
+                        return state;
+                    }
+
+                    found += 1;
+
+                    // did our commit create more orphans?
+                    if (state == LFS_OK_ORPHANED) {
+                        goto restart;
+                    }
+
+                    // refetch tail
+                    continue;
                 }
             }
 

@@ -1,47 +1,31 @@
 #!/usr/bin/env python3
 #
-# Script to summarize the outputs of other scripts. Operates on CSV files.
+# Script to find coverage info after running tests.
 #
 # Example:
-# ./scripts/code.py lfs.o lfs_util.o -q -o lfs.code.csv
-# ./scripts/data.py lfs.o lfs_util.o -q -o lfs.data.csv
-# ./scripts/summary.py lfs.code.csv lfs.data.csv -q -o lfs.csv
-# ./scripts/summary.py -Y lfs.csv -f code=code_size,data=data_size
+# ./scripts/cov.py \
+#     lfs.t.a.gcda lfs_util.t.a.gcda \
+#     -Flfs.c -Flfs_util.c -slines
 #
 # Copyright (c) 2022, The littlefs authors.
+# Copyright (c) 2020, Arm Limited. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 import collections as co
 import csv
-import functools as ft
 import itertools as it
+import json
 import math as m
 import os
 import re
+import shlex
+import subprocess as sp
 
+# TODO use explode_asserts to avoid counting assert branches?
+# TODO use dwarf=info to find functions for inline functions?
 
-# supported merge operations
-#
-# this is a terrible way to express these
-#
-OPS = {
-    'sum':     lambda xs: sum(xs[1:], start=xs[0]),
-    'prod':    lambda xs: m.prod(xs[1:], start=xs[0]),
-    'min':     min,
-    'max':     max,
-    'mean':    lambda xs: Float(sum(float(x) for x in xs) / len(xs)),
-    'stddev':  lambda xs: (
-        lambda mean: Float(
-            m.sqrt(sum((float(x) - mean)**2 for x in xs) / len(xs)))
-        )(sum(float(x) for x in xs) / len(xs)),
-    'gmean':   lambda xs: Float(m.prod(float(x) for x in xs)**(1/len(xs))),
-    'gstddev': lambda xs: (
-        lambda gmean: Float(
-            m.exp(m.sqrt(sum(m.log(float(x)/gmean)**2 for x in xs) / len(xs)))
-            if gmean else m.inf)
-        )(m.prod(float(x) for x in xs)**(1/len(xs))),
-}
+GCOV_PATH = ['gcov']
 
 
 # integer fields
@@ -122,47 +106,6 @@ class Int(co.namedtuple('Int', 'x')):
     def __mul__(self, other):
         return self.__class__(self.x * other.x)
 
-# float fields
-class Float(co.namedtuple('Float', 'x')):
-    __slots__ = ()
-    def __new__(cls, x=0.0):
-        if isinstance(x, Float):
-            return x
-        if isinstance(x, str):
-            try:
-                x = float(x)
-            except ValueError:
-                # also accept +-∞ and +-inf
-                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
-                    x = m.inf
-                elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
-                    x = -m.inf
-                else:
-                    raise
-        assert isinstance(x, float), x
-        return super().__new__(cls, x)
-
-    def __str__(self):
-        if self.x == m.inf:
-            return '∞'
-        elif self.x == -m.inf:
-            return '-∞'
-        else:
-            return '%.1f' % self.x
-
-    def __float__(self):
-        return float(self.x)
-
-    none = Int.none
-    table = Int.table
-    diff_none = Int.diff_none
-    diff_table = Int.diff_table
-    diff_diff = Int.diff_diff
-    ratio = Int.ratio
-    __add__ = Int.__add__
-    __sub__ = Int.__sub__
-    __mul__ = Int.__mul__
-
 # fractional fields, a/b
 class Frac(co.namedtuple('Frac', 'a,b')):
     __slots__ = ()
@@ -231,117 +174,127 @@ class Frac(co.namedtuple('Frac', 'a,b')):
     def __ge__(self, other):
         return not self.__lt__(other)
 
-# available types
-TYPES = co.OrderedDict([
-    ('int',   Int),
-    ('float', Float),
-    ('frac',  Frac)
-])
+# coverage results
+class CovResult(co.namedtuple('CovResult', [
+        'file', 'function', 'line',
+        'calls', 'hits', 'funcs', 'lines', 'branches'])):
+    _by = ['file', 'function', 'line']
+    _fields = ['calls', 'hits', 'funcs', 'lines', 'branches']
+    _sort = ['funcs', 'lines', 'branches', 'hits', 'calls']
+    _types = {
+        'calls': Int, 'hits': Int,
+        'funcs': Frac, 'lines': Frac, 'branches': Frac}
 
-
-def infer(results, *,
-        by=None,
-        fields=None,
-        types={},
-        ops={},
-        renames=[],
-        **_):
-    # if fields not specified, try to guess from data
-    if fields is None:
-        fields = co.OrderedDict()
-        for r in results:
-            for k, v in r.items():
-                if (by is None or k not in by) and v.strip():
-                    types_ = []
-                    for t in fields.get(k, TYPES.values()):
-                        try:
-                            t(v)
-                            types_.append(t)
-                        except ValueError:
-                            pass
-                    fields[k] = types_
-        fields = list(k for k, v in fields.items() if v)
-
-    # deduplicate fields
-    fields = list(co.OrderedDict.fromkeys(fields).keys())
-
-    # if by not specified, guess it's anything not in fields and not a
-    # source of a rename
-    if by is None:
-        by = co.OrderedDict()
-        for r in results:
-            # also ignore None keys, these are introduced by csv.DictReader
-            # when header + row mismatch
-            by.update((k, True) for k in r.keys()
-                if k is not None
-                    and k not in fields
-                    and not any(k == old_k for _, old_k in renames))
-        by = list(by.keys())
-
-    # deduplicate fields
-    by = list(co.OrderedDict.fromkeys(by).keys())
-
-    # find best type for all fields
-    types_ = {}
-    for k in fields:
-        if k in types:
-            types_[k] = types[k]
-        else:
-            for t in TYPES.values():
-                for r in results:
-                    if k in r and r[k].strip():
-                        try:
-                            t(r[k])
-                        except ValueError:
-                            break
-                else:
-                    types_[k] = t
-                    break
-            else:
-                print("error: no type matches field %r?" % k)
-                sys.exit(-1)
-    types = types_
-
-    # does folding change the type?
-    types_ = {}
-    for k, t in types.items():
-        types_[k] = ops.get(k, OPS['sum'])([t()]).__class__
-
-
-    # create result class
-    def __new__(cls, **r):
-        return cls.__mro__[1].__new__(cls,
-            **{k: r.get(k, '') for k in by},
-            **{k: r[k] if k in r and isinstance(r[k], list)
-                else [types[k](r[k])] if k in r
-                else []
-                for k in fields})
+    __slots__ = ()
+    def __new__(cls, file='', function='', line=0,
+            calls=0, hits=0, funcs=0, lines=0, branches=0):
+        return super().__new__(cls, file, function, int(Int(line)),
+            Int(calls), Int(hits), Frac(funcs), Frac(lines), Frac(branches))
 
     def __add__(self, other):
-        return self.__class__(
-            **{k: getattr(self, k) for k in by},
-            **{k: object.__getattribute__(self, k)
-                + object.__getattribute__(other, k)
-                for k in fields})
+        return CovResult(self.file, self.function, self.line,
+            max(self.calls, other.calls),
+            max(self.hits, other.hits),
+            self.funcs + other.funcs,
+            self.lines + other.lines,
+            self.branches + other.branches)
 
-    def __getattribute__(self, k):
-        if k in fields:
-            if object.__getattribute__(self, k):
-                return ops.get(k, OPS['sum'])(object.__getattribute__(self, k))
+
+def openio(path, mode='r', buffering=-1):
+    # allow '-' for stdin/stdout
+    if path == '-':
+        if mode == 'r':
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
+        else:
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
+    else:
+        return open(path, mode, buffering)
+
+def collect(gcda_paths, *,
+        gcov_path=GCOV_PATH,
+        sources=None,
+        everything=False,
+        **args):
+    results = []
+    for path in gcda_paths:
+        # get coverage info through gcov's json output
+        # note, gcov-path may contain extra args
+        cmd = GCOV_PATH + ['-b', '-t', '--json-format', path]
+        if args.get('verbose'):
+            print(' '.join(shlex.quote(c) for c in cmd))
+        proc = sp.Popen(cmd,
+            stdout=sp.PIPE,
+            stderr=sp.PIPE if not args.get('verbose') else None,
+            universal_newlines=True,
+            errors='replace',
+            close_fds=False)
+        data = json.load(proc.stdout)
+        proc.wait()
+        if proc.returncode != 0:
+            if not args.get('verbose'):
+                for line in proc.stderr:
+                    sys.stdout.write(line)
+            sys.exit(-1)
+
+        # collect line/branch coverage
+        for file in data['files']:
+            # ignore filtered sources
+            if sources is not None:
+                if not any(
+                        os.path.abspath(file['file']) == os.path.abspath(s)
+                        for s in sources):
+                    continue
             else:
-                return None
-        return object.__getattribute__(self, k)
+                # default to only cwd
+                if not everything and not os.path.commonpath([
+                        os.getcwd(),
+                        os.path.abspath(file['file'])]) == os.getcwd():
+                    continue
 
-    return type('Result', (co.namedtuple('Result', by + fields),), {
-        '__slots__': (),
-        '__new__': __new__,
-        '__add__': __add__,
-        '__getattribute__': __getattribute__,
-        '_by': by,
-        '_fields': fields,
-        '_sort': fields,
-        '_types': types_,
-    })
+            # simplify path
+            if os.path.commonpath([
+                    os.getcwd(),
+                    os.path.abspath(file['file'])]) == os.getcwd():
+                file_name = os.path.relpath(file['file'])
+            else:
+                file_name = os.path.abspath(file['file'])
+
+            for func in file['functions']:
+                func_name = func.get('name', '(inlined)')
+                # discard internal functions (this includes injected test cases)
+                if not everything:
+                    if func_name.startswith('__'):
+                        continue
+
+                # go ahead and add functions, later folding will merge this if
+                # there are other hits on this line
+                results.append(CovResult(
+                    file_name, func_name, func['start_line'],
+                    func['execution_count'], 0,
+                    Frac(1 if func['execution_count'] > 0 else 0, 1),
+                    0,
+                    0))
+
+            for line in file['lines']:
+                func_name = line.get('function_name', '(inlined)')
+                # discard internal function (this includes injected test cases)
+                if not everything:
+                    if func_name.startswith('__'):
+                        continue
+
+                # go ahead and add lines, later folding will merge this if
+                # there are other hits on this line
+                results.append(CovResult(
+                    file_name, func_name, line['line_number'],
+                    0, line['count'],
+                    0,
+                    Frac(1 if line['count'] > 0 else 0, 1),
+                    Frac(
+                        sum(1 if branch['count'] > 0 else 0
+                            for branch in line['branches']),
+                        len(line['branches']))))
+
+    return results
 
 
 def fold(Result, results, *,
@@ -550,105 +503,120 @@ def table(Result, results, diff_results=None, *,
             line[-1]))
 
 
-def openio(path, mode='r', buffering=-1):
-    # allow '-' for stdin/stdout
-    if path == '-':
-        if mode == 'r':
-            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
-        else:
-            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
-    else:
-        return open(path, mode, buffering)
+def annotate(Result, results, *,
+        annotate=False,
+        lines=False,
+        branches=False,
+        **args):
+    # if neither branches/lines specified, color both
+    if annotate and not lines and not branches:
+        lines, branches = True, True
 
-def main(csv_paths, *,
+    for path in co.OrderedDict.fromkeys(r.file for r in results).keys():
+        # flatten to line info
+        results = fold(Result, results, by=['file', 'line'])
+        table = {r.line: r for r in results if r.file == path}
+
+        # calculate spans to show
+        if not annotate:
+            spans = []
+            last = None
+            func = None
+            for line, r in sorted(table.items()):
+                if ((lines and int(r.hits) == 0)
+                        or (branches and r.branches.a < r.branches.b)):
+                    if last is not None and line - last.stop <= args['context']:
+                        last = range(
+                            last.start,
+                            line+1+args['context'])
+                    else:
+                        if last is not None:
+                            spans.append((last, func))
+                        last = range(
+                            line-args['context'],
+                            line+1+args['context'])
+                        func = r.function
+            if last is not None:
+                spans.append((last, func))
+
+        with open(path) as f:
+            skipped = False
+            for i, line in enumerate(f):
+                # skip lines not in spans?
+                if not annotate and not any(i+1 in s for s, _ in spans):
+                    skipped = True
+                    continue
+
+                if skipped:
+                    skipped = False
+                    print('%s@@ %s:%d: %s @@%s' % (
+                        '\x1b[36m' if args['color'] else '',
+                        path,
+                        i+1,
+                        next(iter(f for _, f in spans)),
+                        '\x1b[m' if args['color'] else ''))
+
+                # build line
+                if line.endswith('\n'):
+                    line = line[:-1]
+
+                if i+1 in table:
+                    r = table[i+1]
+                    line = '%-*s // %s hits%s' % (
+                        args['width'],
+                        line,
+                        r.hits,
+                        ', %s branches' % (r.branches,)
+                            if int(r.branches.b) else '')
+
+                    if args['color']:
+                        if lines and int(r.hits) == 0:
+                            line = '\x1b[1;31m%s\x1b[m' % line
+                        elif branches and r.branches.a < r.branches.b:
+                            line = '\x1b[35m%s\x1b[m' % line
+
+                print(line)
+
+
+def main(gcda_paths, *,
         by=None,
         fields=None,
         defines=None,
         sort=None,
+        hits=False,
         **args):
-    # separate out renames
-    renames = list(it.chain.from_iterable(
-        ((k, v) for v in vs)
-        for k, vs in it.chain(by or [], fields or [])))
-    if by is not None:
-        by = [k for k, _ in by]
-    if fields is not None:
-        fields = [k for k, _ in fields]
+    # figure out what color should be
+    if args.get('color') == 'auto':
+        args['color'] = sys.stdout.isatty()
+    elif args.get('color') == 'always':
+        args['color'] = True
+    else:
+        args['color'] = False
 
-    # figure out types
-    types = {}
-    for t in TYPES.keys():
-        for k in args.get(t, []):
-            if k in types:
-                print("error: conflicting type for field %r?" % k)
-                sys.exit(-1)
-            types[k] = TYPES[t]
-    # rename types?
-    if renames:
-        types_ = {}
-        for new_k, old_k in renames:
-            if old_k in types:
-                types_[new_k] = types[old_k]
-        types.update(types_)
-
-    # figure out merge operations
-    ops = {}
-    for o in OPS.keys():
-        for k in args.get(o, []):
-            if k in ops:
-                print("error: conflicting op for field %r?" % k)
-                sys.exit(-1)
-            ops[k] = OPS[o]
-    # rename ops?
-    if renames:
-        ops_ = {}
-        for new_k, old_k in renames:
-            if old_k in ops:
-                ops_[new_k] = ops[old_k]
-        ops.update(ops_)
-
-    # find CSV files
-    results = []
-    for path in csv_paths:
-        try:
-            with openio(path) as f:
-                reader = csv.DictReader(f, restval='')
-                for r in reader:
-                    # rename fields?
-                    if renames:
-                        # make a copy so renames can overlap
-                        r_ = {}
-                        for new_k, old_k in renames:
-                            if old_k in r:
-                                r_[new_k] = r[old_k]
-                        r.update(r_)
-
-                    results.append(r)
-        except FileNotFoundError:
-            pass
-
-    # homogenize
-    Result = infer(results,
-        by=by,
-        fields=fields,
-        types=types,
-        ops=ops,
-        renames=renames)
-    results_ = []
-    for r in results:
-        if not any(k in r and r[k].strip()
-                for k in Result._fields):
-            continue
-        try:
-            results_.append(Result(**{
-                k: r[k] for k in Result._by + Result._fields
-                if k in r and r[k].strip()}))
-        except TypeError:
-            pass
-    results = results_
+    # find sizes
+    if not args.get('use', None):
+        results = collect(gcda_paths, **args)
+    else:
+        results = []
+        with openio(args['use']) as f:
+            reader = csv.DictReader(f, restval='')
+            for r in reader:
+                if not any('cov_'+k in r and r['cov_'+k].strip()
+                        for k in CovResult._fields):
+                    continue
+                try:
+                    results.append(CovResult(
+                        **{k: r[k] for k in CovResult._by
+                            if k in r and r[k].strip()},
+                        **{k: r['cov_'+k]
+                            for k in CovResult._fields
+                            if 'cov_'+k in r
+                                and r['cov_'+k].strip()}))
+                except TypeError:
+                    pass
 
     # fold
-    results = fold(Result, results, by=by, defines=defines)
+    results = fold(CovResult, results, by=by, defines=defines)
 
     # sort, note that python's sort is stable
     results.sort()
@@ -657,18 +625,23 @@ def main(csv_paths, *,
             results.sort(
                 key=lambda r: tuple(
                     (getattr(r, k),) if getattr(r, k) is not None else ()
-                    for k in ([k] if k else Result._sort)),
-                reverse=reverse ^ (not k or k in Result._fields))
+                    for k in ([k] if k else CovResult._sort)),
+                reverse=reverse ^ (not k or k in CovResult._fields))
 
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
-            writer = csv.DictWriter(f, Result._by + Result._fields)
+            writer = csv.DictWriter(f,
+                (by if by is not None else CovResult._by)
+                + ['cov_'+k for k in (
+                    fields if fields is not None else CovResult._fields)])
             writer.writeheader()
             for r in results:
-                # note we need to go through getattr to resolve lazy fields
-                writer.writerow({
-                    k: getattr(r, k) for k in Result._by + Result._fields})
+                writer.writerow(
+                    {k: getattr(r, k) for k in (
+                        by if by is not None else CovResult._by)}
+                    | {'cov_'+k: getattr(r, k) for k in (
+                        fields if fields is not None else CovResult._fields)})
 
     # find previous results?
     if args.get('diff'):
@@ -677,50 +650,67 @@ def main(csv_paths, *,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
-                    # rename fields?
-                    if renames:
-                        # make a copy so renames can overlap
-                        r_ = {}
-                        for new_k, old_k in renames:
-                            if old_k in r:
-                                r_[new_k] = r[old_k]
-                        r.update(r_)
-
-                    if not any(k in r and r[k].strip()
-                            for k in Result._fields):
+                    if not any('cov_'+k in r and r['cov_'+k].strip()
+                            for k in CovResult._fields):
                         continue
                     try:
-                        diff_results.append(Result(**{
-                            k: r[k] for k in Result._by + Result._fields
-                            if k in r and r[k].strip()}))
+                        diff_results.append(CovResult(
+                            **{k: r[k] for k in CovResult._by
+                                if k in r and r[k].strip()},
+                            **{k: r['cov_'+k]
+                                for k in CovResult._fields
+                                if 'cov_'+k in r
+                                    and r['cov_'+k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:
             pass
 
         # fold
-        diff_results = fold(Result, diff_results, by=by, defines=defines)
+        diff_results = fold(CovResult, diff_results,
+            by=by, defines=defines)
 
     # print table
     if not args.get('quiet'):
-        table(Result, results,
-            diff_results if args.get('diff') else None,
-            by=by,
-            fields=fields,
-            sort=sort,
-            **args)
+        if (args.get('annotate')
+                or args.get('lines')
+                or args.get('branches')):
+            # annotate sources
+            annotate(CovResult, results, **args)
+        else:
+            # print table
+            table(CovResult, results,
+                diff_results if args.get('diff') else None,
+                by=by if by is not None else ['function'],
+                fields=fields if fields is not None
+                    else ['lines', 'branches'] if not hits
+                    else ['calls', 'hits'],
+                sort=sort,
+                **args)
+
+    # catch lack of coverage
+    if args.get('error_on_lines') and any(
+            r.lines.a < r.lines.b for r in results):
+        sys.exit(2)
+    elif args.get('error_on_branches') and any(
+            r.branches.a < r.branches.b for r in results):
+        sys.exit(3)
 
 
 if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Summarize measurements in CSV files.",
+        description="Find coverage info after running tests.",
         allow_abbrev=False)
     parser.add_argument(
-        'csv_paths',
+        'gcda_paths',
         nargs='*',
-        help="Input *.csv files.")
+        help="Input *.gcda files.")
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help="Output commands that run behind the scenes.")
     parser.add_argument(
         '-q', '--quiet',
         action='store_true',
@@ -728,6 +718,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '-o', '--output',
         help="Specify CSV file to store results.")
+    parser.add_argument(
+        '-u', '--use',
+        help="Don't parse anything, use this CSV file.")
     parser.add_argument(
         '-d', '--diff',
         help="Specify CSV file to diff against.")
@@ -742,25 +735,20 @@ if __name__ == "__main__":
     parser.add_argument(
         '-b', '--by',
         action='append',
-        type=lambda x: (
-            lambda k,v=None: (k, v.split(',') if v is not None else ())
-            )(*x.split('=', 1)),
-        help="Group by this field. Can rename fields with new_name=old_name.")
+        choices=CovResult._by,
+        help="Group by this field.")
     parser.add_argument(
         '-f', '--field',
         dest='fields',
         action='append',
-        type=lambda x: (
-            lambda k,v=None: (k, v.split(',') if v is not None else ())
-            )(*x.split('=', 1)),
-        help="Show this field. Can rename fields with new_name=old_name.")
+        choices=CovResult._fields,
+        help="Show this field.")
     parser.add_argument(
         '-D', '--define',
         dest='defines',
         action='append',
         type=lambda x: (lambda k,v: (k, set(v.split(','))))(*x.split('=', 1)),
-        help="Only include results where this field is this value. May include "
-            "comma-separated options.")
+        help="Only include results where this field is this value.")
     class AppendSort(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.sort is None:
@@ -781,49 +769,60 @@ if __name__ == "__main__":
         action='store_true',
         help="Only show the total.")
     parser.add_argument(
-        '--int',
+        '-F', '--source',
+        dest='sources',
         action='append',
-        help="Treat these fields as ints.")
+        help="Only consider definitions in this file. Defaults to anything "
+            "in the current directory.")
     parser.add_argument(
-        '--float',
-        action='append',
-        help="Treat these fields as floats.")
+        '--everything',
+        action='store_true',
+        help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '--frac',
-        action='append',
-        help="Treat these fields as fractions.")
+        '--hits',
+        action='store_true',
+        help="Show total hits instead of coverage.")
     parser.add_argument(
-        '--sum',
-        action='append',
-        help="Add these fields (the default).")
+        '-A', '--annotate',
+        action='store_true',
+        help="Show source files annotated with coverage info.")
     parser.add_argument(
-        '--prod',
-        action='append',
-        help="Multiply these fields.")
+        '-L', '--lines',
+        action='store_true',
+        help="Show uncovered lines.")
     parser.add_argument(
-        '--min',
-        action='append',
-        help="Take the minimum of these fields.")
+        '-B', '--branches',
+        action='store_true',
+        help="Show uncovered branches.")
     parser.add_argument(
-        '--max',
-        action='append',
-        help="Take the maximum of these fields.")
+        '-c', '--context',
+        type=lambda x: int(x, 0),
+        default=3,
+        help="Show n additional lines of context. Defaults to 3.")
     parser.add_argument(
-        '--mean',
-        action='append',
-        help="Average these fields.")
+        '-W', '--width',
+        type=lambda x: int(x, 0),
+        default=80,
+        help="Assume source is styled with this many columns. Defaults to 80.")
     parser.add_argument(
-        '--stddev',
-        action='append',
-        help="Find the standard deviation of these fields.")
+        '--color',
+        choices=['never', 'always', 'auto'],
+        default='auto',
+        help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
-        '--gmean',
-        action='append',
-        help="Find the geometric mean of these fields.")
+        '-e', '--error-on-lines',
+        action='store_true',
+        help="Error if any lines are not covered.")
     parser.add_argument(
-        '--gstddev',
-        action='append',
-        help="Find the geometric standard deviation of these fields.")
+        '-E', '--error-on-branches',
+        action='store_true',
+        help="Error if any branches are not covered.")
+    parser.add_argument(
+        '--gcov-path',
+        default=GCOV_PATH,
+        type=lambda x: x.split(),
+        help="Path to the gcov executable, may include paths. "
+            "Defaults to %r." % GCOV_PATH)
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))
