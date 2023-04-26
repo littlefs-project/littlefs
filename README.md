@@ -246,6 +246,9 @@ License Identifiers that are here available: http://spdx.org/licenses/
   MCUs. It offers static wear-leveling and power-resilience with only a fixed
   _O(|address|)_ pointer structure stored on each block and in RAM.
 
+- [chamelon] - A pure-OCaml implementation of (most of) littlefs, designed for
+  use with the MirageOS library operating system project. It is interoperable
+  with the reference implementation, with some caveats.
 
 [BSD-3-Clause]: https://spdx.org/licenses/BSD-3-Clause.html
 [littlefs-disk-img-viewer]: https://github.com/tniessen/littlefs-disk-img-viewer
@@ -260,3 +263,4 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [SPIFFS]: https://github.com/pellepl/spiffs
 [Dhara]: https://github.com/dlbeer/dhara
 [littlefs-python]: https://pypi.org/project/littlefs-python/
+[chamelon]: https://github.com/yomimono/chamelon
