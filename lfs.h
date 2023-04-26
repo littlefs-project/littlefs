@@ -21,14 +21,14 @@ extern "C"
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_VERSION 0x00020005
+#define LFS_VERSION 0x00020006
 #define LFS_VERSION_MAJOR (0xffff & (LFS_VERSION >> 16))
 #define LFS_VERSION_MINOR (0xffff & (LFS_VERSION >>  0))
 
 // Version of On-disk data structures
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_DISK_VERSION 0x00020000
+#define LFS_DISK_VERSION 0x00020001
 #define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
 #define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
 
@@ -112,6 +112,8 @@ enum lfs_type {
     LFS_TYPE_SOFTTAIL       = 0x600,
     LFS_TYPE_HARDTAIL       = 0x601,
     LFS_TYPE_MOVESTATE      = 0x7ff,
+    LFS_TYPE_CCRC           = 0x500,
+    LFS_TYPE_FCRC           = 0x5ff,
 
     // internal chip sources
     LFS_FROM_NOOP           = 0x000,
