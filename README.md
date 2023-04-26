@@ -227,6 +227,9 @@ License Identifiers that are here available: http://spdx.org/licenses/
   your needs, create images for a later download to the target memory or
   inspect the content of a binary image of the target memory.
 
+- [littlefs-disk-img-viewer] - A memory-efficient web application for viewing
+  littlefs disk images in your web browser.
+
 - [mklfs] - A command line tool built by the [Lua RTOS] guys for making
   littlefs images from a host PC. Supports Windows, Mac OS, and Linux.
 
@@ -245,6 +248,7 @@ License Identifiers that are here available: http://spdx.org/licenses/
 
 
 [BSD-3-Clause]: https://spdx.org/licenses/BSD-3-Clause.html
+[littlefs-disk-img-viewer]: https://github.com/tniessen/littlefs-disk-img-viewer
 [littlefs-fuse]: https://github.com/geky/littlefs-fuse
 [FUSE]: https://github.com/libfuse/libfuse
 [littlefs-js]: https://github.com/geky/littlefs-js
