@@ -1,4 +1,15 @@
-[cases.bench_superblocks_found]
+[cases.bench_superblocks_format]
+code = '''
+    lfs_t lfs;
+
+    BENCH_START();
+    lfs_format(&lfs, cfg) => 0;
+    BENCH_STOP();
+'''
+
+[cases.bench_superblocks_mount]
+defines.KNOWN_BLOCK_SIZE = [true, false]
+defines.KNOWN_BLOCK_COUNT = [true, false]
 # support benchmarking with files
 defines.N = [0, 1024]
 defines.FILE_SIZE = 8
@@ -28,6 +39,18 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
+    if (KNOWN_BLOCK_SIZE) {
+        cfg->block_size = BLOCK_SIZE;
+    } else {
+        cfg->block_size = 0;
+    }
+
+    if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT;
+    } else {
+        cfg->block_count = 0;
+    }
+
     BENCH_START();
     lfs_mount(&lfs, cfg) => 0;
     BENCH_STOP();
@@ -35,22 +58,27 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[cases.bench_superblocks_missing]
+[cases.bench_superblocks_mount_missing]
+defines.KNOWN_BLOCK_SIZE = [true, false]
+defines.KNOWN_BLOCK_COUNT = [true, false]
 code = '''
     lfs_t lfs;
+
+    if (KNOWN_BLOCK_SIZE) {
+        cfg->block_size = BLOCK_SIZE;
+    } else {
+        cfg->block_size = 0;
+    }
+
+    if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT;
+    } else {
+        cfg->block_count = 0;
+    }
 
     BENCH_START();
     int err = lfs_mount(&lfs, cfg);
     assert(err != 0);
-    BENCH_STOP();
-'''
-
-[cases.bench_superblocks_format]
-code = '''
-    lfs_t lfs;
-
-    BENCH_START();
-    lfs_format(&lfs, cfg) => 0;
     BENCH_STOP();
 '''
 

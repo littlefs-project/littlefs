@@ -1,7 +1,7 @@
 # test running a filesystem to exhaustion
 [cases.test_exhaustion_normal]
 defines.ERASE_CYCLES = 10
-defines.BLOCK_COUNT = 256 # small bd so test runs faster
+defines.ERASE_COUNT = 256 # small bd so test runs faster
 defines.BLOCK_CYCLES = 'ERASE_CYCLES / 2'
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -94,7 +94,7 @@ exhausted:
 # which also requires expanding superblocks
 [cases.test_exhaustion_superblocks]
 defines.ERASE_CYCLES = 10
-defines.BLOCK_COUNT = 256 # small bd so test runs faster
+defines.ERASE_COUNT = 256 # small bd so test runs faster
 defines.BLOCK_CYCLES = 'ERASE_CYCLES / 2'
 defines.BADBLOCK_BEHAVIOR = [
     'LFS_EMUBD_BADBLOCK_PROGERROR',
@@ -188,7 +188,7 @@ exhausted:
 # wear-level test running a filesystem to exhaustion
 [cases.test_exhuastion_wear_leveling]
 defines.ERASE_CYCLES = 20
-defines.BLOCK_COUNT = 256 # small bd so test runs faster
+defines.ERASE_COUNT = 256 # small bd so test runs faster
 defines.BLOCK_CYCLES = 'ERASE_CYCLES / 2'
 defines.FILES = 10
 code = '''
@@ -288,7 +288,7 @@ exhausted:
 # wear-level test + expanding superblock
 [cases.test_exhaustion_wear_leveling_superblocks]
 defines.ERASE_CYCLES = 20
-defines.BLOCK_COUNT = 256 # small bd so test runs faster
+defines.ERASE_COUNT = 256 # small bd so test runs faster
 defines.BLOCK_CYCLES = 'ERASE_CYCLES / 2'
 defines.FILES = 10
 code = '''
@@ -385,7 +385,7 @@ exhausted:
 # test that we wear blocks roughly evenly
 [cases.test_exhaustion_wear_distribution]
 defines.ERASE_CYCLES = 0xffffffff
-defines.BLOCK_COUNT = 256 # small bd so test runs faster
+defines.ERASE_COUNT = 256 # small bd so test runs faster
 defines.BLOCK_CYCLES = [5, 4, 3, 2, 1]
 defines.CYCLES = 100
 defines.FILES = 10

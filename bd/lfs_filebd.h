@@ -26,14 +26,31 @@ extern "C"
 #endif
 #endif
 
+// filebd config
+struct lfs_filebd_config {
+    // Minimum size of a read operation in bytes.
+    lfs_size_t read_size;
+
+    // Minimum size of a program operation in bytes.
+    lfs_size_t prog_size;
+
+    // Size of an erase operation in bytes.
+    lfs_size_t erase_size;
+
+    // Number of erase blocks on the device.
+    lfs_size_t erase_count;
+};
+
 // filebd state
 typedef struct lfs_filebd {
     int fd;
+    const struct lfs_filebd_config *cfg;
 } lfs_filebd_t;
 
 
-// Create a file block device using the geometry in lfs_config
-int lfs_filebd_create(const struct lfs_config *cfg, const char *path);
+// Create a file block device
+int lfs_filebd_create(const struct lfs_config *cfg, const char *path,
+        const struct lfs_filebd_config *bdcfg);
 
 // Clean up memory associated with block device
 int lfs_filebd_destroy(const struct lfs_config *cfg);
