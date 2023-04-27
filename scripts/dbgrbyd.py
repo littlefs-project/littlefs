@@ -878,7 +878,7 @@ def main(disk, block1=0, block2=None, *,
         weights.append(weight)
 
         # compare with sequence arithmetic
-        if off and ((rev - revs[i]) & 0x80000000):
+        if off and not ((rev - revs[i]) & 0x80000000):
             i = len(revs)-1
 
     # print contents of the winning metadata block

@@ -14,6 +14,47 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# reentrant format
+[cases.test_superblocks_reentrant_format]
+reentrant = true
+code = '''
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# invalid mount
+[cases.test_superblocks_invalid]
+code = '''
+    lfs_t lfs;
+    lfsr_mount(&lfs, cfg) => LFS_ERR_INVAL;
+'''
+
+# superblock cycle detection
+[cases.test_superblocks_cycle]
+in = 'lfs.c'
+code = '''
+    // create a cycle
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mdir_t mdir;
+    lfsr_mdir_fetch(&lfs, &mdir, LFSR_MPAIR(0, 1), NULL) => 0;
+    uint8_t buf[LFSR_MPAIR_DSIZE];
+    lfs_ssize_t d = lfsr_mpair_todisk(&lfs, LFSR_MPAIR(0, 1), buf);
+    assert(d >= 0);
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
+            LFSR_ATTR(-1, SUPERMDIR, 0, buf, d))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // now detect the cycle
+    lfsr_mount(&lfs, cfg) => LFS_ERR_CORRUPT;
+'''
+
 
 
 

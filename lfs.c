@@ -4108,6 +4108,12 @@ typedef struct lfsr_mpair {
 
 #define LFSR_MPAIR(block0, block1) ((lfsr_mpair_t){.blocks={block0, block1}})
 
+static inline bool lfsr_mpair_eq(lfsr_mpair_t a, lfsr_mpair_t b) {
+    // allow either order
+    return (a.blocks[0] == b.blocks[0] && a.blocks[1] == b.blocks[1])
+            || (a.blocks[0] == b.blocks[1] && a.blocks[1] == b.blocks[0]);
+}
+
 // 2 leb128 => 10 bytes (worst case)
 #define LFSR_MPAIR_DSIZE (5+5)
 
@@ -4378,13 +4384,32 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // scan for the first non-fake superblock
     lfsr_mpair_t mpair = LFSR_MPAIR(0, 1);
     lfsr_mdir_t mdir;
+    // detect cycles using Brent's algorithm
+    lfsr_mpair_t tortoise = LFSR_MPAIR(-1, -1);
+    lfs_size_t tortoise_i = 1;
+    lfs_size_t tortoise_period = 1;
     while (true) {
         // TODO detect cycles with Brent's algorithm
+        // found a cycle?
+        if (lfsr_mpair_eq(mpair, tortoise)) {
+            LFS_WARN("Cycle detected in superblocks");
+            return LFS_ERR_CORRUPT;
+        }
+        if (tortoise_i == tortoise_period) {
+            tortoise = mpair;
+            tortoise_i = 0;
+            tortoise_period *= 2;
+        }
+        tortoise_i += 1;
 
         // fetch next possible superblock
         int err = lfsr_mdir_fetch(lfs, &mdir, mpair, NULL);
         if (err) {
             LFS_ERROR("No littlefs superblock found");
+            // treat corrupt errors as invalid littlefs images
+            if (err == LFS_ERR_CORRUPT) {
+                return LFS_ERR_INVAL;
+            }
             return err;
         }
 
@@ -4667,7 +4692,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
     for (int i = 0; i < 2; i++) {
         // write superblock to both rbyds in the root supermdir to hopefully
         // avoid mounting an older filesystem on disk
-        lfsr_rbyd_t rbyd = {.block=i, .rev=1, .off=0, .trunk=0};
+        lfsr_rbyd_t rbyd = {.block=i, .rev=i+1, .off=0, .trunk=0};
 
         int err = lfsr_bd_erase(lfs, rbyd.block);
         if (err) {
@@ -8288,7 +8313,7 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
     while (!lfs_pair_isnull(dir.tail)) {
         // detect cycles with Brent's algorithm
         if (lfs_pair_issync(dir.tail, tortoise)) {
-            LFS_WARN("Cycle detected in tail list");
+            LFS_ERROR("Cycle detected in tail list");
             err = LFS_ERR_CORRUPT;
             goto cleanup;
         }
