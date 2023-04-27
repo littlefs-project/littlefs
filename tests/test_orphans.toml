@@ -126,6 +126,83 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
+# test that we can persist gstate with lfs_fs_mkconsistent
+[cases.test_orphans_mkconsistent_no_orphans]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+
+    lfs_mount(&lfs, cfg) => 0;
+    // mark the filesystem as having orphans
+    lfs_fs_preporphans(&lfs, +1) => 0;
+    lfs_mdir_t mdir;
+    lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
+    lfs_dir_commit(&lfs, &mdir, NULL, 0) => 0;
+
+    // we should have orphans at this state
+    assert(lfs_gstate_hasorphans(&lfs.gstate));
+    lfs_unmount(&lfs) => 0;
+
+    // mount
+    lfs_mount(&lfs, cfg) => 0;
+    // we should detect orphans
+    assert(lfs_gstate_hasorphans(&lfs.gstate));
+    // force consistency
+    lfs_fs_mkconsistent(&lfs) => 0;
+    // we should no longer have orphans
+    assert(!lfs_gstate_hasorphans(&lfs.gstate));
+
+    // remount
+    lfs_unmount(&lfs) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    // we should still have no orphans
+    assert(!lfs_gstate_hasorphans(&lfs.gstate));
+    lfs_unmount(&lfs) => 0;
+'''
+
+[cases.test_orphans_mkconsistent_one_orphan]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+
+    lfs_mount(&lfs, cfg) => 0;
+    // create an orphan
+    lfs_mdir_t orphan;
+    lfs_alloc_ack(&lfs);
+    lfs_dir_alloc(&lfs, &orphan) => 0;
+    lfs_dir_commit(&lfs, &orphan, NULL, 0) => 0;
+
+    // append our orphan and mark the filesystem as having orphans
+    lfs_fs_preporphans(&lfs, +1) => 0;
+    lfs_mdir_t mdir;
+    lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
+    lfs_pair_tole32(orphan.pair);
+    lfs_dir_commit(&lfs, &mdir, LFS_MKATTRS(
+            {LFS_MKTAG(LFS_TYPE_SOFTTAIL, 0x3ff, 8), orphan.pair})) => 0;
+
+    // we should have orphans at this state
+    assert(lfs_gstate_hasorphans(&lfs.gstate));
+    lfs_unmount(&lfs) => 0;
+
+    // mount
+    lfs_mount(&lfs, cfg) => 0;
+    // we should detect orphans
+    assert(lfs_gstate_hasorphans(&lfs.gstate));
+    // force consistency
+    lfs_fs_mkconsistent(&lfs) => 0;
+    // we should no longer have orphans
+    assert(!lfs_gstate_hasorphans(&lfs.gstate));
+
+    // remount
+    lfs_unmount(&lfs) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    // we should still have no orphans
+    assert(!lfs_gstate_hasorphans(&lfs.gstate));
+    lfs_unmount(&lfs) => 0;
+'''
+
 # reentrant testing for orphans, basically just spam mkdir/remove
 [cases.test_orphans_reentrant]
 reentrant = true

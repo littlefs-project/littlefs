@@ -4887,6 +4887,36 @@ static int lfs_fs_forceconsistency(lfs_t *lfs) {
 }
 #endif
 
+#ifndef LFS_READONLY
+int lfs_fs_rawmkconsistent(lfs_t *lfs) {
+    // lfs_fs_forceconsistency does most of the work here
+    int err = lfs_fs_forceconsistency(lfs);
+    if (err) {
+        return err;
+    }
+
+    // do we have any pending gstate?
+    lfs_gstate_t delta = {0};
+    lfs_gstate_xor(&delta, &lfs->gdisk);
+    lfs_gstate_xor(&delta, &lfs->gstate);
+    if (!lfs_gstate_iszero(&delta)) {
+        // lfs_dir_commit will implicitly write out any pending gstate
+        lfs_mdir_t root;
+        err = lfs_dir_fetch(lfs, &root, lfs->root);
+        if (err) {
+            return err;
+        }
+
+        err = lfs_dir_commit(lfs, &root, NULL, 0);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+#endif
+
 static int lfs_fs_size_count(void *p, lfs_block_t block) {
     (void)block;
     lfs_size_t *size = p;
@@ -6051,6 +6081,22 @@ int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void *, lfs_block_t), void *data) {
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
+
+#ifndef LFS_READONLY
+int lfs_fs_mkconsistent(lfs_t *lfs) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_fs_mkconsistent(%p)", (void*)lfs);
+
+    err = lfs_fs_rawmkconsistent(lfs);
+
+    LFS_TRACE("lfs_fs_mkconsistent -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
 
 #ifdef LFS_MIGRATE
 int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
