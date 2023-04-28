@@ -42,12 +42,11 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
-    lfsr_mdir_t mdir;
-    lfsr_mdir_fetch(&lfs, &mdir, LFSR_MPAIR(0, 1), NULL) => 0;
     uint8_t buf[LFSR_MPAIR_DSIZE];
-    lfs_ssize_t d = lfsr_mpair_todisk(&lfs, LFSR_MPAIR(0, 1), buf);
+    lfs_ssize_t d = lfsr_mpair_todisk(&lfs,
+            lfsr_mdir_mpair(&lfs.supermdir), buf);
     assert(d >= 0);
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
+    lfsr_mdir_commit(&lfs, &lfs.supermdir, LFSR_ATTRS(
             LFSR_ATTR(-1, SUPERMDIR, 0, buf, d))) => 0;
     lfsr_unmount(&lfs) => 0;
 

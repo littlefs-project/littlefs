@@ -367,9 +367,10 @@ def main(disk, root=0, *,
                 # is it another branch? continue down tree
                 if struct_tag == TAG_BRANCH and (
                         depth is None or depth_ < depth):
-                    trunk, d1 = fromleb128(struct_)
-                    block, d2 = fromleb128(struct_[d1:])
-                    crc = fromle32(struct_[d1+d2:])
+                    w, d1 = fromleb128(struct_)
+                    trunk, d2 = fromleb128(struct_[d1:])
+                    block, d3 = fromleb128(struct_[d1+d2:])
+                    crc = fromle32(struct_[d1+d2+d3:])
                     rbyd = Rbyd.fetch(f, block_size, block, trunk)
 
                     # corrupted? bail here so we can keep traversing the tree
