@@ -12,13 +12,13 @@ TAG_SUPERMAGIC  = 0x0030
 TAG_SUPERCONFIG = 0x0040
 TAG_SUPERMDIR   = 0x0110
 TAG_NAME        = 0x1000
-TAG_BNAME       = 0x1000
+TAG_BRANCH      = 0x1000
 TAG_REG         = 0x1010
 TAG_DIR         = 0x1020
 TAG_STRUCT      = 0x3000
 TAG_INLINED     = 0x3000
 TAG_BLOCK       = 0x3100
-TAG_BRANCH      = 0x3200
+TAG_MDIR        = 0x3200
 TAG_BTREE       = 0x3300
 TAG_UATTR       = 0x4000
 TAG_ALT         = 0x0008
@@ -109,7 +109,7 @@ def tagrepr(tag, w, size, off=None):
     elif (tag & 0xf00c) == TAG_NAME:
         return '%s%s%s %d' % (
             'rm' if tag & 0x2 else '',
-            'bname' if (tag & 0xfffe) == TAG_BNAME
+            'bname' if (tag & 0xfffe) == TAG_BRANCH
                 else 'reg' if (tag & 0xfffe) == TAG_REG
                 else 'dir' if (tag & 0xfffe) == TAG_DIR
                 else 'name 0x%02x' % ((tag & 0x0ff0) >> 4),
@@ -120,7 +120,7 @@ def tagrepr(tag, w, size, off=None):
             'rm' if tag & 0x2 else '',
             'inlined' if (tag & 0xfffe) == TAG_INLINED
                 else 'block' if (tag & 0xfffe) == TAG_BLOCK
-                else 'branch' if (tag & 0xfffe) == TAG_BRANCH
+                else 'mdir' if (tag & 0xfffe) == TAG_MDIR
                 else 'btree' if (tag & 0xfffe) == TAG_BTREE
                 else 'struct 0x%02x' % ((tag & 0x0ff0) >> 4),
             ' w%d' % w if w else '',
@@ -365,7 +365,7 @@ def main(disk, root=0, *,
                     (struct_tag, struct_j, struct_d, struct_)))
 
                 # is it another branch? continue down tree
-                if struct_tag == TAG_BRANCH and (
+                if struct_tag == TAG_BTREE and (
                         depth is None or depth_ < depth):
                     w, d1 = fromleb128(struct_)
                     trunk, d2 = fromleb128(struct_[d1:])
