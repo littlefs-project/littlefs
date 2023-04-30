@@ -178,12 +178,9 @@ code = '''
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
-    lfsr_tag_t tag_;
-    lfs_ssize_t id_;
-    lfs_size_t weight_;
     lfsr_data_t data_;
     int err = lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(i_ & 0xff),
-            &id_, &tag_, &weight_, &data_);
+            &data_);
     // note that random order may have some collisions
     assert(!err || err == LFS_ERR_NOENT);
     BENCH_STOP();
@@ -483,14 +480,8 @@ code = '''
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
-    lfsr_tag_t tag_;
-    lfs_ssize_t id_;
-    lfs_size_t weight_;
     lfsr_data_t data_;
-    lfsr_rbyd_lookup(&lfs, &rbyd, i_, LFSR_TAG_REG,
-            &id_, &tag_, &weight_, &data_) => 0;
-    assert(id_ == i_);
-    assert(tag_ == LFSR_TAG_REG);
+    lfsr_rbyd_lookup(&lfs, &rbyd, i_, LFSR_TAG_REG, &data_) => 0;
     BENCH_STOP();
 '''
 

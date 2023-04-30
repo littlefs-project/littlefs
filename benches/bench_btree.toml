@@ -45,14 +45,12 @@ code = '''
     lfs_size_t i = BENCH_PRNG(&prng) % N;
     uint8_t buffer[4];
     lfsr_tag_t tag_;
-    lfs_size_t id_;
     lfs_size_t weight_;
     
     lfsr_btree_get(&lfs, &btree, i,
-            &id_, &tag_, &weight_,
+            &tag_, &weight_,
             buffer, 4, VALIDATE) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
-    assert(id_ == i);
     assert(weight_ == 1);
     BENCH_STOP();
 '''
@@ -106,14 +104,12 @@ code = '''
 
     uint8_t buffer[4];
     lfsr_tag_t tag_;
-    lfs_size_t id_;
     lfs_size_t weight_;
 
     lfsr_btree_get(&lfs, &btree, i,
-            &id_, &tag_, &weight_,
+            &tag_, &weight_,
             buffer, 4, VALIDATE) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
-    assert(id_ == i);
     assert(weight_ == 1);
 '''
 
