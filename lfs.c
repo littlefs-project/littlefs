@@ -4741,8 +4741,6 @@ static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss) {
         return 0;
     }
 
-    int8_t found = 0;
-
     // Check for orphans in two separate passes:
     // - 1 for half-orphans (relocations)
     // - 2 for full-orphans (removes/renames)
@@ -4813,8 +4811,6 @@ static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss) {
                             return state;
                         }
 
-                        found += 1;
-
                         // did our commit create more orphans?
                         if (state == LFS_OK_ORPHANED) {
                             moreorphans = true;
@@ -4849,8 +4845,6 @@ static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss) {
                         return state;
                     }
 
-                    found += 1;
-
                     // did our commit create more orphans?
                     if (state == LFS_OK_ORPHANED) {
                         moreorphans = true;
@@ -4868,9 +4862,7 @@ static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss) {
     }
 
     // mark orphans as fixed
-    return lfs_fs_preporphans(lfs, -lfs_min(
-            lfs_gstate_getorphans(&lfs->gstate),
-            found));
+    return lfs_fs_preporphans(lfs, -lfs_gstate_getorphans(&lfs->gstate));
 }
 #endif
 
