@@ -2675,6 +2675,11 @@ static int lfsr_rbyd_inthresh(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     //
     // returns the id/dsize where the threshold failed, this isn't that useful
     // on its own, but can be used to find a good split_id with lfsr_rbyd_bisect
+
+    // TODO should we store this in lfs_t somewhere?
+    // assume a tighter bound on size/jump leb128 encoding if we know
+    // our block_size
+    lfs_size_t tag_dsize = 2 + 5 + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
     lfs_size_t altless_dsize = 0;
 
     lfs_ssize_t id = -1;
@@ -2697,25 +2702,12 @@ static int lfsr_rbyd_inthresh(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         // place we divide by a non-power-of-two
 
         // determine the upper-bound of our alt pointers, tag, and data,
-        // we use as much knowledge about the current state of the rbyd
-        // to make this as small as possible
+        // fortunately rybd gives us a tight bound on the number of alt
+        // pointers
         dcount += 1;
-        lfs_size_t altcount = 2*lfs_nlog2(dcount)+1;
-        dsize += (
-                // rbyd gives us a tight bound on the number of alt pointers
-                altcount * (2
-                    // leb128 encoded weight and jump, the weight can't be
-                    // larger than our rbyd and the jump can't be larger than
-                    // our current size + worst case size
-                    + (lfs_nlog2(lfs_max32(rbyd->weight,1))+7-1)/7
-                    + (lfs_nlog2(dsize + altcount*LFSR_TAG_DSIZE)+7-1)/7)
-                // tag encoding
-                + 2
-                    // leb128 encoded weight and size
-                    + (lfs_nlog2(lfs_max32(w,1))+7-1)/7
-                    + (lfs_nlog2(lfs_max32(lfsr_data_size(data),1))+7-1)/7
-                // and data size
-                + lfsr_data_size(data));
+        dsize += (2*lfs_nlog2(dcount)+1) * tag_dsize
+                + tag_dsize
+                + lfsr_data_size(data);
         
         // also keep track of alt-less dsize in case we need to split,
         // assume a worst-case tag size because it's cheaper and this
