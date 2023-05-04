@@ -1,0 +1,270 @@
+[cases.bench_dir_open]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+defines.N = 1024
+defines.FILE_SIZE = 8
+defines.CHUNK_SIZE = 8
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+
+    // first create the files
+    char name[256];
+    uint8_t buffer[CHUNK_SIZE];
+    for (lfs2_size_t i = 0; i < N; i++) {
+        sprintf(name, "file%08x", i);
+        lfs2_file_t file;
+        lfs2_file_open(&lfs2, &file, name,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+
+        uint32_t file_prng = i;
+        for (lfs2_size_t j = 0; j < FILE_SIZE; j += CHUNK_SIZE) {
+            for (lfs2_size_t k = 0; k < CHUNK_SIZE; k++) {
+                buffer[k] = BENCH_PRNG(&file_prng);
+            }
+            lfs2_file_write(&lfs2, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
+        }
+
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+
+    // then read the files
+    BENCH_START();
+    uint32_t prng = 42;
+    for (lfs2_size_t i = 0; i < N; i++) {
+        lfs2_off_t i_
+            = (ORDER == 0) ? i
+            : (ORDER == 1) ? (N-1-i)
+            : BENCH_PRNG(&prng) % N;
+        sprintf(name, "file%08x", i_);
+        lfs2_file_t file;
+        lfs2_file_open(&lfs2, &file, name, LFS2_O_RDONLY) => 0;
+
+        uint32_t file_prng = i_;
+        for (lfs2_size_t j = 0; j < FILE_SIZE; j += CHUNK_SIZE) {
+            lfs2_file_read(&lfs2, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
+            for (lfs2_size_t k = 0; k < CHUNK_SIZE; k++) {
+                assert(buffer[k] == BENCH_PRNG(&file_prng));
+            }
+        }
+
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+    BENCH_STOP();
+
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[cases.bench_dir_creat]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+defines.N = 1024
+defines.FILE_SIZE = 8
+defines.CHUNK_SIZE = 8
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+
+    BENCH_START();
+    uint32_t prng = 42;
+    char name[256];
+    uint8_t buffer[CHUNK_SIZE];
+    for (lfs2_size_t i = 0; i < N; i++) {
+        lfs2_off_t i_
+            = (ORDER == 0) ? i
+            : (ORDER == 1) ? (N-1-i)
+            : BENCH_PRNG(&prng) % N;
+        sprintf(name, "file%08x", i_);
+        lfs2_file_t file;
+        lfs2_file_open(&lfs2, &file, name,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+
+        uint32_t file_prng = i_;
+        for (lfs2_size_t j = 0; j < FILE_SIZE; j += CHUNK_SIZE) {
+            for (lfs2_size_t k = 0; k < CHUNK_SIZE; k++) {
+                buffer[k] = BENCH_PRNG(&file_prng);
+            }
+            lfs2_file_write(&lfs2, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
+        }
+
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+    BENCH_STOP();
+
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[cases.bench_dir_remove]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+defines.N = 1024
+defines.FILE_SIZE = 8
+defines.CHUNK_SIZE = 8
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+
+    // first create the files
+    char name[256];
+    uint8_t buffer[CHUNK_SIZE];
+    for (lfs2_size_t i = 0; i < N; i++) {
+        sprintf(name, "file%08x", i);
+        lfs2_file_t file;
+        lfs2_file_open(&lfs2, &file, name,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+
+        uint32_t file_prng = i;
+        for (lfs2_size_t j = 0; j < FILE_SIZE; j += CHUNK_SIZE) {
+            for (lfs2_size_t k = 0; k < CHUNK_SIZE; k++) {
+                buffer[k] = BENCH_PRNG(&file_prng);
+            }
+            lfs2_file_write(&lfs2, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
+        }
+
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+
+    // then remove the files
+    BENCH_START();
+    uint32_t prng = 42;
+    for (lfs2_size_t i = 0; i < N; i++) {
+        lfs2_off_t i_
+            = (ORDER == 0) ? i
+            : (ORDER == 1) ? (N-1-i)
+            : BENCH_PRNG(&prng) % N;
+        sprintf(name, "file%08x", i_);
+        int err = lfs2_remove(&lfs2, name);
+        assert(!err || err == LFS2_ERR_NOENT);
+    }
+    BENCH_STOP();
+
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[cases.bench_dir_read]
+defines.N = 1024
+defines.FILE_SIZE = 8
+defines.CHUNK_SIZE = 8
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+
+    // first create the files
+    char name[256];
+    uint8_t buffer[CHUNK_SIZE];
+    for (lfs2_size_t i = 0; i < N; i++) {
+        sprintf(name, "file%08x", i);
+        lfs2_file_t file;
+        lfs2_file_open(&lfs2, &file, name,
+                LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+
+        uint32_t file_prng = i;
+        for (lfs2_size_t j = 0; j < FILE_SIZE; j += CHUNK_SIZE) {
+            for (lfs2_size_t k = 0; k < CHUNK_SIZE; k++) {
+                buffer[k] = BENCH_PRNG(&file_prng);
+            }
+            lfs2_file_write(&lfs2, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
+        }
+
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+
+    // then read the directory
+    BENCH_START();
+    lfs2_dir_t dir;
+    lfs2_dir_open(&lfs2, &dir, "/") => 0;
+    struct lfs2_info info;
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, ".") == 0);
+    lfs2_dir_read(&lfs2, &dir, &info) => 1;
+    assert(info.type == LFS2_TYPE_DIR);
+    assert(strcmp(info.name, "..") == 0);
+    for (int i = 0; i < N; i++) {
+        sprintf(name, "file%08x", i);
+        lfs2_dir_read(&lfs2, &dir, &info) => 1;
+        assert(info.type == LFS2_TYPE_REG);
+        assert(strcmp(info.name, name) == 0);
+    }
+    lfs2_dir_read(&lfs2, &dir, &info) => 0;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    BENCH_STOP();
+
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[cases.bench_dir_mkdir]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+defines.N = 8
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+
+    BENCH_START();
+    uint32_t prng = 42;
+    char name[256];
+    for (lfs2_size_t i = 0; i < N; i++) {
+        lfs2_off_t i_
+            = (ORDER == 0) ? i
+            : (ORDER == 1) ? (N-1-i)
+            : BENCH_PRNG(&prng) % N;
+        printf("hm %d\n", i);
+        sprintf(name, "dir%08x", i_);
+        int err = lfs2_mkdir(&lfs2, name);
+        assert(!err || err == LFS2_ERR_EXIST);
+    }
+    BENCH_STOP();
+
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[cases.bench_dir_rmdir]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+defines.N = 8
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+
+    // first create the dirs
+    char name[256];
+    for (lfs2_size_t i = 0; i < N; i++) {
+        sprintf(name, "dir%08x", i);
+        lfs2_mkdir(&lfs2, name) => 0;
+    }
+
+    // then remove the dirs
+    BENCH_START();
+    uint32_t prng = 42;
+    for (lfs2_size_t i = 0; i < N; i++) {
+        lfs2_off_t i_
+            = (ORDER == 0) ? i
+            : (ORDER == 1) ? (N-1-i)
+            : BENCH_PRNG(&prng) % N;
+        sprintf(name, "dir%08x", i_);
+        int err = lfs2_remove(&lfs2, name);
+        assert(!err || err == LFS2_ERR_NOENT);
+    }
+    BENCH_STOP();
+
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+

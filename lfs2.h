@@ -8,8 +8,6 @@
 #ifndef LFS2_H
 #define LFS2_H
 
-#include <stdint.h>
-#include <stdbool.h>
 #include "lfs2_util.h"
 
 #ifdef __cplusplus
@@ -23,14 +21,14 @@ extern "C"
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS2_VERSION 0x00020005
+#define LFS2_VERSION 0x00020006
 #define LFS2_VERSION_MAJOR (0xffff & (LFS2_VERSION >> 16))
 #define LFS2_VERSION_MINOR (0xffff & (LFS2_VERSION >>  0))
 
 // Version of On-disk data structures
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS2_DISK_VERSION 0x00020000
+#define LFS2_DISK_VERSION 0x00020001
 #define LFS2_DISK_VERSION_MAJOR (0xffff & (LFS2_DISK_VERSION >> 16))
 #define LFS2_DISK_VERSION_MINOR (0xffff & (LFS2_DISK_VERSION >>  0))
 
@@ -114,6 +112,8 @@ enum lfs2_type {
     LFS2_TYPE_SOFTTAIL       = 0x600,
     LFS2_TYPE_HARDTAIL       = 0x601,
     LFS2_TYPE_MOVESTATE      = 0x7ff,
+    LFS2_TYPE_CCRC           = 0x500,
+    LFS2_TYPE_FCRC           = 0x5ff,
 
     // internal chip sources
     LFS2_FROM_NOOP           = 0x000,
@@ -675,6 +675,18 @@ lfs2_ssize_t lfs2_fs_size(lfs2_t *lfs2);
 //
 // Returns a negative error code on failure.
 int lfs2_fs_traverse(lfs2_t *lfs2, int (*cb)(void*, lfs2_block_t), void *data);
+
+#ifndef LFS2_READONLY
+// Attempt to make the filesystem consistent and ready for writing
+//
+// Calling this function is not required, consistency will be implicitly
+// enforced on the first operation that writes to the filesystem, but this
+// function allows the work to be performed earlier and without other
+// filesystem changes.
+//
+// Returns a negative error code on failure.
+int lfs2_fs_mkconsistent(lfs2_t *lfs2);
+#endif
 
 #ifndef LFS2_READONLY
 #ifdef LFS2_MIGRATE

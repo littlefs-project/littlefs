@@ -18,31 +18,22 @@ extern "C"
 
 
 // Block device specific tracing
+#ifndef LFS2_FILEBD_TRACE
 #ifdef LFS2_FILEBD_YES_TRACE
 #define LFS2_FILEBD_TRACE(...) LFS2_TRACE(__VA_ARGS__)
 #else
 #define LFS2_FILEBD_TRACE(...)
 #endif
-
-// filebd config (optional)
-struct lfs2_filebd_config {
-    // 8-bit erase value to use for simulating erases. -1 does not simulate
-    // erases, which can speed up testing by avoiding all the extra block-device
-    // operations to store the erase value.
-    int32_t erase_value;
-};
+#endif
 
 // filebd state
 typedef struct lfs2_filebd {
     int fd;
-    const struct lfs2_filebd_config *cfg;
 } lfs2_filebd_t;
 
 
 // Create a file block device using the geometry in lfs2_config
 int lfs2_filebd_create(const struct lfs2_config *cfg, const char *path);
-int lfs2_filebd_createcfg(const struct lfs2_config *cfg, const char *path,
-        const struct lfs2_filebd_config *bdcfg);
 
 // Clean up memory associated with block device
 int lfs2_filebd_destroy(const struct lfs2_config *cfg);

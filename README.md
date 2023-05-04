@@ -226,6 +226,13 @@ License Identifiers that are here available: http://spdx.org/licenses/
   to create images of the filesystem on your PC. Check if littlefs will fit
   your needs, create images for a later download to the target memory or
   inspect the content of a binary image of the target memory.
+  
+- [littlefs2-rust] - A Rust wrapper for littlefs. This project allows you
+  to use littlefs in a Rust-friendly API, reaping the benefits of Rust's memory
+  safety and other guarantees.
+
+- [littlefs-disk-img-viewer] - A memory-efficient web application for viewing
+  littlefs disk images in your web browser.
 
 - [mklfs] - A command line tool built by the [Lua RTOS] guys for making
   littlefs images from a host PC. Supports Windows, Mac OS, and Linux.
@@ -243,8 +250,12 @@ License Identifiers that are here available: http://spdx.org/licenses/
   MCUs. It offers static wear-leveling and power-resilience with only a fixed
   _O(|address|)_ pointer structure stored on each block and in RAM.
 
+- [chamelon] - A pure-OCaml implementation of (most of) littlefs, designed for
+  use with the MirageOS library operating system project. It is interoperable
+  with the reference implementation, with some caveats.
 
 [BSD-3-Clause]: https://spdx.org/licenses/BSD-3-Clause.html
+[littlefs-disk-img-viewer]: https://github.com/tniessen/littlefs-disk-img-viewer
 [littlefs-fuse]: https://github.com/geky/littlefs-fuse
 [FUSE]: https://github.com/libfuse/libfuse
 [littlefs-js]: https://github.com/geky/littlefs-js
@@ -256,3 +267,5 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [SPIFFS]: https://github.com/pellepl/spiffs
 [Dhara]: https://github.com/dlbeer/dhara
 [littlefs-python]: https://pypi.org/project/littlefs-python/
+[littlefs2-rust]: https://crates.io/crates/littlefs2
+[chamelon]: https://github.com/yomimono/chamelon

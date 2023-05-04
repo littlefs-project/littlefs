@@ -1,11 +1,13 @@
-[[case]] # move file
+[cases.test_move_file]
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "a") => 0;
     lfs2_mkdir(&lfs2, "b") => 0;
     lfs2_mkdir(&lfs2, "c") => 0;
     lfs2_mkdir(&lfs2, "d") => 0;
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "a/hello", LFS2_O_CREAT | LFS2_O_WRONLY) => 0;
     lfs2_file_write(&lfs2, &file, "hola\n", 5) => 5;
     lfs2_file_write(&lfs2, &file, "bonjour\n", 8) => 8;
@@ -13,11 +15,13 @@ code = '''
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hello", "c/hello") => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -44,6 +48,7 @@ code = '''
     lfs2_file_open(&lfs2, &file, "a/hello", LFS2_O_RDONLY) => LFS2_ERR_NOENT;
     lfs2_file_open(&lfs2, &file, "b/hello", LFS2_O_RDONLY) => LFS2_ERR_NOENT;
     lfs2_file_open(&lfs2, &file, "c/hello", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[1024];
     lfs2_file_read(&lfs2, &file, buffer, 5) => 5;
     memcmp(buffer, "hola\n", 5) => 0;
     lfs2_file_read(&lfs2, &file, buffer, 8) => 8;
@@ -55,31 +60,35 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # noop move, yes this is legal
+[cases.test_move_nop] # yes this is legal
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "hi") => 0;
     lfs2_rename(&lfs2, "hi", "hi") => 0;
     lfs2_mkdir(&lfs2, "hi/hi") => 0;
     lfs2_rename(&lfs2, "hi/hi", "hi/hi") => 0;
     lfs2_mkdir(&lfs2, "hi/hi/hi") => 0;
     lfs2_rename(&lfs2, "hi/hi/hi", "hi/hi/hi") => 0;
+    struct lfs2_info info;
     lfs2_stat(&lfs2, "hi/hi/hi", &info) => 0;
     assert(strcmp(info.name, "hi") == 0);
     assert(info.type == LFS2_TYPE_DIR);
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # move file corrupt source
+[cases.test_move_file_corrupt_source]
 in = "lfs2.c"
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "a") => 0;
     lfs2_mkdir(&lfs2, "b") => 0;
     lfs2_mkdir(&lfs2, "c") => 0;
     lfs2_mkdir(&lfs2, "d") => 0;
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "a/hello", LFS2_O_CREAT | LFS2_O_WRONLY) => 0;
     lfs2_file_write(&lfs2, &file, "hola\n", 5) => 5;
     lfs2_file_write(&lfs2, &file, "bonjour\n", 8) => 8;
@@ -87,28 +96,30 @@ code = '''
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hello", "c/hello") => 0;
     lfs2_unmount(&lfs2) => 0;
 
     // corrupt the source
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_block_t block = dir.m.pair[0];
     lfs2_dir_close(&lfs2, &dir) => 0;
     lfs2_unmount(&lfs2) => 0;
-    uint8_t bbuffer[LFS2_BLOCK_SIZE];
-    cfg.read(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    int off = LFS2_BLOCK_SIZE-1;
-    while (off >= 0 && bbuffer[off] == LFS2_ERASE_VALUE) {
+    uint8_t buffer[BLOCK_SIZE];
+    cfg->read(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    int off = BLOCK_SIZE-1;
+    while (off >= 0 && buffer[off] == ERASE_VALUE) {
         off -= 1;
     }
-    memset(&bbuffer[off-3], LFS2_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    memset(&buffer[off-3], BLOCK_SIZE, 3);
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    cfg->sync(cfg) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -146,16 +157,19 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # move file corrupt source and dest
+# move file corrupt source and dest
+[cases.test_move_file_corrupt_source_dest]
 in = "lfs2.c"
-if = 'LFS2_PROG_SIZE <= 0x3fe' # only works with one crc per commit
+if = 'PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "a") => 0;
     lfs2_mkdir(&lfs2, "b") => 0;
     lfs2_mkdir(&lfs2, "c") => 0;
     lfs2_mkdir(&lfs2, "d") => 0;
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "a/hello", LFS2_O_CREAT | LFS2_O_WRONLY) => 0;
     lfs2_file_write(&lfs2, &file, "hola\n", 5) => 5;
     lfs2_file_write(&lfs2, &file, "bonjour\n", 8) => 8;
@@ -163,44 +177,46 @@ code = '''
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hello", "c/hello") => 0;
     lfs2_unmount(&lfs2) => 0;
 
     // corrupt the source
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_block_t block = dir.m.pair[0];
     lfs2_dir_close(&lfs2, &dir) => 0;
     lfs2_unmount(&lfs2) => 0;
-    uint8_t bbuffer[LFS2_BLOCK_SIZE];
-    cfg.read(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    int off = LFS2_BLOCK_SIZE-1;
-    while (off >= 0 && bbuffer[off] == LFS2_ERASE_VALUE) {
+    uint8_t buffer[BLOCK_SIZE];
+    cfg->read(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    int off = BLOCK_SIZE-1;
+    while (off >= 0 && buffer[off] == ERASE_VALUE) {
         off -= 1;
     }
-    memset(&bbuffer[off-3], LFS2_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    memset(&buffer[off-3], BLOCK_SIZE, 3);
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    cfg->sync(cfg) => 0;
 
     // corrupt the destination
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_dir_open(&lfs2, &dir, "c") => 0;
     block = dir.m.pair[0];
     lfs2_dir_close(&lfs2, &dir) => 0;
     lfs2_unmount(&lfs2) => 0;
-    cfg.read(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    off = LFS2_BLOCK_SIZE-1;
-    while (off >= 0 && bbuffer[off] == LFS2_ERASE_VALUE) {
+    cfg->read(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    off = BLOCK_SIZE-1;
+    while (off >= 0 && buffer[off] == ERASE_VALUE) {
         off -= 1;
     }
-    memset(&bbuffer[off-3], LFS2_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    memset(&buffer[off-3], BLOCK_SIZE, 3);
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    cfg->sync(cfg) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -238,16 +254,18 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # move file after corrupt
+[cases.test_move_file_after_corrupt]
 in = "lfs2.c"
-if = 'LFS2_PROG_SIZE <= 0x3fe' # only works with one crc per commit
+if = 'PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "a") => 0;
     lfs2_mkdir(&lfs2, "b") => 0;
     lfs2_mkdir(&lfs2, "c") => 0;
     lfs2_mkdir(&lfs2, "d") => 0;
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "a/hello", LFS2_O_CREAT | LFS2_O_WRONLY) => 0;
     lfs2_file_write(&lfs2, &file, "hola\n", 5) => 5;
     lfs2_file_write(&lfs2, &file, "bonjour\n", 8) => 8;
@@ -255,49 +273,51 @@ code = '''
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hello", "c/hello") => 0;
     lfs2_unmount(&lfs2) => 0;
 
     // corrupt the source
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_block_t block = dir.m.pair[0];
     lfs2_dir_close(&lfs2, &dir) => 0;
     lfs2_unmount(&lfs2) => 0;
-    uint8_t bbuffer[LFS2_BLOCK_SIZE];
-    cfg.read(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    int off = LFS2_BLOCK_SIZE-1;
-    while (off >= 0 && bbuffer[off] == LFS2_ERASE_VALUE) {
+    uint8_t buffer[BLOCK_SIZE];
+    cfg->read(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    int off = BLOCK_SIZE-1;
+    while (off >= 0 && buffer[off] == ERASE_VALUE) {
         off -= 1;
     }
-    memset(&bbuffer[off-3], LFS2_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    memset(&buffer[off-3], BLOCK_SIZE, 3);
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    cfg->sync(cfg) => 0;
 
     // corrupt the destination
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_dir_open(&lfs2, &dir, "c") => 0;
     block = dir.m.pair[0];
     lfs2_dir_close(&lfs2, &dir) => 0;
     lfs2_unmount(&lfs2) => 0;
-    cfg.read(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    off = LFS2_BLOCK_SIZE-1;
-    while (off >= 0 && bbuffer[off] == LFS2_ERASE_VALUE) {
+    cfg->read(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    off = BLOCK_SIZE-1;
+    while (off >= 0 && buffer[off] == ERASE_VALUE) {
         off -= 1;
     }
-    memset(&bbuffer[off-3], LFS2_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    memset(&buffer[off-3], BLOCK_SIZE, 3);
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    cfg->sync(cfg) => 0;
 
     // continue move
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hello", "c/hello") => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -335,13 +355,14 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # simple reentrant move file
+[cases.test_move_reentrant_file]
 reentrant = true
 code = '''
-    err = lfs2_mount(&lfs2, &cfg);
+    lfs2_t lfs2;
+    int err = lfs2_mount(&lfs2, cfg);
     if (err) {
-        lfs2_format(&lfs2, &cfg) => 0;
-        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_format(&lfs2, cfg) => 0;
+        lfs2_mount(&lfs2, cfg) => 0;
     }
     err = lfs2_mkdir(&lfs2, "a");
     assert(!err || err == LFS2_ERR_EXIST);
@@ -354,9 +375,10 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 
     while (true) {
-        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_mount(&lfs2, cfg) => 0;
         // there should never exist _2_ hello files
         int count = 0;
+        struct lfs2_info info;
         if (lfs2_stat(&lfs2, "a/hello", &info) == 0) {
             assert(strcmp(info.name, "hello") == 0);
             assert(info.type == LFS2_TYPE_REG);
@@ -384,7 +406,7 @@ code = '''
         assert(count <= 1);
         lfs2_unmount(&lfs2) => 0;
 
-        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_mount(&lfs2, cfg) => 0;
         if (lfs2_stat(&lfs2, "a/hello", &info) == 0 && info.size > 0) {
             lfs2_rename(&lfs2, "a/hello", "b/hello") => 0;
         } else if (lfs2_stat(&lfs2, "b/hello", &info) == 0) {
@@ -397,6 +419,7 @@ code = '''
             break;
         } else {
             // create file
+            lfs2_file_t file;
             lfs2_file_open(&lfs2, &file, "a/hello",
                     LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
             lfs2_file_write(&lfs2, &file, "hola\n", 5) => 5;
@@ -407,7 +430,9 @@ code = '''
         lfs2_unmount(&lfs2) => 0;
     }
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -431,10 +456,12 @@ code = '''
     lfs2_dir_read(&lfs2, &dir, &info) => 0;
     lfs2_dir_close(&lfs2, &dir) => 0;
 
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "a/hello", LFS2_O_RDONLY) => LFS2_ERR_NOENT;
     lfs2_file_open(&lfs2, &file, "b/hello", LFS2_O_RDONLY) => LFS2_ERR_NOENT;
     lfs2_file_open(&lfs2, &file, "c/hello", LFS2_O_RDONLY) => LFS2_ERR_NOENT;
     lfs2_file_open(&lfs2, &file, "d/hello", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[1024];
     lfs2_file_read(&lfs2, &file, buffer, 5) => 5;
     memcmp(buffer, "hola\n", 5) => 0;
     lfs2_file_read(&lfs2, &file, buffer, 8) => 8;
@@ -445,10 +472,11 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # move dir
+[cases.test_move_dir]
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "a") => 0;
     lfs2_mkdir(&lfs2, "b") => 0;
     lfs2_mkdir(&lfs2, "c") => 0;
@@ -459,11 +487,13 @@ code = '''
     lfs2_mkdir(&lfs2, "a/hi/ohayo") => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hi", "c/hi") => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -510,11 +540,12 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # move dir corrupt source
+[cases.test_move_dir_corrupt_source]
 in = "lfs2.c"
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "a") => 0;
     lfs2_mkdir(&lfs2, "b") => 0;
     lfs2_mkdir(&lfs2, "c") => 0;
@@ -525,28 +556,30 @@ code = '''
     lfs2_mkdir(&lfs2, "a/hi/ohayo") => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hi", "c/hi") => 0;
     lfs2_unmount(&lfs2) => 0;
 
     // corrupt the source
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_block_t block = dir.m.pair[0];
     lfs2_dir_close(&lfs2, &dir) => 0;
     lfs2_unmount(&lfs2) => 0;
-    uint8_t bbuffer[LFS2_BLOCK_SIZE];
-    cfg.read(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    int off = LFS2_BLOCK_SIZE-1;
-    while (off >= 0 && bbuffer[off] == LFS2_ERASE_VALUE) {
+    uint8_t buffer[BLOCK_SIZE];
+    cfg->read(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    int off = BLOCK_SIZE-1;
+    while (off >= 0 && buffer[off] == ERASE_VALUE) {
         off -= 1;
     }
-    memset(&bbuffer[off-3], LFS2_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    memset(&buffer[off-3], BLOCK_SIZE, 3);
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    cfg->sync(cfg) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -593,12 +626,13 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # move dir corrupt source and dest
+[cases.test_move_dir_corrupt_source_dest]
 in = "lfs2.c"
-if = 'LFS2_PROG_SIZE <= 0x3fe' # only works with one crc per commit
+if = 'PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "a") => 0;
     lfs2_mkdir(&lfs2, "b") => 0;
     lfs2_mkdir(&lfs2, "c") => 0;
@@ -609,44 +643,46 @@ code = '''
     lfs2_mkdir(&lfs2, "a/hi/ohayo") => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hi", "c/hi") => 0;
     lfs2_unmount(&lfs2) => 0;
 
     // corrupt the source
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_block_t block = dir.m.pair[0];
     lfs2_dir_close(&lfs2, &dir) => 0;
     lfs2_unmount(&lfs2) => 0;
-    uint8_t bbuffer[LFS2_BLOCK_SIZE];
-    cfg.read(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    int off = LFS2_BLOCK_SIZE-1;
-    while (off >= 0 && bbuffer[off] == LFS2_ERASE_VALUE) {
+    uint8_t buffer[BLOCK_SIZE];
+    cfg->read(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    int off = BLOCK_SIZE-1;
+    while (off >= 0 && buffer[off] == ERASE_VALUE) {
         off -= 1;
     }
-    memset(&bbuffer[off-3], LFS2_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    memset(&buffer[off-3], BLOCK_SIZE, 3);
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    cfg->sync(cfg) => 0;
 
     // corrupt the destination
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_dir_open(&lfs2, &dir, "c") => 0;
     block = dir.m.pair[0];
     lfs2_dir_close(&lfs2, &dir) => 0;
     lfs2_unmount(&lfs2) => 0;
-    cfg.read(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    off = LFS2_BLOCK_SIZE-1;
-    while (off >= 0 && bbuffer[off] == LFS2_ERASE_VALUE) {
+    cfg->read(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    off = BLOCK_SIZE-1;
+    while (off >= 0 && buffer[off] == ERASE_VALUE) {
         off -= 1;
     }
-    memset(&bbuffer[off-3], LFS2_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    memset(&buffer[off-3], BLOCK_SIZE, 3);
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    cfg->sync(cfg) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -693,12 +729,13 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # move dir after corrupt
+[cases.test_move_dir_after_corrupt]
 in = "lfs2.c"
-if = 'LFS2_PROG_SIZE <= 0x3fe' # only works with one crc per commit
+if = 'PROG_SIZE <= 0x3fe' # only works with one crc per commit
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "a") => 0;
     lfs2_mkdir(&lfs2, "b") => 0;
     lfs2_mkdir(&lfs2, "c") => 0;
@@ -709,49 +746,51 @@ code = '''
     lfs2_mkdir(&lfs2, "a/hi/ohayo") => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hi", "c/hi") => 0;
     lfs2_unmount(&lfs2) => 0;
 
     // corrupt the source
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_block_t block = dir.m.pair[0];
     lfs2_dir_close(&lfs2, &dir) => 0;
     lfs2_unmount(&lfs2) => 0;
-    uint8_t bbuffer[LFS2_BLOCK_SIZE];
-    cfg.read(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    int off = LFS2_BLOCK_SIZE-1;
-    while (off >= 0 && bbuffer[off] == LFS2_ERASE_VALUE) {
+    uint8_t buffer[BLOCK_SIZE];
+    cfg->read(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    int off = BLOCK_SIZE-1;
+    while (off >= 0 && buffer[off] == ERASE_VALUE) {
         off -= 1;
     }
-    memset(&bbuffer[off-3], LFS2_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    memset(&buffer[off-3], BLOCK_SIZE, 3);
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    cfg->sync(cfg) => 0;
 
     // corrupt the destination
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_dir_open(&lfs2, &dir, "c") => 0;
     block = dir.m.pair[0];
     lfs2_dir_close(&lfs2, &dir) => 0;
     lfs2_unmount(&lfs2) => 0;
-    cfg.read(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    off = LFS2_BLOCK_SIZE-1;
-    while (off >= 0 && bbuffer[off] == LFS2_ERASE_VALUE) {
+    cfg->read(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    off = BLOCK_SIZE-1;
+    while (off >= 0 && buffer[off] == ERASE_VALUE) {
         off -= 1;
     }
-    memset(&bbuffer[off-3], LFS2_BLOCK_SIZE, 3);
-    cfg.erase(&cfg, block) => 0;
-    cfg.prog(&cfg, block, 0, bbuffer, LFS2_BLOCK_SIZE) => 0;
-    cfg.sync(&cfg) => 0;
+    memset(&buffer[off-3], BLOCK_SIZE, 3);
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, buffer, BLOCK_SIZE) => 0;
+    cfg->sync(cfg) => 0;
 
     // continue move
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hi", "c/hi") => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -798,13 +837,14 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # simple reentrant move dir
+[cases.test_reentrant_dir]
 reentrant = true
 code = '''
-    err = lfs2_mount(&lfs2, &cfg);
+    lfs2_t lfs2;
+    int err = lfs2_mount(&lfs2, cfg);
     if (err) {
-        lfs2_format(&lfs2, &cfg) => 0;
-        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_format(&lfs2, cfg) => 0;
+        lfs2_mount(&lfs2, cfg) => 0;
     }
     err = lfs2_mkdir(&lfs2, "a");
     assert(!err || err == LFS2_ERR_EXIST);
@@ -817,9 +857,10 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 
     while (true) {
-        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_mount(&lfs2, cfg) => 0;
         // there should never exist _2_ hi directories
         int count = 0;
+        struct lfs2_info info;
         if (lfs2_stat(&lfs2, "a/hi", &info) == 0) {
             assert(strcmp(info.name, "hi") == 0);
             assert(info.type == LFS2_TYPE_DIR);
@@ -843,7 +884,7 @@ code = '''
         assert(count <= 1);
         lfs2_unmount(&lfs2) => 0;
 
-        lfs2_mount(&lfs2, &cfg) => 0;
+        lfs2_mount(&lfs2, cfg) => 0;
         if (lfs2_stat(&lfs2, "a/hi", &info) == 0) {
             lfs2_rename(&lfs2, "a/hi", "b/hi") => 0;
         } else if (lfs2_stat(&lfs2, "b/hi", &info) == 0) {
@@ -868,7 +909,9 @@ code = '''
         lfs2_unmount(&lfs2) => 0;
     }
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "a") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -915,14 +958,16 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # move state stealing
+[cases.test_move_state_stealing]
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "a") => 0;
     lfs2_mkdir(&lfs2, "b") => 0;
     lfs2_mkdir(&lfs2, "c") => 0;
     lfs2_mkdir(&lfs2, "d") => 0;
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "a/hello", LFS2_O_CREAT | LFS2_O_WRONLY) => 0;
     lfs2_file_write(&lfs2, &file, "hola\n", 5) => 5;
     lfs2_file_write(&lfs2, &file, "bonjour\n", 8) => 8;
@@ -930,21 +975,22 @@ code = '''
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "a/hello", "b/hello") => 0;
     lfs2_unmount(&lfs2) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "b/hello", "c/hello") => 0;
     lfs2_unmount(&lfs2) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_rename(&lfs2, "c/hello", "d/hello") => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_file_open(&lfs2, &file, "a/hello", LFS2_O_RDONLY) => LFS2_ERR_NOENT;
     lfs2_file_open(&lfs2, &file, "b/hello", LFS2_O_RDONLY) => LFS2_ERR_NOENT;
     lfs2_file_open(&lfs2, &file, "c/hello", LFS2_O_RDONLY) => LFS2_ERR_NOENT;
     lfs2_file_open(&lfs2, &file, "d/hello", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[1024];
     lfs2_file_read(&lfs2, &file, buffer, 5) => 5;
     memcmp(buffer, "hola\n", 5) => 0;
     lfs2_file_read(&lfs2, &file, buffer, 8) => 8;
@@ -954,12 +1000,13 @@ code = '''
     lfs2_file_close(&lfs2, &file) => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_remove(&lfs2, "b") => 0;
     lfs2_remove(&lfs2, "c") => 0;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    struct lfs2_info info;
     lfs2_stat(&lfs2, "a", &info) => 0;
     lfs2_stat(&lfs2, "b", &info) => LFS2_ERR_NOENT;
     lfs2_stat(&lfs2, "c", &info) => LFS2_ERR_NOENT;
@@ -979,12 +1026,16 @@ code = '''
 '''
 
 # Other specific corner cases
-[[case]] # create + delete in same commit with neighbors
+
+# create + delete in same commit with neighbors
+[cases.test_move_create_delete_same]
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
 
     // littlefs keeps files sorted, so we know the order these will be in
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "/1.move_me",
             LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
     lfs2_file_close(&lfs2, &file) => 0;
@@ -1024,6 +1075,8 @@ code = '''
     lfs2_file_close(&lfs2, &files[2]) => 0;
 
     // check that nothing was corrupted
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "/") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -1051,6 +1104,7 @@ code = '''
     lfs2_dir_close(&lfs2, &dir) => 0;
 
     lfs2_file_open(&lfs2, &file, "/0.before", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[1024];
     lfs2_file_read(&lfs2, &file, buffer, 7) => 7;
     assert(strcmp((char*)buffer, "test.4") == 0);
     lfs2_file_close(&lfs2, &file) => 0;
@@ -1124,13 +1178,15 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-# Other specific corner cases
-[[case]] # create + delete + delete in same commit with neighbors
+# create + delete + delete in same commit with neighbors
+[cases.test_move_create_delete_delete_same]
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
 
     // littlefs keeps files sorted, so we know the order these will be in
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "/1.move_me",
             LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
     lfs2_file_close(&lfs2, &file) => 0;
@@ -1175,6 +1231,8 @@ code = '''
     lfs2_file_close(&lfs2, &files[2]) => 0;
 
     // check that nothing was corrupted
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "/") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -1202,6 +1260,7 @@ code = '''
     lfs2_dir_close(&lfs2, &dir) => 0;
 
     lfs2_file_open(&lfs2, &file, "/0.before", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[1024];
     lfs2_file_read(&lfs2, &file, buffer, 7) => 7;
     assert(strcmp((char*)buffer, "test.4") == 0);
     lfs2_file_close(&lfs2, &file) => 0;
@@ -1281,14 +1340,17 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # create + delete in different dirs with neighbors
+# create + delete in different dirs with neighbors
+[cases.test_move_create_delete_different]
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
 
     // littlefs keeps files sorted, so we know the order these will be in
     lfs2_mkdir(&lfs2, "/dir.1") => 0;
     lfs2_mkdir(&lfs2, "/dir.2") => 0;
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "/dir.1/1.move_me",
             LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
     lfs2_file_close(&lfs2, &file) => 0;
@@ -1340,6 +1402,8 @@ code = '''
     lfs2_file_close(&lfs2, &files[3]) => 0;
 
     // check that nothing was corrupted
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "/") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -1397,6 +1461,7 @@ code = '''
     lfs2_dir_close(&lfs2, &dir) => 0;
 
     lfs2_file_open(&lfs2, &file, "/dir.1/0.before", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[1024];
     lfs2_file_read(&lfs2, &file, buffer, 7) => 7;
     assert(strcmp((char*)buffer, "test.5") == 0);
     lfs2_file_close(&lfs2, &file) => 0;
@@ -1518,17 +1583,20 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # move fix in relocation
+# move fix in relocation
+[cases.test_move_fix_relocation]
 in = "lfs2.c"
-define.RELOCATIONS = 'range(0x3+1)'
-define.LFS2_ERASE_CYCLES = 0xffffffff
+defines.RELOCATIONS = 'range(4)'
+defines.ERASE_CYCLES = 0xffffffff
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
 
     lfs2_mkdir(&lfs2, "/parent") => 0;
     lfs2_mkdir(&lfs2, "/parent/child") => 0;
 
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "/parent/1.move_me",
             LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
     lfs2_file_write(&lfs2, &file, "move me",
@@ -1568,15 +1636,17 @@ code = '''
 
     // force specific directories to relocate
     if (RELOCATIONS & 0x1) {
+        lfs2_dir_t dir;
         lfs2_dir_open(&lfs2, &dir, "/parent");
-        lfs2_testbd_setwear(&cfg, dir.m.pair[0], 0xffffffff) => 0;
-        lfs2_testbd_setwear(&cfg, dir.m.pair[1], 0xffffffff) => 0;
+        lfs2_emubd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
+        lfs2_emubd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
         lfs2_dir_close(&lfs2, &dir) => 0;
     }
     if (RELOCATIONS & 0x2) {
+        lfs2_dir_t dir;
         lfs2_dir_open(&lfs2, &dir, "/parent/child");
-        lfs2_testbd_setwear(&cfg, dir.m.pair[0], 0xffffffff) => 0;
-        lfs2_testbd_setwear(&cfg, dir.m.pair[1], 0xffffffff) => 0;
+        lfs2_emubd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
+        lfs2_emubd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
         lfs2_dir_close(&lfs2, &dir) => 0;
     }
 
@@ -1593,6 +1663,8 @@ code = '''
     lfs2_file_close(&lfs2, &files[3]) => 0;
 
     // check that nothing was corrupted
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "/parent") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -1637,6 +1709,7 @@ code = '''
     lfs2_dir_close(&lfs2, &dir) => 0;
 
     lfs2_file_open(&lfs2, &file, "/parent/0.before", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[1024];
     lfs2_file_read(&lfs2, &file, buffer, 7) => 7;
     assert(strcmp((char*)buffer, "test.5") == 0);
     lfs2_file_close(&lfs2, &file) => 0;
@@ -1655,18 +1728,21 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # move fix in relocation with predecessor
+# move fix in relocation with predecessor
+[cases.test_move_fix_relocation_predecessor]
 in = "lfs2.c"
-define.RELOCATIONS = 'range(0x7+1)'
-define.LFS2_ERASE_CYCLES = 0xffffffff
+defines.RELOCATIONS = 'range(8)'
+defines.ERASE_CYCLES = 0xffffffff
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
 
     lfs2_mkdir(&lfs2, "/parent") => 0;
     lfs2_mkdir(&lfs2, "/parent/child") => 0;
     lfs2_mkdir(&lfs2, "/parent/sibling") => 0;
 
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "/parent/sibling/1.move_me",
             LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
     lfs2_file_write(&lfs2, &file, "move me",
@@ -1706,21 +1782,24 @@ code = '''
 
     // force specific directories to relocate
     if (RELOCATIONS & 0x1) {
+        lfs2_dir_t dir;
         lfs2_dir_open(&lfs2, &dir, "/parent");
-        lfs2_testbd_setwear(&cfg, dir.m.pair[0], 0xffffffff) => 0;
-        lfs2_testbd_setwear(&cfg, dir.m.pair[1], 0xffffffff) => 0;
+        lfs2_emubd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
+        lfs2_emubd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
         lfs2_dir_close(&lfs2, &dir) => 0;
     }
     if (RELOCATIONS & 0x2) {
+        lfs2_dir_t dir;
         lfs2_dir_open(&lfs2, &dir, "/parent/sibling");
-        lfs2_testbd_setwear(&cfg, dir.m.pair[0], 0xffffffff) => 0;
-        lfs2_testbd_setwear(&cfg, dir.m.pair[1], 0xffffffff) => 0;
+        lfs2_emubd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
+        lfs2_emubd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
         lfs2_dir_close(&lfs2, &dir) => 0;
     }
     if (RELOCATIONS & 0x4) {
+        lfs2_dir_t dir;
         lfs2_dir_open(&lfs2, &dir, "/parent/child");
-        lfs2_testbd_setwear(&cfg, dir.m.pair[0], 0xffffffff) => 0;
-        lfs2_testbd_setwear(&cfg, dir.m.pair[1], 0xffffffff) => 0;
+        lfs2_emubd_setwear(cfg, dir.m.pair[0], 0xffffffff) => 0;
+        lfs2_emubd_setwear(cfg, dir.m.pair[1], 0xffffffff) => 0;
         lfs2_dir_close(&lfs2, &dir) => 0;
     }
 
@@ -1739,6 +1818,8 @@ code = '''
     lfs2_file_close(&lfs2, &files[3]) => 0;
 
     // check that nothing was corrupted
+    lfs2_dir_t dir;
+    struct lfs2_info info;
     lfs2_dir_open(&lfs2, &dir, "/parent") => 0;
     lfs2_dir_read(&lfs2, &dir, &info) => 1;
     assert(strcmp(info.name, ".") == 0);
@@ -1796,6 +1877,7 @@ code = '''
     lfs2_dir_close(&lfs2, &dir) => 0;
 
     lfs2_file_open(&lfs2, &file, "/parent/sibling/0.before", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[1024];
     lfs2_file_read(&lfs2, &file, buffer, 7) => 7;
     assert(strcmp((char*)buffer, "test.5") == 0);
     lfs2_file_close(&lfs2, &file) => 0;

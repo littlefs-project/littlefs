@@ -1,0 +1,95 @@
+[cases.bench_file_read]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+defines.SIZE = '128*1024'
+defines.CHUNK_SIZE = 64
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_size_t chunks = (SIZE+CHUNK_SIZE-1)/CHUNK_SIZE;
+
+    // first write the file
+    lfs2_file_t file;
+    uint8_t buffer[CHUNK_SIZE];
+    lfs2_file_open(&lfs2, &file, "file",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+    for (lfs2_size_t i = 0; i < chunks; i++) {
+        uint32_t chunk_prng = i;
+        for (lfs2_size_t j = 0; j < CHUNK_SIZE; j++) {
+            buffer[j] = BENCH_PRNG(&chunk_prng);
+        }
+
+        lfs2_file_write(&lfs2, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
+    }
+    lfs2_file_write(&lfs2, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    // then read the file
+    BENCH_START();
+    lfs2_file_open(&lfs2, &file, "file", LFS2_O_RDONLY) => 0;
+
+    uint32_t prng = 42;
+    for (lfs2_size_t i = 0; i < chunks; i++) {
+        lfs2_off_t i_
+            = (ORDER == 0) ? i
+            : (ORDER == 1) ? (chunks-1-i)
+            : BENCH_PRNG(&prng) % chunks;
+        lfs2_file_seek(&lfs2, &file, i_*CHUNK_SIZE, LFS2_SEEK_SET)
+                => i_*CHUNK_SIZE;
+        lfs2_file_read(&lfs2, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
+
+        uint32_t chunk_prng = i_;
+        for (lfs2_size_t j = 0; j < CHUNK_SIZE; j++) {
+            assert(buffer[j] == BENCH_PRNG(&chunk_prng));
+        }
+    }
+
+    lfs2_file_close(&lfs2, &file) => 0;
+    BENCH_STOP();
+
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+[cases.bench_file_write]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+defines.SIZE = '128*1024'
+defines.CHUNK_SIZE = 64
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_size_t chunks = (SIZE+CHUNK_SIZE-1)/CHUNK_SIZE;
+
+    BENCH_START();
+    lfs2_file_t file;
+    lfs2_file_open(&lfs2, &file, "file",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+
+    uint8_t buffer[CHUNK_SIZE];
+    uint32_t prng = 42;
+    for (lfs2_size_t i = 0; i < chunks; i++) {
+        lfs2_off_t i_
+            = (ORDER == 0) ? i
+            : (ORDER == 1) ? (chunks-1-i)
+            : BENCH_PRNG(&prng) % chunks;
+        uint32_t chunk_prng = i_;
+        for (lfs2_size_t j = 0; j < CHUNK_SIZE; j++) {
+            buffer[j] = BENCH_PRNG(&chunk_prng);
+        }
+
+        lfs2_file_seek(&lfs2, &file, i_*CHUNK_SIZE, LFS2_SEEK_SET)
+                => i_*CHUNK_SIZE;
+        lfs2_file_write(&lfs2, &file, buffer, CHUNK_SIZE) => CHUNK_SIZE;
+    }
+
+    lfs2_file_close(&lfs2, &file) => 0;
+    BENCH_STOP();
+
+    lfs2_unmount(&lfs2) => 0;
+'''

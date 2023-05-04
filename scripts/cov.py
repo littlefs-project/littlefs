@@ -1,27 +1,31 @@
 #!/usr/bin/env python3
 #
-# Script to find struct sizes.
+# Script to find coverage info after running tests.
 #
 # Example:
-# ./scripts/structs.py lfs2.o lfs2_util.o -Ssize
+# ./scripts/cov.py \
+#     lfs2.t.a.gcda lfs2_util.t.a.gcda \
+#     -Flfs.c -Flfs_util.c -slines
 #
 # Copyright (c) 2022, The littlefs authors.
+# Copyright (c) 2020, Arm Limited. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 import collections as co
 import csv
-import difflib
 import itertools as it
+import json
 import math as m
 import os
 import re
 import shlex
 import subprocess as sp
 
+# TODO use explode_asserts to avoid counting assert branches?
+# TODO use dwarf=info to find functions for inline functions?
 
-OBJDUMP_PATH = ['objdump']
-
+GCOV_PATH = ['gcov']
 
 
 # integer fields
@@ -102,21 +106,98 @@ class Int(co.namedtuple('Int', 'x')):
     def __mul__(self, other):
         return self.__class__(self.x * other.x)
 
-# struct size results
-class StructResult(co.namedtuple('StructResult', ['file', 'struct', 'size'])):
-    _by = ['file', 'struct']
-    _fields = ['size']
-    _sort = ['size']
-    _types = {'size': Int}
-
+# fractional fields, a/b
+class Frac(co.namedtuple('Frac', 'a,b')):
     __slots__ = ()
-    def __new__(cls, file='', struct='', size=0):
-        return super().__new__(cls, file, struct,
-            Int(size))
+    def __new__(cls, a=0, b=None):
+        if isinstance(a, Frac) and b is None:
+            return a
+        if isinstance(a, str) and b is None:
+            a, b = a.split('/', 1)
+        if b is None:
+            b = a
+        return super().__new__(cls, Int(a), Int(b))
+
+    def __str__(self):
+        return '%s/%s' % (self.a, self.b)
+
+    def __float__(self):
+        return float(self.a)
+
+    none = '%11s %7s' % ('-', '-')
+    def table(self):
+        t = self.a.x/self.b.x if self.b.x else 1.0
+        return '%11s %7s' % (
+            self,
+            '∞%' if t == +m.inf
+            else '-∞%' if t == -m.inf
+            else '%.1f%%' % (100*t))
+
+    diff_none = '%11s' % '-'
+    def diff_table(self):
+        return '%11s' % (self,)
+
+    def diff_diff(self, other):
+        new_a, new_b = self if self else (Int(0), Int(0))
+        old_a, old_b = other if other else (Int(0), Int(0))
+        return '%11s' % ('%s/%s' % (
+            new_a.diff_diff(old_a).strip(),
+            new_b.diff_diff(old_b).strip()))
+
+    def ratio(self, other):
+        new_a, new_b = self if self else (Int(0), Int(0))
+        old_a, old_b = other if other else (Int(0), Int(0))
+        new = new_a.x/new_b.x if new_b.x else 1.0
+        old = old_a.x/old_b.x if old_b.x else 1.0
+        return new - old
 
     def __add__(self, other):
-        return StructResult(self.file, self.struct,
-            self.size + other.size)
+        return self.__class__(self.a + other.a, self.b + other.b)
+
+    def __sub__(self, other):
+        return self.__class__(self.a - other.a, self.b - other.b)
+
+    def __mul__(self, other):
+        return self.__class__(self.a * other.a, self.b + other.b)
+
+    def __lt__(self, other):
+        self_t = self.a.x/self.b.x if self.b.x else 1.0
+        other_t = other.a.x/other.b.x if other.b.x else 1.0
+        return (self_t, self.a.x) < (other_t, other.a.x)
+
+    def __gt__(self, other):
+        return self.__class__.__lt__(other, self)
+
+    def __le__(self, other):
+        return not self.__gt__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+# coverage results
+class CovResult(co.namedtuple('CovResult', [
+        'file', 'function', 'line',
+        'calls', 'hits', 'funcs', 'lines', 'branches'])):
+    _by = ['file', 'function', 'line']
+    _fields = ['calls', 'hits', 'funcs', 'lines', 'branches']
+    _sort = ['funcs', 'lines', 'branches', 'hits', 'calls']
+    _types = {
+        'calls': Int, 'hits': Int,
+        'funcs': Frac, 'lines': Frac, 'branches': Frac}
+
+    __slots__ = ()
+    def __new__(cls, file='', function='', line=0,
+            calls=0, hits=0, funcs=0, lines=0, branches=0):
+        return super().__new__(cls, file, function, int(Int(line)),
+            Int(calls), Int(hits), Frac(funcs), Frac(lines), Frac(branches))
+
+    def __add__(self, other):
+        return CovResult(self.file, self.function, self.line,
+            max(self.calls, other.calls),
+            max(self.hits, other.hits),
+            self.funcs + other.funcs,
+            self.lines + other.lines,
+            self.branches + other.branches)
 
 
 def openio(path, mode='r', buffering=-1):
@@ -129,30 +210,16 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def collect(obj_paths, *,
-        objdump_path=OBJDUMP_PATH,
+def collect(gcda_paths, *,
+        gcov_path=GCOV_PATH,
         sources=None,
         everything=False,
-        internal=False,
         **args):
-    line_pattern = re.compile(
-        '^\s+(?P<no>[0-9]+)'
-            '(?:\s+(?P<dir>[0-9]+))?'
-            '\s+.*'
-            '\s+(?P<path>[^\s]+)$')
-    info_pattern = re.compile(
-        '^(?:.*(?P<tag>DW_TAG_[a-z_]+).*'
-            '|.*DW_AT_name.*:\s*(?P<name>[^:\s]+)\s*'
-            '|.*DW_AT_decl_file.*:\s*(?P<file>[0-9]+)\s*'
-            '|.*DW_AT_byte_size.*:\s*(?P<size>[0-9]+)\s*)$')
-
     results = []
-    for path in obj_paths:
-        # find files, we want to filter by structs in .h files
-        dirs = {}
-        files = {}
-        # note objdump-path may contain extra args
-        cmd = objdump_path + ['--dwarf=rawline', path]
+    for path in gcda_paths:
+        # get coverage info through gcov's json output
+        # note, gcov-path may contain extra args
+        cmd = GCOV_PATH + ['-b', '-t', '--json-format', path]
         if args.get('verbose'):
             print(' '.join(shlex.quote(c) for c in cmd))
         proc = sp.Popen(cmd,
@@ -161,24 +228,7 @@ def collect(obj_paths, *,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
-        for line in proc.stdout:
-            # note that files contain references to dirs, which we
-            # dereference as soon as we see them as each file table follows a
-            # dir table
-            m = line_pattern.match(line)
-            if m:
-                if not m.group('dir'):
-                    # found a directory entry
-                    dirs[int(m.group('no'))] = m.group('path')
-                else:
-                    # found a file entry
-                    dir = int(m.group('dir'))
-                    if dir in dirs:
-                        files[int(m.group('no'))] = os.path.join(
-                            dirs[dir],
-                            m.group('path'))
-                    else:
-                        files[int(m.group('no'))] = m.group('path')
+        data = json.load(proc.stdout)
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
@@ -186,74 +236,63 @@ def collect(obj_paths, *,
                     sys.stdout.write(line)
             sys.exit(-1)
 
-        # collect structs as we parse dwarf info
-        results_ = []
-        is_struct = False
-        s_name = None
-        s_file = None
-        s_size = None
-        # note objdump-path may contain extra args
-        cmd = objdump_path + ['--dwarf=info', path]
-        if args.get('verbose'):
-            print(' '.join(shlex.quote(c) for c in cmd))
-        proc = sp.Popen(cmd,
-            stdout=sp.PIPE,
-            stderr=sp.PIPE if not args.get('verbose') else None,
-            universal_newlines=True,
-            errors='replace',
-            close_fds=False)
-        for line in proc.stdout:
-            # state machine here to find structs
-            m = info_pattern.match(line)
-            if m:
-                if m.group('tag'):
-                    if is_struct:
-                        file = files.get(s_file, '?')
-                        results_.append(StructResult(file, s_name, s_size))
-                    is_struct = (m.group('tag') == 'DW_TAG_structure_type')
-                elif m.group('name'):
-                    s_name = m.group('name')
-                elif m.group('file'):
-                    s_file = int(m.group('file'))
-                elif m.group('size'):
-                    s_size = int(m.group('size'))
-        if is_struct:
-            file = files.get(s_file, '?')
-            results_.append(StructResult(file, s_name, s_size))
-        proc.wait()
-        if proc.returncode != 0:
-            if not args.get('verbose'):
-                for line in proc.stderr:
-                    sys.stdout.write(line)
-            sys.exit(-1)
-
-        for r in results_:
+        # collect line/branch coverage
+        for file in data['files']:
             # ignore filtered sources
             if sources is not None:
                 if not any(
-                        os.path.abspath(r.file) == os.path.abspath(s)
+                        os.path.abspath(file['file']) == os.path.abspath(s)
                         for s in sources):
                     continue
             else:
                 # default to only cwd
                 if not everything and not os.path.commonpath([
                         os.getcwd(),
-                        os.path.abspath(r.file)]) == os.getcwd():
-                    continue
-
-                # limit to .h files unless --internal
-                if not internal and not r.file.endswith('.h'):
+                        os.path.abspath(file['file'])]) == os.getcwd():
                     continue
 
             # simplify path
             if os.path.commonpath([
                     os.getcwd(),
-                    os.path.abspath(r.file)]) == os.getcwd():
-                file = os.path.relpath(r.file)
+                    os.path.abspath(file['file'])]) == os.getcwd():
+                file_name = os.path.relpath(file['file'])
             else:
-                file = os.path.abspath(r.file)
+                file_name = os.path.abspath(file['file'])
 
-            results.append(r._replace(file=file))
+            for func in file['functions']:
+                func_name = func.get('name', '(inlined)')
+                # discard internal functions (this includes injected test cases)
+                if not everything:
+                    if func_name.startswith('__'):
+                        continue
+
+                # go ahead and add functions, later folding will merge this if
+                # there are other hits on this line
+                results.append(CovResult(
+                    file_name, func_name, func['start_line'],
+                    func['execution_count'], 0,
+                    Frac(1 if func['execution_count'] > 0 else 0, 1),
+                    0,
+                    0))
+
+            for line in file['lines']:
+                func_name = line.get('function_name', '(inlined)')
+                # discard internal function (this includes injected test cases)
+                if not everything:
+                    if func_name.startswith('__'):
+                        continue
+
+                # go ahead and add lines, later folding will merge this if
+                # there are other hits on this line
+                results.append(CovResult(
+                    file_name, func_name, line['line_number'],
+                    0, line['count'],
+                    0,
+                    Frac(1 if line['count'] > 0 else 0, 1),
+                    Frac(
+                        sum(1 if branch['count'] > 0 else 0
+                            for branch in line['branches']),
+                        len(line['branches']))))
 
     return results
 
@@ -464,36 +503,120 @@ def table(Result, results, diff_results=None, *,
             line[-1]))
 
 
-def main(obj_paths, *,
+def annotate(Result, results, *,
+        annotate=False,
+        lines=False,
+        branches=False,
+        **args):
+    # if neither branches/lines specified, color both
+    if annotate and not lines and not branches:
+        lines, branches = True, True
+
+    for path in co.OrderedDict.fromkeys(r.file for r in results).keys():
+        # flatten to line info
+        results = fold(Result, results, by=['file', 'line'])
+        table = {r.line: r for r in results if r.file == path}
+
+        # calculate spans to show
+        if not annotate:
+            spans = []
+            last = None
+            func = None
+            for line, r in sorted(table.items()):
+                if ((lines and int(r.hits) == 0)
+                        or (branches and r.branches.a < r.branches.b)):
+                    if last is not None and line - last.stop <= args['context']:
+                        last = range(
+                            last.start,
+                            line+1+args['context'])
+                    else:
+                        if last is not None:
+                            spans.append((last, func))
+                        last = range(
+                            line-args['context'],
+                            line+1+args['context'])
+                        func = r.function
+            if last is not None:
+                spans.append((last, func))
+
+        with open(path) as f:
+            skipped = False
+            for i, line in enumerate(f):
+                # skip lines not in spans?
+                if not annotate and not any(i+1 in s for s, _ in spans):
+                    skipped = True
+                    continue
+
+                if skipped:
+                    skipped = False
+                    print('%s@@ %s:%d: %s @@%s' % (
+                        '\x1b[36m' if args['color'] else '',
+                        path,
+                        i+1,
+                        next(iter(f for _, f in spans)),
+                        '\x1b[m' if args['color'] else ''))
+
+                # build line
+                if line.endswith('\n'):
+                    line = line[:-1]
+
+                if i+1 in table:
+                    r = table[i+1]
+                    line = '%-*s // %s hits%s' % (
+                        args['width'],
+                        line,
+                        r.hits,
+                        ', %s branches' % (r.branches,)
+                            if int(r.branches.b) else '')
+
+                    if args['color']:
+                        if lines and int(r.hits) == 0:
+                            line = '\x1b[1;31m%s\x1b[m' % line
+                        elif branches and r.branches.a < r.branches.b:
+                            line = '\x1b[35m%s\x1b[m' % line
+
+                print(line)
+
+
+def main(gcda_paths, *,
         by=None,
         fields=None,
         defines=None,
         sort=None,
+        hits=False,
         **args):
+    # figure out what color should be
+    if args.get('color') == 'auto':
+        args['color'] = sys.stdout.isatty()
+    elif args.get('color') == 'always':
+        args['color'] = True
+    else:
+        args['color'] = False
+
     # find sizes
     if not args.get('use', None):
-        results = collect(obj_paths, **args)
+        results = collect(gcda_paths, **args)
     else:
         results = []
         with openio(args['use']) as f:
             reader = csv.DictReader(f, restval='')
             for r in reader:
-                if not any('struct_'+k in r and r['struct_'+k].strip()
-                        for k in StructResult._fields):
+                if not any('cov_'+k in r and r['cov_'+k].strip()
+                        for k in CovResult._fields):
                     continue
                 try:
-                    results.append(StructResult(
-                        **{k: r[k] for k in StructResult._by
+                    results.append(CovResult(
+                        **{k: r[k] for k in CovResult._by
                             if k in r and r[k].strip()},
-                        **{k: r['struct_'+k]
-                            for k in StructResult._fields
-                            if 'struct_'+k in r
-                                and r['struct_'+k].strip()}))
+                        **{k: r['cov_'+k]
+                            for k in CovResult._fields
+                            if 'cov_'+k in r
+                                and r['cov_'+k].strip()}))
                 except TypeError:
                     pass
 
     # fold
-    results = fold(StructResult, results, by=by, defines=defines)
+    results = fold(CovResult, results, by=by, defines=defines)
 
     # sort, note that python's sort is stable
     results.sort()
@@ -502,23 +625,23 @@ def main(obj_paths, *,
             results.sort(
                 key=lambda r: tuple(
                     (getattr(r, k),) if getattr(r, k) is not None else ()
-                    for k in ([k] if k else StructResult._sort)),
-                reverse=reverse ^ (not k or k in StructResult._fields))
+                    for k in ([k] if k else CovResult._sort)),
+                reverse=reverse ^ (not k or k in CovResult._fields))
 
     # write results to CSV
     if args.get('output'):
         with openio(args['output'], 'w') as f:
             writer = csv.DictWriter(f,
-                (by if by is not None else StructResult._by)
-                + ['struct_'+k for k in (
-                    fields if fields is not None else StructResult._fields)])
+                (by if by is not None else CovResult._by)
+                + ['cov_'+k for k in (
+                    fields if fields is not None else CovResult._fields)])
             writer.writeheader()
             for r in results:
                 writer.writerow(
                     {k: getattr(r, k) for k in (
-                        by if by is not None else StructResult._by)}
-                    | {'struct_'+k: getattr(r, k) for k in (
-                        fields if fields is not None else StructResult._fields)})
+                        by if by is not None else CovResult._by)}
+                    | {'cov_'+k: getattr(r, k) for k in (
+                        fields if fields is not None else CovResult._fields)})
 
     # find previous results?
     if args.get('diff'):
@@ -527,45 +650,63 @@ def main(obj_paths, *,
             with openio(args['diff']) as f:
                 reader = csv.DictReader(f, restval='')
                 for r in reader:
-                    if not any('struct_'+k in r and r['struct_'+k].strip()
-                            for k in StructResult._fields):
+                    if not any('cov_'+k in r and r['cov_'+k].strip()
+                            for k in CovResult._fields):
                         continue
                     try:
-                        diff_results.append(StructResult(
-                            **{k: r[k] for k in StructResult._by
+                        diff_results.append(CovResult(
+                            **{k: r[k] for k in CovResult._by
                                 if k in r and r[k].strip()},
-                            **{k: r['struct_'+k]
-                                for k in StructResult._fields
-                                if 'struct_'+k in r
-                                    and r['struct_'+k].strip()}))
+                            **{k: r['cov_'+k]
+                                for k in CovResult._fields
+                                if 'cov_'+k in r
+                                    and r['cov_'+k].strip()}))
                     except TypeError:
                         pass
         except FileNotFoundError:
             pass
 
         # fold
-        diff_results = fold(StructResult, diff_results, by=by, defines=defines)
+        diff_results = fold(CovResult, diff_results,
+            by=by, defines=defines)
 
     # print table
     if not args.get('quiet'):
-        table(StructResult, results,
-            diff_results if args.get('diff') else None,
-            by=by if by is not None else ['struct'],
-            fields=fields,
-            sort=sort,
-            **args)
+        if (args.get('annotate')
+                or args.get('lines')
+                or args.get('branches')):
+            # annotate sources
+            annotate(CovResult, results, **args)
+        else:
+            # print table
+            table(CovResult, results,
+                diff_results if args.get('diff') else None,
+                by=by if by is not None else ['function'],
+                fields=fields if fields is not None
+                    else ['lines', 'branches'] if not hits
+                    else ['calls', 'hits'],
+                sort=sort,
+                **args)
+
+    # catch lack of coverage
+    if args.get('error_on_lines') and any(
+            r.lines.a < r.lines.b for r in results):
+        sys.exit(2)
+    elif args.get('error_on_branches') and any(
+            r.branches.a < r.branches.b for r in results):
+        sys.exit(3)
 
 
 if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-        description="Find struct sizes.",
+        description="Find coverage info after running tests.",
         allow_abbrev=False)
     parser.add_argument(
-        'obj_paths',
+        'gcda_paths',
         nargs='*',
-        help="Input *.o files.")
+        help="Input *.gcda files.")
     parser.add_argument(
         '-v', '--verbose',
         action='store_true',
@@ -594,13 +735,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '-b', '--by',
         action='append',
-        choices=StructResult._by,
+        choices=CovResult._by,
         help="Group by this field.")
     parser.add_argument(
         '-f', '--field',
         dest='fields',
         action='append',
-        choices=StructResult._fields,
+        choices=CovResult._fields,
         help="Show this field.")
     parser.add_argument(
         '-D', '--define',
@@ -638,15 +779,50 @@ if __name__ == "__main__":
         action='store_true',
         help="Include builtin and libc specific symbols.")
     parser.add_argument(
-        '--internal',
+        '--hits',
         action='store_true',
-        help="Also show structs in .c files.")
+        help="Show total hits instead of coverage.")
     parser.add_argument(
-        '--objdump-path',
+        '-A', '--annotate',
+        action='store_true',
+        help="Show source files annotated with coverage info.")
+    parser.add_argument(
+        '-L', '--lines',
+        action='store_true',
+        help="Show uncovered lines.")
+    parser.add_argument(
+        '-B', '--branches',
+        action='store_true',
+        help="Show uncovered branches.")
+    parser.add_argument(
+        '-c', '--context',
+        type=lambda x: int(x, 0),
+        default=3,
+        help="Show n additional lines of context. Defaults to 3.")
+    parser.add_argument(
+        '-W', '--width',
+        type=lambda x: int(x, 0),
+        default=80,
+        help="Assume source is styled with this many columns. Defaults to 80.")
+    parser.add_argument(
+        '--color',
+        choices=['never', 'always', 'auto'],
+        default='auto',
+        help="When to use terminal colors. Defaults to 'auto'.")
+    parser.add_argument(
+        '-e', '--error-on-lines',
+        action='store_true',
+        help="Error if any lines are not covered.")
+    parser.add_argument(
+        '-E', '--error-on-branches',
+        action='store_true',
+        help="Error if any branches are not covered.")
+    parser.add_argument(
+        '--gcov-path',
+        default=GCOV_PATH,
         type=lambda x: x.split(),
-        default=OBJDUMP_PATH,
-        help="Path to the objdump executable, may include flags. "
-            "Defaults to %r." % OBJDUMP_PATH)
+        help="Path to the gcov executable, may include paths. "
+            "Defaults to %r." % GCOV_PATH)
     sys.exit(main(**{k: v
         for k, v in vars(parser.parse_intermixed_args()).items()
         if v is not None}))

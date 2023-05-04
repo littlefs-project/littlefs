@@ -1,0 +1,182 @@
+# There are already a number of tests that test general operations under
+# power-loss (see the reentrant attribute). These tests are for explicitly
+# testing specific corner cases.
+
+# only a revision count
+[cases.test_powerloss_only_rev]
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_mkdir(&lfs2, "notebook") => 0;
+    lfs2_file_t file;
+    lfs2_file_open(&lfs2, &file, "notebook/paper",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
+    char buffer[256];
+    strcpy(buffer, "hello");
+    lfs2_size_t size = strlen("hello");
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_write(&lfs2, &file, buffer, size) => size;
+        lfs2_file_sync(&lfs2, &file) => 0;
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    char rbuffer[256];
+    lfs2_file_open(&lfs2, &file, "notebook/paper", LFS2_O_RDONLY) => 0;
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
+        assert(memcmp(rbuffer, buffer, size) == 0);
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // get pair/rev count
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    lfs2_dir_open(&lfs2, &dir, "notebook") => 0;
+    lfs2_block_t pair[2] = {dir.m.pair[0], dir.m.pair[1]};
+    uint32_t rev = dir.m.rev;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // write just the revision count
+    uint8_t bbuffer[BLOCK_SIZE];
+    cfg->read(cfg, pair[1], 0, bbuffer, BLOCK_SIZE) => 0;
+
+    memcpy(bbuffer, &(uint32_t){lfs2_tole32(rev+1)}, sizeof(uint32_t));
+
+    cfg->erase(cfg, pair[1]) => 0;
+    cfg->prog(cfg, pair[1], 0, bbuffer, BLOCK_SIZE) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+
+    // can read?
+    lfs2_file_open(&lfs2, &file, "notebook/paper", LFS2_O_RDONLY) => 0;
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
+        assert(memcmp(rbuffer, buffer, size) == 0);
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    // can write?
+    lfs2_file_open(&lfs2, &file, "notebook/paper",
+            LFS2_O_WRONLY | LFS2_O_APPEND) => 0;
+    strcpy(buffer, "goodbye");
+    size = strlen("goodbye");
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_write(&lfs2, &file, buffer, size) => size;
+        lfs2_file_sync(&lfs2, &file) => 0;
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    lfs2_file_open(&lfs2, &file, "notebook/paper", LFS2_O_RDONLY) => 0;
+    strcpy(buffer, "hello");
+    size = strlen("hello");
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
+        assert(memcmp(rbuffer, buffer, size) == 0);
+    }
+    strcpy(buffer, "goodbye");
+    size = strlen("goodbye");
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
+        assert(memcmp(rbuffer, buffer, size) == 0);
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+# partial prog, may not be byte in order!
+[cases.test_powerloss_partial_prog]
+if = "PROG_SIZE < BLOCK_SIZE"
+defines.BYTE_OFF = ["0", "PROG_SIZE-1", "PROG_SIZE/2"]
+defines.BYTE_VALUE = [0x33, 0xcc]
+in = "lfs2.c"
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_mkdir(&lfs2, "notebook") => 0;
+    lfs2_file_t file;
+    lfs2_file_open(&lfs2, &file, "notebook/paper",
+            LFS2_O_WRONLY | LFS2_O_CREAT | LFS2_O_APPEND) => 0;
+    char buffer[256];
+    strcpy(buffer, "hello");
+    lfs2_size_t size = strlen("hello");
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_write(&lfs2, &file, buffer, size) => size;
+        lfs2_file_sync(&lfs2, &file) => 0;
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    char rbuffer[256];
+    lfs2_file_open(&lfs2, &file, "notebook/paper", LFS2_O_RDONLY) => 0;
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
+        assert(memcmp(rbuffer, buffer, size) == 0);
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // imitate a partial prog, value should not matter, if littlefs
+    // doesn't notice the partial prog testbd will assert
+
+    // get offset to next prog
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_dir_t dir;
+    lfs2_dir_open(&lfs2, &dir, "notebook") => 0;
+    lfs2_block_t block = dir.m.pair[0];
+    lfs2_off_t off = dir.m.off;
+    lfs2_dir_close(&lfs2, &dir) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // tweak byte
+    uint8_t bbuffer[BLOCK_SIZE];
+    cfg->read(cfg, block, 0, bbuffer, BLOCK_SIZE) => 0;
+
+    bbuffer[off + BYTE_OFF] = BYTE_VALUE;
+
+    cfg->erase(cfg, block) => 0;
+    cfg->prog(cfg, block, 0, bbuffer, BLOCK_SIZE) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+
+    // can read?
+    lfs2_file_open(&lfs2, &file, "notebook/paper", LFS2_O_RDONLY) => 0;
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
+        assert(memcmp(rbuffer, buffer, size) == 0);
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    // can write?
+    lfs2_file_open(&lfs2, &file, "notebook/paper",
+            LFS2_O_WRONLY | LFS2_O_APPEND) => 0;
+    strcpy(buffer, "goodbye");
+    size = strlen("goodbye");
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_write(&lfs2, &file, buffer, size) => size;
+        lfs2_file_sync(&lfs2, &file) => 0;
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    lfs2_file_open(&lfs2, &file, "notebook/paper", LFS2_O_RDONLY) => 0;
+    strcpy(buffer, "hello");
+    size = strlen("hello");
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
+        assert(memcmp(rbuffer, buffer, size) == 0);
+    }
+    strcpy(buffer, "goodbye");
+    size = strlen("goodbye");
+    for (int i = 0; i < 5; i++) {
+        lfs2_file_read(&lfs2, &file, rbuffer, size) => size;
+        assert(memcmp(rbuffer, buffer, size) == 0);
+    }
+    lfs2_file_close(&lfs2, &file) => 0;
+
+    lfs2_unmount(&lfs2) => 0;
+'''

@@ -1,14 +1,17 @@
-[[case]] # set/get attribute
+[cases.test_attrs_get_set]
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "hello") => 0;
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "hello/hello", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
     lfs2_file_write(&lfs2, &file, "hello", strlen("hello")) => strlen("hello");
     lfs2_file_close(&lfs2, &file);
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    uint8_t buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     lfs2_setattr(&lfs2, "hello", 'A', "aaaa",   4) => 0;
     lfs2_setattr(&lfs2, "hello", 'B', "bbbbbb", 6) => 0;
@@ -60,7 +63,7 @@ code = '''
 
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     lfs2_getattr(&lfs2, "hello", 'A', buffer,    4) => 4;
     lfs2_getattr(&lfs2, "hello", 'B', buffer+4,  9) => 9;
@@ -76,17 +79,20 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # set/get root attribute
+[cases.test_attrs_get_set_root]
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "hello") => 0;
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "hello/hello", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
     lfs2_file_write(&lfs2, &file, "hello", strlen("hello")) => strlen("hello");
     lfs2_file_close(&lfs2, &file);
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    uint8_t buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     lfs2_setattr(&lfs2, "/", 'A', "aaaa",   4) => 0;
     lfs2_setattr(&lfs2, "/", 'B', "bbbbbb", 6) => 0;
@@ -137,7 +143,7 @@ code = '''
     lfs2_getattr(&lfs2, "/", 'C', buffer+10, 5) => 5;
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     lfs2_getattr(&lfs2, "/", 'A', buffer,    4) => 4;
     lfs2_getattr(&lfs2, "/", 'B', buffer+4,  9) => 9;
@@ -153,17 +159,20 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # set/get file attribute
+[cases.test_attrs_get_set_file]
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "hello") => 0;
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "hello/hello", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
     lfs2_file_write(&lfs2, &file, "hello", strlen("hello")) => strlen("hello");
     lfs2_file_close(&lfs2, &file);
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    uint8_t buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     struct lfs2_attr attrs1[] = {
         {'A', buffer,    4},
@@ -238,7 +247,7 @@ code = '''
 
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     struct lfs2_attr attrs3[] = {
         {'A', buffer,    4},
@@ -260,20 +269,23 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
-[[case]] # deferred file attributes
+[cases.test_attrs_deferred_file]
 code = '''
-    lfs2_format(&lfs2, &cfg) => 0;
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_mkdir(&lfs2, "hello") => 0;
+    lfs2_file_t file;
     lfs2_file_open(&lfs2, &file, "hello/hello", LFS2_O_WRONLY | LFS2_O_CREAT) => 0;
     lfs2_file_write(&lfs2, &file, "hello", strlen("hello")) => strlen("hello");
     lfs2_file_close(&lfs2, &file);
     lfs2_unmount(&lfs2) => 0;
 
-    lfs2_mount(&lfs2, &cfg) => 0;
+    lfs2_mount(&lfs2, cfg) => 0;
     lfs2_setattr(&lfs2, "hello/hello", 'B', "fffffffff",  9) => 0;
     lfs2_setattr(&lfs2, "hello/hello", 'C', "ccccc",      5) => 0;
 
+    uint8_t buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     struct lfs2_attr attrs1[] = {
         {'B', "gggg", 4},
