@@ -1,14 +1,17 @@
-[[case]] # set/get attribute
+[cases.test_attrs_get_set]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "hello") => 0;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, "hello/hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_write(&lfs, &file, "hello", strlen("hello")) => strlen("hello");
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    uint8_t buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     lfs_setattr(&lfs, "hello", 'A', "aaaa",   4) => 0;
     lfs_setattr(&lfs, "hello", 'B', "bbbbbb", 6) => 0;
@@ -60,7 +63,7 @@ code = '''
 
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     lfs_getattr(&lfs, "hello", 'A', buffer,    4) => 4;
     lfs_getattr(&lfs, "hello", 'B', buffer+4,  9) => 9;
@@ -76,17 +79,20 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # set/get root attribute
+[cases.test_attrs_get_set_root]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "hello") => 0;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, "hello/hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_write(&lfs, &file, "hello", strlen("hello")) => strlen("hello");
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    uint8_t buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     lfs_setattr(&lfs, "/", 'A', "aaaa",   4) => 0;
     lfs_setattr(&lfs, "/", 'B', "bbbbbb", 6) => 0;
@@ -137,7 +143,7 @@ code = '''
     lfs_getattr(&lfs, "/", 'C', buffer+10, 5) => 5;
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     lfs_getattr(&lfs, "/", 'A', buffer,    4) => 4;
     lfs_getattr(&lfs, "/", 'B', buffer+4,  9) => 9;
@@ -153,17 +159,20 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # set/get file attribute
+[cases.test_attrs_get_set_file]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "hello") => 0;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, "hello/hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_write(&lfs, &file, "hello", strlen("hello")) => strlen("hello");
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    uint8_t buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     struct lfs_attr attrs1[] = {
         {'A', buffer,    4},
@@ -238,7 +247,7 @@ code = '''
 
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     memset(buffer, 0, sizeof(buffer));
     struct lfs_attr attrs3[] = {
         {'A', buffer,    4},
@@ -260,20 +269,23 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
-[[case]] # deferred file attributes
+[cases.test_attrs_deferred_file]
 code = '''
-    lfs_format(&lfs, &cfg) => 0;
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_mkdir(&lfs, "hello") => 0;
+    lfs_file_t file;
     lfs_file_open(&lfs, &file, "hello/hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
     lfs_file_write(&lfs, &file, "hello", strlen("hello")) => strlen("hello");
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
 
-    lfs_mount(&lfs, &cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
     lfs_setattr(&lfs, "hello/hello", 'B', "fffffffff",  9) => 0;
     lfs_setattr(&lfs, "hello/hello", 'C', "ccccc",      5) => 0;
 
+    uint8_t buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     struct lfs_attr attrs1[] = {
         {'B', "gggg", 4},
