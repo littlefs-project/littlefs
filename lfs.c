@@ -2667,14 +2667,14 @@ failed:;
 // exist in the rbyd namespace
 
 enum {
-    LFSR_INTHRESH_NO         = 0,
-    LFSR_INTHRESH_YES        = 1,
-    LFSR_INTHRESH_UNINLINED  = 2,
-    LFSR_INTHRESH_DEGENERATE = 3,
+    LFSR_ESTIMATE_OVERFLOWS  = 0,
+    LFSR_ESTIMATE_FITS       = 1,
+    LFSR_ESTIMATE_DEGENERATE = 2,
 };
 
-static int lfsr_rbyd_inthresh(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        bool inlined, lfs_ssize_t cutoff, lfs_size_t dcount, lfs_size_t dsize,
+static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfs_ssize_t id, lfs_ssize_t cutoff,
+        lfs_size_t init_tcount, lfs_size_t init_dsize,
         lfs_size_t *lower_id_, lfs_size_t *lower_dsize_) {
     // determine if a given rbyd will be within the compaction threshold (1/2)
     // after compaction, note this uses a conservative estimate so the actual
@@ -2689,12 +2689,15 @@ static int lfsr_rbyd_inthresh(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     const lfs_size_t tag_dsize = 2
             + 5
             + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
-    lfs_size_t count = 0;
-    lfs_size_t uninlined_dcount = 0;
-    lfs_size_t uninlined_dsize = 0;
-    lfs_size_t altless_dsize = 0;
+    lfs_size_t tcount = init_tcount;
+    lfs_size_t dsize = 0;
+    lfs_size_t real_dsize = init_dsize;
+    // note id count != tag count, and id count != id+1
+    //
+    // we use this to test for degenerate rbyds, where a degenerate rbyd is
+    // defined as an rbyd with id count < cutoff, irregardless of weight
+    lfs_size_t idcount = 0;
 
-    lfs_ssize_t id = -1;
     lfsr_tag_t tag = 0;
     while (true) {
         lfs_size_t w;
@@ -2705,15 +2708,15 @@ static int lfsr_rbyd_inthresh(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             return err;
         }
         if (err == LFS_ERR_NOENT) {
-            if (cutoff >= 0 && count <= (lfs_size_t)cutoff) {
-                return LFSR_INTHRESH_DEGENERATE;
+            if (cutoff >= 0 && idcount <= (lfs_size_t)cutoff) {
+                return LFSR_ESTIMATE_DEGENERATE;
             }
-            return LFSR_INTHRESH_YES;
+            return LFSR_ESTIMATE_FITS;
         }
 
         // count ids to determine if we're without our cutoff
         if (w > 0) {
-            count += 1;
+            idcount += 1;
         }
 
         // Exhibit A. Why I really didn't want to estimate the rbyd threshold:
@@ -2721,50 +2724,136 @@ static int lfsr_rbyd_inthresh(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         // TODO do we really need this tight a bound? this might be the only
         // place we divide by a non-power-of-two
 
+        // keep track of alt-less tcount and dsize
+        //
+        // this is used as a heuristic for split, so the exactness matters less,
+        // but we need to be able to subtract tags from the result so we can't
+        // use the estimate with alt pointers
+        tcount += 1;
+        dsize += LFSR_TAG_DSIZE + lfsr_data_size(data);
         // determine the upper-bound of our alt pointers, tag, and data
         //
-        // fortunately rybd gives us a tight bound on the number of alt
-        // pointers
-        dcount += 1;
-        dsize += (2*lfs_nlog2(dcount+1)+1) * tag_dsize
+        // fortunately the self-balancing nature of rybds give us a tight
+        // bound on the number of alt pointers
+        real_dsize
+                += (2*lfs_nlog2(tcount+1)+1) * tag_dsize
                 + tag_dsize
                 + lfsr_data_size(data);
 
-        // also keep track of upper-bound if we ignore any -1 ids, this
-        // is useful for lfsr_mdir_commit to see if we don't need to split
-        // when uninlining
-        if (id >= 0) {
-            uninlined_dcount += 1;
-            uninlined_dsize += (2*lfs_nlog2(uninlined_dcount+1)+1) * tag_dsize
-                    + tag_dsize
-                    + lfsr_data_size(data);
-        }
-
-        // also keep track of alt-less dsize in case we need to split,
-        // assume a worst-case tag size because it's cheaper and this
-        // matters less
-        if (!inlined || id >= 0) {
-            altless_dsize += LFSR_TAG_DSIZE + lfsr_data_size(data);
-        }
-
         // exceeded our compaction threshold?
-        if (dsize > lfs->cfg->block_size/2) {
+        if (real_dsize > lfs->cfg->block_size/2) {
             // TODO do these need to be conditional?
             if (lower_id_) {
                 *lower_id_ = id;
             }
             if (lower_dsize_) {
-                *lower_dsize_ = altless_dsize;
+                *lower_dsize_ = dsize;
             }
 
-            if (inlined && uninlined_dsize <= lfs->cfg->block_size/2) {
-                return LFSR_INTHRESH_UNINLINED;
-            } else {
-                return LFSR_INTHRESH_NO;
-            }
+            return LFSR_ESTIMATE_OVERFLOWS;
         }
     }
 }
+
+//enum {
+//    LFSR_INTHRESH_NO         = 0,
+//    LFSR_INTHRESH_YES        = 1,
+//    LFSR_INTHRESH_UNINLINED  = 2,
+//    LFSR_INTHRESH_DEGENERATE = 3,
+//};
+//
+//static int lfsr_rbyd_inthresh(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+//        bool inlined, lfs_ssize_t cutoff, lfs_size_t dcount, lfs_size_t dsize,
+//        lfs_size_t *lower_id_, lfs_size_t *lower_dsize_) {
+//    // determine if a given rbyd will be within the compaction threshold (1/2)
+//    // after compaction, note this uses a conservative estimate so the actual
+//    // on-disk cost may be smaller
+//    //
+//    // returns the id/dsize where the threshold failed, this isn't that useful
+//    // on its own, but can be used to find a good split_id with lfsr_rbyd_bisect
+//
+//    // TODO should we store this in lfs_t somewhere?
+//    // assume a tighter bound on size/jump leb128 encoding if we know
+//    // our block_size
+//    const lfs_size_t tag_dsize = 2
+//            + 5
+//            + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
+//    lfs_size_t count = 0;
+//    lfs_size_t uninlined_dcount = 0;
+//    lfs_size_t uninlined_dsize = 0;
+//    lfs_size_t altless_dsize = 0;
+//
+//    lfs_ssize_t id = -1;
+//    lfsr_tag_t tag = 0;
+//    while (true) {
+//        lfs_size_t w;
+//        lfsr_data_t data;
+//        int err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
+//                &id, &tag, &w, &data);
+//        if (err && err != LFS_ERR_NOENT) {
+//            return err;
+//        }
+//        if (err == LFS_ERR_NOENT) {
+//            if (cutoff >= 0 && count <= (lfs_size_t)cutoff) {
+//                return LFSR_INTHRESH_DEGENERATE;
+//            }
+//            return LFSR_INTHRESH_YES;
+//        }
+//
+//        // count ids to determine if we're without our cutoff
+//        if (w > 0) {
+//            count += 1;
+//        }
+//
+//        // Exhibit A. Why I really didn't want to estimate the rbyd threshold:
+//
+//        // TODO do we really need this tight a bound? this might be the only
+//        // place we divide by a non-power-of-two
+//
+//        // determine the upper-bound of our alt pointers, tag, and data
+//        //
+//        // fortunately rybd gives us a tight bound on the number of alt
+//        // pointers
+//        dcount += 1;
+//        dsize += (2*lfs_nlog2(dcount+1)+1) * tag_dsize
+//                + tag_dsize
+//                + lfsr_data_size(data);
+//
+//        // also keep track of upper-bound if we ignore any -1 ids, this
+//        // is useful for lfsr_mdir_commit to see if we don't need to split
+//        // when uninlining
+//        if (id >= 0) {
+//            uninlined_dcount += 1;
+//            uninlined_dsize += (2*lfs_nlog2(uninlined_dcount+1)+1) * tag_dsize
+//                    + tag_dsize
+//                    + lfsr_data_size(data);
+//        }
+//
+//        // also keep track of alt-less dsize in case we need to split,
+//        // assume a worst-case tag size because it's cheaper and this
+//        // matters less
+//        if (!inlined || id >= 0) {
+//            altless_dsize += LFSR_TAG_DSIZE + lfsr_data_size(data);
+//        }
+//
+//        // exceeded our compaction threshold?
+//        if (dsize > lfs->cfg->block_size/2) {
+//            // TODO do these need to be conditional?
+//            if (lower_id_) {
+//                *lower_id_ = id;
+//            }
+//            if (lower_dsize_) {
+//                *lower_dsize_ = altless_dsize;
+//            }
+//
+//            if (inlined && uninlined_dsize <= lfs->cfg->block_size/2) {
+//                return LFSR_INTHRESH_UNINLINED;
+//            } else {
+//                return LFSR_INTHRESH_NO;
+//            }
+//        }
+//    }
+//}
 
 static lfs_ssize_t lfsr_rbyd_bisect(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_size_t lower_id, lfs_size_t lower_dsize) {
@@ -2837,39 +2926,39 @@ static lfs_ssize_t lfsr_rbyd_bisect(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     return lower_id_;
 }
 
-static int lfsr_rbyd_incutoff(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t cutoff) {
-    // determine if there are fewer than "cutoff" unique ids in the rbyd,
-    // this is used to determine if the underlying rbyd is degenerate and can
-    // be reverted to an inlined btree
-    //
-    // note cutoff is expected to be quite small, <= 2, so we should make sure
-    // to exit our traverse early
-
-    // cutoff=-1 => no cutoff
-    if (cutoff < 0) {
-        return false;
-    }
-
-    // count ids until we exceed our cutoff
-    lfs_ssize_t id = -1;
-    lfs_size_t count = 0;
-    while (true) {
-        int err = lfsr_rbyd_lookupnext(lfs, rbyd, id+1, 0,
-                &id, NULL, NULL, NULL);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
-        }
-        if (err == LFS_ERR_NOENT) {
-            return true;
-        }
-
-        count += 1;
-        if (count > (lfs_size_t)cutoff) {
-            return false;
-        }
-    }
-}
+//static int lfsr_rbyd_incutoff(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+//        lfs_ssize_t cutoff) {
+//    // determine if there are fewer than "cutoff" unique ids in the rbyd,
+//    // this is used to determine if the underlying rbyd is degenerate and can
+//    // be reverted to an inlined btree
+//    //
+//    // note cutoff is expected to be quite small, <= 2, so we should make sure
+//    // to exit our traverse early
+//
+//    // cutoff=-1 => no cutoff
+//    if (cutoff < 0) {
+//        return false;
+//    }
+//
+//    // count ids until we exceed our cutoff
+//    lfs_ssize_t id = -1;
+//    lfs_size_t count = 0;
+//    while (true) {
+//        int err = lfsr_rbyd_lookupnext(lfs, rbyd, id+1, 0,
+//                &id, NULL, NULL, NULL);
+//        if (err && err != LFS_ERR_NOENT) {
+//            return err;
+//        }
+//        if (err == LFS_ERR_NOENT) {
+//            return true;
+//        }
+//
+//        count += 1;
+//        if (count > (lfs_size_t)cutoff) {
+//            return false;
+//        }
+//    }
+//}
 
 
 
@@ -3472,9 +3561,9 @@ static int lfsr_btree_commit(lfs_t *lfs,
     #ifndef LFSR_BTREE_NOTHRESH
         // can't commit, try to compact
         lfsr_rbyd_t rbyd_;
-        lfs_size_t lower_id = 0;
-        lfs_size_t lower_dsize = 0;
-        lfs_size_t dcount = 0;
+        lfs_size_t lower_id;
+        lfs_size_t lower_dsize;
+        lfs_size_t tcount;
         if (err) {
 //            // TODO can we combine this with lfsr_rbyd_inthresh?
 //            //
@@ -3506,19 +3595,34 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // attributes up to upper layers
             //
             // note we account for the revision count here
-            int inthresh = lfsr_rbyd_inthresh(lfs, rbyd,
-                    false, (pid == -1 ? cutoff : -1), 0, sizeof(uint32_t),
+            int estimate = lfsr_rbyd_estimate(lfs, rbyd, 
+                    -1, (pid == -1 ? cutoff : -1), 0, sizeof(uint32_t),
                     &lower_id, &lower_dsize);
-            if (inthresh < 0) {
-                return inthresh;
+            if (estimate < 0) {
+                return estimate;
             }
 
-            if (inthresh == LFSR_INTHRESH_DEGENERATE) {
+            if (estimate == LFSR_ESTIMATE_DEGENERATE) {
+                // TODO LFSR_BTREE_DEGENERATE? just propagate LFSR_ESTIMATE_DEGENERATE?
                 return true;
-            } else if (!inthresh) {
+            } else if (estimate == LFSR_ESTIMATE_OVERFLOWS) {
                 LFS_ASSERT(lower_id > 0);
                 goto split;
             }
+
+//            int inthresh = lfsr_rbyd_inthresh(lfs, rbyd,
+//                    false, (pid == -1 ? cutoff : -1), 0, sizeof(uint32_t),
+//                    &lower_id, &lower_dsize);
+//            if (inthresh < 0) {
+//                return inthresh;
+//            }
+//
+//            if (inthresh == LFSR_INTHRESH_DEGENERATE) {
+//                return true;
+//            } else if (!inthresh) {
+//                LFS_ASSERT(lower_id > 0);
+//                goto split;
+//            }
 
             // TODO were we doing something funky with rev?
             // allocate a new rbyd
@@ -3572,7 +3676,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
                 // keep track of the number of tags we've written in case we
                 // try to merge
-                dcount += 1;
+                tcount += 1;
             }
 
             // append any pending attrs, it's up to upper
@@ -3588,7 +3692,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
                 // keep track of the number of tags we've written in case we
                 // try to merge
-                dcount += 1;
+                tcount += 1;
             }
 
             // TODO do we really need a threshold for this? should we just
@@ -3924,15 +4028,15 @@ static int lfsr_btree_commit(lfs_t *lfs,
             LFS_ASSERT(sibling.weight == sweight);
 
             // estimate if our sibling will fit
-            lfs_ssize_t inthresh = lfsr_rbyd_inthresh(lfs, &sibling,
-                    false, -1, dcount, rbyd_.off,
+            int estimate = lfsr_rbyd_estimate(lfs, &sibling,
+                    -1, -1, tcount, rbyd_.off,
                     NULL, NULL);
-            if (inthresh < 0) {
-                return inthresh;
+            if (estimate < 0) {
+                return estimate;
             }
 
             // don't fit? can't merge
-            if (!inthresh) {
+            if (estimate == LFSR_ESTIMATE_OVERFLOWS) {
                 continue;
             }
 
@@ -5049,31 +5153,38 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_mdir_t mdir_;
         bool issupermdirsplit = false; // TODO do this differently?
         bool uninlining = false;
-        lfs_size_t lower_id = 0;
-        lfs_size_t lower_dsize = 0;
 
         // check if we're within our compaction threshold, otherwise we
         // need to split
         //
         // note we account for the revision count here
-        int inthresh = lfsr_rbyd_inthresh(lfs, &mdir->rbyd,
-                lfsr_btree_isnull(&lfs->mtree), -1, 0, sizeof(uint32_t),
+        lfs_size_t lower_id;
+        lfs_size_t lower_dsize;
+        int estimate = lfsr_rbyd_estimate(lfs, &mdir->rbyd,
+                -1, -1, 0, sizeof(uint32_t),
                 &lower_id, &lower_dsize);
-        if (inthresh < 0) {
-            return inthresh;
+        if (estimate < 0) {
+            return estimate;
         }
 
-        if (inthresh != LFSR_INTHRESH_YES) {
-            // TODO this is a bit weird, because lfsr_rbyd_inthresh inlining
-            // parameter above, better way to structure this?
+        if (estimate != LFSR_ESTIMATE_FITS) {
+            // are we inlined into the supermdir? we need to uninline
+            // before we split, and it's possible uninlining makes the mdir
+            // small enough that we don't even need to split
+            if (lfsr_btree_isnull(&lfs->mtree)) {
+                uninlining = true;
 
-            // are we inlined? no matter what we do we need to uninline, but
-            // we may not need to split if we fit our compaction threshold
-            // without the superattrs
-            uninlining = lfsr_btree_isnull(&lfs->mtree);
+                estimate = lfsr_rbyd_estimate(lfs, &mdir->rbyd,
+                        // note id was changed to 0 here
+                        0, -1, 0, sizeof(uint32_t),
+                        &lower_id, &lower_dsize);
+                if (estimate < 0) {
+                    return estimate;
+                }
+            }
 
-            // need to split
-            if (inthresh != LFSR_INTHRESH_UNINLINED) {
+            if (LFSR_ESTIMATE_OVERFLOWS) {
+                // needs a split
                 LFS_ASSERT(lower_id > 0);
                 goto split;
             }
@@ -5102,7 +5213,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // estimate the worst-case rbyd size
             // TODO function for this?
             lfs_size_t dsize = 4; // 4 bytes for rev
-            lfs_size_t dcount = 0;
+            lfs_size_t tcount = 0;
             lfs_ssize_t id = -1;
             lfsr_tag_t tag = 0;
             while (true) {
@@ -5120,12 +5231,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
                 // keep track of size and count of tags
                 dsize += LFSR_TAG_DSIZE + lfsr_data_size(data);
-                dcount += 1;
+                tcount += 1;
             }
 
             // TODO account for block_size limits in attr size dsizes?
             // account for alt pointers
-            dsize += dcount*(LFSR_TAG_DSIZE * (2*lfs_nlog2(dcount)+1));
+            dsize += tcount*(LFSR_TAG_DSIZE * (2*lfs_nlog2(tcount)+1));
 
             // keep rbyd < our compaction threshold (1/2) to avoid
             // degenerate cases
