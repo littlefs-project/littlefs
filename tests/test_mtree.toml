@@ -7,81 +7,170 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# test a single supermdir with many commits
-[cases.test_mtree_one_supermdir_many_commits]
-defines.N = 5000
+# test a single supermdir with a custom attribute
+[cases.test_mtree_one_supermdir_attr]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
 
-    for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_mount(&lfs, cfg) => 0;
-        lfsr_mdir_commit(&lfs, &lfs.supermdir, &(lfs_ssize_t){-1},
-                NULL, 0) => 0;
-        lfsr_unmount(&lfs) => 0;
-    }
+    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mdir_commit(&lfs, &lfs.supermdir, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, "ardvark", 7))) => 0;
+
+    uint8_t buffer[7];
+    lfsr_mdir_get(&lfs, &lfs.supermdir,
+            -1, LFSR_TAG_UATTR(1), buffer, 7) => 7;
+    assert(memcmp(buffer, "ardvark", 7) == 0);
+    lfsr_unmount(&lfs) => 0;
 
     lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mdir_get(&lfs, &lfs.supermdir,
+            -1, LFSR_TAG_UATTR(1), buffer, 7) => 7;
+    assert(memcmp(buffer, "ardvark", 7) == 0);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test a single supermdir with many commits
+[cases.test_mtree_one_supermdir_many_commits]
+defines.N = [5, 5000]
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+
+    lfsr_mount(&lfs, cfg) => 0;
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_mdir_commit(&lfs, &lfs.supermdir, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+                LFSR_ATTR(-1, UATTR(1), 0, &alphas[i % 26], 1))) => 0;
+
+        uint8_t buffer[4];
+        lfsr_mdir_get(&lfs, &lfs.supermdir,
+                -1, LFSR_TAG_UATTR(1), buffer, 4) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    }
+    lfsr_unmount(&lfs) => 0;
+
+    lfsr_mount(&lfs, cfg) => 0;
+    uint8_t buffer[4];
+    lfsr_mdir_get(&lfs, &lfs.supermdir,
+            -1, LFSR_TAG_UATTR(1), buffer, 4) => 1;
+    assert(memcmp(buffer, &alphas[(N-1) % 26], 1) == 0);
     lfsr_unmount(&lfs) => 0;
 '''
 
 # TODO test many supermdirs
 
-# try creating a few entries in our mdir
-[cases.test_mtree_entries]
-defines.N = 5
+# try creating a range of entries that may or may not split our mtree
+[cases.test_mtree_splitting]
+defines.N = [5, 10, 20, 40, 80, 160, 320]
 in = 'lfs.c'
 code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfsr_mount(&lfs, cfg) => 0;
-    lfsr_mdir_t mdir = lfs.supermdir;
-    lfs_ssize_t rid = -1;
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, lfsr_mtree_weight(&lfs)-1, &mdir) => 0;
+
+    lfs_ssize_t rid = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        rid += 1;
         lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                LFSR_ATTR(rid, MKREG, +1, &alphas[i % 26], 1))) => 0;
+                LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
+
+        uint8_t buffer[4];
+        lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED, buffer, 4) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+
+        rid += 1;
     }
     lfsr_unmount(&lfs) => 0;
 
-// TODO
-//    lfsr_mount(&lfs, cfg) => 0;
-//    for (lfs_size_t i = 0; i < N; i++) {
-//        uint8_t buffer[4];
-//        lfsr_mdir_get(&lfs, &lfs.supermdir, i, LFSR_TAG_REG, buffer, 4) => 1;
-//        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-//    }
-//    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+    lfs_ssize_t mid = -1;
+    rid = 0;
+    mdir = lfs.supermdir;
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        if (rid >= (lfs_ssize_t)mdir.rbyd.weight) {
+            mid += 1;
+            rid = 0;
+            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        }
+
+        uint8_t buffer[4];
+        lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED, buffer, 4) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+
+        rid += 1;
+    }
+    lfsr_unmount(&lfs) => 0;
 '''
 
-# try creating many entries, this should trigger a split
-[cases.test_mtree_split]
-defines.N = 500
+# create a range of entries, and commit to the supermdir several times,
+# this makes it more likely to force uninlining without necessarily
+# splitting
+[cases.test_mtree_uninlining]
+defines.N = [5, 10, 20, 40, 80, 160, 320]
+defines.M = [5, 5000]
 in = 'lfs.c'
 code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfsr_mount(&lfs, cfg) => 0;
-    lfsr_mdir_t mdir = lfs.supermdir;
-    lfs_ssize_t rid = -1;
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, lfsr_mtree_weight(&lfs)-1, &mdir) => 0;
+
+    lfs_ssize_t rid = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        rid += 1;
         lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                LFSR_ATTR(rid, MKREG, +1, &alphas[i % 26], 1))) => 0;
+                LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
+
+        uint8_t buffer[4];
+        lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED, buffer, 4) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+
+        rid += 1;
+    }
+
+    for (lfs_size_t i = 0; i < M; i++) {
+        lfsr_mdir_commit(&lfs, &lfs.supermdir, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+                LFSR_ATTR(-1, UATTR(1), 0, &alphas[i % 26], 1))) => 0;
+
+        uint8_t buffer[4];
+        lfsr_mdir_get(&lfs, &lfs.supermdir,
+                -1, LFSR_TAG_UATTR(1), buffer, 4) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
     }
     lfsr_unmount(&lfs) => 0;
 
-// TODO
-//    lfsr_mount(&lfs, cfg) => 0;
-//    for (lfs_size_t i = 0; i < N; i++) {
-//        uint8_t buffer[4];
-//        lfsr_mdir_get(&lfs, &lfs.supermdir, i, LFSR_TAG_REG, buffer, 4) => 1;
-//        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-//    }
-//    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+    lfs_ssize_t mid = -1;
+    rid = 0;
+    mdir = lfs.supermdir;
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        if (rid >= (lfs_ssize_t)mdir.rbyd.weight) {
+            mid += 1;
+            rid = 0;
+            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        }
+
+        uint8_t buffer[4];
+        lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED, buffer, 4) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+
+        rid += 1;
+    }
+
+    uint8_t buffer[4];
+    lfsr_mdir_get(&lfs, &lfs.supermdir,
+            -1, LFSR_TAG_UATTR(1), buffer, 4) => 1;
+    assert(memcmp(buffer, &alphas[(M-1) % 26], 1) == 0);
+    lfsr_unmount(&lfs) => 0;
 '''
+
