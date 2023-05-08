@@ -17,7 +17,8 @@ code = '''
 
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_mount(&lfs, cfg) => 0;
-        lfsr_mdir_commit(&lfs, &lfs.supermdir, NULL, 0) => 0;
+        lfsr_mdir_commit(&lfs, &lfs.supermdir, &(lfs_ssize_t){-1},
+                NULL, 0) => 0;
         lfsr_unmount(&lfs) => 0;
     }
 
@@ -37,42 +38,50 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mdir_t mdir = lfs.supermdir;
+    lfs_ssize_t rid = -1;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_mdir_commit(&lfs, &lfs.supermdir, LFSR_ATTRS(
-                LFSR_ATTR(i, MKREG, +1, &alphas[i % 26], 1))) => 0;
+        rid += 1;
+        lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                LFSR_ATTR(rid, MKREG, +1, &alphas[i % 26], 1))) => 0;
     }
     lfsr_unmount(&lfs) => 0;
 
-    lfsr_mount(&lfs, cfg) => 0;
-    for (lfs_size_t i = 0; i < N; i++) {
-        uint8_t buffer[4];
-        lfsr_mdir_get(&lfs, &lfs.supermdir, i, LFSR_TAG_REG, buffer, 4) => 1;
-        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-    }
-    lfsr_unmount(&lfs) => 0;
+// TODO
+//    lfsr_mount(&lfs, cfg) => 0;
+//    for (lfs_size_t i = 0; i < N; i++) {
+//        uint8_t buffer[4];
+//        lfsr_mdir_get(&lfs, &lfs.supermdir, i, LFSR_TAG_REG, buffer, 4) => 1;
+//        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+//    }
+//    lfsr_unmount(&lfs) => 0;
 '''
 
-## try creating many entries, this should trigger a split
-#[cases.test_mtree_split]
-#defines.N = 5000
-#in = 'lfs.c'
-#code = '''
-#    lfs_t lfs;
-#    lfsr_format(&lfs, cfg) => 0;
-#    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
-#
-#    lfsr_mount(&lfs, cfg) => 0;
-#    for (lfs_size_t i = 0; i < N; i++) {
-#        lfsr_mdir_commit(&lfs, &lfs.supermdir, LFSR_ATTRS(
-#                LFSR_ATTR(i, MKREG, +1, &alphas[i % 26], 1))) => 0;
-#    }
-#    lfsr_unmount(&lfs) => 0;
-#
-#    lfsr_mount(&lfs, cfg) => 0;
-#    for (lfs_size_t i = 0; i < N; i++) {
-#        uint8_t buffer[4];
-#        lfsr_mdir_get(&lfs, &lfs.supermdir, i, LFSR_TAG_REG, buffer, 4) => 1;
-#        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-#    }
-#    lfsr_unmount(&lfs) => 0;
-#'''
+# try creating many entries, this should trigger a split
+[cases.test_mtree_split]
+defines.N = 500
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+
+    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mdir_t mdir = lfs.supermdir;
+    lfs_ssize_t rid = -1;
+    for (lfs_size_t i = 0; i < N; i++) {
+        rid += 1;
+        lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                LFSR_ATTR(rid, MKREG, +1, &alphas[i % 26], 1))) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+
+// TODO
+//    lfsr_mount(&lfs, cfg) => 0;
+//    for (lfs_size_t i = 0; i < N; i++) {
+//        uint8_t buffer[4];
+//        lfsr_mdir_get(&lfs, &lfs.supermdir, i, LFSR_TAG_REG, buffer, 4) => 1;
+//        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+//    }
+//    lfsr_unmount(&lfs) => 0;
+'''

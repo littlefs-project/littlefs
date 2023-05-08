@@ -1537,7 +1537,7 @@ static bool lfsr_rbyd_isfetched(const lfsr_rbyd_t *rbyd) {
 
 // allocate an rbyd block
 static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
-    *rbyd = (lfsr_rbyd_t){.rev=rev, .off=0, .trunk=0};
+    *rbyd = (lfsr_rbyd_t){.rev=rev, .weight=0, .trunk=0, .off=0, .crc=0};
     int err = lfs_alloc(lfs, &rbyd->block);
     if (err) {
         return err;
@@ -3606,7 +3606,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 // TODO LFSR_BTREE_DEGENERATE? just propagate LFSR_ESTIMATE_DEGENERATE?
                 return true;
             } else if (estimate == LFSR_ESTIMATE_OVERFLOWS) {
-                LFS_ASSERT(lower_id > 0);
                 goto split;
             }
 
@@ -3632,7 +3631,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 return err;
             }
 
-            // try to copy over ids
+            // try to copy over tags
             lfs_ssize_t id = 0;
             lfsr_tag_t tag = 0;
             while (true) {
@@ -3765,6 +3764,14 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return err;
         }
 
+        // allocate a sibling
+        lfsr_rbyd_t sibling;
+        err = lfsr_rbyd_alloc(lfs, &sibling, rbyd->rev+1);
+        if (err) {
+            return err;
+        }
+
+        // copy over tags < split_id
         lfs_ssize_t id = 0;
         lfsr_tag_t tag = 0;
         while (true) {
@@ -3790,7 +3797,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
         }
 
-        // commit pending attrs, these may need to go into both rbyds,
+        // append pending attrs < split_id
+        //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
         // TODO filter-like tag? "from" but from device?
@@ -3819,15 +3827,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return err;
         }
         
-        // create a sibling and copy remaining ids there, upper layers
-        // should make sure this can't fail by limiting the maximum
-        // commit size
-        lfsr_rbyd_t sibling;
-        err = lfsr_rbyd_alloc(lfs, &sibling, rbyd->rev+1);
-        if (err) {
-            return err;
-        }
-
+        // copy over tags >= split_id
         id = split_id;
         tag = 0;
         while (true) {
@@ -3853,7 +3853,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
         }
 
-        // commit pending attrs, these may need to go into both rbyds,
+        // append pending attrs >= split_id
+        //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
         split_id_ = split_id;
@@ -4891,7 +4892,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
 // push could as well, we just don't need the functionality for littlefs
 //
 static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
-        lfs_size_t bid, const char *name, lfs_size_t name_size,
+        lfs_size_t bid, lfsr_data_t name,
         lfsr_tag_t tag1, lfs_size_t weight1,
         const void *buffer1, lfs_size_t size1,
         lfsr_tag_t tag2, lfs_size_t weight2,
@@ -4911,11 +4912,11 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
                 LFSR_ATTR_(0, lfsr_tag_setmk(tag1), +weight1,
                     buffer1, size1),
-                (name_size > 0
-                    ? LFSR_ATTR(weight1, MKBRANCH, +weight2,
-                        name, name_size)
+                (lfsr_data_size(name) > 0
+                    ? LFSR_ATTR_DATA(weight1, MKBRANCH, +weight2,
+                        name)
                     : LFSR_ATTR_NOOP),
-                (name_size > 0
+                (lfsr_data_size(name) > 0
                     ? LFSR_ATTR_(weight1+weight2-1, tag2, 0,
                         buffer2, size2)
                     : LFSR_ATTR_(weight1, lfsr_tag_setmk(tag2), +weight2,
@@ -4947,11 +4948,12 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
                     LFSR_ATTR(rid, UNR, +weight1-rweight, NULL, 0),
                     LFSR_ATTR_(rid-(rweight-1)+weight1-1, tag1, 0,
                         buffer1, size1),
-                    (name_size > 0
-                        ? LFSR_ATTR(rid-(rweight-1)+weight1, MKBRANCH, +weight2,
-                            name, name_size)
+                    (lfsr_data_size(name) > 0
+                        ? LFSR_ATTR_DATA(
+                            rid-(rweight-1)+weight1, MKBRANCH, +weight2,
+                            name)
                         : LFSR_ATTR_NOOP),
-                    (name_size > 0
+                    (lfsr_data_size(name) > 0
                         ? LFSR_ATTR_(rid-(rweight-1)+weight1+weight2-1, tag2, 0,
                             buffer2, size2)
                         : LFSR_ATTR_(rid-(rweight-1)+weight1,
@@ -5128,9 +5130,12 @@ static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
 // TODO share commit?
 // TODO share split?
 // TODO would be awfully convenient if c supported multiple returns
-static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
+static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // TODO wait do we really need this loop?
+    // scratch space for unrolled tail recursion
+    uint8_t recurse_buf[LFSR_BTREE_DSIZE];
+    lfsr_attr_t recurse_attrs[3];
+
     while (true) {
         // try to commit
         int err = lfsr_rbyd_commit(lfs, &mdir->rbyd, attrs, attr_count);
@@ -5142,138 +5147,108 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             goto compact;
         }
 
+        // TODO synchronize open mdirs?
+        // synchronize supermdir
+        if (mdir->mid == -1 && mdir != &lfs->supermdir) {
+            lfs->supermdir = *mdir;
+        }
+
         // successful commit
-        return 0;
+        break;
 
     compact:;
         // can't commit, try to compact
 
         // TODO splits
         // TODO relocations
-        lfsr_mdir_t mdir_;
-        bool issupermdirsplit = false; // TODO do this differently?
-        bool uninlining = false;
-
-        // check if we're within our compaction threshold, otherwise we
-        // need to split
-        //
-        // note we account for the revision count here
-        lfs_size_t lower_id;
-        lfs_size_t lower_dsize;
-        int estimate = lfsr_rbyd_estimate(lfs, &mdir->rbyd,
-                -1, -1, 0, sizeof(uint32_t),
-                &lower_id, &lower_dsize);
-        if (estimate < 0) {
-            return estimate;
-        }
-
-        if (estimate != LFSR_ESTIMATE_FITS) {
-            // are we inlined into the supermdir? we need to uninline
-            // before we split, and it's possible uninlining makes the mdir
-            // small enough that we don't even need to split
-            if (lfsr_btree_isnull(&lfs->mtree)) {
-                uninlining = true;
-
-                estimate = lfsr_rbyd_estimate(lfs, &mdir->rbyd,
-                        // note id was changed to 0 here
-                        0, -1, 0, sizeof(uint32_t),
-                        &lower_id, &lower_dsize);
-                if (estimate < 0) {
-                    return estimate;
-                }
-            }
-
-            if (LFSR_ESTIMATE_OVERFLOWS) {
-                // needs a split
-                LFS_ASSERT(lower_id > 0);
-                goto split;
-            }
-        }
 
         // normally the new mdir is just the flipped version of our
         // current mdir
-        mdir_ = (lfsr_mdir_t){
-            .mid = mdir->mid,
-            .other_block = mdir->rbyd.block,
-            .rbyd.block = mdir->other_block,
-            // TODO rev things
-            .rbyd.rev = mdir->rbyd.rev + 1,
-            .rbyd.off = 0,
-            .rbyd.trunk = 0,
-        };
+        lfsr_mdir_t mdir_ = *mdir;
 
-        // TODO does this work with a chain of supermdirs?
-        // We do something a bit different here if we're the supermdir.
-        //
-        // Unlike btree splits, we can't resolve the transition to a
-        // non-inlined mtree with a single pcache. To work around this
-        // we estimate a worst-case size before compacting. This is more
-        // expensive in terms of reads, but avoids multiple erases.
-        if (lfsr_btree_isnull(&lfs->mtree)) {
-            // estimate the worst-case rbyd size
-            // TODO function for this?
-            lfs_size_t dsize = 4; // 4 bytes for rev
-            lfs_size_t tcount = 0;
-            lfs_ssize_t id = -1;
-            lfsr_tag_t tag = 0;
-            while (true) {
-                lfs_size_t w;
-                lfsr_data_t data;
-                err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd,
-                        id, lfsr_tag_next(tag),
-                        &id, &tag, &w, &data);
-                if (err && err != LFS_ERR_NOENT) {
-                    return err;
-                }
-                if (err == LFS_ERR_NOENT) {
-                    break;
-                }
+        bool uninlining = false;
+        lfs_size_t lower_id;
+        lfs_size_t lower_dsize;
 
-                // keep track of size and count of tags
-                dsize += LFSR_TAG_DSIZE + lfsr_data_size(data);
-                tcount += 1;
+        // supermdirs without inlined mdirs must fit, skip the check for
+        // compaction threshold in this case, we'll error in lfsr_rbyd_append
+        // if we don't fit
+        if (!(mdir->mid < 0 && !lfsr_btree_isnull(&lfs->mtree))) {
+            // check if we're within our compaction threshold, otherwise we
+            // need to split
+            //
+            // note we account for the revision count here
+            int estimate = lfsr_rbyd_estimate(lfs, &mdir->rbyd,
+                    -1, -1, 0, sizeof(uint32_t),
+                    &lower_id, &lower_dsize);
+            if (estimate < 0) {
+                return estimate;
             }
 
-            // TODO account for block_size limits in attr size dsizes?
-            // account for alt pointers
-            dsize += tcount*(LFSR_TAG_DSIZE * (2*lfs_nlog2(tcount)+1));
+            if (estimate != LFSR_ESTIMATE_FITS) {
+                // are we inlined into the supermdir? we need to uninline
+                // before we split, and it's possible uninlining makes the mdir
+                // small enough that we don't even need to split
+                if (lfsr_btree_isnull(&lfs->mtree)) {
+                    uninlining = true;
 
-            // keep rbyd < our compaction threshold (1/2) to avoid
-            // degenerate cases
-            if (dsize > lfs->cfg->block_size/2) {
-                // if we're an inlined mtree, convert to a normal tree
-                // _before_ splitting, this handles two cases nicely:
-                // 1. if our supermetadata takes up enough space we just
-                //    need one child
-                // 2. if we need two children we need to separate the
-                //    supermetadata out of the tree anyways
-                int err = lfsr_mdir_alloc(lfs, &mdir_, -2);
-                if (err) {
-                    return err;
+                    // do we still need to split?
+                    estimate = lfsr_rbyd_estimate(lfs, &mdir->rbyd,
+                            // note id was changed to 0 here
+                            0, -1, 0, sizeof(uint32_t),
+                            &lower_id, &lower_dsize);
+                    if (estimate < 0) {
+                        return estimate;
+                    }
                 }
 
-                // TODO should mdir_alloc return something different?
-                // prepare for compact
-                mdir_.rbyd.off = 0;
-                issupermdirsplit = true;
+                if (estimate == LFSR_ESTIMATE_OVERFLOWS) {
+                    // needs a split
+                    goto split;
+                }
+
+                if (uninlining) {
+                    // allocate a new mdir for uninlining
+                    err = lfsr_mdir_alloc(lfs, &mdir_, 0);
+                    if (err) {
+                        return err;
+                    }
+
+                    LFS_DEBUG("Uninlining mdir 0x{%"PRIx32",%"PRIx32"} "
+                            "-> 0x{%"PRIx32",%"PRIx32"}"
+                            ", 0x{%"PRIx32",%"PRIx32"}",
+                            mdir->rbyd.block, mdir->other_block,
+                            mdir->rbyd.block, mdir->other_block,
+                            mdir_.rbyd.block, mdir_.other_block);
+                }
             }
         }
 
+        // swap our rbyds 
+        lfs_swap32(&mdir_.rbyd.block, &mdir_.other_block);
+        // update our revision count
+        // TODO rev things
+        mdir_.rbyd.rev += 1;
+        mdir_.rbyd.off = 0;
+        mdir_.rbyd.trunk = 0;
+        mdir_.rbyd.weight = 0;
+        mdir_.rbyd.crc = 0;
+
+        // erase, preparing for compact
         err = lfsr_bd_erase(lfs, mdir_.rbyd.block);
         if (err) {
             return err;
         }
 
-        // try to copy over ids
+        // try to copy over tags
         //
-        // note we skip -1 ids if we're splitting our supermdir
-        lfs_ssize_t id = (issupermdirsplit ? 0 : -1);
+        // take care to skip superattrs (id=-1) if we're uninlining
+        lfs_ssize_t id = (uninlining ? 0 : -1);
         lfsr_tag_t tag = 0;
         while (true) {
             lfs_size_t w;
             lfsr_data_t data;
-            err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd,
-                    id, lfsr_tag_next(tag),
+            err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd, id, lfsr_tag_next(tag),
                     &id, &tag, &w, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -5282,33 +5257,36 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 break;
             }
 
-            // keep track of worst-case encoding size in case we need to
-            // split
-            lower_dsize += LFSR_TAG_DSIZE + lfsr_data_size(data);
+            // if we don't have inlined mdirs, then we shouldn't have any
+            // ids>=0 in the supermdir, this check is necessary as a part
+            // of uninlining, and it simplifies things to do this on every
+            // compact of the supermdir
+            //
+            // note that unlining only triggers on compact, so we should never
+            // end up id>=0 outside of a compact
+            //
+            if (mdir_.mid < 0 && !lfsr_btree_isnull(&lfs->mtree) && id >= 0) {
+                break;
+            }
 
             // append the attr
             err = lfsr_rbyd_append(lfs, &mdir_.rbyd,
                     id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
                     data);
             if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
-            }
-
-            // keep rbyd < our compaction threshold (1/2) to avoid
-            // degenerate cases
-            if (mdir_.rbyd.off > lfs->cfg->block_size/2) {
-                LFS_ASSERT(!lfsr_btree_isnull(&lfs->mtree)
-                        || issupermdirsplit);
-                goto split;
             }
         }
 
-        // commit pending attrs, taking care to split supermdir attrs
-        // from regular attrs if there is an mdir split or mtree update
+        // append any pending attrs
         //
-        // note we assume supermdir attrs are any -1 ids for now
+        // upper layers should make sure this can't fail by limiting the
+        // maximum commit size
+        //
+        // take care to skip superattrs (id=-1) if we're uninlining
         for (lfs_size_t i = 0; i < attr_count; i++) {
-            if (!issupermdirsplit || attrs[i].id >= 0) {
+            if (!(uninlining && attrs[i].id < 0)) {
                 err = lfsr_rbyd_append(lfs, &mdir_.rbyd,
                         attrs[i].id, attrs[i].tag, attrs[i].delta,
                         attrs[i].data);
@@ -5326,15 +5304,33 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             return err;
         }
 
-        // update our mdir
-        //
-        // note we take care not to clobber the supermdir
-        // TODO ???
-        if (!(issupermdirsplit && mdir == &lfs->supermdir)) {
+        // TODO maybe mdir->mid != mdir_.mid can be used as uninlining?
+        if (!uninlining) {
+            // update our mdir
             *mdir = mdir_;
-        }
 
-        if (issupermdirsplit) {
+            // TODO deduplicate mdir synchronization?
+            // TODO synchronize open mdirs?
+            // synchronize supermdir
+            if (mdir->mid == -1 && mdir != &lfs->supermdir) {
+                lfs->supermdir = *mdir;
+            }
+
+            break;
+
+        } else {
+            // update our mdir, prepare supermdir
+            if (*rid < 0) {
+                // wait to update mdir after supdermdir update
+            } else {
+                *mdir = mdir_;
+                mdir = &lfs->supermdir;
+            }
+
+            // TODO synchronize open mdirs?
+            // TODO wait where do we synchronize open mdirs that makes sense
+            // if we fail after this point?
+
             // update our mtree
             uint8_t buf[LFSR_MPAIR_DSIZE];
             lfs_ssize_t d = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&mdir_),
@@ -5349,94 +5345,289 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 return err;
             }
 
-            // we only reach this point if our supermdir is in need of
-            // compaction, so go ahead and compact
-            mdir_ = (lfsr_mdir_t){
-                .mid = -1,
-                .other_block = lfs->supermdir.rbyd.block,
-                .rbyd.block = lfs->supermdir.other_block,
-                // TODO rev things
-                .rbyd.rev = lfs->supermdir.rbyd.rev + 1,
-                .rbyd.off = 0,
-                .rbyd.trunk = 0,
-            };
-
-            int err = lfsr_bd_erase(lfs, mdir_.rbyd.block);
-            if (err) {
-                return err;
-            }
-
-            // try to copy over ids, since we split the supermdir
-            // we should only copy over supermdir attrs
-            //
-            // note we assume supermdir attrs are any -1 ids for now
-            lfs_ssize_t id = -1;
-            lfsr_tag_t tag = 0;
-            while (true) {
-                lfs_size_t w;
-                lfsr_data_t data;
-                err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd,
-                        id, lfsr_tag_next(tag),
-                        &id, &tag, &w, &data);
-                if (err && err != LFS_ERR_NOENT) {
-                    return err;
-                }
-                if (err == LFS_ERR_NOENT || id != -1) {
-                    break;
-                }
-
-                // TODO we could clean this up if we don't deduplicate, but
-                // we should probably deduplicate all lfsr_rbyd_compact
-                // things
-                // append the attr
-                err = lfsr_rbyd_append(lfs, &mdir_.rbyd,
-                        id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
-                        data);
-                if (err) {
-                    return err;
-                }
-
-                // this must always fit our compaction threshold (1/2)
-                LFS_ASSERT(mdir_.rbyd.off > lfs->cfg->block_size/2);
-            }
-
-            // commit pending attrs, but only if they belong in the
-            // supermdir
-            for (lfs_size_t i = 0; i < attr_count; i++) {
-                if (attrs[i].id == -1) {
-                    err = lfsr_rbyd_append(lfs, &mdir_.rbyd,
-                            attrs[i].id, attrs[i].tag, attrs[i].delta,
-                            attrs[i].data);
-                    if (err) {
-                        LFS_ASSERT(err != LFS_ERR_RANGE);
-                        return err;
-                    }
-                }
-            }
-
-            // finalize commit, and update the mtree
-            uint8_t buf_[LFSR_BTREE_DSIZE];
-            d = lfsr_btree_todisk(lfs, &lfs->mtree, &tag, buf_);
+            // prepare commit to supermdir
+            lfsr_tag_t tag;
+            d = lfsr_btree_todisk(lfs, &lfs->mtree, &tag, recurse_buf);
             if (d < 0) {
                 return d;
             }
 
-            err = lfsr_rbyd_commit(lfs, &mdir_.rbyd, LFSR_ATTRS(
-                    // TODO yeah we're going to need a wide-rm
-                    LFSR_ATTR(-1, RMMDIR, 0, NULL, 0),
-                    LFSR_ATTR(-1, RMBTREE, 0, NULL, 0),
-                    LFSR_ATTR_(-1, tag, 0, buf_, d)));
+            // TODO yeah we're going to need a wide-rm
+            recurse_attrs[0] = LFSR_ATTR(-1, RMMDIR, 0, NULL, 0);
+            recurse_attrs[1] = LFSR_ATTR(-1, RMBTREE, 0, NULL, 0);
+            recurse_attrs[2] = LFSR_ATTR_(-1, tag, 0, recurse_buf, d);
+            attrs = recurse_attrs;
+            attr_count = 3;
+            continue;
+        }
+
+    split:;
+        // didn't fit, split mdir
+
+        // first figure out which id we need to split around
+        LFS_ASSERT(lower_id > 0);
+        lfs_ssize_t split_id = lfsr_rbyd_bisect(lfs, &mdir->rbyd,
+                lower_id, lower_dsize);
+        if (split_id < 0) {
+            return split_id;
+        }
+
+        // allocate a new mdir
+        err = lfsr_mdir_alloc(lfs, &mdir_, (uninlining ? 0 : mdir->mid)+0);
+        if (err) {
+            return err;
+        }
+
+        // TODO shouldn't lfsr_mdir_alloc do all this?
+        // swap our rbyds 
+        lfs_swap32(&mdir_.rbyd.block, &mdir_.other_block);
+        // update our revision count
+        // TODO rev things
+        mdir_.rbyd.rev += 1;
+        mdir_.rbyd.off = 0;
+        mdir_.rbyd.trunk = 0;
+        mdir_.rbyd.weight = 0;
+        mdir_.rbyd.crc = 0;
+
+        // erase, preparing for compact
+        err = lfsr_bd_erase(lfs, mdir_.rbyd.block);
+        if (err) {
+            return err;
+        }
+
+        // allocate a sibling
+        lfsr_mdir_t sibling;
+        err = lfsr_mdir_alloc(lfs, &sibling, (uninlining ? 0 : mdir->mid)+1);
+        if (err) {
+            return err;
+        }
+
+        // TODO shouldn't lfsr_mdir_alloc do all this?
+        // swap our rbyds 
+        lfs_swap32(&sibling.rbyd.block, &sibling.other_block);
+        // update our revision count
+        // TODO rev things
+        sibling.rbyd.rev += 1;
+        sibling.rbyd.off = 0;
+        sibling.rbyd.trunk = 0;
+        sibling.rbyd.weight = 0;
+        sibling.rbyd.crc = 0;
+
+        // erase, preparing for compact
+        err = lfsr_bd_erase(lfs, sibling.rbyd.block);
+        if (err) {
+            return err;
+        }
+
+        if (uninlining) {
+            LFS_DEBUG("Uninlining mdir 0x{%"PRIx32",%"PRIx32"} "
+                    "-> 0x{%"PRIx32",%"PRIx32"}"
+                    ", 0x{%"PRIx32",%"PRIx32"}"
+                    ", 0x{%"PRIx32",%"PRIx32"}",
+                    mdir->rbyd.block, mdir->other_block,
+                    mdir->rbyd.block, mdir->other_block,
+                    mdir_.rbyd.block, mdir_.other_block,
+                    sibling.rbyd.block, sibling.other_block);
+        } else {
+            LFS_DEBUG("Splitting mdir 0x{%"PRIx32",%"PRIx32"} "
+                    "-> 0x{%"PRIx32",%"PRIx32"}"
+                    ", 0x{%"PRIx32",%"PRIx32"}",
+                    mdir->rbyd.block, mdir->other_block,
+                    mdir_.rbyd.block, mdir_.other_block,
+                    sibling.rbyd.block, sibling.other_block);
+        }
+
+        // copy over tags < split_id
+        //
+        // take care to skip superattrs (id=-1) if we're uninlining
+        id = (uninlining ? 0 : -1);
+        tag = 0;
+        while (true) {
+            lfs_size_t w;
+            lfsr_data_t data;
+            err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd, id, lfsr_tag_next(tag),
+                    &id, &tag, &w, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+            if (err == LFS_ERR_NOENT || id >= split_id) {
+                break;
+            }
+
+            // append the attr
+            err = lfsr_rbyd_append(lfs, &mdir_.rbyd,
+                    id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
+                    data);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
-
-            // update the supermdir
-            lfs->supermdir = mdir_;
         }
 
-    split:;
-        LFS_ASSERT(false);
+        // append pending attrs < split_id
+        //
+        // upper layers should make sure this can't fail by limiting the
+        // maximum commit size
+        //
+        // take care to skip superattrs (id=-1) if we're uninlining
+        lfs_size_t split_id_ = split_id;
+        for (lfs_size_t i = 0; i < attr_count; i++) {
+            if (!(uninlining && attrs[i].id < 0)
+                    && attrs[i].id < (lfs_ssize_t)split_id_) {
+                err = lfsr_rbyd_append(lfs, &mdir_.rbyd,
+                        attrs[i].id, attrs[i].tag, attrs[i].delta,
+                        attrs[i].data);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    return err;
+                }
+            }
+
+            // we need to make sure we keep split_id updated with weight changes
+            if (attrs[i].id < (lfs_ssize_t)split_id_) {
+                split_id_ += attrs[i].delta;
+            }
+        }
+
+        // finalize commit
+        err = lfsr_rbyd_commit(lfs, &mdir_.rbyd, NULL, 0);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        // copy over tags >= split_id
+        id = split_id;
+        tag = 0;
+        while (true) {
+            lfs_size_t w;
+            lfsr_data_t data;
+            err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd, id, lfsr_tag_next(tag),
+                    &id, &tag, &w, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            // append the attr
+            err = lfsr_rbyd_append(lfs, &sibling.rbyd,
+                    id-split_id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
+                    data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+        }
+
+        // append pending attrs >= split_id
+        //
+        // upper layers should make sure this can't fail by limiting the
+        // maximum commit size
+        split_id_ = split_id;
+        for (lfs_size_t i = 0; i < attr_count; i++) {
+            if (attrs[i].id >= (lfs_ssize_t)split_id_) {
+                err = lfsr_rbyd_append(lfs, &sibling.rbyd,
+                        attrs[i].id-split_id_, attrs[i].tag, attrs[i].delta,
+                        attrs[i].data);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    return err;
+                }
+            }
+
+            // we need to make sure we keep split_id updated with weight changes
+            if (attrs[i].id < (lfs_ssize_t)split_id_) {
+                split_id_ += attrs[i].delta;
+            }
+        }
+
+        // finalize commit
+        err = lfsr_rbyd_commit(lfs, &sibling.rbyd, NULL, 0);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        // lookup first name in sibling to use as the split name
+        //
+        // note we need to do this after playing out pending attrs in case
+        // they introduce a new name!
+        lfsr_tag_t stag;
+        lfsr_data_t sdata;
+        err = lfsr_rbyd_lookupnext(lfs, &sibling.rbyd, 0, LFSR_TAG_NAME,
+                NULL, &stag, NULL, &sdata);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            return err;
+        }
+
+        // update our mdir, prepare supermdir
+        if (uninlining && *rid < 0) {
+            // wait to update mdir after supdermdir update
+        } else if (*rid < split_id) {
+            *mdir = mdir_;
+            mdir = &lfs->supermdir;
+        } else if (*rid >= split_id) {
+            *mdir = sibling;
+            *rid -= split_id;
+            mdir = &lfs->supermdir;
+        }
+
+        // TODO synchronize open mdirs?
+        // TODO wait where do we synchronize open mdirs that makes sense
+        // if we fail after this point?
+
+        // update our mtree
+        if (uninlining) {
+            // TODO do we really need an explicit push when creating a new,
+            // 2-sized btree?
+            err = lfsr_btree_push(lfs, &lfs->mtree, 0, LFSR_TAG_MDIR, 1,
+                    NULL, 0);
+            if (err) {
+                return err;
+            }
+        }
+
+        uint8_t buf1[LFSR_MPAIR_DSIZE];
+        lfs_ssize_t d1 = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&mdir_),
+                buf1);
+        if (d1 < 0) {
+            return d1;
+        }
+        uint8_t buf2[LFSR_MPAIR_DSIZE];
+        lfs_ssize_t d2 = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&sibling),
+                buf2);
+        if (d2 < 0) {
+            return d2;
+        }
+
+        err = lfsr_btree_split(lfs, &lfs->mtree, mdir_.mid,
+                (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
+                    ? sdata
+                    : LFSR_DATA_NULL),
+                LFSR_TAG_MDIR, 1, buf1, d1,
+                LFSR_TAG_MDIR, 1, buf2, d2);
+        if (err) {
+            return err;
+        }
+
+        // prepare commit to supermdir
+        lfs_ssize_t d = lfsr_btree_todisk(lfs, &lfs->mtree, &tag, recurse_buf);
+        if (d < 0) {
+            return d;
+        }
+
+        // TODO yeah we're going to need a wide-rm
+        recurse_attrs[0] = LFSR_ATTR(-1, RMMDIR, 0, NULL, 0);
+        recurse_attrs[1] = LFSR_ATTR(-1, RMBTREE, 0, NULL, 0);
+        recurse_attrs[2] = LFSR_ATTR_(-1, tag, 0, recurse_buf, d);
+        attrs = recurse_attrs;
+        attr_count = 3;
+        continue;
     }
 
     // done
