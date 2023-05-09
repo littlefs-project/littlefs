@@ -2679,7 +2679,7 @@ failed:;
 // exist in the rbyd namespace
 
 static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t init_id, lfs_size_t init_tcount, lfs_size_t init_dsize,
+        lfs_ssize_t init_id, lfs_size_t threshold,
         lfs_size_t *lower_id_, lfs_size_t *lower_dsize_) {
     // determine if a given rbyd will be within the compaction threshold (1/2)
     // after compaction, note this uses a conservative estimate so the actual
@@ -2694,9 +2694,9 @@ static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     const lfs_size_t tag_dsize = 2
             + 5
             + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
-    lfs_size_t tcount = init_tcount;
+    lfs_size_t tcount = 0;
     lfs_size_t dsize = 0;
-    lfs_size_t real_dsize = init_dsize;
+    lfs_size_t real_dsize = sizeof(uint32_t);
 
     lfs_ssize_t id = init_id;
     lfsr_tag_t tag = 0;
@@ -2734,7 +2734,7 @@ static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 + lfsr_data_size(data);
 
         // exceeded our compaction threshold?
-        if (real_dsize > lfs->cfg->block_size/2) {
+        if (real_dsize > threshold) {
             // TODO do these need to be conditional?
             if (lower_id_) {
                 *lower_id_ = id;
@@ -3491,7 +3491,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         lfsr_rbyd_t rbyd_;
         lfs_size_t lower_id;
         lfs_size_t lower_dsize;
-        lfs_size_t tcount;
 
         // first check if we are a degenerate root and can be reverted to
         // an inlined btree
@@ -3513,12 +3512,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // check if we're within our compaction threshold, otherwise we
         // need to split
-        //
-        // note we account for the revision count here
-        // TODO ugh, need to move cutoff out again, it doesn't make sense here
-        // with the early threshold terminate
-        int fits = lfsr_rbyd_estimate(lfs, rbyd, 
-                -1, 0, sizeof(uint32_t),
+        int fits = lfsr_rbyd_estimate(lfs, rbyd, -1,
+                lfs->cfg->block_size/2,
                 &lower_id, &lower_dsize);
         if (fits < 0) {
             return fits;
@@ -3533,7 +3528,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // allocate a new rbyd
         err = lfsr_rbyd_alloc(lfs, &rbyd_, rbyd->rev+1);
         if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
@@ -3545,7 +3539,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
             err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
                     &id, &tag, NULL, &data);
             if (err && err != LFS_ERR_NOENT) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
             if (err == LFS_ERR_NOENT) {
@@ -3578,10 +3571,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
-
-            // keep track of the number of tags we've written in case we
-            // try to merge
-            tcount += 1;
         }
 
         // append any pending attrs, it's up to upper
@@ -3594,10 +3583,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
-
-            // keep track of the number of tags we've written in case we
-            // try to merge
-            tcount += 1;
         }
 
         // TODO do we really need a threshold for this? should we just
@@ -3685,7 +3670,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
             err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
                     &id, &tag, &w, &data);
             if (err && err != LFS_ERR_NOENT) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
             if (err == LFS_ERR_NOENT || id >= split_id) {
@@ -3741,7 +3725,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
             err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
                     &id, &tag, &w, &data);
             if (err && err != LFS_ERR_NOENT) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
             if (err == LFS_ERR_NOENT) {
@@ -3934,8 +3917,12 @@ static int lfsr_btree_commit(lfs_t *lfs,
             LFS_ASSERT(sibling.weight == sweight);
 
             // estimate if our sibling will fit
-            int fits = lfsr_rbyd_estimate(lfs, &sibling,
-                    -1, tcount, rbyd_.off,
+            //
+            // this is imprecise when not compacting, so we may still fail to
+            // merge, but this at least lets us avoid wasting programming cycles
+            // when merge failure is obvious
+            int fits = lfsr_rbyd_estimate(lfs, &sibling, -1,
+                    lfs->cfg->block_size/4,
                     NULL, NULL);
             if (fits < 0) {
                 return fits;
@@ -3950,7 +3937,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             break;
         }
 
-        // add our sibling's tags to our rbyd
+        // try  to add our sibling's tags to our rbyd
         lfs_size_t rweight_ = rbyd_.weight;
         id = 0;
         tag = 0;
@@ -3960,7 +3947,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
             err = lfsr_rbyd_lookupnext(lfs, &sibling, id, lfsr_tag_next(tag),
                     &id, &tag, &w, &data);
             if (err && err != LFS_ERR_NOENT) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
             if (err == LFS_ERR_NOENT) {
@@ -3972,8 +3958,21 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     sdelta+id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
                     data);
             if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
+            }
+
+            // if we exceed our compaction threshold our merge has failed,
+            // clean up ids and return to merge_abort
+            if (rbyd_.off > lfs->cfg->block_size/2) {
+                err = lfsr_rbyd_append(lfs, &rbyd_,
+                        sdelta+(rbyd_.weight-rweight_)-1,
+                        LFSR_TAG_MKUNR, -(rbyd_.weight-rweight_),
+                        LFSR_DATA_NULL);
+                if (err) {
+                    return err;
+                }
+
+                goto merge_abort;
             }
         }
 
@@ -3985,7 +3984,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                     (sdelta == 0 ? pid : sid), LFSR_TAG_NAME,
                     NULL, &split_tag, NULL, &split_data);
             if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
 
@@ -4680,10 +4678,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         if (!(mdir->mid < 0 && !lfsr_mtree_isinlined(lfs))) {
             // check if we're within our compaction threshold, otherwise we
             // need to split
-            //
-            // note we account for the revision count here
-            int fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd,
-                    -1, 0, sizeof(uint32_t),
+            int fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd, -1,
+                    lfs->cfg->block_size/2,
                     &lower_id, &lower_dsize);
             if (fits < 0) {
                 return fits;
@@ -4697,9 +4693,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                     uninlining = true;
 
                     // do we still need to split?
-                    fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd,
-                            // note init_id was changed to 0 here
-                            0, 0, sizeof(uint32_t),
+                    //
+                    // note init_id was changed to 0 here
+                    fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd, 0,
+                            lfs->cfg->block_size/2,
                             &lower_id, &lower_dsize);
                     if (fits < 0) {
                         return fits;
