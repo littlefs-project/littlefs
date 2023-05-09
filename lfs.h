@@ -372,7 +372,7 @@ typedef union lfsr_btree {
 
 typedef struct lfsr_mdir {
     //  -2 => an out-of-tree mdir
-    //  -1 => supermdir
+    //  -1 => mroot
     // >=0 => bid in the mtree
     lfs_ssize_t mid;
     lfs_block_t other_block;
@@ -469,7 +469,7 @@ typedef struct lfs {
     lfs_size_t attr_max;
 
     // begin lfsr things
-    lfsr_mdir_t supermdir;
+    lfsr_mdir_t mroot;
     lfsr_btree_t mtree;
 
 #ifdef LFS_MIGRATE

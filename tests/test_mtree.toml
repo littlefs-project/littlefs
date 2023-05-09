@@ -1,5 +1,5 @@
-# test a single supermdir
-[cases.test_mtree_one_supermdir]
+# test a single mroot
+[cases.test_mtree_one_mroot]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -7,32 +7,32 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# test a single supermdir with a custom attribute
-[cases.test_mtree_one_supermdir_attr]
+# test a single mroot with a custom attribute
+[cases.test_mtree_one_mroot_attr]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
 
     lfsr_mount(&lfs, cfg) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.supermdir, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, "ardvark", 7))) => 0;
 
     uint8_t buffer[7];
-    lfsr_mdir_get(&lfs, &lfs.supermdir,
+    lfsr_mdir_get(&lfs, &lfs.mroot,
             -1, LFSR_TAG_UATTR(1), buffer, 7) => 7;
     assert(memcmp(buffer, "ardvark", 7) == 0);
     lfsr_unmount(&lfs) => 0;
 
     lfsr_mount(&lfs, cfg) => 0;
-    lfsr_mdir_get(&lfs, &lfs.supermdir,
+    lfsr_mdir_get(&lfs, &lfs.mroot,
             -1, LFSR_TAG_UATTR(1), buffer, 7) => 7;
     assert(memcmp(buffer, "ardvark", 7) == 0);
     lfsr_unmount(&lfs) => 0;
 '''
 
-# test a single supermdir with many commits
-[cases.test_mtree_one_supermdir_many_commits]
+# test a single mroot with many commits
+[cases.test_mtree_one_mroot_many_commits]
 defines.N = [5, 5000]
 in = 'lfs.c'
 code = '''
@@ -42,11 +42,11 @@ code = '''
 
     lfsr_mount(&lfs, cfg) => 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_mdir_commit(&lfs, &lfs.supermdir, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
                 LFSR_ATTR(-1, UATTR(1), 0, &alphas[i % 26], 1))) => 0;
 
         uint8_t buffer[4];
-        lfsr_mdir_get(&lfs, &lfs.supermdir,
+        lfsr_mdir_get(&lfs, &lfs.mroot,
                 -1, LFSR_TAG_UATTR(1), buffer, 4) => 1;
         assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
     }
@@ -54,13 +54,13 @@ code = '''
 
     lfsr_mount(&lfs, cfg) => 0;
     uint8_t buffer[4];
-    lfsr_mdir_get(&lfs, &lfs.supermdir,
+    lfsr_mdir_get(&lfs, &lfs.mroot,
             -1, LFSR_TAG_UATTR(1), buffer, 4) => 1;
     assert(memcmp(buffer, &alphas[(N-1) % 26], 1) == 0);
     lfsr_unmount(&lfs) => 0;
 '''
 
-# TODO test many supermdirs
+# TODO test many mroots
 
 # try creating a range of entries that may or may not split our mtree
 [cases.test_mtree_splitting]
@@ -91,7 +91,7 @@ code = '''
     lfsr_mount(&lfs, cfg) => 0;
     lfs_ssize_t mid = -1;
     rid = 0;
-    mdir = lfs.supermdir;
+    mdir = lfs.mroot;
 
     for (lfs_size_t i = 0; i < N; i++) {
         if (rid >= (lfs_ssize_t)mdir.rbyd.weight) {
@@ -109,7 +109,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# create a range of entries, and commit to the supermdir several times,
+# create a range of entries, and commit to the mroot several times,
 # this makes it more likely to force uninlining without necessarily
 # splitting
 [cases.test_mtree_uninlining]
@@ -138,11 +138,11 @@ code = '''
     }
 
     for (lfs_size_t i = 0; i < M; i++) {
-        lfsr_mdir_commit(&lfs, &lfs.supermdir, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
                 LFSR_ATTR(-1, UATTR(1), 0, &alphas[i % 26], 1))) => 0;
 
         uint8_t buffer[4];
-        lfsr_mdir_get(&lfs, &lfs.supermdir,
+        lfsr_mdir_get(&lfs, &lfs.mroot,
                 -1, LFSR_TAG_UATTR(1), buffer, 4) => 1;
         assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
     }
@@ -151,7 +151,7 @@ code = '''
     lfsr_mount(&lfs, cfg) => 0;
     lfs_ssize_t mid = -1;
     rid = 0;
-    mdir = lfs.supermdir;
+    mdir = lfs.mroot;
 
     for (lfs_size_t i = 0; i < N; i++) {
         if (rid >= (lfs_ssize_t)mdir.rbyd.weight) {
@@ -168,7 +168,7 @@ code = '''
     }
 
     uint8_t buffer[4];
-    lfsr_mdir_get(&lfs, &lfs.supermdir,
+    lfsr_mdir_get(&lfs, &lfs.mroot,
             -1, LFSR_TAG_UATTR(1), buffer, 4) => 1;
     assert(memcmp(buffer, &alphas[(M-1) % 26], 1) == 0);
     lfsr_unmount(&lfs) => 0;

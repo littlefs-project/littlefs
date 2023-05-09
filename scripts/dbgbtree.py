@@ -8,9 +8,9 @@ import struct
 
 
 TAG_UNR         = 0x0002
-TAG_SUPERMAGIC  = 0x0030
-TAG_SUPERCONFIG = 0x0040
-TAG_SUPERMDIR   = 0x0110
+TAG_MAGIC       = 0x0030
+TAG_CONFIG      = 0x0040
+TAG_MROOT       = 0x0110
 TAG_NAME        = 0x1000
 TAG_BRANCH      = 0x1000
 TAG_REG         = 0x1010
@@ -91,18 +91,18 @@ def tagrepr(tag, w, size, off=None):
         return 'unr%s%s' % (
             ' w%d' % w if w else '',
             ' %d' % size if size else '')
-    elif (tag & 0xfffc) == TAG_SUPERMAGIC:
-        return '%ssupermagic%s %d' % (
+    elif (tag & 0xfffc) == TAG_MAGIC:
+        return '%smagic%s %d' % (
             'rm' if tag & 0x2 else '',
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xfffc) == TAG_SUPERCONFIG:
-        return '%ssuperconfig%s %d' % (
+    elif (tag & 0xfffc) == TAG_CONFIG:
+        return '%sconfig%s %d' % (
             'rm' if tag & 0x2 else '',
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xfffc) == TAG_SUPERMDIR:
-        return '%ssupermdir%s %d' % (
+    elif (tag & 0xfffc) == TAG_MROOT:
+        return '%smroot%s %d' % (
             'rm' if tag & 0x2 else '',
             ' w%d' % w if w else '',
             size)

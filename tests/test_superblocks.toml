@@ -44,10 +44,10 @@ code = '''
     lfsr_mount(&lfs, cfg) => 0;
     uint8_t buf[LFSR_MPAIR_DSIZE];
     lfs_ssize_t d = lfsr_mpair_todisk(&lfs,
-            lfsr_mdir_mpair(&lfs.supermdir), buf);
+            lfsr_mdir_mpair(&lfs.mroot), buf);
     assert(d >= 0);
-    lfsr_mdir_commit(&lfs, &lfs.supermdir, &(lfs_ssize_t){-1}, LFSR_ATTRS(
-            LFSR_ATTR(-1, SUPERMDIR, 0, buf, d))) => 0;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, MROOT, 0, buf, d))) => 0;
     lfsr_unmount(&lfs) => 0;
 
     // now detect the cycle

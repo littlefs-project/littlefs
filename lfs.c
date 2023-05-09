@@ -587,9 +587,9 @@ enum lfsr_tag_type {
     LFSR_TAG_UNR            = 0x0002,
     LFSR_TAG_MKUNR          = 0x0006, // in-device only
 
-    LFSR_TAG_SUPERMAGIC     = 0x0030,
-    LFSR_TAG_SUPERCONFIG    = 0x0040,
-    LFSR_TAG_SUPERMDIR      = 0x0110,
+    LFSR_TAG_MAGIC          = 0x0030,
+    LFSR_TAG_CONFIG         = 0x0040,
+    LFSR_TAG_MROOT          = 0x0110,
 
     LFSR_TAG_NAME           = 0x1000,
     LFSR_TAG_BRANCH         = 0x1000,
@@ -5148,20 +5148,20 @@ static inline int lfsr_mtree_isinlined(lfs_t *lfs) {
 static inline lfs_ssize_t lfsr_mtree_weight(lfs_t *lfs) {
     // inlined mdir?
     if (lfsr_mtree_isinlined(lfs)) {
-        return lfs->supermdir.rbyd.weight;
+        return lfs->mroot.rbyd.weight;
     } else {
         return lfsr_btree_weight(&lfs->mtree);
     }
 }
 
 static int lfsr_mtree_lookup(lfs_t *lfs, lfs_ssize_t mid, lfsr_mdir_t *mdir_) {
-    // TODO should we really allow -1=>supermdir lookup?
+    // TODO should we really allow -1=>mroot lookup?
     LFS_ASSERT(mid >= -1);
     LFS_ASSERT(mid < lfsr_mtree_weight(lfs));
 
-    // looking up supermdir?
+    // looking up mroot?
     if (mid < 0) {
-        *mdir_ = lfs->supermdir;
+        *mdir_ = lfs->mroot;
         return 0;
 
     // look up mdir in actual mtree
@@ -5252,9 +5252,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         mdir->rbyd = rbyd_;
 
         // TODO synchronize open mdirs?
-        // synchronize supermdir
-        if (mdir->mid == -1 && mdir != &lfs->supermdir) {
-            lfs->supermdir = *mdir;
+        // synchronize mroot
+        if (mdir->mid == -1 && mdir != &lfs->mroot) {
+            lfs->mroot = *mdir;
         }
 
         // successful commit
@@ -5274,7 +5274,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         lfs_size_t lower_id;
         lfs_size_t lower_dsize;
 
-        // supermdirs without inlined mdirs must fit, skip the check for
+        // mroots without inlined mdirs must fit, skip the check for
         // compaction threshold in this case, we'll error in lfsr_rbyd_append
         // if we don't fit
         if (!(mdir->mid < 0 && !lfsr_mtree_isinlined(lfs))) {
@@ -5290,7 +5290,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
 
             if (estimate != LFSR_ESTIMATE_FITS) {
-                // are we inlined into the supermdir? we need to uninline
+                // are we inlined into the mroot? we need to uninline
                 // before we split, and it's possible uninlining makes the mdir
                 // small enough that we don't even need to split
                 if (lfsr_mtree_isinlined(lfs)) {
@@ -5362,9 +5362,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
 
             // if we don't have inlined mdirs, then we shouldn't have any
-            // ids>=0 in the supermdir, this check is necessary as a part
+            // ids>=0 in the mroot, this check is necessary as a part
             // of uninlining, and it simplifies things to do this on every
-            // compact of the supermdir
+            // compact of the mroot
             //
             // note that unlining only triggers on compact, so we should never
             // end up id>=0 outside of a compact
@@ -5390,7 +5390,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         //
         // take care to skip superattrs (id=-1) if we're uninlining, or only
         // allow superattrs if we've uninlined and are now committing to our
-        // supermdir
+        // mroot
         for (lfs_size_t i = 0; i < attr_count; i++) {
             if (!(uninlining && attrs[i].id < 0)
                     && !(mdir_.mid < 0
@@ -5443,20 +5443,20 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
             // TODO deduplicate mdir synchronization?
             // TODO synchronize open mdirs?
-            // synchronize supermdir
-            if (mdir->mid == -1 && mdir != &lfs->supermdir) {
-                lfs->supermdir = *mdir;
+            // synchronize mroot
+            if (mdir->mid == -1 && mdir != &lfs->mroot) {
+                lfs->mroot = *mdir;
             }
 
             break;
 
         } else {
-            // update our mdir, prepare supermdir
+            // update our mdir, prepare mroot
             if (*rid < 0) {
                 // wait to update mdir after supdermdir update
             } else {
                 *mdir = mdir_;
-                mdir = &lfs->supermdir;
+                mdir = &lfs->mroot;
             }
 
             // TODO synchronize open mdirs?
@@ -5478,11 +5478,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
 
             // mark mtree as dirty and tail recurse to write it and any pending
-            // superattrs to the supermdir
+            // superattrs to the mroot
             dirty_mtree = true;
             continue;
 
-//            // prepare commit to supermdir
+//            // prepare commit to mroot
 //            lfsr_tag_t tag;
 //            d = lfsr_btree_todisk(lfs, &lfs->mtree, &tag, recurse_buf);
 //            if (d < 0) {
@@ -5705,16 +5705,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             return err;
         }
 
-        // update our mdir, prepare supermdir
+        // update our mdir, prepare mroot
         if (uninlining && *rid < 0) {
             // wait to update mdir after supdermdir update
         } else if (*rid < split_id) {
             *mdir = mdir_;
-            mdir = &lfs->supermdir;
+            mdir = &lfs->mroot;
         } else if (*rid >= split_id) {
             *mdir = sibling;
             *rid -= split_id;
-            mdir = &lfs->supermdir;
+            mdir = &lfs->mroot;
         }
 
         // TODO synchronize open mdirs?
@@ -5755,7 +5755,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             return err;
         }
 
-        // mark mtree as dirty and tail recurse to write it to the supermdir
+        // mark mtree as dirty and tail recurse to write it to the mroot
         dirty_mtree = true;
         // only include superattrs if we're uninlining
         if (!uninlining) {
@@ -5763,7 +5763,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         }
         continue;
 
-//        // prepare commit to supermdir
+//        // prepare commit to mroot
 //        lfs_ssize_t d = lfsr_btree_todisk(lfs, &lfs->mtree, &tag, recurse_buf);
 //        if (d < 0) {
 //            return d;
@@ -5804,10 +5804,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 // - 32-bit file_limit   => 5 byte leb128 (worst case)
 //                       => 30 bytes total
 // 
-#define LFSR_SUPERCONFIG_DSIZE (1+1+1+1+5+5+1+5+5+5)
+#define LFSR_CONFIG_DSIZE (1+1+1+1+5+5+1+5+5+5)
 
 static lfs_ssize_t lfsr_superconfig_todisk(lfs_t *lfs,
-        uint8_t buffer[static LFSR_SUPERCONFIG_DSIZE]) {
+        uint8_t buffer[static LFSR_CONFIG_DSIZE]) {
     // TODO most of these should also be in the lfs_config/lfs_t structs
 
     // note we take a shortcut for for single-byte leb128s, but these
@@ -5906,7 +5906,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
         // has magic string?
         lfsr_data_t data;
-        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERMAGIC, &data);
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_MAGIC, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -5930,7 +5930,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
         }
 
         // lookup the superconfig
-        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERCONFIG, &data);
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_CONFIG, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -6130,16 +6130,16 @@ static int lfsr_mountinited(lfs_t *lfs) {
             }
         }
 
-        // lookup supermdir
+        // lookup mroot
         //
-        // if we have a supermdir, this is actually a fake superblock and
+        // if we have a mroot, this is actually a fake superblock and
         // we need to parse the next superblock in the chain
-        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_SUPERMDIR, &data);
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_MROOT, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
-        // no more supermdirs means we found our real superblock
+        // no more mroots means we found our real superblock
         if (err == LFS_ERR_NOENT) {
             break;
         }
@@ -6178,19 +6178,19 @@ static int lfsr_mountinited(lfs_t *lfs) {
         lfs->mtree = LFSR_BTREE_NULL;
     }
 
-    lfs->supermdir = mdir;
+    lfs->mroot = mdir;
     return 0;
 }
 
 static int lfsr_formatinited(lfs_t *lfs) {
-    uint8_t buf[LFSR_SUPERCONFIG_DSIZE];
+    uint8_t buf[LFSR_CONFIG_DSIZE];
     lfs_ssize_t d = lfsr_superconfig_todisk(lfs, buf);
     if (d < 0) {
         return d;
     }
 
     for (int i = 0; i < 2; i++) {
-        // write superblock to both rbyds in the root supermdir to hopefully
+        // write superblock to both rbyds in the root mroot to hopefully
         // avoid mounting an older filesystem on disk
         lfsr_rbyd_t rbyd = {.block=i, .rev=i+1, .off=0, .trunk=0};
 
@@ -6200,8 +6200,8 @@ static int lfsr_formatinited(lfs_t *lfs) {
         }
 
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR(-1, SUPERMAGIC, 0, "littlefs", 8),
-                LFSR_ATTR(-1, SUPERCONFIG, 0, buf, d)));
+                LFSR_ATTR(-1, MAGIC, 0, "littlefs", 8),
+                LFSR_ATTR(-1, CONFIG, 0, buf, d)));
         if (err) {
             return err;
         }
