@@ -4523,12 +4523,7 @@ static inline int lfsr_mtree_isinlined(lfs_t *lfs) {
 }
 
 static inline lfs_ssize_t lfsr_mtree_weight(lfs_t *lfs) {
-    // inlined mdir?
-    if (lfsr_mtree_isinlined(lfs)) {
-        return lfs->mroot.rbyd.weight;
-    } else {
-        return lfsr_btree_weight(&lfs->mtree);
-    }
+    return lfsr_btree_weight(&lfs->mtree);
 }
 
 static int lfsr_mtree_lookup(lfs_t *lfs, lfs_ssize_t mid, lfsr_mdir_t *mdir_) {
