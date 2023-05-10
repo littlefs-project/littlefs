@@ -4020,8 +4020,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 }
 
 static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
-        lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight,
-        const void *buffer, lfs_size_t size) {
+        lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight, lfsr_data_t data) {
     LFS_ASSERT(bid <= lfsr_btree_weight(btree));
 
     // null btree?
@@ -4031,9 +4030,13 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         btree->weight = lfsr_btree_setinlined(weight);
         btree->inlined.tag = tag;
 
-        LFS_ASSERT(size <= LFSR_BTREE_INLINESIZE);
-        memcpy(btree->inlined.buffer, buffer, size);
-        btree->inlined.size = size;
+        lfs_ssize_t d = lfsr_data_read(lfs, data, 0,
+                btree->inlined.buffer, LFSR_BTREE_INLINESIZE);
+        if (d < 0) {
+            return d;
+        }
+        LFS_ASSERT(d <= LFSR_BTREE_INLINESIZE);
+        btree->inlined.size = d;
         return 0;
 
     // inlined btree, need to expand into an rbyd
@@ -4050,9 +4053,8 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
                     0, lfsr_tag_setmk(btree->inlined.tag),
                     +lfsr_btree_weight(btree),
                     btree->inlined.buffer, btree->inlined.size),
-                LFSR_ATTR_(
-                    bid, lfsr_tag_setmk(tag), +weight,
-                    buffer, size)));
+                LFSR_ATTR_DATA_(
+                    bid, lfsr_tag_setmk(tag), +weight, data)));
         if (err) {
             return err;
         }
@@ -4093,8 +4095,7 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         // of the rest
         int degenerate = lfsr_btree_commit(lfs, btree, bid_, 0, &rbyd,
                 LFSR_BTREE_ATTRS(
-                    LFSR_ATTR_(rid, lfsr_tag_setmk(tag), +weight,
-                        buffer, size)));
+                    LFSR_ATTR_DATA_(rid, lfsr_tag_setmk(tag), +weight, data)));
         if (degenerate < 0) {
             return degenerate;
         }
@@ -4104,9 +4105,13 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
             btree->weight = lfsr_btree_setinlined(weight);
             btree->inlined.tag = tag;
 
-            LFS_ASSERT(size <= LFSR_BTREE_INLINESIZE);
-            memcpy(btree->inlined.buffer, buffer, size);
-            btree->inlined.size = size;
+            lfs_ssize_t d = lfsr_data_read(lfs, data, 0,
+                    btree->inlined.buffer, LFSR_BTREE_INLINESIZE);
+            if (d < 0) {
+                return d;
+            }
+            LFS_ASSERT(d <= LFSR_BTREE_INLINESIZE);
+            btree->inlined.size = d;
         }
 
         return 0;
@@ -4114,8 +4119,7 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
 }
 
 static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
-        lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight,
-        const void *buffer, lfs_size_t size) {
+        lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight, lfsr_data_t data) {
     LFS_ASSERT(bid < lfsr_btree_weight(btree));
     LFS_ASSERT(lfsr_btree_weight(btree) > 0);
 
@@ -4126,9 +4130,13 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
         btree->weight = lfsr_btree_setinlined(weight);
         btree->inlined.tag = tag;
 
-        LFS_ASSERT(size <= LFSR_BTREE_INLINESIZE);
-        memcpy(btree->inlined.buffer, buffer, size);
-        btree->inlined.size = size;
+        lfs_ssize_t d = lfsr_data_read(lfs, data, 0,
+                btree->inlined.buffer, LFSR_BTREE_INLINESIZE);
+        if (d < 0) {
+            return d;
+        }
+        LFS_ASSERT(d <= LFSR_BTREE_INLINESIZE);
+        btree->inlined.size = d;
         return 0;
 
     // a normal btree
@@ -4152,7 +4160,7 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
                     (tag != rtag
                         ? LFSR_ATTR_(rid, lfsr_tag_setrm(rtag), 0, NULL, 0)
                         : LFSR_ATTR_NOOP),
-                    LFSR_ATTR_(rid, tag, 0, buffer, size),
+                    LFSR_ATTR_DATA_(rid, tag, 0, data),
                     LFSR_ATTR(rid, UNR, +weight-rweight, NULL, 0)));
         if (degenerate < 0) {
             return degenerate;
@@ -4163,9 +4171,13 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
             btree->weight = lfsr_btree_setinlined(weight);
             btree->inlined.tag = tag;
 
-            LFS_ASSERT(size <= LFSR_BTREE_INLINESIZE);
-            memcpy(btree->inlined.buffer, buffer, size);
-            btree->inlined.size = size;
+            lfs_ssize_t d = lfsr_data_read(lfs, data, 0,
+                    btree->inlined.buffer, LFSR_BTREE_INLINESIZE);
+            if (d < 0) {
+                return d;
+            }
+            LFS_ASSERT(d <= LFSR_BTREE_INLINESIZE);
+            btree->inlined.size = d;
         }
 
         return 0;
@@ -4268,10 +4280,8 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
 //
 static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         lfs_size_t bid, lfsr_data_t name,
-        lfsr_tag_t tag1, lfs_size_t weight1,
-        const void *buffer1, lfs_size_t size1,
-        lfsr_tag_t tag2, lfs_size_t weight2,
-        const void *buffer2, lfs_size_t size2) {
+        lfsr_tag_t tag1, lfs_size_t weight1, lfsr_data_t data1,
+        lfsr_tag_t tag2, lfs_size_t weight2, lfsr_data_t data2) {
     LFS_ASSERT(bid < lfsr_btree_weight(btree));
     LFS_ASSERT(lfsr_btree_weight(btree) > 0);
 
@@ -4285,17 +4295,15 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
 
         // commit our entries
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR_(0, lfsr_tag_setmk(tag1), +weight1,
-                    buffer1, size1),
+                LFSR_ATTR_DATA_(0, lfsr_tag_setmk(tag1), +weight1, data1),
                 (lfsr_data_size(name) > 0
-                    ? LFSR_ATTR_DATA(weight1, MKBRANCH, +weight2,
-                        name)
+                    ? LFSR_ATTR_DATA(weight1, MKBRANCH, +weight2, name)
                     : LFSR_ATTR_NOOP),
                 (lfsr_data_size(name) > 0
-                    ? LFSR_ATTR_(weight1+weight2-1, tag2, 0,
-                        buffer2, size2)
-                    : LFSR_ATTR_(weight1, lfsr_tag_setmk(tag2), +weight2,
-                        buffer2, size2))));
+                    ? LFSR_ATTR_DATA_(weight1+weight2-1,
+                        tag2, 0, data2)
+                    : LFSR_ATTR_DATA_(weight1,
+                        lfsr_tag_setmk(tag2), +weight2, data2))));
         if (err) {
             return err;
         }
@@ -4321,19 +4329,17 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         int degenerate = lfsr_btree_commit(lfs, btree, bid, -1, &rbyd,
                 LFSR_BTREE_ATTRS(
                     LFSR_ATTR(rid, UNR, +weight1-rweight, NULL, 0),
-                    LFSR_ATTR_(rid-(rweight-1)+weight1-1, tag1, 0,
-                        buffer1, size1),
+                    LFSR_ATTR_DATA_(rid-(rweight-1)+weight1-1, tag1, 0, data1),
                     (lfsr_data_size(name) > 0
                         ? LFSR_ATTR_DATA(
                             rid-(rweight-1)+weight1, MKBRANCH, +weight2,
                             name)
                         : LFSR_ATTR_NOOP),
                     (lfsr_data_size(name) > 0
-                        ? LFSR_ATTR_(rid-(rweight-1)+weight1+weight2-1, tag2, 0,
-                            buffer2, size2)
-                        : LFSR_ATTR_(rid-(rweight-1)+weight1,
-                            lfsr_tag_setmk(tag2), +weight2,
-                            buffer2, size2))));
+                        ? LFSR_ATTR_DATA_(rid-(rweight-1)+weight1+weight2-1,
+                            tag2, 0, data2)
+                        : LFSR_ATTR_DATA_(rid-(rweight-1)+weight1,
+                            lfsr_tag_setmk(tag2), +weight2, data2))));
         if (degenerate < 0) {
             return degenerate;
         }
@@ -4812,7 +4818,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
 
             err = lfsr_btree_push(lfs, &lfs->mtree, 0, LFSR_TAG_MDIR, 1,
-                    buf, d);
+                    LFSR_DATA_BUF(buf, d));
             if (err) {
                 return err;
             }
@@ -5009,7 +5015,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             // TODO do we really need an explicit push when creating a new,
             // 2-sized btree?
             err = lfsr_btree_push(lfs, &lfs->mtree, 0, LFSR_TAG_MDIR, 1,
-                    NULL, 0);
+                    LFSR_DATA_NULL);
             if (err) {
                 return err;
             }
@@ -5032,8 +5038,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                 (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
                     ? sdata
                     : LFSR_DATA_NULL),
-                LFSR_TAG_MDIR, 1, buf1, d1,
-                LFSR_TAG_MDIR, 1, buf2, d2);
+                LFSR_TAG_MDIR, 1, LFSR_DATA_BUF(buf1, d1),
+                LFSR_TAG_MDIR, 1, LFSR_DATA_BUF(buf2, d2));
         if (err) {
             return err;
         }
