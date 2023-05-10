@@ -2481,17 +2481,65 @@ failed:;
 }
 
 static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfs_ssize_t start_id, lfs_ssize_t end_id,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // append each tag to the tree
     for (lfs_size_t i = 0; i < attr_count; i++) {
-        int err = lfsr_rbyd_append(lfs, rbyd,
-                attrs[i].id, attrs[i].tag, attrs[i].delta, attrs[i].data);
-        if (err) {
-            return err;
+        if (attrs[i].id >= start_id && (end_id < 0 || attrs[i].id < end_id)) {
+            int err = lfsr_rbyd_append(lfs, rbyd,
+                    attrs[i].id-lfs_smax32(start_id, 0),
+                    attrs[i].tag, attrs[i].delta, attrs[i].data);
+            if (err) {
+                return err;
+            }
+        }
+
+        // we need to make sure we keep start_id/end_id updated with
+        // weight changes
+        if (attrs[i].id < start_id) {
+            start_id += attrs[i].delta;
+        }
+        if (attrs[i].id < end_id) {
+            end_id += attrs[i].delta;
         }
     }
 
     return 0;
+}
+
+static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfs_ssize_t start_id, lfs_ssize_t end_id, bool drop_vestigial,
+        const lfsr_rbyd_t *source) {
+    // optionally drop the first name in our rbyd, a so-called "vestigial"
+    // name, see lfsr_btree_commit for why we need to do this
+    lfs_ssize_t id = start_id;
+    lfsr_tag_t tag = (drop_vestigial ? lfsr_tag_next(LFSR_TAG_BRANCH) : 0);
+    
+    // try to copy over tags
+    while (true) {
+        lfsr_data_t data;
+        int err = lfsr_rbyd_lookupnext(lfs, source, id, lfsr_tag_next(tag),
+                &id, &tag, NULL, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        if (err == LFS_ERR_NOENT || (end_id >= 0 && id >= end_id)) {
+            return 0;
+        }
+
+        // note we need to account for the missing weight of vestigial
+        // name tags in the following branch tag, which is why we
+        // calculate weight like this
+        lfs_size_t w = id-lfs_smax32(start_id, 0)+1 - rbyd->weight;
+
+        // append the attr
+        err = lfsr_rbyd_append(lfs, rbyd,
+                id-lfs_smax32(w-1, 0)-lfs_smax32(start_id, 0),
+                lfsr_tag_setmk(tag), +w, data);
+        if (err) {
+            return err;
+        }
+    }
 }
 
 static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
@@ -2522,7 +2570,8 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // append each tag to the tree
-    err = lfsr_rbyd_appendall(lfs, &rbyd_, attrs, attr_count);
+    err = lfsr_rbyd_appendall(lfs, &rbyd_, -1, -1,
+            attrs, attr_count);
     if (err) {
         goto failed;
     }
@@ -2679,7 +2728,7 @@ failed:;
 // exist in the rbyd namespace
 
 static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t init_id, lfs_size_t threshold,
+        lfs_ssize_t start_id, lfs_size_t threshold,
         lfs_size_t *lower_id_, lfs_size_t *lower_dsize_) {
     // determine if a given rbyd will be within the compaction threshold (1/2)
     // after compaction, note this uses a conservative estimate so the actual
@@ -2698,7 +2747,7 @@ static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     lfs_size_t dsize = 0;
     lfs_size_t real_dsize = sizeof(uint32_t);
 
-    lfs_ssize_t id = init_id;
+    lfs_ssize_t id = start_id;
     lfsr_tag_t tag = 0;
     while (true) {
         lfs_size_t w;
@@ -3532,57 +3581,29 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         // try to copy over tags
-        lfs_ssize_t id = 0;
-        lfsr_tag_t tag = 0;
-        while (true) {
-            lfsr_data_t data;
-            err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
-                    &id, &tag, NULL, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-
-            // Because it makes a lot of the split-sensitive cross-id
-            // operations easier, we can end up with an occasional
-            // "vestigial" name tag on the first id in a block. We make
-            // sure to ignore these during lookup, but it would be more
-            // complicated then it's worth to clean these up proactively.
-            //
-            // Discarding these during compaction is easy and prevents any
-            // real storage cost.
-            if (lfsr_tag_suptype(tag) == LFSR_TAG_NAME
-                    && rbyd_.weight == 0) {
-                continue;
-            }
-
-            // note we need to account for the missing weight of vestigial
-            // name tags in the following branch tag, which is why we
-            // calculate weight like this
-            lfs_size_t w = id+1 - rbyd_.weight;
-
-            // append the attr
-            err = lfsr_rbyd_append(lfs, &rbyd_,
-                    id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
-                    data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
+        //
+        // Because it makes a lot of the split-sensitive cross-id
+        // operations easier, we can end up with an occasional
+        // "vestigial" name tag on the first id in a block. We make
+        // sure to ignore these during lookup, but it would be more
+        // complicated then it's worth to clean these up proactively.
+        //
+        // Discarding these during compaction is easy and prevents any
+        // real storage cost.
+        err = lfsr_rbyd_compact(lfs, &rbyd_, 0, -1, true,
+                rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // append any pending attrs, it's up to upper
         // layers to make sure these always fit
-        for (lfs_size_t i = 0; i < attr_count; i++) {
-            err = lfsr_rbyd_append(lfs, &rbyd_,
-                    attrs[i].id, attrs[i].tag, attrs[i].delta,
-                    attrs[i].data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
+        err = lfsr_rbyd_appendall(lfs, &rbyd_, 0, -1,
+                attrs, attr_count);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // TODO do we really need a threshold for this? should we just
@@ -3662,51 +3683,22 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         // copy over tags < split_id
-        id = 0;
-        tag = 0;
-        while (true) {
-            lfs_size_t w;
-            lfsr_data_t data;
-            err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
-                    &id, &tag, &w, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-            if (err == LFS_ERR_NOENT || id >= split_id) {
-                break;
-            }
-
-            // append the attr
-            err = lfsr_rbyd_append(lfs, &rbyd_,
-                    id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
-                    data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
+        err = lfsr_rbyd_compact(lfs, &rbyd_, 0, split_id, true,
+                rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // append pending attrs < split_id
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        // TODO filter-like tag? "from" but from device?
-        lfs_size_t split_id_ = split_id;
-        for (lfs_size_t i = 0; i < attr_count; i++) {
-            if (attrs[i].id < (lfs_ssize_t)split_id_) {
-                err = lfsr_rbyd_append(lfs, &rbyd_,
-                        attrs[i].id, attrs[i].tag, attrs[i].delta,
-                        attrs[i].data);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
-            }
-
-            // we need to make sure we keep split_id updated with weight changes
-            if (attrs[i].id < (lfs_ssize_t)split_id_) {
-                split_id_ += attrs[i].delta;
-            }
+        err = lfsr_rbyd_appendall(lfs, &rbyd_, 0, split_id,
+                attrs, attr_count);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // finalize commit
@@ -3717,51 +3709,24 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
         
         // copy over tags >= split_id
-        id = split_id;
-        tag = 0;
-        while (true) {
-            lfs_size_t w;
-            lfsr_data_t data;
-            err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
-                    &id, &tag, &w, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-
-            // append the attr
-            err = lfsr_rbyd_append(lfs, &sibling,
-                    id-split_id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
-                    data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
+        err = lfsr_rbyd_compact(lfs, &sibling, split_id, -1, false,
+                rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // append pending attrs >= split_id
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        split_id_ = split_id;
-        for (lfs_size_t i = 0; i < attr_count; i++) {
-            if (attrs[i].id >= (lfs_ssize_t)split_id_) {
-                err = lfsr_rbyd_append(lfs, &sibling,
-                        attrs[i].id-split_id_, attrs[i].tag, attrs[i].delta,
-                        attrs[i].data);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
-            }
-
-            // we need to make sure we keep split_id updated with weight changes
-            if (attrs[i].id < (lfs_ssize_t)split_id_) {
-                split_id_ += attrs[i].delta;
-            }
+        err = lfsr_rbyd_appendall(lfs, &sibling, split_id, -1,
+                attrs, attr_count);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
+        
 
         // finalize commit
         err = lfsr_rbyd_commit(lfs, &sibling, NULL, 0);
@@ -3939,8 +3904,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // try  to add our sibling's tags to our rbyd
         lfs_size_t rweight_ = rbyd_.weight;
-        id = 0;
-        tag = 0;
+        lfs_ssize_t id = 0;
+        lfsr_tag_t tag = 0;
         while (true) {
             lfs_size_t w;
             lfsr_data_t data;
@@ -4606,7 +4571,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         // TODO do we need a backup rbyd here?
         // TODO this was a quick hack, should rbyd_ be the same as mdir_?
         lfsr_rbyd_t rbyd_ = mdir->rbyd;
-        int err = lfsr_rbyd_appendall(lfs, &rbyd_, attrs, attr_count);
+        int err = lfsr_rbyd_appendall(lfs, &rbyd_, -1, -1,
+                attrs, attr_count);
         if (err && err != LFS_ERR_RANGE) {
             //TODO should we also move if there is corruption here?
             return err;
@@ -4625,7 +4591,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
 
             // TODO yeah we're going to need a wide-rm
-            err = lfsr_rbyd_appendall(lfs, &rbyd_, LFSR_ATTRS(
+            err = lfsr_rbyd_appendall(lfs, &rbyd_, -1, -1, LFSR_ATTRS(
                     LFSR_ATTR(-1, RMMDIR, 0, NULL, 0),
                     LFSR_ATTR(-1, RMBTREE, 0, NULL, 0),
                     LFSR_ATTR_(-1, tag, 0, buf, d)));
@@ -4744,40 +4710,23 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         // try to copy over tags
         //
         // take care to skip superattrs (id=-1) if we're uninlining
-        lfs_ssize_t id = (uninlining ? 0 : -1);
-        lfsr_tag_t tag = 0;
-        while (true) {
-            lfs_size_t w;
-            lfsr_data_t data;
-            err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd, id, lfsr_tag_next(tag),
-                    &id, &tag, &w, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-
-            // if we don't have inlined mdirs, then we shouldn't have any
-            // ids>=0 in the mroot, this check is necessary as a part
-            // of uninlining, and it simplifies things to do this on every
-            // compact of the mroot
-            //
-            // note that unlining only triggers on compact, so we should never
-            // end up id>=0 outside of a compact
-            //
-            if (mdir_.mid < 0 && !lfsr_mtree_isinlined(lfs) && id >= 0) {
-                break;
-            }
-
-            // append the attr
-            err = lfsr_rbyd_append(lfs, &mdir_.rbyd,
-                    id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
-                    data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
+        //
+        // if we don't have inlined mdirs, then we shouldn't have any
+        // ids>=0 in the mroot, this check is necessary as a part
+        // of uninlining, and it simplifies things to do this on every
+        // compact of the mroot
+        //
+        // note that unlining only triggers on compact, so we should never
+        // end up id>=0 outside of a compact
+        //
+        err = lfsr_rbyd_compact(lfs, &mdir_.rbyd,
+                (uninlining ? 0 : -1),
+                (mdir_.mid < 0 && !lfsr_mtree_isinlined(lfs) ? 0 : -1),
+                false,
+                &mdir->rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // append any pending attrs
@@ -4788,19 +4737,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         // take care to skip superattrs (id=-1) if we're uninlining, or only
         // allow superattrs if we've uninlined and are now committing to our
         // mroot
-        for (lfs_size_t i = 0; i < attr_count; i++) {
-            if (!(uninlining && attrs[i].id < 0)
-                    && !(mdir_.mid < 0
-                        && !lfsr_mtree_isinlined(lfs)
-                        && attrs[i].id >= 0)) {
-                err = lfsr_rbyd_append(lfs, &mdir_.rbyd,
-                        attrs[i].id, attrs[i].tag, attrs[i].delta,
-                        attrs[i].data);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
-            }
+        err = lfsr_rbyd_appendall(lfs, &mdir_.rbyd,
+                (uninlining ? 0 : -1),
+                (mdir_.mid < 0 && !lfsr_mtree_isinlined(lfs) ? 0 : -1),
+                attrs, attr_count);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // append our mtree?
@@ -4813,7 +4756,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
 
             // TODO yeah we're going to need a wide-rm
-            err = lfsr_rbyd_appendall(lfs, &mdir_.rbyd, LFSR_ATTRS(
+            err = lfsr_rbyd_appendall(lfs, &mdir_.rbyd, -1, -1, LFSR_ATTRS(
                     LFSR_ATTR(-1, RMMDIR, 0, NULL, 0),
                     LFSR_ATTR(-1, RMBTREE, 0, NULL, 0),
                     LFSR_ATTR_(-1, tag, 0, buf, d)));
@@ -4977,29 +4920,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         // copy over tags < split_id
         //
         // take care to skip superattrs (id=-1) if we're uninlining
-        id = (uninlining ? 0 : -1);
-        tag = 0;
-        while (true) {
-            lfs_size_t w;
-            lfsr_data_t data;
-            err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd, id, lfsr_tag_next(tag),
-                    &id, &tag, &w, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-            if (err == LFS_ERR_NOENT || id >= split_id) {
-                break;
-            }
-
-            // append the attr
-            err = lfsr_rbyd_append(lfs, &mdir_.rbyd,
-                    id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
-                    data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
+        err = lfsr_rbyd_compact(lfs, &mdir_.rbyd,
+                (uninlining ? 0 : -1), split_id, false,
+                &mdir->rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // append pending attrs < split_id
@@ -5008,23 +4934,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         // maximum commit size
         //
         // take care to skip superattrs (id=-1) if we're uninlining
-        lfs_size_t split_id_ = split_id;
-        for (lfs_size_t i = 0; i < attr_count; i++) {
-            if (!(uninlining && attrs[i].id < 0)
-                    && attrs[i].id < (lfs_ssize_t)split_id_) {
-                err = lfsr_rbyd_append(lfs, &mdir_.rbyd,
-                        attrs[i].id, attrs[i].tag, attrs[i].delta,
-                        attrs[i].data);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
-            }
-
-            // we need to make sure we keep split_id updated with weight changes
-            if (attrs[i].id < (lfs_ssize_t)split_id_) {
-                split_id_ += attrs[i].delta;
-            }
+        err = lfsr_rbyd_appendall(lfs, &mdir_.rbyd,
+                (uninlining ? 0 : -1), split_id,
+                attrs, attr_count);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // finalize commit
@@ -5035,51 +4950,22 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         }
 
         // copy over tags >= split_id
-        id = split_id;
-        tag = 0;
-        while (true) {
-            lfs_size_t w;
-            lfsr_data_t data;
-            err = lfsr_rbyd_lookupnext(lfs, &mdir->rbyd, id, lfsr_tag_next(tag),
-                    &id, &tag, &w, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-
-            // append the attr
-            err = lfsr_rbyd_append(lfs, &sibling.rbyd,
-                    id-split_id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
-                    data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
+        err = lfsr_rbyd_compact(lfs, &sibling.rbyd, split_id, -1, false,
+                &mdir->rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // append pending attrs >= split_id
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        split_id_ = split_id;
-        for (lfs_size_t i = 0; i < attr_count; i++) {
-            if (attrs[i].id >= (lfs_ssize_t)split_id_) {
-                err = lfsr_rbyd_append(lfs, &sibling.rbyd,
-                        attrs[i].id-split_id_, attrs[i].tag, attrs[i].delta,
-                        attrs[i].data);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
-            }
-
-            // we need to make sure we keep split_id updated with weight changes
-            if (attrs[i].id < (lfs_ssize_t)split_id_) {
-                split_id_ += attrs[i].delta;
-            }
+        err = lfsr_rbyd_appendall(lfs, &sibling.rbyd, split_id, -1,
+                attrs, attr_count);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
 
         // finalize commit
