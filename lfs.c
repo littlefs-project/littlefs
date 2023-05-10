@@ -3044,8 +3044,7 @@ static lfs_ssize_t lfsr_btree_fromdisk(lfs_t *lfs, lfsr_btree_t *btree,
 
 // B-tree operations
 
-// TODO should there be a different lfsr_btree_lookupnext without rbyd_/rid_?
-static int lfsr_btree_lookupnext(lfs_t *lfs,
+static int lfsr_btree_lookupnext_(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t bid,
         lfs_size_t *bid_, lfsr_rbyd_t *rbyd_, lfs_ssize_t *rid_,
         lfsr_tag_t *tag_, lfs_size_t *weight_,
@@ -3181,13 +3180,22 @@ static int lfsr_btree_lookupnext(lfs_t *lfs,
     }
 }
 
+static int lfsr_btree_lookupnext(lfs_t *lfs,
+        const lfsr_btree_t *btree, lfs_size_t bid,
+        lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
+        lfsr_data_t *data_, bool validate) {
+    return lfsr_btree_lookupnext_(lfs, btree, bid,
+            bid_, NULL, NULL, tag_, weight_, data_,
+            validate);
+}
+
 static int lfsr_btree_lookup(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t bid,
         lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_, bool validate) {
     lfs_size_t bid_;
     int err = lfsr_btree_lookupnext(lfs, btree, bid,
-            &bid_, NULL, NULL, tag_, weight_, data_,
+            &bid_, tag_, weight_, data_,
             validate);
     if (err) {
         return err;
@@ -4077,7 +4085,7 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t rbyd = btree->root;
         lfs_ssize_t rid = -1;
         lfs_size_t rweight = 0;
-        int err = lfsr_btree_lookupnext(lfs, btree, bid_,
+        int err = lfsr_btree_lookupnext_(lfs, btree, bid_,
                 NULL, &rbyd, &rid, NULL, &rweight, NULL,
                 false);
         if (err && err != LFS_ERR_NOENT) {
@@ -4146,7 +4154,7 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_tag_t rtag;
         lfs_ssize_t rid;
         lfs_size_t rweight;
-        int err = lfsr_btree_lookupnext(lfs, btree, bid,
+        int err = lfsr_btree_lookupnext_(lfs, btree, bid,
                 NULL, &rbyd, &rid, &rtag, &rweight, NULL,
                 false);
         if (err) {
@@ -4201,7 +4209,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
         lfsr_tag_t rtag;
         lfs_ssize_t rid;
         lfs_size_t rweight;
-        int err = lfsr_btree_lookupnext(lfs, btree, bid,
+        int err = lfsr_btree_lookupnext_(lfs, btree, bid,
                 NULL, &rbyd, &rid, &rtag, &rweight, NULL,
                 false);
         if (err) {
@@ -4317,7 +4325,7 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t rbyd;
         lfs_ssize_t rid;
         lfs_size_t rweight;
-        int err = lfsr_btree_lookupnext(lfs, btree, bid,
+        int err = lfsr_btree_lookupnext_(lfs, btree, bid,
                 NULL, &rbyd, &rid, NULL, &rweight, NULL,
                 false);
         if (err) {

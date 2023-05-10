@@ -570,8 +570,7 @@ code = '''
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < n; i++) {
         lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                &id_, NULL, NULL, &tag_, &weight_,
-                &data_, VALIDATE) => 0;
+                &id_, &tag_, &weight_, &data_, VALIDATE) => 0;
         assert(id_ == i*W+W-1);
         assert(tag_ == LFSR_TAG_INLINED);
         assert(weight_ == W);
@@ -580,8 +579,7 @@ code = '''
         assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
     }
     lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-            &id_, NULL, NULL, &tag_, &weight_,
-            &data_, VALIDATE) => LFS_ERR_NOENT;
+            &id_, &tag_, &weight_, &data_, VALIDATE) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_push_sparse_fuzz]
@@ -721,8 +719,7 @@ code = '''
             }
 
             lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                    &id_, NULL, NULL, &tag_, &weight_,
-                    &data_, VALIDATE) => 0;
+                    &id_, &tag_, &weight_, &data_, VALIDATE) => 0;
             assert(id_ == weighted_id+sim_weights[i]-1);
             assert(tag_ == LFSR_TAG_INLINED);
             assert(weight_ == sim_weights[i]);
@@ -731,8 +728,7 @@ code = '''
             assert(memcmp(buffer, &sim[i], 1) == 0);
         }
         lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                &id_, NULL, NULL, &tag_, &weight_,
-                &data_, VALIDATE) => LFS_ERR_NOENT;
+                &id_, &tag_, &weight_, &data_, VALIDATE) => LFS_ERR_NOENT;
 
         // clean up sim
         free(sim);
@@ -1168,8 +1164,7 @@ code = '''
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < N; i++) {
         lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                &id_, NULL, NULL, &tag_, &weight_,
-                &data_, VALIDATE) => 0;
+                &id_, &tag_, &weight_, &data_, VALIDATE) => 0;
         assert(id_ == i*W+W-1);
         assert(tag_ == LFSR_TAG_INLINED);
         assert(weight_ == W);
@@ -1178,8 +1173,7 @@ code = '''
         assert(memcmp(buffer, &uppers[i % 26], 1) == 0);
     }
     lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-            &id_, NULL, NULL, &tag_, &weight_,
-            &data_, VALIDATE) => LFS_ERR_NOENT;
+            &id_, &tag_, &weight_, &data_, VALIDATE) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_update_sparse_fuzz]
@@ -1330,8 +1324,7 @@ code = '''
             }
 
             lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                    &id_, NULL, NULL, &tag_, &weight_,
-                    &data_, VALIDATE) => 0;
+                    &id_, &tag_, &weight_, &data_, VALIDATE) => 0;
             assert(id_ == weighted_id+sim_weights[i]-1);
             assert(tag_ == LFSR_TAG_INLINED);
             assert(weight_ == sim_weights[i]);
@@ -1340,8 +1333,7 @@ code = '''
             assert(memcmp(buffer, &sim[i], 1) == 0);
         }
         lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                &id_, NULL, NULL, &tag_, &weight_,
-                &data_, VALIDATE) => LFS_ERR_NOENT;
+                &id_, &tag_, &weight_, &data_, VALIDATE) => LFS_ERR_NOENT;
 
         // clean up sim
         free(sim);
@@ -2052,8 +2044,7 @@ code = '''
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < REMAINING; i++) {
         lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                &id_, NULL, NULL, &tag_, &weight_,
-                &data_, VALIDATE) => 0;
+                &id_, &tag_, &weight_, &data_, VALIDATE) => 0;
         assert(id_ == i*W+W-1);
         assert(tag_ == LFSR_TAG_INLINED);
         assert(weight_ == W);
@@ -2063,8 +2054,7 @@ code = '''
     }
 
     lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-            &id_, NULL, NULL, &tag_, &weight_,
-            &data_, VALIDATE) => 0;
+            &id_, &tag_, &weight_, &data_, VALIDATE) => 0;
     assert(id_ == REMAINING*W+W-1);
     assert(tag_ == LFSR_TAG_INLINED);
     assert(weight_ == W);
@@ -2073,8 +2063,7 @@ code = '''
     assert(memcmp(buffer, "R", 1) == 0);
 
     lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-            &id_, NULL, NULL, &tag_, &weight_,
-            &data_, VALIDATE) => LFS_ERR_NOENT;
+            &id_, &tag_, &weight_, &data_, VALIDATE) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_pop_sparse_fuzz]
@@ -2238,8 +2227,7 @@ code = '''
             }
 
             lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                    &id_, NULL, NULL, &tag_, &weight_,
-                    &data_, VALIDATE) => 0;
+                    &id_, &tag_, &weight_, &data_, VALIDATE) => 0;
             assert(id_ == weighted_id+sim_weights[i]-1);
             assert(tag_ == LFSR_TAG_INLINED);
             assert(weight_ == sim_weights[i]);
@@ -2248,8 +2236,7 @@ code = '''
             assert(memcmp(buffer, &sim[i], 1) == 0);
         }
         lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                &id_, NULL, NULL, &tag_, &weight_,
-                &data_, VALIDATE) => LFS_ERR_NOENT;
+                &id_, &tag_, &weight_, &data_, VALIDATE) => LFS_ERR_NOENT;
 
         // clean up sim
         free(sim);
@@ -2628,8 +2615,7 @@ code = '''
             }
 
             lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                    &id_, NULL, NULL, &tag_, &weight_,
-                    &data_, VALIDATE) => 0;
+                    &id_, &tag_, &weight_, &data_, VALIDATE) => 0;
             assert(id_ == weighted_id+sim_weights[i]-1);
             assert(tag_ == LFSR_TAG_INLINED);
             assert(weight_ == sim_weights[i]);
@@ -2638,8 +2624,7 @@ code = '''
             assert(memcmp(buffer, &sim[i], 1) == 0);
         }
         lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                &id_, NULL, NULL, &tag_, &weight_,
-                &data_, VALIDATE) => LFS_ERR_NOENT;
+                &id_, &tag_, &weight_, &data_, VALIDATE) => LFS_ERR_NOENT;
 
         // clean up sim
         free(sim);
@@ -2951,8 +2936,7 @@ code = '''
             }
 
             lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                    &id_, NULL, NULL, &tag_, &weight_,
-                    &data_, VALIDATE) => 0;
+                    &id_, &tag_, &weight_, &data_, VALIDATE) => 0;
             assert(id_ == weighted_id+sim_weights[i]-1);
             assert(tag_ == LFSR_TAG_INLINED);
             assert(weight_ == sim_weights[i]);
@@ -2961,8 +2945,7 @@ code = '''
             assert(memcmp(buffer, &sim[i], 1) == 0);
         }
         lfsr_btree_lookupnext(&lfs, &btree, id_+1,
-                &id_, NULL, NULL, &tag_, &weight_,
-                &data_, VALIDATE) => LFS_ERR_NOENT;
+                &id_, &tag_, &weight_, &data_, VALIDATE) => LFS_ERR_NOENT;
 
         // clean up sim
         free(sim);
