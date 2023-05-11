@@ -4407,8 +4407,12 @@ static lfs_ssize_t lfsr_mpair_fromdisk(lfs_t *lfs, lfsr_mpair_t *mpair,
     return d;
 }
 
-static lfsr_mpair_t lfsr_mdir_mpair(const lfsr_mdir_t *mdir) {
+static inline lfsr_mpair_t lfsr_mdir_mpair(const lfsr_mdir_t *mdir) {
     return LFSR_MPAIR(mdir->rbyd.block, mdir->other_block);
+}
+
+static inline lfs_size_t lfsr_mdir_weight(const lfsr_mdir_t *mdir) {
+    return mdir->rbyd.weight;
 }
 
 static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t mid) {
@@ -4519,7 +4523,7 @@ static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
 // mtree is the core tree of mdirs in littlefs
 
 static inline int lfsr_mtree_isinlined(lfs_t *lfs) {
-    return lfsr_btree_isnull(&lfs->mtree);
+    return lfsr_btree_weight(&lfs->mtree) == 0;
 }
 
 static inline lfs_ssize_t lfsr_mtree_weight(lfs_t *lfs) {
@@ -4574,13 +4578,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
     // TODO need both dirty_mtree and uninlining?
     bool dirty_mtree = false;
+    // TODO this can be done better, we shouldn't need all these different flags
+    bool uninlined = false;
 
     while (true) {
         // try to commit
-        // TODO do we need a backup rbyd here?
-        // TODO this was a quick hack, should rbyd_ be the same as mdir_?
-        lfsr_rbyd_t rbyd_ = mdir->rbyd;
-        int err = lfsr_rbyd_appendall(lfs, &rbyd_, -1, -1,
+        lfsr_mdir_t mdir_ = *mdir;
+        int err = lfsr_rbyd_appendall(lfs, &mdir_.rbyd, -1, -1,
                 attrs, attr_count);
         if (err && err != LFS_ERR_RANGE) {
             //TODO should we also move if there is corruption here?
@@ -4600,7 +4604,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
 
             // TODO yeah we're going to need a wide-rm
-            err = lfsr_rbyd_appendall(lfs, &rbyd_, -1, -1, LFSR_ATTRS(
+            err = lfsr_rbyd_appendall(lfs, &mdir_.rbyd, -1, -1, LFSR_ATTRS(
                     LFSR_ATTR(-1, RMMDIR, 0, NULL, 0),
                     LFSR_ATTR(-1, RMBTREE, 0, NULL, 0),
                     LFSR_ATTR_(-1, tag, 0, buf, d)));
@@ -4613,25 +4617,56 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
         }
 
-        // finalize commit
-        err = lfsr_rbyd_commit(lfs, &rbyd_, NULL, 0);
-        if (err && err != LFS_ERR_RANGE) {
-            //TODO should we also move if there is corruption here?
-            return err;
-        }
-        if (err) {
-            goto compact;
-        }
-        mdir->rbyd = rbyd_;
+        if (mdir->mid >= 0 && mdir_.rbyd.weight == 0) {
+            // if our weight goes to zero, drop our mdir
+            lfs_cache_zero(lfs, &lfs->pcache);
+            LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+                    mdir_.rbyd.block, mdir_.other_block);
 
-        // TODO synchronize open mdirs?
-        // synchronize mroot
-        if (mdir->mid == -1 && mdir != &lfs->mroot) {
-            lfs->mroot = *mdir;
-        }
+            // remove from mtree
+            err = lfsr_btree_pop(lfs, &lfs->mtree, mdir->mid);
+            if (err) {
+                return err;
+            }
 
-        // successful commit
-        break;
+            // update our mdir, prepare mroot
+            mdir_.mid = -3;
+            *mdir = mdir_;
+            mdir = &lfs->mroot;
+
+            // TODO synchronize open mdirs?
+            // TODO wait where do we synchronize open mdirs that makes sense
+            // if we fail after this point?
+
+            // mark mtree as dirty and tail recurse to write it and any pending
+            // superattrs to the mroot
+            dirty_mtree = true;
+            attr_count = 0;
+            continue;
+
+        } else {
+            // finalize commit
+            err = lfsr_rbyd_commit(lfs, &mdir_.rbyd, NULL, 0);
+            if (err && err != LFS_ERR_RANGE) {
+                //TODO should we also move if there is corruption here?
+                return err;
+            }
+            if (err) {
+                goto compact;
+            }
+
+            // update our mdir
+            *mdir = mdir_;
+
+            // TODO synchronize open mdirs?
+            // synchronize mroot
+            if (mdir->mid == -1 && mdir != &lfs->mroot) {
+                lfs->mroot = *mdir;
+            }
+
+            // successful commit
+            break;
+        }
 
     compact:;
         // can't commit, try to compact
@@ -4641,7 +4676,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
         // normally the new mdir is just the flipped version of our
         // current mdir
-        lfsr_mdir_t mdir_ = *mdir;
+        mdir_ = *mdir;
 
         bool uninlining = false;
         lfs_size_t lower_id;
@@ -4730,7 +4765,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         //
         err = lfsr_rbyd_compact(lfs, &mdir_.rbyd,
                 (uninlining ? 0 : -1),
-                (mdir_.mid < 0 && !lfsr_mtree_isinlined(lfs) ? 0 : -1),
+                (uninlined ? 0 : -1),
                 false,
                 &mdir->rbyd);
         if (err) {
@@ -4748,7 +4783,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         // mroot
         err = lfsr_rbyd_appendall(lfs, &mdir_.rbyd,
                 (uninlining ? 0 : -1),
-                (mdir_.mid < 0 && !lfsr_mtree_isinlined(lfs) ? 0 : -1),
+                (uninlined ? 0 : -1),
                 attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -4778,73 +4813,99 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
         }
 
-        // finalize commit
-        err = lfsr_rbyd_commit(lfs, &mdir_.rbyd, NULL, 0);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
+        // TODO the number of conditions here feels like a mess, it would be
+        // nice if this could be cleaned up
+        if (mdir->mid >= 0 && mdir_.rbyd.weight == 0) {
+            // if our weight goes to zero, drop our mdir
+            lfs_cache_zero(lfs, &lfs->pcache);
+            LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+                    mdir_.rbyd.block, mdir_.other_block);
 
-        // TODO maybe mdir->mid != mdir_.mid can be used as uninlining?
-        if (!uninlining) {
-            // update our mdir
-            *mdir = mdir_;
-
-            // TODO deduplicate mdir synchronization?
-            // TODO synchronize open mdirs?
-            // synchronize mroot
-            if (mdir->mid == -1 && mdir != &lfs->mroot) {
-                lfs->mroot = *mdir;
+            // weird case, going to zero while uninlining
+            //
+            // we need to commit our superattrs to the mroot, but that's it
+            if (!uninlining) {
+                // remove from mtree
+                err = lfsr_btree_pop(lfs, &lfs->mtree, mdir->mid);
+                if (err) {
+                    return err;
+                }
             }
-
-            break;
-
-        } else {
+            
             // update our mdir, prepare mroot
-            if (*rid < 0) {
-                // wait to update mdir after supdermdir update
-            } else {
-                *mdir = mdir_;
-                mdir = &lfs->mroot;
-            }
+            mdir_.mid = -3;
+            *mdir = mdir_;
+            mdir = &lfs->mroot;
 
             // TODO synchronize open mdirs?
             // TODO wait where do we synchronize open mdirs that makes sense
             // if we fail after this point?
 
-            // update our mtree
-            uint8_t buf[LFSR_MPAIR_DSIZE];
-            lfs_ssize_t d = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&mdir_),
-                    buf);
-            if (d < 0) {
-                return d;
+            // mark mtree as dirty and tail recurse to write it and any
+            // pending superattrs to the mroot
+            dirty_mtree = true;
+            if (!uninlining) {
+                attr_count = 0;
+            } else {
+                uninlined = true;
             }
+            continue;
 
-            err = lfsr_btree_push(lfs, &lfs->mtree, 0, LFSR_TAG_MDIR, 1,
-                    LFSR_DATA_BUF(buf, d));
+        } else {
+            // finalize commit
+            err = lfsr_rbyd_commit(lfs, &mdir_.rbyd, NULL, 0);
             if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
 
-            // mark mtree as dirty and tail recurse to write it and any pending
-            // superattrs to the mroot
-            dirty_mtree = true;
-            continue;
+            // TODO maybe mdir->mid != mdir_.mid can be used as uninlining?
+            if (!uninlining) {
+                // update our mdir
+                *mdir = mdir_;
 
-//            // prepare commit to mroot
-//            lfsr_tag_t tag;
-//            d = lfsr_btree_todisk(lfs, &lfs->mtree, &tag, recurse_buf);
-//            if (d < 0) {
-//                return d;
-//            }
-//
-//            // TODO yeah we're going to need a wide-rm
-//            recurse_attrs[0] = LFSR_ATTR(-1, RMMDIR, 0, NULL, 0);
-//            recurse_attrs[1] = LFSR_ATTR(-1, RMBTREE, 0, NULL, 0);
-//            recurse_attrs[2] = LFSR_ATTR_(-1, tag, 0, recurse_buf, d);
-//            attrs = recurse_attrs;
-//            attr_count = 3;
-//            continue;
+                // TODO deduplicate mdir synchronization?
+                // TODO synchronize open mdirs?
+                // synchronize mroot
+                if (mdir->mid == -1 && mdir != &lfs->mroot) {
+                    lfs->mroot = *mdir;
+                }
+
+                break;
+
+            } else {
+                // update our mdir, prepare mroot
+                if (*rid < 0) {
+                    // wait to update mdir after supdermdir update
+                } else {
+                    *mdir = mdir_;
+                    mdir = &lfs->mroot;
+                }
+
+                // TODO synchronize open mdirs?
+                // TODO wait where do we synchronize open mdirs that makes sense
+                // if we fail after this point?
+
+                // update our mtree
+                uint8_t buf[LFSR_MPAIR_DSIZE];
+                lfs_ssize_t d = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&mdir_),
+                        buf);
+                if (d < 0) {
+                    return d;
+                }
+
+                err = lfsr_btree_push(lfs, &lfs->mtree, 0, LFSR_TAG_MDIR, 1,
+                        LFSR_DATA_BUF(buf, d));
+                if (err) {
+                    return err;
+                }
+
+                // mark mtree as dirty and tail recurse to write it and any
+                // pending superattrs to the mroot
+                dirty_mtree = true;
+                uninlined = true;
+                continue;
+            }
         }
 
     split:;
@@ -4951,11 +5012,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             return err;
         }
 
-        // finalize commit
-        err = lfsr_rbyd_commit(lfs, &mdir_.rbyd, NULL, 0);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
+        if (mdir_.rbyd.weight == 0) {
+            // if our weight goes to zero, drop our mdir
+            lfs_cache_zero(lfs, &lfs->pcache);
+
+        } else {
+            // finalize commit
+            err = lfsr_rbyd_commit(lfs, &mdir_.rbyd, NULL, 0);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
         }
 
         // copy over tags >= split_id
@@ -4977,97 +5044,210 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             return err;
         }
 
-        // finalize commit
-        err = lfsr_rbyd_commit(lfs, &sibling.rbyd, NULL, 0);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
+        if (sibling.rbyd.weight == 0) {
+            // if our weight goes to zero, drop our mdir
+            lfs_cache_zero(lfs, &lfs->pcache);
 
-        // lookup first name in sibling to use as the split name
-        //
-        // note we need to do this after playing out pending attrs in case
-        // they introduce a new name!
-        lfsr_tag_t stag;
-        lfsr_data_t sdata;
-        err = lfsr_rbyd_lookupnext(lfs, &sibling.rbyd, 0, LFSR_TAG_NAME,
-                NULL, &stag, NULL, &sdata);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
-        }
-
-        // update our mdir, prepare mroot
-        if (uninlining && *rid < 0) {
-            // wait to update mdir after supdermdir update
-        } else if (*rid < split_id) {
-            *mdir = mdir_;
-            mdir = &lfs->mroot;
-        } else if (*rid >= split_id) {
-            *mdir = sibling;
-            *rid -= split_id;
-            mdir = &lfs->mroot;
-        }
-
-        // TODO synchronize open mdirs?
-        // TODO wait where do we synchronize open mdirs that makes sense
-        // if we fail after this point?
-
-        // update our mtree
-        if (uninlining) {
-            // TODO do we really need an explicit push when creating a new,
-            // 2-sized btree?
-            err = lfsr_btree_push(lfs, &lfs->mtree, 0, LFSR_TAG_MDIR, 1,
-                    LFSR_DATA_NULL);
+        } else {
+            // finalize commit
+            err = lfsr_rbyd_commit(lfs, &sibling.rbyd, NULL, 0);
             if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
         }
 
-        uint8_t buf1[LFSR_MPAIR_DSIZE];
-        lfs_ssize_t d1 = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&mdir_),
-                buf1);
-        if (d1 < 0) {
-            return d1;
-        }
-        uint8_t buf2[LFSR_MPAIR_DSIZE];
-        lfs_ssize_t d2 = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&sibling),
-                buf2);
-        if (d2 < 0) {
-            return d2;
-        }
+        if (mdir_.rbyd.weight > 0 && sibling.rbyd.weight > 0) {
+            // lookup first name in sibling to use as the split name
+            //
+            // note we need to do this after playing out pending attrs in case
+            // they introduce a new name!
+            lfsr_tag_t stag;
+            lfsr_data_t sdata;
+            err = lfsr_rbyd_lookupnext(lfs, &sibling.rbyd, 0, LFSR_TAG_NAME,
+                    NULL, &stag, NULL, &sdata);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
 
-        err = lfsr_btree_split(lfs, &lfs->mtree, mdir_.mid,
-                (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
-                    ? sdata
-                    : LFSR_DATA_NULL),
-                LFSR_TAG_MDIR, 1, LFSR_DATA_BUF(buf1, d1),
-                LFSR_TAG_MDIR, 1, LFSR_DATA_BUF(buf2, d2));
-        if (err) {
-            return err;
-        }
+            // update our mdir, prepare mroot
+            if (uninlining && *rid < 0) {
+                // wait to update mdir after supdermdir update
+            } else if (*rid < split_id) {
+                *mdir = mdir_;
+                mdir = &lfs->mroot;
+            } else if (*rid >= split_id) {
+                *mdir = sibling;
+                *rid -= split_id;
+                mdir = &lfs->mroot;
+            }
 
-        // mark mtree as dirty and tail recurse to write it to the mroot
-        dirty_mtree = true;
-        // only include superattrs if we're uninlining
-        if (!uninlining) {
-            attr_count = 0;
-        }
-        continue;
+            // TODO synchronize open mdirs?
+            // TODO wait where do we synchronize open mdirs that makes sense
+            // if we fail after this point?
 
-//        // prepare commit to mroot
-//        lfs_ssize_t d = lfsr_btree_todisk(lfs, &lfs->mtree, &tag, recurse_buf);
-//        if (d < 0) {
-//            return d;
-//        }
-//
-//        // TODO yeah we're going to need a wide-rm
-//        recurse_attrs[0] = LFSR_ATTR(-1, RMMDIR, 0, NULL, 0);
-//        recurse_attrs[1] = LFSR_ATTR(-1, RMBTREE, 0, NULL, 0);
-//        recurse_attrs[2] = LFSR_ATTR_(-1, tag, 0, recurse_buf, d);
-//        attrs = recurse_attrs;
-//        attr_count = 3;
-//        continue;
+            // update our mtree
+            if (uninlining) {
+                // TODO do we really need an explicit push when creating a new,
+                // 2-sized btree?
+                err = lfsr_btree_push(lfs, &lfs->mtree, 0, LFSR_TAG_MDIR, 1,
+                        LFSR_DATA_NULL);
+                if (err) {
+                    return err;
+                }
+            }
+
+            uint8_t buf1[LFSR_MPAIR_DSIZE];
+            lfs_ssize_t d1 = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&mdir_),
+                    buf1);
+            if (d1 < 0) {
+                return d1;
+            }
+            uint8_t buf2[LFSR_MPAIR_DSIZE];
+            lfs_ssize_t d2 = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&sibling),
+                    buf2);
+            if (d2 < 0) {
+                return d2;
+            }
+
+            err = lfsr_btree_split(lfs, &lfs->mtree, mdir_.mid,
+                    (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
+                        ? sdata
+                        : LFSR_DATA_NULL),
+                    LFSR_TAG_MDIR, 1, LFSR_DATA_BUF(buf1, d1),
+                    LFSR_TAG_MDIR, 1, LFSR_DATA_BUF(buf2, d2));
+            if (err) {
+                return err;
+            }
+
+            // mark mtree as dirty and tail recurse to write it to the mroot
+            dirty_mtree = true;
+            // only include superattrs if we're uninlining
+            if (!uninlining) {
+                attr_count = 0;
+            } else {
+                uninlined = true;
+            }
+            continue;
+
+        // weird case, one sibling went to zero while splitt
+        } else if (mdir_.rbyd.weight > 0 || sibling.rbyd.weight > 0) {
+            // set mdir_ to whichever sibling has weight still
+            if (mdir_.rbyd.weight == 0) {
+                LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+                        mdir_.rbyd.block, mdir_.other_block);
+                sibling.mid -= 1;
+                mdir_ = sibling;
+            } else {
+                LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+                        sibling.rbyd.block, sibling.other_block);
+            }
+
+            // TODO maybe mdir->mid != mdir_.mid can be used as uninlining?
+            if (!uninlining) {
+                // update our mdir
+                *mdir = mdir_;
+
+                // TODO deduplicate mdir synchronization?
+                // TODO synchronize open mdirs?
+                // synchronize mroot
+                if (mdir->mid == -1 && mdir != &lfs->mroot) {
+                    lfs->mroot = *mdir;
+                }
+
+                // update our mtree
+                uint8_t buf[LFSR_MPAIR_DSIZE];
+                lfs_ssize_t d = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&mdir_),
+                        buf);
+                if (d < 0) {
+                    return d;
+                }
+
+                err = lfsr_btree_update(lfs, &lfs->mtree,
+                        mdir->mid, LFSR_TAG_MDIR, 1,
+                        LFSR_DATA_BUF(buf, d));
+                if (err) {
+                    return err;
+                }
+
+                // mark mtree as dirty and tail recurse to write it and any
+                // pending superattrs to the mroot
+                dirty_mtree = true;
+                attr_count = 0;
+                continue;
+
+            } else {
+                // TODO how the heck does rid interact with mdir splits
+                // + lazy attrs + mdir drops, this seems hard!
+                // update our mdir, prepare mroot
+                if (*rid < 0) {
+                    // wait to update mdir after supdermdir update
+                } else {
+                    *mdir = mdir_;
+                    mdir = &lfs->mroot;
+                }
+
+                // TODO synchronize open mdirs?
+                // TODO wait where do we synchronize open mdirs that makes sense
+                // if we fail after this point?
+
+                // update our mtree
+                uint8_t buf[LFSR_MPAIR_DSIZE];
+                lfs_ssize_t d = lfsr_mpair_todisk(lfs, lfsr_mdir_mpair(&mdir_),
+                        buf);
+                if (d < 0) {
+                    return d;
+                }
+
+                err = lfsr_btree_push(lfs, &lfs->mtree, 0, LFSR_TAG_MDIR, 1,
+                        LFSR_DATA_BUF(buf, d));
+                if (err) {
+                    return err;
+                }
+
+                // mark mtree as dirty and tail recurse to write it and any
+                // pending superattrs to the mroot
+                dirty_mtree = true;
+                uninlined = true;
+                continue;
+            }
+
+        // weird case, both siblings went to zero, so this split actually ends
+        // up dropping both mdirs
+        } else {
+            LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+                    mdir_.rbyd.block, mdir_.other_block);
+            LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+                    sibling.rbyd.block, sibling.other_block);
+            // even weirder this can happen while uninlining
+            if (!uninlining) {
+                // remove from mtree
+                err = lfsr_btree_pop(lfs, &lfs->mtree, mdir->mid);
+                if (err) {
+                    return err;
+                }
+            }
+            
+            // update our mdir, prepare mroot
+            mdir_.mid = -3;
+            *mdir = mdir_;
+            mdir = &lfs->mroot;
+
+            // TODO synchronize open mdirs?
+            // TODO wait where do we synchronize open mdirs that makes sense
+            // if we fail after this point?
+
+            // mark mtree as dirty and tail recurse to write it and any
+            // pending superattrs to the mroot
+            dirty_mtree = true;
+            if (!uninlining) {
+                attr_count = 0;
+            } else {
+                uninlined = true;
+            }
+            continue;
+        }
     }
 
     // done

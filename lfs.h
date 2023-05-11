@@ -371,6 +371,7 @@ typedef union lfsr_btree {
 } lfsr_btree_t;
 
 typedef struct lfsr_mdir {
+    //  -3 => deleted
     //  -2 => an out-of-tree mdir
     //  -1 => mroot
     // >=0 => bid in the mtree
