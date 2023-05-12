@@ -58,13 +58,176 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+## Splitting operations ##
+
+# specific split corner cases
+[cases.test_mtree_uninline]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // prepare mroot with a large attr so the next entry can not fit
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    // create a large entry that needs to be uninlined (but not split!)
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // assert mdir was unininlined correctly
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot now has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+
+    // assert that our entry is still in the mtree
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_INLINED,
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mtree_uninline_split]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create 2 large entries that needs to be uninlined and split
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(1, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // assert mdirs were unininlined and split
+    assert(lfsr_mtree_weight(&lfs) == 2);
+    // assert mroot now has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that our entries are still in the mtree
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+    lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_INLINED,
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+
+    lfsr_mtree_lookup(&lfs, 1, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+    lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_INLINED,
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mtree_split]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an uninlined mdir
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // assert mdir was unininlined correctly
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot now has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // now add another large entry to the mdir, forcing a split
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    memset(buffer, alphas[2 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(1, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mdir to compact
+    mdir.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, NULL, 0) => 0;
+
+    // assert mdir was split correctly
+    assert(lfsr_mtree_weight(&lfs) == 2);
+    // assert mroot still has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+
+    // assert that our entries are still in the mtree
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+    lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_INLINED,
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+
+    lfsr_mtree_lookup(&lfs, 1, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+    lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_INLINED,
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
 # TODO test many mroots
 
 # try creating a range of entries that may or may not split our mtree
-[cases.test_mtree_split]
+[cases.test_mtree_split_many]
 defines.N = [5, 10, 20, 40, 80, 160, 320]
-defines.SIZE = ['1', 'BLOCK_SIZE/8']
-if = 'SIZE == 1 || N <= 20'
 defines.FORCE_COMPACTION = [false, true]
 in = 'lfs.c'
 code = '''
@@ -85,13 +248,12 @@ code = '''
             lfs.mroot.rbyd.off = cfg->block_size;
         }
        
-        uint8_t buffer[SIZE];
-        memset(buffer, alphas[i % 26], SIZE);
         lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                LFSR_ATTR(rid, MKINLINED, +1, buffer, SIZE))) => 0;
+                LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
 
+        uint8_t buffer[4];
         lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                buffer, SIZE) => SIZE;
+                buffer, 4) => 1;
         assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
 
         rid += 1;
@@ -107,9 +269,9 @@ code = '''
         for (lfs_ssize_t rid = 0;
                 rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
                 rid++) {
-            uint8_t buffer[SIZE];
+            uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                    buffer, SIZE) => SIZE;
+                    buffer, 4) => 1;
             assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
             i += 1;
         }
@@ -122,8 +284,6 @@ code = '''
 # create random entries
 [cases.test_mtree_split_fuzz]
 defines.N = [5, 10, 20, 40, 80, 160]
-defines.SIZE = ['1', 'BLOCK_SIZE/8']
-if = 'SIZE == 1 || N <= 20'
 defines.FORCE_COMPACTION = [false, true]
 defines.SAMPLES = 100
 # -1 => all pseudo-random seeds
@@ -166,14 +326,13 @@ code = '''
             }
 
             // add to rbyd, potentially splitting the mdir
-            uint8_t buffer[SIZE];
-            memset(buffer, alphas[i % 26], SIZE);
             lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                    LFSR_ATTR(rid, MKINLINED, +1, buffer, SIZE))) => 0;
+                    LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
 
             // make sure we can look up the new entry
+            uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                    buffer, SIZE) => SIZE;
+                    buffer, 4) => 1;
             assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
 
             count += 1;
@@ -190,9 +349,9 @@ code = '''
             for (lfs_ssize_t rid = 0;
                     rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
                     rid++) {
-                uint8_t buffer[SIZE];
+                uint8_t buffer[4];
                 lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, SIZE) => SIZE;
+                        buffer, 4) => 1;
 
                 count_ += 1;
             }
@@ -206,12 +365,476 @@ code = '''
     }
 '''
 
-# try creating an mtree and then dropping mdirs
+## Dropping operations ##
+
+# specific drop corner cases
 [cases.test_mtree_drop]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an uninlined mdir
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // assert mdir was unininlined correctly
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot now has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // remove the entry, forcing the mdir to be dropped
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+
+    // assert mdir was dropped
+    assert(lfsr_mtree_weight(&lfs) == 0);
+    // assert mroot still has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mtree_drop_compact]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an uninlined mdir
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // assert mdir was unininlined correctly
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot now has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // remove the entry, forcing the mdir to be dropped
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    // force mdir to compact while we're removing
+    mdir.rbyd.off = BLOCK_SIZE;
+
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+
+    // assert mdir was dropped
+    assert(lfsr_mtree_weight(&lfs) == 0);
+    // assert mroot still has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mtree_drop_uninline]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an uninlined mdir
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+
+    // remove the entry as we compact, forcing the mdir to be dropped
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+
+    // assert mdir was dropped
+    assert(lfsr_mtree_weight(&lfs) == 0);
+    // assert mroot has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mtree_drop_uninline_split_l]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an mdir that needs to be split
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(1, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+
+    // remove the left entry as we compact, forcing the left
+    // mdir to be dropped
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+
+    // assert mdir was dropped
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that one entry is still in the mtree
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_INLINED,
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mtree_drop_uninline_split_r]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an mdir that needs to be split
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(1, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+
+    // remove the right entry as we compact, forcing the right mdir
+    // to be dropped
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(1, MKUNR, -1, NULL, 0))) => 0;
+
+    // assert mdir was dropped
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that one entry is still in the mtree
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_INLINED,
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mtree_drop_uninline_split_both]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an mdir that needs to be split
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(1, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+
+    // remove both entries as we compact, forcing both mdirs to be dropped
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKUNR, -1, NULL, 0),
+            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+
+    // assert mdir was dropped
+    assert(lfsr_mtree_weight(&lfs) == 0);
+    // assert mroot has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mtree_drop_split_l]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an uninlined mdir
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // assert mdir was unininlined correctly
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot now has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // now add another large entry to the mdir, forcing a split
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    memset(buffer, alphas[2 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(1, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mdir to compact
+    mdir.rbyd.off = BLOCK_SIZE;
+
+    // remove the left entry as we compact, forcing the left
+    // mdir to be dropped
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){0}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+
+    // assert mdir was dropped
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+
+    // assert that one entry is still in the mtree
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_INLINED,
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mtree_drop_split_r]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an uninlined mdir
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // assert mdir was unininlined correctly
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot now has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // now add another large entry to the mdir, forcing a split
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    memset(buffer, alphas[2 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(1, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mdir to compact
+    mdir.rbyd.off = BLOCK_SIZE;
+
+    // remove the right entry as we compact, forcing the right
+    // mdir to be dropped
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(1, MKUNR, -1, NULL, 0))) => 0;
+
+    // assert mdir was dropped
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+
+    // assert that one entry is still in the mtree
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_INLINED,
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mtree_drop_split_both]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an uninlined mdir
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // assert mdir was unininlined correctly
+    assert(lfsr_mtree_weight(&lfs) == 1);
+    // assert mroot now has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // now add another large entry to the mdir, forcing a split
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    memset(buffer, alphas[2 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(1, MKINLINED, +1, buffer, SIZE))) => 0;
+
+    // force mdir to compact
+    mdir.rbyd.off = BLOCK_SIZE;
+
+    // remove both entries as we compact, forcing both mdirs to be dropped
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(0, MKUNR, -1, NULL, 0),
+            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+
+    // assert mdir was dropped
+    assert(lfsr_mtree_weight(&lfs) == 0);
+    // assert mroot has no entries
+    assert(lfs.mroot.rbyd.weight == 0);
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# try creating an mtree and then dropping mdirs
+[cases.test_mtree_drop_many]
 defines.N = [5, 10, 20, 40, 80, 160, 320]
 defines.REMAINING = [20, 5, 1, 0]
-defines.SIZE = ['1', 'BLOCK_SIZE/8']
-if = 'N > REMAINING && (SIZE == 1 || N <= 20)'
+if = 'N > REMAINING'
 defines.FORCE_COMPACTION = [false, true]
 in = 'lfs.c'
 code = '''
@@ -226,13 +849,12 @@ code = '''
 
     lfs_ssize_t rid = 0;
     for (lfs_size_t i = 0; i < N; i++) {
-        uint8_t buffer[SIZE];
-        memset(buffer, alphas[i % 26], SIZE);
         lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                LFSR_ATTR(rid, MKINLINED, +1, buffer, SIZE))) => 0;
+                LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
 
+        uint8_t buffer[4];
         lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                buffer, SIZE) => SIZE;
+                buffer, 4) => 1;
         assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
 
         rid += 1;
@@ -267,9 +889,9 @@ code = '''
         for (lfs_ssize_t rid = 0;
                 rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
                 rid++) {
-            uint8_t buffer[SIZE];
+            uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                    buffer, SIZE) => SIZE;
+                    buffer, 4) => 1;
             assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
             i += 1;
         }
@@ -281,9 +903,7 @@ code = '''
 
 # this one has some pretty nasty corner cases
 [cases.test_mtree_repeated_drop]
-defines.N = [5, 10, 20, 40, 80]
-defines.SIZE = ['1', 'BLOCK_SIZE/8']
-if = 'SIZE == 1 || N <= 5'
+defines.N = [5, 10, 20, 40]
 defines.FORCE_COMPACTION = [false, true]
 defines.CYCLES = 10
 in = 'lfs.c'
@@ -300,13 +920,12 @@ code = '''
 
         lfs_ssize_t rid = 0;
         for (lfs_size_t i = 0; i < N; i++) {
-            uint8_t buffer[SIZE];
-            memset(buffer, alphas[i % 26], SIZE);
             lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                    LFSR_ATTR(rid, MKINLINED, +1, buffer, SIZE))) => 0;
+                    LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
 
+            uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                    buffer, SIZE) => SIZE;
+                    buffer, 4) => 1;
             assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
 
             rid += 1;
@@ -322,9 +941,9 @@ code = '''
             for (lfs_ssize_t rid = 0;
                     rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
                     rid++) {
-                uint8_t buffer[SIZE];
+                uint8_t buffer[4];
                 lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, SIZE) => SIZE;
+                        buffer, 4) => 1;
                 assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
                 i += 1;
             }
@@ -359,8 +978,6 @@ code = '''
 
 [cases.test_mtree_drop_fuzz]
 defines.N = [5, 10, 20, 40, 80, 160]
-defines.SIZE = ['1', 'BLOCK_SIZE/8']
-if = 'SIZE == 1 || N <= 20'
 defines.FORCE_COMPACTION = [false, true]
 defines.SAMPLES = 100
 # -1 => all pseudo-random seeds
@@ -409,14 +1026,14 @@ code = '''
             // create
             if (op == 0) {
                 // add to rbyd, potentially splitting the mdir
-                uint8_t buffer[SIZE];
-                memset(buffer, alphas[i % 26], SIZE);
                 lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                        LFSR_ATTR(rid, MKINLINED, +1, buffer, SIZE))) => 0;
+                        LFSR_ATTR(rid, MKINLINED, +1,
+                            &alphas[i % 26], 1))) => 0;
 
                 // make sure we can look up the new entry
+                uint8_t buffer[4];
                 lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, SIZE) => SIZE;
+                        buffer, 4) => 1;
                 assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
 
                 count += 1;
@@ -445,9 +1062,9 @@ code = '''
             for (lfs_ssize_t rid = 0;
                     rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
                     rid++) {
-                uint8_t buffer[SIZE];
+                uint8_t buffer[4];
                 lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, SIZE) => SIZE;
+                        buffer, 4) => 1;
 
                 count_ += 1;
             }
