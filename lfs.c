@@ -4661,11 +4661,17 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
         return err;
     }
 
+    // drop commit if weight goes to zero
+    if (mdir->mid >= 0 && mdir->rbyd.weight == 0) {
+        lfs_cache_drop(lfs, &lfs->pcache);
+
     // finalize commit
-    err = lfsr_rbyd_commit(lfs, &mdir->rbyd, NULL, 0);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        return err;
+    } else {
+        err = lfsr_rbyd_commit(lfs, &mdir->rbyd, NULL, 0);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
     }
 
     return 0;
@@ -4676,7 +4682,8 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfs_size_t *lower_id_, lfs_size_t *lower_dsize_,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // try to append a commit
-    int err = lfsr_rbyd_commit(lfs, &mdir->rbyd, attrs, attr_count);
+    lfsr_mdir_t mdir_ = *mdir;
+    int err = lfsr_rbyd_appendall(lfs, &mdir_.rbyd, -1, -1, attrs, attr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
@@ -4684,6 +4691,23 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
         goto compact;
     }
 
+    // drop commit if weight goes to zero
+    if (mdir_.mid >= 0 && mdir_.rbyd.weight == 0) {
+        lfs_cache_drop(lfs, &lfs->pcache);
+
+    // finalize commit
+    } else {
+        err = lfsr_rbyd_commit(lfs, &mdir_.rbyd, NULL, 0);
+        if (err && err != LFS_ERR_RANGE) {
+            return err;
+        }
+        if (err == LFS_ERR_RANGE) {
+            goto compact;
+        }
+    }
+
+    // update our mdir
+    *mdir = mdir_;
     return 0;
 
 compact:;
@@ -4704,7 +4728,6 @@ compact:;
 
     // if we've compacted this mdir block_cycles number of times, trigger
     // a relocation
-    lfsr_mdir_t mdir_ = *mdir;
     if (lfs->cfg->block_cycles > 0
                 && (mdir->rbyd.rev+1) % lfs->cfg->block_cycles == 0) {
         // allocate a new mdir for relocation
