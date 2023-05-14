@@ -4635,11 +4635,13 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // copy over attrs
-    err = lfsr_rbyd_compact(lfs, &mdir->rbyd, start_id, end_id, false,
-            &source->rbyd);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        return err;
+    if (source) {
+        err = lfsr_rbyd_compact(lfs, &mdir->rbyd, start_id, end_id, false,
+                &source->rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
     }
 
     // append any pending attrs
@@ -5312,28 +5314,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             return d;
         }
 
-        // TODO should this swap be an mdir function?
+        // compact into new mparentroot
         lfsr_mdir_t mparentroot_ = mchildroot;
-        // swap our rbyds 
-        lfs_swap32(&mparentroot_.rbyd.block, &mparentroot_.other_block);
-        // update our revision count
-        // TODO rev things
-        mparentroot_.rbyd.rev += 1;
-        mparentroot_.rbyd.off = 0;
-        mparentroot_.rbyd.trunk = 0;
-        mparentroot_.rbyd.weight = 0;
-        mparentroot_.rbyd.crc = 0;
-
-        // erase, preparing for compact
-        err = lfsr_bd_erase(lfs, mparentroot_.rbyd.block);
-        if (err) {
-            return err;
-        }
-
-        err = lfsr_rbyd_commit(lfs, &mparentroot_.rbyd, LFSR_ATTRS(
-                LFSR_ATTR_DATA(-1, MAGIC, 0, magic),
-                LFSR_ATTR_DATA(-1, CONFIG, 0, config),
-                LFSR_ATTR(-1, MROOT, 0, buf, d)));
+        err = lfsr_mdir_compact_(lfs, &mparentroot_, -1, -1,
+                NULL, NULL, 0, LFSR_ATTRS(
+                    LFSR_ATTR_DATA(-1, MAGIC, 0, magic),
+                    LFSR_ATTR_DATA(-1, CONFIG, 0, config),
+                    LFSR_ATTR(-1, MROOT, 0, buf, d)));
         if (err) {
             return err;
         }
