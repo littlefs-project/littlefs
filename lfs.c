@@ -4614,10 +4614,26 @@ static int lfsr_mtree_parent(lfs_t *lfs, lfsr_mpair_t child,
 
 // low-level mdir compaction
 static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
+        lfs_ssize_t mid,
         lfs_ssize_t start_id, lfs_ssize_t end_id,
         const lfsr_mdir_t *source,
         const lfsr_attr_t *attr1s, lfs_size_t attr1_count,
         const lfsr_attr_t *attr2s, lfs_size_t attr2_count) {
+    // TODO different indicator?
+    // two cases we should alloc:
+    // 1. if mid != -4, caller expects a new mdir
+    // 2. if we've compacted this mdir block_cycles number of times,
+    //    trigger a relocation
+    if (mid != -4 || (
+            lfs->cfg->block_cycles > 0
+                && (mdir->rbyd.rev+1) % lfs->cfg->block_cycles == 0)) {
+        // allocate a new mdir for relocation
+        int err = lfsr_mdir_alloc(lfs, mdir, (mid != -4 ? mid : mdir->mid));
+        if (err) {
+            return err;
+        }
+    }
+
     // swap our rbyds 
     lfs_swap32(&mdir->rbyd.block, &mdir->other_block);
     // update our revision count
@@ -4635,13 +4651,11 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // copy over attrs
-    if (source) {
-        err = lfsr_rbyd_compact(lfs, &mdir->rbyd, start_id, end_id, false,
-                &source->rbyd);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
+    err = lfsr_rbyd_compact(lfs, &mdir->rbyd, start_id, end_id, false,
+            &source->rbyd);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        return err;
     }
 
     // append any pending attrs
@@ -4727,30 +4741,17 @@ compact:;
         return LFS_ERR_RANGE;
     }
 
-    // if we've compacted this mdir block_cycles number of times, trigger
-    // a relocation
-    if (lfs->cfg->block_cycles > 0
-                && (mdir->rbyd.rev+1) % lfs->cfg->block_cycles == 0) {
-        // allocate a new mdir for relocation
-        err = lfsr_mdir_alloc(lfs, &mdir_, mdir->mid);
-        if (err) {
-            return err;
-        }
+    // try to compact
+    err = lfsr_mdir_compact_(lfs, &mdir_, -4, -1, -1, mdir,
+            attrs, attr_count,
+            NULL, 0);
+    if (err) {
+        return err;
     }
 
-    while (true) {
-        // try to compact
-        err = lfsr_mdir_compact_(lfs, &mdir_, -1, -1, mdir,
-                attrs, attr_count,
-                NULL, 0);
-        if (err) {
-            return err;
-        }
-
-        // update our mdir
-        *mdir = mdir_;
-        return 0;
-    }
+    // update our mdir
+    *mdir = mdir_;
+    return 0;
 }
 
 static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
@@ -4796,14 +4797,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
             // uninlining, but not splitting
             if (fits) {
-                // allocate a new mdir for uninlining
-                err = lfsr_mdir_alloc(lfs, &mdir_, 0);
-                if (err) {
-                    return err;
-                }
-
                 // compact into new mdir tags >= 0
-                err = lfsr_mdir_compact_(lfs, &mdir_, 0, -1,
+                err = lfsr_mdir_compact_(lfs, &mdir_, 0, 0, -1,
                         mdir, attrs, attr_count, NULL, 0);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -4849,28 +4844,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                     return split_id;
                 }
 
-                // allocate a new mdir
-                err = lfsr_mdir_alloc(lfs, &mdir_, 0);
-                if (err) {
-                    return err;
-                }
-
                 // compact into new mdir tags < split_id, >= 0
-                err = lfsr_mdir_compact_(lfs, &mdir_, 0, split_id,
+                err = lfsr_mdir_compact_(lfs, &mdir_, 0, 0, split_id,
                         mdir, attrs, attr_count, NULL, 0);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_RANGE);
                     return err;
                 }
 
-                // allocate a new msibling
-                err = lfsr_mdir_alloc(lfs, &msibling_, 1);
-                if (err) {
-                    return err;
-                }
-
                 // compact into new mdir tags >= split_id
-                err = lfsr_mdir_compact_(lfs, &msibling_, split_id, -1,
+                err = lfsr_mdir_compact_(lfs, &msibling_, 1, split_id, -1,
                         mdir, attrs, attr_count, NULL, 0);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5002,22 +4985,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                 }
             }
 
-            // TODO adding this here is a cludge and should definitely
-            // be deduplicated
-            //
-            // if we've compacted the mroot block_cycles number of times,
-            // trigger a relocation
-            if (lfs->cfg->block_cycles > 0
-                        && (mroot_.rbyd.rev+1) % lfs->cfg->block_cycles == 0) {
-                // allocate a new mdir for relocation
-                err = lfsr_mdir_alloc(lfs, &mroot_, -1);
-                if (err) {
-                    return err;
-                }
-            }
-
             // TODO yeah we're going to need a wide-rm
-            err = lfsr_mdir_compact_(lfs, &mroot_, -1, 0,
+            err = lfsr_mdir_compact_(lfs, &mroot_, -4, -1, 0,
                     mdir, attrs, attr_count,
                     LFSR_ATTRS(
                         LFSR_ATTR(-1, RMMDIR, 0, NULL, 0),
@@ -5041,28 +5010,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                 return split_id;
             }
 
-            // allocate a new mdir
-            err = lfsr_mdir_alloc(lfs, &mdir_, mdir->mid);
-            if (err) {
-                return err;
-            }
-
             // compact into new mdir tags < split_id
-            err = lfsr_mdir_compact_(lfs, &mdir_, -1, split_id,
+            err = lfsr_mdir_compact_(lfs, &mdir_, mdir->mid, -1, split_id,
                     mdir, attrs, attr_count, NULL, 0);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
 
-            // allocate a new msibling
-            err = lfsr_mdir_alloc(lfs, &msibling_, mdir->mid+1);
-            if (err) {
-                return err;
-            }
-
             // compact into new mdir tags >= split_id
-            err = lfsr_mdir_compact_(lfs, &msibling_, split_id, -1,
+            err = lfsr_mdir_compact_(lfs, &msibling_, mdir->mid+1, split_id, -1,
                     mdir, attrs, attr_count, NULL, 0);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5332,13 +5289,29 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             return d;
         }
 
-        // compact into new mparentroot
+        // TODO should this swap be an mdir function?
         lfsr_mdir_t mparentroot_ = mchildroot;
-        err = lfsr_mdir_compact_(lfs, &mparentroot_, -1, -1,
-                NULL, NULL, 0, LFSR_ATTRS(
-                    LFSR_ATTR_DATA(-1, MAGIC, 0, magic),
-                    LFSR_ATTR_DATA(-1, CONFIG, 0, config),
-                    LFSR_ATTR(-1, MROOT, 0, buf, d)));
+        // swap our rbyds
+        lfs_swap32(&mparentroot_.rbyd.block, &mparentroot_.other_block);
+        // update our revision count
+        // TODO rev things
+        mparentroot_.rbyd.rev += 1;
+        mparentroot_.rbyd.off = 0;
+        mparentroot_.rbyd.trunk = 0;
+        mparentroot_.rbyd.weight = 0;
+        mparentroot_.rbyd.crc = 0;
+
+        // erase, preparing for compact
+        err = lfsr_bd_erase(lfs, mparentroot_.rbyd.block);
+        if (err) {
+            return err;
+        }
+
+        // compact into new mparentroot
+        err = lfsr_rbyd_commit(lfs, &mparentroot_.rbyd, LFSR_ATTRS(
+                LFSR_ATTR_DATA(-1, MAGIC, 0, magic),
+                LFSR_ATTR_DATA(-1, CONFIG, 0, config),
+                LFSR_ATTR(-1, MROOT, 0, buf, d)));
         if (err) {
             return err;
         }
