@@ -2911,7 +2911,7 @@ static inline bool lfsr_btree_isinlined(const lfsr_btree_t *btree) {
 }
 
 static inline bool lfsr_btree_isnull(const lfsr_btree_t *btree) {
-    return lfsr_btree_isinlined(btree) && btree->inlined.tag == 0;
+    return btree->weight == 0x80000000;
 }
 
 static inline lfs_size_t lfsr_btree_weight(const lfsr_btree_t *btree) {
@@ -4448,7 +4448,7 @@ static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t mid) {
     // align revision count in new mdirs to our block_cycles, this makes sure
     // we don't immediately try to relocate the mdir
     if (lfs->cfg->block_cycles > 0) {
-        rev = lfs_alignup(rev, lfs->cfg->block_cycles);
+        rev = lfs_alignup(rev+1, lfs->cfg->block_cycles)-1;
     }
 
     // setup mdir struct
@@ -4657,7 +4657,6 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     err = lfsr_rbyd_appendall(lfs, &mdir->rbyd, start_id, end_id,
             attr2s, attr2_count);
-    printf("hey %d\n", err);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
@@ -4733,15 +4732,10 @@ compact:;
     if (lfs->cfg->block_cycles > 0
                 && (mdir->rbyd.rev+1) % lfs->cfg->block_cycles == 0) {
         // allocate a new mdir for relocation
-        err = lfsr_mdir_alloc(lfs, &mdir_, 0);
+        err = lfsr_mdir_alloc(lfs, &mdir_, mdir->mid);
         if (err) {
             return err;
         }
-
-        LFS_DEBUG("Relocating mdir 0x{%"PRIx32",%"PRIx32"} "
-                "-> 0x{%"PRIx32",%"PRIx32"}",
-                mdir->rbyd.block, mdir->other_block,
-                mdir_.rbyd.block, mdir_.other_block);
     }
 
     while (true) {
@@ -5008,6 +5002,20 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                 }
             }
 
+            // TODO adding this here is a cludge and should definitely
+            // be deduplicated
+            //
+            // if we've compacted the mroot block_cycles number of times,
+            // trigger a relocation
+            if (lfs->cfg->block_cycles > 0
+                        && (mroot_.rbyd.rev+1) % lfs->cfg->block_cycles == 0) {
+                // allocate a new mdir for relocation
+                err = lfsr_mdir_alloc(lfs, &mroot_, -1);
+                if (err) {
+                    return err;
+                }
+            }
+
             // TODO yeah we're going to need a wide-rm
             err = lfsr_mdir_compact_(lfs, &mroot_, -1, 0,
                     mdir, attrs, attr_count,
@@ -5190,6 +5198,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
         // relocate a normal mdir
         } else {
+            LFS_DEBUG("Relocating mdir 0x{%"PRIx32",%"PRIx32"} "
+                    "-> 0x{%"PRIx32",%"PRIx32"}",
+                    mdir->rbyd.block, mdir->other_block,
+                    mdir_.rbyd.block, mdir_.other_block);
+
             // update our mtree
             uint8_t buf[LFSR_MPAIR_DSIZE];
             lfs_ssize_t d = lfsr_mdir_todisk(lfs, &mdir_, buf);
@@ -5213,7 +5226,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
     // need to update mtree?
     if (dirtymtree) {
-        LFS_ASSERT(mdir->mid != -1);
+        LFS_ASSERT(mdir_.mid != -1);
 
         // commit mtree
         //
@@ -5258,6 +5271,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         if (err == LFS_ERR_NOENT) {
             break;
         }
+
+        LFS_DEBUG("Relocating mroot 0x{%"PRIx32",%"PRIx32"} "
+                "-> 0x{%"PRIx32",%"PRIx32"}",
+                mchildroot.rbyd.block, mchildroot.other_block,
+                mchildroot_.rbyd.block, mchildroot_.other_block);
 
         // commit mrootchild 
         uint8_t buf[LFSR_MPAIR_DSIZE];
@@ -5332,6 +5350,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
     // update mdir to follow requested rid
     lfs_ssize_t rid_ = *rid;
+    LFS_ASSERT(rid_ <= (lfs_ssize_t)mdir->rbyd.weight);
     if (rid_ < 0) {
         *mdir = mroot_;
     } else if ((lfs_size_t)rid_ < mdir_.rbyd.weight) {
@@ -6671,7 +6690,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
     for (int i = 0; i < 2; i++) {
         // write superblock to both rbyds in the root mroot to hopefully
         // avoid mounting an older filesystem on disk
-        lfsr_rbyd_t rbyd = {.block=i, .rev=i+1, .off=0, .trunk=0};
+        lfsr_rbyd_t rbyd = {.block=i, .rev=i-1, .off=0, .trunk=0};
 
         int err = lfsr_bd_erase(lfs, rbyd.block);
         if (err) {
