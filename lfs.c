@@ -4311,7 +4311,8 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
                 LFS_ERROR("Invalid version "
                         "v%"PRIu16".%"PRIu16" != v%"PRIu16".%"PRIu16,
                         major_version, minor_version,
-                        LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
+                        (uint16_t)LFS_DISK_VERSION_MAJOR,
+                        (uint16_t)LFS_DISK_VERSION_MINOR);
                 err = LFS_ERR_INVAL;
                 goto cleanup;
             }
@@ -4323,7 +4324,8 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
                 LFS_DEBUG("Found older minor version "
                         "v%"PRIu16".%"PRIu16" < v%"PRIu16".%"PRIu16,
                         major_version, minor_version,
-                        LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
+                        (uint16_t)LFS_DISK_VERSION_MAJOR,
+                        (uint16_t)LFS_DISK_VERSION_MINOR);
             #ifndef LFS_READONLY
                 // note this bit is reserved on disk, so fetching more gstate
                 // will not interfere here
