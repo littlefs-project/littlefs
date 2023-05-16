@@ -7,16 +7,21 @@ else
 TARGET ?= $(BUILDDIR)/liblfs.a
 endif
 
+HOST_OS ?= $(shell uname -s)
 
+ifeq ($(HOST_OS),Darwin)
+CC       ?= clang
+else
 CC       ?= gcc
+endif
 AR       ?= ar
 SIZE     ?= size
 CTAGS    ?= ctags
 NM       ?= nm
 OBJDUMP  ?= objdump
 VALGRIND ?= valgrind
-GDB		 ?= gdb
-PERF	 ?= perf
+GDB      ?= gdb
+PERF     ?= perf
 
 SRC  ?= $(filter-out $(wildcard *.t.* *.b.*),$(wildcard *.c))
 OBJ  := $(SRC:%.c=$(BUILDDIR)/%.o)
@@ -59,11 +64,13 @@ BENCH_PERF  := $(BENCH_RUNNER:%=%.perf)
 BENCH_TRACE := $(BENCH_RUNNER:%=%.trace)
 BENCH_CSV   := $(BENCH_RUNNER:%=%.csv)
 
-CFLAGS += -fcallgraph-info=su
 CFLAGS += -g3
 CFLAGS += -I.
 CFLAGS += -std=c99 -Wall -Wextra -pedantic
+ifeq ($(CC),gcc)
+CFLAGS += -fcallgraph-info=su
 CFLAGS += -ftrack-macro-expansion=0
+endif
 ifdef DEBUG
 CFLAGS += -O0
 else
@@ -417,7 +424,7 @@ endif
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
 bench-runner build-bench: $(BENCH_RUNNER)
-ifdef YES_COV 
+ifdef YES_COV
 	rm -f $(BENCH_GCDA)
 endif
 ifdef YES_PERF
