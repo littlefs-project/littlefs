@@ -34,7 +34,7 @@ code = '''
                 : (ORDER == 1) ? 0
                 : BENCH_PRNG(&prng) % (lfsr_btree_weight(&btree)+1);
         lfsr_btree_push(&lfs, &btree, i_, LFSR_TAG_INLINED, 1,
-                &alphas[i % 26], 1) => 0;
+                LFSR_DATA_BUF(&alphas[i % 26], 1)) => 0;
     }
 
     // assume an unfetched btree
@@ -90,7 +90,7 @@ code = '''
                 : (ORDER == 1) ? 0
                 : BENCH_PRNG(&prng) % (lfsr_btree_weight(&btree)+1);
         lfsr_btree_push(&lfs, &btree, i_, LFSR_TAG_INLINED, 1,
-                &alphas[i % 26], 1) => 0;
+                LFSR_DATA_BUF(&alphas[i % 26], 1)) => 0;
     }
 
     // bench appending a new id
@@ -99,7 +99,7 @@ code = '''
     }
     lfs_size_t i = BENCH_PRNG(&prng) % N;
     lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
-            &alphas[i % 26], 1) => 0;
+            LFSR_DATA_BUF(&alphas[i % 26], 1)) => 0;
     BENCH_STOP();
 
     uint8_t buffer[4];
