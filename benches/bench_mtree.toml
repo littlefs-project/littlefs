@@ -1,0 +1,135 @@
+
+# maximize lookahead buffer, we don't actually gc so we only get one pass
+# of the disk for these tests
+defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
+
+[cases.bench_mtree_lookup]
+defines.N = [8, 16, 32, 64, 128, 256, 1024]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+defines.SEED = 42
+in = 'lfs.c'
+code = '''
+    uint32_t prng = SEED;
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an mtree with N entries
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose an mid
+        lfs_ssize_t mid
+                = lfsr_mtree_weight(&lfs) == 0 ? -1
+                : (ORDER == 0) ? (lfs_ssize_t)(lfsr_mtree_weight(&lfs)-1)
+                : (ORDER == 1) ? 0
+                : (lfs_ssize_t)(BENCH_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+        // fetch mdir
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+
+        // choose rid
+        lfs_ssize_t rid
+                = (ORDER == 0) ? lfsr_mdir_weight(&mdir)
+                : (ORDER == 1) ? 0
+                : BENCH_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+
+        // create an entry
+        lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
+    }
+
+    // bench lookup
+    BENCH_START();
+    // choose an mid
+    lfs_ssize_t mid
+            = lfsr_mtree_weight(&lfs) == 0 ? -1
+            : (lfs_ssize_t)(BENCH_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+    // fetch mdir
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+
+    // choose rid
+    lfs_ssize_t rid = BENCH_PRNG(&prng) % lfsr_mdir_weight(&mdir);
+
+    // lookup
+    uint8_t buffer[4];
+    lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED, buffer, 4) => 1;
+    BENCH_STOP();
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.bench_mtree_commit]
+defines.N = [8, 16, 32, 64, 128, 256, 1024]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = [0, 1, 2]
+defines.SEED = 42
+defines.AMORTIZED = false
+in = 'lfs.c'
+code = '''
+    uint32_t prng = SEED;
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create an mtree with N entries
+    if (AMORTIZED) {
+        BENCH_START();
+    }
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose an mid
+        lfs_ssize_t mid
+                = lfsr_mtree_weight(&lfs) == 0 ? -1
+                : (ORDER == 0) ? (lfs_ssize_t)(lfsr_mtree_weight(&lfs)-1)
+                : (ORDER == 1) ? 0
+                : (lfs_ssize_t)(BENCH_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+        // fetch mdir
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+
+        // choose rid
+        lfs_ssize_t rid
+                = (ORDER == 0) ? lfsr_mdir_weight(&mdir)
+                : (ORDER == 1) ? 0
+                : BENCH_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+
+        // create an entry
+        lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
+    }
+
+    // bench commit
+    if (!AMORTIZED) {
+        BENCH_START();
+    }
+    // choose an mid
+    lfs_ssize_t mid
+            = lfsr_mtree_weight(&lfs) == 0 ? -1
+            : (ORDER == 0) ? (lfs_ssize_t)(lfsr_mtree_weight(&lfs)-1)
+            : (ORDER == 1) ? 0
+            : (lfs_ssize_t)(BENCH_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+    // fetch mdir
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+
+    // choose rid
+    lfs_ssize_t rid
+            = (ORDER == 0) ? lfsr_mdir_weight(&mdir)
+            : (ORDER == 1) ? 0
+            : BENCH_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+
+    // create an entry
+    lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+            LFSR_ATTR(rid, MKINLINED, +1, "C", 1))) => 0;
+    BENCH_STOP();
+
+    lfsr_unmount(&lfs) => 0;
+'''

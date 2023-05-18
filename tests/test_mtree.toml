@@ -1,3 +1,7 @@
+# maximize lookahead buffer, we don't actually gc so we only get one pass
+# of the disk for these tests
+defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
+
 # test a single mroot
 [cases.test_mtree_one_mroot]
 code = '''
