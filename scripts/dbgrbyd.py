@@ -35,24 +35,41 @@ TAG_ALT         = 0x0008
 TAG_CRC         = 0x0004
 TAG_FCRC        = 0x1004
 
+# parse some rbyd addr encodings
+# 0xa     -> [0xa]
+# 0xa.b   -> ([0xa], b)
+# 0x{a,b} -> [0xa, 0xb]
 def rbydaddr(s):
-    if '.' in s:
-        s = s.strip()
-        b = 10
-        if s.startswith('0x') or s.startswith('0X'):
-            s = s[2:]
-            b = 16
-        elif s.startswith('0o') or s.startswith('0O'):
-            s = s[2:]
-            b = 8
-        elif s.startswith('0b') or s.startswith('0B'):
-            s = s[2:]
-            b = 2
+    s = s.strip()
+    b = 10
+    if s.startswith('0x') or s.startswith('0X'):
+        s = s[2:]
+        b = 16
+    elif s.startswith('0o') or s.startswith('0O'):
+        s = s[2:]
+        b = 8
+    elif s.startswith('0b') or s.startswith('0B'):
+        s = s[2:]
+        b = 2
 
-        s0, s1 = s.split('.', 1)
-        return int(s0, b), int(s1, b)
+    trunk = None
+    if '.' in s:
+        s, s_ = s.split('.', 1)
+        trunk = int(s_, b)
+
+    if s.startswith('{') and '}' in s:
+        ss = s[1:s.find('}')].split(',')
     else:
-        return int(s, 0)
+        ss = [s]
+
+    addr = []
+    for s in ss:
+        if trunk is not None:
+            addr.append((int(s, b), trunk))
+        else:
+            addr.append(int(s, b))
+
+    return addr
 
 def crc32c(data, crc=0):
     crc ^= 0xffffffff
@@ -162,7 +179,7 @@ def tagrepr(tag, w, size, off=None):
     else:
         return '0x%04x w%d %d' % (tag, w, size)
 
-def show_log(data, block_size, rev, off, weight, *,
+def dbg_log(data, block_size, rev, off, weight, *,
         color=False,
         **args):
     crc = crc32c(data[0:4])
@@ -507,7 +524,7 @@ def show_log(data, block_size, rev, off, weight, *,
                         '\x1b[m' if color and j >= off else ''))
 
 
-def show_tree(data, block_size, rev, trunk, weight, *,
+def dbg_tree(data, block_size, rev, trunk, weight, *,
         color=False,
         **args):
     if not trunk:
@@ -740,7 +757,7 @@ def show_tree(data, block_size, rev, trunk, weight, *,
                 tree_width, '',
                 w_width, '',
                 '%-22s%s' % (
-                    '%04x %08x %07x' % (tag, 0xffffffff & id, size),
+                    '%04x %08x %07x' % (tag, w, size),
                     '  %s' % ' '.join(
                             '%08x' % fromle32(
                                 data[j+d+i*4:j+d+min(i*4+4,size)])
@@ -766,7 +783,7 @@ def show_tree(data, block_size, rev, trunk, weight, *,
                         line))
 
 
-def main(disk, block1=0, block2=None, *,
+def main(disk, blocks=None, *,
         block_size=None,
         trunk=None,
         color='auto',
@@ -779,6 +796,11 @@ def main(disk, block1=0, block2=None, *,
     else:
         color = False
 
+    # flatten blocks, default to block 0
+    if not blocks:
+        blocks = [[0]]
+    blocks = [block for blocks_ in blocks for block in blocks_]
+
     with open(disk, 'rb') as f:
         # if block_size is omitted, assume the block device is one big block
         if block_size is None:
@@ -786,16 +808,13 @@ def main(disk, block1=0, block2=None, *,
             block_size = f.tell()
 
         # blocks may also encode trunks 
-        blocks = [
-            block[0] if isinstance(block, tuple) else block
-            for block in [block1, block2]
-            if block is not None]
-        trunks = [
-            trunk if trunk is not None
-                else block[1] if isinstance(block, tuple)
-                else None
-            for block in [block1, block2]
-            if block is not None]
+        blocks, trunks = (
+            [block[0] if isinstance(block, tuple) else block
+                for block in blocks],
+            [trunk if trunk is not None
+                    else block[1] if isinstance(block, tuple)
+                    else None
+                for block in blocks])
 
         # read each block
         datas = []
@@ -870,33 +889,39 @@ def main(disk, block1=0, block2=None, *,
 
     revs, offs, trunks_, weights = [], [], [], []
     i = 0
-    for data, trunk in zip(datas, trunks):
-        rev, off, trunk_, weight = fetch(data, trunk)
+    for i_, (data, trunk_) in enumerate(zip(datas, trunks)):
+        rev, off, trunk_, weight = fetch(data, trunk_)
         revs.append(rev)
         offs.append(off)
         trunks_.append(trunk_)
         weights.append(weight)
 
         # compare with sequence arithmetic
-        if off and not ((rev - revs[i]) & 0x80000000):
-            i = len(revs)-1
+        if trunk_ and (
+                not ((rev - revs[i]) & 0x80000000)
+                or (rev == revs[i] and trunk_ > trunks_[i])):
+            i = i_
 
     # print contents of the winning metadata block
-    block, data, rev, off, trunk, weight = (
+    block, data, rev, off, trunk_, weight = (
         blocks[i], datas[i], revs[i], offs[i], trunks_[i], weights[i])
 
-    print('rbyd 0x%x.%x, rev %d, size %d, weight %d%s' % (
-        block, trunk, rev, off, weight,
-        ' (was 0x%x.%x, %d, %d, %d)' % (
-            blocks[~i], trunks_[~i], revs[~i], offs[~i], weights[~i])
-            if len(blocks) > 1 else ''))
+    print('rbyd %s, rev %d, size %d, weight %d' % (
+        '0x%x.%x' % (block, trunk_)
+            if len(blocks) == 1
+            else '0x{%x,%s}.%x' % (
+                block,
+                ','.join('%x' % blocks[(i+1+j) % len(blocks)]
+                    for j in range(len(blocks)-1)),
+                trunk_),
+        rev, off, weight))
 
     if args.get('log'):
-        show_log(data, block_size, rev, off, weight,
+        dbg_log(data, block_size, rev, off, weight,
             color=color,
             **args)
     else:
-        show_tree(data, block_size, rev, trunk, weight,
+        dbg_tree(data, block_size, rev, trunk_, weight,
             color=color,
             **args)
 
@@ -914,15 +939,10 @@ if __name__ == "__main__":
         'disk',
         help="File containing the block device.")
     parser.add_argument(
-        'block1',
-        nargs='?',
+        'blocks',
+        nargs='*',
         type=rbydaddr,
-        help="Block address of the first metadata block.")
-    parser.add_argument(
-        'block2',
-        nargs='?',
-        type=rbydaddr,
-        help="Block address of the second metadata block.")
+        help="Block address of metadata blocks.")
     parser.add_argument(
         '-B', '--block-size',
         type=lambda x: int(x, 0),
