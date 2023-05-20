@@ -552,32 +552,32 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                     upper -= upper-lower-1-w if not alt & 0x4 else 0
                     j = j - jump
 
-                    if args.get('tree'):
-                        # figure out which color
-                        if alt & 0x2:
-                            _, nalt, _, _, _ = fromtag(data[j+jump+d:])
-                            if nalt & 0x2:
-                                path.append((j+jump, j, True, 'y'))
-                            else:
-                                path.append((j+jump, j, True, 'r'))
+                    # figure out which color
+                    if alt & 0x2:
+                        _, nalt, _, _, _ = fromtag(data[j+jump+d:])
+                        if nalt & 0x2:
+                            path.append((j+jump, j, True, 'y'))
                         else:
-                            path.append((j+jump, j, True, 'b'))
+                            path.append((j+jump, j, True, 'r'))
+                    else:
+                        path.append((j+jump, j, True, 'b'))
+
                 # stay on path
                 else:
                     lower += w if not alt & 0x4 else 0
                     upper -= w if alt & 0x4 else 0
                     j = j + d
 
-                    if args.get('tree'):
-                        # figure out which color
-                        if alt & 0x2:
-                            _, nalt, _, _, _ = fromtag(data[j:])
-                            if nalt & 0x2:
-                                path.append((j-d, j, False, 'y'))
-                            else:
-                                path.append((j-d, j, False, 'r'))
+                    # figure out which color
+                    if alt & 0x2:
+                        _, nalt, _, _, _ = fromtag(data[j:])
+                        if nalt & 0x2:
+                            path.append((j-d, j, False, 'y'))
                         else:
-                            path.append((j-d, j, False, 'b'))
+                            path.append((j-d, j, False, 'r'))
+                    else:
+                        path.append((j-d, j, False, 'b'))
+
             # found tag
             else:
                 id_ = upper-1
@@ -589,7 +589,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                 return done, id_, tag_, w_, j, d, jump, path
 
     # precompute tree
-    tree_width = 0
+    t_width = 0
     if args.get('tree'):
         trunks = co.defaultdict(lambda: (-1, 0))
         alts = co.defaultdict(lambda: {})
@@ -630,100 +630,110 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
         # didn't exist
         def rec_trunk(j_):
             if j_ not in alts:
-                return j_
+                return trunks[j_]
             else:
-                if 't' not in alts[j_]:
-                    alts[j_]['t'] = rec_trunk(alts[j_]['nf'])
-                return alts[j_]['t']
+                if 'nft' not in alts[j_]:
+                    alts[j_]['nft'] = rec_trunk(alts[j_]['nf'])
+                return alts[j_]['nft']
 
         for j_ in alts.keys():
             rec_trunk(j_)
         for j_, alt in alts.items():
             if alt['f'] in alts:
-                alt['ft'] = alts[alt['f']]['t']
+                alt['ft'] = alts[alt['f']]['nft']
             else:
-                alt['ft'] = alt['f']
+                alt['ft'] = trunks[alt['f']]
 
-        def rec_depth(j_):
+        def rec_height(j_):
             if j_ not in alts:
                 return 0
             else:
-                if 'd' not in alts[j_]:
-                    alts[j_]['d'] = max(
-                        rec_depth(alts[j_]['f']),
-                        rec_depth(alts[j_]['nf'])) + 1
-                return alts[j_]['d']
+                if 'h' not in alts[j_]:
+                    alts[j_]['h'] = max(
+                        rec_height(alts[j_]['f']),
+                        rec_height(alts[j_]['nf'])) + 1
+                return alts[j_]['h']
 
         for j_ in alts.keys():
-            rec_depth(j_)
+            rec_height(j_)
 
-        # oh hey this also gives us the max depth
-        tree_depth = max((alt['d'] for alt in alts.values()), default=0)
-        if tree_depth > 0:
-            tree_width = 2*tree_depth + 2
+        t_depth = max((alt['h']+1 for alt in alts.values()), default=0)
 
-        def treerepr(j):
-            if tree_depth == 0:
+        # convert to more general tree representation
+        tree = []
+        for j, alt in alts.items():
+            # note all non-trunk edges should be black
+            tree.append({
+                'a': alt['nft'],
+                'b': alt['nft'],
+                'd': t_depth-1 - alt['h'],
+                'c': alt['c'],
+            })
+            tree.append({
+                'a': alt['nft'],
+                'b': alt['ft'],
+                'd': t_depth-1 - alt['h'],
+                'c': 'b',
+            })
+
+        # find the max depth from the tree
+        t_depth = max((branch['d']+1 for branch in tree), default=0)
+        if t_depth > 0:
+            t_width = 2*t_depth + 2
+
+        def treerepr(id, tag):
+            if t_depth == 0:
                 return ''
 
-            def c(s, c):
-                return '%s%s%s' % (
-                    '\x1b[33m' if color and c == 'y'
-                        else '\x1b[31m' if color and c == 'r'
-                        else '\x1b[90m' if color
-                        else '',
-                    s,
-                    '\x1b[m' if color else '')
-
-            trunk = []
-            def altrepr(j, x, was=None):
-                # note all non-trunk edges should be black
-                for alt in alts.values():
-                    if alt['d'] == x and alt['t'] == j:
-                        return '+-', alt['c'], alt['c']
-                for alt in alts.values():
-                    if (alt['d'] == x
-                            and alt['ft'] == j
-                            and trunks[j] <= trunks[alt['t']]):
-                        return '.-', 'b', 'b'
-                for alt in alts.values():
-                    if (alt['d'] == x
-                            and alt['ft'] == j
-                            and trunks[j] >= trunks[alt['t']]):
-                        return '\'-', 'b', 'b'
-                for alt in alts.values():
-                    if (alt['d'] == x
-                            and trunks[j] >= min(
-                                trunks[alt['t']], trunks[alt['ft']])
-                            and trunks[j] <= max(
-                                trunks[alt['t']], trunks[alt['ft']])):
-                        return '| ', 'b', was
+            def branchrepr(x, d, was):
+                for branch in tree:
+                    if branch['d'] == d and branch['b'] == x:
+                        if any(branch['d'] == d and branch['a'] == x
+                                for branch in tree):
+                            return '+-', branch['c'], branch['c']
+                        elif any(branch['d'] == d
+                                and x > min(branch['a'], branch['b'])
+                                and x < max(branch['a'], branch['b'])
+                                for branch in tree):
+                            return '|-', branch['c'], branch['c']
+                        elif branch['a'] < branch['b']:
+                            return '\'-', branch['c'], branch['c']
+                        else:
+                            return '.-', branch['c'], branch['c']
+                for branch in tree:
+                    if branch['d'] == d and branch['a'] == x:
+                        return '+ ', branch['c'], None
+                for branch in tree:
+                    if (branch['d'] == d
+                            and x > min(branch['a'], branch['b'])
+                            and x < max(branch['a'], branch['b'])):
+                        return '| ', branch['c'], was
                 if was:
                     return '--', was, was
                 return '  ', None, None
 
+            trunk = []
             was = None
-            for x in reversed(range(1, tree_depth+1)):
-                t, c, was = altrepr(j, x, was)
+            for d in range(t_depth):
+                t, c, was = branchrepr((id, tag), d, was)
 
                 trunk.append('%s%s%s%s' % (
                     '\x1b[33m' if color and c == 'y'
                         else '\x1b[31m' if color and c == 'r'
-                        else '\x1b[90m' if color
+                        else '\x1b[90m' if color and c == 'b'
                         else '',
                     t,
-                    ('>' if was else ' ')
-                        if x == 1 else '',
-                    '\x1b[m' if color else ''))
+                    ('>' if was else ' ') if d == t_depth-1 else '',
+                    '\x1b[m' if color and c else ''))
 
-            return ' %s' % ''.join(trunk)
+            return '%s ' % ''.join(trunk)
 
 
     # print header
     w_width = 2*m.ceil(m.log10(max(1, weight)+1))+1
     print('%-8s  %*s%-*s %-22s  %s' % (
         'off',
-        tree_width, '',
+        t_width, '',
         w_width, 'ids',
         'tag',
         'data (truncated)'
@@ -737,9 +747,9 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
             break
 
         # show human-readable tag representation
-        print('%08x:%s %-57s' % (
+        print('%08x: %s%-57s' % (
             j,
-            treerepr(j) if args.get('tree') else '',
+            treerepr(id, tag) if args.get('tree') else '',
             '%*s %-22s%s' % (
                 w_width, '%d-%d' % (id-(w-1), id)
                     if w > 1 else id
@@ -754,7 +764,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
         if args.get('device'):
             print('%8s  %*s%*s %s' % (
                 '',
-                tree_width, '',
+                t_width, '',
                 w_width, '',
                 '%-22s%s' % (
                     '%04x %08x %07x' % (tag, w, size),
@@ -770,7 +780,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
             for o, line in enumerate(xxd(data[j:j+d])):
                 print('%8s: %*s%*s %s' % (
                     '%04x' % (j + o*16),
-                    tree_width, '',
+                    t_width, '',
                     w_width, '',
                     line))
         if args.get('raw') or args.get('no_truncate'):
@@ -778,7 +788,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                 for o, line in enumerate(xxd(data[j+d:j+d+size])):
                     print('%8s: %*s%*s %s' % (
                         '%04x' % (j+d + o*16),
-                        tree_width, '',
+                        t_width, '',
                         w_width, '',
                         line))
 
