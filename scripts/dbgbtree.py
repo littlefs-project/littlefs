@@ -367,7 +367,7 @@ class Rbyd:
         id = -1
 
         while True:
-            done, id, tag, w, j, d, data = self.lookup(id, tag+0x10)
+            done, id, tag, w, j, d, data, _ = self.lookup(id, tag+0x10)
             if done:
                 break
 
@@ -628,7 +628,7 @@ def main(disk, roots=None, *,
                             'c': branch['c'],
                         })
 
-                    d_ += max(rdepth, 1)
+                    d_ += max(bdepths.get(d, 0), 1)
                     leaf = (bid-(w-1), d, rid-(w-1), TAG_BTREE)
 
             # remap branches to leaves if we aren't showing inner branches
@@ -679,7 +679,6 @@ def main(disk, roots=None, *,
             tree = []
             root = None
             branches = {}
-            leaves = {}
             bid = -1
             while True:
                 done, bid, w, rbyd, rid, tags, path = btree_lookup(
@@ -741,7 +740,6 @@ def main(disk, roots=None, *,
                 t_width = 2*t_depth + 2
 
             def treerepr(bid, w, bd, rid, tag):
-#                print('%-32s' % repr((bid-(w-1), bd, rid, tag)), end='')
                 if t_depth == 0:
                     return ''
 
@@ -873,6 +871,7 @@ def main(disk, roots=None, *,
             if done:
                 break
 
+            # print inner btree entries if requested
             if args.get('inner'):
                 changed = False
                 for (x, px) in it.zip_longest(
@@ -897,7 +896,6 @@ def main(disk, roots=None, *,
                     '\x1b[31m' if color else '',
                     '(corrupted rbyd %s)' % rbyd.addr(),
                     '\x1b[m' if color else ''))
-
                 prbyd = rbyd
                 corrupted = True
                 continue
