@@ -177,6 +177,10 @@ def tagrepr(tag, w, size, off=None):
     else:
         return '0x%04x w%d %d' % (tag, w, size)
 
+# this type is used for tree representations
+TBranch = co.namedtuple('TBranch', 'a, b, d, c')
+
+# our core rbyd type
 class Rbyd:
     def __init__(self, block, data, rev, off, trunk, weight):
         self.block = block
@@ -444,21 +448,21 @@ class Rbyd:
         t_depth = max((alt['h']+1 for alt in alts.values()), default=0)
 
         # convert to more general tree representation
-        tree = []
+        tree = set()
         for j, alt in alts.items():
             # note all non-trunk edges should be black
-            tree.append({
-                'a': alt['nft'],
-                'b': alt['nft'],
-                'd': t_depth-1 - alt['h'],
-                'c': alt['c'],
-            })
-            tree.append({
-                'a': alt['nft'],
-                'b': alt['ft'],
-                'd': t_depth-1 - alt['h'],
-                'c': 'b',
-            })
+            tree.add(TBranch(
+                a=alt['nft'],
+                b=alt['nft'],
+                d=t_depth-1 - alt['h'],
+                c=alt['c'],
+            ))
+            tree.add(TBranch(
+                a=alt['nft'],
+                b=alt['ft'],
+                d=t_depth-1 - alt['h'],
+                c='b',
+            ))
 
         return tree, t_depth
 
@@ -566,7 +570,7 @@ def main(disk, roots=None, *,
                     bdepths[d] = max(bdepths.get(d, 0), rdepth)
 
             # find all branches
-            tree = []
+            tree = set()
             root = None
             branches = {}
             bid = -1
@@ -588,45 +592,47 @@ def main(disk, roots=None, *,
                     # note we adjust our bid/rids to be left-leaning,
                     # this allows a global order and make tree rendering quite
                     # a bit easier
-                    for i in range(len(rtree)):
-                        a_rid, a_tag = rtree[i]['a']
-                        b_rid, b_tag = rtree[i]['b']
+                    rtree_ = set()
+                    for branch in rtree:
+                        a_rid, a_tag = branch.a
+                        b_rid, b_tag = branch.b
                         _, _, _, a_w, _, _, _, _ = rbyd.lookup(a_rid, 0)
                         _, _, _, b_w, _, _, _, _ = rbyd.lookup(b_rid, 0)
-                        rtree[i] = {
-                            'a': (a_rid-(a_w-1), a_tag),
-                            'b': (b_rid-(b_w-1), b_tag),
-                            'd': rtree[i]['d'],
-                            'c': rtree[i]['c'],
-                        }
+                        rtree_.add(TBranch(
+                            a=(a_rid-(a_w-1), a_tag),
+                            b=(b_rid-(b_w-1), b_tag),
+                            d=branch.d,
+                            c=branch.c,
+                        ))
+                    rtree = rtree_
 
                     # connect our branch to the rbyd's root
                     if leaf is not None:
                         root = min(rtree,
-                            key=lambda branch: branch['d'],
+                            key=lambda branch: branch.d,
                             default=None)
 
                         if root is not None:
-                            r_rid, r_tag = root['a']
+                            r_rid, r_tag = root.a
                         else:
                             r_rid, r_tag = rid-(w-1), tags[0][0]
-                        tree.append({
-                            'a': leaf,
-                            'b': (bid-rid+r_rid, d, r_rid, r_tag),
-                            'd': d_-1,
-                            'c': 'b',
-                        })
+                        tree.add(TBranch(
+                            a=leaf,
+                            b=(bid-rid+r_rid, d, r_rid, r_tag),
+                            d=d_-1,
+                            c='b',
+                        ))
 
                     for branch in rtree:
                         # map rbyd branches into our btree space
-                        a_rid, a_tag = branch['a']
-                        b_rid, b_tag = branch['b']
-                        tree.append({
-                            'a': (bid-rid+a_rid, d, a_rid, a_tag),
-                            'b': (bid-rid+b_rid, d, b_rid, b_tag),
-                            'd': branch['d'] + d_ + bdepths.get(d, 0)-rdepth,
-                            'c': branch['c'],
-                        })
+                        a_rid, a_tag = branch.a
+                        b_rid, b_tag = branch.b
+                        tree.add(TBranch(
+                            a=(bid-rid+a_rid, d, a_rid, a_tag),
+                            b=(bid-rid+b_rid, d, b_rid, b_tag),
+                            d=branch.d + d_ + bdepths.get(d, 0)-rdepth,
+                            c=branch.c,
+                        ))
 
                     d_ += max(bdepths.get(d, 0), 1)
                     leaf = (bid-(w-1), d, rid-(w-1), TAG_BTREE)
@@ -634,49 +640,49 @@ def main(disk, roots=None, *,
             # remap branches to leaves if we aren't showing inner branches
             if not args.get('inner'):
                 # step through each layer backwards
-                b_depth = max((branch['a'][1]+1 for branch in tree), default=0)
+                b_depth = max((branch.a[1]+1 for branch in tree), default=0)
 
-                # keep track of the original tree to find the original bids,
-                # unfortunately because we store the bids in the branches we
-                # overwrite these
-                tree_ = tree.copy()
+                # keep track of the original bids, unfortunately because we
+                # store the bids in the branches we overwrite these
+                tree = {(branch.b[0] - branch.b[2], branch) for branch in tree}
 
                 for bd in reversed(range(b_depth-1)):
                     # find leaf-roots at this level
                     roots = {}
-                    for branch_, branch in zip(tree_, tree):
-                        bid = branch['b'][0] - branch['b'][2]
+                    for bid, branch in tree:
                         # choose the highest node as the root
-                        if (branch_['b'][1] == b_depth-1
+                        if (branch.b[1] == b_depth-1
                                 and (bid not in roots
-                                    or branch_['d'] < roots[bid]['d'])):
-                            roots[bid] = branch_
+                                    or branch.d < roots[bid].d)):
+                            roots[bid] = branch
 
                     # remap branches to leaf-roots
-                    tree__ = []
-                    for branch_ in tree_:
-                        if branch_['a'][1] == bd and branch_['a'][0] in roots:
-                            branch_ = {
-                                'a': roots[branch_['a'][0]]['b'],
-                                'b': branch_['b'],
-                                'd': branch_['d'],
-                                'c': branch_['c'],
-                            }
-                        if branch_['b'][1] == bd and branch_['b'][0] in roots:
-                            branch_ = {
-                                'a': branch_['a'],
-                                'b': roots[branch_['b'][0]]['b'],
-                                'd': branch_['d'],
-                                'c': branch_['c'],
-                            }
-                        tree__.append(branch_)
-                    tree_ = tree__
-                tree = tree_
+                    tree_ = set()
+                    for bid, branch in tree:
+                        if branch.a[1] == bd and branch.a[0] in roots:
+                            branch = TBranch(
+                                a=roots[branch.a[0]].b,
+                                b=branch.b,
+                                d=branch.d,
+                                c=branch.c,
+                            )
+                        if branch.b[1] == bd and branch.b[0] in roots:
+                            branch = TBranch(
+                                a=branch.a,
+                                b=roots[branch.b[0]].b,
+                                d=branch.d,
+                                c=branch.c,
+                            )
+                        tree_.add((bid, branch))
+                    tree = tree_
+
+                # strip out bids
+                tree = {branch for _, branch in tree}
 
         # precompute B-trees if requested
         elif args.get('btree'):
             # find all branches
-            tree = []
+            tree = set()
             root = None
             branches = {}
             bid = -1
@@ -724,18 +730,18 @@ def main(disk, roots=None, *,
                         root = b
                         a = root
 
-                    tree.append({
-                        'a': a,
-                        'b': b,
-                        'd': d,
-                        'c': 'b',
-                    })
+                    tree.add(TBranch(
+                        a=a,
+                        b=b,
+                        d=d,
+                        c='b',
+                    ))
                     a = b
 
         # common tree renderer
         if args.get('tree') or args.get('btree'):
             # find the max depth from the tree
-            t_depth = max((branch['d']+1 for branch in tree), default=0)
+            t_depth = max((branch.d+1 for branch in tree), default=0)
             if t_depth > 0:
                 t_width = 2*t_depth + 2
 
@@ -745,27 +751,27 @@ def main(disk, roots=None, *,
 
                 def branchrepr(x, d, was):
                     for branch in tree:
-                        if branch['d'] == d and branch['b'] == x:
-                            if any(branch['d'] == d and branch['a'] == x
+                        if branch.d == d and branch.b == x:
+                            if any(branch.d == d and branch.a == x
                                     for branch in tree):
-                                return '+-', branch['c'], branch['c']
-                            elif any(branch['d'] == d
-                                    and x > min(branch['a'], branch['b'])
-                                    and x < max(branch['a'], branch['b'])
+                                return '+-', branch.c, branch.c
+                            elif any(branch.d == d
+                                    and x > min(branch.a, branch.b)
+                                    and x < max(branch.a, branch.b)
                                     for branch in tree):
-                                return '|-', branch['c'], branch['c']
-                            elif branch['a'] < branch['b']:
-                                return '\'-', branch['c'], branch['c']
+                                return '|-', branch.c, branch.c
+                            elif branch.a < branch.b:
+                                return '\'-', branch.c, branch.c
                             else:
-                                return '.-', branch['c'], branch['c']
+                                return '.-', branch.c, branch.c
                     for branch in tree:
-                        if branch['d'] == d and branch['a'] == x:
-                            return '+ ', branch['c'], None
+                        if branch.d == d and branch.a == x:
+                            return '+ ', branch.c, None
                     for branch in tree:
-                        if (branch['d'] == d
-                                and x > min(branch['a'], branch['b'])
-                                and x < max(branch['a'], branch['b'])):
-                            return '| ', branch['c'], was
+                        if (branch.d == d
+                                and x > min(branch.a, branch.b)
+                                and x < max(branch.a, branch.b)):
+                            return '| ', branch.c, was
                     if was:
                         return '--', was, was
                     return '  ', None, None

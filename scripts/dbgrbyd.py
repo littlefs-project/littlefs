@@ -660,24 +660,25 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
         t_depth = max((alt['h']+1 for alt in alts.values()), default=0)
 
         # convert to more general tree representation
-        tree = []
+        TBranch = co.namedtuple('TBranch', 'a, b, d, c')
+        tree = set()
         for j, alt in alts.items():
             # note all non-trunk edges should be black
-            tree.append({
-                'a': alt['nft'],
-                'b': alt['nft'],
-                'd': t_depth-1 - alt['h'],
-                'c': alt['c'],
-            })
-            tree.append({
-                'a': alt['nft'],
-                'b': alt['ft'],
-                'd': t_depth-1 - alt['h'],
-                'c': 'b',
-            })
+            tree.add(TBranch(
+                a=alt['nft'],
+                b=alt['nft'],
+                d=t_depth-1 - alt['h'],
+                c=alt['c'],
+            ))
+            tree.add(TBranch(
+                a=alt['nft'],
+                b=alt['ft'],
+                d=t_depth-1 - alt['h'],
+                c='b',
+            ))
 
         # find the max depth from the tree
-        t_depth = max((branch['d']+1 for branch in tree), default=0)
+        t_depth = max((branch.d+1 for branch in tree), default=0)
         if t_depth > 0:
             t_width = 2*t_depth + 2
 
@@ -687,27 +688,27 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
 
             def branchrepr(x, d, was):
                 for branch in tree:
-                    if branch['d'] == d and branch['b'] == x:
-                        if any(branch['d'] == d and branch['a'] == x
+                    if branch.d == d and branch.b == x:
+                        if any(branch.d == d and branch.a == x
                                 for branch in tree):
-                            return '+-', branch['c'], branch['c']
-                        elif any(branch['d'] == d
-                                and x > min(branch['a'], branch['b'])
-                                and x < max(branch['a'], branch['b'])
+                            return '+-', branch.c, branch.c
+                        elif any(branch.d == d
+                                and x > min(branch.a, branch.b)
+                                and x < max(branch.a, branch.b)
                                 for branch in tree):
-                            return '|-', branch['c'], branch['c']
-                        elif branch['a'] < branch['b']:
-                            return '\'-', branch['c'], branch['c']
+                            return '|-', branch.c, branch.c
+                        elif branch.a < branch.b:
+                            return '\'-', branch.c, branch.c
                         else:
-                            return '.-', branch['c'], branch['c']
+                            return '.-', branch.c, branch.c
                 for branch in tree:
-                    if branch['d'] == d and branch['a'] == x:
-                        return '+ ', branch['c'], None
+                    if branch.d == d and branch.a == x:
+                        return '+ ', branch.c, None
                 for branch in tree:
-                    if (branch['d'] == d
-                            and x > min(branch['a'], branch['b'])
-                            and x < max(branch['a'], branch['b'])):
-                        return '| ', branch['c'], was
+                    if (branch.d == d
+                            and x > min(branch.a, branch.b)
+                            and x < max(branch.a, branch.b)):
+                        return '| ', branch.c, was
                 if was:
                     return '--', was, was
                 return '  ', None, None
