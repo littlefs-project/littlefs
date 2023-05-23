@@ -544,6 +544,7 @@ static int lfs_fs_pred(lfs_t *lfs, const lfs_block_t dir[2],
 static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
 static int lfs_fs_forceconsistency(lfs_t *lfs);
+static int lfs_fs_setdiskversion(lfs_t *lfs, uint32_t version);
 #endif
 
 #ifdef LFS_MIGRATE
@@ -644,6 +645,175 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
             return err;
         }
     }
+}
+
+static int lfs_alloc_gobble(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks, lfs_size_t limit) {
+    // try to allocate a sequence of blocks from the cache
+    lfs_size_t tested = 1;
+    lfs_size_t found = 1;
+    lfs_block_t head;
+    int err = lfs_alloc(lfs, &head);
+    if (err) {
+        return err;
+    }
+    lfs_block_t first = head;
+    bool looped = false;
+    // continue while no limit or tested under limit, and no full sequence found yet
+    while (found < nblocks && (!looped || head < first)) {
+        lfs_block_t next;
+        err = lfs_alloc(lfs, &next);
+        if (err) {
+            // didn't find what we need, reset cache
+            lfs->free.off = first - lfs->free.size;
+            lfs_alloc_drop(lfs);
+            return err;
+        }
+        ++tested;
+        if (next != head + found) {
+            if (next <= head) {
+                looped = true;
+            }
+            // doesn't match, reset
+            found = 1;
+            head = next;
+            if (limit && tested >= limit) {
+                break;
+            }
+        } else {
+            ++found;
+        }
+    }
+    if (found < nblocks) {
+        // didn't find what we need, reset cache
+        lfs->free.off = first - lfs->free.size;
+        lfs_alloc_drop(lfs);
+        return LFS_ERR_NOSPC;
+    }
+    *block = head;
+    return LFS_ERR_OK;
+}
+
+typedef struct lfs_scansequence {
+    lfs_t *lfs;
+    lfs_size_t nblocks;
+    lfs_block_t head;
+    lfs_block_t first;
+    lfs_size_t collisions;
+    lfs_block_t oldblock;
+    lfs_size_t oldnb;
+    bool looped;
+} lfs_scansequence_t;
+
+static int lfs_alloc_scansequence(void *data, lfs_block_t block)
+{
+    lfs_scansequence_t *scan = (lfs_scansequence_t *)data;
+    if (block >= scan->oldblock && block < (scan->oldblock + scan->oldnb)) {
+        // ignore this block when overwriting old blocks is allowed
+        return LFS_ERR_OK;
+    }
+    lfs_t *lfs = scan->lfs;
+    if (block >= scan->head && block < (scan->head + scan->nblocks)) {
+        // this block is inside our scan area, use the block after this one
+        ++scan->collisions;
+        scan->head = block + 1;
+        if (scan->looped) {
+            if ((scan->head >= scan->first)
+                || (scan->head + scan->nblocks > lfs->cfg->block_count)) {
+                // cycled all around, nothing good found
+                return LFS_ERR_NOSPC;
+            }
+        } else if (scan->head + scan->nblocks > lfs->cfg->block_count) {
+            // loop back
+            scan->looped = true;
+            scan->head = 0;
+        }
+    }
+    return LFS_ERR_OK;
+}
+
+static int lfs_alloc_sequence(lfs_t *lfs, lfs_block_t *block, lfs_size_t nblocks, int flags, lfs_block_t oldblock, lfs_size_t oldnb) {
+    // traverse to find a sequence of free blocks
+    if (nblocks > lfs->cfg->block_count) {
+        return LFS_ERR_NOSPC;
+    }
+    lfs_scansequence_t scan;
+    scan.lfs = lfs;
+    scan.nblocks = nblocks;
+    scan.oldblock = oldblock;
+    scan.oldnb = oldnb;
+    if (flags & LFS_R_FRONT) {
+        scan.head = 0;
+    }
+    else {
+        int err = lfs_alloc(lfs, &scan.head);
+        if (err) {
+            return err;
+        }
+    }
+    scan.first = scan.head;
+    scan.looped = (scan.head + nblocks > lfs->cfg->block_count);
+    if (scan.looped) {
+        scan.head = 0;
+    }
+    // loop until a traversal is done with no collisions
+    do {
+        scan.collisions = 0;
+        int err = lfs_fs_rawtraverse(lfs, lfs_alloc_scansequence, &scan, true);
+        if (err) {
+            return err;
+        }
+        // LFS_DEBUG("Encountered %"PRIu32" collisions", scan.collisions);
+    } while (scan.collisions);
+    if (!scan.first
+        || (lfs->free.off + lfs->free.size > scan.head
+        && lfs->free.off < scan.head + nblocks)) {
+        // put the allocator cache after our big allocation
+        lfs->free.off = scan.head + nblocks - lfs->free.size;
+    } else {
+        // just reset
+        lfs->free.off = lfs->free.off - lfs->free.size;
+    }
+    lfs_alloc_drop(lfs);
+    *block = scan.head;
+    return LFS_ERR_OK;
+}
+
+typedef struct lfs_scanrange {
+    lfs_size_t nblocks;
+    lfs_block_t head;
+} llfs_scanrange_t;
+
+static int lfs_alloc_scanrange(void *data, lfs_block_t block)
+{
+    llfs_scanrange_t *scan = (llfs_scanrange_t *)data;
+    if (block >= scan->head && block < (scan->head + scan->nblocks)) {
+        return LFS_ERR_NOSPC;
+    }
+    return LFS_ERR_OK;
+}
+
+static int lfs_alloc_range(lfs_t *lfs, lfs_block_t head, lfs_size_t nblocks) {
+    llfs_scanrange_t scan;
+    scan.nblocks = nblocks;
+    scan.head = head;
+    if (scan.head + nblocks > lfs->cfg->block_count) {
+        return LFS_ERR_NOSPC;
+    }
+    int err = lfs_fs_rawtraverse(lfs, lfs_alloc_scanrange, &scan, true);
+    if (err) {
+        return err;
+    }
+    // put the allocator cache after our big allocation
+    if (lfs->free.off + lfs->free.size > scan.head
+        && lfs->free.off < scan.head + nblocks) {
+        // put the allocator cache after our big allocation
+        lfs->free.off = scan.head + nblocks - lfs->free.size;
+    } else {
+        // just reset
+        lfs->free.off = lfs->free.off - lfs->free.size;
+    }
+    lfs_alloc_drop(lfs);
+    return LFS_ERR_OK;
 }
 #endif
 
@@ -1352,7 +1522,8 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
     }
     lfs_ctz_fromle32(&ctz);
 
-    if (lfs_tag_type3(tag) == LFS_TYPE_CTZSTRUCT) {
+    if (lfs_tag_type3(tag) == LFS_TYPE_CTZSTRUCT
+         || lfs_tag_type3(tag) == LFS_TYPE_FLATSTRUCT) {
         info->size = ctz.size;
     } else if (lfs_tag_type3(tag) == LFS_TYPE_INLINESTRUCT) {
         info->size = lfs_tag_size(tag);
@@ -3098,6 +3269,12 @@ static int lfs_file_rawopencfg(lfs_t *lfs, lfs_file_t *file,
                 goto cleanup;
             }
         }
+    } else if (lfs_tag_type3(tag) == LFS_TYPE_FLATSTRUCT) {
+        // mark this as a flat file
+        LFS_ASSERT((file->flags & LFS_F_INLINE) == 0);
+        file->flags |= LFS_F_FLAT;
+        file->cache.block = LFS_BLOCK_NULL;
+        file->cache.size = lfs->cfg->cache_size;
     }
 
     return 0;
@@ -3236,6 +3413,12 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     if (file->flags & LFS_F_WRITING) {
         lfs_off_t pos = file->pos;
 
+        if (file->flags & LFS_F_FLAT) {
+            // flat file access not yet implemented
+            LFS_ASSERT((file->flags & LFS_F_INLINE) == 0);
+            return LFS_ERR_INVAL;
+        }
+
         if (!(file->flags & LFS_F_INLINE)) {
             // copy over anything after current branch
             lfs_file_t orig = {
@@ -3325,7 +3508,16 @@ static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
         const void *buffer;
         lfs_size_t size;
         struct lfs_ctz ctz;
-        if (file->flags & LFS_F_INLINE) {
+        if (file->flags & LFS_F_FLAT) {
+            // update the flat file reference
+            LFS_ASSERT((file->flags & LFS_F_INLINE) == 0);
+            type = LFS_TYPE_FLATSTRUCT;
+            ctz = file->ctz;
+            lfs_ctz_tole32(&ctz);
+            buffer = &ctz;
+            size = sizeof(ctz);
+            lfs_alloc_ack(lfs);
+        } else if (file->flags & LFS_F_INLINE) {
             // inline the whole file
             type = LFS_TYPE_INLINESTRUCT;
             buffer = file->cache.buffer;
@@ -3374,6 +3566,11 @@ static lfs_ssize_t lfs_file_flushedread(lfs_t *lfs, lfs_file_t *file,
         // check if we need a new block
         if (!(file->flags & LFS_F_READING) ||
                 file->off == lfs->cfg->block_size) {
+            if (file->flags & LFS_F_FLAT) {
+                // reading flat files is not yet implemented
+                LFS_ASSERT((file->flags & LFS_F_INLINE) == 0);
+                return LFS_ERR_INVAL;
+            } 
             if (!(file->flags & LFS_F_INLINE)) {
                 int err = lfs_ctz_find(lfs, NULL, &file->cache,
                         file->ctz.head, file->ctz.size,
@@ -3600,6 +3797,12 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
         return npos;
     }
 
+    if (file->flags & LFS_F_FLAT) {
+        // seeking flat files is not yet implemented
+        LFS_ASSERT((file->flags & LFS_F_INLINE) == 0);
+        return LFS_ERR_INVAL;
+    } 
+
     // if we're only reading and our new offset is still in the file's cache
     // we can avoid flushing and needing to reread the data
     if (
@@ -3642,6 +3845,43 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
     lfs_off_t pos = file->pos;
     lfs_off_t oldsize = lfs_file_rawsize(lfs, file);
+
+    if (file->flags & LFS_F_FLAT) {
+        LFS_ASSERT((file->flags & LFS_F_INLINE) == 0);
+        if (size == 0) {
+            // just empty the file
+            file->ctz.head = 0;
+            file->ctz.size = 0;
+            file->flags &= ~LFS_F_FLAT;
+            file->flags |= LFS_F_INLINE | LFS_F_DIRTY;
+            lfs_alloc_ack(lfs);
+            return 0;
+        } else if (size == oldsize) {
+            // noop
+            return 0;
+        } else {
+            LFS_ASSERT(file->ctz.size);
+            lfs_size_t nblocks = ((size - 1) / lfs->cfg->block_size) + 1;
+            lfs_size_t nbold = ((oldsize - 1) / lfs->cfg->block_size) + 1;
+            if (nblocks <= nbold) {
+                // reduce the file's size
+                file->ctz.size = size;
+                file->flags |= LFS_F_DIRTY;
+                return 0;
+            }
+            else {
+                // attempt to extend flat file
+                int err = lfs_alloc_range(lfs, file->ctz.head + nbold, nblocks - nbold);
+                if (err) {
+                    return err;
+                }
+                file->ctz.size = size;
+                file->flags |= LFS_F_DIRTY;
+                return 0;
+            }
+        }
+    }
+
     if (size < oldsize) {
         // revert to inline file?
         if (size <= lfs_min(0x3fe, lfs_min(
@@ -3716,7 +3956,176 @@ static int lfs_file_rawtruncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
 
     return 0;
 }
+
+static int lfs_file_rawflatcopy(lfs_t *lfs, lfs_file_t *file, lfs_block_t dst, lfs_block_t src, lfs_size_t nblocks) {
+    if (dst == src || !nblocks) {
+        // noop
+    } else {
+        int err;
+        LFS_ASSERT(file->cache.buffer);
+        if (dst < src) {
+            // copy forward
+            for (lfs_block_t i = 0; i < nblocks; ++i) {
+                err = lfs->cfg->erase(lfs->cfg, dst + i);
+                if (err) {
+                    return err;
+                }
+                for (lfs_off_t o = 0; o < lfs->cfg->block_size; o += file->cache.size) {
+                    err = lfs->cfg->read(lfs->cfg, src + i, o, file->cache.buffer, file->cache.size);
+                    if (err) {
+                        return err;
+                    }
+                    err = lfs->cfg->prog(lfs->cfg, dst + i, o, file->cache.buffer, file->cache.size);
+                    if (err) {
+                        return err;
+                    }
+                }
+            }
+        }
+        else {
+            // copy in reverse
+            for (lfs_block_t i = 0; i < nblocks; ++i) {
+                err = lfs->cfg->erase(lfs->cfg, dst + nblocks - i - 1);
+                if (err) {
+                    return err;
+                }
+                for (lfs_off_t o = 0; o < lfs->cfg->block_size; o += file->cache.size) {
+                    err = lfs->cfg->read(lfs->cfg, src + nblocks - i - 1, o, file->cache.buffer, file->cache.size);
+                    if (err) {
+                        return err;
+                    }
+                    err = lfs->cfg->prog(lfs->cfg, dst + nblocks - i - 1, o, file->cache.buffer, file->cache.size);
+                    if (err) {
+                        return err;
+                    }
+                }
+            }
+        }
+    }
+    return LFS_ERR_OK;
+}
+
+static int lfs_file_rawreserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, int flags) {
+    LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+    LFS_ASSERT(file->flags & LFS_F_INLINE || file->flags & LFS_F_FLAT || file->ctz.size > 0);
+
+    if (lfs->version < LFS_DISK_VERSION_FLAT) {
+        int err = lfs_fs_setdiskversion(lfs, LFS_DISK_VERSION_FLAT);
+        if (err) {
+            return err;
+        }
+        LFS_ASSERT(lfs->version >= LFS_DISK_VERSION_FLAT);
+    }
+
+    if (size > LFS_FILE_MAX) {
+        return LFS_ERR_INVAL;
+    }
+
+    if (file->flags & LFS_F_ERRED) {
+        return LFS_ERR_INVAL;
+    }
+
+    // emptying file or flagging error
+    if (size == 0 || (flags & LFS_R_ERRED)) {
+        // just empty the file
+        file->ctz.head = LFS_BLOCK_INLINE;
+        file->ctz.size = 0;
+        file->flags &= ~LFS_F_FLAT;
+        file->flags |= LFS_F_INLINE | LFS_F_DIRTY;
+        file->cache.block = LFS_BLOCK_INLINE;
+        file->cache.off = 0;
+        file->cache.size = lfs->cfg->cache_size;
+        if (flags & LFS_R_ERRED) {
+            file->flags |= LFS_F_ERRED;
+        }
+        lfs_alloc_ack(lfs);
+        return LFS_ERR_OK;
+    }
+
+    lfs_size_t nblocks = ((size - 1) / lfs->cfg->block_size) + 1;
+
+    // handle LFS_R_TRUNCATE option
+    int err = LFS_ERR_NOSPC;
+    if ((flags & LFS_R_TRUNCATE) && (file->flags & LFS_F_FLAT)) {
+        // use existing committed or uncommitted reservation if large enough
+        err = lfs_file_rawtruncate(lfs, file, size);
+        if (!err) {
+            return LFS_ERR_OK;
+        }
+    }
+
+    // always overwrite if not committed
+    lfs_size_t oldsz = 0;
+    if ((file->flags & (LFS_F_FLAT | LFS_F_DIRTY)) == (LFS_F_FLAT | LFS_F_DIRTY)) {
+        oldsz = file->ctz.size;
+        file->ctz.size = 0;
+    }
+
+    // try gobble allocation
+    lfs_block_t head = 0;
+    lfs_size_t limit = (lfs->cfg->lookahead_size * 8);
+    if ((!(flags & LFS_R_FRONT)) && ((flags & LFS_R_GOBBLE) || nblocks < limit)) {
+        // LFS_DEBUG("Try to gobble %"PRIu32" blocks", nblocks);
+        err = lfs_alloc_gobble(lfs, &head, nblocks, (flags & LFS_R_GOBBLE) ? 0 : limit);
+        if (err && (err != LFS_ERR_NOSPC || (flags & LFS_R_GOBBLE))) {
+            if (oldsz) {
+                file->ctz.size = oldsz;
+            }
+            return err;
+        }
+    }
+    
+    // try traversal allocation
+    if (err == LFS_ERR_NOSPC) {
+        // LFS_DEBUG("Try traversal allocation strategy for %"PRIu32" blocks", nblocks);
+        bool overwrite = (file->flags & LFS_F_FLAT) && file->ctz.size && (flags & LFS_R_OVERWRITE);
+        err = lfs_alloc_sequence(lfs, &head, nblocks, flags,
+            file->ctz.head, overwrite ? ((file->ctz.size - 1) / lfs->cfg->block_size) + 1 : 0);
+        if (err) {
+            if (oldsz) {
+                file->ctz.size = oldsz;
+            }
+            return err;
+        }
+    }
+
+    // handle LFS_R_COPY option
+    if ((file->flags & LFS_F_FLAT) && (flags & LFS_R_COPY) && (head != file->ctz.head)) {
+        lfs_size_t oldsize = oldsz ? oldsz : file->ctz.size;
+        if (oldsize) {
+            lfs_size_t oldnblocks = ((file->ctz.size - 1) / lfs->cfg->block_size) + 1;
+            lfs_size_t copyblocks = lfs_min(oldnblocks, nblocks);
+            err = lfs_file_rawflatcopy(lfs, file, head, file->ctz.head, copyblocks);
+            if (err) {
+                file->flags |= LFS_F_ERRED;
+                lfs_alloc_ack(lfs);
+                return err;
+            }
+        }
+    }
+
+    // success
+    file->ctz.head = head;
+    file->ctz.size = size;
+    file->flags &= ~LFS_F_INLINE;
+    file->flags |= LFS_F_FLAT | LFS_F_DIRTY;
+    file->cache.block = LFS_BLOCK_NULL;
+    file->cache.size = lfs->cfg->cache_size;
+    // LFS_DEBUG("Reserved flat file of %"PRIu32" blocks at %"PRIu32"", nblocks, head);
+    return LFS_ERR_OK;
+}
 #endif
+
+static int lfs_file_rawreserved(lfs_t *lfs, lfs_file_t *file, lfs_block_t *block) {
+    if (!(file->flags & LFS_F_FLAT)) {
+        return LFS_ERR_INVAL;
+    }
+
+    (void)lfs;
+    *block = file->ctz.head;
+
+    return LFS_ERR_OK;
+}
 
 static lfs_soff_t lfs_file_rawtell(lfs_t *lfs, lfs_file_t *file) {
     (void)lfs;
@@ -4208,7 +4617,7 @@ static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
 
         // write one superblock
         lfs_superblock_t superblock = {
-            .version     = LFS_DISK_VERSION,
+            .version     = LFS_DISK_VERSION_BASE,
             .block_size  = lfs->cfg->block_size,
             .block_count = lfs->cfg->block_count,
             .name_max    = lfs->name_max,
@@ -4315,6 +4724,7 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
                 err = LFS_ERR_INVAL;
                 goto cleanup;
             }
+            lfs->version = superblock.version;
 
             // found older minor version? set an in-device only bit in the
             // gstate so we know we need to rewrite the superblock before
@@ -4419,6 +4829,62 @@ static int lfs_rawunmount(lfs_t *lfs) {
     return lfs_deinit(lfs);
 }
 
+#ifndef LFS_READONLY
+static int lfs_fs_setdiskversion(lfs_t *lfs, uint32_t version) {
+    // scan directory blocks for superblock
+    lfs_mdir_t dir = {.tail = {0, 1}};
+    lfs_block_t cycle = 0;
+    while (!lfs_pair_isnull(dir.tail)) {
+        if (cycle >= lfs->cfg->block_count / 2) {
+            // loop detected
+            return LFS_ERR_CORRUPT;
+        }
+        cycle += 1;
+
+        // fetch next block in tail list
+        lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail,
+            LFS_MKTAG(0x7ff, 0x3ff, 0),
+            LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8),
+            NULL,
+            lfs_dir_find_match, &(struct lfs_dir_find_match){
+            lfs, "littlefs", 8});
+        if (tag < 0) {
+            return tag;
+        }
+
+        // has superblock?
+        if (tag && !lfs_tag_isdelete(tag)) {
+            // grab superblock
+            lfs_superblock_t superblock;
+            tag = lfs_dir_get(lfs, &dir, LFS_MKTAG(0x7ff, 0x3ff, 0),
+                LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock);
+            if (tag < 0) {
+                return tag;
+            }
+            lfs_superblock_fromle32(&superblock);
+
+            // set the new version number
+            superblock.version = version;
+
+            // write back the updated superblock to disk
+            lfs_superblock_tole32(&superblock);
+            int err = lfs_dir_commit(lfs, &dir, LFS_MKATTRS(
+                {LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
+                {LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock}));
+            if (err) {
+                return err;
+            }
+
+            // use the new version number
+            lfs->version = version;
+            return LFS_ERR_OK;
+        }
+    }
+    return LFS_ERR_INVAL;
+}
+#endif
 
 /// Filesystem filesystem operations ///
 int lfs_fs_rawtraverse(lfs_t *lfs,
@@ -4488,6 +4954,18 @@ int lfs_fs_rawtraverse(lfs_t *lfs,
                 if (err) {
                     return err;
                 }
+            } else if (lfs_tag_type3(tag) == LFS_TYPE_FLATSTRUCT) {
+                if (ctz.size) {
+                    lfs_size_t nblocks = ((ctz.size - 1) / lfs->cfg->block_size) + 1;
+                    lfs_block_t bend = ctz.head + nblocks;
+                    // LFS_DEBUG("Traversing flat file of %"PRIu32" blocks at %"PRIu32"", nblocks, ctz.head);
+                    for (lfs_block_t i = ctz.head; i < bend; i++) {
+                        err = cb(data, i);
+                        if (err) {
+                            return err;
+                        }
+                    }
+                }
             } else if (includeorphans &&
                     lfs_tag_type3(tag) == LFS_TYPE_DIRSTRUCT) {
                 for (int i = 0; i < 2; i++) {
@@ -4504,6 +4982,23 @@ int lfs_fs_rawtraverse(lfs_t *lfs,
     // iterate over any open files
     for (lfs_file_t *f = (lfs_file_t*)lfs->mlist; f; f = f->next) {
         if (f->type != LFS_TYPE_REG) {
+            continue;
+        }
+
+        if (f->flags & LFS_F_FLAT) {
+            if (f->flags & LFS_F_DIRTY) {
+                if (f->ctz.size) {
+                    lfs_size_t nblocks = ((f->ctz.size - 1) / lfs->cfg->block_size) + 1;
+                    lfs_block_t bend = f->ctz.head + nblocks;
+                    // LFS_DEBUG("Traversing flat file of %"PRIu32" blocks at %"PRIu32"", nblocks, ctz.head);
+                    for (lfs_block_t i = f->ctz.head; i < bend; i++) {
+                        int err = cb(data, i);
+                        if (err) {
+                            return err;
+                        }
+                    }
+                }
+            }
             continue;
         }
 
@@ -5541,7 +6036,7 @@ static int lfs_rawmigrate(lfs_t *lfs, const struct lfs_config *cfg) {
         dir2.split = true;
 
         lfs_superblock_t superblock = {
-            .version     = LFS_DISK_VERSION,
+            .version     = LFS_DISK_VERSION_BASE,
             .block_size  = lfs->cfg->block_size,
             .block_count = lfs->cfg->block_count,
             .name_max    = lfs->name_max,
@@ -5904,7 +6399,40 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
+
+int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, int flags)
+{
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_reserve(%p, %p, %"PRIu32", %x)",
+        (void*)lfs, (void*)file, size, flags);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    err = lfs_file_rawreserve(lfs, file, size, flags);
+
+    LFS_TRACE("lfs_file_reserve -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
 #endif
+
+int lfs_file_reserved(lfs_t *lfs, lfs_file_t *file, lfs_block_t *block) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_reserved(%p, %p, %p)",
+        (void*)lfs, (void*)file, (void*)block);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+
+    err = lfs_file_rawreserved(lfs, file, block);
+
+    LFS_TRACE("lfs_file_reserved -> %"PRId32, res);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
 
 lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
     int err = LFS_LOCK(lfs->cfg);

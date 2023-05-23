@@ -32,6 +32,9 @@ extern "C"
 #define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
 #define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
 
+// Minimum disk version for specific features
+#define LFS_DISK_VERSION_BASE 0x00020000
+#define LFS_DISK_VERSION_FLAT 0x00020001
 
 /// Definitions ///
 
@@ -107,6 +110,7 @@ enum lfs_type {
     LFS_TYPE_DELETE         = 0x4ff,
     LFS_TYPE_SUPERBLOCK     = 0x0ff,
     LFS_TYPE_DIRSTRUCT      = 0x200,
+    LFS_TYPE_FLATSTRUCT     = 0x204,
     LFS_TYPE_CTZSTRUCT      = 0x202,
     LFS_TYPE_INLINESTRUCT   = 0x201,
     LFS_TYPE_SOFTTAIL       = 0x600,
@@ -144,6 +148,16 @@ enum lfs_open_flags {
     LFS_F_ERRED   = 0x080000, // An error occurred during write
 #endif
     LFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
+    LFS_F_FLAT    = 0x400000, // A flat fixed length file
+};
+
+enum lfs_reserve_flags {
+    LFS_R_ERRED     = 0x01, // Flags an error to abort the reservation
+    LFS_R_GOBBLE    = 0x02, // Force gobble allocation
+    LFS_R_FRONT     = 0x04, // Allocate in front using traversal allocation
+    LFS_R_TRUNCATE  = 0x08, // Try to shrink or grow using truncate first
+    LFS_R_OVERWRITE = 0x10, // Allow overwriting a committed reservation
+    LFS_R_COPY      = 0x20, // Copy previous data to new reservation
 };
 
 // File seek flags
@@ -410,6 +424,7 @@ typedef struct lfs {
     } free;
 
     const struct lfs_config *cfg;
+    uint32_t version;
     lfs_size_t name_max;
     lfs_size_t file_max;
     lfs_size_t attr_max;
@@ -587,6 +602,27 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
 // Returns a negative error code on failure.
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
 #endif
+
+// Reserve a flat storage area of the specified size
+//
+// Reserves a flat fixed-size area in the storage of the specified size.
+// The area is not usable as a real file. The reserved blocks can be
+// used directly.
+// 
+// Any previous contents of the file will be discarded entirely.
+// To turn the file back into a regular file, set its size to 0.
+// 
+// After writing to a newly reserved area, close must be called to
+// commit the reservation to the storage. If the file should not be
+// committed due to any error, flag LFS_F_ERRED before closing.
+//
+// Returns a negative error code on failure.
+int lfs_file_reserve(lfs_t *lfs, lfs_file_t *file, lfs_size_t size, int flags);
+
+// Get the first block of a flat file reservation
+//
+// Returns a negative error code on failure.
+int lfs_file_reserved(lfs_t *lfs, lfs_file_t *file, lfs_block_t *block);
 
 // Return the position of the file
 //
