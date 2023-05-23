@@ -1651,7 +1651,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
 
         commit->off = noff;
         // perturb valid bit?
-        commit->ptag = ntag ^ ((0x80 & ~eperturb) << 24);
+        commit->ptag = ntag ^ ((0x80UL & ~eperturb) << 24);
         // reset crc for next commit
         commit->crc = 0xffffffff;
 
