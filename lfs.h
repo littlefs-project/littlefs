@@ -371,14 +371,20 @@ typedef union lfsr_btree {
 } lfsr_btree_t;
 
 typedef struct lfsr_mdir {
-    //  -3 => deleted
-    //  -2 => an out-of-tree mdir
+    //  -2 => deleted
     //  -1 => mroot
     // >=0 => bid in the mtree
     lfs_ssize_t mid;
     lfs_block_t other_block;
     lfsr_rbyd_t rbyd;
 } lfsr_mdir_t;
+
+typedef struct lfsr_openedmdir {
+    struct lfsr_openedmdir *next;
+    // this rid is followed during splits
+    lfs_ssize_t rid;
+    lfsr_mdir_t mdir;
+} lfsr_openedmdir_t;
 
 
 typedef struct lfs_mdir {
@@ -472,6 +478,9 @@ typedef struct lfs {
     // begin lfsr things
     lfsr_mdir_t mroot;
     lfsr_btree_t mtree;
+
+    // linked-list of opened mdirs
+    lfsr_openedmdir_t *opened;
 
 #ifdef LFS_MIGRATE
     struct lfs1 *lfs1;

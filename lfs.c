@@ -4420,6 +4420,31 @@ static inline lfs_size_t lfsr_mdir_weight(const lfsr_mdir_t *mdir) {
     return mdir->rbyd.weight;
 }
 
+// track "opened" mdirs that may need to by updated
+static void lfsr_mdir_addopened(lfs_t *lfs, lfsr_openedmdir_t *opened) {
+    opened->next = lfs->opened;
+    lfs->opened = opened;
+}
+
+static void lfsr_mdir_removeopened(lfs_t *lfs, lfsr_openedmdir_t *opened) {
+    for (lfsr_openedmdir_t **p = &lfs->opened; *p; p = &(*p)->next) {
+        if (*p == opened) {
+            *p = (*p)->next;
+            break;
+        }
+    }
+}
+
+static bool lfsr_mdir_isopened(lfs_t *lfs, const lfsr_openedmdir_t *opened) {
+    for (lfsr_openedmdir_t *p = lfs->opened; p; p = p->next) {
+        if (p == opened) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t mid) {
     // allocate two blocks
     lfs_block_t blocks[2];
@@ -4756,6 +4781,7 @@ compact:;
 
 static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+    LFS_ASSERT(mdir->mid != -2);
 
     // attempt to commit/compact the mdir normally
     lfsr_mdir_t mdir_ = *mdir;
@@ -5321,10 +5347,46 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     lfs->mroot = mroot_;
     lfs->mtree = mtree_;
 
+    // update any opened mdirs
+    for (lfsr_openedmdir_t *opened = lfs->opened;
+            opened;
+            opened = opened->next) {
+        if (opened->mdir.mid == mdir->mid
+                // avoid double-updating our current mdir
+                && &opened->mdir != mdir) {
+            LFS_ASSERT(opened->rid < (lfs_ssize_t)opened->mdir.rbyd.weight);
+            LFS_ASSERT(opened->rid != -1);
+
+            // first play out any attrs that change our rid
+            for (lfs_size_t i = 0; i < attr_count; i++) {
+                if (opened->rid >= attrs[i].id) {
+                    // removed?
+                    if (opened->rid + attrs[i].delta < attrs[i].id) {
+                        opened->rid = -2;
+                        opened->mdir.mid = -2;
+                    } else {
+                        opened->rid += attrs[i].delta;
+                    }
+                }
+            }
+
+            // update mdir to follow rid
+            if (opened->rid == -2) {
+                // skip removed mdirs
+            } else if ((lfs_size_t)opened->rid < mdir_.rbyd.weight) {
+                opened->mdir = mdir_;
+            } else {
+                opened->rid = opened->rid - mdir_.rbyd.weight;
+                opened->mdir = msibling_;
+            }
+        }
+    }
+
     // update mdir to follow requested rid
     lfs_ssize_t rid_ = *rid;
     LFS_ASSERT(rid_ <= (lfs_ssize_t)mdir->rbyd.weight);
-    if (rid_ < 0) {
+    LFS_ASSERT(rid_ != -2);
+    if (rid_ == -1) {
         *mdir = mroot_;
     } else if ((lfs_size_t)rid_ < mdir_.rbyd.weight) {
         *mdir = mdir_;
@@ -10221,6 +10283,8 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 #ifdef LFS_MIGRATE
     lfs->lfs1 = NULL;
 #endif
+
+    lfs->opened = NULL;
 
     return 0;
 
