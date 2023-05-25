@@ -4056,3 +4056,319 @@ code = '''
     }
 '''
 
+
+## B-tree traversal tests ##
+
+# some simple btree traversals
+[cases.test_btree_traversal]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, cfg) => 0;
+    // create free lookahead
+    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.free.off = 0;
+    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+            lfs.cfg->block_count);
+    lfs.free.i = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a tree with N elements
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_size_t n = 0;
+    for (lfs_size_t i = 0; i < N; i++) {
+        int err = lfsr_btree_push(&lfs, &btree, i, LFSR_TAG_INLINED, 1,
+                LFSR_DATA_BUF(&alphas[i % 26], 1));
+        // ignore space issues
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        assert(err == 0);
+        n += 1;
+    }
+    printf("btree: w%d 0x%x.%x\n",
+            btree.weight,
+            btree.root.block,
+            btree.root.trunk);
+    assert(lfsr_btree_weight(&btree) == n);
+
+    // check that the elements are in the tree
+    uint8_t buffer[4];
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+
+    for (lfs_size_t i = 0; i < n; i++) {
+        lfsr_btree_get(&lfs, &btree, i,
+                &tag_, &weight_,
+                buffer, 4, false) => 1;
+        assert(tag_ == LFSR_TAG_INLINED);
+        assert(weight_ == 1);
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    }
+
+    // and check that we can't lookup elements that aren't in the tree
+    lfsr_btree_get(&lfs, &btree, n,
+            &tag_, &weight_,
+            buffer, 4, false) => LFS_ERR_NOENT;
+
+    // test that we can traverse the tree, keeping track of all blocks we see
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_btree_traversal_t traversal;
+    lfsr_btree_traversal_start(&lfs, &btree, &traversal) => 0;
+
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but catch infinite loops
+        assert(i < 2*N);
+
+        lfs_size_t bid_;
+        lfsr_tag_t tag_;
+        lfs_size_t weight_;
+        lfsr_data_t data_;
+        int err = lfsr_btree_traversal_next(&lfs, &btree, &traversal,
+                &bid_, &tag_, &weight_, &data_);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        if (tag_ == LFSR_TAG_BTREE) {
+            const lfsr_rbyd_t *branch = (const lfsr_rbyd_t *)data_.buf.buffer;
+            printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
+                    bid_,
+                    tag_,
+                    weight_,
+                    branch->block, branch->trunk);
+
+            // keep track of seen blocks
+            seen[branch->block / 8] |= 1 << (branch->block % 8);
+        } else {
+            printf("traversal: %d 0x%x w%d %d\n",
+                    bid_,
+                    tag_,
+                    weight_,
+                    lfsr_data_size(data_));
+        }
+    }
+
+    // if traversal worked, we should be able to clobber all other blocks
+    uint8_t buffer_[BLOCK_SIZE];
+    memset(buffer_, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            cfg->erase(cfg, block) => 0;
+            cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+        }
+    }
+
+    // and the tree should still work
+
+    // check that the elements are in the tree
+    for (lfs_size_t i = 0; i < n; i++) {
+        lfsr_btree_get(&lfs, &btree, i,
+                &tag_, &weight_,
+                buffer, 4, false) => 1;
+        assert(tag_ == LFSR_TAG_INLINED);
+        assert(weight_ == 1);
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    }
+
+    // and check that we can't lookup elements that aren't in the tree
+    lfsr_btree_get(&lfs, &btree, n,
+            &tag_, &weight_,
+            buffer, 4, false) => LFS_ERR_NOENT;
+
+    // clean up traversal stuff
+    free(seen);
+'''
+
+[cases.test_btree_traversal_fuzz]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.SAMPLES = 10
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+
+    // iterate through severals seeds that we can reproduce easily
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
+        // create lfs here since we need to reset each iteration, we're
+        // space constrained and we can't expect gc to work at this point
+        lfs_t lfs;
+        lfs_init(&lfs, cfg) => 0;
+        // create free lookahead
+        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.free.off = 0;
+        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+                lfs.cfg->block_count);
+        lfs.free.i = 0;
+        lfs_alloc_ack(&lfs);
+
+        // create a btree
+        lfsr_btree_t btree = LFSR_BTREE_NULL;
+
+        // set up a simulation to compare against
+        //
+        // fun fact this is slower than our actual tree! unfun fact this is
+        // starting to be a problem...
+        char *sim = malloc(N);
+        lfs_size_t sim_size = 0;
+        memset(sim, 0, N);
+
+        uint32_t prng = seed;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // choose a pseudo-random id
+            lfs_size_t id = TEST_PRNG(&prng) % (sim_size+1);
+
+            // add to btree
+            int err = lfsr_btree_push(&lfs, &btree, id, LFSR_TAG_INLINED, 1,
+                    LFSR_DATA_BUF(&alphas[i % 26], 1));
+            // ignore space issues
+            if (err == LFS_ERR_NOSPC) {
+                break;
+            }
+            assert(err == 0);
+
+            // add to sim
+            memmove(&sim[id+1], &sim[id], sim_size-id);
+            sim[id] = alphas[i % 26];
+            sim_size += 1;
+        }
+
+        // check that btree matches sim
+        printf("expd: [");
+        bool first = true;
+        for (lfs_size_t i = 0; i < sim_size; i++) {
+            if (!first) {
+                printf(", ");
+            }
+            first = false;
+            printf("%c", sim[i]);
+        }
+        printf("]\n");
+        printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+        assert(lfsr_btree_weight(&btree) == sim_size);
+
+        uint8_t buffer[4];
+        lfsr_tag_t tag_;
+        lfs_size_t weight_;
+        for (lfs_size_t i = 0; i < sim_size; i++) {
+            lfsr_btree_get(&lfs, &btree, i,
+                    &tag_, &weight_,
+                    buffer, 4, false) => 1;
+            assert(tag_ == LFSR_TAG_INLINED);
+            assert(weight_ == 1);
+            assert(memcmp(buffer, &sim[i], 1) == 0);
+        }
+
+        // and no extra elements
+        lfsr_btree_get(&lfs, &btree, sim_size,
+                &tag_, &weight_,
+                buffer, 4, false) => LFS_ERR_NOENT;
+
+        // test that we can traverse the tree, keeping track of all blocks
+        // we see
+        uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+        memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+        lfsr_btree_traversal_t traversal;
+        lfsr_btree_traversal_start(&lfs, &btree, &traversal) => 0;
+
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but catch infinite loops
+            assert(i < 2*N);
+
+            lfs_size_t bid_;
+            lfsr_tag_t tag_;
+            lfs_size_t weight_;
+            lfsr_data_t data_;
+            int err = lfsr_btree_traversal_next(&lfs, &btree, &traversal,
+                    &bid_, &tag_, &weight_, &data_);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            if (tag_ == LFSR_TAG_BTREE) {
+                const lfsr_rbyd_t *branch = (
+                        (const lfsr_rbyd_t *)data_.buf.buffer);
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
+                        bid_,
+                        tag_,
+                        weight_,
+                        branch->block, branch->trunk);
+
+                // keep track of seen blocks
+                seen[branch->block / 8] |= 1 << (branch->block % 8);
+            } else {
+                printf("traversal: %d 0x%x w%d %d\n",
+                        bid_,
+                        tag_,
+                        weight_,
+                        lfsr_data_size(data_));
+            }
+        }
+
+        // if traversal worked, we should be able to clobber all other blocks
+        uint8_t buffer_[BLOCK_SIZE];
+        memset(buffer_, 0xcc, BLOCK_SIZE);
+        for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+            if (!(seen[block / 8] & (1 << (block % 8)))) {
+                cfg->erase(cfg, block) => 0;
+                cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+            }
+        }
+
+        // and the tree should still work
+
+        // check that btree matches sim
+        printf("expd: [");
+        first = true;
+        for (lfs_size_t i = 0; i < sim_size; i++) {
+            if (!first) {
+                printf(", ");
+            }
+            first = false;
+            printf("%c", sim[i]);
+        }
+        printf("]\n");
+        printf("btree: w%d 0x%x.%x\n",
+                btree.weight,
+                btree.root.block,
+                btree.root.trunk);
+        assert(lfsr_btree_weight(&btree) == sim_size);
+
+        for (lfs_size_t i = 0; i < sim_size; i++) {
+            lfsr_btree_get(&lfs, &btree, i,
+                    &tag_, &weight_,
+                    buffer, 4, false) => 1;
+            assert(tag_ == LFSR_TAG_INLINED);
+            assert(weight_ == 1);
+            assert(memcmp(buffer, &sim[i], 1) == 0);
+        }
+
+        // and no extra elements
+        lfsr_btree_get(&lfs, &btree, sim_size,
+                &tag_, &weight_,
+                buffer, 4, false) => LFS_ERR_NOENT;
+
+        // clean up traversal stuff
+        free(seen);
+
+        // clean up sim
+        free(sim);
+        lfs_deinit(&lfs) => 0;
+    }
+'''
+

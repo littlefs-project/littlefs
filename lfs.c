@@ -3137,11 +3137,11 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs,
             }
         }
 
+        // adjust rid with subtree's weight
+        rid -= (rid__ - (weight__-1));
+
         // found another branch
         if (tag__ == LFSR_TAG_BTREE) {
-            // adjust rid with subtree's weight
-            rid -= (rid__ - (weight__-1));
-
             // fetch the next branch
             lfs_ssize_t d = lfsr_branch_fromdisk(lfs, &branch, data__);
             if (d < 0) {
@@ -3153,7 +3153,7 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs,
         } else {
             // TODO how many of these should be conditional?
             if (bid_) {
-                *bid_ = bid + (rid__ - rid);
+                *bid_ = bid - (rid - (weight__-1));
             }
             if (rbyd_) {
                 *rbyd_ = branch;
@@ -3396,11 +3396,11 @@ static lfs_ssize_t lfsr_btree_namelookupnext(lfs_t *lfs,
             }
         }
 
+        // update our bid
+        bid += rid__ - (weight__-1);
+
         // found another branch
         if (tag__ == LFSR_TAG_BTREE) {
-            // update our id
-            bid += rid__-(weight__-1);
-
             // fetch the next branch
             lfs_ssize_t d = lfsr_branch_fromdisk(lfs, &branch, data__);
             if (d < 0) {
@@ -3412,7 +3412,7 @@ static lfs_ssize_t lfsr_btree_namelookupnext(lfs_t *lfs,
         } else {
             // TODO how many of these should be conditional?
             if (bid_) {
-                *bid_ = bid + rid__;
+                *bid_ = bid + (weight__-1);
             }
             if (rbyd_) {
                 *rbyd_ = branch;
@@ -4349,6 +4349,174 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         // this should never happen
         LFS_ASSERT(!degenerate);
         return 0;
+    }
+}
+
+
+// incremental btree traversal
+//
+// note this is different from iteration, iteration should use
+// lfsr_btree_lookupnext, traversal includes inner entries
+typedef struct lfsr_btree_traversal {
+    lfs_size_t bid;
+    lfs_ssize_t rid;
+    lfsr_rbyd_t branch;
+} lfsr_btree_traversal_t;
+
+static int lfsr_btree_traversal_start(lfs_t *lfs,
+        const lfsr_btree_t *btree,
+        lfsr_btree_traversal_t *traversal) {
+    (void)lfs;
+    (void)btree;
+    // setup traversal to fetch the root next call
+    traversal->bid = 0;
+    traversal->rid = 0;
+    traversal->branch.trunk = 0;
+    traversal->branch.weight = 0;
+    return 0;
+}
+
+static int lfsr_btree_traversal_next(lfs_t *lfs,
+        const lfsr_btree_t *btree,
+        lfsr_btree_traversal_t *traversal,
+        lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
+        lfsr_data_t *data_) {
+    while (true) {
+        // in range?
+        if (traversal->bid >= lfsr_btree_weight(btree)) {
+            return LFS_ERR_NOENT;
+        }
+
+        // inlined?
+        if (lfsr_btree_isinlined(btree)) {
+            // setup traversal to terminate next call
+            traversal->bid = lfsr_btree_weight(btree);
+
+            // TODO how many of these should be conditional?
+            if (bid_) {
+                *bid_ = lfsr_btree_weight(btree)-1;
+            }
+            if (tag_) {
+                *tag_ = btree->inlined.tag;
+            }
+            if (weight_) {
+                *weight_ = lfsr_btree_weight(btree);
+            }
+            if (data_) {
+                *data_ = LFSR_DATA_BUF(btree->inlined.buffer,
+                        btree->inlined.size);
+            }
+            return 0;
+        }
+
+        // make sure we traverse the root
+        if (traversal->branch.trunk == 0) {
+            traversal->bid += traversal->branch.weight;
+            traversal->rid = traversal->bid;
+            traversal->branch = btree->root;
+
+            if (traversal->rid == 0) {
+                // TODO how many of these should be conditional?
+                if (bid_) {
+                    *bid_ = lfsr_btree_weight(btree)-1;
+                }
+                if (tag_) {
+                    *tag_ = LFSR_TAG_BTREE;
+                }
+                if (weight_) {
+                    *weight_ = lfsr_btree_weight(btree);
+                }
+                if (data_) {
+                    // note btrees are returned decoded
+                    *data_ = LFSR_DATA_BUF(&traversal->branch,
+                            sizeof(lfsr_rbyd_t));
+                }
+                return 0;
+            }
+
+            // continue, mostly for range check
+            continue;
+        }
+
+        // descend down the tree
+        lfs_ssize_t rid__;
+        lfsr_tag_t tag__;
+        lfs_size_t weight__;
+        lfsr_data_t data__;
+        int err = lfsr_rbyd_lookupnext(lfs, &traversal->branch,
+                traversal->rid, 0,
+                &rid__, &tag__, &weight__, &data__);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            return err;
+        }
+
+        if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
+            err = lfsr_rbyd_lookupnext(lfs, &traversal->branch,
+                    rid__, LFSR_TAG_STRUCT,
+                    NULL, &tag__, NULL, &data__);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
+        }
+
+        // adjust rid with subtree's weight
+        traversal->rid -= (rid__ - (weight__-1));
+
+        // found another branch
+        if (tag__ == LFSR_TAG_BTREE) {
+            // fetch the next branch
+            lfs_ssize_t d = lfsr_branch_fromdisk(lfs,
+                    &traversal->branch, data__);
+            if (d < 0) {
+                return d;
+            }
+            LFS_ASSERT(traversal->branch.weight == weight__);
+
+            // return inner btree nodes if this is the first time we've
+            // seen them
+            if (traversal->rid == 0) {
+                // TODO how many of these should be conditional?
+                if (bid_) {
+                    *bid_ = traversal->bid - (
+                            traversal->rid - (traversal->branch.weight-1));
+                }
+                if (tag_) {
+                    *tag_ = LFSR_TAG_BTREE;
+                }
+                if (weight_) {
+                    *weight_ = traversal->branch.weight;
+                }
+                if (data_) {
+                    // note btrees are returned decoded
+                    *data_ = LFSR_DATA_BUF(
+                            &traversal->branch, sizeof(lfsr_rbyd_t));
+                }
+                return 0;
+            }
+
+        // found our bid
+        } else {
+            // update traversal
+            traversal->branch.trunk = 0;
+            traversal->branch.weight = weight__;
+
+            // TODO how many of these should be conditional?
+            if (bid_) {
+                *bid_ = traversal->bid - (traversal->rid - (weight__-1));
+            }
+            if (tag_) {
+                *tag_ = tag__;
+            }
+            if (weight_) {
+                *weight_ = weight__;
+            }
+            if (data_) {
+                *data_ = data__;
+            }
+            return 0;
+        }
     }
 }
 
