@@ -5521,8 +5521,6 @@ typedef struct lfsr_mtree_traversal {
     uint8_t tortoise_power;
     lfs_size_t tortoise_step;
     lfsr_mpair_t tortoise_mpair;
-    lfs_block_t tortoise_mtree_block;
-    lfs_size_t tortoise_mtree_trunk;
 } lfsr_mtree_traversal_t;
 
 enum {
@@ -5541,25 +5539,23 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         lfsr_mtree_traversal_t *traversal,
         lfs_size_t *mid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     // detect cycles with Brent's algorithm
-    if (traversal->mdir.rbyd.trunk != 0
-            && lfsr_mpair_eq(lfsr_mdir_mpair(&traversal->mdir),
-                traversal->tortoise_mpair)
-            && traversal->mtraversal.branch.block
-                == traversal->tortoise_mtree_block
-            && traversal->mtraversal.branch.trunk
-                == traversal->tortoise_mtree_trunk) {
-        LFS_ERROR("Cycle detected during mtree traversal");
-        return LFS_ERR_CORRUPT;
+    if (traversal->mtraversal.branch.trunk == 0) {
+        if (traversal->mdir.rbyd.trunk != 0
+                && lfsr_mpair_eq(lfsr_mdir_mpair(&traversal->mdir),
+                    traversal->tortoise_mpair)) {
+            LFS_ERROR("Cycle detected during mtree traversal "
+                    "(0x{%"PRIx32",%"PRIx32"})",
+                    traversal->mdir.rbyd.block, traversal->mdir.other_block);
+            return LFS_ERR_CORRUPT;
+        }
+        if (traversal->tortoise_step
+                == ((lfs_size_t)1 << traversal->tortoise_power)) {
+            traversal->tortoise_mpair = lfsr_mdir_mpair(&traversal->mdir);
+            traversal->tortoise_step = 0;
+            traversal->tortoise_power += 1;
+        }
+        traversal->tortoise_step += 1;
     }
-    if (traversal->tortoise_step
-            == ((lfs_size_t)1 << traversal->tortoise_power)) {
-        traversal->tortoise_mpair = lfsr_mdir_mpair(&traversal->mdir);
-        traversal->tortoise_mtree_block = traversal->mtraversal.branch.block;
-        traversal->tortoise_mtree_trunk = traversal->mtraversal.branch.trunk;
-        traversal->tortoise_step = 0;
-        traversal->tortoise_power += 1;
-    }
-    traversal->tortoise_step += 1;
 
     // new traversal? start with 0x{0,1}
     //
@@ -5642,7 +5638,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
                     && rid == -1
                     && lfsr_tag_suptype(tag) == LFSR_TAG_STRUCT) {
                 if (tag != LFSR_TAG_MDIR && tag != LFSR_TAG_BTREE) {
-                    LFS_ERROR("Weird mstruct? 0x%"PRIx32, tag);
+                    LFS_ERROR("Weird mstruct? (0x%"PRIx32")", tag);
                     return LFS_ERR_CORRUPT;
                 }
 
@@ -5685,7 +5681,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     LFS_ERROR("Corrupted rbyd during mtree traversal "
-                            "(rbyd=0x%"PRIx32".%"PRIx32", 0x%08"PRIx32")",
+                            "(0x%"PRIx32".%"PRIx32", 0x%08"PRIx32")",
                             branch->block, branch->trunk, branch->crc);
                 }
                 return err;
@@ -5698,7 +5694,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             // crc check and trunk check
             if (branch_.crc != branch->crc) {
                 LFS_ERROR("Checksum mismatch during mtree traversal "
-                        "(rbyd=0x%"PRIx32".%"PRIx32", "
+                        "(0x%"PRIx32".%"PRIx32", "
                         "0x%08"PRIx32" != 0x%08"PRIx32")",
                         branch->block, branch->trunk,
                         branch_.crc, branch->crc);
@@ -5754,7 +5750,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         return 0;
 
     } else {
-        LFS_ERROR("Weird mtree entry? 0x%"PRIx32, tag);
+        LFS_ERROR("Weird mtree entry? (0x%"PRIx32")", tag);
         return LFS_ERR_CORRUPT;
     }
 }

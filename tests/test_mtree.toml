@@ -3742,3 +3742,63 @@ code = '''
     }
 '''
 
+
+## Cycle detection? ##
+
+# test that our cycle detector at least works in common cases
+[cases.test_mtree_traversal_mroot_cycle]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    uint8_t buffer[LFSR_MPAIR_DSIZE];
+    lfs_ssize_t d = lfsr_mpair_todisk(&lfs, LFSR_MPAIR(0, 1), buffer);
+    assert(d >= 0);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, MROOT, 0, buffer, d))) => 0;
+
+    // technically, cycle detection only needs to work when we're validating
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+            LFSR_MTREE_TRAVERSAL_VALIDATE);
+
+    for (lfs_block_t i = 0;; i++) {
+        // assert that we detect the cycle in a reasonable number of iterations
+        assert(i < 1024);
+
+        lfs_size_t mid_;
+        lfsr_tag_t tag_;
+        lfsr_data_t data_;
+        int err = lfsr_mtree_traversal_next(&lfs, &traversal,
+                &mid_, &tag_, &data_);
+        assert(!err || err == LFS_ERR_CORRUPT);
+        if (err == LFS_ERR_CORRUPT) {
+            break;
+        }
+
+        if (tag_ == LFSR_TAG_BTREE) {
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.buf.buffer;
+            printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                    mid_,
+                    tag_,
+                    branch->block, branch->trunk);
+        } else if (tag_ == LFSR_TAG_MDIR) {
+            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.buf.buffer;
+            printf("traversal: %d 0x%x mdir 0x{%x,%x}\n",
+                    mid_,
+                    tag_,
+                    mdir->rbyd.block, mdir->other_block);
+        } else {
+            // this shouldn't happen
+            printf("traversal: %d 0x%x %d\n",
+                    mid_,
+                    tag_,
+                    lfsr_data_size(data_));
+            assert(false);
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
