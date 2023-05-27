@@ -3042,8 +3042,7 @@ static lfs_ssize_t lfsr_btree_fromdisk(lfs_t *lfs, lfsr_btree_t *btree,
 static int lfsr_btree_lookupnext_(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t bid,
         lfs_size_t *bid_, lfsr_rbyd_t *rbyd_, lfs_ssize_t *rid_,
-        lfsr_tag_t *tag_, lfs_size_t *weight_,
-        lfsr_data_t *data_, bool validate) {
+        lfsr_tag_t *tag_, lfs_size_t *weight_, lfsr_data_t *data_) {
     // in range?
     if (bid >= lfsr_btree_weight(btree)) {
         return LFS_ERR_NOENT;
@@ -3071,48 +3070,6 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs,
     lfsr_rbyd_t branch = btree->root;
     lfs_ssize_t rid = bid;
     while (true) {
-        // if we're validating during our lookup, we need to fetch each branch,
-        // otherwise we can get away with assuming our stored block+trunk is
-        // correct
-        //
-        // though we assume fetched branches have already been validated, this
-        // generally only affects the root rbyd but note the root rbyd is the
-        // most heavily accessed
-        //
-        if (validate && !lfsr_rbyd_isfetched(&branch)) {
-            lfsr_rbyd_t branch_;
-            int err = lfsr_rbyd_fetch(lfs, &branch_,
-                    branch.block, branch.trunk, NULL);
-            if (err) {
-                if (err == LFS_ERR_CORRUPT) {
-                    LFS_ERROR("Corrupted rbyd found during btree lookup "
-                            "(rbyd=0x%"PRIx32".%"PRIx32", "
-                            "0x%08"PRIx32" != 0x%08"PRIx32")",
-                            branch.block, branch.trunk,
-                            branch_.crc, branch.crc);
-                }
-                return err;
-            }
-
-            // test that our branch's crc matches what's expected
-            //
-            // it should be noted it's very unlikely for this to be hit without
-            // the above fetch failing since it includes both an internal
-            // crc check and trunk check
-            if (branch_.crc != branch.crc) {
-                LFS_ERROR("Corrupted rbyd found during btree lookup "
-                        "(rbyd=0x%"PRIx32".%"PRIx32", "
-                        "0x%08"PRIx32" != 0x%08"PRIx32")",
-                        branch.block, branch.trunk,
-                        branch_.crc, branch.crc);
-                return LFS_ERR_CORRUPT;
-            }
-
-            LFS_ASSERT(branch_.trunk == branch.trunk);
-            LFS_ASSERT(branch_.weight == branch.weight);
-            branch = branch_;
-        }
-
         // each branch is a pair of optional name + on-disk structure
         lfs_ssize_t rid__;
         lfsr_tag_t tag__;
@@ -3178,20 +3135,17 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs,
 static int lfsr_btree_lookupnext(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t bid,
         lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
-        lfsr_data_t *data_, bool validate) {
+        lfsr_data_t *data_) {
     return lfsr_btree_lookupnext_(lfs, btree, bid,
-            bid_, NULL, NULL, tag_, weight_, data_,
-            validate);
+            bid_, NULL, NULL, tag_, weight_, data_);
 }
 
 static int lfsr_btree_lookup(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t bid,
-        lfsr_tag_t *tag_, lfs_size_t *weight_,
-        lfsr_data_t *data_, bool validate) {
+        lfsr_tag_t *tag_, lfs_size_t *weight_, lfsr_data_t *data_) {
     lfs_size_t bid_;
     int err = lfsr_btree_lookupnext(lfs, btree, bid,
-            &bid_, tag_, weight_, data_,
-            validate);
+            &bid_, tag_, weight_, data_);
     if (err) {
         return err;
     }
@@ -3210,12 +3164,10 @@ static int lfsr_btree_lookup(lfs_t *lfs,
 static int lfsr_btree_get(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t bid,
         lfsr_tag_t *tag_, lfs_size_t *weight_,
-        void *buffer, lfs_size_t size,
-        bool validate) {
+        void *buffer, lfs_size_t size) {
     lfsr_data_t data;
     int err = lfsr_btree_lookup(lfs, btree, bid,
-            tag_, weight_, &data,
-            validate);
+            tag_, weight_, &data);
     if (err) {
         return err;
     }
@@ -4080,8 +4032,7 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         lfs_ssize_t rid = -1;
         lfs_size_t rweight = 0;
         int err = lfsr_btree_lookupnext_(lfs, btree, bid_,
-                NULL, &rbyd, &rid, NULL, &rweight, NULL,
-                false);
+                NULL, &rbyd, &rid, NULL, &rweight, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -4149,8 +4100,7 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
         lfs_ssize_t rid;
         lfs_size_t rweight;
         int err = lfsr_btree_lookupnext_(lfs, btree, bid,
-                NULL, &rbyd, &rid, &rtag, &rweight, NULL,
-                false);
+                NULL, &rbyd, &rid, &rtag, &rweight, NULL);
         if (err) {
             return err;
         }
@@ -4204,8 +4154,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
         lfs_ssize_t rid;
         lfs_size_t rweight;
         int err = lfsr_btree_lookupnext_(lfs, btree, bid,
-                NULL, &rbyd, &rid, &rtag, &rweight, NULL,
-                false);
+                NULL, &rbyd, &rid, &rtag, &rweight, NULL);
         if (err) {
             return err;
         }
@@ -4320,8 +4269,7 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         lfs_ssize_t rid;
         lfs_size_t rweight;
         int err = lfsr_btree_lookupnext_(lfs, btree, bid,
-                NULL, &rbyd, &rid, NULL, &rweight, NULL,
-                false);
+                NULL, &rbyd, &rid, NULL, &rweight, NULL);
         if (err) {
             return err;
         }
@@ -4741,7 +4689,7 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfs_ssize_t mid, lfsr_mdir_t *mdir_) {
         lfsr_tag_t tag;
         lfsr_data_t data;
         int err = lfsr_btree_lookup(lfs, &lfs->mtree, mid,
-                &tag, NULL, &data, false);
+                &tag, NULL, &data);
         if (err) {
             return err;
         }
@@ -5563,11 +5511,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
 // incremental mtree traversal
 typedef struct lfsr_mtree_traversal {
+    uint8_t flags;
     lfsr_mdir_t mdir;
     lfsr_btree_traversal_t mtraversal;
 } lfsr_mtree_traversal_t;
 
-#define LFSR_MTREE_TRAVERSAL_INIT ((lfsr_mtree_traversal_t){ \
+enum {
+    LFSR_MTREE_TRAVERSAL_VALIDATE = 0x1,
+};
+
+#define LFSR_MTREE_TRAVERSAL_INIT(_flags) ((lfsr_mtree_traversal_t){ \
+        .flags = _flags, \
         .mdir.rbyd.trunk = 0, \
         .mtraversal = LFSR_BTREE_TRAVERSAL_INIT, \
     })
@@ -5688,6 +5642,44 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
 
     // inner btree nodes already decoded
     if (tag == LFSR_TAG_BTREE) {
+        // validate our btree nodes if requested, this just means we need
+        // to do a full rbyd fetch and make sure the checksums match
+        if (traversal->flags & LFSR_MTREE_TRAVERSAL_VALIDATE) {
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.buf.buffer;
+            lfsr_rbyd_t branch_;
+            int err = lfsr_rbyd_fetch(lfs, &branch_,
+                    branch->block, branch->trunk, NULL);
+            if (err) {
+                if (err == LFS_ERR_CORRUPT) {
+                    LFS_ERROR("Corrupted rbyd during mtree traversal "
+                            "(rbyd=0x%"PRIx32".%"PRIx32", 0x%08"PRIx32")",
+                            branch->block, branch->trunk, branch->crc);
+                }
+                return err;
+            }
+
+            // test that our branch's crc matches what's expected
+            //
+            // it should be noted it's very unlikely for this to be hit without
+            // the above fetch failing since it includes both an internal
+            // crc check and trunk check
+            if (branch_.crc != branch->crc) {
+                LFS_ERROR("Checksum mismatch during mtree traversal "
+                        "(rbyd=0x%"PRIx32".%"PRIx32", "
+                        "0x%08"PRIx32" != 0x%08"PRIx32")",
+                        branch->block, branch->trunk,
+                        branch_.crc, branch->crc);
+                return LFS_ERR_CORRUPT;
+            }
+
+            LFS_ASSERT(branch_.trunk == branch->trunk);
+            LFS_ASSERT(branch_.weight == branch->weight);
+
+            // TODO is this useful at all?
+            // change our branch to the fetched version
+            *branch = branch_;
+        }
+
         // still update our mdir mid so we don't get stuck in a loop
         // traversing mroots
         traversal->mdir.mid = mid;

@@ -5,7 +5,6 @@ defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
 
 [cases.bench_btree_lookup]
 defines.N = [8, 16, 32, 64, 128, 256, 1024]
-defines.VALIDATE = [1, 0]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -48,8 +47,7 @@ code = '''
     lfs_size_t weight_;
     
     lfsr_btree_get(&lfs, &btree, i,
-            &tag_, &weight_,
-            buffer, 4, VALIDATE) => 1;
+            &tag_, &weight_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(weight_ == 1);
     BENCH_STOP();
@@ -57,7 +55,6 @@ code = '''
 
 [cases.bench_btree_commit]
 defines.N = [8, 16, 32, 64, 128, 256, 1024]
-defines.VALIDATE = 0
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -107,8 +104,7 @@ code = '''
     lfs_size_t weight_;
 
     lfsr_btree_get(&lfs, &btree, i,
-            &tag_, &weight_,
-            buffer, 4, VALIDATE) => 1;
+            &tag_, &weight_, buffer, 4) => 1;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(weight_ == 1);
 '''

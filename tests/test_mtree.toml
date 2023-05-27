@@ -2970,6 +2970,7 @@ code = '''
 
 # test specific corner cases
 [cases.test_mtree_traversal]
+defines.VALIDATE = [false, true]
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
@@ -2993,7 +2994,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT;
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -3064,6 +3066,7 @@ code = '''
 [cases.test_mtree_traversal_uninline]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
+defines.VALIDATE = [false, true]
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
@@ -3109,7 +3112,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT;
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -3191,6 +3195,7 @@ code = '''
 [cases.test_mtree_traversal_split]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
+defines.VALIDATE = [false, true]
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
@@ -3236,7 +3241,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT;
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -3320,6 +3326,7 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
 defines.BLOCK_CYCLES = 2
+defines.VALIDATE = [false, true]
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
@@ -3355,7 +3362,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT;
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -3427,6 +3435,7 @@ code = '''
 # larger traversal tests
 [cases.test_mtree_traversal_many]
 defines.N = [5, 10, 20, 40, 80, 160, 320]
+defines.VALIDATE = [false, true]
 defines.FORCE_COMPACTION = [false, true]
 in = 'lfs.c'
 code = '''
@@ -3481,7 +3490,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT;
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -3563,6 +3573,7 @@ code = '''
 
 [cases.test_mtree_traversal_fuzz]
 defines.N = [5, 10, 20, 40, 80, 160]
+defines.VALIDATE = [false, true]
 defines.FORCE_COMPACTION = [false, true]
 defines.SAMPLES = 100
 # -1 => all pseudo-random seeds
@@ -3640,11 +3651,13 @@ code = '''
         // we ended up with the right number of entries
         assert(count_ == count);
 
-        // test that we can traverse the tree, keeping track of all blocks we see
+        // test that we can traverse the tree, keeping track of all blocks
+        // we see
         uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
         memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-        lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT;
+        lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+                VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
         for (lfs_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
