@@ -4117,11 +4117,10 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_btree_traversal_t traversal;
-    lfsr_btree_traversal_start(&lfs, &btree, &traversal) => 0;
+    lfsr_btree_traversal_t traversal = LFSR_BTREE_TRAVERSAL_INIT;
 
     for (lfs_block_t i = 0;; i++) {
-        // a bit hacky, but catch infinite loops
+        // a bit hacky, but this catches infinite loops
         assert(i < 2*N);
 
         lfs_size_t bid_;
@@ -4136,7 +4135,7 @@ code = '''
         }
 
         if (tag_ == LFSR_TAG_BTREE) {
-            const lfsr_rbyd_t *branch = (const lfsr_rbyd_t *)data_.buf.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.buf.buffer;
             printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                     bid_,
                     tag_,
@@ -4163,6 +4162,7 @@ code = '''
             cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
         }
     }
+    free(seen);
 
     // and the tree should still work
 
@@ -4180,9 +4180,6 @@ code = '''
     lfsr_btree_get(&lfs, &btree, n,
             &tag_, &weight_,
             buffer, 4, false) => LFS_ERR_NOENT;
-
-    // clean up traversal stuff
-    free(seen);
 '''
 
 [cases.test_btree_traversal_fuzz]
@@ -4282,11 +4279,10 @@ code = '''
         uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
         memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-        lfsr_btree_traversal_t traversal;
-        lfsr_btree_traversal_start(&lfs, &btree, &traversal) => 0;
+        lfsr_btree_traversal_t traversal = LFSR_BTREE_TRAVERSAL_INIT;
 
         for (lfs_block_t i = 0;; i++) {
-            // a bit hacky, but catch infinite loops
+            // a bit hacky, but this catches infinite loops
             assert(i < 2*N);
 
             lfs_size_t bid_;
@@ -4301,8 +4297,7 @@ code = '''
             }
 
             if (tag_ == LFSR_TAG_BTREE) {
-                const lfsr_rbyd_t *branch = (
-                        (const lfsr_rbyd_t *)data_.buf.buffer);
+                lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.buf.buffer;
                 printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid_,
                         tag_,
@@ -4329,6 +4324,7 @@ code = '''
                 cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
             }
         }
+        free(seen);
 
         // and the tree should still work
 
@@ -4362,9 +4358,6 @@ code = '''
         lfsr_btree_get(&lfs, &btree, sim_size,
                 &tag_, &weight_,
                 buffer, 4, false) => LFS_ERR_NOENT;
-
-        // clean up traversal stuff
-        free(seen);
 
         // clean up sim
         free(sim);

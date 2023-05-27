@@ -4363,18 +4363,12 @@ typedef struct lfsr_btree_traversal {
     lfsr_rbyd_t branch;
 } lfsr_btree_traversal_t;
 
-static int lfsr_btree_traversal_start(lfs_t *lfs,
-        const lfsr_btree_t *btree,
-        lfsr_btree_traversal_t *traversal) {
-    (void)lfs;
-    (void)btree;
-    // setup traversal to fetch the root next call
-    traversal->bid = 0;
-    traversal->rid = 0;
-    traversal->branch.trunk = 0;
-    traversal->branch.weight = 0;
-    return 0;
-}
+#define LFSR_BTREE_TRAVERSAL_INIT ((lfsr_btree_traversal_t){ \
+        .bid = 0, \
+        .rid = 0, \
+        .branch.trunk = 0, \
+        .branch.weight = 0, \
+    })
 
 static int lfsr_btree_traversal_next(lfs_t *lfs,
         const lfsr_btree_t *btree,
@@ -5564,6 +5558,180 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     }
 
     return 0;
+}
+
+
+// incremental mtree traversal
+typedef struct lfsr_mtree_traversal {
+    lfsr_mdir_t mdir;
+    lfsr_btree_traversal_t mtraversal;
+} lfsr_mtree_traversal_t;
+
+#define LFSR_MTREE_TRAVERSAL_INIT ((lfsr_mtree_traversal_t){ \
+        .mdir.rbyd.trunk = 0, \
+        .mtraversal = LFSR_BTREE_TRAVERSAL_INIT, \
+    })
+
+static int lfsr_mtree_traversal_next(lfs_t *lfs,
+        lfsr_mtree_traversal_t *traversal,
+        lfs_size_t *mid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
+    // new traversal? start with 0x{0,1}
+    //
+    // note we make sure to include fake mroots!
+    //
+    if (traversal->mdir.rbyd.trunk == 0) {
+        int err = lfsr_mdir_fetch(lfs, &traversal->mdir,
+                -1, LFSR_MPAIR(0, 1), NULL);
+        if (err) {
+            return err;
+        }
+
+        if (mid_) {
+            *mid_ = -1;
+        }
+        if (tag_) {
+            *tag_ = LFSR_TAG_MDIR;
+        }
+        if (data_) {
+            *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
+        }
+        return 0;
+
+    // check for mroot/mtree/mdir
+    } else if (traversal->mdir.mid == -1) {
+        // lookup mroot, if we find one this is a fake mroot
+        lfsr_data_t data;
+        int err = lfsr_mdir_lookup(lfs, &traversal->mdir,
+                -1, LFSR_TAG_MROOT, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        // found a new mroot
+        if (err != LFS_ERR_NOENT) {
+            lfsr_mpair_t mpair;
+            lfs_ssize_t d = lfsr_mpair_fromdisk(lfs, &mpair, data);
+            if (d < 0) {
+                return d;
+            }
+
+            int err = lfsr_mdir_fetch(lfs, &traversal->mdir,
+                    -1, mpair, NULL);
+            if (err) {
+                return err;
+            }
+
+            if (mid_) {
+                *mid_ = -1;
+            }
+            if (tag_) {
+                *tag_ = LFSR_TAG_MDIR;
+            }
+            if (data_) {
+                *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
+            }
+            return 0;
+
+        // no more mroots, which makes this our real mroot
+        } else {
+            // update our mroot
+            lfs->mroot = traversal->mdir;
+
+            // TODO we may be able to combine this lookup with the mroot if the
+            // mroot is also a struct tag
+
+            // do we have an mtree? mdir?
+            lfs_ssize_t rid;
+            lfsr_tag_t tag;
+            int err = lfsr_mdir_lookupnext(lfs, &traversal->mdir,
+                    -1, LFSR_TAG_STRUCT,
+                    &rid, &tag, NULL, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+
+            // fetch our mtree
+            if (err != LFS_ERR_NOENT
+                    && rid == -1
+                    && lfsr_tag_suptype(tag) == LFSR_TAG_STRUCT) {
+                if (tag != LFSR_TAG_MDIR && tag != LFSR_TAG_BTREE) {
+                    LFS_ERROR("Weird mstruct? 0x%"PRIx32, tag);
+                    return LFS_ERR_CORRUPT;
+                }
+
+                lfs_ssize_t d = lfsr_btree_fromdisk(lfs, &lfs->mtree,
+                        tag, 1, data);
+                if (d < 0) {
+                    return d;
+                }
+
+            // no mtree
+            } else {
+                lfs->mtree = LFSR_BTREE_NULL;
+            }
+
+            // initialize our mtree traversal
+            traversal->mtraversal = LFSR_BTREE_TRAVERSAL_INIT;
+        }
+    }
+
+    // traverse through the mtree
+    lfs_size_t mid;
+    lfsr_tag_t tag;
+    lfsr_data_t data;
+    int err = lfsr_btree_traversal_next(
+            lfs, &lfs->mtree, &traversal->mtraversal,
+            &mid, &tag, NULL, &data);
+    if (err) {
+        return err;
+    }
+
+    // inner btree nodes already decoded
+    if (tag == LFSR_TAG_BTREE) {
+        // still update our mdir mid so we don't get stuck in a loop
+        // traversing mroots
+        traversal->mdir.mid = mid;
+
+        if (mid_) {
+            *mid_ = mid;
+        }
+        if (tag_) {
+            *tag_ = tag;
+        }
+        if (data_) {
+            *data_ = data;
+        }
+        return 0;
+
+    // fetch mdir if we're on a leaf
+    } else if (tag == LFSR_TAG_MDIR) {
+        lfsr_mpair_t mpair;
+        lfs_ssize_t d = lfsr_mpair_fromdisk(lfs, &mpair, data);
+        if (d < 0) {
+            return d;
+        }
+
+        int err = lfsr_mdir_fetch(lfs, &traversal->mdir,
+                mid, mpair, NULL);
+        if (err) {
+            return err;
+        }
+
+        if (mid_) {
+            *mid_ = mid;
+        }
+        if (tag_) {
+            *tag_ = tag;
+        }
+        if (data_) {
+            *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
+        }
+        return 0;
+
+    } else {
+        LFS_ERROR("Weird mtree entry? 0x%"PRIx32, tag);
+        return LFS_ERR_CORRUPT;
+    }
 }
 
 
