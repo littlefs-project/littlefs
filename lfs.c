@@ -4314,6 +4314,7 @@ typedef struct lfsr_btree_traversal {
 #define LFSR_BTREE_TRAVERSAL_INIT ((lfsr_btree_traversal_t){ \
         .bid = 0, \
         .rid = 0, \
+        .branch.block = 0, \
         .branch.trunk = 0, \
         .branch.weight = 0, \
     })
@@ -5511,9 +5512,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
 // incremental mtree traversal
 typedef struct lfsr_mtree_traversal {
-    uint8_t flags;
+    // core traversal state
     lfsr_mdir_t mdir;
     lfsr_btree_traversal_t mtraversal;
+    uint8_t flags;
+
+    // cycle detection state
+    uint8_t tortoise_power;
+    lfs_size_t tortoise_step;
+    lfsr_mpair_t tortoise_mpair;
+    lfs_block_t tortoise_mtree_block;
+    lfs_size_t tortoise_mtree_trunk;
 } lfsr_mtree_traversal_t;
 
 enum {
@@ -5524,16 +5533,40 @@ enum {
         .flags = _flags, \
         .mdir.rbyd.trunk = 0, \
         .mtraversal = LFSR_BTREE_TRAVERSAL_INIT, \
+        .tortoise_power = 0, \
+        .tortoise_step = 0, \
     })
 
 static int lfsr_mtree_traversal_next(lfs_t *lfs,
         lfsr_mtree_traversal_t *traversal,
         lfs_size_t *mid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
+    // detect cycles with Brent's algorithm
+    if (traversal->mdir.rbyd.trunk != 0
+            && lfsr_mpair_eq(lfsr_mdir_mpair(&traversal->mdir),
+                traversal->tortoise_mpair)
+            && traversal->mtraversal.branch.block
+                == traversal->tortoise_mtree_block
+            && traversal->mtraversal.branch.trunk
+                == traversal->tortoise_mtree_trunk) {
+        LFS_ERROR("Cycle detected during mtree traversal");
+        return LFS_ERR_CORRUPT;
+    }
+    if (traversal->tortoise_step
+            == ((lfs_size_t)1 << traversal->tortoise_power)) {
+        traversal->tortoise_mpair = lfsr_mdir_mpair(&traversal->mdir);
+        traversal->tortoise_mtree_block = traversal->mtraversal.branch.block;
+        traversal->tortoise_mtree_trunk = traversal->mtraversal.branch.trunk;
+        traversal->tortoise_step = 0;
+        traversal->tortoise_power += 1;
+    }
+    traversal->tortoise_step += 1;
+
     // new traversal? start with 0x{0,1}
     //
     // note we make sure to include fake mroots!
     //
     if (traversal->mdir.rbyd.trunk == 0) {
+        // fetch the first mroot 0x{0,1}
         int err = lfsr_mdir_fetch(lfs, &traversal->mdir,
                 -1, LFSR_MPAIR(0, 1), NULL);
         if (err) {
