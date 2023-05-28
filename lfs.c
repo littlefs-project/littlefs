@@ -3094,11 +3094,11 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs,
             }
         }
 
-        // adjust rid with subtree's weight
-        rid -= (rid__ - (weight__-1));
-
         // found another branch
         if (tag__ == LFSR_TAG_BTREE) {
+            // adjust rid with subtree's weight
+            rid -= (rid__ - (weight__-1));
+
             // fetch the next branch
             lfs_ssize_t d = lfsr_branch_fromdisk(lfs, &branch, data__);
             if (d < 0) {
@@ -3110,7 +3110,7 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs,
         } else {
             // TODO how many of these should be conditional?
             if (bid_) {
-                *bid_ = bid - (rid - (weight__-1));
+                *bid_ = bid + (rid__ - rid);
             }
             if (rbyd_) {
                 *rbyd_ = branch;
@@ -3348,11 +3348,11 @@ static lfs_ssize_t lfsr_btree_namelookupnext(lfs_t *lfs,
             }
         }
 
-        // update our bid
-        bid += rid__ - (weight__-1);
-
         // found another branch
         if (tag__ == LFSR_TAG_BTREE) {
+            // update our bid
+            bid += rid__ - (weight__-1);
+
             // fetch the next branch
             lfs_ssize_t d = lfsr_branch_fromdisk(lfs, &branch, data__);
             if (d < 0) {
@@ -3364,7 +3364,7 @@ static lfs_ssize_t lfsr_btree_namelookupnext(lfs_t *lfs,
         } else {
             // TODO how many of these should be conditional?
             if (bid_) {
-                *bid_ = bid + (weight__-1);
+                *bid_ = bid + rid__;
             }
             if (rbyd_) {
                 *rbyd_ = branch;
@@ -4314,7 +4314,6 @@ typedef struct lfsr_btree_traversal {
 #define LFSR_BTREE_TRAVERSAL_INIT ((lfsr_btree_traversal_t){ \
         .bid = 0, \
         .rid = 0, \
-        .branch.block = 0, \
         .branch.trunk = 0, \
         .branch.weight = 0, \
     })
@@ -4352,8 +4351,8 @@ static int lfsr_btree_traversal_next(lfs_t *lfs,
             return 0;
         }
 
-        // make sure we traverse the root
-        if (traversal->branch.trunk == 0) {
+        // restart from the root
+        if ((lfs_size_t)traversal->rid >= traversal->branch.weight) {
             traversal->bid += traversal->branch.weight;
             traversal->rid = traversal->bid;
             traversal->branch = btree->root;
@@ -4404,11 +4403,11 @@ static int lfsr_btree_traversal_next(lfs_t *lfs,
             }
         }
 
-        // adjust rid with subtree's weight
-        traversal->rid -= (rid__ - (weight__-1));
-
         // found another branch
         if (tag__ == LFSR_TAG_BTREE) {
+            // adjust rid with subtree's weight
+            traversal->rid -= (rid__ - (weight__-1));
+
             // fetch the next branch
             lfs_ssize_t d = lfsr_branch_fromdisk(lfs,
                     &traversal->branch, data__);
@@ -4422,8 +4421,7 @@ static int lfsr_btree_traversal_next(lfs_t *lfs,
             if (traversal->rid == 0) {
                 // TODO how many of these should be conditional?
                 if (bid_) {
-                    *bid_ = traversal->bid - (
-                            traversal->rid - (traversal->branch.weight-1));
+                    *bid_ = traversal->bid + (rid__ - traversal->rid);
                 }
                 if (tag_) {
                     *tag_ = LFSR_TAG_BTREE;
@@ -4441,13 +4439,16 @@ static int lfsr_btree_traversal_next(lfs_t *lfs,
 
         // found our bid
         } else {
-            // update traversal
-            traversal->branch.trunk = 0;
-            traversal->branch.weight = weight__;
+            // move on to the next rid
+            //
+            // note the effectively traverses a full leaf without redoing
+            // the btree walk
+            lfs_ssize_t bid__ = traversal->bid + (rid__ - traversal->rid);
+            traversal->rid = rid__ + 1;
 
             // TODO how many of these should be conditional?
             if (bid_) {
-                *bid_ = traversal->bid - (traversal->rid - (weight__-1));
+                *bid_ = bid__;
             }
             if (tag_) {
                 *tag_ = tag__;
@@ -5538,25 +5539,6 @@ enum {
 static int lfsr_mtree_traversal_next(lfs_t *lfs,
         lfsr_mtree_traversal_t *traversal,
         lfs_size_t *mid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    // detect cycles with Brent's algorithm
-    if (traversal->mtraversal.branch.trunk == 0) {
-        if (traversal->mdir.rbyd.trunk != 0
-                && lfsr_mpair_eq(lfsr_mdir_mpair(&traversal->mdir),
-                    traversal->tortoise_mpair)) {
-            LFS_ERROR("Cycle detected during mtree traversal "
-                    "(0x{%"PRIx32",%"PRIx32"})",
-                    traversal->mdir.rbyd.block, traversal->mdir.other_block);
-            return LFS_ERR_CORRUPT;
-        }
-        if (traversal->tortoise_step
-                == ((lfs_size_t)1 << traversal->tortoise_power)) {
-            traversal->tortoise_mpair = lfsr_mdir_mpair(&traversal->mdir);
-            traversal->tortoise_step = 0;
-            traversal->tortoise_power += 1;
-        }
-        traversal->tortoise_step += 1;
-    }
-
     // new traversal? start with 0x{0,1}
     //
     // note we make sure to include fake mroots!
@@ -5578,7 +5560,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         if (data_) {
             *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
         }
-        return 0;
+        goto cycle_detect;
 
     // check for mroot/mtree/mdir
     } else if (traversal->mdir.mid == -1) {
@@ -5613,7 +5595,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             if (data_) {
                 *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
             }
-            return 0;
+            goto cycle_detect;
 
         // no more mroots, which makes this our real mroot
         } else {
@@ -5747,12 +5729,36 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         if (data_) {
             *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
         }
-        return 0;
+        goto cycle_detect;
 
     } else {
         LFS_ERROR("Weird mtree entry? (0x%"PRIx32")", tag);
         return LFS_ERR_CORRUPT;
     }
+
+cycle_detect:;
+    // detect cycles with Brent's algorithm
+    //
+    // note we only consider mdirs here, the btree inner nodes
+    // require checksums of their pointers, so creating a valid
+    // cycle is actually quite difficult
+    //
+    if (lfsr_mpair_eq(lfsr_mdir_mpair(&traversal->mdir),
+            traversal->tortoise_mpair)) {
+        LFS_ERROR("Cycle detected during mtree traversal "
+                "(0x{%"PRIx32",%"PRIx32"})",
+                traversal->mdir.rbyd.block, traversal->mdir.other_block);
+        return LFS_ERR_CORRUPT;
+    }
+    if (traversal->tortoise_step
+            == ((lfs_size_t)1 << traversal->tortoise_power)) {
+        traversal->tortoise_mpair = lfsr_mdir_mpair(&traversal->mdir);
+        traversal->tortoise_step = 0;
+        traversal->tortoise_power += 1;
+    }
+    traversal->tortoise_step += 1;
+
+    return 0;
 }
 
 
