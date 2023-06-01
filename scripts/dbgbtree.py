@@ -556,7 +556,6 @@ def main(disk, roots=None, *,
         t_width = 0
         if args.get('tree'):
             # find the max depth of each layer to nicely align trees
-            # TODO memoize
             bdepths = {}
             bid = -1
             while True:
@@ -640,7 +639,7 @@ def main(disk, roots=None, *,
             # remap branches to leaves if we aren't showing inner branches
             if not args.get('inner'):
                 # step through each layer backwards
-                b_depth = max((branch.a[1]+1 for branch in tree), default=0)
+                b_depth = max((branch.b[1]+1 for branch in tree), default=0)
 
                 # keep track of the original bids, unfortunately because we
                 # store the bids in the branches we overwrite these

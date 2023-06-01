@@ -534,7 +534,6 @@ class Rbyd:
     def btree_tree(self, f, block_size, depth=None, *,
             inner=False):
         # find the max depth of each layer to nicely align trees
-        # TODO memoize
         bdepths = {}
         bid = -1
         while True:
@@ -753,12 +752,17 @@ def main(disk, mroots=None, *,
         rweight = 0
 
         mroot = Rbyd.fetch(f, block_size, mroots)
+        mdepth = 1
         while True:
             # corrupted?
             if not mroot:
                 break
 
             rweight = max(rweight, mroot.weight)
+
+            # stop here?
+            if args.get('depth') and mdepth >= args.get('depth'):
+                break
 
             # fetch the next mroot
             done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MROOT)
@@ -767,55 +771,59 @@ def main(disk, mroots=None, *,
 
             blocks = frommdir(data)
             mroot = Rbyd.fetch(f, block_size, blocks)
+            mdepth += 1
 
         # fetch the mdir, if there is one
         mdir = None
-        done, rid, tag, w, j, _, data, _ = mroot.lookup(-1, TAG_MDIR)
-        if not done and rid == -1 and tag == TAG_MDIR:
-            blocks = frommdir(data)
-            mdir = Rbyd.fetch(f, block_size, blocks)
+        if not args.get('depth') or mdepth < args.get('depth'):
+            done, rid, tag, w, j, _, data, _ = mroot.lookup(-1, TAG_MDIR)
+            if not done and rid == -1 and tag == TAG_MDIR:
+                blocks = frommdir(data)
+                mdir = Rbyd.fetch(f, block_size, blocks)
 
-            # corrupted?
-            if mdir:
-                rweight = max(rweight, mdir.weight)
+                # corrupted?
+                if mdir:
+                    rweight = max(rweight, mdir.weight)
 
         # fetch the actual mtree, if there is one
         mtree = None
-        done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_BTREE)
-        if not done and rid == -1 and tag == TAG_BTREE:
-            w, trunk, block, crc = frombtree(data)
-            mtree = Rbyd.fetch(f, block_size, block, trunk)
+        if not args.get('depth') or mdepth < args.get('depth'):
+            done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_BTREE)
+            if not done and rid == -1 and tag == TAG_BTREE:
+                w, trunk, block, crc = frombtree(data)
+                mtree = Rbyd.fetch(f, block_size, block, trunk)
 
-            mweight = w
+                mweight = w
 
-            # traverse entries
-            mid = -1
-            while True:
-                done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
-                    f, block_size, mid+1, depth=args.get('depth'))
-                if done:
-                    break
-
-                # corrupted?
-                if not rbyd:
-                    continue
-
-                mdir__ = None
-                if not args.get('depth') or len(path) < args.get('depth'):
-                    mdir__ = next(((tag, j, d, data)
-                        for tag, j, d, data in tags
-                        if tag == TAG_MDIR),
-                        None)
-
-                if mdir__:
-                    # fetch the mdir
-                    _, _, _, data = mdir__
-                    blocks = frommdir(data)
-                    mdir_ = Rbyd.fetch(f, block_size, blocks)
+                # traverse entries
+                mid = -1
+                while True:
+                    done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
+                        f, block_size, mid+1, depth=args.get('depth')-mdepth)
+                    if done:
+                        break
 
                     # corrupted?
-                    if mdir_:
-                        rweight = max(rweight, mdir_.weight)
+                    if not rbyd:
+                        continue
+
+                    mdir__ = None
+                    if (not args.get('depth')
+                            or mdepth+len(path) < args.get('depth')):
+                        mdir__ = next(((tag, j, d, data)
+                            for tag, j, d, data in tags
+                            if tag == TAG_MDIR),
+                            None)
+
+                    if mdir__:
+                        # fetch the mdir
+                        _, _, _, data = mdir__
+                        blocks = frommdir(data)
+                        mdir_ = Rbyd.fetch(f, block_size, blocks)
+
+                        # corrupted?
+                        if mdir_:
+                            rweight = max(rweight, mdir_.weight)
 
         # precompute rbyd-tree if requested
         t_width = 0
@@ -824,6 +832,7 @@ def main(disk, mroots=None, *,
             tree = set()
             d_ = 0
             mroot_ = Rbyd.fetch(f, block_size, mroots)
+            mdepth_ = 1
             for d in it.count():
                 # corrupted?
                 if not mroot_:
@@ -861,6 +870,10 @@ def main(disk, mroots=None, *,
                     ))
                 d_ += rdepth
 
+                # stop here?
+                if args.get('depth') and mdepth_ >= args.get('depth'):
+                    break
+
                 # fetch the next mroot
                 done, rid, tag, w, j, _, data, _ = mroot_.lookup(-1, TAG_MROOT)
                 if not (not done and rid == -1 and tag == TAG_MROOT):
@@ -868,6 +881,7 @@ def main(disk, mroots=None, *,
 
                 blocks = frommdir(data)
                 mroot_ = Rbyd.fetch(f, block_size, blocks)
+                mdepth_ += 1
 
             # compute mdir's rbyd-tree if there is one
             if mdir:
@@ -904,7 +918,7 @@ def main(disk, mroots=None, *,
             if mtree:
                 tree_, tdepth = mtree.btree_tree(
                     f, block_size,
-                    depth=args.get('depth'),
+                    depth=args.get('depth')-mdepth,
                     inner=args.get('inner'))
 
                 # connect a branch to the root of the tree
@@ -930,12 +944,11 @@ def main(disk, mroots=None, *,
                     ))
 
                 # find the max depth of each mdir to nicely align trees
-                # TODO memoize
-                mdepth = 0
+                mdepth_ = 0
                 mid = -1
                 while True:
                     done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mid+1, depth=args.get('depth'))
+                        f, block_size, mid+1, depth=args.get('depth')-mdepth)
                     if done:
                         break
 
@@ -944,7 +957,8 @@ def main(disk, mroots=None, *,
                         continue
 
                     mdir__ = None
-                    if not args.get('depth') or len(path) < args.get('depth'):
+                    if (not args.get('depth')
+                            or mdepth+len(path) < args.get('depth')):
                         mdir__ = next(((tag, j, d, data)
                             for tag, j, d, data in tags
                             if tag == TAG_MDIR),
@@ -957,13 +971,13 @@ def main(disk, mroots=None, *,
                         mdir_ = Rbyd.fetch(f, block_size, blocks)
 
                         rtree, rdepth = mdir_.tree()
-                        mdepth = max(mdepth, rdepth)
+                        mdepth_ = max(mdepth_, rdepth)
 
                 # compute the rbyd-tree for each mdir
                 mid = -1
                 while True:
                     done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mid+1, depth=args.get('depth'))
+                        f, block_size, mid+1, depth=args.get('depth')-mdepth)
                     if done:
                         break
 
@@ -972,7 +986,8 @@ def main(disk, mroots=None, *,
                         continue
 
                     mdir__ = None
-                    if not args.get('depth') or len(path) < args.get('depth'):
+                    if (not args.get('depth')
+                            or mdepth+len(path) < args.get('depth')):
                         mdir__ = next(((tag, j, d, data)
                             for tag, j, d, data in tags
                             if tag == TAG_MDIR),
@@ -1016,14 +1031,14 @@ def main(disk, mroots=None, *,
                                 a=(mid-(w-1), len(path), 0, a_rid, a_tag),
                                 b=(mid-(w-1), len(path), 0, b_rid, b_tag),
                                 d=(d_ + tdepth + 1
-                                    + branch.d + mdepth-rdepth),
+                                    + branch.d + mdepth_-rdepth),
                                 c=branch.c,
                             ))
 
                 # remap branches to leaves if we aren't showing inner branches
                 if not args.get('inner'):
                     # step through each layer backwards
-                    b_depth = max((branch.a[1]+1 for branch in tree), default=0)
+                    b_depth = max((branch.b[1]+1 for branch in tree), default=0)
 
                     # keep track of the original bids, unfortunately because we
                     # store the bids in the branches we overwrite these
@@ -1074,6 +1089,7 @@ def main(disk, mroots=None, *,
             # compute mroot chain "tree", prefix our actual mtree with this
             tree = set()
             mroot_ = Rbyd.fetch(f, block_size, mroots)
+            mdepth_ = 1
             for d in it.count():
                 # corrupted?
                 if not mroot_:
@@ -1090,6 +1106,10 @@ def main(disk, mroots=None, *,
                             c='b',
                         ))
 
+                # stop here?
+                if args.get('depth') and mdepth_ >= args.get('depth'):
+                    break
+
                 # fetch the next mroot
                 done, rid, tag, w, j, _, data, _ = mroot_.lookup(-1, TAG_MROOT)
                 if not (not done and rid == -1 and tag == TAG_MROOT):
@@ -1097,6 +1117,7 @@ def main(disk, mroots=None, *,
 
                 blocks = frommdir(data)
                 mroot_ = Rbyd.fetch(f, block_size, blocks)
+                mdepth_ += 1
 
             # create a branch to our mdir if there is one
             if mdir:
@@ -1114,7 +1135,7 @@ def main(disk, mroots=None, *,
             if mtree:
                 tree_, tdepth = mtree.btree_btree(
                     f, block_size,
-                    depth=args.get('depth'),
+                    depth=args.get('depth')-mdepth,
                     inner=args.get('inner'))
 
                 # connect a branch to the root of the tree
@@ -1145,7 +1166,8 @@ def main(disk, mroots=None, *,
                     while True:
                         done, mid, w, rbyd, rid, tags, path = (
                             mtree.btree_lookup(
-                                f, block_size, mid+1, depth=args.get('depth')))
+                                f, block_size, mid+1,
+                                depth=args.get('depth')-mdepth))
                         if done:
                             break
 
@@ -1155,7 +1177,7 @@ def main(disk, mroots=None, *,
 
                         mdir__ = None
                         if (not args.get('depth')
-                                or len(path) < args.get('depth')):
+                                or mdepth+len(path) < args.get('depth')):
                             mdir__ = next(((tag, j, d, data)
                                 for tag, j, d, data in tags
                                 if tag == TAG_MDIR),
@@ -1384,6 +1406,7 @@ def main(disk, mroots=None, *,
         ppath = []
         corrupted = False
         mroot = Rbyd.fetch(f, block_size, mroots)
+        mdepth = 1
         for d in it.count():
             # corrupted?
             if not mroot:
@@ -1400,6 +1423,10 @@ def main(disk, mroots=None, *,
                 # show the mdir
                 dbg_mdir(mroot, -1, d)
 
+            # stop here?
+            if args.get('depth') and mdepth >= args.get('depth'):
+                break
+
             # fetch the next mroot
             done, rid, tag, w, j, _, data, _ = mroot.lookup(-1, TAG_MROOT)
             if not (not done and rid == -1 and tag == TAG_MROOT):
@@ -1407,124 +1434,128 @@ def main(disk, mroots=None, *,
 
             blocks = frommdir(data)
             mroot = Rbyd.fetch(f, block_size, blocks)
+            mdepth += 1
 
         # show the mdir, if there is one
-        done, rid, tag, w, j, _, data, _ = mroot.lookup(-1, TAG_MDIR)
-        if not done and rid == -1 and tag == TAG_MDIR:
-            blocks = frommdir(data)
-            mdir = Rbyd.fetch(f, block_size, blocks)
-
-            # corrupted?
-            if not mdir:
-                print('{%s}: %s%s%s' % (
-                    ','.join('%04x' % block
-                        for block in it.chain([mdir.block],
-                            mdir.other_blocks)),
-                    '\x1b[31m' if color else '',
-                    '(corrupted mdir %s)' % mdir.addr(),
-                    '\x1b[m' if color else ''))
-                corrupted = True
-            else:
-                # show the mdir
-                dbg_mdir(mdir, 0, 0)
-
-        # fetch the actual mtree, if there is one
-        done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_BTREE)
-        if not done and rid == -1 and tag == TAG_BTREE:
-            w, trunk, block, crc = frombtree(data)
-            mtree = Rbyd.fetch(f, block_size, block, trunk)
-
-            # traverse entries
-            mid = -1
-            while True:
-                done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
-                    f, block_size, mid+1, depth=args.get('depth'))
-                if done:
-                    break
-
-                # print inner btree entries if requested
-                if args.get('inner'):
-                    changed = False
-                    for (x, px) in it.zip_longest(
-                            enumerate(path[:-1]),
-                            enumerate(ppath[:-1])):
-                        if x is None:
-                            break
-                        if not (changed or px is None or x != px):
-                            continue
-                        changed = True
-
-                        # show the inner entry
-                        d, (mid_, w_, rbyd_, rid_, tags_) = x
-                        dbg_branch(mid_, w_, rbyd_, rid_, tags_, d)
-                ppath = path
-
-                # corrupted? try to keep printing the tree
-                if not rbyd:
-                    print('%11s: %*s%s%s%s' % (
-                        '%04x.%04x' % (rbyd.block, rbyd.trunk),
-                        t_width, '',
-                        '\x1b[31m' if color else '',
-                        '(corrupted rbyd %s)' % rbyd.addr(),
-                        '\x1b[m' if color else ''))
-                    prbyd = rbyd
-                    corrupted = True
-                    continue
-
-                # if we're not showing inner nodes, prefer names higher in the
-                # tree since this avoids showing vestigial names
-                if not args.get('inner'):
-                    name = None
-                    for mid_, w_, rbyd_, rid_, tags_ in reversed(path):
-                        for tag_, j_, d_, data_ in tags_:
-                            if tag_ & 0xf00f == TAG_NAME:
-                                name = (tag_, j_, d_, data_)
-
-                        if rid_-(w_-1) != 0:
-                            break
-
-                    if name is not None:
-                        tags = [name] + [(tag, j, d, data)
-                            for tag, j, d, data in tags
-                            if tag & 0xf00f != TAG_NAME]
-
-                # find mdir in the tags
-                mdir__ = None
-                if not args.get('depth') or len(path) < args.get('depth'):
-                    mdir__ = next(((tag, j, d, data)
-                        for tag, j, d, data in tags
-                        if tag == TAG_MDIR),
-                        None)
-
-                # print btree entries in certain cases
-                if args.get('inner') or not mdir__:
-                    dbg_branch(mid, w, rbyd, rid, tags, len(path)-1)
-
-                if not mdir__:
-                    continue
-
-                # fetch the mdir
-                _, _, _, data = mdir__
+        if not args.get('depth') or mdepth < args.get('depth'):
+            done, rid, tag, w, j, _, data, _ = mroot.lookup(-1, TAG_MDIR)
+            if not done and rid == -1 and tag == TAG_MDIR:
                 blocks = frommdir(data)
-                mdir_ = Rbyd.fetch(f, block_size, blocks)
+                mdir = Rbyd.fetch(f, block_size, blocks)
 
                 # corrupted?
-                if not mdir_:
-                    print('{%s}: %*s%s%s%s' % (
+                if not mdir:
+                    print('{%s}: %s%s%s' % (
                         ','.join('%04x' % block
-                            for block in it.chain([mdir_.block],
-                                mdir_.other_blocks)),
-                        t_width, '',
+                            for block in it.chain([mdir.block],
+                                mdir.other_blocks)),
                         '\x1b[31m' if color else '',
-                        '(corrupted mdir %s)' % mdir_.addr(),
+                        '(corrupted mdir %s)' % mdir.addr(),
                         '\x1b[m' if color else ''))
                     corrupted = True
                 else:
                     # show the mdir
-                    dbg_mdir(mdir_, mid, len(path))
+                    dbg_mdir(mdir, 0, 0)
 
-                    # force next btree entry to be shown
-                    prbyd = None
+        # fetch the actual mtree, if there is one
+        if not args.get('depth') or mdepth < args.get('depth'):
+            done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_BTREE)
+            if not done and rid == -1 and tag == TAG_BTREE:
+                w, trunk, block, crc = frombtree(data)
+                mtree = Rbyd.fetch(f, block_size, block, trunk)
+
+                # traverse entries
+                mid = -1
+                while True:
+                    done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
+                        f, block_size, mid+1, depth=args.get('depth')-mdepth)
+                    if done:
+                        break
+
+                    # print inner btree entries if requested
+                    if args.get('inner'):
+                        changed = False
+                        for (x, px) in it.zip_longest(
+                                enumerate(path[:-1]),
+                                enumerate(ppath[:-1])):
+                            if x is None:
+                                break
+                            if not (changed or px is None or x != px):
+                                continue
+                            changed = True
+
+                            # show the inner entry
+                            d, (mid_, w_, rbyd_, rid_, tags_) = x
+                            dbg_branch(mid_, w_, rbyd_, rid_, tags_, d)
+                    ppath = path
+
+                    # corrupted? try to keep printing the tree
+                    if not rbyd:
+                        print('%11s: %*s%s%s%s' % (
+                            '%04x.%04x' % (rbyd.block, rbyd.trunk),
+                            t_width, '',
+                            '\x1b[31m' if color else '',
+                            '(corrupted rbyd %s)' % rbyd.addr(),
+                            '\x1b[m' if color else ''))
+                        prbyd = rbyd
+                        corrupted = True
+                        continue
+
+                    # if we're not showing inner nodes, prefer names higher in
+                    # the tree since this avoids showing vestigial names
+                    if not args.get('inner'):
+                        name = None
+                        for mid_, w_, rbyd_, rid_, tags_ in reversed(path):
+                            for tag_, j_, d_, data_ in tags_:
+                                if tag_ & 0xf00f == TAG_NAME:
+                                    name = (tag_, j_, d_, data_)
+
+                            if rid_-(w_-1) != 0:
+                                break
+
+                        if name is not None:
+                            tags = [name] + [(tag, j, d, data)
+                                for tag, j, d, data in tags
+                                if tag & 0xf00f != TAG_NAME]
+
+                    # find mdir in the tags
+                    mdir__ = None
+                    if (not args.get('depth')
+                            or mdepth+len(path) < args.get('depth')):
+                        mdir__ = next(((tag, j, d, data)
+                            for tag, j, d, data in tags
+                            if tag == TAG_MDIR),
+                            None)
+
+                    # print btree entries in certain cases
+                    if args.get('inner') or not mdir__:
+                        dbg_branch(mid, w, rbyd, rid, tags, len(path)-1)
+
+                    if not mdir__:
+                        continue
+
+                    # fetch the mdir
+                    _, _, _, data = mdir__
+                    blocks = frommdir(data)
+                    mdir_ = Rbyd.fetch(f, block_size, blocks)
+
+                    # corrupted?
+                    if not mdir_:
+                        print('{%s}: %*s%s%s%s' % (
+                            ','.join('%04x' % block
+                                for block in it.chain([mdir_.block],
+                                    mdir_.other_blocks)),
+                            t_width, '',
+                            '\x1b[31m' if color else '',
+                            '(corrupted mdir %s)' % mdir_.addr(),
+                            '\x1b[m' if color else ''))
+                        corrupted = True
+                    else:
+                        # show the mdir
+                        dbg_mdir(mdir_, mid, len(path))
+
+                        # force next btree entry to be shown
+                        prbyd = None
 
         if args.get('error_on_corrupt') and corrupted:
             sys.exit(2)
