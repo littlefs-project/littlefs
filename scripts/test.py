@@ -241,7 +241,10 @@ def compile(test_paths, **args):
             paths.append(path)
 
     if not paths:
-        print('no test suites found in %r?' % test_paths)
+        print('%serror:%s no test suites found in %r?' % (
+            '\x1b[01;31m' if args['color'] else '',
+            '\x1b[m' if args['color'] else '',
+            test_paths))
         sys.exit(-1)
 
     # load the suites
@@ -279,7 +282,10 @@ def compile(test_paths, **args):
     # we can only compile one test suite at a time
     if not args.get('source'):
         if len(suites) > 1:
-            print('more than one test suite for compilation? (%r)' % test_paths)
+            print('%serror:%s compiling more than one test suite? (%r)' % (
+                '\x1b[01;31m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
+                test_paths))
             sys.exit(-1)
 
         suite = suites[0]
@@ -732,13 +738,12 @@ def find_defines(runner, id, **args):
     return defines
 
 def find_ids(runner, test_ids=[], **args):
-    otest_ids = test_ids
-
-    # we can avoid an extra lookup if all ids are explicit
+    # no ids => all ids, we don't need an extra lookup if no special
+    # behavior is requested
     if not (args.get('by_cases')
             or args.get('by_suites')
-            or any('*' in id for id in test_ids)):
-        return test_ids
+            or test_ids):
+        return []
 
     # lookup suites/cases
     (suite_cases,
@@ -747,24 +752,40 @@ def find_ids(runner, test_ids=[], **args):
         _,
         _) = find_perms(runner, **args)
 
-    # no ids => all ids, only before globs!
+    # no ids => all ids, before we evaluate globs
     if not test_ids and args.get('by_cases'):
         return [case_ for case_ in expected_case_perms.keys()]
     if not test_ids and args.get('by_suites'):
         return [suite for suite in expected_suite_perms.keys()]
 
-    # first resolve globs
+    # find suite/case by id
     test_ids_ = []
     for id in test_ids:
+        test_ids__ = []
+        # resolve globs
         if '*' in id:
-            test_ids_.extend(suite
+            test_ids__.extend(suite
                 for suite in expected_suite_perms.keys()
                 if fnmatch.fnmatch(suite, id))
-            test_ids_.extend(case_
+            test_ids__.extend(case_
                 for case_ in expected_case_perms.keys()
                 if fnmatch.fnmatch(case_, id))
-        else:
-            test_ids_.append(id)
+        # literal suite
+        elif id in expected_suite_perms:
+            test_ids__.append(id)
+        # literal case
+        elif id in expected_case_perms:
+            test_ids__.append(id)
+
+        # no suite/case found? error
+        if not test_ids__:
+            print('%serror:%s no tests match id %r?' % (
+                '\x1b[01;31m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
+                id))
+            sys.exit(-1)
+
+        test_ids_.extend(test_ids__)
     test_ids = test_ids_
 
     # expand suites to cases?
@@ -780,10 +801,7 @@ def find_ids(runner, test_ids=[], **args):
         test_ids = test_ids_
 
     # no test ids found? return a garbage id for consistency
-    if not test_ids:
-        return '?'
-
-    return test_ids
+    return test_ids if test_ids else ['?']
 
 
 def list_(runner, test_ids=[], **args):

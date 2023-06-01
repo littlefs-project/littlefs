@@ -233,7 +233,10 @@ def compile(bench_paths, **args):
             paths.append(path)
 
     if not paths:
-        print('no bench suites found in %r?' % bench_paths)
+        print('%serror:%s no bench suites found in %r?' % (
+            '\x1b[01;31m' if args['color'] else '',
+            '\x1b[m' if args['color'] else '',
+            bench_paths))
         sys.exit(-1)
 
     # load the suites
@@ -271,7 +274,10 @@ def compile(bench_paths, **args):
     # we can only compile one bench suite at a time
     if not args.get('source'):
         if len(suites) > 1:
-            print('more than one bench suite for compilation? (%r)' % bench_paths)
+            print('%serror:%s compiling more than one bench suite? (%r)' % (
+                '\x1b[01;31m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
+                bench_paths))
             sys.exit(-1)
 
         suite = suites[0]
@@ -470,7 +476,7 @@ def compile(bench_paths, **args):
                     shutil.copyfileobj(sf, f)
                 f.writeln()
 
-                # write any internal benchs
+                # write any internal benches
                 for suite in suites:
                     for case in suite.cases:
                         if (case.in_ is not None
@@ -716,13 +722,12 @@ def find_defines(runner, id, **args):
     return defines
 
 def find_ids(runner, bench_ids=[], **args):
-    obench_ids = bench_ids
-
-    # we can avoid an extra lookup if all ids are explicit
+    # no ids => all ids, we don't need an extra lookup if no special
+    # behavior is requested
     if not (args.get('by_cases')
             or args.get('by_suites')
-            or any('*' in id for id in bench_ids)):
-        return bench_ids
+            or bench_ids):
+        return []
 
     # lookup suites/cases
     (suite_cases,
@@ -731,24 +736,40 @@ def find_ids(runner, bench_ids=[], **args):
         _,
         _) = find_perms(runner, **args)
 
-    # no ids => all ids, only before globs!
+    # no ids => all ids, before we evaluate globs
     if not bench_ids and args.get('by_cases'):
         return [case_ for case_ in expected_case_perms.keys()]
     if not bench_ids and args.get('by_suites'):
         return [suite for suite in expected_suite_perms.keys()]
 
-    # first resolve globs
+    # find suite/case by id
     bench_ids_ = []
     for id in bench_ids:
+        bench_ids__ = []
+        # resolve globs
         if '*' in id:
-            bench_ids_.extend(suite
+            bench_ids__.extend(suite
                 for suite in expected_suite_perms.keys()
                 if fnmatch.fnmatch(suite, id))
-            bench_ids_.extend(case_
+            bench_ids__.extend(case_
                 for case_ in expected_case_perms.keys()
                 if fnmatch.fnmatch(case_, id))
-        else:
-            bench_ids_.append(id)
+        # literal suite
+        elif id in expected_suite_perms:
+            bench_ids__.append(id)
+        # literal case
+        elif id in expected_case_perms:
+            bench_ids__.append(id)
+
+        # no suite/case found? error
+        if not bench_ids__:
+            print('%serror:%s no benches match id %r?' % (
+                '\x1b[01;31m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
+                id))
+            sys.exit(-1)
+
+        bench_ids_.extend(bench_ids__)
     bench_ids = bench_ids_
 
     # expand suites to cases?
@@ -764,10 +785,7 @@ def find_ids(runner, bench_ids=[], **args):
         bench_ids = bench_ids_
 
     # no bench ids found? return a garbage id for consistency
-    if not bench_ids:
-        return '?'
-
-    return bench_ids
+    return bench_ids if bench_ids else ['?']
 
 
 def list_(runner, bench_ids=[], **args):
