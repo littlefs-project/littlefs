@@ -61,6 +61,7 @@ class TestCase:
         self.in_ = config.pop('in',
             config.pop('suite_in', None))
 
+        self.internal = bool(self.in_)
         self.reentrant = config.pop('reentrant',
             config.pop('suite_reentrant', False))
 
@@ -218,6 +219,7 @@ class TestSuite:
                 set(case.defines) for case in self.cases))
 
             # combine other per-case things
+            self.internal = any(case.internal for case in self.cases)
             self.reentrant = any(case.reentrant for case in self.cases)
 
         for k in config.keys():
@@ -428,6 +430,7 @@ def compile(test_paths, **args):
                 f.writeln(4*' '+'.path = "%s",' % suite.path)
                 f.writeln(4*' '+'.flags = %s,'
                     % (' | '.join(filter(None, [
+                        'TEST_INTERNAL' if suite.internal else None,
                         'TEST_REENTRANT' if suite.reentrant else None]))
                         or 0))
                 if suite.defines:
@@ -450,6 +453,7 @@ def compile(test_paths, **args):
                         f.writeln(12*' '+'.path = "%s",' % case.path)
                         f.writeln(12*' '+'.flags = %s,'
                             % (' | '.join(filter(None, [
+                                'TEST_INTERNAL' if case.internal else None,
                                 'TEST_REENTRANT' if case.reentrant else None]))
                                 or 0))
                         if case.defines:

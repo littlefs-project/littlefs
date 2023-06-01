@@ -33,7 +33,8 @@ void test_trace(const char *fmt, ...);
 struct lfs_config;
 
 enum test_flags {
-    TEST_REENTRANT = 0x1,
+    TEST_INTERNAL  = 0x1,
+    TEST_REENTRANT = 0x2,
 };
 typedef uint8_t test_flags_t;
 

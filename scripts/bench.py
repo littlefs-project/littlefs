@@ -61,6 +61,8 @@ class BenchCase:
         self.in_ = config.pop('in',
             config.pop('suite_in', None))
 
+        self.internal = bool(self.in_)
+
         # figure out defines and build possible permutations
         self.defines = set()
         self.permutations = []
@@ -211,6 +213,9 @@ class BenchSuite:
             # combine per-case defines
             self.defines = set.union(set(), *(
                 set(case.defines) for case in self.cases))
+
+            # combine other per-case things
+            self.internal = any(case.internal for case in self.cases)
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
@@ -418,7 +423,10 @@ def compile(bench_paths, **args):
                     % suite.name)
                 f.writeln(4*' '+'.name = "%s",' % suite.name)
                 f.writeln(4*' '+'.path = "%s",' % suite.path)
-                f.writeln(4*' '+'.flags = 0,')
+                f.writeln(4*' '+'.flags = %s,'
+                    % (' | '.join(filter(None, [
+                        'BENCH_INTERNAL' if suite.internal else None]))
+                        or 0))
                 if suite.defines:
                     # create suite define names
                     f.writeln(4*' '+'.define_names = (const char *const['
@@ -437,7 +445,10 @@ def compile(bench_paths, **args):
                         f.writeln(8*' '+'{')
                         f.writeln(12*' '+'.name = "%s",' % case.name)
                         f.writeln(12*' '+'.path = "%s",' % case.path)
-                        f.writeln(12*' '+'.flags = 0,')
+                        f.writeln(12*' '+'.flags = %s,'
+                            % (' | '.join(filter(None, [
+                                'BENCH_INTERNAL' if suite.internal else None]))
+                                or 0))
                         if case.defines:
                             f.writeln(12*' '+'.defines = '
                                 '(const bench_define_t*)(const bench_define_t[]['

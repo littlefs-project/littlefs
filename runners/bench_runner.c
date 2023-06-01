@@ -884,8 +884,8 @@ static void summary(void) {
     sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
     char flag_buf[64];
     sprintf(flag_buf, "%s%s",
-            (flags & BENCH_REENTRANT) ? "r" : "",
-            (!flags) ? "-" : "");
+            (flags & BENCH_INTERNAL)  ? "i" : "",
+            (!flags)                  ? "-" : "");
     printf("%-23s  %7s %7zu %7zu %11s\n",
             "TOTAL",
             flag_buf,
@@ -943,8 +943,8 @@ static void list_suites(void) {
             sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
             char flag_buf[64];
             sprintf(flag_buf, "%s%s",
-                    (bench_suites[i].flags & BENCH_REENTRANT) ? "r" : "",
-                    (!bench_suites[i].flags) ? "-" : "");
+                    (bench_suites[i].flags & BENCH_INTERNAL)  ? "i" : "",
+                    (!bench_suites[i].flags)                  ? "-" : "");
             printf("%-*s  %7s %7zu %11s\n",
                     name_width,
                     bench_suites[i].name,
@@ -996,8 +996,8 @@ static void list_cases(void) {
                 sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
                 char flag_buf[64];
                 sprintf(flag_buf, "%s%s",
-                        (bench_suites[i].cases[j].flags & BENCH_REENTRANT)
-                            ? "r" : "",
+                        (bench_suites[i].cases[j].flags & BENCH_INTERNAL)
+                            ? "i" : "",
                         (!bench_suites[i].cases[j].flags)
                             ? "-" : "");
                 printf("%-*s  %7s %11s\n",

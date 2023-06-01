@@ -40,7 +40,7 @@ void bench_stop(void);
 struct lfs_config;
 
 enum bench_flags {
-    BENCH_REENTRANT = 0x1,
+    BENCH_INTERNAL  = 0x1,
 };
 typedef uint8_t bench_flags_t;
 
