@@ -53,9 +53,9 @@ class BenchCase:
         self.path = config.pop('path')
         self.suite = config.pop('suite')
         self.lineno = config.pop('lineno', None)
-        self.if_ = config.pop('if', None)
-        if isinstance(self.if_, bool):
-            self.if_ = 'true' if self.if_ else 'false'
+        self.if_ = config.pop('if', [])
+        if not isinstance(self.if_, list):
+            self.if_ = [self.if_]
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
         self.in_ = config.pop('in',
@@ -183,9 +183,9 @@ class BenchSuite:
                 cases[name]['lineno'] = lineno
                 cases[name]['code_lineno'] = code_lineno
 
-            self.if_ = config.pop('if', None)
-            if isinstance(self.if_, bool):
-                self.if_ = 'true' if self.if_ else 'false'
+            self.if_ = config.pop('if', [])
+            if not isinstance(self.if_, list):
+                self.if_ = [self.if_]
 
             self.code = config.pop('code', None)
             self.code_lineno = min(
@@ -347,13 +347,15 @@ def compile(bench_paths, **args):
                             f.writeln()
 
                     # create case filter function
-                    if suite.if_ is not None or case.if_ is not None:
+                    if suite.if_ or case.if_:
                         f.writeln('bool __bench__%s__filter(void) {'
                             % (case.name))
-                        f.writeln(4*' '+'return %s;'
-                            % ' && '.join('(%s)' % if_
-                                for if_ in [suite.if_, case.if_]
-                                if if_ is not None))
+                        for if_ in it.chain(suite.if_, case.if_):
+                            f.writeln(4*' '+'if (!(%s)) return false;' % (
+                                'true' if if_ is True
+                                    else 'false' if if_ is False
+                                    else if_))
+                        f.writeln(4*' '+'return true;')
                         f.writeln('}')
                         f.writeln()
 
@@ -403,7 +405,7 @@ def compile(bench_paths, **args):
                                 f.writeln('extern intmax_t __bench__%s__%s__%d('
                                     'void *data, size_t i);'
                                     % (case.name, k, i))
-                        if suite.if_ is not None or case.if_ is not None:
+                        if suite.if_ or case.if_:
                             f.writeln('extern bool __bench__%s__filter('
                                 'void);'
                                 % (case.name))
@@ -469,7 +471,7 @@ def compile(bench_paths, **args):
                             f.writeln(12*' '+'},')
                             f.writeln(12*' '+'.permutations = %d,'
                                 % len(case.permutations))
-                        if suite.if_ is not None or case.if_ is not None:
+                        if suite.if_ or case.if_:
                             f.writeln(12*' '+'.filter = __bench__%s__filter,'
                                 % (case.name))
                         f.writeln(12*' '+'.run = __bench__%s__run,'
