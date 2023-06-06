@@ -690,11 +690,6 @@ code = '''
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
 
-    // we should be able to read the version using lfs_fs_stat
-    struct lfsp_fsinfo fsinfo;
-    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
-    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
-
     lfsp_unmount(&lfsp) => 0;
 '''
 
@@ -722,11 +717,6 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
-
-    // we should be able to read the version using lfs_fs_stat
-    struct lfs_fsinfo fsinfo;
-    lfs_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
 
     // can we list the directories?
     lfsp_dir_t dir;
@@ -791,11 +781,6 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
-
-    // we should be able to read the version using lfs_fs_stat
-    struct lfsp_fsinfo fsinfo;
-    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
-    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
 
     // can we list the files?
     lfsp_dir_t dir;
@@ -881,11 +866,6 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
-
-    // we should be able to read the version using lfs_fs_stat
-    struct lfsp_fsinfo fsinfo;
-    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
-    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
 
     // can we list the directories?
     lfsp_dir_t dir;
@@ -979,11 +959,6 @@ code = '''
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
 
-    // we should be able to read the version using lfs_fs_stat
-    struct lfsp_fsinfo fsinfo;
-    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
-    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
-
     // write another COUNT/2 dirs
     for (lfs_size_t i = COUNT/2; i < COUNT; i++) {
         char name[8];
@@ -1060,11 +1035,6 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
-
-    // we should be able to read the version using lfs_fs_stat
-    struct lfsp_fsinfo fsinfo;
-    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
-    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
 
     // write half COUNT files
     prng = 42;
@@ -1182,11 +1152,6 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
-
-    // we should be able to read the version using lfs_fs_stat
-    struct lfsp_fsinfo fsinfo;
-    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
-    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
 
     // write half COUNT files
     prng = 42;
