@@ -22,9 +22,6 @@ code = '''
 #define STRINGIZE_(x) #x
 #include STRINGIZE(LFSP)
 #else
-#define LFSP_VERSION LFS_VERSION
-#define LFSP_VERSION_MAJOR LFS_VERSION_MAJOR
-#define LFSP_VERSION_MINOR LFS_VERSION_MINOR
 #define LFSP_DISK_VERSION LFS_DISK_VERSION
 #define LFSP_DISK_VERSION_MAJOR LFS_DISK_VERSION_MAJOR
 #define LFSP_DISK_VERSION_MINOR LFS_DISK_VERSION_MINOR
@@ -63,7 +60,7 @@ code = '''
 
 # test we can mount in a new version
 [cases.test_compat_forward_mount]
-if = 'LFS_VERSION_MAJOR == LFSP_VERSION_MAJOR'
+if = 'LFS_DISK_VERSION_MAJOR == LFSP_DISK_VERSION_MAJOR'
 code = '''
     // create the previous version
     struct lfsp_config cfgp;
@@ -91,7 +88,7 @@ code = '''
 # test we can read dirs in a new version
 [cases.test_compat_forward_read_dirs]
 defines.COUNT = 5
-if = 'LFS_VERSION_MAJOR == LFSP_VERSION_MAJOR'
+if = 'LFS_DISK_VERSION_MAJOR == LFSP_DISK_VERSION_MAJOR'
 code = '''
     // create the previous version
     struct lfsp_config cfgp;
@@ -148,7 +145,7 @@ code = '''
 defines.COUNT = 5
 defines.SIZE = [4, 32, 512, 8192]
 defines.CHUNK = 4
-if = 'LFS_VERSION_MAJOR == LFSP_VERSION_MAJOR'
+if = 'LFS_DISK_VERSION_MAJOR == LFSP_DISK_VERSION_MAJOR'
 code = '''
     // create the previous version
     struct lfsp_config cfgp;
@@ -235,7 +232,7 @@ code = '''
 defines.COUNT = 5
 defines.SIZE = [4, 32, 512, 8192]
 defines.CHUNK = 4
-if = 'LFS_VERSION_MAJOR == LFSP_VERSION_MAJOR'
+if = 'LFS_DISK_VERSION_MAJOR == LFSP_DISK_VERSION_MAJOR'
 code = '''
     // create the previous version
     struct lfsp_config cfgp;
@@ -347,7 +344,7 @@ code = '''
 # test we can write dirs in a new version
 [cases.test_compat_forward_write_dirs]
 defines.COUNT = 10
-if = 'LFS_VERSION_MAJOR == LFSP_VERSION_MAJOR'
+if = 'LFS_DISK_VERSION_MAJOR == LFSP_DISK_VERSION_MAJOR'
 code = '''
     // create the previous version
     struct lfsp_config cfgp;
@@ -411,7 +408,7 @@ code = '''
 defines.COUNT = 5
 defines.SIZE = [4, 32, 512, 8192]
 defines.CHUNK = 2
-if = 'LFS_VERSION_MAJOR == LFSP_VERSION_MAJOR'
+if = 'LFS_DISK_VERSION_MAJOR == LFSP_DISK_VERSION_MAJOR'
 code = '''
     // create the previous version
     struct lfsp_config cfgp;
@@ -530,7 +527,7 @@ code = '''
 defines.COUNT = 5
 defines.SIZE = [4, 32, 512, 8192]
 defines.CHUNK = 2
-if = 'LFS_VERSION_MAJOR == LFSP_VERSION_MAJOR'
+if = 'LFS_DISK_VERSION_MAJOR == LFSP_DISK_VERSION_MAJOR'
 code = '''
     // create the previous version
     struct lfsp_config cfgp;
@@ -677,7 +674,7 @@ code = '''
 
 # test we can mount in an old version
 [cases.test_compat_backward_mount]
-if = 'LFS_VERSION == LFSP_VERSION'
+if = 'LFS_DISK_VERSION == LFSP_DISK_VERSION'
 code = '''
     // create the new version
     lfs_t lfs;
@@ -704,7 +701,7 @@ code = '''
 # test we can read dirs in an old version
 [cases.test_compat_backward_read_dirs]
 defines.COUNT = 5
-if = 'LFS_VERSION == LFSP_VERSION'
+if = 'LFS_DISK_VERSION == LFSP_DISK_VERSION'
 code = '''
     // create the new version
     lfs_t lfs;
@@ -761,7 +758,7 @@ code = '''
 defines.COUNT = 5
 defines.SIZE = [4, 32, 512, 8192]
 defines.CHUNK = 4
-if = 'LFS_VERSION == LFSP_VERSION'
+if = 'LFS_DISK_VERSION == LFSP_DISK_VERSION'
 code = '''
     // create the new version
     lfs_t lfs;
@@ -848,7 +845,7 @@ code = '''
 defines.COUNT = 5
 defines.SIZE = [4, 32, 512, 8192]
 defines.CHUNK = 4
-if = 'LFS_VERSION == LFSP_VERSION'
+if = 'LFS_DISK_VERSION == LFSP_DISK_VERSION'
 code = '''
     // create the new version
     lfs_t lfs;
@@ -960,7 +957,7 @@ code = '''
 # test we can write dirs in an old version
 [cases.test_compat_backward_write_dirs]
 defines.COUNT = 10
-if = 'LFS_VERSION == LFSP_VERSION'
+if = 'LFS_DISK_VERSION == LFSP_DISK_VERSION'
 code = '''
     // create the new version
     lfs_t lfs;
@@ -1024,7 +1021,7 @@ code = '''
 defines.COUNT = 5
 defines.SIZE = [4, 32, 512, 8192]
 defines.CHUNK = 2
-if = 'LFS_VERSION == LFSP_VERSION'
+if = 'LFS_DISK_VERSION == LFSP_DISK_VERSION'
 code = '''
     // create the previous version
     lfs_t lfs;
@@ -1143,7 +1140,7 @@ code = '''
 defines.COUNT = 5
 defines.SIZE = [4, 32, 512, 8192]
 defines.CHUNK = 2
-if = 'LFS_VERSION == LFSP_VERSION'
+if = 'LFS_DISK_VERSION == LFSP_DISK_VERSION'
 code = '''
     // create the previous version
     lfs_t lfs;
