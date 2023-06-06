@@ -25,11 +25,16 @@ code = '''
 #define LFSP_VERSION LFS_VERSION
 #define LFSP_VERSION_MAJOR LFS_VERSION_MAJOR
 #define LFSP_VERSION_MINOR LFS_VERSION_MINOR
+#define LFSP_DISK_VERSION LFS_DISK_VERSION
+#define LFSP_DISK_VERSION_MAJOR LFS_DISK_VERSION_MAJOR
+#define LFSP_DISK_VERSION_MINOR LFS_DISK_VERSION_MINOR
 #define lfsp_t lfs_t
 #define lfsp_config lfs_config
 #define lfsp_format lfs_format
 #define lfsp_mount lfs_mount
 #define lfsp_unmount lfs_unmount
+#define lfsp_fsinfo lfs_fsinfo
+#define lfsp_fs_stat lfs_fs_stat
 #define lfsp_dir_t lfs_dir_t
 #define lfsp_info lfs_info
 #define LFSP_TYPE_REG LFS_TYPE_REG
@@ -74,6 +79,12 @@ code = '''
     // now test the new mount
     lfs_t lfs;
     lfs_mount(&lfs, cfg) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFSP_DISK_VERSION_MINOR);
+
     lfs_unmount(&lfs) => 0;
 '''
 
@@ -101,6 +112,11 @@ code = '''
     // mount the new version
     lfs_t lfs;
     lfs_mount(&lfs, cfg) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFSP_DISK_VERSION_MINOR);
 
     // can we list the directories?
     lfs_dir_t dir;
@@ -165,6 +181,11 @@ code = '''
     // mount the new version
     lfs_t lfs;
     lfs_mount(&lfs, cfg) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFSP_DISK_VERSION_MINOR);
 
     // can we list the files?
     lfs_dir_t dir;
@@ -250,6 +271,11 @@ code = '''
     // mount the new version
     lfs_t lfs;
     lfs_mount(&lfs, cfg) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFSP_DISK_VERSION_MINOR);
 
     // can we list the directories?
     lfs_dir_t dir;
@@ -343,6 +369,11 @@ code = '''
     lfs_t lfs;
     lfs_mount(&lfs, cfg) => 0;
 
+    // we should be able to read the version using lfs_fs_stat
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFSP_DISK_VERSION_MINOR);
+
     // write another COUNT/2 dirs
     for (lfs_size_t i = COUNT/2; i < COUNT; i++) {
         char name[8];
@@ -419,6 +450,11 @@ code = '''
     // mount the new version
     lfs_t lfs;
     lfs_mount(&lfs, cfg) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFSP_DISK_VERSION_MINOR);
 
     // write half COUNT files
     prng = 42;
@@ -537,6 +573,11 @@ code = '''
     lfs_t lfs;
     lfs_mount(&lfs, cfg) => 0;
 
+    // we should be able to read the version using lfs_fs_stat
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFSP_DISK_VERSION_MINOR);
+
     // write half COUNT files
     prng = 42;
     for (lfs_size_t i = 0; i < COUNT; i++) {
@@ -651,6 +692,12 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfsp_fsinfo fsinfo;
+    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
+
     lfsp_unmount(&lfsp) => 0;
 '''
 
@@ -678,6 +725,11 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
 
     // can we list the directories?
     lfsp_dir_t dir;
@@ -742,6 +794,11 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfsp_fsinfo fsinfo;
+    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
 
     // can we list the files?
     lfsp_dir_t dir;
@@ -827,6 +884,11 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfsp_fsinfo fsinfo;
+    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
 
     // can we list the directories?
     lfsp_dir_t dir;
@@ -920,6 +982,11 @@ code = '''
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
 
+    // we should be able to read the version using lfs_fs_stat
+    struct lfsp_fsinfo fsinfo;
+    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
+
     // write another COUNT/2 dirs
     for (lfs_size_t i = COUNT/2; i < COUNT; i++) {
         char name[8];
@@ -996,6 +1063,11 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfsp_fsinfo fsinfo;
+    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
 
     // write half COUNT files
     prng = 42;
@@ -1113,6 +1185,11 @@ code = '''
     memcpy(&cfgp, cfg, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, &cfgp) => 0;
+
+    // we should be able to read the version using lfs_fs_stat
+    struct lfsp_fsinfo fsinfo;
+    lfsp_fs_stat(&lfsp, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
 
     // write half COUNT files
     prng = 42;
@@ -1316,45 +1393,54 @@ code = '''
 
     // mount should still work
     lfs_mount(&lfs, cfg) => 0;
+
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR-1);
+
     lfs_file_open(&lfs, &file, "test", LFS_O_RDONLY) => 0;
     uint8_t buffer[8];
     lfs_file_read(&lfs, &file, buffer, 8) => 8;
     assert(memcmp(buffer, "testtest", 8) == 0);
     lfs_file_close(&lfs, &file) => 0;
+
+    // minor version should be unchanged
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR-1);
+
     lfs_unmount(&lfs) => 0;
 
     // if we write, we need to bump the minor version
     lfs_mount(&lfs, cfg) => 0;
+
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR-1);
+
     lfs_file_open(&lfs, &file, "test", LFS_O_WRONLY | LFS_O_TRUNC) => 0;
     lfs_file_write(&lfs, &file, "teeeeest", 8) => 8;
     lfs_file_close(&lfs, &file) => 0;
 
-    // minor version should have changed
-    lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
-    lfs_dir_get(&lfs, &mdir, LFS_MKTAG(0x7ff, 0x3ff, 0),
-            LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
-            &superblock)
-            => LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock));
-    lfs_superblock_fromle32(&superblock);
-    assert((superblock.version >> 16) & 0xffff == LFS_DISK_VERSION_MAJOR);
-    assert((superblock.version >>  0) & 0xffff == LFS_DISK_VERSION_MINOR);
+    // minor version should be changed
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
+
     lfs_unmount(&lfs) => 0;
 
     // and of course mount should still work
     lfs_mount(&lfs, cfg) => 0;
+
+    // minor version should have changed
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
+
     lfs_file_open(&lfs, &file, "test", LFS_O_RDONLY) => 0;
     lfs_file_read(&lfs, &file, buffer, 8) => 8;
     assert(memcmp(buffer, "teeeeest", 8) == 0);
     lfs_file_close(&lfs, &file) => 0;
 
-    // minor version should have changed
-    lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
-    lfs_dir_get(&lfs, &mdir, LFS_MKTAG(0x7ff, 0x3ff, 0),
-            LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
-            &superblock)
-            => LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock));
-    lfs_superblock_fromle32(&superblock);
-    assert((superblock.version >> 16) & 0xffff == LFS_DISK_VERSION_MAJOR);
-    assert((superblock.version >>  0) & 0xffff == LFS_DISK_VERSION_MINOR);
+    // yep, still changed
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
+
     lfs_unmount(&lfs) => 0;
 '''

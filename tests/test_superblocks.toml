@@ -34,6 +34,54 @@ code = '''
     lfs_mount(&lfs, cfg) => LFS_ERR_CORRUPT;
 '''
 
+# test we can read superblock info through lfs_fs_stat
+[cases.test_superblocks_stat]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+
+    // test we can mount and read fsinfo
+    lfs_mount(&lfs, cfg) => 0;
+
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
+    assert(fsinfo.block_usage > 0 && fsinfo.block_usage < BLOCK_COUNT);
+    assert(fsinfo.name_max == LFS_NAME_MAX);
+    assert(fsinfo.file_max == LFS_FILE_MAX);
+    assert(fsinfo.attr_max == LFS_ATTR_MAX);
+
+    lfs_unmount(&lfs) => 0;
+'''
+
+[cases.test_superblocks_stat_tweaked]
+defines.TWEAKED_NAME_MAX = 63
+defines.TWEAKED_FILE_MAX = '(1 << 16)-1'
+defines.TWEAKED_ATTR_MAX = 512
+code = '''
+    // create filesystem with tweaked params
+    struct lfs_config tweaked_cfg = *cfg;
+    tweaked_cfg.name_max = TWEAKED_NAME_MAX;
+    tweaked_cfg.file_max = TWEAKED_FILE_MAX;
+    tweaked_cfg.attr_max = TWEAKED_ATTR_MAX;
+
+    lfs_t lfs;
+    lfs_format(&lfs, &tweaked_cfg) => 0;
+
+    // test we can mount and read these params with the original config
+    lfs_mount(&lfs, cfg) => 0;
+
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
+    assert(fsinfo.block_usage > 0 && fsinfo.block_usage < BLOCK_COUNT);
+    assert(fsinfo.name_max == TWEAKED_NAME_MAX);
+    assert(fsinfo.file_max == TWEAKED_FILE_MAX);
+    assert(fsinfo.attr_max == TWEAKED_ATTR_MAX);
+
+    lfs_unmount(&lfs) => 0;
+'''
+
 # expanding superblock
 [cases.test_superblocks_expand]
 defines.BLOCK_CYCLES = [32, 33, 1]

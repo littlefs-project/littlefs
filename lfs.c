@@ -4324,11 +4324,9 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
                         "v%"PRIu16".%"PRIu16" < v%"PRIu16".%"PRIu16,
                         major_version, minor_version,
                         LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
-            #ifndef LFS_READONLY
                 // note this bit is reserved on disk, so fetching more gstate
                 // will not interfere here
                 lfs_fs_prepsuperblock(lfs, true);
-            #endif
             }
 
             // check superblock configuration
@@ -4421,6 +4419,49 @@ static int lfs_rawunmount(lfs_t *lfs) {
 
 
 /// Filesystem filesystem operations ///
+static int lfs_fs_rawstat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    // if the superblock is up-to-date, we must be on the most recent
+    // minor version of littlefs
+    if (!lfs_gstate_needssuperblock(&lfs->gstate)) {
+        fsinfo->minor_version = LFS_DISK_VERSION_MINOR;
+
+    // otherwise we need to read the minor version on disk
+    } else {
+        // fetch the superblock
+        lfs_mdir_t dir;
+        int err = lfs_dir_fetch(lfs, &dir, lfs->root);
+        if (err) {
+            return err;
+        }
+
+        lfs_superblock_t superblock;
+        lfs_stag_t tag = lfs_dir_get(lfs, &dir, LFS_MKTAG(0x7ff, 0x3ff, 0),
+                LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock);
+        if (tag < 0) {
+            return tag;
+        }
+        lfs_superblock_fromle32(&superblock);
+
+        // read the minor version
+        fsinfo->minor_version = (0xffff & (superblock.version >> 0));
+    }
+
+    // find the current block usage
+    lfs_ssize_t usage = lfs_fs_rawsize(lfs);
+    if (usage < 0) {
+        return usage;
+    }
+    fsinfo->block_usage = usage;
+
+    // other on-disk configuration, we cache all of these for internal use
+    fsinfo->name_max = lfs->name_max;
+    fsinfo->file_max = lfs->file_max;
+    fsinfo->attr_max = lfs->attr_max;
+
+    return 0;
+}
+
 int lfs_fs_rawtraverse(lfs_t *lfs,
         int (*cb)(void *data, lfs_block_t block), void *data,
         bool includeorphans) {
@@ -4933,6 +4974,7 @@ static lfs_ssize_t lfs_fs_rawsize(lfs_t *lfs) {
 
     return size;
 }
+
 
 #ifdef LFS_MIGRATE
 ////// Migration from littelfs v1 below this //////
@@ -6049,6 +6091,20 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
     err = lfs_dir_rawrewind(lfs, dir);
 
     LFS_TRACE("lfs_dir_rewind -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_fs_stat(%p, %p)", (void*)lfs, (void*)fsinfo);
+
+    err = lfs_fs_rawstat(lfs, fsinfo);
+
+    LFS_TRACE("lfs_fs_stat -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
