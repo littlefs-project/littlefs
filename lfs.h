@@ -263,6 +263,12 @@ struct lfs_config {
     // can help bound the metadata compaction time. Must be <= block_size.
     // Defaults to block_size when zero.
     lfs_size_t metadata_max;
+
+    // On-disk version to use when writing in the form of 16-bit major version
+    // + 16-bit minor version. This limiting metadata to what is supported by
+    // older minor versions. Note that some features will be lost. Defaults to 
+    // to the most recent minor version when zero.
+    uint32_t disk_version;
 };
 
 // File info structure

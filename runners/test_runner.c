@@ -1346,6 +1346,7 @@ static void run_powerloss_none(
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
+        .disk_version       = DISK_VERSION,
     };
 
     struct lfs_emubd_config bdcfg = {
@@ -1415,6 +1416,7 @@ static void run_powerloss_linear(
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
+        .disk_version       = DISK_VERSION,
     };
 
     struct lfs_emubd_config bdcfg = {
@@ -1501,6 +1503,7 @@ static void run_powerloss_log(
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
+        .disk_version       = DISK_VERSION,
     };
 
     struct lfs_emubd_config bdcfg = {
@@ -1585,6 +1588,7 @@ static void run_powerloss_cycles(
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
+        .disk_version       = DISK_VERSION,
     };
 
     struct lfs_emubd_config bdcfg = {
@@ -1767,6 +1771,7 @@ static void run_powerloss_exhaustive(
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
+        .disk_version       = DISK_VERSION,
     };
 
     struct lfs_emubd_config bdcfg = {
