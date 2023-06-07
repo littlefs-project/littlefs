@@ -371,7 +371,8 @@ jobs:
       # on one geometry
       - name: test-valgrind
         run: |
-          TESTFLAGS="$TESTFLAGS --valgrind -Gdefault -Pnone" make test
+          TESTFLAGS="$TESTFLAGS --valgrind --context=1024 -Gdefault -Pnone" \
+            make test
 
   # test that compilation is warning free under clang
   # run with Clang, mostly to check for Clang-specific warnings
