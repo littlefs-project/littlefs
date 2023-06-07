@@ -45,7 +45,7 @@ code = '''
 
     struct lfs_fsinfo fsinfo;
     lfs_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
+    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_usage > 0 && fsinfo.block_usage < BLOCK_COUNT);
     assert(fsinfo.name_max == LFS_NAME_MAX);
     assert(fsinfo.file_max == LFS_FILE_MAX);
@@ -73,7 +73,7 @@ code = '''
 
     struct lfs_fsinfo fsinfo;
     lfs_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.minor_version == LFS_DISK_VERSION_MINOR);
+    assert(fsinfo.disk_version == LFS_DISK_VERSION);
     assert(fsinfo.block_usage > 0 && fsinfo.block_usage < BLOCK_COUNT);
     assert(fsinfo.name_max == TWEAKED_NAME_MAX);
     assert(fsinfo.file_max == TWEAKED_FILE_MAX);

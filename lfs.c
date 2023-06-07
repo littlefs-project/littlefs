@@ -4424,7 +4424,7 @@ static int lfs_fs_rawstat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
     // if the superblock is up-to-date, we must be on the most recent
     // minor version of littlefs
     if (!lfs_gstate_needssuperblock(&lfs->gstate)) {
-        fsinfo->minor_version = LFS_DISK_VERSION_MINOR;
+        fsinfo->disk_version = LFS_DISK_VERSION;
 
     // otherwise we need to read the minor version on disk
     } else {
@@ -4444,8 +4444,8 @@ static int lfs_fs_rawstat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
         }
         lfs_superblock_fromle32(&superblock);
 
-        // read the minor version
-        fsinfo->minor_version = (0xffff & (superblock.version >> 0));
+        // read the on-disk version
+        fsinfo->disk_version = superblock.version;
     }
 
     // find the current block usage

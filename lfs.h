@@ -282,8 +282,8 @@ struct lfs_info {
 
 // Filesystem info structure
 struct lfs_fsinfo {
-    // On-disk minor version.
-    uint16_t minor_version;
+    // On-disk version.
+    uint32_t disk_version;
 
     // Number of blocks in use, this is the same as lfs_fs_size.
     //
