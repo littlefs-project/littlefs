@@ -264,11 +264,13 @@ struct lfs_config {
     // Defaults to block_size when zero.
     lfs_size_t metadata_max;
 
+#ifdef LFS_MULTIVERSION
     // On-disk version to use when writing in the form of 16-bit major version
     // + 16-bit minor version. This limiting metadata to what is supported by
     // older minor versions. Note that some features will be lost. Defaults to 
     // to the most recent minor version when zero.
     uint32_t disk_version;
+#endif
 };
 
 // File info structure

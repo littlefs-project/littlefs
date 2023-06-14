@@ -520,9 +520,13 @@ static void lfs_mlist_append(lfs_t *lfs, struct lfs_mlist *mlist) {
 
 // some other filesystem operations
 static uint32_t lfs_fs_disk_version(lfs_t *lfs) {
+    (void)lfs;
+#ifdef LFS_MULTIVERSION
     if (lfs->cfg->disk_version) {
         return lfs->cfg->disk_version;
-    } else {
+    } else
+#endif
+    {
         return LFS_DISK_VERSION;
     }
 }
@@ -1274,6 +1278,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
         // did we end on a valid commit? we may have an erased block
         dir->erased = false;
         if (maybeerased && dir->off % lfs->cfg->prog_size == 0) {
+        #ifdef LFS_MULTIVERSION
             // note versions < lfs2.1 did not have fcrc tags, if
             // we're < lfs2.1 treat missing fcrc as erased data
             //
@@ -1282,7 +1287,9 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             if (lfs_fs_disk_version(lfs) < 0x00020001) {
                 dir->erased = true;
 
-            } else if (hasfcrc) {
+            } else
+        #endif
+            if (hasfcrc) {
                 // check for an fcrc matching the next prog's erased state, if
                 // this failed most likely a previous prog was interrupted, we
                 // need a new erase
@@ -1632,9 +1639,14 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
                 return err;
             }
 
+        #ifdef LFS_MULTIVERSION
             // unfortunately fcrcs break mdir fetching < lfs2.1, so only write
             // these if we're a >= lfs2.1 filesystem
-            if (lfs_fs_disk_version(lfs) >= 0x00020001) {
+            if (lfs_fs_disk_version(lfs) <= 0x00020000) {
+                // don't write fcrc
+            } else
+        #endif
+            {
                 // find the expected fcrc, don't bother avoiding a reread
                 // of the eperturb, it should still be in our cache
                 struct lfs_fcrc fcrc = {
@@ -4085,12 +4097,14 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->cfg = cfg;
     int err = 0;
 
+#ifdef LFS_MULTIVERSION
     // this driver only supports minor version < current minor version
     LFS_ASSERT(!lfs->cfg->disk_version || (
             (0xffff & (lfs->cfg->disk_version >> 16))
                     == LFS_DISK_VERSION_MAJOR
                 && (0xffff & (lfs->cfg->disk_version >> 0))
                     <= LFS_DISK_VERSION_MINOR));
+#endif
 
     // check that bool is a truthy-preserving type
     //
