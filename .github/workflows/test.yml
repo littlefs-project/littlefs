@@ -170,6 +170,27 @@ jobs:
           cp lfs.data.csv sizes/${{matrix.arch}}-threadsafe.data.csv
           cp lfs.stack.csv sizes/${{matrix.arch}}-threadsafe.stack.csv
           cp lfs.structs.csv sizes/${{matrix.arch}}-threadsafe.structs.csv
+      - name: sizes-multiversion
+        run: |
+          make clean
+          CFLAGS="$CFLAGS \
+            -DLFS_NO_ASSERT \
+            -DLFS_NO_DEBUG \
+            -DLFS_NO_WARN \
+            -DLFS_NO_ERROR \
+            -DLFS_MULTIVERSION" \
+            make lfs.code.csv lfs.data.csv lfs.stack.csv lfs.structs.csv
+          ./scripts/structs.py -u lfs.structs.csv
+          ./scripts/summary.py lfs.code.csv lfs.data.csv lfs.stack.csv \
+            -bfunction \
+            -fcode=code_size \
+            -fdata=data_size \
+            -fstack=stack_limit --max=stack_limit
+          mkdir -p sizes
+          cp lfs.code.csv sizes/${{matrix.arch}}-multiversion.code.csv
+          cp lfs.data.csv sizes/${{matrix.arch}}-multiversion.data.csv
+          cp lfs.stack.csv sizes/${{matrix.arch}}-multiversion.stack.csv
+          cp lfs.structs.csv sizes/${{matrix.arch}}-multiversion.structs.csv
       - name: sizes-migrate
         run: |
           make clean
@@ -352,6 +373,42 @@ jobs:
       - name: test-no-intrinsics
         run: |
           CFLAGS="$CFLAGS -DLFS_NO_INTRINSICS" make test
+
+  # run LFS_MULTIVERSION tests
+  test-multiversion:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          # need a few things
+          sudo apt-get update -qq
+          sudo apt-get install -qq gcc python3 python3-pip
+          pip3 install toml
+          gcc --version
+          python3 --version
+      - name: test-multiversion
+        run: |
+          CFLAGS="$CFLAGS -DLFS_MULTIVERSION" make test
+
+  # run tests on the older version lfs2.0
+  test-lfs2_0:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          # need a few things
+          sudo apt-get update -qq
+          sudo apt-get install -qq gcc python3 python3-pip
+          pip3 install toml
+          gcc --version
+          python3 --version
+      - name: test-lfs2_0
+        run: |
+          CFLAGS="$CFLAGS -DLFS_MULTIVERSION" \
+          TESTFLAGS="$TESTFLAGS -DDISK_VERSION=0x00020000" \
+            make test
 
   # run under Valgrind to check for memory errors
   test-valgrind:
@@ -685,7 +742,7 @@ jobs:
           # sizes table
           i=0
           j=0
-          for c in "" readonly threadsafe migrate error-asserts
+          for c in "" readonly threadsafe multiversion migrate error-asserts
           do
             # per-config results
             c_or_default=${c:-default}
