@@ -143,6 +143,10 @@ def main(command, *,
         buffer=False,
         ignore_errors=False,
         exit_on_error=False):
+    # if we have keep_open_paths, assume user wanted keep_open
+    if keep_open_paths and not keep_open:
+        keep_open = True
+
     returncode = 0
     try:
         while True:
@@ -202,7 +206,7 @@ def main(command, *,
             # try to inotifywait
             if keep_open and inotify_simple is not None:
                 if keep_open_paths:
-                    paths = set(keep_paths)
+                    paths = set(keep_open_paths)
                 else:
                     # guess inotify paths from command
                     paths = set()
@@ -262,7 +266,8 @@ if __name__ == "__main__":
         '-K', '--keep-open-path',
         dest='keep_open_paths',
         action='append',
-        help="Use this path for inotify. Defaults to guessing.")
+        help="Use this path for inotify. Defaults to guessing. Implies "
+            "--keep-open.")
     parser.add_argument(
         '-b', '--buffer',
         action='store_true',
