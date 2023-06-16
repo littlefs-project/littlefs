@@ -1077,6 +1077,7 @@ static lfs_ssize_t lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t data,
     return lfs_fromleb128(word, buf, d);
 }
 
+// TODO really should we bring back GT/EQ/LT as return values here?
 static int lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
         lfs_off_t off, const void *buffer, lfs_size_t size,
         int *cmp) {
@@ -1565,16 +1566,7 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
 }
 
 static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_block_t block, lfs_size_t trunk,
-        lfsr_find_t *find) {
-    // clear any previous state in our find
-    if (find) {
-        find->predicted_id = -1;
-        find->predicted_tag = 0;
-        find->found_id = -1;
-        find->found_tag = 0;
-    }
-
+        lfs_block_t block, lfs_size_t trunk) {
     // read the revision count and get the crc started
     uint32_t rev;
     uint32_t crc = 0;
@@ -1692,11 +1684,6 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             rbyd->crc = crc;
             rbyd->trunk = trunk_;
             rbyd->weight = weight;
-
-            if (find) {
-                find->found_id = find->predicted_id;
-                find->found_tag = find->predicted_tag;
-            }
         }
 
         // found a trunk of a tree?
@@ -1724,51 +1711,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 }
 
             } else {
-                lfs_ssize_t delta = (lower+upper+w) - weight;
+                // update current weight
                 weight = lower+upper+w;
-                lfs_ssize_t id = lower+w-1;
-
-                // adjust any pending finds
-                if (find && find->predicted_id >= (lfs_ssize_t)lower) {
-                    // pending find removed?
-                    if (find->predicted_id + delta < (lfs_ssize_t)lower) {
-                        find->predicted_id = lower-1;
-                        find->predicted_tag = 0;
-                    } else {
-                        find->predicted_id += delta;
-                    }
-                }
-
-                // found our find request?
-                if (find && lfsr_tag_suptype(tag) == LFSR_TAG_NAME) {
-                    // compare with disk
-                    lfs_size_t d = lfs_min(size, find->name_size);
-                    int cmp;
-                    int err = lfsr_bd_cmp(lfs, block, off, d,
-                            find->name, d,
-                            &cmp);
-                    if (err) {
-                        return err;
-                    }
-
-                    if (cmp == 0) {
-                        if (size < find->name_size) {
-                            cmp = -1;
-                        } else if (size > find->name_size) {
-                            cmp = +1;
-                        }
-                    }
-
-                    // found match?
-                    if (cmp == 0) {
-                        find->predicted_id = id;
-                        find->predicted_tag = tag;
-                    // didn't find a match, but found a better insertion point
-                    } else if (cmp < 0 && id > find->predicted_id) {
-                        find->predicted_id = id;
-                        find->predicted_tag = 0;
-                    }
-                }
 
                 // any non-alt terminates the current trunk
                 wastrunk = false;
@@ -2913,6 +2857,89 @@ static int lfsr_rbyd_isdegenerate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     }
 }
 
+// binary search an rbyd for a name, leaving the id_/weight_ with the best
+// matching name if not found
+static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        const char *name, lfs_size_t name_size,
+        lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
+        lfsr_data_t *data_) {
+    // binary search for our name
+    lfs_ssize_t lower = 0;
+    lfs_ssize_t upper = rbyd->weight;
+
+    while (lower < upper) {
+        lfsr_tag_t tag__;
+        lfs_ssize_t id__;
+        lfs_size_t weight__;
+        lfsr_data_t data__;
+        int err = lfsr_rbyd_lookupnext(lfs, rbyd,
+                // lookup ~middle id, note we may end up in the middle
+                // of a weighted id with this
+                lower + (upper-1-lower)/2, 0,
+                &id__, &tag__, &weight__, &data__);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            return err;
+        }
+
+        // if we have no name or a vestigial name, treat this id as always lt
+        int cmp;
+        if (id__-(weight__-1) == 0
+                || lfsr_tag_suptype(tag__) != LFSR_TAG_NAME) {
+            cmp = -1;
+
+        // compare names
+        } else {
+            err = lfsr_data_cmp(lfs, data__, 0, name, name_size, &cmp);
+            if (err) {
+                return err;
+            }
+        }
+
+        // bisect search space
+        if (cmp > 0) {
+            upper = id__-weight__ + 1;
+
+        } else if (cmp < 0) {
+            lower = id__ + 1;
+
+            // keep track of best-matching name so far
+            if (id_) {
+                *id_ = id__;
+            }
+            if (tag_) {
+                *tag_ = tag__;
+            }
+            if (weight_) {
+                *weight_ = weight__;
+            }
+            if (data_) {
+                *data_ = data__;
+            }
+
+        } else {
+            // found a match?
+            if (id_) {
+                *id_ = id__;
+            }
+            if (tag_) {
+                *tag_ = tag__;
+            }
+            if (weight_) {
+                *weight_ = weight__;
+            }
+            if (data_) {
+                *data_ = data__;
+            }
+            return 0;
+        }
+    }
+
+    // no match, at least update id_/tag_/weight_/data_ with the best
+    // match so far
+    return LFS_ERR_NOENT;
+}
+
 
 
 /// Rbyd b-tree operations ///
@@ -3263,10 +3290,10 @@ static int lfsr_btree_parent(lfs_t *lfs,
     }
 }
 
-static lfs_ssize_t lfsr_btree_namelookupnext(lfs_t *lfs,
-        const lfsr_btree_t *btree, const char *name, lfs_size_t name_size,
-        lfs_size_t *bid_, lfsr_rbyd_t *rbyd_, lfs_ssize_t *rid_,
-        lfsr_tag_t *tag_, lfs_size_t *weight_, lfsr_data_t *data_) {
+static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
+        const char *name, lfs_size_t name_size,
+        lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
+        lfsr_data_t *data_) {
     // an empty tree?
     if (lfsr_btree_weight(btree) == 0) {
         return LFS_ERR_NOENT;
@@ -3293,75 +3320,24 @@ static lfs_ssize_t lfsr_btree_namelookupnext(lfs_t *lfs,
     // descend down the btree looking for our name
     lfsr_rbyd_t branch = btree->root;
     lfs_ssize_t bid = 0;
-    lfsr_find_t find = {.name=name, .name_size=name_size};
     while (true) {
-        // name lookup in our rbyds requires a linear search, so we might as
-        // well revalidate the rbyd with a fetch
-        lfsr_rbyd_t branch_;
-        int err = lfsr_rbyd_fetch(lfs, &branch_,
-                branch.block, branch.trunk, &find);
-        if (err) {
-            if (err == LFS_ERR_CORRUPT) {
-                LFS_ERROR("Corrupted rbyd found during btree lookup "
-                        "(rbyd=0x%"PRIx32".%"PRIx32", "
-                        "0x%08"PRIx32" != 0x%08"PRIx32")",
-                        branch.block, branch.trunk,
-                        branch_.crc, branch.crc);
-            }
+        // lookup our name in the rbyd via binary search
+        lfs_ssize_t rid__;
+        lfs_size_t weight__;
+        int err = lfsr_rbyd_namelookup(lfs, &branch, name, name_size,
+                &rid__, NULL, &weight__, NULL);
+        if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
-        if (branch_.crc != branch.crc) {
-            LFS_ERROR("Corrupted rbyd found during btree lookup "
-                    "(rbyd=0x%"PRIx32".%"PRIx32", "
-                    "0x%08"PRIx32" != 0x%08"PRIx32")",
-                    branch.block, branch.trunk,
-                    branch_.crc, branch.crc);
-            return LFS_ERR_CORRUPT;
-        }
-
-        LFS_ASSERT(branch_.trunk == branch.trunk);
-        LFS_ASSERT(branch_.weight == branch.weight);
-        branch = branch_;
-
-        // assume lowest id if no name found
-        //
-        // note this ignore any name attached to the lowest id, this is
-        // intentional as allowing for "vestigial" names in our blocks helps
-        // simplify some of the more complicated merge/split interactions
-        if (find.found_id < 0) {
-            find.found_id = 0;
-        }
-
-        // the find may not match exactly, but it will indicate which id we
-        // should follow
-        //
-        // Note that we can't reliably find the weight in fetch. If, during our
-        // linear search, we match an id that is later deleted, we know id-1
-        // should be the new id, but we don't have enough information to
-        // determine the new weight. So unfortunately we need an additional
-        // lookup to find the weight.
+        // the name may not match exactly, but indicates which branch to follow
         lfsr_tag_t tag__;
-        lfs_ssize_t rid__;
-        // TODO do we really need to fetch weight__ if we get it in our
-        // btree struct?
-        // TODO maybe only when validating?
-        lfs_size_t weight__;
         lfsr_data_t data__;
-        err = lfsr_rbyd_lookupnext(lfs, &branch, find.found_id, 0,
-                &rid__, &tag__, &weight__, &data__);
+        err = lfsr_rbyd_lookupnext(lfs, &branch, rid__, LFSR_TAG_STRUCT,
+                NULL, &tag__, NULL, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
-        }
-
-        if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookupnext(lfs, &branch, rid__, LFSR_TAG_STRUCT,
-                    NULL, &tag__, NULL, &data__);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                return err;
-            }
         }
 
         // found another branch
@@ -3381,12 +3357,6 @@ static lfs_ssize_t lfsr_btree_namelookupnext(lfs_t *lfs,
             // TODO how many of these should be conditional?
             if (bid_) {
                 *bid_ = bid + rid__;
-            }
-            if (rbyd_) {
-                *rbyd_ = branch;
-            }
-            if (rid_) {
-                *rid_ = rid__;
             }
             if (tag_) {
                 *tag_ = tag__;
@@ -3456,7 +3426,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         //
         // a strange benefit is we cache the root of our btree this way
         if (!lfsr_rbyd_isfetched(rbyd)) {
-            err = lfsr_rbyd_fetch(lfs, rbyd, rbyd->block, rbyd->trunk, NULL);
+            err = lfsr_rbyd_fetch(lfs, rbyd, rbyd->block, rbyd->trunk);
             if (err) {
                 return err;
             }
@@ -4617,8 +4587,7 @@ static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t mid) {
 }
 
 static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
-        lfs_ssize_t mid, lfsr_mpair_t mpair,
-        lfsr_find_t *find) {
+        lfs_ssize_t mid, lfsr_mpair_t mpair) {
     // read both revision counts, try to figure out which block
     // has the most recent revision
     uint32_t revs[2] = {0, 0};
@@ -4640,7 +4609,7 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // try to fetch rbyds in the order of most recent to least recent
     for (int i = 0; i < 2; i++) {
-        int err = lfsr_rbyd_fetch(lfs, &mdir->rbyd, mpair.blocks[0], 0, find);
+        int err = lfsr_rbyd_fetch(lfs, &mdir->rbyd, mpair.blocks[0], 0);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
@@ -4721,7 +4690,7 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfs_ssize_t mid, lfsr_mdir_t *mdir_) {
         }
 
         // fetch mdir
-        return lfsr_mdir_fetch(lfs, mdir_, mid, mpair, NULL);
+        return lfsr_mdir_fetch(lfs, mdir_, mid, mpair);
     }
 }
 
@@ -4737,7 +4706,7 @@ static int lfsr_mtree_parent(lfs_t *lfs, lfsr_mpair_t child,
     lfsr_mdir_t mdir;
     while (true) {
         // fetch next possible superblock
-        int err = lfsr_mdir_fetch(lfs, &mdir, -1, mpair, NULL);
+        int err = lfsr_mdir_fetch(lfs, &mdir, -1, mpair);
         if (err) {
             return err;
         }
@@ -5563,8 +5532,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
     //
     if (traversal->mdir.rbyd.trunk == 0) {
         // fetch the first mroot 0x{0,1}
-        int err = lfsr_mdir_fetch(lfs, &traversal->mdir,
-                -1, LFSR_MPAIR(0, 1), NULL);
+        int err = lfsr_mdir_fetch(lfs, &traversal->mdir, -1, LFSR_MPAIR(0, 1));
         if (err) {
             return err;
         }
@@ -5598,8 +5566,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
                 return d;
             }
 
-            int err = lfsr_mdir_fetch(lfs, &traversal->mdir,
-                    -1, mpair, NULL);
+            int err = lfsr_mdir_fetch(lfs, &traversal->mdir, -1, mpair);
             if (err) {
                 return err;
             }
@@ -5677,7 +5644,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.buf.buffer;
             lfsr_rbyd_t branch_;
             int err = lfsr_rbyd_fetch(lfs, &branch_,
-                    branch->block, branch->trunk, NULL);
+                    branch->block, branch->trunk);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     LFS_ERROR("Corrupted rbyd during mtree traversal "
@@ -5732,8 +5699,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             return d;
         }
 
-        int err = lfsr_mdir_fetch(lfs, &traversal->mdir,
-                mid, mpair, NULL);
+        int err = lfsr_mdir_fetch(lfs, &traversal->mdir, mid, mpair);
         if (err) {
             return err;
         }

@@ -2853,8 +2853,8 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aaa", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+    lfsr_btree_namelookup(&lfs, &btree, "aaa", 3,
+            &id_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_find_one]
@@ -2887,16 +2887,16 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aaa", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aaa", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 0);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, data_, 0, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aab", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aab", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 0);
     assert(weight_ == 1);
@@ -2937,24 +2937,24 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aaa", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aaa", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 0);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, data_, 0, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aab", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aab", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 1);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, data_, 0, buffer, 4) => 1;
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aac", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aac", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 1);
     assert(weight_ == 1);
@@ -2998,32 +2998,32 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aaa", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aaa", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 0);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, data_, 0, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aab", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aab", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 1);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, data_, 0, buffer, 4) => 1;
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aac", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aac", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 2);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, data_, 0, buffer, 4) => 1;
     assert(memcmp(buffer, "2", 1) == 0);
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aad", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aad", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 2);
     assert(weight_ == 1);
@@ -3067,32 +3067,32 @@ code = '''
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aaa", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aaa", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 0);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, data_, 0, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aab", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aab", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 1);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, data_, 0, buffer, 4) => 1;
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aac", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aac", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 2);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, data_, 0, buffer, 4) => 1;
     assert(memcmp(buffer, "2", 1) == 0);
 
-    lfsr_btree_namelookupnext(&lfs, &btree, "aad", 3,
-            &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+    lfsr_btree_namelookup(&lfs, &btree, "aad", 3,
+            &id_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_INLINED);
     assert(id_ == 2);
     assert(weight_ == 1);
@@ -3153,8 +3153,8 @@ code = '''
             alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
         };
 
-        lfsr_btree_namelookupnext(&lfs, &btree, name, 3,
-                &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+        lfsr_btree_namelookup(&lfs, &btree, name, 3,
+                &id_, &tag_, &weight_, &data_) => 0;
         assert(tag_ == LFSR_TAG_INLINED);
         assert(id_ == i);
         assert(weight_ == 1);
@@ -3268,8 +3268,8 @@ code = '''
         lfs_size_t weight_;
         lfsr_data_t data_;
         for (lfs_size_t i = 0; i < sim_size; i++) {
-            lfsr_btree_namelookupnext(&lfs, &btree, sim_names[i], 3,
-                    &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+            lfsr_btree_namelookup(&lfs, &btree, sim_names[i], 3,
+                    &id_, &tag_, &weight_, &data_) => 0;
             assert(tag_ == LFSR_TAG_INLINED);
             assert(id_ == i);
             assert(weight_ == 1);
@@ -3339,8 +3339,8 @@ code = '''
             alphas[(i/26/26) % 26], alphas[(i/26) % 26], alphas[i % 26]
         };
 
-        lfsr_btree_namelookupnext(&lfs, &btree, name, 3,
-                &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+        lfsr_btree_namelookup(&lfs, &btree, name, 3,
+                &id_, &tag_, &weight_, &data_) => 0;
         assert(tag_ == LFSR_TAG_INLINED);
         assert(id_ == i*W+W-1);
         assert(weight_ == W);
@@ -3493,8 +3493,8 @@ code = '''
                 weighted_id += sim_weights[j];
             }
 
-            lfsr_btree_namelookupnext(&lfs, &btree, sim_names[i], 3,
-                    &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+            lfsr_btree_namelookup(&lfs, &btree, sim_names[i], 3,
+                    &id_, &tag_, &weight_, &data_) => 0;
             assert(tag_ == LFSR_TAG_INLINED);
             assert(id_ == weighted_id+sim_weights[i]-1);
             assert(weight_ == sim_weights[i]);
@@ -3584,8 +3584,8 @@ code = '''
                 // split btree
                 lfs_size_t split_id;
                 lfsr_data_t split_data;
-                lfsr_btree_namelookupnext(&lfs, &btree, name, 3,
-                        &split_id, NULL, NULL, NULL, NULL, &split_data) => 0;
+                lfsr_btree_namelookup(&lfs, &btree, name, 3,
+                        &split_id, NULL, NULL, &split_data) => 0;
                 uint8_t split_buf[4];
                 lfsr_data_read(&lfs, split_data, 0, split_buf, 4) => 1;
                 if (split_id > id) {
@@ -3680,8 +3680,8 @@ code = '''
         lfs_size_t weight_;
         lfsr_data_t data_;
         for (lfs_size_t i = 0; i < sim_size; i++) {
-            lfsr_btree_namelookupnext(&lfs, &btree, sim_names[i], 3,
-                    &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+            lfsr_btree_namelookup(&lfs, &btree, sim_names[i], 3,
+                    &id_, &tag_, &weight_, &data_) => 0;
             assert(tag_ == LFSR_TAG_INLINED);
             assert(id_ == i);
             assert(weight_ == 1);
@@ -3787,8 +3787,8 @@ code = '''
                 lfs_size_t split_id;
                 lfs_size_t split_weight;
                 lfsr_data_t split_data;
-                lfsr_btree_namelookupnext(&lfs, &btree, name, 3,
-                        &split_id, NULL, NULL, NULL, &split_weight,
+                lfsr_btree_namelookup(&lfs, &btree, name, 3,
+                        &split_id, NULL, &split_weight,
                         &split_data) => 0;
                 uint8_t split_buf[4];
                 lfsr_data_read(&lfs, split_data, 0, split_buf, 4) => 1;
@@ -3912,8 +3912,8 @@ code = '''
                 weighted_id += sim_weights[j];
             }
 
-            lfsr_btree_namelookupnext(&lfs, &btree, sim_names[i], 3,
-                    &id_, NULL, NULL, &tag_, &weight_, &data_) => 0;
+            lfsr_btree_namelookup(&lfs, &btree, sim_names[i], 3,
+                    &id_, &tag_, &weight_, &data_) => 0;
             assert(tag_ == LFSR_TAG_INLINED);
             assert(id_ == weighted_id+sim_weights[i]-1);
             assert(weight_ == sim_weights[i]);
