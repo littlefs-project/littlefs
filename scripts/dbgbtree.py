@@ -8,23 +8,24 @@ import os
 import struct
 
 
-TAG_UNR         = 0x0002
-TAG_MAGIC       = 0x0030
-TAG_CONFIG      = 0x0040
-TAG_MROOT       = 0x0110
-TAG_NAME        = 0x1000
-TAG_BRANCH      = 0x1000
-TAG_REG         = 0x1010
-TAG_DIR         = 0x1020
-TAG_STRUCT      = 0x3000
-TAG_INLINED     = 0x3000
-TAG_BLOCK       = 0x3100
-TAG_MDIR        = 0x3200
-TAG_BTREE       = 0x3300
-TAG_UATTR       = 0x4000
-TAG_ALT         = 0x0008
-TAG_CRC         = 0x0004
-TAG_FCRC        = 0x1004
+TAG_UNR         = 0x1000
+TAG_SUPERMAGIC  = 0x0003
+TAG_SUPERCONFIG = 0x0004
+TAG_MROOT       = 0x0304
+TAG_NAME        = 0x0100
+TAG_BRANCH      = 0x0100
+TAG_REG         = 0x0101
+TAG_DIR         = 0x0102
+TAG_STRUCT      = 0x0300
+TAG_INLINED     = 0x0300
+TAG_BLOCK       = 0x0302
+TAG_BTREE       = 0x0303
+TAG_MDIR        = 0x0305
+TAG_UATTR       = 0x0400
+TAG_ALT         = 0x4000
+TAG_CRC         = 0x2000
+TAG_FCRC        = 0x2100
+
 
 # parse some rbyd addr encodings
 # 0xa     -> [0xa]
@@ -70,9 +71,6 @@ def crc32c(data, crc=0):
             crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
     return 0xffffffff ^ crc
 
-def fromle16(data):
-    return struct.unpack('<H', data[0:2].ljust(2, b'\0'))[0]
-
 def fromle32(data):
     return struct.unpack('<I', data[0:4].ljust(4, b'\0'))[0]
 
@@ -86,10 +84,10 @@ def fromleb128(data):
     return word, len(data)
 
 def fromtag(data):
-    tag = fromle16(data)
+    tag = (data[0] << 8) | data[1]
     weight, d = fromleb128(data[2:])
     size, d_ = fromleb128(data[2+d:])
-    return tag&1, tag&~1, weight, size, 2+d+d_
+    return tag>>15, tag&0x7fff, weight, size, 2+d+d_
 
 def frombtree(data):
     w, d1 = fromleb128(data)
@@ -112,70 +110,67 @@ def xxd(data, width=16, crc=False):
                 for b in map(chr, data[i:i+width])))
 
 def tagrepr(tag, w, size, off=None):
-    if (tag & 0xfffe) == TAG_UNR:
+    if (tag & 0x7fff) == TAG_UNR:
         return 'unr%s%s' % (
             ' w%d' % w if w else '',
             ' %d' % size if size else '')
-    elif (tag & 0xfffc) == TAG_MAGIC:
-        return '%smagic%s %d' % (
-            'rm' if tag & 0x2 else '',
+    elif (tag & 0x6fff) == TAG_SUPERMAGIC:
+        return '%ssupermagic%s%s' % (
+            'rm' if tag & 0x1000 else '',
             ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xfffc) == TAG_CONFIG:
-        return '%sconfig%s %d' % (
-            'rm' if tag & 0x2 else '',
+            ' %d' % size if not tag & 0x1000 or size else '')
+    elif (tag & 0x6fff) == TAG_SUPERCONFIG:
+        return '%ssuperconfig%s%s' % (
+            'rm' if tag & 0x1000 else '',
             ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xfffc) == TAG_MROOT:
-        return '%smroot%s %d' % (
-            'rm' if tag & 0x2 else '',
-            ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xf00c) == TAG_NAME:
-        return '%s%s%s %d' % (
-            'rm' if tag & 0x2 else '',
-            'bname' if (tag & 0xfffe) == TAG_BRANCH
+            ' %d' % size if not tag & 0x1000 or size else '')
+    elif (tag & 0x6f00) == TAG_NAME:
+        return '%s%s%s%s' % (
+            'rm' if tag & 0x1000 else '',
+            'branch' if (tag & 0xfffe) == TAG_BRANCH
                 else 'reg' if (tag & 0xfffe) == TAG_REG
                 else 'dir' if (tag & 0xfffe) == TAG_DIR
                 else 'name 0x%02x' % ((tag & 0x0ff0) >> 4),
             ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xf00c) == TAG_STRUCT:
-        return '%s%s%s %d' % (
-            'rm' if tag & 0x2 else '',
-            'inlined' if (tag & 0xfffe) == TAG_INLINED
-                else 'block' if (tag & 0xfffe) == TAG_BLOCK
-                else 'mdir' if (tag & 0xfffe) == TAG_MDIR
-                else 'btree' if (tag & 0xfffe) == TAG_BTREE
+            ' %d' % size if not tag & 0x1000 or size else '')
+    elif (tag & 0x6f00) == TAG_STRUCT:
+        return '%s%s%s%s' % (
+            'rm' if tag & 0x1000 else '',
+            'inlined' if (tag & 0x6fff) == TAG_INLINED
+                else 'block' if (tag & 0x6fff) == TAG_BLOCK
+                else 'btree' if (tag & 0x6fff) == TAG_BTREE
+                else 'mdir' if (tag & 0x6fff) == TAG_MROOT
+                else 'mdir' if (tag & 0x6fff) == TAG_MDIR
                 else 'struct 0x%02x' % ((tag & 0x0ff0) >> 4),
             ' w%d' % w if w else '',
-            size)
-    elif (tag & 0xf00c) == TAG_UATTR:
+            ' %d' % size if not tag & 0x1000 or size else '')
+    elif (tag & 0x6f00) == TAG_UATTR:
         return '%suattr 0x%02x%s%s' % (
-            'rm' if tag & 0x2 else '',
-            (tag & 0x0ff0) >> 4,
+            'rm' if tag & 0x1000 else '',
+            tag & 0xff,
             ' w%d' % w if w else '',
-            ' %d' % size if not tag & 0x2 or size else '')
-    elif (tag & 0xf00e) == TAG_CRC:
+            ' %d' % size if not tag & 0x1000 or size else '')
+    elif (tag & 0x7f00) == TAG_CRC:
         return 'crc%x%s %d' % (
-            1 if tag & 0x10 else 0,
+            1 if tag & 0x1 else 0,
             ' 0x%x' % w if w > 0 else '',
             size)
-    elif (tag & 0xfffe) == TAG_FCRC:
+    elif (tag & 0x7fff) == TAG_FCRC:
         return 'fcrc%s %d' % (
             ' 0x%x' % w if w > 0 else '',
             size)
-    elif tag & 0x8:
+    elif tag & 0x4000:
         return 'alt%s%s 0x%x w%d %s' % (
-            'r' if tag & 0x2 else 'b',
-            'gt' if tag & 0x4 else 'le',
-            tag & 0xfff0,
+            'r' if tag & 0x1000 else 'b',
+            'gt' if tag & 0x2000 else 'le',
+            tag & 0x0fff,
             w,
             '0x%x' % (0xffffffff & (off-size))
                 if off is not None
                 else '-%d' % off)
     else:
         return '0x%04x w%d %d' % (tag, w, size)
+
 
 # this type is used for tree representations
 TBranch = co.namedtuple('TBranch', 'a, b, d, c')
@@ -253,12 +248,12 @@ class Rbyd:
                 break
             crc_ = crc32c(data[j_:j_+d], crc_)
             j_ += d
-            if not tag & 0x8 and j_ + size > len(data):
+            if not tag & 0x4000 and j_ + size > len(data):
                 break
 
             # take care of crcs
-            if not tag & 0x8:
-                if (tag & 0xf00f) != TAG_CRC:
+            if not tag & 0x4000:
+                if (tag & 0x7f00) != TAG_CRC:
                     crc_ = crc32c(data[j_:j_+size], crc_)
                 # found a crc?
                 else:
@@ -272,7 +267,7 @@ class Rbyd:
                     weight = weight_
 
             # evaluate trunks
-            if (tag & 0xc) != 0x4 and (
+            if (tag & 0x6000) != 0x2000 and (
                     not trunk or trunk >= j_-d or wastrunk):
                 # new trunk?
                 if not wastrunk:
@@ -281,8 +276,8 @@ class Rbyd:
                     wastrunk = True
 
                 # keep track of weight
-                if tag & 0x8:
-                    if tag & 0x4:
+                if tag & 0x4000:
+                    if tag & 0x2000:
                         upper_ += w
                     else:
                         lower_ += w
@@ -293,7 +288,7 @@ class Rbyd:
                     if trunk and j_ + size > trunk:
                         trunkoff = j_ + size
 
-            if not tag & 0x8:
+            if not tag & 0x4000:
                 j_ += size
 
         return cls(block, data, rev, off, trunk_, weight)
@@ -312,19 +307,20 @@ class Rbyd:
             _, alt, weight_, jump, d = fromtag(self.data[j:])
 
             # found an alt?
-            if alt & 0x8:
+            if alt & 0x4000:
                 # follow?
-                if ((id, tag & ~0xf) > (upper-weight_-1, alt & ~0xf)
-                        if alt & 0x4
-                        else ((id, tag & ~0xf) <= (lower+weight_, alt & ~0xf))):
-                    lower += upper-lower-1-weight_ if alt & 0x4 else 0
-                    upper -= upper-lower-1-weight_ if not alt & 0x4 else 0
+                if ((id, tag & 0xfff) > (upper-weight_-1, alt & 0xfff)
+                        if alt & 0x2000
+                        else ((id, tag & 0xfff)
+                            <= (lower+weight_, alt & 0xfff))):
+                    lower += upper-lower-1-weight_ if alt & 0x2000 else 0
+                    upper -= upper-lower-1-weight_ if not alt & 0x2000 else 0
                     j = j - jump
 
                     # figure out which color
-                    if alt & 0x2:
+                    if alt & 0x1000:
                         _, nalt, _, _, _ = fromtag(self.data[j+jump+d:])
-                        if nalt & 0x2:
+                        if nalt & 0x1000:
                             path.append((j+jump, j, True, 'y'))
                         else:
                             path.append((j+jump, j, True, 'r'))
@@ -333,14 +329,14 @@ class Rbyd:
 
                 # stay on path
                 else:
-                    lower += weight_ if not alt & 0x4 else 0
-                    upper -= weight_ if alt & 0x4 else 0
+                    lower += weight_ if not alt & 0x2000 else 0
+                    upper -= weight_ if alt & 0x2000 else 0
                     j = j + d
 
                     # figure out which color
-                    if alt & 0x2:
+                    if alt & 0x1000:
                         _, nalt, _, _, _ = fromtag(self.data[j:])
-                        if nalt & 0x2:
+                        if nalt & 0x1000:
                             path.append((j-d, j, False, 'y'))
                         else:
                             path.append((j-d, j, False, 'r'))
@@ -353,7 +349,7 @@ class Rbyd:
                 tag_ = alt
                 w_ = id_-lower
 
-                done = (id_, tag_) < (id, tag) or tag_ & 2
+                done = (id_, tag_) < (id, tag) or tag_ & 0x1000
 
                 return done, id_, tag_, w_, j, d, self.data[j+d:j+d+jump], path
 
@@ -371,7 +367,7 @@ class Rbyd:
         id = -1
 
         while True:
-            done, id, tag, w, j, d, data, _ = self.lookup(id, tag+0x10)
+            done, id, tag, w, j, d, data, _ = self.lookup(id, tag+0x1)
             if done:
                 break
 
@@ -384,7 +380,7 @@ class Rbyd:
 
         id, tag = -1, 0
         while True:
-            done, id, tag, w, j, d, data, path = self.lookup(id, tag+0x10)
+            done, id, tag, w, j, d, data, path = self.lookup(id, tag+0x1)
             # found end of tree?
             if done:
                 break
@@ -519,7 +515,7 @@ def main(disk, roots=None, *,
                 w = 0
                 for i in it.count():
                     done, rid__, tag, w_, j, d, data, _ = rbyd.lookup(
-                        rid_, tag+0x10)
+                        rid_, tag+0x1)
                     if done or (i != 0 and rid__ != rid_):
                         break
 
@@ -698,7 +694,7 @@ def main(disk, roots=None, *,
                     name = None
                     for bid_, w_, rbyd_, rid_, tags_ in reversed(path):
                         for tag_, j_, d_, data_ in tags_:
-                            if tag_ & 0xf00f == TAG_NAME:
+                            if tag_ & 0x7f00 == TAG_NAME:
                                 name = (tag_, j_, d_, data_)
 
                         if rid_-(w_-1) != 0:
@@ -826,7 +822,7 @@ def main(disk, roots=None, *,
                     ''.join(
                         b if b >= ' ' and b <= '~' else '.'
                         for b in map(chr, data))
-                            if tag & 0xf00f == TAG_NAME
+                            if tag & 0x7f00 == TAG_NAME
                         else next(xxd(data, 8), '')
                             if not args.get('no_truncate')
                         else ''))
@@ -911,7 +907,7 @@ def main(disk, roots=None, *,
                 name = None
                 for bid_, w_, rbyd_, rid_, tags_ in reversed(path):
                     for tag_, j_, d_, data_ in tags_:
-                        if tag_ & 0xf00f == TAG_NAME:
+                        if tag_ & 0x7f00 == TAG_NAME:
                             name = (tag_, j_, d_, data_)
 
                     if rid_-(w_-1) != 0:
@@ -920,7 +916,7 @@ def main(disk, roots=None, *,
                 if name is not None:
                     tags = [name] + [(tag, j, d, data)
                         for tag, j, d, data in tags
-                        if tag & 0xf00f != TAG_NAME]
+                        if tag & 0x7f00 != TAG_NAME]
 
             # show the branch
             dbg_branch(bid, w, rbyd, rid, tags, len(path)-1)

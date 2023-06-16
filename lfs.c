@@ -584,124 +584,128 @@ static int lfsr_bd_erase(lfs_t *lfs, lfs_block_t block) {
 
 // 16-bit metadata tags
 enum lfsr_tag_type {
-    LFSR_TAG_UNR            = 0x0002,
-    LFSR_TAG_MKUNR          = 0x0006, // in-device only
+    LFSR_TAG_UNR            = 0x1000,
+    LFSR_TAG_MKUNR          = 0x3000, // in-device only
 
-    LFSR_TAG_MAGIC          = 0x0030,
-    LFSR_TAG_CONFIG         = 0x0040,
-    LFSR_TAG_MROOT          = 0x0110,
+    LFSR_TAG_SUPERMAGIC     = 0x0003,
+    LFSR_TAG_SUPERCONFIG    = 0x0004,
+    LFSR_TAG_MROOT          = 0x0304,
 
-    LFSR_TAG_NAME           = 0x1000,
-    LFSR_TAG_BRANCH         = 0x1000,
-    LFSR_TAG_MKBRANCH       = 0x1004, // in-device only
-    LFSR_TAG_REG            = 0x1010,
-    LFSR_TAG_MKREG          = 0x1014, // in-device only
-    LFSR_TAG_DIR            = 0x1020,
-    LFSR_TAG_MKDIR          = 0x1024, // in-device only
+    LFSR_TAG_NAME           = 0x0100,
+    LFSR_TAG_BRANCH         = 0x0100,
+    LFSR_TAG_MKBRANCH       = 0x2100, // in-device only
+    LFSR_TAG_REG            = 0x0101,
+    LFSR_TAG_MKREG          = 0x2101, // in-device only
+    LFSR_TAG_DIR            = 0x0102,
+    LFSR_TAG_MKDIR          = 0x2102, // in-device only
 
-    LFSR_TAG_STRUCT         = 0x3000,
-    LFSR_TAG_INLINED        = 0x3000,
-    LFSR_TAG_MKINLINED      = 0x3004, // test only?
-    LFSR_TAG_BLOCK          = 0x3100,
-    LFSR_TAG_MDIR           = 0x3200,
-    LFSR_TAG_RMMDIR         = 0x3202,
-    LFSR_TAG_BTREE          = 0x3300,
-    LFSR_TAG_MKBTREE        = 0x3304, // in-device only
-    LFSR_TAG_RMBTREE        = 0x3302,
+    LFSR_TAG_STRUCT         = 0x0300,
+    LFSR_TAG_INLINED        = 0x0300,
+    LFSR_TAG_MKINLINED      = 0x2300, // test only?
+    LFSR_TAG_BLOCK          = 0x0302,
+    LFSR_TAG_BTREE          = 0x0303,
+    LFSR_TAG_MKBTREE        = 0x2303, // in-device only
+    LFSR_TAG_RMBTREE        = 0x1303,
+    LFSR_TAG_MDIR           = 0x0305,
+    LFSR_TAG_RMMDIR         = 0x1305,
 
-    LFSR_TAG_UATTR          = 0x4000,
-    LFSR_TAG_MKUATTR        = 0x4004, // in-device only
-    LFSR_TAG_RMUATTR        = 0x4002,
+    LFSR_TAG_UATTR          = 0x0400,
+    LFSR_TAG_MKUATTR        = 0x2400, // in-device only
+    LFSR_TAG_RMUATTR        = 0x1400,
 
-    LFSR_TAG_ALT            = 0x0008,
-    LFSR_TAG_ALTBLE         = 0x0008,
-    LFSR_TAG_ALTRLE         = 0x000a,
-    LFSR_TAG_ALTBGT         = 0x000c,
-    LFSR_TAG_ALTRGT         = 0x000e,
+    LFSR_TAG_ALT            = 0x4000,
+    LFSR_TAG_ALTBLE         = 0x4000,
+    LFSR_TAG_ALTRLE         = 0x5000,
+    LFSR_TAG_ALTBGT         = 0x6000,
+    LFSR_TAG_ALTRGT         = 0x7000,
 
-    LFSR_TAG_CRC            = 0x0004,
-    LFSR_TAG_FCRC           = 0x1004,
+    LFSR_TAG_CRC            = 0x2000,
+    LFSR_TAG_FCRC           = 0x2100,
 
     // in-device only
-    LFSR_TAG_GROW           = 0xf000,
-    LFSR_TAG_SHRINK         = 0xf010,
-    LFSR_TAG_FROM           = 0xf020,
+    LFSR_TAG_GROW           = 0x0f00,
+    LFSR_TAG_SHRINK         = 0x0f01,
+    LFSR_TAG_FROM           = 0x0f02,
 };
 
 #define LFSR_TAG_ALT_(color, dir, key) \
     (LFSR_TAG_ALT \
-        | ((0x1 & (lfsr_tag_t)(color)) << 1) \
-        | ((0x1 & (lfsr_tag_t)(dir)) << 2) \
-        | ((0xfff0 & (lfsr_tag_t)(key))))
+        | ((0x1 & (lfsr_tag_t)(color)) << 13) \
+        | ((0x1 & (lfsr_tag_t)(dir)) << 14) \
+        | (0x0fff & (lfsr_tag_t)(key)))
 
 #define LFSR_TAG_ALT(color, dir, key) \
     (LFSR_TAG_ALT##color##dir \
-        | ((0xfff0 & (lfsr_tag_t)(key))))
+        | (0x0fff & (lfsr_tag_t)(key)))
 
 #define LFSR_TAG_UATTR(attr) \
     (LFSR_TAG_UATTR \
-        | ((0xff & (lfsr_tag_t)(attr)) << 4))
+        | (0xff & (lfsr_tag_t)(attr)))
 
 #define LFSR_TAG_MKUATTR(attr) \
     (LFSR_TAG_MKUATTR \
-        | ((0xff & (lfsr_tag_t)(attr)) << 4))
+        | (0xff & (lfsr_tag_t)(attr)))
 
 #define LFSR_TAG_RMUATTR(attr) \
     (LFSR_TAG_RMUATTR \
-        | ((0xff & (lfsr_tag_t)(attr)) << 4))
+        | (0xff & (lfsr_tag_t)(attr)))
 
 // tag type operations
 static inline lfsr_tag_t lfsr_tag_suptype(lfsr_tag_t tag) {
-    return tag & 0xf00f;
+    return tag & 0xff00;
 }
 
 static inline uint8_t lfsr_tag_subtype(lfsr_tag_t tag) {
-    return (tag & 0x0ff0) >> 4;
+    return tag & 0x00ff;
+}
+
+static inline bool lfsr_tag_isvalid(lfsr_tag_t tag) {
+    return !(tag & 0x8000);
+}
+
+static inline lfsr_tag_t lfsr_tag_setvalid(lfsr_tag_t tag) {
+    return tag & ~0x8000;
+}
+
+static inline lfsr_tag_t lfsr_tag_setinvalid(lfsr_tag_t tag) {
+    return tag | 0x8000;
 }
 
 static inline bool lfsr_tag_ismk(lfsr_tag_t tag) {
-    return tag & 0x4;
+    return tag & 0x2000;
 }
 
 static inline lfsr_tag_t lfsr_tag_setmk(lfsr_tag_t tag) {
-    return tag | 0x4;
+    return tag | 0x2000;
 }
 
 static inline lfsr_tag_t lfsr_tag_setnomk(lfsr_tag_t tag) {
-    return tag & ~0x4;
+    return tag & ~0x2000;
 }
 
 static inline bool lfsr_tag_isrm(lfsr_tag_t tag) {
-    return tag & 0x2;
+    return tag & 0x1000;
 }
 
 static inline lfsr_tag_t lfsr_tag_setrm(lfsr_tag_t tag) {
-    return tag | 0x2;
+    return tag | 0x1000;
 }
 
 static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
-    return (tag & 0xc) != 0x4;
+    return (tag & 0x6000) != 0x2000;
 }
 
 static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
-    return tag & 0x8;
+    return tag & 0x4000;
 }
 
 static inline lfsr_tag_t lfsr_tag_next(lfsr_tag_t tag) {
-    return tag + 0x10;
+    return tag + 0x1;
 }
 
 // lfsr_rbyd_append specific flags
-static inline bool lfsr_tag_isfound(lfsr_tag_t tag) {
-    return tag & 0x1;
-}
-
-static inline lfsr_tag_t lfsr_tag_setfound(lfsr_tag_t tag) {
-    return tag | 0x1;
-}
-
 static inline bool lfsr_tag_isupper(lfsr_tag_t tag) {
-    return tag & 0x4;
+    return tag & 0x2000;
 }
 
 static inline bool lfsr_tag_islower(lfsr_tag_t tag) {
@@ -709,48 +713,48 @@ static inline bool lfsr_tag_islower(lfsr_tag_t tag) {
 }
 
 static inline lfsr_tag_t lfsr_tag_setupper(lfsr_tag_t tag) {
-    return tag | 0x4;
+    return tag | 0x2000;
 }
 
 static inline bool lfsr_tag_hasdiverged(lfsr_tag_t tag) {
-    return tag & 0x8;
+    return tag & 0x4000;
 }
 
 static inline lfsr_tag_t lfsr_tag_setdiverged(lfsr_tag_t tag) {
-    return tag | 0x8;
+    return tag | 0x4000;
 }
 
 // alt operations
 static inline bool lfsr_tag_isblack(lfsr_tag_t tag) {
-    return !(tag & 0x2);
+    return !(tag & 0x1000);
 }
 
 static inline bool lfsr_tag_isred(lfsr_tag_t tag) {
-    return tag & 0x2;
+    return tag & 0x1000;
 }
 
 static inline lfsr_tag_t lfsr_tag_setblack(lfsr_tag_t tag) {
-    return tag & ~0x2;
+    return tag & ~0x1000;
 }
 
 static inline lfsr_tag_t lfsr_tag_setred(lfsr_tag_t tag) {
-    return tag | 0x2;
+    return tag | 0x1000;
 }
 
 static inline bool lfsr_tag_isle(lfsr_tag_t tag) {
-    return !(tag & 0x4);
+    return !(tag & 0x2000);
 }
 
 static inline bool lfsr_tag_isgt(lfsr_tag_t tag) {
-    return tag & 0x4;
+    return tag & 0x2000;
 }
 
 static inline lfsr_tag_t lfsr_tag_isparallel(lfsr_tag_t a, lfsr_tag_t b) {
-    return (a & 0x4) == (b & 0x4);
+    return (a & 0x2000) == (b & 0x2000);
 }
 
 static inline lfsr_tag_t lfsr_tag_key(lfsr_tag_t tag) {
-    return tag & ~0xf;
+    return tag & 0x0fff;
 }
 
 static inline bool lfsr_tag_follow(lfsr_tag_t alt, lfs_size_t weight,
@@ -795,13 +799,13 @@ static inline bool lfsr_tag_prune2(
                 alt, weight,
                 alt2, weight2,
                 lower_id, upper_id,
-                upper_id-1, upper_tag-0x10);
+                upper_id-1, upper_tag-0x1);
     }
 }
 
 static inline void lfsr_tag_flip(lfsr_tag_t *alt, lfs_size_t *weight,
         lfs_ssize_t lower, lfs_ssize_t upper) {
-    *alt = *alt ^ 0x4;
+    *alt = *alt ^ 0x2000;
     *weight = (upper-lower) - *weight - 1;
 }
 
@@ -822,12 +826,12 @@ static inline void lfsr_tag_trim(
     if (lfsr_tag_isgt(alt)) {
         *upper_id -= weight;
         if (upper_tag) {
-            *upper_tag = alt + 0x10;
+            *upper_tag = alt + 0x1;
         }
     } else {
         *lower_id += weight;
         if (lower_tag) {
-            *lower_tag = alt + 0x10;
+            *lower_tag = alt + 0x1;
         }
     }
 }
@@ -846,9 +850,10 @@ static inline void lfsr_tag_trim2(
 
 // support for encoding/decoding tags on disk
 
-// each piece of metadata in an rbyd tree is prefixed with a 3-piece tag:
+// each piece of metadata in an rbyd tree is prefixed with a 4-piece tag:
 //
-// - 16-bit type      => 2 byte le16
+// - 8-bit suptype    => 1 byte
+// - 8-bit subtype    => 1 byte
 // - 32-bit id/weight => 5 byte leb128 (worst case)
 // - 32-bit size/jump => 5 byte leb128 (worst case)
 //                    => 12 bytes total
@@ -870,7 +875,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     if (tsize < 2) {
         return LFS_ERR_CORRUPT;
     }
-    uint16_t tag = lfs_fromle16_(&buf[0]);
+    uint16_t tag = ((lfsr_tag_t)buf[0] << 8) | ((lfsr_tag_t)buf[1] << 0);
     ssize_t d = 2;
 
     if (csum_) {
@@ -881,7 +886,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         // note we need to do this before leb128 decoding as we may not have
         // valid leb128 if we're erased, but we shouldn't treat a truncated
         // leb128 here as corruption
-        if ((tag & 1) != (lfs_popc(*csum_) & 1)) {
+        if ((tag >> 15) != (lfs_popc(*csum_) & 1)) {
             return LFS_ERR_INVAL;
         }
     }
@@ -917,7 +922,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
     // - clear the valid bit from tag, we checked this earlier
     // - adjust id so reserved id is -1, so we don't have mixed zero/one indexed
     //
-    *tag_ = tag & ~0x1;
+    *tag_ = tag & 0x7fff;
     *weight_ = weight;
     *size_ = size;
     return d;
@@ -932,11 +937,12 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     LFS_ASSERT(size < 0x80000000);
 
     // make sure to include the parity of the current crc
-    tag |= lfs_popc(*csum_) & 1;
+    tag |= (lfs_popc(*csum_) & 1) << 15;
 
-    // encode into an le16 and pair of leb128s
+    // encode into a be16 and pair of leb128s
     uint8_t buf[LFSR_TAG_DSIZE];
-    lfs_tole16_(tag, &buf[0]);
+    buf[0] = (uint8_t)(tag >> 8);
+    buf[1] = (uint8_t)(tag >> 0);
 
     lfs_size_t d = 2;
     ssize_t d_ = lfs_toleb128(weight, &buf[d], 5);
@@ -1814,7 +1820,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
     // make sure we never look up zero tags, the way we create
     // unreachable tags has a hole here
-    tag = lfs_max16(tag, 0x10);
+    tag = lfs_max16(tag, 0x1);
 
     // no trunk yet?
     if (!branch) {
@@ -2063,8 +2069,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         id_ = id + 1;
         other_id_ = id + 1;
         // also note these tags MUST NOT be zero, due to unreachable tag holes
-        tag_ = 0x10;
-        other_tag_ = lfsr_tag_setupper(0x10);
+        tag_ = 0x1;
+        other_tag_ = 0x1;
     } else if (lfsr_tag_ismk(tag) && delta < 0) {
         LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
 
@@ -2074,23 +2080,26 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         id_ = id - lfs_smax32(-delta, 0);
         other_id_ = id;
         // also note these tags MUST NOT be zero, due to unreachable tag holes
-        tag_ = 0x10;
-        other_tag_ = lfsr_tag_setupper(0x10);
+        tag_ = 0x1;
+        other_tag_ = 0x1;
     } else if (lfsr_tag_isrm(tag)) {
         LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
 
         id_ = id - lfs_smax32(-delta, 0);
         other_id_ = id;
         tag_ = lfsr_tag_key(tag);
-        other_tag_ = lfsr_tag_setupper(lfsr_tag_key(tag) + 0x10);
+        other_tag_ = lfsr_tag_key(tag) + 0x1;
     } else {
         LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
 
         id_ = id - lfs_smax32(-delta, 0);
         other_id_ = id;
         tag_ = lfsr_tag_key(tag);
-        other_tag_ = lfsr_tag_setupper(lfsr_tag_key(tag));
+        other_tag_ = lfsr_tag_key(tag);
     }
+    // mark as invalid until found
+    tag_ = lfsr_tag_setinvalid(tag_);
+    other_tag_ = lfsr_tag_setinvalid(lfsr_tag_setupper(other_tag_));
 
     // keep track of bounds as we descend down the tree
     //
@@ -2348,15 +2357,15 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // update the found tag/id
             //
             // note we:
-            // - preserve diverged bit (0x8)
-            // - preserve is upper tag (0x4)
-            // - set found tag (0x1)
-            tag_ = lfsr_tag_setfound(alt | (tag_ & 0xc));
+            // - clear valid bit (0x8000)
+            // - preserve diverged bit (0x4000)
+            // - preserve isupper tag (0x2000)
+            tag_ = lfsr_tag_setvalid(alt | (tag_ & 0x6000));
             id_ = upper_id-1;
 
             // done?
             if (!lfsr_tag_hasdiverged(tag_)
-                    || lfsr_tag_isfound(other_tag_)) {
+                    || lfsr_tag_isvalid(other_tag_)) {
                 break;
             }
         }
@@ -2377,9 +2386,9 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     LFS_ASSERT(lfsr_tag_isblack(p_alts[0]));
 
     // if we diverged, merge the bounds
-    LFS_ASSERT(lfsr_tag_isfound(tag_));
+    LFS_ASSERT(lfsr_tag_isvalid(tag_));
     LFS_ASSERT(!lfsr_tag_hasdiverged(tag_)
-            || lfsr_tag_isfound(other_tag_));
+            || lfsr_tag_isvalid(other_tag_));
     if (lfsr_tag_hasdiverged(tag_) && lfsr_tag_islower(tag_)) {
         // finished on lower path
         tag_ = other_tag_;
@@ -2666,7 +2675,8 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // get around this catch-22 we just always write a fully-expanded leb128
     // encoding
     uint8_t buf[2+1+5+4];
-    lfs_tole16_(LFSR_TAG_CRC | (lfs_popc(rbyd_.crc) & 1), &buf[0]);
+    buf[0] = (LFSR_TAG_CRC >> 8) | ((lfs_popc(rbyd_.crc) & 1) << 7);
+    buf[1] = 0;
     buf[2] = 0;
 
     lfs_off_t padding = aligned - (rbyd_.off + 2+1+5);
@@ -2681,9 +2691,9 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
     // so we can really change any bit to make this happen, we've reserved a bit
     // in crc tags just for this purpose
-    if ((lfs_popc(rbyd_.crc) & 1) == (perturb & 1)) {
-        buf[0] ^= 0x10;
-        rbyd_.crc ^= 0x847609b4; // note crc(a ^ b) == crc(a) ^ crc(b)
+    if ((lfs_popc(rbyd_.crc) & 1) == (perturb >> 7)) {
+        buf[1] ^= 0x01;
+        rbyd_.crc ^= 0x68032cc8; // note crc(a ^ b) == crc(a) ^ crc(b)
     }
     lfs_tole32_(rbyd_.crc, &buf[2+1+5]);
 
@@ -5416,13 +5426,15 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
         // copy magic/config from current mroot
         lfsr_data_t magic;
-        err = lfsr_mdir_lookup(lfs, &mchildroot, -1, LFSR_TAG_MAGIC, &magic);
+        err = lfsr_mdir_lookup(lfs, &mchildroot,
+                -1, LFSR_TAG_SUPERMAGIC, &magic);
         if (err) {
             return err;
         }
 
         lfsr_data_t config;
-        err = lfsr_mdir_lookup(lfs, &mchildroot, -1, LFSR_TAG_CONFIG, &config);
+        err = lfsr_mdir_lookup(lfs, &mchildroot,
+                -1, LFSR_TAG_SUPERCONFIG, &config);
         if (err) {
             return err;
         }
@@ -5453,8 +5465,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
         // compact into new mparentroot
         err = lfsr_rbyd_commit(lfs, &mparentroot_.rbyd, LFSR_ATTRS(
-                LFSR_ATTR_DATA(-1, MAGIC, 0, magic),
-                LFSR_ATTR_DATA(-1, CONFIG, 0, config),
+                LFSR_ATTR_DATA(-1, SUPERMAGIC, 0, magic),
+                LFSR_ATTR_DATA(-1, SUPERCONFIG, 0, config),
                 LFSR_ATTR(-1, MROOT, 0, buf, d)));
         if (err) {
             return err;
@@ -6706,10 +6718,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 // - 32-bit file_limit   => 5 byte leb128 (worst case)
 //                       => 30 bytes total
 // 
-#define LFSR_CONFIG_DSIZE (1+1+1+1+5+5+1+5+5+5)
+#define LFSR_SUPERCONFIG_DSIZE (1+1+1+1+5+5+1+5+5+5)
 
 static lfs_ssize_t lfsr_superconfig_todisk(lfs_t *lfs,
-        uint8_t buffer[static LFSR_CONFIG_DSIZE]) {
+        uint8_t buffer[static LFSR_SUPERCONFIG_DSIZE]) {
     // TODO most of these should also be in the lfs_config/lfs_t structs
 
     // note we take a shortcut for for single-byte leb128s, but these
@@ -6806,7 +6818,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
         if (mdir->mid == -1) {
             // has magic string?
             lfsr_data_t data;
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_MAGIC, &data);
+            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_SUPERMAGIC, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
@@ -6830,7 +6842,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
             }
 
             // lookup the superconfig
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_CONFIG, &data);
+            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_SUPERCONFIG, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
@@ -7045,7 +7057,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
 }
 
 static int lfsr_formatinited(lfs_t *lfs) {
-    uint8_t buf[LFSR_CONFIG_DSIZE];
+    uint8_t buf[LFSR_SUPERCONFIG_DSIZE];
     lfs_ssize_t d = lfsr_superconfig_todisk(lfs, buf);
     if (d < 0) {
         return d;
@@ -7062,8 +7074,8 @@ static int lfsr_formatinited(lfs_t *lfs) {
         }
 
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR(-1, MAGIC, 0, "littlefs", 8),
-                LFSR_ATTR(-1, CONFIG, 0, buf, d)));
+                LFSR_ATTR(-1, SUPERMAGIC, 0, "littlefs", 8),
+                LFSR_ATTR(-1, SUPERCONFIG, 0, buf, d)));
         if (err) {
             return err;
         }
