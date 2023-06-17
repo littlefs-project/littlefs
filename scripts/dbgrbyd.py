@@ -17,7 +17,7 @@ COLORS = [
 ]
 
 
-TAG_UNR         = 0x1000
+TAG_NULL        = 0x0000
 TAG_SUPERMAGIC  = 0x0003
 TAG_SUPERCONFIG = 0x0004
 TAG_MROOT       = 0x0304
@@ -32,8 +32,10 @@ TAG_BTREE       = 0x0303
 TAG_MDIR        = 0x0305
 TAG_UATTR       = 0x0400
 TAG_ALT         = 0x4000
+TAG_ALTA        = 0x6000
 TAG_CRC         = 0x2000
 TAG_FCRC        = 0x2100
+
 
 # parse some rbyd addr encodings
 # 0xa     -> [0xa]
@@ -111,55 +113,56 @@ def xxd(data, width=16, crc=False):
                 for b in map(chr, data[i:i+width])))
 
 def tagrepr(tag, w, size, off=None):
-    if (tag & 0x7fff) == TAG_UNR:
-        return 'unr%s%s' % (
+    if tag == TAG_NULL:
+        return 'null%s%s' % (
             ' w%d' % w if w else '',
             ' %d' % size if size else '')
-    elif (tag & 0x6fff) == TAG_SUPERMAGIC:
-        return '%ssupermagic%s%s' % (
-            'rm' if tag & 0x1000 else '',
+    elif tag == TAG_SUPERMAGIC:
+        return 'supermagic%s %d' % (
             ' w%d' % w if w else '',
-            ' %d' % size if not tag & 0x1000 or size else '')
-    elif (tag & 0x6fff) == TAG_SUPERCONFIG:
-        return '%ssuperconfig%s%s' % (
-            'rm' if tag & 0x1000 else '',
+            size)
+    elif tag == TAG_SUPERCONFIG:
+        return 'superconfig%s %d' % (
             ' w%d' % w if w else '',
-            ' %d' % size if not tag & 0x1000 or size else '')
-    elif (tag & 0x6f00) == TAG_NAME:
-        return '%s%s%s%s' % (
-            'rm' if tag & 0x1000 else '',
-            'branch' if (tag & 0xfffe) == TAG_BRANCH
-                else 'reg' if (tag & 0xfffe) == TAG_REG
-                else 'dir' if (tag & 0xfffe) == TAG_DIR
-                else 'name 0x%02x' % ((tag & 0x0ff0) >> 4),
+            size)
+    elif (tag & 0xff00) == TAG_NAME:
+        return '%s%s %d' % (
+            'branch' if tag == TAG_BRANCH
+                else 'reg' if tag == TAG_REG
+                else 'dir' if tag == TAG_DIR
+                else 'name 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
-            ' %d' % size if not tag & 0x1000 or size else '')
-    elif (tag & 0x6f00) == TAG_STRUCT:
-        return '%s%s%s%s' % (
-            'rm' if tag & 0x1000 else '',
-            'inlined' if (tag & 0x6fff) == TAG_INLINED
-                else 'block' if (tag & 0x6fff) == TAG_BLOCK
-                else 'btree' if (tag & 0x6fff) == TAG_BTREE
-                else 'mdir' if (tag & 0x6fff) == TAG_MROOT
-                else 'mdir' if (tag & 0x6fff) == TAG_MDIR
-                else 'struct 0x%02x' % ((tag & 0x0ff0) >> 4),
+            size)
+    elif (tag & 0xff00) == TAG_STRUCT:
+        return '%s%s %d' % (
+            'inlined' if tag == TAG_INLINED
+                else 'block' if tag == TAG_BLOCK
+                else 'btree' if tag == TAG_BTREE
+                else 'mdir' if tag == TAG_MROOT
+                else 'mdir' if tag == TAG_MDIR
+                else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
-            ' %d' % size if not tag & 0x1000 or size else '')
-    elif (tag & 0x6f00) == TAG_UATTR:
-        return '%suattr 0x%02x%s%s' % (
-            'rm' if tag & 0x1000 else '',
+            size)
+    elif (tag & 0xff00) == TAG_UATTR:
+        return 'uattr 0x%02x%s %d' % (
             tag & 0xff,
             ' w%d' % w if w else '',
-            ' %d' % size if not tag & 0x1000 or size else '')
-    elif (tag & 0x7f00) == TAG_CRC:
+            size)
+    elif (tag & 0xff00) == TAG_CRC:
         return 'crc%x%s %d' % (
             1 if tag & 0x1 else 0,
             ' 0x%x' % w if w > 0 else '',
             size)
-    elif (tag & 0x7fff) == TAG_FCRC:
+    elif tag == TAG_FCRC:
         return 'fcrc%s %d' % (
             ' 0x%x' % w if w > 0 else '',
             size)
+    elif tag == TAG_ALTA:
+        return 'alta w%d %s' % (
+            w,
+            '0x%x' % (0xffffffff & (off-size))
+                if off is not None
+                else '-%d' % off)
     elif tag & 0x4000:
         return 'alt%s%s 0x%x w%d %s' % (
             'r' if tag & 0x1000 else 'b',
@@ -171,6 +174,7 @@ def tagrepr(tag, w, size, off=None):
                 else '-%d' % off)
     else:
         return '0x%04x w%d %d' % (tag, w, size)
+
 
 def dbg_log(data, block_size, rev, off, weight, *,
         color=False,
@@ -285,22 +289,26 @@ def dbg_log(data, block_size, rev, off, weight, *,
             if not tag & 0x4000:
                 j_ += size
 
-            # find trunk
-            if not wastrunk and (tag & 0x6000) != 0x2000:
-                lower_, upper_ = 0, 0
-            wastrunk = not not tag & 0x4000
+            # evaluate trunks
+            if (tag & 0xe000) != 0x2000:
+                if not wastrunk:
+                    wastrunk = True
+                    lower_, upper_ = 0, 0
 
-            # keep track of weight
-            if tag & 0x4000:
-                if tag & 0x2000:
-                    upper_ += w
-                else:
+                if (tag & 0xe000) == 0x4000:
                     lower_ += w
-            elif (tag & 0x6000) == 0x2000:
-                delta = (lower_+upper_+w) - weight_
-                weight_ = lower_+upper_+w
-                id = lower_+w-1
+                else:
+                    upper_ += w
 
+                if not tag & 0x4000 or tag == TAG_ALTA:
+                    wastrunk = False
+                    # derive the current tag's id from alt weights
+                    delta = (lower_+upper_) - weight_
+                    weight_ = lower_+upper_
+                    id = lower_ + w-1
+
+            if ((tag & 0xe000) != 0x2000
+                    and (not tag & 0x4000 or tag == TAG_ALTA)):
                 # note we ignore out-of-bounds here for debugging
                 if delta > 0:
                     # grow lifetimes
@@ -339,7 +347,7 @@ def dbg_log(data, block_size, rev, off, weight, *,
                     weights = weights_
                     lifetimes = lifetimes_
 
-                if not tag & 0x1000 and id >= 0:
+                if id >= 0:
                     # attach tag to lifetime
                     i, id_ = index(weights, id)
                     if i < len(weights):
@@ -427,23 +435,9 @@ def dbg_log(data, block_size, rev, off, weight, *,
         crc = crc32c(data[j_:j_+d], crc)
         j_ += d
 
-        # find trunk
-        if not wastrunk and (tag & 0x6000) != 0x2000:
-            lower_, upper_ = 0, 0
-        wastrunk = not not tag & 0x4000
-
-        # calculate id from alt weights
-        if tag & 0x4000:
-            if tag & 0x2000:
-                upper_ += w
-            else:
-                lower_ += w
-        elif (tag & 0x6000) == 0x0:
-            weight_ = lower_+upper_+w
-            id = lower_+w-1
-
+        # take care of crcs
         if not tag & 0x4000:
-            if (tag & 0x7f00) != TAG_CRC:
+            if (tag & 0xff00) != TAG_CRC:
                 crc = crc32c(data[j_:j_+size], crc)
             # found a crc?
             else:
@@ -452,6 +446,22 @@ def dbg_log(data, block_size, rev, off, weight, *,
                     notes.append('crc!=%08x' % crc)
             j_ += size
 
+        # evaluate trunks
+        if (tag & 0xe000) != 0x2000:
+            if not wastrunk:
+                wastrunk = True
+                lower_, upper_ = 0, 0
+
+            if (tag & 0xe000) == 0x4000:
+                lower_ += w
+            else:
+                upper_ += w
+
+            if not tag & 0x4000 or tag == TAG_ALTA:
+                wastrunk = False
+                # derive the current tag's id from alt weights
+                id = lower_ + w-1
+
         # show human-readable tag representation
         print('%s%08x:%s %*s%s%*s %-57s%s%s' % (
             '\x1b[90m' if color and j >= off else '',
@@ -459,7 +469,8 @@ def dbg_log(data, block_size, rev, off, weight, *,
             '\x1b[m' if color and j >= off else '',
             lifetime_width, lifetimerepr(j) if args.get('lifetimes') else '',
             '\x1b[90m' if color and j >= off else '',
-            w_width, '' if (tag & 0x6000) != 0x0
+            w_width, '-' if tag == TAG_ALTA
+                else '' if (tag & 0xe000) != 0x0000
                 else '%d-%d' % (id-(w-1), id) if w > 1
                 else id,
             '%-22s%s' % (
@@ -576,7 +587,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                 tag_ = alt
                 w_ = id_-lower
 
-                done = (id_, tag_) < (id, tag) or tag_ & 0x1000
+                done = not tag_ or (id_, tag_) < (id, tag)
 
                 return done, id_, tag_, w_, j, d, jump, path
 
@@ -835,8 +846,8 @@ def main(disk, blocks=None, *,
         trunk_ = 0
         trunk__ = 0
         weight = 0
-        lower_, upper_ = 0, 0
         weight_ = 0
+        weight__ = 0
         wastrunk = False
         trunkoff = None 
         while j_ < len(data) and (not trunk or off <= trunk):
@@ -850,7 +861,7 @@ def main(disk, blocks=None, *,
 
             # take care of crcs
             if not tag & 0x4000:
-                if (tag & 0x7f00) != TAG_CRC:
+                if (tag & 0xff00) != TAG_CRC:
                     crc_ = crc32c(data[j_:j_+size], crc_)
                 # found a crc?
                 else:
@@ -864,23 +875,22 @@ def main(disk, blocks=None, *,
                     weight = weight_
 
             # evaluate trunks
-            if (tag & 0x6000) != 0x2000 and (
+            if (tag & 0xe000) != 0x2000 and (
                     not trunk or trunk >= j_-d or wastrunk):
                 # new trunk?
                 if not wastrunk:
-                    trunk__ = j_-d
-                    lower_, upper_ = 0, 0
                     wastrunk = True
+                    trunk__ = j_-d
+                    weight__ = 0
 
                 # keep track of weight
-                if tag & 0x4000:
-                    if tag & 0x2000:
-                        upper_ += w
-                    else:
-                        lower_ += w
-                else:
-                    weight_ = lower_+upper_+w
+                weight__ += w
+
+                # end of trunk?
+                if not tag & 0x4000 or tag == TAG_ALTA:
                     wastrunk = False
+                    # update weight
+                    weight_ = weight__
                     # keep track of off for best matching trunk
                     if trunk and j_ + size > trunk:
                         trunkoff = j_ + size
