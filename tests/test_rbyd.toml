@@ -3796,7 +3796,7 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -3811,8 +3811,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -3831,8 +3831,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -3851,9 +3851,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
-            LFSR_ATTR(2, MKREG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(2, REG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -3876,9 +3876,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xcc\xcc\xcc\xcc", 4),
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG, +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -3901,9 +3901,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xcc\xcc\xcc\xcc", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -3944,7 +3944,7 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -3961,9 +3961,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -3982,9 +3982,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -4003,11 +4003,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(2, MKREG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(2, REG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -4030,11 +4030,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(1, REG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -4057,11 +4057,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(1, REG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
 
     assert(rbyd.weight == 3);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -4145,7 +4145,7 @@ code = '''
             }
 
             attrs[j] = LFSR_ATTR(
-                    id, MKREG, +1, names[perm[j] % 6], 4);
+                    id, REG, +1, names[perm[j] % 6], 4);
         }
 
         // test the given permutation
@@ -4249,7 +4249,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -4308,8 +4308,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &id_, &tag_, NULL, &data_) => 0;
@@ -4350,8 +4350,8 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &id_, &tag_, NULL, &data_) => 0;
@@ -4415,9 +4415,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &id_, &tag_, NULL, &data_) => 0;
@@ -4458,9 +4458,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
             &id_, &tag_, NULL, &data_) => 0;
@@ -4561,7 +4561,7 @@ code = '''
             }
 
             attrs[j] = LFSR_ATTR(
-                    id, MKREG, +1, names[perm[j] % 6], 4);
+                    id, REG, +1, names[perm[j] % 6], 4);
         }
 
         // test the given permutation
@@ -4655,7 +4655,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -4726,7 +4726,7 @@ code = '''
         x = x % (rbyd.weight+1);
 
         int err = lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR(x, MKREG, +1, names[x % 6], 4)));
+                LFSR_ATTR(x, REG, +1, names[x % 6], 4)));
         if (err == LFS_ERR_RANGE) {
             break;
         }
@@ -4773,7 +4773,7 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
 
     assert(rbyd.weight == 1);
@@ -4793,9 +4793,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
 
     assert(rbyd.weight == 2);
@@ -4823,9 +4823,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(0, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xbb\xbb",         2),
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
 
     assert(rbyd.weight == 2);
@@ -4853,11 +4853,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2),
-            LFSR_ATTR(2, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(2, REG,    +1, "\xcc\xcc\xcc\xcc", 4),
             LFSR_ATTR(2, UATTR(1), 0,  "\xcc\xcc",         2))) => 0;
 
     assert(rbyd.weight == 3);
@@ -4910,11 +4910,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(0, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xbb\xbb",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(1, REG,    +1, "\xcc\xcc\xcc\xcc", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xcc\xcc",         2),
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
 
     assert(rbyd.weight == 3);
@@ -4950,11 +4950,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(1, REG,    +1, "\xcc\xcc\xcc\xcc", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xcc\xcc",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
 
     assert(rbyd.weight == 3);
@@ -5008,7 +5008,7 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
 
@@ -5029,11 +5029,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
 
@@ -5062,11 +5062,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
 
@@ -5095,15 +5095,15 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(2, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(2, REG,    +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(2, UATTR(1), 0,  "\xcc\xcc",         2))) => 0;
 
@@ -5157,15 +5157,15 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(1, REG,    +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(1, UATTR(1), 0,  "\xcc\xcc",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
 
@@ -5202,15 +5202,15 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(1, REG,    +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(1, UATTR(1), 0,  "\xcc\xcc",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
 
@@ -5309,7 +5309,7 @@ code = '''
             }
 
             attrs[(1+M)*j] = LFSR_ATTR(
-                    id, MKREG, +1, names[perm[j] % 6], 4);
+                    id, REG, +1, names[perm[j] % 6], 4);
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 attrs[(1+M)*j+1+u] = LFSR_ATTR(
@@ -5425,7 +5425,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4))) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -5495,9 +5495,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
@@ -5567,9 +5567,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(0, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xbb\xbb",         2),
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
@@ -5662,11 +5662,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
 
@@ -5737,11 +5737,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
 
@@ -5873,7 +5873,7 @@ code = '''
             }
 
             attrs[(1+M)*j] = LFSR_ATTR(
-                    id, MKREG, +1, names[perm[j] % 6], 4);
+                    id, REG, +1, names[perm[j] % 6], 4);
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 attrs[(1+M)*j+1+u] = LFSR_ATTR(
@@ -5985,7 +5985,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4))) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -6070,7 +6070,7 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR(j, MKREG, +1, names[j % 6], 4))) => 0;
+                LFSR_ATTR(j, REG, +1, names[j % 6], 4))) => 0;
         // note uattrs have a smaller size to help debugging
         for (unsigned u = 0; u < M; u++) {
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -6228,7 +6228,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4))) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -6394,7 +6394,7 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR(j, MKREG, +1, names[j % 6], 4))) => 0;
+                LFSR_ATTR(j, REG, +1, names[j % 6], 4))) => 0;
         // note uattrs have a smaller size to help debugging
         for (unsigned u = 0; u < M; u++) {
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -6530,7 +6530,7 @@ code = '''
         // it should fail atomically
         struct lfsr_attr attrs[1+M];
         attrs[0] = LFSR_ATTR(
-                x, MKREG, +1, names[x % 6], 4);
+                x, REG, +1, names[x % 6], 4);
         for (unsigned u = 0; u < M; u++) {
             attrs[1+u] = LFSR_ATTR(
                     x, UATTR(u+1), 0, names[x % 6], 2);
@@ -6642,7 +6642,7 @@ code = '''
                         names[perm[j] % 6], 1))) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1,
+                    LFSR_ATTR(id, REG, +1,
                         names[perm[j] % 6], 4))) => 0;
         }
 
@@ -6782,7 +6782,7 @@ code = '''
                         names[perm[j] % 6], 1))) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1,
+                    LFSR_ATTR(id, REG, +1,
                         names[perm[j] % 6], 4))) => 0;
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -6894,10 +6894,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(1, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -6914,10 +6914,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -6934,11 +6934,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
-            LFSR_ATTR(2, MKREG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(2, REG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(2, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(2, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -6957,11 +6957,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
-            LFSR_ATTR(2, MKREG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(2, REG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -6980,11 +6980,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
-            LFSR_ATTR(2, MKREG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(2, REG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(1, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -7021,12 +7021,12 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(1, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -7057,12 +7057,12 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 1);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -7093,14 +7093,14 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2),
-            LFSR_ATTR(2, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(2, REG,    +1, "\xcc\xcc\xcc\xcc", 4),
             LFSR_ATTR(2, UATTR(1), 0,  "\xcc\xcc",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(2, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(2, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4) => 4;
@@ -7142,14 +7142,14 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2),
-            LFSR_ATTR(2, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(2, REG,    +1, "\xcc\xcc\xcc\xcc", 4),
             LFSR_ATTR(2, UATTR(1), 0,  "\xcc\xcc",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -7192,14 +7192,14 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2),
-            LFSR_ATTR(2, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(2, REG,    +1, "\xcc\xcc\xcc\xcc", 4),
             LFSR_ATTR(2, UATTR(1), 0,  "\xcc\xcc",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(1, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 2);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -7309,7 +7309,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -7331,7 +7331,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, MKUNR, -1, NULL, 0))) => 0;
+                    LFSR_ATTR(j, UNR, -1, NULL, 0))) => 0;
             assert(rbyd.weight == N-1);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
@@ -7350,7 +7350,7 @@ code = '''
             // try recreating the id to make sure things still work
             printf("--- create: %d ---\n", j);
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, MKREG, +1, names[j % 6], 6))) => 0;
+                    LFSR_ATTR(j, REG, +1, names[j % 6], 6))) => 0;
             assert(rbyd.weight == N);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
@@ -7464,7 +7464,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4))) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -7492,7 +7492,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, MKUNR, -1, NULL, 0))) => 0;
+                    LFSR_ATTR(j, UNR, -1, NULL, 0))) => 0;
             assert(rbyd.weight == N-1);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
@@ -7523,7 +7523,7 @@ code = '''
             // try recreating the id to make sure things still work
             printf("--- create: %d ---\n", j);
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, MKREG, +1, names[j % 6], 6))) => 0;
+                    LFSR_ATTR(j, REG, +1, names[j % 6], 6))) => 0;
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                         LFSR_ATTR(j, UATTR(u+1), 0,
@@ -7654,7 +7654,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N);
 
@@ -7676,7 +7676,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, MKUNR, -1, NULL, 0))) => 0;
+                    LFSR_ATTR(j, UNR, -1, NULL, 0))) => 0;
             assert(rbyd.weight == N-1);
 
             // try traversing over the tags
@@ -7779,7 +7779,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKREG, +1, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4))) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -7807,7 +7807,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, MKUNR, -1, NULL, 0))) => 0;
+                    LFSR_ATTR(j, UNR, -1, NULL, 0))) => 0;
             assert(rbyd.weight == N-1);
 
             // try traversing over the tags
@@ -7878,9 +7878,9 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -7895,11 +7895,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL, 0),
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -7914,11 +7914,11 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(1, UNR, -1, NULL, 0),
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -7933,13 +7933,13 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
-            LFSR_ATTR(2, MKREG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(2, REG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL, 0),
+            LFSR_ATTR(0, UNR, -1, NULL, 0),
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -7954,13 +7954,13 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
-            LFSR_ATTR(2, MKREG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(2, REG, +1, "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(2, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(1, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(2, UNR, -1, NULL, 0),
+            LFSR_ATTR(1, UNR, -1, NULL, 0),
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -7993,10 +7993,10 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -8011,13 +8011,13 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL, 0),
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -8032,13 +8032,13 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(1, UNR, -1, NULL, 0),
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -8053,16 +8053,16 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2),
-            LFSR_ATTR(2, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(2, REG,    +1, "\xcc\xcc\xcc\xcc", 4),
             LFSR_ATTR(2, UATTR(1), 0,  "\xcc\xcc",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL, 0),
+            LFSR_ATTR(0, UNR, -1, NULL, 0),
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -8077,16 +8077,16 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG,    +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG,    +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0,  "\xaa\xaa",         2),
-            LFSR_ATTR(1, MKREG,    +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG,    +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0,  "\xbb\xbb",         2),
-            LFSR_ATTR(2, MKREG,    +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(2, REG,    +1, "\xcc\xcc\xcc\xcc", 4),
             LFSR_ATTR(2, UATTR(1), 0,  "\xcc\xcc",         2))) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(2, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(1, MKUNR, -1, NULL, 0),
-            LFSR_ATTR(0, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(2, UNR, -1, NULL, 0),
+            LFSR_ATTR(1, UNR, -1, NULL, 0),
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     assert(rbyd.weight == 0);
     lfsr_rbyd_get(&lfs, &rbyd, 0, LFSR_TAG_REG, buffer, 4)
@@ -8141,7 +8141,7 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR(j, MKREG, +1, names[j % 6], 4))) => 0;
+                LFSR_ATTR(j, REG, +1, names[j % 6], 4))) => 0;
     }
     assert(rbyd.weight == N);
 
@@ -8189,7 +8189,7 @@ code = '''
 
             lfs_size_t rbyd_weight_before = rbyd.weight;
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKUNR, -1, NULL, 0))) => 0;
+                    LFSR_ATTR(id, UNR, -1, NULL, 0))) => 0;
             assert(rbyd.weight == rbyd_weight_before-1);
         }
 
@@ -8202,7 +8202,7 @@ code = '''
 
         // try resuming from all tags being removed
         lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6))) => 0;
+                LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6))) => 0;
         assert(rbyd.weight == 1);
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -8284,7 +8284,7 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR(j, MKREG, +1, names[j % 6], 4))) => 0;
+                LFSR_ATTR(j, REG, +1, names[j % 6], 4))) => 0;
         // note uattrs have a smaller size to help debugging
         for (unsigned u = 0; u < M; u++) {
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -8337,7 +8337,7 @@ code = '''
 
             lfs_size_t rbyd_weight_before = rbyd.weight;
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, MKUNR, -1, NULL, 0))) => 0;
+                    LFSR_ATTR(id, UNR, -1, NULL, 0))) => 0;
             assert(rbyd.weight == rbyd_weight_before-1);
         }
 
@@ -8350,7 +8350,7 @@ code = '''
 
         // try resuming from all tags being removed
         lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6))) => 0;
+                LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa\xaa\xaa", 6))) => 0;
         for (unsigned u = 0; u < M; u++) {
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(0, UATTR(u+1), 0, "\xaa\xaa\xaa", 3))) => 0;
@@ -8479,14 +8479,14 @@ code = '''
                 count += 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(id, MKREG, +1, &alpha[i % 26], 1))) => 0;
+                        LFSR_ATTR(id, REG, +1, &alpha[i % 26], 1))) => 0;
             } else {
                 // update our sim
                 memmove(sim+id, sim+id+1, count-id-1);
                 count -= 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(id, MKUNR, -1, NULL, 0))) => 0;
+                        LFSR_ATTR(id, UNR, -1, NULL, 0))) => 0;
             }
         }
 
@@ -8545,7 +8545,7 @@ code = '''
 
 
 # Test rbyd weights
-[cases.test_rbyd_grow]
+[cases.test_rbyd_sparse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -8569,7 +8569,7 @@ code = '''
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG,
             &id_, &tag_, &weight_, &data_) => 0;
@@ -8588,7 +8588,7 @@ code = '''
 
     // make id2 with weight w2
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG, +2, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(1, REG, +2, "\xbb\xbb\xbb\xbb", 4))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG,
             &id_, &tag_, &weight_, &data_) => 0;
@@ -8619,7 +8619,7 @@ code = '''
 
     // make id5 with weight w3
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(3, MKREG, +3, "\xcc\xcc\xcc\xcc", 4))) => 0;
+            LFSR_ATTR(3, REG, +3, "\xcc\xcc\xcc\xcc", 4))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG,
             &id_, &tag_, &weight_, &data_) => 0;
@@ -8662,7 +8662,7 @@ code = '''
 
     // make id9 with weight w4
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(6, MKREG, +4, "\xdd\xdd\xdd\xdd", 4))) => 0;
+            LFSR_ATTR(6, REG, +4, "\xdd\xdd\xdd\xdd", 4))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG,
             &id_, &tag_, &weight_, &data_) => 0;
@@ -8717,7 +8717,7 @@ code = '''
 
     // make id14 with weight w5
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(10, MKREG, +5, "\xee\xee\xee\xee", 4))) => 0;
+            LFSR_ATTR(10, REG, +5, "\xee\xee\xee\xee", 4))) => 0;
 
     lfsr_rbyd_lookupnext(&lfs, &rbyd, 0, LFSR_TAG_REG,
             &id_, &tag_, &weight_, &data_) => 0;
@@ -8783,7 +8783,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_grow_traverse]
+[cases.test_rbyd_sparse_traverse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -8807,15 +8807,15 @@ code = '''
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             // make id0 with weight w1
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
             // make id2 with weight w2
-            LFSR_ATTR(1, MKREG, +2, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG, +2, "\xbb\xbb\xbb\xbb", 4),
             // make id5 with weight w3
-            LFSR_ATTR(3, MKREG, +3, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(3, REG, +3, "\xcc\xcc\xcc\xcc", 4),
             // make id9 with weight w4
-            LFSR_ATTR(6, MKREG, +4, "\xdd\xdd\xdd\xdd", 4),
+            LFSR_ATTR(6, REG, +4, "\xdd\xdd\xdd\xdd", 4),
             // make id14 with weight w5
-            LFSR_ATTR(10, MKREG, +5, "\xee\xee\xee\xee", 4))) => 0;
+            LFSR_ATTR(10, REG, +5, "\xee\xee\xee\xee", 4))) => 0;
 
     // traverse, finding tags and weights
     lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, 0,
@@ -8886,7 +8886,7 @@ code = '''
             &id_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_grow_permutations]
+[cases.test_rbyd_sparse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
 # -1 => exhaust all permutations
@@ -8954,7 +8954,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKREG, +W, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id*W, REG, +W, names[perm[j] % 6], 4))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -8973,7 +8973,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_grow_traverse_permutations]
+[cases.test_rbyd_sparse_traverse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
 # -1 => exhaust all permutations
@@ -9041,7 +9041,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKREG, +W, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id*W, REG, +W, names[perm[j] % 6], 4))) => 0;
         }
 
         lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -9066,7 +9066,7 @@ code = '''
 '''
 
 # Weights mixed with attributes
-[cases.test_rbyd_mixed_grow]
+[cases.test_rbyd_sparse_mixed]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -9091,7 +9091,7 @@ code = '''
     lfs_bd_erase(&lfs, rbyd.block) => 0;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(3), 0, "unrelated", 9),
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0, "\xaa\xaa", 2),
             LFSR_ATTR(0, UATTR(2), 0, "\xaa\xaa", 2))) => 0;
 
@@ -9148,7 +9148,7 @@ code = '''
 
     // make id2 with weight w2
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0, "\xbb\xbb", 2),
             LFSR_ATTR(1, UNR, +1, NULL, 0),
             LFSR_ATTR(2, UATTR(2), 0, "\xbb\xbb", 2))) => 0;
@@ -9242,7 +9242,7 @@ code = '''
 
     // make id5 with weight w3
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(3, MKREG, +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(3, REG, +1, "\xcc\xcc\xcc\xcc", 4),
             LFSR_ATTR(3, UATTR(1), 0, "\xcc\xcc", 2),
             LFSR_ATTR(3, UNR, +2, NULL, 0),
             LFSR_ATTR(5, UATTR(2), 0, "\xcc\xcc", 2))) => 0;
@@ -9372,7 +9372,7 @@ code = '''
 
     // make id9 with weight w4
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(6, MKREG, +1, "\xdd\xdd\xdd\xdd", 4),
+            LFSR_ATTR(6, REG, +1, "\xdd\xdd\xdd\xdd", 4),
             LFSR_ATTR(6, UATTR(1), 0, "\xdd\xdd", 2),
             LFSR_ATTR(6, UNR, +3, NULL, 0),
             LFSR_ATTR(9, UATTR(2), 0, "\xdd\xdd", 2))) => 0;
@@ -9538,7 +9538,7 @@ code = '''
 
     // make id14 with weight w5
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(10, MKREG, +1, "\xee\xee\xee\xee", 4),
+            LFSR_ATTR(10, REG, +1, "\xee\xee\xee\xee", 4),
             LFSR_ATTR(10, UATTR(1), 0, "\xee\xee", 2),
             LFSR_ATTR(10, UNR, +4, NULL, 0),
             LFSR_ATTR(14, UATTR(2), 0, "\xee\xee", 2))) => 0;
@@ -9739,7 +9739,7 @@ code = '''
     assert(lfsr_data_size(data_) == 2);
 '''
 
-[cases.test_rbyd_mixed_grow_traverse]
+[cases.test_rbyd_sparse_mixed_traverse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -9764,26 +9764,26 @@ code = '''
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(3), 0, "unrelated", 9),
             // make id0 with weight w1
-            LFSR_ATTR(0, MKREG, +1, "\xaa\xaa\xaa\xaa", 4),
+            LFSR_ATTR(0, REG, +1, "\xaa\xaa\xaa\xaa", 4),
             LFSR_ATTR(0, UATTR(1), 0, "\xaa\xaa", 2),
             LFSR_ATTR(0, UATTR(2), 0, "\xaa\xaa", 2),
             // make id2 with weight w2
-            LFSR_ATTR(1, MKREG, +1, "\xbb\xbb\xbb\xbb", 4),
+            LFSR_ATTR(1, REG, +1, "\xbb\xbb\xbb\xbb", 4),
             LFSR_ATTR(1, UATTR(1), 0, "\xbb\xbb", 2),
             LFSR_ATTR(1, UNR, +1, NULL, 0),
             LFSR_ATTR(2, UATTR(2), 0, "\xbb\xbb", 2),
             // make id5 with weight w3
-            LFSR_ATTR(3, MKREG, +1, "\xcc\xcc\xcc\xcc", 4),
+            LFSR_ATTR(3, REG, +1, "\xcc\xcc\xcc\xcc", 4),
             LFSR_ATTR(3, UATTR(1), 0, "\xcc\xcc", 2),
             LFSR_ATTR(3, UNR, +2, NULL, 0),
             LFSR_ATTR(5, UATTR(2), 0, "\xcc\xcc", 2),
             // make id9 with weight w4
-            LFSR_ATTR(6, MKREG, +1, "\xdd\xdd\xdd\xdd", 4),
+            LFSR_ATTR(6, REG, +1, "\xdd\xdd\xdd\xdd", 4),
             LFSR_ATTR(6, UATTR(1), 0, "\xdd\xdd", 2),
             LFSR_ATTR(6, UNR, +3, NULL, 0),
             LFSR_ATTR(9, UATTR(2), 0, "\xdd\xdd", 2),
             // make id14 with weight w5
-            LFSR_ATTR(10, MKREG, +1, "\xee\xee\xee\xee", 4),
+            LFSR_ATTR(10, REG, +1, "\xee\xee\xee\xee", 4),
             LFSR_ATTR(10, UATTR(1), 0, "\xee\xee", 2),
             LFSR_ATTR(10, UNR, +4, NULL, 0),
             LFSR_ATTR(14, UATTR(2), 0, "\xee\xee", 2))) => 0;
@@ -9989,7 +9989,7 @@ code = '''
             &id_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_mixed_grow_permutations]
+[cases.test_rbyd_sparse_mixed_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
 # -1 => exhaust all permutations
@@ -10060,7 +10060,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKREG, +1, names[perm[j] % 6], 4),
+                    LFSR_ATTR(id*W, REG, +1, names[perm[j] % 6], 4),
                     LFSR_ATTR(id*W, UATTR(1), 0, names[perm[j] % 6], 2),
                     LFSR_ATTR(id*W, UNR, +W-1, NULL, 0),
                     LFSR_ATTR(id*W+W-1, UATTR(2), 0,
@@ -10101,7 +10101,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_mixed_grow_traverse_permutations]
+[cases.test_rbyd_sparse_mixed_traverse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
 # -1 => exhaust all permutations
@@ -10172,7 +10172,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKREG, +1, names[perm[j] % 6], 4),
+                    LFSR_ATTR(id*W, REG, +1, names[perm[j] % 6], 4),
                     LFSR_ATTR(id*W, UATTR(1), 0, names[perm[j] % 6], 2),
                     LFSR_ATTR(id*W, UNR, +W-1, NULL, 0),
                     LFSR_ATTR(id*W+W-1, UATTR(2), 0,
@@ -10220,7 +10220,7 @@ code = '''
 '''
 
 
-# sparse testing, various grow/shrink corner cases
+# other sparse testing, various grow/shrink corner cases
 
 [cases.test_rbyd_sparse_grow_permutations]
 defines.N = 'range(1, 7)'
@@ -10291,7 +10291,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKREG, +W, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id*W, REG, +W, names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -10418,7 +10418,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKREG, +W, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id*W, REG, +W, names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -10440,7 +10440,8 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j*W+W-1, REG, +D, names[j % 6], 6))) => 0;
+                    LFSR_ATTR(j*W+W-1, GROWREG, +D,
+                        names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W+D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
@@ -10553,7 +10554,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKUATTR(2), +W,
+                    LFSR_ATTR(id*W, UATTR(2), +W,
                         names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N*W);
@@ -10576,7 +10577,8 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j*W+W-1, UATTR(1), +D, names[j % 6], 6))) => 0;
+                    LFSR_ATTR(j*W+W-1, GROWUATTR(1), +D,
+                        names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W+D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
@@ -10701,7 +10703,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKREG, +W, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id*W, REG, +W, names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -10723,7 +10725,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j*W+W-1, UNR, -D, NULL, 0))) => 0;
+                    LFSR_ATTR(j*W+W-1, GROW, -D, NULL, 0))) => 0;
             assert(rbyd.weight == N*W-D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
@@ -10828,7 +10830,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKREG, +W, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id*W, REG, +W, names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -10850,7 +10852,8 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j*W+W-1, REG, -D, names[j % 6], 6))) => 0;
+                    LFSR_ATTR(j*W+W-1, GROWREG, -D,
+                        names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W-D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
@@ -10963,7 +10966,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKUATTR(2), +W,
+                    LFSR_ATTR(id*W, UATTR(2), +W,
                         names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N*W);
@@ -10986,7 +10989,8 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j*W+W-1, UATTR(1), -D, names[j % 6], 6))) => 0;
+                    LFSR_ATTR(j*W+W-1, GROWUATTR(1), -D,
+                        names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W-D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
@@ -11110,7 +11114,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKREG, +W, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id*W, REG, +W, names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -11132,7 +11136,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j*W+W-1, MKUNR, -W, NULL, 0))) => 0;
+                    LFSR_ATTR(j*W+W-1, UNR, -W, NULL, 0))) => 0;
             assert(rbyd.weight == (N-1)*W);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
@@ -11164,7 +11168,7 @@ code = '''
             // try recreating the id to make sure things still work
             printf("--- create: %d ---\n", j);
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j*W, MKREG, +W, names[j % 6], 6))) => 0;
+                    LFSR_ATTR(j*W, REG, +W, names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
@@ -11264,7 +11268,7 @@ code = '''
             }
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id*W, MKREG, +W, names[perm[j] % 6], 4))) => 0;
+                    LFSR_ATTR(id*W, REG, +W, names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N*W);
 
@@ -11465,14 +11469,14 @@ code = '''
                 count += 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(id, MKREG, +1, &alpha[i % 26], 1))) => 0;
+                        LFSR_ATTR(id, REG, +1, &alpha[i % 26], 1))) => 0;
             } else if (op == 1) {
                 // update our sim
                 memmove(sim+id*(M+1), sim+(id+1)*(M+1), (count-id-1)*(M+1));
                 count -= 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(id, MKUNR, -1, NULL, 0))) => 0;
+                        LFSR_ATTR(id, UNR, -1, NULL, 0))) => 0;
             } else if (op == 2) {
                 // update our sim
                 sim[id*(M+1) + u+1] = alpha[i % 26];
@@ -11662,7 +11666,7 @@ code = '''
                 count += 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(weighted_id, MKREG,
+                        LFSR_ATTR(weighted_id, REG,
                             +weight, &alpha[i % 26], 1))) => 0;
             } else if (op == 1) {
                 // get the correct weight from the sim
@@ -11674,7 +11678,7 @@ code = '''
                 count -= 1;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(weighted_id+weight_-1, MKUNR,
+                        LFSR_ATTR(weighted_id+weight_-1, UNR,
                             -weight_, NULL, 0))) => 0;
             } else if (op == 2) {
                 // get the correct weight from the sim
@@ -11683,7 +11687,7 @@ code = '''
                 sim_weights[id] += weight;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(weighted_id+weight_-1, UNR,
+                        LFSR_ATTR(weighted_id+weight_-1, GROW,
                             +weight, NULL, 0))) => 0;
             } else if (op == 3) {
                 // get the correct weight from the sim
@@ -11695,7 +11699,7 @@ code = '''
                 sim_weights[id] -= weight;
                 // update our rbyd
                 lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(weighted_id+weight_-1, UNR,
+                        LFSR_ATTR(weighted_id+weight_-1, GROW,
                             -weight, NULL, 0))) => 0;
             }
         }

@@ -586,7 +586,7 @@ static int lfsr_bd_erase(lfs_t *lfs, lfs_block_t block) {
 enum lfsr_tag_type {
     LFSR_TAG_NULL           = 0x0000,
     LFSR_TAG_UNR            = 0x1000, // in-device only
-    LFSR_TAG_MKUNR          = 0x3000, // in-device only
+    LFSR_TAG_GROW           = 0x3000, // in-device only
 
     LFSR_TAG_SUPERMAGIC     = 0x0003,
     LFSR_TAG_SUPERCONFIG    = 0x0004,
@@ -594,24 +594,20 @@ enum lfsr_tag_type {
 
     LFSR_TAG_NAME           = 0x0100,
     LFSR_TAG_BRANCH         = 0x0100,
-    LFSR_TAG_MKBRANCH       = 0x2100, // in-device only
     LFSR_TAG_REG            = 0x0101,
-    LFSR_TAG_MKREG          = 0x2101, // in-device only
+    LFSR_TAG_GROWREG        = 0x2101, // test only? TODO
     LFSR_TAG_DIR            = 0x0102,
-    LFSR_TAG_MKDIR          = 0x2102, // in-device only
 
     LFSR_TAG_STRUCT         = 0x0300,
     LFSR_TAG_INLINED        = 0x0300,
-    LFSR_TAG_MKINLINED      = 0x2300, // test only?
     LFSR_TAG_BLOCK          = 0x0302,
     LFSR_TAG_BTREE          = 0x0303,
-    LFSR_TAG_MKBTREE        = 0x2303, // in-device only
     LFSR_TAG_RMBTREE        = 0x1303,
     LFSR_TAG_MDIR           = 0x0305,
     LFSR_TAG_RMMDIR         = 0x1305,
 
     LFSR_TAG_UATTR          = 0x0400,
-    LFSR_TAG_MKUATTR        = 0x2400, // in-device only
+    LFSR_TAG_GROWUATTR      = 0x2400, // test only? TODO
     LFSR_TAG_RMUATTR        = 0x1400,
 
     LFSR_TAG_ALT            = 0x4000,
@@ -623,11 +619,6 @@ enum lfsr_tag_type {
 
     LFSR_TAG_CRC            = 0x2000,
     LFSR_TAG_FCRC           = 0x2100,
-
-    // in-device only
-    LFSR_TAG_GROW           = 0x0f00,
-    LFSR_TAG_SHRINK         = 0x0f01,
-    LFSR_TAG_FROM           = 0x0f02,
 };
 
 #define LFSR_TAG_ALT_(color, dir, key) \
@@ -644,8 +635,14 @@ enum lfsr_tag_type {
     (LFSR_TAG_UATTR \
         | (0xff & (lfsr_tag_t)(attr)))
 
+// TODO test only?
 #define LFSR_TAG_MKUATTR(attr) \
     (LFSR_TAG_MKUATTR \
+        | (0xff & (lfsr_tag_t)(attr)))
+
+// TODO test only?
+#define LFSR_TAG_GROWUATTR(attr) \
+    (LFSR_TAG_GROWUATTR \
         | (0xff & (lfsr_tag_t)(attr)))
 
 #define LFSR_TAG_RMUATTR(attr) \
@@ -673,15 +670,15 @@ static inline lfsr_tag_t lfsr_tag_setinvalid(lfsr_tag_t tag) {
     return tag | 0x8000;
 }
 
-static inline bool lfsr_tag_ismk(lfsr_tag_t tag) {
+static inline bool lfsr_tag_isgrow(lfsr_tag_t tag) {
     return tag & 0x2000;
 }
 
-static inline lfsr_tag_t lfsr_tag_setmk(lfsr_tag_t tag) {
+static inline lfsr_tag_t lfsr_tag_setgrow(lfsr_tag_t tag) {
     return tag | 0x2000;
 }
 
-static inline lfsr_tag_t lfsr_tag_setnomk(lfsr_tag_t tag) {
+static inline lfsr_tag_t lfsr_tag_cleargrow(lfsr_tag_t tag) {
     return tag & ~0x2000;
 }
 
@@ -709,7 +706,7 @@ static inline lfsr_tag_t lfsr_tag_next(lfsr_tag_t tag) {
     return tag + 0x1;
 }
 
-// lfsr_rbyd_append specific flags
+// lfsr_rbyd_append diverged specific flags
 static inline bool lfsr_tag_hasdiverged(lfsr_tag_t tag) {
     return tag & 0x2000;
 }
@@ -1234,20 +1231,20 @@ typedef struct lfsr_attr {
 
 
 
-// find state when looking up by name
-typedef struct lfsr_find {
-    // what to search for
-    const char *name;
-    lfs_size_t name_size;
-
-    // if found, the tag/id will be placed in found_tag/found_id,
-    // otherwise found_tag will be zero and found_id will be set to
-    // the largest, smaller id (a good place to insert)
-    lfs_ssize_t predicted_id;
-    lfs_ssize_t found_id;
-    lfsr_tag_t predicted_tag;
-    lfsr_tag_t found_tag;
-} lfsr_find_t;
+//// find state when looking up by name
+//typedef struct lfsr_find {
+//    // what to search for
+//    const char *name;
+//    lfs_size_t name_size;
+//
+//    // if found, the tag/id will be placed in found_tag/found_id,
+//    // otherwise found_tag will be zero and found_id will be set to
+//    // the largest, smaller id (a good place to insert)
+//    lfs_ssize_t predicted_id;
+//    lfs_ssize_t found_id;
+//    lfsr_tag_t predicted_tag;
+//    lfsr_tag_t found_tag;
+//} lfsr_find_t;
 
 
 
@@ -1299,24 +1296,24 @@ typedef struct lfsr_find {
 //    a->pair[1] = lfs_tole32(a->pair[1]);
 //}
 //#endif
-
-// operations on forward-CRCs used to track erased state
-struct lfs_fcrc {
-    lfs_size_t size;
-    uint32_t crc;
-};
-
-static void lfs_fcrc_fromle32(struct lfs_fcrc *fcrc) {
-    fcrc->size = lfs_fromle32(fcrc->size);
-    fcrc->crc = lfs_fromle32(fcrc->crc);
-}
-
-#ifndef LFS_READONLY
-static void lfs_fcrc_tole32(struct lfs_fcrc *fcrc) {
-    fcrc->size = lfs_tole32(fcrc->size);
-    fcrc->crc = lfs_tole32(fcrc->crc);
-}
-#endif
+//
+//// operations on forward-CRCs used to track erased state
+//struct lfs_fcrc {
+//    lfs_size_t size;
+//    uint32_t crc;
+//};
+//
+//static void lfs_fcrc_fromle32(struct lfs_fcrc *fcrc) {
+//    fcrc->size = lfs_fromle32(fcrc->size);
+//    fcrc->crc = lfs_fromle32(fcrc->crc);
+//}
+//
+//#ifndef LFS_READONLY
+//static void lfs_fcrc_tole32(struct lfs_fcrc *fcrc) {
+//    fcrc->size = lfs_tole32(fcrc->size);
+//    fcrc->crc = lfs_tole32(fcrc->crc);
+//}
+//#endif
 
 // fcrc on-disk encoding
 typedef struct lfsr_fcrc {
@@ -1990,7 +1987,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // ignore noops
-    if (lfsr_tag_setnomk(tag) == LFSR_TAG_UNR && delta == 0) {
+    if (lfsr_tag_cleargrow(tag) == LFSR_TAG_UNR && delta == 0) {
         return 0;
     }
 
@@ -2014,7 +2011,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfs_ssize_t other_id_;
     lfsr_tag_t tag_;
     lfsr_tag_t other_tag_;
-    if (lfsr_tag_ismk(tag) && delta > 0) {
+    if (delta > 0 && !lfsr_tag_isgrow(tag)) {
         LFS_ASSERT(id <= (lfs_ssize_t)rbyd->weight);
 
         // it's a bit ugly, but adjusting the id here makes the following
@@ -2025,7 +2022,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // also note these tags MUST NOT be zero, due to unreachable tag holes
         tag_ = 0x1;
         other_tag_ = 0x1;
-    } else if (lfsr_tag_ismk(tag) && delta < 0) {
+    } else if (delta < 0 && !lfsr_tag_isgrow(tag)) {
         LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
 
         // it's a bit ugly, but adjusting the id here makes the following
@@ -2363,7 +2360,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // note if tag_ is null, we found a removed tag that we should just prune
     if (tag_ && (id_ < id-lfs_smax32(-delta, 0)
             || (id_ == id-lfs_smax32(-delta, 0)
-                && ((lfsr_tag_ismk(tag) && delta > 0)
+                && ((delta > 0 && !lfsr_tag_isgrow(tag))
                     || lfsr_tag_key(tag_) < lfsr_tag_key(tag))))) {
         if (lfsr_tag_isrm(tag)) {
             // if removed, make our tag unreachable
@@ -2379,7 +2376,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     } else if (tag_ && (id_ > id
             || (id_ == id
-                && ((lfsr_tag_ismk(tag) && delta > 0)
+                && ((delta > 0 && !lfsr_tag_isgrow(tag))
                     || lfsr_tag_key(tag_) > lfsr_tag_key(tag))))) {
         if (lfsr_tag_isrm(tag)) {
             // if removed, make our tag unreachable
@@ -2425,7 +2422,7 @@ leaf:;
     if (!lfsr_tag_isrm(tag)) {
         // write the actual tag
         lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
-                lfsr_tag_setnomk(tag), upper_id - lower_id - 1 + delta,
+                lfsr_tag_cleargrow(tag), upper_id - lower_id - 1 + delta,
                 lfsr_data_size(data),
                 &rbyd->crc);
         if (d < 0) {
@@ -2507,7 +2504,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // append the attr
         err = lfsr_rbyd_append(lfs, rbyd,
                 id-lfs_smax32(w-1, 0)-lfs_smax32(start_id, 0),
-                lfsr_tag_setmk(tag), +w, data);
+                tag, +w, data);
         if (err) {
             return err;
         }
@@ -3475,11 +3472,11 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // note that since we defer merges to compaction time, we can
         // end up removing an rbyd here
         if (rbyd->weight == 0) {
-            attrs[0] = LFSR_ATTR(pid, MKUNR, +rbyd->weight-pweight,
+            attrs[0] = LFSR_ATTR(pid, UNR, +rbyd->weight-pweight,
                     scratch_buf, d);
             attr_count = 1;
         } else {
-            attrs[0] = LFSR_ATTR(pid, UNR, +rbyd->weight-pweight, NULL, 0);
+            attrs[0] = LFSR_ATTR(pid, GROW, +rbyd->weight-pweight, NULL, 0);
             attrs[1] = LFSR_ATTR(pid+rbyd->weight-pweight, BTREE, 0,
                     scratch_buf, d);
             attr_count = 2;
@@ -3599,11 +3596,11 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // note that since we defer merges to compaction time, we can
         // end up removing an rbyd here
         if (rbyd->weight == 0) {
-            attrs[0] = LFSR_ATTR(pid, MKUNR, +rbyd->weight-pweight,
+            attrs[0] = LFSR_ATTR(pid, UNR, +rbyd->weight-pweight,
                     scratch_buf, d);
             attr_count = 1;
         } else {
-            attrs[0] = LFSR_ATTR(pid, UNR, +rbyd->weight-pweight, NULL, 0);
+            attrs[0] = LFSR_ATTR(pid, GROW, +rbyd->weight-pweight, NULL, 0);
             attrs[1] = LFSR_ATTR(pid+rbyd->weight-pweight, BTREE, 0,
                     scratch_buf, d);
             attr_count = 2;
@@ -3722,28 +3719,28 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
         
             // prepare commit to parent, tail recursing upwards
-            attrs[0] = LFSR_ATTR(0, MKBTREE, +rbyd_.weight,
+            attrs[0] = LFSR_ATTR(0, BTREE, +rbyd_.weight,
                     scratch_buf1, d1);
             attrs[1] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
-                    ? LFSR_ATTR_DATA(rbyd_.weight, MKBRANCH, +sibling.weight,
+                    ? LFSR_ATTR_DATA(rbyd_.weight, BRANCH, +sibling.weight,
                         sdata)
                     : LFSR_ATTR_NOOP);
             attrs[2] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
                     ? LFSR_ATTR(0+rbyd_.weight+sibling.weight-1, BTREE, 0,
                         scratch_buf2, d2)
-                    : LFSR_ATTR(0+rbyd_.weight, MKBTREE, +sibling.weight,
+                    : LFSR_ATTR(0+rbyd_.weight, BTREE, +sibling.weight,
                         scratch_buf2, d2));
             attr_count = 3;
 
         // yes parent? push up split
         } else {
             // prepare commit to parent, tail recursing upwards
-            attrs[0] = LFSR_ATTR(pid, UNR, +rbyd_.weight-pweight, NULL, 0);
+            attrs[0] = LFSR_ATTR(pid, GROW, +rbyd_.weight-pweight, NULL, 0);
             attrs[1] = LFSR_ATTR(pid-(pweight-1)+rbyd_.weight-1, BTREE, 0,
                     scratch_buf1, d1);
             attrs[2] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
                     ? LFSR_ATTR_DATA(pid-(pweight-1)+rbyd_.weight,
-                        MKBRANCH, +sibling.weight,
+                        BRANCH, +sibling.weight,
                         sdata)
                     : LFSR_ATTR_NOOP);
             attrs[3] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
@@ -3751,7 +3748,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
                         BTREE, 0,
                         scratch_buf2, d2)
                     : LFSR_ATTR(pid-(pweight-1)+rbyd_.weight,
-                        MKBTREE, +sibling.weight,
+                        BTREE, +sibling.weight,
                         scratch_buf2, d2));
             attr_count = 4;
         }
@@ -3873,7 +3870,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             // append the attr
             err = lfsr_rbyd_append(lfs, &rbyd_,
-                    sdelta+id-lfs_smax32(w-1, 0), lfsr_tag_setmk(tag), +w,
+                    sdelta+id-lfs_smax32(w-1, 0), tag, +w,
                     data);
             if (err) {
                 return err;
@@ -3884,7 +3881,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             if (rbyd_.off > lfs->cfg->block_size/2) {
                 err = lfsr_rbyd_append(lfs, &rbyd_,
                         sdelta+(rbyd_.weight-rweight_)-1,
-                        LFSR_TAG_MKUNR, -(rbyd_.weight-rweight_),
+                        LFSR_TAG_UNR, -(rbyd_.weight-rweight_),
                         LFSR_DATA_NULL);
                 if (err) {
                     return err;
@@ -3955,8 +3952,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
 
             // prepare commit to parent, tail recursing upwards
-            attrs[0] = LFSR_ATTR(sid, MKUNR, -sweight, NULL, 0);
-            attrs[1] = LFSR_ATTR(pid, UNR, +rbyd_.weight-pweight, NULL, 0);
+            attrs[0] = LFSR_ATTR(sid, UNR, -sweight, NULL, 0);
+            attrs[1] = LFSR_ATTR(pid, GROW, +rbyd_.weight-pweight, NULL, 0);
             attrs[2] = LFSR_ATTR(pid+rbyd_.weight-pweight, BTREE, 0,
                     scratch_buf, d);
             attr_count = 3;
@@ -4002,12 +3999,9 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
 
         // commit our entries
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR_(
-                    0, lfsr_tag_setmk(btree->inlined.tag),
-                    +lfsr_btree_weight(btree),
+                LFSR_ATTR_(0, btree->inlined.tag, +lfsr_btree_weight(btree),
                     btree->inlined.buffer, btree->inlined.size),
-                LFSR_ATTR_DATA_(
-                    bid, lfsr_tag_setmk(tag), +weight, data)));
+                LFSR_ATTR_DATA_(bid, tag, +weight, data)));
         if (err) {
             return err;
         }
@@ -4047,7 +4041,7 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         // of the rest
         int degenerate = lfsr_btree_commit(lfs, btree, bid_, 0, &rbyd,
                 LFSR_BTREE_ATTRS(
-                    LFSR_ATTR_DATA_(rid, lfsr_tag_setmk(tag), +weight, data)));
+                    LFSR_ATTR_DATA_(rid, tag, +weight, data)));
         if (degenerate < 0) {
             return degenerate;
         }
@@ -4112,7 +4106,7 @@ static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
                         ? LFSR_ATTR_(rid, lfsr_tag_setrm(rtag), 0, NULL, 0)
                         : LFSR_ATTR_NOOP),
                     LFSR_ATTR_DATA_(rid, tag, 0, data),
-                    LFSR_ATTR(rid, UNR, +weight-rweight, NULL, 0)));
+                    LFSR_ATTR(rid, GROW, +weight-rweight, NULL, 0)));
         if (degenerate < 0) {
             return degenerate;
         }
@@ -4166,7 +4160,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
         // revert to an inlined btree
         int degenerate = lfsr_btree_commit(lfs, btree, bid, 2, &rbyd,
                 LFSR_BTREE_ATTRS(
-                    LFSR_ATTR(rid, MKUNR, -rweight, NULL, 0)));
+                    LFSR_ATTR(rid, UNR, -rweight, NULL, 0)));
         if (degenerate < 0) {
             return degenerate;
         }
@@ -4245,15 +4239,13 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
 
         // commit our entries
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR_DATA_(0, lfsr_tag_setmk(tag1), +weight1, data1),
+                LFSR_ATTR_DATA_(0, tag1, +weight1, data1),
                 (lfsr_data_size(name) > 0
-                    ? LFSR_ATTR_DATA(weight1, MKBRANCH, +weight2, name)
+                    ? LFSR_ATTR_DATA(weight1, BRANCH, +weight2, name)
                     : LFSR_ATTR_NOOP),
                 (lfsr_data_size(name) > 0
-                    ? LFSR_ATTR_DATA_(weight1+weight2-1,
-                        tag2, 0, data2)
-                    : LFSR_ATTR_DATA_(weight1,
-                        lfsr_tag_setmk(tag2), +weight2, data2))));
+                    ? LFSR_ATTR_DATA_(weight1+weight2-1, tag2, 0, data2)
+                    : LFSR_ATTR_DATA_(weight1, tag2, +weight2, data2))));
         if (err) {
             return err;
         }
@@ -4277,18 +4269,18 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         // of the rest
         int degenerate = lfsr_btree_commit(lfs, btree, bid, -1, &rbyd,
                 LFSR_BTREE_ATTRS(
-                    LFSR_ATTR(rid, UNR, +weight1-rweight, NULL, 0),
+                    LFSR_ATTR(rid, GROW, +weight1-rweight, NULL, 0),
                     LFSR_ATTR_DATA_(rid-(rweight-1)+weight1-1, tag1, 0, data1),
                     (lfsr_data_size(name) > 0
                         ? LFSR_ATTR_DATA(
-                            rid-(rweight-1)+weight1, MKBRANCH, +weight2,
+                            rid-(rweight-1)+weight1, BRANCH, +weight2,
                             name)
                         : LFSR_ATTR_NOOP),
                     (lfsr_data_size(name) > 0
                         ? LFSR_ATTR_DATA_(rid-(rweight-1)+weight1+weight2-1,
                             tag2, 0, data2)
                         : LFSR_ATTR_DATA_(rid-(rweight-1)+weight1,
-                            lfsr_tag_setmk(tag2), +weight2, data2))));
+                            tag2, +weight2, data2))));
         if (degenerate < 0) {
             return degenerate;
         }
