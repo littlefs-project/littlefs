@@ -590,7 +590,6 @@ enum lfsr_tag_type {
 
     LFSR_TAG_SUPERMAGIC     = 0x0003,
     LFSR_TAG_SUPERCONFIG    = 0x0004,
-    LFSR_TAG_MROOT          = 0x0304,
 
     LFSR_TAG_NAME           = 0x0100,
     LFSR_TAG_BRANCH         = 0x0100,
@@ -603,8 +602,11 @@ enum lfsr_tag_type {
     LFSR_TAG_BLOCK          = 0x0302,
     LFSR_TAG_BTREE          = 0x0303,
     LFSR_TAG_RMBTREE        = 0x1303,
+    LFSR_TAG_MROOT          = 0x0304,
     LFSR_TAG_MDIR           = 0x0305,
     LFSR_TAG_RMMDIR         = 0x1305,
+    LFSR_TAG_MTREE          = 0x0306,
+    LFSR_TAG_RMMTREE        = 0x1306,
 
     LFSR_TAG_UATTR          = 0x0400,
     LFSR_TAG_GROWUATTR      = 0x2400, // test only? TODO
@@ -5111,6 +5113,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                 if (d < 0) {
                     return d;
                 }
+
+                // TODO something better than this
+                if (tag == LFSR_TAG_BTREE) {
+                    tag = LFSR_TAG_MTREE;
+                }
             }
 
             // TODO yeah we're going to need a wide-rm
@@ -5118,7 +5125,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                     mdir, attrs, attr_count,
                     LFSR_ATTRS(
                         LFSR_ATTR(-1, RMMDIR, 0, NULL, 0),
-                        LFSR_ATTR(-1, RMBTREE, 0, NULL, 0),
+                        LFSR_ATTR(-1, RMMTREE, 0, NULL, 0),
                         (!lfsr_btree_isnull(&mtree_)
                             ? LFSR_ATTR_(-1, tag, 0, buf, d)
                             : LFSR_ATTR_NOOP)));
@@ -5326,12 +5333,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             if (d < 0) {
                 return d;
             }
+
+            // TODO something better than this
+            if (tag == LFSR_TAG_BTREE) {
+                tag = LFSR_TAG_MTREE;
+            }
         }
 
         // TODO yeah we're going to need a wide-rm
         err = lfsr_mdir_commit_(lfs, &mroot_, NULL, NULL, LFSR_ATTRS(
                 LFSR_ATTR(-1, RMMDIR, 0, NULL, 0),
-                LFSR_ATTR(-1, RMBTREE, 0, NULL, 0),
+                LFSR_ATTR(-1, RMMTREE, 0, NULL, 0),
                 (!lfsr_btree_isnull(&mtree_)
                     ? LFSR_ATTR_(-1, tag, 0, buf, d)
                     : LFSR_ATTR_NOOP)));
@@ -5609,13 +5621,15 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             if (err != LFS_ERR_NOENT
                     && rid == -1
                     && lfsr_tag_suptype(tag) == LFSR_TAG_STRUCT) {
-                if (tag != LFSR_TAG_MDIR && tag != LFSR_TAG_BTREE) {
+                if (tag != LFSR_TAG_MDIR && tag != LFSR_TAG_MTREE) {
                     LFS_ERROR("Weird mstruct? (0x%"PRIx32")", tag);
                     return LFS_ERR_CORRUPT;
                 }
 
                 lfs_ssize_t d = lfsr_btree_fromdisk(lfs, &lfs->mtree,
-                        tag, 1, data);
+                        // TODO something better than this
+                        (tag == LFSR_TAG_MTREE ? LFSR_TAG_BTREE : tag),
+                        1, data);
                 if (d < 0) {
                     return d;
                 }

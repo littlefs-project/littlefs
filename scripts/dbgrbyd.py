@@ -20,7 +20,6 @@ COLORS = [
 TAG_NULL        = 0x0000
 TAG_SUPERMAGIC  = 0x0003
 TAG_SUPERCONFIG = 0x0004
-TAG_MROOT       = 0x0304
 TAG_NAME        = 0x0100
 TAG_BRANCH      = 0x0100
 TAG_REG         = 0x0101
@@ -29,7 +28,9 @@ TAG_STRUCT      = 0x0300
 TAG_INLINED     = 0x0300
 TAG_BLOCK       = 0x0302
 TAG_BTREE       = 0x0303
+TAG_MROOT       = 0x0304
 TAG_MDIR        = 0x0305
+TAG_MTREE       = 0x0306
 TAG_UATTR       = 0x0400
 TAG_ALT         = 0x4000
 TAG_ALTA        = 0x6000
@@ -138,8 +139,9 @@ def tagrepr(tag, w, size, off=None):
             'inlined' if tag == TAG_INLINED
                 else 'block' if tag == TAG_BLOCK
                 else 'btree' if tag == TAG_BTREE
-                else 'mdir' if tag == TAG_MROOT
+                else 'mroot' if tag == TAG_MROOT
                 else 'mdir' if tag == TAG_MDIR
+                else 'mtree' if tag == TAG_MTREE
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
