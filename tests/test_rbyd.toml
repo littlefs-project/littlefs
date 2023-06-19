@@ -2645,12 +2645,12 @@ code = '''
     lfs_size_t count = 0;
     uint32_t prng = 42;
     for (lfs_size_t i = 0;; i++) {
-        uint8_t x
-                = (ORDER == 0) ? (uint8_t)i
-                : (ORDER == 1) ? (uint8_t)(((lfs_size_t)-1) - i)
-                : (uint8_t)TEST_PRNG(&prng);
+        lfs_size_t x
+                = (ORDER == 0) ? i
+                : (ORDER == 1) ? (((lfs_size_t)-1) - i)
+                : TEST_PRNG(&prng);
         int err = lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                LFSR_ATTR(-1, UATTR(x), 0, "\xaa\xaa\xaa\xaa", 4)));
+                LFSR_ATTR(-1, UATTR(x & 0x7f), 0, "\xaa\xaa\xaa\xaa", 4)));
         if (err == LFS_ERR_RANGE) {
             break;
         }
@@ -2663,13 +2663,13 @@ code = '''
     prng = 42;
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
     for (lfs_size_t i = 0; i < count; i++) {
-        uint8_t x
-                = (ORDER == 0) ? (uint8_t)i
-                : (ORDER == 1) ? (uint8_t)(((lfs_size_t)-1) - i)
-                : (uint8_t)TEST_PRNG(&prng);
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(x),
+        lfs_size_t x
+                = (ORDER == 0) ? i
+                : (ORDER == 1) ? (((lfs_size_t)-1) - i)
+                : TEST_PRNG(&prng);
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(x & 0x7f),
                 &id_, &tag_, NULL, &data_) => 0;
-        assert(tag_ == LFSR_TAG_UATTR(x));
+        assert(tag_ == LFSR_TAG_UATTR(x & 0x7f));
         assert(id_ == -1);
         assert(lfsr_data_size(data_) == 4);
     }
@@ -11852,7 +11852,7 @@ code = '''
             // give each attr a subtype based on its id + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4),
-                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0xff), 0,
+                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0x7f), 0,
                         names[perm[j] % 6], 2))) => 0;
         }
         assert(rbyd.weight == N);
@@ -11867,7 +11867,7 @@ code = '''
             lfsr_rbyd_lookup(&lfs, &rbyd, j, LFSR_TAG_WIDEUATTR,
                     &tag_, &data_) => 0;
 
-            assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0xff));
+            assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0x7f));
             assert(lfsr_data_size(data_) == 2);
         }
     }
@@ -11940,7 +11940,7 @@ code = '''
             // give each attr a subtype based on its id + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4),
-                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0xff), 0,
+                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0x7f), 0,
                         names[perm[j] % 6], 2))) => 0;
         }
         assert(rbyd.weight == N);
@@ -11984,7 +11984,7 @@ code = '''
                     lfsr_rbyd_lookupnext(&lfs, &rbyd, id_, lfsr_tag_next(tag_),
                             &id_, &tag_, &weight_, &data_) => 0;
                     assert(id_ == k);
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
                     assert(lfsr_data_size(data_) == 2);
                 }
@@ -12000,7 +12000,7 @@ code = '''
                 } else {
                     lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDEUATTR,
                             &tag_, &data_) => 0;
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(data_) == 2);
                 }
             }
@@ -12078,7 +12078,7 @@ code = '''
             // give each attr a subtype based on its id + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4),
-                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0xff), 0,
+                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0x7f), 0,
                         names[perm[j] % 6], 2))) => 0;
         }
         assert(rbyd.weight == N);
@@ -12102,7 +12102,7 @@ code = '''
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, WIDEUATTR(~(j + SHIFT) & 0xff), 0,
+                    LFSR_ATTR(j, WIDEUATTR(~(j + SHIFT) & 0x7f), 0,
                         names[j % 6], 3))) => 0;
 
             // try traversing over the tags
@@ -12123,12 +12123,12 @@ code = '''
                         &id_, &tag_, &weight_, &data_) => 0;
                 if (k == j) {
                     assert(id_ == k);
-                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
                     assert(lfsr_data_size(data_) == 3);
                 } else {
                     assert(id_ == k);
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
                     assert(lfsr_data_size(data_) == 2);
                 }
@@ -12141,10 +12141,10 @@ code = '''
                 lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDEUATTR,
                         &tag_, &data_) => 0;
                 if (k == j) {
-                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(data_) == 3);
                 } else {
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(data_) == 2);
                 }
             }
@@ -12218,7 +12218,7 @@ code = '''
             // give each attr a subtype based on its id + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4),
-                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0xff), 0,
+                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0x7f), 0,
                         names[perm[j] % 6], 2),
                     LFSR_ATTR(id, SATTR(0), 0, names[perm[j] % 6], 1))) => 0;
         }
@@ -12234,7 +12234,7 @@ code = '''
             lfsr_rbyd_lookup(&lfs, &rbyd, j, LFSR_TAG_WIDEUATTR,
                     &tag_, &data_) => 0;
 
-            assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0xff));
+            assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0x7f));
             assert(lfsr_data_size(data_) == 2);
         }
     }
@@ -12307,7 +12307,7 @@ code = '''
             // give each attr a subtype based on its id + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4),
-                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0xff), 0,
+                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0x7f), 0,
                         names[perm[j] % 6], 2),
                     LFSR_ATTR(id, SATTR(0), 0, names[perm[j] % 6], 1))) => 0;
         }
@@ -12352,7 +12352,7 @@ code = '''
                     lfsr_rbyd_lookupnext(&lfs, &rbyd, id_, lfsr_tag_next(tag_),
                             &id_, &tag_, &weight_, &data_) => 0;
                     assert(id_ == k);
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
                     assert(lfsr_data_size(data_) == 2);
                 }
@@ -12375,7 +12375,7 @@ code = '''
                 } else {
                     lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDEUATTR,
                             &tag_, &data_) => 0;
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(data_) == 2);
                 }
             }
@@ -12453,7 +12453,7 @@ code = '''
             // give each attr a subtype based on its id + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(id, REG, +1, names[perm[j] % 6], 4),
-                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0xff), 0,
+                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0x7f), 0,
                         names[perm[j] % 6], 2),
                     LFSR_ATTR(id, SATTR(0), 0, names[perm[j] % 6], 1))) => 0;
         }
@@ -12478,7 +12478,7 @@ code = '''
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, WIDEUATTR(~(j + SHIFT) & 0xff), 0,
+                    LFSR_ATTR(j, WIDEUATTR(~(j + SHIFT) & 0x7f), 0,
                         names[j % 6], 3))) => 0;
 
             // try traversing over the tags
@@ -12499,12 +12499,12 @@ code = '''
                         &id_, &tag_, &weight_, &data_) => 0;
                 if (k == j) {
                     assert(id_ == k);
-                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
                     assert(lfsr_data_size(data_) == 3);
                 } else {
                     assert(id_ == k);
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
                     assert(lfsr_data_size(data_) == 2);
                 }
@@ -12524,10 +12524,10 @@ code = '''
                 lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDEUATTR,
                         &tag_, &data_) => 0;
                 if (k == j) {
-                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(data_) == 3);
                 } else {
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(data_) == 2);
                 }
             }
@@ -12600,7 +12600,7 @@ code = '''
 
             // give each attr a subtype based on its id + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0xff), +1,
+                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0x7f), +1,
                         names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N);
@@ -12615,7 +12615,7 @@ code = '''
             lfsr_rbyd_lookup(&lfs, &rbyd, j, LFSR_TAG_WIDEUATTR,
                     &tag_, &data_) => 0;
 
-            assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0xff));
+            assert(tag_ == LFSR_TAG_UATTR((j + SHIFT) & 0x7f));
             assert(lfsr_data_size(data_) == 4);
         }
     }
@@ -12687,7 +12687,7 @@ code = '''
 
             // give each attr a subtype based on its id + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0xff), +1,
+                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0x7f), +1,
                         names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N);
@@ -12724,17 +12724,17 @@ code = '''
                         &id_, &tag_, &weight_, &data_) => 0;
                 if (k == j) {
                     assert(id_ == k+1);
-                    assert(tag_ == LFSR_TAG_UATTR((k+1 + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k+1 + SHIFT) & 0x7f));
                     assert(weight_ == 2);
                     assert(lfsr_data_size(data_) == 4);
                 } else if (k > j) {
                     assert(id_ == k+1);
-                    assert(tag_ == LFSR_TAG_UATTR((k+1 + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k+1 + SHIFT) & 0x7f));
                     assert(weight_ == 1);
                     assert(lfsr_data_size(data_) == 4);
                 } else {
                     assert(id_ == k);
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 1);
                     assert(lfsr_data_size(data_) == 4);
                 }
@@ -12750,7 +12750,7 @@ code = '''
                 } else {
                     lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDEUATTR,
                             &tag_, &data_) => 0;
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(data_) == 4);
                 }
             }
@@ -12827,7 +12827,7 @@ code = '''
 
             // give each attr a subtype based on its id + SHIFT
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0xff), +1,
+                    LFSR_ATTR(id, UATTR((perm[j] + SHIFT) & 0x7f), +1,
                         names[perm[j] % 6], 4))) => 0;
         }
         assert(rbyd.weight == N);
@@ -12851,7 +12851,7 @@ code = '''
 
             // replace with bitwise inverse
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j, WIDEUATTR(~(j + SHIFT) & 0xff), 0,
+                    LFSR_ATTR(j, WIDEUATTR(~(j + SHIFT) & 0x7f), 0,
                         names[j % 6], 6))) => 0;
 
             // try traversing over the tags
@@ -12865,12 +12865,12 @@ code = '''
                         &id_, &tag_, &weight_, &data_) => 0;
                 if (k == j) {
                     assert(id_ == k);
-                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
                     assert(weight_ == 1);
                     assert(lfsr_data_size(data_) == 6);
                 } else {
                     assert(id_ == k);
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 1);
                     assert(lfsr_data_size(data_) == 4);
                 }
@@ -12883,10 +12883,10 @@ code = '''
                 lfsr_rbyd_lookup(&lfs, &rbyd, k, LFSR_TAG_WIDEUATTR,
                         &tag_, &data_) => 0;
                 if (k == j) {
-                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR(~(k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(data_) == 6);
                 } else {
-                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0xff));
+                    assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
                     assert(lfsr_data_size(data_) == 4);
                 }
             }

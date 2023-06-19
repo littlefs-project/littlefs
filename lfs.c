@@ -642,26 +642,26 @@ enum lfsr_tag_type {
 
 #define LFSR_TAG_UATTR(attr) \
     (LFSR_TAG_UATTR \
-        | (0xff & (lfsr_tag_t)(attr)))
+        | (0x7f & (lfsr_tag_t)(attr)))
 
 // TODO test only?
 #define LFSR_TAG_WIDEUATTR(attr) \
     (LFSR_TAG_WIDEUATTR \
-        | (0xff & (lfsr_tag_t)(attr)))
+        | (0x7f & (lfsr_tag_t)(attr)))
 
 // TODO test only?
 #define LFSR_TAG_GROWUATTR(attr) \
     (LFSR_TAG_GROWUATTR \
-        | (0xff & (lfsr_tag_t)(attr)))
+        | (0x7f & (lfsr_tag_t)(attr)))
 
 #define LFSR_TAG_RMUATTR(attr) \
     (LFSR_TAG_RMUATTR \
-        | (0xff & (lfsr_tag_t)(attr)))
+        | (0x7f & (lfsr_tag_t)(attr)))
 
 // TODO test only?
 #define LFSR_TAG_SATTR(attr) \
     (LFSR_TAG_SATTR \
-        | (0xff & (lfsr_tag_t)(attr)))
+        | (0x7f & (lfsr_tag_t)(attr)))
 
 // tag type operations
 static inline lfsr_tag_t lfsr_tag_mode(lfsr_tag_t tag) {
@@ -1785,8 +1785,9 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_ssize_t id, lfsr_tag_t tag,
         lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
-    // these bits should be clear at this point
+    // tag must be valid at this point
     LFS_ASSERT(lfsr_tag_isvalid(tag));
+    // these bits should be clear at this point
     LFS_ASSERT(lfsr_tag_mode(tag) == 0x0000);
 
     // make sure we never look up zero tags, the way we create
@@ -2011,9 +2012,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_data_t data) {
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
-    // never write zero tags to disk, use unr if tag contains no data
+    // tag must be valid at this point
     LFS_ASSERT(lfsr_tag_isvalid(tag));
+    // never write zero tags to disk, use unr if tag contains no data
     LFS_ASSERT(tag != 0);
+    // reserve bit 7 to allow leb128 subtypes in the future
+    LFS_ASSERT(!(tag & 0x80));
 
     // we can't do anything if we're not erased
     int err;
