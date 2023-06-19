@@ -23,6 +23,7 @@ TAG_MROOT       = 0x0304
 TAG_MDIR        = 0x0305
 TAG_MTREE       = 0x0306
 TAG_UATTR       = 0x0400
+TAG_SATTR       = 0x0500
 TAG_ALT         = 0x4000
 TAG_ALTA        = 0x6000
 TAG_CRC         = 0x2000
@@ -154,6 +155,11 @@ def tagrepr(tag, w, size, off=None):
             size)
     elif (tag & 0xff00) == TAG_UATTR:
         return 'uattr 0x%02x%s %d' % (
+            tag & 0xff,
+            ' w%d' % w if w else '',
+            size)
+    elif (tag & 0xff00) == TAG_SATTR:
+        return 'sattr 0x%02x%s %d' % (
             tag & 0xff,
             ' w%d' % w if w else '',
             size)

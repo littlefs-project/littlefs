@@ -609,12 +609,17 @@ enum lfsr_tag_type {
     LFSR_TAG_RMMTREE        = 0x1306,
 
     LFSR_TAG_UATTR          = 0x0400,
+    LFSR_TAG_WIDEUATTR      = 0x4400, // test only? TODO
     LFSR_TAG_GROWUATTR      = 0x2400, // test only? TODO
     LFSR_TAG_RMUATTR        = 0x1400,
+    LFSR_TAG_RMWIDEUATTR    = 0x5400, // test only? TODO
+    LFSR_TAG_SATTR          = 0x0500, // test only? TODO
 
     LFSR_TAG_ALT            = 0x4000,
+    LFSR_TAG_ALTLE          = 0x4000,
     LFSR_TAG_ALTBLE         = 0x4000,
     LFSR_TAG_ALTRLE         = 0x5000,
+    LFSR_TAG_ALTGT          = 0x6000,
     LFSR_TAG_ALTBGT         = 0x6000,
     LFSR_TAG_ALTRGT         = 0x7000,
     LFSR_TAG_ALTA           = 0x6000,
@@ -623,14 +628,14 @@ enum lfsr_tag_type {
     LFSR_TAG_FCRC           = 0x2100,
 };
 
-#define LFSR_TAG_ALT_(color, dir, key) \
-    (LFSR_TAG_ALT \
-        | ((0x1 & (lfsr_tag_t)(color)) << 13) \
-        | ((0x1 & (lfsr_tag_t)(dir)) << 14) \
+#define LFSR_TAG_ALTLE(red, key) \
+    (LFSR_TAG_ALTLE \
+        | ((0x1 & (lfsr_tag_t)(red)) << 12) \
         | (0x0fff & (lfsr_tag_t)(key)))
 
-#define LFSR_TAG_ALT(color, dir, key) \
-    (LFSR_TAG_ALT##color##dir \
+#define LFSR_TAG_ALTGT(red, key) \
+    (LFSR_TAG_ALTGT \
+        | ((0x1 & (lfsr_tag_t)(red)) << 12) \
         | (0x0fff & (lfsr_tag_t)(key)))
 
 #define LFSR_TAG_UATTR(attr) \
@@ -638,8 +643,8 @@ enum lfsr_tag_type {
         | (0xff & (lfsr_tag_t)(attr)))
 
 // TODO test only?
-#define LFSR_TAG_MKUATTR(attr) \
-    (LFSR_TAG_MKUATTR \
+#define LFSR_TAG_WIDEUATTR(attr) \
+    (LFSR_TAG_WIDEUATTR \
         | (0xff & (lfsr_tag_t)(attr)))
 
 // TODO test only?
@@ -651,7 +656,16 @@ enum lfsr_tag_type {
     (LFSR_TAG_RMUATTR \
         | (0xff & (lfsr_tag_t)(attr)))
 
+// TODO test only?
+#define LFSR_TAG_SATTR(attr) \
+    (LFSR_TAG_SATTR \
+        | (0xff & (lfsr_tag_t)(attr)))
+
 // tag type operations
+static inline lfsr_tag_t lfsr_tag_mode(lfsr_tag_t tag) {
+    return tag & 0xf000;
+}
+
 static inline lfsr_tag_t lfsr_tag_suptype(lfsr_tag_t tag) {
     return tag & 0xff00;
 }
@@ -670,6 +684,18 @@ static inline lfsr_tag_t lfsr_tag_setvalid(lfsr_tag_t tag) {
 
 static inline lfsr_tag_t lfsr_tag_setinvalid(lfsr_tag_t tag) {
     return tag | 0x8000;
+}
+
+static inline bool lfsr_tag_iswide(lfsr_tag_t tag) {
+    return tag & 0x4000;
+}
+
+static inline lfsr_tag_t lfsr_tag_setwide(lfsr_tag_t tag) {
+    return tag | 0x4000;
+}
+
+static inline lfsr_tag_t lfsr_tag_clearwide(lfsr_tag_t tag) {
+    return tag & ~0x4000;
 }
 
 static inline bool lfsr_tag_isgrow(lfsr_tag_t tag) {
@@ -714,28 +740,19 @@ static inline bool lfsr_tag_hasdiverged(lfsr_tag_t tag) {
 }
 
 static inline bool lfsr_tag_isdivergedupper(lfsr_tag_t tag) {
-    return lfsr_tag_hasdiverged(tag) && (tag & 0x1000);
+    return tag & 0x1000;
 }
 
 static inline bool lfsr_tag_isdivergedlower(lfsr_tag_t tag) {
-    return lfsr_tag_hasdiverged(tag) && !(tag & 0x1000);
+    return !lfsr_tag_isdivergedupper(tag);
 }
 
-static inline lfsr_tag_t lfsr_tag_setdiverged(lfsr_tag_t tag) {
+static inline lfsr_tag_t lfsr_tag_setdivergedlower(lfsr_tag_t tag) {
     return tag | 0x2000;
-}
-
-static inline lfsr_tag_t lfsr_tag_setdivergedvalid(
-        lfsr_tag_t tag, lfsr_tag_t tag_) {
-    return (tag & 0x3000) | tag_;
 }
 
 static inline lfsr_tag_t lfsr_tag_setdivergedupper(lfsr_tag_t tag) {
     return tag | 0x3000;
-}
-
-static inline lfsr_tag_t lfsr_tag_cleardiverged(lfsr_tag_t tag) {
-    return tag & ~0x3000;
 }
 
 // alt operations
@@ -1765,14 +1782,17 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_ssize_t id, lfsr_tag_t tag,
         lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
-    // keep track of bounds as we descend down the tree
-    lfs_off_t branch = rbyd->trunk;
-    lfs_ssize_t lower = -1;
-    lfs_ssize_t upper = rbyd->weight;
+    // these bits should be clear at this point
+    LFS_ASSERT(lfsr_tag_mode(tag) == 0x0000);
 
     // make sure we never look up zero tags, the way we create
     // unreachable tags has a hole here
     tag = lfs_max16(tag, 0x1);
+
+    // keep track of bounds as we descend down the tree
+    lfs_off_t branch = rbyd->trunk;
+    lfs_ssize_t lower = -1;
+    lfs_ssize_t upper = rbyd->weight;
 
     // no trunk yet?
     if (!branch) {
@@ -1807,12 +1827,12 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             // update the tag id
             lfs_ssize_t id__ = upper-1;
             lfsr_tag_t tag__ = alt;
+            LFS_ASSERT(lfsr_tag_mode(tag__) == 0x0000);
 
             // not what we're looking for?
             if (!tag__
                     || id__ < id
-                    || (id__ == id && lfsr_tag_key(tag__)
-                        < lfsr_tag_key(tag))) {
+                    || (id__ == id && tag__ < tag)) {
                 return LFS_ERR_NOENT;
             }
 
@@ -1837,21 +1857,30 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
 static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_ssize_t id, lfsr_tag_t tag,
-        lfsr_data_t *data_) {
+        lfsr_tag_t *tag_, lfsr_data_t *data_) {
     lfs_ssize_t id_;
-    lfsr_tag_t tag_;
-    int err = lfsr_rbyd_lookupnext(lfs, rbyd, id, tag,
-            &id_, &tag_, NULL, data_);
+    lfsr_tag_t tag__;
+    int err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_clearwide(tag),
+            &id_, &tag__, NULL, data_);
     if (err) {
         return err;
     }
 
     // lookup finds the next-smallest tag, all we need to do is fail if it
     // picks up the wrong tag
-    if (id_ != id || tag_ != tag) {
+    //
+    // we accept either exact matches or suptype matches depending on the
+    // wide bit
+    if (id_ != id
+            || (lfsr_tag_iswide(tag)
+                ? lfsr_tag_suptype(tag__) != lfsr_tag_clearwide(tag)
+                : tag__ != tag)) {
         return LFS_ERR_NOENT;
     }
 
+    if (tag_) {
+        *tag_ = tag__;
+    }
     return 0;
 }
 
@@ -1860,7 +1889,7 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_ssize_t id, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
     lfsr_data_t data;
-    int err = lfsr_rbyd_lookup(lfs, rbyd, id, tag, &data);
+    int err = lfsr_rbyd_lookup(lfs, rbyd, id, tag, NULL, &data);
     if (err) {
         return err;
     }
@@ -1989,6 +2018,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // ignore noops
+    // TODO is there a better way to represent noops?
     if (lfsr_tag_cleargrow(tag) == LFSR_TAG_UNR && delta == 0) {
         return 0;
     }
@@ -2013,46 +2043,53 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfs_ssize_t other_id_;
     lfsr_tag_t tag_;
     lfsr_tag_t other_tag_;
-    if (delta > 0 && !lfsr_tag_isgrow(tag)) {
-        LFS_ASSERT(id <= (lfs_ssize_t)rbyd->weight);
+    if (delta != 0 && !lfsr_tag_isgrow(tag)) {
+        LFS_ASSERT(!lfsr_tag_iswide(tag));
 
-        // it's a bit ugly, but adjusting the id here makes the following
-        // logic work out more consistently
-        id -= 1;
-        id_ = id + 1;
-        other_id_ = id + 1;
-        // also note these tags MUST NOT be zero, due to unreachable tag holes
+        if (delta > 0) {
+            LFS_ASSERT(id <= (lfs_ssize_t)rbyd->weight);
+
+            // it's a bit ugly, but adjusting the id here makes the following
+            // logic work out more consistently
+            id -= 1;
+            id_ = id + 1;
+            other_id_ = id + 1;
+        } else {
+            LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
+
+            // it's a bit ugly, but adjusting the id here makes the following
+            // logic work out more consistently
+            id += 1;
+            id_ = id - lfs_smax32(-delta, 0);
+            other_id_ = id;
+        }
+
+        // note these tags MUST NOT be zero, due to unreachable tag holes
         tag_ = 0x1;
-        other_tag_ = 0x1;
-    } else if (delta < 0 && !lfsr_tag_isgrow(tag)) {
-        LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
+        other_tag_ = tag_;
 
-        // it's a bit ugly, but adjusting the id here makes the following
-        // logic work out more consistently
-        id += 1;
-        id_ = id - lfs_smax32(-delta, 0);
-        other_id_ = id;
-        // also note these tags MUST NOT be zero, due to unreachable tag holes
-        tag_ = 0x1;
-        other_tag_ = 0x1;
-    } else if (lfsr_tag_isrm(tag)) {
-        LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
-
-        id_ = id - lfs_smax32(-delta, 0);
-        other_id_ = id;
-        tag_ = lfsr_tag_key(tag);
-        other_tag_ = lfsr_tag_key(tag) + 0x1;
     } else {
         LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
 
         id_ = id - lfs_smax32(-delta, 0);
         other_id_ = id;
-        tag_ = lfsr_tag_key(tag);
-        other_tag_ = lfsr_tag_key(tag);
+
+        // note both normal and rm wide-tags have the same bounds, really it's
+        // the normal non-wide-tags that are an outlier here
+        if (lfsr_tag_iswide(tag)) {
+            tag_ = lfsr_tag_suptype(lfsr_tag_key(tag));
+            other_tag_ = tag_ + 0x100;
+        } else if (lfsr_tag_isrm(tag)) {
+            tag_ = lfsr_tag_key(tag);
+            other_tag_ = tag_ + 0x1;
+        } else {
+            tag_ = lfsr_tag_key(tag);
+            other_tag_ = tag_;
+        }
     }
     // mark as invalid until found
     tag_ = lfsr_tag_setinvalid(tag_);
-    other_tag_ = lfsr_tag_setinvalid(lfsr_tag_setdivergedupper(other_tag_));
+    other_tag_ = lfsr_tag_setinvalid(other_tag_);
 
     // keep track of bounds as we descend down the tree
     //
@@ -2135,8 +2172,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     branch_ = branch;
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
                 } else {
-                    tag_ = lfsr_tag_setdiverged(tag_);
-                    other_tag_ = lfsr_tag_setdiverged(other_tag_);
+                    tag_ = lfsr_tag_setdivergedlower(tag_);
+                    other_tag_ = lfsr_tag_setdivergedupper(other_tag_);
                     other_branch = branch;
                     other_lower_id = lower_id;
                     other_upper_id = upper_id;
@@ -2312,12 +2349,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // note we:
             // - clear valid bit, marking the tag as found
             // - preserve diverged state
-            tag_ = lfsr_tag_setdivergedvalid(tag_, alt);
+            LFS_ASSERT(lfsr_tag_mode(alt) == 0x0000);
+            tag_ = lfsr_tag_setvalid(lfsr_tag_mode(tag_) | alt);
             id_ = upper_id-1;
 
             // done?
-            if (!lfsr_tag_hasdiverged(tag_)
-                    || lfsr_tag_isvalid(other_tag_)) {
+            if (!lfsr_tag_hasdiverged(tag_) || lfsr_tag_isvalid(other_tag_)) {
                 break;
             }
         }
@@ -2339,31 +2376,46 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // if we diverged, merge the bounds
     LFS_ASSERT(lfsr_tag_isvalid(tag_));
-    LFS_ASSERT(!lfsr_tag_hasdiverged(tag_)
-            || lfsr_tag_isvalid(other_tag_));
-    if (lfsr_tag_isdivergedlower(tag_)) {
-        // finished on lower path
-        tag_ = lfsr_tag_cleardiverged(other_tag_);
-        id_ = other_id_;
-        branch = other_branch;
-        upper_id = other_upper_id;
-    } else if (lfsr_tag_isdivergedupper(tag_)) {
-        // finished on upper path
-        tag_ = lfsr_tag_cleardiverged(tag_);
-        lower_id = other_lower_id;
+    LFS_ASSERT(!lfsr_tag_hasdiverged(tag_) || lfsr_tag_isvalid(other_tag_));
+    if (lfsr_tag_hasdiverged(tag_)) {
+        if (lfsr_tag_isdivergedlower(tag_)) {
+            // finished on lower path
+            tag_ = other_tag_;
+            id_ = other_id_;
+            branch = other_branch;
+            upper_id = other_upper_id;
+        } else {
+            // finished on upper path
+            lower_id = other_lower_id;
+        }
     }
 
     // split leaf nodes?
     //
     // note we bias the weights here so that lfsr_rbyd_lookupnext
     // always finds the next biggest tag
+    //
+    // note also if lfsr_tag_key(tag_) is null, we found a removed tag that
+    // we should just prune
+    //
+    // this gets real messy because we have a lot of special behavior built in:
+    // - default          => split if tags mismatch
+    // - delta > 0, !grow => split if tags mismatch or we're inserting a new tag
+    // - wide-bit set     => split if suptype of tags mismatch
+    // - rm-bit set       => never split, but emit alt-always tags, making our
+    //                       tag effectively unreachable
+    //
     lfsr_tag_t alt = 0;
     lfs_size_t weight = 0;
-    // note if tag_ is null, we found a removed tag that we should just prune
-    if (tag_ && (id_ < id-lfs_smax32(-delta, 0)
-            || (id_ == id-lfs_smax32(-delta, 0)
-                && ((delta > 0 && !lfsr_tag_isgrow(tag))
-                    || lfsr_tag_key(tag_) < lfsr_tag_key(tag))))) {
+    if (lfsr_tag_key(tag_)
+            && (id_ < id-lfs_smax32(-delta, 0)
+                || (id_ == id-lfs_smax32(-delta, 0)
+                    && ((delta > 0 && !lfsr_tag_isgrow(tag))
+                        || (lfsr_tag_iswide(tag)
+                            ? lfsr_tag_suptype(lfsr_tag_key(tag_))
+                                < lfsr_tag_suptype(lfsr_tag_key(tag))
+                            : lfsr_tag_key(tag_)
+                                < lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALTA;
@@ -2371,15 +2423,22 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             upper_id -= weight;
         } else {
             // split less than
-            alt = LFSR_TAG_ALT(R, LE, tag_);
+            alt = LFSR_TAG_ALTLE(
+                    !lfsr_tag_hasdiverged(tag_),
+                    lfsr_tag_key(tag_));
             weight = id_ - lower_id;
             lower_id += weight;
         }
 
-    } else if (tag_ && (id_ > id
-            || (id_ == id
-                && ((delta > 0 && !lfsr_tag_isgrow(tag))
-                    || lfsr_tag_key(tag_) > lfsr_tag_key(tag))))) {
+    } else if (lfsr_tag_key(tag_)
+            && (id_ > id
+                || (id_ == id
+                    && ((delta > 0 && !lfsr_tag_isgrow(tag))
+                        || (lfsr_tag_iswide(tag)
+                            ? lfsr_tag_suptype(lfsr_tag_key(tag_))
+                                > lfsr_tag_suptype(lfsr_tag_key(tag))
+                            : lfsr_tag_key(tag_)
+                                > lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALTA;
@@ -2387,15 +2446,11 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             upper_id -= weight;
         } else {
             // split greater than
-            alt = LFSR_TAG_ALT(R, GT, tag);
+            alt = LFSR_TAG_ALTGT(
+                    !lfsr_tag_hasdiverged(tag_),
+                    lfsr_tag_key(tag));
             weight = upper_id - id - 1;
             upper_id -= weight;
-        }
-
-    } else {
-        if (lfsr_tag_isrm(tag)) {
-            // if removed, replace our tag with a null tag
-            tag = LFSR_TAG_NULL;
         }
     }
 
@@ -2420,11 +2475,14 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         goto failed;
     }
 
+    // we don't need to write the tag if we ended with an unreachable trunk
+    if (alt != LFSR_TAG_ALTA) {
 leaf:;
-    if (!lfsr_tag_isrm(tag)) {
         // write the actual tag
         lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
-                lfsr_tag_cleargrow(tag), upper_id - lower_id - 1 + delta,
+                // rm => null, otherwise strip off control bits
+                (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_key(tag)),
+                upper_id - lower_id - 1 + delta,
                 lfsr_data_size(data),
                 &rbyd->crc);
         if (d < 0) {
@@ -4646,8 +4704,8 @@ static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
 static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfs_ssize_t id, lfsr_tag_t tag,
-        lfsr_data_t *data_) {
-    return lfsr_rbyd_lookup(lfs, &mdir->rbyd, id, tag, data_);
+        lfsr_tag_t *tag_, lfsr_data_t *data_) {
+    return lfsr_rbyd_lookup(lfs, &mdir->rbyd, id, tag, tag_, data_);
 }
 
 // TODO do we need this?
@@ -4720,7 +4778,7 @@ static int lfsr_mtree_parent(lfs_t *lfs, lfsr_mpair_t child,
 
         // lookup next mroot
         lfsr_data_t data;
-        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_MROOT, &data);
+        err = lfsr_mdir_lookup(lfs, &mdir, -1, LFSR_TAG_MROOT, NULL, &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -5413,14 +5471,14 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         // copy magic/config from current mroot
         lfsr_data_t magic;
         err = lfsr_mdir_lookup(lfs, &mchildroot,
-                -1, LFSR_TAG_SUPERMAGIC, &magic);
+                -1, LFSR_TAG_SUPERMAGIC, NULL, &magic);
         if (err) {
             return err;
         }
 
         lfsr_data_t config;
         err = lfsr_mdir_lookup(lfs, &mchildroot,
-                -1, LFSR_TAG_SUPERCONFIG, &config);
+                -1, LFSR_TAG_SUPERCONFIG, NULL, &config);
         if (err) {
             return err;
         }
@@ -5570,7 +5628,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         // lookup mroot, if we find one this is a fake mroot
         lfsr_data_t data;
         int err = lfsr_mdir_lookup(lfs, &traversal->mdir,
-                -1, LFSR_TAG_MROOT, &data);
+                -1, LFSR_TAG_MROOT, NULL, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -6803,7 +6861,8 @@ static int lfsr_mountinited(lfs_t *lfs) {
         if (mdir->mid == -1) {
             // has magic string?
             lfsr_data_t data;
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_SUPERMAGIC, &data);
+            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_SUPERMAGIC,
+                    NULL, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
@@ -6827,7 +6886,8 @@ static int lfsr_mountinited(lfs_t *lfs) {
             }
 
             // lookup the superconfig
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_SUPERCONFIG, &data);
+            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_SUPERCONFIG,
+                    NULL, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
