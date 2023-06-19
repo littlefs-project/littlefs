@@ -21,7 +21,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -59,7 +58,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -98,7 +96,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -132,7 +129,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -255,7 +251,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -380,7 +375,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -472,7 +466,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -566,7 +559,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -630,7 +622,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -696,7 +687,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -776,7 +766,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -920,7 +909,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -1092,7 +1080,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -1264,7 +1251,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -1444,7 +1430,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -1652,7 +1637,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -1819,7 +1803,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2007,7 +1990,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2099,7 +2081,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2181,7 +2162,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2271,7 +2251,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2367,7 +2346,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2440,7 +2418,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2512,7 +2489,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2623,7 +2599,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2686,7 +2661,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2799,7 +2773,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -2950,7 +2923,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -3045,7 +3017,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -3195,7 +3166,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -3431,7 +3401,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -3520,7 +3489,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -3647,7 +3615,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -3783,7 +3750,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -3931,7 +3897,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -4093,7 +4058,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -4196,7 +4160,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -4290,7 +4253,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -4397,7 +4359,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -4510,7 +4471,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -4603,7 +4563,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -4691,7 +4650,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -4760,7 +4718,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -4995,7 +4952,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -5257,7 +5213,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -5372,7 +5327,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -5477,7 +5431,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -5644,7 +5597,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -5822,7 +5774,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -5933,7 +5884,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -6043,7 +5993,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -6172,7 +6121,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -6367,7 +6315,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -6492,7 +6439,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -6584,7 +6530,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -6724,7 +6669,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -6881,7 +6825,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -7008,7 +6951,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -7255,7 +7197,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -7410,7 +7351,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -7601,7 +7541,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -7726,7 +7665,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -7865,7 +7803,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -7980,7 +7917,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -8114,7 +8050,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -8257,7 +8192,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -8418,7 +8352,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -8553,7 +8486,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -8791,7 +8723,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -8901,7 +8832,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -8988,7 +8918,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -9074,7 +9003,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -9747,7 +9675,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -10004,7 +9931,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -10116,7 +10042,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -10238,7 +10163,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -10365,7 +10289,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -10501,7 +10424,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -10650,7 +10572,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -10777,7 +10698,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -10913,7 +10833,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -11061,7 +10980,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -11215,7 +11133,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -11395,7 +11312,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -11578,7 +11494,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -11802,7 +11717,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -11890,7 +11804,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -12028,7 +11941,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -12168,7 +12080,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -12257,7 +12168,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -12403,7 +12313,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -12551,7 +12460,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -12638,7 +12546,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -12778,7 +12685,6 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,

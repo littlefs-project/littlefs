@@ -340,7 +340,6 @@ typedef struct lfsr_rbyd {
     // off=block_size => rbyd not erased/needs compaction
     lfs_off_t off;
     lfs_off_t trunk;
-    uint32_t rev;
     uint32_t crc;
 } lfsr_rbyd_t;
 

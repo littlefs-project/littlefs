@@ -1585,8 +1585,8 @@ static bool lfsr_rbyd_isfetched(const lfsr_rbyd_t *rbyd) {
 
 
 // allocate an rbyd block
-static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
-    *rbyd = (lfsr_rbyd_t){.rev=rev, .weight=0, .trunk=0, .off=0, .crc=0};
+static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
+    *rbyd = (lfsr_rbyd_t){.weight=0, .trunk=0, .off=0, .crc=0};
     int err = lfs_alloc(lfs, &rbyd->block);
     if (err) {
         return err;
@@ -1602,20 +1602,16 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
 
 static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_block_t block, lfs_size_t trunk) {
-    // read the revision count and get the crc started
-    uint32_t rev;
+    // checksum the revision count to get the crc started
     uint32_t crc = 0;
-    int err = lfsr_bd_readcsum(lfs, block, 0, lfs->cfg->block_size,
-            &rev, sizeof(uint32_t),
-            &crc);
+    int err = lfsr_bd_csum(lfs, block, 0, lfs->cfg->block_size,
+            sizeof(uint32_t), &crc);
     if (err) {
         return err;
     }
-    rev = lfs_fromle32_(&rev);
 
     rbyd->block = block;
     rbyd->off = 0;
-    rbyd->rev = rev;
 
     // temporary state until we validate a crc
     lfs_off_t off = sizeof(uint32_t);
@@ -1904,6 +1900,33 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 }
 
 
+// append a revision count
+//
+// this is optional, if not called revision count defaults to 0 (for btrees)
+static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
+    // should only be called before any tags are written
+    LFS_ASSERT(rbyd->off == 0);
+
+    // revision count stored as le32, we don't use a leb128 encoding as we
+    // intentionally allow the revision count to overflow
+    uint8_t buf[sizeof(uint32_t)];
+    lfs_tole32_(rev, &buf);
+    int err = lfsr_bd_prog(lfs, rbyd->block, rbyd->off,
+            &buf, sizeof(uint32_t), &rbyd->crc);
+    if (err) {
+        goto failed;
+    }
+    rbyd->off += sizeof(uint32_t);
+
+    return 0;
+
+failed:
+    // if we fail mark the rbyd as unerased and release the pcache
+    lfs_cache_zero(lfs, &lfs->pcache);
+    rbyd->off = lfs->cfg->block_size;
+    return err;
+}
+
 // helper functions for managing the 3-element fifo used in lfsr_rbyd_append
 static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t p_alts[static 3],
@@ -2033,16 +2056,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         return 0;
     }
 
-    // make sure every rbyd starts with its revision count
+    // make sure every rbyd starts with a revision count
     if (rbyd->off == 0) {
-        uint8_t buf[sizeof(uint32_t)];
-        lfs_tole32_(rbyd->rev, &buf);
-        err = lfsr_bd_prog(lfs, rbyd->block, rbyd->off,
-                &buf, sizeof(uint32_t), &rbyd->crc);
+        err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
         if (err) {
             goto failed;
         }
-        rbyd->off += sizeof(uint32_t);
     }
 
     // figure out the range of tags we're operating on
@@ -2593,19 +2612,16 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         goto failed;
     }
 
-    // setup commit state
+    // setup commit state, use a separate rbyd so we have a fallback in
+    // case of error
     lfsr_rbyd_t rbyd_ = *rbyd;
 
     // make sure every rbyd starts with its revision count
     if (rbyd_.off == 0) {
-        uint8_t buf[sizeof(uint32_t)];
-        lfs_tole32_(rbyd_.rev, &buf);
-        err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off,
-                &buf, sizeof(uint32_t), &rbyd_.crc);
+        err = lfsr_rbyd_appendrev(lfs, &rbyd_, 0);
         if (err) {
             goto failed;
         }
-        rbyd_.off += sizeof(uint32_t);
     }
 
     // append each tag to the tree
@@ -3598,9 +3614,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
             goto split;
         }
 
-        // TODO were we doing something funky with rev?
         // allocate a new rbyd
-        err = lfsr_rbyd_alloc(lfs, &rbyd_, rbyd->rev+1);
+        err = lfsr_rbyd_alloc(lfs, &rbyd_);
         if (err) {
             return err;
         }
@@ -3692,16 +3707,15 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return split_id;
         }
 
-        // TODO were we doing something funky with rev?
         // allocate a new rbyd
-        err = lfsr_rbyd_alloc(lfs, &rbyd_, rbyd->rev+1);
+        err = lfsr_rbyd_alloc(lfs, &rbyd_);
         if (err) {
             return err;
         }
 
         // allocate a sibling
         lfsr_rbyd_t sibling;
-        err = lfsr_rbyd_alloc(lfs, &sibling, rbyd->rev+1);
+        err = lfsr_rbyd_alloc(lfs, &sibling);
         if (err) {
             return err;
         }
@@ -3787,7 +3801,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // no parent? introduce a new trunk
         if (pid == -1) {
-            int err = lfsr_rbyd_alloc(lfs, &parent, 1);
+            int err = lfsr_rbyd_alloc(lfs, &parent);
             if (err) {
                 return err;
             }
@@ -4067,7 +4081,7 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
     // inlined btree, need to expand into an rbyd
     } else if (lfsr_btree_isinlined(btree)) {
         lfsr_rbyd_t rbyd;
-        int err = lfsr_rbyd_alloc(lfs, &rbyd, 1);
+        int err = lfsr_rbyd_alloc(lfs, &rbyd);
         if (err) {
             return err;
         }
@@ -4307,7 +4321,7 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
     // inlined btree, need to expand into an rbyd
     if (lfsr_btree_isinlined(btree)) {
         lfsr_rbyd_t rbyd;
-        int err = lfsr_rbyd_alloc(lfs, &rbyd, 1);
+        int err = lfsr_rbyd_alloc(lfs, &rbyd);
         if (err) {
             return err;
         }
@@ -4670,7 +4684,6 @@ static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t mid) {
     // mark mdir as needing compaction
     mdir->rbyd.off = lfs->cfg->block_size;
     mdir->rbyd.trunk = 0;
-    mdir->rbyd.rev = rev;
     return 0;
 }
 
@@ -4829,27 +4842,50 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
         const lfsr_mdir_t *source,
         const lfsr_attr_t *attr1s, lfs_size_t attr1_count,
         const lfsr_attr_t *attr2s, lfs_size_t attr2_count) {
-    // TODO different indicator?
     // note mid indicates some special cases:
     // - mid = manchor => never alloc (mroot anchor)
     // - mid = wl      => only alloc if mdir is tired (wear-leveling)
     // - otherwise     => always alloc, use this mid (new mdir)
-    if (mid != LFSR_MID_MANCHOR && (mid != LFSR_MID_WL || (
-            lfs->cfg->block_cycles > 0
-                && (mdir->rbyd.rev+1) % lfs->cfg->block_cycles == 0))) {
-        // allocate a new mdir for relocation
-        int err = lfsr_mdir_alloc(lfs, mdir,
-                (mid != LFSR_MID_WL ? mid : mdir->mid));
-        if (err) {
+    uint32_t rev;
+    if (mid != LFSR_MID_MANCHOR) {
+        // first thing we need to do is read our current revision count
+        int err = lfsr_bd_read(lfs, source->rbyd.block, 0, sizeof(uint32_t),
+                &rev, sizeof(uint32_t));
+        if (err && err != LFS_ERR_CORRUPT) {
             return err;
+        }
+        // note we allow corrupt errors here, as long as they are consistent
+        rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
+
+        // decide if we need to relocate
+        if (mid != LFSR_MID_WL || (
+                lfs->cfg->block_cycles > 0
+                    // TODO rev things
+                    && (rev + 1) % lfs->cfg->block_cycles == 0)) {
+            // allocate a new mdir for relocation
+            err = lfsr_mdir_alloc(lfs, mdir,
+                    (mid != LFSR_MID_WL ? mid : mdir->mid));
+            if (err) {
+                return err;
+            }
+
+            // read the new revision count
+            //
+            // we use whatever is on-disk to avoid needing to rewrite the
+            // redund block
+            err = lfsr_bd_read(lfs, mdir->rbyd.block, 0, sizeof(uint32_t),
+                    &rev, sizeof(uint32_t));
+            if (err && err != LFS_ERR_CORRUPT) {
+                return err;
+            }
+            // note we allow corrupt errors here, as long as they are consistent
+            rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
         }
     }
 
     // swap our rbyds 
     lfs_swap32(&mdir->rbyd.block, &mdir->other_block);
     // update our revision count
-    // TODO rev things
-    mdir->rbyd.rev += 1;
     mdir->rbyd.off = 0;
     mdir->rbyd.trunk = 0;
     mdir->rbyd.weight = 0;
@@ -4857,6 +4893,13 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // erase, preparing for compact
     int err = lfsr_bd_erase(lfs, mdir->rbyd.block);
+    if (err) {
+        return err;
+    }
+
+    // increment our revision count and write it to our rbyd
+    // TODO rev things
+    err = lfsr_rbyd_appendrev(lfs, &mdir->rbyd, rev + 1);
     if (err) {
         return err;
     }
@@ -4891,7 +4934,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // drop commit if weight goes to zero
     if (mdir->mid >= 0 && mdir->rbyd.weight == 0) {
-        lfs_cache_drop(lfs, &lfs->pcache);
+        lfs_cache_zero(lfs, &lfs->pcache);
 
     // finalize commit
     } else {
@@ -4921,7 +4964,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // drop commit if weight goes to zero
     if (mdir_.mid >= 0 && mdir_.rbyd.weight == 0) {
-        lfs_cache_drop(lfs, &lfs->pcache);
+        lfs_cache_zero(lfs, &lfs->pcache);
 
     // finalize commit
     } else {
@@ -6151,12 +6194,17 @@ static int lfsr_formatinited(lfs_t *lfs) {
         return d;
     }
 
-    for (int i = 0; i < 2; i++) {
+    for (uint32_t i = 0; i < 2; i++) {
         // write superblock to both rbyds in the root mroot to hopefully
         // avoid mounting an older filesystem on disk
-        lfsr_rbyd_t rbyd = {.block=i, .rev=i-1, .off=0, .trunk=0};
+        lfsr_rbyd_t rbyd = {.block=i, .off=0, .trunk=0};
 
         int err = lfsr_bd_erase(lfs, rbyd.block);
+        if (err) {
+            return err;
+        }
+
+        err = lfsr_rbyd_appendrev(lfs, &rbyd, (uint32_t)i - 1);
         if (err) {
             return err;
         }
