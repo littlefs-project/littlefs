@@ -1338,8 +1338,8 @@ typedef struct lfsr_attr {
 
 // fcrc on-disk encoding
 typedef struct lfsr_fcrc {
-    lfs_size_t size;
     uint32_t crc;
+    lfs_size_t size;
 } lfsr_fcrc_t;
 
 // 1 leb128 + 1 crc32c => 9 bytes (worst case)
@@ -1349,14 +1349,15 @@ static lfs_ssize_t lfsr_fcrc_todisk(lfs_t *lfs, const lfsr_fcrc_t *fcrc,
         uint8_t buffer[static LFSR_FCRC_DSIZE]) {
     (void)lfs;
     lfs_ssize_t d = 0;
-    lfs_ssize_t d_ = lfs_toleb128(fcrc->size, &buffer[0], 5);
+
+    lfs_tole32_(fcrc->crc, &buffer[d]);
+    d += 4;
+
+    lfs_ssize_t d_ = lfs_toleb128(fcrc->size, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
-
-    lfs_tole32_(fcrc->crc, &buffer[d]);
-    d += 4;
 
     return d;
 }
@@ -1364,13 +1365,13 @@ static lfs_ssize_t lfsr_fcrc_todisk(lfs_t *lfs, const lfsr_fcrc_t *fcrc,
 static lfs_ssize_t lfsr_fcrc_fromdisk(lfs_t *lfs, lfsr_fcrc_t *fcrc,
         lfsr_data_t data) {
     lfs_ssize_t d = 0;
-    lfs_ssize_t d_ = lfsr_data_readleb128(lfs, data, d, &fcrc->size);
+    lfs_ssize_t d_ = lfsr_data_readle32(lfs, data, d, &fcrc->crc);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    d_ = lfsr_data_readle32(lfs, data, d, &fcrc->crc);
+    d_ = lfsr_data_readleb128(lfs, data, d, &fcrc->size);
     if (d_ < 0) {
         return d_;
     }
@@ -2650,7 +2651,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
         // find the expected fcrc, don't bother avoiding a reread of the
         // perturb byte, as it should still be in our cache
-        lfsr_fcrc_t fcrc = {.size=lfs->cfg->prog_size, .crc=0};
+        lfsr_fcrc_t fcrc = {.crc=0, .size=lfs->cfg->prog_size};
         err = lfsr_bd_csum(lfs, rbyd_.block, aligned, lfs->cfg->prog_size,
                 lfs->cfg->prog_size,
                 &fcrc.crc);
@@ -3042,13 +3043,17 @@ static inline lfs_size_t lfsr_btree_setinlined(lfs_size_t weight) {
 
 // branch on-disk encoding
 
-// 3 leb128 + 1 crc32c => 19 bytes (worst case)
-#define LFSR_BRANCH_DSIZE (5+5+5+4)
+// 1 crc32c + 3 leb128 => 19 bytes (worst case)
+#define LFSR_BRANCH_DSIZE (4+5+5+5)
 
 static lfs_ssize_t lfsr_branch_todisk(lfs_t *lfs, const lfsr_rbyd_t *branch,
         uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
     (void)lfs;
     lfs_ssize_t d = 0;
+
+    lfs_tole32_(branch->crc, &buffer[d]);
+    d += 4;
+
     lfs_ssize_t d_ = lfs_toleb128(branch->weight, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
@@ -3067,9 +3072,6 @@ static lfs_ssize_t lfsr_branch_todisk(lfs_t *lfs, const lfsr_rbyd_t *branch,
     }
     d += d_;
 
-    lfs_tole32_(branch->crc, &buffer[d]);
-    d += 4;
-
     return d;
 }
 
@@ -3080,7 +3082,13 @@ static lfs_ssize_t lfsr_branch_fromdisk(lfs_t *lfs, lfsr_rbyd_t *branch,
     branch->off = 0;
 
     lfs_ssize_t d = 0;
-    lfs_ssize_t d_ = lfsr_data_readleb128(lfs, data, d, &branch->weight);
+    lfs_ssize_t d_ = lfsr_data_readle32(lfs, data, d, &branch->crc);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
+
+    d_ = lfsr_data_readleb128(lfs, data, d, &branch->weight);
     if (d_ < 0) {
         return d_;
     }
@@ -3093,12 +3101,6 @@ static lfs_ssize_t lfsr_branch_fromdisk(lfs_t *lfs, lfsr_rbyd_t *branch,
     d += d_;
 
     d_ = lfsr_data_readleb128(lfs, data, d, &branch->block);
-    if (d_ < 0) {
-        return d_;
-    }
-    d += d_;
-
-    d_ = lfsr_data_readle32(lfs, data, d, &branch->crc);
     if (d_ < 0) {
         return d_;
     }

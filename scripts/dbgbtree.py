@@ -93,10 +93,10 @@ def fromtag(data):
     return tag>>15, tag&0x7fff, weight, size, 2+d+d_
 
 def frombtree(data):
-    w, d1 = fromleb128(data)
-    trunk, d2 = fromleb128(data[d1:])
-    block, d3 = fromleb128(data[d1+d2:])
-    crc = fromle32(data[d1+d2+d3:])
+    crc = fromle32(data)
+    w, d1 = fromleb128(data[4:])
+    trunk, d2 = fromleb128(data[4+d1:])
+    block, d3 = fromleb128(data[4+d1+d2:])
     return w, trunk, block, crc
 
 def popc(x):
