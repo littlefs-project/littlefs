@@ -4153,7 +4153,7 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
     }
 }
 
-static int lfsr_btree_update(lfs_t *lfs, lfsr_btree_t *btree,
+static int lfsr_btree_set(lfs_t *lfs, lfsr_btree_t *btree,
         lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight, lfsr_data_t data) {
     LFS_ASSERT(bid < lfsr_btree_weight(btree));
     LFS_ASSERT(lfsr_btree_weight(btree) > 0);
@@ -5119,7 +5119,7 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
             return d;
         }
 
-        err = lfsr_btree_update(lfs, mtree, mid, LFSR_TAG_MDIR, 1,
+        err = lfsr_btree_set(lfs, mtree, mid, LFSR_TAG_MDIR, 1,
                 LFSR_DATA_BUF(buf, d));
         if (err) {
             return err;
@@ -5137,7 +5137,7 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
             return d;
         }
 
-        err = lfsr_btree_update(lfs, mtree, mid, LFSR_TAG_MDIR, 1,
+        err = lfsr_btree_set(lfs, mtree, mid, LFSR_TAG_MDIR, 1,
                 LFSR_DATA_BUF(buf, d));
         if (err) {
             return err;
@@ -5160,8 +5160,7 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
     return 0;
 }
 
-// TODO static
-int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
+static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     LFS_ASSERT(mdir->mid != LFSR_MID_RM);
 
@@ -5325,7 +5324,7 @@ int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                 return d;
             }
 
-            err = lfsr_btree_update(lfs, &mtree_, mdir->mid, LFSR_TAG_MDIR, 1,
+            err = lfsr_btree_set(lfs, &mtree_, mdir->mid, LFSR_TAG_MDIR, 1,
                     LFSR_DATA_BUF(buf, d));
             if (err) {
                 return err;
