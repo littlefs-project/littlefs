@@ -4846,41 +4846,40 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
     // - mid = manchor => never alloc (mroot anchor)
     // - mid = wl      => only alloc if mdir is tired (wear-leveling)
     // - otherwise     => always alloc, use this mid (new mdir)
+
+    // first thing we need to do is read our current revision count
     uint32_t rev;
-    if (mid != LFSR_MID_MANCHOR) {
-        // first thing we need to do is read our current revision count
-        int err = lfsr_bd_read(lfs, source->rbyd.block, 0, sizeof(uint32_t),
+    int err = lfsr_bd_read(lfs, source->rbyd.block, 0, sizeof(uint32_t),
+            &rev, sizeof(uint32_t));
+    if (err && err != LFS_ERR_CORRUPT) {
+        return err;
+    }
+    // note we allow corrupt errors here, as long as they are consistent
+    rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
+
+    // decide if we need to relocate
+    if (mid != LFSR_MID_MANCHOR && (mid != LFSR_MID_WL || (
+            lfs->cfg->block_cycles > 0
+                // TODO rev things
+                && (rev + 1) % lfs->cfg->block_cycles == 0))) {
+        // allocate a new mdir for relocation
+        err = lfsr_mdir_alloc(lfs, mdir,
+                (mid != LFSR_MID_WL ? mid : mdir->mid));
+        if (err) {
+            return err;
+        }
+
+        // read the new revision count
+        //
+        // we use whatever is on-disk to avoid needing to rewrite the
+        // redund block
+        err = lfsr_bd_read(lfs, mdir->rbyd.block, 0, sizeof(uint32_t),
                 &rev, sizeof(uint32_t));
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
         // note we allow corrupt errors here, as long as they are consistent
         rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
-
-        // decide if we need to relocate
-        if (mid != LFSR_MID_WL || (
-                lfs->cfg->block_cycles > 0
-                    // TODO rev things
-                    && (rev + 1) % lfs->cfg->block_cycles == 0)) {
-            // allocate a new mdir for relocation
-            err = lfsr_mdir_alloc(lfs, mdir,
-                    (mid != LFSR_MID_WL ? mid : mdir->mid));
-            if (err) {
-                return err;
-            }
-
-            // read the new revision count
-            //
-            // we use whatever is on-disk to avoid needing to rewrite the
-            // redund block
-            err = lfsr_bd_read(lfs, mdir->rbyd.block, 0, sizeof(uint32_t),
-                    &rev, sizeof(uint32_t));
-            if (err && err != LFS_ERR_CORRUPT) {
-                return err;
-            }
-            // note we allow corrupt errors here, as long as they are consistent
-            rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
-        }
     }
 
     // swap our rbyds 
@@ -4892,7 +4891,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
     mdir->rbyd.crc = 0;
 
     // erase, preparing for compact
-    int err = lfsr_bd_erase(lfs, mdir->rbyd.block);
+    err = lfsr_bd_erase(lfs, mdir->rbyd.block);
     if (err) {
         return err;
     }

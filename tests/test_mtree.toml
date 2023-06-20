@@ -1787,6 +1787,64 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+[cases.test_mtree_extend_twice]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+# make it so blocks relocate every two compacts
+defines.BLOCK_CYCLES = 2
+# force our block to compact by setting prog_size=block_size, we don't have
+# any way to indirectly force the intermediary mroots to compact otherwise
+defines.PROG_SIZE = 'BLOCK_SIZE'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // prepare mroot with an attr
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    // force mroot to compact 2x2 times, this should extend the mroot twice
+    lfsr_mdir_t old_mroot = lfs.mroot;
+
+    for (int i = 0; i < 4; i++) {
+        lfs.mroot.rbyd.off = BLOCK_SIZE;
+        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+    }
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    // assert we relocated
+    assert(!lfsr_mdir_eq(&old_mroot, &lfs.mroot));
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+
+
+    // check things stay sane after remount
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // assert we relocated
+    assert(!lfsr_mdir_eq(&old_mroot, &lfs.mroot));
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
 [cases.test_mtree_relocate_mroot]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
@@ -3800,5 +3858,135 @@ code = '''
     }
 
     lfsr_unmount(&lfs) => 0;
+'''
+
+
+## Magic consistency ##
+
+# make sure our magic string ("littlefs") shows up in the same place (off=8)
+[cases.test_mtree_magic]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+
+    // check our magic string
+    //
+    // note if we lose power we may not have the magic string in both blocks!
+    // but we don't lose power in this test so we can assert the magic string
+    // is present in both
+    uint8_t magic[lfs_max(16, READ_SIZE)];
+    cfg->read(cfg, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    assert(memcmp(&magic[8], "littlefs", 8) == 0);
+    cfg->read(cfg, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    assert(memcmp(&magic[8], "littlefs", 8) == 0);
+'''
+
+[cases.test_mtree_magic_extend]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+# make it so blocks relocate every two compacts
+defines.BLOCK_CYCLES = 2
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // prepare mroot with an attr
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    // force mroot to compact twice, this should extend the mroot
+    lfsr_mdir_t old_mroot = lfs.mroot;
+
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    // assert we relocated
+    assert(!lfsr_mdir_eq(&old_mroot, &lfs.mroot));
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+
+
+    // check our magic string
+    //
+    // note if we lose power we may not have the magic string in both blocks!
+    // but we don't lose power in this test so we can assert the magic string
+    // is present in both
+    uint8_t magic[lfs_max(16, READ_SIZE)];
+    cfg->read(cfg, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    assert(memcmp(&magic[8], "littlefs", 8) == 0);
+    cfg->read(cfg, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    assert(memcmp(&magic[8], "littlefs", 8) == 0);
+'''
+
+[cases.test_mtree_magic_extend_twice]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+# make it so blocks relocate every two compacts
+defines.BLOCK_CYCLES = 2
+# force our block to compact by setting prog_size=block_size, we don't have
+# any way to indirectly force the intermediary mroots to compact otherwise
+defines.PROG_SIZE = 'BLOCK_SIZE'
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // prepare mroot with an attr
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    // force mroot to compact 2x2 times, this should extend the mroot twice
+    lfsr_mdir_t old_mroot = lfs.mroot;
+
+    for (int i = 0; i < 4; i++) {
+        lfs.mroot.rbyd.off = BLOCK_SIZE;
+        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+    }
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
+
+    // assert we relocated
+    assert(!lfsr_mdir_eq(&old_mroot, &lfs.mroot));
+
+    // assert that our attr is still in the mroot
+    lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
+            buffer, SIZE) => SIZE;
+    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+
+    lfsr_unmount(&lfs) => 0;
+
+
+    // check our magic string
+    //
+    // note if we lose power we may not have the magic string in both blocks!
+    // but we don't lose power in this test so we can assert the magic string
+    // is present in both
+    uint8_t magic[lfs_max(16, READ_SIZE)];
+    cfg->read(cfg, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    assert(memcmp(&magic[8], "littlefs", 8) == 0);
+    cfg->read(cfg, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    assert(memcmp(&magic[8], "littlefs", 8) == 0);
 '''
 
