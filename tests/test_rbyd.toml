@@ -28,12 +28,6 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
 
-    // try an empty commit
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-    lfsr_rbyd_commit(&lfs, &rbyd, NULL, 0) => 0;
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
-
     // commit with one attribute
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -64,12 +58,6 @@ code = '''
         .weight = 0,
     };
     lfsr_rbyd_t rbyd;
-
-    // try an empty commit
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-    lfsr_rbyd_commit(&lfs, &rbyd, NULL, 0) => 0;
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
 
     // commit with one attribute
     rbyd = init_rbyd;
@@ -138,18 +126,6 @@ code = '''
     lfsr_tag_t tag_;
     lfs_ssize_t id_;
     lfsr_data_t data_;
-
-    // try an empty commit
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-    lfsr_rbyd_commit(&lfs, &rbyd, NULL, 0) => 0;
-
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
-            &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
-
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
-            &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     // commit with one attribute
     rbyd = init_rbyd;
@@ -261,18 +237,6 @@ code = '''
     lfs_ssize_t id_;
     lfsr_data_t data_;
 
-    // try an empty commit
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-    lfsr_rbyd_commit(&lfs, &rbyd, NULL, 0) => 0;
-
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
-            &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
-
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1),
-            &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
-
     // commit with one attribute
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -383,18 +347,6 @@ code = '''
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
 
-    // try an empty commit
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-    lfsr_rbyd_commit(&lfs, &rbyd, NULL, 0) => 0;
-
-    lfsr_rbyd_get(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1), buffer, 4)
-            => LFS_ERR_NOENT;
-
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
-    lfsr_rbyd_get(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1), buffer, 4)
-            => LFS_ERR_NOENT;
-
     // commit with one attribute
     rbyd = init_rbyd;
     lfs_bd_erase(&lfs, rbyd.block) => 0;
@@ -473,18 +425,6 @@ code = '''
     };
     lfsr_rbyd_t rbyd;
     uint8_t buffer[4];
-
-    // try an empty commit
-    rbyd = init_rbyd;
-    lfs_bd_erase(&lfs, rbyd.block) => 0;
-    lfsr_rbyd_commit(&lfs, &rbyd, NULL, 0) => 0;
-
-    lfsr_rbyd_get(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1), buffer, 4)
-            => LFS_ERR_NOENT;
-
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
-    lfsr_rbyd_get(&lfs, &rbyd, -1, LFSR_TAG_UATTR(1), buffer, 4)
-            => LFS_ERR_NOENT;
 
     // commit with one attribute
     rbyd = init_rbyd;
