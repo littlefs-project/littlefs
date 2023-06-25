@@ -3,7 +3,7 @@
 defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
 
 # test a single mroot
-[cases.test_mtree_one_mroot]
+[cases.test_mtree_mroot]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -11,21 +11,27 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# test a single mroot with a custom attribute
-[cases.test_mtree_one_mroot_attr]
+# test a single mroot with attributes
+[cases.test_mtree_mroot_attrs]
+defines.N = [1, 3]
 in = 'lfs.c'
 code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
 
-    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
-            LFSR_ATTR(-1, UATTR(1), 0, "ardvark", 7))) => 0;
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+                LFSR_ATTR(-1, UATTR(i), 0, &alphas[i % 26], 1))) => 0;
+    }
 
-    uint8_t buffer[7];
-    lfsr_mdir_get(&lfs, &lfs.mroot,
-            -1, LFSR_TAG_UATTR(1), buffer, 7) => 7;
-    assert(memcmp(buffer, "ardvark", 7) == 0);
+    for (lfs_size_t i = 0; i < N; i++) {
+        uint8_t buffer[1];
+        lfsr_mdir_get(&lfs, &lfs.mroot,
+                -1, LFSR_TAG_UATTR(i), buffer, 1) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    }
 
     lfsr_unmount(&lfs) => 0;
 
@@ -33,15 +39,59 @@ code = '''
     // check things stay sane after remount
     lfsr_mount(&lfs, cfg) => 0;
 
-    lfsr_mdir_get(&lfs, &lfs.mroot,
-            -1, LFSR_TAG_UATTR(1), buffer, 7) => 7;
-    assert(memcmp(buffer, "ardvark", 7) == 0);
+    for (lfs_size_t i = 0; i < N; i++) {
+        uint8_t buffer[1];
+        lfsr_mdir_get(&lfs, &lfs.mroot,
+                -1, LFSR_TAG_UATTR(i), buffer, 1) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test a single mroot with forced compaction
+[cases.test_mtree_mroot_compact]
+defines.N = [1, 3]
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        // force mroot to compact
+        lfs.mroot.rbyd.off = BLOCK_SIZE;
+
+        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+                LFSR_ATTR(-1, UATTR(i), 0, &alphas[i % 26], 1))) => 0;
+    }
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        uint8_t buffer[1];
+        lfsr_mdir_get(&lfs, &lfs.mroot,
+                -1, LFSR_TAG_UATTR(i), buffer, 1) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+
+
+    // check things stay sane after remount
+    lfsr_mount(&lfs, cfg) => 0;
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        uint8_t buffer[1];
+        lfsr_mdir_get(&lfs, &lfs.mroot,
+                -1, LFSR_TAG_UATTR(i), buffer, 1) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+    }
 
     lfsr_unmount(&lfs) => 0;
 '''
 
 # test a single mroot with many commits
-[cases.test_mtree_one_mroot_many_commits]
+[cases.test_mtree_mroot_many_commits]
 defines.N = [5, 5000]
 in = 'lfs.c'
 code = '''

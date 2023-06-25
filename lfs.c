@@ -2568,11 +2568,220 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_ssize_t start_id, lfs_ssize_t end_id, bool drop_vestigial,
         const lfsr_rbyd_t *source) {
+#ifndef LFSR_NO_REBALANCE
+    // must fetch before mutating!
+    LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
+
+    // we can't do anything if we're not erased
+    int err;
+    if (rbyd->off >= lfs->cfg->block_size) {
+        err = LFS_ERR_RANGE;
+        goto failed;
+    }
+
+    // make sure every rbyd starts with a revision count
+    if (rbyd->off == 0) {
+        err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
+        if (err) {
+            goto failed;
+        }
+    }
+
     // optionally drop the first name in our rbyd, a so-called "vestigial"
     // name, see lfsr_btree_commit for why we need to do this
     lfs_ssize_t id = start_id;
-    lfsr_tag_t tag = (drop_vestigial ? lfsr_tag_next(LFSR_TAG_BRANCH) : 0);
-    
+    // TODO vestigial names?
+    //lfsr_tag_t tag = (drop_vestigial ? lfsr_tag_next(LFSR_TAG_BRANCH) : 0);
+    lfsr_tag_t tag = 0;
+
+    // first copy over raw tags, note this doesn't create a tree
+    lfs_size_t trunk_count = 0;
+    lfs_size_t trunk_w = 0;
+    lfs_off_t layer_start = rbyd->off;
+    while (true) {
+        lfs_size_t w;
+        lfsr_data_t data;
+        int err = lfsr_rbyd_lookupnext(lfs, source, id, lfsr_tag_next(tag),
+                &id, &tag, &w, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        if (err == LFS_ERR_NOENT || (end_id >= 0 && id >= end_id)) {
+            break;
+        }
+
+        // keep track of the layer weight
+        trunk_w += w;
+
+        // write the tag
+        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+                tag, w, lfsr_data_size(data),
+                &rbyd->crc);
+        if (d < 0) {
+            err = d;
+            goto failed;
+        }
+        rbyd->off += d;
+
+        // and the data
+        err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->off, data,
+                &rbyd->crc);
+        if (err) {
+            goto failed;
+        }
+        rbyd->off += lfsr_data_size(data);
+
+        trunk_count += 1;
+    }
+    lfs_off_t layer_end = rbyd->off;
+
+    // build each layer of a perfectly balanced tree upwards
+    while (trunk_count > 1) {
+        lfs_off_t off = layer_start;
+        trunk_count = 0;
+        trunk_w = 0;
+        layer_start = rbyd->off;
+        while (off < layer_end) {
+            // read two trunks
+            lfs_off_t loff = off;
+            lfsr_tag_t ltag = 0;
+            lfs_size_t lw = 0;
+            while (true) {
+                lfsr_tag_t tag;
+                lfs_size_t w;
+                lfs_size_t size;
+                lfs_ssize_t d = lfsr_bd_readtag(lfs, rbyd->block, off,
+                        layer_end-off,
+                        &tag, &w, &size, NULL);
+                if (d < 0) {
+                    err = d;
+                    goto failed;
+                }
+                off += d;
+                lw += w;
+                trunk_w += w;
+
+                // keep track of last non-null tag
+                if (tag) {
+                    ltag = tag;
+                }
+
+                // skip the data
+                if (!lfsr_tag_isalt(tag)) {
+                    off += size;
+                }
+
+                // read all tags in the trunk
+                if (!lfsr_tag_isalt(tag)) {
+                    break;
+                }
+            }
+
+            lfs_off_t roff = off;
+            lfsr_tag_t rtag = 0;
+            lfs_size_t rw = 0;
+            if (off >= layer_end) {
+                roff = loff;
+                rtag = ltag;
+                rw = lw;
+            } else {
+                while (true) {
+                    lfsr_tag_t tag;
+                    lfs_size_t w;
+                    lfs_size_t size;
+                    lfs_ssize_t d = lfsr_bd_readtag(lfs, rbyd->block, off,
+                            layer_end-off,
+                            &tag, &w, &size, NULL);
+                    if (d < 0) {
+                        err = d;
+                        goto failed;
+                    }
+                    off += d;
+                    rw += w;
+                    trunk_w += w;
+
+                    // keep track of last non-null tag
+                    if (tag) {
+                        rtag = tag;
+                    }
+
+                    // skip the data
+                    if (!lfsr_tag_isalt(tag)) {
+                        off += size;
+                    }
+
+                    // read all tags in the trunk
+                    if (!lfsr_tag_isalt(tag)) {
+                        break;
+                    }
+                }
+
+                // connect ltag with an altle
+                lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+                        LFSR_TAG_ALTLE(false, lfsr_tag_key(ltag)),
+                        lw,
+                        rbyd->off - loff,
+                        &rbyd->crc);
+                if (d < 0) {
+                    err = d;
+                    goto failed;
+                }
+                rbyd->off += d;
+
+                trunk_w = lw + rw;
+            }
+
+            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+                    LFSR_TAG_ALTLE(false, lfsr_tag_key(rtag)),
+                    rw,
+                    rbyd->off - roff,
+                    &rbyd->crc);
+            if (d < 0) {
+                err = d;
+                goto failed;
+            }
+            rbyd->off += d;
+
+            // terminate with a null tag
+            d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+                    LFSR_TAG_NULL, 0, 0,
+                    &rbyd->crc);
+            if (d < 0) {
+                err = d;
+                goto failed;
+            }
+            rbyd->off += d;
+
+            trunk_count += 1;
+        }
+        layer_end = rbyd->off;
+    }
+
+    // TODO if we use trunk=0 special this way, should fetch
+    // also use trunk=0 for its "no-mdir" test?
+
+    // done! just need to update our trunk/weight
+    if (trunk_count >= 1) {
+        rbyd->trunk = layer_start;
+    }
+    rbyd->weight = trunk_w;
+
+    return 0;
+
+failed:;
+    // if we fail mark the rbyd as unerased and release the pcache
+    lfs_cache_zero(lfs, &lfs->pcache);
+    rbyd->off = lfs->cfg->block_size;
+    return err;
+
+#else
+    // optionally drop the first name in our rbyd, a so-called "vestigial"
+    // name, see lfsr_btree_commit for why we need to do this
+    lfs_ssize_t id = start_id;
+    // TODO vestigial names?
+    //lfsr_tag_t tag = (drop_vestigial ? lfsr_tag_next(LFSR_TAG_BRANCH) : 0);
+    lfsr_tag_t tag = 0;
+
     // try to copy over tags
     while (true) {
         lfsr_data_t data;
@@ -2598,6 +2807,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             return err;
         }
     }
+#endif
 }
 
 static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
