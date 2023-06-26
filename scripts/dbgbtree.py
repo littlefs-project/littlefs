@@ -25,7 +25,6 @@ TAG_MTREE       = 0x0306
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0500
 TAG_ALT         = 0x4000
-TAG_ALTA        = 0x6000
 TAG_CRC         = 0x2000
 TAG_FCRC        = 0x2100
 
@@ -164,12 +163,6 @@ def tagrepr(tag, w, size, off=None):
         return 'fcrc%s %d' % (
             ' 0x%x' % w if w > 0 else '',
             size)
-    elif tag == TAG_ALTA:
-        return 'alta w%d %s' % (
-            w,
-            '0x%x' % (0xffffffff & (off-size))
-                if off is not None
-                else '-%d' % off)
     elif tag & 0x4000:
         return 'alt%s%s 0x%x w%d %s' % (
             'r' if tag & 0x1000 else 'b',
@@ -290,7 +283,7 @@ class Rbyd:
                 weight__ += w
 
                 # end of trunk?
-                if not tag & 0x4000 or tag == TAG_ALTA:
+                if not tag & 0x4000:
                     wastrunk = False
                     # update weight
                     weight_ = weight__

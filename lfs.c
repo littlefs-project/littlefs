@@ -625,7 +625,6 @@ enum lfsr_tag_type {
     LFSR_TAG_ALTGT          = 0x6000,
     LFSR_TAG_ALTBGT         = 0x6000,
     LFSR_TAG_ALTRGT         = 0x7000,
-    LFSR_TAG_ALTA           = 0x6000,
 
     LFSR_TAG_CRC            = 0x2000,
     LFSR_TAG_FCRC           = 0x2100,
@@ -725,12 +724,8 @@ static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
     return tag & 0x4000;
 }
 
-static inline bool lfsr_tag_istrunkstart(lfsr_tag_t tag) {
+static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
     return (tag & 0x6000) != 0x2000;
-}
-
-static inline bool lfsr_tag_istrunkend(lfsr_tag_t tag) {
-    return !lfsr_tag_isalt(tag) || tag == LFSR_TAG_ALTA;
 }
 
 static inline lfsr_tag_t lfsr_tag_next(lfsr_tag_t tag) {
@@ -1718,7 +1713,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         // found a trunk of a tree?
-        if (lfsr_tag_istrunkstart(tag)
+        if (lfsr_tag_istrunk(tag)
                 && (!trunk || trunk >= off-d || wastrunk)) {
             // start of trunk?
             if (!wastrunk) {
@@ -1738,7 +1733,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             weight_ += w;
 
             // end of trunk?
-            if (lfsr_tag_istrunkend(tag)) {
+            if (!lfsr_tag_isalt(tag)) {
                 wastrunk = false;
                 // update current weight
                 weight = weight_;
@@ -2448,7 +2443,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                                 < lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag)) {
             // if removed, make our tag unreachable
-            alt = LFSR_TAG_ALTA;
+            alt = LFSR_TAG_ALTGT(false, 0);
             weight = upper_id - lower_id - 1 + delta;
             upper_id -= weight;
         } else {
@@ -2471,7 +2466,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                                 > lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag)) {
             // if removed, make our tag unreachable
-            alt = LFSR_TAG_ALTA;
+            alt = LFSR_TAG_ALTGT(false, 0);
             weight = upper_id - lower_id - 1 + delta;
             upper_id -= weight;
         } else {
@@ -2505,30 +2500,30 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         goto failed;
     }
 
-    // we don't need to write the tag if we ended with an unreachable trunk
-    if (alt != LFSR_TAG_ALTA) {
 leaf:;
-        // write the actual tag
-        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
-                // rm => null, otherwise strip off control bits
-                (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_key(tag)),
-                upper_id - lower_id - 1 + delta,
-                lfsr_data_size(data),
-                &rbyd->crc);
-        if (d < 0) {
-            err = d;
-            goto failed;
-        }
-        rbyd->off += d;
-
-        // don't forget the data!
-        err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->off, data,
-                &rbyd->crc);
-        if (err) {
-            goto failed;
-        }
-        rbyd->off += lfsr_data_size(data);
+    // write the actual tag
+    //
+    // note we always need a non-alt to terminate the trunk, otherwise we
+    // can't find trunks during fetch
+    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+            // rm => null, otherwise strip off control bits
+            (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_key(tag)),
+            upper_id - lower_id - 1 + delta,
+            lfsr_data_size(data),
+            &rbyd->crc);
+    if (d < 0) {
+        err = d;
+        goto failed;
     }
+    rbyd->off += d;
+
+    // don't forget the data!
+    err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->off, data,
+            &rbyd->crc);
+    if (err) {
+        goto failed;
+    }
+    rbyd->off += lfsr_data_size(data);
 
     return 0;
 

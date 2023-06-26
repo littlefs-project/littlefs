@@ -34,7 +34,6 @@ TAG_MTREE       = 0x0306
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0500
 TAG_ALT         = 0x4000
-TAG_ALTA        = 0x6000
 TAG_CRC         = 0x2000
 TAG_FCRC        = 0x2100
 
@@ -166,12 +165,6 @@ def tagrepr(tag, w, size, off=None):
         return 'fcrc%s %d' % (
             ' 0x%x' % w if w > 0 else '',
             size)
-    elif tag == TAG_ALTA:
-        return 'alta w%d %s' % (
-            w,
-            '0x%x' % (0xffffffff & (off-size))
-                if off is not None
-                else '-%d' % off)
     elif tag & 0x4000:
         return 'alt%s%s 0x%x w%d %s' % (
             'r' if tag & 0x1000 else 'b',
@@ -309,15 +302,14 @@ def dbg_log(data, block_size, rev, off, weight, *,
                 else:
                     upper_ += w
 
-                if not tag & 0x4000 or tag == TAG_ALTA:
+                if not tag & 0x4000:
                     wastrunk = False
                     # derive the current tag's id from alt weights
                     delta = (lower_+upper_) - weight_
                     weight_ = lower_+upper_
                     id = lower_ + w-1
 
-            if ((tag & 0xe000) != 0x2000
-                    and (not tag & 0x4000 or tag == TAG_ALTA)):
+            if (tag & 0xe000) != 0x2000 and not tag & 0x4000:
                 # note we ignore out-of-bounds here for debugging
                 if delta > 0:
                     # grow lifetimes
@@ -466,7 +458,7 @@ def dbg_log(data, block_size, rev, off, weight, *,
             else:
                 upper_ += w
 
-            if not tag & 0x4000 or tag == TAG_ALTA:
+            if not tag & 0x4000:
                 wastrunk = False
                 # derive the current tag's id from alt weights
                 id = lower_ + w-1
@@ -478,8 +470,7 @@ def dbg_log(data, block_size, rev, off, weight, *,
             '\x1b[m' if color and j >= off else '',
             lifetime_width, lifetimerepr(j) if args.get('lifetimes') else '',
             '\x1b[90m' if color and j >= off else '',
-            w_width, '-' if tag == TAG_ALTA
-                else '' if (tag & 0xe000) != 0x0000
+            w_width, '' if (tag & 0xe000) != 0x0000
                 else '%d-%d' % (id-(w-1), id) if w > 1
                 else id,
             '%-22s%s' % (
@@ -896,7 +887,7 @@ def main(disk, blocks=None, *,
                 weight__ += w
 
                 # end of trunk?
-                if not tag & 0x4000 or tag == TAG_ALTA:
+                if not tag & 0x4000:
                     wastrunk = False
                     # update weight
                     weight_ = weight__
