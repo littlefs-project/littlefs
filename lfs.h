@@ -374,8 +374,8 @@ typedef struct lfsr_mdir {
     //  -1 => mroot
     // >=0 => bid in the mtree
     lfs_ssize_t mid;
-    lfs_block_t other_block;
     lfsr_rbyd_t rbyd;
+    lfs_block_t redund_block;
 } lfsr_mdir_t;
 
 typedef struct lfsr_openedmdir {
