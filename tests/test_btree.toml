@@ -11,11 +11,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create an empty tree
@@ -42,11 +42,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
@@ -81,11 +81,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
@@ -127,11 +127,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
@@ -174,11 +174,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
@@ -228,11 +228,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
@@ -285,11 +285,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -337,11 +337,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -402,11 +402,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -486,11 +486,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -568,11 +568,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -707,11 +707,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
@@ -748,11 +748,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
@@ -799,11 +799,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
@@ -861,11 +861,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -944,11 +944,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -1039,11 +1039,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -1139,11 +1139,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -1289,11 +1289,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
@@ -1342,11 +1342,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
@@ -1409,11 +1409,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
@@ -1476,11 +1476,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
@@ -1560,11 +1560,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -1651,11 +1651,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -1754,11 +1754,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -1852,11 +1852,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -1982,11 +1982,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -2142,11 +2142,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -2211,11 +2211,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -2300,11 +2300,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -2370,11 +2370,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -2532,11 +2532,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -2660,11 +2660,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -2832,11 +2832,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a zero-entry tree
@@ -2863,11 +2863,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a single-entry tree
@@ -2910,11 +2910,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
@@ -2968,11 +2968,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
@@ -3037,11 +3037,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a two-entry tree
@@ -3107,11 +3107,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -3184,11 +3184,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -3292,11 +3292,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -3371,11 +3371,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -3532,11 +3532,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -3717,11 +3717,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree
@@ -3939,11 +3939,11 @@ code = '''
     lfs_t lfs;
     lfs_init(&lfs, cfg) => 0;
     // create free lookahead
-    memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-    lfs.free.off = 0;
-    lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
             lfs.cfg->block_count);
-    lfs.free.i = 0;
+    lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
     // create a tree with N elements
@@ -4070,11 +4070,11 @@ code = '''
         lfs_t lfs;
         lfs_init(&lfs, cfg) => 0;
         // create free lookahead
-        memset(lfs.free.buffer, 0, lfs.cfg->lookahead_size);
-        lfs.free.off = 0;
-        lfs.free.size = lfs_min(8*lfs.cfg->lookahead_size,
+        memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+        lfs.lookahead.start = 0;
+        lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
                 lfs.cfg->block_count);
-        lfs.free.i = 0;
+        lfs.lookahead.next = 0;
         lfs_alloc_ack(&lfs);
 
         // create a btree

@@ -1,3 +1,177 @@
+
+# Tests covering properties of the block allocator
+
+# TODO test all of these with weird block sizes? would be nice to make this
+# easy via the test_runner, either by handling it there or letting a single
+# config limit the block count by a couple blocks
+
+# test that we can alloc
+[cases.test_alloc_blocks]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // start allocating
+    lfs_alloc_ack(&lfs);
+    lfs_size_t alloced = 0;
+    while (true) {
+        lfs_block_t block;
+        int err = lfs_alloc(&lfs, &block);
+        assert(!err || err == LFS_ERR_NOSPC);
+
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        alloced += 1;
+
+        // our allocator should stop at some point...
+        assert(alloced < 2*BLOCK_COUNT);
+    }
+
+    // excluding our mroot, we should have allocated exactly
+    // block_count-2 blocks
+    printf("alloced %d/%d blocks\n", alloced, (lfs_block_t)BLOCK_COUNT);
+    assert(alloced == BLOCK_COUNT-2);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that we can realloc after an ack
+[cases.test_alloc_reuse]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // start allocating
+    lfs_alloc_ack(&lfs);
+    lfs_size_t alloced = 0;
+    while (true) {
+        lfs_block_t block;
+        int err = lfs_alloc(&lfs, &block);
+        assert(!err || err == LFS_ERR_NOSPC);
+
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        alloced += 1;
+
+        // our allocator should stop at some point...
+        assert(alloced < 2*BLOCK_COUNT);
+    }
+
+    // excluding our mroot, we should have allocated exactly
+    // block_count-2 blocks
+    printf("alloced %d/%d blocks\n", alloced, (lfs_block_t)BLOCK_COUNT);
+    assert(alloced == BLOCK_COUNT-2);
+
+    // ack again, effectively releasing all the previously alloced blocks
+    lfs_alloc_ack(&lfs);
+    alloced = 0;
+    while (true) {
+        lfs_block_t block;
+        int err = lfs_alloc(&lfs, &block);
+        assert(!err || err == LFS_ERR_NOSPC);
+
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+        alloced += 1;
+
+        // our allocator should stop at some point...
+        assert(alloced < 2*BLOCK_COUNT);
+    }
+
+    // excluding our mroot, we should have allocated exactly
+    // block_count-2 blocks
+    printf("alloced %d/%d blocks\n", alloced, (lfs_block_t)BLOCK_COUNT);
+    assert(alloced == BLOCK_COUNT-2);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that we can alloc an mtree, the difference between this and mtree tests
+# is we expect this to be able to handle wrap-around
+[cases.test_alloc_mtree]
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, lfsr_mtree_weight(&lfs)-1, &mdir) => 0;
+    lfs_ssize_t rid = 0;
+
+    lfs_size_t count = 0;
+    while (true) {
+        // at least try to catch infinite loops
+        assert(count < BLOCK_SIZE * BLOCK_COUNT/2);
+
+        // ack before each commit to reset the allocator
+        lfs_alloc_ack(&lfs);
+
+        // keep creating new metadata entries until we run out of space
+        int err = lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                LFSR_ATTR(rid, INLINED, +1, &alphas[count % 26], 1)));
+        assert(!err || err == LFS_ERR_NOSPC);
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+
+        uint8_t buffer[4];
+        lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                buffer, 4) => 1;
+        assert(memcmp(buffer, &alphas[count % 26], 1) == 0);
+
+        count += 1;
+        rid += 1;
+    }
+
+    printf("alloced %d metadata entries in %d blocks\n",
+            count, (lfs_block_t)BLOCK_COUNT);
+
+    // test that all of our metadata entries are still there
+    lfs_size_t i = 0;
+    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
+            mid < lfsr_mtree_weight(&lfs);
+            mid++) {
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        for (lfs_ssize_t rid = 0;
+                rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                rid++) {
+            uint8_t buffer[4];
+            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                    buffer, 4) => 1;
+            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+            i += 1;
+        }
+    }
+    assert(i == count);
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## allocator tests
 ## note for these to work there are a number constraints on the device geometry
 #if = 'BLOCK_CYCLES == -1'
