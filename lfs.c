@@ -4448,13 +4448,6 @@ static int lfs_fs_rawstat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
         fsinfo->disk_version = superblock.version;
     }
 
-    // find the current block usage
-    lfs_ssize_t usage = lfs_fs_rawsize(lfs);
-    if (usage < 0) {
-        return usage;
-    }
-    fsinfo->block_usage = usage;
-
     // other on-disk configuration, we cache all of these for internal use
     fsinfo->name_max = lfs->name_max;
     fsinfo->file_max = lfs->file_max;

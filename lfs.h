@@ -285,12 +285,6 @@ struct lfs_fsinfo {
     // On-disk version.
     uint32_t disk_version;
 
-    // Number of blocks in use, this is the same as lfs_fs_size.
-    //
-    // Note: block_usage is best effort. If files share COW structures, the
-    // calculated block_usage may be larger than the actual contents on-disk.
-    lfs_size_t block_usage;
-
     // Upper limit on the length of file names in bytes.
     lfs_size_t name_max;
 
