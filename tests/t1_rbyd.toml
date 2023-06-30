@@ -13,7 +13,7 @@ defines.ERASE_VALUE = [0xff, 0x00, 0x1b]
 # waste time when testing
 defines.BLOCK_SIZE = 32768
 
-[cases.test_rbyd_commit]
+[cases.t1_rbyd_commit]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -44,7 +44,7 @@ code = '''
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
 '''
 
-[cases.test_rbyd_multi_commit]
+[cases.t1_rbyd_multi_commit]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -76,7 +76,7 @@ code = '''
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
 '''
 
-[cases.test_rbyd_commit_fetch_commit]
+[cases.t1_rbyd_commit_fetch_commit]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -104,12 +104,12 @@ code = '''
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
 '''
 
-# [cases.test_rbyd_fetchmatch]
-# [cases.test_rbyd_multi_fetchmatch]
+# [cases.t1_rbyd_fetchmatch]
+# [cases.t1_rbyd_multi_fetchmatch]
 
 # TODO we really need to test dense keys...
 
-[cases.test_rbyd_lookup]
+[cases.t1_rbyd_lookup]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -219,7 +219,7 @@ code = '''
             &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_multi_lookup]
+[cases.t1_rbyd_multi_lookup]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -331,7 +331,7 @@ code = '''
             &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_get]
+[cases.t1_rbyd_get]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -410,7 +410,7 @@ code = '''
             => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_multi_get]
+[cases.t1_rbyd_multi_get]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -491,7 +491,7 @@ code = '''
             => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_bifoliate]
+[cases.t1_rbyd_bifoliate]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -554,7 +554,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_bflips]
+[cases.t1_rbyd_bflips]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -619,7 +619,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_trifoliate]
+[cases.t1_rbyd_trifoliate]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -698,7 +698,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_rflips]
+[cases.t1_rbyd_rflips]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -841,7 +841,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_quadrifoliate]
+[cases.t1_rbyd_quadrifoliate]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1012,7 +1012,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_rotations]
+[cases.t1_rbyd_rotations]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1183,7 +1183,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_ysplits]
+[cases.t1_rbyd_ysplits]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1362,7 +1362,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_quintifoliate]
+[cases.t1_rbyd_quintifoliate]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1569,7 +1569,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_prunes]
+[cases.t1_rbyd_prunes]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1735,7 +1735,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_sextifoliate]
+[cases.t1_rbyd_sextifoliate]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -1918,7 +1918,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_permutations]
+[cases.t1_rbyd_permutations]
 defines.N = 'range(1, 8)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -2007,7 +2007,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_multi_permutations]
+[cases.t1_rbyd_multi_permutations]
 defines.N = 'range(1, 8)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -2094,7 +2094,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_traverse]
+[cases.t1_rbyd_traverse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2183,7 +2183,7 @@ code = '''
             &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_multi_traverse]
+[cases.t1_rbyd_multi_traverse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2274,7 +2274,7 @@ code = '''
             &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_traverse_permutations]
+[cases.t1_rbyd_traverse_permutations]
 defines.N = 'range(1, 8)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -2344,7 +2344,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_multi_traverse_permutations]
+[cases.t1_rbyd_multi_traverse_permutations]
 defines.N = 'range(1, 8)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -2415,7 +2415,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_update_permutations]
+[cases.t1_rbyd_update_permutations]
 defines.N = 'range(1, 8)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -2526,7 +2526,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_large]
+[cases.t1_rbyd_large]
 in = 'lfs.c'
 # ORDER:
 # 0 = in-order
@@ -2593,7 +2593,7 @@ code = '''
 
 ### Removal testing ###
 
-[cases.test_rbyd_remove]
+[cases.t1_rbyd_remove]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -2699,7 +2699,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_remove_permutations]
+[cases.t1_rbyd_remove_permutations]
 defines.N = 'range(1, 7)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -2849,7 +2849,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_remove_traverse_permutations]
+[cases.t1_rbyd_remove_traverse_permutations]
 defines.N = 'range(1, 7)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -2949,7 +2949,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_remove_missing]
+[cases.t1_rbyd_remove_missing]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3098,7 +3098,7 @@ code = '''
             &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_remove_again]
+[cases.t1_rbyd_remove_again]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3333,7 +3333,7 @@ code = '''
             &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_remove_all]
+[cases.t1_rbyd_remove_all]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3415,7 +3415,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_remove_all_permutations]
+[cases.t1_rbyd_remove_all_permutations]
 defines.N = 'range(1, 7)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -3540,7 +3540,7 @@ code = '''
 
 # the main purpose of this test is to try to fuzz for failures in the
 # balancing algorithm
-[cases.test_rbyd_fuzz_append_removes]
+[cases.t1_rbyd_fuzz_append_removes]
 defines.N = 'range(1, 33)'
 defines.SAMPLES = 1000
 # -1 => all pseudo-random seeds
@@ -3682,7 +3682,7 @@ code = '''
 
 ### Insertion testing ###
 
-[cases.test_rbyd_create]
+[cases.t1_rbyd_create]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3829,7 +3829,7 @@ code = '''
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
 '''
 
-[cases.test_rbyd_multi_create]
+[cases.t1_rbyd_multi_create]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -3986,7 +3986,7 @@ code = '''
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
 '''
 
-[cases.test_rbyd_create_permutations]
+[cases.t1_rbyd_create_permutations]
 defines.N = 'range(1, 8)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -4086,7 +4086,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_multi_create_permutations]
+[cases.t1_rbyd_multi_create_permutations]
 defines.N = 'range(1, 8)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -4185,7 +4185,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_create_traverse]
+[cases.t1_rbyd_create_traverse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4291,7 +4291,7 @@ code = '''
             &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_multi_create_traverse]
+[cases.t1_rbyd_multi_create_traverse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4399,7 +4399,7 @@ code = '''
             &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_create_traverse_permutations]
+[cases.t1_rbyd_create_traverse_permutations]
 defines.N = 'range(1, 8)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -4489,7 +4489,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_multi_create_traverse_permutations]
+[cases.t1_rbyd_multi_create_traverse_permutations]
 defines.N = 'range(1, 8)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -4577,7 +4577,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_create_large]
+[cases.t1_rbyd_create_large]
 in = 'lfs.c'
 # ORDER:
 # 0 = in-order
@@ -4650,7 +4650,7 @@ code = '''
 
 ### Mixed create and attr testing ###
 
-[cases.test_rbyd_mixed]
+[cases.t1_rbyd_mixed]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4884,7 +4884,7 @@ code = '''
     assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
 '''
 
-[cases.test_rbyd_multi_mixed]
+[cases.t1_rbyd_multi_mixed]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -5140,7 +5140,7 @@ code = '''
     assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
 '''
 
-[cases.test_rbyd_mixed_permutations]
+[cases.t1_rbyd_mixed_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
 # -1 => exhaust all permutations
@@ -5252,7 +5252,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_multi_mixed_permutations]
+[cases.t1_rbyd_multi_mixed_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
 # -1 => exhaust all permutations
@@ -5363,7 +5363,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_mixed_traverse]
+[cases.t1_rbyd_mixed_traverse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -5529,7 +5529,7 @@ code = '''
             &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_multi_mixed_traverse]
+[cases.t1_rbyd_multi_mixed_traverse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -5701,7 +5701,7 @@ code = '''
             &id_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_mixed_traverse_permutations]
+[cases.t1_rbyd_mixed_traverse_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
 # -1 => exhaust all permutations
@@ -5809,7 +5809,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_multi_mixed_traverse_permutations]
+[cases.t1_rbyd_multi_mixed_traverse_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
 # -1 => exhaust all permutations
@@ -5918,7 +5918,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_mixed_update_permutations]
+[cases.t1_rbyd_mixed_update_permutations]
 defines.N = 'range(1, 4)'
 defines.M = 'range(1, 3)'
 # -1 => exhaust all permutations
@@ -6046,7 +6046,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_mixed_remove_permutations]
+[cases.t1_rbyd_mixed_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
 # -1 => exhaust all permutations
@@ -6240,7 +6240,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_mixed_remove_all_permutations]
+[cases.t1_rbyd_mixed_remove_all_permutations]
 defines.N = 'range(1, 4)'
 defines.M = 'range(1, 3)'
 # -1 => exhaust all permutations
@@ -6365,7 +6365,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_mixed_large]
+[cases.t1_rbyd_mixed_large]
 in = 'lfs.c'
 # ORDER:
 # 0 = in-order
@@ -6456,7 +6456,7 @@ code = '''
 
 ### Test unrelated no-id tags ###
 
-[cases.test_rbyd_unrelated_create_permutations]
+[cases.t1_rbyd_unrelated_create_permutations]
 defines.N = 'range(1, 8)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -6594,7 +6594,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_unrelated_mixed_permutations]
+[cases.t1_rbyd_unrelated_mixed_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
 # -1 => exhaust all permutations
@@ -6757,7 +6757,7 @@ code = '''
 
 ### Deletion testing ###
 
-[cases.test_rbyd_delete]
+[cases.t1_rbyd_delete]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -6883,7 +6883,7 @@ code = '''
     lfsr_rbyd_get(&lfs, &rbyd, 2, LFSR_TAG_REG, buffer, 4) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_delete_range]
+[cases.t1_rbyd_delete_range]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -7123,7 +7123,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_delete_permutations]
+[cases.t1_rbyd_delete_permutations]
 defines.N = 'range(1, 7)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -7276,7 +7276,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_delete_range_permutations]
+[cases.t1_rbyd_delete_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
 # -1 => exhaust all permutations
@@ -7467,7 +7467,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_delete_traverse_permutations]
+[cases.t1_rbyd_delete_traverse_permutations]
 defines.N = 'range(1, 7)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -7590,7 +7590,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_delete_traverse_range_permutations]
+[cases.t1_rbyd_delete_traverse_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
 # -1 => exhaust all permutations
@@ -7735,7 +7735,7 @@ code = '''
 
 # Note, "delete_all" is a weird state for rbyd trees to be in, since they
 # don't really have a trunk at this point
-[cases.test_rbyd_delete_all]
+[cases.t1_rbyd_delete_all]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -7849,7 +7849,7 @@ code = '''
             => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_delete_all_range]
+[cases.t1_rbyd_delete_all_range]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -7976,7 +7976,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_delete_all_permutations]
+[cases.t1_rbyd_delete_all_permutations]
 defines.N = 'range(1, 7)'
 # -1 => exhaust all permutations
 #  n => reproduce a specific permutation
@@ -8117,7 +8117,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_delete_all_range_permutations]
+[cases.t1_rbyd_delete_all_range_permutations]
 defines.N = 'range(1, 7)'
 defines.M = 'range(1, 4)'
 # -1 => exhaust all permutations
@@ -8277,7 +8277,7 @@ code = '''
 
 # the main purpose of this test is to try to fuzz for failures in the
 # balancing algorithm
-[cases.test_rbyd_fuzz_create_deletes]
+[cases.t1_rbyd_fuzz_create_deletes]
 defines.N = 'range(1, 33)'
 defines.SAMPLES = 1000
 # -1 => all pseudo-random seeds
@@ -8418,7 +8418,7 @@ code = '''
 
 
 # Test rbyd weights
-[cases.test_rbyd_sparse]
+[cases.t1_rbyd_sparse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -8655,7 +8655,7 @@ code = '''
     assert(lfsr_data_size(data_) == 4);
 '''
 
-[cases.test_rbyd_sparse_traverse]
+[cases.t1_rbyd_sparse_traverse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -8757,7 +8757,7 @@ code = '''
             &id_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_sparse_permutations]
+[cases.t1_rbyd_sparse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
 # -1 => exhaust all permutations
@@ -8843,7 +8843,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_sparse_traverse_permutations]
+[cases.t1_rbyd_sparse_traverse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
 # -1 => exhaust all permutations
@@ -8935,7 +8935,7 @@ code = '''
 '''
 
 # Weights mixed with attributes
-[cases.test_rbyd_sparse_mixed]
+[cases.t1_rbyd_sparse_mixed]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -9607,7 +9607,7 @@ code = '''
     assert(lfsr_data_size(data_) == 2);
 '''
 
-[cases.test_rbyd_sparse_mixed_traverse]
+[cases.t1_rbyd_sparse_mixed_traverse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -9856,7 +9856,7 @@ code = '''
             &id_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
-[cases.test_rbyd_sparse_mixed_permutations]
+[cases.t1_rbyd_sparse_mixed_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
 # -1 => exhaust all permutations
@@ -9967,7 +9967,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_sparse_mixed_traverse_permutations]
+[cases.t1_rbyd_sparse_mixed_traverse_permutations]
 defines.N = 'range(1, 8)'
 defines.W = 5
 # -1 => exhaust all permutations
@@ -10087,7 +10087,7 @@ code = '''
 
 # other sparse testing, various grow/shrink corner cases
 
-[cases.test_rbyd_sparse_grow_permutations]
+[cases.t1_rbyd_sparse_grow_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
@@ -10213,7 +10213,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_sparse_grupdate_permutations]
+[cases.t1_rbyd_sparse_grupdate_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
@@ -10348,7 +10348,7 @@ code = '''
 
 # I don't know if this actually happens in littlefs, but this tests a specific
 # code path in lfsr_rbyd_append (split altgt + shrinking)
-[cases.test_rbyd_sparse_grappend_permutations]
+[cases.t1_rbyd_sparse_grappend_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
@@ -10496,7 +10496,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_sparse_shrink_permutations]
+[cases.t1_rbyd_sparse_shrink_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
@@ -10622,7 +10622,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_sparse_shrupdate_permutations]
+[cases.t1_rbyd_sparse_shrupdate_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
@@ -10757,7 +10757,7 @@ code = '''
 
 # I don't know if this actually happens in littlefs, but this tests a specific
 # code path in lfsr_rbyd_append (split altgt + shrinking)
-[cases.test_rbyd_sparse_shrappend_permutations]
+[cases.t1_rbyd_sparse_shrappend_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
 defines.D = [1, 2]
@@ -10905,7 +10905,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_sparse_delete_permutations]
+[cases.t1_rbyd_sparse_delete_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
 # -1 => exhaust all permutations
@@ -11058,7 +11058,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_sparse_attr_permutations]
+[cases.t1_rbyd_sparse_attr_permutations]
 defines.N = 'range(1, 7)'
 defines.W = 5
 # -1 => exhaust all permutations
@@ -11236,7 +11236,7 @@ code = '''
 
 # Some more fuzzish testing
 
-[cases.test_rbyd_fuzz_mixed]
+[cases.t1_rbyd_fuzz_mixed]
 defines.N = 'range(1, 33)'
 defines.M = 3
 defines.SAMPLES = 1000
@@ -11418,7 +11418,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_fuzz_sparse]
+[cases.t1_rbyd_fuzz_sparse]
 defines.N = 'range(1, 33)'
 defines.W = 5
 defines.SAMPLES = 1000
@@ -11644,7 +11644,7 @@ code = '''
 
 ### Wide-tag things ###
 
-[cases.test_rbyd_wide_lookup_permutations]
+[cases.t1_rbyd_wide_lookup_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -11729,7 +11729,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_remove_permutations]
+[cases.t1_rbyd_wide_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -11866,7 +11866,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_replace_permutations]
+[cases.t1_rbyd_wide_replace_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12007,7 +12007,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_wide_mixed_lookup_permutations]
+[cases.t1_rbyd_wide_mixed_lookup_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12093,7 +12093,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_mixed_remove_permutations]
+[cases.t1_rbyd_wide_mixed_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12238,7 +12238,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_mixed_replace_permutations]
+[cases.t1_rbyd_wide_mixed_replace_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12387,7 +12387,7 @@ code = '''
     }
 '''
 
-[cases.test_rbyd_wide_weighted_lookup_permutations]
+[cases.t1_rbyd_wide_weighted_lookup_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12471,7 +12471,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_weighted_remove_permutations]
+[cases.t1_rbyd_wide_weighted_remove_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
@@ -12610,7 +12610,7 @@ code = '''
 
 # NOTE if we separate physical/logical block sizes we may be able to
 # use emubd's copy-on-write copy to speed this up significantly
-[cases.test_rbyd_wide_weighted_replace_permutations]
+[cases.t1_rbyd_wide_weighted_replace_permutations]
 defines.N = 'range(1, 7)'
 defines.SHIFT = [0, 3, -3]
 # -1 => exhaust all permutations
