@@ -22,7 +22,6 @@ code = '''
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -60,7 +59,7 @@ code = '''
     }
     BENCH_STOP();
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
 '''
 
 [cases.bench_rbyd_attr_fetch]
@@ -80,7 +79,6 @@ code = '''
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -117,7 +115,7 @@ code = '''
     }
 
     BENCH_START();
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
     BENCH_STOP();
 '''
 
@@ -138,7 +136,6 @@ code = '''
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -174,13 +171,13 @@ code = '''
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
     lfsr_data_t data_;
     int err = lfsr_rbyd_lookup(&lfs, &rbyd, -1, LFSR_TAG_UATTR(i_ & 0xff),
-            &data_);
+            NULL, &data_);
     // note that random order may have some collisions
     assert(!err || err == LFS_ERR_NOENT);
     BENCH_STOP();
@@ -203,7 +200,6 @@ code = '''
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -239,7 +235,7 @@ code = '''
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
@@ -270,7 +266,6 @@ code = '''
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -306,7 +301,7 @@ code = '''
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
@@ -336,7 +331,6 @@ code = '''
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -355,7 +349,7 @@ code = '''
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
-            attrs[i] = LFSR_ATTR(i_, MKREG, +1, "\xaa\xaa\xaa\xaa", 4);
+            attrs[i] = LFSR_ATTR(i_, REG, +1, "\xaa\xaa\xaa\xaa", 4);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs, N) => 0;
     } else {
@@ -365,12 +359,12 @@ code = '''
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(i_, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+                    LFSR_ATTR(i_, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
         }
     }
     BENCH_STOP();
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
 '''
 
 [cases.bench_rbyd_id_fetch]
@@ -390,7 +384,6 @@ code = '''
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -408,7 +401,7 @@ code = '''
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
-            attrs[i] = LFSR_ATTR(i_, MKREG, +1, "\xaa\xaa\xaa\xaa", 4);
+            attrs[i] = LFSR_ATTR(i_, REG, +1, "\xaa\xaa\xaa\xaa", 4);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs, N) => 0;
     } else {
@@ -418,12 +411,12 @@ code = '''
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(i_, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+                    LFSR_ATTR(i_, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
         }
     }
 
     BENCH_START();
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
     BENCH_STOP();
 '''
 
@@ -444,7 +437,6 @@ code = '''
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -462,7 +454,7 @@ code = '''
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
-            attrs[i] = LFSR_ATTR(i_, MKREG, +1, "\xaa\xaa\xaa\xaa", 4);
+            attrs[i] = LFSR_ATTR(i_, REG, +1, "\xaa\xaa\xaa\xaa", 4);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs, N) => 0;
     } else {
@@ -472,16 +464,17 @@ code = '''
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(i_, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+                    LFSR_ATTR(i_, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
     lfsr_data_t data_;
-    lfsr_rbyd_lookup(&lfs, &rbyd, i_, LFSR_TAG_REG, &data_) => 0;
+    lfsr_rbyd_lookup(&lfs, &rbyd, i_, LFSR_TAG_REG,
+            NULL, &data_) => 0;
     BENCH_STOP();
 '''
 
@@ -502,7 +495,6 @@ code = '''
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -520,7 +512,7 @@ code = '''
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
-            attrs[i] = LFSR_ATTR(i_, MKREG, +1, "\xaa\xaa\xaa\xaa", 4);
+            attrs[i] = LFSR_ATTR(i_, REG, +1, "\xaa\xaa\xaa\xaa", 4);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs, N) => 0;
     } else {
@@ -530,16 +522,16 @@ code = '''
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(i_, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+                    LFSR_ATTR(i_, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % (N+1);
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(i_, MKREG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
+            LFSR_ATTR(i_, REG, +1, "\xbb\xbb\xbb\xbb", 4))) => 0;
     BENCH_STOP();
 
     uint8_t buffer[4];
@@ -564,7 +556,6 @@ code = '''
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
-        .rev = 1,
         .off = 0,
         .crc = 0,
         .trunk = 0,
@@ -582,7 +573,7 @@ code = '''
                     = (ORDER == 0) ? i
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
-            attrs[i] = LFSR_ATTR(i_, MKREG, +1, "\xaa\xaa\xaa\xaa", 4);
+            attrs[i] = LFSR_ATTR(i_, REG, +1, "\xaa\xaa\xaa\xaa", 4);
         }
         lfsr_rbyd_commit(&lfs, &rbyd, attrs, N) => 0;
     } else {
@@ -592,15 +583,15 @@ code = '''
                     : (ORDER == 1) ? 0
                     : BENCH_PRNG(&prng) % (rbyd.weight+1);
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(i_, MKREG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
+                    LFSR_ATTR(i_, REG, +1, "\xaa\xaa\xaa\xaa", 4))) => 0;
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size, NULL) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
     lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-            LFSR_ATTR(i_, MKUNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(i_, UNR, -1, NULL, 0))) => 0;
     BENCH_STOP();
 '''

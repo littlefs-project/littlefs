@@ -18,6 +18,7 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
 
     // create an mtree with N entries
     for (lfs_size_t i = 0; i < N; i++) {
@@ -39,7 +40,7 @@ code = '''
 
         // create an entry
         lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
+                LFSR_ATTR(rid, INLINED, +1, &alphas[i % 26], 1))) => 0;
     }
 
     // bench lookup
@@ -79,6 +80,7 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
 
     // create an mtree with N entries
     if (AMORTIZED) {
@@ -103,7 +105,7 @@ code = '''
 
         // create an entry
         lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
+                LFSR_ATTR(rid, INLINED, +1, &alphas[i % 26], 1))) => 0;
     }
 
     // bench commit
@@ -128,7 +130,7 @@ code = '''
 
     // create an entry
     lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-            LFSR_ATTR(rid, MKINLINED, +1, "C", 1))) => 0;
+            LFSR_ATTR(rid, INLINED, +1, "C", 1))) => 0;
     BENCH_STOP();
 
     lfsr_unmount(&lfs) => 0;
@@ -150,6 +152,7 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
 
     // create an mtree with N entries
     for (lfs_size_t i = 0; i < N; i++) {
@@ -171,7 +174,7 @@ code = '''
 
         // create an entry
         lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                LFSR_ATTR(rid, MKINLINED, +1, &alphas[i % 26], 1))) => 0;
+                LFSR_ATTR(rid, INLINED, +1, &alphas[i % 26], 1))) => 0;
     }
 
     // traverse the mtree
