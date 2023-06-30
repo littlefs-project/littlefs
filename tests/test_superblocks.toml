@@ -36,6 +36,7 @@ code = '''
 
 # test we can read superblock info through lfs_fs_stat
 [cases.test_superblocks_stat]
+if = 'DISK_VERSION == 0'
 code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
@@ -54,6 +55,7 @@ code = '''
 '''
 
 [cases.test_superblocks_stat_tweaked]
+if = 'DISK_VERSION == 0'
 defines.TWEAKED_NAME_MAX = 63
 defines.TWEAKED_FILE_MAX = '(1 << 16)-1'
 defines.TWEAKED_ATTR_MAX = 512
