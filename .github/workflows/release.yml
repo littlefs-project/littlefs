@@ -102,7 +102,7 @@ jobs:
           # sizes table
           i=0
           j=0
-          for c in "" readonly threadsafe migrate error-asserts
+          for c in "" readonly threadsafe multiversion migrate error-asserts
           do
             # per-config results
             c_or_default=${c:-default}
