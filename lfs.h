@@ -280,6 +280,21 @@ struct lfs_info {
     char name[LFS_NAME_MAX+1];
 };
 
+// Filesystem info structure
+struct lfs_fsinfo {
+    // On-disk version.
+    uint32_t disk_version;
+
+    // Upper limit on the length of file names in bytes.
+    lfs_size_t name_max;
+
+    // Upper limit on the size of files in bytes.
+    lfs_size_t file_max;
+
+    // Upper limit on the size of custom attributes in bytes.
+    lfs_size_t attr_max;
+};
+
 // Custom attribute structure, used to describe custom attributes
 // committed atomically during file writes.
 struct lfs_attr {
@@ -658,6 +673,12 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 
 
 /// Filesystem-level filesystem operations
+
+// Find on-disk info about the filesystem
+//
+// Fills out the fsinfo structure based on the filesystem found on-disk.
+// Returns a negative error code on failure.
+int lfs_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo);
 
 // Finds the current size of the filesystem
 //

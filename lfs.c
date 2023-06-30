@@ -415,11 +415,11 @@ static inline uint8_t lfs_gstate_getorphans(const lfs_gstate_t *a) {
 static inline bool lfs_gstate_hasmove(const lfs_gstate_t *a) {
     return lfs_tag_type1(a->tag);
 }
+#endif
 
 static inline bool lfs_gstate_needssuperblock(const lfs_gstate_t *a) {
     return lfs_tag_size(a->tag) >> 9;
 }
-#endif
 
 static inline bool lfs_gstate_hasmovehere(const lfs_gstate_t *a,
         const lfs_block_t *pair) {
@@ -535,7 +535,6 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file);
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file);
 
 static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss);
-static void lfs_fs_prepsuperblock(lfs_t *lfs, bool needssuperblock);
 static int lfs_fs_preporphans(lfs_t *lfs, int8_t orphans);
 static void lfs_fs_prepmove(lfs_t *lfs,
         uint16_t id, const lfs_block_t pair[2]);
@@ -545,6 +544,8 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
 static int lfs_fs_forceconsistency(lfs_t *lfs);
 #endif
+
+static void lfs_fs_prepsuperblock(lfs_t *lfs, bool needssuperblock);
 
 #ifdef LFS_MIGRATE
 static int lfs1_traverse(lfs_t *lfs,
@@ -4324,11 +4325,9 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
                         "v%"PRIu16".%"PRIu16" < v%"PRIu16".%"PRIu16,
                         major_version, minor_version,
                         LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
-            #ifndef LFS_READONLY
                 // note this bit is reserved on disk, so fetching more gstate
                 // will not interfere here
                 lfs_fs_prepsuperblock(lfs, true);
-            #endif
             }
 
             // check superblock configuration
@@ -4421,6 +4420,42 @@ static int lfs_rawunmount(lfs_t *lfs) {
 
 
 /// Filesystem filesystem operations ///
+static int lfs_fs_rawstat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    // if the superblock is up-to-date, we must be on the most recent
+    // minor version of littlefs
+    if (!lfs_gstate_needssuperblock(&lfs->gstate)) {
+        fsinfo->disk_version = LFS_DISK_VERSION;
+
+    // otherwise we need to read the minor version on disk
+    } else {
+        // fetch the superblock
+        lfs_mdir_t dir;
+        int err = lfs_dir_fetch(lfs, &dir, lfs->root);
+        if (err) {
+            return err;
+        }
+
+        lfs_superblock_t superblock;
+        lfs_stag_t tag = lfs_dir_get(lfs, &dir, LFS_MKTAG(0x7ff, 0x3ff, 0),
+                LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock);
+        if (tag < 0) {
+            return tag;
+        }
+        lfs_superblock_fromle32(&superblock);
+
+        // read the on-disk version
+        fsinfo->disk_version = superblock.version;
+    }
+
+    // other on-disk configuration, we cache all of these for internal use
+    fsinfo->name_max = lfs->name_max;
+    fsinfo->file_max = lfs->file_max;
+    fsinfo->attr_max = lfs->attr_max;
+
+    return 0;
+}
+
 int lfs_fs_rawtraverse(lfs_t *lfs,
         int (*cb)(void *data, lfs_block_t block), void *data,
         bool includeorphans) {
@@ -4631,12 +4666,10 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
 }
 #endif
 
-#ifndef LFS_READONLY
 static void lfs_fs_prepsuperblock(lfs_t *lfs, bool needssuperblock) {
     lfs->gstate.tag = (lfs->gstate.tag & ~LFS_MKTAG(0, 0, 0x200))
             | (uint32_t)needssuperblock << 9;
 }
-#endif
 
 #ifndef LFS_READONLY
 static int lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
@@ -4933,6 +4966,7 @@ static lfs_ssize_t lfs_fs_rawsize(lfs_t *lfs) {
 
     return size;
 }
+
 
 #ifdef LFS_MIGRATE
 ////// Migration from littelfs v1 below this //////
@@ -6049,6 +6083,20 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
     err = lfs_dir_rawrewind(lfs, dir);
 
     LFS_TRACE("lfs_dir_rewind -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_fs_stat(%p, %p)", (void*)lfs, (void*)fsinfo);
+
+    err = lfs_fs_rawstat(lfs, fsinfo);
+
+    LFS_TRACE("lfs_fs_stat -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
