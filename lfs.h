@@ -21,7 +21,7 @@ extern "C"
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS_VERSION 0x00020006
+#define LFS_VERSION 0x00020007
 #define LFS_VERSION_MAJOR (0xffff & (LFS_VERSION >> 16))
 #define LFS_VERSION_MINOR (0xffff & (LFS_VERSION >>  0))
 
@@ -263,6 +263,14 @@ struct lfs_config {
     // can help bound the metadata compaction time. Must be <= block_size.
     // Defaults to block_size when zero.
     lfs_size_t metadata_max;
+
+#ifdef LFS_MULTIVERSION
+    // On-disk version to use when writing in the form of 16-bit major version
+    // + 16-bit minor version. This limiting metadata to what is supported by
+    // older minor versions. Note that some features will be lost. Defaults to 
+    // to the most recent minor version when zero.
+    uint32_t disk_version;
+#endif
 };
 
 // File info structure
@@ -278,6 +286,21 @@ struct lfs_info {
     // reduce RAM. LFS_NAME_MAX is stored in superblock and must be
     // respected by other littlefs drivers.
     char name[LFS_NAME_MAX+1];
+};
+
+// Filesystem info structure
+struct lfs_fsinfo {
+    // On-disk version.
+    uint32_t disk_version;
+
+    // Upper limit on the length of file names in bytes.
+    lfs_size_t name_max;
+
+    // Upper limit on the size of files in bytes.
+    lfs_size_t file_max;
+
+    // Upper limit on the size of custom attributes in bytes.
+    lfs_size_t attr_max;
 };
 
 // Custom attribute structure, used to describe custom attributes
@@ -658,6 +681,12 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 
 
 /// Filesystem-level filesystem operations
+
+// Find on-disk info about the filesystem
+//
+// Fills out the fsinfo structure based on the filesystem found on-disk.
+// Returns a negative error code on failure.
+int lfs_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo);
 
 // Finds the current size of the filesystem
 //

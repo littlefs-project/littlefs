@@ -415,11 +415,11 @@ static inline uint8_t lfs_gstate_getorphans(const lfs_gstate_t *a) {
 static inline bool lfs_gstate_hasmove(const lfs_gstate_t *a) {
     return lfs_tag_type1(a->tag);
 }
+#endif
 
 static inline bool lfs_gstate_needssuperblock(const lfs_gstate_t *a) {
     return lfs_tag_size(a->tag) >> 9;
 }
-#endif
 
 static inline bool lfs_gstate_hasmovehere(const lfs_gstate_t *a,
         const lfs_block_t *pair) {
@@ -518,6 +518,28 @@ static void lfs_mlist_append(lfs_t *lfs, struct lfs_mlist *mlist) {
     lfs->mlist = mlist;
 }
 
+// some other filesystem operations
+static uint32_t lfs_fs_disk_version(lfs_t *lfs) {
+    (void)lfs;
+#ifdef LFS_MULTIVERSION
+    if (lfs->cfg->disk_version) {
+        return lfs->cfg->disk_version;
+    } else
+#endif
+    {
+        return LFS_DISK_VERSION;
+    }
+}
+
+static uint16_t lfs_fs_disk_version_major(lfs_t *lfs) {
+    return 0xffff & (lfs_fs_disk_version(lfs) >> 16);
+
+}
+
+static uint16_t lfs_fs_disk_version_minor(lfs_t *lfs) {
+    return 0xffff & (lfs_fs_disk_version(lfs) >> 0);
+}
+
 
 /// Internal operations predeclared here ///
 #ifndef LFS_READONLY
@@ -535,7 +557,6 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file);
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file);
 
 static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss);
-static void lfs_fs_prepsuperblock(lfs_t *lfs, bool needssuperblock);
 static int lfs_fs_preporphans(lfs_t *lfs, int8_t orphans);
 static void lfs_fs_prepmove(lfs_t *lfs,
         uint16_t id, const lfs_block_t pair[2]);
@@ -545,6 +566,8 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t dir[2],
         lfs_mdir_t *parent);
 static int lfs_fs_forceconsistency(lfs_t *lfs);
 #endif
+
+static void lfs_fs_prepsuperblock(lfs_t *lfs, bool needssuperblock);
 
 #ifdef LFS_MIGRATE
 static int lfs1_traverse(lfs_t *lfs,
@@ -1110,7 +1133,8 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
 
             // next commit not yet programmed?
             if (!lfs_tag_isvalid(tag)) {
-                maybeerased = true;
+                // we only might be erased if the last tag was a crc
+                maybeerased = (lfs_tag_type2(ptag) == LFS_TYPE_CCRC);
                 break;
             // out of range?
             } else if (off + lfs_tag_dsize(tag) > lfs->cfg->block_size) {
@@ -1155,13 +1179,10 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                 dir->tail[1] = temptail[1];
                 dir->split = tempsplit;
 
-                // reset crc
+                // reset crc, hasfcrc
                 crc = 0xffffffff;
                 continue;
             }
-
-            // fcrc is only valid when last tag was a crc
-            hasfcrc = false;
 
             // crc the entry first, hopefully leaving it in the cache
             err = lfs_bd_crc(lfs,
@@ -1256,20 +1277,33 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
 
         // did we end on a valid commit? we may have an erased block
         dir->erased = false;
-        if (maybeerased && hasfcrc && dir->off % lfs->cfg->prog_size == 0) {
-            // check for an fcrc matching the next prog's erased state, if
-            // this failed most likely a previous prog was interrupted, we
-            // need a new erase
-            uint32_t fcrc_ = 0xffffffff;
-            int err = lfs_bd_crc(lfs,
-                    NULL, &lfs->rcache, lfs->cfg->block_size,
-                    dir->pair[0], dir->off, fcrc.size, &fcrc_);
-            if (err && err != LFS_ERR_CORRUPT) {
-                return err;
-            }
+        if (maybeerased && dir->off % lfs->cfg->prog_size == 0) {
+        #ifdef LFS_MULTIVERSION
+            // note versions < lfs2.1 did not have fcrc tags, if
+            // we're < lfs2.1 treat missing fcrc as erased data
+            //
+            // we don't strictly need to do this, but otherwise writing
+            // to lfs2.0 disks becomes very inefficient
+            if (lfs_fs_disk_version(lfs) < 0x00020001) {
+                dir->erased = true;
 
-            // found beginning of erased part?
-            dir->erased = (fcrc_ == fcrc.crc);
+            } else
+        #endif
+            if (hasfcrc) {
+                // check for an fcrc matching the next prog's erased state, if
+                // this failed most likely a previous prog was interrupted, we
+                // need a new erase
+                uint32_t fcrc_ = 0xffffffff;
+                int err = lfs_bd_crc(lfs,
+                        NULL, &lfs->rcache, lfs->cfg->block_size,
+                        dir->pair[0], dir->off, fcrc.size, &fcrc_);
+                if (err && err != LFS_ERR_CORRUPT) {
+                    return err;
+                }
+
+                // found beginning of erased part?
+                dir->erased = (fcrc_ == fcrc.crc);
+            }
         }
 
         // synthetic move
@@ -1605,22 +1639,34 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
                 return err;
             }
 
-            // find the expected fcrc, don't bother avoiding a reread
-            // of the eperturb, it should still be in our cache
-            struct lfs_fcrc fcrc = {.size=lfs->cfg->prog_size, .crc=0xffffffff};
-            err = lfs_bd_crc(lfs,
-                    NULL, &lfs->rcache, lfs->cfg->prog_size,
-                    commit->block, noff, fcrc.size, &fcrc.crc);
-            if (err && err != LFS_ERR_CORRUPT) {
-                return err;
-            }
+        #ifdef LFS_MULTIVERSION
+            // unfortunately fcrcs break mdir fetching < lfs2.1, so only write
+            // these if we're a >= lfs2.1 filesystem
+            if (lfs_fs_disk_version(lfs) <= 0x00020000) {
+                // don't write fcrc
+            } else
+        #endif
+            {
+                // find the expected fcrc, don't bother avoiding a reread
+                // of the eperturb, it should still be in our cache
+                struct lfs_fcrc fcrc = {
+                    .size = lfs->cfg->prog_size,
+                    .crc = 0xffffffff
+                };
+                err = lfs_bd_crc(lfs,
+                        NULL, &lfs->rcache, lfs->cfg->prog_size,
+                        commit->block, noff, fcrc.size, &fcrc.crc);
+                if (err && err != LFS_ERR_CORRUPT) {
+                    return err;
+                }
 
-            lfs_fcrc_tole32(&fcrc);
-            err = lfs_dir_commitattr(lfs, commit,
-                    LFS_MKTAG(LFS_TYPE_FCRC, 0x3ff, sizeof(struct lfs_fcrc)),
-                    &fcrc);
-            if (err) {
-                return err;
+                lfs_fcrc_tole32(&fcrc);
+                err = lfs_dir_commitattr(lfs, commit,
+                        LFS_MKTAG(LFS_TYPE_FCRC, 0x3ff, sizeof(struct lfs_fcrc)),
+                        &fcrc);
+                if (err) {
+                    return err;
+                }
             }
         }
 
@@ -4051,6 +4097,15 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->cfg = cfg;
     int err = 0;
 
+#ifdef LFS_MULTIVERSION
+    // this driver only supports minor version < current minor version
+    LFS_ASSERT(!lfs->cfg->disk_version || (
+            (0xffff & (lfs->cfg->disk_version >> 16))
+                    == LFS_DISK_VERSION_MAJOR
+                && (0xffff & (lfs->cfg->disk_version >> 0))
+                    <= LFS_DISK_VERSION_MINOR));
+#endif
+
     // check that bool is a truthy-preserving type
     //
     // note the most common reason for this failure is a before-c99 compiler,
@@ -4208,7 +4263,7 @@ static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
 
         // write one superblock
         lfs_superblock_t superblock = {
-            .version     = LFS_DISK_VERSION,
+            .version     = lfs_fs_disk_version(lfs),
             .block_size  = lfs->cfg->block_size,
             .block_count = lfs->cfg->block_count,
             .name_max    = lfs->name_max,
@@ -4306,12 +4361,14 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
             // check version
             uint16_t major_version = (0xffff & (superblock.version >> 16));
             uint16_t minor_version = (0xffff & (superblock.version >>  0));
-            if ((major_version != LFS_DISK_VERSION_MAJOR ||
-                 minor_version > LFS_DISK_VERSION_MINOR)) {
+            if (major_version != lfs_fs_disk_version_major(lfs)
+                    || minor_version > lfs_fs_disk_version_minor(lfs)) {
                 LFS_ERROR("Invalid version "
                         "v%"PRIu16".%"PRIu16" != v%"PRIu16".%"PRIu16,
-                        major_version, minor_version,
-                        LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
+                        major_version,
+                        minor_version,
+                        lfs_fs_disk_version_major(lfs),
+                        lfs_fs_disk_version_minor(lfs));
                 err = LFS_ERR_INVAL;
                 goto cleanup;
             }
@@ -4319,16 +4376,16 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
             // found older minor version? set an in-device only bit in the
             // gstate so we know we need to rewrite the superblock before
             // the first write
-            if (minor_version < LFS_DISK_VERSION_MINOR) {
+            if (minor_version < lfs_fs_disk_version_minor(lfs)) {
                 LFS_DEBUG("Found older minor version "
                         "v%"PRIu16".%"PRIu16" < v%"PRIu16".%"PRIu16,
-                        major_version, minor_version,
-                        LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
-            #ifndef LFS_READONLY
+                        major_version,
+                        minor_version,
+                        lfs_fs_disk_version_major(lfs),
+                        lfs_fs_disk_version_minor(lfs));
                 // note this bit is reserved on disk, so fetching more gstate
                 // will not interfere here
                 lfs_fs_prepsuperblock(lfs, true);
-            #endif
             }
 
             // check superblock configuration
@@ -4421,6 +4478,42 @@ static int lfs_rawunmount(lfs_t *lfs) {
 
 
 /// Filesystem filesystem operations ///
+static int lfs_fs_rawstat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    // if the superblock is up-to-date, we must be on the most recent
+    // minor version of littlefs
+    if (!lfs_gstate_needssuperblock(&lfs->gstate)) {
+        fsinfo->disk_version = lfs_fs_disk_version(lfs);
+
+    // otherwise we need to read the minor version on disk
+    } else {
+        // fetch the superblock
+        lfs_mdir_t dir;
+        int err = lfs_dir_fetch(lfs, &dir, lfs->root);
+        if (err) {
+            return err;
+        }
+
+        lfs_superblock_t superblock;
+        lfs_stag_t tag = lfs_dir_get(lfs, &dir, LFS_MKTAG(0x7ff, 0x3ff, 0),
+                LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock);
+        if (tag < 0) {
+            return tag;
+        }
+        lfs_superblock_fromle32(&superblock);
+
+        // read the on-disk version
+        fsinfo->disk_version = superblock.version;
+    }
+
+    // other on-disk configuration, we cache all of these for internal use
+    fsinfo->name_max = lfs->name_max;
+    fsinfo->file_max = lfs->file_max;
+    fsinfo->attr_max = lfs->attr_max;
+
+    return 0;
+}
+
 int lfs_fs_rawtraverse(lfs_t *lfs,
         int (*cb)(void *data, lfs_block_t block), void *data,
         bool includeorphans) {
@@ -4631,12 +4724,10 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
 }
 #endif
 
-#ifndef LFS_READONLY
 static void lfs_fs_prepsuperblock(lfs_t *lfs, bool needssuperblock) {
     lfs->gstate.tag = (lfs->gstate.tag & ~LFS_MKTAG(0, 0, 0x200))
             | (uint32_t)needssuperblock << 9;
 }
-#endif
 
 #ifndef LFS_READONLY
 static int lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
@@ -4678,7 +4769,7 @@ static int lfs_fs_desuperblock(lfs_t *lfs) {
 
     // write a new superblock
     lfs_superblock_t superblock = {
-        .version     = LFS_DISK_VERSION,
+        .version     = lfs_fs_disk_version(lfs),
         .block_size  = lfs->cfg->block_size,
         .block_count = lfs->cfg->block_count,
         .name_max    = lfs->name_max,
@@ -4933,6 +5024,7 @@ static lfs_ssize_t lfs_fs_rawsize(lfs_t *lfs) {
 
     return size;
 }
+
 
 #ifdef LFS_MIGRATE
 ////// Migration from littelfs v1 below this //////
@@ -6049,6 +6141,20 @@ int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir) {
     err = lfs_dir_rawrewind(lfs, dir);
 
     LFS_TRACE("lfs_dir_rewind -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_fs_stat(%p, %p)", (void*)lfs, (void*)fsinfo);
+
+    err = lfs_fs_rawstat(lfs, fsinfo);
+
+    LFS_TRACE("lfs_fs_stat -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }

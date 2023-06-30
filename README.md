@@ -250,6 +250,10 @@ License Identifiers that are here available: http://spdx.org/licenses/
   MCUs. It offers static wear-leveling and power-resilience with only a fixed
   _O(|address|)_ pointer structure stored on each block and in RAM.
 
+- [ChaN's FatFs] - A lightweight reimplementation of the infamous FAT filesystem
+  for microcontroller-scale devices. Due to limitations of FAT it can't provide
+  power-loss resilience, but it does allow easy interop with PCs.
+
 - [chamelon] - A pure-OCaml implementation of (most of) littlefs, designed for
   use with the MirageOS library operating system project. It is interoperable
   with the reference implementation, with some caveats.
@@ -266,6 +270,7 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [LittleFileSystem]: https://os.mbed.com/docs/mbed-os/latest/apis/littlefilesystem.html
 [SPIFFS]: https://github.com/pellepl/spiffs
 [Dhara]: https://github.com/dlbeer/dhara
+[ChaN's FatFs]: http://elm-chan.org/fsw/ff/00index_e.html
 [littlefs-python]: https://pypi.org/project/littlefs-python/
 [littlefs2-rust]: https://crates.io/crates/littlefs2
 [chamelon]: https://github.com/yomimono/chamelon
