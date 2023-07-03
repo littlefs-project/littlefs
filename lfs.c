@@ -1001,6 +1001,7 @@ typedef union lfsr_data {
     struct {
         lfs_size_t size;
         const uint8_t *buffer;
+        lfs_ssize_t did;
     } buf;
     struct {
         lfs_size_t size;
@@ -1009,13 +1010,20 @@ typedef union lfsr_data {
     } disk;
 } lfsr_data_t;
 
-#define LFSR_DATA_NULL \
-    ((lfsr_data_t){.size=0})
+#define LFSR_DATA_NULL LFSR_DATA_BUF(NULL, 0)
 
 #define LFSR_DATA_BUF(_buffer, _size) \
     ((lfsr_data_t){.buf={ \
         .size=_size, \
-        .buffer=(const void*)(_buffer)}})
+        .buffer=(const void*)(_buffer), \
+        .did=-1}})
+
+#define LFSR_DATA_DNAME(_did, _buffer, _size) \
+    ((lfsr_data_t){.buf={ \
+        /* note this find the effective leb128 size */ \
+        .size=_size + lfs_min32(lfs_nlog2(_did)/7, 1), \
+        .buffer=(const void*)(_buffer), \
+        .did=_did}})
 
 #define LFSR_DATA_DISK(_block, _off, _size) \
     ((lfsr_data_t){.disk={ \
@@ -1114,7 +1122,26 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
     }
 }
 
-static lfs_ssize_t lfsr_bd_progdata(lfs_t *lfs,
+static lfs_scmp_t lfsr_data_dnamecmp(lfs_t *lfs, lfsr_data_t data,
+        lfs_off_t off, lfs_size_t did, const char *name, lfs_size_t name_size) {
+    // first compare the did
+    lfs_size_t did_;
+    lfs_ssize_t d = lfsr_data_readleb128(lfs, data, off, &did_);
+    if (d < 0) {
+        return d;
+    }
+
+    if (did_ < did) {
+        return LFS_CMP_LT;
+    } else if (did_ > did) {
+        return LFS_CMP_GT;
+    }
+
+    // next compare the actual name
+    return lfsr_data_cmp(lfs, data, off+d, name, name_size);
+}
+
+static int lfsr_bd_progdata(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         lfsr_data_t data,
         uint32_t *csum_) {
@@ -1140,6 +1167,25 @@ static lfs_ssize_t lfsr_bd_progdata(lfs_t *lfs,
         }
 
     } else {
+        // this is kind of a hack, but when lfsr_data_t is in buffer mode, it
+        // can also contain a leb128 encoded directory-id prefix
+        if (data.buf.did != -1) {
+            // TODO should progleb128 be its own function? rely on caching?
+            uint8_t buf[5];
+            lfs_ssize_t d = lfs_toleb128(data.buf.did, buf, 5);
+            if (d < 0) {
+                return d;
+            }
+
+            int err = lfsr_bd_prog(lfs, block, off, buf, d, csum_);
+            if (err) {
+                return err;
+            }
+
+            off += d;
+            data.buf.size -= d;
+        }
+
         int err = lfsr_bd_prog(lfs, block, off,
                 data.buf.buffer, lfsr_data_size(data),
                 csum_);
@@ -3068,10 +3114,16 @@ static int lfsr_rbyd_isdegenerate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     }
 }
 
+
+// some low-level dname things
+//
+// dnames in littlefs are tuples of directory-ids + ascii/utf8 strings
+
+
 // binary search an rbyd for a name, leaving the id_/weight_ with the best
 // matching name if not found
-static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        const char *name, lfs_size_t name_size,
+static int lfsr_rbyd_dnamelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfs_size_t did, const char *name, lfs_size_t name_size,
         lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
     // binary search for our name
@@ -3101,7 +3153,7 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // compare names
         } else {
-            cmp = lfsr_data_cmp(lfs, data__, 0, name, name_size);
+            cmp = lfsr_data_dnamecmp(lfs, data__, 0, did, name, name_size);
             if (cmp < 0) {
                 return cmp;
             }
@@ -3505,8 +3557,8 @@ static int lfsr_btree_parent(lfs_t *lfs,
     }
 }
 
-static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
-        const char *name, lfs_size_t name_size,
+static lfs_ssize_t lfsr_btree_dnamelookup(lfs_t *lfs, const lfsr_btree_t *btree,
+        lfs_size_t did, const char *name, lfs_size_t name_size,
         lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
     // an empty tree?
@@ -3539,7 +3591,7 @@ static lfs_ssize_t lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         // lookup our name in the rbyd via binary search
         lfs_ssize_t rid__;
         lfs_size_t weight__;
-        int err = lfsr_rbyd_namelookup(lfs, &branch, name, name_size,
+        int err = lfsr_rbyd_dnamelookup(lfs, &branch, did, name, name_size,
                 &rid__, NULL, &weight__, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
