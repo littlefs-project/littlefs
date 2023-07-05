@@ -586,32 +586,35 @@ enum lfsr_tag_type {
     LFSR_TAG_SUPERMAGIC     = 0x0003,
     LFSR_TAG_SUPERCONFIG    = 0x0004,
 
-    LFSR_TAG_NAME           = 0x0100,
-    LFSR_TAG_BRANCH         = 0x0100,
-    LFSR_TAG_REG            = 0x0101,
-    LFSR_TAG_GROWREG        = 0x2101, // test only? TODO
-    LFSR_TAG_DIR            = 0x0102,
+    LFSR_TAG_NAME           = 0x0200,
+    LFSR_TAG_WIDENAME       = 0x4200, // in-device only
+    LFSR_TAG_BRANCH         = 0x0200,
+    LFSR_TAG_DSTART         = 0x0201,
+    LFSR_TAG_REG            = 0x0202,
+    LFSR_TAG_GROWREG        = 0x2202, // test only? TODO
+    LFSR_TAG_DIR            = 0x0203,
 
     LFSR_TAG_STRUCT         = 0x0300,
-    LFSR_TAG_WIDESTRUCT     = 0x4300,
-    LFSR_TAG_RMWIDESTRUCT   = 0x5300,
+    LFSR_TAG_WIDESTRUCT     = 0x4300, // in-device only
+    LFSR_TAG_RMWIDESTRUCT   = 0x5300, // in-device only
     LFSR_TAG_INLINED        = 0x0300,
     LFSR_TAG_BLOCK          = 0x0302,
     LFSR_TAG_BTREE          = 0x0303,
-    LFSR_TAG_RMBTREE        = 0x1303,
+    LFSR_TAG_RMBTREE        = 0x1303, // in-device only
     LFSR_TAG_MROOT          = 0x0304,
     LFSR_TAG_MDIR           = 0x0305,
-    LFSR_TAG_RMMDIR         = 0x1305,
+    LFSR_TAG_RMMDIR         = 0x1305, // in-device only
     LFSR_TAG_MTREE          = 0x0306,
-    LFSR_TAG_RMMTREE        = 0x1306,
+    LFSR_TAG_RMMTREE        = 0x1306, // in-device only
+    LFSR_TAG_DID            = 0x0307,
 
     LFSR_TAG_UATTR          = 0x0400,
     LFSR_TAG_WIDEUATTR      = 0x4400, // test only? TODO
     LFSR_TAG_GROWUATTR      = 0x2400, // test only? TODO
-    LFSR_TAG_RMUATTR        = 0x1400,
+    LFSR_TAG_RMUATTR        = 0x1400, // in-device only
     LFSR_TAG_RMWIDEUATTR    = 0x5400, // test only? TODO
     LFSR_TAG_SATTR          = 0x0500, // test only? TODO
-    LFSR_TAG_RMWIDESATTR    = 0x5500,
+    LFSR_TAG_RMWIDESATTR    = 0x5500, // in-device only
 
     LFSR_TAG_ALT            = 0x4000,
     LFSR_TAG_ALTLE          = 0x4000,
@@ -1021,8 +1024,15 @@ typedef union lfsr_data {
 #define LFSR_DATA_DNAME(_did, _buffer, _size) \
     ((lfsr_data_t){.buf={ \
         /* note this find the effective leb128 size */ \
-        .size=_size + lfs_min32(lfs_nlog2(_did)/7, 1), \
+        .size=_size + (lfs_nlog2(lfs_max32(_did, 1))+7-1)/7, \
         .buffer=(const void*)(_buffer), \
+        .did=_did}})
+
+#define LFSR_DATA_LEB128(_did) \
+    ((lfsr_data_t){.buf={ \
+        /* note this find the effective leb128 size */ \
+        .size=(lfs_nlog2(lfs_max32(_did, 1))+7-1)/7, \
+        .buffer=NULL, \
         .did=_did}})
 
 #define LFSR_DATA_DISK(_block, _off, _size) \
@@ -1100,25 +1110,29 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
     lfs_off_t off_ = lfs_min32(off, lfsr_data_size(data));
     lfs_size_t hint_ = lfsr_data_size(data)-off_;
 
-    // return early if our size doesn't match
-    if (hint_ < size) {
-        return LFS_CMP_LT;
-    } else if (hint_ > size) {
-        return LFS_CMP_GT;
-    }
-
+    // compare our data
     if (lfsr_data_ondisk(data)) {
-        return lfsr_bd_cmp(lfs, data.disk.block, data.disk.off+off_, 0,
-                buffer, size);
+        int cmp = lfsr_bd_cmp(lfs, data.disk.block, data.disk.off+off_, 0,
+                buffer, lfs_min32(hint_, size));
+        if (cmp != LFS_CMP_EQ) {
+            return cmp;
+        }
     } else {
         int cmp = memcmp(data.buf.buffer+off_, buffer, size);
         if (cmp < 0) {
             return LFS_CMP_LT;
-        } else if (cmp == 0) {
-            return LFS_CMP_EQ;
-        } else {
+        } else if (cmp > 0) {
             return LFS_CMP_GT;
         }
+    }
+
+    // if data is equal, check for size mismatch
+    if (hint_ < size) {
+        return LFS_CMP_LT;
+    } else if (hint_ > size) {
+        return LFS_CMP_GT;
+    } else {
+        return LFS_CMP_EQ;
     }
 }
 
@@ -1226,6 +1240,18 @@ typedef struct lfsr_attr {
 
 #define LFSR_ATTR_DATA(_id, _type, _delta, _data) \
     LFSR_ATTR_DATA_(_id, LFSR_TAG_##_type, _delta, _data)
+
+#define LFSR_ATTR_DNAME_(_id, _tag, _delta, _did, _buffer, _size) \
+    LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_DNAME(_did, _buffer, _size))
+
+#define LFSR_ATTR_DNAME(_id, _type, _delta, _did, _buffer, _size) \
+    LFSR_ATTR_DNAME_(_id, LFSR_TAG_##_type, _delta, _did, _buffer, _size)
+
+#define LFSR_ATTR_LEB128_(_id, _tag, _delta, _did) \
+    LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_LEB128(_did))
+
+#define LFSR_ATTR_LEB128(_id, _type, _delta, _did) \
+    LFSR_ATTR_LEB128_(_id, LFSR_TAG_##_type, _delta, _did)
 
 #define LFSR_ATTR_(_id, _tag, _delta, _buffer, _size) \
     LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_BUF(_buffer, _size))
@@ -3129,6 +3155,10 @@ static int lfsr_rbyd_dnamelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     // binary search for our name
     lfs_ssize_t lower = 0;
     lfs_ssize_t upper = rbyd->weight;
+    // if we have an empty mdir, default to id = 0
+    if (id_) {
+        *id_ = 0;
+    }
 
     while (lower < upper) {
         lfsr_tag_t tag__;
@@ -3147,7 +3177,7 @@ static int lfsr_rbyd_dnamelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // if we have no name or a vestigial name, treat this id as always lt
         lfs_scmp_t cmp;
-        if (id__-(weight__-1) == 0
+        if ((tag__ == LFSR_TAG_BRANCH && id__-(weight__-1) == 0)
                 || lfsr_tag_suptype(tag__) != LFSR_TAG_NAME) {
             cmp = LFS_CMP_LT;
 
@@ -3166,18 +3196,9 @@ static int lfsr_rbyd_dnamelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         } else if (lfs_cmp(cmp) < 0) {
             lower = id__ + 1;
 
-            // keep track of best-matching name so far
+            // keep track of best-matching id >= our target
             if (id_) {
-                *id_ = id__;
-            }
-            if (tag_) {
-                *tag_ = tag__;
-            }
-            if (weight_) {
-                *weight_ = weight__;
-            }
-            if (data_) {
-                *data_ = data__;
+                *id_ = id__ + weight__;
             }
 
         } else {
@@ -3554,88 +3575,6 @@ static int lfsr_btree_parent(lfs_t *lfs,
         }
 
         branch = branch_;
-    }
-}
-
-static lfs_ssize_t lfsr_btree_dnamelookup(lfs_t *lfs, const lfsr_btree_t *btree,
-        lfs_size_t did, const char *name, lfs_size_t name_size,
-        lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
-        lfsr_data_t *data_) {
-    // an empty tree?
-    if (lfsr_btree_weight(btree) == 0) {
-        return LFS_ERR_NOENT;
-    }
-
-    // inlined?
-    if (lfsr_btree_isinlined(btree)) {
-        // TODO how many of these should be conditional?
-        if (bid_) {
-            *bid_ = lfsr_btree_weight(btree)-1;
-        }
-        if (tag_) {
-            *tag_ = btree->inlined.tag;
-        }
-        if (weight_) {
-            *weight_ = lfsr_btree_weight(btree);
-        }
-        if (data_) {
-            *data_ = LFSR_DATA_BUF(btree->inlined.buffer, btree->inlined.size);
-        }
-        return 0;
-    }
-
-    // descend down the btree looking for our name
-    lfsr_rbyd_t branch = btree->root;
-    lfs_ssize_t bid = 0;
-    while (true) {
-        // lookup our name in the rbyd via binary search
-        lfs_ssize_t rid__;
-        lfs_size_t weight__;
-        int err = lfsr_rbyd_dnamelookup(lfs, &branch, did, name, name_size,
-                &rid__, NULL, &weight__, NULL);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
-        }
-
-        // the name may not match exactly, but indicates which branch to follow
-        lfsr_tag_t tag__;
-        lfsr_data_t data__;
-        err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_WIDESTRUCT,
-                &tag__, &data__);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
-        }
-
-        // found another branch
-        if (tag__ == LFSR_TAG_BTREE) {
-            // update our bid
-            bid += rid__ - (weight__-1);
-
-            // fetch the next branch
-            lfs_ssize_t d = lfsr_bptr_fromdisk(lfs, &branch, data__);
-            if (d < 0) {
-                return d;
-            }
-            LFS_ASSERT(branch.weight == weight__);
-
-        // found our id
-        } else {
-            // TODO how many of these should be conditional?
-            if (bid_) {
-                *bid_ = bid + rid__;
-            }
-            if (tag_) {
-                *tag_ = tag__;
-            }
-            if (weight_) {
-                *weight_ = weight__;
-            }
-            if (data_) {
-                *data_ = data__;
-            }
-            return 0;
-        }
     }
 }
 
@@ -4530,6 +4469,88 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
     }
 }
 
+// lookup in a btree by dname
+static int lfsr_btree_dnamelookup(lfs_t *lfs, const lfsr_btree_t *btree,
+        lfs_size_t did, const char *name, lfs_size_t name_size,
+        lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
+        lfsr_data_t *data_) {
+    // an empty tree?
+    if (lfsr_btree_weight(btree) == 0) {
+        return LFS_ERR_NOENT;
+    }
+
+    // inlined?
+    if (lfsr_btree_isinlined(btree)) {
+        // TODO how many of these should be conditional?
+        if (bid_) {
+            *bid_ = lfsr_btree_weight(btree)-1;
+        }
+        if (tag_) {
+            *tag_ = btree->inlined.tag;
+        }
+        if (weight_) {
+            *weight_ = lfsr_btree_weight(btree);
+        }
+        if (data_) {
+            *data_ = LFSR_DATA_BUF(btree->inlined.buffer, btree->inlined.size);
+        }
+        return 0;
+    }
+
+    // descend down the btree looking for our name
+    lfsr_rbyd_t branch = btree->root;
+    lfs_ssize_t bid = 0;
+    while (true) {
+        // lookup our name in the rbyd via binary search
+        lfs_ssize_t rid__;
+        lfs_size_t weight__;
+        int err = lfsr_rbyd_dnamelookup(lfs, &branch, did, name, name_size,
+                &rid__, NULL, &weight__, NULL);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        // the name may not match exactly, but indicates which branch to follow
+        lfsr_tag_t tag__;
+        lfsr_data_t data__;
+        err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_WIDESTRUCT,
+                &tag__, &data__);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            return err;
+        }
+
+        // found another branch
+        if (tag__ == LFSR_TAG_BTREE) {
+            // update our bid
+            bid += rid__ - (weight__-1);
+
+            // fetch the next branch
+            lfs_ssize_t d = lfsr_bptr_fromdisk(lfs, &branch, data__);
+            if (d < 0) {
+                return d;
+            }
+            LFS_ASSERT(branch.weight == weight__);
+
+        // found our id
+        } else {
+            // TODO how many of these should be conditional?
+            if (bid_) {
+                *bid_ = bid + rid__;
+            }
+            if (tag_) {
+                *tag_ = tag__;
+            }
+            if (weight_) {
+                *weight_ = weight__;
+            }
+            if (data_) {
+                *data_ = data__;
+            }
+            return 0;
+        }
+    }
+}
 
 // incremental btree traversal
 //
@@ -4898,10 +4919,9 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
 
 static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfs_ssize_t id, lfsr_tag_t tag,
-        lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
-        lfsr_data_t *data_) {
+        lfs_ssize_t *id_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     return lfsr_rbyd_lookupnext(lfs, &mdir->rbyd, id, tag,
-            id_, tag_, weight_, data_);
+            id_, tag_, NULL, data_);
 }
 
 static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
@@ -5241,7 +5261,7 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
         lfsr_tag_t stag;
         lfsr_data_t sdata;
         err = lfsr_mdir_lookupnext(lfs, msibling, 0, LFSR_TAG_NAME,
-                NULL, &stag, NULL, &sdata);
+                NULL, &stag, &sdata);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -5617,7 +5637,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         if (opened->mdir.mid == mdir->mid
                 // avoid double-updating our current mdir
                 && &opened->mdir != mdir) {
-            LFS_ASSERT(opened->rid < (lfs_ssize_t)opened->mdir.rbyd.weight);
+            LFS_ASSERT(opened->rid <= (lfs_ssize_t)opened->mdir.rbyd.weight);
             LFS_ASSERT(opened->rid != -1);
 
             // first play out any attrs that change our rid
@@ -5659,6 +5679,203 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     }
 
     return 0;
+}
+
+
+// lookup dnames in our mtree 
+static int lfsr_mdir_dnamelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
+        lfs_size_t did, const char *name, lfs_size_t name_size,
+        lfs_ssize_t *id_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
+    return lfsr_rbyd_dnamelookup(lfs, &mdir->rbyd,
+            did, name, name_size,
+            id_, tag_, NULL, data_);
+}
+
+// note if we fail, we at least leave mdir_/rid_ with the best place to insert
+static int lfsr_mtree_dnamelookup(lfs_t *lfs,
+        lfs_size_t did, const char *name, lfs_size_t name_size,
+        lfsr_mdir_t *mdir_, lfs_ssize_t *rid_, lfsr_tag_t *tag_,
+        lfsr_data_t *data_) {
+    // do we only have mroot?
+    lfsr_mdir_t mdir;
+    if (lfsr_mtree_isinlined(lfs)) {
+        mdir = lfs->mroot;
+
+    // lookup dname in actual mtree
+    } else {
+        lfs_size_t mid;
+        lfsr_tag_t tag;
+        lfsr_data_t data;
+        int err = lfsr_btree_dnamelookup(lfs, &lfs->mtree,
+                did, name, name_size,
+                &mid, &tag, NULL, &data);
+        if (err) {
+            return err;
+        }
+        LFS_ASSERT(tag == LFSR_TAG_MDIR);
+
+        // decode mptr
+        lfsr_mptr_t mptr;
+        lfs_ssize_t d = lfsr_mptr_fromdisk(lfs, &mptr, data);
+        if (d < 0) {
+            return d;
+        }
+
+        // fetch mdir
+        err = lfsr_mdir_fetch(lfs, &mdir, mid, mptr);
+        if (err) {
+            return err;
+        }
+    }
+
+    if (mdir_) {
+        *mdir_ = mdir;
+    }
+
+    // and finally lookup dname in our mdir
+    return lfsr_mdir_dnamelookup(lfs, &mdir,
+            did, name, name_size,
+            rid_, tag_, data_);
+}
+
+
+// special directory-ids
+enum {
+    LFSR_DID_ROOT = 0,
+};
+
+// lookup full paths in our mtree
+//
+// if not found, mdir_/rid_/did_/name_ will at least be set up
+// with what should be the parent
+static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
+        // TODO originally path itself was a double pointer, is that a
+        // better design?
+        lfsr_mdir_t *mdir_, lfs_ssize_t *rid_, lfsr_tag_t *tag_,
+        lfs_size_t *did_, const char **name_, lfs_size_t *name_size_) {
+    // setup root
+    lfsr_mdir_t mdir = {.mid = LFSR_MID_RM};
+    lfs_ssize_t rid = -1;
+    lfsr_tag_t tag = LFSR_TAG_DIR;
+    lfs_size_t did = LFSR_DID_ROOT;
+
+    if (mdir_) {
+        *mdir_ = mdir;
+    }
+    if (rid_) {
+        *rid_ = rid;
+    }
+    if (tag_) {
+        *tag_ = tag;
+    }
+    
+    // we reduce path to a single name if we can find it
+    const char *name = path;
+
+    while (true) {
+        // skip slashes
+        name += strspn(name, "/");
+        lfs_size_t name_size = strcspn(name, "/");
+
+        // skip '.' and root '..'
+        if ((name_size == 1 && memcmp(name, ".", 1) == 0)
+                || (name_size == 2 && memcmp(name, "..", 2) == 0)) {
+            name += name_size;
+            goto next;
+        }
+
+        // skip if matched by '..' in name
+        const char *suffix = name + name_size;
+        lfs_size_t suffix_size;
+        int depth = 1;
+        while (true) {
+            suffix += strspn(suffix, "/");
+            suffix_size = strcspn(suffix, "/");
+            if (suffix_size == 0) {
+                break;
+            }
+
+            if (suffix_size == 2 && memcmp(suffix, "..", 2) == 0) {
+                depth -= 1;
+                if (depth == 0) {
+                    name = suffix + suffix_size;
+                    goto next;
+                }
+            } else {
+                depth += 1;
+            }
+
+            suffix += suffix_size;
+        }
+
+        // found end of path, we must be done parsing our path now
+        if (name[0] == '\0') {
+            return 0;
+        }
+
+        // only continue if we hit a directory
+        if (tag != LFSR_TAG_DIR) {
+            return LFS_ERR_NOTDIR;
+        }
+
+        // read the next did from the mdir if this is not the root
+        if (rid != -1) {
+            lfsr_data_t data;
+            int err = lfsr_mdir_lookup(lfs, &mdir, rid, LFSR_TAG_DID,
+                    NULL, &data);
+            if (err) {
+                return err;
+            }
+
+            lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &did);
+            if (d < 0) {
+                return d;
+            }
+
+            // TODO should we put this in lfsr_data_readleb128?
+            // TODO should readtag then call lfsr_data_readleb128?
+            if (did > 0x7fffffff) {
+                return LFS_ERR_CORRUPT;
+            }
+        }
+
+        // lookup up this dname in the mtree
+        int err = lfsr_mtree_dnamelookup(lfs, did, name, name_size,
+                &mdir, &rid, &tag, NULL);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        // keep track of what we've seen so far
+        if (mdir_) {
+            *mdir_ = mdir;
+        }
+        if (rid_) {
+            *rid_ = rid;
+        }
+        if (tag_) {
+            *tag_ = tag;
+        }
+        if (did_) {
+            *did_ = did;
+        }
+        if (name_) {
+            *name_ = name;
+        }
+        if (name_size_) {
+            *name_size_ = name_size;
+        }
+
+        // error if not found, note we update things first so mdir/rid
+        // get updated with where to insert correctly
+        if (err == LFS_ERR_NOENT) {
+            return LFS_ERR_NOENT;
+        }
+
+        // go on to next name
+        name += name_size;
+next:;
+    }
 }
 
 
@@ -6286,9 +6503,14 @@ static int lfsr_formatinited(lfs_t *lfs) {
             return err;
         }
 
+        // our initial superblock contains a couple things:
+        // - our magic string, "littlefs"
+        // - the superconfig, format-time configuration
+        // - the root's dstart tag, which reserves did = 0 for the root
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
                 LFSR_ATTR(-1, SUPERMAGIC, 0, "littlefs", 8),
-                LFSR_ATTR(-1, SUPERCONFIG, 0, buf, d)));
+                LFSR_ATTR(-1, SUPERCONFIG, 0, buf, d),
+                LFSR_ATTR_DNAME(0, DSTART, +1, 0, NULL, 0)));
         if (err) {
             return err;
         }
@@ -6445,6 +6667,226 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         }
     }
 }
+
+
+/// Directory operations ///
+
+int lfsr_mkdir(lfs_t *lfs, const char *path) {
+    // checkpoint block allocations
+    // TODO we should just name this lfsr_alloc_checkpoint
+    lfs_alloc_ack(lfs);
+
+    // lookup our parent
+    lfsr_openedmdir_t parent;
+    lfs_size_t parent_did;
+    const char *name;
+    lfs_size_t name_size;
+    int err = lfsr_mtree_pathlookup(lfs, path,
+            &parent.mdir, &parent.rid, NULL,
+            &parent_did, &name, &name_size);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+
+    // woah, already exists?
+    if (err != LFS_ERR_NOENT) {
+        return LFS_ERR_EXIST;
+    }
+
+    // check that name fits
+    if (name_size > lfs->name_max) {
+        return LFS_ERR_NAMETOOLONG;
+    }
+
+    // Our directory needs an arbitrary directory-id. To find one with
+    // hopefully few collisions, we use a hash of the full path. Since
+    // we have a CRC handy, we can use that.
+    //
+    // We truncate to 28-bits to more optimally use our leb128 encoding.
+    // TODO should we have a configurable limit for this? dir_limit? or
+    // just loose ~3 bits from the configured file limit?
+    //
+    lfs_size_t did = lfs_crc32c(0, path, strlen(path)) & 0xfffffff;
+
+    // Check if we have a collision. If we do, search for the next
+    // available did
+    lfsr_mdir_t mdir;
+    lfs_ssize_t rid;
+    while (true) {
+        int err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
+                &mdir, &rid, NULL, NULL);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        // try the next did
+        did = (did + 1) & 0xfffffff;
+    }
+
+    // Note when we write to the mtree, it's possible it changes our
+    // parent's mdir/rid. We can catch this by tracking our parent
+    // as "opened" temporarily
+    // TODO is this the best workaround for rid update issues?
+    parent.rid -= 1;
+    lfsr_mdir_addopened(lfs, &parent);
+
+    // TODO GRM, make this power-safe
+    // Conveniently, we just found where our dstart should go. The dstart
+    // tag is an empty entry that marks our directory as being allocated.
+    err = lfsr_mdir_commit(lfs, &mdir, &rid, LFSR_ATTRS(
+            LFSR_ATTR_DNAME(rid, DSTART, +1, did, NULL, 0)));
+    if (err) {
+        goto failed_with_parent;
+    }
+
+    lfsr_mdir_removeopened(lfs, &parent);
+    parent.rid += 1;
+
+    // commit our new directory into our parent
+    err = lfsr_mdir_commit(lfs, &parent.mdir, &parent.rid, LFSR_ATTRS(
+            LFSR_ATTR_DNAME(parent.rid, DIR, +1, parent_did, name, name_size),
+            LFSR_ATTR_LEB128(parent.rid, DID, 0, did)));
+    if (err) {
+        return err;
+    }
+
+    return 0;
+
+failed_with_parent:
+    lfsr_mdir_removeopened(lfs, &parent);
+    return err;
+}
+
+int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
+    // lookup our directory
+    lfsr_mdir_t mdir;
+    lfs_ssize_t rid;
+    lfsr_tag_t tag;
+    int err = lfsr_mtree_pathlookup(lfs, path,
+            &mdir, &rid, &tag,
+            NULL, NULL, NULL);
+    if (err) {
+        return err;
+    }
+
+    // are we a directory?
+    if (tag != LFSR_TAG_DIR) {
+        return LFS_ERR_NOENT;
+    }
+
+    // read our did from the mdir, unless we're root
+    lfs_size_t did = 0;
+    if (rid != -1) {
+        lfsr_data_t data;
+        int err = lfsr_mdir_lookup(lfs, &mdir, rid, LFSR_TAG_DID,
+                NULL, &data);
+        if (err) {
+            return err;
+        }
+
+        lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &did);
+        if (d < 0) {
+            return d;
+        }
+
+        // TODO should we put this in lfsr_data_readleb128?
+        // TODO should readtag then call lfsr_data_readleb128?
+        if (did > 0x7fffffff) {
+            return LFS_ERR_CORRUPT;
+        }
+    }
+
+    // now lookup our dstart in the mtree
+    err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
+            &dir->mdir.mdir, &dir->mdir.rid, NULL, NULL);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_NOENT);
+        return err;
+    }
+
+    // add to tracked mdirs
+    lfsr_mdir_addopened(lfs, &dir->mdir);
+    dir->off = 0;
+    return 0;
+}
+
+int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, &dir->mdir);
+    return 0;
+}
+
+int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
+    memset(info, 0, sizeof(struct lfs_info));
+
+    // handle "." and ".." specially
+    if (dir->off == 0) {
+        info->type = LFS_TYPE_DIR;
+        strcpy(info->name, ".");
+        dir->off += 1;
+        return 0;
+    } else if (dir->off == 1) {
+        info->type = LFS_TYPE_DIR;
+        strcpy(info->name, "..");
+        dir->off += 1;
+        return 0;
+    }
+
+    // lookup the next entry in our dir
+    lfs_ssize_t rid = dir->mdir.rid + 1;
+    // need to lookup the next mdir?
+    if (rid >= (lfs_ssize_t)dir->mdir.mdir.rbyd.weight) {
+        // out of mdirs?
+        lfs_ssize_t mid = dir->mdir.mdir.mid + 1;
+        if (mid >= lfsr_mtree_weight(lfs)) {
+            return LFS_ERR_NOENT;
+        }
+
+        int err = lfsr_mtree_lookup(lfs, mid, &dir->mdir.mdir);
+        if (err) {
+            return err;
+        }
+        rid = 0;
+    }
+    dir->mdir.rid = rid;
+
+    // lookup our name tag
+    lfsr_tag_t tag;
+    lfsr_data_t data;
+    int err = lfsr_mdir_lookup(lfs, &dir->mdir.mdir, rid, LFSR_TAG_WIDENAME,
+            &tag, &data);
+    if (err) {
+        return err;
+    }
+
+    // found another directory's dstart? we must be done
+    if (tag == LFSR_TAG_DSTART) {
+        return LFS_ERR_NOENT;
+    }
+
+    // fill in our info struct
+    info->type = tag - LFSR_TAG_REG;
+
+    LFS_ASSERT(lfsr_data_size(data) <= lfs->name_max);
+    lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &(uint32_t){0});
+    if (d < 0) {
+        return d;
+    }
+    d = lfsr_data_read(lfs, data, d, info->name, LFS_NAME_MAX);
+    if (d < 0) {
+        return d;
+    }
+    info->name[d] = '\0';
+
+    // TODO size once we actually have regular files
+
+    return 0;
+}
+
+
 
 
 ///// Metadata pair and directory operations ///

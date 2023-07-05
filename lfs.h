@@ -93,36 +93,36 @@ enum lfs_error {
 // File types
 enum lfs_type {
     // file types
-    LFS_TYPE_REG            = 0x001,
-    LFS_TYPE_DIR            = 0x002,
+    LFS_TYPE_REG            = 0,
+    LFS_TYPE_DIR            = 1,
 
-    // internally used types
-    LFS_TYPE_SPLICE         = 0x400,
-    LFS_TYPE_NAME           = 0x000,
-    LFS_TYPE_STRUCT         = 0x200,
-    LFS_TYPE_USERATTR       = 0x300,
-    LFS_TYPE_FROM           = 0x100,
-    LFS_TYPE_TAIL           = 0x600,
-    LFS_TYPE_GLOBALS        = 0x700,
-    LFS_TYPE_CRC            = 0x500,
-
-    // internally used type specializations
-    LFS_TYPE_CREATE         = 0x401,
-    LFS_TYPE_DELETE         = 0x4ff,
-    LFS_TYPE_SUPERBLOCK     = 0x0ff,
-    LFS_TYPE_DIRSTRUCT      = 0x200,
-    LFS_TYPE_CTZSTRUCT      = 0x202,
-    LFS_TYPE_INLINESTRUCT   = 0x201,
-    LFS_TYPE_SOFTTAIL       = 0x600,
-    LFS_TYPE_HARDTAIL       = 0x601,
-    LFS_TYPE_MOVESTATE      = 0x7ff,
-    LFS_TYPE_CCRC           = 0x500,
-    LFS_TYPE_FCRC           = 0x5ff,
-
-    // internal chip sources
-    LFS_FROM_NOOP           = 0x000,
-    LFS_FROM_MOVE           = 0x101,
-    LFS_FROM_USERATTRS      = 0x102,
+//    // internally used types
+//    LFS_TYPE_SPLICE         = 0x400,
+//    LFS_TYPE_NAME           = 0x000,
+//    LFS_TYPE_STRUCT         = 0x200,
+//    LFS_TYPE_USERATTR       = 0x300,
+//    LFS_TYPE_FROM           = 0x100,
+//    LFS_TYPE_TAIL           = 0x600,
+//    LFS_TYPE_GLOBALS        = 0x700,
+//    LFS_TYPE_CRC            = 0x500,
+//
+//    // internally used type specializations
+//    LFS_TYPE_CREATE         = 0x401,
+//    LFS_TYPE_DELETE         = 0x4ff,
+//    LFS_TYPE_SUPERBLOCK     = 0x0ff,
+//    LFS_TYPE_DIRSTRUCT      = 0x200,
+//    LFS_TYPE_CTZSTRUCT      = 0x202,
+//    LFS_TYPE_INLINESTRUCT   = 0x201,
+//    LFS_TYPE_SOFTTAIL       = 0x600,
+//    LFS_TYPE_HARDTAIL       = 0x601,
+//    LFS_TYPE_MOVESTATE      = 0x7ff,
+//    LFS_TYPE_CCRC           = 0x500,
+//    LFS_TYPE_FCRC           = 0x5ff,
+//
+//    // internal chip sources
+//    LFS_FROM_NOOP           = 0x000,
+//    LFS_FROM_MOVE           = 0x101,
+//    LFS_FROM_USERATTRS      = 0x102,
 };
 
 // File open flags
@@ -407,6 +407,11 @@ typedef struct lfs_dir {
     lfs_block_t head[2];
 } lfs_dir_t;
 
+typedef struct lfsr_dir {
+    lfsr_openedmdir_t mdir;
+    lfs_off_t off;
+} lfsr_dir_t;
+
 // littlefs file type
 typedef struct lfs_file {
     struct lfs_file *next;
@@ -683,6 +688,7 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 //
 // Returns a negative error code on failure.
 int lfs_mkdir(lfs_t *lfs, const char *path);
+int lfsr_mkdir(lfs_t *lfs, const char *path);
 #endif
 
 // Open a directory
@@ -690,12 +696,14 @@ int lfs_mkdir(lfs_t *lfs, const char *path);
 // Once open a directory can be used with read to iterate over files.
 // Returns a negative error code on failure.
 int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
+int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path);
 
 // Close a directory
 //
 // Releases any allocated resources.
 // Returns a negative error code on failure.
 int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir);
+int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir);
 
 // Read an entry in the directory
 //
@@ -703,6 +711,7 @@ int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir);
 // Returns a positive value on success, 0 at the end of directory,
 // or a negative error code on failure.
 int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
+int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info);
 
 // Change the position of the directory
 //

@@ -20,10 +20,11 @@ COLORS = [
 TAG_NULL        = 0x0000
 TAG_SUPERMAGIC  = 0x0003
 TAG_SUPERCONFIG = 0x0004
-TAG_NAME        = 0x0100
-TAG_BRANCH      = 0x0100
-TAG_REG         = 0x0101
-TAG_DIR         = 0x0102
+TAG_NAME        = 0x0200
+TAG_BRANCH      = 0x0200
+TAG_DSTART      = 0x0201
+TAG_REG         = 0x0202
+TAG_DIR         = 0x0203
 TAG_STRUCT      = 0x0300
 TAG_INLINED     = 0x0300
 TAG_BLOCK       = 0x0302
@@ -31,11 +32,13 @@ TAG_BTREE       = 0x0303
 TAG_MROOT       = 0x0304
 TAG_MDIR        = 0x0305
 TAG_MTREE       = 0x0306
+TAG_DID         = 0x0307
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0500
 TAG_ALT         = 0x4000
 TAG_CRC         = 0x2000
 TAG_FCRC        = 0x2100
+
 
 
 # parse some rbyd addr encodings
@@ -130,6 +133,7 @@ def tagrepr(tag, w, size, off=None):
     elif (tag & 0xff00) == TAG_NAME:
         return '%s%s %d' % (
             'branch' if tag == TAG_BRANCH
+                else 'dstart' if tag == TAG_DSTART
                 else 'reg' if tag == TAG_REG
                 else 'dir' if tag == TAG_DIR
                 else 'name 0x%02x' % (tag & 0xff),
@@ -143,6 +147,7 @@ def tagrepr(tag, w, size, off=None):
                 else 'mroot' if tag == TAG_MROOT
                 else 'mdir' if tag == TAG_MDIR
                 else 'mtree' if tag == TAG_MTREE
+                else 'did' if tag == TAG_DID
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
