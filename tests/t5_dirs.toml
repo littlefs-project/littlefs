@@ -448,12 +448,230 @@ code = '''
     }
 '''
 
-# TODO
-# [cases.t5_dirs_did_collisions]
-# [cases.t5_dirs_did_zero]
-# [cases.t5_dirs_did_ones]
-# [cases.t5_dirs_did_leb128_alignment]
 
+# test that did collisions don't cause issues
+[cases.t5_dirs_did_collisions]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    assert(lfs_crc32c(0, "a_SNmwMTHH", 10) == 0x12345678);
+    assert(lfs_crc32c(0, "b_skvjpWJH", 10) == 0x12345678);
+    assert(lfs_crc32c(0, "c_OnOQhVPH", 10) == 0x12345678);
+    assert(lfs_crc32c(0, "d_puMpPjRH", 10) == 0x12345678);
+    assert(lfs_crc32c(0, "e_LptKHkHH", 10) == 0x12345678);
+    assert(lfs_crc32c(0, "f_lUoVuhJH", 10) == 0x12345678);
+
+    // make directories
+    lfsr_mkdir(&lfs, "a_SNmwMTHH") => 0;
+    lfsr_mkdir(&lfs, "b_skvjpWJH") => 0;
+    lfsr_mkdir(&lfs, "c_OnOQhVPH") => 0;
+    lfsr_mkdir(&lfs, "d_puMpPjRH") => 0;
+    lfsr_mkdir(&lfs, "e_LptKHkHH") => 0;
+    lfsr_mkdir(&lfs, "f_lUoVuhJH") => 0;
+
+    // check that our mkdirs worked
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a_SNmwMTHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b_skvjpWJH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c_OnOQhVPH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "d_puMpPjRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "e_LptKHkHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "f_lUoVuhJH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# these will also collide with the root
+[cases.t5_dirs_did_zero]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
+    assert(lfs_crc32c(0, "b_iUwOsqRH", 10) == 0x00000000);
+    assert(lfs_crc32c(0, "c_UPNtkpHH", 10) == 0x00000000);
+    assert(lfs_crc32c(0, "d_jKLUSLJH", 10) == 0x00000000);
+    assert(lfs_crc32c(0, "e_VNunKMPH", 10) == 0x00000000);
+    assert(lfs_crc32c(0, "f_vknsvNRH", 10) == 0x00000000);
+
+    // make directories
+    lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+    lfsr_mkdir(&lfs, "b_iUwOsqRH") => 0;
+    lfsr_mkdir(&lfs, "c_UPNtkpHH") => 0;
+    lfsr_mkdir(&lfs, "d_jKLUSLJH") => 0;
+    lfsr_mkdir(&lfs, "e_VNunKMPH") => 0;
+    lfsr_mkdir(&lfs, "f_vknsvNRH") => 0;
+
+    // check that our mkdirs worked
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a_IplRNrPH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b_iUwOsqRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c_UPNtkpHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "d_jKLUSLJH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "e_VNunKMPH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "f_vknsvNRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# these will need to rollover from 0xffffffff -> 0x00000000 correctly
+#
+# note this is true even if you truncate
+[cases.t5_dirs_did_ones]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    assert(lfs_crc32c(0, "a_iomlVKPH", 10) == 0xffffffff);
+    assert(lfs_crc32c(0, "b_IJvqkHRH", 10) == 0xffffffff);
+    assert(lfs_crc32c(0, "c_uOOJsIHH", 10) == 0xffffffff);
+    assert(lfs_crc32c(0, "d_JTMkKuJH", 10) == 0xffffffff);
+    assert(lfs_crc32c(0, "e_vQtPStPH", 10) == 0xffffffff);
+    assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
+
+    // make directories
+    lfsr_mkdir(&lfs, "a_iomlVKPH") => 0;
+    lfsr_mkdir(&lfs, "b_IJvqkHRH") => 0;
+    lfsr_mkdir(&lfs, "c_uOOJsIHH") => 0;
+    lfsr_mkdir(&lfs, "d_JTMkKuJH") => 0;
+    lfsr_mkdir(&lfs, "e_vQtPStPH") => 0;
+    lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+
+    // check that our mkdirs worked
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a_iomlVKPH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b_IJvqkHRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c_uOOJsIHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "d_JTMkKuJH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "e_vQtPStPH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "f_VtoMnwRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# these test some boundary conditions on the underlying leb128 encoding,
+# if the leb128 disk-size is not calculated correctly these can cause
+# issues
+[cases.t5_dirs_did_leb128_boundaries]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    assert(lfs_crc32c(0, "a_IOtUptRH", 10) == 0x0000007f);
+    assert(lfs_crc32c(0, "b_nquQsKHH", 10) == 0x00000080);
+    assert(lfs_crc32c(0, "c_vwQtKjHH", 10) == 0x00000081);
+    assert(lfs_crc32c(0, "d_sVrvrWHH", 10) == 0x00003fff);
+    assert(lfs_crc32c(0, "e_thrRIsRH", 10) == 0x00004000);
+    assert(lfs_crc32c(0, "f_pNtQTPJH", 10) == 0x00004001);
+
+    // make directories
+    lfsr_mkdir(&lfs, "a_IOtUptRH") => 0;
+    lfsr_mkdir(&lfs, "b_nquQsKHH") => 0;
+    lfsr_mkdir(&lfs, "c_vwQtKjHH") => 0;
+    lfsr_mkdir(&lfs, "d_sVrvrWHH") => 0;
+    lfsr_mkdir(&lfs, "e_thrRIsRH") => 0;
+    lfsr_mkdir(&lfs, "f_pNtQTPJH") => 0;
+
+    // check that our mkdirs worked
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a_IOtUptRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b_nquQsKHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c_vwQtKjHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "d_sVrvrWHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "e_thrRIsRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "f_pNtQTPJH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    lfsr_unmount(&lfs) => 0;
+'''
 
 
 

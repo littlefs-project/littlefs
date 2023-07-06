@@ -1024,14 +1024,14 @@ typedef union lfsr_data {
 #define LFSR_DATA_DNAME(_did, _buffer, _size) \
     ((lfsr_data_t){.buf={ \
         /* note this find the effective leb128 size */ \
-        .size=_size + (lfs_nlog2(lfs_max32(_did, 1))+7-1)/7, \
+        .size=_size + (lfs_nlog2((_did)+1)+7-1)/7, \
         .buffer=(const void*)(_buffer), \
         .did=_did}})
 
 #define LFSR_DATA_LEB128(_did) \
     ((lfsr_data_t){.buf={ \
         /* note this find the effective leb128 size */ \
-        .size=(lfs_nlog2(lfs_max32(_did, 1))+7-1)/7, \
+        .size=(lfs_nlog2((_did)+1)+7-1)/7, \
         .buffer=NULL, \
         .did=_did}})
 
