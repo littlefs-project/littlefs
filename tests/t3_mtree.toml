@@ -145,6 +145,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
@@ -217,6 +220,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -288,6 +294,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -387,6 +396,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create entries
     lfsr_mdir_t mdir;
@@ -399,7 +411,7 @@ code = '''
             mdir.rbyd.off = cfg->block_size;
             lfs.mroot.rbyd.off = cfg->block_size;
         }
-       
+
         lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
                 LFSR_ATTR(rid, INLINED, +1, &alphas[i % 26], 1))) => 0;
 
@@ -481,6 +493,9 @@ code = '''
         lfsr_format(&lfs, cfg) => 0;
         lfsr_mount(&lfs, cfg) => 0;
         lfs_alloc_ack(&lfs);
+        // remove root dstart for now
+        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+                LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
         // at least keep track of the number of entries we expect
         lfs_size_t count = 0;
@@ -586,6 +601,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -653,6 +671,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -723,6 +744,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -780,6 +804,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an mdir that needs to be split
     uint8_t buffer[SIZE];
@@ -845,6 +872,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an mdir that needs to be split
     uint8_t buffer[SIZE];
@@ -910,6 +940,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an mdir that needs to be split
     uint8_t buffer[SIZE];
@@ -958,6 +991,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -1050,6 +1086,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -1142,6 +1181,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -1221,6 +1263,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create entries
     lfsr_mdir_t mdir;
@@ -1317,6 +1362,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     for (lfs_size_t cycle = 0; cycle < CYCLES; cycle++) {
         // create entries
@@ -1412,6 +1460,9 @@ code = '''
         lfsr_format(&lfs, cfg) => 0;
         lfsr_mount(&lfs, cfg) => 0;
         lfs_alloc_ack(&lfs);
+        // remove root dstart for now
+        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+                LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
         // at least keep track of the number of entries we expect
         lfs_size_t count = 0;
@@ -1542,6 +1593,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
@@ -1635,6 +1689,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -1727,6 +1784,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -1819,6 +1879,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
@@ -1876,6 +1939,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
@@ -1932,6 +1998,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
@@ -1997,6 +2066,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
@@ -2101,6 +2173,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -2212,6 +2287,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
@@ -2292,6 +2370,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // force mroot to compact once, so the second compact below will trigger
     // a relocation
@@ -2378,6 +2459,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // force mroot to compact once, so the second compact below will trigger
     // a relocation
@@ -2475,6 +2559,9 @@ code = '''
         lfsr_format(&lfs, cfg) => 0;
         lfsr_mount(&lfs, cfg) => 0;
         lfs_alloc_ack(&lfs);
+        // remove root dstart for now
+        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+                LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
         // at least keep track of the number of entries we expect
         lfs_size_t count = 0;
@@ -2613,6 +2700,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
@@ -2658,6 +2748,10 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
@@ -2698,6 +2792,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
@@ -2740,6 +2837,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
@@ -2810,6 +2910,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
@@ -2880,6 +2983,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
@@ -2974,6 +3080,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
@@ -3036,6 +3145,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
@@ -3125,6 +3237,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // insert a new entry, this should update our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
@@ -3222,6 +3337,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
@@ -3352,6 +3470,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -3484,6 +3605,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
@@ -3595,6 +3719,9 @@ code = '''
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     // create entries
     lfsr_mdir_t mdir;
@@ -3607,7 +3734,7 @@ code = '''
             mdir.rbyd.off = cfg->block_size;
             lfs.mroot.rbyd.off = cfg->block_size;
         }
-       
+
         lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
                 LFSR_ATTR(rid, INLINED, +1, &alphas[i % 26], 1))) => 0;
 
@@ -3746,6 +3873,9 @@ code = '''
         lfsr_format(&lfs, cfg) => 0;
         lfsr_mount(&lfs, cfg) => 0;
         lfs_alloc_ack(&lfs);
+        // remove root dstart for now
+        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+                LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
         // at least keep track of the number of entries we expect
         lfs_size_t count = 0;

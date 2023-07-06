@@ -3152,14 +3152,23 @@ static int lfsr_rbyd_dnamelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_size_t did, const char *name, lfs_size_t name_size,
         lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
+    // if we have an empty mdir, default to id = -1
+    if (id_) {
+        *id_ = -1;
+    }
+    if (tag_) {
+        *tag_ = 0;
+    }
+    if (weight_) {
+        *weight_ = 0;
+    }
+    if (data_) {
+        *data_ = LFSR_DATA_NULL;
+    }
+
     // binary search for our name
     lfs_ssize_t lower = 0;
     lfs_ssize_t upper = rbyd->weight;
-    // if we have an empty mdir, default to id = 0
-    if (id_) {
-        *id_ = 0;
-    }
-
     while (lower < upper) {
         lfsr_tag_t tag__;
         lfs_ssize_t id__;
@@ -3198,7 +3207,16 @@ static int lfsr_rbyd_dnamelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
             // keep track of best-matching id >= our target
             if (id_) {
-                *id_ = id__ + weight__;
+                *id_ = id__;
+            }
+            if (tag_) {
+                *tag_ = tag__;
+            }
+            if (weight_) {
+                *weight_ = weight__;
+            }
+            if (data_) {
+                *data_ = data__;
             }
 
         } else {
@@ -5686,9 +5704,19 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 static int lfsr_mdir_dnamelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfs_size_t did, const char *name, lfs_size_t name_size,
         lfs_ssize_t *id_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    return lfsr_rbyd_dnamelookup(lfs, &mdir->rbyd,
+    int err = lfsr_rbyd_dnamelookup(lfs, &mdir->rbyd,
             did, name, name_size,
             id_, tag_, NULL, data_);
+
+    // When not found, lfsr_rbyd_dnamelookup returns the id smaller than our
+    // expected name. This is correct for btree lookups, but not correct for
+    // mdir insertions. For mdirs we need to adjust this by 1 so we insert
+    // _after_ the smaller id.
+    if (id_ && err == LFS_ERR_NOENT) {
+        *id_ += 1;
+    }
+
+    return err;
 }
 
 // note if we fail, we at least leave mdir_/rid_ with the best place to insert

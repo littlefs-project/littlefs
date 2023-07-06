@@ -102,6 +102,10 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
     lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
+    // remove root dstart for now 
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, lfsr_mtree_weight(&lfs)-1, &mdir) => 0;

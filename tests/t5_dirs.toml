@@ -27,6 +27,37 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# test that creating the same directory twice errors
+[cases.t5_dirs_mkdir_exists]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // make a directory
+    lfsr_mkdir(&lfs, "ardvark") => 0;
+
+    // make the same directory, should error
+    lfsr_mkdir(&lfs, "ardvark") => LFS_ERR_EXIST;
+
+    // cand check that this didn't interfere with our original directory
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
 [cases.t5_dirs_mkdir_siblings]
 code = '''
     lfs_t lfs;
@@ -73,7 +104,7 @@ code = '''
     lfsr_mkdir(&lfs, "ardvark/batman") => 0;
     lfsr_mkdir(&lfs, "ardvark/batman/cantaloupe") => 0;
 
-    // check that our mkdir worked
+    // check that our mkdirs worked
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     struct lfs_info info;
@@ -114,6 +145,314 @@ code = '''
 
     lfsr_unmount(&lfs) => 0;
 '''
+
+[cases.t5_dirs_mkdir_many]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // make this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // check that our mkdir worked
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_mkdir_many_2layers]
+defines.N = [1, 2, 4, 8, 16, 32]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // make this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_mkdir(&lfs, name) => 0;
+
+        // containing this many directories
+        for (lfs_size_t j = 0; j < N; j++) {
+            sprintf(name, "dir%04d/child%04d", i, j);
+            lfsr_mkdir(&lfs, name) => 0;
+        }
+    }
+
+    // check that our mkdirs worked
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_open(&lfs, &dir, name) => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        for (lfs_size_t j = 0; j < N; j++) {
+            char name[256];
+            sprintf(name, "child%04d", j);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_mkdir_many_3layers]
+defines.N = [1, 2, 4, 8]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // make this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_mkdir(&lfs, name) => 0;
+
+        // containing this many directories
+        for (lfs_size_t j = 0; j < N; j++) {
+            sprintf(name, "dir%04d/child%04d", i, j);
+            lfsr_mkdir(&lfs, name) => 0;
+
+            // containing this many directories
+            for (lfs_size_t k = 0; k < N; k++) {
+                sprintf(name, "dir%04d/child%04d/grandchild%04d", i, j, k);
+                lfsr_mkdir(&lfs, name) => 0;
+            }
+        }
+    }
+
+    // check that our mkdirs worked
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_open(&lfs, &dir, name) => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        for (lfs_size_t j = 0; j < N; j++) {
+            char name[256];
+            sprintf(name, "child%04d", j);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+        for (lfs_size_t j = 0; j < N; j++) {
+            char name[256];
+            sprintf(name, "dir%04d/child%04d", i, j);
+            lfsr_dir_open(&lfs, &dir, name) => 0;
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, ".") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, "..") == 0);
+            assert(info.type == LFS_TYPE_DIR);
+            for (lfs_size_t k = 0; k < N; k++) {
+                char name[256];
+                sprintf(name, "grandchild%04d", k);
+                lfsr_dir_read(&lfs, &dir, &info) => 0;
+                assert(strcmp(info.name, name) == 0);
+                assert(info.type == LFS_TYPE_DIR);
+            }
+            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        }
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_mkdir_many_linkedlist]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // create this many directory in a sort of linked-list by nesting
+    char name[4096];
+    memset(name, 0, sizeof(name));
+    for (lfs_size_t i = 0; i < N; i++) {
+        sprintf(&name[strlen(name)], "/dir%04d", i);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // check that our mkdir worked
+    memset(name, 0, sizeof(name));
+    for (lfs_size_t i = 0; i < N; i++) {
+        sprintf(&name[strlen(name)], "/dir%04d", i);
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, name) => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        if (i < N-1) {
+            char name2[256];
+            sprintf(name2, "dir%04d", i+1);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name2) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_mkdir_fuzz]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.SAMPLES = 10
+# -1 => all pseudo-random seeds
+#  n => reproduce a specific seed
+defines.SEED = -1
+code = '''
+    // iterate through severals seeds that we can reproduce easily
+    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
+            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
+            seed++) {
+        printf("--- seed: %d ---\n", seed);
+        // reset lfs here each iteration
+        lfs_t lfs;
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+
+        // set up a simulation to compare against
+        lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+        lfs_size_t sim_size = 0;
+
+        uint32_t prng = seed;
+        for (lfs_size_t i = 0; i < N; i++) {
+            // choose a pseudo-random number, truncate to 4 decimals
+            lfs_size_t x = TEST_PRNG(&prng) % 1000;
+
+            // insert into our sim
+            for (lfs_size_t j = 0;; j++) {
+                if (j >= sim_size || sim[j] >= x) {
+                    // already seen? skip
+                    if (sim[j] == x) {
+                        goto next;
+                    }
+
+                    // insert
+                    memmove(&sim[j+1], &sim[j],
+                            (sim_size-j)*sizeof(lfs_size_t));
+                    sim_size += 1;
+                    sim[j] = x;
+                    break;
+                }
+            }
+
+            // create a directory here
+            char name[256];
+            sprintf(name, "dir%04d", x);
+            lfsr_mkdir(&lfs, name) => 0;
+        next:;
+        }
+
+        // test that our directories match our simulation
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        struct lfs_info info;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%04d", sim[j]);
+            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+        }
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+        // clean up sim/lfs
+        free(sim);
+        lfsr_unmount(&lfs) => 0;
+    }
+'''
+
+# TODO
+# [cases.t5_dirs_did_collisions]
+# [cases.t5_dirs_did_zero]
+# [cases.t5_dirs_did_ones]
+# [cases.t5_dirs_did_leb128_alignment]
 
 
 
