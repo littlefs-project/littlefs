@@ -142,7 +142,7 @@ code = '''
     // test that all of our metadata entries are still there
     lfs_size_t i = 0;
     for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < lfsr_mtree_weight(&lfs);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;

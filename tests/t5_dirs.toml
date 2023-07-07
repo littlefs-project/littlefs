@@ -547,6 +547,9 @@ code = '''
 
 [cases.t5_dirs_mkdir_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+# 0 => do this test in the root dir
+# 1 => do this test in a directory named "parent"
+defines.PARENT = [0, 1]
 defines.SAMPLES = 10
 # -1 => all pseudo-random seeds
 #  n => reproduce a specific seed
@@ -561,6 +564,9 @@ code = '''
         lfs_t lfs;
         lfsr_format(&lfs, cfg) => 0;
         lfsr_mount(&lfs, cfg) => 0;
+        if (PARENT) {
+            lfsr_mkdir(&lfs, "parent") => 0;
+        }
 
         // set up a simulation to compare against
         lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
@@ -590,7 +596,7 @@ code = '''
 
             // create a directory here
             char name[256];
-            sprintf(name, "dir%04d", x);
+            sprintf(name, "%s/dir%04d", (PARENT ? "parent" : ""), x);
             lfsr_mkdir(&lfs, name) => 0;
         next:;
         }
@@ -598,15 +604,17 @@ code = '''
         // test that our directories match our simulation
         for (lfs_size_t j = 0; j < sim_size; j++) {
             char name[256];
-            sprintf(name, "dir%04d", sim[j]);
+            sprintf(name, "%s/dir%04d", (PARENT ? "parent" : ""), sim[j]);
             struct lfs_info info;
             lfsr_stat(&lfs, name, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
+            char name2[256];
+            sprintf(name2, "dir%04d", sim[j]);
+            assert(strcmp(info.name, name2) == 0);
             assert(info.type == LFS_TYPE_DIR);
         }
 
         lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_open(&lfs, &dir, (PARENT ? "parent" : "/")) => 0;
         struct lfs_info info;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);

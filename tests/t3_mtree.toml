@@ -426,7 +426,7 @@ code = '''
     // try looking up each entry
     lfs_size_t i = 0;
     for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < lfsr_mtree_weight(&lfs);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -451,7 +451,7 @@ code = '''
     // try looking up each entry
     i = 0;
     for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < lfsr_mtree_weight(&lfs);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -535,7 +535,7 @@ code = '''
         lfs_size_t count_ = 0;
 
         for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < lfsr_mtree_weight(&lfs);
+                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
                 mid++) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -564,7 +564,7 @@ code = '''
         count_ = 0;
 
         for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < lfsr_mtree_weight(&lfs);
+                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
                 mid++) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -1306,7 +1306,7 @@ code = '''
     // try looking up each entry
     lfs_size_t i = N - REMAINING;
     for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < lfsr_mtree_weight(&lfs);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -1331,7 +1331,7 @@ code = '''
     // try looking up each entry
     i = N - REMAINING;
     for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < lfsr_mtree_weight(&lfs);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -1387,7 +1387,7 @@ code = '''
         // try looking up each entry
         lfs_size_t i = 0;
         for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < lfsr_mtree_weight(&lfs);
+                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
                 mid++) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -1517,7 +1517,7 @@ code = '''
         lfs_size_t count_ = 0;
 
         for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < lfsr_mtree_weight(&lfs);
+                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
                 mid++) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -1550,7 +1550,7 @@ code = '''
         count_ = 0;
 
         for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < lfsr_mtree_weight(&lfs);
+                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
                 mid++) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -2629,7 +2629,7 @@ code = '''
         lfs_size_t count_ = 0;
 
         for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < lfsr_mtree_weight(&lfs);
+                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
                 mid++) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -2662,7 +2662,7 @@ code = '''
         count_ = 0;
 
         for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < lfsr_mtree_weight(&lfs);
+                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
                 mid++) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -3224,6 +3224,193 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+[cases.t3_mtree_neighbor_mid_split]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+# make it so blocks relocate every two compacts
+defines.BLOCK_CYCLES = 2
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
+
+    //// create a situation where we have 3 mdirs in our tree
+
+    // first force mroot to uninlined+split
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, INLINED, +1, buffer, SIZE))) => 0;
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(1, INLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // we should now have 2 mdirs
+    assert(lfsr_mtree_weight(&lfs) == 2);
+
+    // now force one of our siblings to split
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 1, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+    memset(buffer, alphas[2 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(1, INLINED, +1, buffer, SIZE))) => 0;
+
+    // force mdir to compact
+    mdir.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // we should now have 3 mdirs
+    assert(lfsr_mtree_weight(&lfs) == 3);
+
+
+    //// Now test splitting updates mids correctly
+
+    // setup our neighbors
+    lfsr_openedmdir_t left_neighbor;
+    lfsr_mtree_lookup(&lfs, 0, &left_neighbor.mdir) => 0;
+    assert(left_neighbor.mdir.rbyd.weight == 1);
+    left_neighbor.rid = 0;
+
+    lfsr_openedmdir_t right_neighbor;
+    lfsr_mtree_lookup(&lfs, 2, &right_neighbor.mdir) => 0;
+    assert(right_neighbor.mdir.rbyd.weight == 1);
+    right_neighbor.rid = 0;
+
+    lfsr_mdir_addopened(&lfs, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, &right_neighbor);
+
+    // cause middle mdir to split
+    lfsr_mtree_lookup(&lfs, 1, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+    memset(buffer, alphas[3 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(1, INLINED, +1, buffer, SIZE))) => 0;
+
+    // force mdir to compact
+    mdir.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // we should now have 4 mdirs
+    assert(lfsr_mtree_weight(&lfs) == 4);
+
+    // assert that our neighbors were updated correctly
+    assert(left_neighbor.rid == 0);
+    assert(left_neighbor.mdir.mid == 0);
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(memcmp(&left_neighbor.mdir, &mdir, sizeof(lfsr_mdir_t)) == 0);
+
+    assert(right_neighbor.rid == 0);
+    assert(right_neighbor.mdir.mid == 3);
+    lfsr_mtree_lookup(&lfs, 3, &mdir) => 0;
+    assert(memcmp(&right_neighbor.mdir, &mdir, sizeof(lfsr_mdir_t)) == 0);
+
+    lfsr_mdir_removeopened(&lfs, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, &right_neighbor);
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t3_mtree_neighbor_mid_drop]
+# this should be set so only one entry can fit in a metadata block
+defines.SIZE = 'BLOCK_SIZE / 4'
+# make it so blocks relocate every two compacts
+defines.BLOCK_CYCLES = 2
+in = 'lfs.c'
+code = '''
+    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
+
+    //// create a situation where we have 3 mdirs in our tree
+
+    // first force mroot to uninlined+split
+    uint8_t buffer[SIZE];
+    memset(buffer, alphas[0 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, INLINED, +1, buffer, SIZE))) => 0;
+    memset(buffer, alphas[1 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(1, INLINED, +1, buffer, SIZE))) => 0;
+
+    // force mroot to compact
+    lfs.mroot.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // we should now have 2 mdirs
+    assert(lfsr_mtree_weight(&lfs) == 2);
+
+    // now force one of our siblings to split
+    lfsr_mdir_t mdir;
+    lfsr_mtree_lookup(&lfs, 1, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+    memset(buffer, alphas[2 % 26], SIZE);
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){1}, LFSR_ATTRS(
+            LFSR_ATTR(1, INLINED, +1, buffer, SIZE))) => 0;
+
+    // force mdir to compact
+    mdir.rbyd.off = BLOCK_SIZE;
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){-1}, NULL, 0) => 0;
+
+    // we should now have 3 mdirs
+    assert(lfsr_mtree_weight(&lfs) == 3);
+
+
+    //// Now test dropping updates mids correctly
+
+    // setup our neighbors
+    lfsr_openedmdir_t left_neighbor;
+    lfsr_mtree_lookup(&lfs, 0, &left_neighbor.mdir) => 0;
+    assert(left_neighbor.mdir.rbyd.weight == 1);
+    left_neighbor.rid = 0;
+
+    lfsr_openedmdir_t right_neighbor;
+    lfsr_mtree_lookup(&lfs, 2, &right_neighbor.mdir) => 0;
+    assert(right_neighbor.mdir.rbyd.weight == 1);
+    right_neighbor.rid = 0;
+
+    lfsr_mdir_addopened(&lfs, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, &right_neighbor);
+
+    // cause middle mdir to drop 
+    lfsr_mtree_lookup(&lfs, 1, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){0}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
+
+    // we should now have 2 mdirs
+    assert(lfsr_mtree_weight(&lfs) == 2);
+
+    // assert that our neighbors were updated correctly
+    assert(left_neighbor.rid == 0);
+    assert(left_neighbor.mdir.mid == 0);
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(memcmp(&left_neighbor.mdir, &mdir, sizeof(lfsr_mdir_t)) == 0);
+
+    assert(right_neighbor.rid == 0);
+    assert(right_neighbor.mdir.mid == 1);
+    lfsr_mtree_lookup(&lfs, 1, &mdir) => 0;
+    assert(memcmp(&right_neighbor.mdir, &mdir, sizeof(lfsr_mdir_t)) == 0);
+
+    lfsr_mdir_removeopened(&lfs, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, &right_neighbor);
+    lfsr_unmount(&lfs) => 0;
+'''
+
 
 ## mtree traversal ##
 
@@ -3749,7 +3936,7 @@ code = '''
     // try looking up each entry
     lfs_size_t i = 0;
     for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < lfsr_mtree_weight(&lfs);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -3831,7 +4018,7 @@ code = '''
     // try looking up each entry
     i = 0;
     for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < lfsr_mtree_weight(&lfs);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -3915,7 +4102,7 @@ code = '''
         lfs_size_t count_ = 0;
 
         for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < lfsr_mtree_weight(&lfs);
+                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
                 mid++) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
@@ -4002,7 +4189,7 @@ code = '''
         count_ = 0;
 
         for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < lfsr_mtree_weight(&lfs);
+                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
                 mid++) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;

@@ -4966,14 +4966,14 @@ static inline int lfsr_mtree_isinlined(lfs_t *lfs) {
     return lfsr_btree_weight(&lfs->mtree) == 0;
 }
 
-static inline lfs_ssize_t lfsr_mtree_weight(lfs_t *lfs) {
+static inline lfs_size_t lfsr_mtree_weight(lfs_t *lfs) {
     return lfsr_btree_weight(&lfs->mtree);
 }
 
 static int lfsr_mtree_lookup(lfs_t *lfs, lfs_ssize_t mid, lfsr_mdir_t *mdir_) {
     // TODO should we really allow -1=>mroot lookup?
     LFS_ASSERT(mid >= -1);
-    LFS_ASSERT(mid < lfsr_mtree_weight(lfs));
+    LFS_ASSERT(mid < (lfs_ssize_t)lfsr_mtree_weight(lfs));
 
     // looking up mroot?
     if (mid < 0) {
@@ -5649,17 +5649,18 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     }
 
     // success?? update in-device state
-    lfs->mroot = mroot_;
-    lfs->mtree = mtree_;
 
     // update any opened mdirs
     for (lfsr_openedmdir_t *opened = lfs->opened;
             opened;
             opened = opened->next) {
-        if (opened->mdir.mid == mdir->mid
-                // avoid double-updating our current mdir
-                && &opened->mdir != mdir) {
-            LFS_ASSERT(opened->rid <= (lfs_ssize_t)opened->mdir.rbyd.weight);
+        // avoid double-updating our current mdir
+        if (&opened->mdir == mdir) {
+            continue;
+        }
+
+        if (opened->mdir.mid == mdir->mid) {
+            LFS_ASSERT(opened->rid < (lfs_ssize_t)opened->mdir.rbyd.weight);
             LFS_ASSERT(opened->rid != -1);
 
             // first play out any attrs that change our rid
@@ -5681,11 +5682,23 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             } else if ((lfs_size_t)opened->rid < mdir_.rbyd.weight) {
                 opened->mdir = mdir_;
             } else {
+                LFS_ASSERT(lfsr_btree_weight(&mtree_)
+                        != lfsr_mtree_weight(lfs));
                 opened->rid = opened->rid - mdir_.rbyd.weight;
                 opened->mdir = msibling_;
             }
+
+        // update mid if we had a split or drop
+        } else if (opened->mdir.mid > mdir->mid
+                && lfsr_btree_weight(&mtree_) != lfsr_mtree_weight(lfs)) {
+            opened->mdir.mid += lfsr_btree_weight(&mtree_)
+                    - lfsr_mtree_weight(lfs);
         }
     }
+
+    // update our mroot and mtree
+    lfs->mroot = mroot_;
+    lfs->mtree = mtree_;
 
     // update mdir to follow requested rid
     lfs_ssize_t rid_ = *rid;
@@ -6904,7 +6917,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
     if (rid >= (lfs_ssize_t)dir->mdir.mdir.rbyd.weight) {
         // out of mdirs?
         lfs_ssize_t mid = dir->mdir.mdir.mid + 1;
-        if (mid >= lfsr_mtree_weight(lfs)) {
+        if (mid >= (lfs_ssize_t)lfsr_mtree_weight(lfs)) {
             return LFS_ERR_NOENT;
         }
 
