@@ -9,10 +9,52 @@ code = '''
     // make a directory
     lfsr_mkdir(&lfs, "ardvark") => 0;
 
-    // check that our mkdir worked
+    // check that our mkdir worked with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // and with dir_read
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that noent errors work
+[cases.t5_dirs_noent]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // make a directory
+    lfsr_mkdir(&lfs, "ardvark") => 0;
+
+    // try to read a nonsense path
     struct lfs_info info;
+    lfsr_stat(&lfs, "no", &info) => LFS_ERR_NOENT;
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "no") => LFS_ERR_NOENT;
+
+    // and check that this didn't interfere with our original directory
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -40,10 +82,52 @@ code = '''
     // make the same directory, should error
     lfsr_mkdir(&lfs, "ardvark") => LFS_ERR_EXIST;
 
-    // cand check that this didn't interfere with our original directory
+    // and check that this didn't interfere with our original directory
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that creating a directory with an invalid path errors
+[cases.t5_dirs_mkdir_noent]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // make a directory
+    lfsr_mkdir(&lfs, "ardvark") => 0;
+
+    // make a nonsense directory, should error
+    lfsr_mkdir(&lfs, "no/hmm") => LFS_ERR_NOENT;
+
+    // make a nonsense child directory, should error
+    lfsr_mkdir(&lfs, "ardvark/no/hmm") => LFS_ERR_NOENT;
+
+    // and check that this didn't interfere with our original directory
     struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -70,9 +154,19 @@ code = '''
     lfsr_mkdir(&lfs, "cantaloupe") => 0;
 
     // check that our mkdir worked
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "cantaloupe", &info) => 0;
+    assert(strcmp(info.name, "cantaloupe") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -105,9 +199,19 @@ code = '''
     lfsr_mkdir(&lfs, "ardvark/batman/cantaloupe") => 0;
 
     // check that our mkdirs worked
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "ardvark/batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "ardvark/batman/cantaloupe", &info) => 0;
+    assert(strcmp(info.name, "cantaloupe") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -161,6 +265,15 @@ code = '''
     }
 
     // check that our mkdir worked
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     struct lfs_info info;
@@ -203,6 +316,25 @@ code = '''
     }
 
     // check that our mkdirs worked
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        for (lfs_size_t j = 0; j < N; j++) {
+            char name[256];
+            sprintf(name, "dir%04d/child%04d", i, j);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            sprintf(name, "child%04d", j);
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+        }
+    }
+
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     struct lfs_info info;
@@ -271,6 +403,35 @@ code = '''
     }
 
     // check that our mkdirs worked
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        for (lfs_size_t j = 0; j < N; j++) {
+            char name[256];
+            sprintf(name, "dir%04d/child%04d", i, j);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            sprintf(name, "child%04d", j);
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+
+            for (lfs_size_t k = 0; k < N; k++) {
+                char name[256];
+                sprintf(name, "dir%04d/child%04d/grandchild%04d", i, j, k);
+                struct lfs_info info;
+                lfsr_stat(&lfs, name, &info) => 0;
+                sprintf(name, "grandchild%04d", k);
+                assert(strcmp(info.name, name) == 0);
+                assert(info.type == LFS_TYPE_DIR);
+            }
+        }
+    }
+
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     struct lfs_info info;
@@ -351,6 +512,17 @@ code = '''
     memset(name, 0, sizeof(name));
     for (lfs_size_t i = 0; i < N; i++) {
         sprintf(&name[strlen(name)], "/dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        char name2[256];
+        sprintf(name2, "dir%04d", i);
+        assert(strcmp(info.name, name2) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    memset(name, 0, sizeof(name));
+    for (lfs_size_t i = 0; i < N; i++) {
+        sprintf(&name[strlen(name)], "/dir%04d", i);
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, name) => 0;
         struct lfs_info info;
@@ -424,6 +596,15 @@ code = '''
         }
 
         // test that our directories match our simulation
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            char name[256];
+            sprintf(name, "dir%04d", sim[j]);
+            struct lfs_info info;
+            lfsr_stat(&lfs, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+        }
+
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
         struct lfs_info info;
@@ -472,9 +653,28 @@ code = '''
     lfsr_mkdir(&lfs, "f_lUoVuhJH") => 0;
 
     // check that our mkdirs worked
+    struct lfs_info info;
+    lfsr_stat(&lfs, "a_SNmwMTHH", &info) => 0;
+    assert(strcmp(info.name, "a_SNmwMTHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "b_skvjpWJH", &info) => 0;
+    assert(strcmp(info.name, "b_skvjpWJH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "c_OnOQhVPH", &info) => 0;
+    assert(strcmp(info.name, "c_OnOQhVPH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "d_puMpPjRH", &info) => 0;
+    assert(strcmp(info.name, "d_puMpPjRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "e_LptKHkHH", &info) => 0;
+    assert(strcmp(info.name, "e_LptKHkHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "f_lUoVuhJH", &info) => 0;
+    assert(strcmp(info.name, "f_lUoVuhJH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -527,9 +727,28 @@ code = '''
     lfsr_mkdir(&lfs, "f_vknsvNRH") => 0;
 
     // check that our mkdirs worked
+    struct lfs_info info;
+    lfsr_stat(&lfs, "a_IplRNrPH", &info) => 0;
+    assert(strcmp(info.name, "a_IplRNrPH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "b_iUwOsqRH", &info) => 0;
+    assert(strcmp(info.name, "b_iUwOsqRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "c_UPNtkpHH", &info) => 0;
+    assert(strcmp(info.name, "c_UPNtkpHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "d_jKLUSLJH", &info) => 0;
+    assert(strcmp(info.name, "d_jKLUSLJH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "e_VNunKMPH", &info) => 0;
+    assert(strcmp(info.name, "e_VNunKMPH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "f_vknsvNRH", &info) => 0;
+    assert(strcmp(info.name, "f_vknsvNRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -584,9 +803,28 @@ code = '''
     lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
 
     // check that our mkdirs worked
+    struct lfs_info info;
+    lfsr_stat(&lfs, "a_iomlVKPH", &info) => 0;
+    assert(strcmp(info.name, "a_iomlVKPH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "b_IJvqkHRH", &info) => 0;
+    assert(strcmp(info.name, "b_IJvqkHRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "c_uOOJsIHH", &info) => 0;
+    assert(strcmp(info.name, "c_uOOJsIHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "d_JTMkKuJH", &info) => 0;
+    assert(strcmp(info.name, "d_JTMkKuJH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "e_vQtPStPH", &info) => 0;
+    assert(strcmp(info.name, "e_vQtPStPH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "f_VtoMnwRH", &info) => 0;
+    assert(strcmp(info.name, "f_VtoMnwRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -641,9 +879,28 @@ code = '''
     lfsr_mkdir(&lfs, "f_pNtQTPJH") => 0;
 
     // check that our mkdirs worked
+    struct lfs_info info;
+    lfsr_stat(&lfs, "a_IOtUptRH", &info) => 0;
+    assert(strcmp(info.name, "a_IOtUptRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "b_nquQsKHH", &info) => 0;
+    assert(strcmp(info.name, "b_nquQsKHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "c_vwQtKjHH", &info) => 0;
+    assert(strcmp(info.name, "c_vwQtKjHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "d_sVrvrWHH", &info) => 0;
+    assert(strcmp(info.name, "d_sVrvrWHH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "e_thrRIsRH", &info) => 0;
+    assert(strcmp(info.name, "e_thrRIsRH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "f_pNtQTPJH", &info) => 0;
+    assert(strcmp(info.name, "f_pNtQTPJH") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);

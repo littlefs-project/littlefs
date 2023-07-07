@@ -674,6 +674,10 @@ static inline uint8_t lfsr_tag_subtype(lfsr_tag_t tag) {
     return tag & 0x00ff;
 }
 
+static inline uint8_t lfsr_tag_filetype(lfsr_tag_t tag) {
+    return tag - LFSR_TAG_REG;
+}
+
 static inline bool lfsr_tag_isvalid(lfsr_tag_t tag) {
     return !(tag & 0x8000);
 }
@@ -5874,24 +5878,27 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
             return err;
         }
 
-        // keep track of what we've seen so far
-        if (mdir_) {
-            *mdir_ = mdir;
-        }
-        if (rid_) {
-            *rid_ = rid;
-        }
-        if (tag_) {
-            *tag_ = tag;
-        }
-        if (did_) {
-            *did_ = did;
-        }
-        if (name_) {
-            *name_ = name;
-        }
-        if (name_size_) {
-            *name_size_ = name_size;
+        // keep track of what we've seen, but only if we're the last name
+        // in our path
+        if (strchr(name, '/') == NULL) {
+            if (mdir_) {
+                *mdir_ = mdir;
+            }
+            if (rid_) {
+                *rid_ = rid;
+            }
+            if (tag_) {
+                *tag_ = tag;
+            }
+            if (did_) {
+                *did_ = did;
+            }
+            if (name_) {
+                *name_ = name;
+            }
+            if (name_size_) {
+                *name_size_ = name_size;
+            }
         }
 
         // error if not found, note we update things first so mdir/rid
@@ -6712,7 +6719,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     int err = lfsr_mtree_pathlookup(lfs, path,
             &parent.mdir, &parent.rid, NULL,
             &parent_did, &name, &name_size);
-    if (err && err != LFS_ERR_NOENT) {
+    if (err && (err != LFS_ERR_NOENT || parent.rid == -1)) {
         return err;
     }
 
@@ -6847,6 +6854,34 @@ int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
     return 0;
 }
 
+int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
+    memset(info, 0, sizeof(struct lfs_info));
+
+    // lookup our entry
+    lfsr_mdir_t mdir;
+    lfs_ssize_t rid;
+    lfsr_tag_t tag;
+    const char *name;
+    lfs_size_t name_size;
+    int err = lfsr_mtree_pathlookup(lfs, path,
+            &mdir, &rid, &tag,
+            NULL, &name, &name_size);
+    if (err) {
+        return err;
+    }
+
+    // fill out our info struct
+    info->type = lfsr_tag_filetype(tag);
+
+    LFS_ASSERT(name_size <= LFS_NAME_MAX);
+    memcpy(info->name, name, name_size);
+    info->name[name_size] = '\0';
+
+    // TODO size once we have actual files
+
+    return 0;
+}
+
 int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
     memset(info, 0, sizeof(struct lfs_info));
 
@@ -6896,9 +6931,9 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
     }
 
     // fill in our info struct
-    info->type = tag - LFSR_TAG_REG;
+    info->type = lfsr_tag_filetype(tag);
 
-    LFS_ASSERT(lfsr_data_size(data) <= lfs->name_max);
+    LFS_ASSERT(lfsr_data_size(data) <= LFS_NAME_MAX);
     lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &(uint32_t){0});
     if (d < 0) {
         return d;
