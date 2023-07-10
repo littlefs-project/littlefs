@@ -11,6 +11,8 @@ import struct
 TAG_NULL        = 0x0000
 TAG_SUPERMAGIC  = 0x0003
 TAG_SUPERCONFIG = 0x0004
+TAG_GSTATE      = 0x0100
+TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
 TAG_BRANCH      = 0x0200
 TAG_DSTART      = 0x0201
@@ -134,6 +136,12 @@ def tagrepr(tag, w, size, off=None):
             size)
     elif tag == TAG_SUPERCONFIG:
         return 'superconfig%s %d' % (
+            ' w%d' % w if w else '',
+            size)
+    elif (tag & 0xff00) == TAG_GSTATE:
+        return '%s%s %d' % (
+            'grm' if tag == TAG_GRM
+                else 'gstate 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
     elif (tag & 0xff00) == TAG_NAME:
@@ -1291,8 +1299,7 @@ def main(disk, mroots=None, *,
                     '%*s %-22s%s' % (
                         w_width, '%d.%d-%d' % (mid, rid-(w-1), rid)
                             if w > 1 else '%d.%d' % (mid, rid)
-                            if w > 0 else '%d' % mid
-                            if i == 0 else '',
+                            if w > 0 or i == 0 else '',
                         tagrepr(tag, w, len(data), j),
                         '  %s' % next(xxd(data, 8), '')
                             if not args.get('no_truncate') else '')))

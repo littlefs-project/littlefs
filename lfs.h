@@ -368,6 +368,12 @@ typedef union lfsr_btree {
     } inlined;
 } lfsr_btree_t;
 
+// space for:
+// - type - 1 leb128 - 1 byte (worst case)
+// - mid  - 1 leb128 - 5 bytes (worst case)
+// - rid  - 1 leb128 - 5 bytes (worst case)
+#define LFSR_GRM_DSIZE (5+5)
+
 typedef struct lfsr_mdir {
     //  -2 => deleted
     //  -1 => mroot
@@ -481,6 +487,9 @@ typedef struct lfs {
     // begin lfsr things
     lfsr_mdir_t mroot;
     lfsr_btree_t mtree;
+
+    uint8_t grm[LFSR_GRM_DSIZE];
+    uint8_t grmd[LFSR_GRM_DSIZE];
 
     // linked-list of opened mdirs
     lfsr_openedmdir_t *opened;

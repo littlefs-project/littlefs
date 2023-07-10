@@ -20,6 +20,8 @@ COLORS = [
 TAG_NULL        = 0x0000
 TAG_SUPERMAGIC  = 0x0003
 TAG_SUPERCONFIG = 0x0004
+TAG_GSTATE      = 0x0100
+TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
 TAG_BRANCH      = 0x0200
 TAG_DSTART      = 0x0201
@@ -128,6 +130,12 @@ def tagrepr(tag, w, size, off=None):
             size)
     elif tag == TAG_SUPERCONFIG:
         return 'superconfig%s %d' % (
+            ' w%d' % w if w else '',
+            size)
+    elif (tag & 0xff00) == TAG_GSTATE:
+        return '%s%s %d' % (
+            'grm' if tag == TAG_GRM
+                else 'gstate 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
     elif (tag & 0xff00) == TAG_NAME:
