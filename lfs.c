@@ -1561,11 +1561,6 @@ static int lfsr_gdelta_xor(lfs_t *lfs,
 
 
 // GRM (global remove) things
-typedef struct lfsr_grm {
-    lfs_ssize_t mid;
-    lfs_size_t rid;
-} lfsr_grm_t;
-
 static lfs_ssize_t lfsr_grm_todisk(lfs_t *lfs, const lfsr_grm_t *grm,
         uint8_t buffer[static LFSR_GRM_DSIZE]) {
     (void)lfs;
@@ -1780,6 +1775,9 @@ static int lfsr_grm_split(lfs_t *lfs,
 // predeclare block allocator functions
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block);
 static void lfs_alloc_ack(lfs_t *lfs);
+
+// and our main "fix everything before writing" function
+static int lfsr_fs_preparemutation(lfs_t *lfs);
 
 
 /// Red-black-yellow Dhara tree operations ///
@@ -5260,6 +5258,10 @@ static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
 
 // some mdir-related gstate things we need
+static void lfsr_fs_flushgdelta(lfs_t *lfs) {
+    memset(lfs->grmd, 0, LFSR_GRM_DSIZE);
+}
+
 static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
     lfsr_data_t data;
     int err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_GRM, NULL, &data);
@@ -5275,10 +5277,6 @@ static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
     }
 
     return 0;
-}
-
-static void lfsr_fs_flushgdelta(lfs_t *lfs) {
-    memset(lfs->grmd, 0, LFSR_GRM_DSIZE);
 }
 
 
@@ -5377,9 +5375,18 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
     // - mid = wl          => only alloc if mdir is tired (wear-leveling)
     // - otherwise         => always alloc, use this mid (new mdir)
 
+    // consume gstate on original rbyd, we need this even if we drop
+    // our mdir to avoid losing info
+    //
+    // if succesful, this should get immediately appended to our new commit
+    int err = lfsr_fs_consumegdelta(lfs, msource);
+    if (err) {
+        return err;
+    }
+
     // first thing we need to do is read our current revision count
     uint32_t rev;
-    int err = lfsr_bd_read(lfs, msource->rbyd.block, 0, sizeof(uint32_t),
+    err = lfsr_bd_read(lfs, msource->rbyd.block, 0, sizeof(uint32_t),
             &rev, sizeof(uint32_t));
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
@@ -5460,14 +5467,9 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
         return err;
     }
 
+
     // drop commit if weight goes to zero
     if (mdir->mid >= 0 && mdir->rbyd.weight == 0) {
-        // consume gstate so we don't lose any info
-        int err = lfsr_fs_consumegdelta(lfs, mdir);
-        if (err) {
-            return err;
-        }
-
         // TODO should we just make our pcache not assert?
         // drop our pcache, we're not going to complete this commit
         lfs_cache_zero(lfs, &lfs->pcache);
@@ -6697,6 +6699,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg);
 static int lfs_deinit(lfs_t *lfs);
 
 static int lfsr_mountinited(lfs_t *lfs) {
+    // zero gdeltas, we'll read these from our mdirs
+    lfsr_fs_flushgdelta(lfs);
+
     // traverse the mtree rooted at mroot 0x{1,0}
     //
     // note that lfsr_mtree_traversal_next will update our mroot/mtree
@@ -6963,6 +6968,12 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 }
             }
         }
+
+        // collect any gdeltas from this mdir
+        err = lfsr_fs_consumegdelta(lfs, mdir);
+        if (err) {
+            return err;
+        }
     }
 
     // once we've mounted and derived a pseudo-random seed, initialize our
@@ -6972,6 +6983,24 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // allocating blocks near the beginning of disk after a power-loss
     //
     lfs->lookahead.start = lfs->seed % lfs->cfg->block_count;
+
+    // TODO should the consumegdelta above take gstate/gdelta as a parameter?
+    // keep track of the current gstate on disk
+    memcpy(lfs->grm, lfs->grmd, LFSR_GRM_DSIZE);
+
+    // decode grm so we can report any removed files as missing
+    // TODO wait, should mdir_commit update lfs->grm_ as well?
+    lfs_ssize_t d = lfsr_grm_fromdisk(lfs, &lfs->grm_,
+            LFSR_DATA_BUF(lfs->grm, LFSR_GRM_DSIZE));
+    if (d < 0) {
+        return d;
+    }
+
+    if (lfs->grm_.mid >= 0) {
+        LFS_DEBUG("Found pending grm (0x%"PRIx32".%"PRIx32")\n",
+                lfs->grm_.mid,
+                lfs->grm_.rid);
+    }
 
     return 0;
 }
@@ -7167,16 +7196,18 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 /// Directory operations ///
 
 int lfsr_mkdir(lfs_t *lfs, const char *path) {
-    // checkpoint block allocations
-    // TODO we should just name this lfsr_alloc_checkpoint
-    lfs_alloc_ack(lfs);
+    // prepare our filesystem for writing
+    int err= lfsr_fs_preparemutation(lfs);
+    if (err) {
+        return err;
+    }
 
     // lookup our parent
     lfsr_openedmdir_t parent;
     lfs_size_t parent_did;
     const char *name;
     lfs_size_t name_size;
-    int err = lfsr_mtree_pathlookup(lfs, path,
+    err = lfsr_mtree_pathlookup(lfs, path,
             &parent.mdir, &parent.rid, NULL,
             &parent_did, &name, &name_size);
     if (err && (err != LFS_ERR_NOENT || parent.rid == -1)) {
@@ -7424,6 +7455,45 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 
     return 0;
 }
+
+
+/// Prepare the filesystem for mutation ///
+static int lfsr_fs_fixgrm(lfs_t *lfs) {
+    // find our mdir
+    lfsr_mdir_t mdir;
+    int err = lfsr_mtree_lookup(lfs, lfs->grm_.mid, &mdir);
+    if (err) {
+        return err;
+    }
+
+    // remove the rid while also zeroing our grm
+    err = lfsr_mdir_commit(lfs, &mdir, (lfs_ssize_t*)&lfs->grm_.rid, LFSR_ATTRS(
+            LFSR_ATTR(lfs->grm_.rid, UNR, -1, NULL, 0),
+            LFSR_ATTR(-1, GRM, 0, NULL, 0)));
+
+    // mark grm as taken care of
+    lfs->grm_.mid = 0;
+    return 0;
+}
+
+static int lfsr_fs_preparemutation(lfs_t *lfs) {
+    // fix pending grms
+    if (lfs->grm_.mid >= 0) {
+        LFS_DEBUG("Fixing grm (0x%"PRIx32".%"PRIx32")",
+                lfs->grm_.mid,
+                lfs->grm_.rid);
+        int err = lfsr_fs_fixgrm(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
+    // checkpoint the allocator
+    lfs_alloc_ack(lfs);
+
+    return 0;
+}
+
 
 
 

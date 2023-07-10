@@ -233,7 +233,8 @@ class Rbyd:
             for i_, rbyd in enumerate(rbyds):
                 # compare with sequence arithmetic
                 if rbyd and (
-                        not ((rbyd.rev - rbyds[i].rev) & 0x80000000)
+                        not rbyds[i]
+                        or not ((rbyd.rev - rbyds[i].rev) & 0x80000000)
                         or (rbyd.rev == rbyds[i].rev
                             and rbyd.trunk > rbyds[i].trunk)):
                     i = i_

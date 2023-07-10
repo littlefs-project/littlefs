@@ -368,12 +368,6 @@ typedef union lfsr_btree {
     } inlined;
 } lfsr_btree_t;
 
-// space for:
-// - type - 1 leb128 - 1 byte (worst case)
-// - mid  - 1 leb128 - 5 bytes (worst case)
-// - rid  - 1 leb128 - 5 bytes (worst case)
-#define LFSR_GRM_DSIZE (5+5)
-
 typedef struct lfsr_mdir {
     //  -2 => deleted
     //  -1 => mroot
@@ -389,6 +383,17 @@ typedef struct lfsr_openedmdir {
     lfs_ssize_t rid;
     lfsr_mdir_t mdir;
 } lfsr_openedmdir_t;
+
+// space for:
+// - type - 1 leb128 - 1 byte (worst case)
+// - mid  - 1 leb128 - 5 bytes (worst case)
+// - rid  - 1 leb128 - 5 bytes (worst case)
+#define LFSR_GRM_DSIZE (5+5)
+
+typedef struct lfsr_grm {
+    lfs_ssize_t mid;
+    lfs_size_t rid;
+} lfsr_grm_t;
 
 
 typedef struct lfs_mdir {
@@ -487,6 +492,9 @@ typedef struct lfs {
     // begin lfsr things
     lfsr_mdir_t mroot;
     lfsr_btree_t mtree;
+
+    // TODO do we really need separate decoded/encoded grms?
+    lfsr_grm_t grm_;
 
     uint8_t grm[LFSR_GRM_DSIZE];
     uint8_t grmd[LFSR_GRM_DSIZE];

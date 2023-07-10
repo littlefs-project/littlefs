@@ -1,6 +1,7 @@
 # Directory tests
 
 [cases.t5_dirs_mkdir]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -8,6 +9,14 @@ code = '''
 
     // make a directory
     lfsr_mkdir(&lfs, "ardvark") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
 
     // check that our mkdir worked with stat
     struct lfs_info info;
@@ -34,6 +43,7 @@ code = '''
 
 # test that noent errors work
 [cases.t5_dirs_noent]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -48,6 +58,14 @@ code = '''
 
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "no") => LFS_ERR_NOENT;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
 
     // and check that this didn't interfere with our original directory
     lfsr_stat(&lfs, "ardvark", &info) => 0;
@@ -71,6 +89,7 @@ code = '''
 
 # test that creating the same directory twice errors
 [cases.t5_dirs_mkdir_exists]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -81,6 +100,14 @@ code = '''
 
     // make the same directory, should error
     lfsr_mkdir(&lfs, "ardvark") => LFS_ERR_EXIST;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
 
     // and check that this didn't interfere with our original directory
     struct lfs_info info;
@@ -106,6 +133,7 @@ code = '''
 
 # test that creating a directory with an invalid path errors
 [cases.t5_dirs_mkdir_noent]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -119,6 +147,14 @@ code = '''
 
     // make a nonsense child directory, should error
     lfsr_mkdir(&lfs, "ardvark/no/hmm") => LFS_ERR_NOENT;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
 
     // and check that this didn't interfere with our original directory
     struct lfs_info info;
@@ -143,6 +179,7 @@ code = '''
 '''
 
 [cases.t5_dirs_mkdir_siblings]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -152,6 +189,14 @@ code = '''
     lfsr_mkdir(&lfs, "ardvark") => 0;
     lfsr_mkdir(&lfs, "batman") => 0;
     lfsr_mkdir(&lfs, "cantaloupe") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
 
     // check that our mkdir worked
     struct lfs_info info;
@@ -188,6 +233,7 @@ code = '''
 '''
 
 [cases.t5_dirs_mkdir_children]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -197,6 +243,14 @@ code = '''
     lfsr_mkdir(&lfs, "ardvark") => 0;
     lfsr_mkdir(&lfs, "ardvark/batman") => 0;
     lfsr_mkdir(&lfs, "ardvark/batman/cantaloupe") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
 
     // check that our mkdirs worked
     struct lfs_info info;
@@ -252,6 +306,7 @@ code = '''
 
 [cases.t5_dirs_mkdir_many]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -262,6 +317,14 @@ code = '''
         char name[256];
         sprintf(name, "dir%04d", i);
         lfsr_mkdir(&lfs, name) => 0;
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, cfg) => 0;
+            // grm should be zero here
+            assert(lfs.grm[0] == 0);
+        }
     }
 
     // check that our mkdir worked
@@ -297,6 +360,7 @@ code = '''
 
 [cases.t5_dirs_mkdir_many_2layers]
 defines.N = [1, 2, 4, 8, 16, 32]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -312,6 +376,14 @@ code = '''
         for (lfs_size_t j = 0; j < N; j++) {
             sprintf(name, "dir%04d/child%04d", i, j);
             lfsr_mkdir(&lfs, name) => 0;
+
+            // remount?
+            if (REMOUNT) {
+                lfsr_unmount(&lfs) => 0;
+                lfsr_mount(&lfs, cfg) => 0;
+                // grm should be zero here
+                assert(lfs.grm[0] == 0);
+            }
         }
     }
 
@@ -378,6 +450,7 @@ code = '''
 
 [cases.t5_dirs_mkdir_many_3layers]
 defines.N = [1, 2, 4, 8]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -398,6 +471,14 @@ code = '''
             for (lfs_size_t k = 0; k < N; k++) {
                 sprintf(name, "dir%04d/child%04d/grandchild%04d", i, j, k);
                 lfsr_mkdir(&lfs, name) => 0;
+
+                // remount?
+                if (REMOUNT) {
+                    lfsr_unmount(&lfs) => 0;
+                    lfsr_mount(&lfs, cfg) => 0;
+                    // grm should be zero here
+                    assert(lfs.grm[0] == 0);
+                }
             }
         }
     }
@@ -495,6 +576,7 @@ code = '''
 
 [cases.t5_dirs_mkdir_many_linkedlist]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -506,6 +588,14 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         sprintf(&name[strlen(name)], "/dir%04d", i);
         lfsr_mkdir(&lfs, name) => 0;
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, cfg) => 0;
+            // grm should be zero here
+            assert(lfs.grm[0] == 0);
+        }
     }
 
     // check that our mkdir worked
@@ -547,9 +637,8 @@ code = '''
 
 [cases.t5_dirs_mkdir_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-# 0 => do this test in the root dir
-# 1 => do this test in a directory named "parent"
-defines.PARENT = [0, 1]
+defines.PARENT = [false, true]
+defines.REMOUNT = [false, true]
 defines.SAMPLES = 10
 # -1 => all pseudo-random seeds
 #  n => reproduce a specific seed
@@ -590,6 +679,14 @@ code = '''
                             (sim_size-j)*sizeof(lfs_size_t));
                     sim_size += 1;
                     sim[j] = x;
+
+                    // remount?
+                    if (REMOUNT) {
+                        lfsr_unmount(&lfs) => 0;
+                        lfsr_mount(&lfs, cfg) => 0;
+                        // grm should be zero here
+                        assert(lfs.grm[0] == 0);
+                    }
                     break;
                 }
             }
@@ -640,6 +737,7 @@ code = '''
 
 # test that did collisions don't cause issues
 [cases.t5_dirs_did_collisions]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -659,6 +757,14 @@ code = '''
     lfsr_mkdir(&lfs, "d_puMpPjRH") => 0;
     lfsr_mkdir(&lfs, "e_LptKHkHH") => 0;
     lfsr_mkdir(&lfs, "f_lUoVuhJH") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
 
     // check that our mkdirs worked
     struct lfs_info info;
@@ -714,6 +820,7 @@ code = '''
 
 # these will also collide with the root
 [cases.t5_dirs_did_zero]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -726,6 +833,14 @@ code = '''
     assert(lfs_crc32c(0, "e_VNunKMPH", 10) == 0x00000000);
     assert(lfs_crc32c(0, "f_vknsvNRH", 10) == 0x00000000);
 
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
     // make directories
     lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
     lfsr_mkdir(&lfs, "b_iUwOsqRH") => 0;
@@ -733,6 +848,14 @@ code = '''
     lfsr_mkdir(&lfs, "d_jKLUSLJH") => 0;
     lfsr_mkdir(&lfs, "e_VNunKMPH") => 0;
     lfsr_mkdir(&lfs, "f_vknsvNRH") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
 
     // check that our mkdirs worked
     struct lfs_info info;
@@ -790,6 +913,7 @@ code = '''
 #
 # note this is true even if you truncate
 [cases.t5_dirs_did_ones]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -809,6 +933,14 @@ code = '''
     lfsr_mkdir(&lfs, "d_JTMkKuJH") => 0;
     lfsr_mkdir(&lfs, "e_vQtPStPH") => 0;
     lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
 
     // check that our mkdirs worked
     struct lfs_info info;
@@ -866,6 +998,7 @@ code = '''
 # if the leb128 disk-size is not calculated correctly these can cause
 # issues
 [cases.t5_dirs_did_leb128_boundaries]
+defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -885,6 +1018,14 @@ code = '''
     lfsr_mkdir(&lfs, "d_sVrvrWHH") => 0;
     lfsr_mkdir(&lfs, "e_thrRIsRH") => 0;
     lfsr_mkdir(&lfs, "f_pNtQTPJH") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
 
     // check that our mkdirs worked
     struct lfs_info info;

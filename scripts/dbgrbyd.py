@@ -924,7 +924,8 @@ def main(disk, blocks=None, *,
 
         # compare with sequence arithmetic
         if trunk_ and (
-                not ((rev - revs[i]) & 0x80000000)
+                not trunks_[i]
+                or not ((rev - revs[i]) & 0x80000000)
                 or (rev == revs[i] and trunk_ > trunks_[i])):
             i = i_
 
