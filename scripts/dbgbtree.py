@@ -836,18 +836,12 @@ def main(disk, roots=None, *,
                         else '',
                     tagrepr(tag, w if i == 0 else 0, len(data), None),
                     # note we render names a bit different here
-                    ''.join(
-                        b if b >= ' ' and b <= '~' else '.'
-                        for b in map(chr, data))
-                            if tag & 0x7f00 == TAG_NAME
-                        else next(xxd(data, 8), '')
-                            if not args.get('no_truncate')
+                    next(xxd(data, 8), '') if not args.get('no_truncate')
                         else ''))
                 prbyd = rbyd
 
-            # show in-device representation
-            if args.get('device'):
-                for i, (tag, j, d, data) in enumerate(tags):
+                # show in-device representation
+                if args.get('device'):
                     print('%9s  %*s%*s %-22s%s' % (
                         '',
                         t_width, '',
@@ -858,8 +852,7 @@ def main(disk, roots=None, *,
                                 rbyd.data[j+d+i*4 : j+d + min(i*4+4,len(data))])
                             for i in range(min(m.ceil(len(data)/4), 3)))[:23]))
 
-            # show on-disk encoding of tags/data
-            for i, (tag, j, d, data) in enumerate(tags):
+                # show on-disk encoding of tags/data
                 if args.get('raw'):
                     for o, line in enumerate(xxd(rbyd.data[j:j+d])):
                         print('%9s: %*s%*s %s' % (
@@ -867,9 +860,7 @@ def main(disk, roots=None, *,
                             t_width, '',
                             w_width, '',
                             line))
-                # note we don't render name tags with no_truncate
-                if args.get('raw') or (
-                        args.get('no_truncate') and tag & 0xf00f != TAG_NAME):
+                if args.get('raw') or args.get('no_truncate'):
                     for o, line in enumerate(xxd(data)):
                         print('%9s: %*s%*s %s' % (
                             '%04x' % (j+d + o*16),
