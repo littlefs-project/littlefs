@@ -315,7 +315,6 @@ def table(Result, results, diff_results=None, *,
         summary=False,
         all=False,
         percent=False,
-        tree=False,
         depth=1,
         **_):
     all_, all = all, __builtins__.all
@@ -472,18 +471,34 @@ def table(Result, results, diff_results=None, *,
             it.chain([23], it.repeat(7)),
             range(len(lines[0])-1))]
 
-    # adjust the name width based on the expected call depth, though
-    # note this doesn't really work with unbounded recursion
-    if not summary and not m.isinf(depth):
-        widths[0] += 4*(depth-1)
+    # adjust the name width based on the call depth
+    if not summary:
+        depth_ = depth
+        if m.isinf(depth_):
+            # find the actual depth, this may not terminate! in which
+            # case it's up to the user to provide an explicit depth
+            def rec_depth(names_):
+                depth_ = -1
+                for name in names_:
+                    if name in table:
+                        children = {
+                            ','.join(str(getattr(Result(*c), k) or '')
+                                for k in by)
+                            for c in table[name].children}
+                        depth_ = max(depth_,
+                            rec_depth([n for n in names if n in children]))
+                return depth_ + 1
+
+            depth_ = rec_depth(names)
+
+        widths[0] += 4*max(depth_-1, 0)
 
     # print the tree recursively
-    if not tree:
-        print('%-*s  %s%s' % (
-            widths[0], lines[0][0],
-            ' '.join('%*s' % (w, x)
-                for w, x in zip(widths[1:], lines[0][1:-1])),
-            lines[0][-1]))
+    print('%-*s  %s%s' % (
+        widths[0], lines[0][0],
+        ' '.join('%*s' % (w, x)
+            for w, x in zip(widths[1:], lines[0][1:-1])),
+        lines[0][-1]))
 
     if not summary:
         line_table = {n: l for n, l in zip(names, lines[1:-1])}
@@ -497,17 +512,14 @@ def table(Result, results, diff_results=None, *,
 
                 print('%s%-*s ' % (
                     prefixes[0+is_last],
-                    widths[0] - (
-                        len(prefixes[0+is_last])
-                        if not m.isinf(depth) else 0),
+                    widths[0] - len(prefixes[0+is_last]),
                     line[0]),
                     end='')
-                if not tree:
-                    print(' %s%s' % (
-                        ' '.join('%*s' % (w, x)
-                            for w, x in zip(widths[1:], line[1:-1])),
-                        line[-1]),
-                        end='')
+                print(' %s%s' % (
+                    ' '.join('%*s' % (w, x)
+                        for w, x in zip(widths[1:], line[1:-1])),
+                    line[-1]),
+                    end='')
                 print() 
 
                 # recurse?
@@ -526,12 +538,11 @@ def table(Result, results, diff_results=None, *,
 
         recurse(names, depth)
 
-    if not tree:
-        print('%-*s  %s%s' % (
-            widths[0], lines[-1][0],
-            ' '.join('%*s' % (w, x)
-                for w, x in zip(widths[1:], lines[-1][1:-1])),
-            lines[-1][-1]))
+    print('%-*s  %s%s' % (
+        widths[0], lines[-1][0],
+        ' '.join('%*s' % (w, x)
+            for w, x in zip(widths[1:], lines[-1][1:-1])),
+        lines[-1][-1]))
 
 
 def main(ci_paths,
@@ -540,10 +551,8 @@ def main(ci_paths,
         defines=None,
         sort=None,
         **args):
-    # it doesn't really make sense to not have a depth with tree,
-    # so assume depth=inf if tree by default
     if args.get('depth') is None:
-        args['depth'] = m.inf if args['tree'] else 1
+        args['depth'] = 1
     elif args.get('depth') == 0:
         args['depth'] = m.inf
 
@@ -715,10 +724,6 @@ if __name__ == "__main__":
         '--everything',
         action='store_true',
         help="Include builtin and libc specific symbols.")
-    parser.add_argument(
-        '--tree',
-        action='store_true',
-        help="Only show the function call tree.")
     parser.add_argument(
         '-Z', '--depth',
         nargs='?',

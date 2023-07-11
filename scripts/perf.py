@@ -834,10 +834,31 @@ def table(Result, results, diff_results=None, *,
             it.chain([23], it.repeat(7)),
             range(len(lines[0])-1))]
 
-    # adjust the name width based on the expected call depth, though
-    # note this doesn't really work with unbounded recursion
-    if not summary and not m.isinf(depth):
-        widths[0] += 4*(depth-1)
+    # adjust the name width based on the call depth
+    if not summary:
+        depth_ = depth
+        if m.isinf(depth_):
+            # find the actual depth, this may not terminate! in which
+            # case it's up to the user to provide an explicit depth
+            def rec_depth(results_):
+                # rebuild our tables at each layer
+                table_ = {
+                    ','.join(str(getattr(r, k) or '') for k in by): r
+                    for r in results_}
+                names_ = list(table_.keys())
+
+                return max((
+                    rec_depth(table_[name].children)
+                    for name in names_),
+                    default=-1) + 1
+
+            depth_ = max((
+                rec_depth(table[name].children)
+                for name in names
+                if name in table),
+                default=-1) + 1
+
+        widths[0] += 4*max(depth_-1, 0)
 
     # print the tree recursively
     print('%-*s  %s%s' % (
@@ -874,9 +895,7 @@ def table(Result, results, diff_results=None, *,
 
                 print('%s%-*s  %s' % (
                     prefixes[0+is_last],
-                    widths[0] - (
-                        len(prefixes[0+is_last])
-                        if not m.isinf(depth) else 0),
+                    widths[0] - len(prefixes[0+is_last]),
                     name,
                     ' '.join('%*s' % (w, x)
                         for w, x in zip(
