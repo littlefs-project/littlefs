@@ -201,15 +201,15 @@ class Rbyd:
         self.off = off
         self.trunk = trunk
         self.weight = weight
-        self.other_blocks = []
+        self.redund_blocks = []
 
     def addr(self):
-        if not self.other_blocks:
+        if not self.redund_blocks:
             return '0x%x.%x' % (self.block, self.trunk)
         else:
             return '0x{%x,%s}.%x' % (
                 self.block,
-                ','.join('%x' % block for block in self.other_blocks),
+                ','.join('%x' % block for block in self.redund_blocks),
                 self.trunk)
 
     @classmethod
@@ -232,7 +232,7 @@ class Rbyd:
                     i = i_
             # keep track of the other blocks
             rbyd = rbyds[i]
-            rbyd.other_blocks = [rbyds[(i+1+j) % len(rbyds)].block
+            rbyd.redund_blocks = [rbyds[(i+1+j) % len(rbyds)].block
                 for j in range(len(rbyds)-1)]
             return rbyd
         else:
@@ -835,7 +835,6 @@ def main(disk, roots=None, *,
                         else bid if w > 0
                         else '',
                     tagrepr(tag, w if i == 0 else 0, len(data), None),
-                    # note we render names a bit different here
                     next(xxd(data, 8), '') if not args.get('no_truncate')
                         else ''))
                 prbyd = rbyd
@@ -986,7 +985,9 @@ if __name__ == "__main__":
         help="Show the underlying B-tree.")
     parser.add_argument(
         '-Z', '--depth',
+        nargs='?',
         type=lambda x: int(x, 0),
+        const=0,
         help="Depth of tree to show.")
     parser.add_argument(
         '-e', '--error-on-corrupt',

@@ -3505,7 +3505,7 @@ static int lfsr_rbyd_dnamelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // bisect search space
         if (lfs_cmp(cmp) > 0) {
-            upper = id__-weight__ + 1;
+            upper = id__ - (weight__-1);
 
         } else if (lfs_cmp(cmp) < 0) {
             lower = id__ + 1;
@@ -7459,14 +7459,18 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 
 /// Prepare the filesystem for mutation ///
 static int lfsr_fs_fixgrm(lfs_t *lfs) {
+    LFS_ASSERT(lfs->grm_.mid != LFSR_MID_RM);
+
     // find our mdir
     lfsr_mdir_t mdir;
+    LFS_ASSERT((lfs_size_t)lfs->grm_.mid < lfs->mtree.weight);
     int err = lfsr_mtree_lookup(lfs, lfs->grm_.mid, &mdir);
     if (err) {
         return err;
     }
 
     // remove the rid while also zeroing our grm
+    LFS_ASSERT(lfs->grm_.rid < mdir.rbyd.weight);
     err = lfsr_mdir_commit(lfs, &mdir, (lfs_ssize_t*)&lfs->grm_.rid, LFSR_ATTRS(
             LFSR_ATTR(lfs->grm_.rid, UNR, -1, NULL, 0),
             LFSR_ATTR(-1, GRM, 0, NULL, 0)));
@@ -7478,7 +7482,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
 
 static int lfsr_fs_preparemutation(lfs_t *lfs) {
     // fix pending grms
-    if (lfs->grm_.mid >= 0) {
+    if (lfs->grm_.mid != LFSR_MID_RM) {
         LFS_DEBUG("Fixing grm (0x%"PRIx32".%"PRIx32")",
                 lfs->grm_.mid,
                 lfs->grm_.rid);

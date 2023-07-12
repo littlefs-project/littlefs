@@ -209,15 +209,15 @@ class Rbyd:
         self.off = off
         self.trunk = trunk
         self.weight = weight
-        self.other_blocks = []
+        self.redund_blocks = []
 
     def addr(self):
-        if not self.other_blocks:
+        if not self.redund_blocks:
             return '0x%x.%x' % (self.block, self.trunk)
         else:
             return '0x{%x,%s}.%x' % (
                 self.block,
-                ','.join('%x' % block for block in self.other_blocks),
+                ','.join('%x' % block for block in self.redund_blocks),
                 self.trunk)
 
     @classmethod
@@ -240,7 +240,7 @@ class Rbyd:
                     i = i_
             # keep track of the other blocks
             rbyd = rbyds[i]
-            rbyd.other_blocks = [rbyds[(i+1+j) % len(rbyds)].block
+            rbyd.redund_blocks = [rbyds[(i+1+j) % len(rbyds)].block
                 for j in range(len(rbyds)-1)]
             return rbyd
         else:
@@ -1293,7 +1293,7 @@ def main(disk, mroots=None, *,
                 print('%12s %s%-57s' % (
                     '{%s}:' % ','.join('%04x' % block
                         for block in it.chain([mdir.block],
-                            mdir.other_blocks))
+                            mdir.redund_blocks))
                         if i == 0 else '',
                     treerepr(mid, 1, md, 0, rid, tag)
                         if args.get('tree') or args.get('btree') else '',
@@ -1393,6 +1393,8 @@ def main(disk, mroots=None, *,
                             line))
 
 
+        #### actual debugging begins here
+
         # print some information about the mtree
         print('mtree %s, rev %d, weight %d' % (
             mroot.addr(), mroot.rev, mweight))
@@ -1421,7 +1423,7 @@ def main(disk, mroots=None, *,
                 print('{%s}: %s%s%s' % (
                     ','.join('%04x' % block
                         for block in it.chain([mroot.block],
-                            mroot.other_blocks)),
+                            mroot.redund_blocks)),
                     '\x1b[31m' if color else '',
                     '(corrupted mroot %s)' % mroot.addr(),
                     '\x1b[m' if color else ''))
@@ -1456,7 +1458,7 @@ def main(disk, mroots=None, *,
                     print('{%s}: %s%s%s' % (
                         ','.join('%04x' % block
                             for block in it.chain([mdir.block],
-                                mdir.other_blocks)),
+                                mdir.redund_blocks)),
                         '\x1b[31m' if color else '',
                         '(corrupted mdir %s)' % mdir.addr(),
                         '\x1b[m' if color else ''))
@@ -1553,7 +1555,7 @@ def main(disk, mroots=None, *,
                         print('{%s}: %*s%s%s%s' % (
                             ','.join('%04x' % block
                                 for block in it.chain([mdir_.block],
-                                    mdir_.other_blocks)),
+                                    mdir_.redund_blocks)),
                             t_width, '',
                             '\x1b[31m' if color else '',
                             '(corrupted mdir %s)' % mdir_.addr(),
@@ -1619,7 +1621,9 @@ if __name__ == "__main__":
         help="Show the underlying B-tree.")
     parser.add_argument(
         '-Z', '--depth',
+        nargs='?',
         type=lambda x: int(x, 0),
+        const=0,
         help="Depth of tree to show.")
     parser.add_argument(
         '-e', '--error-on-corrupt',
