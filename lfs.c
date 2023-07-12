@@ -1561,11 +1561,19 @@ static int lfsr_gdelta_xor(lfs_t *lfs,
 
 
 // GRM (global remove) things
+static inline bool lfsr_grm_hasrm(const lfsr_grm_t *grm) {
+    return grm->mid != LFSR_MID_RM;
+}
+
+static inline void lfsr_grm_clearrm(lfsr_grm_t *grm) {
+    grm->mid = LFSR_MID_RM;
+}
+
 static lfs_ssize_t lfsr_grm_todisk(lfs_t *lfs, const lfsr_grm_t *grm,
         uint8_t buffer[static LFSR_GRM_DSIZE]) {
     (void)lfs;
     // encode no-rm as zero-size
-    if (grm->mid == LFSR_MID_RM) {
+    if (!lfsr_grm_hasrm(grm)) {
         return 0;
     }
 
@@ -1614,7 +1622,7 @@ static lfs_ssize_t lfsr_grm_fromdisk(lfs_t *lfs, lfsr_grm_t *grm,
 
     // no rm, note we accept truncated grms here
     if (op == 0 || d_ == 0) {
-        grm->mid = LFSR_MID_RM;
+        lfsr_grm_clearrm(grm);
         return 0;
     } 
 
@@ -1697,7 +1705,10 @@ static int lfsr_grm_split(lfs_t *lfs,
         grm.mid += 1;
     }
 
+    // zero so we don't end up with trailing garbage
     uint8_t buf[LFSR_GRM_DSIZE];
+    memset(buf, 0, LFSR_GRM_DSIZE);
+
     d = lfsr_grm_todisk(lfs, &grm, buf);
     if (d < 0) {
         return d;
@@ -6076,11 +6087,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     // update our gstate
     for (lfs_size_t i = 0; i < attr_count; i++) {
         if (attrs[i].tag == LFSR_TAG_GRM) {
-            int err = lfsr_grm_xor(lfs, lfs->grm, attrs[i].data);
-            if (err) {
-                return err;
+            // make sure to zero to avoid leaking anything
+            memset(lfs->grm, 0, LFSR_GRM_DSIZE);
+            lfs_ssize_t d = lfsr_data_read(lfs, attrs[i].data, 0,
+                    lfs->grm, LFSR_GRM_DSIZE);
+            if (d < 0) {
+                return d;
             }
 
+            // TODO wait does this get triggered incorrectly if we drop?
+            // since weight' != weight?
             // TODO use bool split?
             // we need to fix our grm, again, if a split occured
             //
@@ -6996,8 +7012,8 @@ static int lfsr_mountinited(lfs_t *lfs) {
         return d;
     }
 
-    if (lfs->grm_.mid >= 0) {
-        LFS_DEBUG("Found pending grm (0x%"PRIx32".%"PRIx32")\n",
+    if (lfsr_grm_hasrm(&lfs->grm_)) {
+        LFS_DEBUG("Found pending grm (%"PRId32".%"PRId32")",
                 lfs->grm_.mid,
                 lfs->grm_.rid);
     }
@@ -7006,6 +7022,13 @@ static int lfsr_mountinited(lfs_t *lfs) {
 }
 
 static int lfsr_formatinited(lfs_t *lfs) {
+    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32" "
+            "(bs=%"PRId32", bc=%"PRId32")",
+            LFS_DISK_VERSION_MAJOR,
+            LFS_DISK_VERSION_MINOR,
+            lfs->cfg->block_size,
+            lfs->cfg->block_count);
+
     uint8_t buf[LFSR_SUPERCONFIG_DSIZE];
     lfs_ssize_t d = lfsr_superconfig_todisk(lfs, buf);
     if (d < 0) {
@@ -7459,11 +7482,11 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 
 /// Prepare the filesystem for mutation ///
 static int lfsr_fs_fixgrm(lfs_t *lfs) {
-    LFS_ASSERT(lfs->grm_.mid != LFSR_MID_RM);
+    LFS_ASSERT(lfsr_grm_hasrm(&lfs->grm_));
 
     // find our mdir
     lfsr_mdir_t mdir;
-    LFS_ASSERT((lfs_size_t)lfs->grm_.mid < lfs->mtree.weight);
+    LFS_ASSERT(lfs->grm_.mid < (lfs_ssize_t)lfsr_mtree_weight(lfs));
     int err = lfsr_mtree_lookup(lfs, lfs->grm_.mid, &mdir);
     if (err) {
         return err;
@@ -7476,14 +7499,14 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
             LFSR_ATTR(-1, GRM, 0, NULL, 0)));
 
     // mark grm as taken care of
-    lfs->grm_.mid = 0;
+    lfsr_grm_clearrm(&lfs->grm_);
     return 0;
 }
 
 static int lfsr_fs_preparemutation(lfs_t *lfs) {
     // fix pending grms
-    if (lfs->grm_.mid != LFSR_MID_RM) {
-        LFS_DEBUG("Fixing grm (0x%"PRIx32".%"PRIx32")",
+    if (lfsr_grm_hasrm(&lfs->grm_)) {
+        LFS_DEBUG("Fixing grm (%"PRId32".%"PRId32")",
                 lfs->grm_.mid,
                 lfs->grm_.rid);
         int err = lfsr_fs_fixgrm(lfs);

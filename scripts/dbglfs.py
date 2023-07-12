@@ -673,7 +673,7 @@ def grepr(tag, data):
         rid, d_ = fromleb128(data[d:]); d += d_
         return 'grm %s' % (
             'none' if op == 0
-                else 'rm 0x%x.%x' % (mid, rid) if op == 1
+                else 'rm %d.%d' % (mid, rid) if op == 1
                 else '0x%x' % op)
     else:
         return 'gstate 0x%02x %d' % (tag, len(data))
