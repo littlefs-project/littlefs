@@ -5386,18 +5386,9 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
     // - mid = wl          => only alloc if mdir is tired (wear-leveling)
     // - otherwise         => always alloc, use this mid (new mdir)
 
-    // consume gstate on original rbyd, we need this even if we drop
-    // our mdir to avoid losing info
-    //
-    // if succesful, this should get immediately appended to our new commit
-    int err = lfsr_fs_consumegdelta(lfs, msource);
-    if (err) {
-        return err;
-    }
-
     // first thing we need to do is read our current revision count
     uint32_t rev;
-    err = lfsr_bd_read(lfs, msource->rbyd.block, 0, sizeof(uint32_t),
+    int err = lfsr_bd_read(lfs, msource->rbyd.block, 0, sizeof(uint32_t),
             &rev, sizeof(uint32_t));
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
@@ -5428,6 +5419,19 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
         // note we allow corrupt errors here, as long as they are consistent
         rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
+    }
+
+    // only consume gstate here during normal compacts
+    // TODO avoid duplicate conditions somehow?
+    if (mid == LFSR_MID_WL) {
+        // consume gstate on original rbyd, we need this even if we drop
+        // our mdir to avoid losing info
+        //
+        // if succesful, this should get immediately appended to our new commit
+        int err = lfsr_fs_consumegdelta(lfs, msource);
+        if (err) {
+            return err;
+        }
     }
 
     // swap our rbyds 
@@ -7509,6 +7513,11 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
         LFS_DEBUG("Fixing grm (%"PRId32".%"PRId32")",
                 lfs->grm_.mid,
                 lfs->grm_.rid);
+
+        // checkpoint the allocator in case fixing the grm causes mtree
+        // manipulation
+        lfs_alloc_ack(lfs);
+
         int err = lfsr_fs_fixgrm(lfs);
         if (err) {
             return err;

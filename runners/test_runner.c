@@ -478,6 +478,7 @@ extern size_t test_geometry_count;
 
 extern const test_powerloss_t *test_powerlosses;
 extern size_t test_powerloss_count;
+bool test_pl = false;
 
 const test_id_t *test_ids = (const test_id_t[]) {
     {NULL, NULL, 0, NULL, 0},
@@ -605,7 +606,6 @@ void test_trace(const char *fmt, ...) {
         fflush(test_trace_file);
     }
 }
-
 
 // test prng
 uint32_t test_prng(uint32_t *state) {
@@ -771,6 +771,7 @@ static void case_forperm(
 
             // explicit powerloss cycles?
             if (cycles) {
+                test_pl = true;
                 cb(data, suite, case_, &(test_powerloss_t){
                         .run=run_powerloss_cycles,
                         .cycles=cycles,
@@ -778,8 +779,8 @@ static void case_forperm(
             } else {
                 for (size_t p = 0; p < test_powerloss_count; p++) {
                     // skip non-reentrant tests when powerloss testing
-                    if (test_powerlosses[p].run != run_powerloss_none
-                            && !(case_->flags & TEST_REENTRANT)) {
+                    test_pl = test_powerlosses[p].run != run_powerloss_none;
+                    if (test_pl && !(case_->flags & TEST_REENTRANT)) {
                         continue;
                     }
 
@@ -820,6 +821,7 @@ static void case_forperm(
                 }
 
                 if (cycles) {
+                    test_pl = true;
                     cb(data, suite, case_, &(test_powerloss_t){
                             .run=run_powerloss_cycles,
                             .cycles=cycles,
@@ -827,8 +829,8 @@ static void case_forperm(
                 } else {
                     for (size_t p = 0; p < test_powerloss_count; p++) {
                         // skip non-reentrant tests when powerloss testing
-                        if (test_powerlosses[p].run != run_powerloss_none
-                                && !(case_->flags & TEST_REENTRANT)) {
+                        test_pl = test_powerlosses[p].run != run_powerloss_none;
+                        if (test_pl && !(case_->flags & TEST_REENTRANT)) {
                             continue;
                         }
 

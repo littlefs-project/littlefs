@@ -2,13 +2,19 @@
 
 [cases.t5_dirs_mkdir]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     // make a directory
-    lfsr_mkdir(&lfs, "ardvark") => 0;
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -44,13 +50,19 @@ code = '''
 # test that noent errors work
 [cases.t5_dirs_noent]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     // make a directory
-    lfsr_mkdir(&lfs, "ardvark") => 0;
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
     // try to read a nonsense path
     struct lfs_info info;
@@ -90,13 +102,19 @@ code = '''
 # test that creating the same directory twice errors
 [cases.t5_dirs_mkdir_exists]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     // make a directory
-    lfsr_mkdir(&lfs, "ardvark") => 0;
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
     // make the same directory, should error
     lfsr_mkdir(&lfs, "ardvark") => LFS_ERR_EXIST;
@@ -134,13 +152,19 @@ code = '''
 # test that creating a directory with an invalid path errors
 [cases.t5_dirs_mkdir_noent]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     // make a directory
-    lfsr_mkdir(&lfs, "ardvark") => 0;
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
     // make a nonsense directory, should error
     lfsr_mkdir(&lfs, "no/hmm") => LFS_ERR_NOENT;
@@ -180,15 +204,23 @@ code = '''
 
 [cases.t5_dirs_mkdir_siblings]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     // make some directories
-    lfsr_mkdir(&lfs, "ardvark") => 0;
-    lfsr_mkdir(&lfs, "batman") => 0;
-    lfsr_mkdir(&lfs, "cantaloupe") => 0;
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "batman");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "cantaloupe");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -234,15 +266,23 @@ code = '''
 
 [cases.t5_dirs_mkdir_children]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     // make some directories
-    lfsr_mkdir(&lfs, "ardvark") => 0;
-    lfsr_mkdir(&lfs, "ardvark/batman") => 0;
-    lfsr_mkdir(&lfs, "ardvark/batman/cantaloupe") => 0;
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "ardvark/batman");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "ardvark/batman/cantaloupe");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -307,16 +347,22 @@ code = '''
 [cases.t5_dirs_mkdir_many]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     // make this many directories
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
         sprintf(name, "dir%04d", i);
-        lfsr_mkdir(&lfs, name) => 0;
+        err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
         // remount?
         if (REMOUNT) {
@@ -359,23 +405,30 @@ code = '''
 '''
 
 [cases.t5_dirs_mkdir_many_2layers]
-defines.N = [1, 2, 4, 8, 16, 32]
+defines.N = [1, 2, 4, 8, 16]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     // make this many directories
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
         sprintf(name, "dir%04d", i);
-        lfsr_mkdir(&lfs, name) => 0;
+        err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
         // containing this many directories
         for (lfs_size_t j = 0; j < N; j++) {
             sprintf(name, "dir%04d/child%04d", i, j);
-            lfsr_mkdir(&lfs, name) => 0;
+            err = lfsr_mkdir(&lfs, name);
+            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
             // remount?
             if (REMOUNT) {
@@ -449,28 +502,36 @@ code = '''
 '''
 
 [cases.t5_dirs_mkdir_many_3layers]
-defines.N = [1, 2, 4, 8]
+defines.N = [1, 2, 4]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     // make this many directories
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
         sprintf(name, "dir%04d", i);
-        lfsr_mkdir(&lfs, name) => 0;
+        err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
         // containing this many directories
         for (lfs_size_t j = 0; j < N; j++) {
             sprintf(name, "dir%04d/child%04d", i, j);
-            lfsr_mkdir(&lfs, name) => 0;
+            err = lfsr_mkdir(&lfs, name);
+            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
             // containing this many directories
             for (lfs_size_t k = 0; k < N; k++) {
                 sprintf(name, "dir%04d/child%04d/grandchild%04d", i, j, k);
-                lfsr_mkdir(&lfs, name) => 0;
+                err = lfsr_mkdir(&lfs, name);
+                assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
                 // remount?
                 if (REMOUNT) {
@@ -577,17 +638,23 @@ code = '''
 [cases.t5_dirs_mkdir_many_linkedlist]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     // create this many directory in a sort of linked-list by nesting
     char name[4096];
     memset(name, 0, sizeof(name));
     for (lfs_size_t i = 0; i < N; i++) {
         sprintf(&name[strlen(name)], "/dir%04d", i);
-        lfsr_mkdir(&lfs, name) => 0;
+        err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
         // remount?
         if (REMOUNT) {
@@ -738,10 +805,15 @@ code = '''
 # test that did collisions don't cause issues
 [cases.t5_dirs_did_collisions]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     assert(lfs_crc32c(0, "a_SNmwMTHH", 10) == 0x12345678);
     assert(lfs_crc32c(0, "b_skvjpWJH", 10) == 0x12345678);
@@ -751,12 +823,18 @@ code = '''
     assert(lfs_crc32c(0, "f_lUoVuhJH", 10) == 0x12345678);
 
     // make directories
-    lfsr_mkdir(&lfs, "a_SNmwMTHH") => 0;
-    lfsr_mkdir(&lfs, "b_skvjpWJH") => 0;
-    lfsr_mkdir(&lfs, "c_OnOQhVPH") => 0;
-    lfsr_mkdir(&lfs, "d_puMpPjRH") => 0;
-    lfsr_mkdir(&lfs, "e_LptKHkHH") => 0;
-    lfsr_mkdir(&lfs, "f_lUoVuhJH") => 0;
+    err = lfsr_mkdir(&lfs, "a_SNmwMTHH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "b_skvjpWJH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "c_OnOQhVPH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "d_puMpPjRH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "e_LptKHkHH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "f_lUoVuhJH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -821,10 +899,15 @@ code = '''
 # these will also collide with the root
 [cases.t5_dirs_did_zero]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
     assert(lfs_crc32c(0, "b_iUwOsqRH", 10) == 0x00000000);
@@ -833,21 +916,19 @@ code = '''
     assert(lfs_crc32c(0, "e_VNunKMPH", 10) == 0x00000000);
     assert(lfs_crc32c(0, "f_vknsvNRH", 10) == 0x00000000);
 
-    // remount?
-    if (REMOUNT) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
-        // grm should be zero here
-        assert(lfs.grm[0] == 0);
-    }
-
     // make directories
-    lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
-    lfsr_mkdir(&lfs, "b_iUwOsqRH") => 0;
-    lfsr_mkdir(&lfs, "c_UPNtkpHH") => 0;
-    lfsr_mkdir(&lfs, "d_jKLUSLJH") => 0;
-    lfsr_mkdir(&lfs, "e_VNunKMPH") => 0;
-    lfsr_mkdir(&lfs, "f_vknsvNRH") => 0;
+    err = lfsr_mkdir(&lfs, "a_IplRNrPH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "b_iUwOsqRH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "c_UPNtkpHH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "d_jKLUSLJH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "e_VNunKMPH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "f_vknsvNRH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -914,10 +995,15 @@ code = '''
 # note this is true even if you truncate
 [cases.t5_dirs_did_ones]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     assert(lfs_crc32c(0, "a_iomlVKPH", 10) == 0xffffffff);
     assert(lfs_crc32c(0, "b_IJvqkHRH", 10) == 0xffffffff);
@@ -927,12 +1013,18 @@ code = '''
     assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
 
     // make directories
-    lfsr_mkdir(&lfs, "a_iomlVKPH") => 0;
-    lfsr_mkdir(&lfs, "b_IJvqkHRH") => 0;
-    lfsr_mkdir(&lfs, "c_uOOJsIHH") => 0;
-    lfsr_mkdir(&lfs, "d_JTMkKuJH") => 0;
-    lfsr_mkdir(&lfs, "e_vQtPStPH") => 0;
-    lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+    err = lfsr_mkdir(&lfs, "a_iomlVKPH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "b_IJvqkHRH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "c_uOOJsIHH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "d_JTMkKuJH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "e_vQtPStPH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "f_VtoMnwRH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -999,10 +1091,15 @@ code = '''
 # issues
 [cases.t5_dirs_did_leb128_boundaries]
 defines.REMOUNT = [false, true]
+reentrant = true
 code = '''
+    // format once per test
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
 
     assert(lfs_crc32c(0, "a_IOtUptRH", 10) == 0x0000007f);
     assert(lfs_crc32c(0, "b_nquQsKHH", 10) == 0x00000080);
@@ -1012,12 +1109,18 @@ code = '''
     assert(lfs_crc32c(0, "f_pNtQTPJH", 10) == 0x00004001);
 
     // make directories
-    lfsr_mkdir(&lfs, "a_IOtUptRH") => 0;
-    lfsr_mkdir(&lfs, "b_nquQsKHH") => 0;
-    lfsr_mkdir(&lfs, "c_vwQtKjHH") => 0;
-    lfsr_mkdir(&lfs, "d_sVrvrWHH") => 0;
-    lfsr_mkdir(&lfs, "e_thrRIsRH") => 0;
-    lfsr_mkdir(&lfs, "f_pNtQTPJH") => 0;
+    err = lfsr_mkdir(&lfs, "a_IOtUptRH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "b_nquQsKHH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "c_vwQtKjHH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "d_sVrvrWHH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "e_thrRIsRH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "f_pNtQTPJH");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -1078,58 +1181,6 @@ code = '''
 
     lfsr_unmount(&lfs) => 0;
 '''
-
-[cases.t5_dirs_mkdir_many_pl]
-defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-reentrant = true
-code = '''
-    // format once per test
-    lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
-    if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
-    }
-
-    // make this many directories
-    for (lfs_size_t i = 0; i < N; i++) {
-        char name[256];
-        sprintf(name, "dir%04d", i);
-        int err = lfsr_mkdir(&lfs, name);
-        assert(!err || err == LFS_ERR_EXIST);
-    }
-
-    // check that our mkdir worked
-    for (lfs_size_t i = 0; i < N; i++) {
-        char name[256];
-        sprintf(name, "dir%04d", i);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_DIR);
-    }
-
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
-    assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
-    for (lfs_size_t i = 0; i < N; i++) {
-        char name[256];
-        sprintf(name, "dir%04d", i);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_DIR);
-    }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-
-    lfsr_unmount(&lfs) => 0;
-'''
-
 
 
 

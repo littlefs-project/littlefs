@@ -488,7 +488,8 @@ class Rbyd:
         return tree, t_depth
 
     # btree lookup with this rbyd as the root
-    def btree_lookup(self, f, block_size, bid, depth=None):
+    def btree_lookup(self, f, block_size, bid, *,
+            depth=None):
         rbyd = self
         rid = bid
         depth_ = 1
@@ -543,7 +544,8 @@ class Rbyd:
                 return not tags, bid + (rid_-rid), w, rbyd, rid_, tags, path
 
     # btree rbyd-tree generation for debugging
-    def btree_tree(self, f, block_size, depth=None, *,
+    def btree_tree(self, f, block_size, *,
+            depth=None,
             inner=False):
         # find the max depth of each layer to nicely align trees
         bdepths = {}
@@ -671,7 +673,8 @@ class Rbyd:
         return tree, max((branch.d+1 for branch in tree), default=0)
 
     # btree B-tree generation for debugging
-    def btree_btree(self, f, block_size, depth=None, *,
+    def btree_btree(self, f, block_size, *,
+            depth=None,
             inner=False):
         # find all branches
         tree = set()

@@ -396,7 +396,8 @@ class Rbyd:
             yield id, tag, w, j, d, data
 
     # btree lookup with this rbyd as the root
-    def btree_lookup(self, f, block_size, bid, depth=None):
+    def btree_lookup(self, f, block_size, bid, *,
+            depth=None):
         rbyd = self
         rid = bid
         depth_ = 1
@@ -558,13 +559,13 @@ class Rbyd:
             mtree = Rbyd.fetch(f, block_size, block, trunk)
             # corrupted?
             if not mtree:
-                return False, 0, b'', -1, None, -1, 0, 0
+                return False, -1, None, -1, 0, 0
 
             # lookup our name in the mtree
             mid, tag_, w, data = mtree.btree_namelookup(
                 f, block_size, did, name)
             if tag_ != TAG_MDIR:
-                return False, 0, b'', -1, None, -1, 0, 0
+                return False, -1, None, -1, 0, 0
 
             # fetch the mdir
             blocks = frommdir(data)
@@ -588,12 +589,32 @@ class Rbyd:
         return found, mid, mdir, rid, tag, w
 
     # iterate through a directory assuming this is the mtree root
-    def mtree_dir(self, f, block_size, did):
+    def mtree_dir(self, f, block_size, did, *,
+            all=False):
+        all_, all = all, __builtins__.all
+
         # lookup the dstart
         found, mid, mdir, rid, tag, w = self.mtree_namelookup(
             f, block_size, did, b'')
         # iterate through all files until the next dstart
         while found:
+            # lookup each rid
+            done, rid, tag, w, j, d, data, _ = mdir.lookup(rid, TAG_NAME)
+            if done:
+                break
+
+            # parse out each name
+            did_, d_ = fromleb128(data)
+            name_ = data[d_:]
+
+            # end if we see another did
+            if did_ != did:
+                break
+
+            # skip dstarts unless all entries are requested
+            if tag != TAG_DSTART or all_:
+                yield name_, mid, mdir, rid, tag, w
+
             rid += w
             if rid >= mdir.weight:
                 rid -= mdir.weight
@@ -602,17 +623,6 @@ class Rbyd:
                 mdir = self.mtree_lookup(f, block_size, mid)
                 if not mdir:
                     break
-
-            # lookup each rid
-            done, rid, tag, w, j, d, data, _ = mdir.lookup(rid, TAG_NAME)
-            if done or tag == TAG_DSTART:
-                break
-
-            # parse out each name
-            did_, d_ = fromleb128(data)
-            name_ = data[d_:]
-
-            yield did_, name_, mid, mdir, rid, tag, w
 
 
 # read the superconfig
@@ -679,7 +689,15 @@ def grepr(tag, data):
         return 'gstate 0x%02x %d' % (tag, len(data))
 
 def frepr(mdir, rid, tag):
-    if tag == TAG_DIR:
+    if tag == TAG_DSTART:
+        # read the did
+        did = '?'
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_DSTART)
+        if not done and rid_ == rid and tag_ == TAG_DSTART:
+            did, _ = fromleb128(data)
+            did = '0x%x' % did
+        return 'dstart %s' % did
+    elif tag == TAG_DIR:
         # read the did
         did = '?'
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_DID)
@@ -815,8 +833,9 @@ def main(disk, mroots=None, *,
             def rec_f_width(did, depth):
                 depth_ = 0
                 width_ = 0
-                for did, name, mid, mdir, rid, tag, w in mroot.mtree_dir(
-                        f, block_size, did):
+                for name, mid, mdir, rid, tag, w in mroot.mtree_dir(
+                        f, block_size, did,
+                        all=args.get('all')):
                     width_ = max(width_, len(name))
                     # recurse?
                     if tag == TAG_DIR and depth > 1:
@@ -928,14 +947,16 @@ def main(disk, mroots=None, *,
                 # print gdeltas?
                 if args.get('gdelta'):
                     for mid, mdir, j, d, data in gstate.gdelta[tag]:
-                        print('{%s}: %*s %-22s  %s' % (
+                        print('%s{%s}: %*s %-22s  %s%s' % (
+                            '\x1b[90m' if color else '',
                             ','.join('%04x' % block
                                 for block in it.chain([mdir.block],
                                     mdir.redund_blocks)),
                             w_width, mid,
                             tagrepr(tag, 0, len(data)),
                             next(xxd(data, 8), '')
-                                if not args.get('no_truncate') else ''))
+                                if not args.get('no_truncate') else '',
+                            '\x1b[m' if color else ''))
 
                         # show in-device representation
                         if args.get('device'):
@@ -976,9 +997,11 @@ def main(disk, mroots=None, *,
             def rec_dir(did, depth, prefixes=('', '', '', '')):
                 nonlocal pmid
                 # collect all entries first so we know when the dir ends
-                dir = list(mroot.mtree_dir(f, block_size, did))
-                for i, (did, name, mid, mdir, rid, tag, w) in enumerate(dir):
-                    print('%12s %*s %-*s  %s' % (
+                dir = list(mroot.mtree_dir(f, block_size, did,
+                    all=args.get('all')))
+                for i, (name, mid, mdir, rid, tag, w) in enumerate(dir):
+                    print('%s%12s %*s %-*s  %s%s' % (
+                        '\x1b[90m' if color and tag == TAG_DSTART else '',
                         '{%s}:' % ','.join('%04x' % block
                             for block in it.chain([mdir.block],
                                 mdir.redund_blocks))
@@ -989,7 +1012,8 @@ def main(disk, mroots=None, *,
                         f_width, '%s%s' % (
                             prefixes[0+(i==len(dir)-1)],
                             name.decode('utf8')),
-                        frepr(mdir, rid, tag)))
+                        frepr(mdir, rid, tag),
+                        '\x1b[m' if color and tag == TAG_DSTART else ''))
                     pmid = mid
 
                     # print attrs associated with this file?
@@ -1107,7 +1131,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-a', '--all',
         action='store_true',
-        help="Show all files including grmed files.")
+        help="Show all files including dstarts and grmed files.")
     parser.add_argument(
         '-r', '--raw',
         action='store_true',

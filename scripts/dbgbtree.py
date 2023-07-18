@@ -511,7 +511,8 @@ def main(disk, roots=None, *,
             btree.addr(), btree.rev, btree.weight))
 
         # look up an id, while keeping track of the search path
-        def btree_lookup(bid, depth=None):
+        def btree_lookup(bid, *,
+                depth=None):
             rbyd = btree
             rid = bid
             depth_ = 1

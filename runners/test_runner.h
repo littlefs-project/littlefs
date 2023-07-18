@@ -69,6 +69,11 @@ struct test_suite {
 };
 
 
+// this is defined as true when powerloss-testing
+extern bool test_pl;
+
+#define TEST_PL test_pl
+
 // deterministic prng for pseudo-randomness in testes
 uint32_t test_prng(uint32_t *state);
 
