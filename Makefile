@@ -352,6 +352,7 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 
 ## Build the test-runner
 .PHONY: test-runner build-test
+test-runner build-test: CFLAGS+=-Wno-unused-function
 ifndef NO_COV
 test-runner build-test: CFLAGS+=--coverage
 endif
@@ -403,6 +404,7 @@ testmarks-diff: $(TEST_CSV)
 
 ## Build the bench-runner
 .PHONY: bench-runner build-bench
+bench-runner build-bench: CFLAGS+=-Wno-unused-function
 ifdef YES_COV
 bench-runner build-bench: CFLAGS+=--coverage
 endif
