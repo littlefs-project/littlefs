@@ -1541,6 +1541,7 @@ static inline lfs_size_t lfsr_gdelta_size(
 static int lfsr_gdelta_xor(lfs_t *lfs, 
         uint8_t *gdelta, lfs_size_t size,
         lfsr_data_t xor) {
+    (void)size;
     // expect xor to fit
     LFS_ASSERT(lfsr_data_size(xor) <= size);
 
@@ -5813,7 +5814,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     // handle possible mtree updates, this gets a bit messy
     lfsr_mdir_t mroot_ = lfs->mroot;
     lfsr_btree_t mtree_ = lfs->mtree;
-    lfsr_mdir_t msibling_;
+    lfsr_mdir_t msibling_ = {.mid=LFSR_MID_RM, .rbyd.weight = 0};
     bool dirtymroot = false;
     bool dirtymtree = false;
 
@@ -6181,6 +6182,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     // update our mroot and mtree
     lfs->mroot = mroot_;
     lfs->mtree = mtree_;
+    lfs->mlimit = lfs_max32(lfs->mlimit, lfs_max32(
+            mdir_.rbyd.weight,
+            msibling_.rbyd.weight));
 
     return 0;
 }
@@ -6345,12 +6349,6 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
             if (d < 0) {
                 return d;
             }
-
-            // TODO should we put this in lfsr_data_readleb128?
-            // TODO should readtag then call lfsr_data_readleb128?
-            if (did > 0x7fffffff) {
-                return LFS_ERR_CORRUPT;
-            }
         }
 
         // lookup up this dname in the mtree
@@ -6436,6 +6434,10 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             return err;
         }
 
+        // keep track of the largest mdir we've seen, reset here
+        // since this is the first mdir we see
+        lfs->mlimit = traversal->mdir.rbyd.weight;
+
         if (mid_) {
             *mid_ = -1;
         }
@@ -6472,6 +6474,9 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             if (err) {
                 return err;
             }
+
+            // keep track of the largest mdir we've seen
+            lfs->mlimit = lfs_max32(lfs->mlimit, traversal->mdir.rbyd.weight);
 
             if (mid_) {
                 *mid_ = -1;
@@ -6590,6 +6595,9 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         if (err) {
             return err;
         }
+
+        // keep track of the largest mdir we've seen
+        lfs->mlimit = lfs_max32(lfs->mlimit, traversal->mdir.rbyd.weight);
 
         if (mid_) {
             *mid_ = mid;
@@ -7255,11 +7263,20 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // hopefully few collisions, we use a hash of the full path. Since
     // we have a CRC handy, we can use that.
     //
-    // We truncate to 28-bits to more optimally use our leb128 encoding.
-    // TODO should we have a configurable limit for this? dir_limit? or
-    // just loose ~3 bits from the configured file limit?
+    // We also truncate to make better use of our leb128 encoding. This is
+    // pretty arbitrary, but we don't want collisions, so we truncate to
+    // our best >= estimate of the number of metadata entries. Worst case
+    // this is >= ~2x the number of dids in the system, since each dir needs
+    // a dir entry and dstart entry.
     //
-    lfs_size_t did = lfs_crc32c(0, path, strlen(path)) & 0xfffffff;
+    lfs_size_t did = lfs_crc32c(0, path, strlen(path))
+            // This complicated bit of logic determines the upper limit of
+            // metadata entries, limited to 2^32. This is done post-log to
+            // try to avoid issues with integer overflow.
+            & ((1 << lfs_min32(
+                lfs_nlog2(lfsr_mtree_weight(lfs))
+                    + lfs_nlog2(lfs->mlimit),
+                32)) - 1);
 
     // Check if we have a collision. If we do, search for the next
     // available did
@@ -7359,12 +7376,6 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
         lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &did);
         if (d < 0) {
             return d;
-        }
-
-        // TODO should we put this in lfsr_data_readleb128?
-        // TODO should readtag then call lfsr_data_readleb128?
-        if (did > 0x7fffffff) {
-            return LFS_ERR_CORRUPT;
         }
     }
 

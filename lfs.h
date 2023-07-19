@@ -492,6 +492,7 @@ typedef struct lfs {
     // begin lfsr things
     lfsr_mdir_t mroot;
     lfsr_btree_t mtree;
+    lfs_size_t mlimit;
 
     // TODO do we really need separate decoded/encoded grms?
     lfsr_grm_t grm_;
