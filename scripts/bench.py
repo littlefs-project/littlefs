@@ -758,20 +758,22 @@ def find_ids(runner, bench_ids=[], **args):
     # find suite/case by id
     bench_ids_ = []
     for id in bench_ids:
+        # strip permutation
+        name, *_ = id.split(':', 1)
         bench_ids__ = []
         # resolve globs
-        if '*' in id:
+        if '*' in name:
             bench_ids__.extend(suite
                 for suite in expected_suite_perms.keys()
-                if fnmatch.fnmatch(suite, id))
+                if fnmatch.fnmatch(suite, name))
             bench_ids__.extend(case_
                 for case_ in expected_case_perms.keys()
-                if fnmatch.fnmatch(case_, id))
+                if fnmatch.fnmatch(case_, name))
         # literal suite
-        elif id in expected_suite_perms:
+        elif name in expected_suite_perms:
             bench_ids__.append(id)
         # literal case
-        elif id in expected_case_perms:
+        elif name in expected_case_perms:
             bench_ids__.append(id)
 
         # no suite/case found? error

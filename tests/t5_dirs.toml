@@ -706,99 +706,97 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
-defines.SAMPLES = 10
-# -1 => all pseudo-random seeds
-#  n => reproduce a specific seed
-defines.SEED = -1
+defines.SEED = 'range(10)'
+reentrant = true
 code = '''
-    // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
-            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
-            seed++) {
-        printf("--- seed: %d ---\n", seed);
-        // reset lfs here each iteration
-        lfs_t lfs;
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
         lfsr_format(&lfs, cfg) => 0;
         lfsr_mount(&lfs, cfg) => 0;
-        if (PARENT) {
-            lfsr_mkdir(&lfs, "parent") => 0;
-        }
-
-        // set up a simulation to compare against
-        lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
-        lfs_size_t sim_size = 0;
-
-        uint32_t prng = seed;
-        for (lfs_size_t i = 0; i < N; i++) {
-            // choose a pseudo-random number, truncate to 4 decimals
-            lfs_size_t x = TEST_PRNG(&prng) % 1000;
-
-            // insert into our sim
-            for (lfs_size_t j = 0;; j++) {
-                if (j >= sim_size || sim[j] >= x) {
-                    // already seen? skip
-                    if (sim[j] == x) {
-                        goto next;
-                    }
-
-                    // insert
-                    memmove(&sim[j+1], &sim[j],
-                            (sim_size-j)*sizeof(lfs_size_t));
-                    sim_size += 1;
-                    sim[j] = x;
-
-                    // remount?
-                    if (REMOUNT) {
-                        lfsr_unmount(&lfs) => 0;
-                        lfsr_mount(&lfs, cfg) => 0;
-                        // grm should be zero here
-                        assert(lfs.grm[0] == 0);
-                    }
-                    break;
-                }
-            }
-
-            // create a directory here
-            char name[256];
-            sprintf(name, "%s/dir%04d", (PARENT ? "parent" : ""), x);
-            lfsr_mkdir(&lfs, name) => 0;
-        next:;
-        }
-
-        // test that our directories match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "%s/dir%04d", (PARENT ? "parent" : ""), sim[j]);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
-            char name2[256];
-            sprintf(name2, "dir%04d", sim[j]);
-            assert(strcmp(info.name, name2) == 0);
-            assert(info.type == LFS_TYPE_DIR);
-        }
-
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, (PARENT ? "parent" : "/")) => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
-            char name[256];
-            sprintf(name, "dir%04d", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
-        }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-
-        // clean up sim/lfs
-        free(sim);
-        lfsr_unmount(&lfs) => 0;
     }
+
+    if (PARENT) {
+        err = lfsr_mkdir(&lfs, "parent");
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    }
+
+    // set up a simulation to compare against
+    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    lfs_size_t sim_size = 0;
+
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose a pseudo-random number, truncate to 4 decimals
+        lfs_size_t x = TEST_PRNG(&prng) % 1000;
+
+        // insert into our sim
+        for (lfs_size_t j = 0;; j++) {
+            if (j >= sim_size || sim[j] >= x) {
+                // already seen? skip
+                if (j < sim_size && sim[j] == x) {
+                    goto next;
+                }
+
+                // insert
+                memmove(&sim[j+1], &sim[j],
+                        (sim_size-j)*sizeof(lfs_size_t));
+                sim_size += 1;
+                sim[j] = x;
+                break;
+            }
+        }
+
+        // create a directory here
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "parent" : ""), x);
+        err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    next:;
+    }
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // test that our directories match our simulation
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "parent" : ""), sim[j]);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        char name2[256];
+        sprintf(name2, "dir%04d", sim[j]);
+        assert(strcmp(info.name, name2) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "parent" : "/")) => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t j = 0; j < sim_size; j++) {
+        char name[256];
+        sprintf(name, "dir%04d", sim[j]);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+
+    // clean up sim/lfs
+    free(sim);
+    lfsr_unmount(&lfs) => 0;
 '''
 
 

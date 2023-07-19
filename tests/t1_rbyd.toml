@@ -3542,10 +3542,7 @@ code = '''
 # balancing algorithm
 [cases.t1_rbyd_fuzz_append_removes]
 defines.N = 'range(1, 33)'
-defines.SAMPLES = 1000
-# -1 => all pseudo-random seeds
-#  n => reproduce a specific seed
-defines.SEED = -1
+defines.SEED = 'range(1000)'
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -3564,119 +3561,92 @@ code = '''
     const char *alpha = "abcdefghijklmnopqrstuvwxyz";
     uint8_t buffer[4];
 
-    // keep track of the worst case size and seed
-    lfs_size_t worst_size = 0;
-    uint32_t worst_seed = 0;
+    printf("perm: [");
+    uint32_t prng = SEED;
+    for (unsigned i = 0; i < N; i++) {
+        // choose an attr
+        uint8_t attr = TEST_PRNG(&prng) % N;
+        // choose append or remove
+        if (TEST_PRNG(&prng) & 1) {
+            printf("a0x%02x=%c", attr, alpha[i % 26]);
+        } else {
+            printf("r0x%02x", attr);
+        }
+        if (i < N-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
 
-    // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
-            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
-            seed++) {
-        printf("--- seed: %d ---\n", seed);
-        printf("perm: [");
-        uint32_t prng = seed;
-        for (unsigned i = 0; i < N; i++) {
-            // choose an attr
-            uint8_t attr = TEST_PRNG(&prng) % N;
-            // choose append or remove
-            if (TEST_PRNG(&prng) & 1) {
-                printf("a0x%02x=%c", attr, alpha[i % 26]);
-            } else {
-                printf("r0x%02x", attr);
-            }
-            if (i < N-1) {
+    // set up a simulation to compare against
+    char *sim = malloc(N);
+    memset(sim, 0, N);
+
+    // set up rbyd block
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+    prng = SEED;
+    for (unsigned i = 0; i < N; i++) {
+        // choose an attr
+        uint8_t attr = TEST_PRNG(&prng) % N;
+        // choose append or remove
+        if (TEST_PRNG(&prng) & 1) {
+            // update our sim
+            sim[attr] = alpha[i % 26];
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(-1, UATTR(attr), 0, &alpha[i % 26], 1))) => 0;
+        } else {
+            // update our sim
+            sim[attr] = '\0';
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(-1, RMUATTR(attr), 0, NULL, 0))) => 0;
+        }
+    }
+
+    // compare rbyd vs simulation
+    printf("expd: [");
+    bool first = true;
+    for (unsigned attr = 0; attr < N; attr++) {
+        if (sim[attr]) {
+            if (!first) {
                 printf(", ");
             }
+            first = false;
+            printf("0x%02x=%c", attr, sim[attr]);
         }
-        printf("]\n");
-
-        // set up a simulation to compare against
-        char *sim = malloc(N);
-        memset(sim, 0, N);
-
-        // set up rbyd block
-        rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.block) => 0;
-
-        prng = seed;
-        for (unsigned i = 0; i < N; i++) {
-            // choose an attr
-            uint8_t attr = TEST_PRNG(&prng) % N;
-            // choose append or remove
-            if (TEST_PRNG(&prng) & 1) {
-                // update our sim
-                sim[attr] = alpha[i % 26];
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(-1, UATTR(attr), 0, &alpha[i % 26], 1))) => 0;
-            } else {
-                // update our sim
-                sim[attr] = '\0';
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(-1, RMUATTR(attr), 0, NULL, 0))) => 0;
+    }
+    printf("]\n");
+    printf("rbyd: [");
+    first = true;
+    for (unsigned attr = 0; attr < N; attr++) {
+        lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
+                -1, LFSR_TAG_UATTR(attr), buffer, 4);
+        if (size >= 0) {
+            if (!first) {
+                printf(", ");
             }
+            first = false;
+            printf("0x%02x=%.*s", attr, size, buffer);
         }
+    }
+    printf("]\n");
 
-        // compare rbyd vs simulation
-        printf("expd: [");
-        bool first = true;
-        for (unsigned attr = 0; attr < N; attr++) {
-            if (sim[attr]) {
-                if (!first) {
-                    printf(", ");
-                }
-                first = false;
-                printf("0x%02x=%c", attr, sim[attr]);
-            }
+    for (unsigned attr = 0; attr < N; attr++) {
+        lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
+                -1, LFSR_TAG_UATTR(attr), buffer, 4);
+        if (sim[attr]) {
+            assert(size == 1);
+            assert(memcmp(&sim[attr], buffer, 1) == 0);
+        } else {
+            assert(size == LFS_ERR_NOENT);
         }
-        printf("]\n");
-        printf("rbyd: [");
-        first = true;
-        for (unsigned attr = 0; attr < N; attr++) {
-            lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
-                    -1, LFSR_TAG_UATTR(attr), buffer, 4);
-            if (size >= 0) {
-                if (!first) {
-                    printf(", ");
-                }
-                first = false;
-                printf("0x%02x=%.*s", attr, size, buffer);
-            }
-        }
-        printf("]\n");
-
-        for (unsigned attr = 0; attr < N; attr++) {
-            lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
-                    -1, LFSR_TAG_UATTR(attr), buffer, 4);
-            if (sim[attr]) {
-                assert(size == 1);
-                assert(memcmp(&sim[attr], buffer, 1) == 0);
-            } else {
-                assert(size == LFS_ERR_NOENT);
-            }
-        }
-
-        // keep track of the worst seed
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
-            worst_seed = seed;
-        }
-
-        // cleanup
-        free(sim);
     }
 
-    // print the worst seed + size
-    printf("--- summary ---\n");
-    printf("worst seed: %d\n", worst_seed);
-    printf("worst size: %d\n", worst_size);
-
-    // our tree should be strictly <= 2*log(n)+1, assume tags are strictly
-    // <=12 bytes, note this only holds true with byte-level progs
-    if (PROG_SIZE == 1) {
-        assert(worst_size <= N*12*(2*lfs_nlog2(N)+1)+1);
-    }
+    // cleanup
+    free(sim);
 '''
 
 
@@ -8279,10 +8249,7 @@ code = '''
 # balancing algorithm
 [cases.t1_rbyd_fuzz_create_deletes]
 defines.N = 'range(1, 33)'
-defines.SAMPLES = 1000
-# -1 => all pseudo-random seeds
-#  n => reproduce a specific seed
-defines.SEED = -1
+defines.SEED = 'range(1000)'
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -8301,119 +8268,91 @@ code = '''
     const char *alpha = "abcdefghijklmnopqrstuvwxyz";
     uint8_t buffer[4];
 
-    // keep track of the worst case size and seed
-    lfs_size_t worst_size = 0;
-    uint32_t worst_seed = 0;
-
-    // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
-            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
-            seed++) {
-        printf("--- seed: %d ---\n", seed);
-        printf("perm: [");
-        uint32_t prng = seed;
-        lfs_size_t count = 0;
-        for (unsigned i = 0; i < N; i++) {
-            // choose an id
-            lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-            // choose create or delete
-            if (id == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
-                printf("c%d=%c", id, alpha[i % 26]);
-                count += 1;
-            } else {
-                printf("d%d", id);
-                count -= 1;
-            }
-            if (i < N-1) {
-                printf(", ");
-            }
+    printf("perm: [");
+    uint32_t prng = SEED;
+    lfs_size_t count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose an id
+        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
+        // choose create or delete
+        if (id == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
+            printf("c%d=%c", id, alpha[i % 26]);
+            count += 1;
+        } else {
+            printf("d%d", id);
+            count -= 1;
         }
-        printf("]\n");
-
-        // set up a simulation to compare against, fun fact this performs
-        // worst than our actual rbyd block!
-        char *sim = malloc(N);
-        memset(sim, 0, N);
-
-        // set up rbyd block
-        rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.block) => 0;
-
-        prng = seed;
-        count = 0;
-        for (unsigned i = 0; i < N; i++) {
-            // choose an id
-            lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-            // choose create or delete
-            if (id == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
-                // update our sim
-                memmove(sim+id+1, sim+id, count-id);
-                sim[id] = alpha[i % 26];
-                count += 1;
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(id, REG, +1, &alpha[i % 26], 1))) => 0;
-            } else {
-                // update our sim
-                memmove(sim+id, sim+id+1, count-id-1);
-                count -= 1;
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(id, UNR, -1, NULL, 0))) => 0;
-            }
+        if (i < N-1) {
+            printf(", ");
         }
+    }
+    printf("]\n");
 
-        // compare rbyd vs simulation
-        printf("expd: [");
-        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
-            printf("%c", sim[id]);
-            if (id < (lfs_ssize_t)count-1) {
-                printf(", ");
-            }
-        }
-        printf("]\n");
-        printf("rbyd: [");
-        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)rbyd.weight; id++) {
-            lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
-                    id, LFSR_TAG_REG, buffer, 4);
-            if (size >= 0) {
-                printf("%.*s", size, buffer);
-            } else {
-                printf("?");
-            }
-            if (id < (lfs_ssize_t)count-1) {
-                printf(", ");
-            }
-        }
-        printf("]\n");
+    // set up a simulation to compare against, fun fact this performs
+    // worst than our actual rbyd block!
+    char *sim = malloc(N);
+    memset(sim, 0, N);
 
-        assert(count == rbyd.weight);
-        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
-            lfsr_rbyd_get(&lfs, &rbyd, id, LFSR_TAG_REG, buffer, 4) => 1;
-            assert(memcmp(&sim[id], buffer, 1) == 0);
-        }
+    // set up rbyd block
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
 
-        // keep track of the worst seed
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
-            worst_seed = seed;
+    prng = SEED;
+    count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose an id
+        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
+        // choose create or delete
+        if (id == (lfs_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
+            // update our sim
+            memmove(sim+id+1, sim+id, count-id);
+            sim[id] = alpha[i % 26];
+            count += 1;
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(id, REG, +1, &alpha[i % 26], 1))) => 0;
+        } else {
+            // update our sim
+            memmove(sim+id, sim+id+1, count-id-1);
+            count -= 1;
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(id, UNR, -1, NULL, 0))) => 0;
         }
-
-        // cleanup
-        free(sim);
     }
 
-    // print the worst seed + size, and rerun it so it's left on the disk
-    // if used with -ddisk
-    printf("--- summary ---\n");
-    printf("worst_seed: %d\n", worst_seed);
-    printf("worst_size: %d\n", worst_size);
-
-    // our tree should be strictly <= 2*log(n)+1, assume tags are strictly
-    // <=12 bytes, note this only holds true with byte-level progs
-    if (PROG_SIZE == 1) {
-        assert(worst_size <= 2*N*12*(2*lfs_nlog2(N)+1)+1);
+    // compare rbyd vs simulation
+    printf("expd: [");
+    for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
+        printf("%c", sim[id]);
+        if (id < (lfs_ssize_t)count-1) {
+            printf(", ");
+        }
     }
+    printf("]\n");
+    printf("rbyd: [");
+    for (lfs_ssize_t id = 0; id < (lfs_ssize_t)rbyd.weight; id++) {
+        lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
+                id, LFSR_TAG_REG, buffer, 4);
+        if (size >= 0) {
+            printf("%.*s", size, buffer);
+        } else {
+            printf("?");
+        }
+        if (id < (lfs_ssize_t)count-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+
+    assert(count == rbyd.weight);
+    for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
+        lfsr_rbyd_get(&lfs, &rbyd, id, LFSR_TAG_REG, buffer, 4) => 1;
+        assert(memcmp(&sim[id], buffer, 1) == 0);
+    }
+
+    // cleanup
+    free(sim);
 '''
 
 
@@ -11239,10 +11178,7 @@ code = '''
 [cases.t1_rbyd_fuzz_mixed]
 defines.N = 'range(1, 33)'
 defines.M = 3
-defines.SAMPLES = 1000
-# -1 => all pseudo-random seeds
-#  n => reproduce a specific seed
-defines.SEED = -1
+defines.SEED = 'range(1000)'
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -11261,170 +11197,139 @@ code = '''
     const char *alpha = "abcdefghijklmnopqrstuvwxyz";
     uint8_t buffer[4];
 
-    // keep track of the worst case size and seed
-    lfs_size_t worst_size = 0;
-    uint32_t worst_seed = 0;
+    printf("perm: [");
+    uint32_t prng = SEED;
+    lfs_size_t count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose create/delete or attr append/remove
+        uint8_t op = TEST_PRNG(&prng) % 4;
+        // choose an id
+        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
+        // choose an attr
+        uint8_t u = TEST_PRNG(&prng) % M;
 
-    // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
-            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
-            seed++) {
-        printf("--- seed: %d ---\n", seed);
-        printf("perm: [");
-        uint32_t prng = seed;
-        lfs_size_t count = 0;
-        for (unsigned i = 0; i < N; i++) {
-            // choose create/delete or attr append/remove
-            uint8_t op = TEST_PRNG(&prng) % 4;
-            // choose an id
-            lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-            // choose an attr
-            uint8_t u = TEST_PRNG(&prng) % M;
+        if (id == (lfs_ssize_t)count || op == 0) {
+            printf("c%d=%c", id, alpha[i % 26]);
+            count += 1;
+        } else if (op == 1) {
+            printf("d%d", id);
+            count -= 1;
+        } else if (op == 2) {
+            printf("a%d,%d=%c", id, u, alpha[i % 26]);
+        } else if (op == 3) {
+            printf("r%d,%d", id, u);
+        }
+        if (i < N-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
 
-            if (id == (lfs_ssize_t)count || op == 0) {
-                printf("c%d=%c", id, alpha[i % 26]);
-                count += 1;
-            } else if (op == 1) {
-                printf("d%d", id);
-                count -= 1;
-            } else if (op == 2) {
-                printf("a%d,%d=%c", id, u, alpha[i % 26]);
-            } else if (op == 3) {
-                printf("r%d,%d", id, u);
-            }
-            if (i < N-1) {
-                printf(", ");
+    // set up a simulation to compare against, fun fact this performs
+    // worst than our actual rbyd block!
+    char *sim = malloc(N*(M+1));
+    memset(sim, 0, N*(M+1));
+
+    // set up rbyd block
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
+
+    prng = SEED;
+    count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose create/delete or attr append/remove
+        uint8_t op = TEST_PRNG(&prng) % 4;
+        // choose an id
+        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
+        // choose an attr
+        uint8_t u = TEST_PRNG(&prng) % M;
+
+        if (id == (lfs_ssize_t)count || op == 0) {
+            // update our sim
+            memmove(sim+(id+1)*(M+1), sim+id*(M+1), (count-id)*(M+1));
+            memset(&sim[id*(M+1)], 0, M+1);
+            sim[id*(M+1)] = alpha[i % 26];
+            count += 1;
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(id, REG, +1, &alpha[i % 26], 1))) => 0;
+        } else if (op == 1) {
+            // update our sim
+            memmove(sim+id*(M+1), sim+(id+1)*(M+1), (count-id-1)*(M+1));
+            count -= 1;
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(id, UNR, -1, NULL, 0))) => 0;
+        } else if (op == 2) {
+            // update our sim
+            sim[id*(M+1) + u+1] = alpha[i % 26];
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(id, UATTR(u), 0, &alpha[i % 26], 1))) => 0;
+
+        } else if (op == 3) {
+            // update our sim
+            sim[id*(M+1) + u+1] = '\0';
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(id, RMUATTR(u), 0, NULL, 0))) => 0;
+        }
+    }
+
+    // compare rbyd vs simulation
+    printf("expd: [");
+    for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
+        printf("%c", sim[id*(M+1)]);
+        for (uint8_t u = 0; u < M; u++) {
+            if (sim[id*(M+1) + u+1]) {
+                printf("%c", sim[id*(M+1) + u+1]);
+            } else {
+                printf("_");
             }
         }
-        printf("]\n");
-
-        // set up a simulation to compare against, fun fact this performs
-        // worst than our actual rbyd block!
-        char *sim = malloc(N*(M+1));
-        memset(sim, 0, N*(M+1));
-
-        // set up rbyd block
-        rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.block) => 0;
-
-        prng = seed;
-        count = 0;
-        for (unsigned i = 0; i < N; i++) {
-            // choose create/delete or attr append/remove
-            uint8_t op = TEST_PRNG(&prng) % 4;
-            // choose an id
-            lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-            // choose an attr
-            uint8_t u = TEST_PRNG(&prng) % M;
-
-            if (id == (lfs_ssize_t)count || op == 0) {
-                // update our sim
-                memmove(sim+(id+1)*(M+1), sim+id*(M+1), (count-id)*(M+1));
-                memset(&sim[id*(M+1)], 0, M+1);
-                sim[id*(M+1)] = alpha[i % 26];
-                count += 1;
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(id, REG, +1, &alpha[i % 26], 1))) => 0;
-            } else if (op == 1) {
-                // update our sim
-                memmove(sim+id*(M+1), sim+(id+1)*(M+1), (count-id-1)*(M+1));
-                count -= 1;
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(id, UNR, -1, NULL, 0))) => 0;
-            } else if (op == 2) {
-                // update our sim
-                sim[id*(M+1) + u+1] = alpha[i % 26];
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(id, UATTR(u), 0, &alpha[i % 26], 1))) => 0;
-
-            } else if (op == 3) {
-                // update our sim
-                sim[id*(M+1) + u+1] = '\0';
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(id, RMUATTR(u), 0, NULL, 0))) => 0;
-            }
+        if (id < (lfs_ssize_t)count-1) {
+            printf(", ");
         }
-
-        // compare rbyd vs simulation
-        printf("expd: [");
-        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
-            printf("%c", sim[id*(M+1)]);
-            for (uint8_t u = 0; u < M; u++) {
-                if (sim[id*(M+1) + u+1]) {
-                    printf("%c", sim[id*(M+1) + u+1]);
-                } else {
-                    printf("_");
-                }
-            }
-            if (id < (lfs_ssize_t)count-1) {
-                printf(", ");
-            }
+    }
+    printf("]\n");
+    printf("rbyd: [");
+    for (lfs_ssize_t id = 0; id < (lfs_ssize_t)rbyd.weight; id++) {
+        lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
+                id, LFSR_TAG_REG, buffer, 4);
+        if (size >= 0) {
+            printf("%.*s", size, buffer);
+        } else {
+            printf("?");
         }
-        printf("]\n");
-        printf("rbyd: [");
-        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)rbyd.weight; id++) {
+        for (uint8_t u = 0; u < M; u++) {
             lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
-                    id, LFSR_TAG_REG, buffer, 4);
+                    id, LFSR_TAG_UATTR(u), buffer, 4);
             if (size >= 0) {
                 printf("%.*s", size, buffer);
             } else {
-                printf("?");
-            }
-            for (uint8_t u = 0; u < M; u++) {
-                lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
-                        id, LFSR_TAG_UATTR(u), buffer, 4);
-                if (size >= 0) {
-                    printf("%.*s", size, buffer);
-                } else {
-                    printf("_");
-                }
-            }
-            if (id < (lfs_ssize_t)count-1) {
-                printf(", ");
+                printf("_");
             }
         }
-        printf("]\n");
-
-        assert(count == rbyd.weight);
-        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
-            lfsr_rbyd_get(&lfs, &rbyd, id, LFSR_TAG_REG, buffer, 4) => 1;
-            assert(memcmp(&sim[id*(M+1)], buffer, 1) == 0);
+        if (id < (lfs_ssize_t)count-1) {
+            printf(", ");
         }
+    }
+    printf("]\n");
 
-        // keep track of the worst seed
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
-            worst_seed = seed;
-        }
-
-        // cleanup
-        free(sim);
+    assert(count == rbyd.weight);
+    for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
+        lfsr_rbyd_get(&lfs, &rbyd, id, LFSR_TAG_REG, buffer, 4) => 1;
+        assert(memcmp(&sim[id*(M+1)], buffer, 1) == 0);
     }
 
-    // print the worst seed + size, and rerun it so it's left on the disk
-    // if used with -ddisk
-    printf("--- summary ---\n");
-    printf("worst_seed: %d\n", worst_seed);
-    printf("worst_size: %d\n", worst_size);
-
-    // our tree should be strictly <= 2*log(n)+1, assume tags are strictly
-    // <=12 bytes, note this only holds true with byte-level progs
-    if (PROG_SIZE == 1) {
-        assert(worst_size <= 2*N*12*(2*lfs_nlog2(N)+1)+1);
-    }
+    // cleanup
+    free(sim);
 '''
 
 [cases.t1_rbyd_fuzz_sparse]
 defines.N = 'range(1, 33)'
 defines.W = 5
-defines.SAMPLES = 1000
-# -1 => all pseudo-random seeds
-#  n => reproduce a specific seed
-defines.SEED = -1
+defines.SEED = 'range(1000)'
 # large progs take too long for now
 if = 'PROG_SIZE < 512'
 in = 'lfs.c'
@@ -11447,198 +11352,170 @@ code = '''
     const char *alpha = "abcdefghijklmnopqrstuvwxyz";
     uint8_t buffer[4];
 
-    // keep track of the worst case size and seed
-    lfs_size_t worst_size = 0;
-    uint32_t worst_seed = 0;
+    printf("perm: [");
+    uint32_t prng = SEED;
+    lfs_size_t count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose create/delete/grow/shrink
+        uint8_t op = TEST_PRNG(&prng) % 4;
+        // choose an id
+        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
+        // choose a weight
+        lfs_size_t weight = 1 + (TEST_PRNG(&prng) % W);
 
-    // iterate through seeds so we can reproduce easily
-    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
-            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
-            seed++) {
-        printf("--- seed: %d ---\n", seed);
-        printf("perm: [");
-        uint32_t prng = seed;
-        lfs_size_t count = 0;
-        for (unsigned i = 0; i < N; i++) {
-            // choose create/delete/grow/shrink
-            uint8_t op = TEST_PRNG(&prng) % 4;
-            // choose an id
-            lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-            // choose a weight
-            lfs_size_t weight = 1 + (TEST_PRNG(&prng) % W);
-
-            if (id == (lfs_ssize_t)count || op == 0) {
-                printf("c%dw%d=%c", id, weight, alpha[i % 26]);
-                count += 1;
-            } else if (op == 1) {
-                printf("d%d", id);
-                count -= 1;
-            } else if (op == 2) {
-                printf("g%dw%d", id, weight);
-            } else if (op == 3) {
-                printf("s%dw%d", id, weight);
-            }
-            if (i < N-1) {
-                printf(", ");
-            }
+        if (id == (lfs_ssize_t)count || op == 0) {
+            printf("c%dw%d=%c", id, weight, alpha[i % 26]);
+            count += 1;
+        } else if (op == 1) {
+            printf("d%d", id);
+            count -= 1;
+        } else if (op == 2) {
+            printf("g%dw%d", id, weight);
+        } else if (op == 3) {
+            printf("s%dw%d", id, weight);
         }
-        printf("]\n");
+        if (i < N-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
 
-        // set up a simulation to compare against, fun fact this performs
-        // worst than our actual rbyd block!
-        char *sim = malloc(N);
-        lfs_size_t *sim_weights = malloc(N*sizeof(lfs_size_t));
-        memset(sim, 0, N);
-        memset(sim_weights, 0, N*sizeof(lfs_size_t));
+    // set up a simulation to compare against, fun fact this performs
+    // worst than our actual rbyd block!
+    char *sim = malloc(N);
+    lfs_size_t *sim_weights = malloc(N*sizeof(lfs_size_t));
+    memset(sim, 0, N);
+    memset(sim_weights, 0, N*sizeof(lfs_size_t));
 
-        // set up rbyd block
-        rbyd = init_rbyd;
-        lfs_bd_erase(&lfs, rbyd.block) => 0;
+    // set up rbyd block
+    rbyd = init_rbyd;
+    lfs_bd_erase(&lfs, rbyd.block) => 0;
 
-        prng = seed;
-        count = 0;
-        for (unsigned i = 0; i < N; i++) {
-            // choose create/delete/grow/shrink
-            uint8_t op = TEST_PRNG(&prng) % 4;
-            // choose an id
-            lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
-            // choose a weight
-            lfs_size_t weight = 1 + (TEST_PRNG(&prng) % W);
+    prng = SEED;
+    count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose create/delete/grow/shrink
+        uint8_t op = TEST_PRNG(&prng) % 4;
+        // choose an id
+        lfs_ssize_t id = TEST_PRNG(&prng) % (count+1);
+        // choose a weight
+        lfs_size_t weight = 1 + (TEST_PRNG(&prng) % W);
 
-            // calculate actual id in rbyd space
-            lfs_ssize_t weighted_id = 0;
-            for (lfs_ssize_t j = 0; j < id; j++) {
-                weighted_id += sim_weights[j];
-            }
-
-            if (id == (lfs_ssize_t)count || op == 0) {
-                // update our sim
-                memmove(sim+id+1, sim+id, count-id);
-                memmove(sim_weights+id+1, sim_weights+id,
-                        (count-id)*sizeof(lfs_size_t));
-                sim[id] = alpha[i % 26];
-                sim_weights[id] = weight;
-                count += 1;
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(weighted_id, REG,
-                            +weight, &alpha[i % 26], 1))) => 0;
-            } else if (op == 1) {
-                // get the correct weight from the sim
-                weight_ = sim_weights[id];
-                // update our sim
-                memmove(sim+id, sim+id+1, count-id-1);
-                memmove(sim_weights+id, sim_weights+id+1,
-                        (count-id-1)*sizeof(lfs_size_t));
-                count -= 1;
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(weighted_id+weight_-1, UNR,
-                            -weight_, NULL, 0))) => 0;
-            } else if (op == 2) {
-                // get the correct weight from the sim
-                weight_ = sim_weights[id];
-                // update our sim
-                sim_weights[id] += weight;
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(weighted_id+weight_-1, GROW,
-                            +weight, NULL, 0))) => 0;
-            } else if (op == 3) {
-                // get the correct weight from the sim
-                weight_ = sim_weights[id];
-                // don't let shrink go to zero here! this is already hard enough
-                // to simulate
-                weight = lfs_min(weight, weight_-1);
-                // update our sim
-                sim_weights[id] -= weight;
-                // update our rbyd
-                lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                        LFSR_ATTR(weighted_id+weight_-1, GROW,
-                            -weight, NULL, 0))) => 0;
-            }
+        // calculate actual id in rbyd space
+        lfs_ssize_t weighted_id = 0;
+        for (lfs_ssize_t j = 0; j < id; j++) {
+            weighted_id += sim_weights[j];
         }
 
-        // compare rbyd vs simulation
-        printf("expd: [");
-        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
-            printf("%cw%d", sim[id], sim_weights[id]);
-            if (id < (lfs_ssize_t)count-1) {
-                printf(", ");
-            }
+        if (id == (lfs_ssize_t)count || op == 0) {
+            // update our sim
+            memmove(sim+id+1, sim+id, count-id);
+            memmove(sim_weights+id+1, sim_weights+id,
+                    (count-id)*sizeof(lfs_size_t));
+            sim[id] = alpha[i % 26];
+            sim_weights[id] = weight;
+            count += 1;
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(weighted_id, REG,
+                        +weight, &alpha[i % 26], 1))) => 0;
+        } else if (op == 1) {
+            // get the correct weight from the sim
+            weight_ = sim_weights[id];
+            // update our sim
+            memmove(sim+id, sim+id+1, count-id-1);
+            memmove(sim_weights+id, sim_weights+id+1,
+                    (count-id-1)*sizeof(lfs_size_t));
+            count -= 1;
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(weighted_id+weight_-1, UNR,
+                        -weight_, NULL, 0))) => 0;
+        } else if (op == 2) {
+            // get the correct weight from the sim
+            weight_ = sim_weights[id];
+            // update our sim
+            sim_weights[id] += weight;
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(weighted_id+weight_-1, GROW,
+                        +weight, NULL, 0))) => 0;
+        } else if (op == 3) {
+            // get the correct weight from the sim
+            weight_ = sim_weights[id];
+            // don't let shrink go to zero here! this is already hard enough
+            // to simulate
+            weight = lfs_min(weight, weight_-1);
+            // update our sim
+            sim_weights[id] -= weight;
+            // update our rbyd
+            lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
+                    LFSR_ATTR(weighted_id+weight_-1, GROW,
+                        -weight, NULL, 0))) => 0;
         }
-        printf("]\n");
-        printf("rbyd: [");
-        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
-            // calculate actual id in rbyd space
-            lfs_ssize_t weighted_id = 0;
-            for (lfs_ssize_t j = 0; j < id; j++) {
-                weighted_id += sim_weights[j];
-            }
+    }
 
-            int err = lfsr_rbyd_lookupnext(&lfs, &rbyd,
-                    weighted_id, LFSR_TAG_REG,
-                    &id_, &tag_, &weight_, &data_);
-            if (!err) {
-                lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
-                        id_, tag_, buffer, 4);
-                if (size >= 0) {
-                    printf("%.*sw%d", size, buffer, weight_);
-                } else {
-                    printf("?");
-                }
+    // compare rbyd vs simulation
+    printf("expd: [");
+    for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
+        printf("%cw%d", sim[id], sim_weights[id]);
+        if (id < (lfs_ssize_t)count-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+    printf("rbyd: [");
+    for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
+        // calculate actual id in rbyd space
+        lfs_ssize_t weighted_id = 0;
+        for (lfs_ssize_t j = 0; j < id; j++) {
+            weighted_id += sim_weights[j];
+        }
+
+        int err = lfsr_rbyd_lookupnext(&lfs, &rbyd,
+                weighted_id, LFSR_TAG_REG,
+                &id_, &tag_, &weight_, &data_);
+        if (!err) {
+            lfs_ssize_t size = lfsr_rbyd_get(&lfs, &rbyd,
+                    id_, tag_, buffer, 4);
+            if (size >= 0) {
+                printf("%.*sw%d", size, buffer, weight_);
             } else {
                 printf("?");
             }
-            if (id < (lfs_ssize_t)count-1) {
-                printf(", ");
-            }
+        } else {
+            printf("?");
         }
-        printf("]\n");
-
-        // calculate total weight
-        lfs_size_t total_weight = 0;
-        for (lfs_ssize_t j = 0; j < (lfs_ssize_t)count; j++) {
-            total_weight += sim_weights[j];
+        if (id < (lfs_ssize_t)count-1) {
+            printf(", ");
         }
-        assert(total_weight == rbyd.weight);
+    }
+    printf("]\n");
 
-        for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
-            // calculate actual id in rbyd space
-            lfs_ssize_t weighted_id = 0;
-            for (lfs_ssize_t j = 0; j < id; j++) {
-                weighted_id += sim_weights[j];
-            }
+    // calculate total weight
+    lfs_size_t total_weight = 0;
+    for (lfs_ssize_t j = 0; j < (lfs_ssize_t)count; j++) {
+        total_weight += sim_weights[j];
+    }
+    assert(total_weight == rbyd.weight);
 
-            lfsr_rbyd_lookupnext(&lfs, &rbyd,
-                    weighted_id, LFSR_TAG_REG,
-                    &id_, &tag_, &weight_, &data_) => 0;
-            lfsr_rbyd_get(&lfs, &rbyd, id_, tag_, buffer, 4) => 1;
-            assert(memcmp(&sim[id], buffer, 1) == 0);
+    for (lfs_ssize_t id = 0; id < (lfs_ssize_t)count; id++) {
+        // calculate actual id in rbyd space
+        lfs_ssize_t weighted_id = 0;
+        for (lfs_ssize_t j = 0; j < id; j++) {
+            weighted_id += sim_weights[j];
         }
 
-        // keep track of the worst seed
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
-            worst_seed = seed;
-        }
-
-        // cleanup
-        free(sim);
-        free(sim_weights);
+        lfsr_rbyd_lookupnext(&lfs, &rbyd,
+                weighted_id, LFSR_TAG_REG,
+                &id_, &tag_, &weight_, &data_) => 0;
+        lfsr_rbyd_get(&lfs, &rbyd, id_, tag_, buffer, 4) => 1;
+        assert(memcmp(&sim[id], buffer, 1) == 0);
     }
 
-    // print the worst seed + size, and rerun it so it's left on the disk
-    // if used with -ddisk
-    printf("--- summary ---\n");
-    printf("worst_seed: %d\n", worst_seed);
-    printf("worst_size: %d\n", worst_size);
-
-    // our tree should be strictly <= 2*log(n)+1, assume tags are strictly
-    // <=12 bytes, note this only holds true with byte-level progs
-    if (PROG_SIZE == 1) {
-        assert(worst_size <= 2*N*12*(2*lfs_nlog2(N)+1)+1);
-    }
+    // cleanup
+    free(sim);
+    free(sim_weights);
 '''
 
 

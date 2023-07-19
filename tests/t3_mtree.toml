@@ -474,117 +474,106 @@ code = '''
 [cases.t3_mtree_split_fuzz]
 defines.N = [5, 10, 20, 40, 80, 160]
 defines.FORCE_COMPACTION = [false, true]
-defines.SAMPLES = 100
-# -1 => all pseudo-random seeds
-#  n => reproduce a specific seed
-defines.SEED = -1
+defines.SEED = 'range(100)'
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
-    // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
-            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
-            seed++) {
-        printf("--- seed: %d ---\n", seed);
-        // create lfs here since we need to reset each iteration, we're
-        // space constrained and we can't expect gc to work at this point
-        lfs_t lfs;
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
-        lfs_alloc_ack(&lfs);
-        // remove root dstart for now
-        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
-                LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
-        // at least keep track of the number of entries we expect
-        lfs_size_t count = 0;
+    // at least keep track of the number of entries we expect
+    lfs_size_t count = 0;
 
-        uint32_t prng = seed;
-        for (lfs_size_t i = 0; i < N; i++) {
-            // choose a pseudo-random mid
-            lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
-                    ? -1
-                    : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
-            // fetch mdir
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            // choose a pseudo-random rid
-            lfs_ssize_t rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose a pseudo-random mid
+        lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
+                ? -1
+                : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+        // fetch mdir
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        // choose a pseudo-random rid
+        lfs_ssize_t rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
 
-            // force a compaction?
-            if (FORCE_COMPACTION) {
-                mdir.rbyd.off = cfg->block_size;
-                lfs.mroot.rbyd.off = cfg->block_size;
-            }
+        // force a compaction?
+        if (FORCE_COMPACTION) {
+            mdir.rbyd.off = cfg->block_size;
+            lfs.mroot.rbyd.off = cfg->block_size;
+        }
 
-            // add to rbyd, potentially splitting the mdir
-            lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                    LFSR_ATTR(rid, INLINED, +1, &alphas[i % 26], 1))) => 0;
+        // add to rbyd, potentially splitting the mdir
+        lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                LFSR_ATTR(rid, INLINED, +1, &alphas[i % 26], 1))) => 0;
 
-            // make sure we can look up the new entry
+        // make sure we can look up the new entry
+        uint8_t buffer[4];
+        lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                buffer, 4) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+
+        count += 1;
+    }
+
+    // try looking up each entry
+    lfs_size_t count_ = 0;
+
+    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+            mid++) {
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        for (lfs_ssize_t rid = 0;
+                rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
                     buffer, 4) => 1;
-            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
 
-            count += 1;
+            count_ += 1;
         }
-
-        // try looking up each entry
-        lfs_size_t count_ = 0;
-
-        for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
-                mid++) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            for (lfs_ssize_t rid = 0;
-                    rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
-                    rid++) {
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
-
-                count_ += 1;
-            }
-        }
-
-        // the mtree is a bit difficult to simulate, but we can at least test
-        // we ended up with the right number of entries
-        assert(count_ == count);
-
-        lfsr_unmount(&lfs) => 0;
-
-
-        // check things stay sane after remount
-        lfsr_mount(&lfs, cfg) => 0;
-
-        // try looking up each entry
-        count_ = 0;
-
-        for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
-                mid++) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            for (lfs_ssize_t rid = 0;
-                    rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
-                    rid++) {
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
-
-                count_ += 1;
-            }
-        }
-
-        // the mtree is a bit difficult to simulate, but we can at least test
-        // we ended up with the right number of entries
-        assert(count_ == count);
-
-        lfsr_unmount(&lfs) => 0;
     }
+
+    // the mtree is a bit difficult to simulate, but we can at least test
+    // we ended up with the right number of entries
+    assert(count_ == count);
+
+    lfsr_unmount(&lfs) => 0;
+
+
+    // check things stay sane after remount
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // try looking up each entry
+    count_ = 0;
+
+    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+            mid++) {
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        for (lfs_ssize_t rid = 0;
+                rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                rid++) {
+            uint8_t buffer[4];
+            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                    buffer, 4) => 1;
+
+            count_ += 1;
+        }
+    }
+
+    // the mtree is a bit difficult to simulate, but we can at least test
+    // we ended up with the right number of entries
+    assert(count_ == count);
+
+    lfsr_unmount(&lfs) => 0;
 '''
 
 
@@ -1441,140 +1430,129 @@ code = '''
 [cases.t3_mtree_drop_fuzz]
 defines.N = [5, 10, 20, 40, 80, 160]
 defines.FORCE_COMPACTION = [false, true]
-defines.SAMPLES = 100
-# -1 => all pseudo-random seeds
-#  n => reproduce a specific seed
-defines.SEED = -1
+defines.SEED = 'range(100)'
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
-    // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
-            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
-            seed++) {
-        printf("--- seed: %d ---\n", seed);
-        // create lfs here since we need to reset each iteration, we're
-        // space constrained and we can't expect gc to work at this point
-        lfs_t lfs;
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
-        lfs_alloc_ack(&lfs);
-        // remove root dstart for now
-        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
-                LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
-        // at least keep track of the number of entries we expect
-        lfs_size_t count = 0;
+    // at least keep track of the number of entries we expect
+    lfs_size_t count = 0;
 
-        uint32_t prng = seed;
-        for (lfs_size_t i = 0; i < N; i++) {
-            // choose a pseudo-random mid
-            lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
-                    ? -1
-                    : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
-            // fetch mdir
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            // choose a pseudo-random rid
-            lfs_ssize_t rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
-            // choose to create or delete
-            uint8_t op = (lfs_size_t)rid == lfsr_mdir_weight(&mdir)
-                    ? 0
-                    : TEST_PRNG(&prng) % 2;
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose a pseudo-random mid
+        lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
+                ? -1
+                : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+        // fetch mdir
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        // choose a pseudo-random rid
+        lfs_ssize_t rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+        // choose to create or delete
+        uint8_t op = (lfs_size_t)rid == lfsr_mdir_weight(&mdir)
+                ? 0
+                : TEST_PRNG(&prng) % 2;
 
-            // force a compaction?
-            if (FORCE_COMPACTION) {
-                mdir.rbyd.off = cfg->block_size;
-                lfs.mroot.rbyd.off = cfg->block_size;
-            }
-
-            // create
-            if (op == 0) {
-                // add to rbyd, potentially splitting the mdir
-                lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                        LFSR_ATTR(rid, INLINED, +1,
-                            &alphas[i % 26], 1))) => 0;
-
-                // make sure we can look up the new entry
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
-                assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-
-                count += 1;
-
-            // delete
-            } else {
-                lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                        LFSR_ATTR(rid, UNR, -1, NULL, 0))) => 0;
-
-                count -= 1;
-            }
+        // force a compaction?
+        if (FORCE_COMPACTION) {
+            mdir.rbyd.off = cfg->block_size;
+            lfs.mroot.rbyd.off = cfg->block_size;
         }
 
-        // try looking up each entry
-        lfs_size_t count_ = 0;
+        // create
+        if (op == 0) {
+            // add to rbyd, potentially splitting the mdir
+            lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                    LFSR_ATTR(rid, INLINED, +1,
+                        &alphas[i % 26], 1))) => 0;
 
-        for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
-                mid++) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+            // make sure we can look up the new entry
+            uint8_t buffer[4];
+            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                    buffer, 4) => 1;
+            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
 
-            // drop should make sure we never have empty mdirs
-            assert(mdir.mid == -1 || mdir.rbyd.weight > 0);
+            count += 1;
 
-            for (lfs_ssize_t rid = 0;
-                    rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
-                    rid++) {
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
+        // delete
+        } else {
+            lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                    LFSR_ATTR(rid, UNR, -1, NULL, 0))) => 0;
 
-                count_ += 1;
-            }
+            count -= 1;
         }
-
-        // the mtree is a bit difficult to simulate, but we can at least test
-        // we ended up with the right number of entries
-        assert(count_ == count);
-
-        lfsr_unmount(&lfs) => 0;
-
-
-        // check things stay sane after remount
-        lfsr_mount(&lfs, cfg) => 0;
-
-        // try looking up each entry
-        count_ = 0;
-
-        for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
-                mid++) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-
-            // drop should make sure we never have empty mdirs
-            assert(mdir.mid == -1 || mdir.rbyd.weight > 0);
-
-            for (lfs_ssize_t rid = 0;
-                    rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
-                    rid++) {
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
-
-                count_ += 1;
-            }
-        }
-
-        // the mtree is a bit difficult to simulate, but we can at least test
-        // we ended up with the right number of entries
-        assert(count_ == count);
-
-        lfsr_unmount(&lfs) => 0;
     }
+
+    // try looking up each entry
+    lfs_size_t count_ = 0;
+
+    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+            mid++) {
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+
+        // drop should make sure we never have empty mdirs
+        assert(mdir.mid == -1 || mdir.rbyd.weight > 0);
+
+        for (lfs_ssize_t rid = 0;
+                rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                rid++) {
+            uint8_t buffer[4];
+            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                    buffer, 4) => 1;
+
+            count_ += 1;
+        }
+    }
+
+    // the mtree is a bit difficult to simulate, but we can at least test
+    // we ended up with the right number of entries
+    assert(count_ == count);
+
+    lfsr_unmount(&lfs) => 0;
+
+
+    // check things stay sane after remount
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // try looking up each entry
+    count_ = 0;
+
+    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+            mid++) {
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+
+        // drop should make sure we never have empty mdirs
+        assert(mdir.mid == -1 || mdir.rbyd.weight > 0);
+
+        for (lfs_ssize_t rid = 0;
+                rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                rid++) {
+            uint8_t buffer[4];
+            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                    buffer, 4) => 1;
+
+            count_ += 1;
+        }
+    }
+
+    // the mtree is a bit difficult to simulate, but we can at least test
+    // we ended up with the right number of entries
+    assert(count_ == count);
+
+    lfsr_unmount(&lfs) => 0;
 '''
 
 
@@ -2540,153 +2518,142 @@ code = '''
 defines.N = [5, 10, 20, 40]
 defines.FORCE_COMPACTION = [false, true]
 defines.BLOCK_CYCLES = [5, 2, 1]
-defines.SAMPLES = 500
-# -1 => all pseudo-random seeds
-#  n => reproduce a specific seed
-defines.SEED = -1
+defines.SEED = 'range(500)'
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
-    // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
-            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
-            seed++) {
-        printf("--- seed: %d ---\n", seed);
-        // create lfs here since we need to reset each iteration, we're
-        // space constrained and we can't expect gc to work at this point
-        lfs_t lfs;
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
-        lfs_alloc_ack(&lfs);
-        // remove root dstart for now
-        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
-                LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
-        // at least keep track of the number of entries we expect
-        lfs_size_t count = 0;
+    // at least keep track of the number of entries we expect
+    lfs_size_t count = 0;
 
-        uint32_t prng = seed;
-        for (lfs_size_t i = 0; i < N; i++) {
-            // choose a pseudo-random mid
-            lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
-                    ? -1
-                    : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
-            // fetch mdir
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            // choose a pseudo-random rid
-            lfs_ssize_t rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
-            // choose to create or delete
-            uint8_t op = (lfs_size_t)rid == lfsr_mdir_weight(&mdir)
-                    ? 0
-                    : TEST_PRNG(&prng) % 3;
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose a pseudo-random mid
+        lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
+                ? -1
+                : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+        // fetch mdir
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        // choose a pseudo-random rid
+        lfs_ssize_t rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+        // choose to create or delete
+        uint8_t op = (lfs_size_t)rid == lfsr_mdir_weight(&mdir)
+                ? 0
+                : TEST_PRNG(&prng) % 3;
 
-            // force a compaction?
-            if (FORCE_COMPACTION) {
-                mdir.rbyd.off = cfg->block_size;
-                lfs.mroot.rbyd.off = cfg->block_size;
-            }
-
-            // create
-            if (op == 0) {
-                // add to rbyd
-                lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                        LFSR_ATTR(rid, INLINED, +1,
-                            &alphas[i % 26], 1))) => 0;
-
-                // make sure we can look up the new entry
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
-                assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-
-                count += 1;
-
-            // update
-            } else if (op == 1) {
-                // update rbyd
-                lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                        LFSR_ATTR(rid, INLINED, 0,
-                            &alphas[i % 26], 1))) => 0;
-
-                // make sure we can look up the new entry
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
-                assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-
-            // delete
-            } else {
-                lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                        LFSR_ATTR(rid, UNR, -1, NULL, 0))) => 0;
-
-                count -= 1;
-            }
+        // force a compaction?
+        if (FORCE_COMPACTION) {
+            mdir.rbyd.off = cfg->block_size;
+            lfs.mroot.rbyd.off = cfg->block_size;
         }
 
-        // try looking up each entry
-        lfs_size_t count_ = 0;
+        // create
+        if (op == 0) {
+            // add to rbyd
+            lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                    LFSR_ATTR(rid, INLINED, +1,
+                        &alphas[i % 26], 1))) => 0;
 
-        for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
-                mid++) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+            // make sure we can look up the new entry
+            uint8_t buffer[4];
+            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                    buffer, 4) => 1;
+            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
 
-            // drop should make sure we never have empty mdirs
-            assert(mdir.mid == -1 || mdir.rbyd.weight > 0);
+            count += 1;
 
-            for (lfs_ssize_t rid = 0;
-                    rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
-                    rid++) {
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
+        // update
+        } else if (op == 1) {
+            // update rbyd
+            lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                    LFSR_ATTR(rid, INLINED, 0,
+                        &alphas[i % 26], 1))) => 0;
 
-                count_ += 1;
-            }
+            // make sure we can look up the new entry
+            uint8_t buffer[4];
+            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                    buffer, 4) => 1;
+            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+
+        // delete
+        } else {
+            lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                    LFSR_ATTR(rid, UNR, -1, NULL, 0))) => 0;
+
+            count -= 1;
         }
-
-        // the mtree is a bit difficult to simulate, but we can at least test
-        // we ended up with the right number of entries
-        assert(count_ == count);
-
-        lfsr_unmount(&lfs) => 0;
-
-
-        // check things stay sane after remount
-        lfsr_mount(&lfs, cfg) => 0;
-
-        // try looking up each entry
-        count_ = 0;
-
-        for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
-                mid++) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-
-            // drop should make sure we never have empty mdirs
-            assert(mdir.mid == -1 || mdir.rbyd.weight > 0);
-
-            for (lfs_ssize_t rid = 0;
-                    rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
-                    rid++) {
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
-
-                count_ += 1;
-            }
-        }
-
-        // the mtree is a bit difficult to simulate, but we can at least test
-        // we ended up with the right number of entries
-        assert(count_ == count);
-
-        lfsr_unmount(&lfs) => 0;
     }
+
+    // try looking up each entry
+    lfs_size_t count_ = 0;
+
+    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+            mid++) {
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+
+        // drop should make sure we never have empty mdirs
+        assert(mdir.mid == -1 || mdir.rbyd.weight > 0);
+
+        for (lfs_ssize_t rid = 0;
+                rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                rid++) {
+            uint8_t buffer[4];
+            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                    buffer, 4) => 1;
+
+            count_ += 1;
+        }
+    }
+
+    // the mtree is a bit difficult to simulate, but we can at least test
+    // we ended up with the right number of entries
+    assert(count_ == count);
+
+    lfsr_unmount(&lfs) => 0;
+
+
+    // check things stay sane after remount
+    lfsr_mount(&lfs, cfg) => 0;
+
+    // try looking up each entry
+    count_ = 0;
+
+    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+            mid++) {
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+
+        // drop should make sure we never have empty mdirs
+        assert(mdir.mid == -1 || mdir.rbyd.weight > 0);
+
+        for (lfs_ssize_t rid = 0;
+                rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                rid++) {
+            uint8_t buffer[4];
+            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                    buffer, 4) => 1;
+
+            count_ += 1;
+        }
+    }
+
+    // the mtree is a bit difficult to simulate, but we can at least test
+    // we ended up with the right number of entries
+    assert(count_ == count);
+
+    lfsr_unmount(&lfs) => 0;
 '''
 
 
@@ -4041,175 +4008,164 @@ code = '''
 defines.N = [5, 10, 20, 40, 80, 160]
 defines.VALIDATE = [false, true]
 defines.FORCE_COMPACTION = [false, true]
-defines.SAMPLES = 100
-# -1 => all pseudo-random seeds
-#  n => reproduce a specific seed
-defines.SEED = -1
+defines.SEED = 'range(100)'
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
-    // iterate through severals seeds that we can reproduce easily
-    for (uint32_t seed = (SEED == -1 ? 1 : SEED);
-            (SEED == -1 ? seed < SAMPLES+1 : seed == SEED);
-            seed++) {
-        printf("--- seed: %d ---\n", seed);
-        // create lfs here since we need to reset each iteration, we're
-        // space constrained and we can't expect gc to work at this point
-        lfs_t lfs;
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
-        lfs_alloc_ack(&lfs);
-        // remove root dstart for now
-        lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
-                LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+    lfs_alloc_ack(&lfs);
+    // remove root dstart for now
+    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
-        // at least keep track of the number of entries we expect
-        lfs_size_t count = 0;
+    // at least keep track of the number of entries we expect
+    lfs_size_t count = 0;
 
-        uint32_t prng = seed;
-        for (lfs_size_t i = 0; i < N; i++) {
-            // choose a pseudo-random mid
-            lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
-                    ? -1
-                    : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
-            // fetch mdir
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            // choose a pseudo-random rid
-            lfs_ssize_t rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose a pseudo-random mid
+        lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
+                ? -1
+                : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+        // fetch mdir
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        // choose a pseudo-random rid
+        lfs_ssize_t rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
 
-            // force a compaction?
-            if (FORCE_COMPACTION) {
-                mdir.rbyd.off = cfg->block_size;
-                lfs.mroot.rbyd.off = cfg->block_size;
-            }
+        // force a compaction?
+        if (FORCE_COMPACTION) {
+            mdir.rbyd.off = cfg->block_size;
+            lfs.mroot.rbyd.off = cfg->block_size;
+        }
 
-            // add to rbyd, potentially splitting the mdir
-            lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                    LFSR_ATTR(rid, INLINED, +1, &alphas[i % 26], 1))) => 0;
+        // add to rbyd, potentially splitting the mdir
+        lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
+                LFSR_ATTR(rid, INLINED, +1, &alphas[i % 26], 1))) => 0;
 
-            // make sure we can look up the new entry
+        // make sure we can look up the new entry
+        uint8_t buffer[4];
+        lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                buffer, 4) => 1;
+        assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
+
+        count += 1;
+    }
+
+    // try looking up each entry
+    lfs_size_t count_ = 0;
+
+    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+            mid++) {
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        for (lfs_ssize_t rid = 0;
+                rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
                     buffer, 4) => 1;
-            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
 
-            count += 1;
+            count_ += 1;
         }
-
-        // try looking up each entry
-        lfs_size_t count_ = 0;
-
-        for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
-                mid++) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            for (lfs_ssize_t rid = 0;
-                    rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
-                    rid++) {
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
-
-                count_ += 1;
-            }
-        }
-
-        // the mtree is a bit difficult to simulate, but we can at least test
-        // we ended up with the right number of entries
-        assert(count_ == count);
-
-        // test that we can traverse the tree, keeping track of all blocks
-        // we see
-        uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
-        memset(seen, 0, (BLOCK_COUNT+7)/8);
-
-        lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
-                VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
-
-        for (lfs_block_t i = 0;; i++) {
-            // a bit hacky, but this catches infinite loops
-            assert(i < 2*(1+N));
-
-            lfs_size_t mid_;
-            lfsr_tag_t tag_;
-            lfsr_data_t data_;
-            int err = lfsr_mtree_traversal_next(&lfs, &traversal,
-                    &mid_, &tag_, &data_);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
-                break;
-            }
-
-            if (tag_ == LFSR_TAG_BTREE) {
-                lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.buf.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
-                        mid_,
-                        tag_,
-                        branch->block, branch->trunk);
-
-                // keep track of seen blocks
-                seen[branch->block / 8] |= 1 << (branch->block % 8);
-            } else if (tag_ == LFSR_TAG_MDIR) {
-                lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.buf.buffer;
-                printf("traversal: %d 0x%x mdir 0x{%x,%x}\n",
-                        mid_,
-                        tag_,
-                        mdir->rbyd.block, mdir->redund_block);
-
-                // keep track of seen blocks
-                seen[mdir->rbyd.block / 8] |= 1 << (mdir->rbyd.block % 8);
-                seen[mdir->redund_block / 8] |= 1 << (mdir->redund_block % 8);
-            } else {
-                // this shouldn't happen
-                printf("traversal: %d 0x%x %d\n",
-                        mid_,
-                        tag_,
-                        lfsr_data_size(data_));
-                assert(false);
-            }
-        }
-
-        // if traversal worked, we should be able to clobber all other blocks
-        uint8_t buffer_[BLOCK_SIZE];
-        memset(buffer_, 0xcc, BLOCK_SIZE);
-        for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
-            if (!(seen[block / 8] & (1 << (block % 8)))) {
-                cfg->erase(cfg, block) => 0;
-                cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
-            }
-        }
-        free(seen);
-
-        // and the tree should still work
-
-        // try looking up each entry
-        count_ = 0;
-
-        for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
-                mid++) {
-            lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-            for (lfs_ssize_t rid = 0;
-                    rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
-                    rid++) {
-                uint8_t buffer[4];
-                lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
-                        buffer, 4) => 1;
-
-                count_ += 1;
-            }
-        }
-
-        // the mtree is a bit difficult to simulate, but we can at least test
-        // we ended up with the right number of entries
-        assert(count_ == count);
-
-        lfsr_unmount(&lfs) => 0;
     }
+
+    // the mtree is a bit difficult to simulate, but we can at least test
+    // we ended up with the right number of entries
+    assert(count_ == count);
+
+    // test that we can traverse the tree, keeping track of all blocks
+    // we see
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
+
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*(1+N));
+
+        lfs_size_t mid_;
+        lfsr_tag_t tag_;
+        lfsr_data_t data_;
+        int err = lfsr_mtree_traversal_next(&lfs, &traversal,
+                &mid_, &tag_, &data_);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        if (tag_ == LFSR_TAG_BTREE) {
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.buf.buffer;
+            printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                    mid_,
+                    tag_,
+                    branch->block, branch->trunk);
+
+            // keep track of seen blocks
+            seen[branch->block / 8] |= 1 << (branch->block % 8);
+        } else if (tag_ == LFSR_TAG_MDIR) {
+            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.buf.buffer;
+            printf("traversal: %d 0x%x mdir 0x{%x,%x}\n",
+                    mid_,
+                    tag_,
+                    mdir->rbyd.block, mdir->redund_block);
+
+            // keep track of seen blocks
+            seen[mdir->rbyd.block / 8] |= 1 << (mdir->rbyd.block % 8);
+            seen[mdir->redund_block / 8] |= 1 << (mdir->redund_block % 8);
+        } else {
+            // this shouldn't happen
+            printf("traversal: %d 0x%x %d\n",
+                    mid_,
+                    tag_,
+                    lfsr_data_size(data_));
+            assert(false);
+        }
+    }
+
+    // if traversal worked, we should be able to clobber all other blocks
+    uint8_t buffer_[BLOCK_SIZE];
+    memset(buffer_, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            cfg->erase(cfg, block) => 0;
+            cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+        }
+    }
+    free(seen);
+
+    // and the tree should still work
+
+    // try looking up each entry
+    count_ = 0;
+
+    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
+            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+            mid++) {
+        lfsr_mdir_t mdir;
+        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
+        for (lfs_ssize_t rid = 0;
+                rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                rid++) {
+            uint8_t buffer[4];
+            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+                    buffer, 4) => 1;
+
+            count_ += 1;
+        }
+    }
+
+    // the mtree is a bit difficult to simulate, but we can at least test
+    // we ended up with the right number of entries
+    assert(count_ == count);
+
+    lfsr_unmount(&lfs) => 0;
 '''
 
 
