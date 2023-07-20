@@ -420,7 +420,7 @@ typedef struct lfs_dir {
 
 typedef struct lfsr_dir {
     lfsr_openedmdir_t mdir;
-    lfs_off_t off;
+    lfs_off_t pos;
 } lfsr_dir_t;
 
 // littlefs file type
@@ -500,8 +500,9 @@ typedef struct lfs {
     uint8_t grm[LFSR_GRM_DSIZE];
     uint8_t grmd[LFSR_GRM_DSIZE];
 
-    // linked-list of opened mdirs
-    lfsr_openedmdir_t *opened;
+    // linked-lists of opened mdirs, we keep a separate linked-list
+    // for each type since these need to be handled a bit differently
+    lfsr_openedmdir_t *opened[2];
 
 #ifdef LFS_MIGRATE
     struct lfs1 *lfs1;

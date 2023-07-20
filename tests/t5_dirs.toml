@@ -2803,115 +2803,113 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# TODO this eventually
+# Recursive here just refers to deleting entries in a directory while
+# iterating over the directory
 #
-## Recursive here just refers to deleting entries in a directory while
-## iterating over the directory
-##
-## This is a useful feature, but it's unintuitive that this should have
-## well-defined behavior, so make sure to test for it
-#[cases.t5_dirs_rm_many_recursive]
-#defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-#defines.PARENT = [false, true]
-## this test sort of fights against itself when powerloss testing,
-## limit it to a _very_ small number of entries for this reason
-#if = '!TEST_PL || N <= 32'
-#reentrant = true
-#code = '''
-#    // format once per test
-#    lfs_t lfs;
-#    int err = lfsr_mount(&lfs, cfg);
-#    if (err) {
-#        lfsr_format(&lfs, cfg) => 0;
-#        lfsr_mount(&lfs, cfg) => 0;
-#    }
-#
-#    if (PARENT) {
-#        err = lfsr_mkdir(&lfs, "pricklypear");
-#        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
-#    }
-#
-#    // make this many directories
-#    for (lfs_size_t i = 0; i < N; i++) {
-#        char name[256];
-#        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
-#        err = lfsr_mkdir(&lfs, name);
-#        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
-#    }
-#
-#    // check that our mkdir worked
-#    for (lfs_size_t i = 0; i < N; i++) {
-#        char name[256];
-#        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
-#        struct lfs_info info;
-#        lfsr_stat(&lfs, name, &info) => 0;
-#        char name2[256];
-#        sprintf(name2, "dir%04d", i);
-#        assert(strcmp(info.name, name2) == 0);
-#        assert(info.type == LFS_TYPE_DIR);
-#    }
-#
-#    lfsr_dir_t dir;
-#    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
-#    struct lfs_info info;
-#    lfsr_dir_read(&lfs, &dir, &info) => 0;
-#    assert(strcmp(info.name, ".") == 0);
-#    assert(info.type == LFS_TYPE_DIR);
-#    lfsr_dir_read(&lfs, &dir, &info) => 0;
-#    assert(strcmp(info.name, "..") == 0);
-#    assert(info.type == LFS_TYPE_DIR);
-#    for (lfs_size_t i = 0; i < N; i++) {
-#        char name[256];
-#        sprintf(name, "dir%04d", i);
-#        lfsr_dir_read(&lfs, &dir, &info) => 0;
-#        assert(strcmp(info.name, name) == 0);
-#        assert(info.type == LFS_TYPE_DIR);
-#    }
-#    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-#    lfsr_dir_close(&lfs, &dir) => 0;
-#
-#    // now remove directories recursively
-#    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
-#    lfsr_dir_read(&lfs, &dir, &info) => 0;
-#    assert(strcmp(info.name, ".") == 0);
-#    assert(info.type == LFS_TYPE_DIR);
-#    lfsr_dir_read(&lfs, &dir, &info) => 0;
-#    assert(strcmp(info.name, "..") == 0);
-#    assert(info.type == LFS_TYPE_DIR);
-#    for (lfs_size_t i = 0; i < N; i++) {
-#        char name[256];
-#        sprintf(name, "dir%04d", i);
-#        lfsr_dir_read(&lfs, &dir, &info) => 0;
-#        assert(strcmp(info.name, name) == 0);
-#        assert(info.type == LFS_TYPE_DIR);
-#
-#        char path[1024];
-#        sprintf(path, "%s/%s", (PARENT ? "pricklypear" : ""), info.name);
-#        lfsr_remove(&lfs, path) => 0;
-#    }
-#    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-#    lfsr_dir_close(&lfs, &dir) => 0;
-#
-#    // check that our removes worked
-#    for (lfs_size_t i = 0; i < N; i++) {
-#        char name[256];
-#        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
-#        struct lfs_info info;
-#        lfsr_stat(&lfs, name, &info) => LFS_ERR_NOENT;
-#    }
-#
-#    lfsr_dir_open(&lfs, &dir, "/") => 0;
-#    lfsr_dir_read(&lfs, &dir, &info) => 0;
-#    assert(strcmp(info.name, ".") == 0);
-#    assert(info.type == LFS_TYPE_DIR);
-#    lfsr_dir_read(&lfs, &dir, &info) => 0;
-#    assert(strcmp(info.name, "..") == 0);
-#    assert(info.type == LFS_TYPE_DIR);
-#    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-#    lfsr_dir_close(&lfs, &dir) => 0;
-#
-#    lfsr_unmount(&lfs) => 0;
-#'''
+# This is a useful feature, but it's unintuitive that this should have
+# well-defined behavior, so make sure to test for it
+[cases.t5_dirs_rm_many_recursive]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.PARENT = [false, true]
+# this test sort of fights against itself when powerloss testing,
+# limit it to a _very_ small number of entries for this reason
+if = '!TEST_PL || N <= 32'
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    if (PARENT) {
+        err = lfsr_mkdir(&lfs, "pricklypear");
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    }
+
+    // make this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
+        err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    }
+
+    // check that our mkdir worked
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        char name2[256];
+        sprintf(name2, "dir%04d", i);
+        assert(strcmp(info.name, name2) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // now remove directories recursively
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+
+        char path[1024];
+        sprintf(path, "%s/%s", (PARENT ? "pricklypear" : ""), info.name);
+        lfsr_remove(&lfs, path) => 0;
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // check that our removes worked
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => LFS_ERR_NOENT;
+    }
+
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
 
 [cases.t5_dirs_rm_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
