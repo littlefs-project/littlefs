@@ -1653,7 +1653,7 @@ static lfs_ssize_t lfsr_grm_fromdisk(lfs_t *lfs, lfsr_grm_t *grm,
     // adjust mid if mtree is inlined
     if (lfsr_mtree_isinlined(lfs)) {
         LFS_ASSERT(mid == 0);
-        mid = -1;
+        mid = LFSR_MID_MROOT;
     }
 
     grm->mid = mid;
@@ -1675,64 +1675,6 @@ static inline int lfsr_grm_xor(lfs_t *lfs,
         lfsr_data_t xor) {
     return lfsr_gdelta_xor(lfs, gdelta, LFSR_GRM_DSIZE, xor);
 }
-
-// fix grm if a split occurs
-static int lfsr_grm_split(lfs_t *lfs,
-        uint8_t gdelta[LFSR_GRM_DSIZE],
-        lfsr_data_t xor,
-        lfs_ssize_t split_mid, lfs_size_t split_rid) {
-    // the interaction between the mtree/grm is really annoying, we need
-    // to fix outdated mids/rids caused by the split before propagating
-    // any commits
-    //
-    // this means decoding any grms, reencoding, and xoring against
-    // the pending grm delta
-    lfsr_grm_t grm;
-    lfs_ssize_t d = lfsr_grm_fromdisk(lfs, &grm, xor);
-    if (d < 0) {
-        return d;
-    }
-
-    if (grm.mid == split_mid) {
-        // TODO do we need this if we allow mid=0 => mroot when inlined?
-        // update mid if we are uninlining
-        grm.mid = lfs_smax32(split_mid, 0);
-
-        if (grm.rid >= split_rid) {
-            grm.mid += 1;
-            grm.rid -= split_rid;
-        }
-    } else if (grm.mid > split_mid) {
-        grm.mid += 1;
-    }
-
-    // zero so we don't end up with trailing garbage
-    uint8_t buf[LFSR_GRM_DSIZE];
-    memset(buf, 0, LFSR_GRM_DSIZE);
-
-    d = lfsr_grm_todisk(lfs, &grm, buf);
-    if (d < 0) {
-        return d;
-    }
-
-    // assume we already xored our gdelta with the grm, so we need to
-    // xor the grm out of the gdelta
-    //
-    // gd' = gd xor (grm' xor grm)
-    //
-    int err = lfsr_grm_xor(lfs, buf, xor);
-    if (err) {
-        return err;
-    }
-
-    err = lfsr_grm_xor(lfs, gdelta, LFSR_DATA_BUF(buf, LFSR_GRM_DSIZE));
-    if (err) {
-        return err;
-    }
-
-    return 0;
-}
-
 
 
 /// Internal operations predeclared here ///
@@ -1790,6 +1732,7 @@ static void lfs_alloc_ack(lfs_t *lfs);
 
 // and our main "fix everything before writing" function
 static int lfsr_fs_preparemutation(lfs_t *lfs);
+static int lfsr_fs_fixgrm(lfs_t *lfs);
 
 
 /// Red-black-yellow Dhara tree operations ///
@@ -3224,7 +3167,7 @@ failed:;
 //
 // if rbyd does not fit, a good split_id is returned
 static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t start_id, lfs_size_t threshold,
+        lfs_ssize_t start_id, lfs_ssize_t end_id, lfs_size_t threshold,
         lfs_size_t *split_id_) {
 #ifndef LFSR_NO_REBALANCE
     lfs_size_t dsize = 0;
@@ -3239,7 +3182,7 @@ static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
-        if (err == LFS_ERR_NOENT) {
+        if (err == LFS_ERR_NOENT || (end_id >= 0 && id >= end_id)) {
             return true;
         }
 
@@ -4042,7 +3985,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // check if we're within our compaction threshold, otherwise we
         // need to split
-        int fits = lfsr_rbyd_estimate(lfs, rbyd, -1,
+        int fits = lfsr_rbyd_estimate(lfs, rbyd, -1, -1,
                 lfs->cfg->block_size/2,
                 &split_id);
         if (fits < 0) {
@@ -4349,7 +4292,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // this is imprecise when not compacting, so we may still fail to
             // merge, but this at least lets us avoid wasting programming cycles
             // when merge failure is obvious
-            int fits = lfsr_rbyd_estimate(lfs, &sibling, -1,
+            int fits = lfsr_rbyd_estimate(lfs, &sibling, -1, -1,
                     lfs->cfg->block_size/4,
                     NULL);
             if (fits < 0) {
@@ -5376,10 +5319,10 @@ static int lfsr_mtree_parent(lfs_t *lfs, lfsr_mptr_t mchild,
 }
 
 // low-level mdir compaction
-static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
+static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfs_ssize_t mid,
         lfs_ssize_t start_id, lfs_ssize_t end_id,
-        const lfsr_mdir_t *msource,
+        const lfsr_mdir_t *mdir,
         const lfsr_attr_t *attr1s, lfs_size_t attr1_count,
         const lfsr_attr_t *attr2s, lfs_size_t attr2_count) {
     // note mid indicates some special cases:
@@ -5389,7 +5332,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // first thing we need to do is read our current revision count
     uint32_t rev;
-    int err = lfsr_bd_read(lfs, msource->rbyd.block, 0, sizeof(uint32_t),
+    int err = lfsr_bd_read(lfs, mdir->rbyd.block, 0, sizeof(uint32_t),
             &rev, sizeof(uint32_t));
     if (err && err != LFS_ERR_CORRUPT) {
         return err;
@@ -5403,8 +5346,8 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // TODO rev things
                 && (rev + 1) % lfs->cfg->block_cycles == 0))) {
         // allocate a new mdir for relocation
-        err = lfsr_mdir_alloc(lfs, mdir,
-                (mid != LFSR_MID_WL ? mid : mdir->mid));
+        err = lfsr_mdir_alloc(lfs, mdir_,
+                (mid != LFSR_MID_WL ? mid : mdir_->mid));
         if (err) {
             return err;
         }
@@ -5413,7 +5356,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
         //
         // we use whatever is on-disk to avoid needing to rewrite the
         // redund block
-        err = lfsr_bd_read(lfs, mdir->rbyd.block, 0, sizeof(uint32_t),
+        err = lfsr_bd_read(lfs, mdir_->rbyd.block, 0, sizeof(uint32_t),
                 &rev, sizeof(uint32_t));
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -5429,35 +5372,35 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
         // our mdir to avoid losing info
         //
         // if succesful, this should get immediately appended to our new commit
-        int err = lfsr_fs_consumegdelta(lfs, msource);
+        int err = lfsr_fs_consumegdelta(lfs, mdir);
         if (err) {
             return err;
         }
     }
 
     // swap our rbyds 
-    lfs_swap32(&mdir->rbyd.block, &mdir->redund_block);
+    lfs_swap32(&mdir_->rbyd.block, &mdir_->redund_block);
     // update our revision count
-    mdir->rbyd.off = 0;
-    mdir->rbyd.trunk = 0;
-    mdir->rbyd.weight = 0;
-    mdir->rbyd.crc = 0;
+    mdir_->rbyd.off = 0;
+    mdir_->rbyd.trunk = 0;
+    mdir_->rbyd.weight = 0;
+    mdir_->rbyd.crc = 0;
 
     // erase, preparing for compact
-    err = lfsr_bd_erase(lfs, mdir->rbyd.block);
+    err = lfsr_bd_erase(lfs, mdir_->rbyd.block);
     if (err) {
         return err;
     }
 
     // increment our revision count and write it to our rbyd
     // TODO rev things
-    err = lfsr_rbyd_appendrev(lfs, &mdir->rbyd, rev + 1);
+    err = lfsr_rbyd_appendrev(lfs, &mdir_->rbyd, rev + 1);
     if (err) {
         return err;
     }
 
     // copy over attrs
-    err = lfsr_rbyd_compact(lfs, &mdir->rbyd, start_id, end_id, &msource->rbyd);
+    err = lfsr_rbyd_compact(lfs, &mdir_->rbyd, start_id, end_id, &mdir->rbyd);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
@@ -5467,7 +5410,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
     //
     // upper layers should make sure this can't fail by limiting the
     // maximum commit size
-    err = lfsr_rbyd_appendall(lfs, &mdir->rbyd, start_id, end_id,
+    err = lfsr_rbyd_appendall(lfs, &mdir_->rbyd, start_id, end_id,
             attr1s, attr1_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5476,7 +5419,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // note we don't filter attrs from our second pending list, this
     // is used for some auxiliary attrs in lfsr_mdir_commit
-    err = lfsr_rbyd_appendall(lfs, &mdir->rbyd, -1, -1,
+    err = lfsr_rbyd_appendall(lfs, &mdir_->rbyd, -1, -1,
             attr2s, attr2_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5485,7 +5428,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
 
     // drop commit if weight goes to zero
-    if (mdir->mid >= 0 && mdir->rbyd.weight == 0) {
+    if (mdir_->mid >= 0 && mdir_->rbyd.weight == 0) {
         // TODO should we just make our pcache not assert?
         // drop our pcache, we're not going to complete this commit
         lfs_cache_zero(lfs, &lfs->pcache);
@@ -5497,22 +5440,22 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
         //
         // this pushes gstate up into the mroot when relocating, and
         // helps avoid corner case issues when splitting/dropping
-        if (mdir->mid == LFSR_MID_MROOT
-                || lfsr_mdir_cmp(mdir, msource) == 0) {
-            err = lfsr_rbyd_appendgdelta(lfs, &mdir->rbyd);
+        if (mdir_->mid == LFSR_MID_MROOT
+                || lfsr_mdir_cmp(mdir_, mdir) == 0) {
+            err = lfsr_rbyd_appendgdelta(lfs, &mdir_->rbyd);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
         } else {
             // consume gstate so we don't lose any info
-            err = lfsr_fs_consumegdelta(lfs, mdir);
+            err = lfsr_fs_consumegdelta(lfs, mdir_);
             if (err) {
                 return err;
             }
         }
 
-        err = lfsr_rbyd_commit(lfs, &mdir->rbyd, NULL, 0);
+        err = lfsr_rbyd_commit(lfs, &mdir_->rbyd, NULL, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -5520,8 +5463,8 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // TODO avoid duplicate conditions somehow?
         // success? gstate is committed
-        if (mdir->mid == LFSR_MID_MROOT
-                || lfsr_mdir_cmp(mdir, msource) == 0) {
+        if (mdir_->mid == LFSR_MID_MROOT
+                || lfsr_mdir_cmp(mdir_, mdir) == 0) {
             lfsr_fs_flushgdelta(lfs);
         }
     }
@@ -5531,11 +5474,17 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
 // low-level mdir commit, does not handle mtree/mlist updates
 static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
+        lfs_ssize_t start_id, lfs_ssize_t end_id,
         lfs_size_t *split_id_,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // try to append a commit
     lfsr_mdir_t mdir_ = *mdir;
-    int err = lfsr_rbyd_appendall(lfs, &mdir_.rbyd, -1, -1, attrs, attr_count);
+    // TODO handle this differently?
+    // TODO let the lower rbyd layer handle this somehow?
+    // mark mdir as unerased in case we fail
+    mdir->rbyd.off = lfs->cfg->block_size;
+    int err = lfsr_rbyd_appendall(lfs, &mdir_.rbyd, start_id, end_id,
+            attrs, attr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
@@ -5586,7 +5535,7 @@ compact:;
     // can't commit, try to compact
 
     // check if we're within our compaction threshold
-    int fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd, -1,
+    int fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd, start_id, end_id,
             lfs->cfg->block_size/2,
             split_id_);
     if (fits < 0) {
@@ -5599,7 +5548,7 @@ compact:;
     }
 
     // try to compact
-    err = lfsr_mdir_compact_(lfs, &mdir_, LFSR_MID_WL, -1, -1, mdir,
+    err = lfsr_mdir_compact_(lfs, &mdir_, LFSR_MID_WL, start_id, end_id, mdir,
             attrs, attr_count,
             NULL, 0);
     if (err) {
@@ -5612,14 +5561,14 @@ compact:;
 }
 
 // low-level mdir split, note this is really an operation on the mtree
-static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
-        lfsr_mdir_t *mdir, lfsr_mdir_t *msibling,
+static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
+        lfsr_mdir_t *mdir_, lfsr_mdir_t *msibling_,
         lfs_ssize_t start_id, lfs_ssize_t end_id,
-        const lfsr_mdir_t *msource, lfs_size_t split_id,
+        const lfsr_mdir_t *mdir, lfs_size_t split_id,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // if we're the mroot, create a new mtree, assume the upper layers
     // will take care of grafting our mtree into the mroot as needed
-    lfs_ssize_t mid = msource->mid;
+    lfs_ssize_t mid = mdir->mid;
     if (mid == LFSR_MID_MROOT) {
         mid = 0;
 
@@ -5633,7 +5582,7 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
         // 2. it makes it so we can actually split, lfsr_btree_split
         //    currently doesn't support an empty tree
         //
-        int err = lfsr_btree_push(lfs, mtree, 0, LFSR_TAG_MDIR, 1,
+        int err = lfsr_btree_push(lfs, mtree_, 0, LFSR_TAG_MDIR, 1,
                 LFSR_DATA_NULL);
         if (err) {
             return err;
@@ -5645,26 +5594,26 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
     // we do this here so we don't have to worry about corner cases
     // with dropping mdirs during a split
     } else {
-        int err = lfsr_fs_consumegdelta(lfs, mdir);
+        int err = lfsr_fs_consumegdelta(lfs, mdir_);
         if (err) {
             return err;
         }
     }
 
     // we should have something to split here
-    LFS_ASSERT(split_id > 0 && split_id < msource->rbyd.weight);
+    LFS_ASSERT(split_id > 0 && split_id < mdir->rbyd.weight);
 
     // compact into new mdir tags < split_id
-    int err = lfsr_mdir_compact_(lfs, mdir, mid, start_id, split_id,
-            msource, attrs, attr_count, NULL, 0);
+    int err = lfsr_mdir_compact_(lfs, mdir_, mid, start_id, split_id,
+            mdir, attrs, attr_count, NULL, 0);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
     }
 
     // compact into new mdir tags >= split_id
-    err = lfsr_mdir_compact_(lfs, msibling, mid+1, split_id, end_id,
-            msource, attrs, attr_count, NULL, 0);
+    err = lfsr_mdir_compact_(lfs, msibling_, mid+1, split_id, end_id,
+            mdir, attrs, attr_count, NULL, 0);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
@@ -5673,13 +5622,13 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
     LFS_DEBUG("Splitting mdir 0x{%"PRIx32",%"PRIx32"} "
             "-> 0x{%"PRIx32",%"PRIx32"}"
             ", 0x{%"PRIx32",%"PRIx32"}",
-            msource->rbyd.block, msource->redund_block,
             mdir->rbyd.block, mdir->redund_block,
-            msibling->rbyd.block, msibling->redund_block);
+            mdir_->rbyd.block, mdir_->redund_block,
+            msibling_->rbyd.block, msibling_->redund_block);
 
     // because of defered commits, both children can still be reduced
     // to zero, need to catch this here
-    if (mdir->rbyd.weight > 0 && msibling->rbyd.weight > 0) {
+    if (mdir_->rbyd.weight > 0 && msibling_->rbyd.weight > 0) {
         // update out mtree
 
         // lookup first name in sibling to use as the split name
@@ -5688,7 +5637,7 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
         // case they introduce a new name!
         lfsr_tag_t stag;
         lfsr_data_t sdata;
-        err = lfsr_mdir_lookupnext(lfs, msibling, 0, LFSR_TAG_NAME,
+        err = lfsr_mdir_lookupnext(lfs, msibling_, 0, LFSR_TAG_NAME,
                 NULL, &stag, &sdata);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5696,17 +5645,17 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
         }
 
         uint8_t buf1[LFSR_MPTR_DSIZE];
-        lfs_ssize_t d1 = lfsr_mdir_todisk(lfs, mdir, buf1);
+        lfs_ssize_t d1 = lfsr_mdir_todisk(lfs, mdir_, buf1);
         if (d1 < 0) {
             return d1;
         }
         uint8_t buf2[LFSR_MPTR_DSIZE];
-        lfs_ssize_t d2 = lfsr_mdir_todisk(lfs, msibling, buf2);
+        lfs_ssize_t d2 = lfsr_mdir_todisk(lfs, msibling_, buf2);
         if (d2 < 0) {
             return d2;
         }
 
-        err = lfsr_btree_split(lfs, mtree, mid,
+        err = lfsr_btree_split(lfs, mtree_, mid,
                 (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
                     ? sdata
                     : LFSR_DATA_NULL),
@@ -5717,36 +5666,36 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
         }
 
     // one sibling reduced to zero
-    } else if (mdir->rbyd.weight > 0) {
+    } else if (mdir_->rbyd.weight > 0) {
         LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
-                mdir->rbyd.block, mdir->redund_block);
+                mdir_->rbyd.block, mdir_->redund_block);
 
         // update our mtree
         uint8_t buf[LFSR_MPTR_DSIZE];
-        lfs_ssize_t d = lfsr_mdir_todisk(lfs, mdir, buf);
+        lfs_ssize_t d = lfsr_mdir_todisk(lfs, mdir_, buf);
         if (d < 0) {
             return d;
         }
 
-        err = lfsr_btree_set(lfs, mtree, mid, LFSR_TAG_MDIR, 1,
+        err = lfsr_btree_set(lfs, mtree_, mid, LFSR_TAG_MDIR, 1,
                 LFSR_DATA_BUF(buf, d));
         if (err) {
             return err;
         }
 
     // other sibling reduced to zero
-    } else if (msibling->rbyd.weight > 0) {
+    } else if (msibling_->rbyd.weight > 0) {
         LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
-                msibling->rbyd.block, msibling->redund_block);
+                msibling_->rbyd.block, msibling_->redund_block);
 
         // update our mtree
         uint8_t buf[LFSR_MPTR_DSIZE];
-        lfs_ssize_t d = lfsr_mdir_todisk(lfs, msibling, buf);
+        lfs_ssize_t d = lfsr_mdir_todisk(lfs, msibling_, buf);
         if (d < 0) {
             return d;
         }
 
-        err = lfsr_btree_set(lfs, mtree, mid, LFSR_TAG_MDIR, 1,
+        err = lfsr_btree_set(lfs, mtree_, mid, LFSR_TAG_MDIR, 1,
                 LFSR_DATA_BUF(buf, d));
         if (err) {
             return err;
@@ -5755,28 +5704,14 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree,
     // both siblings reduced to zero
     } else {
         LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
-                mdir->rbyd.block, mdir->redund_block);
+                mdir_->rbyd.block, mdir_->redund_block);
         LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
-                msibling->rbyd.block, msibling->redund_block);
+                msibling_->rbyd.block, msibling_->redund_block);
 
         // update our mtree
-        err = lfsr_btree_pop(lfs, mtree, mid);
+        err = lfsr_btree_pop(lfs, mtree_, mid);
         if (err) {
             return err;
-        }
-    }
-
-    // if we split we need to fix our grm before we can propagate our commit
-    //
-    // If this feels a bit hacky, that's because it is. The way the grm
-    // interacts with mtree splits is not great.
-    for (lfs_size_t i = 0; i < attr_count; i++) {
-        if (attrs[i].tag == LFSR_TAG_GRM) {
-            int err = lfsr_grm_split(lfs, lfs->grmd, attrs[i].data,
-                    msource->mid, mdir->rbyd.weight);
-            if (err) {
-                return err;
-            }
         }
     }
 
@@ -5806,7 +5741,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     // attempt to commit/compact the mdir normally
     lfsr_mdir_t mdir_ = *mdir;
     lfs_size_t split_id;
-    int err = lfsr_mdir_commit_(lfs, &mdir_, &split_id, attrs, attr_count);
+    int err = lfsr_mdir_commit_(lfs, &mdir_, -1, -1, &split_id,
+            attrs, attr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
@@ -5829,10 +5765,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             // attributes in mroot
             LFS_ASSERT(lfsr_btree_weight(&mtree_) == 0);
 
+            // TODO wait, do we need to update lfs->mroot and mdir eagerly
+            // for the same reason?
+            //
+            // we need to update the mroot to track that a prog failed
+            mroot_ = mdir_;
+
             // do we still need to split?
             //
             // note init_id is changed to 0 here, ignoring -1 attrs
-            int fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd, 0,
+            int fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd, 0, -1,
                     lfs->cfg->block_size/2,
                     &split_id);
             if (fits < 0) {
@@ -5894,24 +5836,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                 }
             }
 
-            // commit mtree, also copying over any -1 tags
-            lfsr_tag_t tag;
-            uint8_t buf[LFSR_BTREE_DSIZE];
-            lfs_ssize_t d = lfsr_btree_todisk(lfs, &mtree_, LFSR_TAG_MTREE,
-                    &tag, buf);
-            if (d < 0) {
-                return d;
-            }
-
-            err = lfsr_mdir_compact_(lfs, &mroot_, LFSR_MID_WL, -1, 0,
-                    mdir, attrs, attr_count, LFSR_ATTRS(
-                        LFSR_ATTR_(-1, tag, 0, buf, d)));
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            dirtymroot = (lfsr_mdir_cmp(&lfs->mroot, &mroot_) != 0);
+            dirtymtree = true;
 
         // splitting a normal mdir
         } else {
@@ -5975,6 +5900,63 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         mroot_ = mdir_;
     }
 
+    // before we continue we need to update our grm in case of splits/drops
+    //
+    // this gets pretty ugly
+    //
+    for (lfs_size_t i = 0; i < attr_count; i++) {
+        if (attrs[i].tag == LFSR_TAG_GRM) {
+            // to fix grms, we 1. decode, 2. fix, 3. reencode, 4. xor into
+            // any other pending grm delta
+            lfsr_grm_t grm;
+            lfs_ssize_t d = lfsr_grm_fromdisk(lfs, &grm, attrs[i].data);
+            if (d < 0) {
+                return d;
+            }
+
+            if (grm.mid == mdir->mid) {
+                LFS_ASSERT(grm.rid <= mdir->rbyd.weight);
+                // TODO do we need this if we allow mid=0 => mroot when inlined?
+                // update mid if we are uninlining
+                grm.mid = lfs_smax32(grm.mid, 0);
+
+                if (grm.rid >= mdir_.rbyd.weight) {
+                    grm.mid += 1;
+                    grm.rid -= mdir_.rbyd.weight;
+                }
+            // update mid if we had a split or drop
+            } else if (grm.mid > mdir->mid
+                    && lfsr_btree_weight(&mtree_) != lfsr_mtree_weight(lfs)) {
+                grm.mid += lfsr_btree_weight(&mtree_)
+                        - lfsr_mtree_weight(lfs);
+            }
+
+            // make sure to zero so we don't end up with trailing garbage
+            uint8_t buf[LFSR_GRM_DSIZE];
+            memset(buf, 0, LFSR_GRM_DSIZE);
+            d = lfsr_grm_todisk(lfs, &grm, buf);
+            if (d < 0) {
+                return d;
+            }
+
+            // assume we already xored our gdelta with the grm, so we need to
+            // xor the grm out of the gdelta
+            //
+            // gd' = gd xor (grm' xor grm)
+            //
+            int err = lfsr_grm_xor(lfs, buf, attrs[i].data);
+            if (err) {
+                return err;
+            }
+
+            err = lfsr_grm_xor(lfs, lfs->grmd,
+                    LFSR_DATA_BUF(buf, LFSR_GRM_DSIZE));
+            if (err) {
+                return err;
+            }
+        }
+    }
+
     // need to update mtree?
     if (dirtymtree) {
         LFS_ASSERT(mdir_.mid != LFSR_MID_MROOT);
@@ -5988,7 +5970,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             return d;
         }
 
-        err = lfsr_mdir_commit_(lfs, &mroot_, NULL, LFSR_ATTRS(
+        err = lfsr_mdir_commit_(lfs, &mroot_, -1, 0, NULL, LFSR_ATTRS(
                 LFSR_ATTR_(-1, tag, 0, buf, d)));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -6006,7 +5988,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         int err = lfsr_mtree_parent(lfs, lfsr_mdir_mptr(&mchildroot),
                 &mparentroot);
         if (err && err != LFS_ERR_NOENT) {
-            return err;
+             return err;
         }
         if (err == LFS_ERR_NOENT) {
             break;
@@ -6025,7 +6007,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         }
 
         lfsr_mdir_t mparentroot_ = mparentroot;
-        err = lfsr_mdir_commit_(lfs, &mparentroot_, NULL, LFSR_ATTRS(
+        err = lfsr_mdir_commit_(lfs, &mparentroot_, -1, -1, NULL, LFSR_ATTRS(
                 LFSR_ATTR(-1, MROOT, 0, buf, d)));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -6092,27 +6074,43 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     // update our gstate
     for (lfs_size_t i = 0; i < attr_count; i++) {
         if (attrs[i].tag == LFSR_TAG_GRM) {
-            // make sure to zero to avoid leaking anything
-            memset(lfs->grm, 0, LFSR_GRM_DSIZE);
-            lfs_ssize_t d = lfsr_data_read(lfs, attrs[i].data, 0,
-                    lfs->grm, LFSR_GRM_DSIZE);
+            lfs_ssize_t d = lfsr_grm_fromdisk(lfs, &lfs->grm_, attrs[i].data);
             if (d < 0) {
                 return d;
             }
 
-            // TODO wait does this get triggered incorrectly if we drop?
-            // since weight' != weight?
-            // TODO use bool split?
-            // we need to fix our grm, again, if a split occured
-            //
-            // I mentioned grm/mtree didn't interact well didn't I?
-            //
-            if (lfsr_btree_weight(&mtree_) != lfsr_mtree_weight(lfs)) {
-                err = lfsr_grm_split(lfs, lfs->grm, attrs[i].data,
-                        mdir->mid, mdir_.rbyd.weight);
-                if (err) {
-                    return err;
+            // repeat the fix of our grm
+            if (lfs->grm_.mid == mdir->mid) {
+                LFS_ASSERT(lfs->grm_.rid <= mdir->rbyd.weight);
+                // TODO do we need this if we allow mid=0 => mroot when inlined?
+                // update mid if we are uninlining
+                lfs->grm_.mid = lfs_smax32(lfs->grm_.mid, 0);
+
+                if (lfs->grm_.rid >= mdir_.rbyd.weight) {
+                    lfs->grm_.mid += 1;
+                    lfs->grm_.rid -= mdir_.rbyd.weight;
                 }
+            // update mid if we had a split or drop
+            } else if (lfs->grm_.mid > mdir->mid
+                    && lfsr_btree_weight(&mtree_) != lfsr_mtree_weight(lfs)) {
+                lfs->grm_.mid += lfsr_btree_weight(&mtree_)
+                        - lfsr_mtree_weight(lfs);
+            }
+
+            // TODO this is a big cludge, support for mid=0 when inlined?
+            // adjust mid if mtree is inlined
+            if (lfsr_btree_weight(&mtree_) == 0) {
+                LFS_ASSERT(lfs->grm_.mid <= 0);
+                if (lfs->grm_.mid == 0) {
+                    lfs->grm_.mid = LFSR_MID_MROOT;
+                }
+            }
+
+            // keep track of the exact encoding on-disk
+            memset(lfs->grm, 0, LFSR_GRM_DSIZE);
+            d = lfsr_grm_todisk(lfs, &lfs->grm_, lfs->grm);
+            if (d < 0) {
+                return d;
             }
         }
     }
@@ -6127,8 +6125,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         }
 
         if (opened->mdir.mid == mdir->mid) {
-            LFS_ASSERT(opened->rid < (lfs_ssize_t)opened->mdir.rbyd.weight);
-            LFS_ASSERT(opened->rid != -1);
+            LFS_ASSERT(opened->rid < (lfs_ssize_t)mdir->rbyd.weight);
 
             // first play out any attrs that change our rid
             for (lfs_size_t i = 0; i < attr_count; i++) {
@@ -6147,7 +6144,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             // update mdir to follow rid
             if (opened->rid == -2) {
                 // skip removed mdirs
-            } else if ((lfs_size_t)opened->rid >= mdir_.rbyd.weight) {
+            } else if (opened->rid >= (lfs_ssize_t)mdir_.rbyd.weight) {
                 LFS_ASSERT(lfsr_btree_weight(&mtree_)
                         != lfsr_mtree_weight(lfs));
                 opened->rid = opened->rid - mdir_.rbyd.weight;
@@ -7313,7 +7310,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     //
     uint8_t buf[LFSR_GRM_DSIZE];
     lfs_ssize_t d = lfsr_grm_todisk(lfs,
-            &(lfsr_grm_t){.mid=lfs_smax32(mdir.mid, 0), .rid=rid},
+            &(lfsr_grm_t){.mid=mdir.mid, .rid=rid},
             buf);
     if (d < 0) {
         return d;
@@ -7344,6 +7341,117 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 failed_with_parent:
     lfsr_mdir_removeopened(lfs, &parent);
     return err;
+}
+
+int lfsr_remove(lfs_t *lfs, const char *path) {
+    // prepare our filesystem for writing
+    int err= lfsr_fs_preparemutation(lfs);
+    if (err) {
+        return err;
+    }
+
+    // lookup our entry
+    lfsr_mdir_t mdir;
+    lfs_ssize_t rid;
+    lfsr_tag_t tag;
+    err = lfsr_mtree_pathlookup(lfs, path,
+            &mdir, &rid, &tag,
+            NULL, NULL, 0);
+    if (err) {
+        return err;
+    }
+
+    // if we're removing a directory, we need to also remove the
+    // dstart entry, first lets figure out the did
+    uint8_t grm_buf[LFSR_GRM_DSIZE];
+    lfs_ssize_t grm_d;
+    if (tag == LFSR_TAG_DIR) {
+        lfsr_data_t data;
+        int err = lfsr_mdir_lookup(lfs, &mdir, rid, LFSR_TAG_DID,
+                NULL, &data);
+        if (err) {
+            return err;
+        }
+
+        lfs_size_t did;
+        lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &did);
+        if (d < 0) {
+            return d;
+        }
+
+        // check that the directory is empty
+        lfsr_mdir_t dstart_mdir;
+        lfs_ssize_t dstart_rid;
+        err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
+                &dstart_mdir, &dstart_rid, NULL, NULL);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            return err;
+        }
+
+        lfsr_mdir_t mdir_ = dstart_mdir;
+        lfs_ssize_t rid_ = dstart_rid + 1;
+        if (rid_ >= (lfs_ssize_t)mdir_.rbyd.weight) {
+            // out of mdirs?
+            lfs_ssize_t mid = mdir_.mid + 1;
+            if (mid >= (lfs_ssize_t)lfsr_mtree_weight(lfs)) {
+                goto empty;
+            }
+
+            int err = lfsr_mtree_lookup(lfs, mid, &mdir_);
+            if (err) {
+                return err;
+            }
+            rid_ = 0;
+        }
+
+        lfsr_tag_t tag_;
+        err = lfsr_mdir_lookup(lfs, &mdir_, rid_, LFSR_TAG_WIDENAME,
+                &tag_, NULL);
+        if (err) {
+            return err;
+        }
+
+        if (tag_ != LFSR_TAG_DSTART) {
+            return LFS_ERR_NOTEMPTY;
+        }
+    empty:;
+
+        // TODO should we just make this an atomic remove?
+        // adjust rid if grm is on the same mdir as our dir
+        if (dstart_mdir.mid == mdir.mid && dstart_rid > rid) {
+            dstart_rid -= 1;
+        }
+
+        // create a grm to remove the dstart entry
+        grm_d = lfsr_grm_todisk(lfs,
+                &(lfsr_grm_t){.mid=dstart_mdir.mid, .rid=dstart_rid},
+                grm_buf);
+        if (grm_d < 0) {
+            return grm_d;
+        }
+    }
+
+    // remove the metadata entry
+    err = lfsr_mdir_commit(lfs, &mdir, &rid, LFSR_ATTRS(
+            LFSR_ATTR(rid, UNR, -1, NULL, 0),
+            (tag == LFSR_TAG_DIR
+                ? LFSR_ATTR(-1, GRM, 0, grm_buf, grm_d)
+                : LFSR_ATTR_NOOP)));
+    if (err) {
+        return err;
+    }
+
+    // if we were a directory, we need to clean up, fortunately we can leave
+    // this up to lfsr_fs_fixgrm
+    if (tag == LFSR_TAG_DIR) {
+        err = lfsr_fs_fixgrm(lfs);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
 }
 
 int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {

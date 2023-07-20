@@ -549,6 +549,7 @@ int lfsr_unmount(lfs_t *lfs);
 // If removing a directory, the directory must be empty.
 // Returns a negative error code on failure.
 int lfs_remove(lfs_t *lfs, const char *path);
+int lfsr_remove(lfs_t *lfs, const char *path);
 #endif
 
 #ifndef LFS_READONLY

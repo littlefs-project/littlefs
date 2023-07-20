@@ -1,5 +1,8 @@
 # Directory tests
 
+
+## mkdir tests
+
 [cases.t5_dirs_mkdir]
 defines.REMOUNT = [false, true]
 reentrant = true
@@ -43,6 +46,7 @@ code = '''
     assert(strcmp(info.name, "ardvark") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -95,6 +99,7 @@ code = '''
     assert(strcmp(info.name, "ardvark") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -145,6 +150,61 @@ code = '''
     assert(strcmp(info.name, "ardvark") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test what happens if we try to make root
+[cases.t5_dirs_mkdir_root]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // try to make root, which doesn't make sense
+    lfsr_mkdir(&lfs, "/") => LFS_ERR_EXIST;
+
+    // make a directory
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // try to make root, which doesn't make sense
+    lfsr_mkdir(&lfs, "/") => LFS_ERR_EXIST;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // and check that this didn't interfere with our original directory
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -198,6 +258,7 @@ code = '''
     assert(strcmp(info.name, "ardvark") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -260,6 +321,7 @@ code = '''
     assert(strcmp(info.name, "cantaloupe") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -316,6 +378,7 @@ code = '''
     assert(strcmp(info.name, "ardvark") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_dir_open(&lfs, &dir, "/ardvark") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -328,6 +391,7 @@ code = '''
     assert(strcmp(info.name, "batman") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_dir_open(&lfs, &dir, "/ardvark/batman") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -340,6 +404,7 @@ code = '''
     assert(strcmp(info.name, "cantaloupe") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -400,6 +465,68 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
     }
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_mkdir_many_backwards]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", (int)(N-1-i));
+        err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, cfg) => 0;
+            // grm should be zero here
+            assert(lfs.grm[0] == 0);
+        }
+    }
+
+    // check that our mkdir worked
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -477,6 +604,7 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
     }
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
@@ -496,6 +624,7 @@ code = '''
             assert(info.type == LFS_TYPE_DIR);
         }
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
     }
 
     lfsr_unmount(&lfs) => 0;
@@ -591,6 +720,7 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
     }
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     for (lfs_size_t i = 0; i < N; i++) {
         char name[256];
@@ -610,6 +740,7 @@ code = '''
             assert(info.type == LFS_TYPE_DIR);
         }
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
 
         for (lfs_size_t j = 0; j < N; j++) {
             char name[256];
@@ -629,6 +760,7 @@ code = '''
                 assert(info.type == LFS_TYPE_DIR);
             }
             lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+            lfsr_dir_close(&lfs, &dir) => 0;
         }
     }
 
@@ -697,6 +829,7 @@ code = '''
             assert(info.type == LFS_TYPE_DIR);
         }
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
     }
 
     lfsr_unmount(&lfs) => 0;
@@ -718,7 +851,7 @@ code = '''
     }
 
     if (PARENT) {
-        err = lfsr_mkdir(&lfs, "parent");
+        err = lfsr_mkdir(&lfs, "pricklypear");
         assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
     }
 
@@ -750,7 +883,7 @@ code = '''
 
         // create a directory here
         char name[256];
-        sprintf(name, "%s/dir%04d", (PARENT ? "parent" : ""), x);
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), x);
         err = lfsr_mkdir(&lfs, name);
         assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
     next:;
@@ -767,7 +900,7 @@ code = '''
     // test that our directories match our simulation
     for (lfs_size_t j = 0; j < sim_size; j++) {
         char name[256];
-        sprintf(name, "%s/dir%04d", (PARENT ? "parent" : ""), sim[j]);
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), sim[j]);
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         char name2[256];
@@ -777,7 +910,7 @@ code = '''
     }
 
     lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, (PARENT ? "parent" : "/")) => 0;
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
     struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
@@ -793,6 +926,7 @@ code = '''
         assert(info.type == LFS_TYPE_DIR);
     }
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     // clean up sim/lfs
     free(sim);
@@ -890,6 +1024,7 @@ code = '''
     assert(strcmp(info.name, "f_lUoVuhJH") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -984,6 +1119,7 @@ code = '''
     assert(strcmp(info.name, "f_vknsvNRH") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1080,6 +1216,7 @@ code = '''
     assert(strcmp(info.name, "f_VtoMnwRH") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1176,9 +1313,869 @@ code = '''
     assert(strcmp(info.name, "f_pNtQTPJH") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
 '''
+
+
+## dir remove tests
+
+[cases.t5_dirs_rm]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make a directory
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our mkdir worked with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // and with dir_read
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // and remove the directory
+    lfsr_remove(&lfs, "ardvark") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that remove worked with stat 
+    lfsr_stat(&lfs, "ardvark", &info) => LFS_ERR_NOENT;
+
+    // and with dir_read
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that noent errors work
+[cases.t5_dirs_rm_noent]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make a directory
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // try to remove a nonsense directory
+    lfsr_remove(&lfs, "no") => LFS_ERR_NOENT;
+
+    // try to remove a directory in a nonsense directory
+    lfsr_remove(&lfs, "no/ardvark") => LFS_ERR_NOENT;
+
+    // try to remove a nonsense child directory
+    lfsr_remove(&lfs, "ardvark/no") => LFS_ERR_NOENT;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // and check that this didn't interfere with our original directory
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that we catch removing of a non-empty directory
+[cases.t5_dirs_rm_notempty]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make a directory
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // fill it with stuff
+    err = lfsr_mkdir(&lfs, "ardvark/banana");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // try to remove the parent directory
+    lfsr_remove(&lfs, "ardvark") => LFS_ERR_NOTEMPTY;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // and check that this didn't interfere with our original directory
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "ardvark/banana", &info) => 0;
+    assert(strcmp(info.name, "banana") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_dir_open(&lfs, &dir, "ardvark") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "banana") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+## TODO make this work eventually
+#
+## test what happens if we try to remove root
+#[cases.t5_dirs_rm_root]
+#defines.REMOUNT = [false, true]
+#reentrant = true
+#code = '''
+#    // format once per test
+#    lfs_t lfs;
+#    int err = lfsr_mount(&lfs, cfg);
+#    if (err) {
+#        lfsr_format(&lfs, cfg) => 0;
+#        lfsr_mount(&lfs, cfg) => 0;
+#    }
+#
+#    // try to remove root, which doesn't really make sense
+#    lfsr_remove(&lfs, "/") => LFS_ERR_INVAL;
+#
+#    // make a directory
+#    err = lfsr_mkdir(&lfs, "ardvark");
+#    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+#
+#    // try to remove root, which doesn't really make sense
+#    //
+#    // it doesn't really matter which error returns first, so accept both
+#    err = lfsr_remove(&lfs, "/");
+#    assert(err == LFS_ERR_NOTEMPTY || err == LFS_ERR_INVAL);
+#
+#    // remount?
+#    if (REMOUNT) {
+#        lfsr_unmount(&lfs) => 0;
+#        lfsr_mount(&lfs, cfg) => 0;
+#        // grm should be zero here
+#        assert(lfs.grm[0] == 0);
+#    }
+#
+#    // and check that this didn't interfere with our original directory
+#    struct lfs_info info;
+#    lfsr_stat(&lfs, "ardvark", &info) => 0;
+#    assert(strcmp(info.name, "ardvark") == 0);
+#    assert(info.type == LFS_TYPE_DIR);
+#
+#    lfsr_dir_t dir;
+#    lfsr_dir_open(&lfs, &dir, "/") => 0;
+#    lfsr_dir_read(&lfs, &dir, &info) => 0;
+#    assert(strcmp(info.name, ".") == 0);
+#    assert(info.type == LFS_TYPE_DIR);
+#    lfsr_dir_read(&lfs, &dir, &info) => 0;
+#    assert(strcmp(info.name, "..") == 0);
+#    assert(info.type == LFS_TYPE_DIR);
+#    lfsr_dir_read(&lfs, &dir, &info) => 0;
+#    assert(strcmp(info.name, "ardvark") == 0);
+#    assert(info.type == LFS_TYPE_DIR);
+#    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+#    lfsr_dir_close(&lfs, &dir) => 0;
+#
+#    lfsr_unmount(&lfs) => 0;
+#'''
+
+[cases.t5_dirs_rm_siblings]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make some directories
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "batman");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "cantaloupe");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our mkdir worked
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "cantaloupe", &info) => 0;
+    assert(strcmp(info.name, "cantaloupe") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "cantaloupe") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // now remove each directory
+    lfsr_remove(&lfs, "ardvark") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our remove worked
+    lfsr_stat(&lfs, "ardvark", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "cantaloupe", &info) => 0;
+    assert(strcmp(info.name, "cantaloupe") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "cantaloupe") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // remove another
+    lfsr_remove(&lfs, "batman") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our remove worked
+    lfsr_stat(&lfs, "ardvark", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "cantaloupe", &info) => 0;
+    assert(strcmp(info.name, "cantaloupe") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "cantaloupe") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // remove another
+    lfsr_remove(&lfs, "cantaloupe") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our remove worked
+    lfsr_stat(&lfs, "ardvark", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "cantaloupe", &info) => LFS_ERR_NOENT;
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_rm_children]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make some directories
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "ardvark/batman");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "ardvark/batman/cantaloupe");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our mkdirs worked
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "ardvark/batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "ardvark/batman/cantaloupe", &info) => 0;
+    assert(strcmp(info.name, "cantaloupe") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_dir_open(&lfs, &dir, "/ardvark") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_dir_open(&lfs, &dir, "/ardvark/batman") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "cantaloupe") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // now remove each directory
+    lfsr_remove(&lfs, "ardvark/batman/cantaloupe") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our remove worked
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "ardvark/batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "ardvark/batman/cantaloupe", &info) => LFS_ERR_NOENT;
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_dir_open(&lfs, &dir, "/ardvark") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_dir_open(&lfs, &dir, "/ardvark/batman") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // remove another
+    lfsr_remove(&lfs, "ardvark/batman") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our remove worked
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "ardvark/batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "ardvark/batman/cantaloupe", &info) => LFS_ERR_NOENT;
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_dir_open(&lfs, &dir, "/ardvark") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // remove another
+    lfsr_remove(&lfs, "ardvark") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our remove worked
+    lfsr_stat(&lfs, "ardvark", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "ardvark/batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "ardvark/batman/cantaloupe", &info) => LFS_ERR_NOENT;
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_rm_many]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.REMAINING = [64, 2, 1, 0]
+defines.REMOUNT = [false, true]
+if = [
+    'N > REMAINING',
+    # this test sort of fights against itself when powerloss testing,
+    # limit it to a _very_ small number of entries for this reason
+    '!TEST_PL || N <= 32',
+]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, cfg) => 0;
+            // grm should be zero here
+            assert(lfs.grm[0] == 0);
+        }
+    }
+
+    // check that our mkdir worked
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // now remove some number of directories
+    for (lfs_size_t i = 0; i < N-REMAINING; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_remove(&lfs, name) => 0;
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, cfg) => 0;
+            // grm should be zero here
+            assert(lfs.grm[0] == 0);
+        }
+    }
+
+    // check that our removes worked
+    for (lfs_size_t i = 0; i < N-REMAINING; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => LFS_ERR_NOENT;
+    }
+    for (lfs_size_t i = 0; i < REMAINING; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", (int)(N-REMAINING + i));
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < REMAINING; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", (int)(N-REMAINING + i));
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_rm_many_backwards]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.REMAINING = [64, 2, 1, 0]
+defines.REMOUNT = [false, true]
+if = [
+    'N > REMAINING',
+    # this test sort of fights against itself when powerloss testing,
+    # limit it to a _very_ small number of entries for this reason
+    '!TEST_PL || N <= 32',
+]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", (int)(N-1-i));
+        err = lfsr_mkdir(&lfs, name);
+        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, cfg) => 0;
+            // grm should be zero here
+            assert(lfs.grm[0] == 0);
+        }
+    }
+
+    // check that our mkdir worked
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // now remove some number of directories
+    for (lfs_size_t i = 0; i < N-REMAINING; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", (int)(N-1-i));
+        lfsr_remove(&lfs, name) => 0;
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, cfg) => 0;
+            // grm should be zero here
+            assert(lfs.grm[0] == 0);
+        }
+    }
+
+    // check that our removes worked
+    for (lfs_size_t i = 0; i < N-REMAINING; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", (int)(N-1-i));
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => LFS_ERR_NOENT;
+    }
+    for (lfs_size_t i = 0; i < REMAINING; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < REMAINING; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
 
 
 
