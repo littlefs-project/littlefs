@@ -5329,11 +5329,13 @@ static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     // we don't know how many rids are in each mdir until we fetch
     while (rid_ >= mdir->rbyd.weight) {
         lfs_ssize_t mid_ = mdir->mid + 1;
-        rid_ -= mdir->rbyd.weight;
         // end of mtree?
         if (mid_ >= (lfs_ssize_t)lfsr_mtree_weight(lfs)) {
+            // make sure to update rid so seek always returns noent from now on
+            *rid = rid_;
             return LFS_ERR_NOENT;
         }
+        rid_ -= mdir->rbyd.weight;
 
         int err = lfsr_mtree_lookup(lfs, mid_, mdir);
         if (err) {
@@ -5647,9 +5649,10 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
         return err;
     }
 
-    LFS_DEBUG("Splitting mdir 0x{%"PRIx32",%"PRIx32"} "
+    LFS_DEBUG("Splitting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
             "-> 0x{%"PRIx32",%"PRIx32"}"
             ", 0x{%"PRIx32",%"PRIx32"}",
+            mdir->mid,
             mdir->rbyd.block, mdir->redund_block,
             mdir_->rbyd.block, mdir_->redund_block,
             msibling_->rbyd.block, msibling_->redund_block);
@@ -5695,9 +5698,10 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
 
     // one sibling reduced to zero
     } else if (mdir_->rbyd.weight > 0) {
-        LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                mdir_->mid,
                 mdir_->rbyd.block, mdir_->redund_block);
-        mdir_->mid = LFSR_MID_RM;
+        mdir_->rbyd.trunk = 0;
 
         // update our mtree
         uint8_t buf[LFSR_MPTR_DSIZE];
@@ -5714,9 +5718,10 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
 
     // other sibling reduced to zero
     } else if (msibling_->rbyd.weight > 0) {
-        LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                msibling_->mid,
                 msibling_->rbyd.block, msibling_->redund_block);
-        msibling_->mid = LFSR_MID_RM;
+        msibling_->rbyd.trunk = 0;
 
         // update our mtree
         uint8_t buf[LFSR_MPTR_DSIZE];
@@ -5733,12 +5738,14 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
 
     // both siblings reduced to zero
     } else {
-        LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                mdir_->mid,
                 mdir_->rbyd.block, mdir_->redund_block);
-        LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                msibling_->mid,
                 msibling_->rbyd.block, msibling_->redund_block);
-        mdir_->mid = LFSR_MID_RM;
-        msibling_->mid = LFSR_MID_RM;
+        mdir_->rbyd.trunk = 0;
+        msibling_->rbyd.trunk = 0;
 
         // update our mtree
         err = lfsr_btree_pop(lfs, mtree_, mid);
@@ -5753,6 +5760,7 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
 static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     LFS_ASSERT(mdir->mid != LFSR_MID_RM);
+    LFS_ASSERT(mdir->mid == LFSR_MID_MROOT || mdir->rbyd.weight > 0);
 
     // parse out any pending gstate, these will get automatically xored
     // with on-disk gdeltas in lower-level functions
@@ -5823,9 +5831,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                     return err;
                 }
 
-                LFS_DEBUG("Uninlining mdir 0x{%"PRIx32",%"PRIx32"} "
+                LFS_DEBUG("Uninlining mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                         "-> 0x{%"PRIx32",%"PRIx32"}"
                         ", 0x{%"PRIx32",%"PRIx32"}",
+                        mdir->mid,
                         mdir->rbyd.block, mdir->redund_block,
                         mdir->rbyd.block, mdir->redund_block,
                         mdir_.rbyd.block, mdir_.redund_block);
@@ -5847,16 +5856,18 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                     }
 
                 } else {
-                    LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+                    LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                            mdir_.mid,
                             mdir_.rbyd.block, mdir_.redund_block);
-                    mdir_.mid = LFSR_MID_RM;
+                    mdir_.rbyd.trunk = 0;
 
                     // don't really need to update our mtree here
                 }
 
             // uninlining and splitting
             } else {
-                LFS_DEBUG("Uninlining mdir 0x{%"PRIx32",%"PRIx32"}",
+                LFS_DEBUG("Uninlining mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                        mdir->mid,
                         mdir->rbyd.block, mdir->redund_block);
 
                 // let lfsr_mtree_split_ do most of the work
@@ -5887,9 +5898,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
     // mdir reduced to zero? need to drop?
     } else if (mdir->mid != LFSR_MID_MROOT && mdir_.rbyd.weight == 0) {
-        LFS_DEBUG("Dropping mdir 0x{%"PRIx32",%"PRIx32"}",
+        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                mdir->mid,
                 mdir->rbyd.block, mdir->redund_block);
-        mdir_.mid = LFSR_MID_RM;
+        mdir_.rbyd.trunk = 0;
 
         // update our mtree
         err = lfsr_btree_pop(lfs, &mtree_, mdir->mid);
@@ -5908,8 +5920,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
         // relocate a normal mdir
         } else {
-            LFS_DEBUG("Relocating mdir 0x{%"PRIx32",%"PRIx32"} "
+            LFS_DEBUG("Relocating mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                     "-> 0x{%"PRIx32",%"PRIx32"}",
+                    mdir->mid,
                     mdir->rbyd.block, mdir->redund_block,
                     mdir_.rbyd.block, mdir_.redund_block);
 
@@ -6161,31 +6174,40 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
             // first play out any attrs that change our rid
             for (lfs_size_t i = 0; i < attr_count; i++) {
-                // adjust dir positions if any delta changes
-                if (type == LFS_TYPE_DIR
-                        && (opened->mdir.mid > mdir->mid
-                            || (opened->mdir.mid == mdir->mid
-                                && opened->rid >= attrs[i].id))) {
-                    ((lfsr_dir_t*)opened)->pos += attrs[i].delta;
-                }
-
                 if (opened->mdir.mid == mdir->mid
                         && opened->rid >= attrs[i].id) {
                     LFS_ASSERT(opened->rid <= (lfs_ssize_t)mdir->rbyd.weight);
                     // removed?
                     if (opened->rid + attrs[i].delta < attrs[i].id) {
-                        // TODO wait we lose any open dir's mid here... so
-                        // the pos will no longer get updates...
-                        opened->mdir.mid = LFSR_MID_RM;
+                        // note we have different behavior for files and dirs
+                        // here:
+                        // - files => mark entry as removed
+                        // - dirs => adjust rid/mid to point to next entry
+                        if (type == LFS_TYPE_DIR) {
+                            opened->rid = attrs[i].id;
+                        } else {
+                            opened->mdir.mid = LFSR_MID_RM;
+                        }
                     } else {
                         opened->rid += attrs[i].delta;
+                        // adjust dir position
+                        if (type == LFS_TYPE_DIR) {
+                            ((lfsr_dir_t*)opened)->pos += attrs[i].delta;
+                        }
+                    }
+
+                } else if (opened->mdir.mid > mdir->mid) {
+                    // adjust dir position
+                    if (type == LFS_TYPE_DIR) {
+                        ((lfsr_dir_t*)opened)->pos += attrs[i].delta;
                     }
                 }
             }
 
             // update mid if we had a split or drop
-            if (opened->mdir.mid == mdir->mid) {
-                if (opened->rid >= (lfs_ssize_t)mdir_.rbyd.weight) {
+            if (opened->mdir.mid == mdir->mid && opened->mdir.rbyd.weight > 0) {
+                if (msibling_.rbyd.weight > 0
+                        && opened->rid >= (lfs_ssize_t)mdir_.rbyd.weight) {
                     LFS_ASSERT(lfsr_btree_weight(&mtree_)
                             != lfsr_mtree_weight(lfs));
                     opened->rid = opened->rid - mdir_.rbyd.weight;
@@ -7062,7 +7084,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
     }
 
     if (lfsr_grm_hasrm(&lfs->grm_)) {
-        LFS_DEBUG("Found pending grm (%"PRId32".%"PRId32")",
+        LFS_DEBUG("Found pending grm %"PRId32".%"PRId32,
                 lfs->grm_.mid,
                 lfs->grm_.rid);
     }
@@ -7555,9 +7577,11 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
         }
     }
 
-    // reset pos
-    dir->pos = 0;
-    dir->mdir.mdir.mid = LFSR_MID_RM;
+    // leave it up to rewind to initialize pos/mid/rid
+    err = lfsr_dir_rewind(lfs, dir);
+    if (err) {
+        return err;
+    }
 
     // add to tracked mdirs
     lfsr_mdir_addopened(lfs, LFS_TYPE_DIR, &dir->mdir);
@@ -7586,31 +7610,11 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         return 0;
     }
 
-    // If the rid we were at was removed, just rewind and seek to the position
-    // again. This is a bit suboptimal when recursively removing a directory,
-    // but in that case we likely have removed all previous entries so it's not
-    // that bad.
-    lfs_off_t seek = 1;
-    if (dir->mdir.mdir.mid == LFSR_MID_RM) {
-        // lookup our dstart in the mtree
-        int err = lfsr_mtree_dnamelookup(lfs, dir->did, NULL, 0,
-                &dir->mdir.mdir, &dir->mdir.rid, NULL, NULL);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
-        }
-
-        // -2 for "." and ".."
-        LFS_ASSERT(dir->pos >= 2);
-        seek += dir->pos-2;
-    }
-
-    // lookup the next entry in our dir
-    int err = lfsr_mtree_seek(lfs, &dir->mdir.mdir, &dir->mdir.rid, seek);
+    // seek in case our mdir was dropped
+    int err = lfsr_mtree_seek(lfs, &dir->mdir.mdir, &dir->mdir.rid, 0);
     if (err) {
         return err;
     }
-    dir->pos += 1;
 
     // lookup our name tag
     lfsr_tag_t tag;
@@ -7643,15 +7647,35 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
 
     // TODO size once we actually have regular files
 
+    // eagerly look up the next entry
+    err = lfsr_mtree_seek(lfs, &dir->mdir.mdir, &dir->mdir.rid, 1);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    dir->pos += 1;
+
     return 0;
 }
 
 int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_off_t off) {
-    (void)lfs;
-    // set dir pos and mark mdir as dropped, this will cause lfsr_dir_read
-    // to seek to the correct entry on the first call
+    // first rewind
+    int err = lfsr_dir_rewind(lfs, dir);
+    if (err) {
+        return err;
+    }
+
+    // then seek to the requested offset, we leave it up to lfsr_mtree_seek
+    // to make this efficient
+    //
+    // note the -2 to adjust for "." and ".." entries
+    if (off > 2) {
+        err = lfsr_mtree_seek(lfs, &dir->mdir.mdir, &dir->mdir.rid, off);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+    }
     dir->pos = off;
-    dir->mdir.mdir.mid = LFSR_MID_RM;
+
     return 0;
 }
 
@@ -7661,10 +7685,25 @@ lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir) {
 }
 
 int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
-    (void)lfs;
     // reset pos
     dir->pos = 0;
-    dir->mdir.mdir.mid = LFSR_MID_RM;
+
+    // lookup our dstart in the mtree
+    int err = lfsr_mtree_dnamelookup(lfs, dir->did, NULL, 0,
+            &dir->mdir.mdir, &dir->mdir.rid, NULL, NULL);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_NOENT);
+        return err;
+    }
+
+    // eagerly look up the next entry
+    //
+    // this makes handling of corner cases with mixed removes/dir reads easier
+    err = lfsr_mtree_seek(lfs, &dir->mdir.mdir, &dir->mdir.rid, 1);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+
     return 0;
 }
 
@@ -7696,7 +7735,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
 static int lfsr_fs_preparemutation(lfs_t *lfs) {
     // fix pending grms
     if (lfsr_grm_hasrm(&lfs->grm_)) {
-        LFS_DEBUG("Fixing grm (%"PRId32".%"PRId32")",
+        LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
                 lfs->grm_.mid,
                 lfs->grm_.rid);
 

@@ -2803,6 +2803,13 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# TODO test dir seek
+# TODO test dir seek with mkdirs
+# TODO test dir seek with removes
+# TODO test dir seek with renames
+# TODO test dir seek end idempotency
+# TODO test recursive removes with seeking (test pos updates)
+
 # Recursive here just refers to deleting entries in a directory while
 # iterating over the directory
 #
