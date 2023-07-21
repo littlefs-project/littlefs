@@ -5321,6 +5321,31 @@ static int lfsr_mtree_parent(lfs_t *lfs, lfsr_mptr_t mchild,
     }
 }
 
+static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
+        lfs_off_t off) {
+    // calculate new rid
+    lfs_off_t rid_ = *rid + off;
+    // lookup mdirs until we find our rid, we need to do this because
+    // we don't know how many rids are in each mdir until we fetch
+    while (rid_ >= mdir->rbyd.weight) {
+        lfs_ssize_t mid_ = mdir->mid + 1;
+        rid_ -= mdir->rbyd.weight;
+        // end of mtree?
+        if (mid_ >= (lfs_ssize_t)lfsr_mtree_weight(lfs)) {
+            return LFS_ERR_NOENT;
+        }
+
+        int err = lfsr_mtree_lookup(lfs, mid_, mdir);
+        if (err) {
+            return err;
+        }
+    }
+
+    *rid = rid_;
+    return 0;
+}
+
+
 // low-level mdir compaction
 static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfs_ssize_t mid,
@@ -6136,24 +6161,25 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
 
             // first play out any attrs that change our rid
             for (lfs_size_t i = 0; i < attr_count; i++) {
-                if (opened->mdir.mid == mdir->mid
-                        && opened->rid >= attrs[i].id) {
-                    LFS_ASSERT(opened->rid <= (lfs_ssize_t)mdir->rbyd.weight);
-                    // removed?
-                    if (type == LFS_TYPE_REG
-                            && opened->rid + attrs[i].delta < attrs[i].id) {
-                        opened->mdir.mid = LFSR_MID_RM;
-                    } else {
-                        opened->rid += attrs[i].delta;
-                    }
-                }
-
                 // adjust dir positions if any delta changes
                 if (type == LFS_TYPE_DIR
                         && (opened->mdir.mid > mdir->mid
                             || (opened->mdir.mid == mdir->mid
                                 && opened->rid >= attrs[i].id))) {
                     ((lfsr_dir_t*)opened)->pos += attrs[i].delta;
+                }
+
+                if (opened->mdir.mid == mdir->mid
+                        && opened->rid >= attrs[i].id) {
+                    LFS_ASSERT(opened->rid <= (lfs_ssize_t)mdir->rbyd.weight);
+                    // removed?
+                    if (opened->rid + attrs[i].delta < attrs[i].id) {
+                        // TODO wait we lose any open dir's mid here... so
+                        // the pos will no longer get updates...
+                        opened->mdir.mid = LFSR_MID_RM;
+                    } else {
+                        opened->rid += attrs[i].delta;
+                    }
                 }
             }
 
@@ -6166,11 +6192,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                     opened->mdir = msibling_;
                 } else {
                     opened->mdir = mdir_;
-                    // if dropped, rewind to previous mid, this is needed for
-                    // dir read to find the next mdir correctly
-                    if (type == LFS_TYPE_DIR && mdir_.mid == LFSR_MID_RM) {
-                        opened->mdir.mid = mdir->mid - 1;
-                    }
                 }
             } else if (opened->mdir.mid > mdir->mid
                     && lfsr_btree_weight(&mtree_) != lfsr_mtree_weight(lfs)) {
@@ -7473,59 +7494,6 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     return 0;
 }
 
-int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
-    // lookup our directory
-    lfsr_mdir_t mdir;
-    lfs_ssize_t rid;
-    lfsr_tag_t tag;
-    int err = lfsr_mtree_pathlookup(lfs, path,
-            &mdir, &rid, &tag,
-            NULL, NULL, NULL);
-    if (err) {
-        return err;
-    }
-
-    // are we a directory?
-    if (tag != LFSR_TAG_DIR) {
-        return LFS_ERR_NOENT;
-    }
-
-    // read our did from the mdir, unless we're root
-    lfs_size_t did = 0;
-    if (rid != -1) {
-        lfsr_data_t data;
-        int err = lfsr_mdir_lookup(lfs, &mdir, rid, LFSR_TAG_DID,
-                NULL, &data);
-        if (err) {
-            return err;
-        }
-
-        lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &did);
-        if (d < 0) {
-            return d;
-        }
-    }
-
-    // now lookup our dstart in the mtree
-    err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
-            &dir->mdir.mdir, &dir->mdir.rid, NULL, NULL);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_NOENT);
-        return err;
-    }
-
-    // add to tracked mdirs
-    lfsr_mdir_addopened(lfs, LFS_TYPE_DIR, &dir->mdir);
-    dir->pos = 0;
-    return 0;
-}
-
-int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
-    // remove from tracked mdirs
-    lfsr_mdir_removeopened(lfs, LFS_TYPE_DIR, &dir->mdir);
-    return 0;
-}
-
 int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     memset(info, 0, sizeof(struct lfs_info));
 
@@ -7554,6 +7522,54 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     return 0;
 }
 
+int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
+    // lookup our directory
+    lfsr_mdir_t mdir;
+    lfs_ssize_t rid;
+    lfsr_tag_t tag;
+    int err = lfsr_mtree_pathlookup(lfs, path,
+            &mdir, &rid, &tag,
+            NULL, NULL, NULL);
+    if (err) {
+        return err;
+    }
+
+    // are we a directory?
+    if (tag != LFSR_TAG_DIR) {
+        return LFS_ERR_NOENT;
+    }
+
+    // read our did from the mdir, unless we're root
+    dir->did = 0;
+    if (rid != -1) {
+        lfsr_data_t data;
+        int err = lfsr_mdir_lookup(lfs, &mdir, rid, LFSR_TAG_DID,
+                NULL, &data);
+        if (err) {
+            return err;
+        }
+
+        lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &dir->did);
+        if (d < 0) {
+            return d;
+        }
+    }
+
+    // reset pos
+    dir->pos = 0;
+    dir->mdir.mdir.mid = LFSR_MID_RM;
+
+    // add to tracked mdirs
+    lfsr_mdir_addopened(lfs, LFS_TYPE_DIR, &dir->mdir);
+    return 0;
+}
+
+int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_DIR, &dir->mdir);
+    return 0;
+}
+
 int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
     memset(info, 0, sizeof(struct lfs_info));
 
@@ -7570,28 +7586,37 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         return 0;
     }
 
-    // lookup the next entry in our dir
-    lfs_ssize_t rid = dir->mdir.rid + 1;
-    // need to lookup the next mdir?
-    if (rid >= (lfs_ssize_t)dir->mdir.mdir.rbyd.weight) {
-        // out of mdirs?
-        lfs_ssize_t mid = dir->mdir.mdir.mid + 1;
-        if (mid >= (lfs_ssize_t)lfsr_mtree_weight(lfs)) {
-            return LFS_ERR_NOENT;
-        }
-
-        int err = lfsr_mtree_lookup(lfs, mid, &dir->mdir.mdir);
+    // If the rid we were at was removed, just rewind and seek to the position
+    // again. This is a bit suboptimal when recursively removing a directory,
+    // but in that case we likely have removed all previous entries so it's not
+    // that bad.
+    lfs_off_t seek = 1;
+    if (dir->mdir.mdir.mid == LFSR_MID_RM) {
+        // lookup our dstart in the mtree
+        int err = lfsr_mtree_dnamelookup(lfs, dir->did, NULL, 0,
+                &dir->mdir.mdir, &dir->mdir.rid, NULL, NULL);
         if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
-        rid = 0;
+
+        // -2 for "." and ".."
+        LFS_ASSERT(dir->pos >= 2);
+        seek += dir->pos-2;
     }
-    dir->mdir.rid = rid;
+
+    // lookup the next entry in our dir
+    int err = lfsr_mtree_seek(lfs, &dir->mdir.mdir, &dir->mdir.rid, seek);
+    if (err) {
+        return err;
+    }
+    dir->pos += 1;
 
     // lookup our name tag
     lfsr_tag_t tag;
     lfsr_data_t data;
-    int err = lfsr_mdir_lookup(lfs, &dir->mdir.mdir, rid, LFSR_TAG_WIDENAME,
+    err = lfsr_mdir_lookup(lfs, &dir->mdir.mdir,
+            dir->mdir.rid, LFSR_TAG_WIDENAME,
             &tag, &data);
     if (err) {
         return err;
@@ -7621,8 +7646,31 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
     return 0;
 }
 
+int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_off_t off) {
+    (void)lfs;
+    // set dir pos and mark mdir as dropped, this will cause lfsr_dir_read
+    // to seek to the correct entry on the first call
+    dir->pos = off;
+    dir->mdir.mdir.mid = LFSR_MID_RM;
+    return 0;
+}
+
+lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir) {
+    (void)lfs;
+    return dir->pos;
+}
+
+int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
+    (void)lfs;
+    // reset pos
+    dir->pos = 0;
+    dir->mdir.mdir.mid = LFSR_MID_RM;
+    return 0;
+}
+
 
 /// Prepare the filesystem for mutation ///
+
 static int lfsr_fs_fixgrm(lfs_t *lfs) {
     LFS_ASSERT(lfsr_grm_hasrm(&lfs->grm_));
 

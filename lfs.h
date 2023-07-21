@@ -420,6 +420,7 @@ typedef struct lfs_dir {
 
 typedef struct lfsr_dir {
     lfsr_openedmdir_t mdir;
+    lfs_size_t did;
     lfs_off_t pos;
 } lfsr_dir_t;
 
@@ -741,6 +742,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info);
 //
 // Returns a negative error code on failure.
 int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off);
+int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_off_t off);
 
 // Return the position of the directory
 //
@@ -749,11 +751,13 @@ int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off);
 //
 // Returns the position of the directory, or a negative error code on failure.
 lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir);
+lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir);
 
 // Change the position of the directory to the beginning of the directory
 //
 // Returns a negative error code on failure.
 int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
+int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir);
 
 
 /// Filesystem-level filesystem operations
