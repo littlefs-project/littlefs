@@ -678,13 +678,18 @@ class GState:
 def grepr(tag, data):
     if tag == TAG_GRM:
         d = 0
-        op,  d_ = fromleb128(data[d:]); d += d_
-        mid, d_ = fromleb128(data[d:]); d += d_
-        rid, d_ = fromleb128(data[d:]); d += d_
+        count,  d_ = fromleb128(data[d:]); d += d_
+        rms = []
+        if count <= 2:
+            for _ in range(count):
+                mid, d_ = fromleb128(data[d:]); d += d_
+                rid, d_ = fromleb128(data[d:]); d += d_
+                rms.append((mid, rid))
         return 'grm %s' % (
-            'none' if op == 0
-                else 'rm %d.%d' % (mid, rid) if op == 1
-                else '0x%x' % op)
+            'none' if count == 0
+                else ' '.join('%d.%d' % (mid, rid) for mid, rid in rms)
+                     if count <= 2
+                else '0x%x' % count)
     else:
         return 'gstate 0x%02x %d' % (tag, len(data))
 

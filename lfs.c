@@ -1563,47 +1563,57 @@ static int lfsr_gdelta_xor(lfs_t *lfs,
 
 // GRM (global remove) things
 static inline bool lfsr_grm_hasrm(const lfsr_grm_t *grm) {
-    return grm->mid != LFSR_MID_RM;
+    return grm->rms[0].mid != LFSR_MID_RM;
 }
 
-static inline void lfsr_grm_clearrm(lfsr_grm_t *grm) {
-    grm->mid = LFSR_MID_RM;
+static inline uint8_t lfsr_grm_count(const lfsr_grm_t *grm) {
+    return (grm->rms[0].mid != LFSR_MID_RM)
+            + (grm->rms[1].mid != LFSR_MID_RM);
+}
+
+static inline void lfsr_grm_pushrm(lfsr_grm_t *grm,
+        lfs_size_t mid, lfs_size_t rid) {
+    LFS_ASSERT(grm->rms[1].mid == LFSR_MID_RM);
+    grm->rms[1] = grm->rms[0];
+    grm->rms[0].mid = mid;
+    grm->rms[0].rid = rid;
+}
+
+static inline void lfsr_grm_poprm(lfsr_grm_t *grm) {
+    grm->rms[0] = grm->rms[1];
+    grm->rms[1].mid = LFSR_MID_RM;
 }
 
 static lfs_ssize_t lfsr_grm_todisk(lfs_t *lfs, const lfsr_grm_t *grm,
         uint8_t buffer[static LFSR_GRM_DSIZE]) {
     (void)lfs;
-    // encode no-rm as zero-size
-    if (!lfsr_grm_hasrm(grm)) {
-        return 0;
-    }
 
-    // We encode grms with a byte indicating if a remove is pending. This
-    // sounds a bit wasteful, but avoids issues with signed-leb128 encoding,
-    // and allows grm to possible be expanded to other operations in the
-    // future.
-    //
-    // maybe grm=2 will encode the mroot in the future? who knows, spooky
-    // 
+    // first encode the number of grms, this can be 0, 1, or 2 and may
+    // be extended to a general purpose leb128 type field in the future
+    // encode no-rm as zero-size
+    uint8_t count = lfsr_grm_count(grm);
     lfs_ssize_t d = 0;
-    buffer[d] = 0x01;
+    buffer[d] = count;
     d += 1;
 
     // TODO is this really the best way to do this? should we just allow
     // mid=0 to be mroot when mtree is inlined?
 
-    // map mid=-1 (mroot) to mid=0
-    lfs_ssize_t d_ = lfs_toleb128(lfs_smax32(grm->mid, 0), &buffer[d], 5);
-    if (d_ < 0) {
-        return d_;
-    }
-    d += d_;
+    for (uint8_t i = 0; i < count; i++) {
+        // map mid=-1 (mroot) to mid=0
+        lfs_ssize_t d_ = lfs_toleb128(
+                lfs_smax32(grm->rms[i].mid, 0), &buffer[d], 5);
+        if (d_ < 0) {
+            return d_;
+        }
+        d += d_;
 
-    d_ = lfs_toleb128(grm->rid, &buffer[d], 5);
-    if (d_ < 0) {
-        return d_;
+        d_ = lfs_toleb128(grm->rms[i].rid, &buffer[d], 5);
+        if (d_ < 0) {
+            return d_;
+        }
+        d += d_;
     }
-    d += d_;
 
     return d;
 }
@@ -1614,50 +1624,49 @@ static inline int lfsr_mtree_isinlined(lfs_t *lfs);
 static lfs_ssize_t lfsr_grm_fromdisk(lfs_t *lfs, lfsr_grm_t *grm,
         lfsr_data_t data) {
     lfs_ssize_t d = 0;
-    uint8_t op;
-    lfs_ssize_t d_ = lfsr_data_read(lfs, data, d, &op, 1);
+    uint8_t count = 0;
+    lfs_ssize_t d_ = lfsr_data_read(lfs, data, d, &count, 1);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    // no rm, note we accept truncated grms here
-    if (op == 0 || d_ == 0) {
-        lfsr_grm_clearrm(grm);
-        return 0;
-    } 
+    // clear first
+    grm->rms[0].mid = LFSR_MID_RM;
+    grm->rms[1].mid = LFSR_MID_RM;
 
-    lfs_size_t mid;
-    d_ = lfsr_data_readleb128(lfs, data, d, &mid);
-    if (d_ < 0) {
-        return d_;
+    LFS_ASSERT(count <= 2);
+    for (uint8_t i = 0; i < count; i++) {
+        lfs_size_t mid;
+        d_ = lfsr_data_readleb128(lfs, data, d, &mid);
+        if (d_ < 0) {
+            return d_;
+        }
+        d += d_;
+        // TODO should these checks be in lfsr_data_readleb128?
+        LFS_ASSERT(mid < 0x7fffffff);
+
+        lfs_size_t rid;
+        d_ = lfsr_data_readleb128(lfs, data, d, &rid);
+        if (d_ < 0) {
+            return d_;
+        }
+        d += d_;
+        // TODO should these checks be in lfsr_data_readleb128?
+        LFS_ASSERT(rid < 0x7fffffff);
+
+        // TODO is this really the best way to do this? should we just allow
+        // mid=0 to be mroot when mtree is inlined?
+
+        // adjust mid if mtree is inlined
+        if (lfsr_mtree_isinlined(lfs)) {
+            LFS_ASSERT(mid == 0);
+            mid = LFSR_MID_MROOT;
+        }
+
+        grm->rms[i].mid = mid;
+        grm->rms[i].rid = rid;
     }
-    d += d_;
-
-    lfs_size_t rid;
-    d_ = lfsr_data_readleb128(lfs, data, d, &rid);
-    if (d_ < 0) {
-        return d_;
-    }
-    d += d_;
-
-    // TODO wait assert or error?
-    LFS_ASSERT(op == 1);
-    // TODO should these checks be in lfsr_data_readleb128?
-    LFS_ASSERT(mid < 0x7fffffff);
-    LFS_ASSERT(rid < 0x7fffffff);
-
-    // TODO is this really the best way to do this? should we just allow
-    // mid=0 to be mroot when mtree is inlined?
-
-    // adjust mid if mtree is inlined
-    if (lfsr_mtree_isinlined(lfs)) {
-        LFS_ASSERT(mid == 0);
-        mid = LFSR_MID_MROOT;
-    }
-
-    grm->mid = mid;
-    grm->rid = rid;
 
     return d;
 }
@@ -5961,21 +5970,25 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                 return d;
             }
 
-            if (grm.mid == mdir->mid) {
-                LFS_ASSERT(grm.rid <= mdir->rbyd.weight);
-                // TODO do we need this if we allow mid=0 => mroot when inlined?
-                // update mid if we are uninlining
-                grm.mid = lfs_smax32(grm.mid, 0);
+            for (uint8_t j = 0; j < 2; j++) {
+                if (grm.rms[j].mid == mdir->mid) {
+                    LFS_ASSERT(grm.rms[j].rid <= mdir->rbyd.weight);
+                    // TODO do we need this if we allow mid=0 => mroot when
+                    // inlined?
+                    // update mid if we are uninlining
+                    grm.rms[j].mid = lfs_smax32(grm.rms[j].mid, 0);
 
-                if (grm.rid >= mdir_.rbyd.weight) {
-                    grm.mid += 1;
-                    grm.rid -= mdir_.rbyd.weight;
+                    if (grm.rms[j].rid >= mdir_.rbyd.weight) {
+                        grm.rms[j].mid += 1;
+                        grm.rms[j].rid -= mdir_.rbyd.weight;
+                    }
+                // update mid if we had a split or drop
+                } else if (grm.rms[j].mid > mdir->mid
+                        && lfsr_btree_weight(&mtree_)
+                            != lfsr_mtree_weight(lfs)) {
+                    grm.rms[j].mid += lfsr_btree_weight(&mtree_)
+                            - lfsr_mtree_weight(lfs);
                 }
-            // update mid if we had a split or drop
-            } else if (grm.mid > mdir->mid
-                    && lfsr_btree_weight(&mtree_) != lfsr_mtree_weight(lfs)) {
-                grm.mid += lfsr_btree_weight(&mtree_)
-                        - lfsr_mtree_weight(lfs);
             }
 
             // make sure to zero so we don't end up with trailing garbage
@@ -6127,29 +6140,33 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
 
             // repeat the fix of our grm
-            if (lfs->grm_.mid == mdir->mid) {
-                LFS_ASSERT(lfs->grm_.rid <= mdir->rbyd.weight);
-                // TODO do we need this if we allow mid=0 => mroot when inlined?
-                // update mid if we are uninlining
-                lfs->grm_.mid = lfs_smax32(lfs->grm_.mid, 0);
+            for (uint8_t j = 0; j < 2; j++) {
+                if (lfs->grm_.rms[j].mid == mdir->mid) {
+                    LFS_ASSERT(lfs->grm_.rms[j].rid <= mdir->rbyd.weight);
+                    // TODO do we need this if we allow mid=0 => mroot
+                    // when inlined?
+                    // update mid if we are uninlining
+                    lfs->grm_.rms[j].mid = lfs_smax32(lfs->grm_.rms[j].mid, 0);
 
-                if (lfs->grm_.rid >= mdir_.rbyd.weight) {
-                    lfs->grm_.mid += 1;
-                    lfs->grm_.rid -= mdir_.rbyd.weight;
+                    if (lfs->grm_.rms[j].rid >= mdir_.rbyd.weight) {
+                        lfs->grm_.rms[j].mid += 1;
+                        lfs->grm_.rms[j].rid -= mdir_.rbyd.weight;
+                    }
+                // update mid if we had a split or drop
+                } else if (lfs->grm_.rms[j].mid > mdir->mid
+                        && lfsr_btree_weight(&mtree_)
+                            != lfsr_mtree_weight(lfs)) {
+                    lfs->grm_.rms[j].mid += lfsr_btree_weight(&mtree_)
+                            - lfsr_mtree_weight(lfs);
                 }
-            // update mid if we had a split or drop
-            } else if (lfs->grm_.mid > mdir->mid
-                    && lfsr_btree_weight(&mtree_) != lfsr_mtree_weight(lfs)) {
-                lfs->grm_.mid += lfsr_btree_weight(&mtree_)
-                        - lfsr_mtree_weight(lfs);
-            }
 
-            // TODO this is a big cludge, support for mid=0 when inlined?
-            // adjust mid if mtree is inlined
-            if (lfsr_btree_weight(&mtree_) == 0) {
-                LFS_ASSERT(lfs->grm_.mid <= 0);
-                if (lfs->grm_.mid == 0) {
-                    lfs->grm_.mid = LFSR_MID_MROOT;
+                // TODO this is a big cludge, support for mid=0 when inlined?
+                // adjust mid if mtree is inlined
+                if (lfsr_btree_weight(&mtree_) == 0) {
+                    LFS_ASSERT(lfs->grm_.rms[j].mid <= 0);
+                    if (lfs->grm_.rms[j].mid == 0) {
+                        lfs->grm_.rms[j].mid = LFSR_MID_MROOT;
+                    }
                 }
             }
 
@@ -7084,22 +7101,17 @@ static int lfsr_mountinited(lfs_t *lfs) {
     }
 
     if (lfsr_grm_hasrm(&lfs->grm_)) {
-        LFS_DEBUG("Found pending grm %"PRId32".%"PRId32,
-                lfs->grm_.mid,
-                lfs->grm_.rid);
+        LFS_DEBUG("Found pending grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                lfs->grm_.rms[0].mid,
+                lfs->grm_.rms[0].rid,
+                lfs->grm_.rms[1].mid,
+                lfs->grm_.rms[1].rid);
     }
 
     return 0;
 }
 
 static int lfsr_formatinited(lfs_t *lfs) {
-    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32" "
-            "(bs=%"PRId32", bc=%"PRId32")",
-            LFS_DISK_VERSION_MAJOR,
-            LFS_DISK_VERSION_MINOR,
-            lfs->cfg->block_size,
-            lfs->cfg->block_count);
-
     uint8_t buf[LFSR_SUPERCONFIG_DSIZE];
     lfs_ssize_t d = lfsr_superconfig_todisk(lfs, buf);
     if (d < 0) {
@@ -7156,6 +7168,14 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
+    // TODO this should use any configured values
+    LFS_DEBUG("Mounted littlefs v%"PRId32".%"PRId32" "
+            "(bs=%"PRId32", bc=%"PRId32")",
+            LFS_DISK_VERSION_MAJOR,
+            LFS_DISK_VERSION_MINOR,
+            lfs->cfg->block_size,
+            lfs->cfg->block_count);
+
     return 0;
 }
 
@@ -7168,6 +7188,13 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
     if (err) {
         return err;
     }
+
+    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32" "
+            "(bs=%"PRId32", bc=%"PRId32")",
+            LFS_DISK_VERSION_MAJOR,
+            LFS_DISK_VERSION_MINOR,
+            lfs->cfg->block_size,
+            lfs->cfg->block_count);
 
     err = lfsr_formatinited(lfs);
     if (err) {
@@ -7291,7 +7318,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
 int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // prepare our filesystem for writing
-    int err= lfsr_fs_preparemutation(lfs);
+    int err = lfsr_fs_preparemutation(lfs);
     if (err) {
         return err;
     }
@@ -7372,7 +7399,9 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     //
     uint8_t buf[LFSR_GRM_DSIZE];
     lfs_ssize_t d = lfsr_grm_todisk(lfs,
-            &(lfsr_grm_t){.mid=mdir.mid, .rid=rid},
+            &(lfsr_grm_t){.rms={
+                {.mid=mdir.mid, .rid=rid},
+                {.mid=LFSR_MID_RM}}},
             buf);
     if (d < 0) {
         return d;
@@ -7407,7 +7436,7 @@ failed_with_parent:
 
 int lfsr_remove(lfs_t *lfs, const char *path) {
     // prepare our filesystem for writing
-    int err= lfsr_fs_preparemutation(lfs);
+    int err = lfsr_fs_preparemutation(lfs);
     if (err) {
         return err;
     }
@@ -7418,7 +7447,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     lfsr_tag_t tag;
     err = lfsr_mtree_pathlookup(lfs, path,
             &mdir, &rid, &tag,
-            NULL, NULL, 0);
+            NULL, NULL, NULL);
     if (err) {
         return err;
     }
@@ -7487,7 +7516,9 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
 
         // create a grm to remove the dstart entry
         grm_d = lfsr_grm_todisk(lfs,
-                &(lfsr_grm_t){.mid=dstart_mdir.mid, .rid=dstart_rid},
+                &(lfsr_grm_t){.rms={
+                    {.mid=dstart_mdir.mid, .rid=dstart_rid},
+                    {.mid=LFSR_MID_RM}}},
                 grm_buf);
         if (grm_d < 0) {
             return grm_d;
@@ -7711,46 +7742,57 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 /// Prepare the filesystem for mutation ///
 
 static int lfsr_fs_fixgrm(lfs_t *lfs) {
-    LFS_ASSERT(lfsr_grm_hasrm(&lfs->grm_));
+    while (lfsr_grm_hasrm(&lfs->grm_)) {
+        // find our mdir
+        lfsr_mdir_t mdir;
+        LFS_ASSERT(lfs->grm_.rms[0].mid < (lfs_ssize_t)lfsr_mtree_weight(lfs));
+        int err = lfsr_mtree_lookup(lfs, lfs->grm_.rms[0].mid, &mdir);
+        if (err) {
+            return err;
+        }
 
-    // find our mdir
-    lfsr_mdir_t mdir;
-    LFS_ASSERT(lfs->grm_.mid < (lfs_ssize_t)lfsr_mtree_weight(lfs));
-    int err = lfsr_mtree_lookup(lfs, lfs->grm_.mid, &mdir);
-    if (err) {
-        return err;
+        // mark grm as taken care of
+        lfsr_grm_t grm_ = lfs->grm_;
+        lfsr_grm_poprm(&grm_);
+
+        uint8_t buf[LFSR_GRM_DSIZE];
+        lfs_ssize_t d = lfsr_grm_todisk(lfs, &grm_, buf);
+        if (d < 0) {
+            return d;
+        }
+
+        // remove the rid while also updating our grm
+        LFS_ASSERT(lfs->grm_.rms[0].rid < mdir.rbyd.weight);
+        err = lfsr_mdir_commit(lfs, &mdir,
+                (lfs_ssize_t*)&lfs->grm_.rms[0].rid, LFSR_ATTRS(
+                    LFSR_ATTR(lfs->grm_.rms[0].rid, UNR, -1, NULL, 0),
+                    LFSR_ATTR(-1, GRM, 0, buf, d)));
     }
 
-    // remove the rid while also zeroing our grm
-    LFS_ASSERT(lfs->grm_.rid < mdir.rbyd.weight);
-    err = lfsr_mdir_commit(lfs, &mdir, (lfs_ssize_t*)&lfs->grm_.rid, LFSR_ATTRS(
-            LFSR_ATTR(lfs->grm_.rid, UNR, -1, NULL, 0),
-            LFSR_ATTR(-1, GRM, 0, NULL, 0)));
-
-    // mark grm as taken care of
-    lfsr_grm_clearrm(&lfs->grm_);
     return 0;
 }
 
 static int lfsr_fs_preparemutation(lfs_t *lfs) {
+    // checkpoint the allocator
+    lfs_alloc_ack(lfs);
+
     // fix pending grms
     if (lfsr_grm_hasrm(&lfs->grm_)) {
-        LFS_DEBUG("Fixing grm %"PRId32".%"PRId32,
-                lfs->grm_.mid,
-                lfs->grm_.rid);
-
-        // checkpoint the allocator in case fixing the grm causes mtree
-        // manipulation
-        lfs_alloc_ack(lfs);
+        LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                lfs->grm_.rms[0].mid,
+                lfs->grm_.rms[0].rid,
+                lfs->grm_.rms[1].mid,
+                lfs->grm_.rms[1].rid);
 
         int err = lfsr_fs_fixgrm(lfs);
         if (err) {
             return err;
         }
-    }
 
-    // checkpoint the allocator
-    lfs_alloc_ack(lfs);
+        // checkpoint the allocator again since our fixgrm completed some
+        // work
+        lfs_alloc_ack(lfs);
+    }
 
     return 0;
 }
