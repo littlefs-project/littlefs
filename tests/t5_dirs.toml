@@ -2803,6 +2803,338 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+
+## dir rename tests
+
+[cases.t5_dirs_mv]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make a directory
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // clean up interrupted renames
+    if (TEST_PL) {
+        err = lfsr_remove(&lfs, "banana");
+        assert(!err || err == LFS_ERR_NOENT);
+    }
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our mkdir worked with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // and with dir_read
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // now rename the directory
+    lfsr_rename(&lfs, "ardvark", "banana") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that rename worked with stat 
+    lfsr_stat(&lfs, "ardvark", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "banana", &info) => 0;
+    assert(strcmp(info.name, "banana") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // and with dir_read
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "banana") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that we can rename, and replace, other directories
+[cases.t5_dirs_mv_replace]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make directories
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "banana");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our mkdir worked with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // and with dir_read
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "banana") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // now rename the directory
+    lfsr_rename(&lfs, "ardvark", "banana") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that rename worked with stat 
+    lfsr_stat(&lfs, "ardvark", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "banana", &info) => 0;
+    assert(strcmp(info.name, "banana") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // and with dir_read
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "banana") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that we can rename to ourselves
+[cases.t5_dirs_mv_noop]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make directories
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that our mkdir worked with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // and with dir_read
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // now rename the directory to itself
+    lfsr_rename(&lfs, "ardvark", "ardvark") => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // check that rename worked with stat 
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // and with dir_read
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that we catch replacing a non-empty directory
+[cases.t5_dirs_mv_notempty]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, cfg);
+    if (err) {
+        lfsr_format(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+    }
+
+    // make directories
+    err = lfsr_mkdir(&lfs, "ardvark");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    err = lfsr_mkdir(&lfs, "banana");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    // fill dest with stuff
+    err = lfsr_mkdir(&lfs, "banana/cat");
+    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+
+    // try to rename
+    lfsr_rename(&lfs, "ardvark", "banana") => LFS_ERR_NOTEMPTY;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, cfg) => 0;
+        // grm should be zero here
+        assert(lfs.grm[0] == 0);
+    }
+
+    // and check that this didn't interfere with our original directory
+    struct lfs_info info;
+    lfsr_stat(&lfs, "ardvark", &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "banana", &info) => 0;
+    assert(strcmp(info.name, "banana") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_stat(&lfs, "banana/cat", &info) => 0;
+    assert(strcmp(info.name, "cat") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "ardvark") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "banana") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_dir_open(&lfs, &dir, "banana") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "cat") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+
 # TODO test dir seek
 # TODO test dir seek with mkdirs
 # TODO test dir seek with removes

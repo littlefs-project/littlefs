@@ -639,6 +639,9 @@ enum lfsr_tag_type {
 
     LFSR_TAG_CRC            = 0x2000,
     LFSR_TAG_FCRC           = 0x2100,
+
+    // in-device only
+    LFSR_TAG_MOVE           = 0x0800,
 };
 
 #define LFSR_TAG_ALTLE(red, key) \
@@ -1259,14 +1262,26 @@ typedef struct lfsr_attr {
     lfs_ssize_t id;
     lfsr_tag_t tag;
     lfs_ssize_t delta;
-    lfsr_data_t data;
+    union {
+        lfsr_data_t data;
+        struct {
+            const lfsr_rbyd_t *rbyd;
+            lfs_ssize_t rid;
+        } move;
+    } d;
 } lfsr_attr_t;
 
 #define LFSR_ATTR_DATA_(_id, _tag, _delta, _data) \
-    ((const lfsr_attr_t){_id, _tag, _delta, _data})
+    ((const lfsr_attr_t){_id, _tag, _delta, {.data=_data}})
 
 #define LFSR_ATTR_DATA(_id, _type, _delta, _data) \
     LFSR_ATTR_DATA_(_id, LFSR_TAG_##_type, _delta, _data)
+
+#define LFSR_ATTR_MOVE_(_new_id, _type, _delta, _rbyd, _old_id) \
+    ((const lfsr_attr_t){_new_id, _type, _delta, {.move={_rbyd, _old_id}}})
+
+#define LFSR_ATTR_MOVE(_new_id, _type, _delta, _rbyd, _old_id) \
+    LFSR_ATTR_MOVE_(_new_id, LFSR_TAG_##_type, _delta, _rbyd, _old_id)
 
 #define LFSR_ATTR_DNAME_(_id, _tag, _delta, _did, _buffer, _size) \
     LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_DNAME(_did, _buffer, _size))
@@ -2713,11 +2728,11 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // append each tag to the tree
     for (lfs_size_t i = 0; i < attr_count; i++) {
-        // TODO do we really need this?
-        // skip unknown internal tags (used by upper layers)
-        if (lfsr_tag_isinternal(attrs[i].tag)) {
-            continue;
-        }
+//        // TODO do we really need this?
+//        // skip unknown internal tags (used by upper layers)
+//        if (lfsr_tag_isinternal(attrs[i].tag)) {
+//            continue;
+//        }
 
         // this is a bit of a hack, but ignore any gstate tags here,
         // these need to be handled specially by upper-layers
@@ -2725,12 +2740,51 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             continue;
         }
 
+        // don't write tags outside of the requested range
         if (attrs[i].id >= start_id && (end_id < 0 || attrs[i].id < end_id)) {
-            int err = lfsr_rbyd_append(lfs, rbyd,
-                    attrs[i].id-lfs_smax32(start_id, 0),
-                    attrs[i].tag, attrs[i].delta, attrs[i].data);
-            if (err) {
-                return err;
+            // this is a bit of a hack, but ignore any gstate tags here,
+            // these need to be handled specially by upper-layers
+            if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_GSTATE) {
+                // do nothing
+
+            // move tags copy over any tags associated with the source's rid
+            } else if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_MOVE) {
+                // weighted moves are not supported
+                LFS_ASSERT(attrs[i].delta == 0);
+
+                // skip the name tag, this is always replaced by upper layers
+                lfsr_tag_t tag = LFSR_TAG_NAME + 0xff;
+                while (true) {
+                    lfs_ssize_t rid;
+                    lfsr_data_t data;
+                    int err = lfsr_rbyd_lookupnext(lfs, attrs[i].d.move.rbyd,
+                            attrs[i].d.move.rid, lfsr_tag_next(tag),
+                            &rid, &tag, NULL, &data);
+                    if (err && err != LFS_ERR_NOENT) {
+                        return err;
+                    }
+                    if (err == LFS_ERR_NOENT || rid != attrs[i].d.move.rid) {
+                        break;
+                    }
+
+                    // append the attr
+                    err = lfsr_rbyd_append(lfs, rbyd, attrs[i].id,
+                            tag, 0, data);
+                    if (err) {
+                        return err;
+                    }
+                }
+
+            // write out normal tags normally
+            } else {
+                LFS_ASSERT(!lfsr_tag_isinternal(attrs[i].tag));
+
+                int err = lfsr_rbyd_append(lfs, rbyd,
+                        attrs[i].id-lfs_smax32(start_id, 0),
+                        attrs[i].tag, attrs[i].delta, attrs[i].d.data);
+                if (err) {
+                    return err;
+                }
             }
         }
 
@@ -5776,11 +5830,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     lfsr_fs_flushgdelta(lfs);
     for (lfs_size_t i = 0; i < attr_count; i++) {
         if (attrs[i].tag == LFSR_TAG_GRM) {
-            LFS_ASSERT(lfsr_data_size(attrs[i].data) <= LFSR_GRM_DSIZE);
+            LFS_ASSERT(lfsr_data_size(attrs[i].d.data) <= LFSR_GRM_DSIZE);
             // xor against current gstate value to get our gdelta
             memcpy(lfs->grmd, lfs->grm, LFSR_GRM_DSIZE);
 
-            int err = lfsr_grm_xor(lfs, lfs->grmd, attrs[i].data);
+            int err = lfsr_grm_xor(lfs, lfs->grmd, attrs[i].d.data);
             if (err) {
                 return err;
             }
@@ -5965,7 +6019,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             // to fix grms, we 1. decode, 2. fix, 3. reencode, 4. xor into
             // any other pending grm delta
             lfsr_grm_t grm;
-            lfs_ssize_t d = lfsr_grm_fromdisk(lfs, &grm, attrs[i].data);
+            lfs_ssize_t d = lfsr_grm_fromdisk(lfs, &grm, attrs[i].d.data);
             if (d < 0) {
                 return d;
             }
@@ -6004,7 +6058,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             //
             // gd' = gd xor (grm' xor grm)
             //
-            int err = lfsr_grm_xor(lfs, buf, attrs[i].data);
+            int err = lfsr_grm_xor(lfs, buf, attrs[i].d.data);
             if (err) {
                 return err;
             }
@@ -6134,7 +6188,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     // update our gstate
     for (lfs_size_t i = 0; i < attr_count; i++) {
         if (attrs[i].tag == LFSR_TAG_GRM) {
-            lfs_ssize_t d = lfsr_grm_fromdisk(lfs, &lfs->grm_, attrs[i].data);
+            lfs_ssize_t d = lfsr_grm_fromdisk(lfs, &lfs->grm_, attrs[i].d.data);
             if (d < 0) {
                 return d;
             }
@@ -7103,9 +7157,13 @@ static int lfsr_mountinited(lfs_t *lfs) {
     if (lfsr_grm_hasrm(&lfs->grm_)) {
         LFS_DEBUG("Found pending grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
                 lfs->grm_.rms[0].mid,
-                lfs->grm_.rms[0].rid,
+                (lfs->grm_.rms[0].mid != LFSR_MID_RM
+                    ? lfs->grm_.rms[0].rid
+                    : 0),
                 lfs->grm_.rms[1].mid,
-                lfs->grm_.rms[1].rid);
+                (lfs->grm_.rms[1].mid != LFSR_MID_RM
+                    ? lfs->grm_.rms[1].rid
+                    : 0));
     }
 
     return 0;
@@ -7453,10 +7511,10 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     }
 
     // if we're removing a directory, we need to also remove the
-    // dstart entry, first lets figure out the did
-    uint8_t grm_buf[LFSR_GRM_DSIZE];
-    lfs_ssize_t grm_d;
+    // dstart entry
+    lfsr_grm_t grm_ = lfs->grm_;
     if (tag == LFSR_TAG_DIR) {
+        // first lets figure out the did
         lfsr_data_t data;
         int err = lfsr_mdir_lookup(lfs, &mdir, rid, LFSR_TAG_DID,
                 NULL, &data);
@@ -7508,43 +7566,179 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         }
     empty:;
 
+        // create a grm to remove the dstart entry
+        lfsr_grm_pushrm(&grm_, dstart_mdir.mid, dstart_rid);
+
         // TODO should we just make this an atomic remove?
         // adjust rid if grm is on the same mdir as our dir
-        if (dstart_mdir.mid == mdir.mid && dstart_rid > rid) {
-            dstart_rid -= 1;
+        if (grm_.rms[0].mid == mdir.mid
+                && (lfs_ssize_t)grm_.rms[0].rid > rid) {
+            grm_.rms[0].rid -= 1;
         }
+    }
 
-        // create a grm to remove the dstart entry
-        grm_d = lfsr_grm_todisk(lfs,
-                &(lfsr_grm_t){.rms={
-                    {.mid=dstart_mdir.mid, .rid=dstart_rid},
-                    {.mid=LFSR_MID_RM}}},
-                grm_buf);
-        if (grm_d < 0) {
-            return grm_d;
-        }
+    uint8_t grm_buf[LFSR_GRM_DSIZE];
+    lfs_ssize_t grm_d = lfsr_grm_todisk(lfs, &grm_, grm_buf);
+    if (grm_d < 0) {
+        return grm_d;
     }
 
     // remove the metadata entry
     err = lfsr_mdir_commit(lfs, &mdir, &rid, LFSR_ATTRS(
             LFSR_ATTR(rid, UNR, -1, NULL, 0),
-            (tag == LFSR_TAG_DIR
-                ? LFSR_ATTR(-1, GRM, 0, grm_buf, grm_d)
-                : LFSR_ATTR_NOOP)));
+            LFSR_ATTR(-1, GRM, 0, grm_buf, grm_d)));
     if (err) {
         return err;
     }
 
     // if we were a directory, we need to clean up, fortunately we can leave
     // this up to lfsr_fs_fixgrm
-    if (tag == LFSR_TAG_DIR) {
-        err = lfsr_fs_fixgrm(lfs);
-        if (err) {
-            return err;
+    return lfsr_fs_fixgrm(lfs);
+}
+
+int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
+    // prepare our filesystem for writing
+    int err = lfsr_fs_preparemutation(lfs);
+    if (err) {
+        return err;
+    }
+
+    // lookup old entry
+    lfsr_mdir_t old_mdir;
+    lfs_ssize_t old_rid;
+    lfsr_tag_t old_tag;
+    err = lfsr_mtree_pathlookup(lfs, old_path,
+            &old_mdir, &old_rid, &old_tag,
+            NULL, NULL, NULL);
+    if (err) {
+        return err;
+    }
+
+    // mark old entry for removal with a grm
+    lfsr_grm_t grm_ = lfs->grm_;
+    lfsr_grm_pushrm(&grm_, old_mdir.mid, old_rid);
+
+    // lookup new entry
+    lfsr_mdir_t new_mdir;
+    lfs_ssize_t new_rid;
+    lfsr_tag_t new_tag;
+    lfs_size_t new_did;
+    const char *new_name;
+    lfs_size_t new_name_size;
+    err = lfsr_mtree_pathlookup(lfs, new_path,
+            &new_mdir, &new_rid, &new_tag,
+            &new_did, &new_name, &new_name_size);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    bool exists = (err != LFS_ERR_NOENT);
+
+    // there are a few cases we need to watch out for
+    if (!exists) {
+        // check that name fits
+        if (new_name_size > lfs->name_max) {
+            return LFS_ERR_NAMETOOLONG;
+        }
+
+        // TODO should we just make this an atomic rename?
+        // adjust old rid if grm is on the same mdir as new rid
+        if (grm_.rms[0].mid == new_mdir.mid
+                && (lfs_ssize_t)grm_.rms[0].rid > new_rid) {
+            grm_.rms[0].rid -= 1;
+        }
+
+    } else {
+        // renaming different types is an error
+        if (old_tag != new_tag) {
+            return LFS_ERR_ISDIR;
+        }
+
+        // TODO is it? is this check necessary?
+        // renaming to ourself is a noop
+        if (old_mdir.mid == new_mdir.mid && old_rid == new_rid) {
+            return 0;
+        }
+
+        // if our destination is a directory, we will be implicitly removing
+        // the directory, we need to great a grm for this
+        if (new_tag == LFSR_TAG_DIR) {
+            // TODO deduplicate the isempty check with lfsr_remove?
+            lfsr_data_t data;
+            int err = lfsr_mdir_lookup(lfs, &new_mdir, new_rid, LFSR_TAG_DID,
+                    NULL, &data);
+            if (err) {
+                return err;
+            }
+
+            lfs_size_t did;
+            lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &did);
+            if (d < 0) {
+                return d;
+            }
+
+            // check that the directory is empty
+            lfsr_mdir_t dstart_mdir;
+            lfs_ssize_t dstart_rid;
+            err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
+                    &dstart_mdir, &dstart_rid, NULL, NULL);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
+
+            lfsr_mdir_t mdir_ = dstart_mdir;
+            lfs_ssize_t rid_ = dstart_rid + 1;
+            if (rid_ >= (lfs_ssize_t)mdir_.rbyd.weight) {
+                // out of mdirs?
+                lfs_ssize_t mid = mdir_.mid + 1;
+                if (mid >= (lfs_ssize_t)lfsr_mtree_weight(lfs)) {
+                    goto empty;
+                }
+
+                int err = lfsr_mtree_lookup(lfs, mid, &mdir_);
+                if (err) {
+                    return err;
+                }
+                rid_ = 0;
+            }
+
+            lfsr_tag_t tag_;
+            err = lfsr_mdir_lookup(lfs, &mdir_, rid_, LFSR_TAG_WIDENAME,
+                    &tag_, NULL);
+            if (err) {
+                return err;
+            }
+
+            if (tag_ != LFSR_TAG_DSTART) {
+                return LFS_ERR_NOTEMPTY;
+            }
+        empty:;
+
+            // create a grm to remove the dstart entry
+            lfsr_grm_pushrm(&grm_, dstart_mdir.mid, dstart_rid);
         }
     }
 
-    return 0;
+    uint8_t grm_buf[LFSR_GRM_DSIZE];
+    lfs_ssize_t grm_d = lfsr_grm_todisk(lfs, &grm_, grm_buf);
+    if (grm_d < 0) {
+        return grm_d;
+    }
+
+    // rename our entry, copying all tags associated with the old rid to the
+    // new rid, while also marking the old rid for removal
+    err = lfsr_mdir_commit(lfs, &new_mdir, &new_rid, LFSR_ATTRS(
+            (exists
+                ? LFSR_ATTR(new_rid, UNR, -1, NULL, 0)
+                : LFSR_ATTR_NOOP),
+            LFSR_ATTR_DNAME_(new_rid, old_tag, +1,
+                new_did, new_name, new_name_size),
+            LFSR_ATTR_MOVE(new_rid, MOVE, 0, &old_mdir.rbyd, old_rid),
+            LFSR_ATTR(-1, GRM, 0, grm_buf, grm_d)));
+
+    // we need to clean up any pending grms, fortunately we can leave
+    // this up to lfsr_fs_fixgrm
+    return lfsr_fs_fixgrm(lfs);
 }
 
 int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
@@ -7780,9 +7974,13 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
     if (lfsr_grm_hasrm(&lfs->grm_)) {
         LFS_DEBUG("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
                 lfs->grm_.rms[0].mid,
-                lfs->grm_.rms[0].rid,
+                (lfs->grm_.rms[0].mid != LFSR_MID_RM
+                    ? lfs->grm_.rms[0].rid
+                    : 0),
                 lfs->grm_.rms[1].mid,
-                lfs->grm_.rms[1].rid);
+                (lfs->grm_.rms[1].mid != LFSR_MID_RM
+                    ? lfs->grm_.rms[1].rid
+                    : 0));
 
         int err = lfsr_fs_fixgrm(lfs);
         if (err) {

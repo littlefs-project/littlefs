@@ -566,6 +566,7 @@ int lfsr_remove(lfs_t *lfs, const char *path);
 //
 // Returns a negative error code on failure.
 int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
+int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path);
 #endif
 
 // Find info about a file or directory
