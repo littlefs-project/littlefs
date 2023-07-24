@@ -2728,12 +2728,6 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // append each tag to the tree
     for (lfs_size_t i = 0; i < attr_count; i++) {
-//        // TODO do we really need this?
-//        // skip unknown internal tags (used by upper layers)
-//        if (lfsr_tag_isinternal(attrs[i].tag)) {
-//            continue;
-//        }
-
         // this is a bit of a hack, but ignore any gstate tags here,
         // these need to be handled specially by upper-layers
         if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_GSTATE) {
@@ -2768,7 +2762,8 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     }
 
                     // append the attr
-                    err = lfsr_rbyd_append(lfs, rbyd, attrs[i].id,
+                    err = lfsr_rbyd_append(lfs, rbyd,
+                            attrs[i].id-lfs_smax32(start_id, 0),
                             tag, 0, data);
                     if (err) {
                         return err;
@@ -7628,7 +7623,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     err = lfsr_mtree_pathlookup(lfs, new_path,
             &new_mdir, &new_rid, &new_tag,
             &new_did, &new_name, &new_name_size);
-    if (err && err != LFS_ERR_NOENT) {
+    if (err && (err != LFS_ERR_NOENT || new_rid == -1)) {
         return err;
     }
     bool exists = (err != LFS_ERR_NOENT);
@@ -7643,8 +7638,8 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         // TODO should we just make this an atomic rename?
         // adjust old rid if grm is on the same mdir as new rid
         if (grm_.rms[0].mid == new_mdir.mid
-                && (lfs_ssize_t)grm_.rms[0].rid > new_rid) {
-            grm_.rms[0].rid -= 1;
+                && (lfs_ssize_t)grm_.rms[0].rid >= new_rid) {
+            grm_.rms[0].rid += 1;
         }
 
     } else {
@@ -7958,7 +7953,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
         // remove the rid while also updating our grm
         LFS_ASSERT(lfs->grm_.rms[0].rid < mdir.rbyd.weight);
         err = lfsr_mdir_commit(lfs, &mdir,
-                (lfs_ssize_t*)&lfs->grm_.rms[0].rid, LFSR_ATTRS(
+                &(lfs_ssize_t){lfs->grm_.rms[0].rid}, LFSR_ATTRS(
                     LFSR_ATTR(lfs->grm_.rms[0].rid, UNR, -1, NULL, 0),
                     LFSR_ATTR(-1, GRM, 0, buf, d)));
     }
