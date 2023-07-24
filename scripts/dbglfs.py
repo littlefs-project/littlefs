@@ -2,6 +2,7 @@
 
 import bisect
 import collections as co
+import functools as ft
 import itertools as it
 import math as m
 import os
@@ -589,10 +590,7 @@ class Rbyd:
         return found, mid, mdir, rid, tag, w
 
     # iterate through a directory assuming this is the mtree root
-    def mtree_dir(self, f, block_size, did, *,
-            all=False):
-        all_, all = all, __builtins__.all
-
+    def mtree_dir(self, f, block_size, did):
         # lookup the dstart
         found, mid, mdir, rid, tag, w = self.mtree_namelookup(
             f, block_size, did, b'')
@@ -611,9 +609,8 @@ class Rbyd:
             if did_ != did:
                 break
 
-            # skip dstarts unless all entries are requested
-            if tag != TAG_DSTART or all_:
-                yield name_, mid, mdir, rid, tag, w
+            # yield what we've found
+            yield name_, mid, mdir, rid, tag, w
 
             rid += w
             if rid >= mdir.weight:
@@ -675,6 +672,23 @@ class GState:
             self.gstate[tag] = bytes(a^b for a,b in it.zip_longest(
                 self.gstate[tag], data, fillvalue=0))
 
+    # parsers for some gstate
+    @ft.cached_property
+    def grm(self):
+        if TAG_GRM not in self.gstate:
+            return []
+
+        data = self.gstate[TAG_GRM]
+        d = 0
+        count,  d_ = fromleb128(data[d:]); d += d_
+        rms = []
+        if count <= 2:
+            for _ in range(count):
+                mid, d_ = fromleb128(data[d:]); d += d_
+                rid, d_ = fromleb128(data[d:]); d += d_
+                rms.append((mid, rid))
+        return rms
+
 def grepr(tag, data):
     if tag == TAG_GRM:
         d = 0
@@ -697,8 +711,8 @@ def frepr(mdir, rid, tag):
     if tag == TAG_DSTART:
         # read the did
         did = '?'
-        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_DSTART)
-        if not done and rid_ == rid and tag_ == TAG_DSTART:
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, tag)
+        if not done and rid_ == rid and tag_ == tag:
             did, _ = fromleb128(data)
             did = '0x%x' % did
         return 'dstart %s' % did
@@ -744,11 +758,14 @@ def main(disk, mroots=None, *,
         # - are we corrupted?
         # - collect superconfig
         # - collect gstate
+        # - any missing or orphaned dstart entries
         mweight = 0
         rweight = 0
         corrupted = False
         gstate = GState()
         config = {}
+        dir_dids = [(0, b'', -1, None, -1, TAG_DID, 0)]
+        dstart_dids = []
 
         mroot = Rbyd.fetch(f, block_size, mroots)
         mdepth = 1
@@ -763,6 +780,15 @@ def main(disk, mroots=None, *,
             gstate.xor(-1, mroot)
             # get the superconfig
             config = superconfig(mroot)
+
+            # find any dids
+            for rid, tag, w, j, d, data in mroot:
+                if tag == TAG_DID:
+                    did, d = fromleb128(data)
+                    dir_dids.append((did, data[d:], -1, mroot, rid, tag, w))
+                elif tag == TAG_DSTART:
+                    did, d = fromleb128(data)
+                    dstart_dids.append((did, data[d:], -1, mroot, rid, tag, w))
 
             # fetch the next mroot
             done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MROOT)
@@ -786,6 +812,17 @@ def main(disk, mroots=None, *,
             else:
                 rweight = max(rweight, mdir.weight)
                 gstate.xor(0, mdir)
+
+                # find any dids
+                for rid, tag, w, j, d, data in mdir:
+                    if tag == TAG_DID:
+                        did, d = fromleb128(data)
+                        dir_dids.append((
+                            did, data[d:], 0, mdir, rid, tag, w))
+                    elif tag == TAG_DSTART:
+                        did, d = fromleb128(data)
+                        dstart_dids.append((
+                            did, data[d:], 0, mdir, rid, tag, w))
 
         # fetch the actual mtree, if there is one
         mtree = None
@@ -827,6 +864,30 @@ def main(disk, mroots=None, *,
                         rweight = max(rweight, mdir_.weight)
                         gstate.xor(mid, mdir_)
 
+                        # find any dids
+                        for rid, tag, w, j, d, data in mdir_:
+                            if tag == TAG_DID:
+                                did, d = fromleb128(data)
+                                dir_dids.append((
+                                    did, data[d:], mid, mdir_, rid, tag, w))
+                            elif tag == TAG_DSTART:
+                                did, d = fromleb128(data)
+                                dstart_dids.append((
+                                    did, data[d:], mid, mdir_, rid, tag, w))
+
+        # remove grms from our found dids, we treat these as already deleted
+        grmed_dir_dids = {did_
+            for (did_, name_, mid_, mdir_, rid_, tag_, w_) in dir_dids
+            if (max(mid_, 0), rid_) not in gstate.grm}
+        grmed_dstart_dids = {did_
+            for (did_, name_, mid_, mdir_, rid_, tag_, w_) in dstart_dids
+            if (max(mid_, 0), rid_) not in gstate.grm}
+
+        # treat the filesystem as corrupted if our dirs and dstarts are
+        # mismatched, this should never happen unless there's a bug
+        if grmed_dir_dids != grmed_dstart_dids:
+            corrupted = True
+
         # are we going to end up rendering the fstree?
         fstree = args.get('fstree') or not (
             args.get('config') or args.get('gstate'))
@@ -839,8 +900,7 @@ def main(disk, mroots=None, *,
                 depth_ = 0
                 width_ = 0
                 for name, mid, mdir, rid, tag, w in mroot.mtree_dir(
-                        f, block_size, did,
-                        all=args.get('all')):
+                        f, block_size, did):
                     width_ = max(width_, len(name))
                     # recurse?
                     if tag == TAG_DIR and depth > 1:
@@ -1002,11 +1062,58 @@ def main(disk, mroots=None, *,
             def rec_dir(did, depth, prefixes=('', '', '', '')):
                 nonlocal pmid
                 # collect all entries first so we know when the dir ends
-                dir = list(mroot.mtree_dir(f, block_size, did,
-                    all=args.get('all')))
+                dir = []
+                for name, mid, mdir, rid, tag, w in mroot.mtree_dir(
+                        f, block_size, did):
+                    if not args.get('all'):
+                        # skip dstarts
+                        if tag == TAG_DSTART:
+                            continue
+                        # skip grmed entries
+                        if (max(mid, 0), rid) in gstate.grm:
+                            continue
+                    dir.append((name, mid, mdir, rid, tag, w))
+
+                # if we're root, append any orphaned dstart entries so they
+                # get reported
+                if did == 0:
+                    for did, name, mid, mdir, rid, tag, w in dstart_dids:
+                        if did in grmed_dir_dids:
+                            continue
+                        # skip grmed entries
+                        if (not args.get('all')
+                                and (max(mid, 0), rid) in gstate.grm):
+                            continue
+                        dir.append((name, mid, mdir, rid, tag, w))
+
                 for i, (name, mid, mdir, rid, tag, w) in enumerate(dir):
-                    print('%s%12s %*s %-*s  %s%s' % (
-                        '\x1b[90m' if color and tag == TAG_DSTART else '',
+                    # some special situations worth reporting
+                    notes = []
+                    grmed = (max(mid, 0), rid) in gstate.grm
+                    # grmed?
+                    if grmed:
+                        notes.append('grmed')
+                    # missing dstart?
+                    if tag == TAG_DIR:
+                        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
+                            rid, TAG_DID)
+                        if not done and rid_ == rid and tag_ == TAG_DID:
+                            did_, _ = fromleb128(data)
+                            if did_ not in grmed_dstart_dids:
+                                notes.append('missing dstart')
+                    # orphaned?
+                    if tag == TAG_DSTART:
+                        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
+                            rid, tag)
+                        if not done and rid_ == rid and tag_ == tag:
+                            did_, _ = fromleb128(data)
+                            if did_ not in grmed_dir_dids:
+                                notes.append('orphaned')
+
+                    # print human readable fstree entry
+                    print('%s%12s %*s %-*s  %s%s%s' % (
+                        '\x1b[90m' if color and (grmed or tag == TAG_DSTART)
+                            else '',
                         '{%s}:' % ','.join('%04x' % block
                             for block in it.chain([mdir.block],
                                 mdir.redund_blocks))
@@ -1018,7 +1125,13 @@ def main(disk, mroots=None, *,
                             prefixes[0+(i==len(dir)-1)],
                             name.decode('utf8')),
                         frepr(mdir, rid, tag),
-                        '\x1b[m' if color and tag == TAG_DSTART else ''))
+                        ' %s(%s)%s' % (
+                            '\x1b[31m' if color and not grmed else '',
+                            ', '.join(notes),
+                            '\x1b[m' if color and not grmed else '')
+                            if notes else '',
+                        '\x1b[m' if color and (grmed or tag == TAG_DSTART)
+                            else ''))
                     pmid = mid
 
                     # print attrs associated with this file?
@@ -1132,7 +1245,6 @@ if __name__ == "__main__":
         '-A', '--attrs',
         action='store_true',
         help="Show all attributes belonging to each file.")
-    # TODO implement this
     parser.add_argument(
         '-a', '--all',
         action='store_true',
