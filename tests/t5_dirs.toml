@@ -5333,6 +5333,625 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+[cases.t5_dirs_read_with_mkdirs]
+defines.N = 5
+# where in the dir read do we mkdir?
+defines.I = 'range(6)'
+# where do we mkdir?
+defines.J = 'range(6)'
+defines.PARENT = [false, true]
+# bit 0x2 = left neighbor
+# bit 0x1 = right neighbor
+defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
+defines.SEEK = [false, true]
+# neighbors only make sense if we have a parent
+if = 'PARENT || NEIGHBORS == 0'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    if (PARENT) {
+        lfsr_mkdir(&lfs, "pricklypear") => 0;
+
+        if (NEIGHBORS & 0x2) {
+            assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
+            lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+        }
+
+        if (NEIGHBORS & 0x1) {
+            assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
+            lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+        }
+    }
+
+    // create our directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i+1);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // start reading
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_tell(&lfs, &dir) => 1;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // read until I
+    for (lfs_size_t i = 0; i < I; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i+1);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    // make a dir at J
+    char name[256];
+    sprintf(name, "%s/dir%04d_", (PARENT ? "pricklypear" : ""), (int)J);
+    lfsr_mkdir(&lfs, name) => 0;
+
+    // seek after mkdir? this tests that the internal position is
+    // updated correctly
+    if (SEEK) {
+        lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
+        assert(off >= 2);
+        lfsr_dir_rewind(&lfs, &dir) => 0;
+        lfsr_dir_seek(&lfs, &dir, off) => 0;
+    }
+
+    // we should be able to keep reading, though we may pick up J
+    for (lfs_size_t i = I + (I >= J ? 1 : 0); i < N+1; i++) {
+        char name[256];
+        sprintf(name, "dir%04d%s", i+1 - (i >= J ? 1 : 0), (i == J ? "_" : ""));
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_read_with_rms]
+defines.N = 5
+# where in the dir read do we rm?
+defines.I = 'range(5)'
+# where do we rm?
+defines.J = 'range(5)'
+defines.PARENT = [false, true]
+# bit 0x2 = left neighbor
+# bit 0x1 = right neighbor
+defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
+defines.SEEK = [false, true]
+# neighbors only make sense if we have a parent
+if = 'PARENT || NEIGHBORS == 0'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    if (PARENT) {
+        lfsr_mkdir(&lfs, "pricklypear") => 0;
+
+        if (NEIGHBORS & 0x2) {
+            assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
+            lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+        }
+
+        if (NEIGHBORS & 0x1) {
+            assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
+            lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+        }
+    }
+
+    // create our directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // start reading
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_tell(&lfs, &dir) => 1;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // read until I
+    for (lfs_size_t i = 0; i < I; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    // remove the dir at J
+    char name[256];
+    sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), (int)J);
+    lfsr_remove(&lfs, name) => 0;
+
+    // seek after remove? this tests that the internal position is
+    // updated correctly
+    if (SEEK) {
+        lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
+        assert(off >= 2);
+        lfsr_dir_rewind(&lfs, &dir) => 0;
+        lfsr_dir_seek(&lfs, &dir, off) => 0;
+    }
+
+    // we should be able to keep reading
+    for (lfs_size_t i = I; i < N; i++) {
+        if (i == J) {
+            continue;
+        }
+
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_read_with_mvs]
+defines.N = 5
+# where in the dir read do we rm?
+defines.I = 'range(5)'
+# where do we rm?
+defines.J = 'range(5)'
+defines.K = 'range(5)'
+defines.BEFORE = [false, true]
+# 0 => no
+# 1 => yes
+# 2 => yes, and rename to new parent
+defines.PARENT = [0, 1, 2]
+# bit 0x2 = left neighbor
+# bit 0x1 = right neighbor
+defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
+defines.SEEK = [false, true]
+# neighbors only make sense if we have a parent
+if = 'PARENT || NEIGHBORS == 0'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    if (PARENT) {
+        lfsr_mkdir(&lfs, "pricklypear") => 0;
+        if (PARENT >= 2) {
+            lfsr_mkdir(&lfs, "quiabentia") => 0;
+        }
+
+        if (NEIGHBORS & 0x2) {
+            assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
+            lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+        }
+
+        if (NEIGHBORS & 0x1) {
+            assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
+            lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+        }
+    }
+
+    // create our directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // start reading
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_tell(&lfs, &dir) => 1;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // read until I
+    for (lfs_size_t i = 0; i < I; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    // rename the dir at J
+    char old_name[256];
+    sprintf(old_name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), (int)J);
+    char new_name[256];
+    sprintf(new_name, "%s/%smved%04d",
+            (PARENT == 1 ? "pricklypear"
+                : PARENT >= 2 ? "quiabentia"
+                : ""),
+            (BEFORE ? "0" : ""),
+            (int)J);
+    lfsr_rename(&lfs, old_name, new_name) => 0;
+
+    // seek after remove? this tests that the internal position is
+    // updated correctly
+    if (SEEK) {
+        lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
+        assert(off >= 2);
+        lfsr_dir_rewind(&lfs, &dir) => 0;
+        lfsr_dir_seek(&lfs, &dir, off) => 0;
+    }
+
+    // we should be able to keep reading
+    for (lfs_size_t i = I; i < N; i++) {
+        if (i == J) {
+            continue;
+        }
+
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    int err = lfsr_dir_read(&lfs, &dir, &info);
+    assert(err == LFS_ERR_NOENT || (!BEFORE && PARENT < 2));
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# dir reads with 2x ops have better chances of catching bugs that depend on
+# invalid dir states
+
+[cases.t5_dirs_read_with_2_mkdirs]
+defines.N = 5
+# where in the dir read do we mkdir?
+defines.I = 'range(6)'
+# where do we mkdir?
+defines.J = 'range(6)'
+defines.K = 'range(6)'
+defines.PARENT = [false, true]
+# bit 0x2 = left neighbor
+# bit 0x1 = right neighbor
+defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
+defines.SEEK = [false, true]
+if = [
+    'J != K',
+    # neighbors only make sense if we have a parent
+    'PARENT || NEIGHBORS == 0',
+]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    if (PARENT) {
+        lfsr_mkdir(&lfs, "pricklypear") => 0;
+
+        if (NEIGHBORS & 0x2) {
+            assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
+            lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+        }
+
+        if (NEIGHBORS & 0x1) {
+            assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
+            lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+        }
+    }
+
+    // create our directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i+1);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // start reading
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_tell(&lfs, &dir) => 1;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // read until I
+    for (lfs_size_t i = 0; i < I; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i+1);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    // make a dir at J
+    char name[256];
+    sprintf(name, "%s/dir%04d_", (PARENT ? "pricklypear" : ""), (int)J);
+    lfsr_mkdir(&lfs, name) => 0;
+
+    // make a dir at K
+    sprintf(name, "%s/dir%04d_", (PARENT ? "pricklypear" : ""), (int)K);
+    lfsr_mkdir(&lfs, name) => 0;
+
+    // seek after mkdir? this tests that the internal position is
+    // updated correctly
+    if (SEEK) {
+        lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
+        assert(off >= 2);
+        lfsr_dir_rewind(&lfs, &dir) => 0;
+        lfsr_dir_seek(&lfs, &dir, off) => 0;
+    }
+
+    // we should be able to keep reading, though we may pick up J
+    for (lfs_size_t i = I + (I >= J ? 1 : 0) + (I >= K ? 1 : 0); i < N+2; i++) {
+        char name[256];
+        sprintf(name, "dir%04d%s",
+                i+1 - (i >= J + (J >= K ? 1 : 0) ? 1 : 0)
+                    - (i >= K + (K >= J ? 1 : 0) ? 1 : 0),
+                (i == J + (J > K ? 1 : 0) || i == K + (K > J ? 1 : 0)
+                    ? "_" : ""));
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_read_with_2_rms]
+defines.N = 5
+# where in the dir read do we rm?
+defines.I = 'range(5)'
+# where do we rm?
+defines.J = 'range(5)'
+defines.K = 'range(5)'
+defines.PARENT = [false, true]
+# bit 0x2 = left neighbor
+# bit 0x1 = right neighbor
+defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
+defines.SEEK = [false, true]
+if = [
+    'J != K',
+    # neighbors only make sense if we have a parent
+    'PARENT || NEIGHBORS == 0',
+]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    if (PARENT) {
+        lfsr_mkdir(&lfs, "pricklypear") => 0;
+
+        if (NEIGHBORS & 0x2) {
+            assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
+            lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+        }
+
+        if (NEIGHBORS & 0x1) {
+            assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
+            lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+        }
+    }
+
+    // create our directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // start reading
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_tell(&lfs, &dir) => 1;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // read until I
+    for (lfs_size_t i = 0; i < I; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    // remove the dir at J
+    char name[256];
+    sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), (int)J);
+    lfsr_remove(&lfs, name) => 0;
+
+    // remove the dir at K
+    sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), (int)K);
+    lfsr_remove(&lfs, name) => 0;
+
+    // seek after remove? this tests that the internal position is
+    // updated correctly
+    if (SEEK) {
+        lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
+        assert(off >= 2);
+        lfsr_dir_rewind(&lfs, &dir) => 0;
+        lfsr_dir_seek(&lfs, &dir, off) => 0;
+    }
+
+    // we should be able to keep reading
+    for (lfs_size_t i = I; i < N; i++) {
+        if (i == J || i == K) {
+            continue;
+        }
+
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.t5_dirs_read_with_2_mvs]
+defines.N = 5
+# where in the dir read do we rm?
+defines.I = 'range(5)'
+# where do we rm?
+defines.J = 'range(5)'
+defines.K = 'range(5)'
+defines.BEFORE = [false, true]
+# 0 => no
+# 1 => yes
+# 2 => yes, and rename to new parent
+defines.PARENT = [0, 1, 2]
+# bit 0x2 = left neighbor
+# bit 0x1 = right neighbor
+defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
+defines.SEEK = [false, true]
+# neighbors only make sense if we have a parent
+if = [
+    'J != K',
+    # neighbors only make sense if we have a parent
+    'PARENT || NEIGHBORS == 0',
+]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, cfg) => 0;
+
+    if (PARENT) {
+        lfsr_mkdir(&lfs, "pricklypear") => 0;
+        if (PARENT >= 2) {
+            lfsr_mkdir(&lfs, "quiabentia") => 0;
+        }
+
+        if (NEIGHBORS & 0x2) {
+            assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
+            lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+        }
+
+        if (NEIGHBORS & 0x1) {
+            assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
+            lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+        }
+    }
+
+    // create our directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
+
+    // start reading
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_tell(&lfs, &dir) => 1;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+
+    // read until I
+    for (lfs_size_t i = 0; i < I; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    // rename the dir at J
+    char old_name[256];
+    sprintf(old_name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), (int)J);
+    char new_name[256];
+    sprintf(new_name, "%s/%smved%04d",
+            (PARENT == 1 ? "pricklypear"
+                : PARENT >= 2 ? "quiabentia"
+                : ""),
+            (BEFORE ? "0" : ""),
+            (int)J);
+    lfsr_rename(&lfs, old_name, new_name) => 0;
+
+    // rename the dir at K
+    sprintf(old_name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), (int)K);
+    sprintf(new_name, "%s/%smved%04d",
+            (PARENT == 1 ? "pricklypear"
+                : PARENT >= 2 ? "quiabentia"
+                : ""),
+            (BEFORE ? "0" : ""),
+            (int)K);
+    lfsr_rename(&lfs, old_name, new_name) => 0;
+
+    // seek after remove? this tests that the internal position is
+    // updated correctly
+    if (SEEK) {
+        lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
+        assert(off >= 2);
+        lfsr_dir_rewind(&lfs, &dir) => 0;
+        lfsr_dir_seek(&lfs, &dir, off) => 0;
+    }
+
+    // we should be able to keep reading
+    for (lfs_size_t i = I; i < N; i++) {
+        if (i == J || i == K) {
+            continue;
+        }
+
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    int err = lfsr_dir_read(&lfs, &dir, &info);
+    assert(err == LFS_ERR_NOENT || (!BEFORE && PARENT < 2));
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
 
 ## Recursive tests
 
@@ -5423,9 +6042,10 @@ code = '''
         // seek between removes? this tests that the internal position is
         // updated correctly
         if (SEEK) {
-            lfsr_dir_tell(&lfs, &dir) => 2;
+            lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
+            assert(off == 2);
             lfsr_dir_rewind(&lfs, &dir) => 0;
-            lfsr_dir_seek(&lfs, &dir, 2) => 0;
+            lfsr_dir_seek(&lfs, &dir, off) => 0;
         }
     }
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
