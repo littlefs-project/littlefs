@@ -6453,6 +6453,11 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
 
         // found end of path, we must be done parsing our path now
         if (name[0] == '\0') {
+            // generally we don't allow operations that change our root,
+            // report root as inval, but let upper layers intercept this
+            if (rid == -1) {
+                return LFS_ERR_INVAL;
+            }
             return 0;
         }
 
@@ -7748,8 +7753,15 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     int err = lfsr_mtree_pathlookup(lfs, path,
             &mdir, &rid, &tag,
             NULL, &name, &name_size);
-    if (err) {
+    if (err && err != LFS_ERR_INVAL) {
         return err;
+    }
+
+    // special case for root
+    if (err == LFS_ERR_INVAL) {
+        strcpy(info->name, "/");
+        info->type = LFS_TYPE_DIR;
+        return 0;
     }
 
     // fill out our info struct
@@ -7772,7 +7784,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     int err = lfsr_mtree_pathlookup(lfs, path,
             &mdir, &rid, &tag,
             NULL, NULL, NULL);
-    if (err) {
+    if (err && err != LFS_ERR_INVAL) {
         return err;
     }
 
@@ -7782,8 +7794,9 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     }
 
     // read our did from the mdir, unless we're root
-    dir->did = 0;
-    if (rid != -1) {
+    if (err == LFS_ERR_INVAL) {
+        dir->did = 0;
+    } else {
         lfsr_data_t data;
         int err = lfsr_mdir_lookup(lfs, &mdir, rid, LFSR_TAG_DID,
                 NULL, &data);
@@ -7889,7 +7902,7 @@ int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_off_t off) {
     //
     // note the -2 to adjust for "." and ".." entries
     if (off > 2) {
-        err = lfsr_mtree_seek(lfs, &dir->mdir.mdir, &dir->mdir.rid, off);
+        err = lfsr_mtree_seek(lfs, &dir->mdir.mdir, &dir->mdir.rid, off - 2);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
