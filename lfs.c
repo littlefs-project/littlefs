@@ -3354,7 +3354,7 @@ static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         // fortunately the self-balancing nature of rybds give us a tight
         // bound on the number of alt pointers
         real_dsize
-                += (2*lfs_nlog2(count+1)+1) * LFSR_TAG_DSIZE
+                += (2*lfs_nlog2(count)+1) * LFSR_TAG_DSIZE
                 + LFSR_TAG_DSIZE
                 + lfsr_data_size(data);
 
@@ -6242,7 +6242,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             for (lfs_size_t i = 0; i < attr_count; i++) {
                 if (opened->mdir.mid == mdir->mid
                         && opened->rid >= attrs[i].id) {
-                    LFS_ASSERT(opened->rid <= (lfs_ssize_t)mdir->rbyd.weight);
                     // removed?
                     if (opened->rid + attrs[i].delta < attrs[i].id) {
                         // note we have different behavior for files and dirs
@@ -6256,16 +6255,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                         }
                     } else {
                         opened->rid += attrs[i].delta;
-                        // adjust dir position
-                        if (type == LFS_TYPE_DIR) {
-                            ((lfsr_dir_t*)opened)->pos += attrs[i].delta;
-                        }
-                    }
-
-                } else if (opened->mdir.mid > mdir->mid) {
-                    // adjust dir position
-                    if (type == LFS_TYPE_DIR) {
-                        ((lfsr_dir_t*)opened)->pos += attrs[i].delta;
                     }
                 }
             }
@@ -6307,9 +6296,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     // update our mroot and mtree
     lfs->mroot = mroot_;
     lfs->mtree = mtree_;
-    lfs->mlimit = lfs_max32(lfs->mlimit, lfs_max32(
-            mdir_.rbyd.weight,
-            msibling_.rbyd.weight));
 
     return 0;
 }
@@ -6564,10 +6550,6 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             return err;
         }
 
-        // keep track of the largest mdir we've seen, reset here
-        // since this is the first mdir we see
-        lfs->mlimit = traversal->mdir.rbyd.weight;
-
         if (mid_) {
             *mid_ = -1;
         }
@@ -6604,9 +6586,6 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             if (err) {
                 return err;
             }
-
-            // keep track of the largest mdir we've seen
-            lfs->mlimit = lfs_max32(lfs->mlimit, traversal->mdir.rbyd.weight);
 
             if (mid_) {
                 *mid_ = -1;
@@ -6725,9 +6704,6 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         if (err) {
             return err;
         }
-
-        // keep track of the largest mdir we've seen
-        lfs->mlimit = lfs_max32(lfs->mlimit, traversal->mdir.rbyd.weight);
 
         if (mid_) {
             *mid_ = mid;
@@ -7404,22 +7380,34 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // Our directory needs an arbitrary directory-id. To find one with
-    // hopefully few collisions, we use a hash of the full path. Since
-    // we have a CRC handy, we can use that.
+    // hopefully few collisions, we use a hash of the full path using our CRC,
+    // since we have it handy.
     //
     // We also truncate to make better use of our leb128 encoding. This is
-    // pretty arbitrary, but we don't want collisions, so we truncate to
-    // our best >= estimate of the number of metadata entries. Worst case
-    // this is >= ~2x the number of dids in the system, since each dir needs
-    // a dir entry and dstart entry.
+    // relatively arbitrary, but if we truncate too much we risk increasing
+    // the number of collisions, so we want to aim for ~2x the number dids
+    // in the system. We don't actually know the number of dids in the system,
+    // but we can use a heuristic based on the maximum possible number of
+    // directories in the current mtree assuming our block size.
+    //
+    // - Each directory needs 1 name tag, 1 did tag, and 1 dstart
+    // - Each tag needs ~2 alts with our current compaction strategy
+    // - Each tag/alt encodes to a minimum of 4 bytes
+    // - We can also assume ~1/2 block utilization due to our split threshold
+    //
+    // This gives us ~3*3*4*2 or ~72 bytes per directory at minimum.
+    // Multiplying by 2 and rounding down to the nearest power of 2 for cheaper
+    // division gives us a heuristic of ~block_size/32 directories per mdir.
+    //
+    // This is a nice number because for common NOR flash geometry,
+    // 4096/32 = 128, so a filesystem with a single mdir encodes dids in a
+    // single byte.
     //
     lfs_size_t did = lfs_crc32c(0, path, strlen(path))
-            // This complicated bit of logic determines the upper limit of
-            // metadata entries, limited to 2^32. This is done post-log to
-            // try to avoid issues with integer overflow.
+            // note we need to be careful to catch integer overflow
             & ((1 << lfs_min32(
                 lfs_nlog2(lfsr_mtree_weight(lfs))
-                    + lfs_nlog2(lfs->mlimit),
+                    + lfs_nlog2(lfs->cfg->block_size/32),
                 32)) - 1);
 
     // Check if we have a collision. If we do, search for the next
@@ -7956,6 +7944,14 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
         // mark grm as taken care of
         lfsr_grm_t grm_ = lfs->grm_;
         lfsr_grm_poprm(&grm_);
+
+        // TODO should this just be implicit in lfsr_mdir_commit? compare cost?
+        // make sure to adjust any remaining grms
+        if (grm_.rms[0].mid == lfs->grm_.rms[0].mid
+                && grm_.rms[0].rid >= lfs->grm_.rms[0].rid) {
+            LFS_ASSERT(grm_.rms[0].rid != lfs->grm_.rms[0].rid);
+            grm_.rms[0].rid -= 1;
+        }
 
         uint8_t buf[LFSR_GRM_DSIZE];
         lfs_ssize_t d = lfsr_grm_todisk(lfs, &grm_, buf);
