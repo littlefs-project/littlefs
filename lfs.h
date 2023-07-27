@@ -47,6 +47,11 @@ typedef uint32_t lfs_block_t;
 typedef uint16_t lfsr_tag_t;
 typedef int16_t lfsr_stag_t;
 
+// mids are a tuple of bid (index in the mtree) and rid (index in the mdir)
+// shoved into an integer
+typedef lfs_size_t lfsr_mid_t;
+typedef lfs_ssize_t lfsr_smid_t;
+
 // Maximum name size in bytes, may be redefined to reduce the size of the
 // info struct. Limited to <= 1022. Stored in superblock and must be
 // respected by other littlefs drivers.
@@ -425,7 +430,7 @@ typedef struct lfs_dir {
 typedef struct lfsr_dir {
     lfsr_openedmdir_t mdir;
     lfs_size_t did;
-    lfs_off_t pos;
+    uint8_t dots;
 } lfsr_dir_t;
 
 // littlefs file type

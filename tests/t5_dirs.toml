@@ -5081,31 +5081,37 @@ code = '''
 
     // read our directory
     //
-    // Note tell's value is not guaranteed! We can test the exact value only
-    // because these tests are tightly bound to the current littlefs version.
+    // we can't really make many assumptions about tell's value, so just
+    // check for no errors
     //
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
-    lfsr_dir_tell(&lfs, &dir) => 0;
+    lfs_soff_t off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
     struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    off = lfsr_dir_read(&lfs, &dir, &info);
+    assert(off >= 0);
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
+    off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_dir_tell(&lfs, &dir) => 2 + i;
+        off = lfsr_dir_tell(&lfs, &dir);
+        assert(off >= 0);
         char name[256];
         sprintf(name, "dir%04d", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
     }
-    lfsr_dir_tell(&lfs, &dir) => 2 + N;
+    off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_tell(&lfs, &dir) => 2 + N;
+    off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
     lfsr_dir_close(&lfs, &dir) => 0;
 
     lfsr_unmount(&lfs) => 0;
@@ -5134,48 +5140,58 @@ code = '''
     lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
 
     // read our directory once
-    lfsr_dir_tell(&lfs, &dir) => 0;
+    lfs_soff_t off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
     struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
+    off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_dir_tell(&lfs, &dir) => 2 + i;
+        off = lfsr_dir_tell(&lfs, &dir);
+        assert(off >= 0);
         char name[256];
         sprintf(name, "dir%04d", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
     }
-    lfsr_dir_tell(&lfs, &dir) => 2 + N;
+    off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_tell(&lfs, &dir) => 2 + N;
+    off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
 
     // now read it again
     lfsr_dir_rewind(&lfs, &dir) => 0;
-    lfsr_dir_tell(&lfs, &dir) => 0;
+    off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
+    off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_dir_tell(&lfs, &dir) => 2 + i;
+        off = lfsr_dir_tell(&lfs, &dir);
+        assert(off >= 0);
         char name[256];
         sprintf(name, "dir%04d", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
     }
-    lfsr_dir_tell(&lfs, &dir) => 2 + N;
+    off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_tell(&lfs, &dir) => 2 + N;
+    off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
 
     lfsr_dir_close(&lfs, &dir) => 0;
 
@@ -5205,45 +5221,53 @@ code = '''
     lfsr_dir_open(&lfs, &dir, (PARENT ? "pricklypear" : "/")) => 0;
 
     // read our directory once
-    lfsr_dir_tell(&lfs, &dir) => 0;
+    lfs_soff_t offs[2+N+2];
+    offs[0] = lfsr_dir_tell(&lfs, &dir);
+    assert(offs[0] >= 0);
     struct lfs_info info;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
+    offs[1] = lfsr_dir_tell(&lfs, &dir);
+    assert(offs[1] >= 0);
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_dir_tell(&lfs, &dir) => 2 + i;
+        offs[2+i] = lfsr_dir_tell(&lfs, &dir);
+        assert(offs[2+i] >= 0);
         char name[256];
         sprintf(name, "dir%04d", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
     }
-    lfsr_dir_tell(&lfs, &dir) => 2 + N;
+    offs[2+N+0] = lfsr_dir_tell(&lfs, &dir);
+    assert(offs[2+N+0] >= 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_tell(&lfs, &dir) => 2 + N;
+    offs[2+N+1] = lfsr_dir_tell(&lfs, &dir);
+    assert(offs[2+N+1] >= 0);
 
     // now try to seek to each entry explicitly
-    lfsr_dir_seek(&lfs, &dir, 0) => 0;
+    lfsr_dir_seek(&lfs, &dir, offs[0]) => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_seek(&lfs, &dir, 1) => 0;
+    lfsr_dir_seek(&lfs, &dir, offs[1]) => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     for (lfs_size_t i = 0; i < N; i++) {
-        lfsr_dir_seek(&lfs, &dir, 2 + i) => 0;
+        lfsr_dir_seek(&lfs, &dir, offs[2+i]) => 0;
         char name[256];
         sprintf(name, "dir%04d", i);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         assert(info.type == LFS_TYPE_DIR);
     }
-    lfsr_dir_seek(&lfs, &dir, 2 + N) => 0;
+    lfsr_dir_seek(&lfs, &dir, offs[2+N+0]) => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_seek(&lfs, &dir, offs[2+N+1]) => 0;
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
 
     lfsr_dir_close(&lfs, &dir) => 0;
@@ -5289,7 +5313,6 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -5297,6 +5320,8 @@ code = '''
     assert(strcmp(info.name, "ardvark") == 0);
     assert(info.type == LFS_TYPE_DIR);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfs_soff_t off = lfsr_dir_tell(&lfs, &dir);
+    assert(off >= 0);
 
     // reading again should still return noent
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -5304,10 +5329,10 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
 
     // seeking past the end of the directory should still return noent
-    lfsr_dir_seek(&lfs, &dir, 4) => 0;
+    lfsr_dir_seek(&lfs, &dir, off) => 0;
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
 
-    lfsr_dir_seek(&lfs, &dir, 40) => 0;
+    lfsr_dir_seek(&lfs, &dir, off + 1000) => 0;
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
 
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
@@ -5319,7 +5344,6 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -5379,7 +5403,6 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -5402,7 +5425,7 @@ code = '''
     // updated correctly
     if (SEEK) {
         lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
-        assert(off >= 2);
+        assert(off >= 0);
         lfsr_dir_rewind(&lfs, &dir) => 0;
         lfsr_dir_seek(&lfs, &dir, off) => 0;
     }
@@ -5468,7 +5491,6 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -5491,7 +5513,7 @@ code = '''
     // updated correctly
     if (SEEK) {
         lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
-        assert(off >= 2);
+        assert(off >= 0);
         lfsr_dir_rewind(&lfs, &dir) => 0;
         lfsr_dir_seek(&lfs, &dir, off) => 0;
     }
@@ -5569,7 +5591,6 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -5599,7 +5620,7 @@ code = '''
     // updated correctly
     if (SEEK) {
         lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
-        assert(off >= 2);
+        assert(off >= 0);
         lfsr_dir_rewind(&lfs, &dir) => 0;
         lfsr_dir_seek(&lfs, &dir, off) => 0;
     }
@@ -5677,7 +5698,6 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -5704,7 +5724,7 @@ code = '''
     // updated correctly
     if (SEEK) {
         lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
-        assert(off >= 2);
+        assert(off >= 0);
         lfsr_dir_rewind(&lfs, &dir) => 0;
         lfsr_dir_seek(&lfs, &dir, off) => 0;
     }
@@ -5778,7 +5798,6 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -5805,7 +5824,7 @@ code = '''
     // updated correctly
     if (SEEK) {
         lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
-        assert(off >= 2);
+        assert(off >= 0);
         lfsr_dir_rewind(&lfs, &dir) => 0;
         lfsr_dir_seek(&lfs, &dir, off) => 0;
     }
@@ -5887,7 +5906,6 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
     assert(info.type == LFS_TYPE_DIR);
-    lfsr_dir_tell(&lfs, &dir) => 1;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
@@ -5927,7 +5945,7 @@ code = '''
     // updated correctly
     if (SEEK) {
         lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
-        assert(off >= 2);
+        assert(off >= 0);
         lfsr_dir_rewind(&lfs, &dir) => 0;
         lfsr_dir_seek(&lfs, &dir, off) => 0;
     }
@@ -6043,7 +6061,7 @@ code = '''
         // updated correctly
         if (SEEK) {
             lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
-            assert(off == 2);
+            assert(off >= 0);
             lfsr_dir_rewind(&lfs, &dir) => 0;
             lfsr_dir_seek(&lfs, &dir, off) => 0;
         }
@@ -6198,7 +6216,7 @@ code = '''
         // updated correctly
         if (SEEK) {
             lfs_ssize_t off = lfsr_dir_tell(&lfs, &dir);
-            assert(off >= 2);
+            assert(off >= 0);
             lfsr_dir_rewind(&lfs, &dir) => 0;
             lfsr_dir_seek(&lfs, &dir, off) => 0;
         }

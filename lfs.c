@@ -5056,6 +5056,54 @@ static int lfsr_btree_traversal_next(lfs_t *lfs,
 
 /// Metadata pair operations ///
 
+// mids are a tuple of bid (index in the mtree) and rid (index in the mdir)
+// shoved into an integer
+//
+// We want to maximize our encoding space, so we conservatively carve out
+// only enough space to fit the maximum possible number of rids in an mdir.
+// In theory, as the mdirs get larger, we need fewer mdirs for a filesystem of
+// a given word size.
+//
+// - Each file neads 1 tag minimum
+// - Each tag needs ~2 alts with our current compaction strategy
+// - Each tag/alt encodes to a minimum of 4 bytes
+//
+// This gives us ~1*3*4 or ~12 bytes per rid minimum. Rounding down to the
+// nearest power of 2 gives us ~block_size/8 rids per block at most.
+//
+#define LFSR_MID(_lfs, _bid, _rid) \
+    (((_bid) << lfs_nlog2((_lfs)->cfg->block_size/8)) \
+        | ((_rid) & ((1 << lfs_nlog2((_lfs)->cfg->block_size/8))-1)))
+
+// reserved values to represent "." and ".." entries
+//
+// note these need to be positive values to fit in the lfsr_soff_t returned
+// by lfsr_dir_tell
+//
+// TODO is this really the best way to carve out space for these entries?
+// TODO do we need an mdir_limit in the superconfig? since this makes
+// mid=max problematic
+enum {
+    LFSR_MID_DOT    = 0x7fffffff & -2,
+    LFSR_MID_DOTDOT = 0x7fffffff & -1,
+};
+
+static inline lfs_ssize_t lfsr_mid_bid(lfs_t *lfs, lfsr_mid_t mid) {
+    // TODO can we get rid of this?
+    // adjust mid if mtree is inlined
+    if (lfsr_mtree_isinlined(lfs)) {
+        return LFSR_MID_MROOT;
+    }
+    // TODO should this be stored in lfs_t?
+    return mid >> lfs_nlog2(lfs->cfg->block_size/8);
+}
+
+static inline lfs_size_t lfsr_mid_rid(lfs_t *lfs, lfsr_mid_t mid) {
+    // TODO should this be stored in lfs_t?
+    return mid & ((1 << lfs_nlog2(lfs->cfg->block_size/8))-1);
+}
+
+
 // mptr things
 typedef struct lfsr_mptr {
     lfs_block_t blocks[2];
@@ -7798,7 +7846,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
         }
     }
 
-    // leave it up to rewind to initialize pos/mid/rid
+    // leave it up to rewind to initialize mid/dots
     err = lfsr_dir_rewind(lfs, dir);
     if (err) {
         return err;
@@ -7818,16 +7866,16 @@ int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
 int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
     memset(info, 0, sizeof(struct lfs_info));
 
-    // handle "." and ".." specially
-    if (dir->pos == 0) {
+    // handle dots specially
+    if (dir->dots == 0) {
         info->type = LFS_TYPE_DIR;
         strcpy(info->name, ".");
-        dir->pos += 1;
+        dir->dots += 1;
         return 0;
-    } else if (dir->pos == 1) {
+    } else if (dir->dots == 1) {
         info->type = LFS_TYPE_DIR;
         strcpy(info->name, "..");
-        dir->pos += 1;
+        dir->dots += 1;
         return 0;
     }
 
@@ -7847,67 +7895,95 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         return err;
     }
 
-    // found another directory's dstart? we must be done
-    if (tag == LFSR_TAG_DSTART) {
-        return LFS_ERR_NOENT;
-    }
-
-    // fill in our info struct
-    info->type = lfsr_tag_filetype(tag);
-
-    LFS_ASSERT(lfsr_data_size(data) <= LFS_NAME_MAX);
-    lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &(uint32_t){0});
+    lfs_size_t did;
+    lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &did);
     if (d < 0) {
         return d;
     }
+
+    // did mismatch? we must be done
+    if (did != dir->did) {
+        return LFS_ERR_NOENT;
+    }
+
+    // get file name from the name entry
+    LFS_ASSERT(lfsr_data_size(data)-d <= LFS_NAME_MAX);
     d = lfsr_data_read(lfs, data, d, info->name, LFS_NAME_MAX);
     if (d < 0) {
         return d;
     }
     info->name[d] = '\0';
 
-    // TODO size once we actually have regular files
+    // get file type from the tag
+    info->type = lfsr_tag_filetype(tag);
+
+    // TODO get  size once we actually have regular files
 
     // eagerly look up the next entry
     err = lfsr_mtree_seek(lfs, &dir->mdir.mdir, &dir->mdir.rid, 1);
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
-    dir->pos += 1;
 
     return 0;
 }
 
 int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_off_t off) {
-    // first rewind
-    int err = lfsr_dir_rewind(lfs, dir);
+    // off should never be negative, most likely an error went unchecked
+    //
+    // TODO is this the right approach? should we just assert if we detect
+    // a modified directory during seek?
+    // Note that aside from negative offsets, all other offset are accepted.
+    // This makes it so seeking to an outdated offset in the case of concurrent
+    // modification is at least not an assert, though it may repeat files in
+    // the directory.
+    LFS_ASSERT((lfs_soff_t)off > 0);
+
+    // handle dots specially
+    if (off == LFSR_MID_DOT || off == LFSR_MID_DOTDOT) {
+        int err = lfsr_dir_rewind(lfs, dir);
+        if (err) {
+            return err;
+        }
+
+        dir->dots = off - LFSR_MID_DOT;
+        return 0;
+    }
+    dir->dots = 2;
+
+    // find our mdir
+    lfs_ssize_t mid = lfsr_mid_bid(lfs, off);
+    int err = lfsr_mtree_lookup(lfs,
+            lfs_smin32(mid, (lfs_ssize_t)lfsr_mtree_weight(lfs)-1),
+            &dir->mdir.mdir);
     if (err) {
         return err;
     }
 
-    // then seek to the requested offset, we leave it up to lfsr_mtree_seek
-    // to make this efficient
-    //
-    // note the -2 to adjust for "." and ".." entries
-    if (off > 2) {
-        err = lfsr_mtree_seek(lfs, &dir->mdir.mdir, &dir->mdir.rid, off - 2);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
-        }
+    // and update our rid, clamping to rbyd weight 
+    lfs_ssize_t rid = lfsr_mid_rid(lfs, off);
+    if (mid > dir->mdir.mdir.mid
+            || rid >= (lfs_ssize_t)dir->mdir.mdir.rbyd.weight) {
+        dir->mdir.rid = dir->mdir.mdir.rbyd.weight;
+    } else {
+        dir->mdir.rid = rid;
     }
-    dir->pos = off;
-
     return 0;
 }
 
 lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir) {
-    (void)lfs;
-    return dir->pos;
+    if (dir->dots == 0) {
+        return LFSR_MID_DOT;
+    } else if (dir->dots == 1) {
+        return LFSR_MID_DOTDOT;
+    } else {
+        return LFSR_MID(lfs, lfs_smax32(dir->mdir.mdir.mid, 0), dir->mdir.rid);
+    }
 }
 
 int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
-    // reset pos
-    dir->pos = 0;
+    // reset dots
+    dir->dots = 0;
 
     // lookup our dstart in the mtree
     int err = lfsr_mtree_dnamelookup(lfs, dir->did, NULL, 0,
