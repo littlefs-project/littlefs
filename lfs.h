@@ -499,11 +499,9 @@ typedef struct lfs {
     lfsr_mdir_t mroot;
     lfsr_btree_t mtree;
 
-    // TODO do we really need separate decoded/encoded grms?
-    lfsr_grm_t grm_;
-
-    uint8_t grm[LFSR_GRM_DSIZE];
-    uint8_t grmd[LFSR_GRM_DSIZE];
+    lfsr_grm_t grm;
+    uint8_t pgrm[LFSR_GRM_DSIZE];
+    uint8_t dgrm[LFSR_GRM_DSIZE];
 
     // linked-lists of opened mdirs, we keep a separate linked-list
     // for each type since these need to be handled a bit differently
