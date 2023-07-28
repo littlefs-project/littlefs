@@ -1610,9 +1610,11 @@ static inline void lfsr_grm_poprm(lfsr_grm_t *grm) {
     grm->rms[1].mid = LFSR_MID_RM;
 }
 
-static lfs_ssize_t lfsr_grm_todisk(lfs_t *lfs, const lfsr_grm_t *grm,
+static int lfsr_grm_todisk(lfs_t *lfs, const lfsr_grm_t *grm,
         uint8_t buffer[static LFSR_GRM_DSIZE]) {
     (void)lfs;
+    // make sure to zero so we don't leak any info
+    memset(buffer, 0, LFSR_GRM_DSIZE);
 
     // first encode the number of grms, this can be 0, 1, or 2 and may
     // be extended to a general purpose leb128 type field in the future
@@ -1641,21 +1643,18 @@ static lfs_ssize_t lfsr_grm_todisk(lfs_t *lfs, const lfsr_grm_t *grm,
         d += d_;
     }
 
-    return d;
+    return 0;
 }
 
 // needed in lfsr_grm_fromdisk
 static inline int lfsr_mtree_isinlined(lfs_t *lfs);
 
-static lfs_ssize_t lfsr_grm_fromdisk(lfs_t *lfs, lfsr_grm_t *grm,
-        lfsr_data_t data) {
+static int lfsr_grm_fromdisk(lfs_t *lfs, lfsr_grm_t *grm,
+        uint8_t buffer[static LFSR_GRM_DSIZE]) {
+    // get the count from the first byte
     lfs_ssize_t d = 0;
-    uint8_t count = 0;
-    lfs_ssize_t d_ = lfsr_data_read(lfs, data, d, &count, 1);
-    if (d_ < 0) {
-        return d_;
-    }
-    d += d_;
+    uint8_t count = buffer[0];
+    d += 1;
 
     // clear first
     grm->rms[0].mid = LFSR_MID_RM;
@@ -1664,7 +1663,7 @@ static lfs_ssize_t lfsr_grm_fromdisk(lfs_t *lfs, lfsr_grm_t *grm,
     LFS_ASSERT(count <= 2);
     for (uint8_t i = 0; i < count; i++) {
         lfs_size_t mid;
-        d_ = lfsr_data_readleb128(lfs, data, d, &mid);
+        lfs_ssize_t d_ = lfs_fromleb128(&mid, &buffer[d], LFSR_GRM_DSIZE-d);
         if (d_ < 0) {
             return d_;
         }
@@ -1673,7 +1672,7 @@ static lfs_ssize_t lfsr_grm_fromdisk(lfs_t *lfs, lfsr_grm_t *grm,
         LFS_ASSERT(mid < 0x7fffffff);
 
         lfs_size_t rid;
-        d_ = lfsr_data_readleb128(lfs, data, d, &rid);
+        d_ = lfs_fromleb128(&rid, &buffer[d], LFSR_GRM_DSIZE-d);
         if (d_ < 0) {
             return d_;
         }
@@ -1694,7 +1693,7 @@ static lfs_ssize_t lfsr_grm_fromdisk(lfs_t *lfs, lfsr_grm_t *grm,
         grm->rms[i].rid = rid;
     }
 
-    return d;
+    return 0;
 }
 
 static inline bool lfsr_grm_iszero(const uint8_t gdelta[LFSR_GRM_DSIZE]) {
@@ -5837,16 +5836,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
     for (lfs_size_t i = 0; i < attr_count; i++) {
         if (attrs[i].tag == LFSR_TAG_GRM) {
             // encode to disk
-            // TODO move this into lfsr_grm_todisk?
-            // make sure to zero first so we don't leak anything
-            memset(lfs->dgrm, 0, LFSR_GRM_DSIZE);
-            lfs_ssize_t d = lfsr_grm_todisk(lfs, attrs[i].d.grm, lfs->dgrm);
-            if (d < 0) {
-                return d;
+            int err = lfsr_grm_todisk(lfs, attrs[i].d.grm, lfs->dgrm);
+            if (err) {
+                return err;
             }
 
             // xor with our current gstate to find our initial gdelta
-            int err = lfsr_grm_xor(lfs, lfs->dgrm, LFSR_DATA_BUF(
+            err = lfsr_grm_xor(lfs, lfs->dgrm, LFSR_DATA_BUF(
                     lfs->pgrm, LFSR_GRM_DSIZE));
             if (err) {
                 return err;
@@ -6038,14 +6034,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             //
             lfsr_grm_t *grm = attrs[i].d.grm;
             uint8_t buf[LFSR_GRM_DSIZE];
-            // make sure to zero so we don't end up with trailing garbage
-            memset(buf, 0, LFSR_GRM_DSIZE);
-            lfs_ssize_t d = lfsr_grm_todisk(lfs, grm, buf);
-            if (d < 0) {
-                return d;
+            int err = lfsr_grm_todisk(lfs, grm, buf);
+            if (err) {
+                return err;
             }
 
-            int err = lfsr_grm_xor(lfs, lfs->dgrm,
+            err = lfsr_grm_xor(lfs, lfs->dgrm,
                     LFSR_DATA_BUF(buf, LFSR_GRM_DSIZE));
             if (err) {
                 return err;
@@ -6083,11 +6077,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             }
 
             // xor our fix into our gdelta
-            // make sure to zero so we don't end up with trailing garbage
-            memset(buf, 0, LFSR_GRM_DSIZE);
-            d = lfsr_grm_todisk(lfs, grm, buf);
-            if (d < 0) {
-                return d;
+            err = lfsr_grm_todisk(lfs, grm, buf);
+            if (err) {
+                return err;
             }
 
             err = lfsr_grm_xor(lfs, lfs->dgrm,
@@ -6218,10 +6210,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             lfs->grm = *attrs[i].d.grm;
 
             // keep track of the exact encoding on-disk
-            memset(lfs->pgrm, 0, LFSR_GRM_DSIZE);
-            lfs_ssize_t d = lfsr_grm_todisk(lfs, &lfs->grm, lfs->pgrm);
-            if (d < 0) {
-                return d;
+            int err = lfsr_grm_todisk(lfs, &lfs->grm, lfs->pgrm);
+            if (err) {
+                return err;
             }
         }
     }
@@ -7157,9 +7148,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
     memcpy(lfs->pgrm, lfs->dgrm, LFSR_GRM_DSIZE);
 
     // decode grm so we can report any removed files as missing
-    // TODO wait, should mdir_commit update lfs->grm as well?
-    lfs_ssize_t d = lfsr_grm_fromdisk(lfs, &lfs->grm,
-            LFSR_DATA_BUF(lfs->pgrm, LFSR_GRM_DSIZE));
+    lfs_ssize_t d = lfsr_grm_fromdisk(lfs, &lfs->grm, lfs->pgrm);
     if (d < 0) {
         return d;
     }
