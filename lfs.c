@@ -7574,7 +7574,6 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         // create a grm to remove the dstart entry
         lfsr_grm_pushrm(&grm, dstart_mdir.mid, dstart_rid);
 
-        // TODO should we just make this an atomic remove?
         // adjust rid if grm is on the same mdir as our dir
         if (grm.rms[0].mid == mdir.mid
                 && (lfs_ssize_t)grm.rms[0].rid > rid) {
@@ -7639,7 +7638,6 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             return LFS_ERR_NAMETOOLONG;
         }
 
-        // TODO should we just make this an atomic rename?
         // adjust old rid if grm is on the same mdir as new rid
         if (grm.rms[0].mid == new_mdir.mid
                 && (lfs_ssize_t)grm.rms[0].rid >= new_rid) {
@@ -7972,7 +7970,6 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
         lfsr_grm_t grm = lfs->grm;
         lfsr_grm_poprm(&grm);
 
-        // TODO should this just be implicit in lfsr_mdir_commit? compare cost?
         // make sure to adjust any remaining grms
         if (grm.rms[0].mid == lfs->grm.rms[0].mid
                 && grm.rms[0].rid >= lfs->grm.rms[0].rid) {
