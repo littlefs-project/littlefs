@@ -424,6 +424,7 @@ typedef struct lfs_dir {
 
 typedef struct lfsr_dir {
     lfsr_openedmdir_t mdir;
+    lfs_size_t did;
     lfs_ssize_t dstart_mid;
     lfs_ssize_t dstart_rid;
     lfs_off_t pos;

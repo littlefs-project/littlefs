@@ -5271,11 +5271,13 @@ code = '''
         if (NEIGHBORS & 0x2) {
             assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
             lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+            lfsr_mkdir(&lfs, "a_IplRNrPH/a_child") => 0;
         }
 
         if (NEIGHBORS & 0x1) {
             assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
             lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+            lfsr_mkdir(&lfs, "f_VtoMnwRH/f_child") => 0;
         }
     }
 
@@ -5364,11 +5366,13 @@ code = '''
         if (NEIGHBORS & 0x2) {
             assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
             lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+            lfsr_mkdir(&lfs, "a_IplRNrPH/a_child") => 0;
         }
 
         if (NEIGHBORS & 0x1) {
             assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
             lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+            lfsr_mkdir(&lfs, "f_VtoMnwRH/f_child") => 0;
         }
     }
 
@@ -5457,11 +5461,13 @@ code = '''
         if (NEIGHBORS & 0x2) {
             assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
             lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+            lfsr_mkdir(&lfs, "a_IplRNrPH/a_child") => 0;
         }
 
         if (NEIGHBORS & 0x1) {
             assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
             lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+            lfsr_mkdir(&lfs, "f_VtoMnwRH/f_child") => 0;
         }
     }
 
@@ -5562,11 +5568,13 @@ code = '''
         if (NEIGHBORS & 0x2) {
             assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
             lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+            lfsr_mkdir(&lfs, "a_IplRNrPH/a_child") => 0;
         }
 
         if (NEIGHBORS & 0x1) {
             assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
             lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+            lfsr_mkdir(&lfs, "f_VtoMnwRH/f_child") => 0;
         }
     }
 
@@ -5779,11 +5787,13 @@ code = '''
         if (NEIGHBORS & 0x2) {
             assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
             lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+            lfsr_mkdir(&lfs, "a_IplRNrPH/a_child") => 0;
         }
 
         if (NEIGHBORS & 0x1) {
             assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
             lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+            lfsr_mkdir(&lfs, "f_VtoMnwRH/f_child") => 0;
         }
     }
 
@@ -5892,11 +5902,13 @@ code = '''
         if (NEIGHBORS & 0x2) {
             assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
             lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+            lfsr_mkdir(&lfs, "a_IplRNrPH/a_child") => 0;
         }
 
         if (NEIGHBORS & 0x1) {
             assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
             lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+            lfsr_mkdir(&lfs, "f_VtoMnwRH/f_child") => 0;
         }
     }
 
@@ -6002,11 +6014,13 @@ code = '''
     if (NEIGHBORS & 0x2) {
         assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
         lfsr_mkdir(&lfs, "a_IplRNrPH") => 0;
+        lfsr_mkdir(&lfs, "a_IplRNrPH/a_child") => 0;
     }
 
     if (NEIGHBORS & 0x1) {
         assert(lfs_crc32c(0, "f_VtoMnwRH", 10) == 0xffffffff);
         lfsr_mkdir(&lfs, "f_VtoMnwRH") => 0;
+        lfsr_mkdir(&lfs, "f_VtoMnwRH/f_child") => 0;
     }
 
     // create our directories

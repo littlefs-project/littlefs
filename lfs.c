@@ -7768,8 +7768,9 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     }
 
     // read our did from the mdir, unless we're root
-    lfs_size_t did = 0;
-    if (err != LFS_ERR_INVAL) {
+    if (err == LFS_ERR_INVAL) {
+        dir->did = 0;
+    } else {
         lfsr_data_t data;
         int err = lfsr_mdir_lookup(lfs, &mdir, rid, LFSR_TAG_DID,
                 NULL, &data);
@@ -7777,7 +7778,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
             return err;
         }
 
-        lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &did);
+        lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &dir->did);
         if (d < 0) {
             return d;
         }
@@ -7787,7 +7788,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     dir->pos = 0;
 
     // lookup our dstart in the mtree
-    err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
+    err = lfsr_mtree_dnamelookup(lfs, dir->did, NULL, 0,
             &dir->mdir.mdir, &dir->mdir.rid, NULL, NULL);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -7849,25 +7850,28 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         return err;
     }
 
-    // found another directory's dstart? we must be done
-    if (tag == LFSR_TAG_DSTART) {
-        return LFS_ERR_NOENT;
-    }
-
-    // get file type from the tag
-    info->type = lfsr_tag_filetype(tag);
-
-    // get file name from the name entry
-    lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &(uint32_t){0});
+    // get our did
+    lfs_size_t did;
+    lfs_ssize_t d = lfsr_data_readleb128(lfs, data, 0, &did);
     if (d < 0) {
         return d;
     }
+
+    // did mismatch? we must be done
+    if (did != dir->did) {
+        return LFS_ERR_NOENT;
+    }
+
+    // get file name from the name entry
     LFS_ASSERT(lfsr_data_size(data)-d <= LFS_NAME_MAX);
     d = lfsr_data_read(lfs, data, d, info->name, LFS_NAME_MAX);
     if (d < 0) {
         return d;
     }
     info->name[d] = '\0';
+
+    // get file type from the tag
+    info->type = lfsr_tag_filetype(tag);
 
     // TODO get size once we actually have regular files
 
