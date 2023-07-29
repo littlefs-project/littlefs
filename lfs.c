@@ -7533,46 +7533,37 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
             return d;
         }
 
-        // check that the directory is empty
-        lfsr_mdir_t dstart_mdir;
-        lfs_ssize_t dstart_rid;
+        // then lookup the dstart entry
+        lfsr_mdir_t mdir_;
+        lfs_ssize_t rid_;
         err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
-                &dstart_mdir, &dstart_rid, NULL, NULL);
+                &mdir_, &rid_, NULL, NULL);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
-        lfsr_mdir_t mdir_ = dstart_mdir;
-        lfs_ssize_t rid_ = dstart_rid + 1;
-        if (rid_ >= (lfs_ssize_t)mdir_.rbyd.weight) {
-            // out of mdirs?
-            lfs_ssize_t mid = mdir_.mid + 1;
-            if (mid >= (lfs_ssize_t)lfsr_mtree_weight(lfs)) {
-                goto empty;
-            }
+        // create a grm to remove the dstart entry
+        lfsr_grm_pushrm(&grm, mdir_.mid, rid_);
 
-            int err = lfsr_mtree_lookup(lfs, mid, &mdir_);
-            if (err) {
-                return err;
-            }
-            rid_ = 0;
-        }
-
-        lfsr_tag_t tag_;
-        err = lfsr_mdir_lookup(lfs, &mdir_, rid_, LFSR_TAG_WIDENAME,
-                &tag_, NULL);
-        if (err) {
+        // check that the directory is empty
+        err = lfsr_mtree_seek(lfs, &mdir_, &rid_, 1);
+        if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
-        if (tag_ != LFSR_TAG_DSTART) {
-            return LFS_ERR_NOTEMPTY;
-        }
-    empty:;
+        if (err != LFS_ERR_NOENT) {
+            lfsr_tag_t tag_;
+            err = lfsr_mdir_lookup(lfs, &mdir_, rid_, LFSR_TAG_WIDENAME,
+                    &tag_, NULL);
+            if (err) {
+                return err;
+            }
 
-        // create a grm to remove the dstart entry
-        lfsr_grm_pushrm(&grm, dstart_mdir.mid, dstart_rid);
+            if (tag_ != LFSR_TAG_DSTART) {
+                return LFS_ERR_NOTEMPTY;
+            }
+        }
 
         // adjust rid if grm is on the same mdir as our dir
         if (grm.rms[0].mid == mdir.mid
@@ -7657,9 +7648,10 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         }
 
         // if our destination is a directory, we will be implicitly removing
-        // the directory, we need to great a grm for this
+        // the directory, we need to create a grm for this
         if (new_tag == LFSR_TAG_DIR) {
             // TODO deduplicate the isempty check with lfsr_remove?
+            // first lets figure out the did
             lfsr_data_t data;
             int err = lfsr_mdir_lookup(lfs, &new_mdir, new_rid, LFSR_TAG_DID,
                     NULL, &data);
@@ -7673,46 +7665,37 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
                 return d;
             }
 
-            // check that the directory is empty
-            lfsr_mdir_t dstart_mdir;
-            lfs_ssize_t dstart_rid;
+            // then lookup the dstart entry
+            lfsr_mdir_t mdir_;
+            lfs_ssize_t rid_;
             err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
-                    &dstart_mdir, &dstart_rid, NULL, NULL);
+                    &mdir_, &rid_, NULL, NULL);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
 
-            lfsr_mdir_t mdir_ = dstart_mdir;
-            lfs_ssize_t rid_ = dstart_rid + 1;
-            if (rid_ >= (lfs_ssize_t)mdir_.rbyd.weight) {
-                // out of mdirs?
-                lfs_ssize_t mid = mdir_.mid + 1;
-                if (mid >= (lfs_ssize_t)lfsr_mtree_weight(lfs)) {
-                    goto empty;
-                }
+            // create a grm to remove the dstart entry
+            lfsr_grm_pushrm(&grm, mdir_.mid, rid_);
 
-                int err = lfsr_mtree_lookup(lfs, mid, &mdir_);
-                if (err) {
-                    return err;
-                }
-                rid_ = 0;
-            }
-
-            lfsr_tag_t tag_;
-            err = lfsr_mdir_lookup(lfs, &mdir_, rid_, LFSR_TAG_WIDENAME,
-                    &tag_, NULL);
-            if (err) {
+            // check that the directory is empty
+            err = lfsr_mtree_seek(lfs, &mdir_, &rid_, 1);
+            if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
 
-            if (tag_ != LFSR_TAG_DSTART) {
-                return LFS_ERR_NOTEMPTY;
-            }
-        empty:;
+            if (err != LFS_ERR_NOENT) {
+                lfsr_tag_t tag_;
+                err = lfsr_mdir_lookup(lfs, &mdir_, rid_, LFSR_TAG_WIDENAME,
+                        &tag_, NULL);
+                if (err) {
+                    return err;
+                }
 
-            // create a grm to remove the dstart entry
-            lfsr_grm_pushrm(&grm, dstart_mdir.mid, dstart_rid);
+                if (tag_ != LFSR_TAG_DSTART) {
+                    return LFS_ERR_NOTEMPTY;
+                }
+            }
         }
     }
 
