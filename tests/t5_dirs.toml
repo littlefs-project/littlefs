@@ -6086,7 +6086,7 @@ code = '''
 #
 # This is a useful feature, but it's unintuitive if this should have
 # well-defined behavior, so make sure to test for it
-[cases.t5_dirs_rm_recursive]
+[cases.t5_dirs_recursive_rm]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 # 0 => don't seek
@@ -6208,7 +6208,7 @@ code = '''
 #
 # This is a useful feature, but it's unintuitive if this should have
 # well-defined behavior, so make sure to test for it
-[cases.t5_dirs_mv_recursive]
+[cases.t5_dirs_recursive_mv]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.BEFORE = [false, true]
 # 0 => no

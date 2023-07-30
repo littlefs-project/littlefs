@@ -5698,9 +5698,6 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
         }
     }
 
-    // we should have something to split here
-    LFS_ASSERT(split_id > 0 && split_id < mdir->rbyd.weight);
-
     // compact into new mdir tags < split_id
     int err = lfsr_mdir_compact_(lfs, mdir_, mid, start_id, split_id,
             mdir, attrs, attr_count, NULL, 0);
@@ -5710,7 +5707,7 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
     }
 
     // compact into new mdir tags >= split_id
-    err = lfsr_mdir_compact_(lfs, msibling_, mid+1, split_id, end_id,
+    err = lfsr_mdir_compact_(lfs, msibling_, mid, split_id, end_id,
             mdir, attrs, attr_count, NULL, 0);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5727,7 +5724,70 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
 
     // because of defered commits, both children can still be reduced
     // to zero, need to catch this here
-    if (mdir_->rbyd.weight > 0 && msibling_->rbyd.weight > 0) {
+
+    // both siblings reduced to zero
+    if (mdir_->rbyd.weight == 0 && msibling_->rbyd.weight == 0) {
+        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                mdir_->mid,
+                mdir_->rbyd.block, mdir_->redund_block);
+        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                msibling_->mid,
+                msibling_->rbyd.block, msibling_->redund_block);
+        mdir_->rbyd.trunk = 0;
+        msibling_->rbyd.trunk = 0;
+
+        // update our mtree
+        int err = lfsr_btree_pop(lfs, mtree_, mid);
+        if (err) {
+            return err;
+        }
+
+    // one sibling reduced to zero
+    } else if (mdir_->rbyd.weight == 0) {
+        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                mdir_->mid,
+                mdir_->rbyd.block, mdir_->redund_block);
+        mdir_->rbyd.trunk = 0;
+
+        // update our mtree
+        uint8_t buf[LFSR_MPTR_DSIZE];
+        lfs_ssize_t d = lfsr_mdir_todisk(lfs, msibling_, buf);
+        if (d < 0) {
+            return d;
+        }
+
+        int err = lfsr_btree_set(lfs, mtree_, mid, LFSR_TAG_MDIR, 1,
+                LFSR_DATA_BUF(buf, d));
+        if (err) {
+            return err;
+        }
+
+    // other sibling reduced to zero
+    } else if (msibling_->rbyd.weight == 0) {
+        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                msibling_->mid,
+                msibling_->rbyd.block, msibling_->redund_block);
+        msibling_->rbyd.trunk = 0;
+
+        // update our mtree
+        uint8_t buf[LFSR_MPTR_DSIZE];
+        lfs_ssize_t d = lfsr_mdir_todisk(lfs, mdir_, buf);
+        if (d < 0) {
+            return d;
+        }
+
+        int err = lfsr_btree_set(lfs, mtree_, mid, LFSR_TAG_MDIR, 1,
+                LFSR_DATA_BUF(buf, d));
+        if (err) {
+            return err;
+        }
+
+    // no siblings reduced to zero
+    } else {
+        // adjust our sibling's mid, do this here in case other sibling
+        // was dropped
+        msibling_->mid += 1;
+
         // update out mtree
 
         // lookup first name in sibling to use as the split name
@@ -5736,7 +5796,7 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
         // case they introduce a new name!
         lfsr_tag_t stag;
         lfsr_data_t sdata;
-        err = lfsr_mdir_lookupnext(lfs, msibling_, 0, LFSR_TAG_NAME,
+        int err = lfsr_mdir_lookupnext(lfs, msibling_, 0, LFSR_TAG_NAME,
                 NULL, &stag, &sdata);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5760,63 +5820,6 @@ static int lfsr_mtree_split_(lfs_t *lfs, lfsr_btree_t *mtree_,
                     : LFSR_DATA_NULL),
                 LFSR_TAG_MDIR, 1, LFSR_DATA_BUF(buf1, d1),
                 LFSR_TAG_MDIR, 1, LFSR_DATA_BUF(buf2, d2));
-        if (err) {
-            return err;
-        }
-
-    // one sibling reduced to zero
-    } else if (mdir_->rbyd.weight > 0) {
-        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                mdir_->mid,
-                mdir_->rbyd.block, mdir_->redund_block);
-        mdir_->rbyd.trunk = 0;
-
-        // update our mtree
-        uint8_t buf[LFSR_MPTR_DSIZE];
-        lfs_ssize_t d = lfsr_mdir_todisk(lfs, mdir_, buf);
-        if (d < 0) {
-            return d;
-        }
-
-        err = lfsr_btree_set(lfs, mtree_, mid, LFSR_TAG_MDIR, 1,
-                LFSR_DATA_BUF(buf, d));
-        if (err) {
-            return err;
-        }
-
-    // other sibling reduced to zero
-    } else if (msibling_->rbyd.weight > 0) {
-        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                msibling_->mid,
-                msibling_->rbyd.block, msibling_->redund_block);
-        msibling_->rbyd.trunk = 0;
-
-        // update our mtree
-        uint8_t buf[LFSR_MPTR_DSIZE];
-        lfs_ssize_t d = lfsr_mdir_todisk(lfs, msibling_, buf);
-        if (d < 0) {
-            return d;
-        }
-
-        err = lfsr_btree_set(lfs, mtree_, mid, LFSR_TAG_MDIR, 1,
-                LFSR_DATA_BUF(buf, d));
-        if (err) {
-            return err;
-        }
-
-    // both siblings reduced to zero
-    } else {
-        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                mdir_->mid,
-                mdir_->rbyd.block, mdir_->redund_block);
-        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                msibling_->mid,
-                msibling_->rbyd.block, msibling_->redund_block);
-        mdir_->rbyd.trunk = 0;
-        msibling_->rbyd.trunk = 0;
-
-        // update our mtree
-        err = lfsr_btree_pop(lfs, mtree_, mid);
         if (err) {
             return err;
         }
@@ -5882,91 +5885,28 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             //
             // we need to update the mroot to track that a prog failed
             mroot_ = mdir_;
-
-            // do we still need to split?
-            //
-            // note init_id is changed to 0 here, ignoring -1 attrs
-            int fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd, 0, -1,
-                    lfs->cfg->block_size/2,
-                    &split_id);
-            if (fits < 0) {
-                return fits;
-            }
-
-            // uninlining, but not splitting
-            if (fits) {
-                // compact into new mdir tags >= 0
-                err = lfsr_mdir_compact_(lfs, &mdir_, 0, 0, -1,
-                        mdir, attrs, attr_count, NULL, 0);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
-
-                LFS_DEBUG("Uninlining mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
-                        "-> 0x{%"PRIx32",%"PRIx32"}"
-                        ", 0x{%"PRIx32",%"PRIx32"}",
-                        mdir->mid,
-                        mdir->rbyd.block, mdir->redund_block,
-                        mdir->rbyd.block, mdir->redund_block,
-                        mdir_.rbyd.block, mdir_.redund_block);
-
-                // because of defered commits, our child can still be
-                // reduced to zero, need to catch this here
-                if (mdir_.rbyd.weight > 0) {
-                    // update our mtree
-                    uint8_t buf[LFSR_MPTR_DSIZE];
-                    lfs_ssize_t d = lfsr_mdir_todisk(lfs, &mdir_, buf);
-                    if (d < 0) {
-                        return d;
-                    }
-
-                    err = lfsr_btree_push(lfs, &mtree_, 0, LFSR_TAG_MDIR, 1,
-                            LFSR_DATA_BUF(buf, d));
-                    if (err) {
-                        return err;
-                    }
-
-                } else {
-                    LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                            mdir_.mid,
-                            mdir_.rbyd.block, mdir_.redund_block);
-                    mdir_.rbyd.trunk = 0;
-
-                    // don't really need to update our mtree here
-                }
-
-            // uninlining and splitting
-            } else {
-                LFS_DEBUG("Uninlining mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                        mdir->mid,
-                        mdir->rbyd.block, mdir->redund_block);
-
-                // let lfsr_mtree_split_ do most of the work
-                int err = lfsr_mtree_split_(lfs, &mtree_,
-                        &mdir_, &msibling_, 0, -1,
-                        mdir, split_id,
-                        attrs, attr_count);
-                if (err) {
-                    return err;
-                }
-            }
-
-            dirtymtree = true;
-
-        // splitting a normal mdir
-        } else {
-            // let lfsr_mtree_split_ do most of the work
-            err = lfsr_mtree_split_(lfs, &mtree_,
-                    &mdir_, &msibling_, -1, -1,
-                    mdir, split_id,
-                    attrs, attr_count);
-            if (err) {
-                return err;
-            }
-
-            dirtymtree = true;
         }
+
+        // TODO should lfsr_rbyd_estimate just always do this?
+        // find estimate again, this time with start_id=0 so we
+        // ignore any -1 attrs
+        int fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd, 0, -1,
+                lfs->cfg->block_size/2,
+                &split_id);
+        if (fits < 0) {
+            return fits;
+        }
+
+        // let lfsr_mtree_split_ do most of the work
+        err = lfsr_mtree_split_(lfs, &mtree_,
+                &mdir_, &msibling_, 0, -1,
+                mdir, split_id,
+                attrs, attr_count);
+        if (err) {
+            return err;
+        }
+
+        dirtymtree = true;
 
     // mdir reduced to zero? need to drop?
     } else if (mdir->mid != LFSR_MID_MROOT && mdir_.rbyd.weight == 0) {
@@ -6291,15 +6231,34 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
                         && opened->rid >= (lfs_ssize_t)mdir_.rbyd.weight) {
                     LFS_ASSERT(lfsr_btree_weight(&mtree_)
                             != lfsr_mtree_weight(lfs));
-                    opened->rid = opened->rid - mdir_.rbyd.weight;
+                    opened->rid -= mdir_.rbyd.weight;
                     opened->mdir = msibling_;
                 } else {
                     opened->mdir = mdir_;
                 }
-            } else if (opened->mdir.mid > mdir->mid
-                    && lfsr_btree_weight(&mtree_) != lfsr_mtree_weight(lfs)) {
+            } else if (opened->mdir.mid > mdir->mid) {
                 opened->mdir.mid += lfsr_btree_weight(&mtree_)
                         - lfsr_mtree_weight(lfs);
+            }
+
+            // update dstarts if we had a split or drop
+            if (type == LFS_TYPE_DIR) {
+                if (((lfsr_dir_t*)opened)->dstart_mid == mdir->mid) {
+                    if (msibling_.rbyd.weight > 0
+                            && ((lfsr_dir_t*)opened)->dstart_rid
+                                >= (lfs_ssize_t)mdir_.rbyd.weight) {
+                        LFS_ASSERT(lfsr_btree_weight(&mtree_)
+                                != lfsr_mtree_weight(lfs));
+                        ((lfsr_dir_t*)opened)->dstart_rid -= mdir_.rbyd.weight;
+                        ((lfsr_dir_t*)opened)->dstart_mid = msibling_.mid;
+                    } else {
+                        ((lfsr_dir_t*)opened)->dstart_mid = mdir_.mid;
+                    }
+                } else if (((lfsr_dir_t*)opened)->dstart_mid > mdir->mid) {
+                    ((lfsr_dir_t*)opened)->dstart_mid
+                            += lfsr_btree_weight(&mtree_)
+                                - lfsr_mtree_weight(lfs);
+                }
             }
         }
     }
