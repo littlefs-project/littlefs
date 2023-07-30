@@ -3031,7 +3031,7 @@ failed:;
 
         // this is a bit of a hack, but ignore any gstate tags here,
         // these need to be handled specially by upper-layers
-        if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_GSTATE) {
+        if (lfsr_tag_suptype(tag) == LFSR_TAG_GSTATE) {
             continue;
         }
 
@@ -3229,30 +3229,33 @@ failed:;
 // the following are mostly btree helpers, but since they operate on rbyds,
 // exist in the rbyd namespace
 
-// determine if a given rbyd will be within the compaction threshold (1/2)
-// after compaction, note this uses a conservative estimate so the actual
-// on-disk cost may be smaller
+// Calculate the maximum possible disk usage required by this id after
+// compaction. This uses a conservative estimate so the actual on-disk cost
+// should be smaller.
 //
-// if rbyd does not fit, a good split_id is returned
-static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t start_id, lfs_ssize_t end_id, lfs_size_t threshold,
-        lfs_size_t *split_id_) {
-#ifndef LFSR_NO_REBALANCE
-    lfs_size_t dsize = 0;
-
-    lfs_ssize_t id = start_id;
+static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfs_ssize_t id,
+        lfs_ssize_t *id_, lfs_size_t *weight_) {
     lfsr_tag_t tag = 0;
+    lfs_size_t w = 0;
+    lfs_size_t dsize = 0;
     while (true) {
-        lfs_size_t w;
+        lfs_ssize_t id__;
+        lfs_size_t w_;
         lfsr_data_t data;
-        int err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
-                &id, &tag, &w, &data);
+        int err = lfsr_rbyd_lookupnext(lfs, rbyd,
+                id, lfsr_tag_next(tag),
+                &id__, &tag, &w_, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
-        if (err == LFS_ERR_NOENT || (end_id >= 0 && id >= end_id)) {
-            return true;
+        if (err == LFS_ERR_NOENT || id__ > id+lfs_smax32(w_-1, 0)) {
+            break;
         }
+
+        // keep track of id and weight
+        id = id__;
+        w += w_;
 
         // determine the upper-bound of alt pointers, tags, and data
         // after compaction
@@ -3260,179 +3263,100 @@ static int lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         // note that with rebalancing during compaction, we know the number
         // of inner nodes is the same as the number of tags. Each node has
         // two alts and is terminated by a 4-byte null tag.
-        dsize += LFSR_TAG_DSIZE + lfsr_data_size(data)
-                + 2*LFSR_TAG_DSIZE + 4;
-
-        // exceeded our compaction threshold?
-        if (dsize > threshold) {
-            // requested a split id?
-            if (split_id_) {
-                // TODO is this really worth it vs a simpler algorithm?
-                //
-                // here we ignore the cost of alt-pointers, and only use the
-                // tag+data cost as a heuristic
-                //
-                // we assume we already found an over-estimate of the split id
-                // so we only need to work backwards through the rbyd to
-                // correct the over-estimate. This is a very minor optimization.
-                //
-                lfs_size_t lower_id = id+1;
-                lfs_ssize_t upper_id = rbyd->weight-1;
-                lfs_size_t lower_dsize = dsize;
-                lfs_size_t upper_dsize = 0;
-                while (true) {
-                    lfsr_tag_t tag = 0;
-                    lfs_size_t w = 0;
-                    lfs_size_t dsize = 0;
-                    while (true) {
-                        lfs_ssize_t id_;
-                        lfs_size_t w_;
-                        lfsr_data_t data;
-                        int err = lfsr_rbyd_lookupnext(lfs, rbyd,
-                                upper_id, lfsr_tag_next(tag),
-                                &id_, &tag, &w_, &data);
-                        if (err && err != LFS_ERR_NOENT) {
-                            return err;
-                        }
-                        if (err == LFS_ERR_NOENT || id_ != upper_id) {
-                            break;
-                        }
-
-                        // keep track of weight to iterate backwards
-                        w += w_;
-
-                        // determine the upper-bound of alt pointers, tags,
-                        // and data after compaction (same as above)
-                        dsize += LFSR_TAG_DSIZE + lfsr_data_size(data)
-                                + 2*LFSR_TAG_DSIZE + 4;
-                    }
-
-                    // steal dsize from lower_dsize if we start overlapping
-                    if ((lfs_size_t)upper_id-(w-1) < lower_id) {
-                        lower_id = upper_id-(w-1);
-                        lower_dsize -= dsize;
-                    }
-                    upper_dsize += dsize;
-
-                    // done when upper/lower dsizes are close to balanced
-                    if (upper_dsize >= lower_dsize) {
-                        break;
-                    }
-
-                    // iterate backwards
-                    upper_id -= w;
-                }
-
-                LFS_ASSERT(lower_id < rbyd->weight);
-                *split_id_ = lower_id;
-            }
-
-            return false;
-        }
-    }
-
-#else
-    lfs_size_t count = 0;
-    lfs_size_t dsize = 0;
-    lfs_size_t real_dsize = sizeof(uint32_t);
-
-    lfs_ssize_t id = start_id;
-    lfsr_tag_t tag = 0;
-    while (true) {
-        lfs_size_t w;
-        lfsr_data_t data;
-        int err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_next(tag),
-                &id, &tag, &w, &data);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
-        }
-        if (err == LFS_ERR_NOENT) {
-            return true;
-        }
-
-        // Exhibit A. Why I really didn't want to estimate the rbyd threshold:
-
-        // keep track of alt-less tag count and dsize
         //
-        // this is used as a heuristic for split, so the exactness matters less,
-        // but we need to be able to subtract tags from the result so we can't
-        // use the estimate with alt pointers
-        count += 1;
+    #ifndef LFSR_NO_REBALANCE
+        dsize += 2*LFSR_TAG_DSIZE + 4
+                + LFSR_TAG_DSIZE + lfsr_data_size(data);
+    #else
+        // TODO is this the best way to do this?
+        // If we're not rebalancing, we just don't account for the alts. We
+        // need to know the total size to know how many alts there are, so
+        // just leave this up to upper layers
         dsize += LFSR_TAG_DSIZE + lfsr_data_size(data);
-        // determine the upper-bound of our alt pointers, tag, and data
-        //
-        // fortunately the self-balancing nature of rybds give us a tight
-        // bound on the number of alt pointers
-        real_dsize
-                += (2*lfs_nlog2(count)+1) * LFSR_TAG_DSIZE
-                + LFSR_TAG_DSIZE
-                + lfsr_data_size(data);
+    #endif
+    }
 
-        // exceeded our compaction threshold?
-        if (real_dsize > threshold) {
-            // requested a split id?
-            if (split_id_) {
-                // TODO is this really worth it vs a simpler algorithm?
-                //
-                // here we ignore the cost of alt-pointers, and only use the
-                // tag+data cost as a heuristic
-                //
-                // we assume we already found an over-estimate of the split id
-                // so we only need to work backwards through the rbyd to
-                // correct the over-estimate. This is a very minor optimization.
-                //
-                lfs_size_t lower_id = id+1;
-                lfs_ssize_t upper_id = rbyd->weight-1;
-                lfs_size_t lower_dsize = dsize;
-                lfs_size_t upper_dsize = 0;
-                while (true) {
-                    lfsr_tag_t tag = 0;
-                    lfs_size_t w = 0;
-                    lfs_size_t dsize = 0;
-                    while (true) {
-                        lfs_ssize_t id_;
-                        lfs_size_t w_;
-                        lfsr_data_t data;
-                        int err = lfsr_rbyd_lookupnext(lfs, rbyd,
-                                upper_id, lfsr_tag_next(tag),
-                                &id_, &tag, &w_, &data);
-                        if (err && err != LFS_ERR_NOENT) {
-                            return err;
-                        }
-                        if (err == LFS_ERR_NOENT || id_ != upper_id) {
-                            break;
-                        }
+    if (id_) {
+        *id_ = id;
+    }
+    if (weight_) {
+        *weight_ = w;
+    }
+    return dsize;
+}
 
-                        // keep track of weight to iterate backwards
-                        w += w_;
+// Calculate the maximum possible disk usage required by this id after
+// compaction. This uses a conservative estimate so the actual on-disk cost
+// should be smaller.
+//
+// This also returns a good split_id in case the rbyd needs to be split.
+//
+// TODO do we need to include commit overhead here?
+static lfs_ssize_t lfsr_rbyd_estimateall(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        lfs_ssize_t start_id, lfs_ssize_t end_id,
+        lfs_size_t *split_id_) {
+    // calculate dsize by starting from the outside ids and working inwards,
+    // this naturally gives us a split id
+    //
+    // note that we don't include -1 tags yet, -1 tags are always cleaned up
+    // during a split so they shouldn't affect the split_id
+    //
+    lfs_ssize_t lower_id = (start_id < 0 ? 0 : start_id);
+    lfs_ssize_t upper_id = (end_id < 0
+            ? (lfs_ssize_t)rbyd->weight-1
+            : end_id-1);
+    lfs_size_t lower_dsize = 0;
+    lfs_size_t upper_dsize = 0;
 
-                        // assume worst-case encoding size
-                        dsize += LFSR_TAG_DSIZE + lfsr_data_size(data);
-                    }
-
-                    // steal dsize from lower_dsize if we start overlapping
-                    if ((lfs_size_t)upper_id-(w-1) < lower_id) {
-                        lower_id = upper_id-(w-1);
-                        lower_dsize -= dsize;
-                    }
-                    upper_dsize += dsize;
-
-                    // done when upper/lower dsizes are close to balanced
-                    if (upper_dsize >= lower_dsize) {
-                        break;
-                    }
-
-                    // iterate backwards
-                    upper_id -= w;
-                }
-
-                LFS_ASSERT(lower_id < rbyd->weight);
-                *split_id_ = lower_id;
+    while (lower_id <= upper_id) {
+        if (lower_dsize <= upper_dsize) {
+            lfs_size_t w;
+            lfs_ssize_t dsize = lfsr_rbyd_estimate(lfs, rbyd, lower_id,
+                    NULL, &w);
+            if (dsize < 0) {
+                return dsize;
             }
 
-            return false;
+            lower_id += w;
+            lower_dsize += dsize;
+        } else {
+            lfs_size_t w;
+            lfs_ssize_t dsize = lfsr_rbyd_estimate(lfs, rbyd, upper_id,
+                    NULL, &w);
+            if (dsize < 0) {
+                return dsize;
+            }
+
+            upper_id -= w;
+            upper_dsize += dsize;
         }
     }
+
+    // include -1 tags in our final dsize
+    lfs_ssize_t dsize = lfsr_rbyd_estimate(lfs, rbyd, -1, NULL, NULL);
+    if (dsize < 0) {
+        return dsize;
+    }
+
+    if (split_id_) {
+        *split_id_ = lower_id;
+    }
+
+#ifndef LFSR_NO_REBALANCE
+    return dsize + lower_dsize + upper_dsize;
+#else
+    // TODO if we are serious about providing a LFSR_NO_REBALANCE option, we
+    // should probably also do this in lfsr_rbyd_estimate, though that raises
+    // the question how should lfsr_rbyd_estimate/estimateall interact in that
+    // case?
+    // 
+    // If we're not rebalancing, we need to account for the overhead of
+    // intermediary trunks, which is O(log(n)) per trunk.
+    //
+    // Assuming worst case all tags are zero-length, and tags are at minimum
+    // 4 bytes, the worst case total is 4*(2*log2(dsize/4)) + dsize
+    dsize = dsize + lower_dsize + upper_dsize;
+    return 4*(2*lfs_nlog2(dsize/4)) + dsize;
 #endif
 }
 
@@ -4053,14 +3977,13 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // check if we're within our compaction threshold, otherwise we
         // need to split
-        int fits = lfsr_rbyd_estimate(lfs, rbyd, -1, -1,
-                lfs->cfg->block_size/2,
+        lfs_ssize_t estimate = lfsr_rbyd_estimateall(lfs, rbyd, -1, -1,
                 &split_id);
-        if (fits < 0) {
-            return fits;
+        if (estimate < 0) {
+            return estimate;
         }
 
-        if (!fits) {
+        if ((lfs_size_t)estimate > lfs->cfg->block_size/2) {
             // need to split
             goto split;
         }
@@ -4360,15 +4283,14 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // this is imprecise when not compacting, so we may still fail to
             // merge, but this at least lets us avoid wasting programming cycles
             // when merge failure is obvious
-            int fits = lfsr_rbyd_estimate(lfs, &sibling, -1, -1,
-                    lfs->cfg->block_size/4,
+            lfs_ssize_t estimate = lfsr_rbyd_estimateall(lfs, &sibling, -1, -1,
                     NULL);
-            if (fits < 0) {
-                return fits;
+            if (estimate < 0) {
+                return estimate;
             }
 
             // don't fit? can't merge
-            if (!fits) {
+            if ((lfs_size_t)estimate > lfs->cfg->block_size/4) {
                 continue;
             }
 
@@ -5633,15 +5555,15 @@ compact:;
     // can't commit, try to compact
 
     // check if we're within our compaction threshold
-    int fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd, start_id, end_id,
-            lfs->cfg->block_size/2,
+    lfs_ssize_t estimate = lfsr_rbyd_estimateall(lfs, &mdir->rbyd,
+            start_id, end_id,
             split_id_);
-    if (fits < 0) {
-        return fits;
+    if (estimate < 0) {
+        return estimate;
     }
 
-    // TODO change lfsr_rbyd_estimate so !fits => err=LFS_ERR_RANGE?
-    if (!fits) {
+    // TODO do we need to include mdir commit overhead here? in rbyd_estimate?
+    if ((lfs_size_t)estimate > lfs->cfg->block_size/2) {
         return LFS_ERR_RANGE;
     }
 
@@ -5885,16 +5807,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t *rid,
             //
             // we need to update the mroot to track that a prog failed
             mroot_ = mdir_;
-        }
-
-        // TODO should lfsr_rbyd_estimate just always do this?
-        // find estimate again, this time with start_id=0 so we
-        // ignore any -1 attrs
-        int fits = lfsr_rbyd_estimate(lfs, &mdir->rbyd, 0, -1,
-                lfs->cfg->block_size/2,
-                &split_id);
-        if (fits < 0) {
-            return fits;
         }
 
         // let lfsr_mtree_split_ do most of the work

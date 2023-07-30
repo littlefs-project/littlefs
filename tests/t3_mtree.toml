@@ -2834,7 +2834,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
 
     // assert mdir was unininlined correctly
-    assert(lfsr_mtree_weight(&lfs) == 1);
+    assert(lfsr_mtree_weight(&lfs) == 2);
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2846,19 +2846,24 @@ code = '''
     // assert that our entry is still in the mtree
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
-    assert(mdir.rbyd.weight == 3);
-
+    assert(mdir.rbyd.weight == 2);
     lfsr_mdir_get(&lfs, &mdir, 1, LFSR_TAG_INLINED,
             buffer, SIZE) => SIZE;
     assert(memcmp(buffer, &alphas[3 % 26], 1) == 0);
+
+    // note that our current implementation splits here, which is suboptimal
+    // but saves on code size
+    lfsr_mdir_t msibling;
+    lfsr_mtree_lookup(&lfs, 1, &msibling) => 0;
+    assert(msibling.rbyd.weight == 1);
 
     // assert that our neighbors were updated correctly
     assert(left_neighbor.rid == 0);
     assert(left_neighbor.mdir.mid == 0);
     assert(memcmp(&left_neighbor.mdir, &mdir, sizeof(lfsr_mdir_t)) == 0);
-    assert(right_neighbor.rid == 2);
-    assert(right_neighbor.mdir.mid == 0);
-    assert(memcmp(&right_neighbor.mdir, &mdir, sizeof(lfsr_mdir_t)) == 0);
+    assert(right_neighbor.rid == 0);
+    assert(right_neighbor.mdir.mid == 1);
+    assert(memcmp(&right_neighbor.mdir, &msibling, sizeof(lfsr_mdir_t)) == 0);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
@@ -2952,18 +2957,6 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
             LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
-    // setup our neighbors
-    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
-            LFSR_ATTR(0, INLINED, +1, &alphas[0 % 26], 1),
-            LFSR_ATTR(1, INLINED, +1, &alphas[1 % 26], 1))) => 0;
-    // this test only works if these all fit in the mroot
-    assert(lfsr_mtree_isinlined(&lfs));
-
-    lfsr_openedmdir_t left_neighbor  = {.rid=0,  .mdir=lfs.mroot};
-    lfsr_openedmdir_t right_neighbor = {.rid=1,  .mdir=lfs.mroot};
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
-
     // create an uninlined mdir
     uint8_t buffer[SIZE];
     memset(buffer, alphas[2 % 26], SIZE);
@@ -2972,7 +2965,7 @@ code = '''
 
     memset(buffer, alphas[3 % 26], SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
-            LFSR_ATTR(1, INLINED, +1, buffer, SIZE))) => 0;
+            LFSR_ATTR(0, INLINED, +1, buffer, SIZE))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.off = BLOCK_SIZE;
@@ -2983,11 +2976,27 @@ code = '''
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
-    // now add another large entry to the mdir, forcing a split
+    // setup our neighbors
+    //
+    // note we do this after uninlining! this is because uninlining may
+    // aggresively split the mtree if there are already neighbors in the mdir
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){0}, LFSR_ATTRS(
+            LFSR_ATTR(0, INLINED, +1, &alphas[0 % 26], 1),
+            LFSR_ATTR(2, INLINED, +1, &alphas[1 % 26], 1))) => 0;
+    // this test only works if these all fit in the mdir
+    assert(lfsr_mtree_weight(&lfs) == 1);
     assert(mdir.rbyd.weight == 3);
 
+    lfsr_openedmdir_t left_neighbor  = {.rid=0,  .mdir=mdir};
+    lfsr_openedmdir_t right_neighbor = {.rid=2,  .mdir=mdir};
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+
+    // now add another large entry to the mdir, forcing a split
     memset(buffer, alphas[4 % 26], SIZE);
     lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){2}, LFSR_ATTRS(
             LFSR_ATTR(2, INLINED, +1, buffer, SIZE))) => 0;
@@ -3114,43 +3123,46 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
             LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
-    // setup our neighbors
-    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
-            LFSR_ATTR(0, INLINED, +1, &alphas[0 % 26], 1),
-            LFSR_ATTR(1, INLINED, +1, &alphas[1 % 26], 1))) => 0;
-    // this test only works if these all fit in the mroot
-    assert(lfsr_mtree_isinlined(&lfs));
-
-    lfsr_openedmdir_t left_neighbor  = {.rid=0,  .mdir=lfs.mroot};
-    lfsr_openedmdir_t right_neighbor = {.rid=1,  .mdir=lfs.mroot};
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
-
-    // prepare mroot with a large attr so the next entry can not fit
+    // create an uninlined mdir
     uint8_t buffer[SIZE];
     memset(buffer, alphas[2 % 26], SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, buffer, SIZE))) => 0;
 
-    // create a large entry that needs to be uninlined (but not split!)
     memset(buffer, alphas[3 % 26], SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
-            LFSR_ATTR(1, INLINED, +1, buffer, SIZE))) => 0;
+            LFSR_ATTR(0, INLINED, +1, buffer, SIZE))) => 0;
 
     // force mroot to compact
     lfs.mroot.rbyd.off = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, NULL, 0) => 0;
 
-    // assert mtree has one mdir
+    // assert mdir was unininlined correctly
     assert(lfsr_mtree_weight(&lfs) == 1);
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
-    // force mdir to compact twice, this should relocate
+    // setup our neighbors
+    //
+    // note we do this after uninlining! this is because uninlining may
+    // aggresively split the mtree if there are already neighbors in the mdir
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    assert(mdir.rbyd.weight == 1);
+
+    lfsr_mdir_commit(&lfs, &mdir, &(lfs_ssize_t){0}, LFSR_ATTRS(
+            LFSR_ATTR(0, INLINED, +1, &alphas[0 % 26], 1),
+            LFSR_ATTR(2, INLINED, +1, &alphas[1 % 26], 1))) => 0;
+    // this test only works if these all fit in the mdir
+    assert(lfsr_mtree_weight(&lfs) == 1);
     assert(mdir.rbyd.weight == 3);
 
+    lfsr_openedmdir_t left_neighbor  = {.rid=0,  .mdir=mdir};
+    lfsr_openedmdir_t right_neighbor = {.rid=2,  .mdir=mdir};
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+
+    // force mdir to compact twice, this should relocate
     lfsr_mdir_t old_mdir = mdir;
 
     mdir.rbyd.off = BLOCK_SIZE;
