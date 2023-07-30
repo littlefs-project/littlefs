@@ -7285,11 +7285,11 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // directories in the current mtree assuming our block size.
     //
     // - Each directory needs 1 name tag, 1 did tag, and 1 dstart
-    // - Each tag needs ~2 alts with our current compaction strategy
+    // - Each tag needs ~2 alts+null with our current compaction strategy
     // - Each tag/alt encodes to a minimum of 4 bytes
     // - We can also assume ~1/2 block utilization due to our split threshold
     //
-    // This gives us ~3*3*4*2 or ~72 bytes per directory at minimum.
+    // This gives us ~3*4*4*2 or ~96 bytes per directory at minimum.
     // Multiplying by 2 and rounding down to the nearest power of 2 for cheaper
     // division gives us a heuristic of ~block_size/32 directories per mdir.
     //
