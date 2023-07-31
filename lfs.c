@@ -7297,12 +7297,13 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // 4096/32 = 128, so a filesystem with a single mdir encodes dids in a
     // single byte.
     //
-    lfs_size_t did = lfs_crc32c(0, path, strlen(path))
-            // note we need to be careful to catch integer overflow
-            & ((1 << lfs_min32(
-                lfs_nlog2(lfsr_mtree_weight(lfs))
-                    + lfs_nlog2(lfs->cfg->block_size/32),
-                32)) - 1);
+    // Note we also need to be careful to catch integer overflow.
+    //
+    lfs_size_t dmask = (1 << lfs_min32(
+            lfs_nlog2(lfsr_mtree_weight(lfs))
+                + lfs_nlog2(lfs->cfg->block_size/32),
+            32)) - 1;
+    lfs_size_t did = lfs_crc32c(0, path, strlen(path)) & dmask;
 
     // Check if we have a collision. If we do, search for the next
     // available did
@@ -7319,7 +7320,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
         }
 
         // try the next did
-        did = (did + 1) & 0xfffffff;
+        did = (did + 1) & dmask;
     }
 
     // found a good did, now to commit to the mtree
