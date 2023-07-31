@@ -104,12 +104,12 @@ code = '''
     lfsr_mount(&lfs, cfg) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now 
-    lfsr_mdir_commit(&lfs, &lfs.mroot, &(lfs_ssize_t){-1}, LFSR_ATTRS(
+    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
 
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, lfsr_mtree_weight(&lfs)-1, &mdir) => 0;
-    lfs_ssize_t rid = 0;
+    lfsr_mtree_lookup(&lfs, lfsr_mtree_weight(&lfs)-1, -1, &mdir) => 0;
+    mdir.rid = 0;
 
     lfs_size_t count = 0;
     while (true) {
@@ -120,20 +120,20 @@ code = '''
         lfs_alloc_ack(&lfs);
 
         // keep creating new metadata entries until we run out of space
-        int err = lfsr_mdir_commit(&lfs, &mdir, &rid, LFSR_ATTRS(
-                LFSR_ATTR(rid, INLINED, +1, &alphas[count % 26], 1)));
+        int err = lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
+                LFSR_ATTR(mdir.rid, INLINED, +1, &alphas[count % 26], 1)));
         assert(!err || err == LFS_ERR_NOSPC);
         if (err == LFS_ERR_NOSPC) {
             break;
         }
 
         uint8_t buffer[4];
-        lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+        lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
                 buffer, 4) => 1;
         assert(memcmp(buffer, &alphas[count % 26], 1) == 0);
 
         count += 1;
-        rid += 1;
+        mdir.rid += 1;
     }
 
     printf("alloced %d metadata entries in %d blocks\n",
@@ -145,12 +145,12 @@ code = '''
             mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
             mid++) {
         lfsr_mdir_t mdir;
-        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (lfs_ssize_t rid = 0;
-                rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
-                rid++) {
+        lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
+        for (mdir.rid = 0;
+                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid++) {
             uint8_t buffer[4];
-            lfsr_mdir_get(&lfs, &mdir, rid, LFSR_TAG_INLINED,
+            lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
                     buffer, 4) => 1;
             assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
             i += 1;

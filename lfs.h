@@ -373,14 +373,15 @@ typedef struct lfsr_mdir {
     //  -1 => mroot
     // >=0 => bid in the mtree
     lfs_ssize_t mid;
-    lfsr_rbyd_t rbyd;
-    lfs_block_t redund_block;
+    lfs_ssize_t rid;
+    struct {
+        lfsr_rbyd_t rbyd;
+        lfs_block_t redund_block;
+    } m;
 } lfsr_mdir_t;
 
 typedef struct lfsr_openedmdir {
     struct lfsr_openedmdir *next;
-    // this rid is followed during splits
-    lfs_ssize_t rid;
     lfsr_mdir_t mdir;
 } lfsr_openedmdir_t;
 
@@ -395,7 +396,7 @@ typedef struct lfsr_openedmdir {
 typedef struct lfsr_grm {
     struct {
         lfs_ssize_t mid;
-        lfs_size_t rid;
+        lfs_ssize_t rid;
     } rms[2];
 } lfsr_grm_t;
 
@@ -423,7 +424,7 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfsr_dir {
-    lfsr_openedmdir_t mdir;
+    lfsr_openedmdir_t m;
     lfs_size_t did;
     lfs_ssize_t dstart_mid;
     lfs_ssize_t dstart_rid;
