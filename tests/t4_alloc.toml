@@ -147,7 +147,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,

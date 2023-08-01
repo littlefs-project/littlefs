@@ -431,7 +431,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -456,7 +456,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -500,7 +500,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         // choose a pseudo-random rid
-        mdir.rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+        mdir.rid = TEST_PRNG(&prng) % (mdir.m.rbyd.weight+1);
 
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -530,7 +530,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -559,7 +559,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -1300,7 +1300,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -1325,7 +1325,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -1381,7 +1381,7 @@ code = '''
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
             for (mdir.rid = 0;
-                    mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                    mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                     mdir.rid++) {
                 uint8_t buffer[4];
                 lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -1412,7 +1412,7 @@ code = '''
         }
 
         assert(lfsr_mtree_weight(&lfs) == 0);
-        assert(lfsr_mdir_weight(&lfs.mroot) == 0);
+        assert(lfs.mroot.m.rbyd.weight == 0);
     }
 
     lfsr_unmount(&lfs) => 0;
@@ -1422,7 +1422,7 @@ code = '''
     lfsr_mount(&lfs, cfg) => 0;
 
     assert(lfsr_mtree_weight(&lfs) == 0);
-    assert(lfsr_mdir_weight(&lfs.mroot) == 0);
+    assert(lfs.mroot.m.rbyd.weight == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1456,9 +1456,9 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         // choose a pseudo-random rid
-        mdir.rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+        mdir.rid = TEST_PRNG(&prng) % (mdir.m.rbyd.weight+1);
         // choose to create or delete
-        uint8_t op = (lfs_size_t)mdir.rid == lfsr_mdir_weight(&mdir)
+        uint8_t op = (lfs_size_t)mdir.rid == mdir.m.rbyd.weight
                 ? 0
                 : TEST_PRNG(&prng) % 2;
 
@@ -1505,7 +1505,7 @@ code = '''
         assert(mdir.mid == -1 || mdir.m.rbyd.weight > 0);
 
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -1538,7 +1538,7 @@ code = '''
         assert(mdir.mid == -1 || mdir.m.rbyd.weight > 0);
 
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -2544,9 +2544,9 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         // choose a pseudo-random rid
-        mdir.rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+        mdir.rid = TEST_PRNG(&prng) % (mdir.m.rbyd.weight+1);
         // choose to create or delete
-        uint8_t op = (lfs_size_t)mdir.rid == lfsr_mdir_weight(&mdir)
+        uint8_t op = (lfs_size_t)mdir.rid == mdir.m.rbyd.weight
                 ? 0
                 : TEST_PRNG(&prng) % 3;
 
@@ -2606,7 +2606,7 @@ code = '''
         assert(mdir.mid == -1 || mdir.m.rbyd.weight > 0);
 
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -2639,7 +2639,7 @@ code = '''
         assert(mdir.mid == -1 || mdir.m.rbyd.weight > 0);
 
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -2746,7 +2746,8 @@ code = '''
     assert(lfs.mroot.m.rbyd.weight == 1);
 
     // assert that our neighbors were updated correctly
-    assert(left_neighbor.mdir.mid == LFSR_MID_RM);
+    assert(left_neighbor.mdir.mid == -1);
+    assert(left_neighbor.mdir.rid == -1);
     assert(right_neighbor.mdir.mid == -1);
     assert(right_neighbor.mdir.rid == 0);
     assert(memcmp(&right_neighbor.mdir.m, &lfs.mroot.m,
@@ -2795,7 +2796,8 @@ code = '''
     assert(left_neighbor.mdir.rid == 0);
     assert(memcmp(&left_neighbor.mdir.m, &lfs.mroot.m,
             sizeof(lfs.mroot.m)) == 0);
-    assert(right_neighbor.mdir.mid == LFSR_MID_RM);
+    assert(right_neighbor.mdir.mid == -1);
+    assert(right_neighbor.mdir.rid == -1);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
@@ -3946,7 +3948,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -4028,7 +4030,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -4072,7 +4074,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         // choose a pseudo-random rid
-        mdir.rid = TEST_PRNG(&prng) % (lfsr_mdir_weight(&mdir)+1);
+        mdir.rid = TEST_PRNG(&prng) % (mdir.m.rbyd.weight+1);
 
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -4102,7 +4104,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
@@ -4189,7 +4191,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, -1, &mdir) => 0;
         for (mdir.rid = 0;
-                mdir.rid < (lfs_ssize_t)lfsr_mdir_weight(&mdir);
+                mdir.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
                 mdir.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.rid, LFSR_TAG_INLINED,
