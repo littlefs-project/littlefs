@@ -2698,10 +2698,12 @@ code = '''
     assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
 
     // assert that our neighbors were updated correctly
+    assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(left_neighbor.mdir.mid == -1);
     assert(left_neighbor.mdir.rid == 0);
     assert(memcmp(&left_neighbor.mdir.m, &lfs.mroot.m,
             sizeof(lfs.mroot.m)) == 0);
+    assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
     assert(right_neighbor.mdir.mid == -1);
     assert(right_neighbor.mdir.rid == 2);
     assert(memcmp(&right_neighbor.mdir.m, &lfs.mroot.m,
@@ -2746,8 +2748,8 @@ code = '''
     assert(lfs.mroot.m.rbyd.weight == 1);
 
     // assert that our neighbors were updated correctly
-    assert(left_neighbor.mdir.mid == -1);
-    assert(left_neighbor.mdir.rid == -1);
+    assert(lfsr_mdir_isdropped(&left_neighbor.mdir));
+    assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
     assert(right_neighbor.mdir.mid == -1);
     assert(right_neighbor.mdir.rid == 0);
     assert(memcmp(&right_neighbor.mdir.m, &lfs.mroot.m,
@@ -2792,12 +2794,12 @@ code = '''
     assert(lfs.mroot.m.rbyd.weight == 1);
 
     // assert that our neighbors were updated correctly
+    assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(left_neighbor.mdir.mid == -1);
     assert(left_neighbor.mdir.rid == 0);
     assert(memcmp(&left_neighbor.mdir.m, &lfs.mroot.m,
             sizeof(lfs.mroot.m)) == 0);
-    assert(right_neighbor.mdir.mid == -1);
-    assert(right_neighbor.mdir.rid == -1);
+    assert(lfsr_mdir_isdropped(&right_neighbor.mdir));
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
@@ -2872,10 +2874,12 @@ code = '''
     assert(msibling.m.rbyd.weight == 1);
 
     // assert that our neighbors were updated correctly
+    assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(left_neighbor.mdir.mid == 0);
     assert(left_neighbor.mdir.rid == 0);
     assert(memcmp(&left_neighbor.mdir.m, &mdir.m,
             sizeof(mdir.m)) == 0);
+    assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
     assert(right_neighbor.mdir.mid == 1);
     assert(right_neighbor.mdir.rid == 0);
     assert(memcmp(&right_neighbor.mdir.m, &msibling.m,
@@ -2949,10 +2953,12 @@ code = '''
     assert(memcmp(buffer, &alphas[3 % 26], 1) == 0);
 
     // assert that our neighbors were updated correctly
+    assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(left_neighbor.mdir.mid == 0);
     assert(left_neighbor.mdir.rid == 0);
     assert(memcmp(&left_neighbor.mdir.m, &mdir.m,
             sizeof(mdir.m)) == 0);
+    assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
     assert(right_neighbor.mdir.mid == 1);
     assert(right_neighbor.mdir.rid == 1);
     assert(memcmp(&right_neighbor.mdir.m, &msibling.m,
@@ -3052,10 +3058,12 @@ code = '''
     assert(memcmp(buffer, &alphas[4 % 26], 1) == 0);
 
     // assert that our neighbors were updated correctly
+    assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(left_neighbor.mdir.mid == 0);
     assert(left_neighbor.mdir.rid == 0);
     assert(memcmp(&left_neighbor.mdir.m, &mdir.m,
             sizeof(mdir.m)) == 0);
+    assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
     assert(right_neighbor.mdir.mid == 1);
     assert(right_neighbor.mdir.rid == 1);
     assert(memcmp(&right_neighbor.mdir.m, &msibling.m,
@@ -3121,10 +3129,12 @@ code = '''
     assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
 
     // assert that our neighbors were updated correctly
+    assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(left_neighbor.mdir.mid == -1);
     assert(left_neighbor.mdir.rid == 0);
     assert(memcmp(&left_neighbor.mdir.m, &lfs.mroot.m,
             sizeof(lfs.mroot.m)) == 0);
+    assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
     assert(right_neighbor.mdir.mid == -1);
     assert(right_neighbor.mdir.rid == 1);
     assert(memcmp(&right_neighbor.mdir.m, &lfs.mroot.m,
@@ -3219,9 +3229,11 @@ code = '''
     assert(memcmp(buffer, &alphas[4 % 26], 1) == 0);
 
     // assert that our neighbors were updated correctly
+    assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(left_neighbor.mdir.mid == 0);
     assert(left_neighbor.mdir.rid == 0);
     assert(memcmp(&left_neighbor.mdir.m, &mdir.m, sizeof(mdir.m)) == 0);
+    assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
     assert(right_neighbor.mdir.mid == 0);
     assert(right_neighbor.mdir.rid == 2);
     assert(memcmp(&right_neighbor.mdir.m, &mdir.m, sizeof(mdir.m)) == 0);
@@ -3312,6 +3324,7 @@ code = '''
     assert(lfsr_mtree_weight(&lfs) == 4);
 
     // assert that our neighbors were updated correctly
+    assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(left_neighbor.mdir.mid == 0);
     assert(left_neighbor.mdir.rid == 0);
     lfsr_mtree_lookup(&lfs, 0, -1, &mdir) => 0;
@@ -3403,11 +3416,13 @@ code = '''
     assert(lfsr_mtree_weight(&lfs) == 2);
 
     // assert that our neighbors were updated correctly
+    assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(left_neighbor.mdir.mid == 0);
     assert(left_neighbor.mdir.rid == 0);
     lfsr_mtree_lookup(&lfs, 0, -1, &mdir) => 0;
     assert(memcmp(&left_neighbor.mdir.m, &mdir.m, sizeof(mdir.m)) == 0);
 
+    assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
     assert(right_neighbor.mdir.mid == 1);
     assert(right_neighbor.mdir.rid == 0);
     lfsr_mtree_lookup(&lfs, 1, -1, &mdir) => 0;
