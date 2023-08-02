@@ -712,6 +712,10 @@ lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 // Returns a negative error code on failure.
 int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 
+// Use Traverse function and try to find free blocks. LittleFS free blocks search is unpredictable.
+// Search is costly operation which may delay write. In realtime write scenarios can be better to find them before a write.
+int lfs_find_free_blocks(lfs_t *lfs);
+
 #ifndef LFS_READONLY
 // Attempt to make the filesystem consistent and ready for writing
 //
