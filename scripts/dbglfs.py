@@ -888,14 +888,14 @@ def main(disk, mroots=None, *,
         if grmed_dir_dids != grmed_dstart_dids:
             corrupted = True
 
-        # are we going to end up rendering the fstree?
-        fstree = args.get('fstree') or not (
+        # are we going to end up rendering the dtree?
+        dtree = args.get('dtree') or not (
             args.get('config') or args.get('gstate'))
 
         # do a pass to find the width that fits file names+tree, this
         # may not terminate! It's up to the user to use -Z in that case
         f_width = 0
-        if fstree:
+        if dtree:
             def rec_f_width(did, depth):
                 depth_ = 0
                 width_ = 0
@@ -930,7 +930,7 @@ def main(disk, mroots=None, *,
         w_width = (m.ceil(m.log10(max(1, mweight)+1))
             + 2*m.ceil(m.log10(max(1, rweight)+1))
             + 2)
-        if fstree:
+        if dtree:
             print('%-11s  %-*s %-*s  %s' % (
                 'mdir',
                 w_width, 'ids',
@@ -1054,8 +1054,8 @@ def main(disk, mroots=None, *,
                                     w_width, '',
                                     line))
 
-        # print fstree?
-        if fstree:
+        # print dtree?
+        if dtree:
             # only show mdir on change
             pmid = None
             # recursively print directories
@@ -1110,7 +1110,7 @@ def main(disk, mroots=None, *,
                             if did_ not in grmed_dir_dids:
                                 notes.append('orphaned')
 
-                    # print human readable fstree entry
+                    # print human readable dtree entry
                     print('%s%12s %*s %-*s  %s%s%s' % (
                         '\x1b[90m' if color and (grmed or tag == TAG_DSTART)
                             else '',
@@ -1238,9 +1238,9 @@ if __name__ == "__main__":
         action='store_true',
         help="Show the gdelta that xors into the global-state.")
     parser.add_argument(
-        '-f', '--fstree',
+        '-t', '--dtree', '--tree',
         action='store_true',
-        help="Show the filesystem tree (default).")
+        help="Show the directory tree (default).")
     parser.add_argument(
         '-A', '--attrs',
         action='store_true',
