@@ -180,8 +180,8 @@ size: $(OBJ)
 	$(SIZE) -t $^
 
 ## Generate a ctags file
-.PHONY: tags
-tags:
+.PHONY: tags ctags
+tags ctags:
 	$(CTAGS) --totals --c-types=+p $(shell find -H -name '*.h') $(SRC)
 
 ## Show this help text
