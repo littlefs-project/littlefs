@@ -9,10 +9,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make a directory
@@ -22,7 +22,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -56,8 +56,8 @@ code = '''
 defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // make a directory
     lfsr_mkdir(&lfs, "ardvark") => 0;
@@ -72,7 +72,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -103,8 +103,8 @@ code = '''
 defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // make a directory
     lfsr_mkdir(&lfs, "ardvark") => 0;
@@ -118,7 +118,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -152,10 +152,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make a directory
@@ -168,7 +168,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -203,10 +203,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // try to make root, which doesn't make sense
@@ -224,7 +224,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -259,10 +259,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make a directory
@@ -278,7 +278,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -312,10 +312,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make some directories
@@ -329,7 +329,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -375,10 +375,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make some directories
@@ -392,7 +392,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -461,10 +461,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make this many directories
@@ -477,7 +477,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -524,10 +524,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make this many directories
@@ -540,7 +540,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -587,10 +587,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make this many directories
@@ -609,7 +609,7 @@ code = '''
             // remount?
             if (REMOUNT) {
                 lfsr_unmount(&lfs) => 0;
-                lfsr_mount(&lfs, cfg) => 0;
+                lfsr_mount(&lfs, CFG) => 0;
                 // grm should be zero here
                 assert(lfs.pgrm[0] == 0);
             }
@@ -688,10 +688,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make this many directories
@@ -716,7 +716,7 @@ code = '''
                 // remount?
                 if (REMOUNT) {
                     lfsr_unmount(&lfs) => 0;
-                    lfsr_mount(&lfs, cfg) => 0;
+                    lfsr_mount(&lfs, CFG) => 0;
                     // grm should be zero here
                     assert(lfs.pgrm[0] == 0);
                 }
@@ -827,10 +827,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // create this many directory in a sort of linked-list by nesting
@@ -844,7 +844,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -899,10 +899,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     if (PARENT) {
@@ -946,7 +946,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -995,10 +995,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     assert(lfs_crc32c(0, "a_SNmwMTHH", 10) == 0x12345678);
@@ -1025,7 +1025,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1090,10 +1090,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     assert(lfs_crc32c(0, "a_IplRNrPH", 10) == 0x00000000);
@@ -1120,7 +1120,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1187,10 +1187,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     assert(lfs_crc32c(0, "a_iomlVKPH", 10) == 0xffffffff);
@@ -1217,7 +1217,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1284,10 +1284,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     assert(lfs_crc32c(0, "a_IOtUptRH", 10) == 0x0000007f);
@@ -1314,7 +1314,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1381,10 +1381,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make a directory
@@ -1394,7 +1394,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1426,7 +1426,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1455,10 +1455,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make a directory
@@ -1477,7 +1477,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1512,10 +1512,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make a directory
@@ -1532,7 +1532,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1583,10 +1583,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // try to remove root, which doesn't really make sense
@@ -1605,7 +1605,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1639,10 +1639,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make some directories
@@ -1656,7 +1656,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1699,7 +1699,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1735,7 +1735,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1766,7 +1766,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1795,10 +1795,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make some directories
@@ -1812,7 +1812,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1875,7 +1875,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1931,7 +1931,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -1972,7 +1972,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -2008,10 +2008,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make this many directories
@@ -2025,7 +2025,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -2068,7 +2068,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -2123,10 +2123,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make this many directories
@@ -2140,7 +2140,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -2183,7 +2183,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -2238,10 +2238,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make this many directories
@@ -2262,7 +2262,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -2339,7 +2339,7 @@ code = '''
             // remount?
             if (REMOUNT) {
                 lfsr_unmount(&lfs) => 0;
-                lfsr_mount(&lfs, cfg) => 0;
+                lfsr_mount(&lfs, CFG) => 0;
                 // grm should be zero here
                 assert(lfs.pgrm[0] == 0);
             }
@@ -2354,7 +2354,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -2442,10 +2442,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make this many directories
@@ -2473,7 +2473,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -2582,7 +2582,7 @@ code = '''
                 // remount?
                 if (REMOUNT) {
                     lfsr_unmount(&lfs) => 0;
-                    lfsr_mount(&lfs, cfg) => 0;
+                    lfsr_mount(&lfs, CFG) => 0;
                     // grm should be zero here
                     assert(lfs.pgrm[0] == 0);
                 }
@@ -2597,7 +2597,7 @@ code = '''
             // remount?
             if (REMOUNT) {
                 lfsr_unmount(&lfs) => 0;
-                lfsr_mount(&lfs, cfg) => 0;
+                lfsr_mount(&lfs, CFG) => 0;
                 // grm should be zero here
                 assert(lfs.pgrm[0] == 0);
             }
@@ -2612,7 +2612,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -2740,10 +2740,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // create this many directory in a sort of linked-list by nesting
@@ -2758,7 +2758,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -2806,7 +2806,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -2861,10 +2861,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     if (PARENT) {
@@ -2926,7 +2926,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -2976,10 +2976,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make a directory
@@ -2995,7 +2995,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3027,7 +3027,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3062,10 +3062,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make directories
@@ -3077,7 +3077,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3112,7 +3112,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3147,10 +3147,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make directories
@@ -3160,7 +3160,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3192,7 +3192,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3226,10 +3226,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make directories
@@ -3251,7 +3251,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3286,10 +3286,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make directories
@@ -3307,7 +3307,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3364,10 +3364,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // try to rename root, which doesn't really make sense
@@ -3383,7 +3383,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3417,10 +3417,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make some directories
@@ -3444,7 +3444,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3487,7 +3487,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3528,7 +3528,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3569,7 +3569,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3613,10 +3613,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // make some directories
@@ -3646,7 +3646,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3709,7 +3709,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3770,7 +3770,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3831,7 +3831,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -3899,10 +3899,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // check if we have already started renaming, in case of powerloss
@@ -3920,7 +3920,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -3967,7 +3967,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -4014,10 +4014,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // check if we have already started renaming, in case of powerloss
@@ -4035,7 +4035,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -4082,7 +4082,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -4129,10 +4129,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // check if we have already started renaming, in case of powerloss
@@ -4157,7 +4157,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -4235,7 +4235,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -4254,7 +4254,7 @@ code = '''
             // remount?
             if (REMOUNT) {
                 lfsr_unmount(&lfs) => 0;
-                lfsr_mount(&lfs, cfg) => 0;
+                lfsr_mount(&lfs, CFG) => 0;
                 // grm should be zero here
                 assert(lfs.pgrm[0] == 0);
             }
@@ -4334,10 +4334,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // check if we have already started renaming, in case of powerloss
@@ -4369,7 +4369,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -4478,7 +4478,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -4497,7 +4497,7 @@ code = '''
             // remount?
             if (REMOUNT) {
                 lfsr_unmount(&lfs) => 0;
-                lfsr_mount(&lfs, cfg) => 0;
+                lfsr_mount(&lfs, CFG) => 0;
                 // grm should be zero here
                 assert(lfs.pgrm[0] == 0);
             }
@@ -4518,7 +4518,7 @@ code = '''
                 // remount?
                 if (REMOUNT) {
                     lfsr_unmount(&lfs) => 0;
-                    lfsr_mount(&lfs, cfg) => 0;
+                    lfsr_mount(&lfs, CFG) => 0;
                     // grm should be zero here
                     assert(lfs.pgrm[0] == 0);
                 }
@@ -4636,10 +4636,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     // check if we have already started renaming, in case of powerloss
@@ -4658,7 +4658,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -4714,7 +4714,7 @@ code = '''
         // remount?
         if (REMOUNT) {
             lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, cfg) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
             // grm should be zero here
             assert(lfs.pgrm[0] == 0);
         }
@@ -4773,10 +4773,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     if (PARENT) {
@@ -4861,7 +4861,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -4914,10 +4914,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     if (PARENT) {
@@ -5016,7 +5016,7 @@ code = '''
     // remount?
     if (REMOUNT) {
         lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
         // grm should be zero here
         assert(lfs.pgrm[0] == 0);
     }
@@ -5065,8 +5065,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -5116,8 +5116,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -5187,8 +5187,8 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -5262,8 +5262,8 @@ defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -5357,8 +5357,8 @@ defines.SEEK = [0, 1, 2]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -5452,8 +5452,8 @@ defines.SEEK = [0, 1, 2]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -5556,8 +5556,8 @@ defines.SEEK = [0, 1, 2]
 if = 'PARENT || NEIGHBORS == 0'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -5673,8 +5673,8 @@ if = [
 ]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -5778,8 +5778,8 @@ if = [
 ]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -5890,8 +5890,8 @@ if = [
 ]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     if (PARENT) {
         lfsr_mkdir(&lfs, "pricklypear") => 0;
@@ -6006,8 +6006,8 @@ defines.NEIGHBORS = [0x0, 0x1, 0x2, 0x3]
 defines.SEEK = [0, 1, 2]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     lfsr_mkdir(&lfs, "pricklypear") => 0;
 
@@ -6099,10 +6099,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     if (PARENT) {
@@ -6225,10 +6225,10 @@ reentrant = true
 code = '''
     // format once per test
     lfs_t lfs;
-    int err = lfsr_mount(&lfs, cfg);
+    int err = lfsr_mount(&lfs, CFG);
     if (err) {
-        lfsr_format(&lfs, cfg) => 0;
-        lfsr_mount(&lfs, cfg) => 0;
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
     }
 
     if (PARENT) {

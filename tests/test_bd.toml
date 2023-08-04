@@ -13,17 +13,17 @@ code = '''
     uint8_t buffer[lfs_max(READ, PROG)];
 
     // write data
-    cfg->erase(cfg, 0) => 0;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += PROG) {
+    CFG->erase(CFG, 0) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
         for (lfs_off_t j = 0; j < PROG; j++) {
             buffer[j] = (i+j) % 251;
         }
-        cfg->prog(cfg, 0, i, buffer, PROG) => 0;
+        CFG->prog(CFG, 0, i, buffer, PROG) => 0;
     }
 
     // read data
-    for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-        cfg->read(cfg, 0, i, buffer, READ) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        CFG->read(CFG, 0, i, buffer, READ) => 0;
 
         for (lfs_off_t j = 0; j < READ; j++) {
             LFS_ASSERT(buffer[j] == (i+j) % 251);
@@ -40,18 +40,18 @@ code = '''
 
     // write block 0
     block = 0;
-    cfg->erase(cfg, block) => 0;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += PROG) {
+    CFG->erase(CFG, block) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
         for (lfs_off_t j = 0; j < PROG; j++) {
             buffer[j] = (block+i+j) % 251;
         }
-        cfg->prog(cfg, block, i, buffer, PROG) => 0;
+        CFG->prog(CFG, block, i, buffer, PROG) => 0;
     }
 
     // read block 0
     block = 0;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-        cfg->read(cfg, block, i, buffer, READ) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        CFG->read(CFG, block, i, buffer, READ) => 0;
 
         for (lfs_off_t j = 0; j < READ; j++) {
             LFS_ASSERT(buffer[j] == (block+i+j) % 251);
@@ -60,18 +60,18 @@ code = '''
 
     // write block 1
     block = 1;
-    cfg->erase(cfg, block) => 0;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += PROG) {
+    CFG->erase(CFG, block) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
         for (lfs_off_t j = 0; j < PROG; j++) {
             buffer[j] = (block+i+j) % 251;
         }
-        cfg->prog(cfg, block, i, buffer, PROG) => 0;
+        CFG->prog(CFG, block, i, buffer, PROG) => 0;
     }
 
     // read block 1
     block = 1;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-        cfg->read(cfg, block, i, buffer, READ) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        CFG->read(CFG, block, i, buffer, READ) => 0;
 
         for (lfs_off_t j = 0; j < READ; j++) {
             LFS_ASSERT(buffer[j] == (block+i+j) % 251);
@@ -80,8 +80,8 @@ code = '''
 
     // read block 0 again
     block = 0;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-        cfg->read(cfg, block, i, buffer, READ) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        CFG->read(CFG, block, i, buffer, READ) => 0;
 
         for (lfs_off_t j = 0; j < READ; j++) {
             LFS_ASSERT(buffer[j] == (block+i+j) % 251);
@@ -98,18 +98,18 @@ code = '''
 
     // write block 0
     block = 0;
-    cfg->erase(cfg, block) => 0;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += PROG) {
+    CFG->erase(CFG, block) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
         for (lfs_off_t j = 0; j < PROG; j++) {
             buffer[j] = (block+i+j) % 251;
         }
-        cfg->prog(cfg, block, i, buffer, PROG) => 0;
+        CFG->prog(CFG, block, i, buffer, PROG) => 0;
     }
 
     // read block 0
     block = 0;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-        cfg->read(cfg, block, i, buffer, READ) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        CFG->read(CFG, block, i, buffer, READ) => 0;
 
         for (lfs_off_t j = 0; j < READ; j++) {
             LFS_ASSERT(buffer[j] == (block+i+j) % 251);
@@ -117,19 +117,19 @@ code = '''
     }
 
     // write block n-1
-    block = cfg->block_count-1;
-    cfg->erase(cfg, block) => 0;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += PROG) {
+    block = CFG->block_count-1;
+    CFG->erase(CFG, block) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
         for (lfs_off_t j = 0; j < PROG; j++) {
             buffer[j] = (block+i+j) % 251;
         }
-        cfg->prog(cfg, block, i, buffer, PROG) => 0;
+        CFG->prog(CFG, block, i, buffer, PROG) => 0;
     }
 
     // read block n-1
-    block = cfg->block_count-1;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-        cfg->read(cfg, block, i, buffer, READ) => 0;
+    block = CFG->block_count-1;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        CFG->read(CFG, block, i, buffer, READ) => 0;
 
         for (lfs_off_t j = 0; j < READ; j++) {
             LFS_ASSERT(buffer[j] == (block+i+j) % 251);
@@ -138,8 +138,8 @@ code = '''
 
     // read block 0 again
     block = 0;
-    for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-        cfg->read(cfg, block, i, buffer, READ) => 0;
+    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        CFG->read(CFG, block, i, buffer, READ) => 0;
 
         for (lfs_off_t j = 0; j < READ; j++) {
             LFS_ASSERT(buffer[j] == (block+i+j) % 251);
@@ -155,19 +155,19 @@ code = '''
 
     // write/read every power of 2
     lfs_block_t block = 1;
-    while (block < cfg->block_count) {
+    while (block < CFG->block_count) {
         // write
-        cfg->erase(cfg, block) => 0;
-        for (lfs_off_t i = 0; i < cfg->block_size; i += PROG) {
+        CFG->erase(CFG, block) => 0;
+        for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
             for (lfs_off_t j = 0; j < PROG; j++) {
                 buffer[j] = (block+i+j) % 251;
             }
-            cfg->prog(cfg, block, i, buffer, PROG) => 0;
+            CFG->prog(CFG, block, i, buffer, PROG) => 0;
         }
 
         // read
-        for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-            cfg->read(cfg, block, i, buffer, READ) => 0;
+        for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+            CFG->read(CFG, block, i, buffer, READ) => 0;
 
             for (lfs_off_t j = 0; j < READ; j++) {
                 LFS_ASSERT(buffer[j] == (block+i+j) % 251);
@@ -179,10 +179,10 @@ code = '''
 
     // read every power of 2 again
     block = 1;
-    while (block < cfg->block_count) {
+    while (block < CFG->block_count) {
         // read
-        for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-            cfg->read(cfg, block, i, buffer, READ) => 0;
+        for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+            CFG->read(CFG, block, i, buffer, READ) => 0;
 
             for (lfs_off_t j = 0; j < READ; j++) {
                 LFS_ASSERT(buffer[j] == (block+i+j) % 251);
@@ -202,19 +202,19 @@ code = '''
     // write/read every fibonacci number on our device
     lfs_block_t block = 1;
     lfs_block_t block_ = 1;
-    while (block < cfg->block_count) {
+    while (block < CFG->block_count) {
         // write
-        cfg->erase(cfg, block) => 0;
-        for (lfs_off_t i = 0; i < cfg->block_size; i += PROG) {
+        CFG->erase(CFG, block) => 0;
+        for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
             for (lfs_off_t j = 0; j < PROG; j++) {
                 buffer[j] = (block+i+j) % 251;
             }
-            cfg->prog(cfg, block, i, buffer, PROG) => 0;
+            CFG->prog(CFG, block, i, buffer, PROG) => 0;
         }
 
         // read
-        for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-            cfg->read(cfg, block, i, buffer, READ) => 0;
+        for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+            CFG->read(CFG, block, i, buffer, READ) => 0;
 
             for (lfs_off_t j = 0; j < READ; j++) {
                 LFS_ASSERT(buffer[j] == (block+i+j) % 251);
@@ -229,10 +229,10 @@ code = '''
     // read every fibonacci number again
     block = 1;
     block_ = 1;
-    while (block < cfg->block_count) {
+    while (block < CFG->block_count) {
         // read
-        for (lfs_off_t i = 0; i < cfg->block_size; i += READ) {
-            cfg->read(cfg, block, i, buffer, READ) => 0;
+        for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+            CFG->read(CFG, block, i, buffer, READ) => 0;
 
             for (lfs_off_t j = 0; j < READ; j++) {
                 LFS_ASSERT(buffer[j] == (block+i+j) % 251);

@@ -405,7 +405,7 @@ def compile(bench_paths, **args):
 
                     # create case run function
                     f.writeln('void __bench__%s__run('
-                        '__attribute__((unused)) struct lfs_config *cfg) {'
+                        '__attribute__((unused)) struct lfs_config *CFG) {'
                         % (case.name))
                     f.writeln(4*' '+'// bench case %s' % case.name)
                     if case.code_lineno is not None:
@@ -454,7 +454,7 @@ def compile(bench_paths, **args):
                                 'void);'
                                 % (case.name))
                         f.writeln('extern void __bench__%s__run('
-                            'struct lfs_config *cfg);'
+                            'struct lfs_config *CFG);'
                             % (case.name))
                         f.writeln()
 

@@ -410,7 +410,7 @@ def compile(test_paths, **args):
 
                     # create case run function
                     f.writeln('void __test__%s__run('
-                        '__attribute__((unused)) struct lfs_config *cfg) {'
+                        '__attribute__((unused)) struct lfs_config *CFG) {'
                         % (case.name))
                     f.writeln(4*' '+'// test case %s' % case.name)
                     if case.code_lineno is not None:
@@ -459,7 +459,7 @@ def compile(test_paths, **args):
                                 'void);'
                                 % (case.name))
                         f.writeln('extern void __test__%s__run('
-                            'struct lfs_config *cfg);'
+                            'struct lfs_config *CFG);'
                             % (case.name))
                         f.writeln()
 

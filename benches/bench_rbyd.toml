@@ -18,7 +18,7 @@ in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
@@ -59,7 +59,7 @@ code = '''
     }
     BENCH_STOP();
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
 '''
 
 [cases.bench_rbyd_attr_fetch]
@@ -75,7 +75,7 @@ in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
@@ -115,7 +115,7 @@ code = '''
     }
 
     BENCH_START();
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
     BENCH_STOP();
 '''
 
@@ -132,7 +132,7 @@ in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
@@ -171,7 +171,7 @@ code = '''
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
@@ -196,7 +196,7 @@ in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*(N+1) <= BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
@@ -235,7 +235,7 @@ code = '''
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
@@ -262,7 +262,7 @@ in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*(N+1) <= BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
@@ -301,7 +301,7 @@ code = '''
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
@@ -327,7 +327,7 @@ in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
@@ -364,7 +364,7 @@ code = '''
     }
     BENCH_STOP();
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
 '''
 
 [cases.bench_rbyd_id_fetch]
@@ -380,7 +380,7 @@ in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
@@ -416,7 +416,7 @@ code = '''
     }
 
     BENCH_START();
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
     BENCH_STOP();
 '''
 
@@ -433,7 +433,7 @@ in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*N <= BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
@@ -468,7 +468,7 @@ code = '''
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;
@@ -491,7 +491,7 @@ in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*(N+1) <= BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
@@ -526,7 +526,7 @@ code = '''
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % (N+1);
@@ -552,7 +552,7 @@ in = 'lfs.c'
 if = 'COMMIT == 0 || PROG_SIZE*(N+1) <= BLOCK_SIZE'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t rbyd = {
         .block = 0,
@@ -587,7 +587,7 @@ code = '''
         }
     }
 
-    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+    lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
 
     BENCH_START();
     lfs_off_t i_ = BENCH_PRNG(&prng) % N;

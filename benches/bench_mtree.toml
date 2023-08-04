@@ -18,8 +18,8 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
 
     // create an mtree with N entries
@@ -80,8 +80,8 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
 
     // create an mtree with N entries
@@ -152,8 +152,8 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
 
     // create an mtree with N entries

@@ -17,7 +17,7 @@ defines.BLOCK_SIZE = 32768
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -48,7 +48,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -80,7 +80,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -113,7 +113,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -223,7 +223,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -335,7 +335,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -414,7 +414,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -495,7 +495,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -558,7 +558,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -623,7 +623,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -702,7 +702,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -845,7 +845,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -1016,7 +1016,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -1187,7 +1187,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -1366,7 +1366,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -1573,7 +1573,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -1739,7 +1739,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -1926,7 +1926,7 @@ defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2017,7 +2017,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2098,7 +2098,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2187,7 +2187,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2282,7 +2282,7 @@ defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2354,7 +2354,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2425,7 +2425,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2535,7 +2535,7 @@ in = 'lfs.c'
 defines.ORDER = [0, 1, 2]
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2597,7 +2597,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2709,7 +2709,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2776,7 +2776,7 @@ code = '''
                     LFSR_ATTR(-1, RMUATTR(j+1), 0, NULL, 0)))
                     => 0;
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             for (unsigned k = 0; k < N; k++) {
                 int err = lfsr_rbyd_lookupnext(&lfs, &rbyd,
                         -1, LFSR_TAG_UATTR(k+1),
@@ -2805,7 +2805,7 @@ code = '''
                         "\xaa\xaa\xaa\xaa\xaa\xaa", 6)))
                     => 0;
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             for (unsigned k = 0; k < N; k++) {
                 lfsr_rbyd_lookupnext(&lfs, &rbyd,
                         -1, LFSR_TAG_UATTR(k+1),
@@ -2859,7 +2859,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -2922,7 +2922,7 @@ code = '''
                     LFSR_ATTR(-1, RMUATTR(j+1), 0, NULL, 0))) => 0;
 
             // try traversing over the tags
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
 
             tag_ = 0;
             id_ = -1;
@@ -2953,7 +2953,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -3102,7 +3102,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -3337,7 +3337,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -3425,7 +3425,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -3548,7 +3548,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -3656,7 +3656,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -3803,7 +3803,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -3964,7 +3964,7 @@ defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -4066,7 +4066,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -4159,7 +4159,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -4265,7 +4265,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -4377,7 +4377,7 @@ defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -4469,7 +4469,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -4556,7 +4556,7 @@ in = 'lfs.c'
 defines.ORDER = [0, 1, 2]
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -4624,7 +4624,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -4858,7 +4858,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -5119,7 +5119,7 @@ defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -5233,7 +5233,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -5337,7 +5337,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -5503,7 +5503,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -5680,7 +5680,7 @@ defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -5790,7 +5790,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -5899,7 +5899,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -6027,7 +6027,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -6115,7 +6115,7 @@ code = '''
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j/M, RMUATTR((j%M)+1), 0, NULL, 0))) => 0;
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             for (unsigned k = 0; k < N; k++) {
                 lfsr_rbyd_get(&lfs, &rbyd, k, LFSR_TAG_REG, buffer, 4) => 4;
                 assert(memcmp(buffer, names[k % 6], 4) == 0);
@@ -6155,7 +6155,7 @@ code = '''
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
                     LFSR_ATTR(j/M, UATTR((j%M)+1), 0, names[(j/M)%6], 3))) => 0;
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             for (unsigned k = 0; k < N; k++) {
                 lfsr_rbyd_get(&lfs, &rbyd, k, LFSR_TAG_REG, buffer, 4) => 4;
                 assert(memcmp(buffer, names[k % 6], 4) == 0);
@@ -6221,7 +6221,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -6345,7 +6345,7 @@ defines.ORDER = [0, 1, 2]
 defines.M = 'range(1, 4)'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -6436,7 +6436,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -6575,7 +6575,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -6731,7 +6731,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -6857,7 +6857,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -7103,7 +7103,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -7185,7 +7185,7 @@ code = '''
                     LFSR_ATTR(j, UNR, -1, NULL, 0))) => 0;
             assert(rbyd.weight == N-1);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N-1);
             for (unsigned k = 0; k < N-1; k++) {
                 lfsr_rbyd_get(&lfs, &rbyd, k, LFSR_TAG_REG, buffer, 4) => 4;
@@ -7204,7 +7204,7 @@ code = '''
                     LFSR_ATTR(j, REG, +1, names[j % 6], 6))) => 0;
             assert(rbyd.weight == N);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N);
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
@@ -7257,7 +7257,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -7345,7 +7345,7 @@ code = '''
                     LFSR_ATTR(j, UNR, -1, NULL, 0))) => 0;
             assert(rbyd.weight == N-1);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N-1);
             for (unsigned k = 0; k < N-1; k++) {
                 lfsr_rbyd_get(&lfs, &rbyd, k, LFSR_TAG_REG, buffer, 4) => 4;
@@ -7381,7 +7381,7 @@ code = '''
             }
             assert(rbyd.weight == N);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N);
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
@@ -7447,7 +7447,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -7529,7 +7529,7 @@ code = '''
             assert(rbyd.weight == N-1);
 
             // try traversing over the tags
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N-1);
 
             tag_ = 0;
@@ -7571,7 +7571,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -7659,7 +7659,7 @@ code = '''
             assert(rbyd.weight == N-1);
 
             // try traversing over the tags
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N-1);
 
             tag_ = 0;
@@ -7709,7 +7709,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -7823,7 +7823,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -7956,7 +7956,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -8098,7 +8098,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -8255,7 +8255,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -8361,7 +8361,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -8598,7 +8598,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -8707,7 +8707,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -8793,7 +8793,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -8878,7 +8878,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -9550,7 +9550,7 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -9806,7 +9806,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -9917,7 +9917,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -10038,7 +10038,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -10119,7 +10119,7 @@ code = '''
                     LFSR_ATTR(j*W+W-1, UNR, +D, NULL, 0))) => 0;
             assert(rbyd.weight == N*W+D);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N*W+D);
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
@@ -10164,7 +10164,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -10246,7 +10246,7 @@ code = '''
                         names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W+D);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N*W+D);
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
@@ -10299,7 +10299,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -10382,7 +10382,7 @@ code = '''
                         names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W+D);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N*W+D);
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
@@ -10447,7 +10447,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -10528,7 +10528,7 @@ code = '''
                     LFSR_ATTR(j*W+W-1, GROW, -D, NULL, 0))) => 0;
             assert(rbyd.weight == N*W-D);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N*W-D);
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
@@ -10573,7 +10573,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -10655,7 +10655,7 @@ code = '''
                         names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W-D);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N*W-D);
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
@@ -10708,7 +10708,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -10791,7 +10791,7 @@ code = '''
                         names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W-D);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N*W-D);
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
@@ -10855,7 +10855,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -10936,7 +10936,7 @@ code = '''
                     LFSR_ATTR(j*W+W-1, UNR, -W, NULL, 0))) => 0;
             assert(rbyd.weight == (N-1)*W);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == (N-1)*W);
             for (unsigned k = 0; k < N-1; k++) {
                 if (k >= j) {
@@ -10968,7 +10968,7 @@ code = '''
                     LFSR_ATTR(j*W, REG, +W, names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N*W);
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
@@ -11008,7 +11008,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -11090,7 +11090,7 @@ code = '''
                     LFSR_ATTR(j*W+W-1, UATTR(1), 0, names[j % 6], 2))) => 0;
             assert(rbyd.weight == N*W);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N*W);
             for (unsigned k = 0; k < N; k++) {
                 lfsr_rbyd_lookupnext(&lfs, &rbyd, k*W+W-1, LFSR_TAG_REG,
@@ -11120,7 +11120,7 @@ code = '''
                     LFSR_ATTR(j*W+W-1, RMUATTR(1), 0, NULL, 0))) => 0;
             assert(rbyd.weight == N*W);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N*W);
             for (unsigned k = 0; k < N; k++) {
                 lfsr_rbyd_lookupnext(&lfs, &rbyd, k*W+W-1, LFSR_TAG_REG,
@@ -11145,7 +11145,7 @@ code = '''
                     LFSR_ATTR(j*W+W-1, UATTR(1), 0, names[j % 6], 2))) => 0;
             assert(rbyd.weight == N*W);
 
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             assert(rbyd.weight == N*W);
             for (unsigned k = 0; k < N; k++) {
                 lfsr_rbyd_lookupnext(&lfs, &rbyd, k*W+W-1, LFSR_TAG_REG,
@@ -11184,7 +11184,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -11335,7 +11335,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -11530,7 +11530,7 @@ defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -11617,7 +11617,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -11697,7 +11697,7 @@ code = '''
                     LFSR_ATTR(j, RMWIDEUATTR, 0, NULL, 0))) => 0;
 
             // try traversing over the tags
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             lfsr_tag_t tag_ = 0;
             lfs_ssize_t id_ = -1;
             lfs_size_t weight_;
@@ -11754,7 +11754,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -11835,7 +11835,7 @@ code = '''
                         names[j % 6], 3))) => 0;
 
             // try traversing over the tags
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             lfsr_tag_t tag_ = 0;
             lfs_ssize_t id_ = -1;
             lfs_size_t weight_;
@@ -11893,7 +11893,7 @@ defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -11981,7 +11981,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -12062,7 +12062,7 @@ code = '''
                     LFSR_ATTR(j, RMWIDEUATTR, 0, NULL, 0))) => 0;
 
             // try traversing over the tags
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             lfsr_tag_t tag_ = 0;
             lfs_ssize_t id_ = -1;
             lfs_size_t weight_;
@@ -12126,7 +12126,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -12208,7 +12208,7 @@ code = '''
                         names[j % 6], 3))) => 0;
 
             // try traversing over the tags
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             lfsr_tag_t tag_ = 0;
             lfs_ssize_t id_ = -1;
             lfs_size_t weight_;
@@ -12273,7 +12273,7 @@ defines.PERMUTATION = -1
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -12359,7 +12359,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -12438,7 +12438,7 @@ code = '''
                     LFSR_ATTR(j, RMWIDEUATTR, 0, NULL, 0))) => 0;
 
             // try traversing over the tags
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             lfsr_tag_t tag_ = 0;
             lfs_ssize_t id_ = -1;
             lfs_size_t weight_;
@@ -12498,7 +12498,7 @@ if = 'PROG_SIZE < 512'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
@@ -12578,7 +12578,7 @@ code = '''
                         names[j % 6], 6))) => 0;
 
             // try traversing over the tags
-            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
+            lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
             lfsr_tag_t tag_ = 0;
             lfs_ssize_t id_ = -1;
             lfs_size_t weight_;

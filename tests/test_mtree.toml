@@ -9,8 +9,8 @@ defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
 [cases.test_mtree_mroot]
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -21,8 +21,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
 
     for (lfs_size_t i = 0; i < N; i++) {
@@ -41,7 +41,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     for (lfs_size_t i = 0; i < N; i++) {
         uint8_t buffer[1];
@@ -60,8 +60,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
 
     for (lfs_size_t i = 0; i < N; i++) {
@@ -83,7 +83,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     for (lfs_size_t i = 0; i < N; i++) {
         uint8_t buffer[1];
@@ -102,8 +102,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
 
     for (lfs_size_t i = 0; i < N; i++) {
@@ -125,7 +125,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     lfsr_mdir_get(&lfs, &lfs.mroot,
             -1, LFSR_TAG_UATTR(1), buffer, 4) => 1;
@@ -145,8 +145,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -190,7 +190,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was unininlined correctly
     assert(lfsr_mtree_weight(&lfs) == 1);
@@ -220,8 +220,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -264,7 +264,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight(&lfs) == 2);
@@ -294,8 +294,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -359,7 +359,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was split correctly
     assert(lfsr_mtree_weight(&lfs) == 2);
@@ -396,8 +396,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -411,8 +411,8 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.m.rbyd.off = cfg->block_size;
-            lfs.mroot.m.rbyd.off = cfg->block_size;
+            mdir.m.rbyd.off = CFG->block_size;
+            lfs.mroot.m.rbyd.off = CFG->block_size;
         }
 
         lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
@@ -449,7 +449,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
     i = 0;
@@ -483,8 +483,8 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -507,8 +507,8 @@ code = '''
 
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.m.rbyd.off = cfg->block_size;
-            lfs.mroot.m.rbyd.off = cfg->block_size;
+            mdir.m.rbyd.off = CFG->block_size;
+            lfs.mroot.m.rbyd.off = CFG->block_size;
         }
 
         // add to rbyd, potentially splitting the mdir
@@ -551,7 +551,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
     count_ = 0;
@@ -590,8 +590,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -638,7 +638,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight(&lfs) == 0);
@@ -660,8 +660,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -711,7 +711,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight(&lfs) == 0);
@@ -733,8 +733,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -771,7 +771,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight(&lfs) == 0);
@@ -793,8 +793,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -836,7 +836,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight(&lfs) == 1);
@@ -861,8 +861,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -904,7 +904,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight(&lfs) == 1);
@@ -929,8 +929,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -963,7 +963,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight(&lfs) == 0);
@@ -980,8 +980,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1045,7 +1045,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight(&lfs) == 1);
@@ -1075,8 +1075,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1140,7 +1140,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight(&lfs) == 1);
@@ -1170,8 +1170,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1227,7 +1227,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight(&lfs) == 0);
@@ -1252,8 +1252,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1287,8 +1287,8 @@ code = '''
 
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.m.rbyd.off = cfg->block_size;
-            lfs.mroot.m.rbyd.off = cfg->block_size;
+            mdir.m.rbyd.off = CFG->block_size;
+            lfs.mroot.m.rbyd.off = CFG->block_size;
         }
 
         lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
@@ -1318,7 +1318,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
     i = N - REMAINING;
@@ -1351,8 +1351,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1406,8 +1406,8 @@ code = '''
 
             // force a compaction?
             if (FORCE_COMPACTION) {
-                mdir.m.rbyd.off = cfg->block_size;
-                lfs.mroot.m.rbyd.off = cfg->block_size;
+                mdir.m.rbyd.off = CFG->block_size;
+                lfs.mroot.m.rbyd.off = CFG->block_size;
             }
 
             lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
@@ -1422,7 +1422,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     assert(lfsr_mtree_weight(&lfs) == 0);
     assert(lfs.mroot.m.rbyd.weight == 0);
@@ -1439,8 +1439,8 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1467,8 +1467,8 @@ code = '''
 
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.m.rbyd.off = cfg->block_size;
-            lfs.mroot.m.rbyd.off = cfg->block_size;
+            mdir.m.rbyd.off = CFG->block_size;
+            lfs.mroot.m.rbyd.off = CFG->block_size;
         }
 
         // create
@@ -1526,7 +1526,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
     count_ = 0;
@@ -1571,8 +1571,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1632,7 +1632,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mtree has one mdir
     assert(lfsr_mtree_weight(&lfs) == 1);
@@ -1667,8 +1667,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1727,7 +1727,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight(&lfs) == 2);
@@ -1762,8 +1762,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1822,7 +1822,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight(&lfs) == 2);
@@ -1857,8 +1857,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1892,7 +1892,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
@@ -1917,8 +1917,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -1954,7 +1954,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
@@ -1976,8 +1976,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2022,7 +2022,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert we relocated
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
@@ -2044,8 +2044,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2113,7 +2113,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mtree has one mdir
     assert(lfsr_mtree_weight(&lfs) == 1);
@@ -2151,8 +2151,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2225,7 +2225,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was split correctly
     assert(lfsr_mtree_weight(&lfs) == 2);
@@ -2265,8 +2265,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2321,7 +2321,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfsr_mtree_weight(&lfs) == 0);
@@ -2348,8 +2348,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2402,7 +2402,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdir was unininlined correctly
     assert(lfsr_mtree_weight(&lfs) == 1);
@@ -2437,8 +2437,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2490,7 +2490,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfsr_mtree_weight(&lfs) == 2);
@@ -2527,8 +2527,8 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2555,8 +2555,8 @@ code = '''
 
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.m.rbyd.off = cfg->block_size;
-            lfs.mroot.m.rbyd.off = cfg->block_size;
+            mdir.m.rbyd.off = CFG->block_size;
+            lfs.mroot.m.rbyd.off = CFG->block_size;
         }
 
         // create
@@ -2627,7 +2627,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
     // try looking up each entry
     count_ = 0;
@@ -2667,8 +2667,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2722,8 +2722,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2768,8 +2768,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2816,8 +2816,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2900,8 +2900,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2979,8 +2979,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3086,8 +3086,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3157,8 +3157,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3255,8 +3255,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3352,8 +3352,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3446,8 +3446,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3523,8 +3523,8 @@ code = '''
     memset(buffer_, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
-            cfg->erase(cfg, block) => 0;
-            cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -3549,8 +3549,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3648,8 +3648,8 @@ code = '''
     memset(buffer_, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
-            cfg->erase(cfg, block) => 0;
-            cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -3685,8 +3685,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3784,8 +3784,8 @@ code = '''
     memset(buffer_, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
-            cfg->erase(cfg, block) => 0;
-            cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -3823,8 +3823,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3912,8 +3912,8 @@ code = '''
     memset(buffer_, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
-            cfg->erase(cfg, block) => 0;
-            cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -3940,8 +3940,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -3955,8 +3955,8 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.m.rbyd.off = cfg->block_size;
-            lfs.mroot.m.rbyd.off = cfg->block_size;
+            mdir.m.rbyd.off = CFG->block_size;
+            lfs.mroot.m.rbyd.off = CFG->block_size;
         }
 
         lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
@@ -4047,8 +4047,8 @@ code = '''
     memset(buffer_, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
-            cfg->erase(cfg, block) => 0;
-            cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -4087,8 +4087,8 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
     // remove root dstart for now
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -4111,8 +4111,8 @@ code = '''
 
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.m.rbyd.off = cfg->block_size;
-            lfs.mroot.m.rbyd.off = cfg->block_size;
+            mdir.m.rbyd.off = CFG->block_size;
+            lfs.mroot.m.rbyd.off = CFG->block_size;
         }
 
         // add to rbyd, potentially splitting the mdir
@@ -4210,8 +4210,8 @@ code = '''
     memset(buffer_, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
-            cfg->erase(cfg, block) => 0;
-            cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -4252,8 +4252,8 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
 
     uint8_t buffer[LFSR_MPTR_DSIZE];
@@ -4317,7 +4317,7 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 code = '''
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
 
     // check our magic string
     //
@@ -4325,9 +4325,9 @@ code = '''
     // but we don't lose power in this test so we can assert the magic string
     // is present in both
     uint8_t magic[lfs_max(16, READ_SIZE)];
-    cfg->read(cfg, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    CFG->read(CFG, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
-    cfg->read(cfg, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    CFG->read(CFG, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
 '''
 
@@ -4340,8 +4340,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
 
     // prepare mroot with an attr
@@ -4377,9 +4377,9 @@ code = '''
     // but we don't lose power in this test so we can assert the magic string
     // is present in both
     uint8_t magic[lfs_max(16, READ_SIZE)];
-    cfg->read(cfg, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    CFG->read(CFG, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
-    cfg->read(cfg, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    CFG->read(CFG, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
 '''
 
@@ -4395,8 +4395,8 @@ in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
-    lfsr_format(&lfs, cfg) => 0;
-    lfsr_mount(&lfs, cfg) => 0;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
 
     // prepare mroot with an attr
@@ -4434,9 +4434,9 @@ code = '''
     // but we don't lose power in this test so we can assert the magic string
     // is present in both
     uint8_t magic[lfs_max(16, READ_SIZE)];
-    cfg->read(cfg, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    CFG->read(CFG, 0, 0, magic, lfs_max(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
-    cfg->read(cfg, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
+    CFG->read(CFG, 1, 0, magic, lfs_max(16, READ_SIZE)) => 0;
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
 '''
 

@@ -11,12 +11,12 @@ defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -42,12 +42,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -81,12 +81,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -127,12 +127,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -174,12 +174,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -228,12 +228,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -285,12 +285,12 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -337,12 +337,12 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -392,12 +392,12 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -475,12 +475,12 @@ defines.W = 5
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -547,12 +547,12 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -685,12 +685,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -726,12 +726,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -777,12 +777,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -839,12 +839,12 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -913,12 +913,12 @@ code = '''
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1007,12 +1007,12 @@ defines.W = 5
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1097,12 +1097,12 @@ code = '''
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1246,12 +1246,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1299,12 +1299,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1366,12 +1366,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1433,12 +1433,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1517,12 +1517,12 @@ if = 'N > REMAINING'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1608,12 +1608,12 @@ if = 'N > REMAINING'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1701,12 +1701,12 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1798,12 +1798,12 @@ if = 'N > REMAINING'
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -1918,12 +1918,12 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2077,12 +2077,12 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2136,12 +2136,12 @@ code = '''
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2224,12 +2224,12 @@ defines.W = 5
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2284,12 +2284,12 @@ code = '''
     const char *uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2435,12 +2435,12 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2552,12 +2552,12 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2723,12 +2723,12 @@ code = '''
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2756,12 +2756,12 @@ defines.DID = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2805,12 +2805,12 @@ defines.DID = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2865,12 +2865,12 @@ in = 'lfs.c'
 defines.DID = [false, true]
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -2936,12 +2936,12 @@ defines.DID = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -3008,12 +3008,12 @@ defines.DID = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -3076,12 +3076,12 @@ code = '''
     const char *nums = "0123456789";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -3186,12 +3186,12 @@ defines.DID = [false, true]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -3255,12 +3255,12 @@ code = '''
     const char *nums = "0123456789";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -3406,12 +3406,12 @@ code = '''
     const char *nums = "0123456789";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -3581,12 +3581,12 @@ code = '''
     const char *nums = "0123456789";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -3802,12 +3802,12 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -3893,8 +3893,8 @@ code = '''
     memset(buffer_, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
-            cfg->erase(cfg, block) => 0;
-            cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -3923,12 +3923,12 @@ code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
 
     lfs_t lfs;
-    lfs_init(&lfs, cfg) => 0;
+    lfs_init(&lfs, CFG) => 0;
     // create free lookahead
-    memset(lfs.lookahead.buffer, 0, lfs.cfg->lookahead_size);
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
     lfs.lookahead.start = 0;
-    lfs.lookahead.size = lfs_min(8*lfs.cfg->lookahead_size,
-            lfs.cfg->block_count);
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
     lfs.lookahead.next = 0;
     lfs_alloc_ack(&lfs);
 
@@ -4041,8 +4041,8 @@ code = '''
     memset(buffer_, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
-            cfg->erase(cfg, block) => 0;
-            cfg->prog(cfg, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
