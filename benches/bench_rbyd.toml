@@ -1,11 +1,11 @@
-
+# Bench our low-level rbyd data-structure
 
 # set block_size to the full size of disk so we can test arbitrarily
 # large rbyd trees, we don't really care about block sizes at this
 # abstraction level
 defines.BLOCK_SIZE = 'DISK_SIZE'
 
-[cases.b1_rbyd_attr_commit]
+[cases.bench_rbyd_attr_commit]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -62,7 +62,7 @@ code = '''
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
 '''
 
-[cases.b1_rbyd_attr_fetch]
+[cases.bench_rbyd_attr_fetch]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -119,7 +119,7 @@ code = '''
     BENCH_STOP();
 '''
 
-[cases.b1_rbyd_attr_lookup]
+[cases.bench_rbyd_attr_lookup]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -183,7 +183,7 @@ code = '''
     BENCH_STOP();
 '''
 
-[cases.b1_rbyd_attr_append]
+[cases.bench_rbyd_attr_append]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -249,7 +249,7 @@ code = '''
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
 '''
 
-[cases.b1_rbyd_attr_remove]
+[cases.bench_rbyd_attr_remove]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -314,7 +314,7 @@ code = '''
             => LFS_ERR_NOENT;
 '''
 
-[cases.b1_rbyd_id_commit]
+[cases.bench_rbyd_id_commit]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -367,7 +367,7 @@ code = '''
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, cfg->block_size) => 0;
 '''
 
-[cases.b1_rbyd_id_fetch]
+[cases.bench_rbyd_id_fetch]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -420,7 +420,7 @@ code = '''
     BENCH_STOP();
 '''
 
-[cases.b1_rbyd_id_lookup]
+[cases.bench_rbyd_id_lookup]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -478,7 +478,7 @@ code = '''
     BENCH_STOP();
 '''
 
-[cases.b1_rbyd_id_create]
+[cases.bench_rbyd_id_create]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order
@@ -539,7 +539,7 @@ code = '''
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
 '''
 
-[cases.b1_rbyd_id_delete]
+[cases.bench_rbyd_id_delete]
 # 0 = in-order
 # 1 = reversed-order
 # 2 = random-order

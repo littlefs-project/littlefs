@@ -1,9 +1,12 @@
+# Test the high-level metadata tree in the core of littlefs
+after = ['test_rbyd', 'test_btree']
+
 # maximize lookahead buffer, we don't actually gc so we only get one pass
 # of the disk for these tests
 defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
 
 # test a single mroot
-[cases.t3_mtree_mroot]
+[cases.test_mtree_mroot]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, cfg) => 0;
@@ -12,7 +15,7 @@ code = '''
 '''
 
 # test a single mroot with attributes
-[cases.t3_mtree_mroot_attrs]
+[cases.test_mtree_mroot_attrs]
 defines.N = [1, 3]
 in = 'lfs.c'
 code = '''
@@ -51,7 +54,7 @@ code = '''
 '''
 
 # test a single mroot with forced compaction
-[cases.t3_mtree_mroot_compact]
+[cases.test_mtree_mroot_compact]
 defines.N = [1, 3]
 in = 'lfs.c'
 code = '''
@@ -93,7 +96,7 @@ code = '''
 '''
 
 # test a single mroot with many commits
-[cases.t3_mtree_mroot_many_commits]
+[cases.test_mtree_mroot_many_commits]
 defines.N = [5, 5000]
 in = 'lfs.c'
 code = '''
@@ -135,7 +138,7 @@ code = '''
 ## Splitting operations ##
 
 # specific split corner cases
-[cases.t3_mtree_uninline]
+[cases.test_mtree_uninline]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -210,7 +213,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_uninline_split]
+[cases.test_mtree_uninline_split]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -284,7 +287,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_split]
+[cases.test_mtree_split]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -386,7 +389,7 @@ code = '''
 
 
 # try creating a range of entries that may or may not split our mtree
-[cases.t3_mtree_split_many]
+[cases.test_mtree_split_many]
 defines.N = [5, 10, 20, 40, 80, 160, 320]
 defines.FORCE_COMPACTION = [false, true]
 in = 'lfs.c'
@@ -471,7 +474,7 @@ code = '''
 '''
 
 # create random entries
-[cases.t3_mtree_split_fuzz]
+[cases.test_mtree_split_fuzz]
 defines.N = [5, 10, 20, 40, 80, 160]
 defines.FORCE_COMPACTION = [false, true]
 defines.SEED = 'range(100)'
@@ -580,7 +583,7 @@ code = '''
 ## Dropping operations ##
 
 # specific drop corner cases
-[cases.t3_mtree_drop]
+[cases.test_mtree_drop]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -650,7 +653,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_drop_compact]
+[cases.test_mtree_drop_compact]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -723,7 +726,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_drop_uninline]
+[cases.test_mtree_drop_uninline]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -783,7 +786,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_drop_uninline_split_l]
+[cases.test_mtree_drop_uninline_split_l]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -851,7 +854,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_drop_uninline_split_r]
+[cases.test_mtree_drop_uninline_split_r]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -919,7 +922,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_drop_uninline_split_both]
+[cases.test_mtree_drop_uninline_split_both]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -970,7 +973,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_drop_split_l]
+[cases.test_mtree_drop_split_l]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -1065,7 +1068,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_drop_split_r]
+[cases.test_mtree_drop_split_r]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -1160,7 +1163,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_drop_split_both]
+[cases.test_mtree_drop_split_both]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -1240,7 +1243,7 @@ code = '''
 '''
 
 # try creating an mtree and then dropping mdirs
-[cases.t3_mtree_drop_many]
+[cases.test_mtree_drop_many]
 defines.N = [5, 10, 20, 40, 80, 160, 320]
 defines.REMAINING = [20, 5, 1, 0]
 if = 'N > REMAINING'
@@ -1340,7 +1343,7 @@ code = '''
 '''
 
 # this one has some pretty nasty corner cases
-[cases.t3_mtree_repeated_drop]
+[cases.test_mtree_repeated_drop]
 defines.N = [5, 10, 20, 40]
 defines.FORCE_COMPACTION = [false, true]
 defines.CYCLES = 10
@@ -1427,7 +1430,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_drop_fuzz]
+[cases.test_mtree_drop_fuzz]
 defines.N = [5, 10, 20, 40, 80, 160]
 defines.FORCE_COMPACTION = [false, true]
 defines.SEED = 'range(100)'
@@ -1559,7 +1562,7 @@ code = '''
 ## Relocation operations ##
 
 # specific relocation corner cases
-[cases.t3_mtree_relocate]
+[cases.test_mtree_relocate]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -1655,7 +1658,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_relocate_sibling_l]
+[cases.test_mtree_relocate_sibling_l]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -1750,7 +1753,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_relocate_sibling_r]
+[cases.test_mtree_relocate_sibling_r]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -1845,7 +1848,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_extend]
+[cases.test_mtree_extend]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -1902,7 +1905,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_extend_twice]
+[cases.test_mtree_extend_twice]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -1964,7 +1967,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_relocate_mroot]
+[cases.test_mtree_relocate_mroot]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -2032,7 +2035,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_relocate_extend]
+[cases.test_mtree_relocate_extend]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -2139,7 +2142,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_split_extend]
+[cases.test_mtree_split_extend]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -2253,7 +2256,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_drop_extend]
+[cases.test_mtree_drop_extend]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -2336,7 +2339,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_uninline_extend]
+[cases.test_mtree_uninline_extend]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -2425,7 +2428,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_uninline_split_extend]
+[cases.test_mtree_uninline_split_extend]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -2514,7 +2517,7 @@ code = '''
 '''
 
 # this fuzz covers a lot of configuratinos
-[cases.t3_mtree_relocating_fuzz]
+[cases.test_mtree_relocating_fuzz]
 defines.N = [5, 10, 20, 40]
 defines.FORCE_COMPACTION = [false, true]
 defines.BLOCK_CYCLES = [5, 2, 1]
@@ -2659,7 +2662,7 @@ code = '''
 
 ## Neighboring mdir updates ##
 
-[cases.t3_mtree_neighbor]
+[cases.test_mtree_neighbor]
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
@@ -2714,7 +2717,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_neighbor_remove_l]
+[cases.test_mtree_neighbor_remove_l]
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
@@ -2760,7 +2763,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_neighbor_remove_r]
+[cases.test_mtree_neighbor_remove_r]
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";
@@ -2806,7 +2809,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_neighbor_uninline]
+[cases.test_mtree_neighbor_uninline]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -2890,7 +2893,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_neighbor_uninline_split]
+[cases.test_mtree_neighbor_uninline_split]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -2969,7 +2972,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_neighbor_split]
+[cases.test_mtree_neighbor_split]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
@@ -3074,7 +3077,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_neighbor_extend]
+[cases.test_mtree_neighbor_extend]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -3145,7 +3148,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_neighbor_relocate]
+[cases.test_mtree_neighbor_relocate]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -3243,7 +3246,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_neighbor_mid_split]
+[cases.test_mtree_neighbor_mid_split]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -3340,7 +3343,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_neighbor_mid_drop]
+[cases.test_mtree_neighbor_mid_drop]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -3437,7 +3440,7 @@ code = '''
 ## mtree traversal ##
 
 # test specific corner cases
-[cases.t3_mtree_traversal]
+[cases.test_mtree_traversal]
 defines.VALIDATE = [false, true]
 in = 'lfs.c'
 code = '''
@@ -3538,7 +3541,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_traversal_uninline]
+[cases.test_mtree_traversal_uninline]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 defines.VALIDATE = [false, true]
@@ -3674,7 +3677,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_traversal_split]
+[cases.test_mtree_traversal_split]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 defines.VALIDATE = [false, true]
@@ -3810,7 +3813,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_traversal_extend]
+[cases.test_mtree_traversal_extend]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -3929,7 +3932,7 @@ code = '''
 '''
 
 # larger traversal tests
-[cases.t3_mtree_traversal_many]
+[cases.test_mtree_traversal_many]
 defines.N = [5, 10, 20, 40, 80, 160, 320]
 defines.VALIDATE = [false, true]
 defines.FORCE_COMPACTION = [false, true]
@@ -4074,7 +4077,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t3_mtree_traversal_fuzz]
+[cases.test_mtree_traversal_fuzz]
 defines.N = [5, 10, 20, 40, 80, 160]
 defines.VALIDATE = [false, true]
 defines.FORCE_COMPACTION = [false, true]
@@ -4245,7 +4248,7 @@ code = '''
 ## Cycle detection? ##
 
 # test that our cycle detector at least works in common cases
-[cases.t3_mtree_traversal_mroot_cycle]
+[cases.test_mtree_traversal_mroot_cycle]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -4309,7 +4312,7 @@ code = '''
 ## Magic consistency ##
 
 # make sure our magic string ("littlefs") shows up in the same place (off=8)
-[cases.t3_mtree_magic]
+[cases.test_mtree_magic]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 code = '''
@@ -4328,7 +4331,7 @@ code = '''
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
 '''
 
-[cases.t3_mtree_magic_extend]
+[cases.test_mtree_magic_extend]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -4380,7 +4383,7 @@ code = '''
     assert(memcmp(&magic[8], "littlefs", 8) == 0);
 '''
 
-[cases.t3_mtree_magic_extend_twice]
+[cases.test_mtree_magic_extend_twice]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts

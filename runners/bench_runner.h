@@ -74,6 +74,9 @@ struct bench_suite {
     size_t case_count;
 };
 
+extern const struct bench_suite *const bench_suites[];
+extern const size_t bench_suite_count;
+
 
 // deterministic prng for pseudo-randomness in benches
 uint32_t bench_prng(uint32_t *state);

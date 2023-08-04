@@ -68,6 +68,9 @@ struct test_suite {
     size_t case_count;
 };
 
+extern const struct test_suite *const test_suites[];
+extern const size_t test_suite_count;
+
 
 // this is defined as true when powerloss-testing
 extern bool test_pl;

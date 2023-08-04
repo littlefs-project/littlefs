@@ -1,9 +1,9 @@
-# Directory tests
-
+# Test directory operations
+after = ['test_mtree', 'test_alloc']
 
 ## mkdir tests
 
-[cases.t5_dirs_mkdir]
+[cases.test_dirs_mkdir]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -52,7 +52,7 @@ code = '''
 '''
 
 # test that noent errors work
-[cases.t5_dirs_noent]
+[cases.test_dirs_noent]
 defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
@@ -99,7 +99,7 @@ code = '''
 '''
 
 # test that stat on root works
-[cases.t5_dirs_stat_root]
+[cases.test_dirs_stat_root]
 defines.REMOUNT = [false, true]
 code = '''
     lfs_t lfs;
@@ -146,7 +146,7 @@ code = '''
 '''
 
 # test that creating the same directory twice errors
-[cases.t5_dirs_mkdir_exists]
+[cases.test_dirs_mkdir_exists]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -197,7 +197,7 @@ code = '''
 '''
 
 # test what happens if we try to make root
-[cases.t5_dirs_mkdir_root]
+[cases.test_dirs_mkdir_root]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -253,7 +253,7 @@ code = '''
 '''
 
 # test that creating a directory with an invalid path errors
-[cases.t5_dirs_mkdir_noent]
+[cases.test_dirs_mkdir_noent]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -306,7 +306,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mkdir_siblings]
+[cases.test_dirs_mkdir_siblings]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -369,7 +369,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mkdir_children]
+[cases.test_dirs_mkdir_children]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -452,7 +452,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mkdir_many]
+[cases.test_dirs_mkdir_many]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
@@ -515,7 +515,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mkdir_many_backwards]
+[cases.test_dirs_mkdir_many_backwards]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
@@ -578,7 +578,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mkdir_many_2layers]
+[cases.test_dirs_mkdir_many_2layers]
 defines.N = [1, 2, 4, 8, 16]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
@@ -679,7 +679,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mkdir_many_3layers]
+[cases.test_dirs_mkdir_many_3layers]
 defines.N = [1, 2, 4]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
@@ -818,7 +818,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mkdir_many_linkedlist]
+[cases.test_dirs_mkdir_many_linkedlist]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
@@ -888,7 +888,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mkdir_fuzz]
+[cases.test_dirs_mkdir_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
@@ -989,7 +989,7 @@ code = '''
 
 
 # test that did collisions don't cause issues
-[cases.t5_dirs_did_collisions]
+[cases.test_dirs_did_collisions]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -1084,7 +1084,7 @@ code = '''
 '''
 
 # these will also collide with the root
-[cases.t5_dirs_did_zero]
+[cases.test_dirs_did_zero]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -1181,7 +1181,7 @@ code = '''
 # these will need to rollover from 0xffffffff -> 0x00000000 correctly
 #
 # note this is true even if you truncate
-[cases.t5_dirs_did_ones]
+[cases.test_dirs_did_ones]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -1278,7 +1278,7 @@ code = '''
 # these test some boundary conditions on the underlying leb128 encoding,
 # if the leb128 disk-size is not calculated correctly these can cause
 # issues
-[cases.t5_dirs_did_leb128_boundaries]
+[cases.test_dirs_did_leb128_boundaries]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -1375,7 +1375,7 @@ code = '''
 
 ## dir remove tests
 
-[cases.t5_dirs_rm]
+[cases.test_dirs_rm]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -1449,7 +1449,7 @@ code = '''
 '''
 
 # test that noent errors work
-[cases.t5_dirs_rm_noent]
+[cases.test_dirs_rm_noent]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -1506,7 +1506,7 @@ code = '''
 '''
 
 # test that we catch removing of a non-empty directory
-[cases.t5_dirs_rm_notempty]
+[cases.test_dirs_rm_notempty]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -1577,7 +1577,7 @@ code = '''
 '''
 
 # test what happens if we try to remove root
-[cases.t5_dirs_rm_root]
+[cases.test_dirs_rm_root]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -1633,7 +1633,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_rm_siblings]
+[cases.test_dirs_rm_siblings]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -1789,7 +1789,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_rm_children]
+[cases.test_dirs_rm_children]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -1995,7 +1995,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_rm_many]
+[cases.test_dirs_rm_many]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMAINING = [64, 2, 1, 0]
 defines.REMOUNT = [false, true]
@@ -2110,7 +2110,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_rm_many_backwards]
+[cases.test_dirs_rm_many_backwards]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMAINING = [64, 2, 1, 0]
 defines.REMOUNT = [false, true]
@@ -2225,7 +2225,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_rm_many_2layers]
+[cases.test_dirs_rm_many_2layers]
 defines.N = [1, 2, 4, 8, 16]
 defines.REMAINING = [2, 1, 0]
 defines.REMOUNT = [false, true]
@@ -2429,7 +2429,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_rm_many_3layers]
+[cases.test_dirs_rm_many_3layers]
 defines.N = [1, 2, 4]
 defines.REMAINING = [2, 1, 0]
 defines.REMOUNT = [false, true]
@@ -2727,7 +2727,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_rm_many_linkedlist]
+[cases.test_dirs_rm_many_linkedlist]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.REMAINING = [16, 2, 1, 0]
 defines.REMOUNT = [false, true]
@@ -2850,7 +2850,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_rm_fuzz]
+[cases.test_dirs_rm_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
@@ -2970,7 +2970,7 @@ code = '''
 
 ## dir rename tests
 
-[cases.t5_dirs_mv]
+[cases.test_dirs_mv]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -3056,7 +3056,7 @@ code = '''
 '''
 
 # test that we can rename, and replace, other directories
-[cases.t5_dirs_mv_replace]
+[cases.test_dirs_mv_replace]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -3141,7 +3141,7 @@ code = '''
 '''
 
 # test that we can rename to ourselves
-[cases.t5_dirs_mv_noop]
+[cases.test_dirs_mv_noop]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -3220,7 +3220,7 @@ code = '''
 '''
 
 # test that we catch replacing an invalid path
-[cases.t5_dirs_mv_noent]
+[cases.test_dirs_mv_noent]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -3280,7 +3280,7 @@ code = '''
 '''
 
 # test that we catch replacing a non-empty directory
-[cases.t5_dirs_mv_notempty]
+[cases.test_dirs_mv_notempty]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -3358,7 +3358,7 @@ code = '''
 '''
 
 # test what happens if we try to rename root
-[cases.t5_dirs_mv_root]
+[cases.test_dirs_mv_root]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -3411,7 +3411,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mv_siblings]
+[cases.test_dirs_mv_siblings]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -3607,7 +3607,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mv_children]
+[cases.test_dirs_mv_children]
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -3889,7 +3889,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mv_many]
+[cases.test_dirs_mv_many]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
@@ -4004,7 +4004,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mv_many_backwards]
+[cases.test_dirs_mv_many_backwards]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
@@ -4119,7 +4119,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mv_many_2layers]
+[cases.test_dirs_mv_many_2layers]
 defines.N = [1, 2, 4, 8, 16]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
@@ -4324,7 +4324,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mv_many_3layers]
+[cases.test_dirs_mv_many_3layers]
 defines.N = [1, 2, 4]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
@@ -4626,7 +4626,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mv_many_linkedlist]
+[cases.test_dirs_mv_many_linkedlist]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
@@ -4762,7 +4762,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_mv_fuzz]
+[cases.test_dirs_mv_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
@@ -4903,7 +4903,7 @@ code = '''
 '''
 
 # test all of the operations together
-[cases.t5_dirs_general_fuzz]
+[cases.test_dirs_general_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
@@ -5060,7 +5060,7 @@ code = '''
 
 ## Test seeking and stuff
 
-[cases.t5_dirs_tell]
+[cases.test_dirs_tell]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
@@ -5111,7 +5111,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_rewind]
+[cases.test_dirs_rewind]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
@@ -5182,7 +5182,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_seek]
+[cases.test_dirs_seek]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 code = '''
@@ -5253,7 +5253,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_read_idempotent]
+[cases.test_dirs_read_idempotent]
 defines.PARENT = [false, true]
 # bit 0x2 = left neighbor
 # bit 0x1 = right neighbor
@@ -5339,7 +5339,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_read_with_mkdirs]
+[cases.test_dirs_read_with_mkdirs]
 defines.N = 5
 # where in the dir read do we mkdir?
 defines.I = 'range(6)'
@@ -5434,7 +5434,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_read_with_rms]
+[cases.test_dirs_read_with_rms]
 defines.N = 5
 # where in the dir read do we rm?
 defines.I = 'range(5)'
@@ -5533,7 +5533,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_read_with_mvs]
+[cases.test_dirs_read_with_mvs]
 defines.N = 5
 # where in the dir read do we rm?
 defines.I = 'range(5)'
@@ -5651,7 +5651,7 @@ code = '''
 # dir reads with 2x ops have better chances of catching bugs that depend on
 # invalid dir states
 
-[cases.t5_dirs_read_with_2_mkdirs]
+[cases.test_dirs_read_with_2_mkdirs]
 defines.N = 5
 # where in the dir read do we mkdir?
 defines.I = 'range(6)'
@@ -5756,7 +5756,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_read_with_2_rms]
+[cases.test_dirs_read_with_2_rms]
 defines.N = 5
 # where in the dir read do we rm?
 defines.I = 'range(5)'
@@ -5863,7 +5863,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.t5_dirs_read_with_2_mvs]
+[cases.test_dirs_read_with_2_mvs]
 defines.N = 5
 # where in the dir read do we rm?
 defines.I = 'range(5)'
@@ -5993,7 +5993,7 @@ code = '''
 '''
 
 # test removing the directory we are iterating over
-[cases.t5_dirs_read_rm]
+[cases.test_dirs_read_rm]
 defines.N = 5
 # where in the dir read do we remove?
 defines.I = 'range(6)'
@@ -6086,7 +6086,7 @@ code = '''
 #
 # This is a useful feature, but it's unintuitive if this should have
 # well-defined behavior, so make sure to test for it
-[cases.t5_dirs_recursive_rm]
+[cases.test_dirs_recursive_rm]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.PARENT = [false, true]
 # 0 => don't seek
@@ -6208,7 +6208,7 @@ code = '''
 #
 # This is a useful feature, but it's unintuitive if this should have
 # well-defined behavior, so make sure to test for it
-[cases.t5_dirs_recursive_mv]
+[cases.test_dirs_recursive_mv]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.BEFORE = [false, true]
 # 0 => no

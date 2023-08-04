@@ -135,15 +135,6 @@ typedef struct test_id {
 } test_id_t;
 
 
-// test suites are linked into a custom ld section
-extern struct test_suite __start__test_suites;
-extern struct test_suite __stop__test_suites;
-
-const struct test_suite *test_suites = &__start__test_suites;
-#define TEST_SUITE_COUNT \
-    ((size_t)(&__stop__test_suites - &__start__test_suites))
-
-
 // test define management
 typedef struct test_define_map {
     const test_define_t *defines;
@@ -881,23 +872,23 @@ static void summary(void) {
     struct perm_count_state perms = {0, 0};
 
     for (size_t t = 0; t < test_id_count; t++) {
-        for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            test_define_suite(&test_suites[i]);
+        for (size_t i = 0; i < test_suite_count; i++) {
+            test_define_suite(test_suites[i]);
 
-            for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
                 if (test_ids[t].name && !(
                         strcmp(test_ids[t].name,
-                            test_suites[i].name) == 0
+                            test_suites[i]->name) == 0
                         || strcmp(test_ids[t].name,
-                            test_suites[i].cases[j].name) == 0)) {
+                            test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
                 cases += 1;
                 case_forperm(
-                        &test_suites[i],
-                        &test_suites[i].cases[j],
+                        test_suites[i],
+                        &test_suites[i]->cases[j],
                         test_ids[t].defines,
                         test_ids[t].define_count,
                         test_ids[t].cycles,
@@ -907,7 +898,7 @@ static void summary(void) {
             }
 
             suites += 1;
-            flags |= test_suites[i].flags;
+            flags |= test_suites[i]->flags;
         }
     }
 
@@ -929,8 +920,8 @@ static void summary(void) {
 static void list_suites(void) {
     // at least size so that names fit
     unsigned name_width = 23;
-    for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-        size_t len = strlen(test_suites[i].name);
+    for (size_t i = 0; i < test_suite_count; i++) {
+        size_t len = strlen(test_suites[i]->name);
         if (len > name_width) {
             name_width = len;
         }
@@ -940,26 +931,26 @@ static void list_suites(void) {
     printf("%-*s  %7s %7s %11s\n",
             name_width, "suite", "flags", "cases", "perms");
     for (size_t t = 0; t < test_id_count; t++) {
-        for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            test_define_suite(&test_suites[i]);
+        for (size_t i = 0; i < test_suite_count; i++) {
+            test_define_suite(test_suites[i]);
 
             size_t cases = 0;
             struct perm_count_state perms = {0, 0};
 
-            for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
                 if (test_ids[t].name && !(
                         strcmp(test_ids[t].name,
-                            test_suites[i].name) == 0
+                            test_suites[i]->name) == 0
                         || strcmp(test_ids[t].name,
-                            test_suites[i].cases[j].name) == 0)) {
+                            test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
                 cases += 1;
                 case_forperm(
-                        &test_suites[i],
-                        &test_suites[i].cases[j],
+                        test_suites[i],
+                        &test_suites[i]->cases[j],
                         test_ids[t].defines,
                         test_ids[t].define_count,
                         test_ids[t].cycles,
@@ -977,12 +968,12 @@ static void list_suites(void) {
             sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
             char flag_buf[64];
             sprintf(flag_buf, "%s%s%s",
-                    (test_suites[i].flags & TEST_REENTRANT) ? "r" : "",
-                    (test_suites[i].flags & TEST_INTERNAL)  ? "i" : "",
-                    (!test_suites[i].flags)                 ? "-" : "");
+                    (test_suites[i]->flags & TEST_REENTRANT) ? "r" : "",
+                    (test_suites[i]->flags & TEST_INTERNAL)  ? "i" : "",
+                    (!test_suites[i]->flags)                 ? "-" : "");
             printf("%-*s  %7s %7zu %11s\n",
                     name_width,
-                    test_suites[i].name,
+                    test_suites[i]->name,
                     flag_buf,
                     cases,
                     perm_buf);
@@ -993,9 +984,9 @@ static void list_suites(void) {
 static void list_cases(void) {
     // at least size so that names fit
     unsigned name_width = 23;
-    for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-        for (size_t j = 0; j < test_suites[i].case_count; j++) {
-            size_t len = strlen(test_suites[i].cases[j].name);
+    for (size_t i = 0; i < test_suite_count; i++) {
+        for (size_t j = 0; j < test_suites[i]->case_count; j++) {
+            size_t len = strlen(test_suites[i]->cases[j].name);
             if (len > name_width) {
                 name_width = len;
             }
@@ -1005,23 +996,23 @@ static void list_cases(void) {
 
     printf("%-*s  %7s %11s\n", name_width, "case", "flags", "perms");
     for (size_t t = 0; t < test_id_count; t++) {
-        for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            test_define_suite(&test_suites[i]);
+        for (size_t i = 0; i < test_suite_count; i++) {
+            test_define_suite(test_suites[i]);
 
-            for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
                 if (test_ids[t].name && !(
                         strcmp(test_ids[t].name,
-                            test_suites[i].name) == 0
+                            test_suites[i]->name) == 0
                         || strcmp(test_ids[t].name,
-                            test_suites[i].cases[j].name) == 0)) {
+                            test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
                 struct perm_count_state perms = {0, 0};
                 case_forperm(
-                        &test_suites[i],
-                        &test_suites[i].cases[j],
+                        test_suites[i],
+                        &test_suites[i]->cases[j],
                         test_ids[t].defines,
                         test_ids[t].define_count,
                         test_ids[t].cycles,
@@ -1033,15 +1024,15 @@ static void list_cases(void) {
                 sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
                 char flag_buf[64];
                 sprintf(flag_buf, "%s%s%s",
-                        (test_suites[i].cases[j].flags & TEST_REENTRANT)
+                        (test_suites[i]->cases[j].flags & TEST_REENTRANT)
                             ? "r" : "",
-                        (test_suites[i].cases[j].flags & TEST_INTERNAL)
+                        (test_suites[i]->cases[j].flags & TEST_INTERNAL)
                             ? "i" : "",
-                        (!test_suites[i].cases[j].flags)
+                        (!test_suites[i]->cases[j].flags)
                             ? "-" : "");
                 printf("%-*s  %7s %11s\n",
                         name_width,
-                        test_suites[i].cases[j].name,
+                        test_suites[i]->cases[j].name,
                         flag_buf,
                         perm_buf);
             }
@@ -1052,8 +1043,8 @@ static void list_cases(void) {
 static void list_suite_paths(void) {
     // at least size so that names fit
     unsigned name_width = 23;
-    for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-        size_t len = strlen(test_suites[i].name);
+    for (size_t i = 0; i < test_suite_count; i++) {
+        size_t len = strlen(test_suites[i]->name);
         if (len > name_width) {
             name_width = len;
         }
@@ -1062,16 +1053,16 @@ static void list_suite_paths(void) {
 
     printf("%-*s  %s\n", name_width, "suite", "path");
     for (size_t t = 0; t < test_id_count; t++) {
-        for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
+        for (size_t i = 0; i < test_suite_count; i++) {
             size_t cases = 0;
 
-            for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
                 if (test_ids[t].name && !(
                         strcmp(test_ids[t].name,
-                            test_suites[i].name) == 0
+                            test_suites[i]->name) == 0
                         || strcmp(test_ids[t].name,
-                            test_suites[i].cases[j].name) == 0)) {
+                            test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1085,8 +1076,8 @@ static void list_suite_paths(void) {
 
             printf("%-*s  %s\n",
                     name_width,
-                    test_suites[i].name,
-                    test_suites[i].path);
+                    test_suites[i]->name,
+                    test_suites[i]->path);
         }
     }
 }
@@ -1094,9 +1085,9 @@ static void list_suite_paths(void) {
 static void list_case_paths(void) {
     // at least size so that names fit
     unsigned name_width = 23;
-    for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-        for (size_t j = 0; j < test_suites[i].case_count; j++) {
-            size_t len = strlen(test_suites[i].cases[j].name);
+    for (size_t i = 0; i < test_suite_count; i++) {
+        for (size_t j = 0; j < test_suites[i]->case_count; j++) {
+            size_t len = strlen(test_suites[i]->cases[j].name);
             if (len > name_width) {
                 name_width = len;
             }
@@ -1106,21 +1097,21 @@ static void list_case_paths(void) {
 
     printf("%-*s  %s\n", name_width, "case", "path");
     for (size_t t = 0; t < test_id_count; t++) {
-        for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            for (size_t j = 0; j < test_suites[i].case_count; j++) {
+        for (size_t i = 0; i < test_suite_count; i++) {
+            for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
                 if (test_ids[t].name && !(
                         strcmp(test_ids[t].name,
-                            test_suites[i].name) == 0
+                            test_suites[i]->name) == 0
                         || strcmp(test_ids[t].name,
-                            test_suites[i].cases[j].name) == 0)) {
+                            test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
                 printf("%-*s  %s\n",
                         name_width,
-                        test_suites[i].cases[j].name,
-                        test_suites[i].cases[j].path);
+                        test_suites[i]->cases[j].name,
+                        test_suites[i]->cases[j].path);
             }
         }
     }
@@ -1222,22 +1213,22 @@ static void list_defines(void) {
 
     // add defines
     for (size_t t = 0; t < test_id_count; t++) {
-        for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            test_define_suite(&test_suites[i]);
+        for (size_t i = 0; i < test_suite_count; i++) {
+            test_define_suite(test_suites[i]);
 
-            for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
                 if (test_ids[t].name && !(
                         strcmp(test_ids[t].name,
-                            test_suites[i].name) == 0
+                            test_suites[i]->name) == 0
                         || strcmp(test_ids[t].name,
-                            test_suites[i].cases[j].name) == 0)) {
+                            test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
                 case_forperm(
-                        &test_suites[i],
-                        &test_suites[i].cases[j],
+                        test_suites[i],
+                        &test_suites[i]->cases[j],
                         test_ids[t].defines,
                         test_ids[t].define_count,
                         test_ids[t].cycles,
@@ -1270,22 +1261,22 @@ static void list_permutation_defines(void) {
 
     // add permutation defines
     for (size_t t = 0; t < test_id_count; t++) {
-        for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            test_define_suite(&test_suites[i]);
+        for (size_t i = 0; i < test_suite_count; i++) {
+            test_define_suite(test_suites[i]);
 
-            for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
                 if (test_ids[t].name && !(
                         strcmp(test_ids[t].name,
-                            test_suites[i].name) == 0
+                            test_suites[i]->name) == 0
                         || strcmp(test_ids[t].name,
-                            test_suites[i].cases[j].name) == 0)) {
+                            test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
                 case_forperm(
-                        &test_suites[i],
-                        &test_suites[i].cases[j],
+                        test_suites[i],
+                        &test_suites[i]->cases[j],
                         test_ids[t].defines,
                         test_ids[t].define_count,
                         test_ids[t].cycles,
@@ -1977,22 +1968,22 @@ static void run(void) {
     signal(SIGPIPE, SIG_IGN);
 
     for (size_t t = 0; t < test_id_count; t++) {
-        for (size_t i = 0; i < TEST_SUITE_COUNT; i++) {
-            test_define_suite(&test_suites[i]);
+        for (size_t i = 0; i < test_suite_count; i++) {
+            test_define_suite(test_suites[i]);
 
-            for (size_t j = 0; j < test_suites[i].case_count; j++) {
+            for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
                 if (test_ids[t].name && !(
                         strcmp(test_ids[t].name,
-                            test_suites[i].name) == 0
+                            test_suites[i]->name) == 0
                         || strcmp(test_ids[t].name,
-                            test_suites[i].cases[j].name) == 0)) {
+                            test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
                 case_forperm(
-                        &test_suites[i],
-                        &test_suites[i].cases[j],
+                        test_suites[i],
+                        &test_suites[i]->cases[j],
                         test_ids[t].defines,
                         test_ids[t].define_count,
                         test_ids[t].cycles,

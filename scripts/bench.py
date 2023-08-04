@@ -142,6 +142,14 @@ class BenchCase:
                 k),
                 file=sys.stderr)
 
+    def __repr__(self):
+        return '<BenchCase %s>' % self.name
+
+    def __lt__(self, other):
+        # sort by suite, lineno, and name
+        return ((self.suite, self.lineno, self.name)
+            < (other.suite, other.lineno, other.name))
+
 
 class BenchSuite:
     # create a BenchSuite object from a toml file
@@ -193,13 +201,16 @@ class BenchSuite:
                     if not case_linenos or l < case_linenos[0][0]),
                 default=None)
 
+            self.after = config.pop('after', [])
+            if not isinstance(self.after, list):
+                self.after = [self.after]
+
             # a couple of these we just forward to all cases
             defines = config.pop('defines', {})
             in_ = config.pop('in', None)
 
             self.cases = []
-            for name, case in sorted(cases.items(),
-                    key=lambda c: c[1].get('lineno')):
+            for name, case in cases.items():
                 self.cases.append(BenchCase(config={
                     'name': name,
                     'path': path + (':%d' % case['lineno']
@@ -209,6 +220,9 @@ class BenchSuite:
                     'suite_in': in_,
                     **case},
                     args=args))
+
+            # sort for consistency
+            self.cases.sort()
 
             # combine per-case defines
             self.defines = set.union(set(), *(
@@ -225,6 +239,14 @@ class BenchSuite:
                 k),
                 file=sys.stderr)
 
+    def __repr__(self):
+        return '<TestSuite %s>' % self.name
+
+    def __lt__(self, other):
+        # sort by name
+        #
+        # note we override this with a topological sort during compilation
+        return self.name < other.name
 
 
 def compile(bench_paths, **args):
@@ -246,7 +268,29 @@ def compile(bench_paths, **args):
 
     # load the suites
     suites = [BenchSuite(path, args) for path in paths]
-    suites.sort(key=lambda s: s.name)
+
+    # sort suites by:
+    # 1. topologically by "after" dependencies
+    # 2. lexicographically for consistency
+    pending = co.OrderedDict((suite.name, suite)
+            for suite in sorted(suites))
+    suites = []
+    while pending:
+        pending_ = co.OrderedDict()
+        for suite in pending.values():
+            if not any(after in pending for after in suite.after):
+                suites.append(suite)
+            else:
+                pending_[suite.name] = suite
+
+        if len(pending_) == len(pending):
+            print('%serror:%s cycle detected in suite ordering, %s' % (
+                '\x1b[01;31m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
+                ', '.join(suite.name for suite in pending.values())))
+            sys.exit(-1)
+
+        pending = pending_
 
     # check for name conflicts, these will cause ambiguity problems later
     # when running benches
@@ -415,12 +459,6 @@ def compile(bench_paths, **args):
                         f.writeln()
 
                 # create suite struct
-                #
-                # note we place this in the custom bench_suites section with
-                # minimum alignment, otherwise GCC ups the alignment to
-                # 32-bytes for some reason
-                f.writeln('__attribute__((section("_bench_suites"), '
-                    'aligned(1)))')
                 f.writeln('const struct bench_suite __bench__%s__suite = {'
                     % suite.name)
                 f.writeln(4*' '+'.name = "%s",' % suite.name)
@@ -525,6 +563,26 @@ def compile(bench_paths, **args):
                                     f.writeln('#undef %s' % (define+'_i'))
                                     f.writeln('#endif')
                                 f.writeln()
+
+                # declare our bench suites
+                #
+                # by declaring these as weak we can write these to every
+                # source file without issue, eventually one of these copies
+                # will be linked
+                for suite in suites:
+                    f.writeln('extern const struct bench_suite '
+                        '__bench__%s__suite;' % suite.name);
+                f.writeln()
+
+                f.writeln('__attribute__((weak))')
+                f.writeln('const struct bench_suite *const bench_suites[] = {');
+                for suite in suites:
+                    f.writeln(4*' '+'&__bench__%s__suite,' % suite.name);
+                f.writeln('};')
+                f.writeln('__attribute__((weak))')
+                f.writeln('const size_t bench_suite_count = %d;' % len(suites))
+                f.writeln()
+
 
 def find_runner(runner, id=None, **args):
     cmd = runner.copy()

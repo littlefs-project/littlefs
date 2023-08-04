@@ -1,9 +1,11 @@
+# Bench our mid-level B-trees
+after = 'bench_rbyd'
 
 # maximize lookahead buffer, we don't actually gc so we only get one pass
 # of the disk for these tests
 defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
 
-[cases.b2_btree_lookup]
+[cases.bench_btree_lookup]
 defines.N = [8, 16, 32, 64, 128, 256, 1024]
 # 0 = in-order
 # 1 = reversed-order
@@ -53,7 +55,7 @@ code = '''
     BENCH_STOP();
 '''
 
-[cases.b2_btree_commit]
+[cases.bench_btree_commit]
 defines.N = [8, 16, 32, 64, 128, 256, 1024]
 # 0 = in-order
 # 1 = reversed-order

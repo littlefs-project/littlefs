@@ -1,12 +1,13 @@
-
 # Tests covering properties of the block allocator
+after = 'test_mtree'
+
 
 # TODO test all of these with weird block sizes? would be nice to make this
 # easy via the test_runner, either by handling it there or letting a single
 # config limit the block count by a couple blocks
 
 # test that we can alloc
-[cases.t4_alloc_blocks]
+[cases.test_alloc_blocks]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -39,7 +40,7 @@ code = '''
 '''
 
 # test that we can realloc after an ack
-[cases.t4_alloc_reuse]
+[cases.test_alloc_reuse]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -95,7 +96,7 @@ code = '''
 
 # test that we can alloc an mtree, the difference between this and mtree tests
 # is we expect this to be able to handle wrap-around
-[cases.t4_alloc_mtree]
+[cases.test_alloc_mtree]
 in = 'lfs.c'
 code = '''
     const char *alphas = "abcdefghijklmnopqrstuvwxyz";

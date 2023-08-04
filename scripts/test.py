@@ -144,6 +144,14 @@ class TestCase:
                 k),
                 file=sys.stderr)
 
+    def __repr__(self):
+        return '<TestCase %s>' % self.name
+
+    def __lt__(self, other):
+        # sort by suite, lineno, and name
+        return ((self.suite, self.lineno, self.name)
+            < (other.suite, other.lineno, other.name))
+
 
 class TestSuite:
     # create a TestSuite object from a toml file
@@ -195,14 +203,17 @@ class TestSuite:
                     if not case_linenos or l < case_linenos[0][0]),
                 default=None)
 
+            self.after = config.pop('after', [])
+            if not isinstance(self.after, list):
+                self.after = [self.after]
+
             # a couple of these we just forward to all cases
             defines = config.pop('defines', {})
             in_ = config.pop('in', None)
             reentrant = config.pop('reentrant', False)
 
             self.cases = []
-            for name, case in sorted(cases.items(),
-                    key=lambda c: c[1].get('lineno')):
+            for name, case in cases.items():
                 self.cases.append(TestCase(config={
                     'name': name,
                     'path': path + (':%d' % case['lineno']
@@ -213,6 +224,9 @@ class TestSuite:
                     'suite_reentrant': reentrant,
                     **case},
                     args=args))
+
+            # sort for consistency
+            self.cases.sort()
 
             # combine per-case defines
             self.defines = set.union(set(), *(
@@ -230,6 +244,14 @@ class TestSuite:
                 k),
                 file=sys.stderr)
 
+    def __repr__(self):
+        return '<TestSuite %s>' % self.name
+
+    def __lt__(self, other):
+        # sort by name
+        #
+        # note we override this with a topological sort during compilation
+        return self.name < other.name
 
 
 def compile(test_paths, **args):
@@ -251,7 +273,29 @@ def compile(test_paths, **args):
 
     # load the suites
     suites = [TestSuite(path, args) for path in paths]
-    suites.sort(key=lambda s: s.name)
+
+    # sort suites by:
+    # 1. topologically by "after" dependencies
+    # 2. lexicographically for consistency
+    pending = co.OrderedDict((suite.name, suite)
+            for suite in sorted(suites))
+    suites = []
+    while pending:
+        pending_ = co.OrderedDict()
+        for suite in pending.values():
+            if not any(after in pending for after in suite.after):
+                suites.append(suite)
+            else:
+                pending_[suite.name] = suite
+
+        if len(pending_) == len(pending):
+            print('%serror:%s cycle detected in suite ordering, %s' % (
+                '\x1b[01;31m' if args['color'] else '',
+                '\x1b[m' if args['color'] else '',
+                ', '.join(suite.name for suite in pending.values())))
+            sys.exit(-1)
+
+        pending = pending_
 
     # check for name conflicts, these will cause ambiguity problems later
     # when running tests
@@ -420,12 +464,6 @@ def compile(test_paths, **args):
                         f.writeln()
 
                 # create suite struct
-                #
-                # note we place this in the custom test_suites section with
-                # minimum alignment, otherwise GCC ups the alignment to
-                # 32-bytes for some reason
-                f.writeln('__attribute__((section("_test_suites"), '
-                    'aligned(1)))')
                 f.writeln('const struct test_suite __test__%s__suite = {'
                     % suite.name)
                 f.writeln(4*' '+'.name = "%s",' % suite.name)
@@ -532,6 +570,26 @@ def compile(test_paths, **args):
                                     f.writeln('#undef %s' % (define+'_i'))
                                     f.writeln('#endif')
                                 f.writeln()
+
+                # declare our test suites
+                #
+                # by declaring these as weak we can write these to every
+                # source file without issue, eventually one of these copies
+                # will be linked
+                for suite in suites:
+                    f.writeln('extern const struct test_suite '
+                        '__test__%s__suite;' % suite.name);
+                f.writeln()
+
+                f.writeln('__attribute__((weak))')
+                f.writeln('const struct test_suite *const test_suites[] = {');
+                for suite in suites:
+                    f.writeln(4*' '+'&__test__%s__suite,' % suite.name);
+                f.writeln('};')
+                f.writeln('__attribute__((weak))')
+                f.writeln('const size_t test_suite_count = %d;' % len(suites))
+                f.writeln()
+
 
 def find_runner(runner, id=None, **args):
     cmd = runner.copy()
