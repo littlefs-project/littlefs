@@ -854,7 +854,7 @@ void perm_count(
 
     state->total += 1;
 
-    if (case_->filter && !case_->filter()) {
+    if (case_->if_ && !case_->if_()) {
         return;
     }
 
@@ -1951,7 +1951,7 @@ void perm_run(
     test_step += 1;
 
     // filter?
-    if (case_->filter && !case_->filter()) {
+    if (case_->if_ && !case_->if_()) {
         printf("skipped ");
         perm_printid(suite, case_, NULL, 0);
         printf("\n");

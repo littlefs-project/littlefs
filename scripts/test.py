@@ -395,9 +395,9 @@ def compile(test_paths, **args):
                             f.writeln('}')
                             f.writeln()
 
-                    # create case filter function
+                    # create case if function
                     if suite.if_ or case.if_:
-                        f.writeln('bool __test__%s__filter(void) {'
+                        f.writeln('bool __test__%s__if(void) {'
                             % (case.name))
                         for if_ in it.chain(suite.if_, case.if_):
                             f.writeln(4*' '+'if (!(%s)) return false;' % (
@@ -455,7 +455,7 @@ def compile(test_paths, **args):
                                     'void *data, size_t i);'
                                     % (case.name, k, i))
                         if suite.if_ or case.if_:
-                            f.writeln('extern bool __test__%s__filter('
+                            f.writeln('extern bool __test__%s__if('
                                 'void);'
                                 % (case.name))
                         f.writeln('extern void __test__%s__run('
@@ -517,7 +517,7 @@ def compile(test_paths, **args):
                             f.writeln(12*' '+'.permutations = %d,'
                                 % len(case.permutations))
                         if suite.if_ or case.if_:
-                            f.writeln(12*' '+'.filter = __test__%s__filter,'
+                            f.writeln(12*' '+'.if_ = __test__%s__if,'
                                 % (case.name))
                         f.writeln(12*' '+'.run = __test__%s__run,'
                             % (case.name))
