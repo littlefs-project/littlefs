@@ -52,6 +52,11 @@ typedef int16_t lfsr_smbid_t;
 typedef uint16_t lfsr_mrid_t;
 typedef int16_t lfsr_smrid_t;
 
+typedef struct lfsr_mid {
+    lfsr_smbid_t bid;
+    lfsr_smrid_t rid;
+} lfsr_mid_t;
+
 // Maximum name size in bytes, may be redefined to reduce the size of the
 // info struct. Limited to <= 1022. Stored in superblock and must be
 // respected by other littlefs drivers.
@@ -342,8 +347,8 @@ typedef struct lfsr_rbyd {
     // off=0, trunk=0 => not yet committed
     // off=0, trunk>0 => not yet fetched
     // off=block_size => rbyd not erased/needs compaction
-    lfs_off_t off;
     lfs_off_t trunk;
+    lfs_off_t off;
     uint32_t crc;
 } lfsr_rbyd_t;
 
@@ -353,7 +358,8 @@ typedef struct lfsr_rbyd {
 //
 // Pointers we store:
 // - block addresses => 1 leb128 => 5 bytes (worst case)
-#define LFSR_BTREE_INLINESIZE 5
+// - mdir addresses  => 2 leb128 => 10 bytes (worst case)
+#define LFSR_BTREE_INLINESIZE 10
 
 typedef union lfsr_btree {
     // note this lines up with weight in lfsr_rbyd_t
@@ -372,11 +378,6 @@ typedef union lfsr_btree {
         uint8_t buffer[LFSR_BTREE_INLINESIZE];
     } inlined;
 } lfsr_btree_t;
-
-typedef struct lfsr_mid {
-    lfsr_smbid_t bid;
-    lfsr_smrid_t rid;
-} lfsr_mid_t;
 
 typedef struct lfsr_mdir {
     lfsr_mid_t mid;

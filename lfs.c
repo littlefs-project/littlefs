@@ -1532,6 +1532,17 @@ static lfs_ssize_t lfsr_fcrc_fromdisk(lfs_t *lfs, lfsr_fcrc_t *fcrc,
 
 #define LFSR_MID(_bid, _rid) ((lfsr_mid_t){_bid, _rid})
 
+static inline int lfsr_mid_cmp(lfsr_mid_t a, lfsr_mid_t b) {
+    union { lfsr_mid_t mid; lfs_ssize_t w; } a_u = {.mid=a};
+    union { lfsr_mid_t mid; lfs_ssize_t w; } b_u = {.mid=b};
+    return a_u.w - b_u.w;
+}
+
+// we use the root's dstart at 0.0 to represent root
+static inline bool lfsr_mid_isroot(lfsr_mid_t mid) {
+    return lfsr_mid_cmp(mid, LFSR_MID(0, 0)) == 0;
+}
+
 
 /// Global-state things ///
 
@@ -1947,7 +1958,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     if (!erased) {
-        rbyd->off = lfs->cfg->block_size;
+        rbyd->off = -1;
     }
 
     return 0;
@@ -2098,7 +2109,7 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
 failed:
     // if we fail mark the rbyd as unerased and release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->off = lfs->cfg->block_size;
+    rbyd->off = -1;
     return err;
 }
 
@@ -2710,7 +2721,7 @@ leaf:;
 failed:;
     // if we fail mark the rbyd as unerased and release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->off = lfs->cfg->block_size;
+    rbyd->off = -1;
     return err;
 }
 
@@ -2993,7 +3004,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 failed:;
     // if we fail mark the rbyd as unerased and release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->off = lfs->cfg->block_size;
+    rbyd->off = -1;
     return err;
 
 #else
@@ -3095,7 +3106,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         int err = lfsr_bd_read(lfs, rbyd_.block, aligned, lfs->cfg->prog_size,
                 &perturb, 1);
         if (err && err != LFS_ERR_CORRUPT) {
-            rbyd->off = lfs->cfg->block_size;
+            rbyd->off = -1;
             return err;
         }
 
@@ -3204,7 +3215,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 failed:;
     // if we fail mark the rbyd as unerased and release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->off = lfs->cfg->block_size;
+    rbyd->off = -1;
     return err;
 }
 
@@ -5119,7 +5130,7 @@ static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mid_t mid) {
     mdir->m.rbyd.weight = 0;
     mdir->m.rbyd.block = blocks[1];
     // mark mdir as needing compaction
-    mdir->m.rbyd.off = lfs->cfg->block_size;
+    mdir->m.rbyd.off = -1;
     mdir->m.rbyd.trunk = 0;
     return 0;
 }
@@ -6223,7 +6234,8 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
         lfsr_mdir_t *mdir_, lfsr_tag_t *tag_,
         lfs_size_t *did_, const char **name_, lfs_size_t *name_size_) {
     // setup root
-    lfsr_mdir_t mdir = {.mid.rid=-1};
+    lfsr_mdir_t mdir;
+    mdir.mid = LFSR_MID(0, 0);
     lfsr_tag_t tag = LFSR_TAG_DIR;
     lfs_size_t did = LFSR_DID_ROOT;
 
@@ -6277,7 +6289,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
         if (name[0] == '\0') {
             // generally we don't allow operations that change our root,
             // report root as inval, but let upper layers intercept this
-            if (mdir.mid.rid == -1) {
+            if (lfsr_mid_isroot(mdir.mid)) {
                 return LFS_ERR_INVAL;
             }
             return 0;
@@ -6289,7 +6301,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
         }
 
         // read the next did from the mdir if this is not the root
-        if (mdir.mid.rid != -1) {
+        if (!lfsr_mid_isroot(mdir.mid)) {
             lfsr_data_t data;
             int err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid.rid, LFSR_TAG_DID,
                     NULL, &data);
@@ -7020,6 +7032,9 @@ static int lfsr_formatinited(lfs_t *lfs) {
             return err;
         }
 
+        // note the initial revision count is arbitrary, but we use
+        // -1 and 0 here to help test that our sequence comparison
+        // works correctly
         err = lfsr_rbyd_appendrev(lfs, &rbyd, (uint32_t)i - 1);
         if (err) {
             return err;
@@ -7223,7 +7238,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     err = lfsr_mtree_pathlookup(lfs, path,
             &parent.mdir, NULL,
             &parent_did, &name, &name_size);
-    if (err && (err != LFS_ERR_NOENT || parent.mdir.mid.rid == -1)) {
+    if (err && (err != LFS_ERR_NOENT || lfsr_mid_isroot(parent.mdir.mid))) {
         return err;
     }
 
@@ -7450,7 +7465,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     err = lfsr_mtree_pathlookup(lfs, new_path,
             &new_mdir, &new_tag,
             &new_did, &new_name, &new_name_size);
-    if (err && (err != LFS_ERR_NOENT || new_mdir.mid.rid == -1)) {
+    if (err && (err != LFS_ERR_NOENT || lfsr_mid_isroot(new_mdir.mid))) {
         return err;
     }
     bool exists = (err != LFS_ERR_NOENT);
