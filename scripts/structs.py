@@ -192,6 +192,11 @@ def collect(obj_paths, *,
         s_name = None
         s_file = None
         s_size = None
+        def append():
+            # ignore non-structs and unnamed files
+            if is_struct and s_name:
+                file = files.get(s_file, '?')
+                results_.append(StructResult(file, s_name, s_size))
         # note objdump-path may contain extra args
         cmd = objdump_path + ['--dwarf=info', path]
         if args.get('verbose'):
@@ -202,24 +207,25 @@ def collect(obj_paths, *,
             universal_newlines=True,
             errors='replace',
             close_fds=False)
-        for line in proc.stdout:
+        for i, line in enumerate(proc.stdout):
             # state machine here to find structs
             m = info_pattern.match(line)
             if m:
                 if m.group('tag'):
-                    if is_struct:
-                        file = files.get(s_file, '?')
-                        results_.append(StructResult(file, s_name, s_size))
-                    is_struct = (m.group('tag') == 'DW_TAG_structure_type')
+                    append()
+                    is_struct = (m.group('tag') == 'DW_TAG_structure_type'
+                        or m.group('tag') == 'DW_TAG_union_type')
+                    s_name = None
+                    s_file = None
+                    s_size = None
                 elif m.group('name'):
                     s_name = m.group('name')
                 elif m.group('file'):
                     s_file = int(m.group('file'))
                 elif m.group('size'):
                     s_size = int(m.group('size'))
-        if is_struct:
-            file = files.get(s_file, '?')
-            results_.append(StructResult(file, s_name, s_size))
+        # don't forget the last struct
+        append()
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):

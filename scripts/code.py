@@ -235,6 +235,10 @@ def collect(obj_paths, *,
         is_func = False
         f_name = None
         f_file = None
+        def append():
+            # ignore non-functions and unnamed files
+            if is_func and f_name:
+                defs[f_name] = files.get(f_file, '?')
         # note objdump-path may contain extra args
         cmd = objdump_path + ['--dwarf=info', path]
         if args.get('verbose'):
@@ -250,15 +254,16 @@ def collect(obj_paths, *,
             m = info_pattern.match(line)
             if m:
                 if m.group('tag'):
-                    if is_func:
-                        defs[f_name] = files.get(f_file, '?')
+                    append()
                     is_func = (m.group('tag') == 'DW_TAG_subprogram')
+                    f_name = None
+                    f_file = None
                 elif m.group('name'):
                     f_name = m.group('name')
                 elif m.group('file'):
                     f_file = int(m.group('file'))
-        if is_func:
-            defs[f_name] = files.get(f_file, '?')
+        # don't forget the last function
+        append()
         proc.wait()
         if proc.returncode != 0:
             if not args.get('verbose'):
