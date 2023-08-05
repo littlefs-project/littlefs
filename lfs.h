@@ -53,8 +53,13 @@ typedef uint16_t lfsr_mrid_t;
 typedef int16_t lfsr_smrid_t;
 
 typedef struct lfsr_mid {
+#ifdef LFS_BIG_ENDIAN
     lfsr_smbid_t bid;
     lfsr_smrid_t rid;
+#else
+    lfsr_smrid_t rid;
+    lfsr_smbid_t bid;
+#endif
 } lfsr_mid_t;
 
 // Maximum name size in bytes, may be redefined to reduce the size of the
@@ -341,12 +346,13 @@ typedef struct lfs_cache {
 
 // TODO do we get ram savings with a lfsr_rorbyd_t substruct? need to measure
 typedef struct lfsr_rbyd {
+    // note this lines up with arrays of redundant blocks in other structures
+    lfs_block_t block;
     // note this lines up with weight in lfsr_btree_t
     lfs_size_t weight;
-    lfs_block_t block;
-    // off=0, trunk=0 => not yet committed
-    // off=0, trunk>0 => not yet fetched
-    // off=block_size => rbyd not erased/needs compaction
+    // off=0, trunk=0  => not yet committed
+    // off=0, trunk>0  => not yet fetched
+    // off>=block_size => rbyd not erased/needs compaction
     lfs_off_t trunk;
     lfs_off_t off;
     uint32_t crc;
@@ -361,30 +367,44 @@ typedef struct lfsr_rbyd {
 // - mdir addresses  => 2 leb128 => 10 bytes (worst case)
 #define LFSR_BTREE_INLINESIZE 10
 
-typedef union lfsr_btree {
-    // note this lines up with weight in lfsr_rbyd_t
-    //
-    // sign(weight)=1 => inlined btree
-    // sign(weight)=0 => normal btree
-    //
-    // note due to defered inlining, both normal and inlined
-    // btrees can have a weight of 0
-    lfs_size_t weight;
-    lfsr_rbyd_t root;
-    struct {
-        lfs_ssize_t weight;
-        lfsr_tag_t tag;
-        uint16_t size;
-        uint8_t buffer[LFSR_BTREE_INLINESIZE];
-    } inlined;
+typedef struct lfsr_btree {
+    union {
+        // weight is common to both representations and its sign-bit indicates
+        // if the btree is inlined
+        struct {
+            lfs_size_t _padding;
+            lfs_size_t weight;
+        } b;
+        struct {
+            // TODO complex ifdefs here to handle tag/size > 1/2 a word?
+            lfsr_tag_t tag;
+            uint8_t size;
+            uint8_t _padding;
+            lfs_size_t weight;
+            uint8_t buffer[LFSR_BTREE_INLINESIZE];
+        } i;
+        struct {
+            // note the sign bit of the rbyd.block indicates if the btree is
+            // inlined or a normal btree
+            lfsr_rbyd_t rbyd;
+        } r;
+    } u;
 } lfsr_btree_t;
 
 typedef struct lfsr_mdir {
     lfsr_mid_t mid;
-    struct {
-        lfsr_rbyd_t rbyd;
-        lfs_block_t redund_block;
-    } m;
+    union {
+        // here we make sure to line up our block array so it overlaps with
+        // the block stored as the first entry in the rbyd
+        struct {
+            lfs_block_t blocks[2];
+            lfs_size_t weight;
+        } m;
+        struct {
+            lfs_block_t redund_block;
+            lfsr_rbyd_t rbyd;
+        } r;
+    } u;
 } lfsr_mdir_t;
 
 typedef struct lfsr_openedmdir {

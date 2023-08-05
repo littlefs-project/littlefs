@@ -108,6 +108,31 @@ extern "C"
 #endif
 #endif
 
+// We need to know the endianness of the system for some struct packing
+#if (defined(BYTE_ORDER) \
+            && defined(ORDER_LITTLE_ENDIAN) \
+            && BYTE_ORDER == ORDER_LITTLE_ENDIAN) \
+        || (defined(__BYTE_ORDER) \
+            && defined(__ORDER_LITTLE_ENDIAN) \
+            && __BYTE_ORDER == __ORDER_LITTLE_ENDIAN) \
+        || (defined(__BYTE_ORDER__) \
+            && defined(__ORDER_LITTLE_ENDIAN__) \
+            && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#define LFS_LITTLE_ENDIAN
+#elif (defined(BYTE_ORDER) \
+            && defined(ORDER_BIG_ENDIAN) \
+            && BYTE_ORDER == ORDER_BIG_ENDIAN) \
+        || (defined(__BYTE_ORDER) \
+            && defined(__ORDER_BIG_ENDIAN) \
+            && __BYTE_ORDER == __ORDER_BIG_ENDIAN) \
+        || (defined(__BYTE_ORDER__) \
+            && defined(__ORDER_BIG_ENDIAN__) \
+            && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#define LFS_BIG_ENDIAN
+#else
+#error "lfs: Unknown endianness?"
+#endif
+
 
 // Builtin functions, these may be replaced by more efficient
 // toolchain-specific implementations. LFS_NO_INTRINSICS falls back to a more
@@ -243,14 +268,9 @@ static inline int lfs_scmp(uint32_t a, uint32_t b) {
 
 // Convert between 32-bit little-endian and native order
 static inline uint32_t lfs_fromle32(uint32_t a) {
-#if (defined(  BYTE_ORDER  ) && defined(  ORDER_LITTLE_ENDIAN  ) &&   BYTE_ORDER   ==   ORDER_LITTLE_ENDIAN  ) || \
-    (defined(__BYTE_ORDER  ) && defined(__ORDER_LITTLE_ENDIAN  ) && __BYTE_ORDER   == __ORDER_LITTLE_ENDIAN  ) || \
-    (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#if !defined(LFS_NO_INTRINSICS) && defined(LFS_LITTLE_ENDIAN)
     return a;
-#elif !defined(LFS_NO_INTRINSICS) && ( \
-    (defined(  BYTE_ORDER  ) && defined(  ORDER_BIG_ENDIAN  ) &&   BYTE_ORDER   ==   ORDER_BIG_ENDIAN  ) || \
-    (defined(__BYTE_ORDER  ) && defined(__ORDER_BIG_ENDIAN  ) && __BYTE_ORDER   == __ORDER_BIG_ENDIAN  ) || \
-    (defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__))
+#elif !defined(LFS_NO_INTRINSICS)
     return __builtin_bswap32(a);
 #else
     return (((uint8_t*)&a)[0] <<  0) |
@@ -266,14 +286,9 @@ static inline uint32_t lfs_tole32(uint32_t a) {
 
 // Convert between 32-bit big-endian and native order
 static inline uint32_t lfs_frombe32(uint32_t a) {
-#if !defined(LFS_NO_INTRINSICS) && ( \
-    (defined(  BYTE_ORDER  ) && defined(  ORDER_LITTLE_ENDIAN  ) &&   BYTE_ORDER   ==   ORDER_LITTLE_ENDIAN  ) || \
-    (defined(__BYTE_ORDER  ) && defined(__ORDER_LITTLE_ENDIAN  ) && __BYTE_ORDER   == __ORDER_LITTLE_ENDIAN  ) || \
-    (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
+#if !defined(LFS_NO_INTRINSICS) && defined(LFS_LITTLE_ENDIAN)
     return __builtin_bswap32(a);
-#elif (defined(  BYTE_ORDER  ) && defined(  ORDER_BIG_ENDIAN  ) &&   BYTE_ORDER   ==   ORDER_BIG_ENDIAN  ) || \
-    (defined(__BYTE_ORDER  ) && defined(__ORDER_BIG_ENDIAN  ) && __BYTE_ORDER   == __ORDER_BIG_ENDIAN  ) || \
-    (defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#elif !defined(LFS_NO_INTRINSICS)
     return a;
 #else
     return (((uint8_t*)&a)[0] << 24) |

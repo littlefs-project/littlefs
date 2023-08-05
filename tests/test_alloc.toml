@@ -149,7 +149,7 @@ code = '''
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
         for (mdir.mid.rid = 0;
-                mdir.mid.rid < (lfs_ssize_t)mdir.m.rbyd.weight;
+                mdir.mid.rid < (lfs_ssize_t)mdir.u.m.weight;
                 mdir.mid.rid++) {
             uint8_t buffer[4];
             lfsr_mdir_get(&lfs, &mdir, mdir.mid.rid, LFSR_TAG_INLINED,
