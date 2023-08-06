@@ -5640,9 +5640,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 "-> 0x{%"PRIx32",%"PRIx32"}"
                 ", 0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid.bid,
-                mdir->u.m.blocks[1], mdir->u.m.blocks[0],
-                mdir_.u.m.blocks[1], mdir_.u.m.blocks[0],
-                msibling_.u.m.blocks[1], msibling_.u.m.blocks[0]);
+                mdir->u.m.blocks[0], mdir->u.m.blocks[1],
+                mdir_.u.m.blocks[0], mdir_.u.m.blocks[1],
+                msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
 
         // because of defered commits, both children can still be reduced
         // to zero, need to catch this here
@@ -5651,10 +5651,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (mdir_.u.m.weight == 0 && msibling_.u.m.weight == 0) {
             LFS_DEBUG("Dropping mdir %"PRId16" 0x{%"PRIx32",%"PRIx32"}",
                     mdir_.mid.bid,
-                    mdir_.u.m.blocks[1], mdir_.u.m.blocks[0]);
+                    mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
             LFS_DEBUG("Dropping mdir %"PRId16" 0x{%"PRIx32",%"PRIx32"}",
                     msibling_.mid.bid,
-                    msibling_.u.m.blocks[1], msibling_.u.m.blocks[0]);
+                    msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
             // mark as dropped
             mdir_.u.r.rbyd.trunk = 0;
             msibling_.u.r.rbyd.trunk = 0;
@@ -5669,7 +5669,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         } else if (mdir_.u.m.weight == 0) {
             LFS_DEBUG("Dropping mdir %"PRId16" 0x{%"PRIx32",%"PRIx32"}",
                     mdir_.mid.bid,
-                    mdir_.u.m.blocks[1], mdir_.u.m.blocks[0]);
+                    mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
 
             // mark as dropped
             mdir_.u.r.rbyd.trunk = 0;
@@ -5691,7 +5691,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         } else if (msibling_.u.m.weight == 0) {
             LFS_DEBUG("Dropping mdir %"PRId16" 0x{%"PRIx32",%"PRIx32"}",
                     msibling_.mid.bid,
-                    msibling_.u.m.blocks[1], msibling_.u.m.blocks[0]);
+                    msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
 
             // mark as dropped
             msibling_.u.r.rbyd.trunk = 0;
@@ -5758,7 +5758,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     } else if (mdir->mid.bid != -1 && mdir_.u.m.weight == 0) {
         LFS_DEBUG("Dropping mdir %"PRId16" 0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid.bid,
-                mdir->u.m.blocks[1], mdir->u.m.blocks[0]);
+                mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
         // mark as dropped
         mdir_.u.r.rbyd.trunk = 0;
@@ -5784,8 +5784,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             LFS_DEBUG("Relocating mdir %"PRId16" 0x{%"PRIx32",%"PRIx32"} "
                     "-> 0x{%"PRIx32",%"PRIx32"}",
                     mdir->mid.bid,
-                    mdir->u.m.blocks[1], mdir->u.m.blocks[0],
-                    mdir_.u.m.blocks[1], mdir_.u.m.blocks[0]);
+                    mdir->u.m.blocks[0], mdir->u.m.blocks[1],
+                    mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
 
             // update our mtree
             uint8_t buf[LFSR_MDIR_DSIZE];
@@ -5918,8 +5918,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         LFS_DEBUG("Relocating mroot 0x{%"PRIx32",%"PRIx32"} "
                 "-> 0x{%"PRIx32",%"PRIx32"}",
-                mchildroot.u.m.blocks[1], mchildroot.u.m.blocks[0],
-                mchildroot_[1], mchildroot_[0]);
+                mchildroot.u.m.blocks[0], mchildroot.u.m.blocks[1],
+                mchildroot_[0], mchildroot_[1]);
 
         // commit mrootchild 
         uint8_t buf[LFSR_MDIR_DSIZE];
@@ -5951,9 +5951,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         LFS_DEBUG("Extending mroot 0x{%"PRIx32",%"PRIx32"}"
                 " -> 0x{%"PRIx32",%"PRIx32"}"
                 ", 0x{%"PRIx32",%"PRIx32"}",
-                mchildroot.u.m.blocks[1], mchildroot.u.m.blocks[0],
-                mchildroot.u.m.blocks[1], mchildroot.u.m.blocks[0],
-                mchildroot_[1], mchildroot_[0]);
+                mchildroot.u.m.blocks[0], mchildroot.u.m.blocks[1],
+                mchildroot.u.m.blocks[0], mchildroot.u.m.blocks[1],
+                mchildroot_[0], mchildroot_[1]);
 
         // copy magic/config from current mroot
         lfsr_data_t magic;
@@ -6534,7 +6534,7 @@ cycle_detect:;
             traversal->tortoise_blocks) == 0) {
         LFS_ERROR("Cycle detected during mtree traversal "
                 "(0x{%"PRIx32",%"PRIx32"})",
-                traversal->mdir.u.m.blocks[1], traversal->mdir.u.m.blocks[0]);
+                traversal->mdir.u.m.blocks[0], traversal->mdir.u.m.blocks[1]);
         return LFS_ERR_CORRUPT;
     }
     if (traversal->tortoise_step

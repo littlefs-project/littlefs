@@ -3506,7 +3506,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    mdir->u.m.blocks[1], mdir->u.m.blocks[0]);
+                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
             // keep track of seen blocks
             seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
@@ -3631,7 +3631,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    mdir->u.m.blocks[1], mdir->u.m.blocks[0]);
+                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
             // keep track of seen blocks
             seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
@@ -3767,7 +3767,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    mdir->u.m.blocks[1], mdir->u.m.blocks[0]);
+                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
             // keep track of seen blocks
             seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
@@ -3895,7 +3895,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    mdir->u.m.blocks[1], mdir->u.m.blocks[0]);
+                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
             // keep track of seen blocks
             seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
@@ -4031,7 +4031,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    mdir->u.m.blocks[1], mdir->u.m.blocks[0]);
+                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
             // keep track of seen blocks
             seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
@@ -4194,7 +4194,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    mdir->u.m.blocks[1], mdir->u.m.blocks[0]);
+                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
             // keep track of seen blocks
             seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
@@ -4298,7 +4298,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    mdir->u.m.blocks[1], mdir->u.m.blocks[0]);
+                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
         } else {
             // this shouldn't happen
             printf("traversal: %d.%d 0x%x %d\n",

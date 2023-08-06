@@ -346,8 +346,6 @@ typedef struct lfs_cache {
 
 // TODO do we get ram savings with a lfsr_rorbyd_t substruct? need to measure
 typedef struct lfsr_rbyd {
-    // note this lines up with arrays of redundant blocks in other structures
-    lfs_block_t block;
     // note this lines up with weight in lfsr_btree_t
     lfs_size_t weight;
     // off=0, trunk=0  => not yet committed
@@ -356,6 +354,8 @@ typedef struct lfsr_rbyd {
     lfs_off_t trunk;
     lfs_off_t off;
     uint32_t crc;
+    // note this lines up with arrays of redundant blocks in lfsr_mdir_t
+    lfs_block_t block;
 } lfsr_rbyd_t;
 
 // The maximum size of inlined pointers in a btree, this depends on littlefs's
@@ -372,20 +372,15 @@ typedef struct lfsr_btree {
         // weight is common to both representations and its sign-bit indicates
         // if the btree is inlined
         struct {
-            lfs_size_t _padding;
             lfs_size_t weight;
         } b;
         struct {
-            // TODO complex ifdefs here to handle tag/size > 1/2 a word?
-            lfsr_tag_t tag;
-            uint8_t size;
-            uint8_t _padding;
             lfs_size_t weight;
+            lfsr_tag_t tag;
+            uint16_t size;
             uint8_t buffer[LFSR_BTREE_INLINESIZE];
         } i;
         struct {
-            // note the sign bit of the rbyd.block indicates if the btree is
-            // inlined or a normal btree
             lfsr_rbyd_t rbyd;
         } r;
     } u;
@@ -397,12 +392,15 @@ typedef struct lfsr_mdir {
         // here we make sure to line up our block array so it overlaps with
         // the block stored as the first entry in the rbyd
         struct {
-            lfs_block_t blocks[2];
             lfs_size_t weight;
+            lfs_off_t trunk;
+            lfs_off_t off;
+            uint32_t crc;
+            lfs_block_t blocks[2];
         } m;
         struct {
-            lfs_block_t redund_block;
             lfsr_rbyd_t rbyd;
+            lfs_block_t redund_block;
         } r;
     } u;
 } lfsr_mdir_t;
