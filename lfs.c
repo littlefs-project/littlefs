@@ -808,14 +808,14 @@ static inline lfsr_tag_t lfsr_tag_key(lfsr_tag_t tag) {
 
 static inline bool lfsr_tag_follow(lfsr_tag_t alt, lfs_size_t weight,
         lfs_ssize_t lower, lfs_ssize_t upper,
-        lfs_ssize_t id, lfsr_tag_t tag) {
+        lfs_ssize_t rid, lfsr_tag_t tag) {
     if (lfsr_tag_isgt(alt)) {
-        return id > upper - (lfs_ssize_t)weight - 1
-                || (id == upper - (lfs_ssize_t)weight - 1
+        return rid > upper - (lfs_ssize_t)weight - 1
+                || (rid == upper - (lfs_ssize_t)weight - 1
                     && lfsr_tag_key(tag) > lfsr_tag_key(alt));
     } else {
-        return id < lower + (lfs_ssize_t)weight
-                || (id == lower + (lfs_ssize_t)weight
+        return rid < lower + (lfs_ssize_t)weight
+                || (rid == lower + (lfs_ssize_t)weight
                     && lfsr_tag_key(tag) <= lfsr_tag_key(alt));
     }
 }
@@ -824,31 +824,31 @@ static inline bool lfsr_tag_follow2(
         lfsr_tag_t alt, lfs_size_t weight,
         lfsr_tag_t alt2, lfs_size_t weight2,
         lfs_ssize_t lower, lfs_ssize_t upper,
-        lfs_ssize_t id, lfsr_tag_t tag) {
+        lfs_ssize_t rid, lfsr_tag_t tag) {
     if (lfsr_tag_isred(alt2) && lfsr_tag_isparallel(alt, alt2)) {
         weight += weight2;
     }
 
-    return lfsr_tag_follow(alt, weight, lower, upper, id, tag);
+    return lfsr_tag_follow(alt, weight, lower, upper, rid, tag);
 }
 
 static inline bool lfsr_tag_prune2(
         lfsr_tag_t alt, lfs_ssize_t weight,
         lfsr_tag_t alt2, lfs_ssize_t weight2,
-        lfs_ssize_t lower_id, lfs_ssize_t upper_id,
+        lfs_ssize_t lower_rid, lfs_ssize_t upper_rid,
         lfsr_tag_t lower_tag, lfsr_tag_t upper_tag) {
     if (lfsr_tag_isgt(alt)) {
         return lfsr_tag_follow2(
                 alt, weight,
                 alt2, weight2,
-                lower_id, upper_id,
-                lower_id, lower_tag);
+                lower_rid, upper_rid,
+                lower_rid, lower_tag);
     } else {
         return lfsr_tag_follow2(
                 alt, weight,
                 alt2, weight2,
-                lower_id, upper_id,
-                upper_id-1, upper_tag-0x1);
+                lower_rid, upper_rid,
+                upper_rid-1, upper_tag-0x1);
     }
 }
 
@@ -870,15 +870,15 @@ static inline void lfsr_tag_flip2(lfsr_tag_t *alt, lfs_size_t *weight,
 
 static inline void lfsr_tag_trim(
         lfsr_tag_t alt, lfs_size_t weight,
-        lfs_ssize_t *lower_id, lfs_ssize_t *upper_id,
+        lfs_ssize_t *lower_rid, lfs_ssize_t *upper_rid,
         lfsr_tag_t *lower_tag, lfsr_tag_t *upper_tag) {
     if (lfsr_tag_isgt(alt)) {
-        *upper_id -= weight;
+        *upper_rid -= weight;
         if (upper_tag) {
             *upper_tag = alt + 0x1;
         }
     } else {
-        *lower_id += weight;
+        *lower_rid += weight;
         if (lower_tag) {
             *lower_tag = alt + 0x1;
         }
@@ -888,24 +888,28 @@ static inline void lfsr_tag_trim(
 static inline void lfsr_tag_trim2(
         lfsr_tag_t alt, lfs_size_t weight,
         lfsr_tag_t alt2, lfs_size_t weight2,
-        lfs_ssize_t *lower_id, lfs_ssize_t *upper_id,
+        lfs_ssize_t *lower_rid, lfs_ssize_t *upper_rid,
         lfsr_tag_t *lower_tag, lfsr_tag_t *upper_tag) {
     if (lfsr_tag_isred(alt2)) {
-        lfsr_tag_trim(alt2, weight2, lower_id, upper_id, lower_tag, upper_tag);
+        lfsr_tag_trim(alt2, weight2,
+                lower_rid, upper_rid,
+                lower_tag, upper_tag);
     }
 
-    lfsr_tag_trim(alt, weight, lower_id, upper_id, lower_tag, upper_tag);
+    lfsr_tag_trim(alt, weight,
+            lower_rid, upper_rid,
+            lower_tag, upper_tag);
 }
 
 // support for encoding/decoding tags on disk
 
 // each piece of metadata in an rbyd tree is prefixed with a 4-piece tag:
 //
-// - 8-bit suptype    => 1 byte
-// - 8-bit subtype    => 1 byte
-// - 32-bit id/weight => 5 byte leb128 (worst case)
-// - 32-bit size/jump => 5 byte leb128 (worst case)
-//                    => 12 bytes total
+// - 8-bit suptype     => 1 byte
+// - 8-bit subtype     => 1 byte
+// - 32-bit rid/weight => 5 byte leb128 (worst case)
+// - 32-bit size/jump  => 5 byte leb128 (worst case)
+//                     => 12 bytes total
 //
 #define LFSR_TAG_DSIZE (2+5+5)
 
@@ -967,10 +971,8 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         *csum_ = lfs_crc32c(*csum_, buf, d);
     }
 
-    // save what we found, note we make a few tweaks on-disk => in-device
-    // - clear the valid bit from tag, we checked this earlier
-    // - adjust id so reserved id is -1, so we don't have mixed zero/one indexed
-    //
+    // save what we found, clearing the valid bit from the tag, note we
+    // checked this earlier
     *tag_ = tag & 0x7fff;
     *weight_ = weight;
     *size_ = size;
@@ -1251,7 +1253,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
 //    sizeof((struct lfs_mattr[]){__VA_ARGS__}) / sizeof(struct lfs_mattr)
 
 typedef struct lfsr_attr {
-    lfs_ssize_t id;
+    lfs_ssize_t rid;
     lfsr_tag_t tag;
     lfs_ssize_t delta;
     union {
@@ -1265,47 +1267,47 @@ typedef struct lfsr_attr {
     } d;
 } lfsr_attr_t;
 
-#define LFSR_ATTR_DATA_(_id, _tag, _delta, _data) \
-    ((const lfsr_attr_t){_id, _tag, _delta, {.data=_data}})
+#define LFSR_ATTR_DATA_(_rid, _tag, _delta, _data) \
+    ((const lfsr_attr_t){_rid, _tag, _delta, {.data=_data}})
 
-#define LFSR_ATTR_DATA(_id, _type, _delta, _data) \
-    LFSR_ATTR_DATA_(_id, LFSR_TAG_##_type, _delta, _data)
+#define LFSR_ATTR_DATA(_rid, _type, _delta, _data) \
+    LFSR_ATTR_DATA_(_rid, LFSR_TAG_##_type, _delta, _data)
 
-#define LFSR_ATTR_MOVE_(_new_id, _type, _delta, _mdir) \
-    ((const lfsr_attr_t){_new_id, _type, _delta, {.mdir=_mdir}})
+#define LFSR_ATTR_MOVE_(_new_rid, _type, _delta, _mdir) \
+    ((const lfsr_attr_t){_new_rid, _type, _delta, {.mdir=_mdir}})
 
-#define LFSR_ATTR_MOVE(_new_id, _type, _delta, _mdir) \
-    LFSR_ATTR_MOVE_(_new_id, LFSR_TAG_##_type, _delta, _mdir)
+#define LFSR_ATTR_MOVE(_new_rid, _type, _delta, _mdir) \
+    LFSR_ATTR_MOVE_(_new_rid, LFSR_TAG_##_type, _delta, _mdir)
 
-#define LFSR_ATTR_GRM_(_new_id, _type, _delta, _grm) \
-    ((const lfsr_attr_t){_new_id, _type, _delta, {.grm=_grm}})
+#define LFSR_ATTR_GRM_(_new_rid, _type, _delta, _grm) \
+    ((const lfsr_attr_t){_new_rid, _type, _delta, {.grm=_grm}})
 
-#define LFSR_ATTR_GRM(_new_id, _type, _delta, _grm) \
-    LFSR_ATTR_GRM_(_new_id, LFSR_TAG_##_type, _delta, _grm)
+#define LFSR_ATTR_GRM(_new_rid, _type, _delta, _grm) \
+    LFSR_ATTR_GRM_(_new_rid, LFSR_TAG_##_type, _delta, _grm)
 
-#define LFSR_ATTR_NAME_(_id, _tag, _delta, _did, _buffer, _size) \
-    LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_NAME(_did, _buffer, _size))
+#define LFSR_ATTR_NAME_(_rid, _tag, _delta, _did, _buffer, _size) \
+    LFSR_ATTR_DATA_(_rid, _tag, _delta, LFSR_DATA_NAME(_did, _buffer, _size))
 
-#define LFSR_ATTR_NAME(_id, _type, _delta, _did, _buffer, _size) \
-    LFSR_ATTR_NAME_(_id, LFSR_TAG_##_type, _delta, _did, _buffer, _size)
+#define LFSR_ATTR_NAME(_rid, _type, _delta, _did, _buffer, _size) \
+    LFSR_ATTR_NAME_(_rid, LFSR_TAG_##_type, _delta, _did, _buffer, _size)
 
-#define LFSR_ATTR_LEB128_(_id, _tag, _delta, _did) \
-    LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_LEB128(_did))
+#define LFSR_ATTR_LEB128_(_rid, _tag, _delta, _did) \
+    LFSR_ATTR_DATA_(_rid, _tag, _delta, LFSR_DATA_LEB128(_did))
 
-#define LFSR_ATTR_LEB128(_id, _type, _delta, _did) \
-    LFSR_ATTR_LEB128_(_id, LFSR_TAG_##_type, _delta, _did)
+#define LFSR_ATTR_LEB128(_rid, _type, _delta, _did) \
+    LFSR_ATTR_LEB128_(_rid, LFSR_TAG_##_type, _delta, _did)
 
-#define LFSR_ATTR_(_id, _tag, _delta, _buffer, _size) \
-    LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_BUF(_buffer, _size))
+#define LFSR_ATTR_(_rid, _tag, _delta, _buffer, _size) \
+    LFSR_ATTR_DATA_(_rid, _tag, _delta, LFSR_DATA_BUF(_buffer, _size))
 
-#define LFSR_ATTR(_id, _type, _delta, _buffer, _size) \
-    LFSR_ATTR_(_id, LFSR_TAG_##_type, _delta, _buffer, _size)
+#define LFSR_ATTR(_rid, _type, _delta, _buffer, _size) \
+    LFSR_ATTR_(_rid, LFSR_TAG_##_type, _delta, _buffer, _size)
 
-#define LFSR_ATTR_DISK_(_id, _tag, _delta, _block, _off, _size) \
-    LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_DISK(_block, _off, _size))
+#define LFSR_ATTR_DISK_(_rid, _tag, _delta, _block, _off, _size) \
+    LFSR_ATTR_DATA_(_rid, _tag, _delta, LFSR_DATA_DISK(_block, _off, _size))
 
-#define LFSR_ATTR_DISK(_id, _type, _delta, _block, _off, _size) \
-    LFSR_ATTR_DISK_(_id, LFSR_TAG_##_type, _delta, _block, _off, _size)
+#define LFSR_ATTR_DISK(_rid, _type, _delta, _block, _off, _size) \
+    LFSR_ATTR_DISK_(_rid, LFSR_TAG_##_type, _delta, _block, _off, _size)
 
 #define LFSR_ATTR_NOOP LFSR_ATTR(-1, UNR, 0, NULL, 0)
 
@@ -1965,8 +1967,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 }
 
 static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t id, lfsr_tag_t tag,
-        lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
+        lfs_ssize_t rid, lfsr_tag_t tag,
+        lfs_ssize_t *rid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
     // tag must be valid at this point
     LFS_ASSERT(lfsr_tag_isvalid(tag));
@@ -2001,7 +2003,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // found an alt?
         if (lfsr_tag_isalt(alt)) {
-            if (lfsr_tag_follow(alt, weight, lower, upper, id, tag)) {
+            if (lfsr_tag_follow(alt, weight, lower, upper, rid, tag)) {
                 lfsr_tag_flip(&alt, &weight, lower, upper);
                 lfsr_tag_trim(alt, weight, &lower, &upper, NULL, NULL);
                 branch = branch - jump;
@@ -2012,28 +2014,28 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // found end of tree?
         } else {
-            // update the tag id
-            lfs_ssize_t id__ = upper-1;
+            // update the tag rid
+            lfs_ssize_t rid__ = upper-1;
             lfsr_tag_t tag__ = alt;
             LFS_ASSERT(lfsr_tag_mode(tag__) == 0x0000);
 
             // not what we're looking for?
             if (!tag__
-                    || id__ < id
-                    || (id__ == id && tag__ < tag)) {
+                    || rid__ < rid
+                    || (rid__ == rid && tag__ < tag)) {
                 return LFS_ERR_NOENT;
             }
 
             // save what we found
             // TODO how many of these need to be conditional?
-            if (id_) {
-                *id_ = id__;
+            if (rid_) {
+                *rid_ = rid__;
             }
             if (tag_) {
                 *tag_ = tag__;
             }
             if (weight_) {
-                *weight_ = id__ - lower;
+                *weight_ = rid__ - lower;
             }
             if (data_) {
                 *data_ = LFSR_DATA_DISK(rbyd->block, branch + d, jump);
@@ -2044,12 +2046,12 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 }
 
 static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t id, lfsr_tag_t tag,
+        lfs_ssize_t rid, lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    lfs_ssize_t id_;
+    lfs_ssize_t rid_;
     lfsr_tag_t tag__;
-    int err = lfsr_rbyd_lookupnext(lfs, rbyd, id, lfsr_tag_clearwide(tag),
-            &id_, &tag__, NULL, data_);
+    int err = lfsr_rbyd_lookupnext(lfs, rbyd, rid, lfsr_tag_clearwide(tag),
+            &rid_, &tag__, NULL, data_);
     if (err) {
         return err;
     }
@@ -2059,7 +2061,7 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     //
     // we accept either exact matches or suptype matches depending on the
     // wide bit
-    if (id_ != id
+    if (rid_ != rid
             || (lfsr_tag_iswide(tag)
                 ? lfsr_tag_suptype(tag__) != lfsr_tag_clearwide(tag)
                 : tag__ != tag)) {
@@ -2075,9 +2077,9 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 // TODO still need this?
 // TODO move this into the tests?
 static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t id, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
+        lfs_ssize_t rid, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
     lfsr_data_t data;
-    int err = lfsr_rbyd_lookup(lfs, rbyd, id, tag, NULL, &data);
+    int err = lfsr_rbyd_lookup(lfs, rbyd, rid, tag, NULL, &data);
     if (err) {
         return err;
     }
@@ -2218,7 +2220,7 @@ static void lfsr_rbyd_p_red(
 
 // core rbyd algorithm
 static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_ssize_t id, lfsr_tag_t tag, lfs_ssize_t delta,
+        lfs_ssize_t rid, lfsr_tag_t tag, lfs_ssize_t delta,
         lfsr_data_t data) {
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
@@ -2255,29 +2257,29 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //
     // several lower bits are reserved, so we repurpose these
     // to keep track of some append state
-    lfs_ssize_t id_;
-    lfs_ssize_t other_id_;
+    lfs_ssize_t rid_;
+    lfs_ssize_t other_rid_;
     lfsr_tag_t tag_;
     lfsr_tag_t other_tag_;
     if (delta != 0 && !lfsr_tag_isgrow(tag)) {
         LFS_ASSERT(!lfsr_tag_iswide(tag));
 
         if (delta > 0) {
-            LFS_ASSERT(id <= (lfs_ssize_t)rbyd->weight);
+            LFS_ASSERT(rid <= (lfs_ssize_t)rbyd->weight);
 
-            // it's a bit ugly, but adjusting the id here makes the following
+            // it's a bit ugly, but adjusting the rid here makes the following
             // logic work out more consistently
-            id -= 1;
-            id_ = id + 1;
-            other_id_ = id + 1;
+            rid -= 1;
+            rid_ = rid + 1;
+            other_rid_ = rid + 1;
         } else {
-            LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
+            LFS_ASSERT(rid < (lfs_ssize_t)rbyd->weight);
 
-            // it's a bit ugly, but adjusting the id here makes the following
+            // it's a bit ugly, but adjusting the rid here makes the following
             // logic work out more consistently
-            id += 1;
-            id_ = id - lfs_smax32(-delta, 0);
-            other_id_ = id;
+            rid += 1;
+            rid_ = rid - lfs_smax32(-delta, 0);
+            other_rid_ = rid;
         }
 
         // note these tags MUST NOT be zero, due to unreachable tag holes
@@ -2285,10 +2287,10 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         other_tag_ = tag_;
 
     } else {
-        LFS_ASSERT(id < (lfs_ssize_t)rbyd->weight);
+        LFS_ASSERT(rid < (lfs_ssize_t)rbyd->weight);
 
-        id_ = id - lfs_smax32(-delta, 0);
-        other_id_ = id;
+        rid_ = rid - lfs_smax32(-delta, 0);
+        other_rid_ = rid;
 
         // note both normal and rm wide-tags have the same bounds, really it's
         // the normal non-wide-tags that are an outlier here
@@ -2313,8 +2315,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // track of both the lower and upper bounds of diverging paths
     // in the case of range deletions
     lfs_off_t branch = rbyd->trunk;
-    lfs_ssize_t lower_id = -1;
-    lfs_ssize_t upper_id = rbyd->weight;
+    lfs_ssize_t lower_rid = -1;
+    lfs_ssize_t upper_rid = rbyd->weight;
     lfsr_tag_t lower_tag = 0;
     lfsr_tag_t upper_tag = 0xffff;
 
@@ -2326,8 +2328,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // note we can't just perform two searches sequentially, or else our tree
     // will end up very unbalanced.
     lfs_off_t other_branch = 0;
-    lfs_ssize_t other_lower_id = 0;
-    lfs_ssize_t other_upper_id = 0;
+    lfs_ssize_t other_lower_rid = 0;
+    lfs_ssize_t other_upper_rid = 0;
     lfsr_tag_t other_lower_tag = 0;
     lfsr_tag_t other_upper_tag = 0;
 
@@ -2374,12 +2376,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             if (!lfsr_tag_hasdiverged(tag_)
                     && lfsr_tag_follow2(alt, weight,
                             p_alts[0], p_weights[0],
-                            lower_id, upper_id,
-                            id_, tag_)
+                            lower_rid, upper_rid,
+                            rid_, tag_)
                         != lfsr_tag_follow2(alt, weight,
                             p_alts[0], p_weights[0],
-                            lower_id, upper_id,
-                            other_id_, other_tag_)) {
+                            lower_rid, upper_rid,
+                            other_rid_, other_tag_)) {
                 // first take care of any lingering red alts
                 if (lfsr_tag_isred(p_alts[0])) {
                     alt = lfsr_tag_setblack(p_alts[0]);
@@ -2391,8 +2393,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     tag_ = lfsr_tag_setdivergedlower(tag_);
                     other_tag_ = lfsr_tag_setdivergedupper(other_tag_);
                     other_branch = branch;
-                    other_lower_id = lower_id;
-                    other_upper_id = upper_id;
+                    other_lower_rid = lower_rid;
+                    other_upper_rid = upper_rid;
                     other_lower_tag = lower_tag;
                     other_upper_tag = upper_tag;
                 }
@@ -2418,7 +2420,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             if (lfsr_tag_prune2(
                     alt, weight,
                     p_alts[0], p_weights[0],
-                    lower_id, upper_id,
+                    lower_rid, upper_rid,
                     lower_tag, upper_tag)) {
                 if (lfsr_tag_isred(p_alts[0])) {
                     alt = lfsr_tag_setblack(p_alts[0]);
@@ -2448,11 +2450,11 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 if (lfsr_tag_follow2(
                         alt, weight,
                         p_alts[0], p_weights[0],
-                        lower_id, upper_id,
-                        id_, tag_)) {
+                        lower_rid, upper_rid,
+                        rid_, tag_)) {
                     lfsr_tag_flip2(&alt, &weight,
                             p_alts[0], p_weights[0],
-                            lower_id, upper_id);
+                            lower_rid, upper_rid);
                     lfs_swap32(&jump, &branch_);
 
                     lfs_swap16(&p_alts[0], &alt);
@@ -2462,7 +2464,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                     lfsr_tag_trim(
                             p_alts[0], p_weights[0],
-                            &lower_id, &upper_id,
+                            &lower_rid, &upper_rid,
                             &lower_tag, &upper_tag);
                     lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
 
@@ -2485,7 +2487,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                     lfsr_tag_trim(
                             p_alts[0], p_weights[0],
-                            &lower_id, &upper_id,
+                            &lower_rid, &upper_rid,
                             &lower_tag, &upper_tag);
                     lfsr_rbyd_p_red(p_alts, p_weights, p_jumps);
 
@@ -2502,11 +2504,11 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     && lfsr_tag_follow2(
                         alt, weight,
                         p_alts[0], p_weights[0],
-                        lower_id, upper_id,
-                        id_, tag_)) {
+                        lower_rid, upper_rid,
+                        rid_, tag_)) {
                 lfsr_tag_flip2(&alt, &weight,
                         p_alts[0], p_weights[0],
-                        lower_id, upper_id);
+                        lower_rid, upper_rid);
                 lfs_swap32(&jump, &branch_);
             }
 
@@ -2518,8 +2520,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // 1  2  3      1  2  3  1
             if (lfsr_tag_isred(p_alts[0])
                     && lfsr_tag_follow(p_alts[0], p_weights[0],
-                        lower_id, upper_id,
-                        id_, tag_)) {
+                        lower_rid, upper_rid,
+                        rid_, tag_)) {
                 lfs_swap16(&p_alts[0], &alt);
                 lfs_swap32(&p_weights[0], &weight);
                 lfs_swap32(&p_jumps[0], &jump);
@@ -2528,7 +2530,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                 lfsr_tag_flip2(&alt, &weight,
                         p_alts[0], p_weights[0],
-                        lower_id, upper_id);
+                        lower_rid, upper_rid);
                 lfs_swap32(&jump, &branch_);
             }
 
@@ -2537,7 +2539,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 lfsr_tag_trim2(
                         alt, weight,
                         p_alts[0], p_weights[0],
-                        &lower_id, &upper_id,
+                        &lower_rid, &upper_rid,
                         &lower_tag, &upper_tag);
             }
             // continue to next alt
@@ -2560,14 +2562,14 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
         // found end of tree?
         } else {
-            // update the found tag/id
+            // update the found tag/rid
             //
             // note we:
             // - clear valid bit, marking the tag as found
             // - preserve diverged state
             LFS_ASSERT(lfsr_tag_mode(alt) == 0x0000);
             tag_ = lfsr_tag_setvalid(lfsr_tag_mode(tag_) | alt);
-            id_ = upper_id-1;
+            rid_ = upper_rid-1;
 
             // done?
             if (!lfsr_tag_hasdiverged(tag_) || lfsr_tag_isvalid(other_tag_)) {
@@ -2578,10 +2580,10 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // switch to the other path if we have diverged
         if (lfsr_tag_hasdiverged(tag_) || !lfsr_tag_isalt(alt)) {
             lfs_swap16(&tag_, &other_tag_);
-            lfs_sswap32(&id_, &other_id_);
+            lfs_sswap32(&rid_, &other_rid_);
             lfs_swap32(&branch, &other_branch);
-            lfs_sswap32(&lower_id, &other_lower_id);
-            lfs_sswap32(&upper_id, &other_upper_id);
+            lfs_sswap32(&lower_rid, &other_lower_rid);
+            lfs_sswap32(&upper_rid, &other_upper_rid);
             lfs_swap16(&lower_tag, &other_lower_tag);
             lfs_swap16(&upper_tag, &other_upper_tag);
         }
@@ -2597,12 +2599,12 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         if (lfsr_tag_isdivergedlower(tag_)) {
             // finished on lower path
             tag_ = other_tag_;
-            id_ = other_id_;
+            rid_ = other_rid_;
             branch = other_branch;
-            upper_id = other_upper_id;
+            upper_rid = other_upper_rid;
         } else {
             // finished on upper path
-            lower_id = other_lower_id;
+            lower_rid = other_lower_rid;
         }
     }
 
@@ -2624,8 +2626,8 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_tag_t alt = 0;
     lfs_size_t weight = 0;
     if (lfsr_tag_key(tag_)
-            && (id_ < id-lfs_smax32(-delta, 0)
-                || (id_ == id-lfs_smax32(-delta, 0)
+            && (rid_ < rid-lfs_smax32(-delta, 0)
+                || (rid_ == rid-lfs_smax32(-delta, 0)
                     && ((delta > 0 && !lfsr_tag_isgrow(tag))
                         || (lfsr_tag_iswide(tag)
                             ? lfsr_tag_suptype(lfsr_tag_key(tag_))
@@ -2635,20 +2637,20 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         if (lfsr_tag_isrm(tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALTGT(false, 0);
-            weight = upper_id - lower_id - 1 + delta;
-            upper_id -= weight;
+            weight = upper_rid - lower_rid - 1 + delta;
+            upper_rid -= weight;
         } else {
             // split less than
             alt = LFSR_TAG_ALTLE(
                     !lfsr_tag_hasdiverged(tag_),
                     lfsr_tag_key(tag_));
-            weight = id_ - lower_id;
-            lower_id += weight;
+            weight = rid_ - lower_rid;
+            lower_rid += weight;
         }
 
     } else if (lfsr_tag_key(tag_)
-            && (id_ > id
-                || (id_ == id
+            && (rid_ > rid
+                || (rid_ == rid
                     && ((delta > 0 && !lfsr_tag_isgrow(tag))
                         || (lfsr_tag_iswide(tag)
                             ? lfsr_tag_suptype(lfsr_tag_key(tag_))
@@ -2658,15 +2660,15 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         if (lfsr_tag_isrm(tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALTGT(false, 0);
-            weight = upper_id - lower_id - 1 + delta;
-            upper_id -= weight;
+            weight = upper_rid - lower_rid - 1 + delta;
+            upper_rid -= weight;
         } else {
             // split greater than
             alt = LFSR_TAG_ALTGT(
                     !lfsr_tag_hasdiverged(tag_),
                     lfsr_tag_key(tag));
-            weight = upper_id - id - 1;
-            upper_id -= weight;
+            weight = upper_rid - rid - 1;
+            upper_rid -= weight;
         }
     }
 
@@ -2699,7 +2701,7 @@ leaf:;
     lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
             // rm => null, otherwise strip off control bits
             (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_key(tag)),
-            upper_id - lower_id - 1 + delta,
+            upper_rid - lower_rid - 1 + delta,
             lfsr_data_size(data),
             &rbyd->crc);
     if (d < 0) {
@@ -2726,7 +2728,7 @@ failed:;
 }
 
 static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_ssize_t start_id, lfs_ssize_t end_id,
+        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // append each tag to the tree
     for (lfs_size_t i = 0; i < attr_count; i++) {
@@ -2737,7 +2739,8 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         // don't write tags outside of the requested range
-        if (attrs[i].id >= start_id && (end_id < 0 || attrs[i].id < end_id)) {
+        if (attrs[i].rid >= start_rid
+                && (end_rid < 0 || attrs[i].rid < end_rid)) {
             // this is a bit of a hack, but ignore any gstate tags here,
             // these need to be handled specially by upper-layers
             if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_GSTATE) {
@@ -2767,7 +2770,7 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                     // append the attr
                     err = lfsr_rbyd_append(lfs, rbyd,
-                            attrs[i].id-lfs_smax32(start_id, 0),
+                            attrs[i].rid-lfs_smax32(start_rid, 0),
                             tag, 0, data);
                     if (err) {
                         return err;
@@ -2779,7 +2782,7 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 LFS_ASSERT(!lfsr_tag_isinternal(attrs[i].tag));
 
                 int err = lfsr_rbyd_append(lfs, rbyd,
-                        attrs[i].id-lfs_smax32(start_id, 0),
+                        attrs[i].rid-lfs_smax32(start_rid, 0),
                         attrs[i].tag, attrs[i].delta, attrs[i].d.data);
                 if (err) {
                     return err;
@@ -2787,13 +2790,13 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
         }
 
-        // we need to make sure we keep start_id/end_id updated with
+        // we need to make sure we keep start_rid/end_rid updated with
         // weight changes
-        if (attrs[i].id < start_id) {
-            start_id += attrs[i].delta;
+        if (attrs[i].rid < start_rid) {
+            start_rid += attrs[i].delta;
         }
-        if (attrs[i].id < end_id) {
-            end_id += attrs[i].delta;
+        if (attrs[i].rid < end_rid) {
+            end_rid += attrs[i].delta;
         }
     }
 
@@ -2841,7 +2844,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
 
 static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_ssize_t start_id, lfs_ssize_t end_id,
+        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
         const lfsr_rbyd_t *source) {
 #ifndef LFSR_NO_REBALANCE
     // must fetch before mutating!
@@ -2868,17 +2871,17 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // first copy over raw tags, note this doesn't create a tree
     lfs_off_t layer_start = rbyd->off;
-    lfs_ssize_t id = start_id;
+    lfs_ssize_t rid = start_rid;
     lfsr_tag_t tag = 0;
     while (true) {
         lfs_size_t w;
         lfsr_data_t data;
-        int err = lfsr_rbyd_lookupnext(lfs, source, id, lfsr_tag_next(tag),
-                &id, &tag, &w, &data);
+        int err = lfsr_rbyd_lookupnext(lfs, source, rid, lfsr_tag_next(tag),
+                &rid, &tag, &w, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
-        if (err == LFS_ERR_NOENT || (end_id >= 0 && id >= end_id)) {
+        if (err == LFS_ERR_NOENT || (end_rid >= 0 && rid >= end_rid)) {
             break;
         }
 
@@ -3009,17 +3012,17 @@ failed:;
 
 #else
     // try to copy over tags
-    lfs_ssize_t id = start_id;
+    lfs_ssize_t rid = start_rid;
     lfsr_tag_t tag = 0;
     while (true) {
         lfs_size_t w;
         lfsr_data_t data;
-        int err = lfsr_rbyd_lookupnext(lfs, source, id, lfsr_tag_next(tag),
-                &id, &tag, &w, &data);
+        int err = lfsr_rbyd_lookupnext(lfs, source, rid, lfsr_tag_next(tag),
+                &rid, &tag, &w, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
-        if (err == LFS_ERR_NOENT || (end_id >= 0 && id >= end_id)) {
+        if (err == LFS_ERR_NOENT || (end_rid >= 0 && rid >= end_rid)) {
             return 0;
         }
 
@@ -3031,7 +3034,7 @@ failed:;
 
         // append the attr
         err = lfsr_rbyd_append(lfs, rbyd,
-                id-lfs_smax32(w-1, 0)-lfs_smax32(start_id, 0),
+                rid-lfs_smax32(w-1, 0)-lfs_smax32(start_rid, 0),
                 tag, +w, data);
         if (err) {
             return err;
@@ -3077,19 +3080,19 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //
     // - 9-word crc with fcrc to check following prog (middle of block)
     //   - fcrc tag type => 2 byte le16
-    //   - fcrc tag id   => 1 byte leb128
+    //   - fcrc tag rid  => 1 byte leb128
     //   - fcrc tag size => 1 byte leb128 (worst case)
     //   - fcrc crc      => 4 byte le32
     //   - fcrc size     => 5 byte leb128 (worst case)
     //   - crc tag type  => 2 byte le16
-    //   - crc tag id    => 1 byte leb128
+    //   - crc tag rid   => 1 byte leb128
     //   - crc tag size  => 5 byte leb128 (worst case)
     //   - crc crc       => 4 byte le32
     //                   => 25 bytes total
     //
     // - 4-word crc with no following prog (end of block)
     //   - crc tag type => 2 byte le16
-    //   - crc tag id   => 1 byte leb128
+    //   - crc tag rid  => 1 byte leb128
     //   - crc tag size => 5 byte leb128 (worst case)
     //   - crc crc      => 4 byte le32
     //                  => 12 bytes total
@@ -3223,32 +3226,32 @@ failed:;
 // the following are mostly btree helpers, but since they operate on rbyds,
 // exist in the rbyd namespace
 
-// Calculate the maximum possible disk usage required by this id after
+// Calculate the maximum possible disk usage required by this rid after
 // compaction. This uses a conservative estimate so the actual on-disk cost
 // should be smaller.
 //
 static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t id,
-        lfs_ssize_t *id_, lfs_size_t *weight_) {
+        lfs_ssize_t rid,
+        lfs_ssize_t *rid_, lfs_size_t *weight_) {
     lfsr_tag_t tag = 0;
     lfs_size_t w = 0;
     lfs_size_t dsize = 0;
     while (true) {
-        lfs_ssize_t id__;
+        lfs_ssize_t rid__;
         lfs_size_t w_;
         lfsr_data_t data;
         int err = lfsr_rbyd_lookupnext(lfs, rbyd,
-                id, lfsr_tag_next(tag),
-                &id__, &tag, &w_, &data);
+                rid, lfsr_tag_next(tag),
+                &rid__, &tag, &w_, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
-        if (err == LFS_ERR_NOENT || id__ > id+lfs_smax32(w_-1, 0)) {
+        if (err == LFS_ERR_NOENT || rid__ > rid+lfs_smax32(w_-1, 0)) {
             break;
         }
 
-        // keep track of id and weight
-        id = id__;
+        // keep track of rid and weight
+        rid = rid__;
         w += w_;
 
         // determine the upper-bound of alt pointers, tags, and data
@@ -3270,8 +3273,8 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     #endif
     }
 
-    if (id_) {
-        *id_ = id;
+    if (rid_) {
+        *rid_ = rid;
     }
     if (weight_) {
         *weight_ = w;
@@ -3279,49 +3282,49 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     return dsize;
 }
 
-// Calculate the maximum possible disk usage required by this id after
+// Calculate the maximum possible disk usage required by this rid after
 // compaction. This uses a conservative estimate so the actual on-disk cost
 // should be smaller.
 //
-// This also returns a good split_id in case the rbyd needs to be split.
+// This also returns a good split_rid in case the rbyd needs to be split.
 //
 // TODO do we need to include commit overhead here?
 static lfs_ssize_t lfsr_rbyd_estimateall(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t start_id, lfs_ssize_t end_id,
-        lfs_size_t *split_id_) {
+        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
+        lfs_size_t *split_rid_) {
     // calculate dsize by starting from the outside ids and working inwards,
-    // this naturally gives us a split id
+    // this naturally gives us a split rid
     //
     // note that we don't include -1 tags yet, -1 tags are always cleaned up
-    // during a split so they shouldn't affect the split_id
+    // during a split so they shouldn't affect the split_rid
     //
-    lfs_ssize_t lower_id = (start_id < 0 ? 0 : start_id);
-    lfs_ssize_t upper_id = (end_id < 0
+    lfs_ssize_t lower_rid = (start_rid < 0 ? 0 : start_rid);
+    lfs_ssize_t upper_rid = (end_rid < 0
             ? (lfs_ssize_t)rbyd->weight-1
-            : end_id-1);
+            : end_rid-1);
     lfs_size_t lower_dsize = 0;
     lfs_size_t upper_dsize = 0;
 
-    while (lower_id <= upper_id) {
+    while (lower_rid <= upper_rid) {
         if (lower_dsize <= upper_dsize) {
             lfs_size_t w;
-            lfs_ssize_t dsize = lfsr_rbyd_estimate(lfs, rbyd, lower_id,
+            lfs_ssize_t dsize = lfsr_rbyd_estimate(lfs, rbyd, lower_rid,
                     NULL, &w);
             if (dsize < 0) {
                 return dsize;
             }
 
-            lower_id += w;
+            lower_rid += w;
             lower_dsize += dsize;
         } else {
             lfs_size_t w;
-            lfs_ssize_t dsize = lfsr_rbyd_estimate(lfs, rbyd, upper_id,
+            lfs_ssize_t dsize = lfsr_rbyd_estimate(lfs, rbyd, upper_rid,
                     NULL, &w);
             if (dsize < 0) {
                 return dsize;
             }
 
-            upper_id -= w;
+            upper_rid -= w;
             upper_dsize += dsize;
         }
     }
@@ -3332,8 +3335,8 @@ static lfs_ssize_t lfsr_rbyd_estimateall(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         return dsize;
     }
 
-    if (split_id_) {
-        *split_id_ = lower_id;
+    if (split_rid_) {
+        *split_rid_ = lower_rid;
     }
 
 #ifndef LFSR_NO_REBALANCE
@@ -3368,11 +3371,11 @@ static int lfsr_rbyd_isdegenerate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     }
 
     // count ids until we exceed our cutoff
-    lfs_ssize_t id = -1;
+    lfs_ssize_t rid = -1;
     lfs_size_t count = 0;
     while (true) {
-        int err = lfsr_rbyd_lookupnext(lfs, rbyd, id+1, 0,
-                &id, NULL, NULL, NULL);
+        int err = lfsr_rbyd_lookupnext(lfs, rbyd, rid+1, 0,
+                &rid, NULL, NULL, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -3392,15 +3395,15 @@ static int lfsr_rbyd_isdegenerate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 //
 // names in littlefs are tuples of directory-ids + ascii/utf8 strings
 
-// binary search an rbyd for a name, leaving the id_/weight_ with the best
+// binary search an rbyd for a name, leaving the rid_/weight_ with the best
 // matching name if not found
 static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_size_t did, const char *name, lfs_size_t name_size,
-        lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
+        lfs_ssize_t *rid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
-    // if we have an empty mdir, default to id = -1
-    if (id_) {
-        *id_ = -1;
+    // if we have an empty mdir, default to rid = -1
+    if (rid_) {
+        *rid_ = -1;
     }
     if (tag_) {
         *tag_ = 0;
@@ -3417,22 +3420,22 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     lfs_ssize_t upper = rbyd->weight;
     while (lower < upper) {
         lfsr_tag_t tag__;
-        lfs_ssize_t id__;
+        lfs_ssize_t rid__;
         lfs_size_t weight__;
         lfsr_data_t data__;
         int err = lfsr_rbyd_lookupnext(lfs, rbyd,
-                // lookup ~middle id, note we may end up in the middle
-                // of a weighted id with this
+                // lookup ~middle rid, note we may end up in the middle
+                // of a weighted rid with this
                 lower + (upper-1-lower)/2, 0,
-                &id__, &tag__, &weight__, &data__);
+                &rid__, &tag__, &weight__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
-        // if we have no name or a vestigial name, treat this id as always lt
+        // if we have no name or a vestigial name, treat this rid as always lt
         lfs_scmp_t cmp;
-        if ((tag__ == LFSR_TAG_BRANCH && id__-(weight__-1) == 0)
+        if ((tag__ == LFSR_TAG_BRANCH && rid__-(weight__-1) == 0)
                 || lfsr_tag_suptype(tag__) != LFSR_TAG_NAME) {
             cmp = LFS_CMP_LT;
 
@@ -3446,14 +3449,14 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // bisect search space
         if (lfs_cmp(cmp) > 0) {
-            upper = id__ - (weight__-1);
+            upper = rid__ - (weight__-1);
 
         } else if (lfs_cmp(cmp) < 0) {
-            lower = id__ + 1;
+            lower = rid__ + 1;
 
-            // keep track of best-matching id >= our target
-            if (id_) {
-                *id_ = id__;
+            // keep track of best-matching rid >= our target
+            if (rid_) {
+                *rid_ = rid__;
             }
             if (tag_) {
                 *tag_ = tag__;
@@ -3467,8 +3470,8 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         } else {
             // found a match?
-            if (id_) {
-                *id_ = id__;
+            if (rid_) {
+                *rid_ = rid__;
             }
             if (tag_) {
                 *tag_ = tag__;
@@ -3483,7 +3486,7 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         }
     }
 
-    // no match, at least update id_/tag_/weight_/data_ with the best
+    // no match, at least update rid_/tag_/weight_/data_ with the best
     // match so far
     return LFS_ERR_NOENT;
 }
@@ -3779,7 +3782,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
         return LFS_ERR_NOENT;
     }
 
-    // descend down the btree looking for our id
+    // descend down the btree looking for our rid
     lfsr_rbyd_t branch = btree->u.r.rbyd;
     lfs_ssize_t rid = bid;
     while (true) {
@@ -3946,7 +3949,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
     compact:;
         // can't commit, try to compact
         lfsr_rbyd_t rbyd_;
-        lfs_size_t split_id;
+        lfs_size_t split_rid;
 
         // first check if we are a degenerate root and can be reverted to
         // an inlined btree
@@ -3969,7 +3972,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // check if we're within our compaction threshold, otherwise we
         // need to split
         lfs_ssize_t estimate = lfsr_rbyd_estimateall(lfs, rbyd, -1, -1,
-                &split_id);
+                &split_rid);
         if (estimate < 0) {
             return estimate;
         }
@@ -4056,7 +4059,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
     split:;
         // we should have something to split here
-        LFS_ASSERT(split_id > 0 && split_id < rbyd->weight);
+        LFS_ASSERT(split_rid > 0 && split_rid < rbyd->weight);
 
         // allocate a new rbyd
         err = lfsr_rbyd_alloc(lfs, &rbyd_);
@@ -4071,18 +4074,18 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return err;
         }
 
-        // copy over tags < split_id
-        err = lfsr_rbyd_compact(lfs, &rbyd_, 0, split_id, rbyd);
+        // copy over tags < split_rid
+        err = lfsr_rbyd_compact(lfs, &rbyd_, 0, split_rid, rbyd);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
-        // append pending attrs < split_id
+        // append pending attrs < split_rid
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfsr_rbyd_appendall(lfs, &rbyd_, 0, split_id,
+        err = lfsr_rbyd_appendall(lfs, &rbyd_, 0, split_rid,
                 attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -4096,18 +4099,18 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return err;
         }
         
-        // copy over tags >= split_id
-        err = lfsr_rbyd_compact(lfs, &sibling, split_id, -1, rbyd);
+        // copy over tags >= split_rid
+        err = lfsr_rbyd_compact(lfs, &sibling, split_rid, -1, rbyd);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
-        // append pending attrs >= split_id
+        // append pending attrs >= split_rid
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfsr_rbyd_appendall(lfs, &sibling, split_id, -1,
+        err = lfsr_rbyd_appendall(lfs, &sibling, split_rid, -1,
                 attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -4291,13 +4294,13 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
         // try to add our sibling's tags to our rbyd
         lfs_size_t rweight_ = rbyd_.weight;
-        lfs_ssize_t id = 0;
+        lfs_ssize_t rid = 0;
         lfsr_tag_t tag = 0;
         while (true) {
             lfs_size_t w;
             lfsr_data_t data;
-            err = lfsr_rbyd_lookupnext(lfs, &sibling, id, lfsr_tag_next(tag),
-                    &id, &tag, &w, &data);
+            err = lfsr_rbyd_lookupnext(lfs, &sibling, rid, lfsr_tag_next(tag),
+                    &rid, &tag, &w, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
@@ -4307,7 +4310,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             // append the attr
             err = lfsr_rbyd_append(lfs, &rbyd_,
-                    sdelta+id-lfs_smax32(w-1, 0), tag, +w,
+                    sdelta+rid-lfs_smax32(w-1, 0), tag, +w,
                     data);
             if (err) {
                 return err;
@@ -4340,18 +4343,18 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
 
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-                // lookup the id (weight really) of the previously-split entry
-                lfs_ssize_t split_id;
+                // lookup the rid (weight really) of the previously-split entry
+                lfs_ssize_t split_rid;
                 err = lfsr_rbyd_lookupnext(lfs, &rbyd_,
                         (sdelta == 0 ? sweight : rweight_), LFSR_TAG_NAME,
-                        &split_id, NULL, NULL, NULL);
+                        &split_rid, NULL, NULL, NULL);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_NOENT);
                     return err;
                 }
 
                 err = lfsr_rbyd_append(lfs, &rbyd_,
-                        split_id, LFSR_TAG_BRANCH, 0, split_data);
+                        split_rid, LFSR_TAG_BRANCH, 0, split_data);
                 if (err) {
                     LFS_ASSERT(err != LFS_ERR_RANGE);
                     return err;
@@ -4449,10 +4452,10 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
 
     // a normal btree
     } else {
-        // lookup in which leaf our id resides
+        // lookup in which leaf our rid resides
         //
         // for lfsr_btree_commit operations to work out, we need to
-        // limit our bid to an id in the tree, which is what this min
+        // limit our bid to an rid in the tree, which is what this min
         // is doing
         //
         // note it is possible for our btree to have a weight of zero here,
@@ -4475,7 +4478,7 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
             rid -= rweight-1;
         }
 
-        // commit our id into the tree, letting lfsr_btree_commit take care
+        // commit our rid into the tree, letting lfsr_btree_commit take care
         // of the rest
         int degenerate = lfsr_btree_commit(lfs, btree, bid_, 0, &rbyd,
                 LFSR_BTREE_ATTRS(
@@ -4527,7 +4530,7 @@ static int lfsr_btree_set(lfs_t *lfs, lfsr_btree_t *btree,
 
     // a normal btree
     } else {
-        // lookup in which leaf our id resides
+        // lookup in which leaf our rid resides
         lfsr_rbyd_t rbyd;
         lfsr_tag_t rtag;
         lfs_ssize_t rid;
@@ -4538,7 +4541,7 @@ static int lfsr_btree_set(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        // commit our id into the tree, letting lfsr_btree_commit take care
+        // commit our rid into the tree, letting lfsr_btree_commit take care
         // of the rest
         int degenerate = lfsr_btree_commit(lfs, btree, bid, 1, &rbyd,
                 LFSR_BTREE_ATTRS(
@@ -4582,7 +4585,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
 
     // a normal btree
     } else {
-        // lookup in which leaf our id resides
+        // lookup in which leaf our rid resides
         lfsr_rbyd_t rbyd;
         lfsr_tag_t rtag;
         lfs_ssize_t rid;
@@ -4593,7 +4596,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
             return err;
         }
 
-        // remove our id, letting lfsr_btree_commit take care
+        // remove our rid, letting lfsr_btree_commit take care
         // of the rest
         //
         // note we use a cutoff of 2 here, if we have 2 entries before
@@ -4796,7 +4799,7 @@ static int lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
             }
             LFS_ASSERT(branch.weight == weight__);
 
-        // found our id
+        // found our rid
         } else {
             // TODO how many of these should be conditional?
             if (bid_) {
@@ -5120,23 +5123,23 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
 }
 
 static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
-        lfs_ssize_t id, lfsr_tag_t tag,
-        lfs_ssize_t *id_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    return lfsr_rbyd_lookupnext(lfs, &mdir->u.r.rbyd, id, tag,
-            id_, tag_, NULL, data_);
+        lfs_ssize_t rid, lfsr_tag_t tag,
+        lfs_ssize_t *rid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
+    return lfsr_rbyd_lookupnext(lfs, &mdir->u.r.rbyd, rid, tag,
+            rid_, tag_, NULL, data_);
 }
 
 static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
-        lfs_ssize_t id, lfsr_tag_t tag,
+        lfs_ssize_t rid, lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    return lfsr_rbyd_lookup(lfs, &mdir->u.r.rbyd, id, tag, tag_, data_);
+    return lfsr_rbyd_lookup(lfs, &mdir->u.r.rbyd, rid, tag, tag_, data_);
 }
 
 // TODO do we need this?
 // TODO move this into the tests?
 static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
-        lfs_ssize_t id, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
-    return lfsr_rbyd_get(lfs, &mdir->u.r.rbyd, id, tag, buffer, size);
+        lfs_ssize_t rid, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
+    return lfsr_rbyd_get(lfs, &mdir->u.r.rbyd, rid, tag, buffer, size);
 }
 
 
@@ -5287,7 +5290,7 @@ enum {
 // low-level mdir compaction
 static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfs_ssize_t reason,
-        lfs_ssize_t start_id, lfs_ssize_t end_id,
+        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
         const lfsr_mdir_t *mdir,
         const lfsr_attr_t *attr1s, lfs_size_t attr1_count,
         const lfsr_attr_t *attr2s, lfs_size_t attr2_count) {
@@ -5370,7 +5373,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
     // copy over attrs
     err = lfsr_rbyd_compact(lfs, &mdir_->u.r.rbyd,
-            start_id, end_id, &mdir->u.r.rbyd);
+            start_rid, end_rid, &mdir->u.r.rbyd);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
@@ -5380,7 +5383,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
     //
     // upper layers should make sure this can't fail by limiting the
     // maximum commit size
-    err = lfsr_rbyd_appendall(lfs, &mdir_->u.r.rbyd, start_id, end_id,
+    err = lfsr_rbyd_appendall(lfs, &mdir_->u.r.rbyd, start_rid, end_rid,
             attr1s, attr1_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5445,8 +5448,8 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
 // low-level mdir commit, does not handle mtree/mlist updates
 static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
-        lfs_ssize_t start_id, lfs_ssize_t end_id,
-        lfs_size_t *split_id_,
+        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
+        lfs_size_t *split_rid_,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // try to append a commit
     lfsr_mdir_t mdir_ = *mdir;
@@ -5454,7 +5457,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
     // TODO let the lower rbyd layer handle this somehow?
     // mark mdir as unerased in case we fail
     mdir->u.r.rbyd.off = lfs->cfg->block_size;
-    int err = lfsr_rbyd_appendall(lfs, &mdir_.u.r.rbyd, start_id, end_id,
+    int err = lfsr_rbyd_appendall(lfs, &mdir_.u.r.rbyd, start_rid, end_rid,
             attrs, attr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
@@ -5508,8 +5511,8 @@ compact:;
 
     // check if we're within our compaction threshold
     lfs_ssize_t estimate = lfsr_rbyd_estimateall(lfs, &mdir->u.r.rbyd,
-            start_id, end_id,
-            split_id_);
+            start_rid, end_rid,
+            split_rid_);
     if (estimate < 0) {
         return estimate;
     }
@@ -5521,7 +5524,7 @@ compact:;
 
     // try to compact
     err = lfsr_mdir_compact_(lfs, &mdir_, LFSR_MDIR_COMPACTING,
-            start_id, end_id, mdir,
+            start_rid, end_rid, mdir,
             attrs, attr_count,
             NULL, 0);
     if (err) {
@@ -5564,8 +5567,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // attempt to commit/compact the mdir normally
     lfsr_mdir_t mdir_ = *mdir;
-    lfs_size_t split_id;
-    int err = lfsr_mdir_commit_(lfs, &mdir_, -1, -1, &split_id,
+    lfs_size_t split_rid;
+    int err = lfsr_mdir_commit_(lfs, &mdir_, -1, -1, &split_rid,
             attrs, attr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
@@ -5619,17 +5622,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
         }
 
-        // compact into new mdir tags < split_id
+        // compact into new mdir tags < split_rid
         lfsr_smbid_t mbid = lfs_smax32(mdir->mid.bid, 0);
-        int err = lfsr_mdir_compact_(lfs, &mdir_, mbid, 0, split_id,
+        int err = lfsr_mdir_compact_(lfs, &mdir_, mbid, 0, split_rid,
                 mdir, attrs, attr_count, NULL, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
-        // compact into new mdir tags >= split_id
-        err = lfsr_mdir_compact_(lfs, &msibling_, mbid, split_id, -1,
+        // compact into new mdir tags >= split_rid
+        err = lfsr_mdir_compact_(lfs, &msibling_, mbid, split_rid, -1,
                 mdir, attrs, attr_count, NULL, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -6028,10 +6031,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     // TODO clean this up a bit?
                     // adjust opened mdirs?
                     if (opened_mdir->mid.bid == mdir->mid.bid
-                            && opened_mdir->mid.rid >= attrs[i].id) {
+                            && opened_mdir->mid.rid >= attrs[i].rid) {
                         // removed?
                         if (opened_mdir->mid.rid
-                                < attrs[i].id - attrs[i].delta) {
+                                < attrs[i].rid - attrs[i].delta) {
                             // normal mdirs mark as dropped
                             if (j == 0) {
                                 opened_mdir->u.r.rbyd.trunk = 0;
@@ -6039,7 +6042,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             }
                             // for dir's second mdir (the position mdir), move
                             // on to the next rid
-                            opened_mdir->mid.rid = attrs[i].id;
+                            opened_mdir->mid.rid = attrs[i].rid;
                         } else {
                             opened_mdir->mid.rid += attrs[i].delta;
                             // adjust dir position?
@@ -6107,17 +6110,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 // lookup names in our mtree 
 static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfs_size_t did, const char *name, lfs_size_t name_size,
-        lfs_ssize_t *id_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
+        lfs_ssize_t *rid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     int err = lfsr_rbyd_namelookup(lfs, &mdir->u.r.rbyd,
             did, name, name_size,
-            id_, tag_, NULL, data_);
+            rid_, tag_, NULL, data_);
 
-    // When not found, lfsr_rbyd_namelookup returns the id smaller than our
+    // When not found, lfsr_rbyd_namelookup returns the rid smaller than our
     // expected name. This is correct for btree lookups, but not correct for
     // mdir insertions. For mdirs we need to adjust this by 1 so we insert
-    // _after_ the smaller id.
-    if (id_ && err == LFS_ERR_NOENT) {
-        *id_ += 1;
+    // _after_ the smaller rid.
+    if (rid_ && err == LFS_ERR_NOENT) {
+        *rid_ += 1;
     }
 
     return err;
@@ -7208,7 +7211,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
         return LFS_ERR_NAMETOOLONG;
     }
 
-    // Our directory needs an arbitrary directory-id. To find one with
+    // Our directory needs an arbitrary directory-rid. To find one with
     // hopefully few collisions, we use a hash of the full path using our CRC,
     // since we have it handy.
     //

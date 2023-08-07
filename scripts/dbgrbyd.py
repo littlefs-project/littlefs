@@ -275,14 +275,14 @@ def dbg_log(data, block_size, rev, off, weight, *,
                 return bool(self.tags)
 
 
-        # first figure out where each id comes from
+        # first figure out where each rid comes from
         weights = []
         lifetimes = []
-        def index(weights, id):
+        def index(weights, rid):
             for i, w in enumerate(weights):
-                if id < w:
-                    return i, id
-                id -= w
+                if rid < w:
+                    return i, rid
+                rid -= w
             return len(weights), 0
 
         checkpoint_js = [0]
@@ -317,18 +317,18 @@ def dbg_log(data, block_size, rev, off, weight, *,
 
                 if not tag & 0x4000:
                     wastrunk = False
-                    # derive the current tag's id from alt weights
+                    # derive the current tag's rid from alt weights
                     delta = (lower_+upper_) - weight_
                     weight_ = lower_+upper_
-                    id = lower_ + w-1
+                    rid = lower_ + w-1
 
             if (tag & 0xe000) != 0x2000 and not tag & 0x4000:
                 # note we ignore out-of-bounds here for debugging
                 if delta > 0:
                     # grow lifetimes
-                    i, id_ = index(weights, lower_)
-                    if id_ > 0:
-                        weights[i:i+1] = [id_, delta, weights[i]-id_]
+                    i, rid_ = index(weights, lower_)
+                    if rid_ > 0:
+                        weights[i:i+1] = [rid_, delta, weights[i]-rid_]
                         lifetimes[i:i+1] = [
                             lifetimes[i], Lifetime(j), lifetimes[i]]
                     else:
@@ -339,18 +339,18 @@ def dbg_log(data, block_size, rev, off, weight, *,
 
                 elif delta < 0:
                     # shrink lifetimes
-                    i, id_ = index(weights, lower_)
+                    i, rid_ = index(weights, lower_)
                     delta_ = -delta
                     weights_ = weights.copy()
                     lifetimes_ = lifetimes.copy()
                     shrinks = set()
                     while delta_ > 0 and i < len(weights_):
                         if weights_[i] > delta_:
-                            delta__ = min(delta_, weights_[i]-id_)
+                            delta__ = min(delta_, weights_[i]-rid_)
                             delta_ -= delta__
                             weights_[i] -= delta__
                             i += 1
-                            id_ = 0
+                            rid_ = 0
                         else:
                             delta_ -= weights_[i]
                             weights_[i:i+1] = []
@@ -361,9 +361,9 @@ def dbg_log(data, block_size, rev, off, weight, *,
                     weights = weights_
                     lifetimes = lifetimes_
 
-                if id >= 0:
+                if rid >= 0:
                     # attach tag to lifetime
-                    i, id_ = index(weights, id)
+                    i, rid_ = index(weights, rid)
                     if i < len(weights):
                         lifetimes[i].add(j)
 
@@ -473,8 +473,8 @@ def dbg_log(data, block_size, rev, off, weight, *,
 
             if not tag & 0x4000:
                 wastrunk = False
-                # derive the current tag's id from alt weights
-                id = lower_ + w-1
+                # derive the current tag's rid from alt weights
+                rid = lower_ + w-1
 
         # show human-readable tag representation
         print('%s%08x:%s %*s%s%*s %-57s%s%s' % (
@@ -484,8 +484,8 @@ def dbg_log(data, block_size, rev, off, weight, *,
             lifetime_width, lifetimerepr(j) if args.get('lifetimes') else '',
             '\x1b[90m' if color and j >= off else '',
             w_width, '' if (tag & 0xe000) != 0x0000
-                else '%d-%d' % (id-(w-1), id) if w > 1
-                else id,
+                else '%d-%d' % (rid-(w-1), rid) if w > 1
+                else rid,
             '%-22s%s' % (
                 tagrepr(tag, w, size, j),
                 '  %s' % next(xxd(
@@ -548,7 +548,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
 
     # lookup a tag, returning also the search path for decoration
     # purposes
-    def lookup(id, tag):
+    def lookup(rid, tag):
         lower = -1
         upper = weight
         path = []
@@ -561,9 +561,9 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
             # found an alt?
             if alt & 0x4000:
                 # follow?
-                if ((id, tag & 0xfff) > (upper-w-1, alt & 0xfff)
+                if ((rid, tag & 0xfff) > (upper-w-1, alt & 0xfff)
                         if alt & 0x2000
-                        else ((id, tag & 0xfff) <= (lower+w, alt & 0xfff))):
+                        else ((rid, tag & 0xfff) <= (lower+w, alt & 0xfff))):
                     lower += upper-lower-1-w if alt & 0x2000 else 0
                     upper -= upper-lower-1-w if not alt & 0x2000 else 0
                     j = j - jump
@@ -596,13 +596,13 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
 
             # found tag
             else:
-                id_ = upper-1
+                rid_ = upper-1
                 tag_ = alt
-                w_ = id_-lower
+                w_ = rid_-lower
 
-                done = not tag_ or (id_, tag_) < (id, tag)
+                done = not tag_ or (rid_, tag_) < (rid, tag)
 
-                return done, id_, tag_, w_, j, d, jump, path
+                return done, rid_, tag_, w_, j, d, jump, path
 
     # precompute tree
     t_width = 0
@@ -610,15 +610,15 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
         trunks = co.defaultdict(lambda: (-1, 0))
         alts = co.defaultdict(lambda: {})
 
-        id, tag = -1, 0
+        rid, tag = -1, 0
         while True:
-            done, id, tag, w, j, d, size, path = lookup(id, tag+0x1)
+            done, rid, tag, w, j, d, size, path = lookup(rid, tag+0x1)
             # found end of tree?
             if done:
                 break
 
             # keep track of trunks/alts
-            trunks[j] = (id, tag)
+            trunks[j] = (rid, tag)
 
             for j_, j__, followed, c in path:
                 if followed:
@@ -698,7 +698,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
         if t_depth > 0:
             t_width = 2*t_depth + 2
 
-        def treerepr(id, tag):
+        def treerepr(rid, tag):
             if t_depth == 0:
                 return ''
 
@@ -732,7 +732,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
             trunk = []
             was = None
             for d in range(t_depth):
-                t, c, was = branchrepr((id, tag), d, was)
+                t, c, was = branchrepr((rid, tag), d, was)
 
                 trunk.append('%s%s%s%s' % (
                     '\x1b[33m' if color and c == 'y'
@@ -756,9 +756,9 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
         'data (truncated)'
             if not args.get('no_truncate') else ''))
 
-    id, tag = -1, 0
+    rid, tag = -1, 0
     while True:
-        done, id, tag, w, j, d, size, path = lookup(id, tag+0x1)
+        done, rid, tag, w, j, d, size, path = lookup(rid, tag+0x1)
         # found end of tree?
         if done:
             break
@@ -766,10 +766,10 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
         # show human-readable tag representation
         print('%08x: %s%-57s' % (
             j,
-            treerepr(id, tag) if args.get('tree') else '',
+            treerepr(rid, tag) if args.get('tree') else '',
             '%*s %-22s%s' % (
-                w_width, '%d-%d' % (id-(w-1), id)
-                    if w > 1 else id
+                w_width, '%d-%d' % (rid-(w-1), rid)
+                    if w > 1 else rid
                     if w > 0 else '',
                 tagrepr(tag, w, size, j),
                 '  %s' % next(xxd(

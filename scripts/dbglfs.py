@@ -316,7 +316,7 @@ class Rbyd:
 
         return cls(block, data, rev, off, trunk_, weight)
 
-    def lookup(self, id, tag):
+    def lookup(self, rid, tag):
         if not self:
             return True, 0, -1, 0, 0, 0, b'', []
 
@@ -332,9 +332,9 @@ class Rbyd:
             # found an alt?
             if alt & 0x4000:
                 # follow?
-                if ((id, tag & 0xfff) > (upper-weight_-1, alt & 0xfff)
+                if ((rid, tag & 0xfff) > (upper-weight_-1, alt & 0xfff)
                         if alt & 0x2000
-                        else ((id, tag & 0xfff)
+                        else ((rid, tag & 0xfff)
                             <= (lower+weight_, alt & 0xfff))):
                     lower += upper-lower-1-weight_ if alt & 0x2000 else 0
                     upper -= upper-lower-1-weight_ if not alt & 0x2000 else 0
@@ -368,13 +368,13 @@ class Rbyd:
 
             # found tag
             else:
-                id_ = upper-1
+                rid_ = upper-1
                 tag_ = alt
-                w_ = id_-lower
+                w_ = rid_-lower
 
-                done = not tag_ or (id_, tag_) < (id, tag)
+                done = not tag_ or (rid_, tag_) < (rid, tag)
 
-                return done, id_, tag_, w_, j, d, self.data[j+d:j+d+jump], path
+                return done, rid_, tag_, w_, j, d, self.data[j+d:j+d+jump], path
 
     def __bool__(self):
         return bool(self.trunk)
@@ -387,14 +387,14 @@ class Rbyd:
 
     def __iter__(self):
         tag = 0
-        id = -1
+        rid = -1
 
         while True:
-            done, id, tag, w, j, d, data, _ = self.lookup(id, tag+0x1)
+            done, rid, tag, w, j, d, data, _ = self.lookup(rid, tag+0x1)
             if done:
                 break
 
-            yield id, tag, w, j, d, data
+            yield rid, tag, w, j, d, data
 
     # btree lookup with this rbyd as the root
     def btree_lookup(self, f, block_size, bid, *,
