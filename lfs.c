@@ -385,30 +385,30 @@ static int lfsr_bd_read(lfs_t *lfs,
             block, off, buffer, size);
 }
 
-// TODO merge lfsr_bd_readcsum/lfsr_bd_csum somehow?
-static int lfsr_bd_readcsum(lfs_t *lfs,
+// TODO merge lfsr_bd_readcksum/lfsr_bd_cksum somehow?
+static int lfsr_bd_readcksum(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off, lfs_size_t hint,
         void *buffer, lfs_size_t size,
-        uint32_t *csum_) {
+        uint32_t *cksum_) {
     int err = lfsr_bd_read(lfs, block, off, hint, buffer, size);
     if (err) {
         return err;
     }
 
-    *csum_ = lfs_crc32c(*csum_, buffer, size);
+    *cksum_ = lfs_crc32c(*cksum_, buffer, size);
     return 0;
 }
 
-static int lfsr_bd_csum(lfs_t *lfs,
+static int lfsr_bd_cksum(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off, lfs_size_t hint, lfs_size_t size,
-        uint32_t *crc_) {
+        uint32_t *cksum_) {
     // check for in-bounds
     if (off+size > lfs->cfg->block_size) {
         return LFS_ERR_RANGE;
     }
 
     return lfs_bd_crc32c(lfs, &lfs->pcache, &lfs->rcache, hint,
-            block, off, size, crc_);
+            block, off, size, cksum_);
 }
 
 static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
@@ -426,7 +426,7 @@ static lfs_scmp_t lfsr_bd_cmp(lfs_t *lfs,
 // program data with optional checksum
 static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
         const void *buffer, lfs_size_t size,
-        uint32_t *csum_) {
+        uint32_t *cksum_) {
     // check for in-bounds
     if (off+size > lfs->cfg->block_size) {
         lfs_cache_zero(lfs, &lfs->pcache);
@@ -440,8 +440,8 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
     }
 
     // optional checksum
-    if (csum_) {
-        *csum_ = lfs_crc32c(*csum_, buffer, size);
+    if (cksum_) {
+        *cksum_ = lfs_crc32c(*cksum_, buffer, size);
     }
 
     return 0;
@@ -455,7 +455,7 @@ static int lfsr_bd_sync(lfs_t *lfs) {
 // be an optional ifdef?
 static int lfsr_bd_progvalidate(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
         const void *buffer, lfs_size_t size,
-        uint32_t *csum_) {
+        uint32_t *cksum_) {
     // check for in-bounds
     if (off+size > lfs->cfg->block_size) {
         lfs_cache_zero(lfs, &lfs->pcache);
@@ -468,8 +468,8 @@ static int lfsr_bd_progvalidate(lfs_t *lfs, lfs_block_t block, lfs_off_t off,
         return err;
     }
 
-    if (csum_) {
-        *csum_ = lfs_crc32c(*csum_, buffer, size);
+    if (cksum_) {
+        *cksum_ = lfs_crc32c(*cksum_, buffer, size);
     }
 
     return 0;
@@ -629,8 +629,8 @@ enum lfsr_tag_type {
     LFSR_TAG_ALTBGT         = 0x6000,
     LFSR_TAG_ALTRGT         = 0x7000,
 
-    LFSR_TAG_CRC            = 0x2000,
-    LFSR_TAG_FCRC           = 0x2100,
+    LFSR_TAG_CKSUM          = 0x2000,
+    LFSR_TAG_FCKSUM         = 0x2100,
 
     // in-device only
     LFSR_TAG_MOVE           = 0x0800,
@@ -916,7 +916,7 @@ static inline void lfsr_tag_trim2(
 static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off, lfs_size_t hint,
         lfsr_tag_t *tag_, lfs_size_t *weight_, lfs_size_t *size_,
-        uint32_t *csum_) {
+        uint32_t *cksum_) {
     // read the largest possible tag size
     uint8_t tag_buf[LFSR_TAG_DSIZE];
     lfs_size_t tag_dsize = lfs_min32(LFSR_TAG_DSIZE, lfs->cfg->block_size-off);
@@ -933,7 +933,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
             | ((lfsr_tag_t)tag_buf[1] << 0);
     ssize_t d = 2;
 
-    if (csum_) {
+    if (cksum_) {
         // on-disk, the tags valid bit must reflect the parity of the
         // preceding data, fortunately for crc32c, this is the same as the
         // parity of the crc
@@ -941,7 +941,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         // note we need to do this before leb128 decoding as we may not have
         // valid leb128 if we're erased, but we shouldn't treat a truncated
         // leb128 here as corruption
-        if ((tag >> 15) != (lfs_popc(*csum_) & 1)) {
+        if ((tag >> 15) != (lfs_popc(*cksum_) & 1)) {
             return LFS_ERR_INVAL;
         }
     }
@@ -968,9 +968,9 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         return LFS_ERR_CORRUPT;
     }
 
-    // optionally crc
-    if (csum_) {
-        *csum_ = lfs_crc32c(*csum_, tag_buf, d);
+    // optional checksum
+    if (cksum_) {
+        *cksum_ = lfs_crc32c(*cksum_, tag_buf, d);
     }
 
     // save what we found, clearing the valid bit from the tag, note we
@@ -984,13 +984,13 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
 static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         lfsr_tag_t tag, lfs_size_t weight, lfs_size_t size,
-        uint32_t *csum_) {
+        uint32_t *cksum_) {
     // check for underflow issues
     LFS_ASSERT(weight < 0x80000000);
     LFS_ASSERT(size < 0x80000000);
 
     // make sure to include the parity of the current crc
-    tag |= (lfs_popc(*csum_) & 1) << 15;
+    tag |= (lfs_popc(*cksum_) & 1) << 15;
 
     // encode into a be16 and pair of leb128s
     uint8_t tag_buf[LFSR_TAG_DSIZE];
@@ -1010,7 +1010,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     }
     d += d_;
 
-    int err = lfsr_bd_prog(lfs, block, off, &tag_buf, d, csum_);
+    int err = lfsr_bd_prog(lfs, block, off, &tag_buf, d, cksum_);
     if (err) {
         return err;
     }
@@ -1184,7 +1184,7 @@ static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, lfsr_data_t data,
 static int lfsr_bd_progdata(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         lfsr_data_t data,
-        uint32_t *csum_) {
+        uint32_t *cksum_) {
     if (lfsr_data_ondisk(data)) {
         // TODO byte-level copies have been a pain point, works for prototyping
         // but can this be better? configurable? leverage
@@ -1200,7 +1200,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
 
             err = lfsr_bd_prog(lfs, block, off+i,
                     &dat, 1,
-                    csum_);
+                    cksum_);
             if (err) {
                 return err;
             }
@@ -1218,7 +1218,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
             }
 
             int err = lfsr_bd_prog(lfs, block, off,
-                    did_buf, did_dsize, csum_);
+                    did_buf, did_dsize, cksum_);
             if (err) {
                 return err;
             }
@@ -1229,7 +1229,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
 
         int err = lfsr_bd_prog(lfs, block, off,
                 data.buf.buffer, lfsr_data_size(data),
-                csum_);
+                cksum_);
         if (err) {
             return err;
         }
@@ -1429,24 +1429,24 @@ typedef struct lfsr_attr {
 //#endif
 
 
-// fcrc on-disk encoding
-typedef struct lfsr_fcrc {
-    uint32_t crc;
+// fcksum on-disk encoding
+typedef struct lfsr_fcksum {
+    uint32_t cksum;
     lfs_size_t size;
-} lfsr_fcrc_t;
+} lfsr_fcksum_t;
 
 // 1 leb128 + 1 crc32c => 9 bytes (worst case)
-#define LFSR_FCRC_DSIZE (5+4)
+#define LFSR_FCKSUM_DSIZE (5+4)
 
-static lfs_ssize_t lfsr_fcrc_todisk(lfs_t *lfs, const lfsr_fcrc_t *fcrc,
-        uint8_t buffer[static LFSR_FCRC_DSIZE]) {
+static lfs_ssize_t lfsr_fcksum_todisk(lfs_t *lfs, const lfsr_fcksum_t *fcksum,
+        uint8_t buffer[static LFSR_FCKSUM_DSIZE]) {
     (void)lfs;
     lfs_ssize_t d = 0;
 
-    lfs_tole32_(fcrc->crc, &buffer[d]);
+    lfs_tole32_(fcksum->cksum, &buffer[d]);
     d += 4;
 
-    lfs_ssize_t d_ = lfs_toleb128(fcrc->size, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(fcksum->size, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
@@ -1455,16 +1455,16 @@ static lfs_ssize_t lfsr_fcrc_todisk(lfs_t *lfs, const lfsr_fcrc_t *fcrc,
     return d;
 }
 
-static lfs_ssize_t lfsr_fcrc_fromdisk(lfs_t *lfs, lfsr_fcrc_t *fcrc,
+static lfs_ssize_t lfsr_fcksum_fromdisk(lfs_t *lfs, lfsr_fcksum_t *fcksum,
         lfsr_data_t data) {
     lfs_ssize_t d = 0;
-    lfs_ssize_t d_ = lfsr_data_readle32(lfs, data, d, &fcrc->crc);
+    lfs_ssize_t d_ = lfsr_data_readle32(lfs, data, d, &fcksum->cksum);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    d_ = lfsr_data_readleb128(lfs, data, d, &fcrc->size);
+    d_ = lfsr_data_readleb128(lfs, data, d, &fcksum->size);
     if (d_ < 0) {
         return d_;
     }
@@ -1776,7 +1776,7 @@ static bool lfsr_rbyd_isfetched(const lfsr_rbyd_t *rbyd) {
 
 // allocate an rbyd block
 static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
-    *rbyd = (lfsr_rbyd_t){.weight=0, .trunk=0, .off=0, .crc=0};
+    *rbyd = (lfsr_rbyd_t){.weight=0, .trunk=0, .off=0, .cksum=0};
     int err = lfs_alloc(lfs, &rbyd->block);
     if (err) {
         return err;
@@ -1792,10 +1792,10 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
 static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_block_t block, lfs_size_t trunk) {
-    // checksum the revision count to get the crc started
-    uint32_t crc = 0;
-    int err = lfsr_bd_csum(lfs, block, 0, lfs->cfg->block_size,
-            sizeof(uint32_t), &crc);
+    // checksum the revision count to get the cksum started
+    uint32_t cksum = 0;
+    int err = lfsr_bd_cksum(lfs, block, 0, lfs->cfg->block_size,
+            sizeof(uint32_t), &cksum);
     if (err) {
         return err;
     }
@@ -1804,7 +1804,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->off = 0;
     rbyd->trunk = 0;
 
-    // temporary state until we validate a crc
+    // temporary state until we validate a cksum
     lfs_off_t off = sizeof(uint32_t);
     lfs_off_t trunk_ = 0;
     bool wastrunk = false;
@@ -1812,18 +1812,18 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfs_size_t weight_ = 0;
 
     // assume unerased until proven otherwise
-    lfsr_fcrc_t fcrc;
-    bool hasfcrc = false;
+    lfsr_fcksum_t fcksum;
+    bool hasfcksum = false;
     bool maybeerased = false;
 
-    // scan tags, checking valid bits, crcs, etc
+    // scan tags, checking valid bits, cksums, etc
     while (off < lfs->cfg->block_size && (!trunk || rbyd->off <= trunk)) {
         lfsr_tag_t tag;
         lfs_size_t weight__;
         lfs_size_t size;
         lfs_ssize_t d = lfsr_bd_readtag(lfs,
                 block, off, lfs->cfg->block_size,
-                &tag, &weight__, &size, &crc);
+                &tag, &weight__, &size, &cksum);
         if (d < 0) {
             if (d == LFS_ERR_INVAL || d == LFS_ERR_CORRUPT) {
                 maybeerased = maybeerased && d == LFS_ERR_INVAL;
@@ -1838,11 +1838,11 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             break;
         }
 
-        // not an end-of-commit crc
-        if (!lfsr_tag_isalt(tag) && lfsr_tag_suptype(tag) != LFSR_TAG_CRC) {
-            // crc the entry, hopefully leaving it in the cache
-            err = lfsr_bd_csum(lfs, block, off, lfs->cfg->block_size, size,
-                    &crc);
+        // not an end-of-commit cksum
+        if (!lfsr_tag_isalt(tag) && lfsr_tag_suptype(tag) != LFSR_TAG_CKSUM) {
+            // cksum the entry, hopefully leaving it in the cache
+            err = lfsr_bd_cksum(lfs, block, off, lfs->cfg->block_size, size,
+                    &cksum);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     break;
@@ -1850,11 +1850,11 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 return err;
             }
 
-            // found an fcrc? save for later
-            if (tag == LFSR_TAG_FCRC) {
-                uint8_t fcrc_buf[LFSR_FCRC_DSIZE];
+            // found an fcksum? save for later
+            if (tag == LFSR_TAG_FCKSUM) {
+                uint8_t fcksum_buf[LFSR_FCKSUM_DSIZE];
                 err = lfsr_bd_read(lfs, block, off, lfs->cfg->block_size,
-                        fcrc_buf, lfs_min32(size, LFSR_FCRC_DSIZE));
+                        fcksum_buf, lfs_min32(size, LFSR_FCKSUM_DSIZE));
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         break;
@@ -1862,48 +1862,48 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     return err;
                 }
 
-                lfs_ssize_t fcrc_dsize = lfsr_fcrc_fromdisk(lfs, &fcrc,
-                        LFSR_DATA_BUF(fcrc_buf,
-                            lfs_min32(size, LFSR_FCRC_DSIZE)));
-                if (fcrc_dsize < 0 && fcrc_dsize != LFS_ERR_CORRUPT) {
-                    return fcrc_dsize;
+                lfs_ssize_t fcksum_dsize = lfsr_fcksum_fromdisk(lfs, &fcksum,
+                        LFSR_DATA_BUF(fcksum_buf,
+                            lfs_min32(size, LFSR_FCKSUM_DSIZE)));
+                if (fcksum_dsize < 0 && fcksum_dsize != LFS_ERR_CORRUPT) {
+                    return fcksum_dsize;
                 }
 
-                // ignore malformed fcrcs
-                hasfcrc = (fcrc_dsize != LFS_ERR_CORRUPT);
+                // ignore malformed fcksums
+                hasfcksum = (fcksum_dsize != LFS_ERR_CORRUPT);
             }
 
-        // is an end-of-commit crc
+        // is an end-of-commit cksum
         } else if (!lfsr_tag_isalt(tag)) {
-            uint32_t crc_ = 0;
+            uint32_t cksum_ = 0;
             err = lfsr_bd_read(lfs, block, off, lfs->cfg->block_size,
-                    &crc_, sizeof(uint32_t));
+                    &cksum_, sizeof(uint32_t));
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     break;
                 }
                 return err;
             }
-            crc_ = lfs_fromle32_(&crc_);
+            cksum_ = lfs_fromle32_(&cksum_);
 
-            if (crc != crc_) {
-                // uh oh, crcs don't match
+            if (cksum != cksum_) {
+                // uh oh, cksums don't match
                 break;
             }
 
-            // toss our crc into the filesystem seed for
-            // pseudorandom numbers, note we use another crc here
+            // toss our cksum into the filesystem seed for
+            // pseudorandom numbers, note we use another cksum here
             // as a collection function because it is sufficiently
             // random and convenient
-            lfs->seed = lfs_crc32c(lfs->seed, &crc, sizeof(uint32_t));
+            lfs->seed = lfs_crc32c(lfs->seed, &cksum, sizeof(uint32_t));
 
-            // fcrc appears valid so far
-            maybeerased = hasfcrc;
-            hasfcrc = false;
+            // fcksum appears valid so far
+            maybeerased = hasfcksum;
+            hasfcksum = false;
 
             // save what we've found so far
             rbyd->off = off + size;
-            rbyd->crc = crc;
+            rbyd->cksum = cksum;
             rbyd->trunk = trunk_;
             rbyd->weight = weight;
         }
@@ -1925,7 +1925,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // NOTE we can't check for overflow/underflow here because we
             // may be overeagerly parsing an invalid commit, it's ok for
             // this to overflow/underflow as long as we throw it out later
-            // on a bad crc
+            // on a bad cksum
             weight_ += weight__;
 
             // end of trunk?
@@ -1949,18 +1949,18 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // did we end on a valid commit? we may have an erased block
     bool erased = false;
     if (maybeerased && rbyd->off % lfs->cfg->prog_size == 0) {
-        // check for an fcrc matching the next prog's erased state, if
+        // check for an fcksum matching the next prog's erased state, if
         // this failed most likely a previous prog was interrupted, we
         // need a new erase
-        uint32_t fcrc_ = 0;
-        int err = lfsr_bd_csum(lfs, rbyd->block, rbyd->off, 0, fcrc.size,
-                &fcrc_);
+        uint32_t fcksum_ = 0;
+        int err = lfsr_bd_cksum(lfs, rbyd->block, rbyd->off, 0, fcksum.size,
+                &fcksum_);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
 
         // found beginning of erased part?
-        erased = (fcrc_ == fcrc.crc);
+        erased = (fcksum_ == fcksum.cksum);
     }
 
     if (!erased) {
@@ -2104,7 +2104,7 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
     uint8_t rev_buf[sizeof(uint32_t)];
     lfs_tole32_(rev, &rev_buf);
     int err = lfsr_bd_prog(lfs, rbyd->block, rbyd->off,
-            &rev_buf, sizeof(uint32_t), &rbyd->crc);
+            &rev_buf, sizeof(uint32_t), &rbyd->cksum);
     if (err) {
         goto failed;
     }
@@ -2135,7 +2135,7 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
             lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
                     alt, weight, jump,
-                    &rbyd->crc);
+                    &rbyd->cksum);
             if (d < 0) {
                 return d;
             }
@@ -2707,7 +2707,7 @@ leaf:;
             (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_key(tag)),
             upper_rid - lower_rid - 1 + delta,
             lfsr_data_size(data),
-            &rbyd->crc);
+            &rbyd->cksum);
     if (d < 0) {
         err = d;
         goto failed;
@@ -2716,7 +2716,7 @@ leaf:;
 
     // don't forget the data!
     err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->off, data,
-            &rbyd->crc);
+            &rbyd->cksum);
     if (err) {
         goto failed;
     }
@@ -2901,7 +2901,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // write the tag
         lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
                 tag, weight, lfsr_data_size(data),
-                &rbyd->crc);
+                &rbyd->cksum);
         if (d < 0) {
             err = d;
             goto failed;
@@ -2910,7 +2910,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
         // and the data
         err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->off, data,
-                &rbyd->crc);
+                &rbyd->cksum);
         if (err) {
             goto failed;
         }
@@ -2976,7 +2976,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                         LFSR_TAG_ALTLE(false, lfsr_tag_key(trunk_tag)),
                         trunk_weight,
                         rbyd->off - trunk_off,
-                        &rbyd->crc);
+                        &rbyd->cksum);
                 if (d < 0) {
                     err = d;
                     goto failed;
@@ -2987,7 +2987,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // terminate with a null tag
             lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
                     LFSR_TAG_NULL, 0, 0,
-                    &rbyd->crc);
+                    &rbyd->cksum);
             if (d < 0) {
                 err = d;
                 goto failed;
@@ -3082,32 +3082,32 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // align to the next prog unit
     //
-    // this gets a bit complicated as we have two types of crcs:
+    // this gets a bit complicated as we have two types of cksums:
     //
-    // - 9-word crc with fcrc to check following prog (middle of block)
-    //   - fcrc tag type => 2 byte le16
-    //   - fcrc tag rid  => 1 byte leb128
-    //   - fcrc tag size => 1 byte leb128 (worst case)
-    //   - fcrc crc      => 4 byte le32
-    //   - fcrc size     => 5 byte leb128 (worst case)
-    //   - crc tag type  => 2 byte le16
-    //   - crc tag rid   => 1 byte leb128
-    //   - crc tag size  => 5 byte leb128 (worst case)
-    //   - crc crc       => 4 byte le32
-    //                   => 25 bytes total
+    // - 9-word cksum with fcksum to check following prog (middle of block)
+    //   - fcksum tag type => 2 byte le16
+    //   - fcksum tag rid  => 1 byte leb128
+    //   - fcksum tag size => 1 byte leb128 (worst case)
+    //   - fcksum crc32c   => 4 byte le32
+    //   - fcksum size     => 5 byte leb128 (worst case)
+    //   - cksum tag type  => 2 byte le16
+    //   - cksum tag rid   => 1 byte leb128
+    //   - cksum tag size  => 5 byte leb128 (worst case)
+    //   - cksum crc32c    => 4 byte le32
+    //                     => 25 bytes total
     //
-    // - 4-word crc with no following prog (end of block)
-    //   - crc tag type => 2 byte le16
-    //   - crc tag rid  => 1 byte leb128
-    //   - crc tag size => 5 byte leb128 (worst case)
-    //   - crc crc      => 4 byte le32
-    //                  => 12 bytes total
+    // - 4-word cksum with no following prog (end of block)
+    //   - cksum tag type => 2 byte le16
+    //   - cksum tag rid  => 1 byte leb128
+    //   - cksum tag size => 5 byte leb128 (worst case)
+    //   - cksum crc32c   => 4 byte le32
+    //                    => 12 bytes total
     //
     lfs_off_t aligned = lfs_alignup(
             rbyd_.off + 2+1+1+4+5 + 2+1+5+4,
             lfs->cfg->prog_size);
 
-    // space for fcrc?
+    // space for fcksum?
     uint8_t perturb = 0;
     if (aligned < lfs->cfg->block_size) {
         // read the leading byte in case we need to change the expected
@@ -3119,21 +3119,21 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             return err;
         }
 
-        // find the expected fcrc, don't bother avoiding a reread of the
+        // find the expected fcksum, don't bother avoiding a reread of the
         // perturb byte, as it should still be in our cache
-        lfsr_fcrc_t fcrc = {.crc=0, .size=lfs->cfg->prog_size};
-        err = lfsr_bd_csum(lfs, rbyd_.block, aligned, lfs->cfg->prog_size,
+        lfsr_fcksum_t fcksum = {.cksum=0, .size=lfs->cfg->prog_size};
+        err = lfsr_bd_cksum(lfs, rbyd_.block, aligned, lfs->cfg->prog_size,
                 lfs->cfg->prog_size,
-                &fcrc.crc);
+                &fcksum.cksum);
         if (err && err != LFS_ERR_CORRUPT) {
             goto failed;
         }
 
-        uint8_t fcrc_buf[LFSR_FCRC_DSIZE];
-        lfs_size_t fcrc_dsize = lfsr_fcrc_todisk(lfs, &fcrc, fcrc_buf);
+        uint8_t fcksum_buf[LFSR_FCKSUM_DSIZE];
+        lfs_size_t fcksum_dsize = lfsr_fcksum_todisk(lfs, &fcksum, fcksum_buf);
         lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd_.block, rbyd_.off,
-                LFSR_TAG_FCRC, 0, fcrc_dsize,
-                &rbyd_.crc);
+                LFSR_TAG_FCKSUM, 0, fcksum_dsize,
+                &rbyd_.cksum);
         if (d < 0) {
             err = d;
             goto failed;
@@ -3141,52 +3141,52 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         rbyd_.off += d;
 
         err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off,
-                fcrc_buf, fcrc_dsize, &rbyd_.crc);
+                fcksum_buf, fcksum_dsize, &rbyd_.cksum);
         if (err) {
             goto failed;
         }
-        rbyd_.off += fcrc_dsize;
+        rbyd_.off += fcksum_dsize;
 
-    // at least space for a crc?
+    // at least space for a cksum?
     } else if (rbyd_.off + 2+1+5+4 <= lfs->cfg->block_size) {
         // note this implicitly marks the rbyd as unerased
         aligned = lfs->cfg->block_size;
 
-    // not even space for a crc? we can't finish the commit
+    // not even space for a cksum? we can't finish the commit
     } else {
         err = LFS_ERR_RANGE;
         goto failed;
     }
 
-    // build end-of-commit crc
+    // build end-of-commit cksum
     //
     // note padding-size depends on leb-encoding depends on padding-size, to
     // get around this catch-22 we just always write a fully-expanded leb128
     // encoding
-    uint8_t crc_buf[2+1+5+4];
-    crc_buf[0] = (LFSR_TAG_CRC >> 8) | ((lfs_popc(rbyd_.crc) & 1) << 7);
-    crc_buf[1] = 0;
-    crc_buf[2] = 0;
+    uint8_t cksum_buf[2+1+5+4];
+    cksum_buf[0] = (LFSR_TAG_CKSUM >> 8) | ((lfs_popc(rbyd_.cksum) & 1) << 7);
+    cksum_buf[1] = 0;
+    cksum_buf[2] = 0;
 
     lfs_off_t padding = aligned - (rbyd_.off + 2+1+5);
-    crc_buf[3] = 0x80 | (0x7f & (padding >>  0));
-    crc_buf[4] = 0x80 | (0x7f & (padding >>  7));
-    crc_buf[5] = 0x80 | (0x7f & (padding >> 14));
-    crc_buf[6] = 0x80 | (0x7f & (padding >> 21));
-    crc_buf[7] = 0x00 | (0x7f & (padding >> 28));
+    cksum_buf[3] = 0x80 | (0x7f & (padding >>  0));
+    cksum_buf[4] = 0x80 | (0x7f & (padding >>  7));
+    cksum_buf[5] = 0x80 | (0x7f & (padding >> 14));
+    cksum_buf[6] = 0x80 | (0x7f & (padding >> 21));
+    cksum_buf[7] = 0x00 | (0x7f & (padding >> 28));
 
-    rbyd_.crc = lfs_crc32c(rbyd_.crc, crc_buf, 2+1+5);
+    rbyd_.cksum = lfs_crc32c(rbyd_.cksum, cksum_buf, 2+1+5);
     // we can't let the next tag appear as valid, so intentionally perturb the
     // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
     // so we can really change any bit to make this happen, we've reserved a bit
-    // in crc tags just for this purpose
-    if ((lfs_popc(rbyd_.crc) & 1) == (perturb >> 7)) {
-        crc_buf[1] ^= 0x01;
-        rbyd_.crc ^= 0x68032cc8; // note crc(a ^ b) == crc(a) ^ crc(b)
+    // in cksum tags just for this purpose
+    if ((lfs_popc(rbyd_.cksum) & 1) == (perturb >> 7)) {
+        cksum_buf[1] ^= 0x01;
+        rbyd_.cksum ^= 0x68032cc8; // note crc(a ^ b) == crc(a) ^ crc(b)
     }
-    lfs_tole32_(rbyd_.crc, &crc_buf[2+1+5]);
+    lfs_tole32_(rbyd_.cksum, &cksum_buf[2+1+5]);
 
-    err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off, crc_buf, 2+1+5+4, NULL);
+    err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off, cksum_buf, 2+1+5+4, NULL);
     if (err) {
         goto failed;
     }
@@ -3199,19 +3199,19 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // succesful commit, check checksum to make sure
-    uint32_t crc_ = rbyd->crc;
-    err = lfsr_bd_csum(lfs, rbyd_.block, rbyd->off, 0,
+    uint32_t cksum_ = rbyd->cksum;
+    err = lfsr_bd_cksum(lfs, rbyd_.block, rbyd->off, 0,
             rbyd_.off-4 - rbyd->off,
-            &crc_);
+            &cksum_);
     if (err) {
         goto failed;
     }
 
-    if (rbyd_.crc != crc_) {
+    if (rbyd_.cksum != cksum_) {
         // oh no, something went wrong
         LFS_ERROR("Rbyd corrupted during commit "
                 "(block=0x%"PRIx32", 0x%08"PRIx32" != 0x%08"PRIx32")",
-                rbyd_.block, rbyd_.crc, crc_);
+                rbyd_.block, rbyd_.cksum, cksum_);
         err = LFS_ERR_CORRUPT;
         goto failed;
     }
@@ -3529,7 +3529,7 @@ static lfs_ssize_t lfsr_branch_todisk(lfs_t *lfs, const lfsr_rbyd_t *branch,
     (void)lfs;
     lfs_ssize_t d = 0;
 
-    lfs_tole32_(branch->crc, &buffer[d]);
+    lfs_tole32_(branch->cksum, &buffer[d]);
     d += 4;
 
     lfs_ssize_t d_ = lfs_toleb128(branch->weight, &buffer[d], 5);
@@ -3560,7 +3560,7 @@ static lfs_ssize_t lfsr_branch_fromdisk(lfs_t *lfs, lfsr_rbyd_t *branch,
     branch->off = 0;
 
     lfs_ssize_t d = 0;
-    lfs_ssize_t d_ = lfsr_data_readle32(lfs, data, d, &branch->crc);
+    lfs_ssize_t d_ = lfsr_data_readle32(lfs, data, d, &branch->cksum);
     if (d_ < 0) {
         return d_;
     }
@@ -5365,7 +5365,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
     mdir_->u.r.rbyd.weight = 0;
     mdir_->u.r.rbyd.trunk = 0;
     mdir_->u.r.rbyd.off = 0;
-    mdir_->u.r.rbyd.crc = 0;
+    mdir_->u.r.rbyd.cksum = 0;
 
     // erase, preparing for compact
     err = lfsr_bd_erase(lfs, mdir_->u.r.rbyd.block);
@@ -6472,22 +6472,22 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
                 if (err == LFS_ERR_CORRUPT) {
                     LFS_ERROR("Corrupted rbyd during mtree traversal "
                             "(0x%"PRIx32".%"PRIx32", 0x%08"PRIx32")",
-                            branch->block, branch->trunk, branch->crc);
+                            branch->block, branch->trunk, branch->cksum);
                 }
                 return err;
             }
 
-            // test that our branch's crc matches what's expected
+            // test that our branch's cksum matches what's expected
             //
             // it should be noted it's very unlikely for this to be hit without
             // the above fetch failing since it includes both an internal
-            // crc check and trunk check
-            if (branch_.crc != branch->crc) {
+            // cksum check and trunk check
+            if (branch_.cksum != branch->cksum) {
                 LFS_ERROR("Checksum mismatch during mtree traversal "
                         "(0x%"PRIx32".%"PRIx32", "
                         "0x%08"PRIx32" != 0x%08"PRIx32")",
                         branch->block, branch->trunk,
-                        branch_.crc, branch->crc);
+                        branch_.cksum, branch->cksum);
                 return LFS_ERR_CORRUPT;
             }
 
@@ -6579,7 +6579,7 @@ cycle_detect:;
 //
 // - 7-bit major_version => 1 byte leb128 (worst case)
 // - 7-bit minor_version => 1 byte leb128 (worst case)
-// - 7-bit csum_type     => 1 byte leb128 (worst case)
+// - 7-bit cksum_type    => 1 byte leb128 (worst case)
 // - 7-bit flags         => 1 byte leb128 (worst case)
 // - 32-bit block_size   => 5 byte leb128 (worst case)
 // - 32-bit block_count  => 5 byte leb128 (worst case)
@@ -6603,7 +6603,7 @@ static lfs_ssize_t lfsr_superconfig_todisk(lfs_t *lfs,
     buffer[0] = LFS_DISK_VERSION_MAJOR;
     // on-disk minor version
     buffer[1] = LFS_DISK_VERSION_MINOR;
-    // on-disk csum type
+    // on-disk cksum type
     buffer[2] = 2;
     // on-disk flags
     buffer[3] = 0;
@@ -6771,9 +6771,9 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return LFS_ERR_INVAL;
                 }
 
-                // check the on-disk csum type
-                uint32_t csum_type;
-                d_ = lfsr_data_readleb128(lfs, data, d, &csum_type);
+                // check the on-disk cksum type
+                uint32_t cksum_type;
+                d_ = lfsr_data_readleb128(lfs, data, d, &cksum_type);
                 // treat any leb128 overflows as out-of-range values
                 if (d_ < 0 && d_ != LFS_ERR_CORRUPT) {
                     return d_;
@@ -6782,10 +6782,10 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     d += d_;
                 }
 
-                if (d_ == LFS_ERR_CORRUPT || csum_type != 2) {
-                    LFS_ERROR("Incompatible csum type 0x%"PRIx32
+                if (d_ == LFS_ERR_CORRUPT || cksum_type != 2) {
+                    LFS_ERROR("Incompatible cksum type 0x%"PRIx32
                             " (!= 0x%"PRIx32")",
-                            (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : csum_type),
+                            (d_ == LFS_ERR_CORRUPT ? (uint32_t)-1 : cksum_type),
                             2);
                     return LFS_ERR_INVAL;
                 }

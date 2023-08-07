@@ -29,8 +29,8 @@ TAG_DID         = 0x0307
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0500
 TAG_ALT         = 0x4000
-TAG_CRC         = 0x2000
-TAG_FCRC        = 0x2100
+TAG_CKSUM       = 0x2000
+TAG_FCKSUM      = 0x2100
 
 
 # parse some rbyd addr encodings
@@ -106,16 +106,16 @@ def frommdir(data):
     return blocks
 
 def frombtree(data):
-    crc = fromle32(data)
+    cksum = fromle32(data)
     w, d1 = fromleb128(data[4:])
     trunk, d2 = fromleb128(data[4+d1:])
     block, d3 = fromleb128(data[4+d1+d2:])
-    return w, trunk, block, crc
+    return w, trunk, block, cksum
 
 def popc(x):
     return bin(x).count('1')
 
-def xxd(data, width=16, crc=False):
+def xxd(data, width=16):
     for i in range(0, len(data), width):
         yield '%-*s %-*s' % (
             3*width,
@@ -175,13 +175,13 @@ def tagrepr(tag, w, size, off=None):
             tag & 0xff,
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_CRC:
-        return 'crc%x%s %d' % (
+    elif (tag & 0xff00) == TAG_CKSUM:
+        return 'cksum%x%s %d' % (
             1 if tag & 0x1 else 0,
             ' 0x%x' % w if w > 0 else '',
             size)
-    elif tag == TAG_FCRC:
-        return 'fcrc%s %d' % (
+    elif tag == TAG_FCKSUM:
+        return 'fcksum%s %d' % (
             ' 0x%x' % w if w > 0 else '',
             size)
     elif tag & 0x4000:
@@ -257,8 +257,8 @@ class Rbyd:
 
         # fetch the rbyd
         rev = fromle32(data[0:4])
-        crc = 0
-        crc_ = crc32c(data[0:4])
+        cksum = 0
+        cksum_ = crc32c(data[0:4])
         off = 0
         j_ = 4
         trunk_ = 0
@@ -270,25 +270,25 @@ class Rbyd:
         trunkoff = None
         while j_ < len(data) and (not trunk or off <= trunk):
             v, tag, w, size, d = fromtag(data[j_:])
-            if v != (popc(crc_) & 1):
+            if v != (popc(cksum_) & 1):
                 break
-            crc_ = crc32c(data[j_:j_+d], crc_)
+            cksum_ = crc32c(data[j_:j_+d], cksum_)
             j_ += d
             if not tag & 0x4000 and j_ + size > len(data):
                 break
 
-            # take care of crcs
+            # take care of cksums
             if not tag & 0x4000:
-                if (tag & 0xff00) != TAG_CRC:
-                    crc_ = crc32c(data[j_:j_+size], crc_)
-                # found a crc?
+                if (tag & 0xff00) != TAG_CKSUM:
+                    cksum_ = crc32c(data[j_:j_+size], cksum_)
+                # found a cksum?
                 else:
-                    crc__ = fromle32(data[j_:j_+4])
-                    if crc_ != crc__:
+                    cksum__ = fromle32(data[j_:j_+4])
+                    if cksum_ != cksum__:
                         break
                     # commit what we have
                     off = trunkoff if trunkoff else j_ + size
-                    crc = crc_
+                    cksum = cksum_
                     trunk_ = trunk__
                     weight = weight_
 
@@ -531,7 +531,7 @@ class Rbyd:
             if branch is not None and (
                     not depth or depth_ < depth):
                 tag, j, d, data = branch
-                w_, trunk, block, crc = frombtree(data)
+                w_, trunk, block, cksum = frombtree(data)
                 rbyd = Rbyd.fetch(f, block_size, block, trunk)
 
                 # corrupted? bail here so we can keep traversing the tree
@@ -805,7 +805,7 @@ def main(disk, mroots=None, *,
         if not args.get('depth') or mdepth < args.get('depth'):
             done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MTREE)
             if not done and rid == -1 and tag == TAG_MTREE:
-                w, trunk, block, crc = frombtree(data)
+                w, trunk, block, cksum = frombtree(data)
                 mtree = Rbyd.fetch(f, block_size, block, trunk)
 
                 mweight = w
@@ -1474,7 +1474,7 @@ def main(disk, mroots=None, *,
         if not args.get('depth') or mdepth < args.get('depth'):
             done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MTREE)
             if not done and rid == -1 and tag == TAG_MTREE:
-                w, trunk, block, crc = frombtree(data)
+                w, trunk, block, cksum = frombtree(data)
                 mtree = Rbyd.fetch(f, block_size, block, trunk)
 
                 # traverse entries

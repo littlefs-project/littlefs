@@ -22,7 +22,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -53,7 +53,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -85,7 +85,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -118,7 +118,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -228,7 +228,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -340,7 +340,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -419,7 +419,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -500,7 +500,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -563,7 +563,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -628,7 +628,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -707,7 +707,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -850,7 +850,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -1021,7 +1021,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -1192,7 +1192,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -1371,7 +1371,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -1578,7 +1578,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -1744,7 +1744,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -1931,7 +1931,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2022,7 +2022,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2103,7 +2103,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2192,7 +2192,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2287,7 +2287,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2359,7 +2359,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2430,7 +2430,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2540,7 +2540,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2602,7 +2602,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2714,7 +2714,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2864,7 +2864,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -2958,7 +2958,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -3107,7 +3107,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -3342,7 +3342,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -3430,7 +3430,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -3553,7 +3553,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -3661,7 +3661,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -3808,7 +3808,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -3969,7 +3969,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -4071,7 +4071,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -4164,7 +4164,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -4270,7 +4270,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -4382,7 +4382,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -4474,7 +4474,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -4561,7 +4561,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -4629,7 +4629,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -4863,7 +4863,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -5124,7 +5124,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -5238,7 +5238,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -5342,7 +5342,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -5508,7 +5508,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -5685,7 +5685,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -5795,7 +5795,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -5904,7 +5904,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -6032,7 +6032,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -6226,7 +6226,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -6350,7 +6350,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -6441,7 +6441,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -6580,7 +6580,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -6736,7 +6736,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -6862,7 +6862,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -7108,7 +7108,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -7262,7 +7262,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -7452,7 +7452,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -7576,7 +7576,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -7714,7 +7714,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -7828,7 +7828,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -7961,7 +7961,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -8103,7 +8103,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -8260,7 +8260,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -8366,7 +8366,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -8603,7 +8603,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -8712,7 +8712,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -8798,7 +8798,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -8883,7 +8883,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -9555,7 +9555,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -9811,7 +9811,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -9922,7 +9922,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -10043,7 +10043,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -10169,7 +10169,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -10304,7 +10304,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -10452,7 +10452,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -10578,7 +10578,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -10713,7 +10713,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -10860,7 +10860,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -11013,7 +11013,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -11189,7 +11189,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -11340,7 +11340,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -11535,7 +11535,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -11622,7 +11622,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -11759,7 +11759,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -11898,7 +11898,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -11986,7 +11986,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -12131,7 +12131,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -12278,7 +12278,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -12364,7 +12364,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };
@@ -12503,7 +12503,7 @@ code = '''
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
         .off = 0,
-        .crc = 0,
+        .cksum = 0,
         .trunk = 0,
         .weight = 0,
     };

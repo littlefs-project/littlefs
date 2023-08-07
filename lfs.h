@@ -353,7 +353,7 @@ typedef struct lfsr_rbyd {
     // off>=block_size => rbyd not erased/needs compaction
     lfs_off_t trunk;
     lfs_off_t off;
-    uint32_t crc;
+    uint32_t cksum;
     // note this lines up with arrays of redundant blocks in lfsr_mdir_t
     lfs_block_t block;
 } lfsr_rbyd_t;
@@ -395,7 +395,7 @@ typedef struct lfsr_mdir {
             lfs_size_t weight;
             lfs_off_t trunk;
             lfs_off_t off;
-            uint32_t crc;
+            uint32_t cksum;
             lfs_block_t blocks[2];
         } m;
         struct {

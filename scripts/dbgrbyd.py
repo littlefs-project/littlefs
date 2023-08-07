@@ -38,8 +38,8 @@ TAG_DID         = 0x0307
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0500
 TAG_ALT         = 0x4000
-TAG_CRC         = 0x2000
-TAG_FCRC        = 0x2100
+TAG_CKSUM       = 0x2000
+TAG_FCKSUM      = 0x2100
 
 
 
@@ -109,7 +109,7 @@ def fromtag(data):
 def popc(x):
     return bin(x).count('1')
 
-def xxd(data, width=16, crc=False):
+def xxd(data, width=16):
     for i in range(0, len(data), width):
         yield '%-*s %-*s' % (
             3*width,
@@ -169,13 +169,13 @@ def tagrepr(tag, w, size, off=None):
             tag & 0xff,
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_CRC:
-        return 'crc%x%s %d' % (
+    elif (tag & 0xff00) == TAG_CKSUM:
+        return 'cksum%x%s %d' % (
             1 if tag & 0x1 else 0,
             ' 0x%x' % w if w > 0 else '',
             size)
-    elif tag == TAG_FCRC:
-        return 'fcrc%s %d' % (
+    elif tag == TAG_FCKSUM:
+        return 'fcksum%s %d' % (
             ' 0x%x' % w if w > 0 else '',
             size)
     elif tag & 0x4000:
@@ -194,7 +194,7 @@ def tagrepr(tag, w, size, off=None):
 def dbg_log(data, block_size, rev, off, weight, *,
         color=False,
         **args):
-    crc = crc32c(data[0:4])
+    cksum = crc32c(data[0:4])
 
     # preprocess jumps
     if args.get('jumps'):
@@ -444,20 +444,20 @@ def dbg_log(data, block_size, rev, off, weight, *,
 
         j = j_
         v, tag, w, size, d = fromtag(data[j_:])
-        if v != (popc(crc) & 1):
-            notes.append('v!=%x' % (popc(crc) & 1))
-        crc = crc32c(data[j_:j_+d], crc)
+        if v != (popc(cksum) & 1):
+            notes.append('v!=%x' % (popc(cksum) & 1))
+        cksum = crc32c(data[j_:j_+d], cksum)
         j_ += d
 
-        # take care of crcs
+        # take care of cksums
         if not tag & 0x4000:
-            if (tag & 0xff00) != TAG_CRC:
-                crc = crc32c(data[j_:j_+size], crc)
-            # found a crc?
+            if (tag & 0xff00) != TAG_CKSUM:
+                cksum = crc32c(data[j_:j_+size], cksum)
+            # found a cksum?
             else:
-                crc_ = fromle32(data[j_:j_+4])
-                if crc != crc_:
-                    notes.append('crc!=%08x' % crc)
+                cksum_ = fromle32(data[j_:j_+4])
+                if cksum != cksum_:
+                    notes.append('cksum!=%08x' % cksum)
             j_ += size
 
         # evaluate trunks
@@ -499,7 +499,7 @@ def dbg_log(data, block_size, rev, off, weight, *,
             else ''))
 
         # show in-device representation, including some extra
-        # crc/parity info
+        # cksum/parity info
         if args.get('device'):
             print('%s%8s  %*s%*s %-47s  %08x %x%s' % (
                 '\x1b[90m' if color and j >= off else '',
@@ -514,8 +514,8 @@ def dbg_log(data, block_size, rev, off, weight, *,
                             for i in range(min(m.ceil(size/4), 3)))[:23]
                         if not args.get('no_truncate')
                             and not tag & 0x4000 else ''),
-                crc,
-                popc(crc) & 1,
+                cksum,
+                popc(cksum) & 1,
                 '\x1b[m' if color and j >= off else ''))
 
         # show on-disk encoding of tags
@@ -852,8 +852,8 @@ def main(disk, blocks=None, *,
     # first figure out which block as the most recent revision
     def fetch(data, trunk):
         rev = fromle32(data[0:4])
-        crc = 0
-        crc_ = crc32c(data[0:4])
+        cksum = 0
+        cksum_ = crc32c(data[0:4])
         off = 0
         j_ = 4
         trunk_ = 0
@@ -865,25 +865,25 @@ def main(disk, blocks=None, *,
         trunkoff = None 
         while j_ < len(data) and (not trunk or off <= trunk):
             v, tag, w, size, d = fromtag(data[j_:])
-            if v != (popc(crc_) & 1):
+            if v != (popc(cksum_) & 1):
                 break
-            crc_ = crc32c(data[j_:j_+d], crc_)
+            cksum_ = crc32c(data[j_:j_+d], cksum_)
             j_ += d
             if not tag & 0x4000 and j_ + size > len(data):
                 break
 
-            # take care of crcs
+            # take care of cksums
             if not tag & 0x4000:
-                if (tag & 0xff00) != TAG_CRC:
-                    crc_ = crc32c(data[j_:j_+size], crc_)
-                # found a crc?
+                if (tag & 0xff00) != TAG_CKSUM:
+                    cksum_ = crc32c(data[j_:j_+size], cksum_)
+                # found a cksum?
                 else:
-                    crc__ = fromle32(data[j_:j_+4])
-                    if crc_ != crc__:
+                    cksum__ = fromle32(data[j_:j_+4])
+                    if cksum_ != cksum__:
                         break
                     # commit what we have
                     off = trunkoff if trunkoff else j_ + size
-                    crc = crc_
+                    cksum = cksum_
                     trunk_ = trunk__
                     weight = weight_
 
