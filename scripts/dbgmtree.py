@@ -15,7 +15,7 @@ TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
 TAG_BRANCH      = 0x0200
-TAG_DSTART      = 0x0201
+TAG_BOOKMARK    = 0x0201
 TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
 TAG_STRUCT      = 0x0300
@@ -147,7 +147,7 @@ def tagrepr(tag, w, size, off=None):
     elif (tag & 0xff00) == TAG_NAME:
         return '%s%s %d' % (
             'branch' if tag == TAG_BRANCH
-                else 'dstart' if tag == TAG_DSTART
+                else 'bookmark' if tag == TAG_BOOKMARK
                 else 'reg' if tag == TAG_REG
                 else 'dir' if tag == TAG_DIR
                 else 'name 0x%02x' % (tag & 0xff),

@@ -594,7 +594,7 @@ enum lfsr_tag_type {
     LFSR_TAG_NAME           = 0x0200,
     LFSR_TAG_WIDENAME       = 0x4200, // in-device only
     LFSR_TAG_BRANCH         = 0x0200,
-    LFSR_TAG_DSTART         = 0x0201,
+    LFSR_TAG_BOOKMARK       = 0x0201,
     LFSR_TAG_REG            = 0x0202,
     LFSR_TAG_GROWREG        = 0x2202, // test only? TODO
     LFSR_TAG_DIR            = 0x0203,
@@ -1043,7 +1043,7 @@ typedef union lfsr_data {
         .buffer=(const void*)(_buffer), \
         .did=-1}})
 
-#define LFSR_DATA_DNAME(_did, _buffer, _size) \
+#define LFSR_DATA_NAME(_did, _buffer, _size) \
     ((lfsr_data_t){.buf={ \
         /* note this find the effective leb128 size */ \
         .size=_size + (lfs_nlog2((_did)+1)+7-1)/7, \
@@ -1158,7 +1158,7 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
     }
 }
 
-static lfs_scmp_t lfsr_data_dnamecmp(lfs_t *lfs, lfsr_data_t data,
+static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, lfsr_data_t data,
         lfs_off_t off, lfs_size_t did, const char *name, lfs_size_t name_size) {
     // first compare the did
     lfs_size_t did_;
@@ -1283,11 +1283,11 @@ typedef struct lfsr_attr {
 #define LFSR_ATTR_GRM(_new_id, _type, _delta, _grm) \
     LFSR_ATTR_GRM_(_new_id, LFSR_TAG_##_type, _delta, _grm)
 
-#define LFSR_ATTR_DNAME_(_id, _tag, _delta, _did, _buffer, _size) \
-    LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_DNAME(_did, _buffer, _size))
+#define LFSR_ATTR_NAME_(_id, _tag, _delta, _did, _buffer, _size) \
+    LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_NAME(_did, _buffer, _size))
 
-#define LFSR_ATTR_DNAME(_id, _type, _delta, _did, _buffer, _size) \
-    LFSR_ATTR_DNAME_(_id, LFSR_TAG_##_type, _delta, _did, _buffer, _size)
+#define LFSR_ATTR_NAME(_id, _type, _delta, _did, _buffer, _size) \
+    LFSR_ATTR_NAME_(_id, LFSR_TAG_##_type, _delta, _did, _buffer, _size)
 
 #define LFSR_ATTR_LEB128_(_id, _tag, _delta, _did) \
     LFSR_ATTR_DATA_(_id, _tag, _delta, LFSR_DATA_LEB128(_did))
@@ -1538,7 +1538,7 @@ static inline int lfsr_mid_cmp(lfsr_mid_t a, lfsr_mid_t b) {
     return a_u.w - b_u.w;
 }
 
-// we use the root's dstart at 0.0 to represent root
+// we use the root's bookmark at 0.0 to represent root
 static inline bool lfsr_mid_isroot(lfsr_mid_t mid) {
     return lfsr_mid_cmp(mid, LFSR_MID(0, 0)) == 0;
 }
@@ -3388,13 +3388,13 @@ static int lfsr_rbyd_isdegenerate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 }
 
 
-// some low-level dname things
+// some low-level name things
 //
-// dnames in littlefs are tuples of directory-ids + ascii/utf8 strings
+// names in littlefs are tuples of directory-ids + ascii/utf8 strings
 
 // binary search an rbyd for a name, leaving the id_/weight_ with the best
 // matching name if not found
-static int lfsr_rbyd_dnamelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_size_t did, const char *name, lfs_size_t name_size,
         lfs_ssize_t *id_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
@@ -3438,7 +3438,7 @@ static int lfsr_rbyd_dnamelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
         // compare names
         } else {
-            cmp = lfsr_data_dnamecmp(lfs, data__, 0, did, name, name_size);
+            cmp = lfsr_data_namecmp(lfs, data__, 0, did, name, name_size);
             if (cmp < 0) {
                 return cmp;
             }
@@ -4733,8 +4733,8 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
     }
 }
 
-// lookup in a btree by dname
-static int lfsr_btree_dnamelookup(lfs_t *lfs, const lfsr_btree_t *btree,
+// lookup in a btree by name
+static int lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         lfs_size_t did, const char *name, lfs_size_t name_size,
         lfs_size_t *bid_, lfsr_tag_t *tag_, lfs_size_t *weight_,
         lfsr_data_t *data_) {
@@ -4768,7 +4768,7 @@ static int lfsr_btree_dnamelookup(lfs_t *lfs, const lfsr_btree_t *btree,
         // lookup our name in the rbyd via binary search
         lfs_ssize_t rid__;
         lfs_size_t weight__;
-        int err = lfsr_rbyd_dnamelookup(lfs, &branch, did, name, name_size,
+        int err = lfsr_rbyd_namelookup(lfs, &branch, did, name, name_size,
                 &rid__, NULL, &weight__, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -6104,15 +6104,15 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 }
 
 
-// lookup dnames in our mtree 
-static int lfsr_mdir_dnamelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
+// lookup names in our mtree 
+static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfs_size_t did, const char *name, lfs_size_t name_size,
         lfs_ssize_t *id_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    int err = lfsr_rbyd_dnamelookup(lfs, &mdir->u.r.rbyd,
+    int err = lfsr_rbyd_namelookup(lfs, &mdir->u.r.rbyd,
             did, name, name_size,
             id_, tag_, NULL, data_);
 
-    // When not found, lfsr_rbyd_dnamelookup returns the id smaller than our
+    // When not found, lfsr_rbyd_namelookup returns the id smaller than our
     // expected name. This is correct for btree lookups, but not correct for
     // mdir insertions. For mdirs we need to adjust this by 1 so we insert
     // _after_ the smaller id.
@@ -6124,7 +6124,7 @@ static int lfsr_mdir_dnamelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
 }
 
 // note if we fail, we at least leave mdir_/rid_ with the best place to insert
-static int lfsr_mtree_dnamelookup(lfs_t *lfs,
+static int lfsr_mtree_namelookup(lfs_t *lfs,
         lfs_size_t did, const char *name, lfs_size_t name_size,
         lfsr_mdir_t *mdir_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     // do we only have mroot?
@@ -6132,12 +6132,12 @@ static int lfsr_mtree_dnamelookup(lfs_t *lfs,
     if (lfsr_mtree_isinlined(lfs)) {
         mdir = lfs->mroot;
 
-    // lookup dname in actual mtree
+    // lookup name in actual mtree
     } else {
         lfs_size_t bid;
         lfsr_tag_t tag;
         lfsr_data_t data;
-        int err = lfsr_btree_dnamelookup(lfs, &lfs->mtree,
+        int err = lfsr_btree_namelookup(lfs, &lfs->mtree,
                 did, name, name_size,
                 &bid, &tag, NULL, &data);
         if (err) {
@@ -6158,9 +6158,9 @@ static int lfsr_mtree_dnamelookup(lfs_t *lfs,
         }
     }
 
-    // and finally lookup dname in our mdir
+    // and finally lookup name in our mdir
     lfs_ssize_t rid;
-    int err = lfsr_mdir_dnamelookup(lfs, &mdir,
+    int err = lfsr_mdir_namelookup(lfs, &mdir,
             did, name, name_size,
             &rid, tag_, data_);
 
@@ -6270,8 +6270,8 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char *path,
             }
         }
 
-        // lookup up this dname in the mtree
-        int err = lfsr_mtree_dnamelookup(lfs, did, name, name_size,
+        // lookup up this name in the mtree
+        int err = lfsr_mtree_namelookup(lfs, did, name, name_size,
                 &mdir, &tag, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -6999,11 +6999,11 @@ static int lfsr_formatinited(lfs_t *lfs) {
         // our initial superblock contains a couple things:
         // - our magic string, "littlefs"
         // - the superconfig, format-time configuration
-        // - the root's dstart tag, which reserves did = 0 for the root
+        // - the root's bookmark tag, which reserves did = 0 for the root
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
                 LFSR_ATTR(-1, SUPERMAGIC, 0, "littlefs", 8),
                 LFSR_ATTR(-1, SUPERCONFIG, 0, buf, d),
-                LFSR_ATTR_DNAME(0, DSTART, +1, 0, NULL, 0)));
+                LFSR_ATTR_NAME(0, BOOKMARK, +1, 0, NULL, 0)));
         if (err) {
             return err;
         }
@@ -7219,7 +7219,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // but we can use a heuristic based on the maximum possible number of
     // directories in the current mtree assuming our block size.
     //
-    // - Each directory needs 1 name tag, 1 did tag, and 1 dstart
+    // - Each directory needs 1 name tag, 1 did tag, and 1 bookmark
     // - Each tag needs ~2 alts+null with our current compaction strategy
     // - Each tag/alt encodes to a minimum of 4 bytes
     // - We can also assume ~1/2 block utilization due to our split threshold
@@ -7244,7 +7244,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // available did
     lfsr_mdir_t mdir;
     while (true) {
-        int err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
+        int err = lfsr_mtree_namelookup(lfs, did, NULL, 0,
                 &mdir, NULL, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -7266,14 +7266,14 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     parent.mdir.mid.rid -= 1;
     lfsr_mdir_addopened(lfs, LFS_TYPE_REG, &parent);
 
-    // Conveniently, we just found where our dstart should go. The dstart
+    // Conveniently, we just found where our bookmark should go. The bookmark
     // tag is an empty entry that marks our directory as being allocated.
     //
-    // We include a GRM here so the dstart is automatically removed if we
+    // We include a GRM here so the bookmark is automatically removed if we
     // lose power before writing the entry in our parent
     //
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR_DNAME(mdir.mid.rid, DSTART, +1, did, NULL, 0),
+            LFSR_ATTR_NAME(mdir.mid.rid, BOOKMARK, +1, did, NULL, 0),
             LFSR_ATTR_GRM(-1, GRM, 0, &((lfsr_grm_t){{
                 mdir.mid,
                 LFSR_MID(-1, -1)}}))));
@@ -7287,7 +7287,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // commit our new directory into our parent, zeroing out our grm
     // in the process
     err = lfsr_mdir_commit(lfs, &parent.mdir, LFSR_ATTRS(
-            LFSR_ATTR_DNAME(parent.mdir.mid.rid, DIR, +1,
+            LFSR_ATTR_NAME(parent.mdir.mid.rid, DIR, +1,
                 parent_did, name, name_size),
             LFSR_ATTR_LEB128(parent.mdir.mid.rid, DID, 0, did),
             LFSR_ATTR_GRM(-1, GRM, 0, &((lfsr_grm_t){{
@@ -7322,7 +7322,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     }
 
     // if we're removing a directory, we need to also remove the
-    // dstart entry
+    // bookmark entry
     lfsr_grm_t grm = lfs->grm;
     if (tag == LFSR_TAG_DIR) {
         // first lets figure out the did
@@ -7339,16 +7339,16 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
             return d;
         }
 
-        // then lookup the dstart entry
+        // then lookup the bookmark entry
         lfsr_mdir_t mdir_;
-        err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
+        err = lfsr_mtree_namelookup(lfs, did, NULL, 0,
                 &mdir_, NULL, NULL);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
-        // create a grm to remove the dstart entry
+        // create a grm to remove the bookmark entry
         lfsr_grm_pushrm(&grm, mdir_.mid);
 
         // check that the directory is empty
@@ -7366,7 +7366,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
                 return err;
             }
 
-            if (tag_ != LFSR_TAG_DSTART) {
+            if (tag_ != LFSR_TAG_BOOKMARK) {
                 return LFS_ERR_NOTEMPTY;
             }
         }
@@ -7471,16 +7471,16 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
                 return d;
             }
 
-            // then lookup the dstart entry
+            // then lookup the bookmark entry
             lfsr_mdir_t mdir_;
-            err = lfsr_mtree_dnamelookup(lfs, did, NULL, 0,
+            err = lfsr_mtree_namelookup(lfs, did, NULL, 0,
                     &mdir_, NULL, NULL);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
 
-            // create a grm to remove the dstart entry
+            // create a grm to remove the bookmark entry
             lfsr_grm_pushrm(&grm, mdir_.mid);
 
             // check that the directory is empty
@@ -7498,7 +7498,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
                     return err;
                 }
 
-                if (tag_ != LFSR_TAG_DSTART) {
+                if (tag_ != LFSR_TAG_BOOKMARK) {
                     return LFS_ERR_NOTEMPTY;
                 }
             }
@@ -7511,7 +7511,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             (exists
                 ? LFSR_ATTR(new_mdir.mid.rid, UNR, -1, NULL, 0)
                 : LFSR_ATTR_NOOP),
-            LFSR_ATTR_DNAME_(new_mdir.mid.rid, old_tag, +1,
+            LFSR_ATTR_NAME_(new_mdir.mid.rid, old_tag, +1,
                 new_did, new_name, new_name_size),
             LFSR_ATTR_MOVE(new_mdir.mid.rid, MOVE, 0, &old_mdir),
             LFSR_ATTR_GRM(-1, GRM, 0, &grm)));
@@ -7588,9 +7588,9 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
         }
     }
 
-    // lookup our dstart in the mtree
-    err = lfsr_mtree_dnamelookup(lfs, dir->did, NULL, 0,
-            &dir->dstart_mdir, NULL, NULL);
+    // lookup our bookmark in the mtree
+    err = lfsr_mtree_namelookup(lfs, dir->did, NULL, 0,
+            &dir->bookmark_mdir, NULL, NULL);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_NOENT);
         return err;
@@ -7709,17 +7709,17 @@ lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir) {
 
 int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
     // do nothing if removed
-    if (lfsr_mdir_isdropped(&dir->dstart_mdir)) {
+    if (lfsr_mdir_isdropped(&dir->bookmark_mdir)) {
         return 0;
     }
 
     // reset pos
     dir->pos = 0;
 
-    // copy dstart mdir and eagerly look up the next entry
+    // copy bookmark mdir and eagerly look up the next entry
     //
     // this makes handling of corner cases with mixed removes/dir reads easier
-    dir->pos_mdir = dir->dstart_mdir;
+    dir->pos_mdir = dir->bookmark_mdir;
     int err = lfsr_mtree_seek(lfs, &dir->pos_mdir, 1);
     if (err && err != LFS_ERR_NOENT) {
         return err;

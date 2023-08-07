@@ -16,7 +16,7 @@ TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
 TAG_BRANCH      = 0x0200
-TAG_DSTART      = 0x0201
+TAG_BOOKMARK    = 0x0201
 TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
 TAG_STRUCT      = 0x0300
@@ -148,7 +148,7 @@ def tagrepr(tag, w, size, off=None):
     elif (tag & 0xff00) == TAG_NAME:
         return '%s%s %d' % (
             'branch' if tag == TAG_BRANCH
-                else 'dstart' if tag == TAG_DSTART
+                else 'bookmark' if tag == TAG_BOOKMARK
                 else 'reg' if tag == TAG_REG
                 else 'dir' if tag == TAG_DIR
                 else 'name 0x%02x' % (tag & 0xff),
@@ -591,10 +591,10 @@ class Rbyd:
 
     # iterate through a directory assuming this is the mtree root
     def mtree_dir(self, f, block_size, did):
-        # lookup the dstart
+        # lookup the bookmark
         found, mid, mdir, rid, tag, w = self.mtree_namelookup(
             f, block_size, did, b'')
-        # iterate through all files until the next dstart
+        # iterate through all files until the next bookmark
         while found:
             # lookup each rid
             done, rid, tag, w, j, d, data, _ = mdir.lookup(rid, TAG_NAME)
@@ -708,14 +708,14 @@ def grepr(tag, data):
         return 'gstate 0x%02x %d' % (tag, len(data))
 
 def frepr(mdir, rid, tag):
-    if tag == TAG_DSTART:
+    if tag == TAG_BOOKMARK:
         # read the did
         did = '?'
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, tag)
         if not done and rid_ == rid and tag_ == tag:
             did, _ = fromleb128(data)
             did = '0x%x' % did
-        return 'dstart %s' % did
+        return 'bookmark %s' % did
     elif tag == TAG_DIR:
         # read the did
         did = '?'
@@ -758,14 +758,14 @@ def main(disk, mroots=None, *,
         # - are we corrupted?
         # - collect superconfig
         # - collect gstate
-        # - any missing or orphaned dstart entries
+        # - any missing or orphaned bookmark entries
         mweight = 0
         rweight = 0
         corrupted = False
         gstate = GState()
         config = {}
         dir_dids = [(0, b'', -1, None, -1, TAG_DID, 0)]
-        dstart_dids = []
+        bookmark_dids = []
 
         mroot = Rbyd.fetch(f, block_size, mroots)
         mdepth = 1
@@ -785,10 +785,12 @@ def main(disk, mroots=None, *,
             for rid, tag, w, j, d, data in mroot:
                 if tag == TAG_DID:
                     did, d = fromleb128(data)
-                    dir_dids.append((did, data[d:], -1, mroot, rid, tag, w))
-                elif tag == TAG_DSTART:
+                    dir_dids.append(
+                        (did, data[d:], -1, mroot, rid, tag, w))
+                elif tag == TAG_BOOKMARK:
                     did, d = fromleb128(data)
-                    dstart_dids.append((did, data[d:], -1, mroot, rid, tag, w))
+                    bookmark_dids.append(
+                        (did, data[d:], -1, mroot, rid, tag, w))
 
             # fetch the next mroot
             done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MROOT)
@@ -819,9 +821,9 @@ def main(disk, mroots=None, *,
                         did, d = fromleb128(data)
                         dir_dids.append((
                             did, data[d:], 0, mdir, rid, tag, w))
-                    elif tag == TAG_DSTART:
+                    elif tag == TAG_BOOKMARK:
                         did, d = fromleb128(data)
-                        dstart_dids.append((
+                        bookmark_dids.append((
                             did, data[d:], 0, mdir, rid, tag, w))
 
         # fetch the actual mtree, if there is one
@@ -870,22 +872,22 @@ def main(disk, mroots=None, *,
                                 did, d = fromleb128(data)
                                 dir_dids.append((
                                     did, data[d:], mid, mdir_, rid, tag, w))
-                            elif tag == TAG_DSTART:
+                            elif tag == TAG_BOOKMARK:
                                 did, d = fromleb128(data)
-                                dstart_dids.append((
+                                bookmark_dids.append((
                                     did, data[d:], mid, mdir_, rid, tag, w))
 
         # remove grms from our found dids, we treat these as already deleted
         grmed_dir_dids = {did_
             for (did_, name_, mid_, mdir_, rid_, tag_, w_) in dir_dids
             if (max(mid_, 0), rid_) not in gstate.grm}
-        grmed_dstart_dids = {did_
-            for (did_, name_, mid_, mdir_, rid_, tag_, w_) in dstart_dids
+        grmed_bookmark_dids = {did_
+            for (did_, name_, mid_, mdir_, rid_, tag_, w_) in bookmark_dids
             if (max(mid_, 0), rid_) not in gstate.grm}
 
-        # treat the filesystem as corrupted if our dirs and dstarts are
+        # treat the filesystem as corrupted if our dirs and bookmarks are
         # mismatched, this should never happen unless there's a bug
-        if grmed_dir_dids != grmed_dstart_dids:
+        if grmed_dir_dids != grmed_bookmark_dids:
             corrupted = True
 
         # are we going to end up rendering the dtree?
@@ -1066,18 +1068,18 @@ def main(disk, mroots=None, *,
                 for name, mid, mdir, rid, tag, w in mroot.mtree_dir(
                         f, block_size, did):
                     if not args.get('all'):
-                        # skip dstarts
-                        if tag == TAG_DSTART:
+                        # skip bookmarks
+                        if tag == TAG_BOOKMARK:
                             continue
                         # skip grmed entries
                         if (max(mid, 0), rid) in gstate.grm:
                             continue
                     dir.append((name, mid, mdir, rid, tag, w))
 
-                # if we're root, append any orphaned dstart entries so they
+                # if we're root, append any orphaned bookmark entries so they
                 # get reported
                 if did == 0:
-                    for did, name, mid, mdir, rid, tag, w in dstart_dids:
+                    for did, name, mid, mdir, rid, tag, w in bookmark_dids:
                         if did in grmed_dir_dids:
                             continue
                         # skip grmed entries
@@ -1093,16 +1095,16 @@ def main(disk, mroots=None, *,
                     # grmed?
                     if grmed:
                         notes.append('grmed')
-                    # missing dstart?
+                    # missing bookmark?
                     if tag == TAG_DIR:
                         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
                             rid, TAG_DID)
                         if not done and rid_ == rid and tag_ == TAG_DID:
                             did_, _ = fromleb128(data)
-                            if did_ not in grmed_dstart_dids:
-                                notes.append('missing dstart')
+                            if did_ not in grmed_bookmark_dids:
+                                notes.append('missing bookmark')
                     # orphaned?
-                    if tag == TAG_DSTART:
+                    if tag == TAG_BOOKMARK:
                         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
                             rid, tag)
                         if not done and rid_ == rid and tag_ == tag:
@@ -1112,7 +1114,7 @@ def main(disk, mroots=None, *,
 
                     # print human readable dtree entry
                     print('%s%12s %*s %-*s  %s%s%s' % (
-                        '\x1b[90m' if color and (grmed or tag == TAG_DSTART)
+                        '\x1b[90m' if color and (grmed or tag == TAG_BOOKMARK)
                             else '',
                         '{%s}:' % ','.join('%04x' % block
                             for block in it.chain([mdir.block],
@@ -1130,7 +1132,7 @@ def main(disk, mroots=None, *,
                             ', '.join(notes),
                             '\x1b[m' if color and not grmed else '')
                             if notes else '',
-                        '\x1b[m' if color and (grmed or tag == TAG_DSTART)
+                        '\x1b[m' if color and (grmed or tag == TAG_BOOKMARK)
                             else ''))
                     pmid = mid
 
@@ -1248,7 +1250,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-a', '--all',
         action='store_true',
-        help="Show all files including dstarts and grmed files.")
+        help="Show all files including bookmarks and grmed files.")
     parser.add_argument(
         '-r', '--raw',
         action='store_true',
