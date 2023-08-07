@@ -348,11 +348,11 @@ typedef struct lfs_cache {
 typedef struct lfsr_rbyd {
     // note this lines up with weight in lfsr_btree_t
     lfs_size_t weight;
-    // off=0, trunk=0  => not yet committed
-    // off=0, trunk>0  => not yet fetched
-    // off>=block_size => rbyd not erased/needs compaction
+    // eoff=0, trunk=0  => not yet committed
+    // eoff=0, trunk>0  => not yet fetched
+    // eoff>=block_size => rbyd not erased/needs compaction
     lfs_off_t trunk;
-    lfs_off_t off;
+    lfs_off_t eoff;
     uint32_t cksum;
     // note this lines up with arrays of redundant blocks in lfsr_mdir_t
     lfs_block_t block;

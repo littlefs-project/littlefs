@@ -31,7 +31,7 @@ TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0500
 TAG_ALT         = 0x4000
 TAG_CKSUM       = 0x2000
-TAG_FCKSUM      = 0x2100
+TAG_ECKSUM      = 0x2100
 
 
 # parse some rbyd addr encodings
@@ -181,8 +181,8 @@ def tagrepr(tag, w, size, off=None):
             1 if tag & 0x1 else 0,
             ' 0x%x' % w if w > 0 else '',
             size)
-    elif tag == TAG_FCKSUM:
-        return 'fcksum%s %d' % (
+    elif tag == TAG_ECKSUM:
+        return 'ecksum%s %d' % (
             ' 0x%x' % w if w > 0 else '',
             size)
     elif tag & 0x4000:

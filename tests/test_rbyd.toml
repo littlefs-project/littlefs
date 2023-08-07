@@ -21,7 +21,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -52,7 +52,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -84,7 +84,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -117,7 +117,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -227,7 +227,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -339,7 +339,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -418,7 +418,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -499,7 +499,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -562,7 +562,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -627,7 +627,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -706,7 +706,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -849,7 +849,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -1020,7 +1020,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -1191,7 +1191,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -1370,7 +1370,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -1577,7 +1577,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -1743,7 +1743,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -1930,7 +1930,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -1986,8 +1986,8 @@ code = '''
         }
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -2021,7 +2021,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -2073,8 +2073,8 @@ code = '''
         }
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -2102,7 +2102,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -2191,7 +2191,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -2286,7 +2286,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -2358,7 +2358,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -2429,7 +2429,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -2454,9 +2454,9 @@ code = '''
 
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t *backup_block = malloc(rbyd.off);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-            rbyd.block, 0, backup_block, rbyd.off) => 0;
+    uint8_t *backup_block = malloc(rbyd.eoff);
+    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+            rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
@@ -2481,7 +2481,7 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.block) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
         lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
         // update each tag in permutation order
@@ -2502,8 +2502,8 @@ code = '''
         }
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -2539,7 +2539,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -2601,7 +2601,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -2713,7 +2713,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -2757,9 +2757,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -2769,7 +2769,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -2822,8 +2822,8 @@ code = '''
             }
 
             // keep track of the worst size
-            if (rbyd.off > worst_size) {
-                worst_size = rbyd.off;
+            if (rbyd.eoff > worst_size) {
+                worst_size = rbyd.eoff;
                 worst_perm_i = perm_i;
             }
         }
@@ -2863,7 +2863,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -2903,9 +2903,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -2915,7 +2915,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -2957,7 +2957,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -3106,7 +3106,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -3341,7 +3341,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -3429,7 +3429,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -3454,9 +3454,9 @@ code = '''
 
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t *backup_block = malloc(rbyd.off);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-            rbyd.block, 0, backup_block, rbyd.off) => 0;
+    uint8_t *backup_block = malloc(rbyd.eoff);
+    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+            rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
@@ -3481,7 +3481,7 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.block) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
         lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
         // remove each tag in permutation order
@@ -3514,8 +3514,8 @@ code = '''
         }
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -3552,7 +3552,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -3660,7 +3660,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -3807,7 +3807,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -3968,7 +3968,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -4035,8 +4035,8 @@ code = '''
         }
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -4070,7 +4070,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -4134,8 +4134,8 @@ code = '''
         }
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -4163,7 +4163,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -4269,7 +4269,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -4381,7 +4381,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -4473,7 +4473,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -4560,7 +4560,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -4628,7 +4628,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -4862,7 +4862,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -5123,7 +5123,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -5201,8 +5201,8 @@ code = '''
         }
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -5237,7 +5237,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -5312,8 +5312,8 @@ code = '''
         }
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -5341,7 +5341,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -5507,7 +5507,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -5684,7 +5684,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -5794,7 +5794,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -5903,7 +5903,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -5939,9 +5939,9 @@ code = '''
 
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t *backup_block = malloc(rbyd.off);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-            rbyd.block, 0, backup_block, rbyd.off) => 0;
+    uint8_t *backup_block = malloc(rbyd.eoff);
+    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+            rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N*M);
@@ -5966,7 +5966,7 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.block) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
         lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
         // update each tag in permutation order
@@ -5990,8 +5990,8 @@ code = '''
         }
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -6031,7 +6031,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -6097,9 +6097,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N*M; j++) {
@@ -6109,7 +6109,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -6183,8 +6183,8 @@ code = '''
             }
 
             // keep track of the worst size
-            if (rbyd.off > worst_size) {
-                worst_size = rbyd.off;
+            if (rbyd.eoff > worst_size) {
+                worst_size = rbyd.eoff;
                 worst_perm_i = perm_i;
             }
         }
@@ -6225,7 +6225,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -6261,9 +6261,9 @@ code = '''
 
     // copy block so we can reset after each remove
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t *backup_block = malloc(rbyd.off);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-            rbyd.block, 0, backup_block, rbyd.off) => 0;
+    uint8_t *backup_block = malloc(rbyd.eoff);
+    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+            rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N*M);
@@ -6288,7 +6288,7 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.block) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
         lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
         // remove each tag in permutation order
@@ -6311,8 +6311,8 @@ code = '''
         }
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -6349,7 +6349,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -6440,7 +6440,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -6543,8 +6543,8 @@ code = '''
                 &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -6579,7 +6579,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -6703,8 +6703,8 @@ code = '''
                 &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -6735,7 +6735,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -6861,7 +6861,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -7107,7 +7107,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -7166,9 +7166,9 @@ code = '''
 
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try deleting each rid
         for (unsigned j = 0; j < N; j++) {
@@ -7178,7 +7178,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -7219,8 +7219,8 @@ code = '''
             }
 
             // keep track of the worst size
-            if (rbyd.off > worst_size) {
-                worst_size = rbyd.off;
+            if (rbyd.eoff > worst_size) {
+                worst_size = rbyd.eoff;
                 worst_perm_i = perm_i;
             }
         }
@@ -7261,7 +7261,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -7326,9 +7326,9 @@ code = '''
 
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try deleting each rid
         for (unsigned j = 0; j < N; j++) {
@@ -7338,7 +7338,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -7410,8 +7410,8 @@ code = '''
             }
 
             // keep track of the worst size
-            if (rbyd.off > worst_size) {
-                worst_size = rbyd.off;
+            if (rbyd.eoff > worst_size) {
+                worst_size = rbyd.eoff;
                 worst_perm_i = perm_i;
             }
         }
@@ -7451,7 +7451,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -7509,9 +7509,9 @@ code = '''
 
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try deleting each rid
         for (unsigned j = 0; j < N; j++) {
@@ -7521,7 +7521,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -7575,7 +7575,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -7639,9 +7639,9 @@ code = '''
 
         // copy block so we can reset after each delete
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try deleting each rid
         for (unsigned j = 0; j < N; j++) {
@@ -7651,7 +7651,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -7713,7 +7713,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -7827,7 +7827,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -7960,7 +7960,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -7992,9 +7992,9 @@ code = '''
 
     // copy block so we can reset after each delete
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t *backup_block = malloc(rbyd.off);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-            rbyd.block, 0, backup_block, rbyd.off) => 0;
+    uint8_t *backup_block = malloc(rbyd.eoff);
+    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+            rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
@@ -8019,7 +8019,7 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.block) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
         lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
         // delete each rid in permutation order
@@ -8061,8 +8061,8 @@ code = '''
                 => LFS_ERR_NOENT;
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -8102,7 +8102,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -8139,9 +8139,9 @@ code = '''
 
     // copy block so we can reset after each delete
     lfsr_rbyd_t backup_rbyd = rbyd;
-    uint8_t *backup_block = malloc(rbyd.off);
-    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-            rbyd.block, 0, backup_block, rbyd.off) => 0;
+    uint8_t *backup_block = malloc(rbyd.eoff);
+    lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+            rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
     // test all permutations of a given size
     size_t perm_count = TEST_FACTORIAL(N);
@@ -8166,7 +8166,7 @@ code = '''
         rbyd = backup_rbyd;
         lfs_bd_erase(&lfs, rbyd.block) => 0;
         lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
         lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
         // delete each rid in permutation order
@@ -8221,8 +8221,8 @@ code = '''
                 => LFS_ERR_NOENT;
 
         // keep track of the worst size
-        if (rbyd.off > worst_size) {
-            worst_size = rbyd.off;
+        if (rbyd.eoff > worst_size) {
+            worst_size = rbyd.eoff;
             worst_perm_i = perm_i;
         }
     }
@@ -8259,7 +8259,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -8365,7 +8365,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -8602,7 +8602,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -8711,7 +8711,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -8797,7 +8797,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -8882,7 +8882,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -9554,7 +9554,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -9810,7 +9810,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -9921,7 +9921,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -10042,7 +10042,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -10100,9 +10100,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try growing each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10112,7 +10112,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -10168,7 +10168,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -10226,9 +10226,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try growing each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10238,7 +10238,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -10303,7 +10303,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -10362,9 +10362,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try growing each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10374,7 +10374,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -10451,7 +10451,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -10509,9 +10509,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try shrinking each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10521,7 +10521,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -10577,7 +10577,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -10635,9 +10635,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try shrinking each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10647,7 +10647,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -10712,7 +10712,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -10771,9 +10771,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try shrinking each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10783,7 +10783,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -10859,7 +10859,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -10917,9 +10917,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try deleting each rid
         for (unsigned j = 0; j < N; j++) {
@@ -10929,7 +10929,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -11012,7 +11012,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -11070,9 +11070,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try appending an attr to each rid, this should not affect
         // weights at all!
@@ -11083,7 +11083,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
@@ -11188,7 +11188,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -11339,7 +11339,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -11534,7 +11534,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -11621,7 +11621,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -11677,9 +11677,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -11689,7 +11689,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             // remove with a wide tag
@@ -11758,7 +11758,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -11814,9 +11814,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try replacing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -11826,7 +11826,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             // replace with bitwise inverse
@@ -11897,7 +11897,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -11985,7 +11985,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -12042,9 +12042,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -12054,7 +12054,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             // remove with a wide tag
@@ -12130,7 +12130,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -12187,9 +12187,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try replacing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -12199,7 +12199,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             // replace with bitwise inverse
@@ -12277,7 +12277,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -12363,7 +12363,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -12418,9 +12418,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try removing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -12430,7 +12430,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             // remove with a wide tag
@@ -12502,7 +12502,7 @@ code = '''
 
     lfsr_rbyd_t init_rbyd = {
         .block = 0,
-        .off = 0,
+        .eoff = 0,
         .cksum = 0,
         .trunk = 0,
         .weight = 0,
@@ -12557,9 +12557,9 @@ code = '''
 
         // copy block so we can reset after each remove
         lfsr_rbyd_t backup_rbyd = rbyd;
-        uint8_t *backup_block = malloc(rbyd.off);
-        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.off,
-                rbyd.block, 0, backup_block, rbyd.off) => 0;
+        uint8_t *backup_block = malloc(rbyd.eoff);
+        lfs_bd_read(&lfs, NULL, &lfs.rcache, rbyd.eoff,
+                rbyd.block, 0, backup_block, rbyd.eoff) => 0;
 
         // try replacing each tag
         for (unsigned j = 0; j < N; j++) {
@@ -12569,7 +12569,7 @@ code = '''
             rbyd = backup_rbyd;
             lfs_bd_erase(&lfs, rbyd.block) => 0;
             lfs_bd_prog(&lfs, &lfs.pcache, &lfs.rcache, false,
-                    rbyd.block, 0, backup_block, rbyd.off) => 0;
+                    rbyd.block, 0, backup_block, rbyd.eoff) => 0;
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             // replace with bitwise inverse

@@ -630,7 +630,7 @@ enum lfsr_tag_type {
     LFSR_TAG_ALTRGT         = 0x7000,
 
     LFSR_TAG_CKSUM          = 0x2000,
-    LFSR_TAG_FCKSUM         = 0x2100,
+    LFSR_TAG_ECKSUM         = 0x2100,
 
     // in-device only
     LFSR_TAG_MOVE           = 0x0800,
@@ -1429,24 +1429,24 @@ typedef struct lfsr_attr {
 //#endif
 
 
-// fcksum on-disk encoding
-typedef struct lfsr_fcksum {
+// erased-state checksum on-disk encoding
+typedef struct lfsr_ecksum {
     uint32_t cksum;
     lfs_size_t size;
-} lfsr_fcksum_t;
+} lfsr_ecksum_t;
 
 // 1 leb128 + 1 crc32c => 9 bytes (worst case)
-#define LFSR_FCKSUM_DSIZE (5+4)
+#define LFSR_ECKSUM_DSIZE (5+4)
 
-static lfs_ssize_t lfsr_fcksum_todisk(lfs_t *lfs, const lfsr_fcksum_t *fcksum,
-        uint8_t buffer[static LFSR_FCKSUM_DSIZE]) {
+static lfs_ssize_t lfsr_ecksum_todisk(lfs_t *lfs, const lfsr_ecksum_t *ecksum,
+        uint8_t buffer[static LFSR_ECKSUM_DSIZE]) {
     (void)lfs;
     lfs_ssize_t d = 0;
 
-    lfs_tole32_(fcksum->cksum, &buffer[d]);
+    lfs_tole32_(ecksum->cksum, &buffer[d]);
     d += 4;
 
-    lfs_ssize_t d_ = lfs_toleb128(fcksum->size, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(ecksum->size, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
@@ -1455,16 +1455,16 @@ static lfs_ssize_t lfsr_fcksum_todisk(lfs_t *lfs, const lfsr_fcksum_t *fcksum,
     return d;
 }
 
-static lfs_ssize_t lfsr_fcksum_fromdisk(lfs_t *lfs, lfsr_fcksum_t *fcksum,
+static lfs_ssize_t lfsr_ecksum_fromdisk(lfs_t *lfs, lfsr_ecksum_t *ecksum,
         lfsr_data_t data) {
     lfs_ssize_t d = 0;
-    lfs_ssize_t d_ = lfsr_data_readle32(lfs, data, d, &fcksum->cksum);
+    lfs_ssize_t d_ = lfsr_data_readle32(lfs, data, d, &ecksum->cksum);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    d_ = lfsr_data_readleb128(lfs, data, d, &fcksum->size);
+    d_ = lfsr_data_readleb128(lfs, data, d, &ecksum->size);
     if (d_ < 0) {
         return d_;
     }
@@ -1770,13 +1770,13 @@ static int lfsr_fs_fixgrm(lfs_t *lfs);
 
 // helper functions
 static bool lfsr_rbyd_isfetched(const lfsr_rbyd_t *rbyd) {
-    return !(rbyd->off == 0 && rbyd->trunk > 0);
+    return !(rbyd->eoff == 0 && rbyd->trunk > 0);
 }
 
 
 // allocate an rbyd block
 static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
-    *rbyd = (lfsr_rbyd_t){.weight=0, .trunk=0, .off=0, .cksum=0};
+    *rbyd = (lfsr_rbyd_t){.weight=0, .trunk=0, .eoff=0, .cksum=0};
     int err = lfs_alloc(lfs, &rbyd->block);
     if (err) {
         return err;
@@ -1801,7 +1801,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     rbyd->block = block;
-    rbyd->off = 0;
+    rbyd->eoff = 0;
     rbyd->trunk = 0;
 
     // temporary state until we validate a cksum
@@ -1812,12 +1812,12 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfs_size_t weight_ = 0;
 
     // assume unerased until proven otherwise
-    lfsr_fcksum_t fcksum;
-    bool hasfcksum = false;
+    lfsr_ecksum_t ecksum;
+    bool hasecksum = false;
     bool maybeerased = false;
 
     // scan tags, checking valid bits, cksums, etc
-    while (off < lfs->cfg->block_size && (!trunk || rbyd->off <= trunk)) {
+    while (off < lfs->cfg->block_size && (!trunk || rbyd->eoff <= trunk)) {
         lfsr_tag_t tag;
         lfs_size_t weight__;
         lfs_size_t size;
@@ -1850,11 +1850,11 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 return err;
             }
 
-            // found an fcksum? save for later
-            if (tag == LFSR_TAG_FCKSUM) {
-                uint8_t fcksum_buf[LFSR_FCKSUM_DSIZE];
+            // found an ecksum? save for later
+            if (tag == LFSR_TAG_ECKSUM) {
+                uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
                 err = lfsr_bd_read(lfs, block, off, lfs->cfg->block_size,
-                        fcksum_buf, lfs_min32(size, LFSR_FCKSUM_DSIZE));
+                        ecksum_buf, lfs_min32(size, LFSR_ECKSUM_DSIZE));
                 if (err) {
                     if (err == LFS_ERR_CORRUPT) {
                         break;
@@ -1862,15 +1862,15 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     return err;
                 }
 
-                lfs_ssize_t fcksum_dsize = lfsr_fcksum_fromdisk(lfs, &fcksum,
-                        LFSR_DATA_BUF(fcksum_buf,
-                            lfs_min32(size, LFSR_FCKSUM_DSIZE)));
-                if (fcksum_dsize < 0 && fcksum_dsize != LFS_ERR_CORRUPT) {
-                    return fcksum_dsize;
+                lfs_ssize_t ecksum_dsize = lfsr_ecksum_fromdisk(lfs, &ecksum,
+                        LFSR_DATA_BUF(ecksum_buf,
+                            lfs_min32(size, LFSR_ECKSUM_DSIZE)));
+                if (ecksum_dsize < 0 && ecksum_dsize != LFS_ERR_CORRUPT) {
+                    return ecksum_dsize;
                 }
 
-                // ignore malformed fcksums
-                hasfcksum = (fcksum_dsize != LFS_ERR_CORRUPT);
+                // ignore malformed ecksums
+                hasecksum = (ecksum_dsize != LFS_ERR_CORRUPT);
             }
 
         // is an end-of-commit cksum
@@ -1897,12 +1897,12 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // random and convenient
             lfs->seed = lfs_crc32c(lfs->seed, &cksum, sizeof(uint32_t));
 
-            // fcksum appears valid so far
-            maybeerased = hasfcksum;
-            hasfcksum = false;
+            // ecksum appears valid so far
+            maybeerased = hasecksum;
+            hasecksum = false;
 
             // save what we've found so far
-            rbyd->off = off + size;
+            rbyd->eoff = off + size;
             rbyd->cksum = cksum;
             rbyd->trunk = trunk_;
             rbyd->weight = weight;
@@ -1948,23 +1948,23 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // did we end on a valid commit? we may have an erased block
     bool erased = false;
-    if (maybeerased && rbyd->off % lfs->cfg->prog_size == 0) {
-        // check for an fcksum matching the next prog's erased state, if
+    if (maybeerased && rbyd->eoff % lfs->cfg->prog_size == 0) {
+        // check for an ecksum matching the next prog's erased state, if
         // this failed most likely a previous prog was interrupted, we
         // need a new erase
-        uint32_t fcksum_ = 0;
-        int err = lfsr_bd_cksum(lfs, rbyd->block, rbyd->off, 0, fcksum.size,
-                &fcksum_);
+        uint32_t ecksum_ = 0;
+        int err = lfsr_bd_cksum(lfs, rbyd->block, rbyd->eoff, 0, ecksum.size,
+                &ecksum_);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
 
         // found beginning of erased part?
-        erased = (fcksum_ == fcksum.cksum);
+        erased = (ecksum_ == ecksum.cksum);
     }
 
     if (!erased) {
-        rbyd->off = -1;
+        rbyd->eoff = -1;
     }
 
     return 0;
@@ -2097,25 +2097,25 @@ static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 // this is optional, if not called revision count defaults to 0 (for btrees)
 static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
     // should only be called before any tags are written
-    LFS_ASSERT(rbyd->off == 0);
+    LFS_ASSERT(rbyd->eoff == 0);
 
     // revision count stored as le32, we don't use a leb128 encoding as we
     // intentionally allow the revision count to overflow
     uint8_t rev_buf[sizeof(uint32_t)];
     lfs_tole32_(rev, &rev_buf);
-    int err = lfsr_bd_prog(lfs, rbyd->block, rbyd->off,
+    int err = lfsr_bd_prog(lfs, rbyd->block, rbyd->eoff,
             &rev_buf, sizeof(uint32_t), &rbyd->cksum);
     if (err) {
         goto failed;
     }
-    rbyd->off += sizeof(uint32_t);
+    rbyd->eoff += sizeof(uint32_t);
 
     return 0;
 
 failed:
     // if we fail mark the rbyd as unerased and release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->off = -1;
+    rbyd->eoff = -1;
     return err;
 }
 
@@ -2131,15 +2131,15 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // change to a relative jump at the last minute
             lfsr_tag_t alt = p_alts[3-1-i];
             lfs_size_t weight = p_weights[3-1-i];
-            lfs_off_t jump = rbyd->off - p_jumps[3-1-i];
+            lfs_off_t jump = rbyd->eoff - p_jumps[3-1-i];
 
-            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
                     alt, weight, jump,
                     &rbyd->cksum);
             if (d < 0) {
                 return d;
             }
-            rbyd->off += d;
+            rbyd->eoff += d;
         }
     }
 
@@ -2238,7 +2238,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // we can't do anything if we're not erased
     int err;
-    if (rbyd->off >= lfs->cfg->block_size) {
+    if (rbyd->eoff >= lfs->cfg->block_size) {
         err = LFS_ERR_RANGE;
         goto failed;
     }
@@ -2250,7 +2250,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // make sure every rbyd starts with a revision count
-    if (rbyd->off == 0) {
+    if (rbyd->eoff == 0) {
         err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
         if (err) {
             goto failed;
@@ -2343,7 +2343,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->weight += delta;
 
     // assume we'll update our trunk
-    rbyd->trunk = rbyd->off;
+    rbyd->trunk = rbyd->eoff;
 
     // no trunk yet?
     if (!branch) {
@@ -2702,7 +2702,7 @@ leaf:;
     //
     // note we always need a non-alt to terminate the trunk, otherwise we
     // can't find trunks during fetch
-    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
             // rm => null, otherwise strip off control bits
             (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_key(tag)),
             upper_rid - lower_rid - 1 + delta,
@@ -2712,22 +2712,22 @@ leaf:;
         err = d;
         goto failed;
     }
-    rbyd->off += d;
+    rbyd->eoff += d;
 
     // don't forget the data!
-    err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->off, data,
+    err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->eoff, data,
             &rbyd->cksum);
     if (err) {
         goto failed;
     }
-    rbyd->off += lfsr_data_size(data);
+    rbyd->eoff += lfsr_data_size(data);
 
     return 0;
 
 failed:;
     // if we fail mark the rbyd as unerased and release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->off = -1;
+    rbyd->eoff = -1;
     return err;
 }
 
@@ -2858,13 +2858,13 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // we can't do anything if we're not erased
     int err;
-    if (rbyd->off >= lfs->cfg->block_size) {
+    if (rbyd->eoff >= lfs->cfg->block_size) {
         err = LFS_ERR_RANGE;
         goto failed;
     }
 
     // make sure every rbyd starts with a revision count
-    if (rbyd->off == 0) {
+    if (rbyd->eoff == 0) {
         err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
         if (err) {
             goto failed;
@@ -2876,7 +2876,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfs_size_t layer_weight = 0;
 
     // first copy over raw tags, note this doesn't create a tree
-    lfs_off_t layer_start = rbyd->off;
+    lfs_off_t layer_start = rbyd->eoff;
     lfs_ssize_t rid = start_rid;
     lfsr_tag_t tag = 0;
     while (true) {
@@ -2899,28 +2899,28 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
 
         // write the tag
-        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
                 tag, weight, lfsr_data_size(data),
                 &rbyd->cksum);
         if (d < 0) {
             err = d;
             goto failed;
         }
-        rbyd->off += d;
+        rbyd->eoff += d;
 
         // and the data
-        err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->off, data,
+        err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->eoff, data,
                 &rbyd->cksum);
         if (err) {
             goto failed;
         }
-        rbyd->off += lfsr_data_size(data);
+        rbyd->eoff += lfsr_data_size(data);
 
         // keep track of the layer weight/trunks
         layer_trunks += 1;
         layer_weight += weight;
     }
-    lfs_off_t layer_end = rbyd->off;
+    lfs_off_t layer_end = rbyd->eoff;
 
     // connect every other trunk together, building layers of a perfectly
     // balanced binary tree upwards until we have a single trunk
@@ -2930,7 +2930,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         layer_weight = 0;
 
         lfs_off_t off = layer_start;
-        layer_start = rbyd->off;
+        layer_start = rbyd->eoff;
         while (off < layer_end) {
             // connect two trunks together with a new binary trunk
             for (int i = 0; i < 2 && off < layer_end; i++) {
@@ -2972,32 +2972,32 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 }
 
                 // connect with an altle
-                lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+                lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
                         LFSR_TAG_ALTLE(false, lfsr_tag_key(trunk_tag)),
                         trunk_weight,
-                        rbyd->off - trunk_off,
+                        rbyd->eoff - trunk_off,
                         &rbyd->cksum);
                 if (d < 0) {
                     err = d;
                     goto failed;
                 }
-                rbyd->off += d;
+                rbyd->eoff += d;
             }
 
             // terminate with a null tag
-            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->off,
+            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
                     LFSR_TAG_NULL, 0, 0,
                     &rbyd->cksum);
             if (d < 0) {
                 err = d;
                 goto failed;
             }
-            rbyd->off += d;
+            rbyd->eoff += d;
 
             // keep track of the number of trunks
             layer_trunks += 1;
         }
-        layer_end = rbyd->off;
+        layer_end = rbyd->eoff;
     }
 
     // done! just need to update our trunk/weight, note we could have
@@ -3013,7 +3013,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 failed:;
     // if we fail mark the rbyd as unerased and release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->off = -1;
+    rbyd->eoff = -1;
     return err;
 
 #else
@@ -3056,7 +3056,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // we can't do anything if we're not erased
     int err;
-    if (rbyd->off >= lfs->cfg->block_size) {
+    if (rbyd->eoff >= lfs->cfg->block_size) {
         err = LFS_ERR_RANGE;
         goto failed;
     }
@@ -3066,7 +3066,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_rbyd_t rbyd_ = *rbyd;
 
     // make sure every rbyd starts with its revision count
-    if (rbyd_.off == 0) {
+    if (rbyd_.eoff == 0) {
         err = lfsr_rbyd_appendrev(lfs, &rbyd_, 0);
         if (err) {
             goto failed;
@@ -3084,12 +3084,12 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //
     // this gets a bit complicated as we have two types of cksums:
     //
-    // - 9-word cksum with fcksum to check following prog (middle of block)
-    //   - fcksum tag type => 2 byte le16
-    //   - fcksum tag rid  => 1 byte leb128
-    //   - fcksum tag size => 1 byte leb128 (worst case)
-    //   - fcksum crc32c   => 4 byte le32
-    //   - fcksum size     => 5 byte leb128 (worst case)
+    // - 9-word cksum with ecksum to check following prog (middle of block)
+    //   - ecksum tag type => 2 byte le16
+    //   - ecksum tag rid  => 1 byte leb128
+    //   - ecksum tag size => 1 byte leb128 (worst case)
+    //   - ecksum crc32c   => 4 byte le32
+    //   - ecksum size     => 5 byte leb128 (worst case)
     //   - cksum tag type  => 2 byte le16
     //   - cksum tag rid   => 1 byte leb128
     //   - cksum tag size  => 5 byte leb128 (worst case)
@@ -3104,10 +3104,10 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //                    => 12 bytes total
     //
     lfs_off_t aligned = lfs_alignup(
-            rbyd_.off + 2+1+1+4+5 + 2+1+5+4,
+            rbyd_.eoff + 2+1+1+4+5 + 2+1+5+4,
             lfs->cfg->prog_size);
 
-    // space for fcksum?
+    // space for ecksum?
     uint8_t perturb = 0;
     if (aligned < lfs->cfg->block_size) {
         // read the leading byte in case we need to change the expected
@@ -3115,40 +3115,40 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         int err = lfsr_bd_read(lfs, rbyd_.block, aligned, lfs->cfg->prog_size,
                 &perturb, 1);
         if (err && err != LFS_ERR_CORRUPT) {
-            rbyd->off = -1;
+            rbyd->eoff = -1;
             return err;
         }
 
-        // find the expected fcksum, don't bother avoiding a reread of the
+        // find the expected ecksum, don't bother avoiding a reread of the
         // perturb byte, as it should still be in our cache
-        lfsr_fcksum_t fcksum = {.cksum=0, .size=lfs->cfg->prog_size};
+        lfsr_ecksum_t ecksum = {.cksum=0, .size=lfs->cfg->prog_size};
         err = lfsr_bd_cksum(lfs, rbyd_.block, aligned, lfs->cfg->prog_size,
                 lfs->cfg->prog_size,
-                &fcksum.cksum);
+                &ecksum.cksum);
         if (err && err != LFS_ERR_CORRUPT) {
             goto failed;
         }
 
-        uint8_t fcksum_buf[LFSR_FCKSUM_DSIZE];
-        lfs_size_t fcksum_dsize = lfsr_fcksum_todisk(lfs, &fcksum, fcksum_buf);
-        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd_.block, rbyd_.off,
-                LFSR_TAG_FCKSUM, 0, fcksum_dsize,
+        uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
+        lfs_size_t ecksum_dsize = lfsr_ecksum_todisk(lfs, &ecksum, ecksum_buf);
+        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd_.block, rbyd_.eoff,
+                LFSR_TAG_ECKSUM, 0, ecksum_dsize,
                 &rbyd_.cksum);
         if (d < 0) {
             err = d;
             goto failed;
         }
-        rbyd_.off += d;
+        rbyd_.eoff += d;
 
-        err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off,
-                fcksum_buf, fcksum_dsize, &rbyd_.cksum);
+        err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.eoff,
+                ecksum_buf, ecksum_dsize, &rbyd_.cksum);
         if (err) {
             goto failed;
         }
-        rbyd_.off += fcksum_dsize;
+        rbyd_.eoff += ecksum_dsize;
 
     // at least space for a cksum?
-    } else if (rbyd_.off + 2+1+5+4 <= lfs->cfg->block_size) {
+    } else if (rbyd_.eoff + 2+1+5+4 <= lfs->cfg->block_size) {
         // note this implicitly marks the rbyd as unerased
         aligned = lfs->cfg->block_size;
 
@@ -3168,7 +3168,7 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     cksum_buf[1] = 0;
     cksum_buf[2] = 0;
 
-    lfs_off_t padding = aligned - (rbyd_.off + 2+1+5);
+    lfs_off_t padding = aligned - (rbyd_.eoff + 2+1+5);
     cksum_buf[3] = 0x80 | (0x7f & (padding >>  0));
     cksum_buf[4] = 0x80 | (0x7f & (padding >>  7));
     cksum_buf[5] = 0x80 | (0x7f & (padding >> 14));
@@ -3186,11 +3186,11 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
     lfs_tole32_(rbyd_.cksum, &cksum_buf[2+1+5]);
 
-    err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.off, cksum_buf, 2+1+5+4, NULL);
+    err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.eoff, cksum_buf, 2+1+5+4, NULL);
     if (err) {
         goto failed;
     }
-    rbyd_.off += 2+1+5+4;
+    rbyd_.eoff += 2+1+5+4;
 
     // flush our caches, finalizing the commit on-disk
     err = lfsr_bd_sync(lfs);
@@ -3200,8 +3200,8 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // succesful commit, check checksum to make sure
     uint32_t cksum_ = rbyd->cksum;
-    err = lfsr_bd_cksum(lfs, rbyd_.block, rbyd->off, 0,
-            rbyd_.off-4 - rbyd->off,
+    err = lfsr_bd_cksum(lfs, rbyd_.block, rbyd->eoff, 0,
+            rbyd_.eoff-4 - rbyd->eoff,
             &cksum_);
     if (err) {
         goto failed;
@@ -3217,14 +3217,14 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // ok, everything is good, save what we've committed
-    rbyd_.off = aligned;
+    rbyd_.eoff = aligned;
     *rbyd = rbyd_;
     return 0;
 
 failed:;
     // if we fail mark the rbyd as unerased and release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->off = -1;
+    rbyd->eoff = -1;
     return err;
 }
 
@@ -3557,7 +3557,7 @@ static lfs_ssize_t lfsr_branch_fromdisk(lfs_t *lfs, lfsr_rbyd_t *branch,
         lfsr_data_t data) {
     // setting off to 0 here will trigger asserts if we try to append
     // without fetching first
-    branch->off = 0;
+    branch->eoff = 0;
 
     lfs_ssize_t d = 0;
     lfs_ssize_t d_ = lfsr_data_readle32(lfs, data, d, &branch->cksum);
@@ -4017,7 +4017,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // TODO we should have a benchmark for how removes affect tree size
         // is our compacted size too small? try to merge with one of
         // our siblings
-        if (rbyd_.off < lfs->cfg->block_size/4) {
+        if (rbyd_.eoff < lfs->cfg->block_size/4) {
             goto merge;
         merge_abort:;
         }
@@ -4326,7 +4326,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
 
             // if we exceed our compaction threshold our merge has failed,
             // clean up ids and return to merge_abort
-            if (rbyd_.off > lfs->cfg->block_size/2) {
+            if (rbyd_.eoff > lfs->cfg->block_size/2) {
                 err = lfsr_rbyd_append(lfs, &rbyd_,
                         sdelta+(rbyd_.weight-rweight_)-1,
                         LFSR_TAG_UNR, -(rbyd_.weight-rweight_),
@@ -5364,7 +5364,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
     lfs_swap32(&mdir_->u.r.rbyd.block, &mdir_->u.r.redund_block);
     mdir_->u.r.rbyd.weight = 0;
     mdir_->u.r.rbyd.trunk = 0;
-    mdir_->u.r.rbyd.off = 0;
+    mdir_->u.r.rbyd.eoff = 0;
     mdir_->u.r.rbyd.cksum = 0;
 
     // erase, preparing for compact
@@ -5465,7 +5465,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
     // TODO handle this differently?
     // TODO let the lower rbyd layer handle this somehow?
     // mark mdir as unerased in case we fail
-    mdir->u.r.rbyd.off = lfs->cfg->block_size;
+    mdir->u.r.rbyd.eoff = lfs->cfg->block_size;
     int err = lfsr_rbyd_appendall(lfs, &mdir_.u.r.rbyd, start_rid, end_rid,
             attrs, attr_count);
     if (err && err != LFS_ERR_RANGE) {
@@ -7004,7 +7004,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
     for (uint32_t i = 0; i < 2; i++) {
         // write superblock to both rbyds in the root mroot to hopefully
         // avoid mounting an older filesystem on disk
-        lfsr_rbyd_t rbyd = {.block=i, .off=0, .trunk=0};
+        lfsr_rbyd_t rbyd = {.block=i, .eoff=0, .trunk=0};
 
         int err = lfsr_bd_erase(lfs, rbyd.block);
         if (err) {
