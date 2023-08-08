@@ -1030,12 +1030,23 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 // either an on-disk or in-device data pointer
 typedef struct lfsr_data {
     union {
-        // sign(size)=0 => in-device
-        // sign(size)=1 => on-disk
+        // Through 2 unused bits we can cram in 4 different data encodings:
+        // - sign(size)=0, sign(leb128)=0 => in-device buffer+size
+        // - sign(size)=0, sign(leb128)=1 => 1 leb128 + in-device buffer+size
+        // - sign(size)=1, sign(leb128)=0 => on-disk block+off+size
+        // - sign(size)=1, sign(leb128)=1 => 2 leb128
+        //
+        // Though we don't support general-purpose reading of any leb128s,
+        // since we just never need to read them. leb128 encodings exist
+        // purely for writing to disk.
+        //
+        // After removing the sign bit, the size always encodes the resulting
+        // size on-disk.
+        //
         lfs_size_t size;
         struct {
             lfs_size_t size;
-            lfs_ssize_t did;
+            lfs_size_t leb128;
             const uint8_t *buffer;
         } b;
         struct {
@@ -1043,6 +1054,10 @@ typedef struct lfsr_data {
             lfs_off_t off;
             lfs_block_t block;
         } d;
+        struct {
+            lfs_size_t size;
+            lfs_size_t leb128s[2];
+        } l;
     } u;
 } lfsr_data_t;
 
@@ -1050,7 +1065,7 @@ typedef struct lfsr_data {
 #define LFSR_DATA(_buffer, _size) \
     ((lfsr_data_t){ \
         .u.b.size=_size, \
-        .u.b.did=-1, \
+        .u.b.leb128=0, \
         .u.b.buffer=(const void*)(_buffer)})
 
 // LFSR_DATA_DATA just provides and escape hatch to pass raw datas
@@ -1061,25 +1076,29 @@ typedef struct lfsr_data {
 
 #define LFSR_DATA_BUF(_buffer, _size) LFSR_DATA(_buffer, _size)
 
-#define LFSR_DATA_NAME(_did, _buffer, _size) \
-    ((lfsr_data_t){ \
-        /* note this finds the effective leb128 size */ \
-        .u.b.size=_size + (lfs_nlog2((_did)+1)+7-1)/7, \
-        .u.b.did=_did, \
-        .u.b.buffer=(const void*)(_buffer)})
-
-#define LFSR_DATA_LEB128(_did) \
-    ((lfsr_data_t){ \
-        /* note this finds the effective leb128 size */ \
-        .u.b.size=(lfs_nlog2((_did)+1)+7-1)/7, \
-        .u.b.did=_did, \
-        .u.b.buffer=NULL})
-
 #define LFSR_DATA_DISK(_block, _off, _size) \
     ((lfsr_data_t){ \
         .u.d.size=(0x80000000 | (_size)), \
         .u.d.block=_block, \
         .u.d.off=_off})
+
+#define LFSR_DATA_LEB128(_a) \
+    ((lfsr_data_t){ \
+        .u.b.size=lfs_sizeleb128(_a), \
+        .u.b.leb128=(0x80000000 | (_a)), \
+        .u.b.buffer=NULL})
+
+#define LFSR_DATA_2LEB128(_a, _b) \
+    ((lfsr_data_t){ \
+        .u.l.size=(0x80000000 | (  \
+            lfs_sizeleb128(_a) + lfs_sizeleb128(_b))), \
+        .u.l.leb128s={(0x80000000 | (_a)), (_b)}})
+
+#define LFSR_DATA_NAME(_did, _buffer, _size) \
+    ((lfsr_data_t){ \
+        .u.b.size=lfs_sizeleb128(_did) + (_size), \
+        .u.b.leb128=(0x80000000 | (_did)), \
+        .u.b.buffer=(const void*)(_buffer)})
 
 // These aren't true runtime-typed datas, but allows some special cases to
 // bypass data encoding. External context is required to access these
@@ -1107,27 +1126,71 @@ static inline lfs_size_t lfsr_data_setondisk(lfs_size_t size) {
     return size | 0x80000000;
 }
 
+static inline bool lfsr_data_hasleb128(lfsr_data_t data) {
+    return data.u.b.leb128 & 0x80000000;
+}
+
+static inline bool lfsr_data_has2leb128(lfsr_data_t data) {
+    // we reuse the on-disk bit for 2 leb128s, but these datas can't
+    // have any remaining size
+    return lfsr_data_hasleb128(data) && lfsr_data_ondisk(data);
+}
+
 // data<->bd interactions
 static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t data,
         lfs_off_t off, void *buffer, lfs_size_t size) {
+    uint8_t *buffer_ = buffer;
     // limit our off/size to data range
     lfs_off_t off_ = lfs_min32(off, lfsr_data_size(data));
     lfs_size_t hint_ = lfsr_data_size(data)-off_;
     lfs_size_t size_ = lfs_min32(size, hint_);
+    // TODO ?
+    // keep track of the actual size before parsing leb128s
+    lfs_size_t size__ = size_;
+
+    // do we have any lebs?
+    if (lfsr_data_hasleb128(data)) {
+        uint8_t leb_buf[5+5];
+        lfs_size_t leb_dsize = 0;
+        for (int i = 0; i < 1+lfsr_data_has2leb128(data); i++) {
+            lfs_ssize_t d = lfs_toleb128(data.u.l.leb128s[i] & 0x7fffffff,
+                    &leb_buf[leb_dsize], (5+5)-leb_dsize);
+            if (d < 0) {
+                return d;
+            }
+            leb_dsize += d;
+        }
+
+        if (off_ < leb_dsize) {
+            lfs_size_t d = lfs_min32(leb_dsize - off_, size_);
+            memcpy(buffer_, &leb_buf[off], d);
+            buffer_ += d;
+            hint_ -= d;
+            size_ -= d;
+        }
+        off_ -= lfs_min32(leb_dsize, off_);
+    }
+
+    // TODO allow out-of-bounds zero reads?
+    // we need this check to avoid asserts in lfsr_bd_read
+    if (size_ == 0) {
+        return size__;
+    }
 
     if (lfsr_data_ondisk(data)) {
+        // TODO we need to make sure this is a noop if size_ == 0
         int err = lfsr_bd_read(lfs, data.u.d.block, data.u.d.off+off_,
                 // note our hint includes the full data range
                 hint_,
-                buffer, size_);
+                buffer_, size_);
         if (err) {
             return err;
         }
     } else {
-        memcpy(buffer, data.u.b.buffer+off_, size_);
+        memcpy(buffer_, data.u.b.buffer+off_, size_);
     }
 
-    return size_;
+    return size__;
 }
 
 static lfs_ssize_t lfsr_data_readle32(lfs_t *lfs, lfsr_data_t data,
@@ -1160,6 +1223,8 @@ static lfs_ssize_t lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t data,
 
 static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
+    // not all encodings are supported here
+    LFS_ASSERT(!(data.u.b.leb128 & 0x80000000));
     // limit our off/size to data range
     lfs_off_t off_ = lfs_min32(off, lfsr_data_size(data));
     lfs_size_t hint_ = lfsr_data_size(data)-off_;
@@ -1213,6 +1278,32 @@ static int lfsr_bd_progdata(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         lfsr_data_t data,
         uint32_t *cksum_) {
+    // do we have any lebs?
+    if (lfsr_data_hasleb128(data)) {
+        uint8_t leb_buf[5+5];
+        lfs_ssize_t leb_dsize = 0;
+        for (int i = 0; i < 1+lfsr_data_has2leb128(data); i++) {
+            lfs_ssize_t d = lfs_toleb128(data.u.l.leb128s[i] & 0x7fffffff,
+                    &leb_buf[leb_dsize], (5+5)-leb_dsize);
+            if (d < 0) {
+                return d;
+            }
+            leb_dsize += d;
+        }
+
+        int err = lfsr_bd_prog(lfs, block, off, leb_buf, leb_dsize, cksum_);
+        if (err) {
+            return err;
+        }
+
+        off += leb_dsize;
+        data.u.l.size -= leb_dsize;
+        // If we have two lebs, we should have no size remaining. There's
+        // note enough space in our lfsr_data_t to include actual data with
+        // two lebs.
+        LFS_ASSERT(!lfsr_data_has2leb128(data) || lfsr_data_size(data) == 0);
+    }
+
     if (lfsr_data_ondisk(data)) {
         // TODO byte-level copies have been a pain point, works for prototyping
         // but can this be better? configurable? leverage
@@ -1235,26 +1326,6 @@ static int lfsr_bd_progdata(lfs_t *lfs,
         }
 
     } else {
-        // this is kind of a hack, but when lfsr_data_t is in buffer mode, it
-        // can also contain a leb128 encoded directory-id prefix
-        if (data.u.b.did != -1) {
-            // TODO should progleb128 be its own function? rely on caching?
-            uint8_t did_buf[5];
-            lfs_ssize_t did_dsize = lfs_toleb128(data.u.b.did, did_buf, 5);
-            if (did_dsize < 0) {
-                return did_dsize;
-            }
-
-            int err = lfsr_bd_prog(lfs, block, off,
-                    did_buf, did_dsize, cksum_);
-            if (err) {
-                return err;
-            }
-
-            off += did_dsize;
-            data.u.b.size -= did_dsize;
-        }
-
         int err = lfsr_bd_prog(lfs, block, off,
                 data.u.b.buffer, lfsr_data_size(data),
                 cksum_);
@@ -5676,15 +5747,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             msibling_.u.r.rbyd.trunk = 0;
 
             // update our mtree
-            uint8_t mdir_buf[LFSR_MDIR_DSIZE];
-            lfs_ssize_t mdir_dsize = lfsr_mdir_todisk(lfs,
-                    mdir_.u.m.blocks, mdir_buf);
-            if (mdir_dsize < 0) {
-                return mdir_dsize;
-            }
-
             int err = lfsr_btree_set(lfs, &mtree_, mbid, LFSR_TAG_MDIR, 1,
-                    LFSR_DATA(mdir_buf, mdir_dsize));
+                    LFSR_DATA_2LEB128(
+                        mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]));
             if (err) {
                 return err;
             }
@@ -5699,15 +5764,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             mdir_.u.r.rbyd.trunk = 0;
 
             // update our mtree
-            uint8_t msibling_buf[LFSR_MDIR_DSIZE];
-            lfs_ssize_t msibling_dsize = lfsr_mdir_todisk(lfs,
-                    msibling_.u.m.blocks, msibling_buf);
-            if (msibling_dsize < 0) {
-                return msibling_dsize;
-            }
-
             int err = lfsr_btree_set(lfs, &mtree_, mbid, LFSR_TAG_MDIR, 1,
-                    LFSR_DATA(msibling_buf, msibling_dsize));
+                    LFSR_DATA_2LEB128(
+                        msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]));
             if (err) {
                 return err;
             }
@@ -5733,25 +5792,14 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 return err;
             }
 
-            uint8_t mdir_buf[LFSR_MDIR_DSIZE];
-            lfs_ssize_t mdir_dsize = lfsr_mdir_todisk(lfs,
-                    mdir_.u.m.blocks, mdir_buf);
-            if (mdir_dsize < 0) {
-                return mdir_dsize;
-            }
-            uint8_t msibling_buf[LFSR_MDIR_DSIZE];
-            lfs_ssize_t msibling_dsize = lfsr_mdir_todisk(lfs,
-                    msibling_.u.m.blocks, msibling_buf);
-            if (msibling_dsize < 0) {
-                return msibling_dsize;
-            }
-
             err = lfsr_btree_split(lfs, &mtree_, mbid,
                     (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
                         ? sdata
                         : LFSR_DATA_NULL),
-                    LFSR_TAG_MDIR, 1, LFSR_DATA(mdir_buf, mdir_dsize),
-                    LFSR_TAG_MDIR, 1, LFSR_DATA(msibling_buf, msibling_dsize));
+                    LFSR_TAG_MDIR, 1, LFSR_DATA_2LEB128(
+                        mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]),
+                    LFSR_TAG_MDIR, 1, LFSR_DATA_2LEB128(
+                        msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]));
             if (err) {
                 return err;
             }
@@ -5793,16 +5841,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
 
             // update our mtree
-            uint8_t mdir_buf[LFSR_MDIR_DSIZE];
-            lfs_ssize_t mdir_dsize = lfsr_mdir_todisk(lfs,
-                    mdir_.u.m.blocks, mdir_buf);
-            if (mdir_dsize < 0) {
-                return mdir_dsize;
-            }
-
             int err = lfsr_btree_set(lfs, &mtree_,
                     mdir->mid.bid, LFSR_TAG_MDIR, 1,
-                    LFSR_DATA(mdir_buf, mdir_dsize));
+                    LFSR_DATA_2LEB128(
+                        mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]));
             if (err) {
                 return err;
             }
@@ -5930,17 +5972,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 mchildroot_[0], mchildroot_[1]);
 
         // commit mrootchild 
-        uint8_t mchildroot_buf[LFSR_MDIR_DSIZE];
-        lfs_ssize_t mchildroot_dsize = lfsr_mdir_todisk(lfs, mchildroot_,
-                mchildroot_buf);
-        if (mchildroot_dsize < 0) {
-            return mchildroot_dsize;
-        }
-
         mchildroot = mparentroot;
         err = lfsr_mdir_commit_(lfs, &mparentroot, -1, -1, NULL, LFSR_ATTRS(
                 LFSR_ATTR(-1, MROOT, 0,
-                    BUF(mchildroot_buf, mchildroot_dsize))));
+                    2LEB128(mchildroot_[0], mchildroot_[1]))));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -5996,7 +6031,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     LFSR_ATTR(-1, SUPERCONFIG, 0, DATA(config)),
                     // commit our new mchildroot
                     LFSR_ATTR(-1, MROOT, 0,
-                        BUF(mchildroot_buf, mchildroot_dsize))));
+                        2LEB128(mchildroot_[0], mchildroot_[1]))));
         if (err) {
             return err;
         }
