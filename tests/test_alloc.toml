@@ -106,7 +106,7 @@ code = '''
     lfs_alloc_ack(&lfs);
     // remove root dstart for now 
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, UNR, -1, NULL, 0))) => 0;
+            LFSR_ATTR(0, UNR, -1, NULL))) => 0;
 
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, LFSR_MID(lfsr_mtree_weight(&lfs)-1, -1),
@@ -123,7 +123,8 @@ code = '''
 
         // keep creating new metadata entries until we run out of space
         int err = lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-                LFSR_ATTR(mdir.mid.rid, INLINED, +1, &alphas[count % 26], 1)));
+                LFSR_ATTR(mdir.mid.rid, INLINED, +1,
+                    BUF(&alphas[count % 26], 1))));
         assert(!err || err == LFS_ERR_NOSPC);
         if (err == LFS_ERR_NOSPC) {
             break;

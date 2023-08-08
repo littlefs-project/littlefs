@@ -371,9 +371,7 @@ typedef struct lfsr_btree {
     union {
         // weight is common to both representations and its sign-bit indicates
         // if the btree is inlined
-        struct {
-            lfs_size_t weight;
-        } b;
+        lfs_size_t weight;
         struct {
             lfs_size_t weight;
             lfsr_tag_t tag;
