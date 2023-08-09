@@ -3520,7 +3520,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    lfsr_data_size(data_));
+                    lfsr_data_size(&data_));
             assert(false);
         }
     }
@@ -3645,7 +3645,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    lfsr_data_size(data_));
+                    lfsr_data_size(&data_));
             assert(false);
         }
     }
@@ -3781,7 +3781,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    lfsr_data_size(data_));
+                    lfsr_data_size(&data_));
             assert(false);
         }
     }
@@ -3909,7 +3909,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    lfsr_data_size(data_));
+                    lfsr_data_size(&data_));
             assert(false);
         }
     }
@@ -4046,7 +4046,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    lfsr_data_size(data_));
+                    lfsr_data_size(&data_));
             assert(false);
         }
     }
@@ -4210,7 +4210,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    lfsr_data_size(data_));
+                    lfsr_data_size(&data_));
             assert(false);
         }
     }
@@ -4310,7 +4310,7 @@ code = '''
                     mid_.bid,
                     mid_.rid,
                     tag_,
-                    lfsr_data_size(data_));
+                    lfsr_data_size(&data_));
             assert(false);
         }
     }

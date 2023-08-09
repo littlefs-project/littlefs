@@ -330,11 +330,11 @@ static inline uint32_t lfs_fromle32_(const void *buffer) {
 
 // Convert to/from leb128 encoding
 // TODO should we really be using ssize_t here and not lfs_ssize_t?
-ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size);
+ssize_t lfs_toleb128(int32_t word, void *buffer, size_t size);
 
-ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size);
+ssize_t lfs_fromleb128(int32_t *word, const void *buffer, size_t size);
 
-static inline size_t lfs_sizeleb128(uint32_t word) {
+static inline size_t lfs_sizeleb128(int32_t word) {
     // this is the size of the leb128 after encoding
     return (lfs_nlog2(word+1)+7-1) / 7;
 }
