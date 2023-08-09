@@ -608,8 +608,10 @@ enum lfsr_tag_type {
     LFSR_TAG_RMBTREE        = 0x1303, // in-device only
     LFSR_TAG_MROOT          = 0x0304,
     LFSR_TAG_MDIR           = 0x0305,
+    LFSR_TAG_WIDEMDIR       = 0x4305,
     LFSR_TAG_RMMDIR         = 0x1305, // in-device only
     LFSR_TAG_MTREE          = 0x0306,
+    LFSR_TAG_WIDEMTREE      = 0x4306,
     LFSR_TAG_RMMTREE        = 0x1306, // in-device only
     LFSR_TAG_DID            = 0x0307,
 
@@ -3551,33 +3553,34 @@ static inline lfs_size_t lfsr_btree_setinlined(lfs_size_t weight) {
     return weight | 0x80000000;
 }
 
-
-// branch on-disk encoding
+// btree on-disk encoding
 
 // 1 crc32c + 3 leb128 => 19 bytes (worst case)
-#define LFSR_BRANCH_DSIZE (4+5+5+5)
+#define LFSR_BTREE_DSIZE (4+5+5+5)
 
-static lfs_ssize_t lfsr_branch_todisk(lfs_t *lfs, const lfsr_rbyd_t *branch,
-        uint8_t buffer[static LFSR_BRANCH_DSIZE]) {
+static lfs_ssize_t lfsr_btree_todisk(lfs_t *lfs, const lfsr_rbyd_t *btree,
+        uint8_t buffer[static LFSR_BTREE_DSIZE]) {
     (void)lfs;
+    // upper layers must take care of encoding inlined btrees
+    LFS_ASSERT(!lfsr_btree_isinlined((const lfsr_btree_t*)btree));
     lfs_ssize_t d = 0;
 
-    lfs_tole32_(branch->cksum, &buffer[d]);
+    lfs_tole32_(btree->cksum, &buffer[d]);
     d += 4;
 
-    lfs_ssize_t d_ = lfs_toleb128(branch->weight, &buffer[d], 5);
+    lfs_ssize_t d_ = lfs_toleb128(btree->weight, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    d_ = lfs_toleb128(branch->trunk, &buffer[d], 5);
+    d_ = lfs_toleb128(btree->trunk, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
     d += d_;
 
-    d_ = lfs_toleb128(branch->block, &buffer[d], 5);
+    d_ = lfs_toleb128(btree->block, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
@@ -3586,84 +3589,47 @@ static lfs_ssize_t lfsr_branch_todisk(lfs_t *lfs, const lfsr_rbyd_t *branch,
     return d;
 }
 
-static int lfsr_data_readbranch(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_rbyd_t *branch) {
+static int lfsr_btree_inline(lfs_t *lfs, lfsr_btree_t *btree,
+        lfsr_tag_t tag, lfs_size_t weight, lfsr_data_t data) {
+    // mark as inlined
+    btree->u.i.weight = lfsr_btree_setinlined(weight);
+    btree->u.i.tag = tag;
+    lfs_ssize_t size = lfsr_data_read(lfs, &data,
+            btree->u.i.buffer, LFSR_BTREE_INLINESIZE);
+    if (size < 0) {
+        return size;
+    }
+    btree->u.i.size = size;
+    return 0;
+}
+
+static int lfsr_data_readbtree(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_rbyd_t *btree) {
     // setting off to 0 here will trigger asserts if we try to append
     // without fetching first
-    branch->eoff = 0;
+    btree->eoff = 0;
 
-    int err = lfsr_data_readle32(lfs, data, &branch->cksum);
+    int err = lfsr_data_readle32(lfs, data, &btree->cksum);
     if (err) {
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, (int32_t*)&branch->weight);
+    err = lfsr_data_readleb128(lfs, data, (int32_t*)&btree->weight);
     if (err) {
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, (int32_t*)&branch->trunk);
+    err = lfsr_data_readleb128(lfs, data, (int32_t*)&btree->trunk);
     if (err) {
         return err;
     }
 
-    err = lfsr_data_readleb128(lfs, data, (int32_t*)&branch->block);
+    err = lfsr_data_readleb128(lfs, data, (int32_t*)&btree->block);
     if (err) {
         return err;
     }
 
     return 0;
-}
-
-// btree on-disk encoding
-//
-// note we leave disambiguating inlined/non-inlined btrees up to the caller
-#define LFSR_BTREE_DSIZE ( \
-        LFSR_BRANCH_DSIZE > LFSR_BTREE_INLINESIZE \
-            ? LFSR_BRANCH_DSIZE \
-            : LFSR_BTREE_INLINESIZE)
-
-static lfs_ssize_t lfsr_btree_todisk(lfs_t *lfs, const lfsr_btree_t *btree,
-        lfsr_tag_t btree_tag,
-        lfsr_tag_t *tag_, uint8_t buffer[static LFSR_BTREE_DSIZE]) {
-    // emit null btrees as an rm to remove anything on-disk
-    if (lfsr_btree_isnull(btree)) {
-        *tag_ = LFSR_TAG_RMWIDESTRUCT;
-        return 0;
-    // inlined?
-    } else if (lfsr_btree_isinlined(btree)) {
-        *tag_ = lfsr_tag_setwide(btree->u.i.tag);
-        memcpy(buffer, btree->u.i.buffer, btree->u.i.size);
-        return btree->u.i.size;
-    // not inlined
-    } else {
-        *tag_ = lfsr_tag_setwide(btree_tag);
-        return lfsr_branch_todisk(lfs, &btree->u.r.rbyd, buffer);
-    }
-}
-
-// TODO not readbtree?
-// TODO wait we actually need to store the weight on-disk for btrees
-static lfs_ssize_t lfsr_btree_fromdisk(lfs_t *lfs, lfsr_btree_t *btree,
-        lfsr_tag_t btree_tag,
-        lfsr_tag_t tag, lfs_size_t weight, lfsr_data_t data) {
-    // inlined?
-    if (tag != btree_tag) {
-        // mark as inlined
-        btree->u.i.weight = lfsr_btree_setinlined(weight);
-        btree->u.i.tag = tag;
-        lfs_ssize_t size = lfsr_data_read(lfs, &data,
-                btree->u.i.buffer, LFSR_BTREE_INLINESIZE);
-        if (size < 0) {
-            return size;
-        }
-        btree->u.i.size = size;
-        return size;
-
-    // not inlined
-    } else {
-        return lfsr_data_readbranch(lfs, &data, &btree->u.r.rbyd);
-    }
 }
 
 
@@ -3730,7 +3696,7 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs,
             rid -= (rid__ - (weight__-1));
 
             // fetch the next branch
-            err = lfsr_data_readbranch(lfs, &data__, &branch);
+            err = lfsr_data_readbtree(lfs, &data__, &branch);
             if (err) {
                 return err;
             }
@@ -3855,7 +3821,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
 
         // fetch the next branch
         lfsr_rbyd_t branch_;
-        err = lfsr_data_readbranch(lfs, &data__, &branch_);
+        err = lfsr_data_readbtree(lfs, &data__, &branch_);
         if (err) {
             return err;
         }
@@ -3885,7 +3851,7 @@ static int lfsr_btree_parent(lfs_t *lfs,
 // array allocations
 #define LFSR_BTREE_SCRATCHATTRS ( \
     4 \
-    + ((2*LFSR_BRANCH_DSIZE) + sizeof(lfsr_attr_t)-1) \
+    + ((2*LFSR_BTREE_DSIZE) + sizeof(lfsr_attr_t)-1) \
         / sizeof(lfsr_attr_t))
 
 // this macro creates an attr list with enough reserved space for
@@ -3957,7 +3923,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // cannibalize some attributes in our attr list to store
         // our branch
         uint8_t *scratch_buf = (uint8_t*)&attrs[2];
-        lfs_ssize_t scratch_dsize = lfsr_branch_todisk(lfs, rbyd, scratch_buf);
+        lfs_ssize_t scratch_dsize = lfsr_btree_todisk(lfs, rbyd, scratch_buf);
         if (scratch_dsize < 0) {
             return scratch_dsize;
         }
@@ -4068,7 +4034,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // cannibalize some attributes in our attr list to store
         // our branch
         scratch_buf = (uint8_t*)&attrs[2];
-        scratch_dsize = lfsr_branch_todisk(lfs, rbyd, scratch_buf);
+        scratch_dsize = lfsr_btree_todisk(lfs, rbyd, scratch_buf);
         if (scratch_dsize < 0) {
             return scratch_dsize;
         }
@@ -4176,13 +4142,13 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // cannibalize some attributes in our attr list to store
         // our branches
         uint8_t *scratch1_buf = (uint8_t*)&attrs[4];
-        uint8_t *scratch2_buf = (uint8_t*)&attrs[4] + LFSR_BRANCH_DSIZE;
-        lfs_ssize_t scratch1_dsize = lfsr_branch_todisk(lfs, &rbyd_,
+        uint8_t *scratch2_buf = (uint8_t*)&attrs[4] + LFSR_BTREE_DSIZE;
+        lfs_ssize_t scratch1_dsize = lfsr_btree_todisk(lfs, &rbyd_,
                 scratch1_buf);
         if (scratch1_dsize < 0) {
             return scratch1_dsize;
         }
-        lfs_ssize_t scratch2_dsize = lfsr_branch_todisk(lfs, &sibling,
+        lfs_ssize_t scratch2_dsize = lfsr_btree_todisk(lfs, &sibling,
                 scratch2_buf);
         if (scratch2_dsize < 0) {
             return scratch2_dsize;
@@ -4303,7 +4269,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 continue;
             }
 
-            err = lfsr_data_readbranch(lfs, &sdata, &sibling);
+            err = lfsr_data_readbtree(lfs, &sdata, &sibling);
             if (err) {
                 return err;
             }
@@ -4423,7 +4389,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
             // cannibalize some attributes in our attr list to store
             // our branch
             uint8_t *scratch_buf = (uint8_t*)&attrs[3];
-            lfs_ssize_t scratch_dsize = lfsr_branch_todisk(lfs, &rbyd_,
+            lfs_ssize_t scratch_dsize = lfsr_btree_todisk(lfs, &rbyd_,
                     scratch_buf);
             if (scratch_dsize < 0) {
                 return scratch_dsize;
@@ -4831,7 +4797,7 @@ static int lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
             bid += rid__ - (weight__-1);
 
             // fetch the next branch
-            err = lfsr_data_readbranch(lfs, &data__, &branch);
+            err = lfsr_data_readbtree(lfs, &data__, &branch);
             if (err) {
                 return err;
             }
@@ -4963,7 +4929,7 @@ static int lfsr_btree_traversal_next(lfs_t *lfs,
             traversal->rid -= (rid__ - (weight__-1));
 
             // fetch the next branch
-            err = lfsr_data_readbranch(lfs, &data__, &traversal->branch);
+            err = lfsr_data_readbtree(lfs, &data__, &traversal->branch);
             if (err) {
                 return err;
             }
@@ -5200,6 +5166,12 @@ static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
 
 
 // mtree is the core tree of mdirs in littlefs
+
+// make sure this can fit both inlined and uninlined mtrees
+#define LFSR_MTREE_DSIZE ( \
+        LFSR_BTREE_DSIZE > LFSR_MDIR_DSIZE \
+            ? LFSR_BTREE_DSIZE \
+            : LFSR_MDIR_DSIZE)
 
 static inline bool lfsr_mtree_isinlined(lfs_t *lfs) {
     return lfsr_btree_weight(&lfs->mtree) == 0;
@@ -5926,12 +5898,22 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // commit mtree
         lfsr_tag_t mtree_tag;
-        uint8_t mtree_buf[LFSR_BTREE_DSIZE];
-        lfs_ssize_t mtree_dsize = lfsr_btree_todisk(lfs,
-                &mtree_, LFSR_TAG_MTREE,
-                &mtree_tag, mtree_buf);
-        if (mtree_dsize < 0) {
-            return mtree_dsize;
+        uint8_t mtree_buf[LFSR_MTREE_DSIZE];
+        lfs_ssize_t mtree_dsize;
+        if (lfsr_btree_isnull(&mtree_)) {
+            mtree_tag = LFSR_TAG_RMWIDESTRUCT;
+            mtree_dsize = 0;
+        } else if (lfsr_btree_isinlined(&mtree_)) {
+            LFS_ASSERT(mtree_.u.i.tag == LFSR_TAG_MDIR);
+            mtree_tag = LFSR_TAG_WIDEMDIR;
+            memcpy(mtree_buf, mtree_.u.i.buffer, mtree_.u.i.size);
+            mtree_dsize = mtree_.u.i.size;
+        }  else {
+            mtree_tag = LFSR_TAG_WIDEMTREE;
+            mtree_dsize = lfsr_btree_todisk(lfs, &mtree_.u.r.rbyd, mtree_buf);
+            if (mtree_dsize < 0) {
+                return mtree_dsize;
+            }
         }
 
         err = lfsr_mdir_commit_(lfs, &mroot_, -1, 0, NULL, LFSR_ATTRS(
@@ -6452,21 +6434,22 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             lfs->mroot = traversal->mdir;
 
             // do we have an mtree? mdir?
-            if (err != LFS_ERR_NOENT) {
-                if (tag != LFSR_TAG_MDIR && tag != LFSR_TAG_MTREE) {
-                    LFS_ERROR("Weird mstruct? (0x%"PRIx32")", tag);
-                    return LFS_ERR_CORRUPT;
-                }
-
-                lfs_ssize_t d = lfsr_btree_fromdisk(lfs, &lfs->mtree,
-                        LFSR_TAG_MTREE, tag, 1, data);
-                if (d < 0) {
-                    return d;
-                }
-
-            // no mtree
-            } else {
+            if (err == LFS_ERR_NOENT) {
                 lfs->mtree = LFSR_BTREE_NULL;
+            } else if (tag == LFSR_TAG_MDIR) {
+                err = lfsr_btree_inline(lfs, &lfs->mtree,
+                        LFSR_TAG_MDIR, 1, data);
+                if (err) {
+                    return err;
+                }
+            } else if (tag == LFSR_TAG_MTREE) {
+                err = lfsr_data_readbtree(lfs, &data, &lfs->mtree.u.r.rbyd);
+                if (err) {
+                    return err;
+                }
+            } else {
+                LFS_ERROR("Weird mstruct? (0x%"PRIx32")", tag);
+                return LFS_ERR_CORRUPT;
             }
 
             // initialize our mtree traversal
