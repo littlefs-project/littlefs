@@ -908,6 +908,115 @@ static inline void lfsr_tag_trim2(
             lower_tag, upper_tag);
 }
 
+// support for encoding/decoding tags on disk
+
+// each piece of metadata in an rbyd tree is prefixed with a 4-piece tag:
+//
+// - 8-bit suptype     => 1 byte
+// - 8-bit subtype     => 1 byte
+// - 32-bit rid/weight => 5 byte leb128 (worst case)
+// - 32-bit size/jump  => 5 byte leb128 (worst case)
+//                     => 12 bytes total
+//
+#define LFSR_TAG_DSIZE (2+5+5)
+
+static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
+        lfs_block_t block, lfs_off_t off, lfs_size_t hint,
+        lfsr_tag_t *tag_, lfs_size_t *weight_, lfs_size_t *size_,
+        uint32_t *cksum_) {
+    // read the largest possible tag size
+    uint8_t tag_buf[LFSR_TAG_DSIZE];
+    lfs_size_t tag_dsize = lfs_min32(LFSR_TAG_DSIZE, lfs->cfg->block_size-off);
+    int err = lfsr_bd_read(lfs, block, off, hint, &tag_buf, tag_dsize);
+    if (err) {
+        return err;
+    }
+
+    if (tag_dsize < 2) {
+        return LFS_ERR_CORRUPT;
+    }
+    uint16_t tag
+            = ((lfsr_tag_t)tag_buf[0] << 8)
+            | ((lfsr_tag_t)tag_buf[1] << 0);
+    ssize_t d = 2;
+
+    if (cksum_) {
+        // on-disk, the tags valid bit must reflect the parity of the
+        // preceding data, fortunately for crc32c, this is the same as the
+        // parity of the crc
+        //
+        // note we need to do this before leb128 decoding as we may not have
+        // valid leb128 if we're erased, but we shouldn't treat a truncated
+        // leb128 here as corruption
+        if ((tag >> 15) != (lfs_popc(*cksum_) & 1)) {
+            return LFS_ERR_INVAL;
+        }
+    }
+
+    lfs_ssize_t weight;
+    lfs_ssize_t d_ = lfs_fromleb128(&weight, &tag_buf[d], tag_dsize-d);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
+
+    lfs_ssize_t size;
+    d_ = lfs_fromleb128(&size, &tag_buf[d], tag_dsize-d);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
+
+    // optional checksum
+    if (cksum_) {
+        *cksum_ = lfs_crc32c(*cksum_, tag_buf, d);
+    }
+
+    // save what we found, clearing the valid bit from the tag, note we
+    // checked this earlier
+    *tag_ = tag & 0x7fff;
+    *weight_ = weight;
+    *size_ = size;
+    return d;
+}
+
+static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
+        lfs_block_t block, lfs_off_t off,
+        lfsr_tag_t tag, lfs_size_t weight, lfs_size_t size,
+        uint32_t *cksum_) {
+    // check for underflow issues
+    LFS_ASSERT(weight < 0x80000000);
+    LFS_ASSERT(size < 0x80000000);
+
+    // make sure to include the parity of the current crc
+    tag |= (lfs_popc(*cksum_) & 1) << 15;
+
+    // encode into a be16 and pair of leb128s
+    uint8_t tag_buf[LFSR_TAG_DSIZE];
+    tag_buf[0] = (uint8_t)(tag >> 8);
+    tag_buf[1] = (uint8_t)(tag >> 0);
+
+    lfs_size_t d = 2;
+    ssize_t d_ = lfs_toleb128(weight, &tag_buf[d], 5);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
+
+    d_ = lfs_toleb128(size, &tag_buf[d], 5);
+    if (d_ < 0) {
+        return d_;
+    }
+    d += d_;
+
+    int err = lfsr_bd_prog(lfs, block, off, &tag_buf, d, cksum_);
+    if (err) {
+        return err;
+    }
+
+    return d;
+}
+
 
 /// lfsr_data_t stuff ///
 
@@ -1197,119 +1306,6 @@ static int lfsr_bd_progdata(lfs_t *lfs,
     }
 
     return 0;
-}
-
-
-// support for encoding/decoding tags on disk
-
-// each piece of metadata in an rbyd tree is prefixed with a 4-piece tag:
-//
-// - 8-bit suptype     => 1 byte
-// - 8-bit subtype     => 1 byte
-// - 32-bit rid/weight => 5 byte leb128 (worst case)
-// - 32-bit size/jump  => 5 byte leb128 (worst case)
-//                     => 12 bytes total
-//
-#define LFSR_TAG_DSIZE (2+5+5)
-
-static int lfsr_data_readtag(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_tag_t *tag_, lfs_size_t *weight_, lfs_size_t *size_,
-        uint32_t *cksum_) {
-    // note we make sure not to update our data offset until after decoding
-    lfsr_data_t data_ = *data;
-
-    // read the largest possible tag size
-    uint8_t tag_buf[LFSR_TAG_DSIZE];
-    lfs_ssize_t tag_dsize = lfsr_data_read(lfs, &data_,
-            tag_buf, LFSR_TAG_DSIZE);
-    if (tag_dsize < 0) {
-        return tag_dsize;
-    }
-
-    if (tag_dsize < 2) {
-        return LFS_ERR_CORRUPT;
-    }
-    uint16_t tag
-            = ((lfsr_tag_t)tag_buf[0] << 8)
-            | ((lfsr_tag_t)tag_buf[1] << 0);
-    ssize_t d = 2;
-
-    if (cksum_) {
-        // on-disk, the tags valid bit must reflect the parity of the
-        // preceding data, fortunately for crc32c, this is the same as the
-        // parity of the crc
-        //
-        // note we need to do this before leb128 decoding as we may not have
-        // valid leb128 if we're erased, but we shouldn't treat a truncated
-        // leb128 here as corruption
-        if ((tag >> 15) != (lfs_popc(*cksum_) & 1)) {
-            return LFS_ERR_INVAL;
-        }
-    }
-
-    lfs_ssize_t weight;
-    lfs_ssize_t d_ = lfs_fromleb128(&weight, &tag_buf[d], tag_dsize-d);
-    if (d_ < 0) {
-        return d_;
-    }
-    d += d_;
-
-    lfs_ssize_t size;
-    d_ = lfs_fromleb128(&size, &tag_buf[d], tag_dsize-d);
-    if (d_ < 0) {
-        return d_;
-    }
-    d += d_;
-
-    // optional checksum
-    if (cksum_) {
-        *cksum_ = lfs_crc32c(*cksum_, tag_buf, d);
-    }
-
-    // save what we found, clearing the valid bit from the tag, note we
-    // checked this earlier
-    lfsr_data_add(data, d);
-    *tag_ = tag & 0x7fff;
-    *weight_ = weight;
-    *size_ = size;
-    return 0;
-}
-
-static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
-        lfs_block_t block, lfs_off_t off,
-        lfsr_tag_t tag, lfs_size_t weight, lfs_size_t size,
-        uint32_t *cksum_) {
-    // check for underflow issues
-    LFS_ASSERT(weight < 0x80000000);
-    LFS_ASSERT(size < 0x80000000);
-
-    // make sure to include the parity of the current crc
-    tag |= (lfs_popc(*cksum_) & 1) << 15;
-
-    // encode into a be16 and pair of leb128s
-    uint8_t tag_buf[LFSR_TAG_DSIZE];
-    tag_buf[0] = (uint8_t)(tag >> 8);
-    tag_buf[1] = (uint8_t)(tag >> 0);
-
-    lfs_size_t d = 2;
-    ssize_t d_ = lfs_toleb128(weight, &tag_buf[d], 5);
-    if (d_ < 0) {
-        return d_;
-    }
-    d += d_;
-
-    d_ = lfs_toleb128(size, &tag_buf[d], 5);
-    if (d_ < 0) {
-        return d_;
-    }
-    d += d_;
-
-    int err = lfsr_bd_prog(lfs, block, off, &tag_buf, d, cksum_);
-    if (err) {
-        return err;
-    }
-
-    return d;
 }
 
 
@@ -1838,8 +1834,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->trunk = 0;
 
     // temporary state until we validate a cksum
-    lfsr_data_t data = LFSR_DATA_DISK(block, sizeof(uint32_t),
-            lfs->cfg->block_size - sizeof(uint32_t));
+    lfs_off_t off = sizeof(uint32_t);
     lfs_off_t trunk_ = 0;
     bool wastrunk = false;
     lfs_size_t weight = 0;
@@ -1851,32 +1846,31 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     bool maybeerased = false;
 
     // scan tags, checking valid bits, cksums, etc
-    while (lfsr_data_size(&data) > 0 && (!trunk || rbyd->eoff <= trunk)) {
+    while (off < lfs->cfg->block_size && (!trunk || rbyd->eoff <= trunk)) {
         lfsr_tag_t tag;
         lfs_size_t weight__;
         lfs_size_t size;
-        lfsr_data_t data_ = data;
-        err = lfsr_data_readtag(lfs, &data_,
+        lfs_ssize_t d = lfsr_bd_readtag(lfs,
+                block, off, lfs->cfg->block_size,
                 &tag, &weight__, &size, &cksum);
-        if (err) {
-            if (err == LFS_ERR_INVAL || err == LFS_ERR_CORRUPT) {
-                maybeerased = maybeerased && err == LFS_ERR_INVAL;
+        if (d < 0) {
+            if (d == LFS_ERR_INVAL || d == LFS_ERR_CORRUPT) {
+                maybeerased = maybeerased && d == LFS_ERR_INVAL;
                 break;
             }
-            return err;
+            return d;
         }
+        lfs_off_t off_ = off + d;
 
         // tag goes out of range?
-        if (!lfsr_tag_isalt(tag)
-                && data_.u.d.off + size > lfs->cfg->block_size) {
+        if (!lfsr_tag_isalt(tag) && off_ + size > lfs->cfg->block_size) {
             break;
         }
 
         // not an end-of-commit cksum
         if (!lfsr_tag_isalt(tag) && lfsr_tag_suptype(tag) != LFSR_TAG_CKSUM) {
             // cksum the entry, hopefully leaving it in the cache
-            err = lfsr_bd_cksum(lfs,
-                    block, data_.u.d.off, lfs->cfg->block_size, size,
+            err = lfsr_bd_cksum(lfs, block, off_, lfs->cfg->block_size, size,
                     &cksum);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -1887,8 +1881,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
             // found an ecksum? save for later
             if (tag == LFSR_TAG_ECKSUM) {
-                lfsr_data_t ecksum_data = data_;
-                err = lfsr_data_readecksum(lfs, &ecksum_data, &ecksum);
+                err = lfsr_data_readecksum(lfs,
+                        &LFSR_DATA_DISK(block, off_,
+                            lfs->cfg->block_size - off_),
+                        &ecksum);
                 if (err && err != LFS_ERR_CORRUPT) {
                     return err;
                 }
@@ -1901,14 +1897,15 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // is an end-of-commit cksum
         } else if (!lfsr_tag_isalt(tag)) {
             uint32_t cksum_ = 0;
-            lfsr_data_t cksum_data = data_;
-            err = lfsr_data_readle32(lfs, &cksum_data, &cksum_);
+            err = lfsr_bd_read(lfs, block, off_, lfs->cfg->block_size,
+                    &cksum_, sizeof(uint32_t));
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     break;
                 }
                 return err;
             }
+            cksum_ = lfs_fromle32_(&cksum_);
 
             if (cksum != cksum_) {
                 // uh oh, cksums don't match
@@ -1926,20 +1923,19 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             hasecksum = false;
 
             // save what we've found so far
-            rbyd->eoff = data_.u.d.off + size;
+            rbyd->eoff = off_ + size;
             rbyd->cksum = cksum;
             rbyd->trunk = trunk_;
             rbyd->weight = weight;
         }
 
         // found a trunk of a tree?
-        if (lfsr_tag_istrunk(tag)
-                && (!trunk || trunk >= data.u.d.off || wastrunk)) {
+        if (lfsr_tag_istrunk(tag) && (!trunk || trunk >= off || wastrunk)) {
             // start of trunk?
             if (!wastrunk) {
                 wastrunk = true;
                 // save trunk entry point
-                trunk_ = data.u.d.off;
+                trunk_ = off;
                 // reset weight
                 weight_ = 0;
             }
@@ -1962,10 +1958,10 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
         // skip data
         if (!lfsr_tag_isalt(tag)) {
-            lfsr_data_add(&data_, size);
+            off_ += size;
         }
 
-        data = data_;
+        off = off_;
     }
 
     // no valid commits?
@@ -2025,12 +2021,11 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_tag_t alt;
         lfs_size_t weight;
         lfs_off_t jump;
-        lfsr_data_t data = LFSR_DATA_DISK(rbyd->block, branch,
-                lfs_min32(LFSR_TAG_DSIZE, lfs->cfg->block_size-branch));
-        int err = lfsr_data_readtag(lfs, &data,
+        lfs_ssize_t d = lfsr_bd_readtag(lfs,
+                rbyd->block, branch, 0,
                 &alt, &weight, &jump, NULL);
-        if (err) {
-            return err;
+        if (d < 0) {
+            return d;
         }
 
         // found an alt?
@@ -2041,7 +2036,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 branch = branch - jump;
             } else {
                 lfsr_tag_trim(alt, weight, &lower, &upper, NULL, NULL);
-                branch = data.u.d.off;
+                branch = branch + d;
             }
 
         // found end of tree?
@@ -2070,7 +2065,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 *weight_ = rid__ - lower;
             }
             if (data_) {
-                *data_ = LFSR_DATA_DISK(rbyd->block, data.u.d.off, jump);
+                *data_ = LFSR_DATA_DISK(rbyd->block, branch + d, jump);
             }
             return 0;
         }
@@ -2390,11 +2385,11 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t alt;
         lfs_size_t weight;
         lfs_off_t jump;
-        lfsr_data_t data = LFSR_DATA_DISK(rbyd->block, branch,
-                lfs_min32(LFSR_TAG_DSIZE, lfs->cfg->block_size-branch));
-        err = lfsr_data_readtag(lfs, &data,
+        lfs_ssize_t d = lfsr_bd_readtag(lfs,
+                rbyd->block, branch, 0,
                 &alt, &weight, &jump, NULL);
-        if (err) {
+        if (d < 0) {
+            err = d;
             goto failed;
         }
 
@@ -2402,7 +2397,7 @@ static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         if (lfsr_tag_isalt(alt)) {
             // make jump absolute
             jump = branch - jump;
-            lfs_off_t branch_ = data.u.d.off;
+            lfs_off_t branch_ = branch + d;
 
             // do bounds want to take different paths? begin cutting
             if (!lfsr_tag_hasdiverged(tag_)
@@ -2956,28 +2951,31 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         layer_trunks = 0;
         layer_weight = 0;
 
-        lfsr_data_t data = LFSR_DATA_DISK(rbyd->block,
-                layer_off, rbyd->eoff - layer_off);
+        lfs_off_t off = layer_off;
+        lfs_off_t layer_off_ = rbyd->eoff;
         layer_off = rbyd->eoff;
-        while (lfsr_data_size(&data) > 0) {
+        while (off < layer_off_) {
             // connect two trunks together with a new binary trunk
-            for (int i = 0; i < 2 && lfsr_data_size(&data) > 0; i++) {
-                lfs_off_t trunk_off = data.u.d.off;
+            for (int i = 0; i < 2 && off < layer_off_; i++) {
+                lfs_off_t trunk_off = off;
                 lfsr_tag_t trunk_tag = 0;
                 lfs_size_t trunk_weight = 0;
                 while (true) {
                     lfsr_tag_t tag;
                     lfs_size_t weight;
                     lfs_size_t size;
-                    err = lfsr_data_readtag(lfs, &data,
+                    lfs_ssize_t d = lfsr_bd_readtag(lfs,
+                            rbyd->block, off, layer_off_ - off,
                             &tag, &weight, &size, NULL);
-                    if (err) {
+                    if (d < 0) {
+                        err = d;
                         goto failed;
                     }
+                    off += d;
 
                     // skip any data
                     if (!lfsr_tag_isalt(tag)) {
-                        lfsr_data_add(&data, size);
+                        off += size;
                     }
 
                     // keep track of trunk/layer weight, and the last non-null
