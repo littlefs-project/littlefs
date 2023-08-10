@@ -3476,7 +3476,7 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
             VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
@@ -3601,7 +3601,7 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
             VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
@@ -3737,7 +3737,7 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
             VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
@@ -3865,7 +3865,7 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
             VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
@@ -4002,7 +4002,7 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
             VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
@@ -4166,7 +4166,7 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
             VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
 
     for (lfs_block_t i = 0;; i++) {
@@ -4273,7 +4273,7 @@ code = '''
             LFSR_ATTR(-1, MROOT, 0, BUF(buffer, d)))) => 0;
 
     // technically, cycle detection only needs to work when we're validating
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
             LFSR_MTREE_TRAVERSAL_VALIDATE);
 
     for (lfs_block_t i = 0;; i++) {

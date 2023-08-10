@@ -3852,7 +3852,7 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_btree_traversal_t traversal = LFSR_BTREE_TRAVERSAL_INIT;
+    lfsr_btree_traversal_t traversal = LFSR_BTREE_TRAVERSAL;
 
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -4000,7 +4000,7 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_btree_traversal_t traversal = LFSR_BTREE_TRAVERSAL_INIT;
+    lfsr_btree_traversal_t traversal = LFSR_BTREE_TRAVERSAL;
 
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops

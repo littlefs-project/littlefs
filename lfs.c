@@ -4824,12 +4824,12 @@ typedef struct lfsr_btree_traversal {
     lfsr_rbyd_t branch;
 } lfsr_btree_traversal_t;
 
-#define LFSR_BTREE_TRAVERSAL_INIT ((lfsr_btree_traversal_t){ \
-        .bid = 0, \
-        .rid = 0, \
-        .branch.trunk = 0, \
-        .branch.weight = 0, \
-    })
+#define LFSR_BTREE_TRAVERSAL \
+    ((lfsr_btree_traversal_t){ \
+        .bid=0, \
+        .rid=0, \
+        .branch.trunk=0, \
+        .branch.weight=0})
 
 static int lfsr_btree_traversal_next(lfs_t *lfs,
         const lfsr_btree_t *btree,
@@ -6335,34 +6335,42 @@ next:;
 // incremental mtree traversal
 typedef struct lfsr_mtree_traversal {
     // core traversal state
-    lfsr_mdir_t mdir;
-    lfsr_btree_traversal_t mtraversal;
     uint8_t flags;
-
-    // cycle detection state
-    uint8_t tortoise_power;
-    lfs_size_t tortoise_step;
-    lfs_block_t tortoise_blocks[2];
+    lfsr_mdir_t mdir;
+    union {
+        struct {
+            // cycle detection state, only valid when mdir.mid.bid == -1
+            struct {
+                lfs_block_t blocks[2];
+                lfs_size_t step;
+                uint8_t power;
+            } tortoise;
+        } m;
+        struct {
+            // btree traversal state, only valid when mdir.mid.bid != -1
+            lfsr_btree_traversal_t traversal;
+        } b;
+    } u;
 } lfsr_mtree_traversal_t;
 
 enum {
     LFSR_MTREE_TRAVERSAL_VALIDATE = 0x1,
 };
 
-#define LFSR_MTREE_TRAVERSAL_INIT(_flags) ((lfsr_mtree_traversal_t){ \
-        .flags = _flags, \
-        .mdir.u.r.rbyd.trunk = 0, \
-        .mtraversal = LFSR_BTREE_TRAVERSAL_INIT, \
-        .tortoise_power = 0, \
-        .tortoise_step = 0, \
-    })
+#define LFSR_MTREE_TRAVERSAL(_flags) \
+    ((lfsr_mtree_traversal_t){ \
+        .flags=_flags, \
+        .mdir.u.r.rbyd.trunk=0, \
+        .u.m.tortoise.blocks={0, 0}, \
+        .u.m.tortoise.step=0, \
+        .u.m.tortoise.power=0})
 
 static int lfsr_mtree_traversal_next(lfs_t *lfs,
         lfsr_mtree_traversal_t *traversal,
         lfsr_mid_t *mid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     // new traversal? start with 0x{0,1}
     //
-    // note we make sure to include fake mroots!
+    // note we make sure to include all mroots in our mroot chain!
     //
     if (traversal->mdir.u.r.rbyd.trunk == 0) {
         // fetch the first mroot 0x{0,1}
@@ -6381,7 +6389,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         if (data_) {
             *data_ = LFSR_DATA(&traversal->mdir, sizeof(lfsr_mdir_t));
         }
-        goto cycle_detect;
+        return 0;
 
     // check for mroot/mtree/mdir
     } else if (traversal->mdir.mid.bid == -1) {
@@ -6402,6 +6410,33 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
                 return err;
             }
 
+            // detect cycles with Brent's algorithm
+            //
+            // note we only check for cycles in the mroot chain, the btree
+            // inner nodes require checksums of their pointers, so creating
+            // a valid cycle is actually quite difficult
+            //
+            if (lfsr_mdir_cmp(
+                    traversal->mdir.u.m.blocks,
+                    traversal->u.m.tortoise.blocks) == 0) {
+                LFS_ERROR("Cycle detected during mtree traversal "
+                        "(0x{%"PRIx32",%"PRIx32"})",
+                        traversal->mdir.u.m.blocks[0],
+                        traversal->mdir.u.m.blocks[1]);
+                return LFS_ERR_CORRUPT;
+            }
+            if (traversal->u.m.tortoise.step
+                    == ((lfs_size_t)1 << traversal->u.m.tortoise.power)) {
+                traversal->u.m.tortoise.blocks[0]
+                        = traversal->mdir.u.m.blocks[0];
+                traversal->u.m.tortoise.blocks[1]
+                        = traversal->mdir.u.m.blocks[1];
+                traversal->u.m.tortoise.step = 0;
+                traversal->u.m.tortoise.power += 1;
+            }
+            traversal->u.m.tortoise.step += 1;
+
+            // fetch this mroot
             err = lfsr_mdir_fetch(lfs, &traversal->mdir,
                     traversal->mdir.u.m.blocks, LFSR_MID(-1, -1));
             if (err) {
@@ -6417,7 +6452,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             if (data_) {
                 *data_ = LFSR_DATA(&traversal->mdir, sizeof(lfsr_mdir_t));
             }
-            goto cycle_detect;
+            return 0;
 
         // no more mroots, which makes this our real mroot
         } else {
@@ -6444,7 +6479,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             }
 
             // initialize our mtree traversal
-            traversal->mtraversal = LFSR_BTREE_TRAVERSAL_INIT;
+            traversal->u.b.traversal = LFSR_BTREE_TRAVERSAL;
         }
     }
 
@@ -6453,7 +6488,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
     lfsr_tag_t tag;
     lfsr_data_t data;
     int err = lfsr_btree_traversal_next(
-            lfs, &lfs->mtree, &traversal->mtraversal,
+            lfs, &lfs->mtree, &traversal->u.b.traversal,
             &bid, &tag, NULL, &data);
     if (err) {
         return err;
@@ -6536,38 +6571,12 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         if (data_) {
             *data_ = LFSR_DATA(&traversal->mdir, sizeof(lfsr_mdir_t));
         }
-        goto cycle_detect;
+        return 0;
 
     } else {
         LFS_ERROR("Weird mtree entry? (0x%"PRIx32")", tag);
         return LFS_ERR_CORRUPT;
     }
-
-cycle_detect:;
-    // detect cycles with Brent's algorithm
-    //
-    // note we only consider mdirs here, the btree inner nodes
-    // require checksums of their pointers, so creating a valid
-    // cycle is actually quite difficult
-    //
-    if (lfsr_mdir_cmp(
-            traversal->mdir.u.m.blocks,
-            traversal->tortoise_blocks) == 0) {
-        LFS_ERROR("Cycle detected during mtree traversal "
-                "(0x{%"PRIx32",%"PRIx32"})",
-                traversal->mdir.u.m.blocks[0], traversal->mdir.u.m.blocks[1]);
-        return LFS_ERR_CORRUPT;
-    }
-    if (traversal->tortoise_step
-            == ((lfs_size_t)1 << traversal->tortoise_power)) {
-        traversal->tortoise_blocks[0] = traversal->mdir.u.m.blocks[0];
-        traversal->tortoise_blocks[1] = traversal->mdir.u.m.blocks[1];
-        traversal->tortoise_step = 0;
-        traversal->tortoise_power += 1;
-    }
-    traversal->tortoise_step += 1;
-
-    return 0;
 }
 
 
@@ -6675,7 +6684,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // we do validate btree inner nodes here, how can we trust our
     // mdirs are valid if we haven't checked the btree inner nodes at
     // least once?
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(
+    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
             LFSR_MTREE_TRAVERSAL_VALIDATE);
     while (true) {
         lfsr_tag_t tag;
@@ -7126,7 +7135,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
         // traverse the filesystem, building up knowledge of what blocks are
         // in use in our lookahead window
-        lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL_INIT(0);
+        lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(0);
         while (true) {
             lfsr_tag_t tag;
             lfsr_data_t data;
