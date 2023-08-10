@@ -2754,6 +2754,153 @@ failed:;
     return err;
 }
 
+static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
+    // must fetch before mutating!
+    LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
+
+    // we can't do anything if we're not erased
+    int err;
+    if (rbyd->eoff >= lfs->cfg->block_size) {
+        err = LFS_ERR_RANGE;
+        goto failed;
+    }
+
+    // make sure every rbyd starts with its revision count
+    if (rbyd->eoff == 0) {
+        err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
+        if (err) {
+            goto failed;
+        }
+    }
+
+    // align to the next prog unit
+    //
+    // this gets a bit complicated as we have two types of cksums:
+    //
+    // - 9-word cksum with ecksum to check following prog (middle of block)
+    //   - ecksum tag type => 2 byte le16
+    //   - ecksum tag rid  => 1 byte leb128
+    //   - ecksum tag size => 1 byte leb128 (worst case)
+    //   - ecksum crc32c   => 4 byte le32
+    //   - ecksum size     => 5 byte leb128 (worst case)
+    //   - cksum tag type  => 2 byte le16
+    //   - cksum tag rid   => 1 byte leb128
+    //   - cksum tag size  => 5 byte leb128 (worst case)
+    //   - cksum crc32c    => 4 byte le32
+    //                     => 25 bytes total
+    //
+    // - 4-word cksum with no following prog (end of block)
+    //   - cksum tag type => 2 byte le16
+    //   - cksum tag rid  => 1 byte leb128
+    //   - cksum tag size => 5 byte leb128 (worst case)
+    //   - cksum crc32c   => 4 byte le32
+    //                    => 12 bytes total
+    //
+    lfs_off_t aligned_eoff = lfs_alignup(
+            rbyd->eoff + 2+1+1+4+5 + 2+1+5+4,
+            lfs->cfg->prog_size);
+
+    // space for ecksum?
+    uint8_t perturb = 0;
+    if (aligned_eoff < lfs->cfg->block_size) {
+        // read the leading byte in case we need to change the expected
+        // value of the next tag's valid bit
+        int err = lfsr_bd_read(lfs,
+                rbyd->block, aligned_eoff, lfs->cfg->prog_size,
+                &perturb, 1);
+        if (err && err != LFS_ERR_CORRUPT) {
+            goto failed;
+        }
+
+        // find the expected ecksum, don't bother avoiding a reread of the
+        // perturb byte, as it should still be in our cache
+        lfsr_ecksum_t ecksum = {.cksum=0, .size=lfs->cfg->prog_size};
+        err = lfsr_bd_cksum(lfs, rbyd->block, aligned_eoff, lfs->cfg->prog_size,
+                lfs->cfg->prog_size,
+                &ecksum.cksum);
+        if (err && err != LFS_ERR_CORRUPT) {
+            goto failed;
+        }
+
+        uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
+        lfs_size_t ecksum_dsize = lfsr_ecksum_todisk(lfs, &ecksum, ecksum_buf);
+        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
+                LFSR_TAG_ECKSUM, 0, ecksum_dsize,
+                &rbyd->cksum);
+        if (d < 0) {
+            err = d;
+            goto failed;
+        }
+        rbyd->eoff += d;
+
+        err = lfsr_bd_prog(lfs, rbyd->block, rbyd->eoff,
+                ecksum_buf, ecksum_dsize, &rbyd->cksum);
+        if (err) {
+            goto failed;
+        }
+        rbyd->eoff += ecksum_dsize;
+
+    // at least space for a cksum?
+    } else if (rbyd->eoff + 2+1+5+4 <= lfs->cfg->block_size) {
+        // note this implicitly marks the rbyd as unerased
+        aligned_eoff = lfs->cfg->block_size;
+
+    // not even space for a cksum? we can't finish the commit
+    } else {
+        err = LFS_ERR_RANGE;
+        goto failed;
+    }
+
+    // build end-of-commit cksum
+    //
+    // note padding-size depends on leb-encoding depends on padding-size, to
+    // get around this catch-22 we just always write a fully-expanded leb128
+    // encoding
+    uint8_t cksum_buf[2+1+5+4];
+    cksum_buf[0] = (LFSR_TAG_CKSUM >> 8) | ((lfs_popc(rbyd->cksum) & 1) << 7);
+    cksum_buf[1] = 0;
+    cksum_buf[2] = 0;
+
+    lfs_off_t padding = aligned_eoff - (rbyd->eoff + 2+1+5);
+    cksum_buf[3] = 0x80 | (0x7f & (padding >>  0));
+    cksum_buf[4] = 0x80 | (0x7f & (padding >>  7));
+    cksum_buf[5] = 0x80 | (0x7f & (padding >> 14));
+    cksum_buf[6] = 0x80 | (0x7f & (padding >> 21));
+    cksum_buf[7] = 0x00 | (0x7f & (padding >> 28));
+
+    rbyd->cksum = lfs_crc32c(rbyd->cksum, cksum_buf, 2+1+5);
+    // we can't let the next tag appear as valid, so intentionally perturb the
+    // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
+    // so we can really change any bit to make this happen, we've reserved a bit
+    // in cksum tags just for this purpose
+    if ((lfs_popc(rbyd->cksum) & 1) == (perturb >> 7)) {
+        cksum_buf[1] ^= 0x01;
+        rbyd->cksum ^= 0x68032cc8; // note crc(a ^ b) == crc(a) ^ crc(b)
+    }
+    lfs_tole32_(rbyd->cksum, &cksum_buf[2+1+5]);
+
+    err = lfsr_bd_prog(lfs, rbyd->block, rbyd->eoff, cksum_buf, 2+1+5+4, NULL);
+    if (err) {
+        goto failed;
+    }
+    rbyd->eoff += 2+1+5+4;
+
+    // flush our caches, finalizing the commit on-disk
+    err = lfsr_bd_sync(lfs);
+    if (err) {
+        goto failed;
+    }
+
+    rbyd->eoff = aligned_eoff;
+    return 0;
+
+failed:;
+    // if we fail mark the rbyd as unerased and release the pcache
+    lfs_cache_zero(lfs, &lfs->pcache);
+    rbyd->eoff = -1;
+    return err;
+}
+
 static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_ssize_t start_rid, lfs_ssize_t end_rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
@@ -2869,6 +3016,35 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     }
 
     return 0;
+}
+
+// note lfsr_rbyd_commit guarantees no state change in case of error
+static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+    // create a copy of our rbyd so we have a fallback in case of error
+    lfsr_rbyd_t rbyd_ = *rbyd;
+
+    // append each tag to the tree
+    int err = lfsr_rbyd_appendall(lfs, &rbyd_, -1, -1,
+            attrs, attr_count);
+    if (err) {
+        goto failed;
+    }
+
+    // append a cksum, finalizing the commit
+    err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
+    if (err) {
+        goto failed;
+    }
+
+    // success? update our rbyd state
+    *rbyd = rbyd_;
+    return 0;
+
+failed:;
+    // if we fail we still need to mark the rbyd as erased
+    rbyd->eoff = -1;
+    return err;
 }
 
 
@@ -3069,185 +3245,6 @@ failed:;
         }
     }
 #endif
-}
-
-static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // must fetch before mutating!
-    LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
-
-    // we can't do anything if we're not erased
-    int err;
-    if (rbyd->eoff >= lfs->cfg->block_size) {
-        err = LFS_ERR_RANGE;
-        goto failed;
-    }
-
-    // setup commit state, use a separate rbyd so we have a fallback in
-    // case of error
-    lfsr_rbyd_t rbyd_ = *rbyd;
-
-    // make sure every rbyd starts with its revision count
-    if (rbyd_.eoff == 0) {
-        err = lfsr_rbyd_appendrev(lfs, &rbyd_, 0);
-        if (err) {
-            goto failed;
-        }
-    }
-
-    // append each tag to the tree
-    err = lfsr_rbyd_appendall(lfs, &rbyd_, -1, -1,
-            attrs, attr_count);
-    if (err) {
-        goto failed;
-    }
-
-    // align to the next prog unit
-    //
-    // this gets a bit complicated as we have two types of cksums:
-    //
-    // - 9-word cksum with ecksum to check following prog (middle of block)
-    //   - ecksum tag type => 2 byte le16
-    //   - ecksum tag rid  => 1 byte leb128
-    //   - ecksum tag size => 1 byte leb128 (worst case)
-    //   - ecksum crc32c   => 4 byte le32
-    //   - ecksum size     => 5 byte leb128 (worst case)
-    //   - cksum tag type  => 2 byte le16
-    //   - cksum tag rid   => 1 byte leb128
-    //   - cksum tag size  => 5 byte leb128 (worst case)
-    //   - cksum crc32c    => 4 byte le32
-    //                     => 25 bytes total
-    //
-    // - 4-word cksum with no following prog (end of block)
-    //   - cksum tag type => 2 byte le16
-    //   - cksum tag rid  => 1 byte leb128
-    //   - cksum tag size => 5 byte leb128 (worst case)
-    //   - cksum crc32c   => 4 byte le32
-    //                    => 12 bytes total
-    //
-    lfs_off_t aligned = lfs_alignup(
-            rbyd_.eoff + 2+1+1+4+5 + 2+1+5+4,
-            lfs->cfg->prog_size);
-
-    // space for ecksum?
-    uint8_t perturb = 0;
-    if (aligned < lfs->cfg->block_size) {
-        // read the leading byte in case we need to change the expected
-        // value of the next tag's valid bit
-        int err = lfsr_bd_read(lfs, rbyd_.block, aligned, lfs->cfg->prog_size,
-                &perturb, 1);
-        if (err && err != LFS_ERR_CORRUPT) {
-            rbyd->eoff = -1;
-            return err;
-        }
-
-        // find the expected ecksum, don't bother avoiding a reread of the
-        // perturb byte, as it should still be in our cache
-        lfsr_ecksum_t ecksum = {.cksum=0, .size=lfs->cfg->prog_size};
-        err = lfsr_bd_cksum(lfs, rbyd_.block, aligned, lfs->cfg->prog_size,
-                lfs->cfg->prog_size,
-                &ecksum.cksum);
-        if (err && err != LFS_ERR_CORRUPT) {
-            goto failed;
-        }
-
-        uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
-        lfs_size_t ecksum_dsize = lfsr_ecksum_todisk(lfs, &ecksum, ecksum_buf);
-        lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd_.block, rbyd_.eoff,
-                LFSR_TAG_ECKSUM, 0, ecksum_dsize,
-                &rbyd_.cksum);
-        if (d < 0) {
-            err = d;
-            goto failed;
-        }
-        rbyd_.eoff += d;
-
-        err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.eoff,
-                ecksum_buf, ecksum_dsize, &rbyd_.cksum);
-        if (err) {
-            goto failed;
-        }
-        rbyd_.eoff += ecksum_dsize;
-
-    // at least space for a cksum?
-    } else if (rbyd_.eoff + 2+1+5+4 <= lfs->cfg->block_size) {
-        // note this implicitly marks the rbyd as unerased
-        aligned = lfs->cfg->block_size;
-
-    // not even space for a cksum? we can't finish the commit
-    } else {
-        err = LFS_ERR_RANGE;
-        goto failed;
-    }
-
-    // build end-of-commit cksum
-    //
-    // note padding-size depends on leb-encoding depends on padding-size, to
-    // get around this catch-22 we just always write a fully-expanded leb128
-    // encoding
-    uint8_t cksum_buf[2+1+5+4];
-    cksum_buf[0] = (LFSR_TAG_CKSUM >> 8) | ((lfs_popc(rbyd_.cksum) & 1) << 7);
-    cksum_buf[1] = 0;
-    cksum_buf[2] = 0;
-
-    lfs_off_t padding = aligned - (rbyd_.eoff + 2+1+5);
-    cksum_buf[3] = 0x80 | (0x7f & (padding >>  0));
-    cksum_buf[4] = 0x80 | (0x7f & (padding >>  7));
-    cksum_buf[5] = 0x80 | (0x7f & (padding >> 14));
-    cksum_buf[6] = 0x80 | (0x7f & (padding >> 21));
-    cksum_buf[7] = 0x00 | (0x7f & (padding >> 28));
-
-    rbyd_.cksum = lfs_crc32c(rbyd_.cksum, cksum_buf, 2+1+5);
-    // we can't let the next tag appear as valid, so intentionally perturb the
-    // commit if this happens, note parity(crc(m)) == parity(m) with crc32c,
-    // so we can really change any bit to make this happen, we've reserved a bit
-    // in cksum tags just for this purpose
-    if ((lfs_popc(rbyd_.cksum) & 1) == (perturb >> 7)) {
-        cksum_buf[1] ^= 0x01;
-        rbyd_.cksum ^= 0x68032cc8; // note crc(a ^ b) == crc(a) ^ crc(b)
-    }
-    lfs_tole32_(rbyd_.cksum, &cksum_buf[2+1+5]);
-
-    err = lfsr_bd_prog(lfs, rbyd_.block, rbyd_.eoff, cksum_buf, 2+1+5+4, NULL);
-    if (err) {
-        goto failed;
-    }
-    rbyd_.eoff += 2+1+5+4;
-
-    // flush our caches, finalizing the commit on-disk
-    err = lfsr_bd_sync(lfs);
-    if (err) {
-        goto failed;
-    }
-
-    // succesful commit, check checksum to make sure
-    uint32_t cksum_ = rbyd->cksum;
-    err = lfsr_bd_cksum(lfs, rbyd_.block, rbyd->eoff, 0,
-            rbyd_.eoff-4 - rbyd->eoff,
-            &cksum_);
-    if (err) {
-        goto failed;
-    }
-
-    if (rbyd_.cksum != cksum_) {
-        // oh no, something went wrong
-        LFS_ERROR("Rbyd corrupted during commit "
-                "(block=0x%"PRIx32", 0x%08"PRIx32" != 0x%08"PRIx32")",
-                rbyd_.block, rbyd_.cksum, cksum_);
-        err = LFS_ERR_CORRUPT;
-        goto failed;
-    }
-
-    // ok, everything is good, save what we've committed
-    rbyd_.eoff = aligned;
-    *rbyd = rbyd_;
-    return 0;
-
-failed:;
-    // if we fail mark the rbyd as unerased and release the pcache
-    lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->eoff = -1;
-    return err;
 }
 
 
@@ -4009,7 +4006,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         // finalize commit
-        err = lfsr_rbyd_commit(lfs, &rbyd_, NULL, 0);
+        err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4085,7 +4082,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         // finalize commit
-        err = lfsr_rbyd_commit(lfs, &rbyd_, NULL, 0);
+        err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4111,7 +4108,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         
 
         // finalize commit
-        err = lfsr_rbyd_commit(lfs, &sibling, NULL, 0);
+        err = lfsr_rbyd_appendcksum(lfs, &sibling);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4357,7 +4354,7 @@ static int lfsr_btree_commit(lfs_t *lfs,
         }
 
         // finalize the commit
-        err = lfsr_rbyd_commit(lfs, &rbyd_, NULL, 0);
+        err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -5426,7 +5423,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
             }
         }
 
-        err = lfsr_rbyd_commit(lfs, &mdir_->u.r.rbyd, NULL, 0);
+        err = lfsr_rbyd_appendcksum(lfs, &mdir_->u.r.rbyd);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -5486,7 +5483,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // finalize commit
-        err = lfsr_rbyd_commit(lfs, &mdir_.u.r.rbyd, NULL, 0);
+        err = lfsr_rbyd_appendcksum(lfs, &mdir_.u.r.rbyd);
         if (err && err != LFS_ERR_RANGE) {
             return err;
         }
