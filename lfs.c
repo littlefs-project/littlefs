@@ -1564,9 +1564,9 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 #define LFSR_MID(_bid, _rid) ((lfsr_mid_t){.bid=_bid, .rid=_rid})
 
 static inline int lfsr_mid_cmp(lfsr_mid_t a, lfsr_mid_t b) {
-    union { lfsr_mid_t mid; lfs_ssize_t w; } a_u = {.mid=a};
-    union { lfsr_mid_t mid; lfs_ssize_t w; } b_u = {.mid=b};
-    return a_u.w - b_u.w;
+    int32_t a_w = ((int32_t)a.bid << 16) | (int32_t)a.rid;
+    int32_t b_w = ((int32_t)b.bid << 16) | (int32_t)b.rid;
+    return a_w - b_w;
 }
 
 // we use the root's bookmark at 0.0 to represent root
@@ -4984,12 +4984,12 @@ static int lfsr_btree_traversal_next(lfs_t *lfs,
 static inline int lfsr_mdir_cmp(
         const lfs_block_t a[static 2],
         const lfs_block_t b[static 2]) {
-    // allow either order
-    if ((a[0] == b[0] && a[1] == b[1])
-            || (a[0] == b[1] && a[1] == b[0])) {
-        return 0;
+    // note these can be in either order
+    int maxcmp = lfs_max32(a[0], a[1]) - lfs_max32(b[0], b[1]);
+    if (maxcmp != 0) {
+        return maxcmp;
     } else {
-        return 1;
+        return lfs_min32(a[0], a[1]) - lfs_min32(b[0], b[1]);
     }
 }
 

@@ -53,13 +53,8 @@ typedef uint16_t lfsr_mrid_t;
 typedef int16_t lfsr_smrid_t;
 
 typedef struct lfsr_mid {
-#ifdef LFS_BIG_ENDIAN
     lfsr_smbid_t bid;
     lfsr_smrid_t rid;
-#else
-    lfsr_smrid_t rid;
-    lfsr_smbid_t bid;
-#endif
 } lfsr_mid_t;
 
 // Maximum name size in bytes, may be redefined to reduce the size of the
