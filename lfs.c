@@ -5170,18 +5170,17 @@ static inline lfs_size_t lfsr_mtree_weight(lfs_t *lfs) {
 }
 
 static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_mid_t mid, lfsr_mdir_t *mdir_) {
-    // TODO should we really allow -1=>mroot lookup?
-    LFS_ASSERT(mid.bid >= -1);
-    LFS_ASSERT(mid.bid < (lfs_ssize_t)lfsr_mtree_weight(lfs));
-
     // looking up mroot?
-    if (mid.bid < 0) {
+    if (lfsr_mtree_isinlined(lfs)) {
+        LFS_ASSERT(mid.bid == -1);
         mdir_->mid = mid;
-        mdir_->u = lfs->mroot.u;
+        mdir_->u.m = lfs->mroot.u.m;
         return 0;
 
     // look up mdir in actual mtree
     } else {
+        LFS_ASSERT(mid.bid >= 0);
+        LFS_ASSERT(mid.bid < (lfs_ssize_t)lfsr_mtree_weight(lfs));
         lfsr_tag_t tag;
         lfsr_data_t data;
         int err = lfsr_btree_lookup(lfs, &lfs->mtree, mid.bid,
@@ -5394,7 +5393,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
 
     // drop commit if weight goes to zero
-    if (mdir_->mid.bid >= 0 && mdir_->u.m.weight == 0) {
+    if (mdir_->mid.bid != -1 && mdir_->u.m.weight == 0) {
         // TODO should we just make our pcache not assert?
         // drop our pcache, we're not going to complete this commit
         lfs_cache_zero(lfs, &lfs->pcache);
@@ -5460,7 +5459,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // drop commit if weight goes to zero
-    if (mdir_.mid.bid >= 0 && mdir_.u.m.weight == 0) {
+    if (mdir_.mid.bid != -1 && mdir_.u.m.weight == 0) {
         // TODO move this up into lfsr_mdir_commit?
         // consume gstate so we don't lose any info
         int err = lfsr_fs_consumegdelta(lfs, mdir);
@@ -6087,10 +6086,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                                 != lfsr_mtree_weight(lfs));
                         opened_mdir->mid.bid = msibling_.mid.bid;
                         opened_mdir->mid.rid -= mdir_.u.m.weight;
-                        opened_mdir->u = msibling_.u;
+                        opened_mdir->u.m = msibling_.u.m;
                     } else {
                         opened_mdir->mid.bid = mdir_.mid.bid;
-                        opened_mdir->u = mdir_.u;
+                        opened_mdir->u.m = mdir_.u.m;
                     }
                 } else if (opened_mdir->mid.bid > mdir->mid.bid) {
                     opened_mdir->mid.bid += lfsr_btree_weight(&mtree_)
@@ -6103,20 +6102,20 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // update mdir to follow requested rid
     LFS_ASSERT(mdir->mid.rid <= (lfs_ssize_t)mdir->u.m.weight);
-    if (mdir->mid.bid == -1 && mdir->mid.rid == -1) {
-        mdir->u = mroot_.u;
+    if (mdir == &lfs->mroot) {
+        // do nothing, we update mroot later
     } else if (!lfsr_mdir_isdropped(&msibling_)
             && mdir->mid.rid >= (lfs_ssize_t)mdir_.u.m.weight) {
         LFS_ASSERT(lfsr_btree_weight(&mtree_) != lfsr_mtree_weight(lfs));
         mdir->mid.bid = msibling_.mid.bid;
         mdir->mid.rid -= mdir_.u.m.weight;
-        mdir->u = msibling_.u;
+        mdir->u.m = msibling_.u.m;
     } else {
-        mdir->u = mdir_.u;
+        mdir->u.m = mdir_.u.m;
     }
 
     // update our mroot and mtree
-    lfs->mroot.u = mroot_.u;
+    lfs->mroot.u.m = mroot_.u.m;
     lfs->mtree = mtree_;
 
     return 0;
