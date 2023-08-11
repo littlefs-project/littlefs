@@ -15,18 +15,19 @@ TAG_SUPERCONFIG = 0x0004
 TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
-TAG_BRANCH      = 0x0200
-TAG_BOOKMARK    = 0x0201
+TAG_BNAME       = 0x0200
+TAG_DMARK       = 0x0201
 TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
 TAG_STRUCT      = 0x0300
 TAG_INLINED     = 0x0300
-TAG_BLOCK       = 0x0302
-TAG_BTREE       = 0x0303
-TAG_MROOT       = 0x0304
-TAG_MDIR        = 0x0305
-TAG_MTREE       = 0x0306
-TAG_DID         = 0x0307
+TAG_BLOCK       = 0x0308
+TAG_BTREE       = 0x030c
+TAG_MDIR        = 0x0311
+TAG_MTREE       = 0x0314
+TAG_MROOT       = 0x0318
+TAG_BRANCH      = 0x031c
+TAG_DID         = 0x0320
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0500
 TAG_ALT         = 0x4000
@@ -106,12 +107,18 @@ def frommdir(data):
         d += d_
     return blocks
 
+def frombranch(data):
+    d = 0
+    block, d_ = fromleb128(data[d:]); d += d_
+    trunk, d_ = fromleb128(data[d:]); d += d_
+    cksum = fromle32(data[d:]); d += 4
+    return block, trunk, cksum
+
 def frombtree(data):
-    cksum = fromle32(data)
-    w, d1 = fromleb128(data[4:])
-    trunk, d2 = fromleb128(data[4+d1:])
-    block, d3 = fromleb128(data[4+d1+d2:])
-    return w, trunk, block, cksum
+    d = 0
+    w, d_ = fromleb128(data[d:]); d += d_
+    block, trunk, cksum = frombranch(data[d:])
+    return w, block, trunk, cksum
 
 def popc(x):
     return bin(x).count('1')
@@ -147,8 +154,8 @@ def tagrepr(tag, w, size, off=None):
             size)
     elif (tag & 0xff00) == TAG_NAME:
         return '%s%s %d' % (
-            'branch' if tag == TAG_BRANCH
-                else 'bookmark' if tag == TAG_BOOKMARK
+            'bname' if tag == TAG_BNAME
+                else 'dmark' if tag == TAG_DMARK
                 else 'reg' if tag == TAG_REG
                 else 'dir' if tag == TAG_DIR
                 else 'name 0x%02x' % (tag & 0xff),
@@ -159,9 +166,10 @@ def tagrepr(tag, w, size, off=None):
             'inlined' if tag == TAG_INLINED
                 else 'block' if tag == TAG_BLOCK
                 else 'btree' if tag == TAG_BTREE
-                else 'mroot' if tag == TAG_MROOT
                 else 'mdir' if tag == TAG_MDIR
                 else 'mtree' if tag == TAG_MTREE
+                else 'mroot' if tag == TAG_MROOT
+                else 'branch' if tag == TAG_BRANCH
                 else 'did' if tag == TAG_DID
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
@@ -428,7 +436,7 @@ class Rbyd:
                     rid_, w = rid__, w_
 
                 # catch any branches
-                if tag == TAG_BTREE:
+                if tag == TAG_BRANCH:
                     branch = (tag, j, d, data)
 
                 tags.append((tag, j, d, data))
@@ -440,7 +448,7 @@ class Rbyd:
             if branch is not None and (
                     not depth or depth_ < depth):
                 tag, j, d, data = branch
-                w_, trunk, block, cksum = frombtree(data)
+                block, trunk, cksum = frombranch(data)
                 rbyd = Rbyd.fetch(f, block_size, block, trunk)
 
                 # corrupted? bail here so we can keep traversing the tree
@@ -457,7 +465,7 @@ class Rbyd:
         # have mtree?
         done, rid, tag, w, j, d, data, _ = self.lookup(-1, TAG_MTREE)
         if not done and rid == -1 and tag == TAG_MTREE:
-            w, trunk, block, cksum = frombtree(data)
+            w, block, trunk, cksum = frombtree(data)
             mtree = Rbyd.fetch(f, block_size, block, trunk)
             # corrupted?
             if not mtree:
@@ -508,7 +516,7 @@ class Rbyd:
                 break
 
             # treat vestigial names as a catch-all
-            if ((tag == TAG_BRANCH and rid-(w-1) == 0)
+            if ((tag == TAG_BNAME and rid-(w-1) == 0)
                     or (tag & 0xff00) != TAG_NAME):
                 did_ = 0
                 name_ = b''
@@ -540,11 +548,11 @@ class Rbyd:
             done, rid_, tag_, w_, j, d, data, _ = rbyd.lookup(rid, TAG_STRUCT)
 
             # found another branch
-            if tag_ == TAG_BTREE:
+            if tag_ == TAG_BRANCH:
                 # update our bid
                 bid += rid - (w-1)
 
-                w_, trunk, block, cksum = frombtree(data)
+                block, trunk, cksum = frombranch(data)
                 rbyd = Rbyd.fetch(f, block_size, block, trunk)
 
             # found best match
@@ -556,7 +564,7 @@ class Rbyd:
         # have mtree?
         done, rid, tag, w, j, d, data, _ = self.lookup(-1, TAG_MTREE)
         if not done and rid == -1 and tag == TAG_MTREE:
-            w, trunk, block, cksum = frombtree(data)
+            w, block, trunk, cksum = frombtree(data)
             mtree = Rbyd.fetch(f, block_size, block, trunk)
             # corrupted?
             if not mtree:
@@ -708,7 +716,7 @@ def grepr(tag, data):
         return 'gstate 0x%02x %d' % (tag, len(data))
 
 def frepr(mdir, rid, tag):
-    if tag == TAG_BOOKMARK:
+    if tag == TAG_DMARK:
         # read the did
         did = '?'
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, tag)
@@ -787,7 +795,7 @@ def main(disk, mroots=None, *,
                     did, d = fromleb128(data)
                     dir_dids.append(
                         (did, data[d:], -1, mroot, rid, tag, w))
-                elif tag == TAG_BOOKMARK:
+                elif tag == TAG_DMARK:
                     did, d = fromleb128(data)
                     bookmark_dids.append(
                         (did, data[d:], -1, mroot, rid, tag, w))
@@ -821,7 +829,7 @@ def main(disk, mroots=None, *,
                         did, d = fromleb128(data)
                         dir_dids.append((
                             did, data[d:], 0, mdir, rid, tag, w))
-                    elif tag == TAG_BOOKMARK:
+                    elif tag == TAG_DMARK:
                         did, d = fromleb128(data)
                         bookmark_dids.append((
                             did, data[d:], 0, mdir, rid, tag, w))
@@ -830,7 +838,7 @@ def main(disk, mroots=None, *,
         mtree = None
         done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MTREE)
         if not done and rid == -1 and tag == TAG_MTREE:
-            w, trunk, block, cksum = frombtree(data)
+            w, block, trunk, cksum = frombtree(data)
             mtree = Rbyd.fetch(f, block_size, block, trunk)
 
             mweight = w
@@ -872,7 +880,7 @@ def main(disk, mroots=None, *,
                                 did, d = fromleb128(data)
                                 dir_dids.append((
                                     did, data[d:], mid, mdir_, rid, tag, w))
-                            elif tag == TAG_BOOKMARK:
+                            elif tag == TAG_DMARK:
                                 did, d = fromleb128(data)
                                 bookmark_dids.append((
                                     did, data[d:], mid, mdir_, rid, tag, w))
@@ -1069,7 +1077,7 @@ def main(disk, mroots=None, *,
                         f, block_size, did):
                     if not args.get('all'):
                         # skip bookmarks
-                        if tag == TAG_BOOKMARK:
+                        if tag == TAG_DMARK:
                             continue
                         # skip grmed entries
                         if (max(mid, 0), rid) in gstate.grm:
@@ -1104,7 +1112,7 @@ def main(disk, mroots=None, *,
                             if did_ not in grmed_bookmark_dids:
                                 notes.append('missing bookmark')
                     # orphaned?
-                    if tag == TAG_BOOKMARK:
+                    if tag == TAG_DMARK:
                         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(
                             rid, tag)
                         if not done and rid_ == rid and tag_ == tag:
@@ -1114,7 +1122,7 @@ def main(disk, mroots=None, *,
 
                     # print human readable dtree entry
                     print('%s%12s %*s %-*s  %s%s%s' % (
-                        '\x1b[90m' if color and (grmed or tag == TAG_BOOKMARK)
+                        '\x1b[90m' if color and (grmed or tag == TAG_DMARK)
                             else '',
                         '{%s}:' % ','.join('%04x' % block
                             for block in it.chain([mdir.block],
@@ -1132,7 +1140,7 @@ def main(disk, mroots=None, *,
                             ', '.join(notes),
                             '\x1b[m' if color and not grmed else '')
                             if notes else '',
-                        '\x1b[m' if color and (grmed or tag == TAG_BOOKMARK)
+                        '\x1b[m' if color and (grmed or tag == TAG_DMARK)
                             else ''))
                     pmid = mid
 
