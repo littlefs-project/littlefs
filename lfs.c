@@ -3845,38 +3845,19 @@ static int lfsr_btree_parent(lfs_t *lfs,
 }
 
 
-// we need some scratch space for tail-recursive attr in lfsr_btree_commit
-//
-// note this is a mix of attributes and their payloads
-// note also we need this to be a const expression since it's used in
-// array allocations
-#define LFSR_BTREE_SCRATCHATTRS ( \
-    4 \
-    + ((2*LFSR_BRANCH_DSIZE) + sizeof(lfsr_attr_t)-1) \
-        / sizeof(lfsr_attr_t))
-
-// this macro creates an attr list with enough reserved space for
-// btree commit operations, it's ugly but likely any implementation
-// of this will look ugly since we can't use things like lfs_min32 in
-// an array declaration
-#define LFSR_BTREE_ATTRS(...) \
-    (lfsr_attr_t[ \
-        sizeof((lfsr_attr_t[]){__VA_ARGS__}) / sizeof(lfsr_attr_t) \
-            > LFSR_BTREE_SCRATCHATTRS \
-            ? sizeof((lfsr_attr_t[]){__VA_ARGS__}) / sizeof(lfsr_attr_t) \
-            : LFSR_BTREE_SCRATCHATTRS \
-    ]){__VA_ARGS__}, \
-    sizeof((lfsr_attr_t[]){__VA_ARGS__}) / sizeof(lfsr_attr_t)
-
 // core btree algorithm
 static int lfsr_btree_commit(lfs_t *lfs,
         lfsr_btree_t *btree, lfs_size_t bid, lfs_ssize_t cutoff,
         lfsr_rbyd_t *rbyd,
-        lfsr_attr_t attrs[static LFSR_BTREE_SCRATCHATTRS],
-        lfs_size_t attr_count) {
+        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // other layers should check for inlined btrees before this
     LFS_ASSERT(!lfsr_btree_isinlined(btree));
 
+    // we need some scratch space for tail-recursive attrs here
+    lfsr_attr_t scratch_attrs[4];
+    uint8_t scratch_buf[2*LFSR_BRANCH_DSIZE];
+
+    // tail-recursively commit to btree
     while (true) {
         // we will always need our parent, so go ahead and find it
         lfsr_rbyd_t parent;
@@ -3921,9 +3902,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
             break;
         }
 
-        // cannibalize some attributes in our attr list to store
-        // our branch
-        uint8_t *scratch_buf = (uint8_t*)&attrs[2];
         lfs_ssize_t scratch_dsize = lfsr_branch_todisk(lfs, rbyd, scratch_buf);
         if (scratch_dsize < 0) {
             return scratch_dsize;
@@ -3934,13 +3912,16 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // note that since we defer merges to compaction time, we can
         // end up removing an rbyd here
         if (rbyd->weight == 0) {
-            attrs[0] = LFSR_ATTR(pid, RM, +rbyd->weight-pweight,
+            scratch_attrs[0] = LFSR_ATTR(pid, RM, +rbyd->weight-pweight,
                     BUF(scratch_buf, scratch_dsize));
+            attrs = scratch_attrs;
             attr_count = 1;
         } else {
-            attrs[0] = LFSR_ATTR(pid, GROW(RM), +rbyd->weight-pweight, NULL);
-            attrs[1] = LFSR_ATTR(pid+rbyd->weight-pweight, BRANCH, 0,
+            scratch_attrs[0] = LFSR_ATTR(pid, GROW(RM), +rbyd->weight-pweight,
+                    NULL);
+            scratch_attrs[1] = LFSR_ATTR(pid+rbyd->weight-pweight, BRANCH, 0,
                     BUF(scratch_buf, scratch_dsize));
+            attrs = scratch_attrs;
             attr_count = 2;
         }
 
@@ -4032,9 +4013,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
             break;
         }
 
-        // cannibalize some attributes in our attr list to store
-        // our branch
-        scratch_buf = (uint8_t*)&attrs[2];
         scratch_dsize = lfsr_branch_todisk(lfs, rbyd, scratch_buf);
         if (scratch_dsize < 0) {
             return scratch_dsize;
@@ -4045,13 +4023,16 @@ static int lfsr_btree_commit(lfs_t *lfs,
         // note that since we defer merges to compaction time, we can
         // end up removing an rbyd here
         if (rbyd->weight == 0) {
-            attrs[0] = LFSR_ATTR(pid, RM, +rbyd->weight-pweight,
+            scratch_attrs[0] = LFSR_ATTR(pid, RM, +rbyd->weight-pweight,
                     BUF(scratch_buf, scratch_dsize));
+            attrs = scratch_attrs;
             attr_count = 1;
         } else {
-            attrs[0] = LFSR_ATTR(pid, GROW(RM), +rbyd->weight-pweight, NULL);
-            attrs[1] = LFSR_ATTR(pid+rbyd->weight-pweight, BRANCH, 0,
+            scratch_attrs[0] = LFSR_ATTR(pid, GROW(RM), +rbyd->weight-pweight,
+                    NULL);
+            scratch_attrs[1] = LFSR_ATTR(pid+rbyd->weight-pweight, BRANCH, 0,
                     BUF(scratch_buf, scratch_dsize));
+            attrs = scratch_attrs;
             attr_count = 2;
         }
 
@@ -4140,10 +4121,8 @@ static int lfsr_btree_commit(lfs_t *lfs,
             return err;
         }
 
-        // cannibalize some attributes in our attr list to store
-        // our branches
-        uint8_t *scratch1_buf = (uint8_t*)&attrs[4];
-        uint8_t *scratch2_buf = (uint8_t*)&attrs[4] + LFSR_BRANCH_DSIZE;
+        uint8_t *scratch1_buf = scratch_buf;
+        uint8_t *scratch2_buf = scratch_buf + LFSR_BRANCH_DSIZE;
         lfs_ssize_t scratch1_dsize = lfsr_branch_todisk(lfs, &rbyd_,
                 scratch1_buf);
         if (scratch1_dsize < 0) {
@@ -4163,37 +4142,41 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
         
             // prepare commit to parent, tail recursing upwards
-            attrs[0] = LFSR_ATTR(0, BRANCH, +rbyd_.weight,
+            scratch_attrs[0] = LFSR_ATTR(0, BRANCH, +rbyd_.weight,
                     BUF(scratch1_buf, scratch1_dsize));
-            attrs[1] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
+            scratch_attrs[1] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
                     ? LFSR_ATTR(rbyd_.weight, BNAME, +sibling.weight,
                         DATA(sdata))
                     : LFSR_ATTR_NOOP);
-            attrs[2] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
+            scratch_attrs[2] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
                     ? LFSR_ATTR(0+rbyd_.weight+sibling.weight-1, BRANCH, 0,
                         BUF(scratch2_buf, scratch2_dsize))
                     : LFSR_ATTR(0+rbyd_.weight, BRANCH, +sibling.weight,
                         BUF(scratch2_buf, scratch2_dsize)));
+            attrs = scratch_attrs;
             attr_count = 3;
 
         // yes parent? push up split
         } else {
             // prepare commit to parent, tail recursing upwards
-            attrs[0] = LFSR_ATTR(pid, GROW(RM), +rbyd_.weight-pweight, NULL);
-            attrs[1] = LFSR_ATTR(pid-(pweight-1)+rbyd_.weight-1, BRANCH, 0,
+            scratch_attrs[0] = LFSR_ATTR(pid, GROW(RM), +rbyd_.weight-pweight,
+                    NULL);
+            scratch_attrs[1] = LFSR_ATTR(pid-(pweight-1)+rbyd_.weight-1,
+                    BRANCH, 0,
                     BUF(scratch1_buf, scratch1_dsize));
-            attrs[2] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
+            scratch_attrs[2] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
                     ? LFSR_ATTR(pid-(pweight-1)+rbyd_.weight,
                         BNAME, +sibling.weight,
                         DATA(sdata))
                     : LFSR_ATTR_NOOP);
-            attrs[3] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
+            scratch_attrs[3] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
                     ? LFSR_ATTR(pid-(pweight-1)+rbyd_.weight+sibling.weight-1,
                         BRANCH, 0,
                         BUF(scratch2_buf, scratch2_dsize))
                     : LFSR_ATTR(pid-(pweight-1)+rbyd_.weight,
                         BRANCH, +sibling.weight,
                         BUF(scratch2_buf, scratch2_dsize)));
+            attrs = scratch_attrs;
             attr_count = 4;
         }
 
@@ -4386,9 +4369,6 @@ static int lfsr_btree_commit(lfs_t *lfs,
                 lfs_swap32(&pweight, &sweight);
             }
 
-            // cannibalize some attributes in our attr list to store
-            // our branch
-            uint8_t *scratch_buf = (uint8_t*)&attrs[3];
             lfs_ssize_t scratch_dsize = lfsr_branch_todisk(lfs, &rbyd_,
                     scratch_buf);
             if (scratch_dsize < 0) {
@@ -4396,10 +4376,12 @@ static int lfsr_btree_commit(lfs_t *lfs,
             }
 
             // prepare commit to parent, tail recursing upwards
-            attrs[0] = LFSR_ATTR(sid, RM, -sweight, NULL);
-            attrs[1] = LFSR_ATTR(pid, GROW(RM), +rbyd_.weight-pweight, NULL);
-            attrs[2] = LFSR_ATTR(pid+rbyd_.weight-pweight, BRANCH, 0,
+            scratch_attrs[0] = LFSR_ATTR(sid, RM, -sweight, NULL);
+            scratch_attrs[1] = LFSR_ATTR(pid, GROW(RM), +rbyd_.weight-pweight,
+                    NULL);
+            scratch_attrs[2] = LFSR_ATTR(pid+rbyd_.weight-pweight, BRANCH, 0,
                     BUF(scratch_buf, scratch_dsize));
+            attrs = scratch_attrs;
             attr_count = 3;
         }
 
@@ -4485,7 +4467,7 @@ static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
         // commit our rid into the tree, letting lfsr_btree_commit take care
         // of the rest
         int degenerate = lfsr_btree_commit(lfs, btree, bid_, 0, &rbyd,
-                LFSR_BTREE_ATTRS(
+                LFSR_ATTRS(
                     LFSR_ATTR(rid, TAG(tag), +weight, DATA(data))));
         if (degenerate < 0) {
             return degenerate;
@@ -4548,7 +4530,7 @@ static int lfsr_btree_set(lfs_t *lfs, lfsr_btree_t *btree,
         // commit our rid into the tree, letting lfsr_btree_commit take care
         // of the rest
         int degenerate = lfsr_btree_commit(lfs, btree, bid, 1, &rbyd,
-                LFSR_BTREE_ATTRS(
+                LFSR_ATTRS(
                     (tag != rtag
                         ? LFSR_ATTR(rid, TAG(lfsr_tag_setrm(rtag)), 0, NULL)
                         : LFSR_ATTR_NOOP),
@@ -4607,7 +4589,7 @@ static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
         // the commit, we should have 1 entry after the commit and can
         // revert to an inlined btree
         int degenerate = lfsr_btree_commit(lfs, btree, bid, 2, &rbyd,
-                LFSR_BTREE_ATTRS(
+                LFSR_ATTRS(
                     LFSR_ATTR(rid, RM, -rweight, NULL)));
         if (degenerate < 0) {
             return degenerate;
@@ -4717,7 +4699,7 @@ static int lfsr_btree_split(lfs_t *lfs, lfsr_btree_t *btree,
         // commit our bid into the tree, letting lfsr_btree_commit take care
         // of the rest
         int degenerate = lfsr_btree_commit(lfs, btree, bid, -1, &rbyd,
-                LFSR_BTREE_ATTRS(
+                LFSR_ATTRS(
                     LFSR_ATTR(rid, GROW(RM), +weight1-rweight, NULL),
                     LFSR_ATTR(rid-(rweight-1)+weight1-1, TAG(tag1), 0,
                         DATA(data1)),
