@@ -106,7 +106,7 @@ code = '''
     lfs_alloc_ack(&lfs);
     // remove root dstart for now 
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, UNR, -1, NULL))) => 0;
+            LFSR_ATTR(0, RM, -1, NULL))) => 0;
 
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, LFSR_MID(lfsr_mtree_weight(&lfs)-1, -1),
