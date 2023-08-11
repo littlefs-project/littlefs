@@ -4531,10 +4531,7 @@ static int lfsr_btree_set(lfs_t *lfs, lfsr_btree_t *btree,
         // of the rest
         int degenerate = lfsr_btree_commit(lfs, btree, bid, 1, &rbyd,
                 LFSR_ATTRS(
-                    (tag != rtag
-                        ? LFSR_ATTR(rid, TAG(lfsr_tag_setrm(rtag)), 0, NULL)
-                        : LFSR_ATTR_NOOP),
-                    LFSR_ATTR(rid, TAG(tag), 0, DATA(data)),
+                    LFSR_ATTR(rid, WIDE(TAG(tag)), 0, DATA(data)),
                     LFSR_ATTR(rid, GROW(RM), +weight-rweight, NULL)));
         if (degenerate < 0) {
             return degenerate;
