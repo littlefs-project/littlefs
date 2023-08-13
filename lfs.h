@@ -371,7 +371,7 @@ typedef struct lfsr_btree {
             lfs_size_t weight;
             lfsr_tag_t tag;
             uint16_t size;
-            uint8_t buffer[LFSR_BTREE_INLINESIZE];
+            uint8_t buf[LFSR_BTREE_INLINESIZE];
         } i;
         struct {
             lfsr_rbyd_t rbyd;
