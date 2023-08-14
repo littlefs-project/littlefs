@@ -2346,6 +2346,30 @@ code = '''
         sim_weights[bid+0] = weight1;
         sim_weights[bid+1] = weight2;
         sim_size += 1;
+
+        // TODO rm
+        lfs_size_t total_weight = 0;
+        for (lfs_size_t j = 0; j < sim_size; j++) {
+            total_weight += sim_weights[j];
+        }
+        assert(lfsr_btree_weight(&btree) == total_weight);
+
+        uint8_t buffer[4];
+        lfsr_tag_t tag_;
+        lfs_size_t weight_;
+        for (lfs_size_t i = 0; i < sim_size; i++) {
+            // calculate actual bid in btree space
+            lfs_size_t weighted_bid = 0;
+            for (lfs_size_t j = 0; j < i; j++) {
+                weighted_bid += sim_weights[j];
+            }
+
+            lfsr_btree_get(&lfs, &btree, weighted_bid+sim_weights[i]-1,
+                    &tag_, &weight_, buffer, 4) => 1;
+            assert(tag_ == LFSR_TAG_INLINED);
+            assert(weight_ == sim_weights[i]);
+            assert(memcmp(buffer, &sim[i], 1) == 0);
+        }
     }
 
     // check that btree matches sim
