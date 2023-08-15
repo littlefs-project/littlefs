@@ -2716,9 +2716,8 @@ leaf:;
     return 0;
 
 failed:;
-    // if we fail mark the rbyd as unerased and release the pcache
+    // if we failed release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->eoff = -1;
     return err;
 }
 
@@ -2863,9 +2862,8 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     return 0;
 
 failed:;
-    // if we fail mark the rbyd as unerased and release the pcache
+    // if we failed release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->eoff = -1;
     return err;
 }
 
@@ -2986,33 +2984,22 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     return 0;
 }
 
-// note lfsr_rbyd_commit guarantees no state change in case of error
 static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // create a copy of our rbyd so we have a fallback in case of error
-    lfsr_rbyd_t rbyd_ = *rbyd;
-
     // append each tag to the tree
-    int err = lfsr_rbyd_appendall(lfs, &rbyd_, 0, -1, -1,
+    int err = lfsr_rbyd_appendall(lfs, rbyd, 0, -1, -1,
             attrs, attr_count);
     if (err) {
-        goto failed;
+        return err;
     }
 
     // append a cksum, finalizing the commit
-    err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
+    err = lfsr_rbyd_appendcksum(lfs, rbyd);
     if (err) {
-        goto failed;
+        return err;
     }
 
-    // success? update our rbyd state
-    *rbyd = rbyd_;
     return 0;
-
-failed:;
-    // if we fail we still need to mark the rbyd as erased
-    rbyd->eoff = -1;
-    return err;
 }
 
 
@@ -3177,9 +3164,8 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 
 failed:;
-    // if we fail mark the rbyd as unerased and release the pcache
+    // if we failed release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->eoff = -1;
     return err;
 
 #else
