@@ -8,6 +8,20 @@ defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
 # helper functions
 in = 'lfs.c'
 code = '''
+    static int lfsr_btree_get(lfs_t *lfs,
+            const lfsr_btree_t *btree, lfs_size_t bid,
+            lfsr_tag_t *tag_, lfs_size_t *weight_,
+            void *buffer, lfs_size_t size) {
+        lfsr_data_t data;
+        int err = lfsr_btree_lookup(lfs, btree, bid,
+                tag_, weight_, &data);
+        if (err) {
+            return err;
+        }
+
+        return lfsr_data_read(lfs, &data, buffer, size);
+    }
+
     static int lfsr_btree_push(lfs_t *lfs, lfsr_btree_t *btree,
             lfs_size_t bid, lfsr_tag_t tag, lfs_size_t weight,
             lfsr_data_t data) {

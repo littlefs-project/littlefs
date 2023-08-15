@@ -2076,19 +2076,6 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     return 0;
 }
 
-// TODO still need this?
-// TODO move this into the tests?
-static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
-        lfs_ssize_t rid, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
-    lfsr_data_t data;
-    int err = lfsr_rbyd_lookup(lfs, rbyd, rid, tag, NULL, &data);
-    if (err) {
-        return err;
-    }
-
-    return lfsr_data_read(lfs, &data, buffer, size);
-}
-
 
 // append a revision count
 //
@@ -3759,22 +3746,6 @@ static int lfsr_btree_lookup(lfs_t *lfs,
     return 0;
 }
 
-// TODO still need this?
-// TODO move this into the tests?
-static int lfsr_btree_get(lfs_t *lfs,
-        const lfsr_btree_t *btree, lfs_size_t bid,
-        lfsr_tag_t *tag_, lfs_size_t *weight_,
-        void *buffer, lfs_size_t size) {
-    lfsr_data_t data;
-    int err = lfsr_btree_lookup(lfs, btree, bid,
-            tag_, weight_, &data);
-    if (err) {
-        return err;
-    }
-
-    return lfsr_data_read(lfs, &data, buffer, size);
-}
-
 // TODO should lfsr_btree_lookupnext/lfsr_btree_parent be deduplicated?
 static int lfsr_btree_parent(lfs_t *lfs,
         const lfsr_btree_t *btree, lfs_size_t bid, const lfsr_rbyd_t *child,
@@ -4888,24 +4859,10 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
     return LFS_ERR_CORRUPT;
 }
 
-static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
-        lfs_ssize_t rid, lfsr_tag_t tag,
-        lfs_ssize_t *rid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    return lfsr_rbyd_lookupnext(lfs, &mdir->u.r.rbyd, rid, tag,
-            rid_, tag_, NULL, data_);
-}
-
 static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfs_ssize_t rid, lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
     return lfsr_rbyd_lookup(lfs, &mdir->u.r.rbyd, rid, tag, tag_, data_);
-}
-
-// TODO do we need this?
-// TODO move this into the tests?
-static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
-        lfs_ssize_t rid, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
-    return lfsr_rbyd_get(lfs, &mdir->u.r.rbyd, rid, tag, buffer, size);
 }
 
 

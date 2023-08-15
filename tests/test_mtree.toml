@@ -5,6 +5,21 @@ after = ['test_rbyd', 'test_btree']
 # of the disk for these tests
 defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
 
+# some helper functions
+in = 'lfs.c'
+code = '''
+    static lfs_ssize_t lfsr_mdir_get(lfs_t *lfs, const lfsr_mdir_t *mdir,
+            lfs_ssize_t rid, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
+        lfsr_data_t data;
+        int err = lfsr_mdir_lookup(lfs, mdir, rid, tag, NULL, &data);
+        if (err) {
+            return err;
+        }
+
+        return lfsr_data_read(lfs, &data, buffer, size);
+    }
+'''
+
 # test a single mroot
 [cases.test_mtree_mroot]
 code = '''

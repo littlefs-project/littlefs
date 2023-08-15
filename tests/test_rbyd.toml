@@ -13,6 +13,21 @@ defines.ERASE_VALUE = [0xff, 0x00, 0x1b]
 # waste time when testing
 defines.BLOCK_SIZE = 32768
 
+# some internal helpers
+in = 'lfs.c'
+code = '''
+    static lfs_ssize_t lfsr_rbyd_get(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+            lfs_ssize_t rid, lfsr_tag_t tag, void *buffer, lfs_size_t size) {
+        lfsr_data_t data;
+        int err = lfsr_rbyd_lookup(lfs, rbyd, rid, tag, NULL, &data);
+        if (err) {
+            return err;
+        }
+
+        return lfsr_data_read(lfs, &data, buffer, size);
+    }
+'''
+
 [cases.test_rbyd_commit]
 in = 'lfs.c'
 code = '''
