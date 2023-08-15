@@ -152,6 +152,11 @@ class TestCase:
         return ((self.suite, self.lineno, self.name)
             < (other.suite, other.lineno, other.name))
 
+    def isin(self, path):
+        return (self.in_ is not None
+            and os.path.normpath(self.in_)
+                == os.path.normpath(path))
+
 
 class TestSuite:
     # create a TestSuite object from a toml file
@@ -202,6 +207,7 @@ class TestSuite:
                 (l for l in code_linenos
                     if not case_linenos or l < case_linenos[0][0]),
                 default=None)
+            self.in_ = config.pop('in', None)
 
             self.after = config.pop('after', [])
             if not isinstance(self.after, list):
@@ -209,7 +215,6 @@ class TestSuite:
 
             # a couple of these we just forward to all cases
             defines = config.pop('defines', {})
-            in_ = config.pop('in', None)
             reentrant = config.pop('reentrant', False)
 
             self.cases = []
@@ -220,7 +225,7 @@ class TestSuite:
                         if 'lineno' in case else ''),
                     'suite': self.name,
                     'suite_defines': defines,
-                    'suite_in': in_,
+                    'suite_in': self.in_,
                     'suite_reentrant': reentrant,
                     **case},
                     args=args))
@@ -252,6 +257,11 @@ class TestSuite:
         #
         # note we override this with a topological sort during compilation
         return self.name < other.name
+
+    def isin(self, path):
+        return (self.in_ is not None
+            and os.path.normpath(self.in_)
+                == os.path.normpath(path))
 
 
 def compile(test_paths, **args):
@@ -424,16 +434,7 @@ def compile(test_paths, **args):
                     f.writeln()
 
             if not args.get('source'):
-                if suite.code is not None:
-                    if suite.code_lineno is not None:
-                        f.writeln('#line %d "%s"'
-                            % (suite.code_lineno, suite.path))
-                    f.write(suite.code)
-                    if suite.code_lineno is not None:
-                        f.writeln('#line %d "%s"'
-                            % (f.lineno+1, args['output']))
-                    f.writeln()
-
+                # write any suite defines
                 if suite.defines:
                     for i, define in enumerate(sorted(suite.defines)):
                         f.writeln('#ifndef %s' % define)
@@ -442,6 +443,17 @@ def compile(test_paths, **args):
                         f.writeln('#define %-24s '
                             'TEST_DEFINE(%s)' % (define, define+'_i'))
                         f.writeln('#endif')
+                    f.writeln()
+
+                # write any suite code
+                if suite.code is not None and suite.in_ is None:
+                    if suite.code_lineno is not None:
+                        f.writeln('#line %d "%s"'
+                            % (suite.code_lineno, suite.path))
+                    f.write(suite.code)
+                    if suite.code_lineno is not None:
+                        f.writeln('#line %d "%s"'
+                            % (f.lineno+1, args['output']))
                     f.writeln()
 
                 # create case functions
@@ -536,40 +548,54 @@ def compile(test_paths, **args):
 
                 # write any internal tests
                 for suite in suites:
-                    for case in suite.cases:
-                        if (case.in_ is not None
-                                and os.path.normpath(case.in_)
-                                    == os.path.normpath(args['source'])):
-                            # write defines, but note we need to undef any
-                            # new defines since we're in someone else's file
-                            if suite.defines:
-                                for i, define in enumerate(
-                                        sorted(suite.defines)):
-                                    f.writeln('#ifndef %s' % define)
-                                    f.writeln('#define %-24s '
-                                        'TEST_IMPLICIT_DEFINE_COUNT+%d' % (
-                                        define+'_i', i))
-                                    f.writeln('#define %-24s '
-                                        'TEST_DEFINE(%s)' % (
-                                        define, define+'_i'))
-                                    f.writeln('#define '
-                                        '__TEST__%s__NEEDS_UNDEF' % (
-                                        define))
-                                    f.writeln('#endif')
-                                f.writeln()
+                    if (suite.isin(args['source'])
+                            or any(case.isin(args['source'])
+                                for case in suite.cases)):
+                        # write defines, but note we need to undef any
+                        # new defines since we're in someone else's file
+                        if suite.defines:
+                            for i, define in enumerate(
+                                    sorted(suite.defines)):
+                                f.writeln('#ifndef %s' % define)
+                                f.writeln('#define %-24s '
+                                    'TEST_IMPLICIT_DEFINE_COUNT+%d' % (
+                                    define+'_i', i))
+                                f.writeln('#define %-24s '
+                                    'TEST_DEFINE(%s)' % (
+                                    define, define+'_i'))
+                                f.writeln('#define '
+                                    '__TEST__%s__NEEDS_UNDEF' % (
+                                    define))
+                                f.writeln('#endif')
+                            f.writeln()
 
+                    # write any internal suite code
+                    if suite.isin(args['source']):
+                        if suite.code_lineno is not None:
+                            f.writeln('#line %d "%s"'
+                                % (suite.code_lineno, suite.path))
+                        f.write(suite.code)
+                        if suite.code_lineno is not None:
+                            f.writeln('#line %d "%s"'
+                                % (f.lineno+1, args['output']))
+                        f.writeln()
+
+                    for case in suite.cases:
+                        if case.isin(args['source']):
                             write_case_functions(f, suite, case)
 
-                            if suite.defines:
-                                for define in sorted(suite.defines):
-                                    f.writeln('#ifdef __TEST__%s__NEEDS_UNDEF'
-                                        % define)
-                                    f.writeln('#undef __TEST__%s__NEEDS_UNDEF'
-                                        % define)
-                                    f.writeln('#undef %s' % define)
-                                    f.writeln('#undef %s' % (define+'_i'))
-                                    f.writeln('#endif')
-                                f.writeln()
+                    if (suite.isin(args['source'])
+                            or any(case.isin(args['source'])
+                                for case in suite.cases)):
+                        for define in sorted(suite.defines):
+                            f.writeln('#ifdef __TEST__%s__NEEDS_UNDEF'
+                                % define)
+                            f.writeln('#undef __TEST__%s__NEEDS_UNDEF'
+                                % define)
+                            f.writeln('#undef %s' % define)
+                            f.writeln('#undef %s' % (define+'_i'))
+                            f.writeln('#endif')
+                        f.writeln()
 
                 # declare our test suites
                 #
