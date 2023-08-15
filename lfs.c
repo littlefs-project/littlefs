@@ -3964,42 +3964,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             goto compact;
         }
 
-        // done?
-        if (prid == -1) {
-            LFS_ASSERT(bid == 0);
-            break;
-        }
-
-        lfs_ssize_t scratch_dsize = lfsr_branch_todisk(lfs, &rbyd_,
-                scratch_buf);
-        if (scratch_dsize < 0) {
-            return scratch_dsize;
-        }
-
-        // prepare commit to parent, tail recursing upwards
-        //
-        // note that since we defer merges to compaction time, we can
-        // end up removing an rbyd here
-        bid -= prid - (rbyd.weight-1);
-        if (rbyd_.weight == 0) {
-            scratch_attrs[0] = LFSR_ATTR(
-                    bid+prid, RM, +rbyd_.weight-rbyd.weight,
-                    BUF(scratch_buf, scratch_dsize));
-            attrs = scratch_attrs;
-            attr_count = 1;
-        } else {
-            scratch_attrs[0] = LFSR_ATTR(
-                    bid+prid, GROW(RM), +rbyd_.weight-rbyd.weight,
-                    NULL);
-            scratch_attrs[1] = LFSR_ATTR(
-                    bid+prid+rbyd_.weight-rbyd.weight, BRANCH, 0,
-                    BUF(scratch_buf, scratch_dsize));
-            attrs = scratch_attrs;
-            attr_count = 2;
-        }
-
-        rbyd = parent;
-        continue;
+        goto commit_recurse;
 
     compact:;
         // can't commit, try to compact
@@ -4048,15 +4013,11 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
         // is our compacted size too small? try to merge with one of
         // our siblings
-        if (rbyd_.eoff < lfs->cfg->block_size/4
-                // no parent? can't merge
-                && prid != -1
-                // only child? can't merge
-                && rbyd.weight < parent.weight) {
+        if (rbyd_.eoff < lfs->cfg->block_size/4) {
             goto merge;
-        merge_abort:;
         }
 
+    merge_abort:;
         // finalize commit
         err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
         if (err) {
@@ -4064,13 +4025,15 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
+    commit_recurse:;
         // done?
         if (prid == -1) {
             LFS_ASSERT(bid == 0);
             break;
         }
 
-        scratch_dsize = lfsr_branch_todisk(lfs, &rbyd_, scratch_buf);
+        lfs_ssize_t scratch_dsize = lfsr_branch_todisk(lfs, &rbyd_,
+                scratch_buf);
         if (scratch_dsize < 0) {
             return scratch_dsize;
         }
@@ -4253,6 +4216,16 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         continue;
 
     merge:;
+        // no parent? can't merge
+        if (prid == -1) {
+            goto merge_abort;
+        }
+
+        // only child? can't merge
+        if (rbyd.weight >= parent.weight) {
+            goto merge_abort;
+        }
+
         lfs_ssize_t srid;
         lfs_ssize_t sdelta;
         lfs_size_t sweight;
