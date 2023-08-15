@@ -123,7 +123,7 @@ code = '''
 
         // keep creating new metadata entries until we run out of space
         int err = lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-                LFSR_ATTR(mdir.mid.rid, INLINED, +1,
+                LFSR_ATTR(mdir.mid.rid, REG, +1,
                     BUF(&alphas[count % 26], 1))));
         assert(!err || err == LFS_ERR_NOSPC);
         if (err == LFS_ERR_NOSPC) {
@@ -131,7 +131,7 @@ code = '''
         }
 
         uint8_t buffer[4];
-        lfsr_mdir_get(&lfs, &mdir, mdir.mid.rid, LFSR_TAG_INLINED,
+        lfsr_mdir_get(&lfs, &mdir, mdir.mid.rid, LFSR_TAG_REG,
                 buffer, 4) => 1;
         assert(memcmp(buffer, &alphas[count % 26], 1) == 0);
 
@@ -153,7 +153,7 @@ code = '''
                 mdir.mid.rid < (lfs_ssize_t)mdir.u.m.weight;
                 mdir.mid.rid++) {
             uint8_t buffer[4];
-            lfsr_mdir_get(&lfs, &mdir, mdir.mid.rid, LFSR_TAG_INLINED,
+            lfsr_mdir_get(&lfs, &mdir, mdir.mid.rid, LFSR_TAG_REG,
                     buffer, 4) => 1;
             assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
             i += 1;

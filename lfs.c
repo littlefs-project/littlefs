@@ -5466,17 +5466,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // Create a null entry in our btree first. Don't worry! Thanks
             // to inlining this doesn't allocate anything yet.
             //
-            // The reason for this is twofold:
-            //
-            // 1. It makes it so the split logic is the same whether or not
-            //    we're uninlining.
-            //
-            // 2. It makes it so we can actually split, lfsr_btree_split
-            //    currently doesn't support an empty tree.
-            //
+            // This makes it so the split logic is the same whether or not
+            // we're uninlining.
             LFS_ASSERT(lfsr_btree_weight(&mtree_) == 0);
-            int err = lfsr_btree_push(lfs, &mtree_, 0, LFSR_TAG_MDIR, 1,
-                    LFSR_DATA_NULL);
+            int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
+                    LFSR_ATTR(0, MDIR, +1, NULL)));
             if (err) {
                 return err;
             }
@@ -5534,7 +5528,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             msibling_.u.r.rbyd.trunk = 0;
 
             // update our mtree
-            int err = lfsr_btree_pop(lfs, &mtree_, mbid);
+            int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
+                    LFSR_ATTR(mbid, RM, -1, NULL)));
             if (err) {
                 return err;
             }
@@ -5556,8 +5551,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 return mdir_dsize;
             }
 
-            int err = lfsr_btree_set(lfs, &mtree_, mbid, LFSR_TAG_MDIR, 1,
-                    LFSR_DATA(mdir_buf, mdir_dsize));
+            int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
+                    LFSR_ATTR(mbid, MDIR, 0,
+                        BUF(mdir_buf, mdir_dsize))));
             if (err) {
                 return err;
             }
@@ -5579,8 +5575,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 return msibling_dsize;
             }
 
-            int err = lfsr_btree_set(lfs, &mtree_, mbid, LFSR_TAG_MDIR, 1,
-                    LFSR_DATA(msibling_buf, msibling_dsize));
+            int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
+                    LFSR_ATTR(mbid, MDIR, 0,
+                        BUF(msibling_buf, msibling_dsize))));
             if (err) {
                 return err;
             }
@@ -5599,8 +5596,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // case they introduce a new name!
             lfsr_tag_t stag;
             lfsr_data_t sdata;
-            int err = lfsr_mdir_lookupnext(lfs, &msibling_, 0, LFSR_TAG_NAME,
-                    NULL, &stag, &sdata);
+            int err = lfsr_mdir_lookup(lfs, &msibling_, 0, LFSR_TAG_WIDE(NAME),
+                    &stag, &sdata);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
@@ -5619,12 +5616,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 return msibling_dsize;
             }
 
-            err = lfsr_btree_split(lfs, &mtree_, mbid,
-                    (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
-                        ? sdata
-                        : LFSR_DATA_NULL),
-                    LFSR_TAG_MDIR, 1, LFSR_DATA(mdir_buf, mdir_dsize),
-                    LFSR_TAG_MDIR, 1, LFSR_DATA(msibling_buf, msibling_dsize));
+            err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
+                    LFSR_ATTR(mbid, MDIR, 0,
+                        BUF(mdir_buf, mdir_dsize)),
+                    LFSR_ATTR(mbid+1, BNAME, +1, DATA(sdata)),
+                    LFSR_ATTR(mbid+1, MDIR, 0,
+                        BUF(msibling_buf, msibling_dsize))));
             if (err) {
                 return err;
             }
@@ -5642,7 +5639,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         mdir_.u.r.rbyd.trunk = 0;
 
         // update our mtree
-        int err = lfsr_btree_pop(lfs, &mtree_, mdir->mid.bid);
+        int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
+                LFSR_ATTR(mdir->mid.bid, RM, -1, NULL)));
         if (err) {
             return err;
         }
@@ -5673,9 +5671,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 return mdir_dsize;
             }
 
-            int err = lfsr_btree_set(lfs, &mtree_,
-                    mdir->mid.bid, LFSR_TAG_MDIR, 1,
-                    LFSR_DATA(mdir_buf, mdir_dsize));
+            int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
+                    LFSR_ATTR(mdir->mid.bid, MDIR, 0,
+                        BUF(mdir_buf, mdir_dsize))));
             if (err) {
                 return err;
             }
