@@ -3913,6 +3913,18 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
     // tail-recursively commit to btree
     while (true) {
+        // we will always need our parent, so go ahead and find it
+        lfsr_rbyd_t parent;
+        lfs_ssize_t prid;
+        int err = lfsr_btree_parent(lfs, btree, bid, &rbyd, &parent, &prid);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        if (err == LFS_ERR_NOENT) {
+            // mark prid as -1 if we have no parent
+            prid = -1;
+        }
+
         // fetch our rbyd so we can mutate it
         //
         // note that some paths lead this to being a newly allocated rbyd,
@@ -3921,19 +3933,17 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         //
         // a funny benefit is we cache the root of our btree this way
         if (!lfsr_rbyd_isfetched(&rbyd)) {
-            int err = lfsr_rbyd_fetch(lfs, &rbyd, rbyd.block, rbyd.trunk);
+            err = lfsr_rbyd_fetch(lfs, &rbyd, rbyd.block, rbyd.trunk);
             if (err) {
                 return err;
             }
         }
 
-        // make a copy so we have a reference to the old trunk in case of split
-        lfsr_rbyd_t rbyd_ = rbyd;
-
         // is rbyd erased? can we sneak our commit into any remaining
         // erased bytes? note that the btree trunk field prevents this from
         // interacting with other references to the rbyd
-        int err = lfsr_rbyd_appendall(lfs, &rbyd_, bid, -1, -1,
+        lfsr_rbyd_t rbyd_ = rbyd;
+        err = lfsr_rbyd_appendall(lfs, &rbyd_, bid, -1, -1,
                 attrs, attr_count);
         if (err && err != LFS_ERR_RANGE) {
             // TODO wait should we also move if there is corruption here?
@@ -4014,15 +4024,8 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
     commit_recurse:;
-        // find our parent
-        lfsr_rbyd_t parent;
-        lfs_ssize_t prid;
-        err = lfsr_btree_parent(lfs, btree, bid, &rbyd, &parent, &prid);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
-        }
-        // no parent? we must be done
-        if (err == LFS_ERR_NOENT) {
+        // done?
+        if (prid == -1) {
             LFS_ASSERT(bid == 0);
             btree->u.r.rbyd = rbyd_;
             return 0;
@@ -4033,6 +4036,9 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         if (scratch_dsize < 0) {
             return scratch_dsize;
         }
+
+        // TODO can split and merge both end up with zero weight rbyds
+        // as well? do our tests cover this?
 
         // prepare commit to parent, tail recursing upwards
         //
@@ -4146,39 +4152,31 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return scratch2_dsize;
         }
 
-        // find our parent
-        err = lfsr_btree_parent(lfs, btree, bid, &rbyd, &parent, &prid);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
-        }
-        lfs_size_t pweight = rbyd.weight;
         // no parent? introduce a new root
-        if (err == LFS_ERR_NOENT) {
+        if (prid == -1) {
             int err = lfsr_rbyd_alloc(lfs, &parent);
             if (err) {
                 return err;
             }
         
-            // prepare commit to parent, tail recursing upwards
             LFS_ASSERT(bid == 0);
-            prid = -1;
-            pweight = 0;
+            rbyd.weight = 0;
         }
 
         // prepare commit to parent, tail recursing upwards
-        bid -= prid - (pweight-1);
+        bid -= prid - (rbyd.weight-1);
         scratch_attrs[0] = LFSR_ATTR(
                 bid+prid, BRANCH, 0,
                 BUF(scratch1_buf, scratch1_dsize));
         scratch_attrs[1] = LFSR_ATTR(
-                bid+prid, GROW(RM), +rbyd_.weight-pweight,
+                bid+prid, GROW(RM), +rbyd_.weight-rbyd.weight,
                 NULL);
         scratch_attrs[2] = LFSR_ATTR(
-                bid+prid+rbyd_.weight-(pweight-1), BRANCH, +sibling.weight,
+                bid+prid+rbyd_.weight-(rbyd.weight-1), BRANCH, +sibling.weight,
                 BUF(scratch2_buf, scratch2_dsize));
         scratch_attrs[3] = (lfsr_tag_suptype(stag) == LFSR_TAG_NAME
                 ? LFSR_ATTR(
-                    bid+prid+rbyd_.weight-(pweight-1)+sibling.weight-1,
+                    bid+prid+rbyd_.weight-(rbyd.weight-1)+sibling.weight-1,
                     BNAME, 0, DATA(sdata))
                 : LFSR_ATTR_NOOP);
         attrs = scratch_attrs;
@@ -4188,13 +4186,8 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         continue;
 
     merge:;
-        // find our parent
-        err = lfsr_btree_parent(lfs, btree, bid, &rbyd, &parent, &prid);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
-        }
         // no parent? can't merge
-        if (err == LFS_ERR_NOENT) {
+        if (prid == -1) {
             goto merge_abort;
         }
 
