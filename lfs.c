@@ -4494,12 +4494,6 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
         goto cleanup;
     }
 
-    // found superblock?
-    if (lfs_pair_isnull(lfs->root)) {
-        err = LFS_ERR_INVAL;
-        goto cleanup;
-    }
-
     // update littlefs with gstate
     if (!lfs_gstate_iszero(&lfs->gstate)) {
         LFS_DEBUG("Found pending gstate 0x%08"PRIx32"%08"PRIx32"%08"PRIx32,
