@@ -5,7 +5,7 @@ code = '''
     lfs_format(&lfs, cfg) => 0;
 '''
 
-# tests formatting from interpretting a previous superblock
+# formatting from interpretting a previous superblock block_count
 [cases.test_superblocks_format_unknown_block_count]
 code = '''
     lfs_t lfs;
@@ -28,6 +28,20 @@ code = '''
     lfs_mount(&lfs, cfg) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+# mount/unmount from interpretting a previous superblock block_count
+[cases.test_superblocks_mount_unknown_block_count]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+
+    memset(&lfs, 0, sizeof(lfs));
+    struct lfs_config tweaked_cfg = *cfg;
+    tweaked_cfg.block_count = 0;
+    lfs_mount(&lfs, &tweaked_cfg) => 0;
+    assert(lfs.block_count == cfg->block_count);
+'''
+
 
 # reentrant format
 [cases.test_superblocks_reentrant_format]
