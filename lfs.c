@@ -46,8 +46,7 @@ static int lfs_bd_read(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
-    if (lfs->block_count && 
-            (block >= lfs->block_count || off+size > lfs->cfg->block_size)) {
+    if (off+size > lfs->cfg->block_size || (lfs->block_count && block >= lfs->block_count)) {
         return LFS_ERR_CORRUPT;
     }
 
