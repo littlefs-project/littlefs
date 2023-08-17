@@ -237,7 +237,7 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     lfs_emubd_t *bd = cfg->context;
 
     // check if read is valid
-    LFS_ASSERT(block < cfg->block_count);
+    LFS_ASSERT(!cfg->block_count || block < cfg->block_count);
     LFS_ASSERT(off  % cfg->read_size == 0);
     LFS_ASSERT(size % cfg->read_size == 0);
     LFS_ASSERT(off+size <= cfg->block_size);
@@ -287,7 +287,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     lfs_emubd_t *bd = cfg->context;
 
     // check if write is valid
-    LFS_ASSERT(block < cfg->block_count);
+    LFS_ASSERT(!cfg->block_count || block < cfg->block_count);
     LFS_ASSERT(off  % cfg->prog_size == 0);
     LFS_ASSERT(size % cfg->prog_size == 0);
     LFS_ASSERT(off+size <= cfg->block_size);
@@ -376,7 +376,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     lfs_emubd_t *bd = cfg->context;
 
     // check if erase is valid
-    LFS_ASSERT(block < cfg->block_count);
+    LFS_ASSERT(!cfg->block_count || block < cfg->block_count);
 
     // get the block
     lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);

@@ -46,8 +46,8 @@ static int lfs_bd_read(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
-    if (block >= lfs->block_count ||
-            off+size > lfs->cfg->block_size) {
+    if (lfs->block_count && 
+            (block >= lfs->block_count || off+size > lfs->cfg->block_size)) {
         return LFS_ERR_CORRUPT;
     }
 
@@ -104,7 +104,7 @@ static int lfs_bd_read(lfs_t *lfs,
         }
 
         // load to cache, first condition can no longer fail
-        LFS_ASSERT(block < lfs->block_count);
+        LFS_ASSERT(!lfs->block_count || block < lfs->block_count);
         rcache->block = block;
         rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
         rcache->size = lfs_min(
@@ -4389,7 +4389,7 @@ static int lfs_validate_superblock(lfs_t *lfs, lfs_superblock_t *superblock){
         lfs->attr_max = superblock->attr_max;
     }
 
-    if (superblock->block_count != lfs->cfg->block_count) {
+    if (lfs->cfg->block_count && superblock->block_count != lfs->cfg->block_count) {
         LFS_ERROR("Invalid block count (%"PRIu32" != %"PRIu32")",
                 superblock->block_count, lfs->cfg->block_count);
         return LFS_ERR_INVAL;
