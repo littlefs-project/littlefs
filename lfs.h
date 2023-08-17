@@ -437,6 +437,8 @@ typedef struct lfs {
     lfs_size_t file_max;
     lfs_size_t attr_max;
 
+    lfs_size_t block_count;
+
 #ifdef LFS_MIGRATE
     struct lfs1 *lfs1;
 #endif
