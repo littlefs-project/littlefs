@@ -4201,6 +4201,15 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
+        // did one of our siblings drop to zero? yes this can happen! revert
+        // to a normal commit in that case
+        if (rbyd_.weight == 0 || sibling.weight == 0) {
+            if (rbyd_.weight == 0) {
+                rbyd_ = sibling;
+            }
+            goto commit_recurse;
+        }
+
         // lookup first name in sibling to use as the split name
         //
         // note we need to do this after playing out pending attrs in case

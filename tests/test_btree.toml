@@ -2542,6 +2542,264 @@ code = '''
 '''
 
 
+# Some specific corner cases
+[cases.test_btree_drop]
+# this should large enough so only one entry can fit in a block
+defines.SIZE = 'BLOCK_SIZE / 4'
+defines.SIBLING = [0, 1]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+    // create free lookahead
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
+    lfs.lookahead.next = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a tree
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+
+    // force it to split
+
+    // the extra push here avoids trying to inline the big entry
+    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
+            LFSR_DATA("_", 1)) => 0;
+    uint8_t buf1[SIZE];
+    memset(buf1, 'a', SIZE);
+    uint8_t buf2[SIZE];
+    memset(buf2, 'b', SIZE);
+    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL,
+            LFSR_TAG_INLINED, 1, LFSR_DATA(buf1, SIZE),
+            LFSR_TAG_INLINED, 1, LFSR_DATA(buf2, SIZE)) => 0;
+    // force compaction
+    btree.u.r.rbyd.eoff = -1;
+    memset(buf2, 'b', SIZE);
+    lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_INLINED, 1,
+            LFSR_DATA(buf2, SIZE)) => 0;
+    assert(lfsr_btree_weight(&btree) == 2);
+
+    // now remove one entry, since this brings the rbyd down to zero,
+    // this should force one of the blocks to drop
+    lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
+
+    printf("btree: w%d 0x%x.%x\n",
+            btree.u.r.rbyd.weight,
+            btree.u.r.rbyd.block,
+            btree.u.r.rbyd.trunk);
+    assert(lfsr_btree_weight(&btree) == 1);
+
+    // check that our other entry is fine
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_btree_get(&lfs, &btree, 0,
+            &tag_, &weight_, buf1, SIZE) => SIZE;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(weight_ == 1);
+    assert(memcmp(buf1, (SIBLING ? "a" : "b"), 1) == 0);
+
+    // and check that our pop worked
+    lfsr_btree_get(&lfs, &btree, 1,
+            &tag_, &weight_, buf1, SIZE) => LFS_ERR_NOENT;
+'''
+
+[cases.test_btree_drop_compact]
+# this should large enough so only one entry can fit in a block
+defines.SIZE = 'BLOCK_SIZE / 4'
+defines.SIBLING = [0, 1]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+    // create free lookahead
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
+    lfs.lookahead.next = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a tree
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+
+    // force it to split
+
+    // the extra push here avoids trying to inline the big entry
+    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
+            LFSR_DATA("_", 1)) => 0;
+    uint8_t buf1[SIZE];
+    memset(buf1, 'a', SIZE);
+    uint8_t buf2[SIZE];
+    memset(buf2, 'b', SIZE);
+    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL,
+            LFSR_TAG_INLINED, 1, LFSR_DATA(buf1, SIZE),
+            LFSR_TAG_INLINED, 1, LFSR_DATA(buf2, SIZE)) => 0;
+    // force compaction
+    btree.u.r.rbyd.eoff = -1;
+    memset(buf2, 'b', SIZE);
+    lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_INLINED, 1,
+            LFSR_DATA(buf2, SIZE)) => 0;
+    assert(lfsr_btree_weight(&btree) == 2);
+
+    // now remove one entry, since this brings the rbyd down this zero,
+    // this should force one of the blocks to drop
+    //
+    // do this while forcing a compaction
+    btree.u.r.rbyd.eoff = -1;
+    lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
+
+    printf("btree: w%d 0x%x.%x\n",
+            btree.u.r.rbyd.weight,
+            btree.u.r.rbyd.block,
+            btree.u.r.rbyd.trunk);
+    assert(lfsr_btree_weight(&btree) == 1);
+
+    // check that our other entry is fine
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_btree_get(&lfs, &btree, 0,
+            &tag_, &weight_, buf1, SIZE) => SIZE;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(weight_ == 1);
+    assert(memcmp(buf1, (SIBLING ? "a" : "b"), 1) == 0);
+
+    // and check that our pop worked
+    lfsr_btree_get(&lfs, &btree, 1,
+            &tag_, &weight_, buf1, SIZE) => LFS_ERR_NOENT;
+'''
+
+[cases.test_btree_drop_split]
+# this should large enough so only one entry can fit in a block
+defines.SIZE = 'BLOCK_SIZE / 4'
+defines.SIBLING = [0, 1]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+    // create free lookahead
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
+    lfs.lookahead.next = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a tree
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+
+    // force it to split
+
+    // the extra push here avoids trying to inline the big entry
+    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
+            LFSR_DATA("_", 1)) => 0;
+    uint8_t buf1[SIZE];
+    memset(buf1, 'a', SIZE);
+    uint8_t buf2[SIZE];
+    memset(buf2, 'b', SIZE);
+    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL,
+            LFSR_TAG_INLINED, 1, LFSR_DATA(buf1, SIZE),
+            LFSR_TAG_INLINED, 1, LFSR_DATA(buf2, SIZE)) => 0;
+
+    // force compaction, causing a split, but while we're splitting,
+    // also remove an entry, bringing the split rbyd down to zero mid split
+    //
+    // messy, isn't it? this is why we need an explicit test
+    //
+    btree.u.r.rbyd.eoff = -1;
+    lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
+
+    printf("btree: w%d 0x%x.%x\n",
+            btree.u.r.rbyd.weight,
+            btree.u.r.rbyd.block,
+            btree.u.r.rbyd.trunk);
+    assert(lfsr_btree_weight(&btree) == 1);
+
+    // check that our other entry is fine
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_btree_get(&lfs, &btree, 0,
+            &tag_, &weight_, buf1, SIZE) => SIZE;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(weight_ == 1);
+    assert(memcmp(buf1, (SIBLING ? "a" : "b"), 1) == 0);
+
+    // and check that our pop worked
+    lfsr_btree_get(&lfs, &btree, 1,
+            &tag_, &weight_, buf1, SIZE) => LFS_ERR_NOENT;
+'''
+
+[cases.test_btree_drop_merge]
+# this should large enough so only one entry can fit in a block
+defines.SIZE = 'BLOCK_SIZE / 4'
+defines.SIBLING = [0, 1]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfs_init(&lfs, CFG) => 0;
+    // create free lookahead
+    memset(lfs.lookahead.buffer, 0, CFG->lookahead_size);
+    lfs.lookahead.start = 0;
+    lfs.lookahead.size = lfs_min(8*CFG->lookahead_size,
+            CFG->block_count);
+    lfs.lookahead.next = 0;
+    lfs_alloc_ack(&lfs);
+
+    // create a tree
+    lfsr_btree_t btree = LFSR_BTREE_NULL;
+
+    // force it to split
+
+    // the extra push here avoids trying to inline the big entry
+    lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
+            LFSR_DATA("_", 1)) => 0;
+    uint8_t buf1[SIZE];
+    memset(buf1, 'a', SIZE);
+    uint8_t buf2[SIZE];
+    memset(buf2, 'b', SIZE);
+    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NULL,
+            LFSR_TAG_INLINED, 1, LFSR_DATA(buf1, SIZE),
+            LFSR_TAG_INLINED, 1, LFSR_DATA(buf2, SIZE)) => 0;
+    // force compaction
+    btree.u.r.rbyd.eoff = -1;
+    memset(buf2, 'b', SIZE);
+    lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_INLINED, 1,
+            LFSR_DATA(buf2, SIZE)) => 0;
+    assert(lfsr_btree_weight(&btree) == 2);
+
+    // now make both entries small so they should be merged if either compacts
+    lfsr_btree_set(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
+            LFSR_DATA("a", 1)) => 0;
+    lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_INLINED, 1,
+            LFSR_DATA("b", 1)) => 0;
+
+    // force compaction, while removing one entry, this drops the rbyd
+    // down to zero while also triggering a merge
+    btree.u.r.rbyd.eoff = -1;
+    lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
+
+    printf("btree: w%d 0x%x.%x\n",
+            btree.u.r.rbyd.weight,
+            btree.u.r.rbyd.block,
+            btree.u.r.rbyd.trunk);
+    assert(lfsr_btree_weight(&btree) == 1);
+
+    // check that our other entry is fine
+    lfsr_tag_t tag_;
+    lfs_size_t weight_;
+    lfsr_btree_get(&lfs, &btree, 0,
+            &tag_, &weight_, buf1, SIZE) => 1;
+    assert(tag_ == LFSR_TAG_INLINED);
+    assert(weight_ == 1);
+    assert(memcmp(buf1, (SIBLING ? "a" : "b"), 1) == 0);
+
+    // and check that our pop worked
+    lfsr_btree_get(&lfs, &btree, 1,
+            &tag_, &weight_, buf1, SIZE) => LFS_ERR_NOENT;
+'''
+
+
 # Some more general fuzz testing
 [cases.test_btree_general_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
