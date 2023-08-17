@@ -4011,7 +4011,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
         // is our compacted size too small? try to merge with one of
         // our siblings
-        if (rbyd_.eoff < lfs->cfg->block_size/4) {
+        if (rbyd_.eoff <= lfs->cfg->block_size/4) {
             goto merge;
         }
 
@@ -4266,22 +4266,22 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             }
 
             // estimate if our sibling will fit
-            //
-            // this is imprecise when not compacting, so we may still fail to
-            // merge, but this at least lets us avoid wasting programming cycles
-            // when merge failure is obvious
             lfs_ssize_t estimate = lfsr_rbyd_estimateall(lfs, &sibling, -1, -1,
                     NULL);
             if (estimate < 0) {
                 return estimate;
             }
 
-            // don't fit? can't merge
-            if ((lfs_size_t)estimate > lfs->cfg->block_size/4) {
+            // doesn't fit? can't merge
+            //
+            // note we use our uncompacted estimate here, since we need to
+            // make sure our commit that merges the sibling doesn't fail
+            if (estimate * lfs_nlog2((rbyd_.eoff+estimate)/16)
+                    > lfs->cfg->block_size/4) {
                 continue;
             }
 
-            // found a sibling that can probably be merged
+            // found a sibling that can be merged
             break;
         }
 
@@ -4306,22 +4306,8 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
                     sibling_delta+rid_-lfs_smax32(weight_-1, 0), tag_, +weight_,
                     data_);
             if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
-            }
-
-            // if we exceed our compaction threshold our merge has failed,
-            // clean up ids and return to merge_abort
-            if (rbyd__.eoff > lfs->cfg->block_size/2) {
-                err = lfsr_rbyd_append(lfs, &rbyd__,
-                        sibling_delta+(rbyd__.weight-rbyd_.weight)-1,
-                        LFSR_TAG_RM, -(rbyd__.weight-rbyd_.weight),
-                        LFSR_DATA_NULL);
-                if (err) {
-                    return err;
-                }
-
-                rbyd_ = rbyd__;
-                goto merge_abort;
             }
         }
 
