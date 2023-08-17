@@ -3962,7 +3962,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             goto compact;
         }
 
-        goto commit_recurse;
+        goto commit;
 
     compact:;
         // can't commit, try to compact
@@ -4099,10 +4099,19 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-    commit_recurse:;
+        goto commit;
+
+    commit:;
         // done?
         if (rid == -1) {
             LFS_ASSERT(bid == 0);
+            btree->u.r.rbyd = rbyd_;
+            return 0;
+        }
+
+        // is our parent the root and is the root degenerate?
+        if (rbyd.weight == lfsr_btree_weight(btree)) {
+            // collapse the root, decreasing the height of the tree
             btree->u.r.rbyd = rbyd_;
             return 0;
         }
@@ -4112,9 +4121,6 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         if (scratch_dsize < 0) {
             return scratch_dsize;
         }
-
-        // TODO can split and merge both end up with zero weight rbyds
-        // as well? do our tests cover this?
 
         // prepare commit to parent, tail recursing upwards
         //
@@ -4207,7 +4213,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             if (rbyd_.weight == 0) {
                 rbyd_ = sibling;
             }
-            goto commit_recurse;
+            goto commit;
         }
 
         // lookup first name in sibling to use as the split name
@@ -4336,11 +4342,11 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        // TODO we should also do this when dropping no?
-        // we must have a parent at this point, but is our parent degenerate?
+        // we must have a parent at this point, but is our parent the root
+        // and is the root degenerate?
         LFS_ASSERT(rid != -1);
         if (rbyd.weight+sibling.weight == lfsr_btree_weight(btree)) {
-            // collapse our parent, decreasing the height of the tree
+            // collapse the root, decreasing the height of the tree
             btree->u.r.rbyd = rbyd__;
             return 0;
         }
