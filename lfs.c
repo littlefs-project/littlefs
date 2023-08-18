@@ -3006,7 +3006,6 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 static int lfsr_rbyd_compact_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_ssize_t start_rid, lfs_ssize_t end_rid,
         const lfsr_rbyd_t *const *rbyds, lfs_size_t rbyd_count) {
-#ifndef LFSR_NO_REBALANCE
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
 
@@ -3173,38 +3172,6 @@ failed:;
     // if we failed release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
     return err;
-
-#else
-    // try to copy over tags
-    lfs_ssize_t rid = start_rid;
-    lfsr_tag_t tag = 0;
-    while (true) {
-        lfs_size_t weight;
-        lfsr_data_t data;
-        int err = lfsr_rbyd_lookupnext(lfs, source, rid, lfsr_tag_next(tag),
-                &rid, &tag, &weight, &data);
-        if (err && err != LFS_ERR_NOENT) {
-            return err;
-        }
-        if (err == LFS_ERR_NOENT || (end_rid >= 0 && rid >= end_rid)) {
-            return 0;
-        }
-
-        // this is a bit of a hack, but ignore any gstate tags here,
-        // these need to be handled specially by upper-layers
-        if (lfsr_tag_suptype(tag) == LFSR_TAG_GSTATE) {
-            continue;
-        }
-
-        // append the attr
-        err = lfsr_rbyd_append(lfs, rbyd,
-                rid-lfs_smax32(weight-1, 0)-lfs_smax32(start_rid, 0),
-                tag, +weight, data);
-        if (err) {
-            return err;
-        }
-    }
-#endif
 }
 
 static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
@@ -3260,16 +3227,8 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         // of inner nodes is the same as the number of tags. Each node has
         // two alts and is terminated by a 4-byte null tag.
         //
-    #ifndef LFSR_NO_REBALANCE
         dsize += 2*LFSR_TAG_DSIZE + 4
                 + LFSR_TAG_DSIZE + lfsr_data_size(&data);
-    #else
-        // TODO is this the best way to do this?
-        // If we're not rebalancing, we just don't account for the alts. We
-        // need to know the total size to know how many alts there are, so
-        // just leave this up to upper layers
-        dsize += LFSR_TAG_DSIZE + lfsr_data_size(&data);
-    #endif
     }
 
     if (rid_) {
@@ -3338,22 +3297,7 @@ static lfs_ssize_t lfsr_rbyd_estimateall(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         *split_rid_ = lower_rid;
     }
 
-#ifndef LFSR_NO_REBALANCE
     return dsize + lower_dsize + upper_dsize;
-#else
-    // TODO if we are serious about providing a LFSR_NO_REBALANCE option, we
-    // should probably also do this in lfsr_rbyd_estimate, though that raises
-    // the question how should lfsr_rbyd_estimate/estimateall interact in that
-    // case?
-    // 
-    // If we're not rebalancing, we need to account for the overhead of
-    // intermediary trunks, which is O(log(n)) per trunk.
-    //
-    // Assuming worst case all tags are zero-length, and tags are at minimum
-    // 4 bytes, the worst case total is 4*(2*log2(dsize/4)) + dsize
-    dsize = dsize + lower_dsize + upper_dsize;
-    return 4*(2*lfs_nlog2(dsize/4)) + dsize;
-#endif
 }
 
 // TODO
