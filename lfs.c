@@ -4136,18 +4136,19 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         // note that since we defer merges to compaction time, we can
         // end up removing an rbyd here
         bid -= rid - (rbyd.weight-1);
-        scratch_attrs[0] = LFSR_ATTR(
-                bid+rid, BRANCH, 0,
-                BUF(scratch_buf, scratch_dsize));
-        scratch_attrs[1] = (rbyd_.weight == 0
-                ? LFSR_ATTR(
-                    bid+rid, RM, -rbyd.weight,
-                    NULL)
-                : LFSR_ATTR(
-                    bid+rid, GROW(RM), +rbyd_.weight-rbyd.weight,
-                    NULL));
-        attrs = scratch_attrs;
-        attr_count = 2;
+        if (rbyd_.weight == 0) {
+            scratch_attrs[0] = LFSR_ATTR(
+                    bid+rid, RM, -rbyd.weight, NULL);
+            attrs = scratch_attrs;
+            attr_count = 1;
+        } else {
+            scratch_attrs[0] = LFSR_ATTR(
+                    bid+rid, BRANCH, 0, BUF(scratch_buf, scratch_dsize));
+            scratch_attrs[1] = LFSR_ATTR(
+                    bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight, NULL);
+            attrs = scratch_attrs;
+            attr_count = 2;
+        }
 
         rbyd = parent;
         continue;
@@ -4272,21 +4273,22 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         LFS_ASSERT(rbyd_.weight > 0);
         LFS_ASSERT(sibling.weight > 0);
         scratch_attrs[0] = LFSR_ATTR(
-                bid+rid, BRANCH, 0,
-                BUF(scratch1_buf, scratch1_dsize));
+                bid+rid, BRANCH, 0, BUF(scratch1_buf, scratch1_dsize));
         scratch_attrs[1] = LFSR_ATTR(
-                bid+rid, GROW(RM), +rbyd_.weight-rbyd.weight,
-                NULL);
+                bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight, NULL);
         scratch_attrs[2] = LFSR_ATTR(
-                bid+rid+rbyd_.weight-(rbyd.weight-1), BRANCH, +sibling.weight,
-                BUF(scratch2_buf, scratch2_dsize));
-        scratch_attrs[3] = (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME
-                ? LFSR_ATTR(
-                    bid+rid+rbyd_.weight-(rbyd.weight-1)+sibling.weight-1,
-                    BNAME, 0, DATA(split_data))
-                : LFSR_ATTR_NOOP);
-        attrs = scratch_attrs;
-        attr_count = 4;
+                bid+rid - rbyd.weight + rbyd_.weight + 1,
+                BRANCH, +sibling.weight, BUF(scratch2_buf, scratch2_dsize));
+        if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
+            scratch_attrs[3] = LFSR_ATTR(
+                    bid+rid - rbyd.weight + rbyd_.weight + sibling.weight,
+                    BNAME, 0, DATA(split_data));
+            attrs = scratch_attrs;
+            attr_count = 4;
+        } else {
+            attrs = scratch_attrs;
+            attr_count = 3;
+        }
 
         rbyd = parent;
         continue;
@@ -4369,10 +4371,9 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         scratch_attrs[0] = LFSR_ATTR(
                 bid+rid+sibling.weight, RM, -sibling.weight, NULL);
         scratch_attrs[1] = LFSR_ATTR(
-                bid+rid, BRANCH, 0,
-                BUF(scratch_buf, scratch_dsize));
+                bid+rid, BRANCH, 0, BUF(scratch_buf, scratch_dsize));
         scratch_attrs[2] = LFSR_ATTR(
-                bid+rid, GROW(RM), +rbyd_.weight-rbyd.weight, NULL);
+                bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight, NULL);
         attrs = scratch_attrs;
         attr_count = 3;
 
