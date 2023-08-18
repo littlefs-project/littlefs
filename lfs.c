@@ -4420,13 +4420,13 @@ static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
             lfs_superblock_t superblock;
             err = lfs_scan_for_superblock(lfs, &superblock);
             if(err){
-                return err;
+                goto cleanup;
             }
             lfs->block_count = superblock.block_count;
             
             err = lfs_validate_superblock(lfs, &superblock);
             if(err){
-                return err;
+                goto cleanup;
             }
         }
 
@@ -4505,7 +4505,7 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
 
     err = lfs_validate_superblock(lfs, &superblock);
     if(err){
-        return err;
+        goto cleanup;
     }
 
     err = lfs_scan_for_state_updates(lfs);
