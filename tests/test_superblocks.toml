@@ -48,6 +48,7 @@ code = '''
     tweaked_cfg.block_count = 0;
     lfs_mount(&lfs, &tweaked_cfg) => 0;
     assert(lfs.block_count == cfg->block_count);
+    lfs_unmount(&lfs) => 0;
 '''
 
 
