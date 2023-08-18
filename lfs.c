@@ -2868,7 +2868,7 @@ failed:;
 }
 
 static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_size_t bid, lfs_ssize_t start_rid, lfs_ssize_t end_rid,
+        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // append each tag to the tree
     for (lfs_size_t i = 0; i < attr_count; i++) {
@@ -2910,7 +2910,7 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
                     // append the attr
                     err = lfsr_rbyd_append(lfs, rbyd,
-                            attrs[i].rid - lfs_smax32(bid, start_rid),
+                            attrs[i].rid - lfs_smax32(start_rid, 0),
                             tag, 0, data);
                     if (err) {
                         return err;
@@ -2922,7 +2922,7 @@ static int lfsr_rbyd_appendall(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 LFS_ASSERT(!lfsr_tag_isinternal(attrs[i].tag));
 
                 int err = lfsr_rbyd_append(lfs, rbyd,
-                        attrs[i].rid - lfs_smax32(bid, start_rid),
+                        attrs[i].rid - lfs_smax32(start_rid, 0),
                         attrs[i].tag, attrs[i].delta, attrs[i].data);
                 if (err) {
                     return err;
@@ -2987,7 +2987,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // append each tag to the tree
-    int err = lfsr_rbyd_appendall(lfs, rbyd, 0, -1, -1,
+    int err = lfsr_rbyd_appendall(lfs, rbyd, -1, -1,
             attrs, attr_count);
     if (err) {
         return err;
@@ -3887,7 +3887,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             }
 
             // commit our attrs
-            err = lfsr_rbyd_appendall(lfs, &rbyd, 0, -1, -1,
+            err = lfsr_rbyd_appendall(lfs, &rbyd, -1, -1,
                     attrs, attr_count);
             if (err) {
                 return err;
@@ -3963,7 +3963,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         // erased bytes? note that the btree trunk field prevents this from
         // interacting with other references to the rbyd
         lfsr_rbyd_t rbyd_ = rbyd;
-        err = lfsr_rbyd_appendall(lfs, &rbyd_, bid, -1, -1,
+        err = lfsr_rbyd_appendall(lfs, &rbyd_, bid, -1,
                 attrs, attr_count);
         if (err && err != LFS_ERR_RANGE) {
             // TODO wait should we also move if there is corruption here?
@@ -4094,7 +4094,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
         // append any pending attrs, it's up to upper
         // layers to make sure these always fit
-        err = lfsr_rbyd_appendall(lfs, &rbyd_, bid, -1, -1,
+        err = lfsr_rbyd_appendall(lfs, &rbyd_, bid, -1,
                 attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -4143,9 +4143,11 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             attr_count = 1;
         } else {
             scratch_attrs[0] = LFSR_ATTR(
-                    bid+rid, BRANCH, 0, BUF(scratch_buf, scratch_dsize));
+                    bid+rid, BRANCH, 0,
+                    BUF(scratch_buf, scratch_dsize));
             scratch_attrs[1] = LFSR_ATTR(
-                    bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight, NULL);
+                    bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight,
+                    NULL);
             attrs = scratch_attrs;
             attr_count = 2;
         }
@@ -4180,7 +4182,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfsr_rbyd_appendall(lfs, &rbyd_, bid, -1, bid+split_rid,
+        err = lfsr_rbyd_appendall(lfs, &rbyd_, bid, bid+split_rid,
                 attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -4205,7 +4207,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfsr_rbyd_appendall(lfs, &sibling, bid, bid+split_rid, -1,
+        err = lfsr_rbyd_appendall(lfs, &sibling, bid+split_rid, -1,
                 attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -4272,23 +4274,35 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         bid -= rid - (rbyd.weight-1);
         LFS_ASSERT(rbyd_.weight > 0);
         LFS_ASSERT(sibling.weight > 0);
-        scratch_attrs[0] = LFSR_ATTR(
-                bid+rid, BRANCH, 0, BUF(scratch1_buf, scratch1_dsize));
-        scratch_attrs[1] = LFSR_ATTR(
-                bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight, NULL);
+        if (rbyd.weight == 0) {
+            scratch_attrs[0] = LFSR_ATTR(
+                    bid, BRANCH, +rbyd_.weight,
+                    BUF(scratch1_buf, scratch1_dsize));
+            scratch_attrs[1] = LFSR_ATTR_NOOP;
+        } else {
+            scratch_attrs[0] = LFSR_ATTR(
+                    bid+rid, BRANCH, 0,
+                    BUF(scratch1_buf, scratch1_dsize));
+            scratch_attrs[1] = LFSR_ATTR(
+                    bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight,
+                    NULL);
+        }
         scratch_attrs[2] = LFSR_ATTR(
                 bid+rid - rbyd.weight + rbyd_.weight + 1,
-                BRANCH, +sibling.weight, BUF(scratch2_buf, scratch2_dsize));
+                BRANCH,
+                +sibling.weight,
+                BUF(scratch2_buf, scratch2_dsize));
         if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
             scratch_attrs[3] = LFSR_ATTR(
                     bid+rid - rbyd.weight + rbyd_.weight + sibling.weight,
-                    BNAME, 0, DATA(split_data));
-            attrs = scratch_attrs;
-            attr_count = 4;
+                    BNAME,
+                    0,
+                    DATA(split_data));
         } else {
-            attrs = scratch_attrs;
-            attr_count = 3;
+            scratch_attrs[3] = LFSR_ATTR_NOOP;
         }
+        attrs = scratch_attrs;
+        attr_count = 4;
 
         rbyd = parent;
         continue;
@@ -4336,7 +4350,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
         // append any pending attrs, it's up to upper
         // layers to make sure these always fit
-        err = lfsr_rbyd_appendall(lfs, &rbyd_, bid, -1, -1,
+        err = lfsr_rbyd_appendall(lfs, &rbyd_, bid, -1,
                 attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -4369,11 +4383,14 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         bid -= rid - (rbyd.weight-1);
         LFS_ASSERT(rbyd_.weight > 0);
         scratch_attrs[0] = LFSR_ATTR(
-                bid+rid+sibling.weight, RM, -sibling.weight, NULL);
+                bid+rid+sibling.weight, RM, -sibling.weight,
+                NULL);
         scratch_attrs[1] = LFSR_ATTR(
-                bid+rid, BRANCH, 0, BUF(scratch_buf, scratch_dsize));
+                bid+rid, BRANCH, 0,
+                BUF(scratch_buf, scratch_dsize));
         scratch_attrs[2] = LFSR_ATTR(
-                bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight, NULL);
+                bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight,
+                NULL);
         attrs = scratch_attrs;
         attr_count = 3;
 
@@ -5016,7 +5033,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
     //
     // upper layers should make sure this can't fail by limiting the
     // maximum commit size
-    err = lfsr_rbyd_appendall(lfs, &mdir_->u.r.rbyd, 0, start_rid, end_rid,
+    err = lfsr_rbyd_appendall(lfs, &mdir_->u.r.rbyd, start_rid, end_rid,
             attr1s, attr1_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5025,7 +5042,7 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
     // note we don't filter attrs from our second pending list, this
     // is used for some auxiliary attrs in lfsr_mdir_commit
-    err = lfsr_rbyd_appendall(lfs, &mdir_->u.r.rbyd, 0, -1, -1,
+    err = lfsr_rbyd_appendall(lfs, &mdir_->u.r.rbyd, -1, -1,
             attr2s, attr2_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5090,7 +5107,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
     // TODO let the lower rbyd layer handle this somehow?
     // mark mdir as unerased in case we fail
     mdir->u.r.rbyd.eoff = lfs->cfg->block_size;
-    int err = lfsr_rbyd_appendall(lfs, &mdir_.u.r.rbyd, 0, start_rid, end_rid,
+    int err = lfsr_rbyd_appendall(lfs, &mdir_.u.r.rbyd, start_rid, end_rid,
             attrs, attr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
