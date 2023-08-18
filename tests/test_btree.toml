@@ -49,7 +49,7 @@ code = '''
         // the struct tag
         return lfsr_btree_commit(lfs, btree, LFSR_ATTRS(
                 LFSR_ATTR(bid, WIDE(TAG(tag)), 0, DATA(data)),
-                LFSR_ATTR(bid, GROW(RM), weight - weight_, NULL)));
+                LFSR_ATTR(bid, GROW, weight - weight_, NULL)));
     }
 
     static int lfsr_btree_pop(lfs_t *lfs, lfsr_btree_t *btree, lfs_size_t bid) {
@@ -84,7 +84,7 @@ code = '''
         }
 
         return lfsr_btree_commit(lfs, btree, LFSR_ATTRS(
-                LFSR_ATTR(bid, GROW(RM), +weight1-weight_, NULL),
+                LFSR_ATTR(bid, GROW, +weight1-weight_, NULL),
                 LFSR_ATTR(bid-(weight_-1)+weight1-1, TAG(tag1), 0, DATA(data1)),
                 (lfsr_data_size(&name) > 0
                     ? LFSR_ATTR(bid-(weight_-1)+weight1,

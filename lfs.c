@@ -619,7 +619,7 @@ enum lfsr_tag_type {
     // some tag modifiers
     // in-device only
     LFSR_TAG_WIDE           = 0x4000,
-    LFSR_TAG_GROW           = 0x2000,
+    LFSR_TAG_GROW           = 0x3000, // note generic grows need the rm-bit
     LFSR_TAG_RM             = 0x1000,
 
     // in-device only
@@ -632,8 +632,9 @@ enum lfsr_tag_type {
 
 // some tag modifiers
 #define LFSR_TAG_WIDE(tag) (LFSR_TAG_WIDE | LFSR_TAG_##tag)
-#define LFSR_TAG_GROW(tag) (LFSR_TAG_GROW | LFSR_TAG_##tag)
-#define LFSR_TAG_RM(tag)   (LFSR_TAG_RM   | LFSR_TAG_##tag)
+// if we're growing an explict tag, we don't need the rm-bit
+#define LFSR_TAG_GROW(tag) ((LFSR_TAG_GROW & ~LFSR_TAG_RM) | LFSR_TAG_##tag)
+#define LFSR_TAG_RM(tag)   (LFSR_TAG_RM | LFSR_TAG_##tag)
 
 // some other tag encodings with their own subfields
 #define LFSR_TAG_ALT(d, c, key) \
@@ -4090,7 +4091,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
                     bid+rid, BRANCH, 0,
                     BUF(scratch_buf, scratch_dsize));
             scratch_attrs[1] = LFSR_ATTR(
-                    bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight,
+                    bid+rid, GROW, -rbyd.weight + rbyd_.weight,
                     NULL);
             attrs = scratch_attrs;
             attr_count = 2;
@@ -4228,7 +4229,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
                     bid+rid, BRANCH, 0,
                     BUF(scratch1_buf, scratch1_dsize));
             scratch_attrs[1] = LFSR_ATTR(
-                    bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight,
+                    bid+rid, GROW, -rbyd.weight + rbyd_.weight,
                     NULL);
         }
         scratch_attrs[2] = LFSR_ATTR(
@@ -4333,7 +4334,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
                 bid+rid, BRANCH, 0,
                 BUF(scratch_buf, scratch_dsize));
         scratch_attrs[2] = LFSR_ATTR(
-                bid+rid, GROW(RM), -rbyd.weight + rbyd_.weight,
+                bid+rid, GROW, -rbyd.weight + rbyd_.weight,
                 NULL);
         attrs = scratch_attrs;
         attr_count = 3;

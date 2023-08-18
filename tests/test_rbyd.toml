@@ -10542,7 +10542,7 @@ code = '''
             lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, false) => 0;
 
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(j*W+W-1, GROW(RM), -D, NULL))) => 0;
+                    LFSR_ATTR(j*W+W-1, GROW, -D, NULL))) => 0;
             assert(rbyd.weight == N*W-D);
 
             lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, CFG->block_size) => 0;
@@ -11460,7 +11460,7 @@ code = '''
             sim_weights[rid] += weight;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(weighted_rid+weight_-1, GROW(RM), +weight,
+                    LFSR_ATTR(weighted_rid+weight_-1, GROW, +weight,
                         NULL))) => 0;
         } else if (op == 3) {
             // get the correct weight from the sim
@@ -11472,7 +11472,7 @@ code = '''
             sim_weights[rid] -= weight;
             // update our rbyd
             lfsr_rbyd_commit(&lfs, &rbyd, LFSR_ATTRS(
-                    LFSR_ATTR(weighted_rid+weight_-1, GROW(RM), -weight,
+                    LFSR_ATTR(weighted_rid+weight_-1, GROW, -weight,
                         NULL))) => 0;
         }
     }
