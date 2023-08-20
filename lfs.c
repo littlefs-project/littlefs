@@ -3946,81 +3946,86 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
         // before we compact, can we merge with our siblings?
         lfsr_rbyd_t sibling;
-        for (uint8_t i = 0; i < 2; i++) {
-            lfs_ssize_t sibling_rid;
-            // try the right sibling
-            if (i == 0) {
-                sibling_rid = rid+1;
+        if ((lfs_size_t)estimate <= lfs->cfg->block_size/4
+                // no parent? can't merge
+                && rid != -1) {
+            for (uint8_t i = 0; i < 2; i++) {
+                lfs_ssize_t sibling_rid;
+                // try the right sibling
+                if (i == 0) {
+                    sibling_rid = rid+1;
+                    // no right sibling? can't merge
+                    if (sibling_rid >= (lfs_ssize_t)parent.weight) {
+                        continue;
+                    }
 
-            // try the left sibling
-            } else {
-                sibling_rid = rid-rbyd.weight;
-            }
-
-            // no parent? no sibling?
-            if (rid == -1
-                    || sibling_rid < 0
-                    || sibling_rid >= (lfs_ssize_t)parent.weight) {
-                continue;
-            }
-
-            // try looking up the sibling
-            // TODO do we really need to fetch sibling_weight if we get
-            // it in our btree struct?
-            lfsr_tag_t sibling_tag;
-            lfs_size_t sibling_weight;
-            lfsr_data_t sibling_data;
-            err = lfsr_rbyd_lookupnext(lfs, &parent,
-                    sibling_rid, LFSR_TAG_NAME,
-                    &sibling_rid, &sibling_tag, &sibling_weight,
-                    &sibling_data);
-            if (err) {
-                // no sibling? can't merge
-                if (err == LFS_ERR_NOENT) {
-                    continue;
+                // try the left sibling
+                } else {
+                    sibling_rid = rid-rbyd.weight;
+                    // no left sibling? can't merge
+                    if (sibling_rid < 0) {
+                        continue;
+                    }
                 }
-                return err;
-            }
 
-            if (sibling_tag == LFSR_TAG_NAME) {
-                err = lfsr_rbyd_lookup(lfs, &parent,
-                        sibling_rid, LFSR_TAG_WIDE(STRUCT),
-                        &sibling_tag, &sibling_data);
+                // try looking up the sibling
+                // TODO do we really need to fetch sibling_weight if we get
+                // it in our btree struct?
+                lfsr_tag_t sibling_tag;
+                lfs_size_t sibling_weight;
+                lfsr_data_t sibling_data;
+                err = lfsr_rbyd_lookupnext(lfs, &parent,
+                        sibling_rid, LFSR_TAG_NAME,
+                        &sibling_rid, &sibling_tag, &sibling_weight,
+                        &sibling_data);
                 if (err) {
-                    LFS_ASSERT(err != LFS_ERR_NOENT);
+                    // no sibling? can't merge
+                    if (err == LFS_ERR_NOENT) {
+                        continue;
+                    }
                     return err;
                 }
-            }
 
-            LFS_ASSERT(sibling_tag == LFSR_TAG_BRANCH);
-            err = lfsr_data_readbranch(lfs, &sibling_data, sibling_weight,
-                    &sibling);
-            if (err) {
-                return err;
-            }
-
-            // estimate if our sibling will fit
-            lfs_ssize_t sibling_estimate = lfsr_rbyd_estimate(lfs,
-                    &sibling, -1, -1,
-                    NULL);
-            if (sibling_estimate < 0) {
-                return estimate;
-            }
-
-            // fits? try to merge
-            if ((lfs_size_t)(estimate + sibling_estimate)
-                    < lfs->cfg->block_size/2) {
-                if (i == 1) {
-                    // if we're merging our left sibling, swap our rbyds
-                    // so our sibling is on the right
-                    bid -= sibling.weight;
-                    rid -= rbyd.weight;
-
-                    rbyd_ = sibling;
-                    sibling = rbyd;
-                    rbyd = rbyd_;
+                if (sibling_tag == LFSR_TAG_NAME) {
+                    err = lfsr_rbyd_lookup(lfs, &parent,
+                            sibling_rid, LFSR_TAG_WIDE(STRUCT),
+                            &sibling_tag, &sibling_data);
+                    if (err) {
+                        LFS_ASSERT(err != LFS_ERR_NOENT);
+                        return err;
+                    }
                 }
-                goto merge;
+
+                LFS_ASSERT(sibling_tag == LFSR_TAG_BRANCH);
+                err = lfsr_data_readbranch(lfs, &sibling_data, sibling_weight,
+                        &sibling);
+                if (err) {
+                    return err;
+                }
+
+                // estimate if our sibling will fit
+                lfs_ssize_t sibling_estimate = lfsr_rbyd_estimate(lfs,
+                        &sibling, -1, -1,
+                        NULL);
+                if (sibling_estimate < 0) {
+                    return estimate;
+                }
+
+                // fits? try to merge
+                if ((lfs_size_t)(estimate + sibling_estimate)
+                        < lfs->cfg->block_size/2) {
+                    if (i == 1) {
+                        // if we're merging our left sibling, swap our rbyds
+                        // so our sibling is on the right
+                        bid -= sibling.weight;
+                        rid -= rbyd.weight;
+
+                        rbyd_ = sibling;
+                        sibling = rbyd;
+                        rbyd = rbyd_;
+                    }
+                    goto merge;
+                }
             }
         }
 
