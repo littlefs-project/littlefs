@@ -301,6 +301,13 @@ struct lfs_fsinfo {
 
     // Upper limit on the size of custom attributes in bytes.
     lfs_size_t attr_max;
+
+    // Number of blocks in filesystem.
+    // May differ from cfg->block_count if autodetected from filesystem.
+    lfs_size_t block_count;
+
+    // Size of block in bytes.
+    lfs_size_t block_size;
 };
 
 // Custom attribute structure, used to describe custom attributes

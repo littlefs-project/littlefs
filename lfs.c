@@ -4575,6 +4575,9 @@ static int lfs_fs_rawstat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
     fsinfo->file_max = lfs->file_max;
     fsinfo->attr_max = lfs->attr_max;
 
+    fsinfo->block_count = lfs->block_count;
+    fsinfo->block_size = lfs->cfg->block_size;
+
     return 0;
 }
 
