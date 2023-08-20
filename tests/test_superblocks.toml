@@ -5,29 +5,6 @@ code = '''
     lfs_format(&lfs, cfg) => 0;
 '''
 
-# formatting from interpretting a previous superblock block_count
-[cases.test_superblocks_format_unknown_block_count]
-code = '''
-    lfs_t lfs;
-    lfs_format(&lfs, cfg) => 0;
-    assert(lfs.block_count == cfg->block_count);
-
-    memset(&lfs, 0, sizeof(lfs));
-    struct lfs_config tweaked_cfg = *cfg;
-    tweaked_cfg.block_count = 0;
-    lfs_format(&lfs, &tweaked_cfg) => 0;
-    assert(lfs.block_count == cfg->block_count);
-'''
-
-# formatting from interpretting a non-existent previous superblock block_count
-[cases.test_superblocks_format_unknown_block_count_failure]
-code = '''
-    lfs_t lfs;
-    struct lfs_config tweaked_cfg = *cfg;
-    tweaked_cfg.block_count = 0;
-    lfs_format(&lfs, &tweaked_cfg) => LFS_ERR_CORRUPT;
-'''
-
 # mount/unmount
 [cases.test_superblocks_mount]
 code = '''

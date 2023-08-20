@@ -4416,20 +4416,7 @@ static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
             return err;
         }
 
-        if (cfg->block_count == 0) {
-            // Attempt to read a (possibly) prior superblock
-            lfs_superblock_t superblock;
-            err = lfs_scan_for_superblock(lfs, &superblock);
-            if (err) {
-                goto cleanup;
-            }
-            lfs->block_count = superblock.block_count;
-            
-            err = lfs_validate_superblock(lfs, &superblock);
-            if (err) {
-                goto cleanup;
-            }
-        }
+        LFS_ASSERT(cfg->block_count != 0);
 
         // create free lookahead
         memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
