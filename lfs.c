@@ -3543,6 +3543,7 @@ static lfs_ssize_t lfsr_btree_todisk(lfs_t *lfs, const lfsr_rbyd_t *btree,
 static int lfsr_data_readbtreeinlined(lfs_t *lfs, lfsr_data_t *data,
         lfsr_tag_t tag, lfs_size_t weight,
         lfsr_btree_t *btree) {
+    LFS_ASSERT(lfsr_data_size(data) <= LFSR_BTREE_INLINESIZE);
     // mark as inlined
     btree->u.i.weight = lfsr_btree_setinlined(weight);
     btree->u.i.tag = tag;
@@ -3794,6 +3795,8 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
                 // update our inlined tag, make sure to strip wide/grow bits
                 if (lfsr_tag_suptype(lfsr_tag_key(attrs[i].tag))
                         == LFSR_TAG_STRUCT) {
+                    LFS_ASSERT(lfsr_data_size(&attrs[i].data)
+                            <= LFSR_BTREE_INLINESIZE);
                     btree->u.i.tag = lfsr_tag_key(attrs[i].tag);
 
                     lfsr_data_t data_ = attrs[i].data;
