@@ -1066,7 +1066,8 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
 
     // if either block address is invalid we return LFS_ERR_CORRUPT here,
     // otherwise later writes to the pair could fail
-    if (lfs->block_count && (pair[0] >= lfs->block_count || pair[1] >= lfs->block_count)) {
+    if (lfs->block_count 
+            && (pair[0] >= lfs->block_count || pair[1] >= lfs->block_count)) {
         return LFS_ERR_CORRUPT;
     }
 
@@ -4415,17 +4416,17 @@ static int lfs_rawformat(lfs_t *lfs, const struct lfs_config *cfg) {
             return err;
         }
 
-        if(cfg->block_count == 0){
+        if (cfg->block_count == 0) {
             // Attempt to read a (possibly) prior superblock
             lfs_superblock_t superblock;
             err = lfs_scan_for_superblock(lfs, &superblock);
-            if(err){
+            if (err) {
                 goto cleanup;
             }
             lfs->block_count = superblock.block_count;
             
             err = lfs_validate_superblock(lfs, &superblock);
-            if(err){
+            if (err) {
                 goto cleanup;
             }
         }
@@ -4495,21 +4496,21 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
 
     lfs_superblock_t superblock;
     err = lfs_scan_for_superblock(lfs, &superblock);
-    if(err) {
+    if (err) {
         goto cleanup;
     }
 
-    if(lfs->block_count == 0){
+    if (lfs->block_count == 0) {
         lfs->block_count = superblock.block_count;
     }
 
     err = lfs_validate_superblock(lfs, &superblock);
-    if(err){
+    if (err) {
         goto cleanup;
     }
 
     err = lfs_scan_for_state_updates(lfs);
-    if(err) {
+    if (err) {
         goto cleanup;
     }
 
@@ -5512,10 +5513,10 @@ static int lfs1_unmount(lfs_t *lfs) {
 /// v1 migration ///
 static int lfs_rawmigrate(lfs_t *lfs, const struct lfs_config *cfg) {
     struct lfs1 lfs1;
-    if(cfg->block_count == 0){
-        // Indeterminate filesystem size not allowed for migration.
-        return LFS_ERR_INVAL;
-    }
+
+    // Indeterminate filesystem size not allowed for migration.
+    LFS_ASSERT(cfg->block_count != 0);
+
     int err = lfs1_mount(lfs, &lfs1, cfg);
     if (err) {
         return err;
