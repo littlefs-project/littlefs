@@ -158,7 +158,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -169,12 +168,12 @@ code = '''
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
     // create a large entry that needs to be uninlined (but not split!)
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -190,7 +189,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mdir_t mdir;
@@ -199,7 +198,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -215,7 +214,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -223,7 +222,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -233,7 +232,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -244,11 +242,11 @@ code = '''
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -267,13 +265,13 @@ code = '''
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -291,13 +289,13 @@ code = '''
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -307,7 +305,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -318,11 +315,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -340,7 +337,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
 
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -356,20 +353,20 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -384,20 +381,20 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -427,8 +424,8 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.u.r.rbyd.eoff = CFG->block_size;
-            lfs.mroot.u.r.rbyd.eoff = CFG->block_size;
+            mdir.u.r.rbyd.eoff = -1;
+            lfs.mroot.u.r.rbyd.eoff = -1;
         }
 
         lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
@@ -524,8 +521,8 @@ code = '''
 
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.u.r.rbyd.eoff = CFG->block_size;
-            lfs.mroot.u.r.rbyd.eoff = CFG->block_size;
+            mdir.u.r.rbyd.eoff = -1;
+            lfs.mroot.u.r.rbyd.eoff = -1;
         }
 
         // add to rbyd, potentially splitting the mdir
@@ -606,7 +603,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -617,11 +613,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -650,7 +646,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -666,7 +662,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -676,7 +672,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -687,11 +682,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -723,7 +718,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -739,7 +734,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -749,7 +744,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -760,11 +754,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -783,7 +777,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -799,7 +793,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -809,7 +803,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -820,11 +813,11 @@ code = '''
 
     // create an mdir that needs to be split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -848,7 +841,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -867,7 +860,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -877,7 +870,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -888,11 +880,11 @@ code = '''
 
     // create an mdir that needs to be split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -916,7 +908,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -935,7 +927,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -945,7 +937,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -956,11 +947,11 @@ code = '''
 
     // create an mdir that needs to be split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -996,7 +987,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -1007,11 +997,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -1029,7 +1019,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
 
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -1049,7 +1039,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that one entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -1057,7 +1047,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -1073,7 +1063,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that one entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -1081,7 +1071,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1091,7 +1081,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -1102,11 +1091,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -1124,7 +1113,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
 
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -1144,7 +1133,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that one entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -1152,7 +1141,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -1168,7 +1157,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that one entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -1176,7 +1165,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1186,7 +1175,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -1197,11 +1185,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -1219,7 +1207,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
 
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -1239,7 +1227,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -1255,7 +1243,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1307,8 +1295,8 @@ code = '''
 
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.u.r.rbyd.eoff = CFG->block_size;
-            lfs.mroot.u.r.rbyd.eoff = CFG->block_size;
+            mdir.u.r.rbyd.eoff = -1;
+            lfs.mroot.u.r.rbyd.eoff = -1;
         }
 
         lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
@@ -1428,8 +1416,8 @@ code = '''
 
             // force a compaction?
             if (FORCE_COMPACTION) {
-                mdir.u.r.rbyd.eoff = CFG->block_size;
-                lfs.mroot.u.r.rbyd.eoff = CFG->block_size;
+                mdir.u.r.rbyd.eoff = -1;
+                lfs.mroot.u.r.rbyd.eoff = -1;
             }
 
             lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
@@ -1489,8 +1477,8 @@ code = '''
 
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.u.r.rbyd.eoff = CFG->block_size;
-            lfs.mroot.u.r.rbyd.eoff = CFG->block_size;
+            mdir.u.r.rbyd.eoff = -1;
+            lfs.mroot.u.r.rbyd.eoff = -1;
         }
 
         // create
@@ -1591,7 +1579,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -1602,12 +1589,12 @@ code = '''
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
     // create a large entry that needs to be uninlined (but not split!)
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -1630,7 +1617,7 @@ code = '''
     mdir.u.r.rbyd.eoff = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
     mdir.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(0, REG, 0, BUF(buffer, SIZE)))) => 0;
 
@@ -1640,7 +1627,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -1648,7 +1635,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -1667,7 +1654,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -1675,7 +1662,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1687,7 +1674,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -1698,11 +1684,11 @@ code = '''
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -1725,7 +1711,7 @@ code = '''
     mdir.u.r.rbyd.eoff = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
     mdir.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(0, REG, 0, BUF(buffer, SIZE)))) => 0;
 
@@ -1737,13 +1723,13 @@ code = '''
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -1764,13 +1750,13 @@ code = '''
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1782,7 +1768,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -1793,11 +1778,11 @@ code = '''
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -1820,7 +1805,7 @@ code = '''
     mdir.u.r.rbyd.eoff = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
     mdir.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(0, REG, 0, BUF(buffer, SIZE)))) => 0;
 
@@ -1832,13 +1817,13 @@ code = '''
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -1859,13 +1844,13 @@ code = '''
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1877,7 +1862,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -1888,7 +1872,7 @@ code = '''
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -1898,7 +1882,7 @@ code = '''
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -1908,7 +1892,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -1922,7 +1906,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1937,7 +1921,6 @@ defines.BLOCK_CYCLES = 2
 defines.PROG_SIZE = 'BLOCK_SIZE'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -1948,7 +1931,7 @@ code = '''
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -1960,7 +1943,7 @@ code = '''
         lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
     }
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -1970,7 +1953,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -1984,7 +1967,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -1996,7 +1979,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2007,7 +1989,7 @@ code = '''
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -2028,7 +2010,7 @@ code = '''
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -2038,7 +2020,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -2052,7 +2034,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2064,7 +2046,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2075,12 +2056,12 @@ code = '''
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
     // create a large entry that needs to be uninlined (but not split!)
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -2108,7 +2089,7 @@ code = '''
     mdir.u.r.rbyd.eoff = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
     mdir.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(0, REG, 0, BUF(buffer, SIZE)))) => 0;
 
@@ -2121,7 +2102,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -2129,7 +2110,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -2151,7 +2132,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -2159,7 +2140,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2171,7 +2152,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2182,11 +2162,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -2209,7 +2189,7 @@ code = '''
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
 
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -2228,20 +2208,20 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -2260,20 +2240,20 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2285,7 +2265,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2296,11 +2275,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -2337,7 +2316,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -2356,7 +2335,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2368,7 +2347,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2384,12 +2362,12 @@ code = '''
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
     // create a large entry that needs to be uninlined (but not split!)
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -2409,7 +2387,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mdir_t mdir;
@@ -2418,7 +2396,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -2437,7 +2415,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -2445,7 +2423,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2457,7 +2435,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2473,11 +2450,11 @@ code = '''
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -2500,13 +2477,13 @@ code = '''
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -2527,13 +2504,13 @@ code = '''
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -2577,8 +2554,8 @@ code = '''
 
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.u.r.rbyd.eoff = CFG->block_size;
-            lfs.mroot.u.r.rbyd.eoff = CFG->block_size;
+            mdir.u.r.rbyd.eoff = -1;
+            lfs.mroot.u.r.rbyd.eoff = -1;
         }
 
         // create
@@ -2687,7 +2664,6 @@ code = '''
 [cases.test_mtree_neighbor]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2698,8 +2674,8 @@ code = '''
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(&alphas[0 % 26], 1)),
-            LFSR_ATTR(1, REG, +1, BUF(&alphas[1 % 26], 1)))) => 0;
+            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_isinlined(&lfs));
 
@@ -2712,7 +2688,7 @@ code = '''
 
     // insert a new entry, this should update our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(1, REG, +1, BUF(&alphas[2 % 26], 1)))) => 0;
+            LFSR_ATTR(1, REG, +1, BUF("c", 1)))) => 0;
 
     // assert that our entry is still in the mtree
     assert(lfs.mroot.u.m.weight == 3);
@@ -2720,7 +2696,7 @@ code = '''
     uint8_t buffer[1];
     lfsr_mdir_get(&lfs, &lfs.mroot, 1, LFSR_TAG_REG,
             buffer, 1) => 1;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
@@ -2742,7 +2718,6 @@ code = '''
 [cases.test_mtree_neighbor_remove_l]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2753,8 +2728,8 @@ code = '''
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(&alphas[0 % 26], 1)),
-            LFSR_ATTR(1, REG, +1, BUF(&alphas[1 % 26], 1)))) => 0;
+            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_isinlined(&lfs));
 
@@ -2788,7 +2763,6 @@ code = '''
 [cases.test_mtree_neighbor_remove_r]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2799,8 +2773,8 @@ code = '''
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(&alphas[0 % 26], 1)),
-            LFSR_ATTR(1, REG, +1, BUF(&alphas[1 % 26], 1)))) => 0;
+            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_isinlined(&lfs));
 
@@ -2836,7 +2810,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2847,8 +2820,8 @@ code = '''
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(&alphas[0 % 26], 1)),
-            LFSR_ATTR(1, REG, +1, BUF(&alphas[1 % 26], 1)))) => 0;
+            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_isinlined(&lfs));
 
@@ -2861,12 +2834,12 @@ code = '''
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
     // create a large entry that needs to be uninlined (but not split!)
-    memset(buffer, alphas[3 % 26], SIZE);
+    memset(buffer, 'd', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -2882,7 +2855,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mdir_t mdir;
@@ -2890,7 +2863,7 @@ code = '''
     assert(mdir.u.m.weight == 2);
     lfsr_mdir_get(&lfs, &mdir, 1, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[3 % 26], 1) == 0);
+    assert(memcmp(buffer, "d", 1) == 0);
 
     // note that our current implementation splits here, which is suboptimal
     // but saves on code size
@@ -2920,7 +2893,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -2931,8 +2903,8 @@ code = '''
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(&alphas[0 % 26], 1)),
-            LFSR_ATTR(1, REG, +1, BUF(&alphas[1 % 26], 1)))) => 0;
+            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_isinlined(&lfs));
 
@@ -2945,11 +2917,11 @@ code = '''
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[3 % 26], SIZE);
+    memset(buffer, 'd', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(2, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -2968,14 +2940,14 @@ code = '''
     assert(mdir.u.m.weight == 2);
     lfsr_mdir_get(&lfs, &mdir, 1, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     lfsr_mdir_t msibling;
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &msibling) => 0;
     assert(msibling.u.m.weight == 2);
     lfsr_mdir_get(&lfs, &msibling, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[3 % 26], 1) == 0);
+    assert(memcmp(buffer, "d", 1) == 0);
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
@@ -2999,7 +2971,6 @@ code = '''
 defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -3010,11 +2981,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[3 % 26], SIZE);
+    memset(buffer, 'd', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -3036,8 +3007,8 @@ code = '''
     assert(mdir.u.m.weight == 1);
 
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(&alphas[0 % 26], 1)),
-            LFSR_ATTR(2, REG, +1, BUF(&alphas[1 % 26], 1)))) => 0;
+            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(2, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mdir
     assert(lfsr_mtree_weight(&lfs) == 1);
     assert(mdir.u.m.weight == 3);
@@ -3050,7 +3021,7 @@ code = '''
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
     // now add another large entry to the mdir, forcing a split
-    memset(buffer, alphas[4 % 26], SIZE);
+    memset(buffer, 'e', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(2, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -3066,21 +3037,21 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     // assert that our entries are still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 2);
     lfsr_mdir_get(&lfs, &mdir, 1, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[3 % 26], 1) == 0);
+    assert(memcmp(buffer, "d", 1) == 0);
 
     lfsr_mdir_t msibling;
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &msibling) => 0;
     assert(msibling.u.m.weight == 2);
     lfsr_mdir_get(&lfs, &msibling, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[4 % 26], 1) == 0);
+    assert(memcmp(buffer, "e", 1) == 0);
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
@@ -3106,7 +3077,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -3117,8 +3087,8 @@ code = '''
 
     // setup our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(&alphas[0 % 26], 1)),
-            LFSR_ATTR(1, REG, +1, BUF(&alphas[1 % 26], 1)))) => 0;
+            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(1, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mroot
     assert(lfsr_mtree_isinlined(&lfs));
 
@@ -3131,7 +3101,7 @@ code = '''
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -3141,7 +3111,7 @@ code = '''
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -3151,7 +3121,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
@@ -3177,7 +3147,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -3188,11 +3157,11 @@ code = '''
 
     // create an uninlined mdir
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[3 % 26], SIZE);
+    memset(buffer, 'd', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -3214,8 +3183,8 @@ code = '''
     assert(mdir.u.m.weight == 1);
 
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(&alphas[0 % 26], 1)),
-            LFSR_ATTR(2, REG, +1, BUF(&alphas[1 % 26], 1)))) => 0;
+            LFSR_ATTR(0, REG, +1, BUF("a", 1)),
+            LFSR_ATTR(2, REG, +1, BUF("b", 1)))) => 0;
     // this test only works if these all fit in the mdir
     assert(lfsr_mtree_weight(&lfs) == 1);
     assert(mdir.u.m.weight == 3);
@@ -3233,7 +3202,7 @@ code = '''
     mdir.u.r.rbyd.eoff = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
     mdir.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[4 % 26], SIZE);
+    memset(buffer, 'e', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(1, REG, 0, BUF(buffer, SIZE)))) => 0;
 
@@ -3243,7 +3212,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[2 % 26], 1) == 0);
+    assert(memcmp(buffer, "c", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -3251,7 +3220,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 1, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[4 % 26], 1) == 0);
+    assert(memcmp(buffer, "e", 1) == 0);
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
@@ -3275,7 +3244,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -3288,10 +3256,10 @@ code = '''
 
     // first force mroot to uninlined+split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -3306,7 +3274,7 @@ code = '''
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -3337,7 +3305,7 @@ code = '''
     // cause middle mdir to split
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
-    memset(buffer, alphas[3 % 26], SIZE);
+    memset(buffer, 'd', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -3372,7 +3340,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -3385,10 +3352,10 @@ code = '''
 
     // first force mroot to uninlined+split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -3403,7 +3370,7 @@ code = '''
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &mdir) => 0;
     assert(mdir.u.m.weight == 1);
-    memset(buffer, alphas[2 % 26], SIZE);
+    memset(buffer, 'c', SIZE);
     lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -3466,7 +3433,6 @@ code = '''
 defines.VALIDATE = [false, true]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -3477,7 +3443,7 @@ code = '''
 
     // insert a new entry, this should update our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, REG, +1, BUF(&alphas[0 % 26], 1)))) => 0;
+            LFSR_ATTR(0, REG, +1, BUF("a", 1)))) => 0;
 
     // assert that our entry is still in the mtree
     assert(lfs.mroot.u.m.weight == 1);
@@ -3485,7 +3451,7 @@ code = '''
     uint8_t buffer[1];
     lfsr_mdir_get(&lfs, &lfs.mroot, 0, LFSR_TAG_REG,
             buffer, 1) => 1;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // test that we can traverse the tree, keeping track of all blocks we see
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
@@ -3558,7 +3524,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &lfs.mroot, 0, LFSR_TAG_REG,
             buffer, 1) => 1;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -3569,7 +3535,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.VALIDATE = [false, true]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -3580,12 +3545,12 @@ code = '''
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
     // create a large entry that needs to be uninlined (but not split!)
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -3601,7 +3566,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mdir_t mdir;
@@ -3610,7 +3575,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     // test that we can traverse the tree, keeping track of all blocks we see
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
@@ -3686,7 +3651,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     // assert that our entry is still in the mtree
     lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
@@ -3694,7 +3659,7 @@ code = '''
 
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -3705,7 +3670,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.VALIDATE = [false, true]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -3716,11 +3680,11 @@ code = '''
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(0, REG, +1, BUF(buffer, SIZE)))) => 0;
 
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(1, REG, +1, BUF(buffer, SIZE)))) => 0;
 
@@ -3739,14 +3703,14 @@ code = '''
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_mdir_t msibling;
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &msibling) => 0;
     assert(msibling.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &msibling, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     // test that we can traverse the tree, keeping track of all blocks we see
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
@@ -3824,13 +3788,13 @@ code = '''
     assert(mdir.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &mdir, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[0 % 26], 1) == 0);
+    assert(memcmp(buffer, "a", 1) == 0);
 
     lfsr_mtree_lookup(&lfs, LFSR_MID(1, -1), &msibling) => 0;
     assert(msibling.u.m.weight == 1);
     lfsr_mdir_get(&lfs, &msibling, 0, LFSR_TAG_REG,
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -3843,7 +3807,6 @@ defines.BLOCK_CYCLES = 2
 defines.VALIDATE = [false, true]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -3854,7 +3817,7 @@ code = '''
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -3864,7 +3827,7 @@ code = '''
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -3874,7 +3837,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     // test that we can traverse the tree, keeping track of all blocks we see
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
@@ -3948,7 +3911,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -3978,8 +3941,8 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.u.r.rbyd.eoff = CFG->block_size;
-            lfs.mroot.u.r.rbyd.eoff = CFG->block_size;
+            mdir.u.r.rbyd.eoff = -1;
+            lfs.mroot.u.r.rbyd.eoff = -1;
         }
 
         lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
@@ -4135,8 +4098,8 @@ code = '''
 
         // force a compaction?
         if (FORCE_COMPACTION) {
-            mdir.u.r.rbyd.eoff = CFG->block_size;
-            lfs.mroot.u.r.rbyd.eoff = CFG->block_size;
+            mdir.u.r.rbyd.eoff = -1;
+            lfs.mroot.u.r.rbyd.eoff = -1;
         }
 
         // add to rbyd, potentially splitting the mdir
@@ -4363,7 +4326,6 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 defines.BLOCK_CYCLES = 2
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -4371,7 +4333,7 @@ code = '''
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -4381,7 +4343,7 @@ code = '''
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -4391,7 +4353,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
@@ -4418,7 +4380,6 @@ defines.BLOCK_CYCLES = 2
 defines.PROG_SIZE = 'BLOCK_SIZE'
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
@@ -4426,7 +4387,7 @@ code = '''
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
-    memset(buffer, alphas[0 % 26], SIZE);
+    memset(buffer, 'a', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -4438,7 +4399,7 @@ code = '''
         lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
     }
     lfs.mroot.u.r.rbyd.eoff = BLOCK_SIZE;
-    memset(buffer, alphas[1 % 26], SIZE);
+    memset(buffer, 'b', SIZE);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, UATTR(1), 0, BUF(buffer, SIZE)))) => 0;
 
@@ -4448,7 +4409,7 @@ code = '''
     // assert that our attr is still in the mroot
     lfsr_mdir_get(&lfs, &lfs.mroot, -1, LFSR_TAG_UATTR(1),
             buffer, SIZE) => SIZE;
-    assert(memcmp(buffer, &alphas[1 % 26], 1) == 0);
+    assert(memcmp(buffer, "b", 1) == 0);
 
     lfsr_unmount(&lfs) => 0;
 
