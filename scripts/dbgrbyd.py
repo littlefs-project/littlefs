@@ -23,8 +23,8 @@ TAG_SUPERCONFIG = 0x0004
 TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
-TAG_BNAME       = 0x0200
-TAG_DMARK       = 0x0201
+TAG_BRANCH      = 0x0200
+TAG_BOOKMARK    = 0x0201
 TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
 TAG_STRUCT      = 0x0300
@@ -34,8 +34,7 @@ TAG_BTREE       = 0x030c
 TAG_MDIR        = 0x0311
 TAG_MTREE       = 0x0314
 TAG_MROOT       = 0x0318
-TAG_BRANCH      = 0x031c
-TAG_DID         = 0x0320
+TAG_DID         = 0x031c
 TAG_UATTR       = 0x0400
 TAG_SATTR       = 0x0500
 TAG_ALT         = 0x4000
@@ -140,8 +139,8 @@ def tagrepr(tag, w, size, off=None):
             size)
     elif (tag & 0xff00) == TAG_NAME:
         return '%s%s %d' % (
-            'bname' if tag == TAG_BNAME
-                else 'dmark' if tag == TAG_DMARK
+            'branch' if tag == TAG_BRANCH
+                else 'bookmark' if tag == TAG_BOOKMARK
                 else 'reg' if tag == TAG_REG
                 else 'dir' if tag == TAG_DIR
                 else 'name 0x%02x' % (tag & 0xff),
@@ -155,7 +154,6 @@ def tagrepr(tag, w, size, off=None):
                 else 'mdir' if tag == TAG_MDIR
                 else 'mtree' if tag == TAG_MTREE
                 else 'mroot' if tag == TAG_MROOT
-                else 'branch' if tag == TAG_BRANCH
                 else 'did' if tag == TAG_DID
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
