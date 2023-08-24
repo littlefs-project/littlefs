@@ -109,7 +109,7 @@ code = '''
             LFSR_ATTR(0, RM, -1, NULL))) => 0;
 
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, LFSR_MID(lfsr_mtree_weight(&lfs)-1, -1),
+    lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1),
             &mdir) => 0;
     mdir.mid.rid = 0;
 
@@ -144,8 +144,8 @@ code = '''
 
     // test that all of our metadata entries are still there
     lfs_size_t i = 0;
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;

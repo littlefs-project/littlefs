@@ -417,7 +417,7 @@ code = '''
 
     // create entries
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, LFSR_MID(lfsr_mtree_weight(&lfs)-1, -1),
+    lfsr_mtree_lookup(&lfs, LFSR_MID(lfs_smax32(lfsr_mtree_weight(&lfs)-1, 0), -1),
             &mdir) => 0;
 
     mdir.mid.rid = 0;
@@ -442,8 +442,8 @@ code = '''
 
     // try looking up each entry
     lfs_size_t i = 0;
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -467,8 +467,8 @@ code = '''
 
     // try looking up each entry
     i = 0;
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -510,9 +510,8 @@ code = '''
     uint32_t prng = SEED;
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a pseudo-random mid
-        lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
-                ? -1
-                : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+        lfs_ssize_t mid = (lfs_ssize_t)(
+                TEST_PRNG(&prng) % lfs_max32(lfsr_mtree_weight(&lfs), 1));
         // fetch mdir
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -542,8 +541,8 @@ code = '''
     // try looking up each entry
     lfs_size_t count_ = 0;
 
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -571,8 +570,8 @@ code = '''
     // try looking up each entry
     count_ = 0;
 
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -1267,7 +1266,7 @@ code = '''
 
     // create entries
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, LFSR_MID(lfsr_mtree_weight(&lfs)-1, -1),
+    lfsr_mtree_lookup(&lfs, LFSR_MID(lfs_smax32(lfsr_mtree_weight(&lfs)-1, 0), -1),
             &mdir) => 0;
 
     mdir.mid.rid = 0;
@@ -1286,12 +1285,11 @@ code = '''
 
     // remove entries
     for (lfs_size_t i = 0; i < N - REMAINING; i++) {
-        lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
         lfsr_mdir_t mdir;
-        lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
+        lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
 
         // drop should make sure we never have empty mdirs
-        assert(mdir.mid.bid == -1 || mdir.u.m.weight > 0);
+        assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
 
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -1305,8 +1303,8 @@ code = '''
 
     // try looking up each entry
     lfs_size_t i = N - REMAINING;
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -1330,8 +1328,8 @@ code = '''
 
     // try looking up each entry
     i = N - REMAINING;
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -1369,7 +1367,7 @@ code = '''
     for (lfs_size_t cycle = 0; cycle < CYCLES; cycle++) {
         // create entries
         lfsr_mdir_t mdir;
-        lfsr_mtree_lookup(&lfs, LFSR_MID(lfsr_mtree_weight(&lfs)-1, -1),
+        lfsr_mtree_lookup(&lfs, LFSR_MID(lfs_smax32(lfsr_mtree_weight(&lfs)-1, 0), -1),
                 &mdir) => 0;
 
         mdir.mid.rid = 0;
@@ -1388,8 +1386,8 @@ code = '''
 
         // try looking up each entry
         lfs_size_t i = 0;
-        for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-                mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+        for (lfs_ssize_t mid = 0;
+                mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
                 mid++) {
             lfsr_mdir_t mdir;
             lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -1407,12 +1405,11 @@ code = '''
 
         // remove entries
         for (lfs_size_t i = 0; i < N; i++) {
-            lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
             lfsr_mdir_t mdir;
-            lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
+            lfsr_mtree_lookup(&lfs, LFSR_MID(0, -1), &mdir) => 0;
 
             // drop should make sure we never have empty mdirs
-            assert(mdir.mid.bid == -1 || mdir.u.m.weight > 0);
+            assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
 
             // force a compaction?
             if (FORCE_COMPACTION) {
@@ -1462,9 +1459,8 @@ code = '''
     uint32_t prng = SEED;
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a pseudo-random mid
-        lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
-                ? -1
-                : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+        lfs_ssize_t mid = (lfs_ssize_t)(
+                TEST_PRNG(&prng) % lfs_max32(lfsr_mtree_weight(&lfs), 1));
         // fetch mdir
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -1508,14 +1504,14 @@ code = '''
     // try looking up each entry
     lfs_size_t count_ = 0;
 
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
 
         // drop should make sure we never have empty mdirs
-        assert(mdir.mid.bid == -1 || mdir.u.m.weight > 0);
+        assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
 
         for (mdir.mid.rid = 0;
                 mdir.mid.rid < (lfs_ssize_t)mdir.u.m.weight;
@@ -1541,14 +1537,14 @@ code = '''
     // try looking up each entry
     count_ = 0;
 
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
 
         // drop should make sure we never have empty mdirs
-        assert(mdir.mid.bid == -1 || mdir.u.m.weight > 0);
+        assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
 
         for (mdir.mid.rid = 0;
                 mdir.mid.rid < (lfs_ssize_t)mdir.u.m.weight;
@@ -2539,9 +2535,8 @@ code = '''
     uint32_t prng = SEED;
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a pseudo-random mid
-        lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
-                ? -1
-                : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+        lfs_ssize_t mid = (lfs_ssize_t)(
+                TEST_PRNG(&prng) % lfs_max32(lfsr_mtree_weight(&lfs), 1));
         // fetch mdir
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -2598,14 +2593,14 @@ code = '''
     // try looking up each entry
     lfs_size_t count_ = 0;
 
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
 
         // drop should make sure we never have empty mdirs
-        assert(mdir.mid.bid == -1 || mdir.u.m.weight > 0);
+        assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
 
         for (mdir.mid.rid = 0;
                 mdir.mid.rid < (lfs_ssize_t)mdir.u.m.weight;
@@ -2631,14 +2626,14 @@ code = '''
     // try looking up each entry
     count_ = 0;
 
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
 
         // drop should make sure we never have empty mdirs
-        assert(mdir.mid.bid == -1 || mdir.u.m.weight > 0);
+        assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
 
         for (mdir.mid.rid = 0;
                 mdir.mid.rid < (lfs_ssize_t)mdir.u.m.weight;
@@ -2680,9 +2675,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(-1, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(-1, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -2700,12 +2695,12 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == -1);
+    assert(left_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
     assert(left_neighbor.mdir.mid.rid == 0);
     assert(memcmp(&left_neighbor.mdir.u, &lfs.mroot.u,
             sizeof(lfs.mroot.u)) == 0);
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == -1);
+    assert(right_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
     assert(right_neighbor.mdir.mid.rid == 2);
     assert(memcmp(&right_neighbor.mdir.u, &lfs.mroot.u,
             sizeof(lfs.mroot.u)) == 0);
@@ -2734,9 +2729,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(-1, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(-1, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -2750,7 +2745,7 @@ code = '''
     // assert that our neighbors were updated correctly
     assert(lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == -1);
+    assert(right_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
     assert(right_neighbor.mdir.mid.rid == 0);
     assert(memcmp(&right_neighbor.mdir.u, &lfs.mroot.u,
             sizeof(lfs.mroot.u)) == 0);
@@ -2779,9 +2774,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(-1, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(-1, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -2794,7 +2789,7 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == -1);
+    assert(left_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
     assert(left_neighbor.mdir.mid.rid == 0);
     assert(memcmp(&left_neighbor.mdir.u, &lfs.mroot.u,
             sizeof(lfs.mroot.u)) == 0);
@@ -2826,9 +2821,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(-1, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(-1, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -2909,9 +2904,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(-1, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(-1, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -3093,9 +3088,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(-1, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(-1, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -3125,12 +3120,12 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == -1);
+    assert(left_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
     assert(left_neighbor.mdir.mid.rid == 0);
     assert(memcmp(&left_neighbor.mdir.u, &lfs.mroot.u,
             sizeof(lfs.mroot.u)) == 0);
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == -1);
+    assert(right_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
     assert(right_neighbor.mdir.mid.rid == 1);
     assert(memcmp(&right_neighbor.mdir.u, &lfs.mroot.u,
             sizeof(lfs.mroot.u)) == 0);
@@ -3934,7 +3929,7 @@ code = '''
 
     // create entries
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, LFSR_MID(lfsr_mtree_weight(&lfs)-1, -1),
+    lfsr_mtree_lookup(&lfs, LFSR_MID(lfs_smax32(lfsr_mtree_weight(&lfs)-1, 0), -1),
             &mdir) => 0;
 
     mdir.mid.rid = 0;
@@ -3959,8 +3954,8 @@ code = '''
 
     // try looking up each entry
     lfs_size_t i = 0;
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -4044,8 +4039,8 @@ code = '''
 
     // try looking up each entry
     i = 0;
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -4087,9 +4082,8 @@ code = '''
     uint32_t prng = SEED;
     for (lfs_size_t i = 0; i < N; i++) {
         // choose a pseudo-random mid
-        lfs_ssize_t mid = lfsr_mtree_weight(&lfs) == 0
-                ? -1
-                : (lfs_ssize_t)(TEST_PRNG(&prng) % lfsr_mtree_weight(&lfs));
+        lfs_ssize_t mid = (lfs_ssize_t)(
+                TEST_PRNG(&prng) % lfs_max32(lfsr_mtree_weight(&lfs), 1));
         // fetch mdir
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -4119,8 +4113,8 @@ code = '''
     // try looking up each entry
     lfs_size_t count_ = 0;
 
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
@@ -4209,8 +4203,8 @@ code = '''
     // try looking up each entry
     count_ = 0;
 
-    for (lfs_ssize_t mid = (lfsr_mtree_isinlined(&lfs) ? -1 : 0);
-            mid < (lfs_ssize_t)lfsr_mtree_weight(&lfs);
+    for (lfs_ssize_t mid = 0;
+            mid < lfs_smax32(lfsr_mtree_weight(&lfs), 1);
             mid++) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;

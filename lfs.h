@@ -412,7 +412,7 @@ typedef struct lfsr_openedmdir {
 #define LFSR_GRM_DSIZE (1+5+5+5+5)
 
 typedef struct lfsr_grm {
-    lfsr_mid_t mids[2];
+    lfsr_mid_t rms[2];
 } lfsr_grm_t;
 
 
