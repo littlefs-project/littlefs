@@ -47,10 +47,10 @@ typedef uint32_t lfs_block_t;
 typedef uint16_t lfsr_tag_t;
 typedef int16_t lfsr_stag_t;
 
-typedef uint16_t lfsr_mbid_t;
-typedef int16_t lfsr_smbid_t;
-typedef uint16_t lfsr_mrid_t;
-typedef int16_t lfsr_smrid_t;
+typedef uint32_t lfsr_mbid_t;
+typedef int32_t lfsr_smbid_t;
+typedef uint32_t lfsr_mrid_t;
+typedef int32_t lfsr_smrid_t;
 
 typedef struct lfsr_mid {
     lfsr_smbid_t bid;
@@ -405,11 +405,11 @@ typedef struct lfsr_openedmdir {
 
 // space for:
 // - type - 1 leb128 - 1 byte (worst case)
-// - mid0 - 1 leb128 - 3 bytes (worst case)
-// - rid0 - 1 leb128 - 3 bytes (worst case)
-// - mid1 - 1 leb128 - 3 bytes (worst case)
-// - rid1 - 1 leb128 - 3 bytes (worst case)
-#define LFSR_GRM_DSIZE (1+3+3+3+3)
+// - mid0 - 1 leb128 - 5 bytes (worst case)
+// - rid0 - 1 leb128 - 5 bytes (worst case)
+// - mid1 - 1 leb128 - 5 bytes (worst case)
+// - rid1 - 1 leb128 - 5 bytes (worst case)
+#define LFSR_GRM_DSIZE (1+5+5+5+5)
 
 typedef struct lfsr_grm {
     lfsr_mid_t mids[2];

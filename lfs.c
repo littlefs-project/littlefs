@@ -1539,9 +1539,11 @@ static int lfsr_data_readecksum(lfs_t *lfs, lfsr_data_t *data,
 #define LFSR_MID(_bid, _rid) ((lfsr_mid_t){.bid=_bid, .rid=_rid})
 
 static inline int lfsr_mid_cmp(lfsr_mid_t a, lfsr_mid_t b) {
-    int32_t a_w = ((int32_t)a.bid << 16) | (int32_t)a.rid;
-    int32_t b_w = ((int32_t)b.bid << 16) | (int32_t)b.rid;
-    return a_w - b_w;
+    if (a.bid != b.bid) {
+        return a.bid - b.bid;
+    }
+
+    return a.rid - b.rid;
 }
 
 // we use the root's bookmark at 0.0 to represent root
@@ -1637,13 +1639,13 @@ static int lfsr_grm_todisk(lfs_t *lfs, const lfsr_grm_t *grm,
     for (uint8_t i = 0; i < count; i++) {
         // map mid=-1 (mroot) to mid=0
         lfs_ssize_t d_ = lfs_toleb128(
-                lfs_smax32(grm->mids[i].bid, 0), &buffer[d], 3);
+                lfs_smax32(grm->mids[i].bid, 0), &buffer[d], 5);
         if (d_ < 0) {
             return d_;
         }
         d += d_;
 
-        d_ = lfs_toleb128(grm->mids[i].rid, &buffer[d], 3);
+        d_ = lfs_toleb128(grm->mids[i].rid, &buffer[d], 5);
         if (d_ < 0) {
             return d_;
         }
@@ -1677,14 +1679,12 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
         if (err) {
             return err;
         }
-        LFS_ASSERT(bid <= 0x7fff);
 
         lfs_ssize_t rid;
         err = lfsr_data_readleb128(lfs, data, &rid);
         if (err) {
             return err;
         }
-        LFS_ASSERT(rid < 0x7fff);
 
         // adjust mid if mtree is inlined
         LFS_ASSERT(lfsr_mtree_isinlined(lfs)
@@ -6180,13 +6180,13 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
 // - 32-bit block_size   => 5 byte leb128 (worst case)
 // - 32-bit block_count  => 5 byte leb128 (worst case)
 // - 7-bit utag_limit    => 1 byte leb128 (worst case)
-// - 16-bit mtree_limit  => 3 byte leb128 (worst case)
+// - 32-bit mtree_limit  => 5 byte leb128 (worst case)
 // - 32-bit attr_limit   => 5 byte leb128 (worst case)
 // - 32-bit name_limit   => 5 byte leb128 (worst case)
 // - 32-bit file_limit   => 5 byte leb128 (worst case)
 //                       => 33 bytes total
 // 
-#define LFSR_SUPERCONFIG_DSIZE (1+1+1+1+5+5+1+3+5+5+5)
+#define LFSR_SUPERCONFIG_DSIZE (1+1+1+1+5+5+1+5+5+5+5)
 
 static lfs_ssize_t lfsr_superconfig_todisk(lfs_t *lfs,
         uint8_t buffer[static LFSR_SUPERCONFIG_DSIZE]) {
@@ -6224,7 +6224,7 @@ static lfs_ssize_t lfsr_superconfig_todisk(lfs_t *lfs,
     d += 1;
 
     // on-disk mtree limit
-    d_ = lfs_toleb128(0x7fff, &buffer[d], 3);
+    d_ = lfs_toleb128(0x7fffffff, &buffer[d], 5);
     if (d_ < 0) {
         return d_;
     }
@@ -6447,11 +6447,11 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return err;
                 }
 
-                if (err || mtree_limit != 0x7fff) {
+                if (err || mtree_limit != 0x7fffffff) {
                     LFS_ERROR("Incompatible mdir limit 0x%"PRIx32
                             " (> 0x%"PRIx32")",
                             (err ? -1 : mtree_limit),
-                            0x7fff);
+                            0x7fffffff);
                     return LFS_ERR_INVAL;
                 }
 
