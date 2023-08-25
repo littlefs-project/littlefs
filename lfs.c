@@ -1624,15 +1624,15 @@ static int lfsr_gdelta_xor(lfs_t *lfs,
 
 // GRM (global remove) things
 static inline bool lfsr_grm_hasrm(const lfsr_grm_t *grm) {
-    return grm->rms[0].rid != -1;
+    return grm->rms[0].bid != -1;
 }
 
 static inline uint8_t lfsr_grm_count(const lfsr_grm_t *grm) {
-    return (grm->rms[0].rid != -1) + (grm->rms[1].rid != -1);
+    return (grm->rms[0].bid != -1) + (grm->rms[1].bid != -1);
 }
 
 static inline void lfsr_grm_pushrm(lfsr_grm_t *grm, lfsr_mid_t mid) {
-    LFS_ASSERT(grm->rms[1].rid == -1);
+    LFS_ASSERT(grm->rms[1].bid == -1);
     grm->rms[1] = grm->rms[0];
     grm->rms[0] = mid;
 }
