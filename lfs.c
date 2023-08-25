@@ -6774,14 +6774,14 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     }
 
     // lookup our parent
-    lfsr_openedmdir_t parent;
-    lfs_size_t parent_did;
+    lfsr_mdir_t mdir;
+    lfs_size_t did;
     const char *name;
     lfs_size_t name_size;
     err = lfsr_mtree_pathlookup(lfs, path,
-            &parent.mdir, NULL,
-            &parent_did, &name, &name_size);
-    if (err && (err != LFS_ERR_NOENT || lfsr_mdir_isroot(&parent.mdir))) {
+            &mdir, NULL,
+            &did, &name, &name_size);
+    if (err && (err != LFS_ERR_NOENT || lfsr_mdir_isroot(&mdir))) {
         return err;
     }
 
@@ -6825,14 +6825,14 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
             lfs_nlog2(lfsr_mtree_weight(lfs))
                 + lfs_nlog2(lfs->cfg->block_size/32),
             32)) - 1;
-    lfs_size_t did = lfs_crc32c(0, path, strlen(path)) & dmask;
+    lfs_size_t did_ = lfs_crc32c(0, path, strlen(path)) & dmask;
 
     // Check if we have a collision. If we do, search for the next
     // available did
-    lfsr_mdir_t mdir;
+    lfsr_openedmdir_t bookmark;
     while (true) {
-        int err = lfsr_mtree_namelookup(lfs, did, NULL, 0,
-                &mdir, NULL, NULL);
+        int err = lfsr_mtree_namelookup(lfs, did_, NULL, 0,
+                &bookmark.mdir, NULL, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
@@ -6841,42 +6841,46 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
         }
 
         // try the next did
-        did = (did + 1) & dmask;
+        did_ = (did_ + 1) & dmask;
     }
 
     // found a good did, now to commit to the mtree
 
-    // Note when we write to the mtree, it's possible it changes our
-    // parent's mdir/rid. We can catch this by tracking our parent
-    // as "opened" temporarily
-    // TODO is this the best workaround for rid update issues?
-    parent.mdir.mid.rid -= 1;
-    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, &parent);
+    // A problem: we need to create both 1. the metadata entry and 2. the
+    // bookmark entry.
+    //
+    // To do this atomically, we first create the metadata entry with a grm
+    // to delete-self in case of powerloss, then create the bookmark while
+    // atomically cancelling the grm.
+    //
+    // These commits can change the relative mids of each other, so we track
+    // the bookmark mdir as an "open file" temporarily.
+    //
+    // Note! The metadata/bookmark order is important! Attempting to create
+    // the bookmark first risks inserting the bookmark before the metadata
+    // entry, which breaks things.
+    //
+    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, &bookmark);
 
-    // Conveniently, we just found where our bookmark should go. The bookmark
-    // tag is an empty entry that marks our directory as being allocated.
-    //
-    // We include a GRM here so the bookmark is automatically removed if we
-    // lose power before writing the entry in our parent
-    //
+    // commit our new directory into our parent, creating a grm to self-remove
+    // in case of powerloss
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(mdir.mid.rid, BOOKMARK, +1, NAME(did, NULL, 0)),
+            LFSR_ATTR(mdir.mid.rid, DIR, +1,
+                NAME(did, name, name_size)),
+            LFSR_ATTR(mdir.mid.rid, DID, 0, LEB128(did_)),
             LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{
                 lfsr_mdir_mid(&mdir),
                 LFSR_MID(-1, -1)}})))));
     if (err) {
-        goto failed_with_parent;
+        goto failed_with_bookmark;
     }
 
-    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, &parent);
-    parent.mdir.mid.rid += 1;
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, &bookmark);
 
-    // commit our new directory into our parent, zeroing out our grm
-    // in the process
-    err = lfsr_mdir_commit(lfs, &parent.mdir, LFSR_ATTRS(
-            LFSR_ATTR(parent.mdir.mid.rid, DIR, +1,
-                NAME(parent_did, name, name_size)),
-            LFSR_ATTR(parent.mdir.mid.rid, DID, 0, LEB128(did)),
+    // commit our bookmark and zero the grm, the bookmark tag is an empty
+    // entry that marks our did as allocated
+    err = lfsr_mdir_commit(lfs, &bookmark.mdir, LFSR_ATTRS(
+            LFSR_ATTR(bookmark.mdir.mid.rid, BOOKMARK, +1, NAME(did_, NULL, 0)),
             LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{
                 LFSR_MID(-1, -1),
                 LFSR_MID(-1, -1)}})))));
@@ -6886,8 +6890,8 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
 
     return 0;
 
-failed_with_parent:
-    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, &parent);
+failed_with_bookmark:
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, &bookmark);
     return err;
 }
 
@@ -6927,33 +6931,33 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
         }
 
         // then lookup the bookmark entry
-        lfsr_mdir_t mdir_;
+        lfsr_mdir_t bookmark_mdir;
         err = lfsr_mtree_namelookup(lfs, did, NULL, 0,
-                &mdir_, NULL, NULL);
+                &bookmark_mdir, NULL, NULL);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
         // create a grm to remove the bookmark entry
-        lfsr_grm_pushrm(&grm, lfsr_mdir_mid(&mdir_));
+        lfsr_grm_pushrm(&grm, lfsr_mdir_mid(&bookmark_mdir));
 
         // check that the directory is empty
-        err = lfsr_mtree_seek(lfs, &mdir_, 1);
+        err = lfsr_mtree_seek(lfs, &bookmark_mdir, 1);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
         if (err != LFS_ERR_NOENT) {
-            lfsr_tag_t tag_;
-            err = lfsr_mdir_lookup(lfs, &mdir_,
-                    mdir_.mid.rid, LFSR_TAG_WIDE(NAME),
-                    &tag_, NULL);
+            lfsr_tag_t bookmark_tag;
+            err = lfsr_mdir_lookup(lfs, &bookmark_mdir,
+                    bookmark_mdir.mid.rid, LFSR_TAG_WIDE(NAME),
+                    &bookmark_tag, NULL);
             if (err) {
                 return err;
             }
 
-            if (tag_ != LFSR_TAG_BOOKMARK) {
+            if (bookmark_tag != LFSR_TAG_BOOKMARK) {
                 return LFS_ERR_NOTEMPTY;
             }
         }
@@ -7059,33 +7063,33 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             }
 
             // then lookup the bookmark entry
-            lfsr_mdir_t mdir_;
+            lfsr_mdir_t bookmark_mdir;
             err = lfsr_mtree_namelookup(lfs, did, NULL, 0,
-                    &mdir_, NULL, NULL);
+                    &bookmark_mdir, NULL, NULL);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
 
             // create a grm to remove the bookmark entry
-            lfsr_grm_pushrm(&grm, lfsr_mdir_mid(&mdir_));
+            lfsr_grm_pushrm(&grm, lfsr_mdir_mid(&bookmark_mdir));
 
             // check that the directory is empty
-            err = lfsr_mtree_seek(lfs, &mdir_, 1);
+            err = lfsr_mtree_seek(lfs, &bookmark_mdir, 1);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
 
             if (err != LFS_ERR_NOENT) {
-                lfsr_tag_t tag_;
-                err = lfsr_mdir_lookup(lfs, &mdir_,
-                        mdir_.mid.rid, LFSR_TAG_WIDE(NAME),
-                        &tag_, NULL);
+                lfsr_tag_t bookmark_tag;
+                err = lfsr_mdir_lookup(lfs, &bookmark_mdir,
+                        bookmark_mdir.mid.rid, LFSR_TAG_WIDE(NAME),
+                        &bookmark_tag, NULL);
                 if (err) {
                     return err;
                 }
 
-                if (tag_ != LFSR_TAG_BOOKMARK) {
+                if (bookmark_tag != LFSR_TAG_BOOKMARK) {
                     return LFS_ERR_NOTEMPTY;
                 }
             }
