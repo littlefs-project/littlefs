@@ -517,12 +517,13 @@ typedef struct lfs {
     lfs_size_t attr_max;
 
     // begin lfsr things
-    lfsr_mdir_t mroot;
-    lfsr_btree_t mtree;
-
     lfsr_grm_t grm;
     uint8_t pgrm[LFSR_GRM_DSIZE];
     uint8_t dgrm[LFSR_GRM_DSIZE];
+
+    uint8_t mrid_bits;
+    lfsr_mdir_t mroot;
+    lfsr_btree_t mtree;
 
     // linked-lists of opened mdirs, we keep a separate linked-list
     // for each type since these need to be handled a bit differently
