@@ -1289,7 +1289,7 @@ code = '''
         lfsr_mtree_lookup(&lfs, LFSR_MID(0*lfsr_mbidweight(&lfs), -1), &mdir) => 0;
 
         // drop should make sure we never have empty mdirs
-        assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
+        assert(lfsr_mtree_isinlined(&lfs) || mdir.u.m.weight > 0);
 
         // force a compaction?
         if (FORCE_COMPACTION) {
@@ -1409,7 +1409,7 @@ code = '''
             lfsr_mtree_lookup(&lfs, LFSR_MID(0*lfsr_mbidweight(&lfs), -1), &mdir) => 0;
 
             // drop should make sure we never have empty mdirs
-            assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
+            assert(lfsr_mtree_isinlined(&lfs) || mdir.u.m.weight > 0);
 
             // force a compaction?
             if (FORCE_COMPACTION) {
@@ -1511,7 +1511,7 @@ code = '''
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
 
         // drop should make sure we never have empty mdirs
-        assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
+        assert(lfsr_mtree_isinlined(&lfs) || mdir.u.m.weight > 0);
 
         for (mdir.mid.rid = 0;
                 mdir.mid.rid < (lfs_ssize_t)mdir.u.m.weight;
@@ -1544,7 +1544,7 @@ code = '''
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
 
         // drop should make sure we never have empty mdirs
-        assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
+        assert(lfsr_mtree_isinlined(&lfs) || mdir.u.m.weight > 0);
 
         for (mdir.mid.rid = 0;
                 mdir.mid.rid < (lfs_ssize_t)mdir.u.m.weight;
@@ -2600,7 +2600,7 @@ code = '''
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
 
         // drop should make sure we never have empty mdirs
-        assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
+        assert(lfsr_mtree_isinlined(&lfs) || mdir.u.m.weight > 0);
 
         for (mdir.mid.rid = 0;
                 mdir.mid.rid < (lfs_ssize_t)mdir.u.m.weight;
@@ -2633,7 +2633,7 @@ code = '''
         lfsr_mtree_lookup(&lfs, LFSR_MID(mid, -1), &mdir) => 0;
 
         // drop should make sure we never have empty mdirs
-        assert(lfsr_mdir_ismroot(&mdir) || mdir.u.m.weight > 0);
+        assert(lfsr_mtree_isinlined(&lfs) || mdir.u.m.weight > 0);
 
         for (mdir.mid.rid = 0;
                 mdir.mid.rid < (lfs_ssize_t)mdir.u.m.weight;
