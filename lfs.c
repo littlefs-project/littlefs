@@ -662,7 +662,9 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 }
 
 int lfs_find_free_blocks(lfs_t *lfs){
-    lfs->free.off = (lfs->free.off + lfs->free.size)
+    // Move free offset at the first unused block (lfs->free.i)
+    // lfs->free.i is equal lfs->free.size when all blocks are used
+    lfs->free.off = (lfs->free.off + lfs->free.i)
         % lfs->block_count;
     lfs->free.size = lfs_min(8*lfs->cfg->lookahead_size, lfs->free.ack);
     lfs->free.i = 0;
