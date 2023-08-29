@@ -2675,9 +2675,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 0), .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 1), .u.m=lfs.mroot.u.m}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -2695,15 +2695,15 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
+    assert(left_neighbor.mdir.mid.bid == 0);
     assert(left_neighbor.mdir.mid.rid == 0);
-    assert(memcmp(&left_neighbor.mdir.u, &lfs.mroot.u,
-            sizeof(lfs.mroot.u)) == 0);
+    assert(memcmp(&left_neighbor.mdir.u.m, &lfs.mroot.u.m,
+            sizeof(lfs.mroot.u.m)) == 0);
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
+    assert(right_neighbor.mdir.mid.bid == 0);
     assert(right_neighbor.mdir.mid.rid == 2);
-    assert(memcmp(&right_neighbor.mdir.u, &lfs.mroot.u,
-            sizeof(lfs.mroot.u)) == 0);
+    assert(memcmp(&right_neighbor.mdir.u.m, &lfs.mroot.u.m,
+            sizeof(lfs.mroot.u.m)) == 0);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
@@ -2729,9 +2729,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 0), .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 1), .u.m=lfs.mroot.u.m}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -2745,10 +2745,10 @@ code = '''
     // assert that our neighbors were updated correctly
     assert(lfsr_mdir_isdropped(&left_neighbor.mdir));
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
+    assert(right_neighbor.mdir.mid.bid == 0);
     assert(right_neighbor.mdir.mid.rid == 0);
-    assert(memcmp(&right_neighbor.mdir.u, &lfs.mroot.u,
-            sizeof(lfs.mroot.u)) == 0);
+    assert(memcmp(&right_neighbor.mdir.u.m, &lfs.mroot.u.m,
+            sizeof(lfs.mroot.u.m)) == 0);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
@@ -2774,9 +2774,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 0), .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 1), .u.m=lfs.mroot.u.m}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -2789,10 +2789,10 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
+    assert(left_neighbor.mdir.mid.bid == 0);
     assert(left_neighbor.mdir.mid.rid == 0);
-    assert(memcmp(&left_neighbor.mdir.u, &lfs.mroot.u,
-            sizeof(lfs.mroot.u)) == 0);
+    assert(memcmp(&left_neighbor.mdir.u.m, &lfs.mroot.u.m,
+            sizeof(lfs.mroot.u.m)) == 0);
     assert(lfsr_mdir_isdropped(&right_neighbor.mdir));
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
@@ -2821,9 +2821,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 0), .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 1), .u.m=lfs.mroot.u.m}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -2868,15 +2868,15 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs));
     assert(left_neighbor.mdir.mid.rid == 0);
-    assert(memcmp(&left_neighbor.mdir.u, &mdir.u,
-            sizeof(mdir.u)) == 0);
+    assert(memcmp(&left_neighbor.mdir.u.m, &mdir.u.m,
+            sizeof(mdir.u.m)) == 0);
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == 1*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(right_neighbor.mdir.mid.bid == 1*lfsr_mbidweight(&lfs));
     assert(right_neighbor.mdir.mid.rid == 0);
-    assert(memcmp(&right_neighbor.mdir.u, &msibling.u,
-            sizeof(msibling.u)) == 0);
+    assert(memcmp(&right_neighbor.mdir.u.m, &msibling.u.m,
+            sizeof(msibling.u.m)) == 0);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
@@ -2904,9 +2904,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 0), .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 1), .u.m=lfs.mroot.u.m}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -2946,15 +2946,15 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs));
     assert(left_neighbor.mdir.mid.rid == 0);
-    assert(memcmp(&left_neighbor.mdir.u, &mdir.u,
-            sizeof(mdir.u)) == 0);
+    assert(memcmp(&left_neighbor.mdir.u.m, &mdir.u.m,
+            sizeof(mdir.u.m)) == 0);
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == 1*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(right_neighbor.mdir.mid.bid == 1*lfsr_mbidweight(&lfs));
     assert(right_neighbor.mdir.mid.rid == 1);
-    assert(memcmp(&right_neighbor.mdir.u, &msibling.u,
-            sizeof(msibling.u)) == 0);
+    assert(memcmp(&right_neighbor.mdir.u.m, &msibling.u.m,
+            sizeof(msibling.u.m)) == 0);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
@@ -3009,9 +3009,9 @@ code = '''
     assert(mdir.u.m.weight == 3);
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(mdir.mid.bid, 0), .u=mdir.u}};
+            .mdir={.mid=LFSR_MID(0, 0), .u.m=mdir.u.m}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(mdir.mid.bid, 2), .u=mdir.u}};
+            .mdir={.mid=LFSR_MID(0, 2), .u.m=mdir.u.m}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -3050,15 +3050,15 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs));
     assert(left_neighbor.mdir.mid.rid == 0);
-    assert(memcmp(&left_neighbor.mdir.u, &mdir.u,
-            sizeof(mdir.u)) == 0);
+    assert(memcmp(&left_neighbor.mdir.u.m, &mdir.u.m,
+            sizeof(mdir.u.m)) == 0);
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == 1*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(right_neighbor.mdir.mid.bid == 1*lfsr_mbidweight(&lfs));
     assert(right_neighbor.mdir.mid.rid == 1);
-    assert(memcmp(&right_neighbor.mdir.u, &msibling.u,
-            sizeof(msibling.u)) == 0);
+    assert(memcmp(&right_neighbor.mdir.u.m, &msibling.u.m,
+            sizeof(msibling.u.m)) == 0);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
@@ -3088,9 +3088,9 @@ code = '''
     assert(lfsr_mtree_isinlined(&lfs));
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 0), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 0), .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(lfs.mroot.mid.bid, 1), .u=lfs.mroot.u}};
+            .mdir={.mid=LFSR_MID(0, 1), .u.m=lfs.mroot.u.m}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -3120,15 +3120,15 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
+    assert(left_neighbor.mdir.mid.bid == 0);
     assert(left_neighbor.mdir.mid.rid == 0);
-    assert(memcmp(&left_neighbor.mdir.u, &lfs.mroot.u,
-            sizeof(lfs.mroot.u)) == 0);
+    assert(memcmp(&left_neighbor.mdir.u.m, &lfs.mroot.u.m,
+            sizeof(lfs.mroot.u.m)) == 0);
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == lfs.mroot.mid.bid);
+    assert(right_neighbor.mdir.mid.bid == 0);
     assert(right_neighbor.mdir.mid.rid == 1);
-    assert(memcmp(&right_neighbor.mdir.u, &lfs.mroot.u,
-            sizeof(lfs.mroot.u)) == 0);
+    assert(memcmp(&right_neighbor.mdir.u.m, &lfs.mroot.u.m,
+            sizeof(lfs.mroot.u.m)) == 0);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
@@ -3185,9 +3185,9 @@ code = '''
     assert(mdir.u.m.weight == 3);
 
     lfsr_openedmdir_t left_neighbor  = {
-            .mdir={.mid=LFSR_MID(mdir.mid.bid, 0), .u=mdir.u}};
+            .mdir={.mid=LFSR_MID(0, 0), .u.m=mdir.u.m}};
     lfsr_openedmdir_t right_neighbor = {
-            .mdir={.mid=LFSR_MID(mdir.mid.bid, 2), .u=mdir.u}};
+            .mdir={.mid=LFSR_MID(0, 2), .u.m=mdir.u.m}};
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
 
@@ -3219,20 +3219,20 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs));
     assert(left_neighbor.mdir.mid.rid == 0);
-    assert(memcmp(&left_neighbor.mdir.u, &mdir.u, sizeof(mdir.u)) == 0);
+    assert(memcmp(&left_neighbor.mdir.u.m, &mdir.u.m, sizeof(mdir.u.m)) == 0);
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(right_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs));
     assert(right_neighbor.mdir.mid.rid == 2);
-    assert(memcmp(&right_neighbor.mdir.u, &mdir.u, sizeof(mdir.u)) == 0);
+    assert(memcmp(&right_neighbor.mdir.u.m, &mdir.u.m, sizeof(mdir.u.m)) == 0);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_mtree_neighbor_mid_split]
+[cases.test_mtree_neighbor_middle_split]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -3313,22 +3313,22 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs));
     assert(left_neighbor.mdir.mid.rid == 0);
     lfsr_mtree_lookup(&lfs, LFSR_MID(0*lfsr_mbidweight(&lfs), -1), &mdir) => 0;
-    assert(memcmp(&left_neighbor.mdir.u, &mdir.u, sizeof(mdir.u)) == 0);
+    assert(memcmp(&left_neighbor.mdir.u.m, &mdir.u.m, sizeof(mdir.u.m)) == 0);
 
-    assert(right_neighbor.mdir.mid.bid == 3*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(right_neighbor.mdir.mid.bid == 3*lfsr_mbidweight(&lfs));
     assert(right_neighbor.mdir.mid.rid == 0);
     lfsr_mtree_lookup(&lfs, LFSR_MID(3*lfsr_mbidweight(&lfs), -1), &mdir) => 0;
-    assert(memcmp(&right_neighbor.mdir.u, &mdir.u, sizeof(mdir.u)) == 0);
+    assert(memcmp(&right_neighbor.mdir.u.m, &mdir.u.m, sizeof(mdir.u.m)) == 0);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_mtree_neighbor_mid_drop]
+[cases.test_mtree_neighbor_middle_drop]
 # this should be set so only one entry can fit in a metadata block
 defines.SIZE = 'BLOCK_SIZE / 4'
 # make it so blocks relocate every two compacts
@@ -3404,16 +3404,16 @@ code = '''
 
     // assert that our neighbors were updated correctly
     assert(!lfsr_mdir_isdropped(&left_neighbor.mdir));
-    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(left_neighbor.mdir.mid.bid == 0*lfsr_mbidweight(&lfs));
     assert(left_neighbor.mdir.mid.rid == 0);
     lfsr_mtree_lookup(&lfs, LFSR_MID(0*lfsr_mbidweight(&lfs), -1), &mdir) => 0;
-    assert(memcmp(&left_neighbor.mdir.u, &mdir.u, sizeof(mdir.u)) == 0);
+    assert(memcmp(&left_neighbor.mdir.u.m, &mdir.u.m, sizeof(mdir.u.m)) == 0);
 
     assert(!lfsr_mdir_isdropped(&right_neighbor.mdir));
-    assert(right_neighbor.mdir.mid.bid == 1*lfsr_mbidweight(&lfs) | lfsr_mridmask(&lfs));
+    assert(right_neighbor.mdir.mid.bid == 1*lfsr_mbidweight(&lfs));
     assert(right_neighbor.mdir.mid.rid == 0);
     lfsr_mtree_lookup(&lfs, LFSR_MID(1*lfsr_mbidweight(&lfs), -1), &mdir) => 0;
-    assert(memcmp(&right_neighbor.mdir.u, &mdir.u, sizeof(mdir.u)) == 0);
+    assert(memcmp(&right_neighbor.mdir.u.m, &mdir.u.m, sizeof(mdir.u.m)) == 0);
 
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
     lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);

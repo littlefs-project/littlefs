@@ -4795,13 +4795,15 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_mid_t mid, lfsr_mdir_t *mdir_) {
     } else {
         LFS_ASSERT(mid.bid >= 0);
         LFS_ASSERT(mid.bid < (lfs_ssize_t)lfsr_mtree_weight(lfs));
+        lfs_size_t bid;
         lfsr_tag_t tag;
         lfsr_data_t data;
         int err = lfsr_btree_lookupnext(lfs, &lfs->mtree, mid.bid,
-                (lfs_size_t*)&mid.bid, &tag, NULL, &data);
+                &bid, &tag, NULL, &data);
         if (err) {
             return err;
         }
+        LFS_ASSERT(bid == (mid.bid | lfsr_mridmask(lfs)));
         LFS_ASSERT(tag == LFSR_TAG_MDIR);
 
         // decode mdir
@@ -4862,7 +4864,7 @@ static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_off_t off) {
     // lookup mdirs until we find our rid, we need to do this because
     // we don't know how many rids are in each mdir until we fetch
     while (rid_ >= (lfs_ssize_t)mdir->u.m.weight) {
-        lfsr_smbid_t bid_ = mdir->mid.bid + 1;
+        lfsr_smbid_t bid_ = mdir->mid.bid + lfsr_mbidweight(lfs);
         // end of mtree?
         if (bid_ >= (lfs_ssize_t)lfsr_mtree_weight(lfs)) {
             // TODO is this needed?
@@ -5239,9 +5241,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // compact into new mdir tags < split_rid
-        lfsr_smbid_t mbid = lfs_smax32(mdir->mid.bid, 0) | lfsr_mridmask(lfs);
         int err = lfsr_mdir_compact_(lfs, &mdir_,
-                mbid, 0, split_rid,
+                lfs_smax32(mdir->mid.bid, 0), 0, split_rid,
                 mdir, attrs, attr_count, NULL, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5250,7 +5251,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // compact into new mdir tags >= split_rid
         err = lfsr_mdir_compact_(lfs, &msibling_,
-                mbid+lfsr_mbidweight(lfs), split_rid, -1,
+                lfs_smax32(mdir->mid.bid, 0), split_rid, -1,
                 mdir, attrs, attr_count, NULL, 0);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5282,8 +5283,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // update our mtree
             int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
-                    LFSR_ATTR(mdir_.mid.bid, RM, -lfsr_mbidweight(lfs),
-                        NULL)));
+                    LFSR_ATTR(mdir_.mid.bid | lfsr_mridmask(lfs),
+                        RM, -lfsr_mbidweight(lfs), NULL)));
             if (err) {
                 return err;
             }
@@ -5306,8 +5307,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
 
             int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
-                    LFSR_ATTR(mdir_.mid.bid, MDIR, 0,
-                        BUF(mdir_buf, mdir_dsize))));
+                    LFSR_ATTR(mdir_.mid.bid | lfsr_mridmask(lfs),
+                        MDIR, 0, BUF(mdir_buf, mdir_dsize))));
             if (err) {
                 return err;
             }
@@ -5320,7 +5321,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // mark as dropped
             mdir_.u.r.rbyd.trunk = 0;
-            msibling_.mid.bid -= lfsr_mbidweight(lfs);
 
             // update our mtree
             uint8_t msibling_buf[LFSR_MDIR_DSIZE];
@@ -5331,14 +5331,18 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
 
             int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
-                    LFSR_ATTR(msibling_.mid.bid, MDIR, 0,
-                        BUF(msibling_buf, msibling_dsize))));
+                    LFSR_ATTR(msibling_.mid.bid | lfsr_mridmask(lfs),
+                        MDIR, 0, BUF(msibling_buf, msibling_dsize))));
             if (err) {
                 return err;
             }
 
         // no siblings reduced to zero
         } else {
+            // adjust our sibling's mid, do this here in case other sibling
+            // was dropped
+            msibling_.mid.bid += lfsr_mbidweight(lfs);
+
             // update out mtree
 
             // lookup first name in sibling to use as the split name
@@ -5367,12 +5371,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
 
             err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
-                    LFSR_ATTR(mdir_.mid.bid, MDIR, 0,
-                        BUF(mdir_buf, mdir_dsize)),
-                    LFSR_ATTR(mdir_.mid.bid+1, BRANCH, +lfsr_mbidweight(lfs),
-                        DATA(split_data)),
-                    LFSR_ATTR(msibling_.mid.bid, MDIR, 0,
-                        BUF(msibling_buf, msibling_dsize))));
+                    LFSR_ATTR(mdir_.mid.bid | lfsr_mridmask(lfs),
+                        MDIR, 0, BUF(mdir_buf, mdir_dsize)),
+                    LFSR_ATTR((mdir_.mid.bid | lfsr_mridmask(lfs))+1,
+                        BRANCH, +lfsr_mbidweight(lfs), DATA(split_data)),
+                    LFSR_ATTR(msibling_.mid.bid | lfsr_mridmask(lfs),
+                        MDIR, 0, BUF(msibling_buf, msibling_dsize))));
             if (err) {
                 return err;
             }
@@ -5393,7 +5397,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // update our mtree
         int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
-                LFSR_ATTR(mdir->mid.bid, RM, -lfsr_mbidweight(lfs), NULL)));
+                LFSR_ATTR(mdir->mid.bid | lfsr_mridmask(lfs),
+                    RM, -lfsr_mbidweight(lfs), NULL)));
         if (err) {
             return err;
         }
@@ -5425,8 +5430,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
 
             int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
-                    LFSR_ATTR(mdir->mid.bid, MDIR, 0,
-                        BUF(mdir_buf, mdir_dsize))));
+                    LFSR_ATTR(mdir->mid.bid | lfsr_mridmask(lfs),
+                        MDIR, 0, BUF(mdir_buf, mdir_dsize))));
             if (err) {
                 return err;
             }
@@ -5463,11 +5468,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // fix our grm
             for (uint8_t j = 0; j < 2; j++) {
-                if (grm->rms[j].bid == mdir->mid.bid) {
+                if (grm->rms[j].bid == lfs_smax32(mdir->mid.bid, 0)) {
                     LFS_ASSERT(grm->rms[j].rid
                             <= (lfs_ssize_t)mdir->u.m.weight);
                     if (grm->rms[j].rid >= (lfs_ssize_t)mdir_.u.m.weight) {
-                        grm->rms[j].bid = msibling_.mid.bid;
+                        grm->rms[j].bid += lfsr_mbidweight(lfs);
                         grm->rms[j].rid -= mdir_.u.m.weight;
                     }
                 // update mid if we had a split or drop
@@ -5477,16 +5482,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     grm->rms[j].bid += lfsr_btree_weight(&mtree_)
                             - lfsr_mtree_weight(lfs);
                 }
-
-//// TODO?
-//                // TODO this is a big cludge, support for mid=0 when inlined?
-//                // adjust mid if mtree is inlined
-//                if (lfsr_btree_weight(&mtree_) == 0) {
-//                    LFS_ASSERT(grm->rms[j].bid <= 0);
-//                    if (grm->rms[j].bid == 0) {
-//                        grm->rms[j].bid = -1;
-//                    }
-//                }
             }
 
             // xor our fix into our gdelta
@@ -5665,12 +5660,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // mdirs and normal dirs which are pairs of mdirs
             for (uint8_t j = 0; j <= type; j++) {
                 lfsr_mdir_t *opened_mdir = &(&opened->mdir)[j];
+                LFS_ASSERT(opened_mdir->mid.bid >= 0);
 
                 // first play out any attrs that change our rid
                 for (lfs_size_t i = 0; i < attr_count; i++) {
                     // TODO clean this up a bit?
                     // adjust opened mdirs?
-                    if (opened_mdir->mid.bid == mdir->mid.bid
+                    if (opened_mdir->mid.bid == lfs_smax32(mdir->mid.bid, 0)
                             && opened_mdir->mid.rid >= attrs[i].rid) {
                         // removed?
                         if (opened_mdir->mid.rid
@@ -5703,17 +5699,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
 
                 // update any opened mdirs if we had a split or drop
-                if (opened_mdir->mid.bid == mdir->mid.bid) {
+                if (opened_mdir->mid.bid == lfs_smax32(mdir->mid.bid, 0)) {
                     if (!lfsr_mdir_isdropped(&msibling_)
                             && opened_mdir->mid.rid
                                 >= (lfs_ssize_t)mdir_.u.m.weight) {
                         LFS_ASSERT(lfsr_btree_weight(&mtree_)
                                 != lfsr_mtree_weight(lfs));
-                        opened_mdir->mid.bid = msibling_.mid.bid;
+                        opened_mdir->mid.bid += lfsr_mbidweight(lfs);
                         opened_mdir->mid.rid -= mdir_.u.m.weight;
                         opened_mdir->u.m = msibling_.u.m;
                     } else {
-                        opened_mdir->mid.bid = mdir_.mid.bid;
                         opened_mdir->u.m = mdir_.u.m;
                     }
                 } else if (opened_mdir->mid.bid > mdir->mid.bid) {
@@ -5727,12 +5722,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // update mdir to follow requested rid
     LFS_ASSERT(mdir->mid.rid <= (lfs_ssize_t)mdir->u.m.weight);
-    if (mdir == &lfs->mroot) {
-        // do nothing, we update mroot later
-    } else if (!lfsr_mdir_isdropped(&msibling_)
+    if (mdir->mid.bid != -1
+            && !lfsr_mdir_isdropped(&msibling_)
             && mdir->mid.rid >= (lfs_ssize_t)mdir_.u.m.weight) {
         LFS_ASSERT(lfsr_btree_weight(&mtree_) != lfsr_mtree_weight(lfs));
-        mdir->mid.bid = msibling_.mid.bid;
+        mdir->mid.bid += lfsr_mbidweight(lfs);
         mdir->mid.rid -= mdir_.u.m.weight;
         mdir->u.m = msibling_.u.m;
     } else {
@@ -5781,10 +5775,11 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
     } else {
         lfs_size_t bid;
         lfsr_tag_t tag;
+        lfs_size_t weight;
         lfsr_data_t data;
         int err = lfsr_btree_namelookup(lfs, &lfs->mtree,
                 did, name, name_size,
-                &bid, &tag, NULL, &data);
+                &bid, &tag, &weight, &data);
         if (err) {
             return err;
         }
@@ -5797,7 +5792,8 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
         }
 
         // fetch mdir
-        err = lfsr_mdir_fetch(lfs, &mdir, mdir.u.m.blocks, LFSR_MID(bid, -1));
+        err = lfsr_mdir_fetch(lfs, &mdir, mdir.u.m.blocks,
+                LFSR_MID(bid-(weight-1), -1));
         if (err) {
             return err;
         }
