@@ -47,16 +47,6 @@ typedef uint32_t lfs_block_t;
 typedef uint16_t lfsr_tag_t;
 typedef int16_t lfsr_stag_t;
 
-typedef uint32_t lfsr_mbid_t;
-typedef int32_t lfsr_smbid_t;
-typedef uint32_t lfsr_mrid_t;
-typedef int32_t lfsr_smrid_t;
-
-typedef struct lfsr_mid {
-    lfsr_smbid_t bid;
-    lfsr_smrid_t rid;
-} lfsr_mid_t;
-
 // Maximum name size in bytes, may be redefined to reduce the size of the
 // info struct. Limited to <= 1022. Stored in superblock and must be
 // respected by other littlefs drivers.
@@ -380,7 +370,7 @@ typedef struct lfsr_btree {
 } lfsr_btree_t;
 
 typedef struct lfsr_mdir {
-    lfsr_mid_t mid;
+    lfs_ssize_t mid;
     union {
         // here we make sure to line up our block array so it overlaps with
         // the block stored as the first entry in the rbyd
@@ -412,7 +402,7 @@ typedef struct lfsr_openedmdir {
 #define LFSR_GRM_DSIZE (1+5+5+5+5)
 
 typedef struct lfsr_grm {
-    lfsr_mid_t rms[2];
+    lfs_ssize_t rms[2];
 } lfsr_grm_t;
 
 
