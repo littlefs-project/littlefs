@@ -3485,8 +3485,9 @@ code = '''
 
         if (tag_ == LFSR_TAG_BTREE) {
             lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.b.buffer;
-            printf("traversal: %d 0x%x btree 0x%x.%x\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     branch->block, branch->trunk);
 
@@ -3494,8 +3495,9 @@ code = '''
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
             lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.b.buffer;
-            printf("traversal: %d 0x%x mdir 0x{%x,%x}\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
@@ -3504,8 +3506,9 @@ code = '''
             seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
         } else {
             // this shouldn't happen
-            printf("traversal: %d 0x%x %d\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x %d\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     lfsr_data_size(&data_));
             assert(false);
@@ -3606,8 +3609,9 @@ code = '''
 
         if (tag_ == LFSR_TAG_BTREE) {
             lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.b.buffer;
-            printf("traversal: %d 0x%x btree 0x%x.%x\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     branch->block, branch->trunk);
 
@@ -3615,8 +3619,9 @@ code = '''
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
             lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.b.buffer;
-            printf("traversal: %d 0x%x mdir 0x{%x,%x}\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
@@ -3625,8 +3630,9 @@ code = '''
             seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
         } else {
             // this shouldn't happen
-            printf("traversal: %d 0x%x %d\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x %d\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     lfsr_data_size(&data_));
             assert(false);
@@ -3738,8 +3744,9 @@ code = '''
 
         if (tag_ == LFSR_TAG_BTREE) {
             lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.b.buffer;
-            printf("traversal: %d 0x%x btree 0x%x.%x\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     branch->block, branch->trunk);
 
@@ -3747,8 +3754,9 @@ code = '''
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
             lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.b.buffer;
-            printf("traversal: %d 0x%x mdir 0x{%x,%x}\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
@@ -3757,8 +3765,9 @@ code = '''
             seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
         } else {
             // this shouldn't happen
-            printf("traversal: %d 0x%x %d\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x %d\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     lfsr_data_size(&data_));
             assert(false);
@@ -3862,8 +3871,9 @@ code = '''
 
         if (tag_ == LFSR_TAG_BTREE) {
             lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.b.buffer;
-            printf("traversal: %d 0x%x btree 0x%x.%x\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     branch->block, branch->trunk);
 
@@ -3871,8 +3881,9 @@ code = '''
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
             lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.b.buffer;
-            printf("traversal: %d 0x%x mdir 0x{%x,%x}\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
@@ -3881,8 +3892,9 @@ code = '''
             seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
         } else {
             // this shouldn't happen
-            printf("traversal: %d 0x%x %d\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x %d\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     lfsr_data_size(&data_));
             assert(false);
@@ -3997,8 +4009,9 @@ code = '''
 
         if (tag_ == LFSR_TAG_BTREE) {
             lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.b.buffer;
-            printf("traversal: %d 0x%x btree 0x%x.%x\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     branch->block, branch->trunk);
 
@@ -4006,8 +4019,9 @@ code = '''
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
             lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.b.buffer;
-            printf("traversal: %d 0x%x mdir 0x{%x,%x}\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
@@ -4016,8 +4030,9 @@ code = '''
             seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
         } else {
             // this shouldn't happen
-            printf("traversal: %d 0x%x %d\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x %d\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     lfsr_data_size(&data_));
             assert(false);
@@ -4164,8 +4179,9 @@ code = '''
 
         if (tag_ == LFSR_TAG_BTREE) {
             lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.b.buffer;
-            printf("traversal: %d 0x%x btree 0x%x.%x\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     branch->block, branch->trunk);
 
@@ -4173,8 +4189,9 @@ code = '''
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
             lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.b.buffer;
-            printf("traversal: %d 0x%x mdir 0x{%x,%x}\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
@@ -4183,8 +4200,9 @@ code = '''
             seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
         } else {
             // this shouldn't happen
-            printf("traversal: %d 0x%x %d\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x %d\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     lfsr_data_size(&data_));
             assert(false);
@@ -4270,20 +4288,23 @@ code = '''
 
         if (tag_ == LFSR_TAG_BTREE) {
             lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.b.buffer;
-            printf("traversal: %d 0x%x btree 0x%x.%x\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     branch->block, branch->trunk);
         } else if (tag_ == LFSR_TAG_MDIR) {
             lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.b.buffer;
-            printf("traversal: %d 0x%x mdir 0x{%x,%x}\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
         } else {
             // this shouldn't happen
-            printf("traversal: %d 0x%x %d\n",
-                    mid_,
+            printf("traversal: %d.%d 0x%x %d\n",
+                    mid_ & lfsr_mbidmask(&lfs),
+                    mid_ & lfsr_mridmask(&lfs),
                     tag_,
                     lfsr_data_size(&data_));
             assert(false);

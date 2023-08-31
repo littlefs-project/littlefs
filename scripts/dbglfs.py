@@ -454,7 +454,7 @@ class Rbyd:
                 return not tags, bid + (rid_-rid), w, rbyd, rid_, tags, path
 
     # mtree lookup with this rbyd as the mroot
-    def mtree_lookup(self, f, block_size, mid):
+    def mtree_lookup(self, f, block_size, mbid):
         # have mtree?
         done, rid, tag, w, j, d, data, _ = self.lookup(-1, TAG_MTREE)
         if not done and rid == -1 and tag == TAG_MTREE:
@@ -462,39 +462,39 @@ class Rbyd:
             mtree = Rbyd.fetch(f, block_size, block, trunk)
             # corrupted?
             if not mtree:
-                return None
+                return True, -1, 0, None
 
-            # lookup our mid
-            done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
-                f, block_size, mid)
+            # lookup our mbid
+            done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
+                f, block_size, mbid)
             if done:
-                return None
+                return True, -1, 0, None
 
             mdir = next(((tag, j, d, data)
                 for tag, j, d, data in tags
                 if tag == TAG_MDIR),
                 None)
             if not mdir:
-                return None
+                return True, -1, 0, None
 
             # fetch the mdir
             _, _, _, data = mdir
             blocks = frommdir(data)
-            return Rbyd.fetch(f, block_size, blocks)
+            return False, mbid, mw, Rbyd.fetch(f, block_size, blocks)
 
         else:
             # have mdir?
             done, rid, tag, w, j, _, data, _ = self.lookup(-1, TAG_MDIR)
             if not done and rid == -1 and tag == TAG_MDIR:
                 blocks = frommdir(data)
-                return Rbyd.fetch(f, block_size, blocks)
+                return False, 0, 0, Rbyd.fetch(f, block_size, blocks)
 
             else:
                 # I guess we're inlined?
-                if mid == -1:
-                    return self
+                if mbid == -1:
+                    return False, -1, 0, self
                 else:
-                    return None
+                    return True, -1, 0, None
 
     # lookup by name
     def namelookup(self, did, name):
@@ -564,7 +564,7 @@ class Rbyd:
                 return False, -1, None, -1, 0, 0
 
             # lookup our name in the mtree
-            mid, tag_, w, data = mtree.btree_namelookup(
+            mbid, tag_, mw, data = mtree.btree_namelookup(
                 f, block_size, did, name)
             if tag_ != TAG_MDIR:
                 return False, -1, None, -1, 0, 0
@@ -578,22 +578,24 @@ class Rbyd:
             done, rid, tag, w, j, _, data, _ = self.lookup(-1, TAG_MDIR)
             if not done and rid == -1 and tag == TAG_MDIR:
                 blocks = frommdir(data)
-                mid = 0
+                mbid = 0
+                mw = 0
                 mdir = Rbyd.fetch(f, block_size, blocks)
 
             else:
                 # I guess we're inlined?
-                mid = -1
+                mbid = -1
+                mw = 0
                 mdir = self
 
         # lookup name in our mdir
         found, rid, tag, w = mdir.namelookup(did, name)
-        return found, mid, mdir, rid, tag, w
+        return found, mbid, mw, mdir, rid, tag, w
 
     # iterate through a directory assuming this is the mtree root
     def mtree_dir(self, f, block_size, did):
         # lookup the bookmark
-        found, mid, mdir, rid, tag, w = self.mtree_namelookup(
+        found, mbid, mw, mdir, rid, tag, w = self.mtree_namelookup(
             f, block_size, did, b'')
         # iterate through all files until the next bookmark
         while found:
@@ -611,15 +613,15 @@ class Rbyd:
                 break
 
             # yield what we've found
-            yield name_, mid, mdir, rid, tag, w
+            yield name_, mbid, mw, mdir, rid, tag, w
 
             rid += w
             if rid >= mdir.weight:
                 rid -= mdir.weight
-                mid += 1
+                mbid += 1
 
-                mdir = self.mtree_lookup(f, block_size, mid)
-                if not mdir:
+                done, mbid, mw, mdir = self.mtree_lookup(f, block_size, mbid)
+                if done:
                     break
 
 
@@ -651,11 +653,12 @@ def superconfig(mroot):
 
 # collect gstate
 class GState:
-    def __init__(self):
+    def __init__(self, block_size):
         self.gstate = {}
         self.gdelta = {}
+        self.block_size = block_size
 
-    def xor(self, mid, mdir):
+    def xor(self, mbid, mw, mdir):
         tag = TAG_GSTATE-0x1
         while True:
             done, rid, tag, w, j, d, data, _ = mdir.lookup(-1, tag+0x1)
@@ -665,7 +668,7 @@ class GState:
             # keep track of gdeltas
             if tag not in self.gdelta:
                 self.gdelta[tag] = []
-            self.gdelta[tag].append((mid, mdir, j, d, data))
+            self.gdelta[tag].append((mbid, mw, mdir, j, d, data))
 
             # xor gstate
             if tag not in self.gstate:
@@ -679,6 +682,10 @@ class GState:
         if TAG_GRM not in self.gstate:
             return []
 
+        # derive the mbid/mrid masks from the block_size
+        mridmask = (1 << m.ceil(m.log2(self.block_size // 16)))-1
+        mbidmask = ~mridmask
+
         data = self.gstate[TAG_GRM]
         d = 0
         count,  d_ = fromleb128(data[d:]); d += d_
@@ -686,23 +693,25 @@ class GState:
         if count <= 2:
             for _ in range(count):
                 mid, d_ = fromleb128(data[d:]); d += d_
-                rid, d_ = fromleb128(data[d:]); d += d_
-                rms.append((mid, rid))
+                rms.append((mid & mbidmask, mid & mridmask))
         return rms
 
-def grepr(tag, data):
+def grepr(tag, data, block_size):
     if tag == TAG_GRM:
+        # derive the mbid/mrid masks from the block_size
+        mridmask = (1 << m.ceil(m.log2(block_size // 16)))-1
+        mbidmask = ~mridmask
+
         d = 0
         count,  d_ = fromleb128(data[d:]); d += d_
         rms = []
         if count <= 2:
             for _ in range(count):
                 mid, d_ = fromleb128(data[d:]); d += d_
-                rid, d_ = fromleb128(data[d:]); d += d_
-                rms.append((mid, rid))
+                rms.append((mid & mbidmask, mid & mridmask))
         return 'grm %s' % (
             'none' if count == 0
-                else ' '.join('%d.%d' % (mid, rid) for mid, rid in rms)
+                else ' '.join('%d.%d' % (mbid, rid) for mbid, rid in rms)
                      if count <= 2
                 else '0x%x' % count)
     else:
@@ -763,9 +772,9 @@ def main(disk, mroots=None, *,
         mweight = 0
         rweight = 0
         corrupted = False
-        gstate = GState()
+        gstate = GState(block_size)
         config = {}
-        dir_dids = [(0, b'', -1, None, -1, TAG_DID, 0)]
+        dir_dids = [(0, b'', -1, 0, None, -1, TAG_DID, 0)]
         bookmark_dids = []
 
         mroot = Rbyd.fetch(f, block_size, mroots)
@@ -778,7 +787,7 @@ def main(disk, mroots=None, *,
 
             rweight = max(rweight, mroot.weight)
             # yes we get gstate from all mroots
-            gstate.xor(-1, mroot)
+            gstate.xor(-1, 0, mroot)
             # get the superconfig
             config = superconfig(mroot)
 
@@ -787,11 +796,11 @@ def main(disk, mroots=None, *,
                 if tag == TAG_DID:
                     did, d = fromleb128(data)
                     dir_dids.append(
-                        (did, data[d:], -1, mroot, rid, tag, w))
+                        (did, data[d:], -1, 0, mroot, rid, tag, w))
                 elif tag == TAG_BOOKMARK:
                     did, d = fromleb128(data)
                     bookmark_dids.append(
-                        (did, data[d:], -1, mroot, rid, tag, w))
+                        (did, data[d:], -1, 0, mroot, rid, tag, w))
 
             # fetch the next mroot
             done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_MROOT)
@@ -821,11 +830,11 @@ def main(disk, mroots=None, *,
                     if tag == TAG_DID:
                         did, d = fromleb128(data)
                         dir_dids.append((
-                            did, data[d:], 0, mdir, rid, tag, w))
+                            did, data[d:], 0, 0, mdir, rid, tag, w))
                     elif tag == TAG_BOOKMARK:
                         did, d = fromleb128(data)
                         bookmark_dids.append((
-                            did, data[d:], 0, mdir, rid, tag, w))
+                            did, data[d:], 0, 0, mdir, rid, tag, w))
 
         # fetch the actual mtree, if there is one
         mtree = None
@@ -837,10 +846,10 @@ def main(disk, mroots=None, *,
             mweight = w
 
             # traverse entries
-            mid = -1
+            mbid = -1
             while True:
-                done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
-                    f, block_size, mid+1)
+                done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
+                    f, block_size, mbid+1)
                 if done:
                     break
 
@@ -865,26 +874,30 @@ def main(disk, mroots=None, *,
                         corrupted = True
                     else:
                         rweight = max(rweight, mdir_.weight)
-                        gstate.xor(mid, mdir_)
+                        gstate.xor(mbid, mw, mdir_)
 
                         # find any dids
                         for rid, tag, w, j, d, data in mdir_:
                             if tag == TAG_DID:
                                 did, d = fromleb128(data)
                                 dir_dids.append((
-                                    did, data[d:], mid, mdir_, rid, tag, w))
+                                    did, data[d:],
+                                    mbid, mw, mdir_, rid, tag, w))
                             elif tag == TAG_BOOKMARK:
                                 did, d = fromleb128(data)
                                 bookmark_dids.append((
-                                    did, data[d:], mid, mdir_, rid, tag, w))
+                                    did, data[d:],
+                                    mbid, mw, mdir_, rid, tag, w))
 
         # remove grms from our found dids, we treat these as already deleted
         grmed_dir_dids = {did_
-            for (did_, name_, mid_, mdir_, rid_, tag_, w_) in dir_dids
-            if (max(mid_, 0), rid_) not in gstate.grm}
+            for (did_, name_, mbid_, mw_, mdir_, rid_, tag_, w_)
+            in dir_dids
+            if (max(mbid_-max(mw_-1, 0), 0), rid_) not in gstate.grm}
         grmed_bookmark_dids = {did_
-            for (did_, name_, mid_, mdir_, rid_, tag_, w_) in bookmark_dids
-            if (max(mid_, 0), rid_) not in gstate.grm}
+            for (did_, name_, mbid_, mw_, mdir_, rid_, tag_, w_)
+            in bookmark_dids
+            if (max(mbid_-max(mw_-1, 0), 0), rid_) not in gstate.grm}
 
         # treat the filesystem as corrupted if our dirs and bookmarks are
         # mismatched, this should never happen unless there's a bug
@@ -902,7 +915,7 @@ def main(disk, mroots=None, *,
             def rec_f_width(did, depth):
                 depth_ = 0
                 width_ = 0
-                for name, mid, mdir, rid, tag, w in mroot.mtree_dir(
+                for name, mbid, mw, mdir, rid, tag, w in mroot.mtree_dir(
                         f, block_size, did):
                     width_ = max(width_, len(name))
                     # recurse?
@@ -936,13 +949,13 @@ def main(disk, mroots=None, *,
         if dtree:
             print('%-11s  %-*s %-*s  %s' % (
                 'mdir',
-                w_width, 'ids',
+                w_width, 'mid',
                 f_width, 'name',
                 'type'))
         else:
             print('%-11s  %-*s %-22s  %s' % (
                 'mdir',
-                w_width, 'ids',
+                w_width, 'mid',
                 'tag',
                 'data (truncated)'
                     if not args.get('no_truncate') else ''))
@@ -985,7 +998,7 @@ def main(disk, mroots=None, *,
                 print('%12s %-*s  %s' % (
                     'gstate:' if i == 0 else '',
                     w_width + 23,
-                    grepr(tag, data),
+                    grepr(tag, data, block_size),
                     next(xxd(data, 8), '')
                         if not args.get('no_truncate') else ''))
 
@@ -1014,13 +1027,13 @@ def main(disk, mroots=None, *,
 
                 # print gdeltas?
                 if args.get('gdelta'):
-                    for mid, mdir, j, d, data in gstate.gdelta[tag]:
+                    for mbid, mw, mdir, j, d, data in gstate.gdelta[tag]:
                         print('%s{%s}: %*s %-22s  %s%s' % (
                             '\x1b[90m' if color else '',
                             ','.join('%04x' % block
                                 for block in it.chain([mdir.block],
                                     mdir.redund_blocks)),
-                            w_width, mid,
+                            w_width, mbid-max(mw-1, 0),
                             tagrepr(tag, 0, len(data)),
                             next(xxd(data, 8), '')
                                 if not args.get('no_truncate') else '',
@@ -1060,39 +1073,40 @@ def main(disk, mroots=None, *,
         # print dtree?
         if dtree:
             # only show mdir on change
-            pmid = None
+            pmbid = None
             # recursively print directories
             def rec_dir(did, depth, prefixes=('', '', '', '')):
-                nonlocal pmid
+                nonlocal pmbid
                 # collect all entries first so we know when the dir ends
                 dir = []
-                for name, mid, mdir, rid, tag, w in mroot.mtree_dir(
+                for name, mbid, mw, mdir, rid, tag, w in mroot.mtree_dir(
                         f, block_size, did):
                     if not args.get('all'):
                         # skip bookmarks
                         if tag == TAG_BOOKMARK:
                             continue
                         # skip grmed entries
-                        if (max(mid, 0), rid) in gstate.grm:
+                        if (max(mbid-max(mw-1, 0), 0), rid) in gstate.grm:
                             continue
-                    dir.append((name, mid, mdir, rid, tag, w))
+                    dir.append((name, mbid, mw, mdir, rid, tag, w))
 
                 # if we're root, append any orphaned bookmark entries so they
                 # get reported
                 if did == 0:
-                    for did, name, mid, mdir, rid, tag, w in bookmark_dids:
+                    for did, name, mbid, mw, mdir, rid, tag, w in bookmark_dids:
                         if did in grmed_dir_dids:
                             continue
                         # skip grmed entries
                         if (not args.get('all')
-                                and (max(mid, 0), rid) in gstate.grm):
+                                and (max(mbid-max(mw-1, 0), 0), rid)
+                                    in gstate.grm):
                             continue
-                        dir.append((name, mid, mdir, rid, tag, w))
+                        dir.append((name, mbid, mw, mdir, rid, tag, w))
 
-                for i, (name, mid, mdir, rid, tag, w) in enumerate(dir):
+                for i, (name, mbid, mw, mdir, rid, tag, w) in enumerate(dir):
                     # some special situations worth reporting
                     notes = []
-                    grmed = (max(mid, 0), rid) in gstate.grm
+                    grmed = (max(mbid-max(mw-1, 0), 0), rid) in gstate.grm
                     # grmed?
                     if grmed:
                         notes.append('grmed')
@@ -1120,9 +1134,10 @@ def main(disk, mroots=None, *,
                         '{%s}:' % ','.join('%04x' % block
                             for block in it.chain([mdir.block],
                                 mdir.redund_blocks))
-                            if mid != pmid else '',
-                        w_width, '%d.%d-%d' % (mid, rid-(w-1), rid)
-                            if w > 1 else '%d.%d' % (mid, rid)
+                            if mbid != pmbid else '',
+                        w_width, '%d.%d-%d' % (
+                                mbid-max(mw-1, 0), rid-(w-1), rid)
+                            if w > 1 else '%d.%d' % (mbid-max(mw-1, 0), rid)
                             if w > 0 else '',
                         f_width, '%s%s' % (
                             prefixes[0+(i==len(dir)-1)],
@@ -1135,7 +1150,7 @@ def main(disk, mroots=None, *,
                             if notes else '',
                         '\x1b[m' if color and (grmed or tag == TAG_BOOKMARK)
                             else ''))
-                    pmid = mid
+                    pmbid = mbid
 
                     # print attrs associated with this file?
                     if args.get('attrs'):

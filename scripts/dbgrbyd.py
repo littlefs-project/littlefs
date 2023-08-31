@@ -421,7 +421,7 @@ def dbg_log(data, block_size, rev, off, weight, *,
     print('%-8s  %*s%-*s %-22s  %s' % (
         'off',
         lifetime_width, '',
-        w_width, 'ids',
+        w_width, 'rid',
         'tag',
         'data (truncated)'
             if not args.get('no_truncate') else ''))
@@ -750,7 +750,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
     print('%-8s  %*s%-*s %-22s  %s' % (
         'off',
         t_width, '',
-        w_width, 'ids',
+        w_width, 'rid',
         'tag',
         'data (truncated)'
             if not args.get('no_truncate') else ''))

@@ -812,10 +812,10 @@ def main(disk, mroots=None, *,
                 mweight = w
 
                 # traverse entries
-                mid = -1
+                mbid = -1
                 while True:
-                    done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mid+1,
+                    done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
+                        f, block_size, mbid+1,
                         depth=args.get('depth', mdepth)-mdepth)
                     if done:
                         break
@@ -962,10 +962,10 @@ def main(disk, mroots=None, *,
 
                 # find the max depth of each mdir to nicely align trees
                 mdepth_ = 0
-                mid = -1
+                mbid = -1
                 while True:
-                    done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mid+1,
+                    done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
+                        f, block_size, mbid+1,
                         depth=args.get('depth', mdepth)-mdepth)
                     if done:
                         break
@@ -992,10 +992,10 @@ def main(disk, mroots=None, *,
                         mdepth_ = max(mdepth_, rdepth)
 
                 # compute the rbyd-tree for each mdir
-                mid = -1
+                mbid = -1
                 while True:
-                    done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mid+1,
+                    done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
+                        f, block_size, mbid+1,
                         depth=args.get('depth', mdepth)-mdepth)
                     if done:
                         break
@@ -1023,7 +1023,7 @@ def main(disk, mroots=None, *,
                         # connect the root to the mtree
                         branch = max(
                             (branch for branch in tree
-                                if branch.b[0] == mid-(w-1)),
+                                if branch.b[0] == mbid-(mw-1)),
                             key=lambda branch: branch.d,
                             default=None)
                         if branch:
@@ -1037,7 +1037,7 @@ def main(disk, mroots=None, *,
                                     mdir_.lookup(-1, 0x1))
                             tree.add(TBranch(
                                 a=branch.b,
-                                b=(mid-(w-1), len(path), 0, r_rid, r_tag),
+                                b=(mbid-(mw-1), len(path), 0, r_rid, r_tag),
                                 d=d_ + tdepth,
                                 c='b',
                             ))
@@ -1047,8 +1047,8 @@ def main(disk, mroots=None, *,
                             a_rid, a_tag = branch.a
                             b_rid, b_tag = branch.b
                             tree.add(TBranch(
-                                a=(mid-(w-1), len(path), 0, a_rid, a_tag),
-                                b=(mid-(w-1), len(path), 0, b_rid, b_tag),
+                                a=(mbid-(mw-1), len(path), 0, a_rid, a_tag),
+                                b=(mbid-(mw-1), len(path), 0, b_rid, b_tag),
                                 d=(d_ + tdepth + 1
                                     + branch.d + mdepth_-rdepth),
                                 c=branch.c,
@@ -1181,11 +1181,11 @@ def main(disk, mroots=None, *,
 
                 # remap branches to leaves if we aren't showing inner branches
                 if not args.get('inner'):
-                    mid = -1
+                    mbid = -1
                     while True:
-                        done, mid, w, rbyd, rid, tags, path = (
+                        done, mbid, mw, rbyd, rid, tags, path = (
                             mtree.btree_lookup(
-                                f, block_size, mid+1,
+                                f, block_size, mbid+1,
                                 depth=args.get('depth', mdepth)-mdepth))
                         if done:
                             break
@@ -1215,7 +1215,7 @@ def main(disk, mroots=None, *,
 
                             tree_ = set()
                             for branch in tree:
-                                if branch.a[0] == mid-(w-1):
+                                if branch.a[0] == mbid-(mw-1):
                                     a_bid, a_bd, _, _, _ = branch.a
                                     branch = TBranch(
                                         a=(a_bid, a_bd+1, 0, rid, tag),
@@ -1223,7 +1223,7 @@ def main(disk, mroots=None, *,
                                         d=branch.d,
                                         c=branch.c,
                                     )
-                                if branch.b[0] == mid-(w-1):
+                                if branch.b[0] == mbid-(mw-1):
                                     b_bid, b_bd, _, _, _ = branch.b
                                     branch = TBranch(
                                         a=branch.a,
@@ -1241,7 +1241,7 @@ def main(disk, mroots=None, *,
             if t_depth > 0:
                 t_width = 2*t_depth + 2
 
-            def treerepr(mid, w, md, mrid, rid, tag):
+            def treerepr(mbid, mw, md, mrid, rid, tag):
                 if t_depth == 0:
                     return ''
 
@@ -1276,7 +1276,7 @@ def main(disk, mroots=None, *,
                 was = None
                 for d in range(t_depth):
                     t, c, was = branchrepr(
-                        (mid-max(w-1, 0), md, mrid-max(w-1, 0), rid, tag),
+                        (mbid-max(mw-1, 0), md, mrid-max(mw-1, 0), rid, tag),
                         d, was)
 
                     trunk.append('%s%s%s%s' % (
@@ -1291,7 +1291,7 @@ def main(disk, mroots=None, *,
                 return '%s ' % ''.join(trunk)
 
 
-        def dbg_mdir(mdir, mid, md):
+        def dbg_mdir(mdir, mbid, mw, md):
             for i, (rid, tag, w, j, d, data) in enumerate(mdir):
                 # show human-readable tag representation
                 print('%12s %s%-57s' % (
@@ -1299,11 +1299,12 @@ def main(disk, mroots=None, *,
                         for block in it.chain([mdir.block],
                             mdir.redund_blocks))
                         if i == 0 else '',
-                    treerepr(mid, 1, md, 0, rid, tag)
+                    treerepr(mbid-max(mw-1, 0), 0, md, 0, rid, tag)
                         if args.get('tree') or args.get('btree') else '',
                     '%*s %-22s%s' % (
-                        w_width, '%d.%d-%d' % (mid, rid-(w-1), rid)
-                            if w > 1 else '%d.%d' % (mid, rid)
+                        w_width, '%d.%d-%d' % (
+                                mbid-max(mw-1, 0), rid-(w-1), rid)
+                            if w > 1 else '%d.%d' % (mbid-max(mw-1, 0), rid)
                             if w > 0 or i == 0 else '',
                         tagrepr(tag, w, len(data), j),
                         '  %s' % next(xxd(data, 8), '')
@@ -1410,7 +1411,7 @@ def main(disk, mroots=None, *,
         print('%-11s  %*s%-*s %-22s  %s' % (
             'mdir',
             t_width, '',
-            w_width, 'ids',
+            w_width, 'mid',
             'tag',
             'data (truncated)'
                 if not args.get('no_truncate') else ''))
@@ -1435,7 +1436,7 @@ def main(disk, mroots=None, *,
                 break
             else:
                 # show the mdir
-                dbg_mdir(mroot, -1, d)
+                dbg_mdir(mroot, -1, 0, d)
 
             # stop here?
             if args.get('depth') and mdepth >= args.get('depth'):
@@ -1469,7 +1470,7 @@ def main(disk, mroots=None, *,
                     corrupted = True
                 else:
                     # show the mdir
-                    dbg_mdir(mdir, 0, 0)
+                    dbg_mdir(mdir, 0, 0, 0)
 
         # fetch the actual mtree, if there is one
         if not args.get('depth') or mdepth < args.get('depth'):
@@ -1479,10 +1480,10 @@ def main(disk, mroots=None, *,
                 mtree = Rbyd.fetch(f, block_size, block, trunk)
 
                 # traverse entries
-                mid = -1
+                mbid = -1
                 while True:
-                    done, mid, w, rbyd, rid, tags, path = mtree.btree_lookup(
-                        f, block_size, mid+1,
+                    done, mbid, mw, rbyd, rid, tags, path = mtree.btree_lookup(
+                        f, block_size, mbid+1,
                         depth=args.get('depth', mdepth)-mdepth)
                     if done:
                         break
@@ -1544,7 +1545,7 @@ def main(disk, mroots=None, *,
 
                     # print btree entries in certain cases
                     if args.get('inner') or not mdir__:
-                        dbg_branch(mid, w, rbyd, rid, tags, len(path)-1)
+                        dbg_branch(mbid, mw, rbyd, rid, tags, len(path)-1)
 
                     if not mdir__:
                         continue
@@ -1567,7 +1568,7 @@ def main(disk, mroots=None, *,
                         corrupted = True
                     else:
                         # show the mdir
-                        dbg_mdir(mdir_, mid, len(path))
+                        dbg_mdir(mdir_, mbid, mw, len(path))
 
                         # force next btree entry to be shown
                         prbyd = None

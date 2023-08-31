@@ -5248,10 +5248,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             return err;
         }
 
-        LFS_DEBUG("Splitting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
-                "-> 0x{%"PRIx32",%"PRIx32"}"
-                ", 0x{%"PRIx32",%"PRIx32"}",
-                mdir->mid,
+        LFS_DEBUG("Splitting mdir %"PRId32".%"PRId32" "
+                "0x{%"PRIx32",%"PRIx32"} "
+                "-> 0x{%"PRIx32",%"PRIx32"}, "
+                "0x{%"PRIx32",%"PRIx32"}",
+                mdir->mid & lfsr_mbidmask(lfs),
+                mdir->mid & lfsr_mridmask(lfs),
                 mdir->u.m.blocks[0], mdir->u.m.blocks[1],
                 mdir_.u.m.blocks[0], mdir_.u.m.blocks[1],
                 msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
@@ -5261,11 +5263,15 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // both siblings reduced to zero
         if (mdir_.u.m.weight == 0 && msibling_.u.m.weight == 0) {
-            LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                    mdir_.mid,
+            LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
+                    "0x{%"PRIx32",%"PRIx32"}",
+                    mdir_.mid & lfsr_mbidmask(lfs),
+                    mdir_.mid & lfsr_mridmask(lfs),
                     mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
-            LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                    msibling_.mid,
+            LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
+                    "0x{%"PRIx32",%"PRIx32"}",
+                    msibling_.mid & lfsr_mbidmask(lfs),
+                    msibling_.mid & lfsr_mridmask(lfs),
                     msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
             // mark as dropped
             mdir_.u.r.rbyd.trunk = 0;
@@ -5281,8 +5287,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // one sibling reduced to zero
         } else if (msibling_.u.m.weight == 0) {
-            LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                    msibling_.mid,
+            LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
+                    "0x{%"PRIx32",%"PRIx32"}",
+                    msibling_.mid & lfsr_mbidmask(lfs),
+                    msibling_.mid & lfsr_mridmask(lfs),
                     msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
 
             // mark as dropped
@@ -5305,8 +5313,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // other sibling reduced to zero
         } else if (mdir_.u.m.weight == 0) {
-            LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                    mdir_.mid,
+            LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
+                    "0x{%"PRIx32",%"PRIx32"}",
+                    mdir_.mid & lfsr_mbidmask(lfs),
+                    mdir_.mid & lfsr_mridmask(lfs),
                     mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
 
             // mark as dropped
@@ -5379,8 +5389,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     } else if (mdir_.u.m.weight == 0
             // unless we are an mroot
             && !(mdir->mid == -1 || lfsr_mtree_isinlined(lfs))) {
-        LFS_DEBUG("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                mdir->mid,
+        LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
+                "0x{%"PRIx32",%"PRIx32"}",
+                mdir->mid & lfsr_mbidmask(lfs),
+                mdir->mid & lfsr_mridmask(lfs),
                 mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
         // mark as dropped
@@ -5406,9 +5418,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // relocate a normal mdir
         } else {
-            LFS_DEBUG("Relocating mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
-                    "-> 0x{%"PRIx32",%"PRIx32"}",
-                    mdir->mid,
+            LFS_DEBUG("Relocating mdir %"PRId32".%"PRId32" "
+                    "0x{%"PRIx32",%"PRIx32"} -> 0x{%"PRIx32",%"PRIx32"}",
+                    mdir->mid & lfsr_mbidmask(lfs),
+                    mdir->mid & lfsr_mridmask(lfs),
                     mdir->u.m.blocks[0], mdir->u.m.blocks[1],
                     mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
 
@@ -6564,9 +6577,18 @@ static int lfsr_mountinited(lfs_t *lfs) {
     }
 
     if (lfsr_grm_hasrm(&lfs->grm)) {
-        LFS_DEBUG("Found pending grm %"PRId32" %"PRId32,
-                lfs->grm.rms[0],
-                lfs->grm.rms[1]);
+        if (lfsr_grm_count(&lfs->grm) == 2) {
+            LFS_DEBUG("Found pending grm "
+                    "%"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
+                    lfs->grm.rms[0] & lfsr_mridmask(lfs),
+                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
+                    lfs->grm.rms[0] & lfsr_mridmask(lfs));
+        } else if (lfsr_grm_count(&lfs->grm) == 1) {
+            LFS_DEBUG("Found pending grm %"PRId32".%"PRId32,
+                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
+                    lfs->grm.rms[0] & lfsr_mridmask(lfs));
+        }
     }
 
     return 0;
@@ -7380,9 +7402,18 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
 
     // fix pending grms
     if (lfsr_grm_hasrm(&lfs->grm)) {
-        LFS_DEBUG("Fixing grm %"PRId32" %"PRId32,
-                lfs->grm.rms[0],
-                lfs->grm.rms[1]);
+        if (lfsr_grm_count(&lfs->grm) == 2) {
+            LFS_DEBUG("Fixing pending grm "
+                    "%"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
+                    lfs->grm.rms[0] & lfsr_mridmask(lfs),
+                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
+                    lfs->grm.rms[0] & lfsr_mridmask(lfs));
+        } else if (lfsr_grm_count(&lfs->grm) == 1) {
+            LFS_DEBUG("Fixing pending grm %"PRId32".%"PRId32,
+                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
+                    lfs->grm.rms[0] & lfsr_mridmask(lfs));
+        }
 
         int err = lfsr_fs_fixgrm(lfs);
         if (err) {

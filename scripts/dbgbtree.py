@@ -812,7 +812,7 @@ def main(disk, roots=None, *,
         print('%-9s  %*s%-*s %-22s  %s' % (
             'rbyd',
             t_width, '',
-            w_width, 'ids',
+            w_width, 'bid',
             'tag',
             'data (truncated)'
                 if not args.get('no_truncate') else ''))
