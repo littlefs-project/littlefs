@@ -877,7 +877,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
     // iterate over directory and attrs
     lfs_tag_t tag;
     const void *buffer;
-    struct lfs_diskoff disk;
+    struct lfs_diskoff disk = {0};
     while (true) {
         {
             if (off+lfs_tag_dsize(ptag) < dir->off) {
