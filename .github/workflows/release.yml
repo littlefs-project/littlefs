@@ -81,7 +81,9 @@ jobs:
       - name: find-prev-version
         continue-on-error: true
         run: |
-          LFS_PREV_VERSION="$(git describe --tags --abbrev=0 --match 'v*')"
+          LFS_PREV_VERSION="$( \
+            git describe --tags --abbrev=0 --match 'v*' \
+            || true)"
           echo "LFS_PREV_VERSION=$LFS_PREV_VERSION"
           echo "LFS_PREV_VERSION=$LFS_PREV_VERSION" >> $GITHUB_ENV
 
@@ -240,6 +242,7 @@ jobs:
         run: |
           # create release and patch version tag (vN.N.N)
           # only draft if not a patch release
+          touch release.txt
           [ -e table.txt ] && cat table.txt >> release.txt
           echo >> release.txt
           [ -e changes.txt ] && cat changes.txt >> release.txt
