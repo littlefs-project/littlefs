@@ -1628,7 +1628,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
         }
 
         // space for fcrc?
-        uint8_t eperturb = -1;
+        uint8_t eperturb = (uint8_t)-1;
         if (noff >= end && noff <= lfs->cfg->block_size - lfs->cfg->prog_size) {
             // first read the leading byte, this always contains a bit
             // we can perturb to avoid writes that don't change the fcrc
