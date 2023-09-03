@@ -4238,173 +4238,6 @@ static int lfs_deinit(lfs_t *lfs) {
     return 0;
 }
 
-static int lfs_scan_for_superblock(lfs_t *lfs, lfs_superblock_t *superblock){
-    // scan directory blocks for superblock and any global updates
-    lfs_mdir_t dir = {.tail = {0, 1}};
-    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
-    lfs_size_t tortoise_i = 1;
-    lfs_size_t tortoise_period = 1;
-    while (!lfs_pair_isnull(dir.tail)) {
-        // detect cycles with Brent's algorithm
-        if (lfs_pair_issync(dir.tail, tortoise)) {
-            LFS_WARN("Cycle detected in tail list");
-            return LFS_ERR_CORRUPT;
-        }
-        if (tortoise_i == tortoise_period) {
-            tortoise[0] = dir.tail[0];
-            tortoise[1] = dir.tail[1];
-            tortoise_i = 0;
-            tortoise_period *= 2;
-        }
-        tortoise_i += 1;
-
-        // fetch next block in tail list
-        lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail,
-                LFS_MKTAG(0x7ff, 0x3ff, 0),
-                LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8),
-                NULL,
-                lfs_dir_find_match, &(struct lfs_dir_find_match){
-                    lfs, "littlefs", 8});
-        if (tag < 0) {
-            return tag;
-        }
-
-        // has superblock?
-        if (tag && !lfs_tag_isdelete(tag)) {
-            // update root
-            lfs->root[0] = dir.pair[0];
-            lfs->root[1] = dir.pair[1];
-
-            // grab superblock
-            tag = lfs_dir_get(lfs, &dir, LFS_MKTAG(0x7ff, 0x3ff, 0),
-                    LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(*superblock)),
-                    superblock);
-            if (tag < 0) {
-                return tag;
-            }
-            lfs_superblock_fromle32(superblock);
-        }
-    }
-
-    return LFS_ERR_OK;
-}
-
-static int lfs_scan_for_state_updates(lfs_t *lfs){
-    int err;
-    // scan directory blocks for superblock and any global updates
-    lfs_mdir_t dir = {.tail = {0, 1}};
-    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
-    lfs_size_t tortoise_i = 1;
-    lfs_size_t tortoise_period = 1;
-    while (!lfs_pair_isnull(dir.tail)) {
-        // detect cycles with Brent's algorithm
-        if (lfs_pair_issync(dir.tail, tortoise)) {
-            LFS_WARN("Cycle detected in tail list");
-            return LFS_ERR_CORRUPT;
-        }
-        if (tortoise_i == tortoise_period) {
-            tortoise[0] = dir.tail[0];
-            tortoise[1] = dir.tail[1];
-            tortoise_i = 0;
-            tortoise_period *= 2;
-        }
-        tortoise_i += 1;
-
-        // fetch next block in tail list
-        lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail,
-                LFS_MKTAG(0x7ff, 0x3ff, 0),
-                LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8),
-                NULL,
-                lfs_dir_find_match, &(struct lfs_dir_find_match){
-                    lfs, "littlefs", 8});
-        if (tag < 0) {
-            return tag;
-        }
-
-        // has gstate?
-        err = lfs_dir_getgstate(lfs, &dir, &lfs->gstate);
-        if (err) {
-            return err;
-        }
-    }
-
-    return LFS_ERR_OK;
-}
-
-static int lfs_validate_superblock(lfs_t *lfs, lfs_superblock_t *superblock){
-    // check version
-    uint16_t major_version = (0xffff & (superblock->version >> 16));
-    uint16_t minor_version = (0xffff & (superblock->version >>  0));
-    if (major_version != lfs_fs_disk_version_major(lfs)
-            || minor_version > lfs_fs_disk_version_minor(lfs)) {
-        LFS_ERROR("Invalid version "
-                "v%"PRIu16".%"PRIu16" != v%"PRIu16".%"PRIu16,
-                major_version,
-                minor_version,
-                lfs_fs_disk_version_major(lfs),
-                lfs_fs_disk_version_minor(lfs));
-        return LFS_ERR_INVAL;
-    }
-
-    // found older minor version? set an in-device only bit in the
-    // gstate so we know we need to rewrite the superblock before
-    // the first write
-    if (minor_version < lfs_fs_disk_version_minor(lfs)) {
-        LFS_DEBUG("Found older minor version "
-                "v%"PRIu16".%"PRIu16" < v%"PRIu16".%"PRIu16,
-                major_version,
-                minor_version,
-                lfs_fs_disk_version_major(lfs),
-                lfs_fs_disk_version_minor(lfs));
-        // note this bit is reserved on disk, so fetching more gstate
-        // will not interfere here
-        lfs_fs_prepsuperblock(lfs, true);
-    }
-
-    // check superblock configuration
-    if (superblock->name_max) {
-        if (superblock->name_max > lfs->name_max) {
-            LFS_ERROR("Unsupported name_max (%"PRIu32" > %"PRIu32")",
-                    superblock->name_max, lfs->name_max);
-            return LFS_ERR_INVAL;
-        }
-        lfs->name_max = superblock->name_max;
-    }
-
-    if (superblock->file_max) {
-        if (superblock->file_max > lfs->file_max) {
-            LFS_ERROR("Unsupported file_max (%"PRIu32" > %"PRIu32")",
-                    superblock->file_max, lfs->file_max);
-            return LFS_ERR_INVAL;
-        }
-        lfs->file_max = superblock->file_max;
-    }
-
-    if (superblock->attr_max) {
-        if (superblock->attr_max > lfs->attr_max) {
-            LFS_ERROR("Unsupported attr_max (%"PRIu32" > %"PRIu32")",
-                    superblock->attr_max, lfs->attr_max);
-            return LFS_ERR_INVAL;
-        }
-        lfs->attr_max = superblock->attr_max;
-    }
-
-    if (lfs->cfg->block_count && superblock->block_count != lfs->cfg->block_count) {
-        LFS_ERROR("Invalid block count (%"PRIu32" != %"PRIu32")",
-                superblock->block_count, lfs->cfg->block_count);
-        return LFS_ERR_INVAL;
-    }
-
-    if (superblock->block_size != lfs->cfg->block_size) {
-        LFS_ERROR("Invalid block size (%"PRIu32" != %"PRIu32")",
-                superblock->block_size, lfs->cfg->block_size);
-        return LFS_ERR_INVAL;
-    }
-
-    return LFS_ERR_OK;
-}
-
-
 
 
 #ifndef LFS_READONLY
@@ -4481,24 +4314,143 @@ static int lfs_rawmount(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
-    lfs_superblock_t superblock;
-    err = lfs_scan_for_superblock(lfs, &superblock);
-    if (err) {
-        goto cleanup;
-    }
+    // scan directory blocks for superblock and any global updates
+    lfs_mdir_t dir = {.tail = {0, 1}};
+    lfs_block_t tortoise[2] = {LFS_BLOCK_NULL, LFS_BLOCK_NULL};
+    lfs_size_t tortoise_i = 1;
+    lfs_size_t tortoise_period = 1;
+    while (!lfs_pair_isnull(dir.tail)) {
+        // detect cycles with Brent's algorithm
+        if (lfs_pair_issync(dir.tail, tortoise)) {
+            LFS_WARN("Cycle detected in tail list");
+            err = LFS_ERR_CORRUPT;
+            goto cleanup;
+        }
+        if (tortoise_i == tortoise_period) {
+            tortoise[0] = dir.tail[0];
+            tortoise[1] = dir.tail[1];
+            tortoise_i = 0;
+            tortoise_period *= 2;
+        }
+        tortoise_i += 1;
 
-    if (lfs->block_count == 0) {
-        lfs->block_count = superblock.block_count;
-    }
+        // fetch next block in tail list
+        lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail,
+                LFS_MKTAG(0x7ff, 0x3ff, 0),
+                LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8),
+                NULL,
+                lfs_dir_find_match, &(struct lfs_dir_find_match){
+                    lfs, "littlefs", 8});
+        if (tag < 0) {
+            err = tag;
+            goto cleanup;
+        }
 
-    err = lfs_validate_superblock(lfs, &superblock);
-    if (err) {
-        goto cleanup;
-    }
+        // has superblock?
+        if (tag && !lfs_tag_isdelete(tag)) {
+            // update root
+            lfs->root[0] = dir.pair[0];
+            lfs->root[1] = dir.pair[1];
 
-    err = lfs_scan_for_state_updates(lfs);
-    if (err) {
-        goto cleanup;
+            // grab superblock
+            lfs_superblock_t superblock;
+            tag = lfs_dir_get(lfs, &dir, LFS_MKTAG(0x7ff, 0x3ff, 0),
+                    LFS_MKTAG(LFS_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                    &superblock);
+            if (tag < 0) {
+                err = tag;
+                goto cleanup;
+            }
+            lfs_superblock_fromle32(&superblock);
+
+            // check version
+            uint16_t major_version = (0xffff & (superblock.version >> 16));
+            uint16_t minor_version = (0xffff & (superblock.version >>  0));
+            if (major_version != lfs_fs_disk_version_major(lfs)
+                    || minor_version > lfs_fs_disk_version_minor(lfs)) {
+                LFS_ERROR("Invalid version "
+                        "v%"PRIu16".%"PRIu16" != v%"PRIu16".%"PRIu16,
+                        major_version,
+                        minor_version,
+                        lfs_fs_disk_version_major(lfs),
+                        lfs_fs_disk_version_minor(lfs));
+                err = LFS_ERR_INVAL;
+                goto cleanup;
+            }
+
+            // found older minor version? set an in-device only bit in the
+            // gstate so we know we need to rewrite the superblock before
+            // the first write
+            if (minor_version < lfs_fs_disk_version_minor(lfs)) {
+                LFS_DEBUG("Found older minor version "
+                        "v%"PRIu16".%"PRIu16" < v%"PRIu16".%"PRIu16,
+                        major_version,
+                        minor_version,
+                        lfs_fs_disk_version_major(lfs),
+                        lfs_fs_disk_version_minor(lfs));
+                // note this bit is reserved on disk, so fetching more gstate
+                // will not interfere here
+                lfs_fs_prepsuperblock(lfs, true);
+            }
+
+            // check superblock configuration
+            if (superblock.name_max) {
+                if (superblock.name_max > lfs->name_max) {
+                    LFS_ERROR("Unsupported name_max (%"PRIu32" > %"PRIu32")",
+                            superblock.name_max, lfs->name_max);
+                    err = LFS_ERR_INVAL;
+                    goto cleanup;
+                }
+
+                lfs->name_max = superblock.name_max;
+            }
+
+            if (superblock.file_max) {
+                if (superblock.file_max > lfs->file_max) {
+                    LFS_ERROR("Unsupported file_max (%"PRIu32" > %"PRIu32")",
+                            superblock.file_max, lfs->file_max);
+                    err = LFS_ERR_INVAL;
+                    goto cleanup;
+                }
+
+                lfs->file_max = superblock.file_max;
+            }
+
+            if (superblock.attr_max) {
+                if (superblock.attr_max > lfs->attr_max) {
+                    LFS_ERROR("Unsupported attr_max (%"PRIu32" > %"PRIu32")",
+                            superblock.attr_max, lfs->attr_max);
+                    err = LFS_ERR_INVAL;
+                    goto cleanup;
+                }
+
+                lfs->attr_max = superblock.attr_max;
+            }
+
+            // this is where we get the block_count from disk if block_count=0
+            if (lfs->cfg->block_count
+                    && superblock.block_count != lfs->cfg->block_count) {
+                LFS_ERROR("Invalid block count (%"PRIu32" != %"PRIu32")",
+                        superblock.block_count, lfs->cfg->block_count);
+                err = LFS_ERR_INVAL;
+                goto cleanup;
+            }
+
+            lfs->block_count = superblock.block_count;
+
+            if (superblock.block_size != lfs->cfg->block_size) {
+                LFS_ERROR("Invalid block size (%"PRIu32" != %"PRIu32")",
+                        superblock.block_size, lfs->cfg->block_size);
+                err = LFS_ERR_INVAL;
+                goto cleanup;
+            }
+        }
+
+        // has gstate?
+        err = lfs_dir_getgstate(lfs, &dir, &lfs->gstate);
+        if (err) {
+            goto cleanup;
+        }
     }
 
     // update littlefs with gstate
