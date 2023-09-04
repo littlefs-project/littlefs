@@ -511,7 +511,7 @@ typedef struct lfs {
     uint8_t pgrm[LFSR_GRM_DSIZE];
     uint8_t dgrm[LFSR_GRM_DSIZE];
 
-    uint8_t mrid_bits;
+    uint8_t mbits;
     lfsr_mdir_t mroot;
     lfsr_btree_t mtree;
 

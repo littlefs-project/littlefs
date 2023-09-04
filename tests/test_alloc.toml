@@ -109,7 +109,7 @@ code = '''
             LFSR_ATTR(0, RM, -1, NULL))) => 0;
 
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mbidweight(&lfs)+0,
+    lfsr_mtree_lookup(&lfs, 0*lfsr_mweight(&lfs)+0,
             &mdir) => 0;
 
     lfs_size_t count = 0;
@@ -146,8 +146,8 @@ code = '''
     for (lfs_ssize_t mid = 0;
             mid < lfs_smax32(
                 lfsr_mtree_weight(&lfs),
-                lfsr_mbidweight(&lfs));
-            mid += lfsr_mbidweight(&lfs)) {
+                lfsr_mweight(&lfs));
+            mid += lfsr_mweight(&lfs)) {
         lfsr_mdir_t mdir;
         lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
         for (; (mdir.mid & lfsr_mridmask(&lfs))
