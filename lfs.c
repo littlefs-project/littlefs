@@ -4882,30 +4882,39 @@ static int lfsr_mtree_parent(lfs_t *lfs, const lfs_block_t blocks[static 2],
 }
 
 static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_off_t off) {
-    // calculate new mid, be careful to avoid rid overflow
-    lfs_size_t bid = mdir->mid & lfsr_mbidmask(lfs);
-    lfs_size_t rid = (mdir->mid & lfsr_mridmask(lfs)) + off;
-    // lookup mdirs until we find our rid, we need to do this because
-    // we don't know how many rids are in each mdir until we fetch
-    while (rid >= mdir->u.m.weight) {
-        // end of mtree?
-        if (bid+lfsr_mweight(lfs) >= lfsr_mtree_weight(lfs)) {
-            // if we hit the end of the mtree, park the mdir so all future
-            // seeks return noent
-            mdir->mid = bid + mdir->u.m.weight;
-            return LFS_ERR_NOENT;
+    while (true) {
+        // calculate new mid, be careful to avoid rid overflow
+        lfs_size_t bid = mdir->mid & lfsr_mbidmask(lfs);
+        lfs_size_t rid = (mdir->mid & lfsr_mridmask(lfs)) + off;
+        // lookup mdirs until we find our rid, we need to do this because
+        // we don't know how many rids are in each mdir until we fetch
+        while (rid >= mdir->u.m.weight) {
+            // end of mtree?
+            if (bid+lfsr_mweight(lfs) >= lfsr_mtree_weight(lfs)) {
+                // if we hit the end of the mtree, park the mdir so all future
+                // seeks return noent
+                mdir->mid = bid + mdir->u.m.weight;
+                return LFS_ERR_NOENT;
+            }
+
+            bid += lfsr_mweight(lfs);
+            rid -= mdir->u.m.weight;
+            int err = lfsr_mtree_lookup(lfs, bid, mdir);
+            if (err) {
+                return err;
+            }
         }
 
-        bid += lfsr_mweight(lfs);
-        rid -= mdir->u.m.weight;
-        int err = lfsr_mtree_lookup(lfs, bid, mdir);
-        if (err) {
-            return err;
+        mdir->mid = bid + rid;
+
+        // wait are we grmed? pretend this mid doesn't exist
+        if (mdir->mid == lfs->grm.rms[0]
+                || mdir->mid == lfs->grm.rms[1]) {
+            continue;
         }
+
+        return 0;
     }
-
-    mdir->mid = bid + rid;
-    return 0;
 }
 
 
@@ -5852,14 +5861,22 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
     int err = lfsr_mdir_namelookup(lfs, &mdir,
             did, name, name_size,
             &rid, tag_, data_);
-
-    // update mdir weith best place to insert even if we fail
+    // update mdir with best place to insert even if we fail
     mdir.mid += rid;
     if (mdir_) {
         *mdir_ = mdir;
     }
+    if (err) {
+        return err;
+    }
 
-    return err;
+    // wait are we grmed? pretend this mid doesn't exist
+    if (mdir.mid == lfs->grm.rms[0]
+            || mdir.mid == lfs->grm.rms[1]) {
+        return LFS_ERR_NOENT;
+    }
+
+    return 0;
 }
 
 
