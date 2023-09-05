@@ -4644,10 +4644,6 @@ static int lfsr_data_readmdir(lfs_t *lfs, lfsr_data_t *data,
     return 0;
 }
 
-static inline bool lfsr_mdir_isdropped(const lfsr_mdir_t *mdir) {
-    return mdir->u.r.rbyd.trunk == 0;
-}
-
 // track opened mdirs that may need to by updated
 static void lfsr_mdir_addopened(lfs_t *lfs,
         uint8_t type, lfsr_openedmdir_t *opened) {
@@ -5195,7 +5191,6 @@ compact:;
 //
 static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    LFS_ASSERT(!lfsr_mdir_isdropped(mdir));
     LFS_ASSERT(mdir->mid == -1
             || lfsr_mtree_isinlined(lfs)
             || mdir->u.m.weight > 0);
@@ -5244,7 +5239,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     lfsr_mdir_t mroot_ = (mdir->mid == -1 || lfsr_mtree_isinlined(lfs)
             ? mdir_
             : lfs->mroot);
-    lfsr_mdir_t msibling_ = {.u.r.rbyd.trunk=0};
+    // TODO
+    lfsr_mdir_t msibling_ = {.u.m.weight=0};
     lfsr_btree_t mtree_ = lfs->mtree;
     bool dirtymroot = false;
     bool dirtymtree = false;
@@ -5322,10 +5318,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     msibling_.mid & lfsr_mbidmask(lfs),
                     msibling_.mid & lfsr_mridmask(lfs),
                     msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
-            // mark as dropped
-            mdir_.u.r.rbyd.trunk = 0;
-            msibling_.u.r.rbyd.trunk = 0;
-
             // update our mtree
             int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
                     LFSR_ATTR(mdir_.mid | lfsr_mridmask(lfs),
@@ -5341,9 +5333,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     msibling_.mid & lfsr_mbidmask(lfs),
                     msibling_.mid & lfsr_mridmask(lfs),
                     msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
-
-            // mark as dropped
-            msibling_.u.r.rbyd.trunk = 0;
 
             // update our mtree
             uint8_t mdir_buf[LFSR_MDIR_DSIZE];
@@ -5367,9 +5356,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     mdir_.mid & lfsr_mbidmask(lfs),
                     mdir_.mid & lfsr_mridmask(lfs),
                     mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
-
-            // mark as dropped
-            mdir_.u.r.rbyd.trunk = 0;
 
             // update our mtree
             uint8_t msibling_buf[LFSR_MDIR_DSIZE];
@@ -5443,9 +5429,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 mdir->mid & lfsr_mbidmask(lfs),
                 mdir->mid & lfsr_mridmask(lfs),
                 mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
-
-        // mark as dropped
-        mdir_.u.r.rbyd.trunk = 0;
 
         // update our mtree
         int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
@@ -5705,7 +5688,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 opened;
                 opened = opened->next) {
             // avoid double updating current mdir, avoid updating dropped mdirs
-            if (&opened->mdir == mdir || lfsr_mdir_isdropped(&opened->mdir)) {
+            if (&opened->mdir == mdir || opened->mdir.mid == -1) {
                 continue;
             }
 
@@ -5727,6 +5710,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                         if (opened_mdir->mid < attrs[i].rid - attrs[i].delta) {
                             // normal mdirs mark as dropped
                             if (j == 0) {
+                                opened_mdir->mid = -1;
                                 opened_mdir->u.r.rbyd.trunk = 0;
                                 goto next;
                             }
@@ -5755,7 +5739,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // update any opened mdirs if we had a split or drop
                 if ((opened_mdir->mid & lfsr_mbidmask(lfs))
                         == (lfs_smax32(mdir->mid, 0) & lfsr_mbidmask(lfs))) {
-                    if (!lfsr_mdir_isdropped(&msibling_)
+                    if (msibling_.u.m.weight > 0
                             && (opened_mdir->mid & lfsr_mridmask(lfs))
                                 >= (lfs_ssize_t)mdir_.u.m.weight) {
                         LFS_ASSERT(lfsr_btree_weight(&mtree_)
@@ -5777,7 +5761,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // update mdir to follow requested rid
     if (mdir->mid != -1
-            && !lfsr_mdir_isdropped(&msibling_)
+            && msibling_.u.m.weight > 0
             && (mdir->mid & lfsr_mridmask(lfs))
                 >= (lfs_ssize_t)mdir_.u.m.weight) {
         // TODO this can happen if we split+drop while removing this mid,
@@ -7395,7 +7379,7 @@ lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir) {
 
 int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
     // do nothing if removed
-    if (lfsr_mdir_isdropped(&dir->bookmark_mdir)) {
+    if (dir->bookmark_mdir.mid == -1) {
         return 0;
     }
 
