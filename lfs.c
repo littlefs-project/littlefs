@@ -733,7 +733,7 @@ static inline lfsr_tag_t lfsr_tag_setdelta(lfsr_tag_t tag) {
     return tag & ~0x0800;
 }
 
-// lfsr_rbyd_append diverged specific flags
+// lfsr_rbyd_appendattr diverged specific flags
 static inline bool lfsr_tag_hasdiverged(lfsr_tag_t tag) {
     return tag & 0x2000;
 }
@@ -2092,7 +2092,8 @@ failed:
     return err;
 }
 
-// helper functions for managing the 3-element fifo used in lfsr_rbyd_append
+// helper functions for managing the 3-element fifo used in
+// lfsr_rbyd_appendattr
 static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_tag_t p_alts[static 3],
         lfs_size_t p_weights[static 3],
@@ -2196,7 +2197,7 @@ static void lfsr_rbyd_p_red(
 }
 
 // core rbyd algorithm
-static int lfsr_rbyd_append(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfs_ssize_t rid, lfsr_tag_t tag, lfs_ssize_t delta,
         lfsr_data_t data) {
     // must fetch before mutating!
@@ -2855,94 +2856,6 @@ failed:;
     return err;
 }
 
-// required by lfsr_rbyd_appendattrs
-static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
-        lfs_ssize_t rid, lfsr_tag_t tag,
-        lfsr_tag_t *tag_, lfsr_data_t *data_);
-
-static int lfsr_rbyd_appendattrs(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_size_t bid, lfs_ssize_t start_rid, lfs_ssize_t end_rid,
-        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // append each tag to the tree
-    for (lfs_size_t i = 0; i < attr_count; i++) {
-        // this is a bit of a hack, but ignore any gstate tags here,
-        // these need to be handled specially by upper-layers
-        if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_GSTATE) {
-            continue;
-        }
-
-        // calculate adjusted rid
-        lfs_ssize_t rid = (attrs[i].rid == -1
-                ? -1
-                : (lfs_ssize_t)(attrs[i].rid - bid));
-
-        // don't write tags outside of the requested range
-        if (rid >= start_rid
-                // note the use of rid+1 and unsigned comparison here to
-                // treat end_rid=-1 as "unbounded" in such a way that rid=-1
-                // is still included
-                && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
-            // this is a bit of a hack, but ignore any gstate tags here,
-            // these need to be handled specially by upper-layers
-            if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_GSTATE) {
-                // do nothing
-
-            // move tags copy over any tags associated with the source's rid
-            } else if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_MOVE) {
-                // weighted moves are not supported
-                LFS_ASSERT(attrs[i].delta == 0);
-                const lfsr_mdir_t *mdir
-                        = (const lfsr_mdir_t*)attrs[i].data.u.b.buffer;
-
-                // skip the name tag, this is always replaced by upper layers
-                lfsr_tag_t tag = LFSR_TAG_NAME + 0xff;
-                while (true) {
-                    lfsr_data_t data;
-                    int err = lfsr_mdir_lookupnext(lfs, mdir,
-                            mdir->mid, lfsr_tag_next(tag),
-                            &tag, &data);
-                    if (err && err != LFS_ERR_NOENT) {
-                        return err;
-                    }
-                    if (err == LFS_ERR_NOENT) {
-                        break;
-                    }
-
-                    // append the attr
-                    err = lfsr_rbyd_append(lfs, rbyd,
-                            rid - lfs_smax32(start_rid, 0),
-                            tag, 0, data);
-                    if (err) {
-                        return err;
-                    }
-                }
-
-            // write out normal tags normally
-            } else {
-                LFS_ASSERT(!lfsr_tag_isinternal(attrs[i].tag));
-
-                int err = lfsr_rbyd_append(lfs, rbyd,
-                        rid - lfs_smax32(start_rid, 0),
-                        attrs[i].tag, attrs[i].delta, attrs[i].data);
-                if (err) {
-                    return err;
-                }
-            }
-        }
-
-        // we need to make sure we keep start_rid/end_rid updated with
-        // weight changes
-        if (rid < start_rid) {
-            start_rid += attrs[i].delta;
-        }
-        if (rid < end_rid) {
-            end_rid += attrs[i].delta;
-        }
-    }
-
-    return 0;
-}
-
 // append and consume any pending gstate
 static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     // need GRM delta?
@@ -2972,7 +2885,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
         // append to our rbyd, note this replaces the original delta
         lfs_size_t size = lfsr_grm_size(grm_buf);
-        err = lfsr_rbyd_append(lfs, rbyd, -1,
+        err = lfsr_rbyd_appendattr(lfs, rbyd, -1,
                 // opportunistically remove this tag if delta is all zero
                 (size == 0 ? LFSR_TAG_RM(GRM) : LFSR_TAG_GRM), 0,
                 LFSR_DATA(grm_buf, size));
@@ -2987,14 +2900,16 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // append each tag to the tree
-    int err = lfsr_rbyd_appendattrs(lfs, rbyd, 0, -1, -1,
-            attrs, attr_count);
-    if (err) {
-        return err;
+    for (lfs_size_t i = 0; i < attr_count; i++) {
+        int err = lfsr_rbyd_appendattr(lfs, rbyd, attrs[i].rid,
+                attrs[i].tag, attrs[i].delta, attrs[i].data);
+        if (err) {
+            return err;
+        }
     }
 
     // append a cksum, finalizing the commit
-    err = lfsr_rbyd_appendcksum(lfs, rbyd);
+    int err = lfsr_rbyd_appendcksum(lfs, rbyd);
     if (err) {
         return err;
     }
@@ -3002,10 +2917,13 @@ static int lfsr_rbyd_commit(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
-
-static int lfsr_rbyd_appendcompact_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
-        const lfsr_rbyd_t *const *rbyds, lfs_size_t rbyd_count) {
+// appends a raw tag as a part of compaction, note these must
+// be appended in order!
+//
+// also note the direct use of weight instead of delta here
+static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfsr_tag_t tag, lfs_size_t weight, lfsr_data_t data) {
+    // TODO deduplicate this? rbyd_preparemutation or something?
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
 
@@ -3024,72 +2942,56 @@ static int lfsr_rbyd_appendcompact_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
     }
 
-    // keep track of the number of trunks and weight in each layer
-    lfs_size_t layer_trunks = 0;
-    lfs_size_t layer_weight = 0;
-
-    // first copy over raw tags, note this doesn't create a tree
-    lfs_off_t layer_off = rbyd->eoff;
-    lfs_ssize_t bid = 0;
-    for (lfs_size_t i = 0; i < rbyd_count; i++) {
-        lfs_ssize_t rid = start_rid;
-        lfsr_tag_t tag = 0;
-        while (true) {
-            lfs_size_t weight;
-            lfsr_data_t data;
-            int err = lfsr_rbyd_lookupnext(lfs, rbyds[i],
-                    rid, lfsr_tag_next(tag),
-                    &rid, &tag, &weight, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-            if (err == LFS_ERR_NOENT || (end_rid >= 0 && bid+rid >= end_rid)) {
-                break;
-            }
-
-            // TODO is this really the best way to do this?
-            // this is a bit of a hack, but ignore any gstate tags here,
-            // these need to be handled specially by upper-layers
-            if (lfsr_tag_suptype(tag) == LFSR_TAG_GSTATE) {
-                continue;
-            }
-
-            // write the tag
-            lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
-                    tag, weight, lfsr_data_size(&data),
-                    &rbyd->cksum);
-            if (d < 0) {
-                err = d;
-                goto failed;
-            }
-            rbyd->eoff += d;
-
-            // and the data
-            err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->eoff, data,
-                    &rbyd->cksum);
-            if (err) {
-                goto failed;
-            }
-            rbyd->eoff += lfsr_data_size(&data);
-
-            // keep track of the layer weight/trunks
-            layer_trunks += 1;
-            layer_weight += weight;
-        }
-
-        bid += rbyds[i]->weight;
+    // write the tag
+    lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
+            tag, weight, lfsr_data_size(&data),
+            &rbyd->cksum);
+    if (d < 0) {
+        err = d;
+        goto failed;
     }
+    rbyd->eoff += d;
+
+    // and the data
+    err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->eoff, data,
+            &rbyd->cksum);
+    if (err) {
+        goto failed;
+    }
+    rbyd->eoff += lfsr_data_size(&data);
+
+    // keep track of the total weight, the rbyd is in an unusable
+    // state until lfsr_rbyd_compact anyways
+    rbyd->weight += weight;
+
+    return 0;
+
+failed:;
+    // if we failed release the pcache
+    lfs_cache_zero(lfs, &lfs->pcache);
+    return err;
+}
+
+static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
+    // must fetch before mutating!
+    LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
+
+    // ignore empty rbyds, we can't really compact these, so leave it up to
+    // upper layers to deal with this
+    if (rbyd->eoff <= sizeof(uint32_t)) {
+        return 0;
+    }
+
+    // we can assume we start immediately after the revision count, because
+    // compaction only works as the first commit
+    lfs_off_t layer_off = sizeof(uint32_t);
 
     // connect every other trunk together, building layers of a perfectly
     // balanced binary tree upwards until we have a single trunk
-    while (layer_trunks > 1) {
-        // keep track of new layer trunks/weight
-        layer_trunks = 0;
-        layer_weight = 0;
-
-        lfs_off_t off = layer_off;
+    int err;
+    while (true) {
         lfs_off_t layer_off_ = rbyd->eoff;
-        layer_off = rbyd->eoff;
+        lfs_off_t off = layer_off;
         while (off < layer_off_) {
             // connect two trunks together with a new binary trunk
             for (int i = 0; i < 2 && off < layer_off_; i++) {
@@ -3119,7 +3021,6 @@ static int lfsr_rbyd_appendcompact_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     // the last non-null tag is the largest tag in that part
                     // of the tree
                     trunk_weight += weight;
-                    layer_weight += weight;
                     if (tag) {
                         trunk_tag = tag;
                     }
@@ -3128,6 +3029,11 @@ static int lfsr_rbyd_appendcompact_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     if (!lfsr_tag_isalt(tag)) {
                         break;
                     }
+                }
+
+                // do we only have one trunk? we must be done
+                if (trunk_off == layer_off && off >= layer_off_) {
+                    goto done;
                 }
 
                 // connect with an altle
@@ -3152,19 +3058,15 @@ static int lfsr_rbyd_appendcompact_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 goto failed;
             }
             rbyd->eoff += d;
-
-            // keep track of the number of trunks
-            layer_trunks += 1;
         }
+
+        layer_off = layer_off_;
     }
 
-    // done! just need to update our trunk/weight, note we could have
-    // no trunks after compaction. Leave this to upper layers to take
-    // care of
-    if (layer_trunks >= 1) {
-        rbyd->trunk = layer_off;
-    }
-    rbyd->weight = layer_weight;
+done:;
+    // done! just need to update our trunk. Note we could have no trunks
+    // after compaction. Leave this to upper layers to take care of this.
+    rbyd->trunk = layer_off;
 
     return 0;
 
@@ -3172,20 +3074,6 @@ failed:;
     // if we failed release the pcache
     lfs_cache_zero(lfs, &lfs->pcache);
     return err;
-}
-
-static int lfsr_rbyd_appendcompact(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
-        const lfsr_rbyd_t *rbyd) {
-    return lfsr_rbyd_appendcompact_(lfs, rbyd_, start_rid, end_rid,
-            (const lfsr_rbyd_t *const[1]){rbyd}, 1);
-}
-
-static int lfsr_rbyd_appendmerge(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
-        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
-        const lfsr_rbyd_t *rbyd, const lfsr_rbyd_t *sibling) {
-    return lfsr_rbyd_appendcompact_(lfs, rbyd_, start_rid, end_rid,
-            (const lfsr_rbyd_t *const[2]){rbyd, sibling}, 2);
 }
 
 
@@ -3791,8 +3679,8 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
             // prepend inlined tag if we have one
             if (lfsr_btree_weight(btree) > 0) {
-                err = lfsr_rbyd_append(lfs, &rbyd,
-                        0, btree->u.i.tag, +lfsr_btree_weight(btree),
+                err = lfsr_rbyd_appendattr(lfs, &rbyd, 0,
+                        btree->u.i.tag, +lfsr_btree_weight(btree),
                         LFSR_DATA_BUF(btree->u.i.buf, btree->u.i.size));
                 if (err) {
                     return err;
@@ -3800,10 +3688,12 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             }
 
             // commit our attrs
-            err = lfsr_rbyd_appendattrs(lfs, &rbyd, 0, -1, -1,
-                    attrs, attr_count);
-            if (err) {
-                return err;
+            for (lfs_size_t i = 0; i < attr_count; i++) {
+                err = lfsr_rbyd_appendattr(lfs, &rbyd, attrs[i].rid,
+                        attrs[i].tag, attrs[i].delta, attrs[i].data);
+                if (err) {
+                    return err;
+                }
             }
 
             err = lfsr_rbyd_appendcksum(lfs, &rbyd);
@@ -3876,14 +3766,16 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         // erased bytes? note that the btree trunk field prevents this from
         // interacting with other references to the rbyd
         lfsr_rbyd_t rbyd_ = rbyd;
-        err = lfsr_rbyd_appendattrs(lfs, &rbyd_, bid, -1, -1,
-                attrs, attr_count);
-        if (err && err != LFS_ERR_RANGE) {
-            // TODO wait should we also move if there is corruption here?
-            return err;
-        }
-        if (err) {
-            goto compact;
+        for (lfs_size_t i = 0; i < attr_count; i++) {
+            err = lfsr_rbyd_appendattr(lfs, &rbyd_, attrs[i].rid - bid,
+                    attrs[i].tag, attrs[i].delta, attrs[i].data);
+            if (err && err != LFS_ERR_RANGE) {
+                // TODO wait should we also move if there is corruption here?
+                return err;
+            }
+            if (err) {
+                goto compact;
+            }
         }
 
         err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
@@ -4024,7 +3916,30 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
         // try to compact
-        err = lfsr_rbyd_appendcompact(lfs, &rbyd_, -1, -1, &rbyd);
+        lfs_ssize_t rid_ = 0;
+        lfsr_tag_t tag = 0;
+        while (true) {
+            lfs_size_t weight;
+            lfsr_data_t data;
+            err = lfsr_rbyd_lookupnext(lfs, &rbyd,
+                    rid_, lfsr_tag_next(tag),
+                    &rid_, &tag, &weight, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &rbyd_, tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+        }
+
+        err = lfsr_rbyd_compact(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4032,11 +3947,13 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 
         // append any pending attrs, it's up to upper
         // layers to make sure these always fit
-        err = lfsr_rbyd_appendattrs(lfs, &rbyd_, bid, -1, -1,
-                attrs, attr_count);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
+        for (lfs_size_t i = 0; i < attr_count; i++) {
+            err = lfsr_rbyd_appendattr(lfs, &rbyd_, attrs[i].rid - bid,
+                    attrs[i].tag, attrs[i].delta, attrs[i].data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
         }
 
         // finalize commit
@@ -4065,7 +3982,30 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
         // copy over tags < split_rid
-        err = lfsr_rbyd_appendcompact(lfs, &rbyd_, 0, split_rid, &rbyd);
+        rid_ = 0;
+        tag = 0;
+        while (true) {
+            lfs_size_t weight;
+            lfsr_data_t data;
+            err = lfsr_rbyd_lookupnext(lfs, &rbyd,
+                    rid_, lfsr_tag_next(tag),
+                    &rid_, &tag, &weight, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            if (err == LFS_ERR_NOENT || rid_ >= (lfs_ssize_t)split_rid) {
+                break;
+            }
+
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &rbyd_, tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+        }
+
+        err = lfsr_rbyd_compact(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4075,11 +4015,23 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfsr_rbyd_appendattrs(lfs, &rbyd_, bid, 0, split_rid,
-                attrs, attr_count);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
+        lfs_ssize_t split_rid_ = split_rid;
+        for (lfs_size_t i = 0; i < attr_count; i++) {
+            if (attrs[i].rid - (lfs_ssize_t)bid < split_rid_) {
+                err = lfsr_rbyd_appendattr(lfs, &rbyd_,
+                        attrs[i].rid - bid,
+                        attrs[i].tag, attrs[i].delta, attrs[i].data);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    return err;
+                }
+            }
+
+            // we need to make sure we keep split_rid updated with
+            // weight changes
+            if (attrs[i].rid - (lfs_ssize_t)bid < split_rid_) {
+                split_rid_ += attrs[i].delta;
+            }
         }
 
         // finalize commit
@@ -4090,7 +4042,30 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         }
         
         // copy over tags >= split_rid
-        err = lfsr_rbyd_appendcompact(lfs, &sibling, split_rid, -1, &rbyd);
+        rid_ = split_rid;
+        tag = 0;
+        while (true) {
+            lfs_size_t weight;
+            lfsr_data_t data;
+            err = lfsr_rbyd_lookupnext(lfs, &rbyd,
+                    rid_, lfsr_tag_next(tag),
+                    &rid_, &tag, &weight, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &sibling, tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+        }
+
+        err = lfsr_rbyd_compact(lfs, &sibling);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4100,11 +4075,23 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfsr_rbyd_appendattrs(lfs, &sibling, bid, split_rid, -1,
-                attrs, attr_count);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
+        split_rid_ = split_rid;
+        for (lfs_size_t i = 0; i < attr_count; i++) {
+            if (attrs[i].rid - (lfs_ssize_t)bid >= split_rid_) {
+                err = lfsr_rbyd_appendattr(lfs, &sibling,
+                        attrs[i].rid - bid - split_rid_,
+                        attrs[i].tag, attrs[i].delta, attrs[i].data);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    return err;
+                }
+            }
+
+            // we need to make sure we keep split_rid updated with
+            // weight changes
+            if (attrs[i].rid - (lfs_ssize_t)bid < split_rid_) {
+                split_rid_ += attrs[i].delta;
+            }
         }
         
         // finalize commit
@@ -4200,10 +4187,27 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         }
 
         // merge the siblings together
-        err = lfsr_rbyd_appendmerge(lfs, &rbyd_, -1, -1, &rbyd, &sibling);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
+        rid_ = 0;
+        tag = 0;
+        while (true) {
+            lfs_size_t weight;
+            lfsr_data_t data;
+            err = lfsr_rbyd_lookupnext(lfs, &rbyd,
+                    rid_, lfsr_tag_next(tag),
+                    &rid_, &tag, &weight, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &rbyd_, tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
         }
 
         // bring in name that previously split the siblings
@@ -4214,32 +4218,63 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
+        lfs_size_t split_weight = 0;
         if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-            // lookup the rid (weight really) of the previously-split entry
-            lfs_ssize_t split_rid;
-            err = lfsr_rbyd_lookupnext(lfs, &rbyd_,
-                    rbyd.weight, LFSR_TAG_NAME,
-                    &split_rid, NULL, NULL, NULL);
+            // lookup the weight of the previously-split entry
+            err = lfsr_rbyd_lookupnext(lfs, &sibling,
+                    0, LFSR_TAG_NAME,
+                    NULL, NULL, &split_weight, NULL);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
 
-            err = lfsr_rbyd_append(lfs, &rbyd_,
-                    split_rid, LFSR_TAG_BRANCH, 0, split_data);
+            err = lfsr_rbyd_appendcompactattr(lfs, &rbyd_,
+                    split_tag, split_weight, split_data);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
         }
 
-        // append any pending attrs, it's up to upper
-        // layers to make sure these always fit
-        err = lfsr_rbyd_appendattrs(lfs, &rbyd_, bid, -1, -1,
-                attrs, attr_count);
+        rid_ = split_weight-1;
+        // TODO inclusive?
+        tag = LFSR_TAG_STRUCT-1;
+        while (true) {
+            lfs_size_t weight;
+            lfsr_data_t data;
+            err = lfsr_rbyd_lookupnext(lfs, &sibling,
+                    rid_, lfsr_tag_next(tag),
+                    &rid_, &tag, &weight, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &rbyd_, tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+        }
+
+        err = lfsr_rbyd_compact(lfs, &rbyd_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
+        }
+
+        // append any pending attrs, it's up to upper
+        // layers to make sure these always fit
+        for (lfs_size_t i = 0; i < attr_count; i++) {
+            err = lfsr_rbyd_appendattr(lfs, &rbyd_, attrs[i].rid - bid,
+                    attrs[i].tag, attrs[i].delta, attrs[i].data);
+            if (err) {
+                return err;
+            }
         }
 
         // finalize the commit
@@ -4900,23 +4935,109 @@ static int lfsr_mtree_seek(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_off_t off) {
 }
 
 
-// reason is an enum that determines the exact behavior of lfsr_mdir_compact_:
-// - reason = compacting => only alloc if mdir is tired (wear-leveling)
-// - reason = extending  => never alloc (mroot anchor)
-// - reason >= 0         => always alloc, use this as the new mid (new mdir)
-// TODO make this -2/-3 or something
-enum {
-    LFSR_MDIR_COMPACTING = -3,
-    LFSR_MDIR_EXTENDING  = -4,
-};
+// low-level mdir attr handling, special attrs are handled here
+static int lfsr_mdir_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfs_ssize_t rid, lfsr_tag_t tag, lfs_ssize_t delta,
+        lfsr_data_t data) {
+    // this is a bit of a hack, but ignore any gstate tags here,
+    // these need to be handled specially by upper-layers
+    if (lfsr_tag_suptype(tag) == LFSR_TAG_GSTATE) {
+        // do nothing
+        return 0;
 
-// low-level mdir compaction
-static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
-        lfs_ssize_t reason,
-        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
-        const lfsr_mdir_t *mdir,
-        const lfsr_attr_t *attr1s, lfs_size_t attr1_count,
-        const lfsr_attr_t *attr2s, lfs_size_t attr2_count) {
+    // move tags copy over any tags associated with the source's rid
+    } else if (lfsr_tag_suptype(tag) == LFSR_TAG_MOVE) {
+        // weighted moves are not supported
+        LFS_ASSERT(delta == 0);
+        const lfsr_mdir_t *mdir = (const lfsr_mdir_t*)data.u.b.buffer;
+
+        // skip the name tag, this is always replaced by upper layers
+        lfsr_tag_t tag = LFSR_TAG_STRUCT-1;
+        while (true) {
+            lfsr_data_t data;
+            int err = lfsr_mdir_lookupnext(lfs, mdir,
+                    mdir->mid, lfsr_tag_next(tag),
+                    &tag, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            // append the attr
+            err = lfsr_rbyd_appendattr(lfs, rbyd, rid, tag, 0, data);
+            if (err) {
+                return err;
+            }
+        }
+
+        return 0;
+
+    // write out normal tags normally
+    } else {
+        LFS_ASSERT(!lfsr_tag_isinternal(tag));
+        return lfsr_rbyd_appendattr(lfs, rbyd, rid, tag, delta, data);
+    }
+}
+
+static int lfsr_mdir_alloc(lfs_t *lfs, lfsr_mdir_t *mdir, lfs_ssize_t mid) {
+    // assign the mid
+    mdir->mid = mid;
+
+    // allocate two blocks
+    for (int i = 0; i < 2; i++) {
+        int err = lfs_alloc(lfs, &mdir->u.m.blocks[i]);
+        if (err) {
+            return err;
+        }
+    }
+
+    mdir->u.r.rbyd.weight = 0;
+    mdir->u.r.rbyd.trunk = 0;
+    mdir->u.r.rbyd.eoff = 0;
+    mdir->u.r.rbyd.cksum = 0;
+
+    // read the new revision count
+    //
+    // we use whatever is on-disk to avoid needing to rewrite the
+    // redund block
+    uint32_t rev;
+    int err = lfsr_bd_read(lfs, mdir->u.r.redund_block, 0, sizeof(uint32_t),
+            &rev, sizeof(uint32_t));
+    if (err && err != LFS_ERR_CORRUPT) {
+        return err;
+    }
+    // note we allow corrupt errors here, as long as they are consistent
+    rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
+
+    // align revision count in new mdirs to our block_cycles, this makes
+    // sure we don't immediately try to relocate the mdir
+    if (lfs->cfg->block_cycles > 0) {
+        rev = lfs_alignup(rev+1, lfs->cfg->block_cycles)-1;
+    }
+
+    // erase, preparing for compact
+    err = lfsr_bd_erase(lfs, mdir->u.r.rbyd.block);
+    if (err) {
+        return err;
+    }
+
+    // increment our revision count and write it to our rbyd
+    // TODO rev things
+    err = lfsr_rbyd_appendrev(lfs, &mdir->u.r.rbyd, rev + 1);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+
+static int lfsr_mdir_swap(lfs_t *lfs, lfsr_mdir_t *mdir_,
+        const lfsr_mdir_t *mdir, bool force) {
+    // assign the mid
+    mdir_->mid = mdir->mid;
+
     // first thing we need to do is read our current revision count
     uint32_t rev;
     int err = lfsr_bd_read(lfs, mdir->u.r.rbyd.block, 0, sizeof(uint32_t),
@@ -4928,54 +5049,17 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
     rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
 
     // decide if we need to relocate
-    if (reason != LFSR_MDIR_EXTENDING && (reason != LFSR_MDIR_COMPACTING || (
-            lfs->cfg->block_cycles > 0
-                // TODO rev things
-                && (rev + 1) % lfs->cfg->block_cycles == 0))) {
-        // assign the new mid
-        mdir_->mid = (reason >= 0 ? reason : mdir->mid);
-
-        // allocate two blocks
-        for (int i = 0; i < 2; i++) {
-            int err = lfs_alloc(lfs, &mdir_->u.m.blocks[i]);
-            if (err) {
-                return err;
-            }
-        }
-
-        // read the new revision count
-        //
-        // we use whatever is on-disk to avoid needing to rewrite the
-        // redund block
-        err = lfsr_bd_read(lfs, mdir_->u.r.rbyd.block, 0, sizeof(uint32_t),
-                &rev, sizeof(uint32_t));
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
-        }
-        // note we allow corrupt errors here, as long as they are consistent
-        rev = (err != LFS_ERR_CORRUPT ? lfs_fromle32_(&rev) : 0);
-
-        // align revision count in new mdirs to our block_cycles, this makes
-        // sure we don't immediately try to relocate the mdir
-        if (lfs->cfg->block_cycles > 0) {
-            rev = lfs_alignup(rev+1, lfs->cfg->block_cycles)-1;
-        }
+    if (!force
+            && lfs->cfg->block_cycles > 0
+            // TODO rev things
+            && (rev + 1) % lfs->cfg->block_cycles == 0) {
+        // alloc a new mdir
+        return lfsr_mdir_alloc(lfs, mdir_, mdir->mid);
     }
 
-    // only consume gstate here during normal compacts
-    if (reason == LFSR_MDIR_COMPACTING) {
-        // consume gstate on original rbyd, we need this even if we drop
-        // our mdir to avoid losing info
-        //
-        // if succesful, this should get immediately appended to our new commit
-        int err = lfsr_fs_consumegdelta(lfs, mdir);
-        if (err) {
-            return err;
-        }
-    }
-
-    // swap our rbyds 
-    lfs_swap32(&mdir_->u.r.rbyd.block, &mdir_->u.r.redund_block);
+    // swap our blocks
+    mdir_->u.m.blocks[0] = mdir->u.m.blocks[1];
+    mdir_->u.m.blocks[1] = mdir->u.m.blocks[0];
     mdir_->u.r.rbyd.weight = 0;
     mdir_->u.r.rbyd.trunk = 0;
     mdir_->u.r.rbyd.eoff = 0;
@@ -4994,94 +5078,12 @@ static int lfsr_mdir_compact_(lfs_t *lfs, lfsr_mdir_t *mdir_,
         return err;
     }
 
-    // copy over attrs
-    err = lfsr_rbyd_appendcompact(lfs, &mdir_->u.r.rbyd,
-            start_rid, end_rid,
-            &mdir->u.r.rbyd);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        return err;
-    }
-
-    // append any pending attrs
-    //
-    // upper layers should make sure this can't fail by limiting the
-    // maximum commit size
-    err = lfsr_rbyd_appendattrs(lfs, &mdir_->u.r.rbyd,
-            lfs_smax32(mdir_->mid, 0) & lfsr_mbidmask(lfs), start_rid, end_rid,
-            attr1s, attr1_count);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        return err;
-    }
-
-    // note we don't filter attrs from our second pending list, this
-    // is used for some auxiliary attrs in lfsr_mdir_commit
-    err = lfsr_rbyd_appendattrs(lfs, &mdir_->u.r.rbyd,
-            lfs_smax32(mdir_->mid, 0) & lfsr_mbidmask(lfs), -1, -1,
-            attr2s, attr2_count);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        return err;
-    }
-
-
-    // drop commit if weight goes to zero
-    if (mdir_->u.m.weight == 0
-            // unless we are an mroot
-            && !(mdir_->mid == -1
-                || (lfsr_mtree_isinlined(lfs)
-                    && reason == LFSR_MDIR_COMPACTING))) {
-        // TODO should we just make our pcache not assert?
-        // drop our pcache, we're not going to complete this commit
-        lfs_cache_zero(lfs, &lfs->pcache);
-
-    // finalize commit
-    } else {
-        // only append gstate if 1. we are not dropped, 2. we have not
-        // been relocated/split/etc, unless we are an mroot
-        //
-        // this pushes gstate up into the mroot when relocating, and
-        // helps avoid corner case issues when splitting/dropping
-        bool flushinggdelta = false;
-        if (mdir_->mid == -1
-                || (lfsr_mtree_isinlined(lfs)
-                    && reason == LFSR_MDIR_COMPACTING)
-                || lfsr_mdir_cmp(mdir_, mdir) == 0) {
-            err = lfsr_rbyd_appendgdelta(lfs, &mdir_->u.r.rbyd);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-            flushinggdelta = true;
-        } else {
-            // consume gstate so we don't lose any info
-            err = lfsr_fs_consumegdelta(lfs, mdir_);
-            if (err) {
-                return err;
-            }
-        }
-
-        err = lfsr_rbyd_appendcksum(lfs, &mdir_->u.r.rbyd);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
-        }
-
-        // TODO avoid duplicate conditions somehow?
-        // success? gstate is committed
-        if (flushinggdelta) {
-            lfsr_fs_flushgdelta(lfs);
-        }
-    }
-
     return 0;
 }
 
-// low-level mdir commit, does not handle mtree/mlist updates
-static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
-        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
-        lfs_size_t *split_rid_,
+// low-level mdir commit, does not handle mtree/mlist/compaction/etc
+static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
+        lfs_ssize_t start_rid, lfs_ssize_t end_rid, bool gstate,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
     // try to append a commit
     lfsr_mdir_t mdir_ = *mdir;
@@ -5089,14 +5091,35 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
     // TODO let the lower rbyd layer handle this somehow?
     // mark mdir as unerased in case we fail
     mdir->u.r.rbyd.eoff = lfs->cfg->block_size;
-    int err = lfsr_rbyd_appendattrs(lfs, &mdir_.u.r.rbyd,
-            lfs_smax32(mdir_.mid, 0) & lfsr_mbidmask(lfs), start_rid, end_rid,
-            attrs, attr_count);
-    if (err && err != LFS_ERR_RANGE) {
-        return err;
-    }
-    if (err == LFS_ERR_RANGE) {
-        goto compact;
+    for (lfs_size_t i = 0; i < attr_count; i++) {
+        // calculate adjusted rid
+        lfs_ssize_t rid = (attrs[i].rid == -1
+                ? -1
+                : (lfs_ssize_t)(attrs[i].rid - (
+                    lfs_smax32(mdir_.mid, 0) & lfsr_mbidmask(lfs))));
+
+        // don't write tags outside of the requested range
+        if (rid >= start_rid
+                // note the use of rid+1 and unsigned comparison here to
+                // treat end_rid=-1 as "unbounded" in such a way that rid=-1
+                // is still included
+                && (lfs_size_t)(rid + 1) <= (lfs_size_t)end_rid) {
+            int err = lfsr_mdir_appendattr(lfs, &mdir_.u.r.rbyd,
+                    rid - lfs_smax32(start_rid, 0),
+                    attrs[i].tag, attrs[i].delta, attrs[i].data);
+            if (err) {
+                return err;
+            }
+        }
+
+        // we need to make sure we keep start_rid/end_rid updated with
+        // weight changes
+        if (rid < start_rid) {
+            start_rid += attrs[i].delta;
+        }
+        if (rid < end_rid) {
+            end_rid += attrs[i].delta;
+        }
     }
 
     // drop commit if weight goes to zero
@@ -5115,30 +5138,46 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfs_cache_zero(lfs, &lfs->pcache);
 
     } else {
-        // only append gstate if we are not dropping
-        err = lfsr_rbyd_appendgdelta(lfs, &mdir_.u.r.rbyd);
-        if (err && err != LFS_ERR_RANGE) {
-            return err;
-        }
-        if (err == LFS_ERR_RANGE) {
-            goto compact;
+        if (gstate) {
+            // only append gstate if we are not dropping
+            int err = lfsr_rbyd_appendgdelta(lfs, &mdir_.u.r.rbyd);
+            if (err) {
+                return err;
+            }
         }
 
         // finalize commit
-        err = lfsr_rbyd_appendcksum(lfs, &mdir_.u.r.rbyd);
-        if (err && err != LFS_ERR_RANGE) {
+        int err = lfsr_rbyd_appendcksum(lfs, &mdir_.u.r.rbyd);
+        if (err) {
             return err;
         }
-        if (err == LFS_ERR_RANGE) {
-            goto compact;
-        }
 
-        // success? gstate is committed
-        lfsr_fs_flushgdelta(lfs);
+        if (gstate) {
+            // success? gstate is committed
+            lfsr_fs_flushgdelta(lfs);
+        }
     }
 
     // update our mdir
     *mdir = mdir_;
+    return 0;
+}
+
+// mid-level mdir commit, this one will at least compact on overflow
+static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
+        lfs_ssize_t start_rid, lfs_ssize_t end_rid,
+        lfs_size_t *split_rid_,
+        const lfsr_attr_t *attrs, lfs_size_t attr_count) {
+    // try to commit
+    int err = lfsr_mdir_commit__(lfs, mdir, start_rid, end_rid, true,
+            attrs, attr_count);
+    if (err && err != LFS_ERR_RANGE) {
+        return err;
+    }
+    if (err == LFS_ERR_RANGE) {
+        goto compact;
+    }
+
     return 0;
 
 compact:;
@@ -5157,12 +5196,80 @@ compact:;
         return LFS_ERR_RANGE;
     }
 
-    // try to compact
-    err = lfsr_mdir_compact_(lfs, &mdir_, LFSR_MDIR_COMPACTING,
-            start_rid, end_rid, mdir,
-            attrs, attr_count,
-            NULL, 0);
+    // swap blocks, increment revision count
+    lfsr_mdir_t mdir_;
+    err = lfsr_mdir_swap(lfs, &mdir_, mdir, false);
     if (err) {
+        return err;
+    }
+
+    // consume any gstate on original rbyd, we need this even if we drop
+    // our mdir to avoid losing info
+    //
+    // if succesful, this should get immediately appended to our new commit
+    err = lfsr_fs_consumegdelta(lfs, mdir);
+    if (err) {
+        return err;
+    }
+
+    // copy over attrs
+    lfs_ssize_t rid = start_rid;
+    lfsr_tag_t tag = 0;
+    while (true) {
+        lfs_size_t weight;
+        lfsr_data_t data;
+        int err = lfsr_rbyd_lookupnext(lfs, &mdir->u.r.rbyd,
+                rid, lfsr_tag_next(tag),
+                &rid, &tag, &weight, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        // note the use of rid+1 and unsigned comparison here to
+        // treat end_rid=-1 as "unbounded" in such a way that rid=-1
+        // is still included
+        if (err == LFS_ERR_NOENT
+                || (lfs_size_t)(rid + 1) > (lfs_size_t)end_rid) {
+            break;
+        }
+
+        // TODO is this really the best way to do this?
+        // this is a bit of a hack, but ignore any gstate tags here,
+        // these need to be handled specially by upper-layers
+        if (lfsr_tag_suptype(tag) == LFSR_TAG_GSTATE) {
+            continue;
+        }
+
+        // write the tag
+        err = lfsr_rbyd_appendcompactattr(lfs, &mdir_.u.r.rbyd,
+                tag, weight, data);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+    }
+
+    err = lfsr_rbyd_compact(lfs, &mdir_.u.r.rbyd);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        return err;
+    }
+
+    // append any pending attrs
+    //
+    // upper layers should make sure this can't fail by limiting the
+    // maximum commit size
+    err = lfsr_mdir_commit__(lfs, &mdir_, start_rid, end_rid,
+            // only append gstate if 1. we are not dropped, 2. we have not
+            // been relocated/split/etc, unless we are an mroot
+            //
+            // this pushes gstate up into the mroot when relocating, and
+            // helps avoid corner case issues when splitting/dropping
+            (lfsr_mdir_cmp(&mdir_, mdir) == 0
+                || mdir_.mid == -1
+                || lfsr_mtree_isinlined(lfs)),
+            attrs, attr_count);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
     }
 
@@ -5261,18 +5368,90 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // compact into new mdir tags < split_rid
-        int err = lfsr_mdir_compact_(lfs, &mdir_,
-                lfs_smax32(mdir->mid, 0), 0, split_rid,
-                mdir, attrs, attr_count, NULL, 0);
+        int err = lfsr_mdir_alloc(lfs, &mdir_,
+                lfs_smax32(mdir->mid, 0));
+        if (err) {
+            return err;
+        }
+
+        // copy over attrs
+        lfs_ssize_t rid = 0;
+        lfsr_tag_t tag = 0;
+        while (true) {
+            lfs_size_t weight;
+            lfsr_data_t data;
+            int err = lfsr_rbyd_lookupnext(lfs, &mdir->u.r.rbyd,
+                    rid, lfsr_tag_next(tag),
+                    &rid, &tag, &weight, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            if (err == LFS_ERR_NOENT || rid >= (lfs_ssize_t)split_rid) {
+                break;
+            }
+
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &mdir_.u.r.rbyd,
+                    tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+        }
+
+        err = lfsr_rbyd_compact(lfs, &mdir_.u.r.rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        err = lfsr_mdir_commit__(lfs, &mdir_, 0, split_rid, false,
+                attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
 
         // compact into new mdir tags >= split_rid
-        err = lfsr_mdir_compact_(lfs, &msibling_,
-                lfs_smax32(mdir->mid, 0), split_rid, -1,
-                mdir, attrs, attr_count, NULL, 0);
+        err = lfsr_mdir_alloc(lfs, &msibling_,
+                lfs_smax32(mdir->mid, 0));
+        if (err) {
+            return err;
+        }
+
+        // copy over attrs
+        rid = split_rid;
+        tag = 0;
+        while (true) {
+            lfs_size_t weight;
+            lfsr_data_t data;
+            int err = lfsr_rbyd_lookupnext(lfs, &mdir->u.r.rbyd,
+                    rid, lfsr_tag_next(tag),
+                    &rid, &tag, &weight, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &msibling_.u.r.rbyd,
+                    tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+        }
+
+        err = lfsr_rbyd_compact(lfs, &msibling_.u.r.rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        err = lfsr_mdir_commit__(lfs, &msibling_, split_rid, -1, false,
+                attrs, attr_count);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -5578,21 +5757,6 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 mchildroot.u.m.blocks[0], mchildroot.u.m.blocks[1],
                 mchildroot_[0], mchildroot_[1]);
 
-        // copy magic/config from current mroot
-        lfsr_data_t magic;
-        err = lfsr_mdir_lookup(lfs, &mchildroot,
-                -1, LFSR_TAG_SUPERMAGIC, NULL, &magic);
-        if (err) {
-            return err;
-        }
-
-        lfsr_data_t config;
-        err = lfsr_mdir_lookup(lfs, &mchildroot,
-                -1, LFSR_TAG_SUPERCONFIG, NULL, &config);
-        if (err) {
-            return err;
-        }
-
         // commit mrootchild
         uint8_t mchildroot_buf[LFSR_MDIR_DSIZE];
         lfs_ssize_t mchildroot_dsize = lfsr_mdir_todisk(lfs, mchildroot_,
@@ -5602,17 +5766,54 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // compact into mparentroot, this should stay our mroot anchor
-        lfsr_mdir_t mparentroot = mchildroot;
-        // make sure all non-inlined mroots have mid=-1
-        // TODO should we assign the mroot mid in lfsr_mdir_compact_?
-        mparentroot.mid = -1;
-        err = lfsr_mdir_compact_(lfs, &mparentroot, LFSR_MDIR_EXTENDING, 0, 0,
-                &mchildroot, NULL, 0, LFSR_ATTRS(
-                    LFSR_ATTR(-1, SUPERMAGIC, 0, DATA(magic)),
-                    LFSR_ATTR(-1, SUPERCONFIG, 0, DATA(config)),
-                    // commit our new mchildroot
-                    LFSR_ATTR(-1,
-                        MROOT, 0, BUF(mchildroot_buf, mchildroot_dsize))));
+        lfsr_mdir_t mparentroot;
+        err = lfsr_mdir_swap(lfs, &mparentroot, &mchildroot, -1);
+        if (err) {
+            return err;
+        }
+
+        // copy only the config over
+        lfs_ssize_t rid = -1;
+        lfsr_tag_t tag = 0;
+        while (true) {
+            lfs_size_t weight;
+            lfsr_data_t data;
+            int err = lfsr_rbyd_lookupnext(lfs, &mchildroot.u.r.rbyd,
+                    rid, lfsr_tag_next(tag),
+                    &rid, &tag, &weight, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            if (err == LFS_ERR_NOENT || rid >= 0 || tag >= LFSR_TAG_GSTATE) {
+                break;
+            }
+
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &mparentroot.u.r.rbyd,
+                    tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+        }
+
+        // and our new mroot
+        err = lfsr_rbyd_appendcompactattr(lfs, &mparentroot.u.r.rbyd,
+                LFSR_TAG_MROOT, 0,
+                LFSR_DATA_BUF(mchildroot_buf, mchildroot_dsize));
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        err = lfsr_rbyd_compact(lfs, &mparentroot.u.r.rbyd);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
+        }
+
+        // finalize commit
+        err = lfsr_rbyd_appendcksum(lfs, &mparentroot.u.r.rbyd);
         if (err) {
             return err;
         }
