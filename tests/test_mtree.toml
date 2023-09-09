@@ -4246,7 +4246,7 @@ code = '''
     lfs_alloc_ack(&lfs);
 
     uint8_t buffer[LFSR_MDIR_DSIZE];
-    lfs_ssize_t d = lfsr_mdir_todisk(&lfs, LFSR_MROOTANCHOR, buffer);
+    lfs_ssize_t d = lfsr_mblocks_todisk(&lfs, LFSR_MBLOCKS_MROOTANCHOR, buffer);
     assert(d >= 0);
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1, MROOT, 0, BUF(buffer, d)))) => 0;
