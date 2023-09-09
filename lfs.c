@@ -336,11 +336,8 @@ static int lfs_bd_prog(lfs_t *lfs,
             continue;
         }
 
-        // pcache must have been flushed, either by programming and
-        // entire block or manually flushing the pcache
-        LFS_ASSERT(pcache->block == LFS_BLOCK_NULL);
-
         // prepare pcache, first condition can no longer fail
+        lfs_cache_zero(lfs, pcache);
         pcache->block = block;
         pcache->off = lfs_aligndown(off, lfs->cfg->prog_size);
         pcache->size = 0;
@@ -2079,17 +2076,11 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
     int err = lfsr_bd_prog(lfs, rbyd->block, rbyd->eoff,
             &rev_buf, sizeof(uint32_t), &rbyd->cksum);
     if (err) {
-        goto failed;
+        return err;
     }
     rbyd->eoff += sizeof(uint32_t);
 
     return 0;
-
-failed:
-    // if we fail mark the rbyd as unerased and release the pcache
-    lfs_cache_zero(lfs, &lfs->pcache);
-    rbyd->eoff = -1;
-    return err;
 }
 
 // helper functions for managing the 3-element fifo used in
@@ -2211,10 +2202,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     LFS_ASSERT(!(tag & 0x80));
 
     // we can't do anything if we're not erased
-    int err;
     if (rbyd->eoff >= lfs->cfg->block_size) {
-        err = LFS_ERR_RANGE;
-        goto failed;
+        return LFS_ERR_RANGE;
     }
 
     // ignore noops
@@ -2225,9 +2214,9 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // make sure every rbyd starts with a revision count
     if (rbyd->eoff == 0) {
-        err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
+        int err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
         if (err) {
-            goto failed;
+            return err;
         }
     }
 
@@ -2340,8 +2329,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 rbyd->block, branch, 0,
                 &alt, &weight, &jump, NULL);
         if (d < 0) {
-            err = d;
-            goto failed;
+            return d;
         }
 
         // found an alt?
@@ -2531,11 +2519,11 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             }
 
             // push alt onto our queue
-            err = lfsr_rbyd_p_push(lfs, rbyd,
+            int err = lfsr_rbyd_p_push(lfs, rbyd,
                     p_alts, p_weights, p_jumps,
                     alt, weight, jump);
             if (err) {
-                goto failed;
+                return err;
             }
 
         // found end of tree?
@@ -2657,11 +2645,11 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     if (alt) {
-        err = lfsr_rbyd_p_push(lfs, rbyd,
+        int err = lfsr_rbyd_p_push(lfs, rbyd,
                 p_alts, p_weights, p_jumps,
                 alt, weight, branch);
         if (err) {
-            goto failed;
+            return err;
         }
 
         if (lfsr_tag_isred(p_alts[0])) {
@@ -2671,10 +2659,10 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     }
 
     // flush any pending alts
-    err = lfsr_rbyd_p_flush(lfs, rbyd,
+    int err = lfsr_rbyd_p_flush(lfs, rbyd,
             p_alts, p_weights, p_jumps, 3);
     if (err) {
-        goto failed;
+        return err;
     }
 
 leaf:;
@@ -2689,8 +2677,7 @@ leaf:;
             lfsr_data_size(&data),
             &rbyd->cksum);
     if (d < 0) {
-        err = d;
-        goto failed;
+        return d;
     }
     rbyd->eoff += d;
 
@@ -2698,16 +2685,11 @@ leaf:;
     err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->eoff, data,
             &rbyd->cksum);
     if (err) {
-        goto failed;
+        return err;
     }
     rbyd->eoff += lfsr_data_size(&data);
 
     return 0;
-
-failed:;
-    // if we failed release the pcache
-    lfs_cache_zero(lfs, &lfs->pcache);
-    return err;
 }
 
 static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
@@ -2715,17 +2697,15 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
 
     // we can't do anything if we're not erased
-    int err;
     if (rbyd->eoff >= lfs->cfg->block_size) {
-        err = LFS_ERR_RANGE;
-        goto failed;
+        return LFS_ERR_RANGE;
     }
 
     // make sure every rbyd starts with its revision count
     if (rbyd->eoff == 0) {
-        err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
+        int err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
         if (err) {
-            goto failed;
+            return err;
         }
     }
 
@@ -2765,7 +2745,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
                 rbyd->block, aligned_eoff, lfs->cfg->prog_size,
                 &perturb, 1);
         if (err && err != LFS_ERR_CORRUPT) {
-            goto failed;
+            return err;
         }
 
         // find the expected ecksum, don't bother avoiding a reread of the
@@ -2775,7 +2755,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
                 lfs->cfg->prog_size,
                 &ecksum.cksum);
         if (err && err != LFS_ERR_CORRUPT) {
-            goto failed;
+            return err;
         }
 
         uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
@@ -2784,15 +2764,14 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
                 LFSR_TAG_ECKSUM, 0, ecksum_dsize,
                 &rbyd->cksum);
         if (d < 0) {
-            err = d;
-            goto failed;
+            return d;
         }
         rbyd->eoff += d;
 
         err = lfsr_bd_prog(lfs, rbyd->block, rbyd->eoff,
                 ecksum_buf, ecksum_dsize, &rbyd->cksum);
         if (err) {
-            goto failed;
+            return err;
         }
         rbyd->eoff += ecksum_dsize;
 
@@ -2803,8 +2782,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
     // not even space for a cksum? we can't finish the commit
     } else {
-        err = LFS_ERR_RANGE;
-        goto failed;
+        return LFS_ERR_RANGE;
     }
 
     // build end-of-commit cksum
@@ -2835,25 +2813,22 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
     }
     lfs_tole32_(rbyd->cksum, &cksum_buf[2+1+5]);
 
-    err = lfsr_bd_prog(lfs, rbyd->block, rbyd->eoff, cksum_buf, 2+1+5+4, NULL);
+    int err = lfsr_bd_prog(lfs, rbyd->block, rbyd->eoff,
+            cksum_buf, 2+1+5+4,
+            NULL);
     if (err) {
-        goto failed;
+        return err;
     }
     rbyd->eoff += 2+1+5+4;
 
     // flush our caches, finalizing the commit on-disk
     err = lfsr_bd_sync(lfs);
     if (err) {
-        goto failed;
+        return err;
     }
 
     rbyd->eoff = aligned_eoff;
     return 0;
-
-failed:;
-    // if we failed release the pcache
-    lfs_cache_zero(lfs, &lfs->pcache);
-    return err;
 }
 
 static int lfsr_rbyd_appendattrs(lfs_t *lfs, lfsr_rbyd_t *rbyd,
@@ -2919,17 +2894,15 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
 
     // we can't do anything if we're not erased
-    int err;
     if (rbyd->eoff >= lfs->cfg->block_size) {
-        err = LFS_ERR_RANGE;
-        goto failed;
+        return LFS_ERR_RANGE;
     }
 
     // make sure every rbyd starts with a revision count
     if (rbyd->eoff == 0) {
-        err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
+        int err = lfsr_rbyd_appendrev(lfs, rbyd, 0);
         if (err) {
-            goto failed;
+            return err;
         }
     }
 
@@ -2938,16 +2911,15 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             tag, weight, lfsr_data_size(&data),
             &rbyd->cksum);
     if (d < 0) {
-        err = d;
-        goto failed;
+        return d;
     }
     rbyd->eoff += d;
 
     // and the data
-    err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->eoff, data,
+    int err = lfsr_bd_progdata(lfs, rbyd->block, rbyd->eoff, data,
             &rbyd->cksum);
     if (err) {
-        goto failed;
+        return err;
     }
     rbyd->eoff += lfsr_data_size(&data);
 
@@ -2956,11 +2928,6 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     rbyd->weight += weight;
 
     return 0;
-
-failed:;
-    // if we failed release the pcache
-    lfs_cache_zero(lfs, &lfs->pcache);
-    return err;
 }
 
 static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
@@ -3013,7 +2980,6 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
     // connect every other trunk together, building layers of a perfectly
     // balanced binary tree upwards until we have a single trunk
-    int err;
     while (true) {
         lfs_off_t layer_off_ = rbyd->eoff;
         lfs_off_t off = layer_off;
@@ -3031,8 +2997,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
                             rbyd->block, off, layer_off_ - off,
                             &tag, &weight, &size, NULL);
                     if (d < 0) {
-                        err = d;
-                        goto failed;
+                        return d;
                     }
                     off += d;
 
@@ -3068,8 +3033,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
                         rbyd->eoff - trunk_off,
                         &rbyd->cksum);
                 if (d < 0) {
-                    err = d;
-                    goto failed;
+                    return d;
                 }
                 rbyd->eoff += d;
             }
@@ -3079,8 +3043,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
                     LFSR_TAG_NULL, 0, 0,
                     &rbyd->cksum);
             if (d < 0) {
-                err = d;
-                goto failed;
+                return d;
             }
             rbyd->eoff += d;
         }
@@ -3094,11 +3057,6 @@ done:;
     rbyd->trunk = layer_off;
 
     return 0;
-
-failed:;
-    // if we failed release the pcache
-    lfs_cache_zero(lfs, &lfs->pcache);
-    return err;
 }
 
 // append and consume any pending gstate
@@ -4951,13 +4909,9 @@ static int lfsr_mdir_swap(lfs_t *lfs, lfsr_mdir_t *mdir_,
 static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfs_ssize_t start_rid, lfs_ssize_t end_rid,
         const lfsr_attr_t *attrs, lfs_size_t attr_count) {
-    // TODO do we need to copy here?
     // try to append a commit
     lfsr_mdir_t mdir_ = *mdir;
-    // TODO handle this differently?
-    // TODO let the lower rbyd layer handle this somehow?
-    // mark mdir as unerased in case we fail
-    mdir->u.r.rbyd.eoff = lfs->cfg->block_size;
+    int err;
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // calculate adjusted rid
         lfs_ssize_t rid = (attrs[i].rid == -1
@@ -4980,18 +4934,18 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             } else if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_MOVE) {
                 // weighted moves are not supported
                 LFS_ASSERT(attrs[i].delta == 0);
-                const lfsr_mdir_t *mdir
+                const lfsr_mdir_t *mdir__
                         = (const lfsr_mdir_t*)attrs[i].data.u.b.buffer;
 
                 // skip the name tag, this is always replaced by upper layers
                 lfsr_tag_t tag = LFSR_TAG_STRUCT-1;
                 while (true) {
                     lfsr_data_t data;
-                    int err = lfsr_mdir_lookupnext(lfs, mdir,
-                            mdir->mid, lfsr_tag_next(tag),
+                    err = lfsr_mdir_lookupnext(lfs, mdir__,
+                            mdir__->mid, lfsr_tag_next(tag),
                             &tag, &data);
                     if (err && err != LFS_ERR_NOENT) {
-                        return err;
+                        goto failed;
                     }
                     if (err == LFS_ERR_NOENT) {
                         break;
@@ -5002,7 +4956,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                             rid - lfs_smax32(start_rid, 0),
                             tag, 0, data);
                     if (err) {
-                        return err;
+                        goto failed;
                     }
                 }
 
@@ -5010,11 +4964,11 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             } else {
                 LFS_ASSERT(!lfsr_tag_isinternal(attrs[i].tag));
 
-                int err = lfsr_rbyd_appendattr(lfs, &mdir_.u.r.rbyd,
+                err = lfsr_rbyd_appendattr(lfs, &mdir_.u.r.rbyd,
                         rid - lfs_smax32(start_rid, 0),
                         attrs[i].tag, attrs[i].delta, attrs[i].data);
                 if (err) {
-                    return err;
+                    goto failed;
                 }
             }
         }
@@ -5029,45 +4983,47 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
     }
 
-    // drop commit if weight goes to zero
+    // don't finish the commit if our weight dropped to zero!
+    //
+    // If we finish the commit it becomes immediately visibile, but we really
+    // need to remove this mdir_ from the mtree. Leave the actual remove up to
+    // upper layers.
     if (mdir_.u.m.weight == 0
             // unless we are an mroot
             && !(mdir_.mid == -1 || lfsr_mtree_isinlined(lfs))) {
-        // TODO move this up into lfsr_mdir_commit?
-        // consume gstate so we don't lose any info
-        int err = lfsr_fs_consumegdelta(lfs, mdir);
+        // mark weight as zero, but note! we can not longer read from this mdir
+        // as our pcache may get clobbered
+        mdir->u.m.weight = 0;
+        err = LFS_ERR_NOENT;
+        goto failed;
+    }
+
+    // append any gstate?
+    if (start_rid == -1) {
+        err = lfsr_rbyd_appendgdelta(lfs, &mdir_.u.r.rbyd);
         if (err) {
-            return err;
-        }
-
-        // TODO should we just make our pcache not assert?
-        // drop our pcache, we're not going to complete this commit
-        lfs_cache_zero(lfs, &lfs->pcache);
-
-    } else {
-        if (start_rid == -1) {
-            // only append gstate if we are not dropping
-            int err = lfsr_rbyd_appendgdelta(lfs, &mdir_.u.r.rbyd);
-            if (err) {
-                return err;
-            }
-        }
-
-        // finalize commit
-        int err = lfsr_rbyd_appendcksum(lfs, &mdir_.u.r.rbyd);
-        if (err) {
-            return err;
-        }
-
-        if (start_rid == -1) {
-            // success? gstate is committed
-            lfsr_fs_flushgdelta(lfs);
+            goto failed;
         }
     }
 
-    // update our mdir
-    *mdir = mdir_;
+    // finalize commit
+    err = lfsr_rbyd_appendcksum(lfs, &mdir_.u.r.rbyd);
+    if (err) {
+        goto failed;
+    }
+
+    // success? flush gstate?
+    if (start_rid == -1) {
+        lfsr_fs_flushgdelta(lfs);
+    }
+
+    mdir->u.m = mdir_.u.m;
     return 0;
+
+failed:;
+    // if we failed, mark our mdir as unerased
+    mdir->u.r.rbyd.eoff = -1;
+    return err;
 }
 
 static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
@@ -5127,26 +5083,25 @@ compact:;
         return err;
     }
 
-    // compact our rbyd
+    // compact our mdir
     err = lfsr_mdir_compact__(lfs, &mdir_, start_rid, end_rid, mdir);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
     }
 
-    // append any pending attrs
+    // we've compacted, try to commit again
     //
     // upper layers should make sure this can't fail by limiting the
     // maximum commit size
-    err = lfsr_mdir_commit__(lfs, &mdir_, start_rid, end_rid,
+    *mdir = mdir_;
+    err = lfsr_mdir_commit__(lfs, mdir, start_rid, end_rid,
             attrs, attr_count);
     if (err) {
         LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
     }
 
-    // update our mdir
-    *mdir = mdir_;
     return 0;
 }
 
@@ -5190,7 +5145,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     lfs_size_t split_rid;
     int err = lfsr_mdir_commit_(lfs, &mdir_, -1, -1, &split_rid,
             attrs, attr_count);
-    if (err && err != LFS_ERR_RANGE) {
+    if (err && err != LFS_ERR_RANGE && err != LFS_ERR_NOENT) {
         return err;
     }
 
@@ -5233,7 +5188,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // we do this here so we don't have to worry about corner cases
         // with dropping mdirs during a split
         } else {
-            int err = lfsr_fs_consumegdelta(lfs, &mdir_);
+            int err = lfsr_fs_consumegdelta(lfs, mdir);
             if (err) {
                 return err;
             }
@@ -5254,7 +5209,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         err = lfsr_mdir_commit__(lfs, &mdir_, 0, split_rid,
                 attrs, attr_count);
-        if (err) {
+        if (err && err != LFS_ERR_NOENT) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
@@ -5274,10 +5229,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         err = lfsr_mdir_commit__(lfs, &msibling_, split_rid, -1,
                 attrs, attr_count);
-        if (err) {
+        if (err && err != LFS_ERR_NOENT) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
+
+        // adjust our sibling's mid after committing attrs
+        msibling_.mid += lfsr_mweight(lfs);
 
         LFS_DEBUG("Splitting mdir %"PRId32".%"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"} "
@@ -5322,27 +5280,19 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     mdir_.mid & lfsr_mbidmask(lfs),
                     mdir_.mid & lfsr_mridmask(lfs),
                     mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
-            lfsr_mdir_t mdir__ = mdir_;
-            mdir_ = msibling_;
-            msibling_ = mdir__;
+            mdir_.u.m = msibling_.u.m;
+            msibling_.u.m.weight = 0;
             goto relocate;
         }
 
-        // no siblings reduced to zero
-
-        // adjust our sibling's mid, do this here in case other sibling
-        // was dropped
-        msibling_.mid += lfsr_mweight(lfs);
-
-        // update out mtree
+        // no siblings reduced to zero, update our mtree
 
         // lookup first name in sibling to use as the split name
         //
         // note we need to do this after playing out pending attrs in
         // case they introduce a new name!
         lfsr_data_t split_data;
-        err = lfsr_mdir_lookup(lfs, &msibling_,
-                msibling_.mid & lfsr_mbidmask(lfs), LFSR_TAG_WIDE(NAME),
+        err = lfsr_rbyd_lookup(lfs, &msibling_.u.r.rbyd, 0, LFSR_TAG_WIDE(NAME),
                 NULL, &split_data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5376,14 +5326,18 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         dirtymtree = true;
 
     // mdir reduced to zero? need to drop?
-    } else if (mdir_.u.m.weight == 0
-            // unless we are an mroot
-            && !(mdir->mid == -1 || lfsr_mtree_isinlined(lfs))) {
+    } else if (err == LFS_ERR_NOENT) {
         LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"}",
                 mdir->mid & lfsr_mbidmask(lfs),
                 mdir->mid & lfsr_mridmask(lfs),
                 mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
+
+        // consume gstate so we don't lose any info
+        err = lfsr_fs_consumegdelta(lfs, mdir);
+        if (err) {
+            return err;
+        }
 
     drop:;
         // update our mtree
@@ -5518,6 +5472,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     TAG(mtree_tag), 0, BUF(mtree_buf, mtree_dsize))));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
@@ -5557,6 +5512,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     MROOT, 0, BUF(mchildroot_buf, mchildroot_dsize))));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
+            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
 
@@ -5631,6 +5587,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 LFSR_ATTR(-1,
                     WIDE(MROOT), 0, BUF(mchildroot_buf, mchildroot_dsize))));
         if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
     }
