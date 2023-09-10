@@ -428,14 +428,9 @@ typedef struct lfs_dir {
 } lfs_dir_t;
 
 typedef struct lfsr_dir {
-    // the order is very sensitive here!
-    // this overlaps with:
-    // - lfsr_openedmdir_t
-    // - lfsr_mdir_t[2]
-    struct lfsr_openedmdir *next;
-    lfsr_mdir_t bookmark_mdir;
-    lfsr_mdir_t pos_mdir;
+    lfsr_openedmdir_t m;
     lfs_size_t did;
+    lfs_ssize_t bookmark;
     lfs_off_t pos;
 } lfsr_dir_t;
 
