@@ -377,13 +377,12 @@ typedef struct lfsr_mdir {
         struct {
             lfs_size_t weight;
             lfs_off_t trunk;
-            lfs_off_t off;
+            lfs_off_t eoff;
             uint32_t cksum;
             lfs_block_t blocks[2];
         } m;
         struct {
             lfsr_rbyd_t rbyd;
-            lfs_block_t redund_block;
         } r;
     } u;
 } lfsr_mdir_t;
