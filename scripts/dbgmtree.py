@@ -761,6 +761,10 @@ def main(disk, mroots=None, *,
             f.seek(0, os.SEEK_END)
             block_size = f.tell()
 
+        # determine the number of mbits from the block_size, this is just
+        # for printing purposes
+        mbits = m.ceil(m.log2(block_size // 16))
+
         # before we print, we need to do a pass for a few things:
         # - find the actual mroot
         # - find the total weight
@@ -1303,8 +1307,8 @@ def main(disk, mroots=None, *,
                         if args.get('tree') or args.get('btree') else '',
                     '%*s %-22s%s' % (
                         w_width, '%d.%d-%d' % (
-                                mbid-max(mw-1, 0), rid-(w-1), rid)
-                            if w > 1 else '%d.%d' % (mbid-max(mw-1, 0), rid)
+                                mbid >> mbits, rid-(w-1), rid)
+                            if w > 1 else '%d.%d' % (mbid >> mbits, rid)
                             if w > 0 or i == 0 else '',
                         tagrepr(tag, w, len(data), j),
                         '  %s' % next(xxd(data, 8), '')
@@ -1360,8 +1364,9 @@ def main(disk, mroots=None, *,
                     treerepr(bid, w, bd, rid, 0, tag)
                         if args.get('tree') or args.get('btree') else '',
                     w_width, '' if i != 0
-                        else '%d-%d' % (bid-(w-1), bid) if w > 1
-                        else bid if w > 0
+                        else '%d-%d' % ((bid-(w-1)) >> mbits, bid >> mbits)
+                            if (w >> mbits) > 1
+                        else bid >> mbits if w > 0
                         else '',
                     tagrepr(tag, w if i == 0 else 0, len(data), None),
                     # note we render names a bit different here
@@ -1401,11 +1406,11 @@ def main(disk, mroots=None, *,
         #### actual debugging begins here
 
         # print some information about the mtree
-        print('mtree %s, rev %d, weight %d' % (
-            mroot.addr(), mroot.rev, mweight))
+        print('mtree %s, rev %d, weight %d.%d' % (
+            mroot.addr(), mroot.rev, mweight >> mbits, 1 << mbits))
 
         # print header
-        w_width = (m.ceil(m.log10(max(1, mweight)+1))
+        w_width = (m.ceil(m.log10(max(1, mweight >> mbits)+1))
             + 2*m.ceil(m.log10(max(1, rweight)+1))
             + 2)
         print('%-11s  %*s%-*s %-22s  %s' % (

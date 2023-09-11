@@ -5289,12 +5289,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // adjust our sibling's mid after committing attrs
         msibling_.mid += lfsr_mweight(lfs);
 
-        LFS_DEBUG("Splitting mdir %"PRId32".%"PRId32" "
+        LFS_DEBUG("Splitting mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"} "
                 "-> 0x{%"PRIx32",%"PRIx32"}, "
                 "0x{%"PRIx32",%"PRIx32"}",
-                mid & lfsr_mbidmask(lfs),
-                mid & lfsr_mridmask(lfs),
+                mid >> lfs->mbits,
                 mdir->u.m.blocks[0], mdir->u.m.blocks[1],
                 mdir_.u.m.blocks[0], mdir_.u.m.blocks[1],
                 msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
@@ -5304,33 +5303,29 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         // both siblings reduced to zero
         if (mdir_.u.m.weight == 0 && msibling_.u.m.weight == 0) {
-            LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
+            LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
-                    mdir_.mid & lfsr_mbidmask(lfs),
-                    mdir_.mid & lfsr_mridmask(lfs),
+                    mdir_.mid >> lfs->mbits,
                     mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
-            LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
+            LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
-                    msibling_.mid & lfsr_mbidmask(lfs),
-                    msibling_.mid & lfsr_mridmask(lfs),
+                    msibling_.mid >> lfs->mbits,
                     msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
             goto drop;
 
         // one sibling reduced to zero
         } else if (msibling_.u.m.weight == 0) {
-            LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
+            LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
-                    msibling_.mid & lfsr_mbidmask(lfs),
-                    msibling_.mid & lfsr_mridmask(lfs),
+                    msibling_.mid >> lfs->mbits,
                     msibling_.u.m.blocks[0], msibling_.u.m.blocks[1]);
             goto relocate;
 
         // other sibling reduced to zero
         } else if (mdir_.u.m.weight == 0) {
-            LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
+            LFS_DEBUG("Dropping mdir %"PRId32" "
                     "0x{%"PRIx32",%"PRIx32"}",
-                    mdir_.mid & lfsr_mbidmask(lfs),
-                    mdir_.mid & lfsr_mridmask(lfs),
+                    mdir_.mid >> lfs->mbits,
                     mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
             mdir_.u.m = msibling_.u.m;
             msibling_.u.m.weight = 0;
@@ -5380,10 +5375,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // mdir reduced to zero? need to drop?
     } else if (err == LFS_ERR_NOENT) {
-        LFS_DEBUG("Dropping mdir %"PRId32".%"PRId32" "
+        LFS_DEBUG("Dropping mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"}",
-                mid & lfsr_mbidmask(lfs),
-                mid & lfsr_mridmask(lfs),
+                mid >> lfs->mbits,
                 mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
 
         // consume gstate so we don't lose any info
@@ -5407,10 +5401,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // need to relocate?
     } else if (lfsr_mdir_cmp(mdir, &mdir_) != 0
             && !(mid == -1 || lfsr_mtree_isinlined(lfs))) {
-        LFS_DEBUG("Relocating mdir %"PRId32".%"PRId32" "
+        LFS_DEBUG("Relocating mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"} -> 0x{%"PRIx32",%"PRIx32"}",
-                mid & lfsr_mbidmask(lfs),
-                mid & lfsr_mridmask(lfs),
+                mid >> lfs->mbits,
                 mdir->u.m.blocks[0], mdir->u.m.blocks[1],
                 mdir_.u.m.blocks[0], mdir_.u.m.blocks[1]);
 
@@ -6618,13 +6611,13 @@ static int lfsr_mountinited(lfs_t *lfs) {
         if (lfsr_grm_count(&lfs->grm) == 2) {
             LFS_DEBUG("Found pending grm "
                     "%"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
+                    lfs->grm.rms[0] >> lfs->mbits,
                     lfs->grm.rms[0] & lfsr_mridmask(lfs),
-                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
-                    lfs->grm.rms[0] & lfsr_mridmask(lfs));
+                    lfs->grm.rms[1] >> lfs->mbits,
+                    lfs->grm.rms[1] & lfsr_mridmask(lfs));
         } else if (lfsr_grm_count(&lfs->grm) == 1) {
             LFS_DEBUG("Found pending grm %"PRId32".%"PRId32,
-                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
+                    lfs->grm.rms[0] >> lfs->mbits,
                     lfs->grm.rms[0] & lfsr_mridmask(lfs));
         }
     }
@@ -7448,13 +7441,13 @@ static int lfsr_fs_preparemutation(lfs_t *lfs) {
         if (lfsr_grm_count(&lfs->grm) == 2) {
             LFS_DEBUG("Fixing pending grm "
                     "%"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
+                    lfs->grm.rms[0] >> lfs->mbits,
                     lfs->grm.rms[0] & lfsr_mridmask(lfs),
-                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
-                    lfs->grm.rms[0] & lfsr_mridmask(lfs));
+                    lfs->grm.rms[1] >> lfs->mbits,
+                    lfs->grm.rms[1] & lfsr_mridmask(lfs));
         } else if (lfsr_grm_count(&lfs->grm) == 1) {
             LFS_DEBUG("Fixing pending grm %"PRId32".%"PRId32,
-                    lfs->grm.rms[0] & lfsr_mbidmask(lfs),
+                    lfs->grm.rms[0] >> lfs->mbits,
                     lfs->grm.rms[0] & lfsr_mridmask(lfs));
         }
 
