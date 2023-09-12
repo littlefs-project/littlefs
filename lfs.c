@@ -623,7 +623,7 @@ static void lfs_alloc_drop(lfs_t *lfs) {
 }
 
 #ifndef LFS_READONLY
-static int lfs_fs_rawfindfreeblocks(lfs_t *lfs) {
+static int lfs_fs_rawgc(lfs_t *lfs) {
     // Move free offset at the first unused block (lfs->free.i)
     // lfs->free.i is equal lfs->free.size when all blocks are used
     lfs->free.off = (lfs->free.off + lfs->free.i) % lfs->block_count;
@@ -674,7 +674,7 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
             return LFS_ERR_NOSPC;
         }
 
-        int err = lfs_fs_rawfindfreeblocks(lfs);
+        int err = lfs_fs_rawgc(lfs);
         if(err) {
             return err;
         }
@@ -6251,16 +6251,16 @@ int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void *, lfs_block_t), void *data) {
 }
 
 #ifndef LFS_READONLY
-int lfs_fs_findfreeblocks(lfs_t *lfs) {
+int lfs_fs_gc(lfs_t *lfs) {
     int err = LFS_LOCK(lfs->cfg);
     if (err) {
         return err;
     }
-    LFS_TRACE("lfs_fs_findfreeblocks(%p)", (void*)lfs);
+    LFS_TRACE("lfs_fs_gc(%p)", (void*)lfs);
 
-    err = lfs_fs_rawfindfreeblocks(lfs);
+    err = lfs_fs_rawgc(lfs);
 
-    LFS_TRACE("lfs_fs_findfreeblocks -> %d", err);
+    LFS_TRACE("lfs_fs_gc -> %d", err);
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
