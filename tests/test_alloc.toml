@@ -6,6 +6,7 @@ if = 'BLOCK_CYCLES == -1'
 [cases.test_alloc_parallel]
 defines.FILES = 3
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
+defines.GC = [false, true]
 code = '''
     const char *names[] = {"bacon", "eggs", "pancakes"};
     lfs_file_t files[FILES];
@@ -24,6 +25,9 @@ code = '''
                 LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
     }
     for (int n = 0; n < FILES; n++) {
+        if (GC) {
+            lfs_fs_findfreeblocks(&lfs) => 0;
+        }
         size_t size = strlen(names[n]);
         for (lfs_size_t i = 0; i < SIZE; i += size) {
             lfs_file_write(&lfs, &files[n], names[n], size) => size;
@@ -55,6 +59,7 @@ code = '''
 [cases.test_alloc_serial]
 defines.FILES = 3
 defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
+defines.GC = [false, true]
 code = '''
     const char *names[] = {"bacon", "eggs", "pancakes"};
 
@@ -75,6 +80,9 @@ code = '''
         uint8_t buffer[1024];
         memcpy(buffer, names[n], size);
         for (int i = 0; i < SIZE; i += size) {
+            if (GC) {
+                lfs_fs_findfreeblocks(&lfs) => 0;
+            }
             lfs_file_write(&lfs, &file, buffer, size) => size;
         }
         lfs_file_close(&lfs, &file) => 0;
@@ -247,6 +255,9 @@ code = '''
     }
     res => LFS_ERR_NOSPC;
 
+    // note that lfs_fs_findfreeblocks should not error here
+    lfs_fs_findfreeblocks(&lfs) => 0;
+
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
@@ -298,6 +309,9 @@ code = '''
     }
     res => LFS_ERR_NOSPC;
 
+    // note that lfs_fs_findfreeblocks should not error here
+    lfs_fs_findfreeblocks(&lfs) => 0;
+
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 
@@ -337,6 +351,8 @@ code = '''
         count += 1;
     }
     err => LFS_ERR_NOSPC;
+    // note that lfs_fs_findfreeblocks should not error here
+    lfs_fs_findfreeblocks(&lfs) => 0;
     lfs_file_close(&lfs, &file) => 0;
 
     lfs_remove(&lfs, "exhaustion") => 0;
@@ -435,6 +451,8 @@ code = '''
             break;
         }
     }
+    // note that lfs_fs_findfreeblocks should not error here
+    lfs_fs_findfreeblocks(&lfs) => 0;
     lfs_file_close(&lfs, &file) => 0;
 
     lfs_unmount(&lfs) => 0;
