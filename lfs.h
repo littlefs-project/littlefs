@@ -293,6 +293,12 @@ struct lfs_fsinfo {
     // On-disk version.
     uint32_t disk_version;
 
+    // Size of a logical block in bytes.
+    lfs_size_t block_size;
+
+    // Number of logical blocks in filesystem.
+    lfs_size_t block_count;
+
     // Upper limit on the length of file names in bytes.
     lfs_size_t name_max;
 
@@ -301,13 +307,6 @@ struct lfs_fsinfo {
 
     // Upper limit on the size of custom attributes in bytes.
     lfs_size_t attr_max;
-
-    // Number of blocks in filesystem.
-    // May differ from cfg->block_count if autodetected from filesystem.
-    lfs_size_t block_count;
-
-    // Size of block in bytes.
-    lfs_size_t block_size;
 };
 
 // Custom attribute structure, used to describe custom attributes
@@ -440,11 +439,10 @@ typedef struct lfs {
     } free;
 
     const struct lfs_config *cfg;
+    lfs_size_t block_count;
     lfs_size_t name_max;
     lfs_size_t file_max;
     lfs_size_t attr_max;
-
-    lfs_size_t block_count;
 
 #ifdef LFS_MIGRATE
     struct lfs1 *lfs1;

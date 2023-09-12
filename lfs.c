@@ -46,7 +46,8 @@ static int lfs_bd_read(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         void *buffer, lfs_size_t size) {
     uint8_t *data = buffer;
-    if (off+size > lfs->cfg->block_size || (lfs->block_count && block >= lfs->block_count)) {
+    if (off+size > lfs->cfg->block_size
+            || (lfs->block_count && block >= lfs->block_count)) {
         return LFS_ERR_CORRUPT;
     }
 
@@ -4509,13 +4510,14 @@ static int lfs_fs_rawstat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
         fsinfo->disk_version = superblock.version;
     }
 
+    // filesystem geometry
+    fsinfo->block_size = lfs->cfg->block_size;
+    fsinfo->block_count = lfs->block_count;
+
     // other on-disk configuration, we cache all of these for internal use
     fsinfo->name_max = lfs->name_max;
     fsinfo->file_max = lfs->file_max;
     fsinfo->attr_max = lfs->attr_max;
-
-    fsinfo->block_count = lfs->block_count;
-    fsinfo->block_size = lfs->cfg->block_size;
 
     return 0;
 }
