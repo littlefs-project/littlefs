@@ -3192,7 +3192,7 @@ code = '''
     lfsr_btree_t btree = LFSR_BTREE_NULL;
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
             LFSR_DATA("0", 1)) => 0;
-    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NAME(0*DID, "aab", 3),
+    lfsr_btree_split(&lfs, &btree, 0, LFSR_DATA_NAME(0, "aab", 3),
             LFSR_TAG_INLINED, 1, LFSR_DATA("0", 1),
             LFSR_TAG_INLINED, 1, LFSR_DATA("1", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",

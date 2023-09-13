@@ -37,15 +37,27 @@ extern "C"
 
 // Type definitions
 typedef uint32_t lfs_size_t;
-typedef uint32_t lfs_off_t;
-
 typedef int32_t  lfs_ssize_t;
+
+typedef uint32_t lfs_off_t;
 typedef int32_t  lfs_soff_t;
 
 typedef uint32_t lfs_block_t;
 
+typedef uint32_t lfsr_rid_t;
+typedef int32_t  lfsr_srid_t;
+
 typedef uint16_t lfsr_tag_t;
-typedef int16_t lfsr_stag_t;
+typedef int16_t  lfsr_stag_t;
+
+typedef uint32_t lfsr_bid_t;
+typedef int32_t  lfsr_sbid_t;
+
+typedef uint32_t lfsr_mid_t;
+typedef int32_t  lfsr_smid_t;
+
+typedef uint32_t lfsr_did_t;
+typedef int32_t  lfsr_sdid_t;
 
 // Maximum name size in bytes, may be redefined to reduce the size of the
 // info struct. Limited to <= 1022. Stored in superblock and must be
@@ -324,7 +336,7 @@ struct lfs_file_config {
 /// internal littlefs data structures ///
 typedef struct lfs_cache {
     lfs_block_t block;
-    lfs_off_t off;
+    lfs_size_t off;
     lfs_size_t size;
     uint8_t *buffer;
 } lfs_cache_t;
@@ -332,12 +344,12 @@ typedef struct lfs_cache {
 // TODO do we get ram savings with a lfsr_rorbyd_t substruct? need to measure
 typedef struct lfsr_rbyd {
     // note this lines up with weight in lfsr_btree_t
-    lfs_size_t weight;
+    lfsr_srid_t weight;
     // eoff=0, trunk=0  => not yet committed
     // eoff=0, trunk>0  => not yet fetched
     // eoff>=block_size => rbyd not erased/needs compaction
-    lfs_off_t trunk;
-    lfs_off_t eoff;
+    lfs_size_t trunk;
+    lfs_size_t eoff;
     uint32_t cksum;
     // note this lines up with arrays of redundant blocks in lfsr_mdir_t
     lfs_block_t block;
@@ -356,11 +368,11 @@ typedef struct lfsr_btree {
     union {
         // weight is common to both representations and its sign-bit indicates
         // if the btree is inlined
-        lfs_size_t weight;
+        lfsr_sbid_t weight;
         struct {
-            lfs_size_t weight;
+            lfsr_sbid_t weight;
             lfsr_tag_t tag;
-            uint16_t size;
+            uint8_t size;
             uint8_t buf[LFSR_BTREE_INLINESIZE];
         } i;
         struct {
@@ -370,12 +382,12 @@ typedef struct lfsr_btree {
 } lfsr_btree_t;
 
 typedef struct lfsr_mdir {
-    lfs_ssize_t mid;
+    lfsr_smid_t mid;
     union {
         // here we make sure to line up our block array so it overlaps with
         // the block stored as the first entry in the rbyd
         struct {
-            lfs_size_t weight;
+            lfsr_srid_t weight;
             lfs_off_t trunk;
             lfs_off_t eoff;
             uint32_t cksum;
@@ -401,7 +413,7 @@ typedef struct lfsr_openedmdir {
 #define LFSR_GRM_DSIZE (1+5+5+5+5)
 
 typedef struct lfsr_grm {
-    lfs_ssize_t rms[2];
+    lfsr_smid_t rms[2];
 } lfsr_grm_t;
 
 
@@ -429,9 +441,9 @@ typedef struct lfs_dir {
 
 typedef struct lfsr_dir {
     lfsr_openedmdir_t m;
-    lfs_size_t did;
-    lfs_ssize_t bookmark;
-    lfs_off_t pos;
+    lfsr_did_t did;
+    lfsr_smid_t bookmark;
+    lfs_soff_t pos;
 } lfsr_dir_t;
 
 // littlefs file type
@@ -751,7 +763,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info);
 //
 // Returns a negative error code on failure.
 int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off);
-int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_off_t off);
+int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off);
 
 // Return the position of the directory
 //

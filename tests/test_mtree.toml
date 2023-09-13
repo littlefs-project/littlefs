@@ -1485,8 +1485,7 @@ code = '''
         mdir.mid = (mdir.mid & lfsr_mbidmask(&lfs))
                 | (mdir.mid % (mdir.u.m.weight+1));
         // choose to create or delete
-        uint8_t op = ((lfs_size_t)(mdir.mid & lfsr_mridmask(&lfs))
-                    == mdir.u.m.weight
+        uint8_t op = ((mdir.mid & lfsr_mridmask(&lfs)) == mdir.u.m.weight
                 ? 0
                 : TEST_PRNG(&prng) % 2);
 
@@ -2569,8 +2568,7 @@ code = '''
         mdir.mid = (mdir.mid & lfsr_mbidmask(&lfs))
                 | (mdir.mid % (mdir.u.m.weight+1));
         // choose to create or delete
-        uint8_t op = ((lfs_size_t)(mdir.mid & lfsr_mridmask(&lfs))
-                    == mdir.u.m.weight
+        uint8_t op = ((mdir.mid & lfsr_mridmask(&lfs)) == mdir.u.m.weight
                 ? 0
                 : TEST_PRNG(&prng) % 3);
 
