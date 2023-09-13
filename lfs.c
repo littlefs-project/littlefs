@@ -712,10 +712,6 @@ static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
     return (tag & 0x6000) != 0x2000;
 }
 
-static inline lfsr_tag_t lfsr_tag_next(lfsr_tag_t tag) {
-    return tag + 0x1;
-}
-
 static inline uint8_t lfsr_tag_filetype(lfsr_tag_t tag) {
     return tag - LFSR_TAG_REG;
 }
@@ -2949,7 +2945,7 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfs_size_t weight;
         lfsr_data_t data;
         int err = lfsr_rbyd_lookupnext(lfs, rbyd,
-                rid, lfsr_tag_next(tag),
+                rid, tag+1,
                 &rid, &tag, &weight, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -3128,7 +3124,7 @@ static lfs_ssize_t lfsr_rbyd_estimate_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfs_size_t weight_;
         lfsr_data_t data;
         int err = lfsr_rbyd_lookupnext(lfs, rbyd,
-                rid, lfsr_tag_next(tag),
+                rid, tag+1,
                 &rid__, &tag, &weight_, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -4989,7 +4985,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 while (true) {
                     lfsr_data_t data;
                     int err = lfsr_mdir_lookupnext(lfs, mdir__,
-                            mdir__->mid, lfsr_tag_next(tag),
+                            mdir__->mid, tag+1,
                             &tag, &data);
                     if (err && err != LFS_ERR_NOENT) {
                         return err;
@@ -5593,7 +5589,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfs_size_t weight;
             lfsr_data_t data;
             int err = lfsr_rbyd_lookupnext(lfs, &mrootchild.u.r.rbyd,
-                    -1, lfsr_tag_next(tag),
+                    -1, tag+1,
                     &rid, &tag, &weight, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;

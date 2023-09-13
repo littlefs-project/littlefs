@@ -2140,12 +2140,12 @@ code = '''
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -2154,12 +2154,12 @@ code = '''
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     // also try the other direction
@@ -2174,12 +2174,12 @@ code = '''
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -2188,12 +2188,12 @@ code = '''
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -2230,12 +2230,12 @@ code = '''
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -2244,12 +2244,12 @@ code = '''
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     // also try the other direction
@@ -2265,12 +2265,12 @@ code = '''
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -2279,12 +2279,12 @@ code = '''
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == -1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -2346,13 +2346,13 @@ code = '''
         tag_ = 0;
         rid_ = -1;
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => 0;
             assert(tag_ == LFSR_TAG_UATTR(j+1));
             assert(rid_ == -1);
             assert(lfsr_data_size(&data_) == 4);
         }
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
     }
 '''
@@ -2415,13 +2415,13 @@ code = '''
         tag_ = 0;
         rid_ = -1;
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => 0;
             assert(tag_ == LFSR_TAG_UATTR(j+1));
             assert(rid_ == -1);
             assert(lfsr_data_size(&data_) == 4);
         }
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
     }
 '''
@@ -2939,7 +2939,7 @@ code = '''
             tag_ = 0;
             rid_ = -1;
             for (unsigned k = 0; k < N-1; k++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, NULL, &data_) => 0;
                 if (k >= j) {
                     assert(tag_ == LFSR_TAG_UATTR(k+1+1));
@@ -2952,7 +2952,7 @@ code = '''
                 }
             }
 
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
         }
 
@@ -4202,14 +4202,14 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -4220,14 +4220,14 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     // also try the other direction
@@ -4244,14 +4244,14 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -4262,14 +4262,14 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -4309,14 +4309,14 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -4327,14 +4327,14 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     // also try the other direction
@@ -4352,14 +4352,14 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -4370,14 +4370,14 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -4456,7 +4456,7 @@ code = '''
         tag_ = 0;
         rid_ = -1;
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => 0;
             assert(tag_ == LFSR_TAG_REG);
             assert(rid_ == j);
@@ -4465,7 +4465,7 @@ code = '''
             lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
             assert(memcmp(buffer, names[j % 6], 4) == 0);
         }
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
     }
 '''
@@ -4544,7 +4544,7 @@ code = '''
         tag_ = 0;
         rid_ = -1;
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => 0;
             assert(tag_ == LFSR_TAG_REG);
             assert(rid_ == j);
@@ -4553,7 +4553,7 @@ code = '''
             lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
             assert(memcmp(buffer, names[j % 6], 4) == 0);
         }
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
     }
 '''
@@ -5381,28 +5381,28 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 0);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -5413,28 +5413,28 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 0);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     // also try the other direction
@@ -5453,28 +5453,28 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 0);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -5485,28 +5485,28 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 0);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -5550,28 +5550,28 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 0);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -5582,28 +5582,28 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 0);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     // also try the other direction
@@ -5625,28 +5625,28 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 0);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -5657,28 +5657,28 @@ code = '''
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 0);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 4);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 1);
     assert(lfsr_data_size(&data_) == 2);
     lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -5765,7 +5765,7 @@ code = '''
         tag_ = 0;
         rid_ = -1;
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => 0;
             assert(tag_ == LFSR_TAG_REG);
             assert(rid_ == j);
@@ -5775,7 +5775,7 @@ code = '''
             assert(memcmp(buffer, names[j % 6], 4) == 0);
 
             for (unsigned u = 0; u < M; u++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, NULL, &data_) => 0;
                 assert(tag_ == LFSR_TAG_UATTR(u+1));
                 assert(rid_ == j);
@@ -5785,7 +5785,7 @@ code = '''
                 assert(memcmp(buffer, names[j % 6], 2) == 0);
             }
         }
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
     }
 '''
@@ -5872,7 +5872,7 @@ code = '''
         tag_ = 0;
         rid_ = -1;
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => 0;
             assert(tag_ == LFSR_TAG_REG);
             assert(rid_ == j);
@@ -5882,7 +5882,7 @@ code = '''
             assert(memcmp(buffer, names[j % 6], 4) == 0);
 
             for (unsigned u = 0; u < M; u++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, NULL, &data_) => 0;
                 assert(tag_ == LFSR_TAG_UATTR(u+1));
                 assert(rid_ == j);
@@ -5892,7 +5892,7 @@ code = '''
                 assert(memcmp(buffer, names[j % 6], 2) == 0);
             }
         }
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
     }
 '''
@@ -6530,7 +6530,7 @@ code = '''
         lfs_ssize_t rid_ = -1;
         lfsr_data_t data_;
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => 0;
             assert(tag_ == LFSR_TAG_UATTR(j+1));
             assert(rid_ == -1);
@@ -6540,7 +6540,7 @@ code = '''
             assert(memcmp(buffer, names[j % 6], 1) == 0);
         }
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => 0;
             assert(tag_ == LFSR_TAG_REG);
             assert(rid_ == j);
@@ -6549,7 +6549,7 @@ code = '''
             lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
             assert(memcmp(buffer, names[j % 6], 4) == 0);
         }
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
         // keep track of the worst size
@@ -6679,7 +6679,7 @@ code = '''
         lfs_ssize_t rid_ = -1;
         lfsr_data_t data_;
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => 0;
             assert(tag_ == LFSR_TAG_UATTR(j+1));
             assert(rid_ == -1);
@@ -6689,7 +6689,7 @@ code = '''
             assert(memcmp(buffer, names[j % 6], 1) == 0);
         }
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => 0;
             assert(tag_ == LFSR_TAG_REG);
             assert(rid_ == j);
@@ -6699,7 +6699,7 @@ code = '''
             assert(memcmp(buffer, names[j % 6], 4) == 0);
 
             for (unsigned u = 0; u < M; u++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, NULL, &data_) => 0;
                 assert(tag_ == LFSR_TAG_UATTR(u+1));
                 assert(rid_ == j);
@@ -6709,7 +6709,7 @@ code = '''
                 assert(memcmp(buffer, names[j % 6], 2) == 0);
             }
         }
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
 
         // keep track of the worst size
@@ -7545,7 +7545,7 @@ code = '''
             tag_ = 0;
             rid_ = -1;
             for (unsigned k = 0; k < N-1; k++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, NULL, &data_) => 0;
                 assert(tag_ == LFSR_TAG_REG);
                 assert(rid_ == k);
@@ -7559,7 +7559,7 @@ code = '''
                 }
             }
 
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
         }
 
@@ -7675,7 +7675,7 @@ code = '''
             tag_ = 0;
             rid_ = -1;
             for (unsigned k = 0; k < N-1; k++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, NULL, &data_) => 0;
                 assert(tag_ == LFSR_TAG_REG);
                 assert(rid_ == k);
@@ -7689,7 +7689,7 @@ code = '''
                 }
 
                 for (unsigned u = 0; u < M; u++) {
-                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                             &rid_, &tag_, NULL, &data_) => 0;
                     assert(tag_ == LFSR_TAG_UATTR(u+1));
                     assert(rid_ == k);
@@ -7704,7 +7704,7 @@ code = '''
                 }
             }
 
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, NULL, &data_) => LFS_ERR_NOENT;
         }
 
@@ -8646,31 +8646,31 @@ code = '''
     assert(rid_ == 0);
     assert(weight_ == 1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 2);
     assert(weight_ == 2);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 5);
     assert(weight_ == 3);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 9);
     assert(weight_ == 4);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 14);
     assert(weight_ == 5);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -8680,31 +8680,31 @@ code = '''
     assert(rid_ == 0);
     assert(weight_ == 1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 2);
     assert(weight_ == 2);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 5);
     assert(weight_ == 3);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 9);
     assert(weight_ == 4);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 14);
     assert(weight_ == 5);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -8872,7 +8872,7 @@ code = '''
         tag_ = 0;
         rid_ = -1;
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, &weight_, &data_) => 0;
             assert(tag_ == LFSR_TAG_REG);
             assert(rid_ == j*W+W-1);
@@ -8882,7 +8882,7 @@ code = '''
             lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
             assert(memcmp(buffer, names[j % 6], 4) == 0);
         }
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
     }
 '''
@@ -9615,97 +9615,97 @@ code = '''
     assert(rid_ == -1);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 9);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 0);
     assert(weight_ == 1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 2);
     assert(weight_ == 2);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 5);
     assert(weight_ == 3);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 5);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == 5);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 9);
     assert(weight_ == 4);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 9);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == 9);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 14);
     assert(weight_ == 5);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 14);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == 14);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.block, 0) => 0;
@@ -9715,97 +9715,97 @@ code = '''
     assert(rid_ == -1);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 9);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 0);
     assert(weight_ == 1);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 2);
     assert(weight_ == 2);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 5);
     assert(weight_ == 3);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 5);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == 5);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 9);
     assert(weight_ == 4);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 9);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == 9);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_REG);
     assert(rid_ == 14);
     assert(weight_ == 5);
     assert(lfsr_data_size(&data_) == 4);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(1));
     assert(rid_ == 14);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => 0;
     assert(tag_ == LFSR_TAG_UATTR(2));
     assert(rid_ == 14);
     assert(weight_ == 0);
     assert(lfsr_data_size(&data_) == 2);
-    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
             &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 '''
 
@@ -10002,14 +10002,14 @@ code = '''
         // try traversing all tags
         tag_ = 0;
         rid_ = -1;
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, &weight_, &data_) => 0;
         assert(tag_ == LFSR_TAG_UATTR(3));
         assert(rid_ == -1);
         assert(weight_ == 0);
         assert(lfsr_data_size(&data_) == 9);
         for (unsigned j = 0; j < N; j++) {
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, &weight_, &data_) => 0;
             assert(tag_ == LFSR_TAG_REG);
             assert(rid_ == j*W+W-1);
@@ -10019,20 +10019,20 @@ code = '''
             lfsr_rbyd_get(&lfs, &rbyd, rid_, tag_, buffer, 4) => 4;
             assert(memcmp(buffer, names[j % 6], 4) == 0);
 
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, &weight_, &data_) => 0;
             assert(tag_ == LFSR_TAG_UATTR(1));
             assert(rid_ == j*W+W-1);
             assert(weight_ == 0);
             assert(lfsr_data_size(&data_) == 2);
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, &weight_, &data_) => 0;
             assert(tag_ == LFSR_TAG_UATTR(2));
             assert(rid_ == j*W+W-1);
             assert(weight_ == 0);
             assert(lfsr_data_size(&data_) == 2);
         }
-        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+        lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                 &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
     }
 '''
@@ -11725,7 +11725,7 @@ code = '''
             lfs_size_t weight_;
             lfsr_data_t data_;
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, &weight_, &data_) => 0;
                 assert(rid_ == k);
                 assert(tag_ == LFSR_TAG_REG);
@@ -11733,7 +11733,7 @@ code = '''
                 assert(lfsr_data_size(&data_) == 4);
 
                 if (k != j) {
-                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                             &rid_, &tag_, &weight_, &data_) => 0;
                     assert(rid_ == k);
                     assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
@@ -11741,7 +11741,7 @@ code = '''
                     assert(lfsr_data_size(&data_) == 2);
                 }
             }
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
             // also test that we can lookup each tag with a wide lookup
@@ -11863,14 +11863,14 @@ code = '''
             lfs_size_t weight_;
             lfsr_data_t data_;
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, &weight_, &data_) => 0;
                 assert(rid_ == k);
                 assert(tag_ == LFSR_TAG_REG);
                 assert(weight_ == 1);
                 assert(lfsr_data_size(&data_) == 4);
 
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, &weight_, &data_) => 0;
                 if (k == j) {
                     assert(rid_ == k);
@@ -11884,7 +11884,7 @@ code = '''
                     assert(lfsr_data_size(&data_) == 2);
                 }
             }
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
             // also test that we can lookup each tag with a wide lookup
@@ -12092,7 +12092,7 @@ code = '''
             lfs_size_t weight_;
             lfsr_data_t data_;
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, &weight_, &data_) => 0;
                 assert(rid_ == k);
                 assert(tag_ == LFSR_TAG_REG);
@@ -12100,7 +12100,7 @@ code = '''
                 assert(lfsr_data_size(&data_) == 4);
 
                 if (k != j) {
-                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                    lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                             &rid_, &tag_, &weight_, &data_) => 0;
                     assert(rid_ == k);
                     assert(tag_ == LFSR_TAG_UATTR((k + SHIFT) & 0x7f));
@@ -12108,14 +12108,14 @@ code = '''
                     assert(lfsr_data_size(&data_) == 2);
                 }
 
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, &weight_, &data_) => 0;
                 assert(rid_ == k);
                 assert(tag_ == LFSR_TAG_SATTR(0));
                 assert(weight_ == 0);
                 assert(lfsr_data_size(&data_) == 1);
             }
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
             // also test that we can lookup each tag with a wide lookup
@@ -12239,14 +12239,14 @@ code = '''
             lfs_size_t weight_;
             lfsr_data_t data_;
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, &weight_, &data_) => 0;
                 assert(rid_ == k);
                 assert(tag_ == LFSR_TAG_REG);
                 assert(weight_ == 1);
                 assert(lfsr_data_size(&data_) == 4);
 
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, &weight_, &data_) => 0;
                 if (k == j) {
                     assert(rid_ == k);
@@ -12260,14 +12260,14 @@ code = '''
                     assert(lfsr_data_size(&data_) == 2);
                 }
 
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, &weight_, &data_) => 0;
                 assert(rid_ == k);
                 assert(tag_ == LFSR_TAG_SATTR(0));
                 assert(weight_ == 0);
                 assert(lfsr_data_size(&data_) == 1);
             }
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
             // also test that we can lookup each tag with a wide lookup
@@ -12469,7 +12469,7 @@ code = '''
             lfs_size_t weight_;
             lfsr_data_t data_;
             for (unsigned k = 0; k < N-1; k++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, &weight_, &data_) => 0;
                 if (k == j) {
                     assert(rid_ == k+1);
@@ -12488,7 +12488,7 @@ code = '''
                     assert(lfsr_data_size(&data_) == 4);
                 }
             }
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
             // also test that we can lookup each tag with a wide lookup
@@ -12609,7 +12609,7 @@ code = '''
             lfs_size_t weight_;
             lfsr_data_t data_;
             for (unsigned k = 0; k < N; k++) {
-                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+                lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                         &rid_, &tag_, &weight_, &data_) => 0;
                 if (k == j) {
                     assert(rid_ == k);
@@ -12623,7 +12623,7 @@ code = '''
                     assert(lfsr_data_size(&data_) == 4);
                 }
             }
-            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, lfsr_tag_next(tag_),
+            lfsr_rbyd_lookupnext(&lfs, &rbyd, rid_, tag_+1,
                     &rid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
             // also test that we can lookup each tag with a wide lookup
