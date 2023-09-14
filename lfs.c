@@ -4350,7 +4350,7 @@ typedef struct lfsr_btree_traversal {
     lfsr_rbyd_t branch;
 } lfsr_btree_traversal_t;
 
-#define LFSR_BTREE_TRAVERSAL \
+#define LFSR_BTREE_TRAVERSAL() \
     ((lfsr_btree_traversal_t){ \
         .bid=0, \
         .rid=0, \
@@ -4504,7 +4504,7 @@ static int lfsr_btree_traversal_next(lfs_t *lfs, const lfsr_btree_t *btree,
 /// Metadata pair operations ///
 
 // the mroot anchor, mdir 0x{0,1} is the entry point into the filesystem
-#define LFSR_MBLOCKS_MROOTANCHOR ((const lfs_block_t[2]){0, 1})
+#define LFSR_MBLOCKS_MROOTANCHOR() ((const lfs_block_t[2]){0, 1})
 
 static inline int lfsr_mblocks_cmp(
         const lfs_block_t a[static 2],
@@ -4767,8 +4767,8 @@ static int lfsr_mtree_parent(lfs_t *lfs, const lfs_block_t blocks[static 2],
 
     // scan list of mroots for our requested pair
     lfs_block_t blocks_[2] = {
-            LFSR_MBLOCKS_MROOTANCHOR[0],
-            LFSR_MBLOCKS_MROOTANCHOR[1]};
+            LFSR_MBLOCKS_MROOTANCHOR()[0],
+            LFSR_MBLOCKS_MROOTANCHOR()[1]};
     while (true) {
         // fetch next possible superblock
         lfsr_mdir_t mdir;
@@ -5978,7 +5978,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
     if (traversal->mdir.u.m.trunk == 0) {
         // fetch the first mroot 0x{0,1}
         int err = lfsr_mdir_fetch(lfs, &traversal->mdir,
-                -1, LFSR_MBLOCKS_MROOTANCHOR);
+                -1, LFSR_MBLOCKS_MROOTANCHOR());
         if (err) {
             return err;
         }
@@ -6084,7 +6084,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             }
 
             // initialize our mtree traversal
-            traversal->u.b.traversal = LFSR_BTREE_TRAVERSAL;
+            traversal->u.b.traversal = LFSR_BTREE_TRAVERSAL();
         }
     }
 
