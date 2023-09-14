@@ -5159,7 +5159,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // xor with our current gstate to find our initial gdelta
             int err = lfsr_grm_xor(lfs, lfs->dgrm,
-                    LFSR_DATA(lfs->pgrm, LFSR_GRM_DSIZE));
+                    LFSR_DATA(lfs->ggrm, LFSR_GRM_DSIZE));
             if (err) {
                 return err;
             }
@@ -5587,7 +5587,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfs->grm = *(lfsr_grm_t*)attrs[i].data.u.b.buffer;
 
             // keep track of the exact encoding on-disk
-            lfsr_data_fromgrm(lfs, &lfs->grm, lfs->pgrm);
+            lfsr_data_fromgrm(lfs, &lfs->grm, lfs->ggrm);
         }
     }
 
@@ -6536,10 +6536,10 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
     // TODO should the consumegdelta above take gstate/gdelta as a parameter?
     // keep track of the current gstate on disk
-    memcpy(lfs->pgrm, lfs->dgrm, LFSR_GRM_DSIZE);
+    memcpy(lfs->ggrm, lfs->dgrm, LFSR_GRM_DSIZE);
 
     // decode grm so we can report any removed files as missing
-    int err = lfsr_data_readgrm(lfs, &LFSR_DATA(lfs->pgrm, LFSR_GRM_DSIZE),
+    int err = lfsr_data_readgrm(lfs, &LFSR_DATA(lfs->ggrm, LFSR_GRM_DSIZE),
             &lfs->grm);
     if (err) {
         return err;
@@ -10906,7 +10906,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->opened[LFS_TYPE_DIR] = NULL;
 
     // zero gstate
-    memset(lfs->pgrm, 0, LFSR_GRM_DSIZE);
+    memset(lfs->ggrm, 0, LFSR_GRM_DSIZE);
     memset(lfs->dgrm, 0, LFSR_GRM_DSIZE);
 
     return 0;

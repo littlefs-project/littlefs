@@ -405,12 +405,9 @@ typedef struct lfsr_openedmdir {
 } lfsr_openedmdir_t;
 
 // space for:
-// - type - 1 leb128 - 1 byte (worst case)
-// - mid0 - 1 leb128 - 5 bytes (worst case)
-// - rid0 - 1 leb128 - 5 bytes (worst case)
-// - mid1 - 1 leb128 - 5 bytes (worst case)
-// - rid1 - 1 leb128 - 5 bytes (worst case)
-#define LFSR_GRM_DSIZE (1+5+5+5+5)
+// - type   - 1 leb128 - 1 byte (worst case)
+// - 2 mids - 2 leb128 - 10 bytes (worst case)
+#define LFSR_GRM_DSIZE (1+5+5)
 
 typedef struct lfsr_grm {
     lfsr_smid_t rms[2];
@@ -514,7 +511,7 @@ typedef struct lfs {
 
     // begin lfsr things
     lfsr_grm_t grm;
-    uint8_t pgrm[LFSR_GRM_DSIZE];
+    uint8_t ggrm[LFSR_GRM_DSIZE];
     uint8_t dgrm[LFSR_GRM_DSIZE];
 
     uint8_t mbits;
