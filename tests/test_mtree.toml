@@ -4243,11 +4243,11 @@ code = '''
     lfsr_mount(&lfs, CFG) => 0;
     lfs_alloc_ack(&lfs);
 
-    uint8_t buffer[LFSR_MDIR_DSIZE];
-    lfs_ssize_t d = lfsr_mblocks_todisk(&lfs, LFSR_MBLOCKS_MROOTANCHOR, buffer);
-    assert(d >= 0);
+    uint8_t buf[LFSR_MDIR_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(-1, MROOT, 0, BUF(buffer, d)))) => 0;
+            LFSR_ATTR(-1,
+                MROOT, 0, FROMMBLOCKS(&lfs, LFSR_MBLOCKS_MROOTANCHOR,
+                    buf)))) => 0;
 
     // technically, cycle detection only needs to work when we're validating
     lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
