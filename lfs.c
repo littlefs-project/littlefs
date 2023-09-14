@@ -426,7 +426,6 @@ static int lfsr_bd_prog(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
         uint32_t *cksum_) {
     // check for in-bounds
     if (off+size > lfs->cfg->block_size) {
-        lfs_cache_zero(lfs, &lfs->pcache);
         return LFS_ERR_RANGE;
     }
 
@@ -1079,6 +1078,10 @@ static inline bool lfsr_data_hasleb128(const lfsr_data_t *data) {
     return data->u.b.leb128;
 }
 
+static inline int32_t lfsr_data_leb128(const lfsr_data_t *data) {
+    return data->u.b.leb128 & 0x7fffffff;
+}
+
 static void lfsr_data_add(lfsr_data_t *data, lfs_size_t off) {
     lfsr_data_t data_ = *data;
     // limit our off to data range
@@ -1248,7 +1251,8 @@ static int lfsr_bd_progdata(lfs_t *lfs,
         // but can also be used for programming single leb128s cheaply.
         if (lfsr_data_hasleb128(&data)) {
             uint8_t leb_buf[5];
-            lfs_ssize_t leb_dsize = lfs_toleb128(data.u.b.leb128 & 0x7fffffff,
+            lfs_ssize_t leb_dsize = lfs_toleb128(
+                    lfsr_data_leb128(&data),
                     leb_buf, 5);
             if (leb_dsize < 0) {
                 return leb_dsize;
@@ -1937,7 +1941,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // this failed most likely a previous prog was interrupted, we
         // need a new erase
         uint32_t ecksum_ = 0;
-        int err = lfsr_bd_cksum(lfs, rbyd->block, rbyd->eoff, 0, ecksum.size,
+        err = lfsr_bd_cksum(lfs, rbyd->block, rbyd->eoff, 0, ecksum.size,
                 &ecksum_);
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
@@ -2947,14 +2951,16 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         int err = lfsr_rbyd_lookupnext(lfs, rbyd,
                 rid, tag+1,
                 &rid, &tag, &weight, &data);
-        if (err && err != LFS_ERR_NOENT) {
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
             return err;
         }
         // end of range? note the use of rid+1 and unsigned comparison here to
         // treat end_rid=-1 as "unbounded" in such a way that rid=-1 is still
         // included
-        if (err == LFS_ERR_NOENT
-                || (lfs_size_t)(rid + 1) > (lfs_size_t)end_rid) {
+        if ((lfs_size_t)(rid + 1) > (lfs_size_t)end_rid) {
             break;
         }
 
@@ -3077,6 +3083,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
+
         if (err != LFS_ERR_NOENT) {
             lfs_ssize_t grm_dsize = lfsr_data_read(lfs, &data,
                     grm_buf, LFSR_GRM_DSIZE);
@@ -3126,10 +3133,13 @@ static lfs_ssize_t lfsr_rbyd_estimate_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         int err = lfsr_rbyd_lookupnext(lfs, rbyd,
                 rid, tag+1,
                 &rid__, &tag, &weight_, &data);
-        if (err && err != LFS_ERR_NOENT) {
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
             return err;
         }
-        if (err == LFS_ERR_NOENT || rid__ > rid+lfs_smax32(weight_-1, 0)) {
+        if (rid__ > rid+lfs_smax32(weight_-1, 0)) {
             break;
         }
 
@@ -3793,21 +3803,21 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_rbyd_t rbyd_ = rbyd;
         int err = lfsr_rbyd_appendattrs(lfs, &rbyd_, bid, -1,
                 attrs, attr_count);
-        if (err && err != LFS_ERR_RANGE) {
-            // TODO wait should we also move if there is corruption here?
-            return err;
-        }
         if (err) {
-            goto compact;
+            // TODO wait should we also move if there is corruption here?
+            if (err == LFS_ERR_RANGE) {
+                goto compact;
+            }
+            return err;
         }
 
         err = lfsr_rbyd_appendcksum(lfs, &rbyd_);
-        if (err && err != LFS_ERR_RANGE) {
+        if (err) {
+            if (err == LFS_ERR_RANGE) {
+                goto compact;
+            }
             // TODO wait should we also move if there is corruption here?
             return err;
-        }
-        if (err) {
-            goto compact;
         }
 
         goto finalize;
@@ -4073,7 +4083,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         if (rid == -1) {
             LFS_ASSERT(bid == 0);
 
-            int err = lfsr_rbyd_alloc(lfs, &parent);
+            err = lfsr_rbyd_alloc(lfs, &parent);
             if (err) {
                 return err;
             }
@@ -4639,7 +4649,7 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
             return err;
         }
 
-        if (!err) {
+        if (err != LFS_ERR_CORRUPT) {
             mdir->mid = mid;
             // keep track of other block for compactions
             mdir->u.m.blocks[1] = blocks_[1];
@@ -4988,11 +4998,11 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     int err = lfsr_mdir_lookupnext(lfs, mdir__,
                             mdir__->mid, tag+1,
                             &tag, &data);
-                    if (err && err != LFS_ERR_NOENT) {
+                    if (err) {
+                        if (err == LFS_ERR_NOENT) {
+                            break;
+                        }
                         return err;
-                    }
-                    if (err == LFS_ERR_NOENT) {
-                        break;
                     }
 
                     // append the attr
@@ -5089,11 +5099,11 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
     // try to commit
     int err = lfsr_mdir_commit__(lfs, mdir, start_rid, end_rid,
             attrs, attr_count);
-    if (err && err != LFS_ERR_RANGE) {
+    if (err) {
+        if (err == LFS_ERR_RANGE) {
+            goto compact;
+        }
         return err;
-    }
-    if (err == LFS_ERR_RANGE) {
-        goto compact;
     }
 
     return 0;
@@ -5224,7 +5234,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             //
             // This makes it so the split logic is the same whether or not
             // we're uninlining.
-            int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
+            err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
                     LFSR_ATTR(0, MDIR, +lfsr_mweight(lfs), NULL)));
             if (err) {
                 return err;
@@ -5236,14 +5246,14 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // we do this here so we don't have to worry about corner cases
         // with dropping mdirs during a split
         } else {
-            int err = lfsr_fs_consumegdelta(lfs, mdir);
+            err = lfsr_fs_consumegdelta(lfs, mdir);
             if (err) {
                 return err;
             }
         }
 
         // compact into new mdir tags < split_rid
-        int err = lfsr_mdir_alloc(lfs, &mdir_,
+        err = lfsr_mdir_alloc(lfs, &mdir_,
                 lfs_smax32(mid, 0));
         if (err) {
             return err;
@@ -5387,7 +5397,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_btree_unerase(&lfs->mtree);
 
         // update our mtree
-        int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
+        err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
                 LFSR_ATTR(mdir_.mid | lfsr_mridmask(lfs),
                     RM, -lfsr_mweight(lfs), NULL)));
         if (err) {
@@ -5415,7 +5425,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             return mdir_dsize;
         }
 
-        int err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
+        err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
                 LFSR_ATTR(mdir_.mid | lfsr_mridmask(lfs),
                     MDIR, 0, BUF(mdir_buf, mdir_dsize))));
         if (err) {
@@ -5438,7 +5448,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             //
             lfsr_grm_t *grm = (lfsr_grm_t*)attrs[i].data.u.b.buffer;
             uint8_t grm_buf[LFSR_GRM_DSIZE];
-            int err = lfsr_grm_todisk(lfs, grm, grm_buf);
+            err = lfsr_grm_todisk(lfs, grm, grm_buf);
             if (err) {
                 return err;
             }
@@ -5524,7 +5534,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             && !lfsr_mdir_ismrootanchor(&mrootchild)) {
         // find the mroot's parent
         lfsr_mdir_t mrootparent_;
-        int err = lfsr_mtree_parent(lfs, mrootchild.u.m.blocks, &mrootparent_);
+        err = lfsr_mtree_parent(lfs, mrootchild.u.m.blocks, &mrootparent_);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -5588,14 +5598,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfsr_srid_t rid;
             lfsr_rid_t weight;
             lfsr_data_t data;
-            int err = lfsr_rbyd_lookupnext(lfs, &mrootchild.u.r.rbyd,
+            err = lfsr_rbyd_lookupnext(lfs, &mrootchild.u.r.rbyd,
                     -1, tag+1,
                     &rid, &tag, &weight, &data);
-            if (err && err != LFS_ERR_NOENT) {
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
                 return err;
             }
             // TODO use suptype == CONFIG here?
-            if (err == LFS_ERR_NOENT || rid != -1 || tag >= LFSR_TAG_GSTATE) {
+            if (rid != -1 || tag >= LFSR_TAG_GSTATE) {
                 break;
             }
 
@@ -5635,7 +5648,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfs->grm = *(lfsr_grm_t*)attrs[i].data.u.b.buffer;
 
             // keep track of the exact encoding on-disk
-            int err = lfsr_grm_todisk(lfs, &lfs->grm, lfs->pgrm);
+            err = lfsr_grm_todisk(lfs, &lfs->grm, lfs->pgrm);
             if (err) {
                 LFS_ASSERT(!err);
                 return err;
@@ -6158,7 +6171,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         if (traversal->flags & LFSR_MTREE_TRAVERSAL_VALIDATE) {
             lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.u.b.buffer;
             lfsr_rbyd_t branch_;
-            int err = lfsr_rbyd_fetch(lfs, &branch_,
+            err = lfsr_rbyd_fetch(lfs, &branch_,
                     branch->block, branch->trunk);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
@@ -6348,11 +6361,11 @@ static int lfsr_mountinited(lfs_t *lfs) {
         lfsr_data_t data;
         int err = lfsr_mtree_traversal_next(lfs, &traversal,
                 NULL, &tag, &data);
-        if (err && err != LFS_ERR_NOENT) {
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
             return err;
-        }
-        if (err == LFS_ERR_NOENT) {
-            break;
         }
 
         // we only care about mdirs here
@@ -6404,7 +6417,8 @@ static int lfsr_mountinited(lfs_t *lfs) {
                 if (err && err != LFS_ERR_CORRUPT) {
                     return err;
                 }
-                if (!err) {
+
+                if (err != LFS_ERR_CORRUPT) {
                     err = lfsr_data_readleb128(lfs, &data, &minor_version);
                     // treat any leb128 overflows as out-of-range values
                     if (err && err != LFS_ERR_CORRUPT) {
@@ -6412,7 +6426,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     }
                 }
                 
-                if (err
+                if (err == LFS_ERR_CORRUPT
                         || major_version != LFS_DISK_VERSION_MAJOR
                         || minor_version > LFS_DISK_VERSION_MINOR) {
                     LFS_ERROR("Incompatible version v%"PRId32".%"PRId32
@@ -6432,7 +6446,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return err;
                 }
 
-                if (err || cksum_type != 2) {
+                if (err == LFS_ERR_CORRUPT || cksum_type != 2) {
                     LFS_ERROR("Incompatible cksum type 0x%"PRIx32
                             " (!= 0x%"PRIx32")",
                             (err ? -1 : cksum_type),
@@ -6448,7 +6462,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return err;
                 }
 
-                if (err || flags != 0) {
+                if (err == LFS_ERR_CORRUPT || flags != 0) {
                     LFS_ERROR("Incompatible flags 0x%"PRIx32
                             " (!= 0x%"PRIx32")",
                             (err ? -1 : flags),
@@ -6465,7 +6479,8 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return err;
                 }
 
-                if (err || block_size != lfs->cfg->block_size) {
+                if (err == LFS_ERR_CORRUPT
+                        || block_size != lfs->cfg->block_size) {
                     LFS_ERROR("Incompatible block size 0x%"PRIx32
                             " (!= 0x%"PRIx32")",
                             (err ? (lfs_size_t)-1 : block_size),
@@ -6482,7 +6497,8 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return err;
                 }
 
-                if (err || block_count != lfs->cfg->block_count) {
+                if (err == LFS_ERR_CORRUPT
+                        || block_count != lfs->cfg->block_count) {
                     LFS_ERROR("Incompatible block count 0x%"PRIx32
                             " (!= 0x%"PRIx32")",
                             (err ? (lfs_block_t)-1 : block_count),
@@ -6499,7 +6515,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return err;
                 }
 
-                if (err || utag_limit != 0x7f) {
+                if (err == LFS_ERR_CORRUPT || utag_limit != 0x7f) {
                     LFS_ERROR("Incompatible utag limit 0x%"PRIx32
                             " (> 0x%"PRIx32")",
                             (err ? -1 : utag_limit),
@@ -6516,7 +6532,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return err;
                 }
 
-                if (err || mtree_limit != 0x7fffffff) {
+                if (err == LFS_ERR_CORRUPT || mtree_limit != 0x7fffffff) {
                     LFS_ERROR("Incompatible mdir limit 0x%"PRIx32
                             " (> 0x%"PRIx32")",
                             (err ? -1 : mtree_limit),
@@ -6533,7 +6549,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return err;
                 }
 
-                if (err || attr_limit != 0x7fffffff) {
+                if (err == LFS_ERR_CORRUPT || attr_limit != 0x7fffffff) {
                     LFS_ERROR("Incompatible attr limit 0x%"PRIx32
                             " (> 0x%"PRIx32")",
                             (err ? -1 : attr_limit),
@@ -6550,7 +6566,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return err;
                 }
 
-                if (err || name_limit != 0xff) {
+                if (err == LFS_ERR_CORRUPT || name_limit != 0xff) {
                     LFS_ERROR("Incompatible name limit 0x%"PRIx32
                             " (> 0x%"PRIx32")",
                             (err ? -1 : name_limit),
@@ -6567,7 +6583,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return err;
                 }
 
-                if (err || file_limit != 0x7fffffff) {
+                if (err == LFS_ERR_CORRUPT || file_limit != 0x7fffffff) {
                     LFS_ERROR("Incompatible file limit 0x%"PRIx32
                             " (> 0x%"PRIx32")",
                             (err ? -1 : file_limit),
@@ -6805,11 +6821,11 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
             lfsr_data_t data;
             int err = lfsr_mtree_traversal_next(lfs, &traversal,
                     NULL, &tag, &data);
-            if (err && err != LFS_ERR_NOENT) {
+            if (err) {
+                if (err == LFS_ERR_NOENT) {
+                    break;
+                }
                 return err;
-            }
-            if (err == LFS_ERR_NOENT) {
-                break;
             }
 
             // TODO add block pointers here?
@@ -6896,13 +6912,13 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // available did
     lfsr_openedmdir_t bookmark;
     while (true) {
-        int err = lfsr_mtree_namelookup(lfs, did_, NULL, 0,
+        err = lfsr_mtree_namelookup(lfs, did_, NULL, 0,
                 &bookmark.mdir, NULL, NULL);
-        if (err && err != LFS_ERR_NOENT) {
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
             return err;
-        }
-        if (err == LFS_ERR_NOENT) {
-            break;
         }
 
         // try the next did
@@ -6978,7 +6994,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     if (tag == LFSR_TAG_DIR) {
         // first lets figure out the did
         lfsr_data_t data;
-        int err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_DID,
+        err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_DID,
                 NULL, &data);
         if (err) {
             return err;
@@ -7110,7 +7126,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             // TODO deduplicate the isempty check with lfsr_remove?
             // first lets figure out the did
             lfsr_data_t data;
-            int err = lfsr_mdir_lookup(lfs, &new_mdir,
+            err = lfsr_mdir_lookup(lfs, &new_mdir,
                     new_mdir.mid, LFSR_TAG_DID,
                     NULL, &data);
             if (err) {
@@ -7167,6 +7183,9 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
                 TAG(old_tag), +1, NAME(new_did, new_name, new_name_size)),
             LFSR_ATTR(new_mdir.mid, MOVE, 0, MOVE(&old_mdir)),
             LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
+    if (err) {
+        return err;
+    }
 
     // we need to clean up any pending grms, fortunately we can leave
     // this up to lfsr_fs_fixgrm
@@ -7228,7 +7247,7 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
         dir->did = 0;
     } else {
         lfsr_data_t data;
-        int err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_DID,
+        err = lfsr_mdir_lookup(lfs, &mdir, mdir.mid, LFSR_TAG_DID,
                 NULL, &data);
         if (err) {
             return err;
