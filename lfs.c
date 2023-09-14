@@ -6235,14 +6235,15 @@ static lfsr_data_t lfsr_data_fromsuperconfig(lfs_t *lfs,
     LFS_ASSERT(d_ >= 0);
     d += d_;
 
+    // on-disk mlimit
+    lfsr_mid_t mlimit = lfsr_mweight(lfs)-1;
+    d_ = lfs_toleb128(mlimit, &buffer[d], 5);
+    LFS_ASSERT(d_ >= 0);
+    d += d_;
+
     // on-disk utag limit
     buffer[d] = 0x7f;
     d += 1;
-
-    // on-disk mtree limit
-    d_ = lfs_toleb128(0x7fffffff, &buffer[d], 5);
-    LFS_ASSERT(d_ >= 0);
-    d += d_;
 
     // on-disk attr limit
     d_ = lfs_toleb128(0x7fffffff, &buffer[d], 5);
@@ -6432,6 +6433,21 @@ static int lfsr_mountinited(lfs_t *lfs) {
                     return LFS_ERR_INVAL;
                 }
 
+                // check the on-disk mtree limit
+                // TODO actually use this
+                lfsr_mid_t mlimit;
+                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&mlimit);
+                // treat any leb128 overflows as out-of-range values
+                if (err && err != LFS_ERR_CORRUPT) {
+                    return err;
+                }
+
+                if (err == LFS_ERR_CORRUPT || mlimit != lfsr_mweight(lfs)-1) {
+                    LFS_ERROR("Incompatible mlimit 0x%"PRIx32,
+                            (err ? (lfsr_mid_t)-1 : mlimit));
+                    return LFS_ERR_INVAL;
+                }
+
                 // check the on-disk utag limit
                 // TODO actually use this
                 int32_t utag_limit;
@@ -6446,23 +6462,6 @@ static int lfsr_mountinited(lfs_t *lfs) {
                             " (> 0x%"PRIx32")",
                             (err ? -1 : utag_limit),
                             0x7f);
-                    return LFS_ERR_INVAL;
-                }
-
-                // check the on-disk mtree limit
-                // TODO actually use this
-                lfsr_smid_t mtree_limit;
-                err = lfsr_data_readleb128(lfs, &data, &mtree_limit);
-                // treat any leb128 overflows as out-of-range values
-                if (err && err != LFS_ERR_CORRUPT) {
-                    return err;
-                }
-
-                if (err == LFS_ERR_CORRUPT || mtree_limit != 0x7fffffff) {
-                    LFS_ERROR("Incompatible mdir limit 0x%"PRIx32
-                            " (> 0x%"PRIx32")",
-                            (err ? -1 : mtree_limit),
-                            0x7fffffff);
                     return LFS_ERR_INVAL;
                 }
 

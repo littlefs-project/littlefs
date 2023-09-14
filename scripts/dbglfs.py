@@ -645,6 +645,7 @@ def superconfig(mroot):
     next('flags')
     next('block_size')
     next('block_count')
+    next('mlimit')
     next('utag_limit')
     next('attr_limit')
     next('name_limit')
@@ -653,10 +654,10 @@ def superconfig(mroot):
 
 # collect gstate
 class GState:
-    def __init__(self, mbits):
+    def __init__(self, mweight):
         self.gstate = {}
         self.gdelta = {}
-        self.mbits = mbits
+        self.mweight = mweight
 
     def xor(self, mbid, mw, mdir):
         tag = TAG_GSTATE-0x1
@@ -690,11 +691,11 @@ class GState:
             for _ in range(count):
                 mid, d_ = fromleb128(data[d:]); d += d_
                 rms.append((
-                    mid & ~((1 << self.mbits)-1),
-                    mid & ((1 << self.mbits)-1)))
+                    mid - (mid % self.mweight),
+                    mid % self.mweight))
         return rms
 
-def grepr(tag, data, mbits):
+def grepr(tag, data, mweight):
     if tag == TAG_GRM:
         d = 0
         count,  d_ = fromleb128(data[d:]); d += d_
@@ -703,11 +704,11 @@ def grepr(tag, data, mbits):
             for _ in range(count):
                 mid, d_ = fromleb128(data[d:]); d += d_
                 rms.append((
-                    mid & ~((1 << mbits)-1),
-                    mid & ((1 << mbits)-1)))
+                    mid - (mid % self.mweight),
+                    mid % self.mweight))
         return 'grm %s' % (
             'none' if count == 0
-                else ' '.join('%d.%d' % (mbid >> mbits, rid)
+                else ' '.join('%d.%d' % (mbid//mweight, rid)
                         for mbid, rid in rms)
                     if count <= 2
                 else '0x%x' % count)
@@ -737,6 +738,7 @@ def frepr(mdir, rid, tag):
 
 def main(disk, mroots=None, *,
         block_size=None,
+        mweight=None,
         color='auto',
         **args):
     # figure out what color should be
@@ -759,9 +761,10 @@ def main(disk, mroots=None, *,
             f.seek(0, os.SEEK_END)
             block_size = f.tell()
 
-        # determine the number of mbits from the block_size, this is just
-        # for printing purposes
-        mbits = m.ceil(m.log2(block_size // 16))
+        # determine the mweight from the block_size, this is just for
+        # printing purposes
+        if mweight is None:
+            mweight = 1 << m.ceil(m.log2(block_size // 16))
 
         # before we print, we need to do a pass for a few things:
         # - find the actual mroot
@@ -770,10 +773,10 @@ def main(disk, mroots=None, *,
         # - collect superconfig
         # - collect gstate
         # - any missing or orphaned bookmark entries
-        mweight = 0
+        bweight = 0
         rweight = 0
         corrupted = False
-        gstate = GState(mbits)
+        gstate = GState(mweight)
         config = {}
         dir_dids = [(0, b'', -1, 0, None, -1, TAG_DID, 0)]
         bookmark_dids = []
@@ -844,7 +847,7 @@ def main(disk, mroots=None, *,
             block, trunk, w, cksum = frombtree(data)
             mtree = Rbyd.fetch(f, block_size, block, trunk)
 
-            mweight = w
+            bweight = w
 
             # traverse entries
             mbid = -1
@@ -941,10 +944,10 @@ def main(disk, mroots=None, *,
         print('littlefs v%s.%s %s, rev %d, weight %d.%d' % (
             config.get('major_version', ('?',))[0],
             config.get('minor_version', ('?',))[0],
-            mroot.addr(), mroot.rev, mweight >> mbits, 1 << mbits))
+            mroot.addr(), mroot.rev, bweight//mweight, 1*mweight))
 
         # print header
-        w_width = (m.ceil(m.log10(max(1, mweight >> mbits)+1))
+        w_width = (m.ceil(m.log10(max(1, bweight//mweight)+1))
             + 2*m.ceil(m.log10(max(1, rweight)+1))
             + 2)
         if dtree:
@@ -999,7 +1002,7 @@ def main(disk, mroots=None, *,
                 print('%12s %-*s  %s' % (
                     'gstate:' if i == 0 else '',
                     w_width + 23,
-                    grepr(tag, data, mbits),
+                    grepr(tag, data, mweight),
                     next(xxd(data, 8), '')
                         if not args.get('no_truncate') else ''))
 
@@ -1034,7 +1037,7 @@ def main(disk, mroots=None, *,
                             ','.join('%04x' % block
                                 for block in it.chain([mdir.block],
                                     mdir.redund_blocks)),
-                            w_width, mbid >> mbits,
+                            w_width, mbid//mweight,
                             tagrepr(tag, 0, len(data)),
                             next(xxd(data, 8), '')
                                 if not args.get('no_truncate') else '',
@@ -1137,8 +1140,8 @@ def main(disk, mroots=None, *,
                                 mdir.redund_blocks))
                             if mbid != pmbid else '',
                         w_width, '%d.%d-%d' % (
-                                mbid >> mbits, rid-(w-1), rid)
-                            if w > 1 else '%d.%d' % (mbid >> mbits, rid)
+                                mbid//mweight, rid-(w-1), rid)
+                            if w > 1 else '%d.%d' % (mbid//mweight, rid)
                             if w > 0 else '',
                         f_width, '%s%s' % (
                             prefixes[0+(i==len(dir)-1)],
@@ -1239,6 +1242,11 @@ if __name__ == "__main__":
         '-B', '--block-size',
         type=lambda x: int(x, 0),
         help="Block size in bytes.")
+    parser.add_argument(
+        '-M', '--mweight',
+        type=lambda x: int(x, 0),
+        help="Weight of mtree leaves for mid decoding. Defaults to a "
+            "block_size derived value.")
     parser.add_argument(
         '--color',
         choices=['never', 'always', 'auto'],
