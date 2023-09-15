@@ -1433,17 +1433,10 @@ def main(disk, mroots=None, *,
         print('mtree %s, rev %d, weight %d.%d' % (
             mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight))
 
-        # print header
+        # dynamically size the id field
         w_width = (m.ceil(m.log10(max(1, bweight//mleaf_weight)+1))
             + 2*m.ceil(m.log10(max(1, rweight)+1))
             + 2)
-        print('%-11s  %*s%-*s %-22s  %s' % (
-            'mdir',
-            t_width, '',
-            w_width, 'mid',
-            'tag',
-            'data (truncated)'
-                if not args.get('no_truncate') else ''))
 
         # show each mroot
         prbyd = None

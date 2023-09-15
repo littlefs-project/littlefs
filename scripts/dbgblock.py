@@ -87,9 +87,6 @@ def main(disk, block=None, *,
         f.seek((block * block_size) + (off or 0))
         data = f.read(size)
 
-        # print header
-        print('%-8s  %s' % ('off', 'data'))
-
         # render the hex view
         for o, line in enumerate(xxd(data)):
             print('%08x: %s' % ((off or 0) + 16*o, line))

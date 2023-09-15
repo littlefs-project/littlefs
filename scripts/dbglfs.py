@@ -1094,23 +1094,10 @@ def main(disk, mroots=None, *,
             config.version[1] if config.version[1] is not None else '?',
             mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight))
 
-        # print header
+        # dynamically size the id field
         w_width = (m.ceil(m.log10(max(1, bweight//mleaf_weight)+1))
             + 2*m.ceil(m.log10(max(1, rweight)+1))
             + 2)
-        if dtree:
-            print('%-11s  %-*s %-*s  %s' % (
-                'mdir',
-                w_width, 'mid',
-                f_width, 'name',
-                'type'))
-        else:
-            print('%-11s  %-*s %-22s  %s' % (
-                'mdir',
-                w_width, 'mid',
-                'tag',
-                'data (truncated)'
-                    if not args.get('no_truncate') else ''))
 
         # print config?
         if args.get('config'):

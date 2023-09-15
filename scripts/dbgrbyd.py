@@ -436,15 +436,8 @@ def dbg_log(data, block_size, rev, off, weight, *,
                 lifetime_width - sum(len(r) for r in reprs), '')
 
 
-    # print header
+    # dynamically size the id field
     w_width = 2*m.ceil(m.log10(max(1, weight)+1))+1
-    print('%-8s  %*s%-*s %-22s  %s' % (
-        'off',
-        lifetime_width, '',
-        w_width, 'rid',
-        'tag',
-        'data (truncated)'
-            if not args.get('no_truncate') else ''))
 
     # print revision count
     if args.get('raw'):
@@ -765,15 +758,8 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
             return '%s ' % ''.join(trunk)
 
 
-    # print header
+    # dynamically size the id field
     w_width = 2*m.ceil(m.log10(max(1, weight)+1))+1
-    print('%-8s  %*s%-*s %-22s  %s' % (
-        'off',
-        t_width, '',
-        w_width, 'rid',
-        'tag',
-        'data (truncated)'
-            if not args.get('no_truncate') else ''))
 
     rid, tag = -1, 0
     while True:

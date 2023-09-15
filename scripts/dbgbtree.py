@@ -827,15 +827,8 @@ def main(disk, roots=None, *,
                 return '%s ' % ''.join(trunk)
 
 
-        # print header
+        # dynamically size the id field
         w_width = 2*m.ceil(m.log10(max(1, btree.weight)+1))+1
-        print('%-9s  %*s%-*s %-22s  %s' % (
-            'rbyd',
-            t_width, '',
-            w_width, 'bid',
-            'tag',
-            'data (truncated)'
-                if not args.get('no_truncate') else ''))
 
         # prbyd here means the last rendered rbyd, we update
         # in dbg_branch to always print interleaved addresses
