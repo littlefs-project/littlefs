@@ -10,8 +10,19 @@ import struct
 
 
 TAG_NULL        = 0x0000
-TAG_SUPERMAGIC  = 0x0003
-TAG_SUPERCONFIG = 0x0004
+TAG_CONFIG      = 0x0000
+TAG_MAGIC       = 0x0003
+TAG_VERSION     = 0x0004
+TAG_FLAGS       = 0x0005
+TAG_CKSUMTYPE   = 0x0006
+TAG_REDUNDTYPE  = 0x0007
+TAG_BLOCKLIMIT  = 0x0008
+TAG_DISKLIMIT   = 0x0009
+TAG_MLEAFLIMIT  = 0x000a
+TAG_SIZELIMIT   = 0x000b
+TAG_NAMELIMIT   = 0x000c
+TAG_UTAGLIMIT   = 0x000d
+TAG_UATTRLIMIT  = 0x000e
 TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
@@ -132,12 +143,21 @@ def tagrepr(tag, w, size, off=None):
         return 'null%s%s' % (
             ' w%d' % w if w else '',
             ' %d' % size if size else '')
-    elif tag == TAG_SUPERMAGIC:
-        return 'supermagic%s %d' % (
-            ' w%d' % w if w else '',
-            size)
-    elif tag == TAG_SUPERCONFIG:
-        return 'superconfig%s %d' % (
+    elif (tag & 0xff00) == TAG_CONFIG:
+        return '%s%s %d' % (
+            'magic' if tag == TAG_MAGIC
+                else 'version' if tag == TAG_VERSION
+                else 'flags' if tag == TAG_FLAGS
+                else 'cksumtype' if tag == TAG_CKSUMTYPE
+                else 'redundtype' if tag == TAG_REDUNDTYPE
+                else 'blocklimit' if tag == TAG_BLOCKLIMIT
+                else 'disklimit' if tag == TAG_DISKLIMIT
+                else 'mleaflimit' if tag == TAG_MLEAFLIMIT
+                else 'sizelimit' if tag == TAG_SIZELIMIT
+                else 'namelimit' if tag == TAG_NAMELIMIT
+                else 'utaglimit' if tag == TAG_UTAGLIMIT
+                else 'uattrlimit' if tag == TAG_UATTRLIMIT
+                else 'config 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
     elif (tag & 0xff00) == TAG_GSTATE:
@@ -625,32 +645,164 @@ class Rbyd:
                     break
 
 
-# read the superconfig
-def superconfig(mroot):
-    done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, TAG_SUPERCONFIG)
-    if done or rid != -1 or tag != TAG_SUPERCONFIG:
-        return {}
-    j += d
+# read the config
+class Config:
+    def __init__(self, mroot=None):
+        # read the config from the mroot
+        self.config = {}
+        if mroot is not None:
+            tag = 0
+            while True:
+                done, rid, tag, w, j, d, data, _ = mroot.lookup(-1, tag+0x1)
+                if done or rid != -1 or (tag & 0xff00) != TAG_CONFIG:
+                    break
 
-    config = co.OrderedDict()
-    d = 0
-    def next(name):
-        nonlocal config, d
-        c, d_ = fromleb128(data[d:])
-        config[name] = (c, j, data[d:d+d_])
-        d += d_
-    next('major_version')
-    next('minor_version')
-    next('csum_type')
-    next('flags')
-    next('block_size')
-    next('block_count')
-    next('mlimit')
-    next('utag_limit')
-    next('attr_limit')
-    next('name_limit')
-    next('file_limit')
-    return config
+                self.config[tag] = (j+d, data)
+
+    # accessors for known config
+    @ft.cached_property
+    def magic(self):
+        if TAG_MAGIC in self.config:
+            _, data = self.config[TAG_MAGIC]
+            return data
+        else:
+            return None
+
+    @ft.cached_property
+    def version(self):
+        if TAG_VERSION in self.config:
+            _, data = self.config[TAG_VERSION]
+            d = 0
+            major, d_ = fromleb128(data[d:]); d += d_
+            minor, d_ = fromleb128(data[d:]); d += d_
+            return (major, minor)
+        else:
+            return (None, None)
+
+    @ft.cached_property
+    def flags(self):
+        if TAG_FLAGS in self.config:
+            _, data = self.config[TAG_FLAGS]
+            flags, _ = fromleb128(data)
+            return flags
+        else:
+            return None
+
+    @ft.cached_property
+    def cksum_type(self):
+        if TAG_CKSUMTYPE in self.config:
+            _, data = self.config[TAG_CKSUMTYPE]
+            cksum_type, _ = fromleb128(data)
+            return cksum_type
+        else:
+            return None
+
+    @ft.cached_property
+    def redund_type(self):
+        if TAG_REDUNDTYPE in self.config:
+            _, data = self.config[TAG_REDUNDTYPE]
+            redund_type, _ = fromleb128(data)
+            return redund_type
+        else:
+            return None
+
+    @ft.cached_property
+    def block_limit(self):
+        if TAG_BLOCKLIMIT in self.config:
+            _, data = self.config[TAG_BLOCKLIMIT]
+            block_limit, _ = fromleb128(data)
+            return block_limit
+        else:
+            return None
+
+    @ft.cached_property
+    def disk_limit(self):
+        if TAG_DISKLIMIT in self.config:
+            _, data = self.config[TAG_DISKLIMIT]
+            disk_limit, _ = fromleb128(data)
+            return disk_limit
+        else:
+            return None
+
+    @ft.cached_property
+    def mleaf_limit(self):
+        if TAG_MLEAFLIMIT in self.config:
+            _, data = self.config[TAG_MLEAFLIMIT]
+            mleaf_limit, _ = fromleb128(data)
+            return mleaf_limit
+        else:
+            return None
+
+    @ft.cached_property
+    def size_limit(self):
+        if TAG_SIZELIMIT in self.config:
+            _, data = self.config[TAG_SIZELIMIT]
+            size_limit, _ = fromleb128(data)
+            return size_limit
+        else:
+            return None
+
+    @ft.cached_property
+    def name_limit(self):
+        if TAG_NAMELIMIT in self.config:
+            _, data = self.config[TAG_NAMELIMIT]
+            name_limit, _ = fromleb128(data)
+            return name_limit
+        else:
+            return None
+
+    @ft.cached_property
+    def utag_limit(self):
+        if TAG_UTAGLIMIT in self.config:
+            _, data = self.config[TAG_UTAGLIMIT]
+            utag_limit, _ = fromleb128(data)
+            return utag_limit
+        else:
+            return None
+
+    @ft.cached_property
+    def uattr_limit(self):
+        if TAG_UATTRLIMIT in self.config:
+            _, data = self.config[TAG_UATTRLIMIT]
+            uattr_limit, _ = fromleb128(data)
+            return uattr_limit
+        else:
+            return None
+
+    def repr(self):
+        def crepr(tag, data):
+            if tag == TAG_MAGIC:
+                return 'magic \"%s\"' % ''.join(
+                    b if b >= ' ' and b <= '~' else '.'
+                    for b in map(chr, self.magic))
+            elif tag == TAG_VERSION:
+                return 'version v%d.%d' % self.version
+            elif tag == TAG_FLAGS:
+                return 'flags 0x%x' % self.flags
+            elif tag == TAG_CKSUMTYPE:
+                return 'cksum_type %d' % self.cksum_type
+            elif tag == TAG_REDUNDTYPE:
+                return 'redund_type %d' % self.redund_type
+            elif tag == TAG_BLOCKLIMIT:
+                return 'block_limit %d' % self.block_limit
+            elif tag == TAG_DISKLIMIT:
+                return 'disk_limit %d' % self.disk_limit
+            elif tag == TAG_MLEAFLIMIT:
+                return 'mleaf_limit %d' % self.mleaf_limit
+            elif tag == TAG_SIZELIMIT:
+                return 'size_limit %d' % self.size_limit
+            elif tag == TAG_NAMELIMIT:
+                return 'name_limit %d' % self.name_limit
+            elif tag == TAG_UTAGLIMIT:
+                return 'utag_limit %d' % self.utag_limit
+            elif tag == TAG_UATTRLIMIT:
+                return 'uattr_limit %d' % self.uattr_limit
+            else:
+                return 'config 0x%02x %d' % (tag, len(data))
+
+        for tag, (j, data) in sorted(self.config.items()):
+            yield crepr(tag, data), tag, j, data
+
 
 # collect gstate
 class GState:
@@ -695,25 +847,21 @@ class GState:
                     mid % self.mleaf_weight))
         return rms
 
-def grepr(tag, data, mleaf_weight):
-    if tag == TAG_GRM:
-        d = 0
-        count,  d_ = fromleb128(data[d:]); d += d_
-        rms = []
-        if count <= 2:
-            for _ in range(count):
-                mid, d_ = fromleb128(data[d:]); d += d_
-                rms.append((
-                    mid - (mid % mleaf_weight),
-                    mid % mleaf_weight))
-        return 'grm %s' % (
-            'none' if count == 0
-                else ' '.join('%d.%d' % (mbid//mleaf_weight, rid)
-                        for mbid, rid in rms)
-                    if count <= 2
-                else '0x%x' % count)
-    else:
-        return 'gstate 0x%02x %d' % (tag, len(data))
+    def repr(self):
+        def grepr(tag, data):
+            if tag == TAG_GRM:
+                count, _ = fromleb128(data)
+                return 'grm %s' % (
+                    'none' if count == 0
+                        else ' '.join('%d.%d' % (mbid//self.mleaf_weight, rid)
+                                for mbid, rid in self.grm)
+                            if count <= 2
+                        else '0x%x %d' % (count, len(data)))
+            else:
+                return 'gstate 0x%02x %d' % (tag, len(data))
+
+        for tag, data in sorted(self.gstate.items()):
+            yield grepr(tag, data), tag, data
 
 def frepr(mdir, rid, tag):
     if tag == TAG_BOOKMARK:
@@ -770,14 +918,14 @@ def main(disk, mroots=None, *,
         # - find the actual mroot
         # - find the total weight
         # - are we corrupted?
-        # - collect superconfig
+        # - collect config
         # - collect gstate
         # - any missing or orphaned bookmark entries
         bweight = 0
         rweight = 0
         corrupted = False
         gstate = GState(mleaf_weight)
-        config = {}
+        config = Config()
         dir_dids = [(0, b'', -1, 0, None, -1, TAG_DID, 0)]
         bookmark_dids = []
 
@@ -792,8 +940,8 @@ def main(disk, mroots=None, *,
             rweight = max(rweight, mroot.weight)
             # yes we get gstate from all mroots
             gstate.xor(-1, 0, mroot)
-            # get the superconfig
-            config = superconfig(mroot)
+            # get the config
+            config = Config(mroot)
 
             # find any dids
             for rid, tag, w, j, d, data in mroot:
@@ -942,8 +1090,8 @@ def main(disk, mroots=None, *,
 
         # print some information about the filesystem
         print('littlefs v%s.%s %s, rev %d, weight %d.%d' % (
-            config.get('major_version', ('?',))[0],
-            config.get('minor_version', ('?',))[0],
+            config.version[0] if config.version[0] is not None else '?',
+            config.version[1] if config.version[1] is not None else '?',
             mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight))
 
         # print header
@@ -964,12 +1112,12 @@ def main(disk, mroots=None, *,
                 'data (truncated)'
                     if not args.get('no_truncate') else ''))
 
-        # print superconfig?
+        # print config?
         if args.get('config'):
-            for i, (name, (c, j, data)) in enumerate(config.items()):
+            for i, (repr_, tag, j, data) in enumerate(config.repr()):
                 print('%12s %-*s  %s' % (
                     'config:' if i == 0 else '',
-                    w_width + 23, '%s %d' % (name, c),
+                    w_width + 23, repr_,
                     next(xxd(data, 8), '')
                         if not args.get('no_truncate') else ''))
 
@@ -979,7 +1127,7 @@ def main(disk, mroots=None, *,
                         '',
                         w_width, '',
                         '%-22s%s' % (
-                            '%08x' % c,
+                            '%04x %08x %07x' % (tag, 0, len(data)),
                             '  %s' % ' '.join(
                                     '%08x' % fromle32(
                                         data[i*4 : min(i*4+4,len(data))])
@@ -998,11 +1146,10 @@ def main(disk, mroots=None, *,
 
         # print gstate?
         if args.get('gstate'):
-            for i, (tag, data) in enumerate(sorted(gstate.gstate.items())):
+            for i, (repr_, tag, data) in enumerate(gstate.repr()):
                 print('%12s %-*s  %s' % (
                     'gstate:' if i == 0 else '',
-                    w_width + 23,
-                    grepr(tag, data, mleaf_weight),
+                    w_width + 23, repr_,
                     next(xxd(data, 8), '')
                         if not args.get('no_truncate') else ''))
 
@@ -1253,9 +1400,9 @@ if __name__ == "__main__":
         default='auto',
         help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
-        '-c', '--config', '--superconfig',
+        '-c', '--config',
         action='store_true',
-        help="Show the on-disk superconfig.")
+        help="Show the on-disk config.")
     parser.add_argument(
         '-g', '--gstate',
         action='store_true',

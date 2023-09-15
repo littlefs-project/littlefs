@@ -75,11 +75,12 @@ typedef int32_t  lfsr_sdid_t;
 #define LFS_FILE_MAX 2147483647
 #endif
 
-// Maximum size of custom attributes in bytes, may be redefined, but there is
-// no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022.
-#ifndef LFS_ATTR_MAX
-#define LFS_ATTR_MAX 1022
-#endif
+// TODO rm me
+//// Maximum size of custom attributes in bytes, may be redefined, but there is
+//// no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022.
+//#ifndef LFS_ATTR_MAX
+//#define LFS_ATTR_MAX 1022
+//#endif
 
 // Possible error codes, these are negative to allow
 // valid positive return values
@@ -261,23 +262,24 @@ struct lfs_config {
     // larger names except the size of the info struct which is controlled by
     // the LFS_NAME_MAX define. Defaults to LFS_NAME_MAX when zero. Stored in
     // superblock and must be respected by other littlefs drivers.
-    lfs_size_t name_max;
+    lfs_size_t name_limit;
 
     // Optional upper limit on files in bytes. No downside for larger files
     // but must be <= LFS_FILE_MAX. Defaults to LFS_FILE_MAX when zero. Stored
     // in superblock and must be respected by other littlefs drivers.
-    lfs_size_t file_max;
+    lfs_size_t size_limit;
 
-    // Optional upper limit on custom attributes in bytes. No downside for
-    // larger attributes size but must be <= LFS_ATTR_MAX. Defaults to
-    // LFS_ATTR_MAX when zero.
-    lfs_size_t attr_max;
-
-    // Optional upper limit on total space given to metadata pairs in bytes. On
-    // devices with large blocks (e.g. 128kB) setting this to a low size (2-8kB)
-    // can help bound the metadata compaction time. Must be <= block_size.
-    // Defaults to block_size when zero.
-    lfs_size_t metadata_max;
+// TODO rm me
+//    // Optional upper limit on custom attributes in bytes. No downside for
+//    // larger attributes size but must be <= LFS_ATTR_MAX. Defaults to
+//    // LFS_ATTR_MAX when zero.
+//    lfs_size_t attr_max;
+//
+//    // Optional upper limit on total space given to metadata pairs in bytes. On
+//    // devices with large blocks (e.g. 128kB) setting this to a low size (2-8kB)
+//    // can help bound the metadata compaction time. Must be <= block_size.
+//    // Defaults to block_size when zero.
+//    lfs_size_t metadata_max;
 };
 
 // File info structure
@@ -505,9 +507,8 @@ typedef struct lfs {
     } lookahead;
 
     const struct lfs_config *cfg;
-    lfs_size_t name_max;
-    lfs_size_t file_max;
-    lfs_size_t attr_max;
+    lfs_size_t name_limit;
+    lfs_off_t size_limit;
 
     // begin lfsr things
     lfsr_grm_t grm;

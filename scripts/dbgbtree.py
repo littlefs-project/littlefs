@@ -9,8 +9,19 @@ import struct
 
 
 TAG_NULL        = 0x0000
-TAG_SUPERMAGIC  = 0x0003
-TAG_SUPERCONFIG = 0x0004
+TAG_CONFIG      = 0x0000
+TAG_MAGIC       = 0x0003
+TAG_VERSION     = 0x0004
+TAG_FLAGS       = 0x0005
+TAG_CKSUMTYPE   = 0x0006
+TAG_REDUNDTYPE  = 0x0007
+TAG_BLOCKLIMIT  = 0x0008
+TAG_DISKLIMIT   = 0x0009
+TAG_MLEAFLIMIT  = 0x000a
+TAG_SIZELIMIT   = 0x000b
+TAG_NAMELIMIT   = 0x000c
+TAG_UTAGLIMIT   = 0x000d
+TAG_UATTRLIMIT  = 0x000e
 TAG_GSTATE      = 0x0100
 TAG_GRM         = 0x0100
 TAG_NAME        = 0x0200
@@ -122,12 +133,21 @@ def tagrepr(tag, w, size, off=None):
         return 'null%s%s' % (
             ' w%d' % w if w else '',
             ' %d' % size if size else '')
-    elif tag == TAG_SUPERMAGIC:
-        return 'supermagic%s %d' % (
-            ' w%d' % w if w else '',
-            size)
-    elif tag == TAG_SUPERCONFIG:
-        return 'superconfig%s %d' % (
+    elif (tag & 0xff00) == TAG_CONFIG:
+        return '%s%s %d' % (
+            'magic' if tag == TAG_MAGIC
+                else 'version' if tag == TAG_VERSION
+                else 'flags' if tag == TAG_FLAGS
+                else 'cksumtype' if tag == TAG_CKSUMTYPE
+                else 'redundtype' if tag == TAG_REDUNDTYPE
+                else 'blocklimit' if tag == TAG_BLOCKLIMIT
+                else 'disklimit' if tag == TAG_DISKLIMIT
+                else 'mleaflimit' if tag == TAG_MLEAFLIMIT
+                else 'sizelimit' if tag == TAG_SIZELIMIT
+                else 'namelimit' if tag == TAG_NAMELIMIT
+                else 'utaglimit' if tag == TAG_UTAGLIMIT
+                else 'uattrlimit' if tag == TAG_UATTRLIMIT
+                else 'config 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
     elif (tag & 0xff00) == TAG_GSTATE:
