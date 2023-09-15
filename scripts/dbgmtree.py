@@ -739,7 +739,7 @@ class Rbyd:
 
 def main(disk, mroots=None, *,
         block_size=None,
-        mweight=None,
+        mleaf_weight=None,
         color='auto',
         **args):
     # figure out what color should be
@@ -762,10 +762,10 @@ def main(disk, mroots=None, *,
             f.seek(0, os.SEEK_END)
             block_size = f.tell()
 
-        # determine the mweight from the block_size, this is just for
+        # determine the mleaf_weight from the block_size, this is just for
         # printing purposes
-        if mweight is None:
-            mweight = 1 << m.ceil(m.log2(block_size // 16))
+        if mleaf_weight is None:
+            mleaf_weight = 1 << m.ceil(m.log2(block_size // 16))
 
         # before we print, we need to do a pass for a few things:
         # - find the actual mroot
@@ -1309,8 +1309,8 @@ def main(disk, mroots=None, *,
                         if args.get('tree') or args.get('btree') else '',
                     '%*s %-22s%s' % (
                         w_width, '%d.%d-%d' % (
-                                mbid//mweight, rid-(w-1), rid)
-                            if w > 1 else '%d.%d' % (mbid//mweight, rid)
+                                mbid//mleaf_weight, rid-(w-1), rid)
+                            if w > 1 else '%d.%d' % (mbid//mleaf_weight, rid)
                             if w > 0 or i == 0 else '',
                         tagrepr(tag, w, len(data), j),
                         '  %s' % next(xxd(data, 8), '')
@@ -1366,9 +1366,11 @@ def main(disk, mroots=None, *,
                     treerepr(bid, w, bd, rid, 0, tag)
                         if args.get('tree') or args.get('btree') else '',
                     w_width, '' if i != 0
-                        else '%d-%d' % ((bid-(w-1))//mweight, bid//mweight)
-                            if (w//mweight) > 1
-                        else bid//mweight if w > 0
+                        else '%d-%d' % (
+                                (bid-(w-1))//mleaf_weight,
+                                bid//mleaf_weight)
+                            if (w//mleaf_weight) > 1
+                        else bid//mleaf_weight if w > 0
                         else '',
                     tagrepr(tag, w if i == 0 else 0, len(data), None),
                     # note we render names a bit different here
@@ -1409,10 +1411,10 @@ def main(disk, mroots=None, *,
 
         # print some information about the mtree
         print('mtree %s, rev %d, weight %d.%d' % (
-            mroot.addr(), mroot.rev, bweight//mweight, 1*mweight))
+            mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight))
 
         # print header
-        w_width = (m.ceil(m.log10(max(1, bweight//mweight)+1))
+        w_width = (m.ceil(m.log10(max(1, bweight//mleaf_weight)+1))
             + 2*m.ceil(m.log10(max(1, rweight)+1))
             + 2)
         print('%-11s  %*s%-*s %-22s  %s' % (
@@ -1603,9 +1605,9 @@ if __name__ == "__main__":
         type=lambda x: int(x, 0),
         help="Block size in bytes.")
     parser.add_argument(
-        '-M', '--mweight',
+        '-M', '--mleaf-weight',
         type=lambda x: int(x, 0),
-        help="Weight of mtree leaves for mid decoding. Defaults to a "
+        help="Maximum weight of mdirs for mid decoding. Defaults to a "
             "block_size derived value.")
     parser.add_argument(
         '--color',

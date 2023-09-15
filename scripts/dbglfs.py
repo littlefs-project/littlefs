@@ -654,10 +654,10 @@ def superconfig(mroot):
 
 # collect gstate
 class GState:
-    def __init__(self, mweight):
+    def __init__(self, mleaf_weight):
         self.gstate = {}
         self.gdelta = {}
-        self.mweight = mweight
+        self.mleaf_weight = mleaf_weight
 
     def xor(self, mbid, mw, mdir):
         tag = TAG_GSTATE-0x1
@@ -691,11 +691,11 @@ class GState:
             for _ in range(count):
                 mid, d_ = fromleb128(data[d:]); d += d_
                 rms.append((
-                    mid - (mid % self.mweight),
-                    mid % self.mweight))
+                    mid - (mid % self.mleaf_weight),
+                    mid % self.mleaf_weight))
         return rms
 
-def grepr(tag, data, mweight):
+def grepr(tag, data, mleaf_weight):
     if tag == TAG_GRM:
         d = 0
         count,  d_ = fromleb128(data[d:]); d += d_
@@ -704,11 +704,11 @@ def grepr(tag, data, mweight):
             for _ in range(count):
                 mid, d_ = fromleb128(data[d:]); d += d_
                 rms.append((
-                    mid - (mid % self.mweight),
-                    mid % self.mweight))
+                    mid - (mid % mleaf_weight),
+                    mid % mleaf_weight))
         return 'grm %s' % (
             'none' if count == 0
-                else ' '.join('%d.%d' % (mbid//mweight, rid)
+                else ' '.join('%d.%d' % (mbid//mleaf_weight, rid)
                         for mbid, rid in rms)
                     if count <= 2
                 else '0x%x' % count)
@@ -738,7 +738,7 @@ def frepr(mdir, rid, tag):
 
 def main(disk, mroots=None, *,
         block_size=None,
-        mweight=None,
+        mleaf_weight=None,
         color='auto',
         **args):
     # figure out what color should be
@@ -761,10 +761,10 @@ def main(disk, mroots=None, *,
             f.seek(0, os.SEEK_END)
             block_size = f.tell()
 
-        # determine the mweight from the block_size, this is just for
+        # determine the mleaf_weight from the block_size, this is just for
         # printing purposes
-        if mweight is None:
-            mweight = 1 << m.ceil(m.log2(block_size // 16))
+        if mleaf_weight is None:
+            mleaf_weight = 1 << m.ceil(m.log2(block_size // 16))
 
         # before we print, we need to do a pass for a few things:
         # - find the actual mroot
@@ -776,7 +776,7 @@ def main(disk, mroots=None, *,
         bweight = 0
         rweight = 0
         corrupted = False
-        gstate = GState(mweight)
+        gstate = GState(mleaf_weight)
         config = {}
         dir_dids = [(0, b'', -1, 0, None, -1, TAG_DID, 0)]
         bookmark_dids = []
@@ -944,10 +944,10 @@ def main(disk, mroots=None, *,
         print('littlefs v%s.%s %s, rev %d, weight %d.%d' % (
             config.get('major_version', ('?',))[0],
             config.get('minor_version', ('?',))[0],
-            mroot.addr(), mroot.rev, bweight//mweight, 1*mweight))
+            mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight))
 
         # print header
-        w_width = (m.ceil(m.log10(max(1, bweight//mweight)+1))
+        w_width = (m.ceil(m.log10(max(1, bweight//mleaf_weight)+1))
             + 2*m.ceil(m.log10(max(1, rweight)+1))
             + 2)
         if dtree:
@@ -1002,7 +1002,7 @@ def main(disk, mroots=None, *,
                 print('%12s %-*s  %s' % (
                     'gstate:' if i == 0 else '',
                     w_width + 23,
-                    grepr(tag, data, mweight),
+                    grepr(tag, data, mleaf_weight),
                     next(xxd(data, 8), '')
                         if not args.get('no_truncate') else ''))
 
@@ -1037,7 +1037,7 @@ def main(disk, mroots=None, *,
                             ','.join('%04x' % block
                                 for block in it.chain([mdir.block],
                                     mdir.redund_blocks)),
-                            w_width, mbid//mweight,
+                            w_width, mbid//mleaf_weight,
                             tagrepr(tag, 0, len(data)),
                             next(xxd(data, 8), '')
                                 if not args.get('no_truncate') else '',
@@ -1140,8 +1140,8 @@ def main(disk, mroots=None, *,
                                 mdir.redund_blocks))
                             if mbid != pmbid else '',
                         w_width, '%d.%d-%d' % (
-                                mbid//mweight, rid-(w-1), rid)
-                            if w > 1 else '%d.%d' % (mbid//mweight, rid)
+                                mbid//mleaf_weight, rid-(w-1), rid)
+                            if w > 1 else '%d.%d' % (mbid//mleaf_weight, rid)
                             if w > 0 else '',
                         f_width, '%s%s' % (
                             prefixes[0+(i==len(dir)-1)],
@@ -1243,9 +1243,9 @@ if __name__ == "__main__":
         type=lambda x: int(x, 0),
         help="Block size in bytes.")
     parser.add_argument(
-        '-M', '--mweight',
+        '-M', '--mleaf-weight',
         type=lambda x: int(x, 0),
-        help="Weight of mtree leaves for mid decoding. Defaults to a "
+        help="Maximum weight of mdirs for mid decoding. Defaults to a "
             "block_size derived value.")
     parser.add_argument(
         '--color',
