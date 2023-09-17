@@ -97,7 +97,7 @@ intmax_t test_define(size_t define);
 
 // a few preconfigured defines that control how tests run
 
-#define TEST_IMPLICIT_DEFINE_COUNT 12
+#define TEST_IMPLICIT_DEFINE_COUNT 14
 #define TEST_GEOMETRY_DEFINE_COUNT 3
 
 #define READ_SIZE_i          0
@@ -106,12 +106,14 @@ intmax_t test_define(size_t define);
 #define BLOCK_COUNT_i        3
 #define DISK_SIZE_i          4
 #define CACHE_SIZE_i         5
-#define LOOKAHEAD_SIZE_i     6
-#define BLOCK_CYCLES_i       7
-#define ERASE_VALUE_i        8
-#define ERASE_CYCLES_i       9
-#define BADBLOCK_BEHAVIOR_i  10
-#define POWERLOSS_BEHAVIOR_i 11
+#define INLINE_SIZE_i        6
+#define BUD_SIZE_i           7
+#define LOOKAHEAD_SIZE_i     8
+#define BLOCK_CYCLES_i       9
+#define ERASE_VALUE_i        10
+#define ERASE_CYCLES_i       11
+#define BADBLOCK_BEHAVIOR_i  12
+#define POWERLOSS_BEHAVIOR_i 13
 
 #define READ_SIZE           TEST_DEFINE(READ_SIZE_i)
 #define PROG_SIZE           TEST_DEFINE(PROG_SIZE_i)
@@ -119,6 +121,8 @@ intmax_t test_define(size_t define);
 #define BLOCK_COUNT         TEST_DEFINE(BLOCK_COUNT_i)
 #define DISK_SIZE           TEST_DEFINE(DISK_SIZE_i)
 #define CACHE_SIZE          TEST_DEFINE(CACHE_SIZE_i)
+#define INLINE_SIZE         TEST_DEFINE(INLINE_SIZE_i)
+#define BUD_SIZE            TEST_DEFINE(BUD_SIZE_i)
 #define LOOKAHEAD_SIZE      TEST_DEFINE(LOOKAHEAD_SIZE_i)
 #define BLOCK_CYCLES        TEST_DEFINE(BLOCK_CYCLES_i)
 #define ERASE_VALUE         TEST_DEFINE(ERASE_VALUE_i)
@@ -134,6 +138,8 @@ intmax_t test_define(size_t define);
     TEST_DEF(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                       ) \
     TEST_DEF(DISK_SIZE,          1024*1024                                  ) \
     TEST_DEF(CACHE_SIZE,         lfs_max(64, lfs_max(READ_SIZE, PROG_SIZE)) ) \
+    TEST_DEF(INLINE_SIZE,        BLOCK_SIZE/4                               ) \
+    TEST_DEF(BUD_SIZE,           BLOCK_SIZE/4                               ) \
     TEST_DEF(LOOKAHEAD_SIZE,     16                                         ) \
     TEST_DEF(BLOCK_CYCLES,       -1                                         ) \
     TEST_DEF(ERASE_VALUE,        0xff                                       ) \

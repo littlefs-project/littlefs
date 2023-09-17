@@ -98,7 +98,7 @@ intmax_t bench_define(size_t define);
 
 // a few preconfigured defines that control how benches run
 
-#define BENCH_IMPLICIT_DEFINE_COUNT 12
+#define BENCH_IMPLICIT_DEFINE_COUNT 14
 #define BENCH_GEOMETRY_DEFINE_COUNT 3
 
 #define READ_SIZE_i          0
@@ -107,12 +107,14 @@ intmax_t bench_define(size_t define);
 #define BLOCK_COUNT_i        3
 #define DISK_SIZE_i          4
 #define CACHE_SIZE_i         5
-#define LOOKAHEAD_SIZE_i     6
-#define BLOCK_CYCLES_i       7
-#define ERASE_VALUE_i        8
-#define ERASE_CYCLES_i       9
-#define BADBLOCK_BEHAVIOR_i  10
-#define POWERLOSS_BEHAVIOR_i 11
+#define INLINE_SIZE_i        6
+#define BUD_SIZE_i           7
+#define LOOKAHEAD_SIZE_i     8
+#define BLOCK_CYCLES_i       9
+#define ERASE_VALUE_i        10
+#define ERASE_CYCLES_i       11
+#define BADBLOCK_BEHAVIOR_i  12
+#define POWERLOSS_BEHAVIOR_i 13
 
 #define READ_SIZE           bench_define(READ_SIZE_i)
 #define PROG_SIZE           bench_define(PROG_SIZE_i)
@@ -120,6 +122,8 @@ intmax_t bench_define(size_t define);
 #define BLOCK_COUNT         bench_define(BLOCK_COUNT_i)
 #define DISK_SIZE           bench_define(DISK_SIZE_i)
 #define CACHE_SIZE          bench_define(CACHE_SIZE_i)
+#define INLINE_SIZE         bench_define(INLINE_SIZE_i)
+#define BUD_SIZE            bench_define(BUD_SIZE_i)
 #define LOOKAHEAD_SIZE      bench_define(LOOKAHEAD_SIZE_i)
 #define BLOCK_CYCLES        bench_define(BLOCK_CYCLES_i)
 #define ERASE_VALUE         bench_define(ERASE_VALUE_i)
@@ -135,6 +139,8 @@ intmax_t bench_define(size_t define);
     BENCH_DEF(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                      ) \
     BENCH_DEF(DISK_SIZE,          1024*1024                                 ) \
     BENCH_DEF(CACHE_SIZE,         lfs_max(64, lfs_max(READ_SIZE, PROG_SIZE))) \
+    BENCH_DEF(INLINE_SIZE,        BLOCK_SIZE/4                              ) \
+    BENCH_DEF(BUD_SIZE,           BLOCK_SIZE/4                              ) \
     BENCH_DEF(LOOKAHEAD_SIZE,     16                                        ) \
     BENCH_DEF(BLOCK_CYCLES,       -1                                        ) \
     BENCH_DEF(ERASE_VALUE,        0xff                                      ) \

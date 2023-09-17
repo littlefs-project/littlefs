@@ -152,15 +152,9 @@ enum lfs_open_flags {
 #endif
 
     // internally used flags
-#ifndef LFS_READONLY
-    LFS_F_DIRTY   = 0x010000, // File does not match storage
-    LFS_F_WRITING = 0x020000, // File has been written since last flush
-#endif
-    LFS_F_READING = 0x040000, // File has been read since last flush
-#ifndef LFS_READONLY
-    LFS_F_ERRED   = 0x080000, // An error occurred during write
-#endif
-    LFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
+    LFS_F_UNFLUSHED = 0x010000, // File's has data that needs to be written
+    LFS_F_UNSYNCED  = 0x020000, // File's metadata does not match storage
+    LFS_F_ERRORED   = 0x040000, // An error occurred during write
 };
 
 // File seek flags
@@ -280,6 +274,10 @@ struct lfs_config {
 //    // can help bound the metadata compaction time. Must be <= block_size.
 //    // Defaults to block_size when zero.
 //    lfs_size_t metadata_max;
+
+    // TODO document
+    lfs_size_t inline_size;
+    lfs_size_t bud_size;
 };
 
 // File info structure
@@ -427,6 +425,32 @@ typedef struct lfs_mdir {
     lfs_block_t tail[2];
 } lfs_mdir_t;
 
+// either an on-disk or in-device data pointer
+typedef struct lfsr_data {
+    union {
+        // The sign-bit of the size field indicates if the data is in-device
+        // or on-disk.
+        //
+        // After removing the sign bit, the size always encodes the resulting
+        // size on-disk.
+        //
+        lfs_ssize_t size;
+        struct {
+            lfs_ssize_t size;
+            // This leb128 field is a bit of a hack that allows a single leb128
+            // to be injected into lfsr_bd_progdata. Outside of
+            // lfsr_bd_progdata, this field is invalid!
+            int32_t leb128;
+            const uint8_t *buffer;
+        } b;
+        struct {
+            lfs_ssize_t size;
+            lfs_size_t off;
+            lfs_block_t block;
+        } d;
+    } u;
+} lfsr_data_t;
+
 // littlefs directory type
 typedef struct lfs_dir {
     struct lfs_dir *next;
@@ -465,6 +489,22 @@ typedef struct lfs_file {
 
     const struct lfs_file_config *cfg;
 } lfs_file_t;
+
+typedef struct lfsr_file {
+    lfsr_openedmdir_t m;
+    uint32_t flags;
+    lfs_off_t pos;
+    lfs_off_t size;
+
+    lfs_off_t buffer_pos;
+    uint8_t *buffer;
+    lfs_size_t buffer_size;
+
+    lfs_off_t inlined_pos;
+    lfsr_data_t inlined;
+
+    const struct lfs_file_config *cfg;
+} lfsr_file_t;
 
 typedef struct lfs_superblock {
     uint32_t version;
@@ -638,6 +678,8 @@ int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 // Returns a negative error code on failure.
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);
+int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
+        const char *path, uint32_t flags);
 
 // if LFS_NO_MALLOC is defined, lfs_file_open() will fail with LFS_ERR_NOMEM
 // thus use lfs_file_opencfg() with config.buffer set.
@@ -656,6 +698,9 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags,
         const struct lfs_file_config *config);
+int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
+        const char *path, uint32_t flags,
+        const struct lfs_file_config *config);
 
 // Close a file
 //
@@ -664,18 +709,22 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 //
 // Returns a negative error code on failure.
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file);
+int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file);
 
 // Synchronize a file on storage
 //
 // Any pending writes are written out to storage.
 // Returns a negative error code on failure.
 int lfs_file_sync(lfs_t *lfs, lfs_file_t *file);
+int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 
 // Read data from file
 //
 // Takes a buffer and size indicating where to store the read data.
 // Returns the number of bytes read, or a negative error code on failure.
 lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
+        void *buffer, lfs_size_t size);
+lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size);
 
 #ifndef LFS_READONLY
@@ -686,6 +735,8 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
 //
 // Returns the number of bytes written, or a negative error code on failure.
 lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
+        const void *buffer, lfs_size_t size);
+lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size);
 #endif
 
@@ -720,6 +771,7 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 // Similar to lfs_file_seek(lfs, file, 0, LFS_SEEK_END)
 // Returns the size of the file, or a negative error code on failure.
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
+lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file);
 
 
 /// Directory operations ///

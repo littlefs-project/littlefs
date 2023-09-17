@@ -1418,6 +1418,8 @@ static void run_powerloss_none(
         .block_count        = BLOCK_COUNT,
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
+        .inline_size        = INLINE_SIZE,
+        .bud_size           = BUD_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
     };
 
@@ -1487,6 +1489,8 @@ static void run_powerloss_linear(
         .block_count        = BLOCK_COUNT,
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
+        .inline_size        = INLINE_SIZE,
+        .bud_size           = BUD_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
     };
 
@@ -1573,6 +1577,8 @@ static void run_powerloss_log(
         .block_count        = BLOCK_COUNT,
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
+        .inline_size        = INLINE_SIZE,
+        .bud_size           = BUD_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
     };
 
@@ -1657,6 +1663,8 @@ static void run_powerloss_cycles(
         .block_count        = BLOCK_COUNT,
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
+        .inline_size        = INLINE_SIZE,
+        .bud_size           = BUD_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
     };
 
@@ -1839,6 +1847,8 @@ static void run_powerloss_exhaustive(
         .block_count        = BLOCK_COUNT,
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
+        .inline_size        = INLINE_SIZE,
+        .bud_size           = BUD_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
     };
 

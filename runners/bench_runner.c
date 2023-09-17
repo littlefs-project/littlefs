@@ -1387,6 +1387,8 @@ void perm_run(
         .block_count        = BLOCK_COUNT,
         .block_cycles       = BLOCK_CYCLES,
         .cache_size         = CACHE_SIZE,
+        .inline_size        = INLINE_SIZE,
+        .bud_size           = BUD_SIZE,
         .lookahead_size     = LOOKAHEAD_SIZE,
     };
 

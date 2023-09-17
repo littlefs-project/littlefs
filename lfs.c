@@ -1000,32 +1000,6 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 
 /// lfsr_data_t stuff ///
 
-// either an on-disk or in-device data pointer
-typedef struct lfsr_data {
-    union {
-        // The sign-bit of the size field indicates if the data is in-device
-        // or on-disk.
-        //
-        // After removing the sign bit, the size always encodes the resulting
-        // size on-disk.
-        //
-        lfs_ssize_t size;
-        struct {
-            lfs_ssize_t size;
-            // This leb128 field is a bit of a hack that allows a single leb128
-            // to be injected into lfsr_bd_progdata. Outside of
-            // lfsr_bd_progdata, this field is invalid!
-            int32_t leb128;
-            const uint8_t *buffer;
-        } b;
-        struct {
-            lfs_ssize_t size;
-            lfs_size_t off;
-            lfs_block_t block;
-        } d;
-    } u;
-} lfsr_data_t;
-
 // the most common use is to pass a buffer with explicit size
 #define LFSR_DATA(_buffer, _size) \
     ((lfsr_data_t){ \
@@ -1763,10 +1737,6 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 // predeclare block allocator functions
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block);
 static void lfs_alloc_ack(lfs_t *lfs);
-
-// and our main "fix everything before writing" function
-static int lfsr_fs_preparemutation(lfs_t *lfs);
-static int lfsr_fs_fixgrm(lfs_t *lfs);
 
 
 /// Red-black-yellow Dhara tree operations ///
@@ -6891,6 +6861,75 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 }
 
 
+/// Prepare the filesystem for mutation ///
+
+static int lfsr_fs_fixgrm(lfs_t *lfs) {
+    while (lfsr_grm_hasrm(&lfs->grm)) {
+        // find our mdir
+        lfsr_mdir_t mdir;
+        LFS_ASSERT(lfs->grm.rms[0] < lfs_smax32(
+                lfsr_mtree_weight(lfs),
+                lfsr_mleafweight(lfs)));
+        int err = lfsr_mtree_lookup(lfs, lfs->grm.rms[0], &mdir);
+        if (err) {
+            return err;
+        }
+
+        // mark grm as taken care of
+        lfsr_grm_t grm = lfs->grm;
+        lfsr_grm_poprm(&grm);
+
+        // make sure to adjust any remaining grms
+        if ((grm.rms[0] & lfsr_midbmask(lfs))
+                    == (mdir.mid & lfsr_midbmask(lfs))
+                && grm.rms[0] >= mdir.mid) {
+            LFS_ASSERT(grm.rms[0] != mdir.mid);
+            grm.rms[0] -= 1;
+        }
+
+        // remove the rid while also updating our grm
+        LFS_ASSERT((lfs->grm.rms[0] & lfsr_midrmask(lfs)) < mdir.u.m.weight);
+        err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
+                LFSR_ATTR(mdir.mid, RM, -1, NULL),
+                LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
+    }
+
+    return 0;
+}
+
+static int lfsr_fs_preparemutation(lfs_t *lfs) {
+    // checkpoint the allocator
+    lfs_alloc_ack(lfs);
+
+    // fix pending grms
+    if (lfsr_grm_hasrm(&lfs->grm)) {
+        if (lfsr_grm_count(&lfs->grm) == 2) {
+            LFS_DEBUG("Fixing pending grm "
+                    "%"PRId32".%"PRId32" %"PRId32".%"PRId32,
+                    lfs->grm.rms[0] >> lfs->mleaf_bits,
+                    lfs->grm.rms[0] & lfsr_midrmask(lfs),
+                    lfs->grm.rms[1] >> lfs->mleaf_bits,
+                    lfs->grm.rms[1] & lfsr_midrmask(lfs));
+        } else if (lfsr_grm_count(&lfs->grm) == 1) {
+            LFS_DEBUG("Fixing pending grm %"PRId32".%"PRId32,
+                    lfs->grm.rms[0] >> lfs->mleaf_bits,
+                    lfs->grm.rms[0] & lfsr_midrmask(lfs));
+        }
+
+        int err = lfsr_fs_fixgrm(lfs);
+        if (err) {
+            return err;
+        }
+
+        // checkpoint the allocator again since our fixgrm completed some
+        // work
+        lfs_alloc_ack(lfs);
+    }
+
+    return 0;
+}
+
+
 /// Directory operations ///
 
 int lfsr_mkdir(lfs_t *lfs, const char *path) {
@@ -7238,9 +7277,66 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     return lfsr_fs_fixgrm(lfs);
 }
 
-int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
-    memset(info, 0, sizeof(struct lfs_info));
+// common stat function once we have an mdir
+static int lfsr_mdir_stat(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mid_t mid,
+        lfsr_sdid_t did, struct lfs_info *info) {
+    // lookup our name tag
+    lfsr_tag_t tag;
+    lfsr_data_t data;
+    int err = lfsr_mdir_lookup(lfs, mdir, mid, LFSR_TAG_WIDE(NAME),
+            &tag, &data);
+    if (err) {
+        return err;
+    }
 
+    // get our did
+    lfsr_did_t did_;
+    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&did_);
+    if (err) {
+        return err;
+    }
+
+    // did mismatch? this terminates dir reads
+    if (did != -1 && did_ != (lfsr_did_t)did) {
+        return LFS_ERR_NOENT;
+    }
+
+    // get file type from the tag
+    info->type = lfsr_tag_filetype(tag);
+
+    // get file name from the name entry
+    LFS_ASSERT(lfsr_data_size(&data) <= LFS_NAME_MAX);
+    lfs_ssize_t name_size = lfsr_data_read(lfs, &data,
+            info->name, LFS_NAME_MAX);
+    if (name_size < 0) {
+        return name_size;
+    }
+    info->name[name_size] = '\0';
+
+    // get file size if we're a regular file, this gets a bit messy
+    // because of the different file representations
+    info->size = 0;
+    if (tag == LFSR_TAG_REG) {
+        err = lfsr_mdir_lookup(lfs, mdir, mid, LFSR_TAG_WIDE(STRUCT),
+                &tag, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        if (err != LFS_ERR_NOENT) {
+            if (tag == LFSR_TAG_INLINED) {
+                info->size = lfsr_data_size(&data);
+            } else {
+                // TODO
+                LFS_ASSERT(false);
+            }
+        }
+    }
+
+    return 0;
+}
+
+int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     // lookup our entry
     lfsr_mdir_t mdir;
     lfsr_tag_t tag;
@@ -7261,15 +7357,7 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     }
 
     // fill out our info struct
-    info->type = lfsr_tag_filetype(tag);
-
-    LFS_ASSERT(name_size <= LFS_NAME_MAX);
-    memcpy(info->name, name, name_size);
-    info->name[name_size] = '\0';
-
-    // TODO size once we have actual files
-
-    return 0;
+    return lfsr_mdir_stat(lfs, &mdir, mdir.mid, -1, info);
 }
 
 int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
@@ -7313,13 +7401,13 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     }
 
     // add to tracked mdirs
-    lfsr_mdir_addopened(lfs, LFS_TYPE_DIR, (lfsr_openedmdir_t*)dir);
+    lfsr_mdir_addopened(lfs, LFS_TYPE_DIR, &dir->m);
     return 0;
 }
 
 int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir) {
     // remove from tracked mdirs
-    lfsr_mdir_removeopened(lfs, LFS_TYPE_DIR, (lfsr_openedmdir_t*)dir);
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_DIR, &dir->m);
     return 0;
 }
 
@@ -7348,41 +7436,13 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         return err;
     }
 
-    // lookup our name tag
-    lfsr_tag_t tag;
-    lfsr_data_t data;
-    err = lfsr_mdir_lookup(lfs, &dir->m.mdir,
-            dir->m.mdir.mid, LFSR_TAG_WIDE(NAME),
-            &tag, &data);
+    // fill out our info struct
+    //
+    // this will return LFS_ERR_NOENT if our dids mismatch
+    err = lfsr_mdir_stat(lfs, &dir->m.mdir, dir->m.mdir.mid, dir->did, info);
     if (err) {
         return err;
     }
-
-    // get our did
-    lfsr_did_t did;
-    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&did);
-    if (err) {
-        return err;
-    }
-
-    // did mismatch? we must be done
-    if (did != dir->did) {
-        return LFS_ERR_NOENT;
-    }
-
-    // get file name from the name entry
-    LFS_ASSERT(lfsr_data_size(&data) <= LFS_NAME_MAX);
-    lfs_ssize_t name_size = lfsr_data_read(lfs, &data,
-            info->name, LFS_NAME_MAX);
-    if (name_size < 0) {
-        return name_size;
-    }
-    info->name[name_size] = '\0';
-
-    // get file type from the tag
-    info->type = lfsr_tag_filetype(tag);
-
-    // TODO get size once we actually have regular files
 
     // eagerly look up the next entry
     err = lfsr_mtree_seek(lfs, &dir->m.mdir, 1);
@@ -7456,73 +7516,299 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 }
 
 
-/// Prepare the filesystem for mutation ///
+/// File operations ///
 
-static int lfsr_fs_fixgrm(lfs_t *lfs) {
-    while (lfsr_grm_hasrm(&lfs->grm)) {
-        // find our mdir
-        lfsr_mdir_t mdir;
-        LFS_ASSERT(lfs->grm.rms[0] < lfs_smax32(
-                lfsr_mtree_weight(lfs),
-                lfsr_mleafweight(lfs)));
-        int err = lfsr_mtree_lookup(lfs, lfs->grm.rms[0], &mdir);
+static bool lfsr_file_isreadable(uint32_t flags) {
+    return (flags & LFS_O_RDONLY) == LFS_O_RDONLY;
+}
+
+static bool lfsr_file_iswriteable(uint32_t flags) {
+    return (flags & LFS_O_WRONLY) == LFS_O_WRONLY;
+}
+
+int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
+
+int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
+        const char *path, uint32_t flags,
+        const struct lfs_file_config *cfg) {
+    if (lfsr_file_iswriteable(flags)) {
+        // prepare our filesystem for writing
+        int err = lfsr_fs_preparemutation(lfs);
         if (err) {
             return err;
         }
-
-        // mark grm as taken care of
-        lfsr_grm_t grm = lfs->grm;
-        lfsr_grm_poprm(&grm);
-
-        // make sure to adjust any remaining grms
-        if ((grm.rms[0] & lfsr_midbmask(lfs))
-                    == (mdir.mid & lfsr_midbmask(lfs))
-                && grm.rms[0] >= mdir.mid) {
-            LFS_ASSERT(grm.rms[0] != mdir.mid);
-            grm.rms[0] -= 1;
-        }
-
-        // remove the rid while also updating our grm
-        LFS_ASSERT((lfs->grm.rms[0] & lfsr_midrmask(lfs)) < mdir.u.m.weight);
-        err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-                LFSR_ATTR(mdir.mid, RM, -1, NULL),
-                LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
     }
 
-    return 0;
-}
+    // default inlined state
+    file->flags = flags;
+    file->cfg = cfg;
+    file->pos = 0;
+    file->inlined_pos = 0;
+    file->inlined = LFSR_DATA_NULL;
 
-static int lfsr_fs_preparemutation(lfs_t *lfs) {
-    // checkpoint the allocator
-    lfs_alloc_ack(lfs);
+    // lookup our parent
+    lfsr_tag_t tag;
+    lfsr_did_t did;
+    const char *name;
+    lfs_size_t name_size;
+    int err = lfsr_mtree_pathlookup(lfs, path,
+            &file->m.mdir, &tag,
+            &did, &name, &name_size);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
 
-    // fix pending grms
-    if (lfsr_grm_hasrm(&lfs->grm)) {
-        if (lfsr_grm_count(&lfs->grm) == 2) {
-            LFS_DEBUG("Fixing pending grm "
-                    "%"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                    lfs->grm.rms[0] >> lfs->mleaf_bits,
-                    lfs->grm.rms[0] & lfsr_midrmask(lfs),
-                    lfs->grm.rms[1] >> lfs->mleaf_bits,
-                    lfs->grm.rms[1] & lfsr_midrmask(lfs));
-        } else if (lfsr_grm_count(&lfs->grm) == 1) {
-            LFS_DEBUG("Fixing pending grm %"PRId32".%"PRId32,
-                    lfs->grm.rms[0] >> lfs->mleaf_bits,
-                    lfs->grm.rms[0] & lfsr_midrmask(lfs));
+    // creating a new entry?
+    if (err == LFS_ERR_NOENT) {
+        if (!(flags & LFS_O_CREAT)) {
+            return LFS_ERR_NOENT;
+        }
+        LFS_ASSERT(lfsr_file_iswriteable(flags));
+
+        // check that name fits
+        if (name_size > lfs->name_limit) {
+            return LFS_ERR_NAMETOOLONG;
         }
 
-        int err = lfsr_fs_fixgrm(lfs);
+        // create our entry
+        //
+        // note this risks creating a zero-length file if we lose power here,
+        // but it's the only way for us to save the file name.
+        //
+        // TODO or is it? ;)
+        err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+                LFSR_ATTR(file->m.mdir.mid,
+                    REG, +1, NAME(did, name, name_size))));
         if (err) {
             return err;
         }
+    } else {
+        if (flags & LFS_O_EXCL) {
+            // oh, we really wanted to create a new entry
+            return LFS_ERR_EXIST;
+        }
 
-        // checkpoint the allocator again since our fixgrm completed some
-        // work
-        lfs_alloc_ack(lfs);
+        // wrong type?
+        if (tag != LFSR_TAG_REG) {
+            return LFS_ERR_ISDIR;
+        }
+
+        // if we're truncating don't bother to read any state, we're
+        // just going to truncate after all
+        if (!(flags & LFS_O_TRUNC)) {
+            // read the inline state
+            err = lfsr_mdir_lookup(lfs, &file->m.mdir,
+                    file->m.mdir.mid, LFSR_TAG_INLINED,
+                    NULL, &file->inlined);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+        }
+    }
+
+    // TODO common function for this?
+    // figure out the total size
+    file->size = lfsr_data_size(&file->inlined);
+
+    // allocate buffer if necessary
+    if (file->cfg->buffer) {
+        file->buffer = file->cfg->buffer;
+    } else {
+        file->buffer = lfs_malloc(lfs->cfg->cache_size);
+        if (!file->buffer) {
+            return LFS_ERR_NOMEM;
+        }
+    }
+    file->buffer_pos = 0;
+    file->buffer_size = 0;
+
+    // add to tracked mdirs
+    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, &file->m);
+    return 0;
+}
+
+// default file config
+static const struct lfs_file_config lfsr_file_defaults = {0};
+
+int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
+        const char *path, uint32_t flags) {
+    return lfsr_file_opencfg(lfs, file, path, flags, &lfsr_file_defaults);
+}
+
+int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
+    int err = lfsr_file_sync(lfs, file);
+
+    // remove from tracked mdirs
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, &file->m);
+
+    // clean up memory
+    if (!file->cfg->buffer) {
+        lfs_free(file->buffer);
+    }
+
+    return err;
+}
+
+lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
+        void *buffer, lfs_size_t size) {
+    LFS_ASSERT(lfsr_file_isreadable(file->flags));
+    LFS_ASSERT(size <= 0x7fffffff);
+
+    lfs_off_t pos = file->pos;
+    uint8_t *buffer_ = buffer;
+    while (size > 0) {
+        lfs_ssize_t d = size;
+
+        // is the data in our write buffer?
+        if (pos < file->buffer_pos + file->buffer_size) {
+            if (pos >= file->buffer_pos) {
+                d = lfs_min32(
+                        size,
+                        file->buffer_size - (pos - file->buffer_pos));
+                memcpy(buffer_, &file->buffer[pos - file->buffer_pos], d);
+
+                pos += d;
+                buffer_ += d;
+                size -= d;
+                continue;
+            }
+
+            // buffered data takes priority
+            d = lfs_min32(d, file->buffer_pos - pos);
+        }
+
+        // is the data inlined?
+        if (pos < file->inlined_pos + lfsr_data_size(&file->inlined)) {
+            if (pos >= file->inlined_pos) {
+                lfsr_data_t inlined = file->inlined;
+                lfsr_data_add(&inlined, pos - file->inlined_pos);
+                d = lfsr_data_read(lfs, &inlined, buffer_, d);
+                if (d < 0) {
+                    return d;
+                }
+
+                pos += d;
+                buffer_ += d;
+                size -= d;
+                continue;
+            }
+
+            // inlined data takes priority
+            d = lfs_min32(d, file->inlined_pos - pos);
+        }
+
+        // TODO
+        // no more data?
+        break;
+    }
+
+    lfs_size_t read = pos - file->pos;
+    file->pos = pos;
+    return read;
+}
+
+lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
+        const void *buffer, lfs_size_t size) {
+    LFS_ASSERT(lfsr_file_iswriteable(file->flags));
+    LFS_ASSERT(size <= 0x7fffffff);
+
+    lfs_off_t pos = file->pos;
+    const uint8_t *buffer_ = buffer;
+    int err;
+    while (size > 0) {
+        // try to fill our write buffer
+        if (pos >= file->buffer_pos
+                && pos <= file->buffer_pos + file->buffer_size
+                && pos < file->buffer_pos + lfs->cfg->cache_size) {
+            lfs_size_t d = lfs_min32(
+                    size,
+                    lfs->cfg->cache_size - (pos - file->buffer_pos));
+            memcpy(&file->buffer[pos - file->buffer_pos], buffer_, d);
+            file->buffer_size = lfs_max32(
+                    file->buffer_size,
+                    pos+d - file->buffer_pos);
+
+            pos += d;
+            buffer_ += d;
+            size -= d;
+            file->flags |= LFS_F_UNSYNCED;
+            continue;
+        }
+
+        // TODO
+        LFS_ASSERT(false);
+
+//        // flush our write buffer to make it useable, first condition can
+//        // no longer fail
+//        err = lfsr_file_flush(lfs, file);
+//        if (err) {
+//            return err;
+//        }
+    }
+
+    lfs_size_t written = pos - file->pos;
+    file->pos = pos;
+    file->size = lfs_max32(file->size, pos);
+    return written;
+
+failed:;
+    file->flags |= LFS_F_ERRORED;
+    return err;
+}
+
+int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
+    // TODO
+    return 0;
+}
+
+int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
+    if (file->flags & LFS_F_ERRORED) {
+        // it's not safe to do anything if our file errored
+        return 0;
+    }
+
+    // do nothing if our file has been removed
+    if (file->m.mdir.mid == -1) {
+        return 0;
+    }
+
+    // write out any data we need to
+    int err = lfsr_file_flush(lfs, file);
+    if (err) {
+        goto failed;
+    }
+
+    if (file->flags & LFS_F_UNSYNCED) {
+        // TODO
+        // TODO what if buffer_size > inlined_size?
+        LFS_ASSERT(file->buffer_pos == 0);
+        // commit our file's metadata
+        err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+                LFSR_ATTR(file->m.mdir.mid, WIDE(RM), 0, NULL),
+                (file->buffer_size > 0
+                    ? LFSR_ATTR(file->m.mdir.mid,
+                        WIDE(INLINED), 0, BUF(
+                            file->buffer, file->buffer_size))
+                    : LFSR_ATTR_NOOP)));
+        if (err) {
+            goto failed;
+        }
+
+        file->flags &= ~LFS_F_UNSYNCED;
     }
 
     return 0;
+
+failed:;
+    file->flags |= LFS_F_ERRORED;
+    return err;
 }
+
+lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file) {
+    (void)lfs;
+    return file->size;
+}
+
 
 
 
