@@ -576,8 +576,10 @@ static int lfsr_bd_erase(lfs_t *lfs, lfs_block_t block) {
 
 // 16-bit metadata tags
 enum lfsr_tag_type {
+    // the null tag is reserved
     LFSR_TAG_NULL           = 0x0000,
 
+    // "normal" tags
     LFSR_TAG_CONFIG         = 0x0000,
     LFSR_TAG_MAGIC          = 0x0003,
     LFSR_TAG_VERSION        = 0x0004,
@@ -603,6 +605,7 @@ enum lfsr_tag_type {
 
     LFSR_TAG_STRUCT         = 0x0300,
     LFSR_TAG_INLINED        = 0x0300,
+    LFSR_TAG_TRUNK          = 0x0304,
     LFSR_TAG_BLOCK          = 0x0308,
     LFSR_TAG_BTREE          = 0x030c,
     LFSR_TAG_MDIR           = 0x0311,
@@ -611,25 +614,39 @@ enum lfsr_tag_type {
     LFSR_TAG_DID            = 0x031c,
 
     LFSR_TAG_UATTR          = 0x0400,
-    LFSR_TAG_SATTR          = 0x0500,
+    LFSR_TAG_SATTR          = 0x0600,
 
+    // deferred tags belong to secondary trees
+    LFSR_TAG_DEFERRED       = 0x1000,
+
+    // alt pointers form the inner nodes of our rbyd trees
     LFSR_TAG_ALT            = 0x4000,
     LFSR_TAG_LE             = 0x0000,
     LFSR_TAG_GT             = 0x2000,
     LFSR_TAG_B              = 0x0000,
     LFSR_TAG_R              = 0x1000,
 
+    // checksum tags
     LFSR_TAG_CKSUM          = 0x2000,
     LFSR_TAG_ECKSUM         = 0x2100,
 
+    // in-device only tags
+    //
+    // note bit 0x0800 isn't really reserved, just unused, so this may need
+    // to change in the future
+    LFSR_TAG_INTERNAL       = 0x0800,
+    LFSR_TAG_MOVE           = 0x0800,
+
     // some tag modifiers
     // in-device only
-    LFSR_TAG_WIDE           = 0x4000,
-    LFSR_TAG_GROW           = 0x3000, // note generic grows need the rm-bit
-    LFSR_TAG_RM             = 0x1000,
+    LFSR_TAG_WIDE           = 0x2000,
+    LFSR_TAG_GROW           = 0x4000,
+    LFSR_TAG_RM             = 0x8000,
 
-    // in-device only
-    LFSR_TAG_MOVE           = 0x0800,
+    // lfsr_rbyd_appendattr specific flags
+    LFSR_TAG_DIVERGED       = 0x4000,
+    LFSR_TAG_DIVERGEDUPPER  = 0x2000,
+    LFSR_TAG_DIVERGEDLOWER  = 0x0000,
 };
 
 // LFSR_TAG_TAG just provides and escape hatch to pass raw tags
@@ -637,10 +654,10 @@ enum lfsr_tag_type {
 #define LFSR_TAG_TAG(tag) (tag)
 
 // some tag modifiers
-#define LFSR_TAG_WIDE(tag) (LFSR_TAG_WIDE | LFSR_TAG_##tag)
-// if we're growing an explict tag, we don't need the rm-bit
-#define LFSR_TAG_GROW(tag) ((LFSR_TAG_GROW & ~LFSR_TAG_RM) | LFSR_TAG_##tag)
-#define LFSR_TAG_RM(tag)   (LFSR_TAG_RM | LFSR_TAG_##tag)
+#define LFSR_TAG_WIDE(tag)      (LFSR_TAG_WIDE      | LFSR_TAG_##tag)
+#define LFSR_TAG_GROW(tag)      (LFSR_TAG_GROW      | LFSR_TAG_##tag)
+#define LFSR_TAG_RM(tag)        (LFSR_TAG_RM        | LFSR_TAG_##tag)
+#define LFSR_TAG_DEFERRED(tag)  (LFSR_TAG_DEFERRED  | LFSR_TAG_##tag)
 
 // some other tag encodings with their own subfields
 #define LFSR_TAG_ALT(d, c, key) \
@@ -670,52 +687,56 @@ static inline uint8_t lfsr_tag_subtype(lfsr_tag_t tag) {
     return tag & 0x00ff;
 }
 
-static inline bool lfsr_tag_isvalid(lfsr_tag_t tag) {
-    return !(tag & 0x8000);
+static inline lfsr_tag_t lfsr_tag_key(lfsr_tag_t tag) {
+    return tag & 0x0fff;
 }
 
-static inline lfsr_tag_t lfsr_tag_setvalid(lfsr_tag_t tag) {
-    return tag & ~0x8000;
+static inline lfsr_tag_t lfsr_tag_supkey(lfsr_tag_t tag) {
+    return tag & 0x0f00;
 }
 
-static inline lfsr_tag_t lfsr_tag_setinvalid(lfsr_tag_t tag) {
-    return tag | 0x8000;
+static inline lfsr_tag_t lfsr_tag_subkey(lfsr_tag_t tag) {
+    return tag & 0x00ff;
 }
 
 static inline bool lfsr_tag_iswide(lfsr_tag_t tag) {
-    return tag & 0x4000;
+    return tag & LFSR_TAG_WIDE;
 }
 
 static inline lfsr_tag_t lfsr_tag_setwide(lfsr_tag_t tag) {
-    return tag | 0x4000;
+    return tag | LFSR_TAG_WIDE;
 }
 
 static inline lfsr_tag_t lfsr_tag_clearwide(lfsr_tag_t tag) {
-    return tag & ~0x4000;
+    return tag & ~LFSR_TAG_WIDE;
 }
 
 static inline bool lfsr_tag_isgrow(lfsr_tag_t tag) {
-    return tag & 0x2000;
+    return tag & LFSR_TAG_GROW;
 }
 
 static inline lfsr_tag_t lfsr_tag_setgrow(lfsr_tag_t tag) {
-    return tag | 0x2000;
+    return tag | LFSR_TAG_GROW;
 }
 
 static inline lfsr_tag_t lfsr_tag_cleargrow(lfsr_tag_t tag) {
-    return tag & ~0x2000;
+    return tag & ~LFSR_TAG_GROW;
 }
 
 static inline bool lfsr_tag_isrm(lfsr_tag_t tag) {
-    return tag & 0x1000;
+    return tag & LFSR_TAG_RM;
 }
 
 static inline lfsr_tag_t lfsr_tag_setrm(lfsr_tag_t tag) {
-    return tag | 0x1000;
+    return tag | LFSR_TAG_RM;
+}
+
+static inline lfsr_tag_t lfsr_tag_clearrm(lfsr_tag_t tag) {
+    return tag & ~LFSR_TAG_RM;
 }
 
 static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
-    return tag & 0x4000;
+    return tag & LFSR_TAG_ALT;
 }
 
 static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
@@ -727,67 +748,57 @@ static inline uint8_t lfsr_tag_filetype(lfsr_tag_t tag) {
 }
 
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
-    // bit 4 is currently unused, use for internal use for now
-    // (may change in the future)
-    return tag & 0x0800;
-}
-
-static inline lfsr_tag_t lfsr_tag_setdelta(lfsr_tag_t tag) {
-    return tag & ~0x0800;
+    return tag & LFSR_TAG_INTERNAL;
 }
 
 // lfsr_rbyd_appendattr diverged specific flags
 static inline bool lfsr_tag_hasdiverged(lfsr_tag_t tag) {
-    return tag & 0x2000;
+    return tag & LFSR_TAG_DIVERGED;
 }
 
 static inline bool lfsr_tag_isdivergedupper(lfsr_tag_t tag) {
-    return tag & 0x1000;
+    return tag & LFSR_TAG_DIVERGEDUPPER;
 }
 
 static inline bool lfsr_tag_isdivergedlower(lfsr_tag_t tag) {
-    return !lfsr_tag_isdivergedupper(tag);
-}
-
-static inline lfsr_tag_t lfsr_tag_setdivergedlower(lfsr_tag_t tag) {
-    return tag | 0x2000;
+    return !(tag & LFSR_TAG_DIVERGEDUPPER);
 }
 
 static inline lfsr_tag_t lfsr_tag_setdivergedupper(lfsr_tag_t tag) {
-    return tag | 0x3000;
+    return tag | LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDUPPER;
+}
+
+static inline lfsr_tag_t lfsr_tag_setdivergedlower(lfsr_tag_t tag) {
+    return tag | LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDLOWER;
 }
 
 // alt operations
 static inline bool lfsr_tag_isblack(lfsr_tag_t tag) {
-    return !(tag & 0x1000);
+    return !(tag & LFSR_TAG_R);
 }
 
 static inline bool lfsr_tag_isred(lfsr_tag_t tag) {
-    return tag & 0x1000;
+    return tag & LFSR_TAG_R;
 }
 
 static inline lfsr_tag_t lfsr_tag_setblack(lfsr_tag_t tag) {
-    return tag & ~0x1000;
+    return tag & ~LFSR_TAG_R;
 }
 
 static inline lfsr_tag_t lfsr_tag_setred(lfsr_tag_t tag) {
-    return tag | 0x1000;
+    return tag | LFSR_TAG_R;
 }
 
 static inline bool lfsr_tag_isle(lfsr_tag_t tag) {
-    return !(tag & 0x2000);
+    return !(tag & LFSR_TAG_GT);
 }
 
 static inline bool lfsr_tag_isgt(lfsr_tag_t tag) {
-    return tag & 0x2000;
+    return tag & LFSR_TAG_GT;
 }
 
 static inline lfsr_tag_t lfsr_tag_isparallel(lfsr_tag_t a, lfsr_tag_t b) {
-    return (a & 0x2000) == (b & 0x2000);
-}
-
-static inline lfsr_tag_t lfsr_tag_key(lfsr_tag_t tag) {
-    return tag & 0x0fff;
+    return (a & LFSR_TAG_GT) == (b & LFSR_TAG_GT);
 }
 
 static inline bool lfsr_tag_follow(
@@ -840,7 +851,7 @@ static inline bool lfsr_tag_prune2(
 static inline void lfsr_tag_flip(
         lfsr_tag_t *alt, lfsr_rid_t *weight,
         lfsr_srid_t lower, lfsr_srid_t upper) {
-    *alt = *alt ^ 0x2000;
+    *alt = *alt ^ LFSR_TAG_GT;
     *weight = (upper-lower) - *weight - 1;
 }
 
@@ -1946,8 +1957,6 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_srid_t rid, lfsr_tag_t tag,
         lfsr_srid_t *rid_,
         lfsr_tag_t *tag_, lfsr_rid_t *weight_, lfsr_data_t *data_) {
-    // tag must be valid at this point
-    LFS_ASSERT(lfsr_tag_isvalid(tag));
     // these bits should be clear at this point
     LFS_ASSERT(lfsr_tag_mode(tag) == 0x0000);
 
@@ -2181,10 +2190,9 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_srid_t rid, lfsr_tag_t tag, lfsr_srid_t delta, lfsr_data_t data) {
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
-    // tag must be valid at this point
-    LFS_ASSERT(lfsr_tag_isvalid(tag));
+    // tag must not be internal at this point
     LFS_ASSERT(!lfsr_tag_isinternal(tag));
-    // never write zero tags to disk, use unr if tag contains no data
+    // there shouldn't be any null tags here
     LFS_ASSERT(tag != 0);
     // reserve bit 7 to allow leb128 subtypes in the future
     LFS_ASSERT(!(tag & 0x80));
@@ -2196,7 +2204,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // ignore noops
     // TODO is there a better way to represent noops?
-    if (lfsr_tag_cleargrow(tag) == LFSR_TAG_RM && delta == 0) {
+    if (!lfsr_tag_isrm(tag) && !lfsr_tag_key(tag) && delta == 0) {
         return 0;
     }
 
@@ -2252,7 +2260,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         if (lfsr_tag_iswide(tag)) {
             tag_ = lfsr_tag_suptype(lfsr_tag_key(tag));
             other_tag_ = tag_ + 0x100;
-        } else if (lfsr_tag_isrm(tag)) {
+        } else if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             tag_ = lfsr_tag_key(tag);
             other_tag_ = tag_ + 0x1;
         } else {
@@ -2260,9 +2268,9 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             other_tag_ = tag_;
         }
     }
-    // mark as invalid until found
-    tag_ = lfsr_tag_setinvalid(tag_);
-    other_tag_ = lfsr_tag_setinvalid(other_tag_);
+    // mark as rmed until found
+    tag_ = lfsr_tag_setrm(tag_);
+    other_tag_ = lfsr_tag_setrm(other_tag_);
 
     // keep track of bounds as we descend down the tree
     //
@@ -2522,11 +2530,11 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // - clear valid bit, marking the tag as found
             // - preserve diverged state
             LFS_ASSERT(lfsr_tag_mode(alt) == 0x0000);
-            tag_ = lfsr_tag_setvalid(lfsr_tag_mode(tag_) | alt);
+            tag_ = lfsr_tag_clearrm(lfsr_tag_mode(tag_) | alt);
             rid_ = upper_rid-1;
 
             // done?
-            if (!lfsr_tag_hasdiverged(tag_) || lfsr_tag_isvalid(other_tag_)) {
+            if (!lfsr_tag_hasdiverged(tag_) || !lfsr_tag_isrm(other_tag_)) {
                 break;
             }
         }
@@ -2547,8 +2555,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     LFS_ASSERT(lfsr_tag_isblack(p_alts[0]));
 
     // if we diverged, merge the bounds
-    LFS_ASSERT(lfsr_tag_isvalid(tag_));
-    LFS_ASSERT(!lfsr_tag_hasdiverged(tag_) || lfsr_tag_isvalid(other_tag_));
+    LFS_ASSERT(!lfsr_tag_isrm(tag_));
+    LFS_ASSERT(!lfsr_tag_hasdiverged(tag_) || !lfsr_tag_isrm(other_tag_));
     if (lfsr_tag_hasdiverged(tag_)) {
         if (lfsr_tag_isdivergedlower(tag_)) {
             // finished on lower path
@@ -2588,7 +2596,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                                 < lfsr_tag_suptype(lfsr_tag_key(tag))
                             : lfsr_tag_key(tag_)
                                 < lfsr_tag_key(tag)))))) {
-        if (lfsr_tag_isrm(tag)) {
+        if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALT(GT, B, 0);
             weight = upper_rid - lower_rid - 1 + delta;
@@ -2614,7 +2622,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                                 > lfsr_tag_suptype(lfsr_tag_key(tag))
                             : lfsr_tag_key(tag_)
                                 > lfsr_tag_key(tag)))))) {
-        if (lfsr_tag_isrm(tag)) {
+        if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALT(GT, B, 0);
             weight = upper_rid - lower_rid - 1 + delta;
