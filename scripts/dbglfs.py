@@ -32,6 +32,7 @@ TAG_REG         = 0x0202
 TAG_DIR         = 0x0203
 TAG_STRUCT      = 0x0300
 TAG_INLINED     = 0x0300
+TAG_TRUNK       = 0x0304
 TAG_BLOCK       = 0x0308
 TAG_BTREE       = 0x030c
 TAG_MDIR        = 0x0311
@@ -178,6 +179,7 @@ def tagrepr(tag, w, size, off=None):
     elif (tag & 0xff00) == TAG_STRUCT:
         return '%s%s %d' % (
             'inlined' if tag == TAG_INLINED
+                else 'trunk' if tag == TAG_TRUNK
                 else 'block' if tag == TAG_BLOCK
                 else 'btree' if tag == TAG_BTREE
                 else 'mdir' if tag == TAG_MDIR

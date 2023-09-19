@@ -1337,7 +1337,7 @@ typedef struct lfsr_attr {
         _delta, \
         LFSR_DATA_##_data})
 
-#define LFSR_ATTR_NOOP LFSR_ATTR(-1, RM, 0, NULL)
+#define LFSR_ATTR_NOOP LFSR_ATTR(-1, GROW, 0, NULL)
 
 // TODO make this const again eventually
 #define LFSR_ATTRS(...) \
@@ -2289,7 +2289,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // ignore noops
     // TODO is there a better way to represent noops?
-    if (!lfsr_tag_isrm(tag) && !lfsr_tag_key(tag) && delta == 0) {
+    if (!lfsr_tag_key(tag) && delta == 0) {
         return 0;
     }
 
@@ -2614,7 +2614,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // note we:
             // - clear valid bit, marking the tag as found
             // - preserve diverged state
-            LFS_ASSERT(lfsr_tag_mode(alt) == 0x0000);
+            LFS_ASSERT(lfsr_tag_deferredmode(alt) == 0x0000);
             tag_ = lfsr_tag_clearrm(lfsr_tag_mode(tag_) | alt);
             rid_ = upper_rid-1;
 
@@ -7428,19 +7428,30 @@ static int lfsr_mdir_stat(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mid_t mid,
     // because of the different file representations
     info->size = 0;
     if (tag == LFSR_TAG_REG) {
-        err = lfsr_mdir_lookup(lfs, mdir, mid, LFSR_TAG_WIDE(STRUCT),
-                &tag, &data);
+        err = lfsr_mdir_lookup(lfs, mdir, mid, LFSR_TAG_INLINED,
+                NULL, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
         if (err != LFS_ERR_NOENT) {
-            if (tag == LFSR_TAG_INLINED) {
-                info->size = lfsr_data_size(&data);
-            } else {
-                // TODO
-                LFS_ASSERT(false);
+            info->size = lfs_max32(info->size, lfsr_data_size(&data));
+        }
+
+        err = lfsr_mdir_lookup(lfs, mdir, mid, LFSR_TAG_TRUNK,
+                NULL, &data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+
+        if (err != LFS_ERR_NOENT) {
+            lfsr_rbyd_t trunk;
+            err = lfsr_data_readtrunk(lfs, &data, &trunk);
+            if (err) {
+                return err;
             }
+
+            info->size = lfs_max32(info->size, trunk.weight);
         }
     }
 
@@ -7639,7 +7650,7 @@ static bool lfsr_file_isinlinedtree(const lfsr_file_t *file) {
     return !(file->inlined.u.weight & LFSR_FILE_INLINEDDATA);
 }
 
-static lfs_off_t lfsr_file_inlinedweight(const lfsr_file_t *file) {
+static lfs_off_t lfsr_file_inlinedsize(const lfsr_file_t *file) {
     return file->inlined.u.weight & ~LFSR_FILE_INLINEDDATA;
 }
 
@@ -7722,18 +7733,43 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         // just going to truncate after all
         if (!(flags & LFS_O_TRUNC)) {
             // read the inline state
+            lfsr_data_t data;
             err = lfsr_mdir_lookup(lfs, &file->m.mdir,
                     file->m.mdir.mid, LFSR_TAG_INLINED,
-                    NULL, &file->inlined.u.data);
+                    NULL, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
+            }
+
+            // TODO the above clobbers data on failure, which is why we can't
+            // lookup into the inlined data directly. Should this be avoided?
+            // Should we at least be consistent in this codebase?
+            if (err != LFS_ERR_NOENT) {
+                file->inlined.u.data = data;
+            }
+
+            // or inlined tree state
+            err = lfsr_mdir_lookup(lfs, &file->m.mdir,
+                    file->m.mdir.mid, LFSR_TAG_TRUNK,
+                    NULL, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+
+            if (err != LFS_ERR_NOENT) {
+                LFS_ASSERT(lfsr_file_inlinedsize(file) == 0);
+                err = lfsr_data_readtrunk(lfs, &data,
+                        (lfsr_rbyd_t*)&file->inlined);
+                if (err) {
+                    return err;
+                }
             }
         }
     }
 
     // TODO common function for this?
     // figure out the total size
-    file->size = lfsr_file_inlinedweight(file);
+    file->size = lfsr_file_inlinedsize(file);
 
     // allocate buffer if necessary
     if (file->cfg->buffer) {
@@ -7807,7 +7843,7 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
 
         // is the data inlined?
         if (lfsr_file_isinlineddata(file)
-                && pos < lfsr_file_inlinedweight(file)) {
+                && pos < lfsr_file_inlinedsize(file)) {
             lfsr_data_t data = file->inlined.u.data;
             lfsr_data_add(&data, pos);
             d = lfsr_data_read(lfs, &data, buffer_, d);
@@ -7821,9 +7857,49 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
             continue;
         }
 
-        // TODO
-        // no more data?
-        break;
+        // is the data in an inlined tree?
+        if (lfsr_file_isinlinedtree(file)
+                && pos < lfsr_file_inlinedsize(file)) {
+            lfsr_rbyd_t rbyd;
+            rbyd.block = file->m.mdir.u.m.blocks[0];
+            rbyd.trunk = file->inlined.u.t.trunk;
+            rbyd.weight = file->inlined.u.t.weight;
+
+            lfsr_srid_t rid;
+            lfsr_tag_t tag;
+            lfsr_rid_t weight;
+            lfsr_data_t data;
+            int err = lfsr_rbyd_lookupnext(lfs, &rbyd, pos, 0,
+                    &rid, &tag, &weight, &data);
+            if (err && err != LFS_ERR_NOENT) {
+                return err;
+            }
+            LFS_ASSERT(err == LFS_ERR_NOENT
+                    || tag == LFSR_TAG_DEFERRED(INLINED));
+
+            if (pos < rid-(weight-1) + lfsr_data_size(&data)) {
+                lfsr_data_add(&data, pos - (rid-(weight-1)));
+                d = lfsr_data_read(lfs, &data, buffer_, d);
+                if (d < 0) {
+                    return d;
+                }
+
+                pos += d;
+                buffer_ += d;
+                size -= d;
+                continue;
+            }
+
+            // found a hole, just make sure next leaf takes priority
+            d = lfs_min32(d, rid+1 - pos);
+        }
+
+        // no data? found a hole, just fill with zeros
+        memset(buffer_, 0, d);
+
+        pos += d;
+        buffer_ += d;
+        size -= d;
     }
 
     return 0;
@@ -7854,19 +7930,49 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
 //                    lfs->cfg->cache_size,
 //                    lfs->cfg->inline_size));
 
-            // TODO
             // do we carve out any data from the inlined data?
-            
+            lfsr_data_t left_data = LFSR_DATA_DISK(
+                    file->inlined.u.d.block,
+                    file->inlined.u.d.off,
+                    lfs_min32(
+                        file->buffer_pos,
+                        lfsr_file_inlinedsize(file)));
+
+            lfs_off_t right_pos = file->buffer_pos + file->buffer_size;
+            lfsr_data_t right_data = LFSR_DATA_DISK(
+                    file->inlined.u.d.block,
+                    file->inlined.u.d.off + right_pos,
+                    lfsr_file_inlinedsize(file) - lfs_min32(
+                        right_pos,
+                        lfsr_file_inlinedsize(file)));
+
+            // create a zero weight trunk
             file->inlined.u.t.trunk = 0;
             file->inlined.u.t.weight = 0;
+            // TODO
+            file->inlined.u.t.overhead = 0;
 
             int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                    LFSR_ATTR(file->m.mdir.mid, DEFER, 0, DEFER(
+                    LFSR_ATTR_(file->m.mdir.mid, DEFER, 0, DEFER(
                         // TODO bit of a hack...
                         (lfsr_rbyd_t*)&file->inlined,
-                        LFSR_ATTR_(file->buffer_pos,
-                            DEFERRED(INLINED), +file->buffer_size, BUF(
-                                file->buffer, file->buffer_size))))));
+                        // note we always need a zero entry
+                        (file->buffer_pos > 0
+                            ? LFSR_ATTR(0,
+                                DEFERRED(INLINED),
+                                +file->buffer_pos,
+                                DATA(left_data))
+                            : LFSR_ATTR_NOOP),
+                        LFSR_ATTR(file->buffer_pos,
+                            DEFERRED(INLINED),
+                            +file->buffer_size,
+                            BUF(file->buffer, file->buffer_size)),
+                        (lfsr_data_size(&right_data) > 0
+                            ? LFSR_ATTR(right_pos,
+                                DEFERRED(INLINED),
+                                +lfsr_data_size(&right_data),
+                                DATA(right_data))
+                            : LFSR_ATTR_NOOP)))));
             if (err) {
                 return err;
             }
@@ -7875,30 +7981,119 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
             continue;
         }
 
-// TODO
-//        // do we fit in our inlined tree?
-//        //
-//        // this is a complex question since we may be carving out leaves of the
-//        // inlined tree, we need to find these leaves to know for sure
-//        //
-//        // TODO can we somehow fit an rbyd struct in the file_t so we don't
-//        // need this copy?
-//        lfsr_rbyd_t rbyd;
-//        rbyd.block = file->m.mdir.block;
-//        rbyd.trunk = file->inlined.u.t.trunk;
-//        rbyd.weight = file->inlined.u.t.weight;
-//
-//        lfsr_srid_t left_rid;
-//        lfsr_tag_t left_tag;
-//        lfsr_rid_t left_weight;
-//        lfsr_data_t left_data;
-//        int err = lfsr_rbyd_lookupnext(lfs, &rbyd, file->buffer_pos, 0,
-//                &left_rid, &left_tag, &left_weight, &left_data);
-//        if (err 
+        // TODO can we merge this with the above once we find the data_ts?
 
-        // TODO
-        break;
-        //LFS_ASSERT(false);
+        // do we fit in our inlined tree?
+        //
+        // this is a complex question since we may be carving out leaves of the
+        // inlined tree, we need to find these leaves to know for sure
+        //
+        // TODO can we somehow fit an rbyd struct in the file_t so we don't
+        // need this copy?
+        lfsr_rbyd_t rbyd;
+        rbyd.block = file->m.mdir.u.m.blocks[0];
+        rbyd.trunk = file->inlined.u.t.trunk;
+        rbyd.weight = file->inlined.u.t.weight;
+
+        lfsr_srid_t left_rid;
+        lfsr_tag_t left_tag;
+        lfsr_rid_t left_weight;
+        lfsr_data_t left_data;
+        int err = lfsr_rbyd_lookupnext(lfs, &rbyd,
+                lfs_min32(file->buffer_pos, rbyd.weight-1), 0,
+                &left_rid, &left_tag, &left_weight, &left_data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        LFS_ASSERT(err == LFS_ERR_NOENT
+                || left_tag == LFSR_TAG_DEFERRED(INLINED));
+
+        // figure out what data we carve out, we need to update these
+        lfs_off_t left_pos;
+        if (err != LFS_ERR_NOENT
+                && (lfs_off_t)left_rid+1 > file->buffer_pos) {
+            left_pos = left_rid-(left_weight-1);
+            left_data = LFSR_DATA_DISK(
+                    left_data.u.d.block,
+                    left_data.u.d.off,
+                    lfsr_data_size(&left_data)
+                        - ((left_rid+1)-file->buffer_pos));
+        } else {
+            left_pos = file->buffer_pos;
+            left_data = LFSR_DATA_NULL;
+        }
+
+        lfsr_srid_t right_rid;
+        lfsr_tag_t right_tag;
+        lfsr_rid_t right_weight;
+        lfsr_data_t right_data;
+        err = lfsr_rbyd_lookupnext(lfs, &rbyd,
+                file->buffer_pos + file->buffer_size-1, 0,
+                &right_rid, &right_tag, &right_weight, &right_data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        LFS_ASSERT(err == LFS_ERR_NOENT
+                || right_tag == LFSR_TAG_DEFERRED(INLINED));
+
+        lfs_off_t right_pos;
+        if (err != LFS_ERR_NOENT
+                && right_rid-(right_weight-1)
+                    < file->buffer_pos + file->buffer_size) {
+            right_pos = file->buffer_pos + file->buffer_size;
+            right_data = LFSR_DATA_DISK(
+                    right_data.u.d.block,
+                    right_data.u.d.off
+                        + (file->buffer_pos + file->buffer_size
+                            - right_rid-(right_weight-1)),
+                    lfsr_data_size(&right_data)
+                        - (file->buffer_pos + file->buffer_size
+                            - right_rid-(right_weight-1)));
+        } else {
+            right_pos = file->buffer_pos + file->buffer_size;
+            right_data = LFSR_DATA_NULL;
+        }
+
+        // write out our buffer and any carved data
+        err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+                LFSR_ATTR_(file->m.mdir.mid, DEFER, 0, DEFER(
+                    // TODO bit of a hack...
+                    (lfsr_rbyd_t*)&file->inlined,
+                    // first remove anything in the way
+                    LFSR_ATTR(
+                        lfs_min32(
+                            right_pos + lfsr_data_size(&right_data),
+                            rbyd.weight)-1,
+                        RM,
+                        lfs_min32(
+                            right_pos + lfsr_data_size(&right_data),
+                            rbyd.weight) - left_pos,
+                        NULL),
+                    // TODO this should handling holes somehow
+                    (lfsr_data_size(&left_data) > 0
+                        ? LFSR_ATTR(left_pos,
+                            DEFERRED(INLINED),
+                            +lfsr_data_size(&left_data),
+                            DATA(left_data))
+                        : LFSR_ATTR_NOOP),
+                    LFSR_ATTR(file->buffer_pos,
+                        DEFERRED(INLINED),
+                        +file->buffer_size,
+                        BUF(file->buffer, file->buffer_size)),
+                    (lfsr_data_size(&right_data) > 0
+                        ? LFSR_ATTR(right_pos,
+                            DEFERRED(INLINED),
+                            +lfsr_data_size(&right_data),
+                            DATA(right_data))
+                        : LFSR_ATTR_NOOP)))));
+        if (err) {
+            return err;
+        }
+
+        file->buffer_size = 0;
+        continue;
+
+        // TODO check overhead?
     }
 
     return 0;

@@ -426,9 +426,14 @@ code = '''
 '''
 
 
-# try a larger file? this should need to write an inlined tree
+# try writing larger files?
+#
+# at 2*CACHE_SIZE we need an inlined tree
+# ? single block?
+# at 2*BLOCK_SIZE we need a b-tree
+#
 [cases.test_ftree_sprout]
-defines.SIZE = '2*CACHE_SIZE'
+defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
 defines.REMOUNT = [false, true]
 reentrant = true
 code = '''
@@ -446,7 +451,7 @@ code = '''
     uint8_t wbuf[8192];
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < SIZE; i++) {
-        wbuf[i] = TEST_PRNG(&prng);
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
     lfsr_file_close(&lfs, &file) => 0;
@@ -492,6 +497,20 @@ code = '''
 
     lfsr_unmount(&lfs) => 0;
 '''
+
+
+
+## more complex writing patterns to inlined files
+#
+## write files incrementally
+#[cases.test_ftree_incr]
+#defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+#defines.SYNC = [false, true]
+#defines.REMOUNT = [false, true]
+#reentrant = true
+#code = '''
+#'''
+
 
 
 
