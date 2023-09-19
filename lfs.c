@@ -636,12 +636,13 @@ enum lfsr_tag_type {
     // to change in the future
     LFSR_TAG_INTERNAL       = 0x0800,
     LFSR_TAG_MOVE           = 0x0800,
+    LFSR_TAG_DEFER          = 0x0801,
 
     // some tag modifiers
     // in-device only
-    LFSR_TAG_WIDE           = 0x2000,
-    LFSR_TAG_GROW           = 0x4000,
     LFSR_TAG_RM             = 0x8000,
+    LFSR_TAG_GROW           = 0x4000,
+    LFSR_TAG_WIDE           = 0x2000,
 
     // lfsr_rbyd_appendattr specific flags
     LFSR_TAG_DIVERGED       = 0x4000,
@@ -654,10 +655,10 @@ enum lfsr_tag_type {
 #define LFSR_TAG_TAG(tag) (tag)
 
 // some tag modifiers
-#define LFSR_TAG_WIDE(tag)      (LFSR_TAG_WIDE      | LFSR_TAG_##tag)
-#define LFSR_TAG_GROW(tag)      (LFSR_TAG_GROW      | LFSR_TAG_##tag)
-#define LFSR_TAG_RM(tag)        (LFSR_TAG_RM        | LFSR_TAG_##tag)
 #define LFSR_TAG_DEFERRED(tag)  (LFSR_TAG_DEFERRED  | LFSR_TAG_##tag)
+#define LFSR_TAG_RM(tag)        (LFSR_TAG_RM        | LFSR_TAG_##tag)
+#define LFSR_TAG_GROW(tag)      (LFSR_TAG_GROW      | LFSR_TAG_##tag)
+#define LFSR_TAG_WIDE(tag)      (LFSR_TAG_WIDE      | LFSR_TAG_##tag)
 
 // some other tag encodings with their own subfields
 #define LFSR_TAG_ALT(d, c, key) \
@@ -699,28 +700,32 @@ static inline lfsr_tag_t lfsr_tag_subkey(lfsr_tag_t tag) {
     return tag & 0x00ff;
 }
 
-static inline bool lfsr_tag_iswide(lfsr_tag_t tag) {
-    return tag & LFSR_TAG_WIDE;
+static inline lfsr_tag_t lfsr_tag_deferredmode(lfsr_tag_t tag) {
+    return tag & 0xe000;
 }
 
-static inline lfsr_tag_t lfsr_tag_setwide(lfsr_tag_t tag) {
-    return tag | LFSR_TAG_WIDE;
+static inline lfsr_tag_t lfsr_tag_deferredkey(lfsr_tag_t tag) {
+    return tag & 0x1fff;
 }
 
-static inline lfsr_tag_t lfsr_tag_clearwide(lfsr_tag_t tag) {
-    return tag & ~LFSR_TAG_WIDE;
+static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_ALT;
 }
 
-static inline bool lfsr_tag_isgrow(lfsr_tag_t tag) {
-    return tag & LFSR_TAG_GROW;
+static inline bool lfsr_tag_isdeferred(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_DEFERRED;
 }
 
-static inline lfsr_tag_t lfsr_tag_setgrow(lfsr_tag_t tag) {
-    return tag | LFSR_TAG_GROW;
+static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
+    return (tag & 0x6000) != 0x2000;
 }
 
-static inline lfsr_tag_t lfsr_tag_cleargrow(lfsr_tag_t tag) {
-    return tag & ~LFSR_TAG_GROW;
+static inline uint8_t lfsr_tag_filetype(lfsr_tag_t tag) {
+    return tag - LFSR_TAG_REG;
+}
+
+static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_INTERNAL;
 }
 
 static inline bool lfsr_tag_isrm(lfsr_tag_t tag) {
@@ -735,20 +740,28 @@ static inline lfsr_tag_t lfsr_tag_clearrm(lfsr_tag_t tag) {
     return tag & ~LFSR_TAG_RM;
 }
 
-static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
-    return tag & LFSR_TAG_ALT;
+static inline bool lfsr_tag_isgrow(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_GROW;
 }
 
-static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
-    return (tag & 0x6000) != 0x2000;
+static inline lfsr_tag_t lfsr_tag_setgrow(lfsr_tag_t tag) {
+    return tag | LFSR_TAG_GROW;
 }
 
-static inline uint8_t lfsr_tag_filetype(lfsr_tag_t tag) {
-    return tag - LFSR_TAG_REG;
+static inline lfsr_tag_t lfsr_tag_cleargrow(lfsr_tag_t tag) {
+    return tag & ~LFSR_TAG_GROW;
 }
 
-static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
-    return tag & LFSR_TAG_INTERNAL;
+static inline bool lfsr_tag_iswide(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_WIDE;
+}
+
+static inline lfsr_tag_t lfsr_tag_setwide(lfsr_tag_t tag) {
+    return tag | LFSR_TAG_WIDE;
+}
+
+static inline lfsr_tag_t lfsr_tag_clearwide(lfsr_tag_t tag) {
+    return tag & ~LFSR_TAG_WIDE;
 }
 
 // lfsr_rbyd_appendattr diverged specific flags
@@ -1057,6 +1070,13 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 #define LFSR_DATA_GRM(_grm) \
     ((lfsr_data_t){.u.b.buffer=(const void*)(lfsr_grm_t*){_grm}})
 
+// writing to an unrelated trunk in the rbyd
+#define LFSR_DATA_DEFER(_rbyd, ...) \
+    ((lfsr_data_t){.u.b.buffer=(const void*)&(const lfsr_defer_t){ \
+        .rbyd=_rbyd, \
+        .attrs=(const lfsr_attr_t[]){__VA_ARGS__}, \
+        .attr_count=sizeof((const lfsr_attr_t[]){__VA_ARGS__}) \
+            / sizeof(lfsr_attr_t)}})
 
 static inline bool lfsr_data_ondisk(const lfsr_data_t *data) {
     return data->u.size & 0x80000000;
@@ -1303,6 +1323,14 @@ typedef struct lfsr_attr {
 } lfsr_attr_t;
 
 #define LFSR_ATTR(_rid, _type, _delta, _data) \
+    ((const lfsr_attr_t){ \
+        _rid, \
+        LFSR_TAG_##_type, \
+        _delta, \
+        LFSR_DATA_##_data})
+
+// TODO do we really need two?
+#define LFSR_ATTR_(_rid, _type, _delta, _data) \
     ((const lfsr_attr_t){ \
         _rid, \
         LFSR_TAG_##_type, \
@@ -1696,6 +1724,57 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 }
 
 
+// deferred tree things
+typedef struct lfsr_defer {
+    lfsr_rbyd_t *rbyd;
+    const lfsr_attr_t *attrs;
+    lfs_size_t attr_count;
+} lfsr_defer_t;
+
+// trunk on-disk encoding
+
+// 2 leb128s => 10 bytes (worst case)
+#define LFSR_TRUNK_DSIZE (5+5)
+
+#define LFSR_DATA_FROMTRUNK(_lfs, _rbyd, _buffer) \
+    lfsr_data_fromtrunk(_lfs, _rbyd, _buffer)
+
+static lfsr_data_t lfsr_data_fromtrunk(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+        uint8_t buffer[static LFSR_TRUNK_DSIZE]) {
+    (void)lfs;
+    lfs_ssize_t d = 0;
+
+    // just write the trunk and weight, the rest of the rbyd is contextual
+    lfs_ssize_t d_ = lfs_toleb128(rbyd->trunk, &buffer[d], 5);
+    LFS_ASSERT(d_ >= 0);
+    d += d_;
+
+    d_ = lfs_toleb128(rbyd->weight, &buffer[d], 5);
+    LFS_ASSERT(d_ >= 0);
+    d += d_;
+
+    return LFSR_DATA_BUF(buffer, d);
+}
+
+static int lfsr_data_readtrunk(lfs_t *lfs, lfsr_data_t *data,
+        lfsr_rbyd_t *rbyd) {
+    // note the rest of the rbyd may not actually be backed by memory, so
+    // we need to be conservative here
+    int err = lfsr_data_readleb128(lfs, data, (int32_t*)&rbyd->trunk);
+    if (err) {
+        return err;
+    }
+
+    err = lfsr_data_readleb128(lfs, data, &rbyd->weight);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+
+
+
 /// Internal operations predeclared here ///
 //#ifndef LFS_READONLY
 //static int lfs_dir_commit(lfs_t *lfs, lfs_mdir_t *dir,
@@ -1796,6 +1875,7 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // temporary state until we validate a cksum
     lfs_size_t off = sizeof(uint32_t);
     lfs_size_t trunk_ = 0;
+    lfs_size_t trunk__ = 0;
     bool wastrunk = false;
     lfsr_rid_t weight = 0;
     lfsr_rid_t weight_ = 0;
@@ -1894,8 +1974,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // start of trunk?
             if (!wastrunk) {
                 wastrunk = true;
-                // save trunk entry point
-                trunk_ = off;
+                // keep track of trunk's entry point
+                trunk__ = off;
                 // reset weight
                 weight_ = 0;
             }
@@ -1911,8 +1991,12 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // end of trunk?
             if (!lfsr_tag_isalt(tag)) {
                 wastrunk = false;
-                // update current weight
-                weight = weight_;
+                // update most recent trunk and weight, unless we are a
+                // deferred trunk
+                if (!lfsr_tag_isdeferred(tag)) {
+                    trunk_ = trunk__;
+                    weight = weight_;
+                }
             }
         }
 
@@ -1958,11 +2042,12 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_srid_t *rid_,
         lfsr_tag_t *tag_, lfsr_rid_t *weight_, lfsr_data_t *data_) {
     // these bits should be clear at this point
-    LFS_ASSERT(lfsr_tag_mode(tag) == 0x0000);
+    LFS_ASSERT(!lfsr_tag_isrm(tag));
+    LFS_ASSERT(!lfsr_tag_isgrow(tag));
 
     // make sure we never look up zero tags, the way we create
     // unreachable tags has a hole here
-    tag = lfs_max16(tag, 0x1);
+    tag = lfs_max16(lfsr_tag_key(tag), 0x1);
 
     // keep track of bounds as we descend down the tree
     lfs_size_t branch = rbyd->trunk;
@@ -2002,12 +2087,12 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             // update the tag rid
             lfsr_srid_t rid__ = upper-1;
             lfsr_tag_t tag__ = alt;
-            LFS_ASSERT(lfsr_tag_mode(tag__) == 0x0000);
+            LFS_ASSERT(lfsr_tag_deferredmode(tag__) == 0x0000);
 
             // not what we're looking for?
-            if (!tag__
+            if (!lfsr_tag_key(tag__)
                     || rid__ < rid
-                    || (rid__ == rid && tag__ < tag)) {
+                    || (rid__ == rid && lfsr_tag_key(tag__) < tag)) {
                 return LFS_ERR_NOENT;
             }
 
@@ -2035,7 +2120,7 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
     lfsr_srid_t rid_;
     lfsr_tag_t tag__;
-    int err = lfsr_rbyd_lookupnext(lfs, rbyd, rid, lfsr_tag_clearwide(tag),
+    int err = lfsr_rbyd_lookupnext(lfs, rbyd, rid, tag,
             &rid_, &tag__, NULL, data_);
     if (err) {
         return err;
@@ -2258,7 +2343,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         // note both normal and rm wide-tags have the same bounds, really it's
         // the normal non-wide-tags that are an outlier here
         if (lfsr_tag_iswide(tag)) {
-            tag_ = lfsr_tag_suptype(lfsr_tag_key(tag));
+            tag_ = lfsr_tag_supkey(tag);
             other_tag_ = tag_ + 0x100;
         } else if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             tag_ = lfsr_tag_key(tag);
@@ -2592,10 +2677,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 || (rid_ == rid-lfs_smax32(-delta, 0)
                     && ((delta > 0 && !lfsr_tag_isgrow(tag))
                         || (lfsr_tag_iswide(tag)
-                            ? lfsr_tag_suptype(lfsr_tag_key(tag_))
-                                < lfsr_tag_suptype(lfsr_tag_key(tag))
-                            : lfsr_tag_key(tag_)
-                                < lfsr_tag_key(tag)))))) {
+                            ? lfsr_tag_supkey(tag_) < lfsr_tag_supkey(tag)
+                            : lfsr_tag_key(tag_) < lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALT(GT, B, 0);
@@ -2618,10 +2701,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 || (rid_ == rid
                     && ((delta > 0 && !lfsr_tag_isgrow(tag))
                         || (lfsr_tag_iswide(tag)
-                            ? lfsr_tag_suptype(lfsr_tag_key(tag_))
-                                > lfsr_tag_suptype(lfsr_tag_key(tag))
-                            : lfsr_tag_key(tag_)
-                                > lfsr_tag_key(tag)))))) {
+                            ? lfsr_tag_supkey(tag_) > lfsr_tag_supkey(tag)
+                            : lfsr_tag_key(tag_) > lfsr_tag_key(tag)))))) {
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALT(GT, B, 0);
@@ -2668,7 +2749,7 @@ leaf:;
     // can't find trunks during fetch
     lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
             // rm => null, otherwise strip off control bits
-            (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_key(tag)),
+            (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_deferredkey(tag)),
             upper_rid - lower_rid - 1 + delta,
             lfsr_data_size(&data),
             &rbyd->cksum);
@@ -4955,7 +5036,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // do nothing
 
             // move tags copy over any tags associated with the source's rid
-            } else if (lfsr_tag_suptype(attrs[i].tag) == LFSR_TAG_MOVE) {
+            } else if (attrs[i].tag == LFSR_TAG_MOVE) {
                 // weighted moves are not supported
                 LFS_ASSERT(attrs[i].delta == 0);
                 const lfsr_mdir_t *mdir__
@@ -4983,6 +5064,29 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                         return err;
                     }
                 }
+
+            // defer tags append a set of attributes to an unrelated trunk
+            // in our rbyd
+            } else if (attrs[i].tag == LFSR_TAG_DEFER) {
+                const lfsr_defer_t *defer
+                        = (const lfsr_defer_t*)attrs[i].data.u.b.buffer;
+                // swap out our trunk/weight temporarily, note we're operating
+                // on a copy so if this fails not _too_ many things will get
+                // messed up
+                //
+                // it is important that these rbyds share eoff/cksum/etc
+                lfs_sswap32(&mdir_.u.m.weight, &defer->rbyd->weight);
+                lfs_swap32(&mdir_.u.m.trunk, &defer->rbyd->trunk);
+
+                // append any deferred attributes
+                int err = lfsr_rbyd_appendattrs(lfs, &mdir_.u.r.rbyd, -1, -1,
+                        defer->attrs, defer->attr_count);
+                if (err) {
+                    return err;
+                }
+
+                lfs_sswap32(&mdir_.u.m.weight, &defer->rbyd->weight);
+                lfs_swap32(&mdir_.u.m.trunk, &defer->rbyd->trunk);
 
             // write out normal tags normally
             } else {
@@ -5533,8 +5637,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
                 return err;
             }
-            // TODO use suptype == CONFIG here?
-            if (rid != -1 || tag >= LFSR_TAG_GSTATE) {
+            if (rid != -1 || lfsr_tag_suptype(tag) != LFSR_TAG_CONFIG) {
                 break;
             }
 
@@ -7526,6 +7629,20 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 
 /// File operations ///
 
+#define LFSR_FILE_INLINEDDATA 0x80000000
+
+static bool lfsr_file_isinlineddata(const lfsr_file_t *file) {
+    return file->inlined.u.weight & LFSR_FILE_INLINEDDATA;
+}
+
+static bool lfsr_file_isinlinedtree(const lfsr_file_t *file) {
+    return !(file->inlined.u.weight & LFSR_FILE_INLINEDDATA);
+}
+
+static lfs_off_t lfsr_file_inlinedweight(const lfsr_file_t *file) {
+    return file->inlined.u.weight & ~LFSR_FILE_INLINEDDATA;
+}
+
 static bool lfsr_file_isreadable(uint32_t flags) {
     return (flags & LFS_O_RDONLY) == LFS_O_RDONLY;
 }
@@ -7533,8 +7650,6 @@ static bool lfsr_file_isreadable(uint32_t flags) {
 static bool lfsr_file_iswriteable(uint32_t flags) {
     return (flags & LFS_O_WRONLY) == LFS_O_WRONLY;
 }
-
-int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
@@ -7547,12 +7662,14 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         }
     }
 
-    // default inlined state
+    // setup file state
     file->flags = flags;
     file->cfg = cfg;
     file->pos = 0;
-    file->inlined_pos = 0;
-    file->inlined = LFSR_DATA_NULL;
+    // default inlined state
+    file->inlined.u.d.block = 0;
+    file->inlined.u.d.off = 0;
+    file->inlined.u.d.size = LFSR_FILE_INLINEDDATA | 0;
 
     // lookup our parent
     lfsr_tag_t tag;
@@ -7607,7 +7724,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             // read the inline state
             err = lfsr_mdir_lookup(lfs, &file->m.mdir,
                     file->m.mdir.mid, LFSR_TAG_INLINED,
-                    NULL, &file->inlined);
+                    NULL, &file->inlined.u.data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
@@ -7616,7 +7733,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
     // TODO common function for this?
     // figure out the total size
-    file->size = lfsr_data_size(&file->inlined);
+    file->size = lfsr_file_inlinedweight(file);
 
     // allocate buffer if necessary
     if (file->cfg->buffer) {
@@ -7643,6 +7760,9 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
     return lfsr_file_opencfg(lfs, file, path, flags, &lfsr_file_defaults);
 }
 
+// needed in lfsr_file_close
+int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
+
 int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     int err = lfsr_file_sync(lfs, file);
 
@@ -7657,12 +7777,12 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
     return err;
 }
 
-lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
-        void *buffer, lfs_size_t size) {
-    LFS_ASSERT(lfsr_file_isreadable(file->flags));
+// direct read function without state updates
+int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
+        lfs_off_t pos, void *buffer, lfs_size_t size) {
+    LFS_ASSERT(pos <= 0x7fffffff);
     LFS_ASSERT(size <= 0x7fffffff);
 
-    lfs_off_t pos = file->pos;
     uint8_t *buffer_ = buffer;
     while (size > 0) {
         lfs_ssize_t d = size;
@@ -7686,23 +7806,19 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // is the data inlined?
-        if (pos < file->inlined_pos + lfsr_data_size(&file->inlined)) {
-            if (pos >= file->inlined_pos) {
-                lfsr_data_t inlined = file->inlined;
-                lfsr_data_add(&inlined, pos - file->inlined_pos);
-                d = lfsr_data_read(lfs, &inlined, buffer_, d);
-                if (d < 0) {
-                    return d;
-                }
-
-                pos += d;
-                buffer_ += d;
-                size -= d;
-                continue;
+        if (lfsr_file_isinlineddata(file)
+                && pos < lfsr_file_inlinedweight(file)) {
+            lfsr_data_t data = file->inlined.u.data;
+            lfsr_data_add(&data, pos);
+            d = lfsr_data_read(lfs, &data, buffer_, d);
+            if (d < 0) {
+                return d;
             }
 
-            // inlined data takes priority
-            d = lfs_min32(d, file->inlined_pos - pos);
+            pos += d;
+            buffer_ += d;
+            size -= d;
+            continue;
         }
 
         // TODO
@@ -7710,9 +7826,82 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         break;
     }
 
-    lfs_size_t read = pos - file->pos;
-    file->pos = pos;
-    return read;
+    return 0;
+}
+
+lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
+        void *buffer, lfs_size_t size) {
+    LFS_ASSERT(lfsr_file_isreadable(file->flags));
+
+    lfs_ssize_t d = lfs_min32(size, file->size - file->pos);
+    int err = lfsr_file_read_(lfs, file, file->pos, buffer, d);
+    if (err < 0) {
+        return err;
+    }
+
+    file->pos += d;
+    return d;
+}
+
+static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
+    while (file->buffer_size > 0) {
+        // do we need an inlined tree?
+        if (lfsr_file_isinlineddata(file)) {
+// TODO rm? we haven't updated file->size yet!
+//            // we shouldn't reach this point if we still fit entirely
+//            // in a simple inlined file
+//            LFS_ASSERT(file->size > lfs_min32(
+//                    lfs->cfg->cache_size,
+//                    lfs->cfg->inline_size));
+
+            // TODO
+            // do we carve out any data from the inlined data?
+            
+            file->inlined.u.t.trunk = 0;
+            file->inlined.u.t.weight = 0;
+
+            int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+                    LFSR_ATTR(file->m.mdir.mid, DEFER, 0, DEFER(
+                        // TODO bit of a hack...
+                        (lfsr_rbyd_t*)&file->inlined,
+                        LFSR_ATTR_(file->buffer_pos,
+                            DEFERRED(INLINED), +file->buffer_size, BUF(
+                                file->buffer, file->buffer_size))))));
+            if (err) {
+                return err;
+            }
+
+            file->buffer_size = 0;
+            continue;
+        }
+
+// TODO
+//        // do we fit in our inlined tree?
+//        //
+//        // this is a complex question since we may be carving out leaves of the
+//        // inlined tree, we need to find these leaves to know for sure
+//        //
+//        // TODO can we somehow fit an rbyd struct in the file_t so we don't
+//        // need this copy?
+//        lfsr_rbyd_t rbyd;
+//        rbyd.block = file->m.mdir.block;
+//        rbyd.trunk = file->inlined.u.t.trunk;
+//        rbyd.weight = file->inlined.u.t.weight;
+//
+//        lfsr_srid_t left_rid;
+//        lfsr_tag_t left_tag;
+//        lfsr_rid_t left_weight;
+//        lfsr_data_t left_data;
+//        int err = lfsr_rbyd_lookupnext(lfs, &rbyd, file->buffer_pos, 0,
+//                &left_rid, &left_tag, &left_weight, &left_data);
+//        if (err 
+
+        // TODO
+        break;
+        //LFS_ASSERT(false);
+    }
+
+    return 0;
 }
 
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
@@ -7725,9 +7914,15 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     int err;
     while (size > 0) {
         // try to fill our write buffer
-        if (pos >= file->buffer_pos
-                && pos <= file->buffer_pos + file->buffer_size
-                && pos < file->buffer_pos + lfs->cfg->cache_size) {
+        if (file->buffer_size == 0
+                || (pos >= file->buffer_pos
+                    && pos <= file->buffer_pos + file->buffer_size
+                    && pos < file->buffer_pos + lfs->cfg->cache_size)) {
+            // unused buffer? we can move this where we need it
+            if (file->buffer_size == 0) {
+                file->buffer_pos = pos;
+            }
+
             lfs_size_t d = lfs_min32(
                     size,
                     lfs->cfg->cache_size - (pos - file->buffer_pos));
@@ -7743,15 +7938,11 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
             continue;
         }
 
-        // TODO
-        LFS_ASSERT(false);
-
-//        // flush our write buffer to make it useable, first condition can
-//        // no longer fail
-//        err = lfsr_file_flush(lfs, file);
-//        if (err) {
-//            return err;
-//        }
+        // flush our buffer so the above can't fail
+        err = lfsr_file_flushbuffer(lfs, file);
+        if (err) {
+            return err;
+        }
     }
 
     lfs_size_t written = pos - file->pos;
@@ -7787,19 +7978,72 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     if (file->flags & LFS_F_UNSYNCED) {
-        // TODO
         // TODO what if buffer_size > inlined_size?
-        LFS_ASSERT(file->buffer_pos == 0);
-        // commit our file's metadata
-        err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                LFSR_ATTR(file->m.mdir.mid, WIDE(RM), 0, NULL),
-                (file->buffer_size > 0
-                    ? LFSR_ATTR(file->m.mdir.mid,
-                        WIDE(INLINED), 0, BUF(
-                            file->buffer, file->buffer_size))
-                    : LFSR_ATTR_NOOP)));
-        if (err) {
-            goto failed;
+        // TODO should we also update file to be unbuffered after syncing
+        // inlined data?
+
+        // handle simple inlined files specially
+        if (file->size <= lfs_min32(
+                lfs->cfg->cache_size,
+                lfs->cfg->inline_size)) {
+            // read any unread data
+            //
+            // note we don't update buffer_pos until after reading! this
+            // prevents lfsr_file_read from reading from our buffer by mistake
+            //
+            // TODO note this risks really messing up the file buffer if we
+            // error, is that ok?
+            memmove(file->buffer + file->buffer_pos,
+                    file->buffer,
+                    file->buffer_size);
+            err = lfsr_file_read_(lfs, file, 0, file->buffer, file->buffer_pos);
+            if (err) {
+                goto failed;
+            }
+
+            err = lfsr_file_read_(lfs, file,
+                    file->buffer_pos + file->buffer_size,
+                    file->buffer + file->buffer_pos + file->buffer_size,
+                    file->size - (file->buffer_pos + file->buffer_size));
+            if (err) {
+                goto failed;
+            }
+
+            file->buffer_pos = 0;
+            file->buffer_size = file->size;
+
+            // commit our file's metadata
+            err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+                    (file->buffer_size > 0
+                        ? LFSR_ATTR(file->m.mdir.mid,
+                            WIDE(INLINED), 0, BUF(
+                                file->buffer, file->buffer_size))
+                        : LFSR_ATTR(file->m.mdir.mid,
+                            WIDE(RM(STRUCT)), 0, NULL))));
+            if (err) {
+                goto failed;
+            }
+        } else {
+            // first make sure to flush our buffer
+            //
+            // TODO can we avoid an extra commit here? this may be too complex
+            // to be worth doing...
+            err = lfsr_file_flushbuffer(lfs, file);
+            if (err) {
+                goto failed;
+            }
+
+            LFS_ASSERT(!lfsr_file_isinlineddata(file));
+
+            // now commit our file's metadata
+            uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
+            err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+                    LFSR_ATTR(file->m.mdir.mid, WIDE(TRUNK), 0, FROMTRUNK(
+                        // TODO too much of a hack?
+                        lfs, (const lfsr_rbyd_t*)&file->inlined, trunk_buf))));
+            if (err) {
+                goto failed;
+            }
         }
 
         file->flags &= ~LFS_F_UNSYNCED;

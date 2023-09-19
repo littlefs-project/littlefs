@@ -500,8 +500,25 @@ typedef struct lfsr_file {
     uint8_t *buffer;
     lfs_size_t buffer_size;
 
-    lfs_off_t inlined_pos;
-    lfsr_data_t inlined;
+    struct {
+        union  {
+            // note sign bit indicates if data is a single inlined data, or an
+            // inlined tree, this works because inlined data is always on disk,
+            // so data.size always has sign=1
+            lfs_soff_t weight;
+            lfsr_data_t data;
+            struct {
+                lfs_ssize_t size;
+                lfs_size_t off;
+                lfs_block_t block;
+            } d;
+            struct {
+                lfs_soff_t weight;
+                lfs_size_t trunk;
+                lfs_size_t overhead;
+            } t;
+        } u;
+    } inlined;
 
     const struct lfs_file_config *cfg;
 } lfsr_file_t;
