@@ -716,6 +716,10 @@ static inline bool lfsr_tag_isdeferred(lfsr_tag_t tag) {
     return tag & LFSR_TAG_DEFERRED;
 }
 
+static inline bool lfsr_tag_cleardeferred(lfsr_tag_t tag) {
+    return tag & ~LFSR_TAG_DEFERRED;
+}
+
 static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
     return (tag & 0x6000) != 0x2000;
 }
@@ -3013,6 +3017,11 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
+// lfsr_rbyd_appendcompactrbyd actually calls lfsr_rbyd_compact if it
+// encounters an inlined tree
+static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        bool deferred, lfs_off_t off);
+
 static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_rbyd_t *rbyd) {
@@ -3038,84 +3047,152 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             break;
         }
 
-        // write the tag
-        err = lfsr_rbyd_appendcompactattr(lfs, rbyd_, tag, weight, data);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            return err;
+        // found an inlined tree? we need to compact the tree as well to bring
+        // it along with us
+        if (tag == LFSR_TAG_TRUNK) {
+            lfsr_rbyd_t inlined_rbyd;
+            err = lfsr_data_readtrunk(lfs, &data, &inlined_rbyd);
+            if (err) {
+                return err;
+            }
+            inlined_rbyd.block = rbyd->block;
+
+            // keep track of the start of our new tree
+            lfs_size_t off = rbyd_->eoff;
+
+            // what a great use case for recursion! too bad we can't use
+            // recursion here
+            lfsr_srid_t rid_ = -1;
+            lfsr_tag_t tag_ = 0;
+            while (true) {
+                lfsr_rid_t weight_;
+                lfsr_data_t data_;
+                err = lfsr_rbyd_lookupnext(lfs, &inlined_rbyd,
+                        rid_, tag_+1,
+                        &rid_, &tag_, &weight_, &data_);
+                if (err) {
+                    if (err == LFS_ERR_NOENT) {
+                        break;
+                    }
+                    return err;
+                }
+
+                // write the tag_
+                err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
+                        tag_, weight_, data_);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    return err;
+                }
+            }
+
+            // compact our inlined tree
+            err = lfsr_rbyd_compact(lfs, rbyd_, true, off);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
+            // write the new inlined tree tag
+            uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
+            err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
+                    tag, weight, lfsr_data_fromtrunk(lfs,
+                        rbyd_, trunk_buf));
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
+        } else {
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, rbyd_, tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
         }
     }
 
     return 0;
 }
 
-static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
+static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        bool deferred, lfs_size_t off) {
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
 
+    // TODO still need this?
     // ignore empty rbyds, we can't really compact these, so leave it up to
     // upper layers to deal with this
     if (rbyd->eoff <= sizeof(uint32_t)) {
         return 0;
     }
 
-    // we can assume we start immediately after the revision count, because
-    // compaction only works as the first commit
-    lfs_size_t layer_off = sizeof(uint32_t);
-
     // connect every other trunk together, building layers of a perfectly
     // balanced binary tree upwards until we have a single trunk
+    lfs_size_t layer = off;
+    lfsr_rid_t weight = 0;
     while (true) {
-        lfs_size_t layer_off_ = rbyd->eoff;
-        lfs_size_t off = layer_off;
-        while (off < layer_off_) {
+        lfs_size_t layer_ = rbyd->eoff;
+        off = layer;
+        while (off < layer_) {
             // connect two trunks together with a new binary trunk
-            for (int i = 0; i < 2 && off < layer_off_; i++) {
-                lfs_size_t trunk_off = off;
-                lfsr_tag_t trunk_tag = 0;
-                lfsr_rid_t trunk_weight = 0;
+            for (int i = 0; i < 2 && off < layer_; i++) {
+                lfs_size_t trunk = off;
+                lfsr_tag_t tag = 0;
+                weight = 0;
                 while (true) {
-                    lfsr_tag_t tag;
-                    lfsr_rid_t weight;
-                    lfs_size_t size;
+                    lfsr_tag_t tag__;
+                    lfsr_rid_t weight__;
+                    lfs_size_t size__;
                     lfs_ssize_t d = lfsr_bd_readtag(lfs,
-                            rbyd->block, off, layer_off_ - off,
-                            &tag, &weight, &size, NULL);
+                            rbyd->block, off, layer_ - off,
+                            &tag__, &weight__, &size__, NULL);
                     if (d < 0) {
                         return d;
                     }
                     off += d;
 
                     // skip any data
-                    if (!lfsr_tag_isalt(tag)) {
-                        off += size;
+                    if (!lfsr_tag_isalt(tag__)) {
+                        off += size__;
                     }
 
-                    // keep track of trunk/layer weight, and the last non-null
-                    // tag in our trunk. Because of how we construct each layer,
-                    // the last non-null tag is the largest tag in that part
-                    // of the tree
-                    trunk_weight += weight;
-                    if (tag) {
-                        trunk_tag = tag;
+                    // ignore deferred trunks, unless we are actually
+                    // compacting a deferred tree
+                    if (!deferred && lfsr_tag_isdeferred(tag__)) {
+                        trunk = off;
+                        weight = 0;
+                        continue;
                     }
 
-                    // read all tags in the trunk
-                    if (!lfsr_tag_isalt(tag)) {
+                    // keep track of trunk's trunk and weight
+                    weight += weight__;
+
+                    // keep track of the last non-null tag in our trunk.
+                    // Because of how we construct each layer, the last
+                    // non-null tag is the largest tag in that part of
+                    // the tree
+                    if (lfsr_tag_cleardeferred(tag__)) {
+                        tag = tag__;
+                    }
+
+                    // did we hit a tag that terminates our trunk?
+                    if (!lfsr_tag_isalt(tag__)) {
                         break;
                     }
                 }
 
                 // do we only have one trunk? we must be done
-                if (trunk_off == layer_off && off >= layer_off_) {
+                if (trunk == layer && off >= layer_) {
                     goto done;
                 }
 
                 // connect with an altle
                 lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
-                        LFSR_TAG_ALT(LE, B, lfsr_tag_key(trunk_tag)),
-                        trunk_weight,
-                        rbyd->eoff - trunk_off,
+                        LFSR_TAG_ALT(LE, B, lfsr_tag_key(tag)),
+                        weight,
+                        rbyd->eoff - trunk,
                         &rbyd->cksum);
                 if (d < 0) {
                     return d;
@@ -3125,7 +3202,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
             // terminate with a null tag
             lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
-                    LFSR_TAG_NULL, 0, 0,
+                    deferred ? LFSR_TAG_DEFERRED(NULL) : LFSR_TAG_NULL, 0, 0,
                     &rbyd->cksum);
             if (d < 0) {
                 return d;
@@ -3133,13 +3210,14 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
             rbyd->eoff += d;
         }
 
-        layer_off = layer_off_;
+        layer = layer_;
     }
 
 done:;
     // done! just need to update our trunk. Note we could have no trunks
     // after compaction. Leave this to upper layers to take care of this.
-    rbyd->trunk = layer_off;
+    rbyd->trunk = layer;
+    rbyd->weight = weight;
 
     return 0;
 }
@@ -4027,7 +4105,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        err = lfsr_rbyd_compact(lfs, &rbyd_);
+        err = lfsr_rbyd_compact(lfs, &rbyd_, false, sizeof(uint32_t));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4074,7 +4152,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        err = lfsr_rbyd_compact(lfs, &rbyd_);
+        err = lfsr_rbyd_compact(lfs, &rbyd_, false, sizeof(uint32_t));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4105,7 +4183,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        err = lfsr_rbyd_compact(lfs, &sibling);
+        err = lfsr_rbyd_compact(lfs, &sibling, false, sizeof(uint32_t));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -4217,7 +4295,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        err = lfsr_rbyd_compact(lfs, &rbyd_);
+        err = lfsr_rbyd_compact(lfs, &rbyd_, false, sizeof(uint32_t));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -5075,8 +5153,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // messed up
                 //
                 // it is important that these rbyds share eoff/cksum/etc
-                lfs_sswap32(&mdir_.u.m.weight, &defer->rbyd->weight);
-                lfs_swap32(&mdir_.u.m.trunk, &defer->rbyd->trunk);
+                mdir_.u.m.weight = defer->rbyd->weight;
+                mdir_.u.m.trunk = defer->rbyd->trunk;
 
                 // append any deferred attributes
                 int err = lfsr_rbyd_appendattrs(lfs, &mdir_.u.r.rbyd, -1, -1,
@@ -5085,8 +5163,10 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     return err;
                 }
 
-                lfs_sswap32(&mdir_.u.m.weight, &defer->rbyd->weight);
-                lfs_swap32(&mdir_.u.m.trunk, &defer->rbyd->trunk);
+                defer->rbyd->weight = mdir_.u.m.weight;
+                defer->rbyd->trunk = mdir_.u.m.trunk;
+                mdir_.u.m.weight = mdir->u.m.weight;
+                mdir_.u.m.trunk = mdir->u.m.trunk;
 
             // write out normal tags normally
             } else {
@@ -5157,7 +5237,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         return err;
     }
 
-    err = lfsr_rbyd_compact(lfs, &mdir_->u.r.rbyd);
+    err = lfsr_rbyd_compact(lfs, &mdir_->u.r.rbyd, false, sizeof(uint32_t));
     if (err) {
         return err;
     }
@@ -5650,7 +5730,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             }
         }
 
-        err = lfsr_rbyd_compact(lfs, &mrootparent_.u.r.rbyd);
+        err = lfsr_rbyd_compact(lfs, &mrootparent_.u.r.rbyd,
+                false, sizeof(uint32_t));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
@@ -8104,6 +8185,12 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     LFS_ASSERT(lfsr_file_iswriteable(file->flags));
     LFS_ASSERT(size <= 0x7fffffff);
 
+    // update pos if we are appending
+    // TODO wait, what does POSIX do here if we've seeked past the eof?
+    if ((file->flags & LFS_O_APPEND) && file->pos < file->size) {
+        file->pos = file->size;
+    }
+
     lfs_off_t pos = file->pos;
     const uint8_t *buffer_ = buffer;
     int err;
@@ -8136,7 +8223,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         // flush our buffer so the above can't fail
         err = lfsr_file_flushbuffer(lfs, file);
         if (err) {
-            return err;
+            goto failed;
         }
     }
 
@@ -8166,6 +8253,11 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         return 0;
     }
 
+    // do nothing if our file is readonly
+    if (!lfsr_file_iswriteable(file->flags)) {
+        return 0;
+    }
+
     // write out any data we need to
     int err = lfsr_file_flush(lfs, file);
     if (err) {
@@ -8177,35 +8269,11 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         // TODO should we also update file to be unbuffered after syncing
         // inlined data?
 
-        // handle simple inlined files specially
-        if (file->size <= lfs_min32(
-                lfs->cfg->cache_size,
-                lfs->cfg->inline_size)) {
-            // read any unread data
-            //
-            // note we don't update buffer_pos until after reading! this
-            // prevents lfsr_file_read from reading from our buffer by mistake
-            //
-            // TODO note this risks really messing up the file buffer if we
-            // error, is that ok?
-            memmove(file->buffer + file->buffer_pos,
-                    file->buffer,
-                    file->buffer_size);
-            err = lfsr_file_read_(lfs, file, 0, file->buffer, file->buffer_pos);
-            if (err) {
-                goto failed;
-            }
-
-            err = lfsr_file_read_(lfs, file,
-                    file->buffer_pos + file->buffer_size,
-                    file->buffer + file->buffer_pos + file->buffer_size,
-                    file->size - (file->buffer_pos + file->buffer_size));
-            if (err) {
-                goto failed;
-            }
-
-            file->buffer_pos = 0;
-            file->buffer_size = file->size;
+        // does buffer contain the entire file? we can create a simple
+        // inlined file in that case
+        if (file->buffer_size >= file->size) {
+            LFS_ASSERT(file->buffer_size == file->size);
+            LFS_ASSERT(file->buffer_pos == 0);
 
             // commit our file's metadata
             err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
@@ -8217,6 +8285,19 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                             WIDE(RM(STRUCT)), 0, NULL))));
             if (err) {
                 goto failed;
+            }
+
+            // but clear buffer after syncing simple inlined files, otherwise
+            // we risk O(n^2) behavior
+            file->buffer_size = 0;
+
+            // we need to look up the inlined data again...
+            // TODO deduplicate?
+            err = lfsr_mdir_lookup(lfs, &file->m.mdir,
+                    file->m.mdir.mid, LFSR_TAG_INLINED,
+                    NULL, &file->inlined.u.data);
+            if (err) {
+                return err;
             }
         } else {
             // first make sure to flush our buffer

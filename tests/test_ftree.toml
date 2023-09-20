@@ -54,8 +54,8 @@ code = '''
     // is size correct?
     lfsr_file_size(&lfs, &file) => 0;
     // try reading
-    uint8_t buf[8192];
-    lfsr_file_read(&lfs, &file, buf, sizeof(buf)) => 0;
+    uint8_t rbuf[8192];
+    lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => 0;
     lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
@@ -118,6 +118,7 @@ code = '''
     lfsr_file_size(&lfs, &file) => wsize;
     // try reading
     uint8_t rbuf[8192];
+    memset(rbuf, 0xaa, sizeof(rbuf));
     lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => wsize;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
     lfsr_file_close(&lfs, &file) => 0;
@@ -191,6 +192,7 @@ code = '''
     lfsr_file_size(&lfs, &file) => wsize;
     // try reading
     uint8_t rbuf[8192];
+    memset(rbuf, 0xaa, sizeof(rbuf));
     lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => wsize;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
     lfsr_file_close(&lfs, &file) => 0;
@@ -260,8 +262,10 @@ code = '''
     // is size correct?
     lfsr_file_size(&lfs, &file) => wsize;
     // try reading
-    uint8_t buf[8192];
-    lfsr_file_read(&lfs, &file, buf, sizeof(buf)) => wsize;
+    uint8_t rbuf[8192];
+    memset(rbuf, 0xaa, sizeof(rbuf));
+    lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => wsize;
+    assert(memcmp(rbuf, wbuf, wsize) == 0);
     lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
@@ -338,8 +342,10 @@ code = '''
     // is size correct?
     lfsr_file_size(&lfs, &file) => wsize;
     // try reading
-    uint8_t buf[8192];
-    lfsr_file_read(&lfs, &file, buf, sizeof(buf)) => wsize;
+    uint8_t rbuf[8192];
+    memset(rbuf, 0xaa, sizeof(rbuf));
+    lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => wsize;
+    assert(memcmp(rbuf, wbuf, wsize) == 0);
     lfsr_file_close(&lfs, &file) => 0;
 
     lfsr_unmount(&lfs) => 0;
@@ -418,6 +424,7 @@ code = '''
     lfsr_file_size(&lfs, &file) => wsize;
     // try reading
     uint8_t rbuf[8192];
+    memset(rbuf, 0xaa, sizeof(rbuf));
     lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => wsize;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
     lfsr_file_close(&lfs, &file) => 0;
@@ -425,14 +432,13 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-
 # try writing larger files?
 #
 # at 2*CACHE_SIZE we need an inlined tree
 # ? single block?
 # at 2*BLOCK_SIZE we need a b-tree
 #
-[cases.test_ftree_sprout]
+[cases.test_ftree_more]
 defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
 defines.REMOUNT = [false, true]
 reentrant = true
@@ -491,6 +497,7 @@ code = '''
     lfsr_file_size(&lfs, &file) => SIZE;
     // try reading
     uint8_t rbuf[8192];
+    memset(rbuf, 0xaa, sizeof(rbuf));
     lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => SIZE;
     assert(memcmp(rbuf, wbuf, SIZE) == 0);
     lfsr_file_close(&lfs, &file) => 0;
@@ -498,18 +505,92 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# more complex writing patterns to inlined files
 
+# write files incrementally
+[cases.test_ftree_incr]
+defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, CFG);
+    if (err) {
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
 
-## more complex writing patterns to inlined files
-#
-## write files incrementally
-#[cases.test_ftree_incr]
-#defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
-#defines.SYNC = [false, true]
-#defines.REMOUNT = [false, true]
-#reentrant = true
-#code = '''
-#'''
+    // create a file, truncating in case of powerloss
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+    uint8_t wbuf[8192];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+        lfsr_file_write(&lfs, &file, &wbuf[i], 1) => 1;
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+    
+        // remount?
+        if (REMOUNT) {
+            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, CFG) => 0;
+            // note the switch to append here
+            lfsr_file_open(&lfs, &file, "hello",
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND) => 0;
+        }
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // check our file with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "hello", &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+
+    // and with dir read
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // try reading our file
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+    // is size correct?
+    lfsr_file_size(&lfs, &file) => SIZE;
+    // try reading
+    uint8_t rbuf[8192];
+    memset(rbuf, 0xaa, sizeof(rbuf));
+    lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf)) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
 
 
 
