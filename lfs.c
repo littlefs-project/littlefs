@@ -637,6 +637,7 @@ enum lfsr_tag_type {
     LFSR_TAG_INTERNAL       = 0x0800,
     LFSR_TAG_MOVE           = 0x0800,
     LFSR_TAG_DEFER          = 0x0801,
+    LFSR_TAG_FROMTRUNK      = 0x0802,
 
     // some tag modifiers
     // in-device only
@@ -1077,6 +1078,11 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         .attrs=(const lfsr_attr_t[]){__VA_ARGS__}, \
         .attr_count=sizeof((const lfsr_attr_t[]){__VA_ARGS__}) \
             / sizeof(lfsr_attr_t)}})
+
+// the reason for lazily encoding inlined trunks is because they can change
+// underneath us during mdir compaction, the horror
+#define LFSR_DATA_TRUNK(_rbyd) \
+    ((lfsr_data_t){.u.b.buffer=(const void*)(lfsr_rbyd_t*){_rbyd}})
 
 static inline bool lfsr_data_ondisk(const lfsr_data_t *data) {
     return data->u.size & 0x80000000;
@@ -2289,7 +2295,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // ignore noops
     // TODO is there a better way to represent noops?
-    if (!lfsr_tag_key(tag) && delta == 0) {
+    if ((tag == LFSR_TAG_GROW || tag == LFSR_TAG_RM) && delta == 0) {
         return 0;
     }
 
@@ -5095,6 +5101,14 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 mdir_.u.m.trunk = defer->rbyd->trunk;
                 mdir_.u.m.weight = defer->rbyd->weight;
 
+                // if weight's sign=1, we were inlined data and need to zero
+                // things, we do this here to avoid compaction clobbering
+                // things
+                if (mdir_.u.m.weight & 0x80000000) {
+                    mdir_.u.m.trunk = 0;
+                    mdir_.u.m.weight = 0;
+                }
+
                 // append any deferred attributes
                 int err = lfsr_rbyd_appendattrs(lfs, &mdir_.u.r.rbyd, -1, -1,
                         defer->attrs, defer->attr_count);
@@ -5103,10 +5117,28 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
 
                 // revert to mdir trunk/weight
+                defer->rbyd->block = mdir_.u.m.blocks[0];
                 defer->rbyd->trunk = mdir_.u.m.trunk;
                 defer->rbyd->weight = mdir_.u.m.weight;
                 mdir_.u.m.trunk = mdir->u.m.trunk;
                 mdir_.u.m.weight = mdir->u.m.weight;
+
+            // lazily encode inlined trunks in case they change underneath
+            // us due to mdir compactions
+            //
+            // TODO should we preserve mode for all of these?
+            } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_FROMTRUNK) {
+                lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)attrs[i].data.u.b.buffer;
+
+                uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
+                int err = lfsr_rbyd_appendattr(lfs, &mdir_.u.r.rbyd,
+                        rid - lfs_smax32(start_rid, 0),
+                        lfsr_tag_mode(attrs[i].tag) | LFSR_TAG_TRUNK,
+                        attrs[i].delta, lfsr_data_fromtrunk(
+                            lfs, rbyd, trunk_buf));
+                if (err) {
+                    return err;
+                }
 
             // write out normal tags normally
             } else {
@@ -5898,6 +5930,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         for (lfsr_openedmdir_t *opened = lfs->opened[type-LFS_TYPE_REG];
                 opened;
                 opened = opened->next) {
+            // TODO we should just remove dropped mdirs from the opened list...
+            //
             // avoid double updating current mdir, and avoid updating
             // dropped mdirs
             if (&opened->mdir == mdir || opened->mdir.mid == -1) {
@@ -5955,9 +5989,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                         - lfsr_mtree_weight(lfs);
             }
 
-            // update any changes to directory bookmarks/positions, this
-            // gets a bit tricky
             if (type == LFS_TYPE_DIR) {
+                // update any changes to directory bookmarks/positions, this
+                // gets a bit tricky
                 lfsr_dir_t *dir = (lfsr_dir_t*)opened;
                 for (lfs_size_t i = 0; i < attr_count; i++) {
                     // TODO clean this up a bit?
@@ -5997,21 +6031,24 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             - lfsr_mtree_weight(lfs);
                 }
             }
-
-            // if we compacted, update any staged changes to inlined data/trees
-            if (type == LFS_TYPE_REG) {
-                lfsr_file_t *file = (lfsr_file_t*)opened;
-                if (mdir_.u.m.blocks[0] != mdir->u.m.blocks[0]
-                        && ((lfsr_file_isinlineddata(file)
-                                && file->inlined.u.data.u.d.block
-                                    == mdir->u.m.blocks[0])
-                            || (lfsr_file_isinlinedtree(file)
-                                && file->inlined.u.rbyd.block
-                                    == mdir->u.m.blocks[0]))) {
-                    file->inlined = file->inlined_;
-                }
-            }
     next:;
+        }
+    }
+
+    // TODO merge with above? maybe?
+    for (lfsr_openedmdir_t *opened = lfs->opened[LFS_TYPE_REG-LFS_TYPE_REG];
+            opened;
+            opened = opened->next) {
+        // if we compacted, update any staged changes to inlined data/trees
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        if (mdir_.u.m.blocks[0] != mdir->u.m.blocks[0]
+                && ((lfsr_file_isinlineddata(file)
+                        && file->inlined.u.data.u.d.block
+                            == mdir->u.m.blocks[0])
+                    || (lfsr_file_isinlinedtree(file)
+                        && file->inlined.u.rbyd.block
+                            == mdir->u.m.blocks[0]))) {
+            file->inlined = file->inlined_;
         }
     }
 
@@ -8169,16 +8206,26 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                         right_pos,
                         lfsr_file_inlinedsize(file)));
 
-            // create a zero weight trunk
+// TODO this is handled for us in lfsr_mdir_commit__ now to avoid compaction
+// issues
+//            // create a zero weight trunk
+//            //
+//            // make sure to use our staging rbyd so we catch in-flight updates
+//            // caused by mdir compactions
+//            file->inlined_.u.rbyd.block = file->m.mdir.u.m.blocks[0];
+//            file->inlined_.u.rbyd.trunk = 0;
+//            file->inlined_.u.rbyd.weight = 0;
+//            // TODO
+//            file->inlined_.u.deferred.overhead = 0;
+
+            // convert to inlined tree
             //
             // make sure to use our staging rbyd so we catch in-flight updates
             // caused by mdir compactions
-            file->inlined_.u.rbyd.block = file->m.mdir.u.m.blocks[0];
-            file->inlined_.u.rbyd.trunk = 0;
-            file->inlined_.u.rbyd.weight = 0;
-            // TODO
-            file->inlined_.u.deferred.overhead = 0;
-
+            //
+            // note that the actual conversion from inlined data to tree is
+            // in lfsr_mdir_commit__ to avoid compaction issues
+            file->inlined_ = file->inlined;
             int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
                     LFSR_ATTR_(file->m.mdir.mid, DEFER, 0, DEFER(
                         &file->inlined_.u.rbyd,
@@ -8204,6 +8251,8 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
             }
 
             file->inlined = file->inlined_;
+            // TODO
+            file->inlined.u.deferred.overhead = 0;
             file->buffer_size = 0;
             continue;
         }
@@ -8450,10 +8499,13 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             LFS_ASSERT(!lfsr_file_isinlineddata(file));
 
             // now commit our file's metadata
-            uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
+            //
+            // make sure to use our staging rbyd so we catch in-flight updates
+            // caused by mdir compactions
+            file->inlined_ = file->inlined;
             err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                    LFSR_ATTR(file->m.mdir.mid, WIDE(TRUNK), 0, FROMTRUNK(
-                        lfs, &file->inlined.u.rbyd, trunk_buf))));
+                    LFSR_ATTR(file->m.mdir.mid, WIDE(FROMTRUNK), 0, TRUNK(
+                        &file->inlined_.u.rbyd))));
             if (err) {
                 goto failed;
             }
