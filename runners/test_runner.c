@@ -1312,9 +1312,9 @@ static void list_geometries(void) {
                 builtin_geometries[g].name,
                 READ_SIZE,
                 PROG_SIZE,
-                BLOCK_SIZE,
-                BLOCK_COUNT,
-                BLOCK_SIZE*BLOCK_COUNT);
+                ERASE_SIZE,
+                ERASE_COUNT,
+                ERASE_SIZE*ERASE_COUNT);
     }
 }
 
@@ -1352,6 +1352,10 @@ static void run_powerloss_none(
     };
 
     struct lfs_emubd_config bdcfg = {
+        .read_size          = READ_SIZE,
+        .prog_size          = PROG_SIZE,
+        .erase_size         = ERASE_SIZE,
+        .erase_count        = ERASE_COUNT,
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
@@ -1361,7 +1365,7 @@ static void run_powerloss_none(
         .erase_sleep        = test_erase_sleep,
     };
 
-    int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs_emubd_create(&cfg, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -1424,6 +1428,10 @@ static void run_powerloss_linear(
     };
 
     struct lfs_emubd_config bdcfg = {
+        .read_size          = READ_SIZE,
+        .prog_size          = PROG_SIZE,
+        .erase_size         = ERASE_SIZE,
+        .erase_count        = ERASE_COUNT,
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
@@ -1437,7 +1445,7 @@ static void run_powerloss_linear(
         .powerloss_data     = &powerloss_jmp,
     };
 
-    int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs_emubd_create(&cfg, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -1513,6 +1521,10 @@ static void run_powerloss_log(
     };
 
     struct lfs_emubd_config bdcfg = {
+        .read_size          = READ_SIZE,
+        .prog_size          = PROG_SIZE,
+        .erase_size         = ERASE_SIZE,
+        .erase_count        = ERASE_COUNT,
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
@@ -1526,7 +1538,7 @@ static void run_powerloss_log(
         .powerloss_data     = &powerloss_jmp,
     };
 
-    int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs_emubd_create(&cfg, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -1600,6 +1612,10 @@ static void run_powerloss_cycles(
     };
 
     struct lfs_emubd_config bdcfg = {
+        .read_size          = READ_SIZE,
+        .prog_size          = PROG_SIZE,
+        .erase_size         = ERASE_SIZE,
+        .erase_count        = ERASE_COUNT,
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
@@ -1613,7 +1629,7 @@ static void run_powerloss_cycles(
         .powerloss_data     = &powerloss_jmp,
     };
 
-    int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs_emubd_create(&cfg, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -1785,6 +1801,10 @@ static void run_powerloss_exhaustive(
     };
 
     struct lfs_emubd_config bdcfg = {
+        .read_size          = READ_SIZE,
+        .prog_size          = PROG_SIZE,
+        .erase_size         = ERASE_SIZE,
+        .erase_count        = ERASE_COUNT,
         .erase_value        = ERASE_VALUE,
         .erase_cycles       = ERASE_CYCLES,
         .badblock_behavior  = BADBLOCK_BEHAVIOR,
@@ -1797,7 +1817,7 @@ static void run_powerloss_exhaustive(
         .powerloss_data     = NULL,
     };
 
-    int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs_emubd_create(&cfg, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -2314,19 +2334,19 @@ invalid_define:
                                     = TEST_LIT(sizes[0]);
                             geometry->defines[PROG_SIZE_i]
                                     = TEST_LIT(sizes[1]);
-                            geometry->defines[BLOCK_SIZE_i]
+                            geometry->defines[ERASE_SIZE_i]
                                     = TEST_LIT(sizes[2]);
                         } else if (count >= 2) {
                             geometry->defines[PROG_SIZE_i]
                                     = TEST_LIT(sizes[0]);
-                            geometry->defines[BLOCK_SIZE_i]
+                            geometry->defines[ERASE_SIZE_i]
                                     = TEST_LIT(sizes[1]);
                         } else {
-                            geometry->defines[BLOCK_SIZE_i]
+                            geometry->defines[ERASE_SIZE_i]
                                     = TEST_LIT(sizes[0]);
                         }
                         if (count >= 4) {
-                            geometry->defines[BLOCK_COUNT_i]
+                            geometry->defines[ERASE_COUNT_i]
                                     = TEST_LIT(sizes[3]);
                         }
                         optarg = s;
@@ -2358,19 +2378,19 @@ invalid_define:
                                     = TEST_LIT(sizes[0]);
                             geometry->defines[PROG_SIZE_i]
                                     = TEST_LIT(sizes[1]);
-                            geometry->defines[BLOCK_SIZE_i]
+                            geometry->defines[ERASE_SIZE_i]
                                     = TEST_LIT(sizes[2]);
                         } else if (count >= 2) {
                             geometry->defines[PROG_SIZE_i]
                                     = TEST_LIT(sizes[0]);
-                            geometry->defines[BLOCK_SIZE_i]
+                            geometry->defines[ERASE_SIZE_i]
                                     = TEST_LIT(sizes[1]);
                         } else {
-                            geometry->defines[BLOCK_SIZE_i]
+                            geometry->defines[ERASE_SIZE_i]
                                     = TEST_LIT(sizes[0]);
                         }
                         if (count >= 4) {
-                            geometry->defines[BLOCK_COUNT_i]
+                            geometry->defines[ERASE_COUNT_i]
                                     = TEST_LIT(sizes[3]);
                         }
                         optarg = s;

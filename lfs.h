@@ -293,6 +293,12 @@ struct lfs_fsinfo {
     // On-disk version.
     uint32_t disk_version;
 
+    // Size of a logical block in bytes.
+    lfs_size_t block_size;
+
+    // Number of logical blocks in filesystem.
+    lfs_size_t block_count;
+
     // Upper limit on the length of file names in bytes.
     lfs_size_t name_max;
 
@@ -433,6 +439,7 @@ typedef struct lfs {
     } free;
 
     const struct lfs_config *cfg;
+    lfs_size_t block_count;
     lfs_size_t name_max;
     lfs_size_t file_max;
     lfs_size_t attr_max;
