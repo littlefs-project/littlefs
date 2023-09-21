@@ -623,6 +623,26 @@ static void lfs_alloc_drop(lfs_t *lfs) {
 }
 
 #ifndef LFS_READONLY
+static int lfs_fs_rawgc(lfs_t *lfs) {
+    // Move free offset at the first unused block (lfs->free.i)
+    // lfs->free.i is equal lfs->free.size when all blocks are used
+    lfs->free.off = (lfs->free.off + lfs->free.i) % lfs->block_count;
+    lfs->free.size = lfs_min(8*lfs->cfg->lookahead_size, lfs->free.ack);
+    lfs->free.i = 0;
+
+    // find mask of free blocks from tree
+    memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
+    int err = lfs_fs_rawtraverse(lfs, lfs_alloc_lookahead, lfs, true);
+    if (err) {
+        lfs_alloc_drop(lfs);
+        return err;
+    }
+
+    return 0;
+}
+#endif
+
+#ifndef LFS_READONLY
 static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
     while (true) {
         while (lfs->free.i != lfs->free.size) {
@@ -654,16 +674,8 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
             return LFS_ERR_NOSPC;
         }
 
-        lfs->free.off = (lfs->free.off + lfs->free.size)
-                % lfs->block_count;
-        lfs->free.size = lfs_min(8*lfs->cfg->lookahead_size, lfs->free.ack);
-        lfs->free.i = 0;
-
-        // find mask of free blocks from tree
-        memset(lfs->free.buffer, 0, lfs->cfg->lookahead_size);
-        int err = lfs_fs_rawtraverse(lfs, lfs_alloc_lookahead, lfs, true);
-        if (err) {
-            lfs_alloc_drop(lfs);
+        int err = lfs_fs_rawgc(lfs);
+        if(err) {
             return err;
         }
     }
@@ -6237,6 +6249,22 @@ int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void *, lfs_block_t), void *data) {
     LFS_UNLOCK(lfs->cfg);
     return err;
 }
+
+#ifndef LFS_READONLY
+int lfs_fs_gc(lfs_t *lfs) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_fs_gc(%p)", (void*)lfs);
+
+    err = lfs_fs_rawgc(lfs);
+
+    LFS_TRACE("lfs_fs_gc -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+#endif
 
 #ifndef LFS_READONLY
 int lfs_fs_mkconsistent(lfs_t *lfs) {
