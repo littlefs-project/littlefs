@@ -874,6 +874,7 @@ def frepr(mdir, rid, tag):
             did, _ = fromleb128(data)
             did = '0x%x' % did
         return 'bookmark %s' % did
+
     elif tag == TAG_DIR:
         # read the did
         did = '?'
@@ -882,6 +883,25 @@ def frepr(mdir, rid, tag):
             did, _ = fromleb128(data)
             did = '0x%x' % did
         return 'dir %s' % did
+
+    elif tag == TAG_REG:
+        size = 0
+        structs = []
+        # inlined?
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_INLINED)
+        if not done and rid_ == rid and tag_ == TAG_INLINED:
+            size = max(size, len(data))
+            structs.append('inlined 0x%x.%x %d' % (mdir.block, j+d, len(data)))
+        # inlined tree?
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_TRUNK)
+        if not done and rid_ == rid and tag_ == TAG_TRUNK:
+            d = 0
+            trunk, d_ = fromleb128(data[d:]); d += d_
+            weight, d_ = fromleb128(data[d:]); d += d_
+            size = max(size, weight)
+            structs.append('trunk 0x%x.%x' % (mdir.block, trunk))
+        return 'reg %s' % ', '.join(it.chain(['%d' % size], structs))
+
     else:
         return 'type 0x%02x' % (tag & 0xff)
 

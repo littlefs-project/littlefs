@@ -2707,8 +2707,8 @@ code = '''
             .mdir={.mid=0, .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=1, .u.m=lfs.mroot.u.m}};
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // insert a new entry, this should update our neighbors
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2730,8 +2730,8 @@ code = '''
     assert(memcmp(&right_neighbor.mdir.u.m, &lfs.mroot.u.m,
             sizeof(lfs.mroot.u.m)) == 0);
 
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2757,8 +2757,8 @@ code = '''
             .mdir={.mid=0, .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=1, .u.m=lfs.mroot.u.m}};
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // try removing our left entry
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2773,8 +2773,8 @@ code = '''
     assert(memcmp(&right_neighbor.mdir.u.m, &lfs.mroot.u.m,
             sizeof(lfs.mroot.u.m)) == 0);
 
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2800,8 +2800,8 @@ code = '''
             .mdir={.mid=0, .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=1, .u.m=lfs.mroot.u.m}};
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // try removing our left entry
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
@@ -2816,8 +2816,8 @@ code = '''
             sizeof(lfs.mroot.u.m)) == 0);
     assert(right_neighbor.mdir.mid == -1);
 
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2845,8 +2845,8 @@ code = '''
             .mdir={.mid=0, .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=1, .u.m=lfs.mroot.u.m}};
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // prepare mroot with a large attr so the next entry can not fit
     uint8_t buffer[SIZE];
@@ -2895,8 +2895,8 @@ code = '''
     assert(memcmp(&right_neighbor.mdir.u.m, &msibling.u.m,
             sizeof(msibling.u.m)) == 0);
 
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -2924,8 +2924,8 @@ code = '''
             .mdir={.mid=0, .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=1, .u.m=lfs.mroot.u.m}};
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -2969,8 +2969,8 @@ code = '''
     assert(memcmp(&right_neighbor.mdir.u.m, &msibling.u.m,
             sizeof(msibling.u.m)) == 0);
 
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -3025,8 +3025,8 @@ code = '''
             .mdir={.mid=mdir.mid+0, .u.m=mdir.u.m}};
     lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=mdir.mid+2, .u.m=mdir.u.m}};
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // now add another large entry to the mdir, forcing a split
     memset(buffer, 'e', SIZE);
@@ -3070,8 +3070,8 @@ code = '''
     assert(memcmp(&right_neighbor.mdir.u.m, &msibling.u.m,
             sizeof(msibling.u.m)) == 0);
 
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -3101,8 +3101,8 @@ code = '''
             .mdir={.mid=0, .u.m=lfs.mroot.u.m}};
     lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=1, .u.m=lfs.mroot.u.m}};
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // prepare mroot with an attr
     uint8_t buffer[SIZE];
@@ -3136,8 +3136,8 @@ code = '''
     assert(memcmp(&right_neighbor.mdir.u.m, &lfs.mroot.u.m,
             sizeof(lfs.mroot.u.m)) == 0);
 
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -3194,8 +3194,8 @@ code = '''
             .mdir={.mid=mdir.mid+0, .u.m=mdir.u.m}};
     lfsr_openedmdir_t right_neighbor = {
             .mdir={.mid=mdir.mid+2, .u.m=mdir.u.m}};
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // force mdir to compact twice, this should relocate
     lfsr_mdir_t old_mdir = mdir;
@@ -3229,8 +3229,8 @@ code = '''
     assert(right_neighbor.mdir.mid == 0*lfsr_mleafweight(&lfs)+2);
     assert(memcmp(&right_neighbor.mdir.u.m, &mdir.u.m, sizeof(mdir.u.m)) == 0);
 
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -3296,8 +3296,8 @@ code = '''
             &right_neighbor.mdir) => 0;
     assert(right_neighbor.mdir.u.m.weight == 1);
 
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // cause middle mdir to split
     lfsr_mtree_lookup(&lfs, 1*lfsr_mleafweight(&lfs)+1, &mdir) => 0;
@@ -3322,8 +3322,8 @@ code = '''
     lfsr_mtree_lookup(&lfs, 3*lfsr_mleafweight(&lfs)+0, &mdir) => 0;
     assert(memcmp(&right_neighbor.mdir.u.m, &mdir.u.m, sizeof(mdir.u.m)) == 0);
 
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -3389,8 +3389,8 @@ code = '''
             &right_neighbor.mdir) => 0;
     assert(right_neighbor.mdir.u.m.weight == 1);
 
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_addopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_addopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
 
     // cause middle mdir to drop 
     lfsr_mtree_lookup(&lfs, 1*lfsr_mleafweight(&lfs)+0, &mdir) => 0;
@@ -3410,8 +3410,8 @@ code = '''
     lfsr_mtree_lookup(&lfs, 1*lfsr_mleafweight(&lfs)+0, &mdir) => 0;
     assert(memcmp(&right_neighbor.mdir.u.m, &mdir.u.m, sizeof(mdir.u.m)) == 0);
 
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &left_neighbor);
-    lfsr_mdir_removeopened(&lfs, LFS_TYPE_REG, &right_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &left_neighbor);
+    lfsr_mdir_removeopened(&lfs, LFS_TYPE_INTERNAL, &right_neighbor);
     lfsr_unmount(&lfs) => 0;
 '''
 

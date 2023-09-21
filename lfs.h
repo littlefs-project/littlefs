@@ -106,8 +106,11 @@ enum lfs_error {
 // File types
 enum lfs_type {
     // file types
-    LFS_TYPE_REG            = 0,
-    LFS_TYPE_DIR            = 1,
+    LFS_TYPE_REG            = 2,
+    LFS_TYPE_DIR            = 3,
+
+    // used internally, don't use this
+    LFS_TYPE_INTERNAL       = 4,
 
 //    // internally used types
 //    LFS_TYPE_SPLICE         = 0x400,
@@ -152,6 +155,7 @@ enum lfs_open_flags {
 #endif
 
     // internally used flags
+    // TODO do we need both unflushed and unsynced?
     LFS_F_UNFLUSHED = 0x010000, // File's has data that needs to be written
     LFS_F_UNSYNCED  = 0x020000, // File's metadata does not match storage
     LFS_F_ERRORED   = 0x040000, // An error occurred during write
@@ -490,6 +494,22 @@ typedef struct lfs_file {
     const struct lfs_file_config *cfg;
 } lfs_file_t;
 
+typedef struct lfsr_inlined {
+    union {
+        // note sign bit indicates if data is a single inlined data, or an
+        // inlined tree, this works because inlined data is always on disk,
+        // so data.size always has sign=1
+        lfs_soff_t weight;
+        lfsr_data_t data;
+        lfsr_rbyd_t rbyd;
+        struct {
+            lfs_soff_t weight;
+            lfs_size_t trunk;
+            lfs_size_t overhead;
+        } deferred;
+    } u;
+} lfsr_inlined_t;
+
 typedef struct lfsr_file {
     lfsr_openedmdir_t m;
     uint32_t flags;
@@ -500,25 +520,11 @@ typedef struct lfsr_file {
     uint8_t *buffer;
     lfs_size_t buffer_size;
 
-    struct {
-        union  {
-            // note sign bit indicates if data is a single inlined data, or an
-            // inlined tree, this works because inlined data is always on disk,
-            // so data.size always has sign=1
-            lfs_soff_t weight;
-            lfsr_data_t data;
-            struct {
-                lfs_ssize_t size;
-                lfs_size_t off;
-                lfs_block_t block;
-            } d;
-            struct {
-                lfs_soff_t weight;
-                lfs_size_t trunk;
-                lfs_size_t overhead;
-            } t;
-        } u;
-    } inlined;
+    // we need copies of inlined references in case of mdir compaction, this
+    // exists here instead of on the stack becuase we don't know how many
+    // inlined files may be opened
+    lfsr_inlined_t inlined;
+    lfsr_inlined_t inlined_;
 
     const struct lfs_file_config *cfg;
 } lfsr_file_t;
@@ -578,7 +584,7 @@ typedef struct lfs {
 
     // linked-lists of opened mdirs, we keep a separate linked-list
     // for each type since these need to be handled a bit differently
-    lfsr_openedmdir_t *opened[2];
+    lfsr_openedmdir_t *opened[3];
 
 #ifdef LFS_MIGRATE
     struct lfs1 *lfs1;

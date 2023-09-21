@@ -724,10 +724,6 @@ static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
     return (tag & 0x6000) != 0x2000;
 }
 
-static inline uint8_t lfsr_tag_filetype(lfsr_tag_t tag) {
-    return tag - LFSR_TAG_REG;
-}
-
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
     return tag & LFSR_TAG_INTERNAL;
 }
@@ -3017,11 +3013,6 @@ static int lfsr_rbyd_appendcompactattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
-// lfsr_rbyd_appendcompactrbyd actually calls lfsr_rbyd_compact if it
-// encounters an inlined tree
-static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        bool deferred, lfs_off_t off);
-
 static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_rbyd_t *rbyd) {
@@ -3047,69 +3038,11 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
             break;
         }
 
-        // found an inlined tree? we need to compact the tree as well to bring
-        // it along with us
-        if (tag == LFSR_TAG_TRUNK) {
-            lfsr_rbyd_t inlined_rbyd;
-            err = lfsr_data_readtrunk(lfs, &data, &inlined_rbyd);
-            if (err) {
-                return err;
-            }
-            inlined_rbyd.block = rbyd->block;
-
-            // keep track of the start of our new tree
-            lfs_size_t off = rbyd_->eoff;
-
-            // what a great use case for recursion! too bad we can't use
-            // recursion here
-            lfsr_srid_t rid_ = -1;
-            lfsr_tag_t tag_ = 0;
-            while (true) {
-                lfsr_rid_t weight_;
-                lfsr_data_t data_;
-                err = lfsr_rbyd_lookupnext(lfs, &inlined_rbyd,
-                        rid_, tag_+1,
-                        &rid_, &tag_, &weight_, &data_);
-                if (err) {
-                    if (err == LFS_ERR_NOENT) {
-                        break;
-                    }
-                    return err;
-                }
-
-                // write the tag_
-                err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
-                        tag_, weight_, data_);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_RANGE);
-                    return err;
-                }
-            }
-
-            // compact our inlined tree
-            err = lfsr_rbyd_compact(lfs, rbyd_, true, off);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            // write the new inlined tree tag
-            uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
-            err = lfsr_rbyd_appendcompactattr(lfs, rbyd_,
-                    tag, weight, lfsr_data_fromtrunk(lfs,
-                        rbyd_, trunk_buf));
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-        } else {
-            // write the tag
-            err = lfsr_rbyd_appendcompactattr(lfs, rbyd_, tag, weight, data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
+        // write the tag
+        err = lfsr_rbyd_appendcompactattr(lfs, rbyd_, tag, weight, data);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            return err;
         }
     }
 
@@ -3120,8 +3053,9 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         bool deferred, lfs_size_t off) {
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
+    // offset must be after the revision count
+    LFS_ASSERT(off >= sizeof(uint32_t));
 
-    // TODO still need this?
     // ignore empty rbyds, we can't really compact these, so leave it up to
     // upper layers to deal with this
     if (rbyd->eoff <= sizeof(uint32_t)) {
@@ -4719,13 +4653,15 @@ static int lfsr_data_readmblocks(lfs_t *lfs, lfsr_data_t *data,
 // track opened mdirs that may need to by updated
 static void lfsr_mdir_addopened(lfs_t *lfs, int type,
         lfsr_openedmdir_t *opened) {
-    opened->next = lfs->opened[type];
-    lfs->opened[type] = opened;
+    opened->next = lfs->opened[type-LFS_TYPE_REG];
+    lfs->opened[type-LFS_TYPE_REG] = opened;
 }
 
 static void lfsr_mdir_removeopened(lfs_t *lfs, int type,
         lfsr_openedmdir_t *opened) {
-    for (lfsr_openedmdir_t **p = &lfs->opened[type]; *p; p = &(*p)->next) {
+    for (lfsr_openedmdir_t **p = &lfs->opened[type-LFS_TYPE_REG];
+            *p;
+            p = &(*p)->next) {
         if (*p == opened) {
             *p = (*p)->next;
             break;
@@ -4735,7 +4671,9 @@ static void lfsr_mdir_removeopened(lfs_t *lfs, int type,
 
 static bool lfsr_mdir_isopened(lfs_t *lfs, int type,
         const lfsr_openedmdir_t *opened) {
-    for (lfsr_openedmdir_t *p = lfs->opened[type]; p; p = p->next) {
+    for (lfsr_openedmdir_t *p = lfs->opened[type-LFS_TYPE_REG];
+            p;
+            p = p->next) {
         if (p == opened) {
             return true;
         }
@@ -5148,13 +5086,14 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             } else if (attrs[i].tag == LFSR_TAG_DEFER) {
                 const lfsr_defer_t *defer
                         = (const lfsr_defer_t*)attrs[i].data.u.b.buffer;
+
                 // swap out our trunk/weight temporarily, note we're operating
                 // on a copy so if this fails not _too_ many things will get
                 // messed up
                 //
                 // it is important that these rbyds share eoff/cksum/etc
-                mdir_.u.m.weight = defer->rbyd->weight;
                 mdir_.u.m.trunk = defer->rbyd->trunk;
+                mdir_.u.m.weight = defer->rbyd->weight;
 
                 // append any deferred attributes
                 int err = lfsr_rbyd_appendattrs(lfs, &mdir_.u.r.rbyd, -1, -1,
@@ -5163,10 +5102,11 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     return err;
                 }
 
-                defer->rbyd->weight = mdir_.u.m.weight;
+                // revert to mdir trunk/weight
                 defer->rbyd->trunk = mdir_.u.m.trunk;
-                mdir_.u.m.weight = mdir->u.m.weight;
+                defer->rbyd->weight = mdir_.u.m.weight;
                 mdir_.u.m.trunk = mdir->u.m.trunk;
+                mdir_.u.m.weight = mdir->u.m.weight;
 
             // write out normal tags normally
             } else {
@@ -5228,18 +5168,207 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     return 0;
 }
 
+// needed by lfsr_mdir_compact__
+static bool lfsr_file_isinlineddata(const lfsr_file_t *file);
+static bool lfsr_file_isinlinedtree(const lfsr_file_t *file);
+
 static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_mdir_t *mdir) {
-    int err = lfsr_rbyd_appendcompactrbyd(lfs, &mdir_->u.r.rbyd,
-            start_rid, end_rid, &mdir->u.r.rbyd);
+    // this is basically the same as lfsr_rbyd_appendcompactrbyd +
+    // lfsr_rbyd_compact, but with special handling for inlined trees.
+    //
+    // it's really tempting to deduplicate this via recursion! but we can't
+    // do that here
+
+    // copy over tags in the rbyd in order
+    lfsr_srid_t rid = start_rid;
+    lfsr_tag_t tag = 0;
+    while (true) {
+        lfsr_rid_t weight;
+        lfsr_data_t data;
+        int err = lfsr_rbyd_lookupnext(lfs, &mdir->u.r.rbyd,
+                rid, tag+1,
+                &rid, &tag, &weight, &data);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+            return err;
+        }
+        // end of range? note the use of rid+1 and unsigned comparison here to
+        // treat end_rid=-1 as "unbounded" in such a way that rid=-1 is still
+        // included
+        if ((lfs_size_t)(rid + 1) > (lfs_size_t)end_rid) {
+            break;
+        }
+
+        // found an inlined data? we can just copy this like normal but
+        // we need to update any opened inlined files
+        if (tag == LFSR_TAG_INLINED) {
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.r.rbyd,
+                    tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
+            // stage any opened deferred trees with their new location so
+            // we can update these later if our commit is a success
+            for (lfsr_openedmdir_t *opened = lfs->opened[
+                        LFS_TYPE_REG-LFS_TYPE_REG];
+                    opened;
+                    opened = opened->next) {
+                lfsr_file_t *file = (lfsr_file_t*)opened;
+                if (lfsr_file_isinlineddata(file)
+                        && file->inlined.u.data.u.d.block == data.u.d.block
+                        && file->inlined.u.data.u.d.off == data.u.d.off) {
+                    // this is a bit tricky see we don't know the tag size,
+                    // but we have enough enough info
+                    file->inlined_.u.data = LFSR_DATA_DISK(
+                            mdir_->u.r.rbyd.block,
+                            mdir_->u.r.rbyd.eoff
+                                - lfsr_data_size(&file->inlined.u.data),
+                            lfsr_data_size(&file->inlined.u.data));
+                }
+            }
+
+        // found an inlined tree? we need to compact the tree as well to bring
+        // it along with us
+        } else if (tag == LFSR_TAG_TRUNK) {
+            lfsr_rbyd_t inlined_rbyd;
+            err = lfsr_data_readtrunk(lfs, &data, &inlined_rbyd);
+            if (err) {
+                return err;
+            }
+            inlined_rbyd.block = mdir->u.r.rbyd.block;
+
+            // keep track of the start of our new tree
+            lfs_size_t off = mdir_->u.r.rbyd.eoff;
+
+            // compact our inlined tree
+            err = lfsr_rbyd_appendcompactrbyd(lfs, &mdir_->u.r.rbyd, -1, -1,
+                    &inlined_rbyd);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
+            err = lfsr_rbyd_compact(lfs, &mdir_->u.r.rbyd, true, off);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
+            // write the new inlined tree tag
+            uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
+            err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.r.rbyd,
+                    tag, weight, lfsr_data_fromtrunk(lfs,
+                        &mdir_->u.r.rbyd, trunk_buf));
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
+            // stage any opened deferred trees with their new location so
+            // we can update these later if our commit is a success
+            for (lfsr_openedmdir_t *opened = lfs->opened[
+                        LFS_TYPE_REG-LFS_TYPE_REG];
+                    opened;
+                    opened = opened->next) {
+                lfsr_file_t *file = (lfsr_file_t*)opened;
+                if (lfsr_file_isinlinedtree(file)
+                        && file->inlined.u.rbyd.block == mdir->u.r.rbyd.block
+                        && file->inlined.u.rbyd.trunk == inlined_rbyd.trunk) {
+                    file->inlined_.u.rbyd.block = mdir_->u.r.rbyd.block;
+                    file->inlined_.u.rbyd.trunk = mdir_->u.r.rbyd.trunk;
+                    file->inlined_.u.rbyd.weight = mdir_->u.r.rbyd.weight;
+                    file->inlined_.u.deferred.overhead
+                            = file->inlined.u.deferred.overhead;
+                }
+            }
+
+        } else {
+            // write the tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.r.rbyd,
+                    tag, weight, data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+        }
+    }
+
+    int err = lfsr_rbyd_compact(lfs, &mdir_->u.r.rbyd, false, sizeof(uint32_t));
     if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
         return err;
     }
 
-    err = lfsr_rbyd_compact(lfs, &mdir_->u.r.rbyd, false, sizeof(uint32_t));
-    if (err) {
-        return err;
+    // we're not quite done! we also need to bring over any opened,
+    // unsynced files
+    //
+    // TODO note for this to fully work we need to mark opened readonly
+    // files as unsynced if their entry is updated
+    for (lfsr_openedmdir_t *opened = lfs->opened[
+                LFS_TYPE_REG-LFS_TYPE_REG];
+            opened;
+            opened = opened->next) {
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        // inlined data?
+        if (lfsr_file_isinlineddata(file)
+                && (file->flags & LFS_F_UNSYNCED)
+                && file->inlined.u.data.u.d.block == mdir->u.r.rbyd.block) {
+            // write the data as a deferred tag
+            err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.r.rbyd,
+                    LFSR_TAG_DEFERRED(INLINED), 0, file->inlined.u.data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
+            // this is a bit tricky see we don't know the tag size,
+            // but we have enough enough info
+            file->inlined_.u.data = LFSR_DATA_DISK(
+                    mdir_->u.r.rbyd.block,
+                    mdir_->u.r.rbyd.eoff
+                        - lfsr_data_size(&file->inlined.u.data),
+                    lfsr_data_size(&file->inlined.u.data));
+
+        // inlined tree?
+        } else if (lfsr_file_isinlinedtree(file)
+                && (file->flags & LFS_F_UNSYNCED)
+                && file->inlined.u.rbyd.block == mdir->u.r.rbyd.block) {
+            // save our current off/trunk/weight
+            lfs_size_t off = mdir_->u.r.rbyd.eoff;
+            lfs_size_t trunk = mdir_->u.r.rbyd.trunk;
+            lfsr_srid_t weight = mdir_->u.r.rbyd.weight;
+            
+            // compact our inlined tree
+            err = lfsr_rbyd_appendcompactrbyd(lfs, &mdir_->u.r.rbyd, -1, -1,
+                    &file->inlined.u.rbyd);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
+            err = lfsr_rbyd_compact(lfs, &mdir_->u.r.rbyd, true, off);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_RANGE);
+                return err;
+            }
+
+            // stage our new trunk and revert to mdir trunk/weight
+            file->inlined_.u.rbyd.block = mdir_->u.r.rbyd.block;
+            file->inlined_.u.rbyd.trunk = mdir_->u.r.rbyd.trunk;
+            file->inlined_.u.rbyd.weight = mdir_->u.r.rbyd.weight;
+            file->inlined_.u.deferred.overhead
+                    = file->inlined.u.deferred.overhead;
+
+            mdir_->u.r.rbyd.trunk = trunk;
+            mdir_->u.r.rbyd.weight = weight;
+        }
     }
 
     return 0;
@@ -5347,8 +5476,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     if (mid == -1 || lfsr_mtree_isinlined(lfs)) {
         lfsr_mdir_unerase(&lfs->mroot);
     }
-    for (int type = 0; type < 2; type++) {
-        for (lfsr_openedmdir_t *opened = lfs->opened[type];
+    for (int type = LFS_TYPE_REG; type < LFS_TYPE_REG+3; type++) {
+        for (lfsr_openedmdir_t *opened = lfs->opened[type-LFS_TYPE_REG];
                 opened;
                 opened = opened->next) {
             if ((opened->mdir.mid & lfsr_midbmask(lfs))
@@ -5754,8 +5883,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // gstate must have been committed by a lower-level function at this point
     LFS_ASSERT(lfsr_grm_iszero(lfs->dgrm));
 
-    // update our gstate
     for (lfs_size_t i = 0; i < attr_count; i++) {
+        // update gstate
         if (attrs[i].tag == LFSR_TAG_GRM) {
             lfs->grm = *(lfsr_grm_t*)attrs[i].data.u.b.buffer;
 
@@ -5765,8 +5894,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     }
 
     // update any opened mdirs
-    for (int type = 0; type < 2; type++) {
-        for (lfsr_openedmdir_t *opened = lfs->opened[type];
+    for (int type = LFS_TYPE_REG; type < LFS_TYPE_REG+3; type++) {
+        for (lfsr_openedmdir_t *opened = lfs->opened[type-LFS_TYPE_REG];
                 opened;
                 opened = opened->next) {
             // avoid double updating current mdir, and avoid updating
@@ -5826,7 +5955,8 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                         - lfsr_mtree_weight(lfs);
             }
 
-            // some extra work is needed for opened dirs
+            // update any changes to directory bookmarks/positions, this
+            // gets a bit tricky
             if (type == LFS_TYPE_DIR) {
                 lfsr_dir_t *dir = (lfsr_dir_t*)opened;
                 for (lfs_size_t i = 0; i < attr_count; i++) {
@@ -5865,6 +5995,20 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 } else if (dir->bookmark > mid) {
                     dir->bookmark += lfsr_btree_weight(&mtree_)
                             - lfsr_mtree_weight(lfs);
+                }
+            }
+
+            // if we compacted, update any staged changes to inlined data/trees
+            if (type == LFS_TYPE_REG) {
+                lfsr_file_t *file = (lfsr_file_t*)opened;
+                if (mdir_.u.m.blocks[0] != mdir->u.m.blocks[0]
+                        && ((lfsr_file_isinlineddata(file)
+                                && file->inlined.u.data.u.d.block
+                                    == mdir->u.m.blocks[0])
+                            || (lfsr_file_isinlinedtree(file)
+                                && file->inlined.u.rbyd.block
+                                    == mdir->u.m.blocks[0]))) {
+                    file->inlined = file->inlined_;
                 }
             }
     next:;
@@ -7218,7 +7362,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // the bookmark first risks inserting the bookmark before the metadata
     // entry, which breaks things.
     //
-    lfsr_mdir_addopened(lfs, LFS_TYPE_REG, &bookmark);
+    lfsr_mdir_addopened(lfs, LFS_TYPE_INTERNAL, &bookmark);
 
     // commit our new directory into our parent, creating a grm to self-remove
     // in case of powerloss
@@ -7230,7 +7374,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
         goto failed_with_bookmark;
     }
 
-    lfsr_mdir_removeopened(lfs, LFS_TYPE_REG, &bookmark);
+    lfsr_mdir_removeopened(lfs, LFS_TYPE_INTERNAL, &bookmark);
 
     // commit our bookmark and zero the grm, the bookmark tag is an empty
     // entry that marks our did as allocated
@@ -7494,7 +7638,7 @@ static int lfsr_mdir_stat(lfs_t *lfs, lfsr_mdir_t *mdir, lfsr_mid_t mid,
     }
 
     // get file type from the tag
-    info->type = lfsr_tag_filetype(tag);
+    info->type = lfsr_tag_subtype(tag);
 
     // get file name from the name entry
     LFS_ASSERT(lfsr_data_size(&data) <= LFS_NAME_MAX);
@@ -7724,7 +7868,8 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 #define LFSR_FILE_INLINEDDATA 0x80000000
 
 static bool lfsr_file_isinlineddata(const lfsr_file_t *file) {
-    return file->inlined.u.weight & LFSR_FILE_INLINEDDATA;
+    // this checks that both the inlineddata bit and non-zero
+    return (lfs_size_t)file->inlined.u.weight > (LFSR_FILE_INLINEDDATA | 0);
 }
 
 static bool lfsr_file_isinlinedtree(const lfsr_file_t *file) {
@@ -7759,9 +7904,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->cfg = cfg;
     file->pos = 0;
     // default inlined state
-    file->inlined.u.d.block = 0;
-    file->inlined.u.d.off = 0;
-    file->inlined.u.d.size = LFSR_FILE_INLINEDDATA | 0;
+    file->inlined.u.data.u.d.block = 0;
+    file->inlined.u.data.u.d.off = 0;
+    file->inlined.u.data.u.d.size = LFSR_FILE_INLINEDDATA | 0;
 
     // lookup our parent
     lfsr_tag_t tag;
@@ -7840,10 +7985,12 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             if (err != LFS_ERR_NOENT) {
                 LFS_ASSERT(lfsr_file_inlinedsize(file) == 0);
                 err = lfsr_data_readtrunk(lfs, &data,
-                        (lfsr_rbyd_t*)&file->inlined);
+                        &file->inlined.u.rbyd);
                 if (err) {
                     return err;
                 }
+
+                file->inlined.u.rbyd.block = file->m.mdir.u.m.blocks[0];
             }
         }
     }
@@ -7941,16 +8088,11 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
         // is the data in an inlined tree?
         if (lfsr_file_isinlinedtree(file)
                 && pos < lfsr_file_inlinedsize(file)) {
-            lfsr_rbyd_t rbyd;
-            rbyd.block = file->m.mdir.u.m.blocks[0];
-            rbyd.trunk = file->inlined.u.t.trunk;
-            rbyd.weight = file->inlined.u.t.weight;
-
             lfsr_srid_t rid;
             lfsr_tag_t tag;
             lfsr_rid_t weight;
             lfsr_data_t data;
-            int err = lfsr_rbyd_lookupnext(lfs, &rbyd, pos, 0,
+            int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd, pos, 0,
                     &rid, &tag, &weight, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
@@ -8003,7 +8145,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
     while (file->buffer_size > 0) {
         // do we need an inlined tree?
-        if (lfsr_file_isinlineddata(file)) {
+        if (!lfsr_file_isinlinedtree(file)) {
 // TODO rm? we haven't updated file->size yet!
 //            // we shouldn't reach this point if we still fit entirely
 //            // in a simple inlined file
@@ -8013,30 +8155,33 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
 
             // do we carve out any data from the inlined data?
             lfsr_data_t left_data = LFSR_DATA_DISK(
-                    file->inlined.u.d.block,
-                    file->inlined.u.d.off,
+                    file->inlined.u.data.u.d.block,
+                    file->inlined.u.data.u.d.off,
                     lfs_min32(
                         file->buffer_pos,
                         lfsr_file_inlinedsize(file)));
 
             lfs_off_t right_pos = file->buffer_pos + file->buffer_size;
             lfsr_data_t right_data = LFSR_DATA_DISK(
-                    file->inlined.u.d.block,
-                    file->inlined.u.d.off + right_pos,
+                    file->inlined.u.data.u.d.block,
+                    file->inlined.u.data.u.d.off + right_pos,
                     lfsr_file_inlinedsize(file) - lfs_min32(
                         right_pos,
                         lfsr_file_inlinedsize(file)));
 
             // create a zero weight trunk
-            file->inlined.u.t.trunk = 0;
-            file->inlined.u.t.weight = 0;
+            //
+            // make sure to use our staging rbyd so we catch in-flight updates
+            // caused by mdir compactions
+            file->inlined_.u.rbyd.block = file->m.mdir.u.m.blocks[0];
+            file->inlined_.u.rbyd.trunk = 0;
+            file->inlined_.u.rbyd.weight = 0;
             // TODO
-            file->inlined.u.t.overhead = 0;
+            file->inlined_.u.deferred.overhead = 0;
 
             int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
                     LFSR_ATTR_(file->m.mdir.mid, DEFER, 0, DEFER(
-                        // TODO bit of a hack...
-                        (lfsr_rbyd_t*)&file->inlined,
+                        &file->inlined_.u.rbyd,
                         // note we always need a zero entry
                         (file->buffer_pos > 0
                             ? LFSR_ATTR(0,
@@ -8058,6 +8203,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                 return err;
             }
 
+            file->inlined = file->inlined_;
             file->buffer_size = 0;
             continue;
         }
@@ -8069,19 +8215,12 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
         // this is a complex question since we may be carving out leaves of the
         // inlined tree, we need to find these leaves to know for sure
         //
-        // TODO can we somehow fit an rbyd struct in the file_t so we don't
-        // need this copy?
-        lfsr_rbyd_t rbyd;
-        rbyd.block = file->m.mdir.u.m.blocks[0];
-        rbyd.trunk = file->inlined.u.t.trunk;
-        rbyd.weight = file->inlined.u.t.weight;
-
         lfsr_srid_t left_rid;
         lfsr_tag_t left_tag;
         lfsr_rid_t left_weight;
         lfsr_data_t left_data;
-        int err = lfsr_rbyd_lookupnext(lfs, &rbyd,
-                lfs_min32(file->buffer_pos, rbyd.weight-1), 0,
+        int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
+                lfs_min32(file->buffer_pos, file->inlined.u.rbyd.weight-1), 0,
                 &left_rid, &left_tag, &left_weight, &left_data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -8108,7 +8247,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
         lfsr_tag_t right_tag;
         lfsr_rid_t right_weight;
         lfsr_data_t right_data;
-        err = lfsr_rbyd_lookupnext(lfs, &rbyd,
+        err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
                 file->buffer_pos + file->buffer_size-1, 0,
                 &right_rid, &right_tag, &right_weight, &right_data);
         if (err && err != LFS_ERR_NOENT) {
@@ -8136,19 +8275,22 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
         }
 
         // write out our buffer and any carved data
+        //
+        // make sure to use our staging rbyd so we catch in-flight updates
+        // caused by mdir compactions
+        file->inlined_ = file->inlined;
         err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
                 LFSR_ATTR_(file->m.mdir.mid, DEFER, 0, DEFER(
-                    // TODO bit of a hack...
-                    (lfsr_rbyd_t*)&file->inlined,
+                    &file->inlined_.u.rbyd,
                     // first remove anything in the way
                     LFSR_ATTR(
                         lfs_min32(
                             right_pos + lfsr_data_size(&right_data),
-                            rbyd.weight)-1,
+                            file->inlined.u.rbyd.weight)-1,
                         RM,
                         lfs_min32(
                             right_pos + lfsr_data_size(&right_data),
-                            rbyd.weight) - left_pos,
+                            file->inlined.u.rbyd.weight) - left_pos,
                         NULL),
                     // TODO this should handling holes somehow
                     (lfsr_data_size(&left_data) > 0
@@ -8171,6 +8313,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
             return err;
         }
 
+        file->inlined = file->inlined_;
         file->buffer_size = 0;
         continue;
 
@@ -8258,12 +8401,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         return 0;
     }
 
-    // write out any data we need to
-    int err = lfsr_file_flush(lfs, file);
-    if (err) {
-        goto failed;
-    }
-
+    int err;
     if (file->flags & LFS_F_UNSYNCED) {
         // TODO what if buffer_size > inlined_size?
         // TODO should we also update file to be unbuffered after syncing
@@ -8288,7 +8426,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             }
 
             // but clear buffer after syncing simple inlined files, otherwise
-            // we risk O(n^2) behavior
+            // we risk runaway O(n^2) behavior
             file->buffer_size = 0;
 
             // we need to look up the inlined data again...
@@ -8315,8 +8453,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
             err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
                     LFSR_ATTR(file->m.mdir.mid, WIDE(TRUNK), 0, FROMTRUNK(
-                        // TODO too much of a hack?
-                        lfs, (const lfsr_rbyd_t*)&file->inlined, trunk_buf))));
+                        lfs, &file->inlined.u.rbyd, trunk_buf))));
             if (err) {
                 goto failed;
             }
@@ -11831,8 +11968,9 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->mleaf_bits = lfs_nlog2(lfs->cfg->block_size/16);
 
     // zero linked-lists of opened mdirs
-    lfs->opened[LFS_TYPE_REG] = NULL;
-    lfs->opened[LFS_TYPE_DIR] = NULL;
+    lfs->opened[LFS_TYPE_REG      - LFS_TYPE_REG] = NULL;
+    lfs->opened[LFS_TYPE_DIR      - LFS_TYPE_REG] = NULL;
+    lfs->opened[LFS_TYPE_INTERNAL - LFS_TYPE_REG] = NULL;
 
     // zero gstate
     memset(lfs->ggrm, 0, LFSR_GRM_DSIZE);
