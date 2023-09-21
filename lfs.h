@@ -725,6 +725,16 @@ int lfs_fs_mkconsistent(lfs_t *lfs);
 #endif
 
 #ifndef LFS_READONLY
+// Grows the filesystem to a new size, updating the superblock with the new
+// block count.
+//
+// Note: This is irreversible.
+//
+// Returns a negative error code on failure.
+int lfs_fs_grow(lfs_t *lfs, lfs_size_t block_count);
+#endif
+
+#ifndef LFS_READONLY
 #ifdef LFS_MIGRATE
 // Attempts to migrate a previous version of littlefs
 //
