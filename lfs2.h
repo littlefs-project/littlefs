@@ -21,7 +21,7 @@ extern "C"
 // Software library version
 // Major (top-nibble), incremented on backwards incompatible changes
 // Minor (bottom-nibble), incremented on feature additions
-#define LFS2_VERSION 0x00020007
+#define LFS2_VERSION 0x00020008
 #define LFS2_VERSION_MAJOR (0xffff & (LFS2_VERSION >> 16))
 #define LFS2_VERSION_MINOR (0xffff & (LFS2_VERSION >>  0))
 
@@ -293,6 +293,12 @@ struct lfs2_fsinfo {
     // On-disk version.
     uint32_t disk_version;
 
+    // Size of a logical block in bytes.
+    lfs2_size_t block_size;
+
+    // Number of logical blocks in filesystem.
+    lfs2_size_t block_count;
+
     // Upper limit on the length of file names in bytes.
     lfs2_size_t name_max;
 
@@ -433,6 +439,7 @@ typedef struct lfs2 {
     } free;
 
     const struct lfs2_config *cfg;
+    lfs2_size_t block_count;
     lfs2_size_t name_max;
     lfs2_size_t file_max;
     lfs2_size_t attr_max;
@@ -705,6 +712,18 @@ lfs2_ssize_t lfs2_fs_size(lfs2_t *lfs2);
 // Returns a negative error code on failure.
 int lfs2_fs_traverse(lfs2_t *lfs2, int (*cb)(void*, lfs2_block_t), void *data);
 
+// Attempt to proactively find free blocks
+//
+// Calling this function is not required, but may allowing the offloading of
+// the expensive block allocation scan to a less time-critical code path.
+//
+// Note: littlefs currently does not persist any found free blocks to disk.
+// This may change in the future.
+//
+// Returns a negative error code on failure. Finding no free blocks is
+// not an error.
+int lfs2_fs_gc(lfs2_t *lfs2);
+
 #ifndef LFS2_READONLY
 // Attempt to make the filesystem consistent and ready for writing
 //
@@ -715,6 +734,16 @@ int lfs2_fs_traverse(lfs2_t *lfs2, int (*cb)(void*, lfs2_block_t), void *data);
 //
 // Returns a negative error code on failure.
 int lfs2_fs_mkconsistent(lfs2_t *lfs2);
+#endif
+
+#ifndef LFS2_READONLY
+// Grows the filesystem to a new size, updating the superblock with the new
+// block count.
+//
+// Note: This is irreversible.
+//
+// Returns a negative error code on failure.
+int lfs2_fs_grow(lfs2_t *lfs2, lfs2_size_t block_count);
 #endif
 
 #ifndef LFS2_READONLY

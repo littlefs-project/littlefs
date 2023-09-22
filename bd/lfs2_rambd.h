@@ -26,8 +26,20 @@ extern "C"
 #endif
 #endif
 
-// rambd config (optional)
+// rambd config
 struct lfs2_rambd_config {
+    // Minimum size of a read operation in bytes.
+    lfs2_size_t read_size;
+
+    // Minimum size of a program operation in bytes.
+    lfs2_size_t prog_size;
+
+    // Size of an erase operation in bytes.
+    lfs2_size_t erase_size;
+
+    // Number of erase blocks on the device.
+    lfs2_size_t erase_count;
+
     // Optional statically allocated buffer for the block device.
     void *buffer;
 };
@@ -39,9 +51,8 @@ typedef struct lfs2_rambd {
 } lfs2_rambd_t;
 
 
-// Create a RAM block device using the geometry in lfs2_config
-int lfs2_rambd_create(const struct lfs2_config *cfg);
-int lfs2_rambd_createcfg(const struct lfs2_config *cfg,
+// Create a RAM block device
+int lfs2_rambd_create(const struct lfs2_config *cfg,
         const struct lfs2_rambd_config *bdcfg);
 
 // Clean up memory associated with block device

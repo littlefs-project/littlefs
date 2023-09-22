@@ -46,8 +46,8 @@ static int lfs2_bd_read(lfs2_t *lfs2,
         lfs2_block_t block, lfs2_off_t off,
         void *buffer, lfs2_size_t size) {
     uint8_t *data = buffer;
-    if (block >= lfs2->cfg->block_count ||
-            off+size > lfs2->cfg->block_size) {
+    if (off+size > lfs2->cfg->block_size
+            || (lfs2->block_count && block >= lfs2->block_count)) {
         return LFS2_ERR_CORRUPT;
     }
 
@@ -104,7 +104,7 @@ static int lfs2_bd_read(lfs2_t *lfs2,
         }
 
         // load to cache, first condition can no longer fail
-        LFS2_ASSERT(block < lfs2->cfg->block_count);
+        LFS2_ASSERT(!lfs2->block_count || block < lfs2->block_count);
         rcache->block = block;
         rcache->off = lfs2_aligndown(off, lfs2->cfg->read_size);
         rcache->size = lfs2_min(
@@ -176,7 +176,7 @@ static int lfs2_bd_crc(lfs2_t *lfs2,
 static int lfs2_bd_flush(lfs2_t *lfs2,
         lfs2_cache_t *pcache, lfs2_cache_t *rcache, bool validate) {
     if (pcache->block != LFS2_BLOCK_NULL && pcache->block != LFS2_BLOCK_INLINE) {
-        LFS2_ASSERT(pcache->block < lfs2->cfg->block_count);
+        LFS2_ASSERT(pcache->block < lfs2->block_count);
         lfs2_size_t diff = lfs2_alignup(pcache->size, lfs2->cfg->prog_size);
         int err = lfs2->cfg->prog(lfs2->cfg, pcache->block,
                 pcache->off, pcache->buffer, diff);
@@ -229,7 +229,7 @@ static int lfs2_bd_prog(lfs2_t *lfs2,
         lfs2_block_t block, lfs2_off_t off,
         const void *buffer, lfs2_size_t size) {
     const uint8_t *data = buffer;
-    LFS2_ASSERT(block == LFS2_BLOCK_INLINE || block < lfs2->cfg->block_count);
+    LFS2_ASSERT(block == LFS2_BLOCK_INLINE || block < lfs2->block_count);
     LFS2_ASSERT(off + size <= lfs2->cfg->block_size);
 
     while (size > 0) {
@@ -273,7 +273,7 @@ static int lfs2_bd_prog(lfs2_t *lfs2,
 
 #ifndef LFS2_READONLY
 static int lfs2_bd_erase(lfs2_t *lfs2, lfs2_block_t block) {
-    LFS2_ASSERT(block < lfs2->cfg->block_count);
+    LFS2_ASSERT(block < lfs2->block_count);
     int err = lfs2->cfg->erase(lfs2->cfg, block);
     LFS2_ASSERT(err <= 0);
     return err;
@@ -597,7 +597,7 @@ static int lfs2_rawunmount(lfs2_t *lfs2);
 static int lfs2_alloc_lookahead(void *p, lfs2_block_t block) {
     lfs2_t *lfs2 = (lfs2_t*)p;
     lfs2_block_t off = ((block - lfs2->free.off)
-            + lfs2->cfg->block_count) % lfs2->cfg->block_count;
+            + lfs2->block_count) % lfs2->block_count;
 
     if (off < lfs2->free.size) {
         lfs2->free.buffer[off / 32] |= 1U << (off % 32);
@@ -611,7 +611,7 @@ static int lfs2_alloc_lookahead(void *p, lfs2_block_t block) {
 // is to prevent blocks from being garbage collected in the middle of a
 // commit operation
 static void lfs2_alloc_ack(lfs2_t *lfs2) {
-    lfs2->free.ack = lfs2->cfg->block_count;
+    lfs2->free.ack = lfs2->block_count;
 }
 
 // drop the lookahead buffer, this is done during mounting and failed
@@ -623,6 +623,26 @@ static void lfs2_alloc_drop(lfs2_t *lfs2) {
 }
 
 #ifndef LFS2_READONLY
+static int lfs2_fs_rawgc(lfs2_t *lfs2) {
+    // Move free offset at the first unused block (lfs2->free.i)
+    // lfs2->free.i is equal lfs2->free.size when all blocks are used
+    lfs2->free.off = (lfs2->free.off + lfs2->free.i) % lfs2->block_count;
+    lfs2->free.size = lfs2_min(8*lfs2->cfg->lookahead_size, lfs2->free.ack);
+    lfs2->free.i = 0;
+
+    // find mask of free blocks from tree
+    memset(lfs2->free.buffer, 0, lfs2->cfg->lookahead_size);
+    int err = lfs2_fs_rawtraverse(lfs2, lfs2_alloc_lookahead, lfs2, true);
+    if (err) {
+        lfs2_alloc_drop(lfs2);
+        return err;
+    }
+
+    return 0;
+}
+#endif
+
+#ifndef LFS2_READONLY
 static int lfs2_alloc(lfs2_t *lfs2, lfs2_block_t *block) {
     while (true) {
         while (lfs2->free.i != lfs2->free.size) {
@@ -632,7 +652,7 @@ static int lfs2_alloc(lfs2_t *lfs2, lfs2_block_t *block) {
 
             if (!(lfs2->free.buffer[off / 32] & (1U << (off % 32)))) {
                 // found a free block
-                *block = (lfs2->free.off + off) % lfs2->cfg->block_count;
+                *block = (lfs2->free.off + off) % lfs2->block_count;
 
                 // eagerly find next off so an alloc ack can
                 // discredit old lookahead blocks
@@ -654,16 +674,8 @@ static int lfs2_alloc(lfs2_t *lfs2, lfs2_block_t *block) {
             return LFS2_ERR_NOSPC;
         }
 
-        lfs2->free.off = (lfs2->free.off + lfs2->free.size)
-                % lfs2->cfg->block_count;
-        lfs2->free.size = lfs2_min(8*lfs2->cfg->lookahead_size, lfs2->free.ack);
-        lfs2->free.i = 0;
-
-        // find mask of free blocks from tree
-        memset(lfs2->free.buffer, 0, lfs2->cfg->lookahead_size);
-        int err = lfs2_fs_rawtraverse(lfs2, lfs2_alloc_lookahead, lfs2, true);
-        if (err) {
-            lfs2_alloc_drop(lfs2);
+        int err = lfs2_fs_rawgc(lfs2);
+        if(err) {
             return err;
         }
     }
@@ -1067,7 +1079,8 @@ static lfs2_stag_t lfs2_dir_fetchmatch(lfs2_t *lfs2,
 
     // if either block address is invalid we return LFS2_ERR_CORRUPT here,
     // otherwise later writes to the pair could fail
-    if (pair[0] >= lfs2->cfg->block_count || pair[1] >= lfs2->cfg->block_count) {
+    if (lfs2->block_count 
+            && (pair[0] >= lfs2->block_count || pair[1] >= lfs2->block_count)) {
         return LFS2_ERR_CORRUPT;
     }
 
@@ -2140,7 +2153,7 @@ static int lfs2_dir_splittingcompact(lfs2_t *lfs2, lfs2_mdir_t *dir,
 
         // do we have extra space? littlefs can't reclaim this space
         // by itself, so expand cautiously
-        if ((lfs2_size_t)size < lfs2->cfg->block_count/2) {
+        if ((lfs2_size_t)size < lfs2->block_count/2) {
             LFS2_DEBUG("Expanding superblock at rev %"PRIu32, dir->rev);
             int err = lfs2_dir_split(lfs2, dir, attrs, attrcount,
                     source, begin, end);
@@ -4095,6 +4108,7 @@ static int lfs2_rawremoveattr(lfs2_t *lfs2, const char *path, uint8_t type) {
 /// Filesystem operations ///
 static int lfs2_init(lfs2_t *lfs2, const struct lfs2_config *cfg) {
     lfs2->cfg = cfg;
+    lfs2->block_count = cfg->block_count;  // May be 0
     int err = 0;
 
 #ifdef LFS2_MULTIVERSION
@@ -4237,6 +4251,8 @@ static int lfs2_deinit(lfs2_t *lfs2) {
     return 0;
 }
 
+
+
 #ifndef LFS2_READONLY
 static int lfs2_rawformat(lfs2_t *lfs2, const struct lfs2_config *cfg) {
     int err = 0;
@@ -4246,11 +4262,13 @@ static int lfs2_rawformat(lfs2_t *lfs2, const struct lfs2_config *cfg) {
             return err;
         }
 
+        LFS2_ASSERT(cfg->block_count != 0);
+
         // create free lookahead
         memset(lfs2->free.buffer, 0, lfs2->cfg->lookahead_size);
         lfs2->free.off = 0;
         lfs2->free.size = lfs2_min(8*lfs2->cfg->lookahead_size,
-                lfs2->cfg->block_count);
+                lfs2->block_count);
         lfs2->free.i = 0;
         lfs2_alloc_ack(lfs2);
 
@@ -4265,7 +4283,7 @@ static int lfs2_rawformat(lfs2_t *lfs2, const struct lfs2_config *cfg) {
         lfs2_superblock_t superblock = {
             .version     = lfs2_fs_disk_version(lfs2),
             .block_size  = lfs2->cfg->block_size,
-            .block_count = lfs2->cfg->block_count,
+            .block_count = lfs2->block_count,
             .name_max    = lfs2->name_max,
             .file_max    = lfs2->file_max,
             .attr_max    = lfs2->attr_max,
@@ -4422,12 +4440,16 @@ static int lfs2_rawmount(lfs2_t *lfs2, const struct lfs2_config *cfg) {
                 lfs2->attr_max = superblock.attr_max;
             }
 
-            if (superblock.block_count != lfs2->cfg->block_count) {
+            // this is where we get the block_count from disk if block_count=0
+            if (lfs2->cfg->block_count
+                    && superblock.block_count != lfs2->cfg->block_count) {
                 LFS2_ERROR("Invalid block count (%"PRIu32" != %"PRIu32")",
                         superblock.block_count, lfs2->cfg->block_count);
                 err = LFS2_ERR_INVAL;
                 goto cleanup;
             }
+
+            lfs2->block_count = superblock.block_count;
 
             if (superblock.block_size != lfs2->cfg->block_size) {
                 LFS2_ERROR("Invalid block size (%"PRIu32" != %"PRIu32")",
@@ -4444,12 +4466,6 @@ static int lfs2_rawmount(lfs2_t *lfs2, const struct lfs2_config *cfg) {
         }
     }
 
-    // found superblock?
-    if (lfs2_pair_isnull(lfs2->root)) {
-        err = LFS2_ERR_INVAL;
-        goto cleanup;
-    }
-
     // update littlefs with gstate
     if (!lfs2_gstate_iszero(&lfs2->gstate)) {
         LFS2_DEBUG("Found pending gstate 0x%08"PRIx32"%08"PRIx32"%08"PRIx32,
@@ -4462,7 +4478,7 @@ static int lfs2_rawmount(lfs2_t *lfs2, const struct lfs2_config *cfg) {
 
     // setup free lookahead, to distribute allocations uniformly across
     // boots, we start the allocator at a random location
-    lfs2->free.off = lfs2->seed % lfs2->cfg->block_count;
+    lfs2->free.off = lfs2->seed % lfs2->block_count;
     lfs2_alloc_drop(lfs2);
 
     return 0;
@@ -4505,6 +4521,10 @@ static int lfs2_fs_rawstat(lfs2_t *lfs2, struct lfs2_fsinfo *fsinfo) {
         // read the on-disk version
         fsinfo->disk_version = superblock.version;
     }
+
+    // filesystem geometry
+    fsinfo->block_size = lfs2->cfg->block_size;
+    fsinfo->block_count = lfs2->block_count;
 
     // other on-disk configuration, we cache all of these for internal use
     fsinfo->name_max = lfs2->name_max;
@@ -4771,7 +4791,7 @@ static int lfs2_fs_desuperblock(lfs2_t *lfs2) {
     lfs2_superblock_t superblock = {
         .version     = lfs2_fs_disk_version(lfs2),
         .block_size  = lfs2->cfg->block_size,
-        .block_count = lfs2->cfg->block_count,
+        .block_count = lfs2->block_count,
         .name_max    = lfs2->name_max,
         .file_max    = lfs2->file_max,
         .attr_max    = lfs2->attr_max,
@@ -5025,6 +5045,44 @@ static lfs2_ssize_t lfs2_fs_rawsize(lfs2_t *lfs2) {
     return size;
 }
 
+#ifndef LFS2_READONLY
+int lfs2_fs_rawgrow(lfs2_t *lfs2, lfs2_size_t block_count) {
+    // shrinking is not supported
+    LFS2_ASSERT(block_count >= lfs2->block_count);
+
+    if (block_count > lfs2->block_count) {
+        lfs2->block_count = block_count;
+
+        // fetch the root
+        lfs2_mdir_t root;
+        int err = lfs2_dir_fetch(lfs2, &root, lfs2->root);
+        if (err) {
+            return err;
+        }
+
+        // update the superblock
+        lfs2_superblock_t superblock;
+        lfs2_stag_t tag = lfs2_dir_get(lfs2, &root, LFS2_MKTAG(0x7ff, 0x3ff, 0),
+                LFS2_MKTAG(LFS2_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock);
+        if (tag < 0) {
+            return tag;
+        }
+        lfs2_superblock_fromle32(&superblock);
+
+        superblock.block_count = lfs2->block_count;
+
+        lfs2_superblock_tole32(&superblock);
+        err = lfs2_dir_commit(lfs2, &root, LFS2_MKATTRS(
+                {tag, &superblock}));
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+#endif
 
 #ifdef LFS2_MIGRATE
 ////// Migration from littelfs v1 below this //////
@@ -5449,6 +5507,10 @@ static int lfs21_unmount(lfs2_t *lfs2) {
 /// v1 migration ///
 static int lfs2_rawmigrate(lfs2_t *lfs2, const struct lfs2_config *cfg) {
     struct lfs21 lfs21;
+
+    // Indeterminate filesystem size not allowed for migration.
+    LFS2_ASSERT(cfg->block_count != 0);
+
     int err = lfs21_mount(lfs2, &lfs21, cfg);
     if (err) {
         return err;
@@ -6189,6 +6251,22 @@ int lfs2_fs_traverse(lfs2_t *lfs2, int (*cb)(void *, lfs2_block_t), void *data) 
 }
 
 #ifndef LFS2_READONLY
+int lfs2_fs_gc(lfs2_t *lfs2) {
+    int err = LFS2_LOCK(lfs2->cfg);
+    if (err) {
+        return err;
+    }
+    LFS2_TRACE("lfs2_fs_gc(%p)", (void*)lfs2);
+
+    err = lfs2_fs_rawgc(lfs2);
+
+    LFS2_TRACE("lfs2_fs_gc -> %d", err);
+    LFS2_UNLOCK(lfs2->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS2_READONLY
 int lfs2_fs_mkconsistent(lfs2_t *lfs2) {
     int err = LFS2_LOCK(lfs2->cfg);
     if (err) {
@@ -6199,6 +6277,22 @@ int lfs2_fs_mkconsistent(lfs2_t *lfs2) {
     err = lfs2_fs_rawmkconsistent(lfs2);
 
     LFS2_TRACE("lfs2_fs_mkconsistent -> %d", err);
+    LFS2_UNLOCK(lfs2->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS2_READONLY
+int lfs2_fs_grow(lfs2_t *lfs2, lfs2_size_t block_count) {
+    int err = LFS2_LOCK(lfs2->cfg);
+    if (err) {
+        return err;
+    }
+    LFS2_TRACE("lfs2_fs_grow(%p, %"PRIu32")", (void*)lfs2, block_count);
+
+    err = lfs2_fs_rawgrow(lfs2, block_count);
+
+    LFS2_TRACE("lfs2_fs_grow -> %d", err);
     LFS2_UNLOCK(lfs2->cfg);
     return err;
 }

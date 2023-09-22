@@ -14,6 +14,21 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
+# mount/unmount from interpretting a previous superblock block_count
+[cases.test_superblocks_mount_unknown_block_count]
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+
+    memset(&lfs2, 0, sizeof(lfs2));
+    struct lfs2_config tweaked_cfg = *cfg;
+    tweaked_cfg.block_count = 0;
+    lfs2_mount(&lfs2, &tweaked_cfg) => 0;
+    assert(lfs2.block_count == cfg->block_count);
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+
 # reentrant format
 [cases.test_superblocks_reentrant_format]
 reentrant = true
@@ -195,5 +210,257 @@ code = '''
     lfs2_stat(&lfs2, "dummy", &info) => 0;
     assert(strcmp(info.name, "dummy") == 0);
     assert(info.type == LFS2_TYPE_REG);
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+# mount with unknown block_count
+[cases.test_superblocks_unknown_blocks]
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+
+    // known block_size/block_count
+    cfg->block_size = BLOCK_SIZE;
+    cfg->block_count = BLOCK_COUNT;
+    lfs2_mount(&lfs2, cfg) => 0;
+    struct lfs2_fsinfo fsinfo;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_unmount(&lfs2) => 0;
+
+    // unknown block_count
+    cfg->block_size = BLOCK_SIZE;
+    cfg->block_count = 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_unmount(&lfs2) => 0;
+
+    // do some work
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_file_t file;
+    lfs2_file_open(&lfs2, &file, "test",
+            LFS2_O_CREAT | LFS2_O_EXCL | LFS2_O_WRONLY) => 0;
+    lfs2_file_write(&lfs2, &file, "hello!", 6) => 6;
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_file_open(&lfs2, &file, "test", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[256];
+    lfs2_file_read(&lfs2, &file, buffer, sizeof(buffer)) => 6;
+    lfs2_file_close(&lfs2, &file) => 0;
+    assert(memcmp(buffer, "hello!", 6) == 0);
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+# mount with blocks fewer than the erase_count
+[cases.test_superblocks_fewer_blocks]
+defines.BLOCK_COUNT = ['ERASE_COUNT/2', 'ERASE_COUNT/4', '2']
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+
+    // known block_size/block_count
+    cfg->block_size = BLOCK_SIZE;
+    cfg->block_count = BLOCK_COUNT;
+    lfs2_mount(&lfs2, cfg) => 0;
+    struct lfs2_fsinfo fsinfo;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_unmount(&lfs2) => 0;
+
+    // incorrect block_count
+    cfg->block_size = BLOCK_SIZE;
+    cfg->block_count = ERASE_COUNT;
+    lfs2_mount(&lfs2, cfg) => LFS2_ERR_INVAL;
+
+    // unknown block_count
+    cfg->block_size = BLOCK_SIZE;
+    cfg->block_count = 0;
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_unmount(&lfs2) => 0;
+
+    // do some work
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_file_t file;
+    lfs2_file_open(&lfs2, &file, "test",
+            LFS2_O_CREAT | LFS2_O_EXCL | LFS2_O_WRONLY) => 0;
+    lfs2_file_write(&lfs2, &file, "hello!", 6) => 6;
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_file_open(&lfs2, &file, "test", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[256];
+    lfs2_file_read(&lfs2, &file, buffer, sizeof(buffer)) => 6;
+    lfs2_file_close(&lfs2, &file) => 0;
+    assert(memcmp(buffer, "hello!", 6) == 0);
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+# mount with more blocks than the erase_count
+[cases.test_superblocks_more_blocks]
+defines.FORMAT_BLOCK_COUNT = '2*ERASE_COUNT'
+in = 'lfs2.c'
+code = '''
+    lfs2_t lfs2;
+    lfs2_init(&lfs2, cfg) => 0;
+    lfs2.block_count = BLOCK_COUNT;
+
+    lfs2_mdir_t root = {
+        .pair = {0, 0}, // make sure this goes into block 0
+        .rev = 0,
+        .off = sizeof(uint32_t),
+        .etag = 0xffffffff,
+        .count = 0,
+        .tail = {LFS2_BLOCK_NULL, LFS2_BLOCK_NULL},
+        .erased = false,
+        .split = false,
+    };
+
+    lfs2_superblock_t superblock = {
+        .version     = LFS2_DISK_VERSION,
+        .block_size  = BLOCK_SIZE,
+        .block_count = FORMAT_BLOCK_COUNT,
+        .name_max    = LFS2_NAME_MAX,
+        .file_max    = LFS2_FILE_MAX,
+        .attr_max    = LFS2_ATTR_MAX,
+    };
+
+    lfs2_superblock_tole32(&superblock);
+    lfs2_dir_commit(&lfs2, &root, LFS2_MKATTRS(
+            {LFS2_MKTAG(LFS2_TYPE_CREATE, 0, 0), NULL},
+            {LFS2_MKTAG(LFS2_TYPE_SUPERBLOCK, 0, 8), "littlefs"},
+            {LFS2_MKTAG(LFS2_TYPE_INLINESTRUCT, 0, sizeof(superblock)),
+                &superblock})) => 0;
+    lfs2_deinit(&lfs2) => 0;
+
+    // known block_size/block_count
+    cfg->block_size = BLOCK_SIZE;
+    cfg->block_count = BLOCK_COUNT;
+    lfs2_mount(&lfs2, cfg) => LFS2_ERR_INVAL;
+'''
+
+# mount and grow the filesystem
+[cases.test_superblocks_grow]
+defines.BLOCK_COUNT = ['ERASE_COUNT/2', 'ERASE_COUNT/4', '2']
+defines.BLOCK_COUNT_2 = 'ERASE_COUNT'
+defines.KNOWN_BLOCK_COUNT = [true, false]
+code = '''
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+
+    if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT;
+    } else {
+        cfg->block_count = 0;
+    }
+
+    // mount with block_size < erase_size
+    lfs2_mount(&lfs2, cfg) => 0;
+    struct lfs2_fsinfo fsinfo;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_unmount(&lfs2) => 0;
+
+    // same size is a noop
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_grow(&lfs2, BLOCK_COUNT) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_unmount(&lfs2) => 0;
+
+    // grow to new size
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_grow(&lfs2, BLOCK_COUNT_2) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_unmount(&lfs2) => 0;
+
+    if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT_2;
+    } else {
+        cfg->block_count = 0;
+    }
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_unmount(&lfs2) => 0;
+
+    // mounting with the previous size should fail
+    cfg->block_count = BLOCK_COUNT;
+    lfs2_mount(&lfs2, cfg) => LFS2_ERR_INVAL;
+
+    if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT_2;
+    } else {
+        cfg->block_count = 0;
+    }
+
+    // same size is a noop
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_grow(&lfs2, BLOCK_COUNT_2) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_unmount(&lfs2) => 0;
+
+    // do some work
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_file_t file;
+    lfs2_file_open(&lfs2, &file, "test",
+            LFS2_O_CREAT | LFS2_O_EXCL | LFS2_O_WRONLY) => 0;
+    lfs2_file_write(&lfs2, &file, "hello!", 6) => 6;
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_file_open(&lfs2, &file, "test", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[256];
+    lfs2_file_read(&lfs2, &file, buffer, sizeof(buffer)) => 6;
+    lfs2_file_close(&lfs2, &file) => 0;
+    assert(memcmp(buffer, "hello!", 6) == 0);
     lfs2_unmount(&lfs2) => 0;
 '''
