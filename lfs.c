@@ -1421,12 +1421,11 @@ typedef struct lfsr_ecksum {
 // 1 leb128 + 1 crc32c => 9 bytes (worst case)
 #define LFSR_ECKSUM_DSIZE (5+4)
 
-#define LFSR_DATA_FROMECKSUM(_lfs, _ecksum, _buffer) \
-    lfsr_data_fromecksum(_lfs, _ecksum, _buffer)
+#define LFSR_DATA_FROMECKSUM(_ecksum, _buffer) \
+    lfsr_data_fromecksum(_ecksum, _buffer)
 
-static lfsr_data_t lfsr_data_fromecksum(lfs_t *lfs, const lfsr_ecksum_t *ecksum,
+static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
         uint8_t buffer[static LFSR_ECKSUM_DSIZE]) {
-    (void)lfs;
     lfs_ssize_t d = 0;
     lfs_ssize_t d_ = lfs_toleb128(ecksum->size, &buffer[d], 5);
     LFS_ASSERT(d_ >= 0);
@@ -1622,12 +1621,11 @@ static inline int lfsr_grm_xor(lfs_t *lfs,
     return lfsr_gdelta_xor(lfs, gdelta, LFSR_GRM_DSIZE, xor);
 }
 
-#define LFSR_DATA_FROMGRM(_lfs, _grm, _buffer) \
-    lfsr_data_fromgrm(_lfs, _grm, _buffer)
+#define LFSR_DATA_FROMGRM(_grm, _buffer) \
+    lfsr_data_fromgrm(_grm, _buffer)
 
-static lfsr_data_t lfsr_data_fromgrm(lfs_t *lfs, const lfsr_grm_t *grm,
+static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
         uint8_t buffer[static LFSR_GRM_DSIZE]) {
-    (void)lfs;
     // make sure to zero so we don't leak any info
     memset(buffer, 0, LFSR_GRM_DSIZE);
 
@@ -1693,12 +1691,11 @@ typedef struct lfsr_shrubattrs {
 // 2 leb128s => 10 bytes (worst case)
 #define LFSR_TRUNK_DSIZE (5+5)
 
-#define LFSR_DATA_SHRUBTRUNK(_lfs, _rbyd, _buffer) \
-    lfsr_data_fromtrunk(_lfs, _rbyd, _buffer)
+#define LFSR_DATA_SHRUBTRUNK(_rbyd, _buffer) \
+    lfsr_data_fromtrunk(_rbyd, _buffer)
 
-static lfsr_data_t lfsr_data_fromtrunk(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
+static lfsr_data_t lfsr_data_fromtrunk(const lfsr_rbyd_t *rbyd,
         uint8_t buffer[static LFSR_TRUNK_DSIZE]) {
-    (void)lfs;
     lfs_ssize_t d = 0;
 
     // just write the trunk and weight, the rest of the rbyd is contextual
@@ -2793,8 +2790,7 @@ static int lfsr_rbyd_appendcksum(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         }
 
         uint8_t ecksum_buf[LFSR_ECKSUM_DSIZE];
-        lfsr_data_t ecksum_data = lfsr_data_fromecksum(lfs, &ecksum,
-                ecksum_buf);
+        lfsr_data_t ecksum_data = lfsr_data_fromecksum(&ecksum, ecksum_buf);
         lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
                 LFSR_TAG_ECKSUM, 0, lfsr_data_size(&ecksum_data),
                 &rbyd->cksum);
@@ -3426,12 +3422,11 @@ static inline void lfsr_btree_unerase(lfsr_btree_t *btree) {
 // 3 leb128 + 1 crc32c => 19 bytes (worst case)
 #define LFSR_BTREE_DSIZE (5+5+5+4)
 
-#define LFSR_DATA_FROMBTREE(_lfs, _btree, _buffer) \
-    lfsr_data_frombtree(_lfs, _btree, _buffer)
+#define LFSR_DATA_FROMBTREE(_btree, _buffer) \
+    lfsr_data_frombtree(_btree, _buffer)
 
-static lfsr_data_t lfsr_data_frombtree(lfs_t *lfs, const lfsr_rbyd_t *btree,
+static lfsr_data_t lfsr_data_frombtree(const lfsr_rbyd_t *btree,
         uint8_t buffer[static LFSR_BTREE_DSIZE]) {
-    (void)lfs;
     // upper layers must take care of encoding inlined btrees
     LFS_ASSERT(!lfsr_btree_isinlined((const lfsr_btree_t*)btree));
     lfs_ssize_t d = 0;
@@ -4139,19 +4134,16 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         LFS_ASSERT(sibling.weight > 0);
         if (rbyd.weight == 0) {
             scratch_attrs[0] = LFSR_ATTR(bid,
-                    BTREE, +rbyd_.weight, FROMBTREE(lfs, &rbyd_,
-                        scratch_buf));
+                    BTREE, +rbyd_.weight, FROMBTREE(&rbyd_, scratch_buf));
             scratch_attrs[1] = LFSR_ATTR_NOOP;
         } else {
             scratch_attrs[0] = LFSR_ATTR(bid+rid,
-                    BTREE, 0, FROMBTREE(lfs, &rbyd_,
-                        scratch_buf));
+                    BTREE, 0, FROMBTREE(&rbyd_, scratch_buf));
             scratch_attrs[1] = LFSR_ATTR(bid+rid,
                     GROW, -rbyd.weight + rbyd_.weight, NULL);
         }
         scratch_attrs[2] = LFSR_ATTR(bid+rid - rbyd.weight + rbyd_.weight + 1,
-                BTREE, +sibling.weight, FROMBTREE(lfs, &sibling,
-                    scratch_buf_));
+                BTREE, +sibling.weight, FROMBTREE(&sibling, scratch_buf_));
         if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
             scratch_attrs[3] = LFSR_ATTR(
                     bid+rid - rbyd.weight + rbyd_.weight + sibling.weight,
@@ -4249,7 +4241,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         scratch_attrs[0] = LFSR_ATTR(bid+rid+sibling.weight,
                 RM, -sibling.weight, NULL);
         scratch_attrs[1] = LFSR_ATTR(bid+rid,
-                BTREE, 0, FROMBTREE(lfs, &rbyd_, scratch_buf));
+                BTREE, 0, FROMBTREE(&rbyd_, scratch_buf));
         scratch_attrs[2] = LFSR_ATTR(bid+rid,
                 GROW, -rbyd.weight + rbyd_.weight, NULL);
         attrs = scratch_attrs;
@@ -4285,7 +4277,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
             attr_count = 1;
         } else {
             scratch_attrs[0] = LFSR_ATTR(bid+rid,
-                    BTREE, 0, FROMBTREE(lfs, &rbyd_, scratch_buf));
+                    BTREE, 0, FROMBTREE(&rbyd_, scratch_buf));
             scratch_attrs[1] = LFSR_ATTR(bid+rid,
                     GROW, -rbyd.weight + rbyd_.weight, NULL);
             attrs = scratch_attrs;
@@ -4577,13 +4569,11 @@ static inline void lfsr_mdir_unerase(lfsr_mdir_t *mdir) {
 // 2 leb128 => 10 bytes (worst case)
 #define LFSR_MDIR_DSIZE (5+5)
 
-#define LFSR_DATA_FROMMBLOCKS(_lfs, _blocks, _buffer) \
-    lfsr_data_frommblocks(_lfs, _blocks, _buffer)
+#define LFSR_DATA_FROMMBLOCKS(_blocks, _buffer) \
+    lfsr_data_frommblocks(_blocks, _buffer)
 
-static lfsr_data_t lfsr_data_frommblocks(lfs_t *lfs,
-        const lfs_block_t blocks[static 2],
+static lfsr_data_t lfsr_data_frommblocks(const lfs_block_t blocks[static 2],
         uint8_t buffer[static LFSR_MDIR_DSIZE]) {
-    (void)lfs;
     lfs_ssize_t d = 0;
     for (int i = 0; i < 2; i++) {
         lfs_ssize_t d_ = lfs_toleb128(blocks[i], &buffer[d], 5);
@@ -5084,8 +5074,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 int err = lfsr_rbyd_appendattr(lfs, &mdir_.u.r.rbyd,
                         rid - lfs_smax32(start_rid, 0),
                         lfsr_tag_mode(attrs[i].tag) | LFSR_TAG_TRUNK,
-                        attrs[i].delta, lfsr_data_fromtrunk(
-                            lfs, rbyd, trunk_buf));
+                        attrs[i].delta, lfsr_data_fromtrunk(rbyd, trunk_buf));
                 if (err) {
                     return err;
                 }
@@ -5249,7 +5238,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             // write the new shrub tag
             uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.r.rbyd,
-                    tag, weight, lfsr_data_fromtrunk(lfs,
+                    tag, weight, lfsr_data_fromtrunk(
                         &mdir_->u.r.rbyd, trunk_buf));
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5442,7 +5431,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (attrs[i].tag == LFSR_TAG_GRM) {
             // encode to disk
             lfsr_grm_t *grm = (lfsr_grm_t*)attrs[i].data.u.b.buffer;
-            lfsr_data_fromgrm(lfs, grm, lfs->dgrm);
+            lfsr_data_fromgrm(grm, lfs->dgrm);
 
             // xor with our current gstate to find our initial gdelta
             int err = lfsr_grm_xor(lfs, lfs->dgrm,
@@ -5623,13 +5612,11 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         uint8_t msibling_buf[LFSR_MDIR_DSIZE];
         err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
                 LFSR_ATTR(mdir_.mid | lfsr_midrmask(lfs),
-                    MDIR, 0, FROMMBLOCKS(lfs, mdir_.u.m.blocks,
-                        mdir_buf)),
+                    MDIR, 0, FROMMBLOCKS(mdir_.u.m.blocks, mdir_buf)),
                 LFSR_ATTR((mdir_.mid | lfsr_midrmask(lfs))+1,
                     BRANCH, +lfsr_mleafweight(lfs), DATA(split_data)),
                 LFSR_ATTR(msibling_.mid | lfsr_midrmask(lfs),
-                    MDIR, 0, FROMMBLOCKS(lfs, msibling_.u.m.blocks,
-                        msibling_buf))));
+                    MDIR, 0, FROMMBLOCKS(msibling_.u.m.blocks, msibling_buf))));
         if (err) {
             return err;
         }
@@ -5676,8 +5663,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         uint8_t mdir_buf[LFSR_MDIR_DSIZE];
         err = lfsr_btree_commit(lfs, &mtree_, LFSR_ATTRS(
                 LFSR_ATTR(mdir_.mid | lfsr_midrmask(lfs),
-                    MDIR, 0, FROMMBLOCKS(lfs, mdir_.u.m.blocks,
-                        mdir_buf))));
+                    MDIR, 0, FROMMBLOCKS(mdir_.u.m.blocks, mdir_buf))));
         if (err) {
             return err;
         }
@@ -5699,7 +5685,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfsr_grm_t *grm = (lfsr_grm_t*)attrs[i].data.u.b.buffer;
             uint8_t grm_buf[LFSR_GRM_DSIZE];
             err = lfsr_grm_xor(lfs, lfs->dgrm,
-                    lfsr_data_fromgrm(lfs, grm, grm_buf));
+                    lfsr_data_fromgrm(grm, grm_buf));
             if (err) {
                 return err;
             }
@@ -5724,7 +5710,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
             // xor our fix into our gdelta
             err = lfsr_grm_xor(lfs, lfs->dgrm,
-                    lfsr_data_fromgrm(lfs, grm, grm_buf));
+                    lfsr_data_fromgrm(grm, grm_buf));
             if (err) {
                 return err;
             }
@@ -5750,7 +5736,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             mtree_data = LFSR_DATA_BUF(mtree_buf, mtree_.u.i.size);
         }  else {
             mtree_tag = LFSR_TAG_WIDE(MTREE);
-            mtree_data = lfsr_data_frombtree(lfs, &mtree_.u.r.rbyd, mtree_buf);
+            mtree_data = lfsr_data_frombtree(&mtree_.u.r.rbyd, mtree_buf);
         }
 
         err = lfsr_mdir_commit_(lfs, &mroot_, -1, 0, NULL, LFSR_ATTRS(
@@ -5787,7 +5773,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         uint8_t mrootchild_buf[LFSR_MDIR_DSIZE];
         err = lfsr_mdir_commit_(lfs, &mrootparent_, -1, -1, NULL, LFSR_ATTRS(
                 LFSR_ATTR(-1,
-                    MROOT, 0, FROMMBLOCKS(lfs, mrootchild_.u.m.blocks,
+                    MROOT, 0, FROMMBLOCKS(mrootchild_.u.m.blocks,
                         mrootchild_buf))));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -5855,7 +5841,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         uint8_t mrootchild_buf[LFSR_MDIR_DSIZE];
         err = lfsr_mdir_commit__(lfs, &mrootparent_, -1, -1, LFSR_ATTRS(
                 LFSR_ATTR(-1,
-                    WIDE(MROOT), 0, FROMMBLOCKS(lfs, mrootchild_.u.m.blocks,
+                    WIDE(MROOT), 0, FROMMBLOCKS(mrootchild_.u.m.blocks,
                         mrootchild_buf))));
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5874,7 +5860,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             lfs->grm = *(lfsr_grm_t*)attrs[i].data.u.b.buffer;
 
             // keep track of the exact encoding on-disk
-            lfsr_data_fromgrm(lfs, &lfs->grm, lfs->ggrm);
+            lfsr_data_fromgrm(&lfs->grm, lfs->ggrm);
         }
     }
 
@@ -7936,7 +7922,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
     // creating a new entry?
     if (err == LFS_ERR_NOENT) {
-        if (lfsr_file_iscreat(flags)) {
+        if (!lfsr_file_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
         LFS_ASSERT(lfsr_file_iswriteable(flags));

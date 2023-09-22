@@ -4246,8 +4246,7 @@ code = '''
     uint8_t buf[LFSR_MDIR_DSIZE];
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
             LFSR_ATTR(-1,
-                MROOT, 0, FROMMBLOCKS(&lfs, LFSR_MBLOCKS_MROOTANCHOR(),
-                    buf)))) => 0;
+                MROOT, 0, FROMMBLOCKS(LFSR_MBLOCKS_MROOTANCHOR(), buf)))) => 0;
 
     // technically, cycle detection only needs to work when we're validating
     lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
