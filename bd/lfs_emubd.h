@@ -67,6 +67,18 @@ typedef int64_t lfs_emubd_ssleep_t;
 
 // emubd config, this is required for testing
 struct lfs_emubd_config {
+    // Minimum size of a read operation in bytes.
+    lfs_size_t read_size;
+
+    // Minimum size of a program operation in bytes.
+    lfs_size_t prog_size;
+
+    // Size of an erase operation in bytes.
+    lfs_size_t erase_size;
+
+    // Number of erase blocks on the device.
+    lfs_size_t erase_count;
+
     // 8-bit erase value to use for simulating erases. -1 does not simulate
     // erases, which can speed up testing by avoiding the extra block-device
     // operations to store the erase value.
@@ -149,11 +161,7 @@ typedef struct lfs_emubd {
 /// Block device API ///
 
 // Create an emulating block device using the geometry in lfs_config
-//
-// Note that filebd is used if a path is provided, if path is NULL
-// emubd will use rambd which can be much faster.
-int lfs_emubd_create(const struct lfs_config *cfg, const char *path);
-int lfs_emubd_createcfg(const struct lfs_config *cfg, const char *path,
+int lfs_emubd_create(const struct lfs_config *cfg,
         const struct lfs_emubd_config *bdcfg);
 
 // Clean up memory associated with block device
