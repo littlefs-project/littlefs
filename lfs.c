@@ -616,8 +616,8 @@ enum lfsr_tag_type {
     LFSR_TAG_UATTR          = 0x0400,
     LFSR_TAG_SATTR          = 0x0600,
 
-    // deferred tags belong to secondary trees
-    LFSR_TAG_DEFERRED       = 0x1000,
+    // shrub tags belong to secondary trees
+    LFSR_TAG_SHRUB          = 0x1000,
 
     // alt pointers form the inner nodes of our rbyd trees
     LFSR_TAG_ALT            = 0x4000,
@@ -630,22 +630,18 @@ enum lfsr_tag_type {
     LFSR_TAG_CKSUM          = 0x2000,
     LFSR_TAG_ECKSUM         = 0x2100,
 
-    // in-device only tags
-    //
-    // note bit 0x0800 isn't really reserved, just unused, so this may need
-    // to change in the future
+    // in-device only tags, these should never get written to disk
     LFSR_TAG_INTERNAL       = 0x0800,
     LFSR_TAG_MOVE           = 0x0800,
-    LFSR_TAG_DEFER          = 0x0801,
-    LFSR_TAG_FROMTRUNK      = 0x0802,
+    LFSR_TAG_SHRUBATTRS     = 0x0801,
+    LFSR_TAG_SHRUBTRUNK     = 0x0802,
 
-    // some tag modifiers
-    // in-device only
+    // some in-device only tag modifiers
     LFSR_TAG_RM             = 0x8000,
     LFSR_TAG_GROW           = 0x4000,
     LFSR_TAG_WIDE           = 0x2000,
 
-    // lfsr_rbyd_appendattr specific flags
+    // lfsr_rbyd_appendattr specific flags, also in-device only
     LFSR_TAG_DIVERGED       = 0x4000,
     LFSR_TAG_DIVERGEDUPPER  = 0x2000,
     LFSR_TAG_DIVERGEDLOWER  = 0x0000,
@@ -656,10 +652,10 @@ enum lfsr_tag_type {
 #define LFSR_TAG_TAG(tag) (tag)
 
 // some tag modifiers
-#define LFSR_TAG_DEFERRED(tag)  (LFSR_TAG_DEFERRED  | LFSR_TAG_##tag)
-#define LFSR_TAG_RM(tag)        (LFSR_TAG_RM        | LFSR_TAG_##tag)
-#define LFSR_TAG_GROW(tag)      (LFSR_TAG_GROW      | LFSR_TAG_##tag)
-#define LFSR_TAG_WIDE(tag)      (LFSR_TAG_WIDE      | LFSR_TAG_##tag)
+#define LFSR_TAG_SHRUB(tag) (LFSR_TAG_SHRUB | LFSR_TAG_##tag)
+#define LFSR_TAG_RM(tag)    (LFSR_TAG_RM    | LFSR_TAG_##tag)
+#define LFSR_TAG_GROW(tag)  (LFSR_TAG_GROW  | LFSR_TAG_##tag)
+#define LFSR_TAG_WIDE(tag)  (LFSR_TAG_WIDE  | LFSR_TAG_##tag)
 
 // some other tag encodings with their own subfields
 #define LFSR_TAG_ALT(d, c, key) \
@@ -701,11 +697,11 @@ static inline lfsr_tag_t lfsr_tag_subkey(lfsr_tag_t tag) {
     return tag & 0x00ff;
 }
 
-static inline lfsr_tag_t lfsr_tag_deferredmode(lfsr_tag_t tag) {
+static inline lfsr_tag_t lfsr_tag_shrubmode(lfsr_tag_t tag) {
     return tag & 0xe000;
 }
 
-static inline lfsr_tag_t lfsr_tag_deferredkey(lfsr_tag_t tag) {
+static inline lfsr_tag_t lfsr_tag_shrubkey(lfsr_tag_t tag) {
     return tag & 0x1fff;
 }
 
@@ -713,12 +709,12 @@ static inline bool lfsr_tag_isalt(lfsr_tag_t tag) {
     return tag & LFSR_TAG_ALT;
 }
 
-static inline bool lfsr_tag_isdeferred(lfsr_tag_t tag) {
-    return tag & LFSR_TAG_DEFERRED;
+static inline bool lfsr_tag_isshrub(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_SHRUB;
 }
 
-static inline bool lfsr_tag_cleardeferred(lfsr_tag_t tag) {
-    return tag & ~LFSR_TAG_DEFERRED;
+static inline bool lfsr_tag_clearshrub(lfsr_tag_t tag) {
+    return tag & ~LFSR_TAG_SHRUB;
 }
 
 static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
@@ -1072,8 +1068,8 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     ((lfsr_data_t){.u.b.buffer=(const void*)(lfsr_grm_t*){_grm}})
 
 // writing to an unrelated trunk in the rbyd
-#define LFSR_DATA_DEFER(_rbyd, ...) \
-    ((lfsr_data_t){.u.b.buffer=(const void*)&(const lfsr_defer_t){ \
+#define LFSR_DATA_SHRUBATTRS(_rbyd, ...) \
+    ((lfsr_data_t){.u.b.buffer=(const void*)&(const lfsr_shrubattrs_t){ \
         .rbyd=_rbyd, \
         .attrs=(const lfsr_attr_t[]){__VA_ARGS__}, \
         .attr_count=sizeof((const lfsr_attr_t[]){__VA_ARGS__}) \
@@ -1730,19 +1726,19 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 }
 
 
-// deferred tree things
-typedef struct lfsr_defer {
+// shrub things
+typedef struct lfsr_shrubattrs {
     lfsr_rbyd_t *rbyd;
     const lfsr_attr_t *attrs;
     lfs_size_t attr_count;
-} lfsr_defer_t;
+} lfsr_shrubattrs_t;
 
 // trunk on-disk encoding
 
 // 2 leb128s => 10 bytes (worst case)
 #define LFSR_TRUNK_DSIZE (5+5)
 
-#define LFSR_DATA_FROMTRUNK(_lfs, _rbyd, _buffer) \
+#define LFSR_DATA_SHRUBTRUNK(_lfs, _rbyd, _buffer) \
     lfsr_data_fromtrunk(_lfs, _rbyd, _buffer)
 
 static lfsr_data_t lfsr_data_fromtrunk(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
@@ -1998,8 +1994,8 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             if (!lfsr_tag_isalt(tag)) {
                 wastrunk = false;
                 // update most recent trunk and weight, unless we are a
-                // deferred trunk
-                if (!lfsr_tag_isdeferred(tag)) {
+                // shrub trunk
+                if (!lfsr_tag_isshrub(tag)) {
                     trunk_ = trunk__;
                     weight = weight_;
                 }
@@ -2093,7 +2089,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
             // update the tag rid
             lfsr_srid_t rid__ = upper-1;
             lfsr_tag_t tag__ = alt;
-            LFS_ASSERT(lfsr_tag_deferredmode(tag__) == 0x0000);
+            LFS_ASSERT(lfsr_tag_shrubmode(tag__) == 0x0000);
 
             // not what we're looking for?
             if (!lfsr_tag_key(tag__)
@@ -2620,7 +2616,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // note we:
             // - clear valid bit, marking the tag as found
             // - preserve diverged state
-            LFS_ASSERT(lfsr_tag_deferredmode(alt) == 0x0000);
+            LFS_ASSERT(lfsr_tag_shrubmode(alt) == 0x0000);
             tag_ = lfsr_tag_clearrm(lfsr_tag_mode(tag_) | alt);
             rid_ = upper_rid-1;
 
@@ -2755,7 +2751,7 @@ leaf:;
     // can't find trunks during fetch
     lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
             // rm => null, otherwise strip off control bits
-            (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_deferredkey(tag)),
+            (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_shrubkey(tag)),
             upper_rid - lower_rid - 1 + delta,
             lfsr_data_size(&data),
             &rbyd->cksum);
@@ -3056,7 +3052,7 @@ static int lfsr_rbyd_appendcompactrbyd(lfs_t *lfs, lfsr_rbyd_t *rbyd_,
 }
 
 static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
-        bool deferred, lfs_size_t off) {
+        bool shrub, lfs_size_t off) {
     // must fetch before mutating!
     LFS_ASSERT(lfsr_rbyd_isfetched(rbyd));
     // offset must be after the revision count
@@ -3098,9 +3094,9 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                         off += size__;
                     }
 
-                    // ignore deferred trunks, unless we are actually
-                    // compacting a deferred tree
-                    if (!deferred && lfsr_tag_isdeferred(tag__)) {
+                    // ignore shrub trunks, unless we are actually compacting
+                    // a shrub tree
+                    if (!shrub && lfsr_tag_isshrub(tag__)) {
                         trunk = off;
                         weight = 0;
                         continue;
@@ -3113,7 +3109,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     // Because of how we construct each layer, the last
                     // non-null tag is the largest tag in that part of
                     // the tree
-                    if (lfsr_tag_cleardeferred(tag__)) {
+                    if (lfsr_tag_clearshrub(tag__)) {
                         tag = tag__;
                     }
 
@@ -3142,7 +3138,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
             // terminate with a null tag
             lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
-                    deferred ? LFSR_TAG_DEFERRED(NULL) : LFSR_TAG_NULL, 0, 0,
+                    shrub ? LFSR_TAG_SHRUB(NULL) : LFSR_TAG_NULL, 0, 0,
                     &rbyd->cksum);
             if (d < 0) {
                 return d;
@@ -5087,19 +5083,19 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     }
                 }
 
-            // defer tags append a set of attributes to an unrelated trunk
+            // shrub tags append a set of attributes to an unrelated trunk
             // in our rbyd
-            } else if (attrs[i].tag == LFSR_TAG_DEFER) {
-                const lfsr_defer_t *defer
-                        = (const lfsr_defer_t*)attrs[i].data.u.b.buffer;
+            } else if (attrs[i].tag == LFSR_TAG_SHRUBATTRS) {
+                const lfsr_shrubattrs_t *shrubattrs
+                        = (const lfsr_shrubattrs_t*)attrs[i].data.u.b.buffer;
 
                 // swap out our trunk/weight temporarily, note we're operating
                 // on a copy so if this fails not _too_ many things will get
                 // messed up
                 //
                 // it is important that these rbyds share eoff/cksum/etc
-                mdir_.u.m.trunk = defer->rbyd->trunk;
-                mdir_.u.m.weight = defer->rbyd->weight;
+                mdir_.u.m.trunk = shrubattrs->rbyd->trunk;
+                mdir_.u.m.weight = shrubattrs->rbyd->weight;
 
                 // if weight's sign=1, we were inlined data and need to zero
                 // things, we do this here to avoid compaction clobbering
@@ -5109,17 +5105,17 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     mdir_.u.m.weight = 0;
                 }
 
-                // append any deferred attributes
+                // append any shrub attributes
                 int err = lfsr_rbyd_appendattrs(lfs, &mdir_.u.r.rbyd, -1, -1,
-                        defer->attrs, defer->attr_count);
+                        shrubattrs->attrs, shrubattrs->attr_count);
                 if (err) {
                     return err;
                 }
 
                 // revert to mdir trunk/weight
-                defer->rbyd->block = mdir_.u.m.blocks[0];
-                defer->rbyd->trunk = mdir_.u.m.trunk;
-                defer->rbyd->weight = mdir_.u.m.weight;
+                shrubattrs->rbyd->block = mdir_.u.m.blocks[0];
+                shrubattrs->rbyd->trunk = mdir_.u.m.trunk;
+                shrubattrs->rbyd->weight = mdir_.u.m.weight;
                 mdir_.u.m.trunk = mdir->u.m.trunk;
                 mdir_.u.m.weight = mdir->u.m.weight;
 
@@ -5127,7 +5123,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // us due to mdir compactions
             //
             // TODO should we preserve mode for all of these?
-            } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_FROMTRUNK) {
+            } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_SHRUBTRUNK) {
                 lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)attrs[i].data.u.b.buffer;
 
                 uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
@@ -5201,8 +5197,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 }
 
 // needed by lfsr_mdir_compact__
-static bool lfsr_file_isinlineddata(const lfsr_file_t *file);
-static bool lfsr_file_isinlinedtree(const lfsr_file_t *file);
+static bool lfsr_file_hasinlined(const lfsr_file_t *file);
+static bool lfsr_file_hasshrub(const lfsr_file_t *file);
 
 static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
@@ -5246,14 +5242,14 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                 return err;
             }
 
-            // stage any opened deferred trees with their new location so
-            // we can update these later if our commit is a success
+            // stage any opened inlined files with their new location so we
+            // can update these later if our commit is a success
             for (lfsr_openedmdir_t *opened = lfs->opened[
                         LFS_TYPE_REG-LFS_TYPE_REG];
                     opened;
                     opened = opened->next) {
                 lfsr_file_t *file = (lfsr_file_t*)opened;
-                if (lfsr_file_isinlineddata(file)
+                if (lfsr_file_hasinlined(file)
                         && file->inlined.u.data.u.d.block == data.u.d.block
                         && file->inlined.u.data.u.d.off == data.u.d.off) {
                     // this is a bit tricky see we don't know the tag size,
@@ -5266,22 +5262,22 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                 }
             }
 
-        // found an inlined tree? we need to compact the tree as well to bring
+        // found an inlined shrub? we need to compact the shrub as well to bring
         // it along with us
         } else if (tag == LFSR_TAG_TRUNK) {
-            lfsr_rbyd_t inlined_rbyd;
-            err = lfsr_data_readtrunk(lfs, &data, &inlined_rbyd);
+            lfsr_rbyd_t shrub;
+            err = lfsr_data_readtrunk(lfs, &data, &shrub);
             if (err) {
                 return err;
             }
-            inlined_rbyd.block = mdir->u.r.rbyd.block;
+            shrub.block = mdir->u.r.rbyd.block;
 
             // keep track of the start of our new tree
             lfs_size_t off = mdir_->u.r.rbyd.eoff;
 
             // compact our inlined tree
             err = lfsr_rbyd_appendcompactrbyd(lfs, &mdir_->u.r.rbyd, -1, -1,
-                    &inlined_rbyd);
+                    &shrub);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -5293,7 +5289,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                 return err;
             }
 
-            // write the new inlined tree tag
+            // write the new shrub tag
             uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.r.rbyd,
                     tag, weight, lfsr_data_fromtrunk(lfs,
@@ -5303,21 +5299,21 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                 return err;
             }
 
-            // stage any opened deferred trees with their new location so
-            // we can update these later if our commit is a success
+            // stage any opened shrubs with their new location so we can
+            // update these later if our commit is a success
             for (lfsr_openedmdir_t *opened = lfs->opened[
                         LFS_TYPE_REG-LFS_TYPE_REG];
                     opened;
                     opened = opened->next) {
                 lfsr_file_t *file = (lfsr_file_t*)opened;
-                if (lfsr_file_isinlinedtree(file)
+                if (lfsr_file_hasshrub(file)
                         && file->inlined.u.rbyd.block == mdir->u.r.rbyd.block
-                        && file->inlined.u.rbyd.trunk == inlined_rbyd.trunk) {
+                        && file->inlined.u.rbyd.trunk == shrub.trunk) {
                     file->inlined_.u.rbyd.block = mdir_->u.r.rbyd.block;
                     file->inlined_.u.rbyd.trunk = mdir_->u.r.rbyd.trunk;
                     file->inlined_.u.rbyd.weight = mdir_->u.r.rbyd.weight;
-                    file->inlined_.u.deferred.overhead
-                            = file->inlined.u.deferred.overhead;
+                    file->inlined_.u.shrub.overhead
+                            = file->inlined.u.shrub.overhead;
                 }
             }
 
@@ -5349,12 +5345,12 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             opened = opened->next) {
         lfsr_file_t *file = (lfsr_file_t*)opened;
         // inlined data?
-        if (lfsr_file_isinlineddata(file)
+        if (lfsr_file_hasinlined(file)
                 && (file->flags & LFS_F_UNSYNCED)
                 && file->inlined.u.data.u.d.block == mdir->u.r.rbyd.block) {
-            // write the data as a deferred tag
+            // write the data as a shrub tag
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.r.rbyd,
-                    LFSR_TAG_DEFERRED(INLINED), 0, file->inlined.u.data);
+                    LFSR_TAG_SHRUB(INLINED), 0, file->inlined.u.data);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
@@ -5369,7 +5365,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                     lfsr_data_size(&file->inlined.u.data));
 
         // inlined tree?
-        } else if (lfsr_file_isinlinedtree(file)
+        } else if (lfsr_file_hasshrub(file)
                 && (file->flags & LFS_F_UNSYNCED)
                 && file->inlined.u.rbyd.block == mdir->u.r.rbyd.block) {
             // save our current off/trunk/weight
@@ -5395,8 +5391,8 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             file->inlined_.u.rbyd.block = mdir_->u.r.rbyd.block;
             file->inlined_.u.rbyd.trunk = mdir_->u.r.rbyd.trunk;
             file->inlined_.u.rbyd.weight = mdir_->u.r.rbyd.weight;
-            file->inlined_.u.deferred.overhead
-                    = file->inlined.u.deferred.overhead;
+            file->inlined_.u.shrub.overhead
+                    = file->inlined.u.shrub.overhead;
 
             mdir_->u.r.rbyd.trunk = trunk;
             mdir_->u.r.rbyd.weight = weight;
@@ -6042,10 +6038,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // if we compacted, update any staged changes to inlined data/trees
         lfsr_file_t *file = (lfsr_file_t*)opened;
         if (mdir_.u.m.blocks[0] != mdir->u.m.blocks[0]
-                && ((lfsr_file_isinlineddata(file)
+                && ((lfsr_file_hasinlined(file)
                         && file->inlined.u.data.u.d.block
                             == mdir->u.m.blocks[0])
-                    || (lfsr_file_isinlinedtree(file)
+                    || (lfsr_file_hasshrub(file)
                         && file->inlined.u.rbyd.block
                             == mdir->u.m.blocks[0]))) {
             file->inlined = file->inlined_;
@@ -7904,12 +7900,12 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 
 #define LFSR_FILE_INLINEDDATA 0x80000000
 
-static bool lfsr_file_isinlineddata(const lfsr_file_t *file) {
+static bool lfsr_file_hasinlined(const lfsr_file_t *file) {
     // this checks that both the inlineddata bit and non-zero
     return (lfs_size_t)file->inlined.u.weight > (LFSR_FILE_INLINEDDATA | 0);
 }
 
-static bool lfsr_file_isinlinedtree(const lfsr_file_t *file) {
+static bool lfsr_file_hasshrub(const lfsr_file_t *file) {
     return !(file->inlined.u.weight & LFSR_FILE_INLINEDDATA);
 }
 
@@ -8107,7 +8103,7 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
         }
 
         // is the data inlined?
-        if (lfsr_file_isinlineddata(file)
+        if (lfsr_file_hasinlined(file)
                 && pos < lfsr_file_inlinedsize(file)) {
             lfsr_data_t data = file->inlined.u.data;
             lfsr_data_add(&data, pos);
@@ -8123,7 +8119,7 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
         }
 
         // is the data in an inlined tree?
-        if (lfsr_file_isinlinedtree(file)
+        if (lfsr_file_hasshrub(file)
                 && pos < lfsr_file_inlinedsize(file)) {
             lfsr_srid_t rid;
             lfsr_tag_t tag;
@@ -8135,7 +8131,7 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
                 return err;
             }
             LFS_ASSERT(err == LFS_ERR_NOENT
-                    || tag == LFSR_TAG_DEFERRED(INLINED));
+                    || tag == LFSR_TAG_SHRUB(INLINED));
 
             if (pos < rid-(weight-1) + lfsr_data_size(&data)) {
                 lfsr_data_add(&data, pos - (rid-(weight-1)));
@@ -8182,7 +8178,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
     while (file->buffer_size > 0) {
         // do we need an inlined tree?
-        if (!lfsr_file_isinlinedtree(file)) {
+        if (!lfsr_file_hasshrub(file)) {
 // TODO rm? we haven't updated file->size yet!
 //            // we shouldn't reach this point if we still fit entirely
 //            // in a simple inlined file
@@ -8227,22 +8223,22 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
             // in lfsr_mdir_commit__ to avoid compaction issues
             file->inlined_ = file->inlined;
             int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                    LFSR_ATTR_(file->m.mdir.mid, DEFER, 0, DEFER(
+                    LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(
                         &file->inlined_.u.rbyd,
                         // note we always need a zero entry
                         (file->buffer_pos > 0
                             ? LFSR_ATTR(0,
-                                DEFERRED(INLINED),
+                                SHRUB(INLINED),
                                 +file->buffer_pos,
                                 DATA(left_data))
                             : LFSR_ATTR_NOOP),
                         LFSR_ATTR(file->buffer_pos,
-                            DEFERRED(INLINED),
+                            SHRUB(INLINED),
                             +file->buffer_size,
                             BUF(file->buffer, file->buffer_size)),
                         (lfsr_data_size(&right_data) > 0
                             ? LFSR_ATTR(right_pos,
-                                DEFERRED(INLINED),
+                                SHRUB(INLINED),
                                 +lfsr_data_size(&right_data),
                                 DATA(right_data))
                             : LFSR_ATTR_NOOP)))));
@@ -8252,7 +8248,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
 
             file->inlined = file->inlined_;
             // TODO
-            file->inlined.u.deferred.overhead = 0;
+            file->inlined.u.shrub.overhead = 0;
             file->buffer_size = 0;
             continue;
         }
@@ -8275,7 +8271,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
             return err;
         }
         LFS_ASSERT(err == LFS_ERR_NOENT
-                || left_tag == LFSR_TAG_DEFERRED(INLINED));
+                || left_tag == LFSR_TAG_SHRUB(INLINED));
 
         // figure out what data we carve out, we need to update these
         lfs_off_t left_pos;
@@ -8303,7 +8299,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
             return err;
         }
         LFS_ASSERT(err == LFS_ERR_NOENT
-                || right_tag == LFSR_TAG_DEFERRED(INLINED));
+                || right_tag == LFSR_TAG_SHRUB(INLINED));
 
         lfs_off_t right_pos;
         if (err != LFS_ERR_NOENT
@@ -8329,7 +8325,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
         // caused by mdir compactions
         file->inlined_ = file->inlined;
         err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                LFSR_ATTR_(file->m.mdir.mid, DEFER, 0, DEFER(
+                LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(
                     &file->inlined_.u.rbyd,
                     // first remove anything in the way
                     LFSR_ATTR(
@@ -8344,17 +8340,17 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                     // TODO this should handling holes somehow
                     (lfsr_data_size(&left_data) > 0
                         ? LFSR_ATTR(left_pos,
-                            DEFERRED(INLINED),
+                            SHRUB(INLINED),
                             +lfsr_data_size(&left_data),
                             DATA(left_data))
                         : LFSR_ATTR_NOOP),
                     LFSR_ATTR(file->buffer_pos,
-                        DEFERRED(INLINED),
+                        SHRUB(INLINED),
                         +file->buffer_size,
                         BUF(file->buffer, file->buffer_size)),
                     (lfsr_data_size(&right_data) > 0
                         ? LFSR_ATTR(right_pos,
-                            DEFERRED(INLINED),
+                            SHRUB(INLINED),
                             +lfsr_data_size(&right_data),
                             DATA(right_data))
                         : LFSR_ATTR_NOOP)))));
@@ -8496,7 +8492,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 goto failed;
             }
 
-            LFS_ASSERT(!lfsr_file_isinlineddata(file));
+            LFS_ASSERT(!lfsr_file_hasinlined(file));
 
             // now commit our file's metadata
             //
@@ -8504,7 +8500,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             // caused by mdir compactions
             file->inlined_ = file->inlined;
             err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                    LFSR_ATTR(file->m.mdir.mid, WIDE(FROMTRUNK), 0, TRUNK(
+                    LFSR_ATTR(file->m.mdir.mid, WIDE(SHRUBTRUNK), 0, TRUNK(
                         &file->inlined_.u.rbyd))));
             if (err) {
                 goto failed;

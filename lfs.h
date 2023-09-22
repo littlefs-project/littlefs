@@ -506,7 +506,7 @@ typedef struct lfsr_inlined {
             lfs_soff_t weight;
             lfs_size_t trunk;
             lfs_size_t overhead;
-        } deferred;
+        } shrub;
     } u;
 } lfsr_inlined_t;
 
