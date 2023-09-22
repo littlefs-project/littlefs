@@ -713,10 +713,6 @@ static inline bool lfsr_tag_isshrub(lfsr_tag_t tag) {
     return tag & LFSR_TAG_SHRUB;
 }
 
-static inline bool lfsr_tag_clearshrub(lfsr_tag_t tag) {
-    return tag & ~LFSR_TAG_SHRUB;
-}
-
 static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
     return (tag & 0xe000) != 0x2000;
 }
@@ -729,36 +725,12 @@ static inline bool lfsr_tag_isrm(lfsr_tag_t tag) {
     return tag & LFSR_TAG_RM;
 }
 
-static inline lfsr_tag_t lfsr_tag_setrm(lfsr_tag_t tag) {
-    return tag | LFSR_TAG_RM;
-}
-
-static inline lfsr_tag_t lfsr_tag_clearrm(lfsr_tag_t tag) {
-    return tag & ~LFSR_TAG_RM;
-}
-
 static inline bool lfsr_tag_isgrow(lfsr_tag_t tag) {
     return tag & LFSR_TAG_GROW;
 }
 
-static inline lfsr_tag_t lfsr_tag_setgrow(lfsr_tag_t tag) {
-    return tag | LFSR_TAG_GROW;
-}
-
-static inline lfsr_tag_t lfsr_tag_cleargrow(lfsr_tag_t tag) {
-    return tag & ~LFSR_TAG_GROW;
-}
-
 static inline bool lfsr_tag_iswide(lfsr_tag_t tag) {
     return tag & LFSR_TAG_WIDE;
-}
-
-static inline lfsr_tag_t lfsr_tag_setwide(lfsr_tag_t tag) {
-    return tag | LFSR_TAG_WIDE;
-}
-
-static inline lfsr_tag_t lfsr_tag_clearwide(lfsr_tag_t tag) {
-    return tag & ~LFSR_TAG_WIDE;
 }
 
 // lfsr_rbyd_appendattr diverged specific flags
@@ -774,14 +746,6 @@ static inline bool lfsr_tag_isdivergedlower(lfsr_tag_t tag) {
     return !(tag & LFSR_TAG_DIVERGEDUPPER);
 }
 
-static inline lfsr_tag_t lfsr_tag_setdivergedupper(lfsr_tag_t tag) {
-    return tag | LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDUPPER;
-}
-
-static inline lfsr_tag_t lfsr_tag_setdivergedlower(lfsr_tag_t tag) {
-    return tag | LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDLOWER;
-}
-
 // alt operations
 static inline bool lfsr_tag_isblack(lfsr_tag_t tag) {
     return !(tag & LFSR_TAG_R);
@@ -789,14 +753,6 @@ static inline bool lfsr_tag_isblack(lfsr_tag_t tag) {
 
 static inline bool lfsr_tag_isred(lfsr_tag_t tag) {
     return tag & LFSR_TAG_R;
-}
-
-static inline lfsr_tag_t lfsr_tag_setblack(lfsr_tag_t tag) {
-    return tag & ~LFSR_TAG_R;
-}
-
-static inline lfsr_tag_t lfsr_tag_setred(lfsr_tag_t tag) {
-    return tag | LFSR_TAG_R;
 }
 
 static inline bool lfsr_tag_isle(lfsr_tag_t tag) {
@@ -1021,6 +977,9 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 
 /// lfsr_data_t stuff ///
 
+// use the sign bit to indicate on-disk vs in-device
+#define LFSR_DATA_ONDISK 0x80000000
+
 // the most common use is to pass a buffer with explicit size
 #define LFSR_DATA(_buffer, _size) \
     ((lfsr_data_t){ \
@@ -1038,7 +997,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 
 #define LFSR_DATA_DISK(_block, _off, _size) \
     ((lfsr_data_t){ \
-        .u.d.size=(0x80000000 | (_size)), \
+        .u.d.size=(LFSR_DATA_ONDISK | (_size)), \
         .u.d.block=_block, \
         .u.d.off=_off})
 
@@ -1081,15 +1040,11 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     ((lfsr_data_t){.u.b.buffer=(const void*)(lfsr_rbyd_t*){_rbyd}})
 
 static inline bool lfsr_data_ondisk(const lfsr_data_t *data) {
-    return data->u.size & 0x80000000;
+    return data->u.size & LFSR_DATA_ONDISK;
 }
 
 static inline lfs_size_t lfsr_data_size(const lfsr_data_t *data) {
-    return data->u.size & 0x7fffffff;
-}
-
-static inline lfs_ssize_t lfsr_data_setondisk(lfs_size_t size) {
-    return size | 0x80000000;
+    return data->u.size & ~LFSR_DATA_ONDISK;
 }
 
 static inline bool lfsr_data_hasleb128(const lfsr_data_t *data) {
@@ -2135,7 +2090,7 @@ static int lfsr_rbyd_lookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     // wide bit
     if (rid_ != rid
             || (lfsr_tag_iswide(tag)
-                ? lfsr_tag_suptype(tag__) != lfsr_tag_clearwide(tag)
+                ? lfsr_tag_suptype(tag__) != (tag & ~LFSR_TAG_WIDE)
                 : tag__ != tag)) {
         return LFS_ERR_NOENT;
     }
@@ -2233,10 +2188,10 @@ static void lfsr_rbyd_p_red(
         lfsr_rid_t p_weights[static 3],
         lfs_size_t p_jumps[static 3]) {
     // propagate a red edge upwards
-    p_alts[0] = lfsr_tag_setblack(p_alts[0]);
+    p_alts[0] &= ~LFSR_TAG_R;
 
     if (p_alts[1]) {
-        p_alts[1] = lfsr_tag_setred(p_alts[1]);
+        p_alts[1] |= LFSR_TAG_R;
 
         // reorder so that top two edges always go in the same direction
         if (lfsr_tag_isred(p_alts[2])) {
@@ -2246,23 +2201,23 @@ static void lfsr_rbyd_p_red(
                 lfsr_tag_t alt_ = p_alts[1];
                 lfsr_rid_t weight_ = p_weights[1];
                 lfs_size_t jump_ = p_jumps[1];
-                p_alts[1] = lfsr_tag_setred(p_alts[0]);
+                p_alts[1] = p_alts[0] | LFSR_TAG_R;
                 p_weights[1] = p_weights[0];
                 p_jumps[1] = p_jumps[0];
-                p_alts[0] = lfsr_tag_setblack(alt_);
+                p_alts[0] = alt_ & ~LFSR_TAG_R;
                 p_weights[0] = weight_;
                 p_jumps[0] = jump_;
             } else if (lfsr_tag_isparallel(p_alts[0], p_alts[1])) {
                 lfsr_tag_t alt_ = p_alts[2];
                 lfsr_rid_t weight_ = p_weights[2];
                 lfs_size_t jump_ = p_jumps[2];
-                p_alts[2] = lfsr_tag_setred(p_alts[1]);
+                p_alts[2] = p_alts[1] | LFSR_TAG_R;
                 p_weights[2] = p_weights[1];
                 p_jumps[2] = p_jumps[1];
-                p_alts[1] = lfsr_tag_setred(p_alts[0]);
+                p_alts[1] = p_alts[0] | LFSR_TAG_R;
                 p_weights[1] = p_weights[0];
                 p_jumps[1] = p_jumps[0];
-                p_alts[0] = lfsr_tag_setblack(alt_);
+                p_alts[0] = alt_ & ~LFSR_TAG_R;
                 p_weights[0] = weight_;
                 p_jumps[0] = jump_;
             } else {
@@ -2356,8 +2311,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
     }
     // mark as rmed until found
-    tag_ = lfsr_tag_setrm(tag_);
-    other_tag_ = lfsr_tag_setrm(other_tag_);
+    tag_ |= LFSR_TAG_RM;
+    other_tag_ |= LFSR_TAG_RM;
 
     // keep track of bounds as we descend down the tree
     //
@@ -2433,14 +2388,14 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                             other_rid_, other_tag_)) {
                 // first take care of any lingering red alts
                 if (lfsr_tag_isred(p_alts[0])) {
-                    alt = lfsr_tag_setblack(p_alts[0]);
+                    alt = p_alts[0] & ~LFSR_TAG_R;
                     weight = p_weights[0];
                     jump = p_jumps[0];
                     branch_ = branch;
                     lfsr_rbyd_p_pop(p_alts, p_weights, p_jumps);
                 } else {
-                    tag_ = lfsr_tag_setdivergedlower(tag_);
-                    other_tag_ = lfsr_tag_setdivergedupper(other_tag_);
+                    tag_ |= LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDLOWER;
+                    other_tag_ |= LFSR_TAG_DIVERGED | LFSR_TAG_DIVERGEDUPPER;
                     other_branch = branch;
                     other_lower_rid = lower_rid;
                     other_upper_rid = upper_rid;
@@ -2453,7 +2408,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // perfect but it's simpler and compact will take care of any
             // balance issues that may occur
             if (lfsr_tag_hasdiverged(tag_)) {
-                alt = lfsr_tag_setblack(alt);
+                alt &= ~LFSR_TAG_R;
             }
 
             // prune?
@@ -2472,7 +2427,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     lower_rid, upper_rid,
                     lower_tag, upper_tag)) {
                 if (lfsr_tag_isred(p_alts[0])) {
-                    alt = lfsr_tag_setblack(p_alts[0]);
+                    alt = p_alts[0] & ~LFSR_TAG_R;
                     weight = p_weights[0];
                     branch_ = jump;
                     jump = p_jumps[0];
@@ -2509,7 +2464,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     lfs_swap16(&p_alts[0], &alt);
                     lfs_swap32(&p_weights[0], &weight);
                     lfs_swap32(&p_jumps[0], &jump);
-                    alt = lfsr_tag_setblack(alt);
+                    alt &= ~LFSR_TAG_R;
 
                     lfsr_tag_trim(
                             p_alts[0], p_weights[0],
@@ -2574,8 +2529,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                 lfs_swap16(&p_alts[0], &alt);
                 lfs_swap32(&p_weights[0], &weight);
                 lfs_swap32(&p_jumps[0], &jump);
-                p_alts[0] = lfsr_tag_setred(p_alts[0]);
-                alt = lfsr_tag_setblack(alt);
+                p_alts[0] |= LFSR_TAG_R;
+                alt &= ~LFSR_TAG_R;
 
                 lfsr_tag_flip2(&alt, &weight,
                         p_alts[0], p_weights[0],
@@ -2617,7 +2572,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // - clear valid bit, marking the tag as found
             // - preserve diverged state
             LFS_ASSERT(lfsr_tag_shrubmode(alt) == 0x0000);
-            tag_ = lfsr_tag_clearrm(lfsr_tag_mode(tag_) | alt);
+            tag_ = lfsr_tag_mode(tag_ & ~LFSR_TAG_RM) | alt;
             rid_ = upper_rid-1;
 
             // done?
@@ -3109,7 +3064,7 @@ static int lfsr_rbyd_compact(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                     // Because of how we construct each layer, the last
                     // non-null tag is the largest tag in that part of
                     // the tree
-                    if (lfsr_tag_clearshrub(tag__)) {
+                    if (tag__ & ~LFSR_TAG_SHRUB) {
                         tag = tag__;
                     }
 
@@ -3420,23 +3375,22 @@ static int lfsr_rbyd_namelookup(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
 // convenience operations
 
+// use sign bit to indicate if btree is inlined
+#define LFSR_BTREE_INLINED 0x80000000
+
 // TODO need null btrees?
 #define LFSR_BTREE_NULL ((lfsr_btree_t){.u.weight=0x80000000})
 
 static inline bool lfsr_btree_isinlined(const lfsr_btree_t *btree) {
-    return btree->u.weight & 0x80000000;
+    return btree->u.weight & LFSR_BTREE_INLINED;
 }
 
 static inline lfsr_bid_t lfsr_btree_weight(const lfsr_btree_t *btree) {
-    return btree->u.weight & 0x7fffffff;
+    return btree->u.weight & ~LFSR_BTREE_INLINED;
 }
 
 static inline bool lfsr_btree_isnull(const lfsr_btree_t *btree) {
-    return (lfsr_bid_t)btree->u.weight == 0x80000000;
-}
-
-static inline lfsr_sbid_t lfsr_btree_setinlined(lfsr_bid_t weight) {
-    return weight | 0x80000000;
+    return (lfsr_bid_t)btree->u.weight == (LFSR_BTREE_INLINED | 0);
 }
 
 static inline int lfsr_btree_cmp(
@@ -3505,7 +3459,7 @@ static int lfsr_data_readbtreeinlined(lfs_t *lfs, lfsr_data_t *data,
         lfsr_btree_t *btree) {
     LFS_ASSERT(lfsr_data_size(data) <= LFSR_BTREE_INLINESIZE);
     // mark as inlined
-    btree->u.i.weight = lfsr_btree_setinlined(weight);
+    btree->u.i.weight = weight | LFSR_BTREE_INLINED;
     btree->u.i.tag = tag;
     lfs_ssize_t size = lfsr_data_read(lfs, data,
             btree->u.i.buf, LFSR_BTREE_INLINESIZE);
@@ -5197,8 +5151,11 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
 }
 
 // needed by lfsr_mdir_compact__
+//
+// TODO should we declare file flag stuff before mdirs?
 static bool lfsr_file_hasinlined(const lfsr_file_t *file);
 static bool lfsr_file_hasshrub(const lfsr_file_t *file);
+static bool lfsr_file_isunsynced(uint32_t flags);
 
 static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
@@ -5346,7 +5303,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_file_t *file = (lfsr_file_t*)opened;
         // inlined data?
         if (lfsr_file_hasinlined(file)
-                && (file->flags & LFS_F_UNSYNCED)
+                && lfsr_file_isunsynced(file->flags)
                 && file->inlined.u.data.u.d.block == mdir->u.r.rbyd.block) {
             // write the data as a shrub tag
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.r.rbyd,
@@ -5366,7 +5323,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
         // inlined tree?
         } else if (lfsr_file_hasshrub(file)
-                && (file->flags & LFS_F_UNSYNCED)
+                && lfsr_file_isunsynced(file->flags)
                 && file->inlined.u.rbyd.block == mdir->u.r.rbyd.block) {
             // save our current off/trunk/weight
             lfs_size_t off = mdir_->u.r.rbyd.eoff;
@@ -7898,27 +7855,51 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 
 /// File operations ///
 
-#define LFSR_FILE_INLINEDDATA 0x80000000
+#define LFSR_FILE_INLINED 0x80000000
 
-static bool lfsr_file_hasinlined(const lfsr_file_t *file) {
+static inline bool lfsr_file_hasinlined(const lfsr_file_t *file) {
     // this checks that both the inlineddata bit and non-zero
-    return (lfs_size_t)file->inlined.u.weight > (LFSR_FILE_INLINEDDATA | 0);
+    return (lfs_size_t)file->inlined.u.weight > (LFSR_FILE_INLINED | 0);
 }
 
-static bool lfsr_file_hasshrub(const lfsr_file_t *file) {
-    return !(file->inlined.u.weight & LFSR_FILE_INLINEDDATA);
+static inline bool lfsr_file_hasshrub(const lfsr_file_t *file) {
+    return !(file->inlined.u.weight & LFSR_FILE_INLINED);
 }
 
 static lfs_off_t lfsr_file_inlinedsize(const lfsr_file_t *file) {
-    return file->inlined.u.weight & ~LFSR_FILE_INLINEDDATA;
+    return file->inlined.u.weight & ~LFSR_FILE_INLINED;
 }
 
-static bool lfsr_file_isreadable(uint32_t flags) {
+static inline bool lfsr_file_isreadable(uint32_t flags) {
     return (flags & LFS_O_RDONLY) == LFS_O_RDONLY;
 }
 
-static bool lfsr_file_iswriteable(uint32_t flags) {
+static inline bool lfsr_file_iswriteable(uint32_t flags) {
     return (flags & LFS_O_WRONLY) == LFS_O_WRONLY;
+}
+
+static inline bool lfsr_file_iscreat(uint32_t flags) {
+    return flags & LFS_O_CREAT;
+}
+
+static inline bool lfsr_file_isexcl(uint32_t flags) {
+    return flags & LFS_O_EXCL;
+}
+
+static inline bool lfsr_file_istrunc(uint32_t flags) {
+    return flags & LFS_O_TRUNC;
+}
+
+static inline bool lfsr_file_isappend(uint32_t flags) {
+    return flags & LFS_O_APPEND;
+}
+
+static inline bool lfsr_file_isunsynced(uint32_t flags) {
+    return flags & LFS_F_UNSYNCED;
+}
+
+static inline bool lfsr_file_iserrored(uint32_t flags) {
+    return flags & LFS_F_ERRORED;
 }
 
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
@@ -7939,7 +7920,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     // default inlined state
     file->inlined.u.data.u.d.block = 0;
     file->inlined.u.data.u.d.off = 0;
-    file->inlined.u.data.u.d.size = LFSR_FILE_INLINEDDATA | 0;
+    file->inlined.u.data.u.d.size = LFSR_FILE_INLINED | 0;
 
     // lookup our parent
     lfsr_tag_t tag;
@@ -7955,7 +7936,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
     // creating a new entry?
     if (err == LFS_ERR_NOENT) {
-        if (!(flags & LFS_O_CREAT)) {
+        if (lfsr_file_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
         LFS_ASSERT(lfsr_file_iswriteable(flags));
@@ -7978,7 +7959,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             return err;
         }
     } else {
-        if (flags & LFS_O_EXCL) {
+        if (lfsr_file_isexcl(flags)) {
             // oh, we really wanted to create a new entry
             return LFS_ERR_EXIST;
         }
@@ -7990,7 +7971,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
         // if we're truncating don't bother to read any state, we're
         // just going to truncate after all
-        if (!(flags & LFS_O_TRUNC)) {
+        if (!lfsr_file_istrunc(flags)) {
             // read the inline state
             lfsr_data_t data;
             err = lfsr_mdir_lookup(lfs, &file->m.mdir,
@@ -8375,7 +8356,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 
     // update pos if we are appending
     // TODO wait, what does POSIX do here if we've seeked past the eof?
-    if ((file->flags & LFS_O_APPEND) && file->pos < file->size) {
+    if (lfsr_file_isappend(file->flags) && file->pos < file->size) {
         file->pos = file->size;
     }
 
@@ -8431,7 +8412,7 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
-    if (file->flags & LFS_F_ERRORED) {
+    if (lfsr_file_iserrored(file->flags)) {
         // it's not safe to do anything if our file errored
         return 0;
     }
@@ -8447,7 +8428,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     int err;
-    if (file->flags & LFS_F_UNSYNCED) {
+    if (lfsr_file_isunsynced(file->flags)) {
         // TODO what if buffer_size > inlined_size?
         // TODO should we also update file to be unbuffered after syncing
         // inlined data?
