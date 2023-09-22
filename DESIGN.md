@@ -11,8 +11,8 @@ A little fail-safe filesystem designed for microcontrollers.
    | | |
 ```
 
-littlefs was originally built as an experiment to learn about filesystem design
-in the context of microcontrollers. The question was: How would you build a
+littlefs was built initially as an experiment to learn about filesystem design
+in the context of microcontrollers. The question was: How would you create a
 filesystem that is resilient to power-loss and flash wear without using
 unbounded memory?
 
@@ -28,20 +28,19 @@ flash chips with about 4 MiB of flash storage. These devices are too small for
 Linux and most existing filesystems, requiring code written specifically with
 size in mind.
 
-Flash itself is an interesting piece of technology with its own quirks and
+Flash itself is an interesting piece of technology with its quirks and
 nuance. Unlike other forms of storage, writing to flash requires two
 operations: erasing and programming. Programming (setting bits to 0) is
-relatively cheap and can be very granular. Erasing however (setting bits to 1),
-requires an expensive and destructive operation which gives flash its name.
+relatively cheap and can be very granular. Erasing, however (setting bits to 1),
+requires an expensive and destructive operation that gives flash its name.
 [Wikipedia][wikipedia-flash] has more information on how exactly flash works.
 
-To make the situation more annoying, it's very common for these embedded
-systems to lose power at any time. Usually, microcontroller code is simple and
-reactive, with no concept of a shutdown routine. This presents a big challenge
+To make the situation more annoying, it's widespread for these embedded
+systems to lose power at any time. Usually, microcontroller code is reactive and straightforward, with no concept of a shutdown routine. This presents a big challenge
 for persistent storage, where an unlucky power loss can corrupt the storage and
 leave a device unrecoverable.
 
-This leaves us with three major requirements for an embedded filesystem.
+This leaves us with three primary requirements for an embedded filesystem.
 
 1. **Power-loss resilience** - On these systems, power can be lost at any time.
    If a power loss corrupts any persistent data structures, this can cause the
@@ -49,7 +48,7 @@ This leaves us with three major requirements for an embedded filesystem.
    recover from a power loss during any write operation.
 
 1. **Wear leveling** - Writing to flash is destructive. If a filesystem
-   repeatedly writes to the same block, eventually that block will wear out.
+   repeatedly writes to the same block; eventually, that block will wear out.
    Filesystems that don't take wear into account can easily burn through blocks
    used to store frequently updated metadata and cause a device's early death.
 
@@ -59,7 +58,7 @@ This leaves us with three major requirements for an embedded filesystem.
    RAM to temporarily store filesystem metadata.
 
    For ROM, this means we need to keep our design simple and reuse code paths
-   were possible. For RAM we have a stronger requirement, all RAM usage is
+   were possible. For RAM we have a more important requirement, all RAM usage is
    bounded. This means RAM usage does not grow as the filesystem changes in
    size or number of files. This creates a unique challenge as even presumably
    simple operations, such as traversing the filesystem, become surprisingly
@@ -126,7 +125,7 @@ of designs.
    Logging filesystem are beautifully elegant. With a checksum, we can easily
    detect power-loss and fall back to the previous state by ignoring failed
    appends. And if that wasn't good enough, their cyclic nature means that
-   logging filesystems distribute wear across storage perfectly.
+   logging filesystems distribute wear across storage ideally.
 
    The main downside is performance. If we look at garbage collection, the
    process of cleaning up outdated data from the end of the log, I've yet to
@@ -135,8 +134,8 @@ of designs.
    1. _O(n&sup2;)_ runtime
    2. _O(n)_ RAM
 
-   SPIFFS is a very interesting case here, as it uses the fact that repeated
-   programs to NOR flash is both atomic and masking. This is a very neat
+   SPIFFS is a fascinating case here, as it uses the fact that repeated
+   programs to NOR flash are both atomic and masking. This is a very neat
    solution, however it limits the type of storage you can support.
 
 3. Perhaps the most common type of filesystem, a journaling filesystem is the
@@ -171,7 +170,7 @@ of designs.
 
 
    This sort of filesystem takes the best from both worlds. Performance can be
-   as fast as a block based filesystem (though updating the journal does have
+   as fast as a block-based filesystem (though updating the journal does have
    a small cost), and atomic updates to the journal allow the filesystem to
    recover in the event of a power loss.
 
@@ -181,12 +180,12 @@ of designs.
    against wear because of the strong relationship between storage location
    and data.
 
-4. Last but not least we have copy-on-write (COW) filesystems, such as
-   [btrfs] and [ZFS]. These are very similar to other block based filesystems,
+4. Last but not least, we have copy-on-write (COW) filesystems, such as
+   [btrfs] and [ZFS]. These are very similar to other block-based filesystems,
    but instead of updating block inplace, all updates are performed by creating
    a copy with the changes and replacing any references to the old block with
    our new block. This recursively pushes all of our problems upwards until we
-   reach the root of our filesystem, which is often stored in a very small log.
+   reach the root of our filesystem, often stored in a tiny log.
 
    ```
                .--------.                  .--------.
@@ -229,7 +228,7 @@ of designs.
 So what does littlefs do?
 
 If we look at existing filesystems, there are two interesting design patterns
-that stand out, but each have their own set of problems. Logging, which
+that stand out, but each has their own set of problems. Logging, which
 provides independent atomicity, has poor runtime performance. And COW data
 structures, which perform well, push the atomicity problem upwards.
 
@@ -411,7 +410,7 @@ requires multiple stages.
    simple. We want to avoid RAM consumption, so we use a sort of brute force
    solution where for each entry we check to see if a newer entry has been
    written. If the entry is the most recent we append it to our new block. This
-   is where having two blocks becomes important, if we lose power we still have
+   is where having two blocks becomes essential, if we lose power we still have
    everything in our original block.
 
    During this compaction step we also erase the metadata block and increment
@@ -626,7 +625,7 @@ log&#8322;_n_ pointers that skip to different preceding elements of the
 skip-list.
 
 The name comes from heavy use of the [CTZ instruction][wikipedia-ctz], which
-lets us calculate the power-of-two factors efficiently. For a give block _n_,
+efficiently calculates the power-of-two factors. For a give block _n_,
 that block contains ctz(_n_)+1 pointers.
 
 ```
@@ -664,14 +663,14 @@ We can find the runtime complexity by looking at the path to any block from
 the block containing the most pointers. Every step along the path divides
 the search space for the block in half, giving us a runtime of _O(log n)_.
 To get _to_ the block with the most pointers, we can perform the same steps
-backwards, which puts the runtime at _O(2 log n)_ = _O(log n)_. An interesting
-note is that this optimal path occurs naturally if we greedily choose the
+backwards, which puts the runtime at _O(2 log n)_ = _O(log n)_. Interestingly,
+this optimal path occurs naturally if we greedily choose the
 pointer that covers the most distance without passing our target.
 
 So now we have a [COW] data structure that is cheap to append with a runtime
 of _O(1)_, and can be read with a worst case runtime of _O(n log n)_. Given
 that this runtime is also divided by the amount of data we can store in a
-block, this cost is fairly reasonable.
+block, this cost is pretty reasonable.
 
 ---
 
@@ -975,20 +974,20 @@ allocator itself. Instead, it relies on the ability of the filesystem to detect
 and evict bad blocks when they occur.
 
 In littlefs, it is fairly straightforward to detect bad blocks at write time.
-All writes must be sourced by some form of data in RAM, so immediately after we
+Some form of data in RAM must source all writes, so immediately after we
 write to a block, we can read the data back and verify that it was written
-correctly. If we find that the data on disk does not match the copy we have in
-RAM, a write error has occurred and we most likely have a bad block.
+correctly. If we find that the data on disk does not match the copy, we have in
+RAM, a write error has occurred, and we most likely have a bad block.
 
 Once we detect a bad block, we need to recover from it. In the case of write
 errors, we have a copy of the corrupted data in RAM, so all we need to do is
-evict the bad block, allocate a new, hopefully good block, and repeat the write
+evict the bad block, allocate a new, hopefully, good block, and repeat the write
 that previously failed.
 
 The actual act of evicting the bad block and replacing it with a new block is
 left up to the filesystem's copy-on-bounded-writes (CObW) data structures. One
 property of CObW data structures is that any block can be replaced during a
-COW operation. The bounded-writes part is normally triggered by a counter, but
+COW operation. A counter normally triggers the bounded-writes part, but
 nothing prevents us from triggering a COW operation as soon as we find a bad
 block.
 
@@ -1421,7 +1420,7 @@ multiple files stored in metadata pair, 4 bytes costs ~4 KiB
 '----------------'  '----------------'              /
 ```
 
-The second improvement we can make is noticing that for very small files, our
+The second improvement we can make is noticing that, for very small files, our
 attempts to use CTZ skip-lists for compact storage backfires. Metadata pairs
 have a ~4x storage cost, so if our file is smaller than 1/4 the block size,
 there's actually no benefit in storing our file outside of our metadata pair.
