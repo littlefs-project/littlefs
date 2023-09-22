@@ -510,6 +510,7 @@ code = '''
 # write files incrementally
 [cases.test_ftree_incr]
 defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.CHUNK = [4, 1]
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 reentrant = true
@@ -530,7 +531,9 @@ code = '''
     uint32_t prng = 42;
     for (lfs_size_t i = 0; i < SIZE; i++) {
         wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
-        lfsr_file_write(&lfs, &file, &wbuf[i], 1) => 1;
+    }
+    for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
+        lfsr_file_write(&lfs, &file, &wbuf[i], CHUNK) => CHUNK;
 
         // sync?
         if (SYNC) {
