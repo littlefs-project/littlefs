@@ -48,10 +48,13 @@ TAG_MTREE       = 0x0314
 TAG_MROOT       = 0x0318
 TAG_DID         = 0x031c
 TAG_UATTR       = 0x0400
-TAG_SATTR       = 0x0500
-TAG_ALT         = 0x4000
+TAG_SATTR       = 0x0600
+TAG_SHRUB       = 0x1000
 TAG_CKSUM       = 0x2000
 TAG_ECKSUM      = 0x2100
+TAG_ALT         = 0x4000
+TAG_GT          = 0x2000
+TAG_R           = 0x1000
 
 
 # parse some rbyd addr encodings
@@ -131,78 +134,86 @@ def xxd(data, width=16):
                 for b in map(chr, data[i:i+width])))
 
 def tagrepr(tag, w, size, off=None):
-    if tag == TAG_NULL:
-        return 'null%s%s' % (
+    if (tag & 0xefff) == TAG_NULL:
+        return '%snull%s%s' % (
+            'shrub' if tag & TAG_SHRUB else '',
             ' w%d' % w if w else '',
             ' %d' % size if size else '')
-    elif (tag & 0xff00) == TAG_CONFIG:
-        return '%s%s %d' % (
-            'magic' if tag == TAG_MAGIC
-                else 'version' if tag == TAG_VERSION
-                else 'flags' if tag == TAG_FLAGS
-                else 'cksumtype' if tag == TAG_CKSUMTYPE
-                else 'redundtype' if tag == TAG_REDUNDTYPE
-                else 'blocklimit' if tag == TAG_BLOCKLIMIT
-                else 'disklimit' if tag == TAG_DISKLIMIT
-                else 'mleaflimit' if tag == TAG_MLEAFLIMIT
-                else 'sizelimit' if tag == TAG_SIZELIMIT
-                else 'namelimit' if tag == TAG_NAMELIMIT
-                else 'utaglimit' if tag == TAG_UTAGLIMIT
-                else 'uattrlimit' if tag == TAG_UATTRLIMIT
+    elif (tag & 0xef00) == TAG_CONFIG:
+        return '%s%s%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            'magic' if (tag & 0xfff) == TAG_MAGIC
+                else 'version' if (tag & 0xfff) == TAG_VERSION
+                else 'flags' if (tag & 0xfff) == TAG_FLAGS
+                else 'cksumtype' if (tag & 0xfff) == TAG_CKSUMTYPE
+                else 'redundtype' if (tag & 0xfff) == TAG_REDUNDTYPE
+                else 'blocklimit' if (tag & 0xfff) == TAG_BLOCKLIMIT
+                else 'disklimit' if (tag & 0xfff) == TAG_DISKLIMIT
+                else 'mleaflimit' if (tag & 0xfff) == TAG_MLEAFLIMIT
+                else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT
+                else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
+                else 'utaglimit' if (tag & 0xfff) == TAG_UTAGLIMIT
+                else 'uattrlimit' if (tag & 0xfff) == TAG_UATTRLIMIT
                 else 'config 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_GSTATE:
-        return '%s%s %d' % (
-            'grm' if tag == TAG_GRM
+    elif (tag & 0xef00) == TAG_GSTATE:
+        return '%s%s%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            'grm' if (tag & 0xfff) == TAG_GRM
                 else 'gstate 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_NAME:
-        return '%s%s %d' % (
-            'branch' if tag == TAG_BRANCH
-                else 'bookmark' if tag == TAG_BOOKMARK
-                else 'reg' if tag == TAG_REG
-                else 'dir' if tag == TAG_DIR
+    elif (tag & 0xef00) == TAG_NAME:
+        return '%s%s%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            'branch' if (tag & 0xfff) == TAG_BRANCH
+                else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
+                else 'reg' if (tag & 0xfff) == TAG_REG
+                else 'dir' if (tag & 0xfff) == TAG_DIR
                 else 'name 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_STRUCT:
-        return '%s%s %d' % (
-            'inlined' if tag == TAG_INLINED
-                else 'trunk' if tag == TAG_TRUNK
-                else 'block' if tag == TAG_BLOCK
-                else 'btree' if tag == TAG_BTREE
-                else 'mdir' if tag == TAG_MDIR
-                else 'mtree' if tag == TAG_MTREE
-                else 'mroot' if tag == TAG_MROOT
-                else 'did' if tag == TAG_DID
+    elif (tag & 0xef00) == TAG_STRUCT:
+        return '%s%s%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            'inlined' if (tag & 0xfff) == TAG_INLINED
+                else 'trunk' if (tag & 0xfff) == TAG_TRUNK
+                else 'block' if (tag & 0xfff) == TAG_BLOCK
+                else 'btree' if (tag & 0xfff) == TAG_BTREE
+                else 'mdir' if (tag & 0xfff) == TAG_MDIR
+                else 'mtree' if (tag & 0xfff) == TAG_MTREE
+                else 'mroot' if (tag & 0xfff) == TAG_MROOT
+                else 'did' if (tag & 0xfff) == TAG_DID
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_UATTR:
-        return 'uattr 0x%02x%s %d' % (
-            tag & 0xff,
+    elif (tag & 0xef00) == TAG_UATTR:
+        return '%suattr 0x%02x%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            ((tag & 0x100) >> 1) | (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_SATTR:
-        return 'sattr 0x%02x%s %d' % (
-            tag & 0xff,
+    elif (tag & 0xef00) == TAG_SATTR:
+        return '%ssattr 0x%02x%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            ((tag & 0x100) >> 1) | (tag & 0xff),
             ' w%d' % w if w else '',
             size)
     elif (tag & 0xff00) == TAG_CKSUM:
-        return 'cksum%x%s %d' % (
-            1 if tag & 0x1 else 0,
-            ' 0x%x' % w if w > 0 else '',
+        return 'cksum 0x%02x%s %d' % (
+            tag & 0xff,
+            ' w%d' % w if w > 0 else '',
             size)
-    elif tag == TAG_ECKSUM:
-        return 'ecksum%s %d' % (
-            ' 0x%x' % w if w > 0 else '',
+    elif (tag & 0xff00) == TAG_ECKSUM:
+        return 'ecksum%s%s %d' % (
+            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+            ' w%d' % w if w > 0 else '',
             size)
-    elif tag & 0x4000:
+    elif tag & TAG_ALT:
         return 'alt%s%s 0x%x w%d %s' % (
-            'r' if tag & 0x1000 else 'b',
-            'gt' if tag & 0x2000 else 'le',
+            'r' if tag & TAG_R else 'b',
+            'gt' if tag & TAG_GT else 'le',
             tag & 0x0fff,
             w,
             '0x%x' % (0xffffffff & (off-size))
@@ -212,7 +223,7 @@ def tagrepr(tag, w, size, off=None):
         return '0x%04x w%d %d' % (tag, w, size)
 
 
-def dbg_log(data, block_size, rev, off, weight, *,
+def dbg_log(data, block_size, rev, eoff, weight, *,
         color=False,
         **args):
     cksum = crc32c(data[0:4])
@@ -221,18 +232,18 @@ def dbg_log(data, block_size, rev, off, weight, *,
     if args.get('jumps'):
         jumps = []
         j_ = 4
-        while j_ < (block_size if args.get('all') else off):
+        while j_ < (block_size if args.get('all') else eoff):
             j = j_
             v, tag, w, size, d = fromtag(data[j_:])
             j_ += d
-            if not tag & 0x4000:
+            if not tag & TAG_ALT:
                 j_ += size
 
-            if tag & 0x4000:
+            if tag & TAG_ALT:
                 # figure out which alt color
-                if tag & 0x1000:
+                if tag & TAG_R:
                     _, ntag, _, _, _ = fromtag(data[j_:])
-                    if ntag & 0x1000:
+                    if ntag & TAG_R:
                         jumps.append((j, j-size, 0, 'y'))
                     else:
                         jumps.append((j, j-size, 0, 'r'))
@@ -318,32 +329,32 @@ def dbg_log(data, block_size, rev, off, weight, *,
         weight_ = 0
         wastrunk = False
         j_ = 4
-        while j_ < (block_size if args.get('all') else off):
+        while j_ < (block_size if args.get('all') else eoff):
             j = j_
             v, tag, w, size, d = fromtag(data[j_:])
             j_ += d
-            if not tag & 0x4000:
+            if not tag & TAG_ALT:
                 j_ += size
 
             # evaluate trunks
-            if (tag & 0xe000) != 0x2000:
+            if (tag & 0xe000) != TAG_CKSUM:
                 if not wastrunk:
                     wastrunk = True
                     lower_, upper_ = 0, 0
 
-                if (tag & 0xe000) == 0x4000:
+                if (tag & 0xe000) == TAG_ALT:
                     lower_ += w
                 else:
                     upper_ += w
 
-                if not tag & 0x4000:
+                if not tag & TAG_ALT:
                     wastrunk = False
                     # derive the current tag's rid from alt weights
                     delta = (lower_+upper_) - weight_
                     weight_ = lower_+upper_
                     rid = lower_ + w-1
 
-            if (tag & 0xe000) != 0x2000 and not tag & 0x4000:
+            if (tag & 0xe000) != TAG_CKSUM and not tag & TAG_ALT:
                 # note we ignore out-of-bounds here for debugging
                 if delta > 0:
                     # grow lifetimes
@@ -439,7 +450,35 @@ def dbg_log(data, block_size, rev, off, weight, *,
 
 
     # dynamically size the id field
-    w_width = 2*m.ceil(m.log10(max(1, weight)+1))+1
+    #
+    # we need to do an additional pass to find this since our rbyd weight
+    # does not include any shrub trees
+    weight_ = 0
+    weight__ = 0
+    wastrunk = False
+    j_ = 4
+    while j_ < (block_size if args.get('all') else eoff):
+        j = j_
+        v, tag, w, size, d = fromtag(data[j_:])
+        j_ += d
+
+        if not tag & TAG_ALT:
+            j_ += size
+
+        # evaluate trunks
+        if (tag & 0xe000) != TAG_CKSUM:
+            if not wastrunk:
+                wastrunk = True
+                weight__ = 0
+
+            weight__ += w
+
+            if not tag & TAG_ALT:
+                wastrunk = False
+                # found new weight?
+                weight_ = max(weight_, weight__)
+
+    w_width = 2*m.ceil(m.log10(max(1, weight_)+1))+1
 
     # print revision count
     if args.get('raw'):
@@ -453,7 +492,7 @@ def dbg_log(data, block_size, rev, off, weight, *,
     lower_, upper_ = 0, 0
     wastrunk = False
     j_ = 4
-    while j_ < (block_size if args.get('all') else off):
+    while j_ < (block_size if args.get('all') else eoff):
         notes = []
 
         j = j_
@@ -464,7 +503,7 @@ def dbg_log(data, block_size, rev, off, weight, *,
         j_ += d
 
         # take care of cksums
-        if not tag & 0x4000:
+        if not tag & TAG_ALT:
             if (tag & 0xff00) != TAG_CKSUM:
                 cksum = crc32c(data[j_:j_+size], cksum)
             # found a cksum?
@@ -475,28 +514,28 @@ def dbg_log(data, block_size, rev, off, weight, *,
             j_ += size
 
         # evaluate trunks
-        if (tag & 0xe000) != 0x2000:
+        if (tag & 0xe000) != TAG_CKSUM:
             if not wastrunk:
                 wastrunk = True
                 lower_, upper_ = 0, 0
 
-            if (tag & 0xe000) == 0x4000:
+            if (tag & 0xe000) == TAG_ALT:
                 lower_ += w
             else:
                 upper_ += w
 
-            if not tag & 0x4000:
+            if not tag & TAG_ALT:
                 wastrunk = False
                 # derive the current tag's rid from alt weights
                 rid = lower_ + w-1
 
         # show human-readable tag representation
         print('%s%08x:%s %*s%s%*s %-57s%s%s' % (
-            '\x1b[90m' if color and j >= off else '',
+            '\x1b[90m' if color and j >= eoff else '',
             j,
-            '\x1b[m' if color and j >= off else '',
+            '\x1b[m' if color and j >= eoff else '',
             lifetime_width, lifetimerepr(j) if args.get('lifetimes') else '',
-            '\x1b[90m' if color and j >= off else '',
+            '\x1b[90m' if color and j >= eoff else '',
             w_width, '' if (tag & 0xe000) != 0x0000
                 else '%d-%d' % (rid-(w-1), rid) if w > 1
                 else rid,
@@ -505,8 +544,8 @@ def dbg_log(data, block_size, rev, off, weight, *,
                 '  %s' % next(xxd(
                         data[j+d:j+d+min(size, 8)], 8), '')
                     if not args.get('no_truncate')
-                        and not tag & 0x4000 else ''),
-            '\x1b[m' if color and j >= off else '',
+                        and not tag & TAG_ALT else ''),
+            '\x1b[m' if color and j >= eoff else '',
             ' (%s)' % ', '.join(notes) if notes
             else ' %s' % jumprepr(j)
                 if args.get('jumps')
@@ -516,7 +555,7 @@ def dbg_log(data, block_size, rev, off, weight, *,
         # cksum/parity info
         if args.get('device'):
             print('%s%8s  %*s%*s %-47s  %08x %x%s' % (
-                '\x1b[90m' if color and j >= off else '',
+                '\x1b[90m' if color and j >= eoff else '',
                 '',
                 lifetime_width, '',
                 w_width, '',
@@ -527,31 +566,31 @@ def dbg_log(data, block_size, rev, off, weight, *,
                                 data[j+d+i*4:j+d+min(i*4+4,size)])
                             for i in range(min(m.ceil(size/4), 3)))[:23]
                         if not args.get('no_truncate')
-                            and not tag & 0x4000 else ''),
+                            and not tag & TAG_ALT else ''),
                 cksum,
                 popc(cksum) & 1,
-                '\x1b[m' if color and j >= off else ''))
+                '\x1b[m' if color and j >= eoff else ''))
 
         # show on-disk encoding of tags
         if args.get('raw'):
             for o, line in enumerate(xxd(data[j:j+d])):
                 print('%s%8s: %*s%*s %s%s' % (
-                    '\x1b[90m' if color and j >= off else '',
+                    '\x1b[90m' if color and j >= eoff else '',
                     '%04x' % (j + o*16),
                     lifetime_width, '',
                     w_width, '',
                     line,
-                    '\x1b[m' if color and j >= off else ''))
+                    '\x1b[m' if color and j >= eoff else ''))
         if args.get('raw') or args.get('no_truncate'):
-            if not tag & 0x4000:
+            if not tag & TAG_ALT:
                 for o, line in enumerate(xxd(data[j+d:j+d+size])):
                     print('%s%8s: %*s%*s %s%s' % (
-                        '\x1b[90m' if color and j >= off else '',
+                        '\x1b[90m' if color and j >= eoff else '',
                         '%04x' % (j+d + o*16),
                         lifetime_width, '',
                         w_width, '',
                         line,
-                        '\x1b[m' if color and j >= off else ''))
+                        '\x1b[m' if color and j >= eoff else ''))
 
 
 def dbg_tree(data, block_size, rev, trunk, weight, *,
@@ -573,19 +612,19 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
             _, alt, w, jump, d = fromtag(data[j:])
 
             # found an alt?
-            if alt & 0x4000:
+            if alt & TAG_ALT:
                 # follow?
                 if ((rid, tag & 0xfff) > (upper-w-1, alt & 0xfff)
-                        if alt & 0x2000
+                        if alt & TAG_GT
                         else ((rid, tag & 0xfff) <= (lower+w, alt & 0xfff))):
-                    lower += upper-lower-1-w if alt & 0x2000 else 0
-                    upper -= upper-lower-1-w if not alt & 0x2000 else 0
+                    lower += upper-lower-1-w if alt & TAG_GT else 0
+                    upper -= upper-lower-1-w if not alt & TAG_GT else 0
                     j = j - jump
 
                     # figure out which color
-                    if alt & 0x1000:
+                    if alt & TAG_R:
                         _, nalt, _, _, _ = fromtag(data[j+jump+d:])
-                        if nalt & 0x1000:
+                        if nalt & TAG_R:
                             path.append((j+jump, j, True, 'y'))
                         else:
                             path.append((j+jump, j, True, 'r'))
@@ -594,14 +633,14 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
 
                 # stay on path
                 else:
-                    lower += w if not alt & 0x2000 else 0
-                    upper -= w if alt & 0x2000 else 0
+                    lower += w if not alt & TAG_GT else 0
+                    upper -= w if alt & TAG_GT else 0
                     j = j + d
 
                     # figure out which color
-                    if alt & 0x1000:
+                    if alt & TAG_R:
                         _, nalt, _, _, _ = fromtag(data[j:])
-                        if nalt & 0x1000:
+                        if nalt & TAG_R:
                             path.append((j-d, j, False, 'y'))
                         else:
                             path.append((j-d, j, False, 'r'))
@@ -782,7 +821,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                 '  %s' % next(xxd(
                         data[j+d:j+d+min(size, 8)], 8), '')
                     if not args.get('no_truncate')
-                        and not tag & 0x4000 else '')))
+                        and not tag & TAG_ALT else '')))
 
         # show in-device representation
         if args.get('device'):
@@ -797,7 +836,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                                 data[j+d+i*4:j+d+min(i*4+4,size)])
                             for i in range(min(m.ceil(size/4), 3)))[:23]
                         if not args.get('no_truncate')
-                            and not tag & 0x4000 else '')))
+                            and not tag & TAG_ALT else '')))
 
         # show on-disk encoding of tags
         if args.get('raw'):
@@ -808,7 +847,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                     w_width, '',
                     line))
         if args.get('raw') or args.get('no_truncate'):
-            if not tag & 0x4000:
+            if not tag & TAG_ALT:
                 for o, line in enumerate(xxd(data[j+d:j+d+size])):
                     print('%8s: %*s%*s %s' % (
                         '%04x' % (j+d + o*16),
@@ -861,26 +900,27 @@ def main(disk, blocks=None, *,
         rev = fromle32(data[0:4])
         cksum = 0
         cksum_ = crc32c(data[0:4])
-        off = 0
+        eoff = 0
         j_ = 4
         trunk_ = 0
         trunk__ = 0
+        trunk___ = 0
         weight = 0
         weight_ = 0
         weight__ = 0
         wastrunk = False
-        trunkoff = None 
-        while j_ < len(data) and (not trunk or off <= trunk):
+        trunkeoff = None 
+        while j_ < len(data) and (not trunk or eoff <= trunk):
             v, tag, w, size, d = fromtag(data[j_:])
             if v != (popc(cksum_) & 1):
                 break
             cksum_ = crc32c(data[j_:j_+d], cksum_)
             j_ += d
-            if not tag & 0x4000 and j_ + size > len(data):
+            if not tag & TAG_ALT and j_ + size > len(data):
                 break
 
             # take care of cksums
-            if not tag & 0x4000:
+            if not tag & TAG_ALT:
                 if (tag & 0xff00) != TAG_CKSUM:
                     cksum_ = crc32c(data[j_:j_+size], cksum_)
                 # found a cksum?
@@ -889,43 +929,46 @@ def main(disk, blocks=None, *,
                     if cksum_ != cksum__:
                         break
                     # commit what we have
-                    off = trunkoff if trunkoff else j_ + size
+                    eoff = trunkeoff if trunkeoff else j_ + size
                     cksum = cksum_
                     trunk_ = trunk__
                     weight = weight_
 
             # evaluate trunks
-            if (tag & 0xe000) != 0x2000 and (
+            if (tag & 0xe000) != TAG_CKSUM and (
                     not trunk or trunk >= j_-d or wastrunk):
                 # new trunk?
                 if not wastrunk:
                     wastrunk = True
-                    trunk__ = j_-d
+                    trunk___ = j_-d
                     weight__ = 0
 
                 # keep track of weight
                 weight__ += w
 
                 # end of trunk?
-                if not tag & 0x4000:
+                if not tag & TAG_ALT:
                     wastrunk = False
-                    # update weight
-                    weight_ = weight__
-                    # keep track of off for best matching trunk
-                    if trunk and j_ + size > trunk:
-                        trunkoff = j_ + size
+                    # update trunk/weight unless we found a shrub or an
+                    # explicit trunk (which may be a shrub) is requested
+                    if not tag & TAG_SHRUB or trunk:
+                        trunk__ = trunk___
+                        weight_ = weight__
+                        # keep track of eoff for best matching trunk
+                        if trunk and j_ + size > trunk:
+                            trunkeoff = j_ + size
 
-            if not tag & 0x4000:
+            if not tag & TAG_ALT:
                 j_ += size
 
-        return rev, off, trunk_, weight
+        return rev, eoff, trunk_, weight
 
-    revs, offs, trunks_, weights = [], [], [], []
+    revs, eoffs, trunks_, weights = [], [], [], []
     i = 0
     for i_, (data, trunk_) in enumerate(zip(datas, trunks)):
-        rev, off, trunk_, weight = fetch(data, trunk_)
+        rev, eoff, trunk_, weight = fetch(data, trunk_)
         revs.append(rev)
-        offs.append(off)
+        eoffs.append(eoff)
         trunks_.append(trunk_)
         weights.append(weight)
 
@@ -937,8 +980,8 @@ def main(disk, blocks=None, *,
             i = i_
 
     # print contents of the winning metadata block
-    block, data, rev, off, trunk_, weight = (
-        blocks[i], datas[i], revs[i], offs[i], trunks_[i], weights[i])
+    block, data, rev, eoff, trunk_, weight = (
+        blocks[i], datas[i], revs[i], eoffs[i], trunks_[i], weights[i])
 
     print('rbyd %s, rev %d, size %d, weight %d' % (
         '0x%x.%x' % (block, trunk_)
@@ -948,10 +991,10 @@ def main(disk, blocks=None, *,
                 ','.join('%x' % blocks[(i+1+j) % len(blocks)]
                     for j in range(len(blocks)-1)),
                 trunk_),
-        rev, off, weight))
+        rev, eoff, weight))
 
     if args.get('log'):
-        dbg_log(data, block_size, rev, off, weight,
+        dbg_log(data, block_size, rev, eoff, weight,
             color=color,
             **args)
     else:
@@ -959,7 +1002,7 @@ def main(disk, blocks=None, *,
             color=color,
             **args)
 
-    if args.get('error_on_corrupt') and off == 0:
+    if args.get('error_on_corrupt') and eoff == 0:
         sys.exit(2)
 
 

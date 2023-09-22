@@ -40,10 +40,13 @@ TAG_MTREE       = 0x0314
 TAG_MROOT       = 0x0318
 TAG_DID         = 0x031c
 TAG_UATTR       = 0x0400
-TAG_SATTR       = 0x0500
-TAG_ALT         = 0x4000
+TAG_SATTR       = 0x0600
+TAG_SHRUB       = 0x1000
 TAG_CKSUM       = 0x2000
 TAG_ECKSUM      = 0x2100
+TAG_ALT         = 0x4000
+TAG_GT          = 0x2000
+TAG_R           = 0x1000
 
 
 # parse some rbyd addr encodings
@@ -140,78 +143,86 @@ def xxd(data, width=16):
                 for b in map(chr, data[i:i+width])))
 
 def tagrepr(tag, w, size, off=None):
-    if tag == TAG_NULL:
-        return 'null%s%s' % (
+    if (tag & 0xefff) == TAG_NULL:
+        return '%snull%s%s' % (
+            'shrub' if tag & TAG_SHRUB else '',
             ' w%d' % w if w else '',
             ' %d' % size if size else '')
-    elif (tag & 0xff00) == TAG_CONFIG:
-        return '%s%s %d' % (
-            'magic' if tag == TAG_MAGIC
-                else 'version' if tag == TAG_VERSION
-                else 'flags' if tag == TAG_FLAGS
-                else 'cksumtype' if tag == TAG_CKSUMTYPE
-                else 'redundtype' if tag == TAG_REDUNDTYPE
-                else 'blocklimit' if tag == TAG_BLOCKLIMIT
-                else 'disklimit' if tag == TAG_DISKLIMIT
-                else 'mleaflimit' if tag == TAG_MLEAFLIMIT
-                else 'sizelimit' if tag == TAG_SIZELIMIT
-                else 'namelimit' if tag == TAG_NAMELIMIT
-                else 'utaglimit' if tag == TAG_UTAGLIMIT
-                else 'uattrlimit' if tag == TAG_UATTRLIMIT
+    elif (tag & 0xef00) == TAG_CONFIG:
+        return '%s%s%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            'magic' if (tag & 0xfff) == TAG_MAGIC
+                else 'version' if (tag & 0xfff) == TAG_VERSION
+                else 'flags' if (tag & 0xfff) == TAG_FLAGS
+                else 'cksumtype' if (tag & 0xfff) == TAG_CKSUMTYPE
+                else 'redundtype' if (tag & 0xfff) == TAG_REDUNDTYPE
+                else 'blocklimit' if (tag & 0xfff) == TAG_BLOCKLIMIT
+                else 'disklimit' if (tag & 0xfff) == TAG_DISKLIMIT
+                else 'mleaflimit' if (tag & 0xfff) == TAG_MLEAFLIMIT
+                else 'sizelimit' if (tag & 0xfff) == TAG_SIZELIMIT
+                else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
+                else 'utaglimit' if (tag & 0xfff) == TAG_UTAGLIMIT
+                else 'uattrlimit' if (tag & 0xfff) == TAG_UATTRLIMIT
                 else 'config 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_GSTATE:
-        return '%s%s %d' % (
-            'grm' if tag == TAG_GRM
+    elif (tag & 0xef00) == TAG_GSTATE:
+        return '%s%s%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            'grm' if (tag & 0xfff) == TAG_GRM
                 else 'gstate 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_NAME:
-        return '%s%s %d' % (
-            'branch' if tag == TAG_BRANCH
-                else 'bookmark' if tag == TAG_BOOKMARK
-                else 'reg' if tag == TAG_REG
-                else 'dir' if tag == TAG_DIR
+    elif (tag & 0xef00) == TAG_NAME:
+        return '%s%s%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            'branch' if (tag & 0xfff) == TAG_BRANCH
+                else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
+                else 'reg' if (tag & 0xfff) == TAG_REG
+                else 'dir' if (tag & 0xfff) == TAG_DIR
                 else 'name 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_STRUCT:
-        return '%s%s %d' % (
-            'inlined' if tag == TAG_INLINED
-                else 'trunk' if tag == TAG_TRUNK
-                else 'block' if tag == TAG_BLOCK
-                else 'btree' if tag == TAG_BTREE
-                else 'mdir' if tag == TAG_MDIR
-                else 'mtree' if tag == TAG_MTREE
-                else 'mroot' if tag == TAG_MROOT
-                else 'did' if tag == TAG_DID
+    elif (tag & 0xef00) == TAG_STRUCT:
+        return '%s%s%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            'inlined' if (tag & 0xfff) == TAG_INLINED
+                else 'trunk' if (tag & 0xfff) == TAG_TRUNK
+                else 'block' if (tag & 0xfff) == TAG_BLOCK
+                else 'btree' if (tag & 0xfff) == TAG_BTREE
+                else 'mdir' if (tag & 0xfff) == TAG_MDIR
+                else 'mtree' if (tag & 0xfff) == TAG_MTREE
+                else 'mroot' if (tag & 0xfff) == TAG_MROOT
+                else 'did' if (tag & 0xfff) == TAG_DID
                 else 'struct 0x%02x' % (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_UATTR:
-        return 'uattr 0x%02x%s %d' % (
-            tag & 0xff,
+    elif (tag & 0xef00) == TAG_UATTR:
+        return '%suattr 0x%02x%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            ((tag & 0x100) >> 1) | (tag & 0xff),
             ' w%d' % w if w else '',
             size)
-    elif (tag & 0xff00) == TAG_SATTR:
-        return 'sattr 0x%02x%s %d' % (
-            tag & 0xff,
+    elif (tag & 0xef00) == TAG_SATTR:
+        return '%ssattr 0x%02x%s %d' % (
+            'shrub' if tag & TAG_SHRUB else '',
+            ((tag & 0x100) >> 1) | (tag & 0xff),
             ' w%d' % w if w else '',
             size)
     elif (tag & 0xff00) == TAG_CKSUM:
-        return 'cksum%x%s %d' % (
-            1 if tag & 0x1 else 0,
-            ' 0x%x' % w if w > 0 else '',
+        return 'cksum 0x%02x%s %d' % (
+            tag & 0xff,
+            ' w%d' % w if w > 0 else '',
             size)
-    elif tag == TAG_ECKSUM:
-        return 'ecksum%s %d' % (
-            ' 0x%x' % w if w > 0 else '',
+    elif (tag & 0xff00) == TAG_ECKSUM:
+        return 'ecksum%s%s %d' % (
+            ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
+            ' w%d' % w if w > 0 else '',
             size)
-    elif tag & 0x4000:
+    elif tag & TAG_ALT:
         return 'alt%s%s 0x%x w%d %s' % (
-            'r' if tag & 0x1000 else 'b',
-            'gt' if tag & 0x2000 else 'le',
+            'r' if tag & TAG_R else 'b',
+            'gt' if tag & TAG_GT else 'le',
             tag & 0x0fff,
             w,
             '0x%x' % (0xffffffff & (off-size))
@@ -223,11 +234,11 @@ def tagrepr(tag, w, size, off=None):
 
 # our core rbyd type
 class Rbyd:
-    def __init__(self, block, data, rev, off, trunk, weight):
+    def __init__(self, block, data, rev, eoff, trunk, weight):
         self.block = block
         self.data = data
         self.rev = rev
-        self.off = off
+        self.eoff = eoff
         self.trunk = trunk
         self.weight = weight
         self.redund_blocks = []
@@ -280,26 +291,27 @@ class Rbyd:
         rev = fromle32(data[0:4])
         cksum = 0
         cksum_ = crc32c(data[0:4])
-        off = 0
+        eoff = 0
         j_ = 4
         trunk_ = 0
         trunk__ = 0
+        trunk___ = 0
         weight = 0
         weight_ = 0
         weight__ = 0
         wastrunk = False
-        trunkoff = None
-        while j_ < len(data) and (not trunk or off <= trunk):
+        trunkeoff = None
+        while j_ < len(data) and (not trunk or eoff <= trunk):
             v, tag, w, size, d = fromtag(data[j_:])
             if v != (popc(cksum_) & 1):
                 break
             cksum_ = crc32c(data[j_:j_+d], cksum_)
             j_ += d
-            if not tag & 0x4000 and j_ + size > len(data):
+            if not tag & TAG_ALT and j_ + size > len(data):
                 break
 
             # take care of cksums
-            if not tag & 0x4000:
+            if not tag & TAG_ALT:
                 if (tag & 0xff00) != TAG_CKSUM:
                     cksum_ = crc32c(data[j_:j_+size], cksum_)
                 # found a cksum?
@@ -308,36 +320,39 @@ class Rbyd:
                     if cksum_ != cksum__:
                         break
                     # commit what we have
-                    off = trunkoff if trunkoff else j_ + size
+                    eoff = trunkeoff if trunkeoff else j_ + size
                     cksum = cksum_
                     trunk_ = trunk__
                     weight = weight_
 
             # evaluate trunks
-            if (tag & 0xe000) != 0x2000 and (
+            if (tag & 0xe000) != TAG_CKSUM and (
                     not trunk or trunk >= j_-d or wastrunk):
                 # new trunk?
                 if not wastrunk:
                     wastrunk = True
-                    trunk__ = j_-d
+                    trunk___ = j_-d
                     weight__ = 0
 
                 # keep track of weight
                 weight__ += w
 
                 # end of trunk?
-                if not tag & 0x4000:
+                if not tag & TAG_ALT:
                     wastrunk = False
-                    # update weight
-                    weight_ = weight__
-                    # keep track of off for best matching trunk
-                    if trunk and j_ + size > trunk:
-                        trunkoff = j_ + size
+                    # update trunk/weight unless we found a shrub or an
+                    # explicit trunk (which may be a shrub) is requested
+                    if not tag & TAG_SHRUB or trunk:
+                        trunk__ = trunk___
+                        weight_ = weight__
+                        # keep track of eoff for best matching trunk
+                        if trunk and j_ + size > trunk:
+                            trunkeoff = j_ + size
 
-            if not tag & 0x4000:
+            if not tag & TAG_ALT:
                 j_ += size
 
-        return cls(block, data, rev, off, trunk_, weight)
+        return cls(block, data, rev, eoff, trunk_, weight)
 
     def lookup(self, rid, tag):
         if not self:
@@ -353,20 +368,20 @@ class Rbyd:
             _, alt, weight_, jump, d = fromtag(self.data[j:])
 
             # found an alt?
-            if alt & 0x4000:
+            if alt & TAG_ALT:
                 # follow?
                 if ((rid, tag & 0xfff) > (upper-weight_-1, alt & 0xfff)
-                        if alt & 0x2000
+                        if alt & TAG_GT
                         else ((rid, tag & 0xfff)
                             <= (lower+weight_, alt & 0xfff))):
-                    lower += upper-lower-1-weight_ if alt & 0x2000 else 0
-                    upper -= upper-lower-1-weight_ if not alt & 0x2000 else 0
+                    lower += upper-lower-1-weight_ if alt & TAG_GT else 0
+                    upper -= upper-lower-1-weight_ if not alt & TAG_GT else 0
                     j = j - jump
 
                     # figure out which color
-                    if alt & 0x1000:
+                    if alt & TAG_R:
                         _, nalt, _, _, _ = fromtag(self.data[j+jump+d:])
-                        if nalt & 0x1000:
+                        if nalt & TAG_R:
                             path.append((j+jump, j, True, 'y'))
                         else:
                             path.append((j+jump, j, True, 'r'))
@@ -375,14 +390,14 @@ class Rbyd:
 
                 # stay on path
                 else:
-                    lower += weight_ if not alt & 0x2000 else 0
-                    upper -= weight_ if alt & 0x2000 else 0
+                    lower += weight_ if not alt & TAG_GT else 0
+                    upper -= weight_ if alt & TAG_GT else 0
                     j = j + d
 
                     # figure out which color
-                    if alt & 0x1000:
+                    if alt & TAG_R:
                         _, nalt, _, _, _ = fromtag(self.data[j:])
-                        if nalt & 0x1000:
+                        if nalt & TAG_R:
                             path.append((j-d, j, False, 'y'))
                         else:
                             path.append((j-d, j, False, 'r'))

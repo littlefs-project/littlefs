@@ -718,7 +718,7 @@ static inline bool lfsr_tag_clearshrub(lfsr_tag_t tag) {
 }
 
 static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
-    return (tag & 0x6000) != 0x2000;
+    return (tag & 0xe000) != 0x2000;
 }
 
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
