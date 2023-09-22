@@ -376,10 +376,8 @@ typedef struct lfsr_btree {
             lfsr_tag_t tag;
             uint8_t size;
             uint8_t buf[LFSR_BTREE_INLINESIZE];
-        } i;
-        struct {
-            lfsr_rbyd_t rbyd;
-        } r;
+        } inlined;
+        lfsr_rbyd_t rbyd;
     } u;
 } lfsr_btree_t;
 
@@ -395,9 +393,7 @@ typedef struct lfsr_mdir {
             uint32_t cksum;
             lfs_block_t blocks[2];
         } m;
-        struct {
-            lfsr_rbyd_t rbyd;
-        } r;
+        lfsr_rbyd_t rbyd;
     } u;
 } lfsr_mdir_t;
 
@@ -444,12 +440,12 @@ typedef struct lfsr_data {
             // lfsr_bd_progdata, this field is invalid!
             int32_t leb128;
             const uint8_t *buffer;
-        } b;
+        } buffer;
         struct {
             lfs_ssize_t size;
             lfs_size_t off;
             lfs_block_t block;
-        } d;
+        } disk;
     } u;
 } lfsr_data_t;
 

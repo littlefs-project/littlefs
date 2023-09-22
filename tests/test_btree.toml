@@ -116,9 +116,9 @@ code = '''
     // create an empty tree
     lfsr_btree_t btree = LFSR_BTREE_NULL;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 0);
 
     // try looking up tags
@@ -149,9 +149,9 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
             LFSR_DATA("a", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 1);
 
     // try looking up tags
@@ -190,9 +190,9 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_INLINED, 1,
             LFSR_DATA("b", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 2);
 
     // try looking up tags
@@ -236,9 +236,9 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
             LFSR_DATA("a", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 2);
 
     // try looking up tags
@@ -285,9 +285,9 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 2, LFSR_TAG_INLINED, 1,
             LFSR_DATA("c", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 3);
 
     // try looking up tags
@@ -339,9 +339,9 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
             LFSR_DATA("a", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 3);
 
     // try looking up tags
@@ -402,9 +402,9 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == n);
 
     // check that the elements are in the tree
@@ -454,9 +454,9 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == n);
 
     // check that the elements are in the tree
@@ -537,9 +537,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == sim_size);
 
     uint8_t buffer[4];
@@ -592,9 +592,9 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == n*W);
 
     // check that the elements are in the tree
@@ -713,9 +713,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
@@ -795,9 +795,9 @@ code = '''
     lfsr_btree_set(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
             LFSR_DATA("A", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 1);
 
     // try looking up tags
@@ -840,9 +840,9 @@ code = '''
     lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_INLINED, 1,
             LFSR_DATA("B", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 2);
 
     // try looking up tags
@@ -895,9 +895,9 @@ code = '''
     lfsr_btree_set(&lfs, &btree, 2, LFSR_TAG_INLINED, 1,
             LFSR_DATA("C", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 3);
 
     // try looking up tags
@@ -951,9 +951,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
@@ -965,17 +965,17 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == N);
 
     // check that the elements are in the tree
@@ -1023,9 +1023,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
@@ -1070,9 +1070,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == N);
 
     uint8_t buffer[4];
@@ -1119,9 +1119,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
@@ -1133,17 +1133,17 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == N*W);
 
     // check that the elements are in the tree
@@ -1207,9 +1207,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
@@ -1273,9 +1273,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < N; j++) {
@@ -1355,9 +1355,9 @@ code = '''
     // pop!
     lfsr_btree_pop(&lfs, &btree, 0) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 0);
 
     // try looking up tags
@@ -1372,9 +1372,9 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
             LFSR_DATA("A", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 1);
 
     // try looking up tags
@@ -1410,9 +1410,9 @@ code = '''
     // pop!
     lfsr_btree_pop(&lfs, &btree, 1) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 1);
 
     // try looking up tags
@@ -1433,9 +1433,9 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 1, LFSR_TAG_INLINED, 1,
             LFSR_DATA("B", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 2);
 
     // try looking up tags
@@ -1477,9 +1477,9 @@ code = '''
     // pop!
     lfsr_btree_pop(&lfs, &btree, 0) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 1);
 
     // try looking up tags
@@ -1500,9 +1500,9 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
             LFSR_DATA("A", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 2);
 
     // try looking up tags
@@ -1546,9 +1546,9 @@ code = '''
     // pop!
     lfsr_btree_pop(&lfs, &btree, 2) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 2);
 
     // try looking up tags
@@ -1575,9 +1575,9 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 2, LFSR_TAG_INLINED, 1,
             LFSR_DATA("C", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 3);
 
     // try looking up tags
@@ -1628,9 +1628,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
@@ -1641,18 +1641,18 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
     }
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == REMAINING);
 
     // check that the elements are in the tree
@@ -1719,9 +1719,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
@@ -1732,17 +1732,17 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == REMAINING);
 
     // check that the elements are in the tree
@@ -1811,9 +1811,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
@@ -1859,9 +1859,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == sim_size);
 
     uint8_t buffer[4];
@@ -1909,9 +1909,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
@@ -1922,17 +1922,17 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == REMAINING*W);
 
     // check that the elements are in the tree
@@ -2049,9 +2049,9 @@ code = '''
         // ignore space issues
         if (err == LFS_ERR_NOSPC) {
             printf("btree: w%d 0x%x.%x\n",
-                    btree.u.r.rbyd.weight,
-                    btree.u.r.rbyd.block,
-                    btree.u.r.rbyd.trunk);
+                    btree.u.rbyd.weight,
+                    btree.u.rbyd.block,
+                    btree.u.rbyd.trunk);
             return;
         }
         assert(err == 0);
@@ -2106,9 +2106,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
@@ -2197,9 +2197,9 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == n);
 
     // check that the elements are in the tree
@@ -2286,9 +2286,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == sim_size);
 
     uint8_t buffer[4];
@@ -2344,9 +2344,9 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == n*W);
 
     // check that the elements are in the tree
@@ -2484,9 +2484,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
@@ -2575,7 +2575,7 @@ code = '''
             LFSR_TAG_INLINED, 1, LFSR_DATA(buf1, SIZE),
             LFSR_TAG_INLINED, 1, LFSR_DATA(buf2, SIZE)) => 0;
     // force compaction
-    btree.u.r.rbyd.eoff = -1;
+    btree.u.rbyd.eoff = -1;
     memset(buf2, 'b', SIZE);
     lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_INLINED, 1,
             LFSR_DATA(buf2, SIZE)) => 0;
@@ -2586,9 +2586,9 @@ code = '''
     lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 1);
 
     // check that our other entry is fine
@@ -2637,7 +2637,7 @@ code = '''
             LFSR_TAG_INLINED, 1, LFSR_DATA(buf1, SIZE),
             LFSR_TAG_INLINED, 1, LFSR_DATA(buf2, SIZE)) => 0;
     // force compaction
-    btree.u.r.rbyd.eoff = -1;
+    btree.u.rbyd.eoff = -1;
     memset(buf2, 'b', SIZE);
     lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_INLINED, 1,
             LFSR_DATA(buf2, SIZE)) => 0;
@@ -2647,13 +2647,13 @@ code = '''
     // this should force one of the blocks to drop
     //
     // do this while forcing a compaction
-    btree.u.r.rbyd.eoff = -1;
+    btree.u.rbyd.eoff = -1;
     lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 1);
 
     // check that our other entry is fine
@@ -2707,13 +2707,13 @@ code = '''
     //
     // messy, isn't it? this is why we need an explicit test
     //
-    btree.u.r.rbyd.eoff = -1;
+    btree.u.rbyd.eoff = -1;
     lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 1);
 
     // check that our other entry is fine
@@ -2762,7 +2762,7 @@ code = '''
             LFSR_TAG_INLINED, 1, LFSR_DATA(buf1, SIZE),
             LFSR_TAG_INLINED, 1, LFSR_DATA(buf2, SIZE)) => 0;
     // force compaction
-    btree.u.r.rbyd.eoff = -1;
+    btree.u.rbyd.eoff = -1;
     memset(buf2, 'b', SIZE);
     lfsr_btree_set(&lfs, &btree, 1, LFSR_TAG_INLINED, 1,
             LFSR_DATA(buf2, SIZE)) => 0;
@@ -2776,13 +2776,13 @@ code = '''
 
     // force compaction, while removing one entry, this drops the rbyd
     // down to zero while also triggering a merge
-    btree.u.r.rbyd.eoff = -1;
+    btree.u.rbyd.eoff = -1;
     lfsr_btree_pop(&lfs, &btree, SIBLING) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 1);
 
     // check that our other entry is fine
@@ -2893,9 +2893,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == sim_size);
 
     uint8_t buffer[4];
@@ -3034,9 +3034,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
@@ -3109,9 +3109,9 @@ code = '''
     // create a zero-entry tree
     lfsr_btree_t btree = LFSR_BTREE_NULL;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 0);
 
     // try to find tags
@@ -3144,9 +3144,9 @@ code = '''
     lfsr_btree_push(&lfs, &btree, 0, LFSR_TAG_INLINED, 1,
             LFSR_DATA("0", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 1);
 
     // try to find tags
@@ -3196,9 +3196,9 @@ code = '''
             LFSR_TAG_INLINED, 1, LFSR_DATA("0", 1),
             LFSR_TAG_INLINED, 1, LFSR_DATA("1", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 2);
 
     // try to find tags
@@ -3259,9 +3259,9 @@ code = '''
             LFSR_TAG_INLINED, 1, LFSR_DATA("1", 1),
             LFSR_TAG_INLINED, 1, LFSR_DATA("2", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 3);
 
     // try to find tags
@@ -3330,9 +3330,9 @@ code = '''
             LFSR_TAG_INLINED, 1, LFSR_DATA("0", 1),
             LFSR_TAG_INLINED, 1, LFSR_DATA("1", 1)) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == 3);
 
     // try to find tags
@@ -3414,9 +3414,9 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == n);
 
     // try to find tags
@@ -3526,9 +3526,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == sim_size);
 
     uint8_t buffer[4];
@@ -3592,9 +3592,9 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == n*W);
 
     // try to find tags
@@ -3732,9 +3732,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
@@ -3920,9 +3920,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == sim_size);
 
     uint8_t buffer[4];
@@ -4130,9 +4130,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
 
     lfs_size_t total_weight = 0;
     for (lfs_size_t j = 0; j < sim_size; j++) {
@@ -4200,9 +4200,9 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == n);
 
     // check that the elements are in the tree
@@ -4244,7 +4244,7 @@ code = '''
         }
 
         if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.b.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.buffer.buffer;
             printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                     bid_,
                     tag_,
@@ -4349,9 +4349,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == sim_size);
 
     uint8_t buffer[4];
@@ -4392,7 +4392,7 @@ code = '''
         }
 
         if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.b.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.buffer.buffer;
             printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                     bid_,
                     tag_,
@@ -4435,9 +4435,9 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.u.r.rbyd.weight,
-            btree.u.r.rbyd.block,
-            btree.u.r.rbyd.trunk);
+            btree.u.rbyd.weight,
+            btree.u.rbyd.block,
+            btree.u.rbyd.trunk);
     assert(lfsr_btree_weight(&btree) == sim_size);
 
     for (lfs_size_t i = 0; i < sim_size; i++) {
