@@ -1024,17 +1024,17 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     ((lfsr_data_t){.u.direct.buffer=(const void*)(lfsr_grm_t*){_grm}})
 
 // writing to an unrelated trunk in the rbyd
-#define LFSR_DATA_SHRUBATTRS(_rbyd, ...) \
+#define LFSR_DATA_SHRUBATTRS(_file, ...) \
     ((lfsr_data_t){.u.direct.buffer=(const void*)&(const lfsr_shrubattrs_t){ \
-        .rbyd=_rbyd, \
+        .file=_file, \
         .attrs=(const lfsr_attr_t[]){__VA_ARGS__}, \
         .attr_count=sizeof((const lfsr_attr_t[]){__VA_ARGS__}) \
             / sizeof(lfsr_attr_t)}})
 
 // the reason for lazily encoding inlined trunks is because they can change
 // underneath us during mdir compaction, the horror
-#define LFSR_DATA_TRUNK(_rbyd) \
-    ((lfsr_data_t){.u.direct.buffer=(const void*)(lfsr_rbyd_t*){_rbyd}})
+#define LFSR_DATA_FILE(_file) \
+    ((lfsr_data_t){.u.direct.buffer=(const void*)(lfsr_file_t*){_file}})
 
 static inline bool lfsr_data_ondisk(const lfsr_data_t *data) {
     return data->u.size & LFSR_DATA_ONDISK;
@@ -1882,7 +1882,7 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 
 // shrub things
 typedef struct lfsr_shrubattrs {
-    lfsr_rbyd_t *rbyd;
+    lfsr_file_t *file;
     const lfsr_attr_t *attrs;
     lfs_size_t attr_count;
 } lfsr_shrubattrs_t;
@@ -5248,8 +5248,8 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // messed up
                 //
                 // it is important that these rbyds share eoff/cksum/etc
-                mdir_.u.m.trunk = shrubattrs->rbyd->trunk;
-                mdir_.u.m.weight = shrubattrs->rbyd->weight;
+                mdir_.u.m.trunk = shrubattrs->file->inlined_.u.rbyd.trunk;
+                mdir_.u.m.weight = shrubattrs->file->inlined_.u.rbyd.weight;
 
                 // if weight's sign=1, we were inlined data and need to zero
                 // things, we do this here to avoid compaction clobbering
@@ -5267,9 +5267,9 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
 
                 // revert to mdir trunk/weight
-                shrubattrs->rbyd->block = mdir_.u.m.blocks[0];
-                shrubattrs->rbyd->trunk = mdir_.u.m.trunk;
-                shrubattrs->rbyd->weight = mdir_.u.m.weight;
+                shrubattrs->file->inlined_.u.rbyd.block = mdir_.u.m.blocks[0];
+                shrubattrs->file->inlined_.u.rbyd.trunk = mdir_.u.m.trunk;
+                shrubattrs->file->inlined_.u.rbyd.weight = mdir_.u.m.weight;
                 mdir_.u.m.trunk = mdir->u.m.trunk;
                 mdir_.u.m.weight = mdir->u.m.weight;
 
@@ -5278,13 +5278,18 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             //
             // TODO should we preserve mode for all of these?
             } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_SHRUBTRUNK) {
-                lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)attrs[i].data.u.direct.buffer;
+                lfsr_file_t *file = (lfsr_file_t*)attrs[i].data.u.direct.buffer;
 
                 uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
                 int err = lfsr_rbyd_appendattr(lfs, &mdir_.u.rbyd,
                         rid - lfs_smax32(start_rid, 0),
                         lfsr_tag_mode(attrs[i].tag) | LFSR_TAG_TRUNK,
-                        attrs[i].delta, lfsr_data_fromtrunk(rbyd, trunk_buf));
+                        attrs[i].delta,
+                        lfsr_data_fromtrunk(
+                            // note we use the pending trunk here, our inlined
+                            // data may have been updated for compacts
+                            &file->inlined_.u.rbyd,
+                            trunk_buf));
                 if (err) {
                     return err;
                 }
@@ -5670,6 +5675,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                 lfsr_mdir_unerase(&opened->mdir);
             }
         }
+    }
+
+    // stage all inlined files, these may be need updating if we compact
+    // an mdir
+    //
+    // TODO merge with above?
+    for (lfsr_openedmdir_t *opened = lfs->opened[LFS_TYPE_REG-LFS_TYPE_REG];
+            opened;
+            opened = opened->next) {
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        file->inlined_ = file->inlined;
     }
 
     // attempt to commit/compact the mdir normally
@@ -6185,21 +6201,14 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
     }
 
+    // update any staged changes to inlined data/trees
+    //
     // TODO merge with above? maybe?
     for (lfsr_openedmdir_t *opened = lfs->opened[LFS_TYPE_REG-LFS_TYPE_REG];
             opened;
             opened = opened->next) {
-        // if we compacted, update any staged changes to inlined data/trees
         lfsr_file_t *file = (lfsr_file_t*)opened;
-        if (mdir_.u.m.blocks[0] != mdir->u.m.blocks[0]
-                && ((lfsr_file_hasinlined(file)
-                        && file->inlined.u.data.u.disk.block
-                            == mdir->u.m.blocks[0])
-                    || (lfsr_file_hasshrub(file)
-                        && file->inlined.u.rbyd.block
-                            == mdir->u.m.blocks[0]))) {
-            file->inlined = file->inlined_;
-        }
+        file->inlined = file->inlined_;
     }
 
     // update mdir to follow requested rid
@@ -8397,15 +8406,10 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
 
             // convert to inlined tree
             //
-            // make sure to use our staging rbyd so we catch in-flight updates
-            // caused by mdir compactions
-            //
             // note that the actual conversion from inlined data to tree is
             // in lfsr_mdir_commit__ to avoid compaction issues
-            file->inlined_ = file->inlined;
             int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                    LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(
-                        &file->inlined_.u.rbyd,
+                    LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
                         // note we always need a zero entry
                         (file->buffer_pos > 0
                             ? LFSR_ATTR(0,
@@ -8427,7 +8431,6 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                 return err;
             }
 
-            file->inlined = file->inlined_;
             // TODO
             file->inlined.u.shrub.overhead = 0;
             file->buffer_size = 0;
@@ -8501,13 +8504,8 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
         }
 
         // write out our buffer and any carved data
-        //
-        // make sure to use our staging rbyd so we catch in-flight updates
-        // caused by mdir compactions
-        file->inlined_ = file->inlined;
         err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(
-                    &file->inlined_.u.rbyd,
+                LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
                     // first remove anything in the way
                     LFSR_ATTR(
                         lfs_min32(
@@ -8539,7 +8537,6 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
             return err;
         }
 
-        file->inlined = file->inlined_;
         file->buffer_size = 0;
         continue;
 
@@ -8679,10 +8676,9 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             //
             // make sure to use our staging rbyd so we catch in-flight updates
             // caused by mdir compactions
-            file->inlined_ = file->inlined;
             err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                    LFSR_ATTR(file->m.mdir.mid, WIDE(SHRUBTRUNK), 0, TRUNK(
-                        &file->inlined_.u.rbyd))));
+                    LFSR_ATTR(file->m.mdir.mid,
+                        WIDE(SHRUBTRUNK), 0, FILE(file))));
             if (err) {
                 goto failed;
             }
