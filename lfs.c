@@ -980,20 +980,23 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 // use the sign bit to indicate on-disk vs in-device
 #define LFSR_DATA_ONDISK 0x80000000
 
-// the most common use is to pass a buffer with explicit size
-#define LFSR_DATA(_buffer, _size) \
-    ((lfsr_data_t){ \
-        .u.buffer.size=_size, \
-        .u.buffer.leb128=0, \
-        .u.buffer.buffer=(const void*)(_buffer)})
-
 // LFSR_DATA_DATA just provides and escape hatch to pass raw datas
 // through the LFSR_ATTR macro
 #define LFSR_DATA_DATA(_data) (_data)
 
-#define LFSR_DATA_NULL LFSR_DATA(NULL, 0)
+#define LFSR_DATA_NULL LFSR_DATA_BUF(NULL, 0)
 
-#define LFSR_DATA_BUF(_buffer, _size) LFSR_DATA(_buffer, _size)
+#define LFSR_DATA_IMM(_buffer, _size) \
+    lfsr_data_fromimm(_buffer, _size)
+
+#define LFSR_DATA_LEB128(_word) \
+    lfsr_data_fromleb128(_word)
+
+#define LFSR_DATA_BUF(_buffer, _size) \
+    ((lfsr_data_t){ \
+        .u.direct.size=_size, \
+        .u.direct.count=1, \
+        .u.direct.buffer=(const void*)(_buffer)})
 
 #define LFSR_DATA_DISK(_block, _off, _size) \
     ((lfsr_data_t){ \
@@ -1001,17 +1004,11 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
         .u.disk.block=_block, \
         .u.disk.off=_off})
 
-#define LFSR_DATA_LEB128(_leb) \
-    ((lfsr_data_t){ \
-        .u.buffer.size=lfs_sizeleb128(_leb), \
-        .u.buffer.leb128=(0x80000000 | (_leb)), \
-        .u.buffer.buffer=NULL})
-
-#define LFSR_DATA_NAME(_did, _buffer, _size) \
-    ((lfsr_data_t){ \
-        .u.buffer.size=lfs_sizeleb128(_did) + (_size), \
-        .u.buffer.leb128=(0x80000000 | (_did)), \
-        .u.buffer.buffer=(const void*)(_buffer)})
+// these rely on temporary allocations which is a bit precarious...
+#define LFSR_DATA_CAT(...) \
+    lfsr_data_fromcat( \
+        (const lfsr_data_t[]){__VA_ARGS__}, \
+        sizeof((const lfsr_data_t[]){__VA_ARGS__}) / sizeof(lfsr_data_t))
 
 // These aren't true runtime-typed datas, but allows some special cases to
 // bypass data encoding. External context is required to access these
@@ -1019,16 +1016,16 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 
 // a move of all attrs from an mdir entry 
 #define LFSR_DATA_MOVE(_mdir) \
-    ((lfsr_data_t){.u.buffer.buffer=(const void*)(const lfsr_mdir_t*){_mdir}})
+    ((lfsr_data_t){.u.direct.buffer=(const void*)(const lfsr_mdir_t*){_mdir}})
 
 // a grm update, note this is mutable! we may update the grm during
 // mdir commits
 #define LFSR_DATA_GRM(_grm) \
-    ((lfsr_data_t){.u.buffer.buffer=(const void*)(lfsr_grm_t*){_grm}})
+    ((lfsr_data_t){.u.direct.buffer=(const void*)(lfsr_grm_t*){_grm}})
 
 // writing to an unrelated trunk in the rbyd
 #define LFSR_DATA_SHRUBATTRS(_rbyd, ...) \
-    ((lfsr_data_t){.u.buffer.buffer=(const void*)&(const lfsr_shrubattrs_t){ \
+    ((lfsr_data_t){.u.direct.buffer=(const void*)&(const lfsr_shrubattrs_t){ \
         .rbyd=_rbyd, \
         .attrs=(const lfsr_attr_t[]){__VA_ARGS__}, \
         .attr_count=sizeof((const lfsr_attr_t[]){__VA_ARGS__}) \
@@ -1037,7 +1034,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 // the reason for lazily encoding inlined trunks is because they can change
 // underneath us during mdir compaction, the horror
 #define LFSR_DATA_TRUNK(_rbyd) \
-    ((lfsr_data_t){.u.buffer.buffer=(const void*)(lfsr_rbyd_t*){_rbyd}})
+    ((lfsr_data_t){.u.direct.buffer=(const void*)(lfsr_rbyd_t*){_rbyd}})
 
 static inline bool lfsr_data_ondisk(const lfsr_data_t *data) {
     return data->u.size & LFSR_DATA_ONDISK;
@@ -1047,12 +1044,44 @@ static inline lfs_size_t lfsr_data_size(const lfsr_data_t *data) {
     return data->u.size & ~LFSR_DATA_ONDISK;
 }
 
-static inline bool lfsr_data_hasleb128(const lfsr_data_t *data) {
-    return data->u.buffer.leb128;
+// some data initializers just can't be macros, we at least make these inline
+// so most of the internal logic gets elided
+static inline lfsr_data_t lfsr_data_fromimm(
+        const void *buffer, lfs_size_t size) {
+    LFS_ASSERT(size <= 5);
+
+    lfsr_data_t data;
+    memcpy(data.u.inlined.buf, buffer, size);
+    data.u.inlined.size = size;
+    data.u.inlined.count = 0;
+    return data;
 }
 
-static inline int32_t lfsr_data_leb128(const lfsr_data_t *data) {
-    return data->u.buffer.leb128 & 0x7fffffff;
+static inline lfsr_data_t lfsr_data_fromleb128(int32_t word) {
+    lfsr_data_t data;
+    lfs_ssize_t size = lfs_toleb128(word, data.u.inlined.buf, 5);
+    LFS_ASSERT(size >= 0);
+    LFS_ASSERT(size <= 5);
+    data.u.inlined.size = size;
+    data.u.inlined.count = 0;
+    return data;
+}
+
+static inline lfsr_data_t lfsr_data_fromcat(
+        const lfsr_data_t *datas, lfs_size_t count) {
+    LFS_ASSERT(count >= 2);
+    LFS_ASSERT(count <= 255);
+
+    // find total size
+    lfs_size_t size = 0;
+    for (uint8_t i = 0; i < count; i++) {
+        size += lfsr_data_size(&datas[i]);
+    }
+
+    return (lfsr_data_t){
+            .u.indirect.size=size,
+            .u.indirect.count=count,
+            .u.indirect.datas=datas};
 }
 
 static void lfsr_data_add(lfsr_data_t *data, lfs_size_t off) {
@@ -1060,14 +1089,26 @@ static void lfsr_data_add(lfsr_data_t *data, lfs_size_t off) {
     // limit our off to data range
     lfs_size_t off_ = lfs_min32(off, lfsr_data_size(&data_));
 
-    // note both these paths are the same! though I'm not sure the compiler
-    // is able to notice this...
+    // on-disk? increment
     if (lfsr_data_ondisk(&data_)) {
         data_.u.disk.off += off_;
         data_.u.disk.size -= off_;
+
+    // inlined? internal memmove
+    } else if (data_.u.indirect.count == 0) {
+        memmove(data_.u.inlined.buf,
+                data_.u.inlined.buf + off_,
+                data_.u.inlined.size - off_);
+        data_.u.inlined.size -= off_;
+
+    // direct? increment
+    } else if (data_.u.indirect.count == 1) {
+        data_.u.direct.buffer += off_;
+        data_.u.direct.size -= off_;
+
+    // indirect? just update size, more on how this works in lfsr_data_read
     } else {
-        data_.u.buffer.buffer += off_;
-        data_.u.buffer.size -= off_;
+        data_.u.indirect.size -= off_;
     }
 
     *data = data_;
@@ -1077,25 +1118,91 @@ static void lfsr_data_add(lfsr_data_t *data, lfs_size_t off) {
 
 // lfsr_data_read* operations update the lfsr_data_t, effectively
 // consuming the data
-static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
+
+static lfs_ssize_t lfsr_data_read_(lfs_t *lfs, const lfsr_data_t *data,
         void *buffer, lfs_size_t size) {
     // limit our size to data range
-    lfsr_data_t data_ = *data;
-    lfs_size_t d = lfs_min32(size, lfsr_data_size(&data_));
+    lfs_size_t d = lfs_min32(size, lfsr_data_size(data));
 
-    if (lfsr_data_ondisk(&data_)) {
-        int err = lfsr_bd_read(lfs, data_.u.disk.block, data_.u.disk.off,
+    // on-disk?
+    if (lfsr_data_ondisk(data)) {
+        int err = lfsr_bd_read(lfs, data->u.disk.block, data->u.disk.off,
                 // note our hint includes the full data range
-                lfsr_data_size(&data_),
+                lfsr_data_size(data),
                 buffer, d);
         if (err) {
             return err;
         }
-    } else {
-        // leb128 prefixes not supported here
-        LFS_ASSERT(!lfsr_data_hasleb128(&data_));
 
-        memcpy(buffer, data_.u.buffer.buffer, d);
+    // inlined?
+    } else if (data->u.indirect.count == 0) {
+        memcpy(buffer, data->u.inlined.buf, d);
+
+    // direct?
+    } else if (data->u.indirect.count == 1) {
+        memcpy(buffer, data->u.direct.buffer, d);
+
+    // indirect? we shouldn't handle this here
+    } else {
+        LFS_UNREACHABLE();
+    }
+
+    return d;
+}
+
+static lfs_size_t lfsr_data_indirectoff(const lfsr_data_t *data) {
+    LFS_ASSERT(!lfsr_data_ondisk(data));
+    LFS_ASSERT(data->u.indirect.count >= 2);
+
+    lfs_size_t indirect_size = 0;
+    for (uint8_t i = 0; i < data->u.indirect.count; i++) {
+        indirect_size += lfsr_data_size(&data->u.indirect.datas[i]);
+    }
+
+    return indirect_size - data->u.indirect.size;
+}
+
+static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
+        void *buffer, lfs_size_t size) {
+    // handle indirect data specially to avoid recursion
+    lfs_ssize_t d;
+    if (!lfsr_data_ondisk(data) && data->u.indirect.count >= 2) {
+        // Indirect data is a bit complicated because we don't want to modify
+        // the indirect datas themselves. It's tempting to just make them
+        // mutable, but this breaks the common pattern of using shallow copies
+        // of lfsr_data_t to cheaply track progress.
+        //
+        // The solution here is to use the redundant sizes to figure out what
+        // we've read so far. This risks O(n^2) performance, but we usually
+        // only have a couple indirect datas at most
+        //
+        lfs_size_t indirect_off = lfsr_data_indirectoff(data);
+        uint8_t *buffer_ = buffer;
+        d = 0;
+        for (uint8_t i = 0; i < data->u.indirect.count && size > 0; i++) {
+            // skip consumed data
+            lfsr_data_t indirect_data = data->u.indirect.datas[i];
+            lfsr_data_add(&indirect_data, indirect_off);
+            indirect_off -= lfs_min32(
+                    lfsr_data_size(&indirect_data),
+                    indirect_off);
+
+            // read unconsumed data
+            lfs_ssize_t d_ = lfsr_data_read_(lfs, &indirect_data,
+                    buffer_, size);
+            if (d_ < 0) {
+                return d_;
+            }
+
+            buffer_ += d_;
+            size -= d_;
+            d += d_;
+        }
+    } else {
+        d = lfsr_data_read_(lfs, data, buffer, size);
+        if (d < 0) {
+            return d;
+        }
     }
 
     lfsr_data_add(data, d);
@@ -1141,28 +1248,40 @@ static int lfsr_data_readleb128(lfs_t *lfs, lfsr_data_t *data,
     return 0;
 }
 
-static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, const lfsr_data_t *data,
+static lfs_scmp_t lfsr_data_cmp_(lfs_t *lfs, const lfsr_data_t *data,
         const void *buffer, lfs_size_t size) {
-    // limit our off/size to data range
+    // limit our size to data range
     lfs_size_t d = lfs_min32(size, lfsr_data_size(data));
 
-    // compare our data
+    // on-disk?
     if (lfsr_data_ondisk(data)) {
         int cmp = lfsr_bd_cmp(lfs, data->u.disk.block, data->u.disk.off, 0,
                 buffer, d);
         if (cmp != LFS_CMP_EQ) {
             return cmp;
         }
-    } else {
-        // leb128 prefixes not supported here
-        LFS_ASSERT(!lfsr_data_hasleb128(data));
 
-        int cmp = memcmp(data->u.buffer.buffer, buffer, d);
+    // inlined?
+    } else if (data->u.indirect.count == 0) {
+        int cmp = memcmp(data->u.inlined.buf, buffer, d);
         if (cmp < 0) {
             return LFS_CMP_LT;
         } else if (cmp > 0) {
             return LFS_CMP_GT;
         }
+
+    // direct?
+    } else if (data->u.indirect.count == 1) {
+        int cmp = memcmp(data->u.direct.buffer, buffer, d);
+        if (cmp < 0) {
+            return LFS_CMP_LT;
+        } else if (cmp > 0) {
+            return LFS_CMP_GT;
+        }
+
+    // indirect? we shouldn't handle this here
+    } else {
+        LFS_UNREACHABLE();
     }
 
     // if data is equal, check for size mismatch
@@ -1172,6 +1291,52 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, const lfsr_data_t *data,
         return LFS_CMP_GT;
     } else {
         return LFS_CMP_EQ;
+    }
+}
+
+static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, const lfsr_data_t *data,
+        const void *buffer, lfs_size_t size) {
+    // handle indirect data specially to avoid recursion
+    if (!lfsr_data_ondisk(data) && data->u.indirect.count >= 2) {
+        // Indirect data is a bit complicated because we don't want to modify
+        // the indirect datas themselves. It's tempting to just make them
+        // mutable, but this breaks the common pattern of using shallow copies
+        // of lfsr_data_t to cheaply track progress.
+        //
+        // The solution here is to use the redundant sizes to figure out what
+        // we've read so far. This risks O(n^2) performance, but we usually
+        // only have a couple indirect datas at most
+        //
+        lfs_size_t indirect_off = lfsr_data_indirectoff(data);
+        const uint8_t *buffer_ = buffer;
+        for (uint8_t i = 0; i < data->u.indirect.count && size > 0; i++) {
+            // skip consumed data
+            lfsr_data_t indirect_data = data->u.indirect.datas[i];
+            lfsr_data_add(&indirect_data, indirect_off);
+            indirect_off -= lfs_min32(
+                    lfsr_data_size(&indirect_data),
+                    indirect_off);
+
+            // compare against unconsumed data
+            lfs_size_t d = lfs_min32(size, lfsr_data_size(&indirect_data));
+            lfs_scmp_t cmp = lfsr_data_cmp_(lfs, &indirect_data, buffer_, d);
+            if (cmp != LFS_CMP_EQ) {
+                return cmp;
+            }
+
+            buffer_ += d;
+            size -= d;
+        }
+
+        // data is equal, the only remaining condition to check for is size
+        // remaining
+        if (size > 0) {
+            return LFS_CMP_LT;
+        } else {
+            return LFS_CMP_EQ;
+        }
+    } else {
+        return lfsr_data_cmp_(lfs, data, buffer, size);
     }
 }
 
@@ -1191,13 +1356,14 @@ static lfs_scmp_t lfsr_data_namecmp(lfs_t *lfs, const lfsr_data_t *data,
         return LFS_CMP_GT;
     }
 
-    // next compare the actual name
+    // then compare the actual name
     return lfsr_data_cmp(lfs, &data_, name, name_size);
 }
 
-static int lfsr_bd_progdata(lfs_t *lfs,
+static int lfsr_bd_progdata_(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfsr_data_t data,
         uint32_t *cksum_) {
+    // on-disk?
     if (lfsr_data_ondisk(&data)) {
         // TODO byte-level copies have been a pain point, works for prototyping
         // but can this be better? configurable? leverage
@@ -1219,32 +1385,66 @@ static int lfsr_bd_progdata(lfs_t *lfs,
             }
         }
 
-    } else {
-        // This is a bit of a hack, but lfsr_data_t can inject a single leb128
-        // into lfsr_bd_progdata. This is needed for directory-id prefixes,
-        // but can also be used for programming single leb128s cheaply.
-        if (lfsr_data_hasleb128(&data)) {
-            uint8_t leb_buf[5];
-            lfs_ssize_t leb_dsize = lfs_toleb128(
-                    lfsr_data_leb128(&data),
-                    leb_buf, 5);
-            if (leb_dsize < 0) {
-                return leb_dsize;
-            }
+    // inlined?
+    } else if (data.u.indirect.count == 0) {
+        int err = lfsr_bd_prog(lfs, block, off,
+                data.u.inlined.buf, data.u.inlined.size,
+                cksum_);
+        if (err) {
+            return err;
+        }
 
-            int err = lfsr_bd_prog(lfs, block, off,
-                    leb_buf, leb_dsize, cksum_);
+    // direct?
+    } else if (data.u.indirect.count == 1) {
+        int err = lfsr_bd_prog(lfs, block, off,
+                data.u.direct.buffer, data.u.direct.size,
+                cksum_);
+        if (err) {
+            return err;
+        }
+
+    // indirect? we shouldn't handle this here
+    } else {
+        LFS_UNREACHABLE();
+    }
+
+    return 0;
+}
+
+static int lfsr_bd_progdata(lfs_t *lfs,
+        lfs_block_t block, lfs_size_t off, lfsr_data_t data,
+        uint32_t *cksum_) {
+    // handle indirect data specially to avoid recursion
+    if (!lfsr_data_ondisk(&data) && data.u.indirect.count >= 2) {
+        // Indirect data is a bit complicated because we don't want to modify
+        // the indirect datas themselves. It's tempting to just make them
+        // mutable, but this breaks the common pattern of using shallow copies
+        // of lfsr_data_t to cheaply track progress.
+        //
+        // The solution here is to use the redundant sizes to figure out what
+        // we've read so far. This risks O(n^2) performance, but we usually
+        // only have a couple indirect datas at most
+        //
+        lfs_size_t indirect_off = lfsr_data_indirectoff(&data);
+        for (uint8_t i = 0; i < data.u.indirect.count; i++) {
+            // skip consumed data
+            lfsr_data_t indirect_data = data.u.indirect.datas[i];
+            lfsr_data_add(&indirect_data, indirect_off);
+            indirect_off -= lfs_min32(
+                    lfsr_data_size(&indirect_data),
+                    indirect_off);
+
+            // prog unconsumed data
+            int err = lfsr_bd_progdata_(lfs, block, off, indirect_data,
+                    cksum_);
             if (err) {
                 return err;
             }
 
-            off += leb_dsize;
-            LFS_ASSERT(data.u.buffer.size >= leb_dsize);
-            data.u.buffer.size -= leb_dsize;
+            off += lfsr_data_size(&indirect_data);
         }
-
-        int err = lfsr_bd_prog(lfs, block, off,
-                data.u.buffer.buffer, lfsr_data_size(&data),
+    } else {
+        int err = lfsr_bd_progdata_(lfs, block, off, data,
                 cksum_);
         if (err) {
             return err;
@@ -3132,7 +3332,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
             }
         }
 
-        err = lfsr_grm_xor(lfs, grm_buf, LFSR_DATA(
+        err = lfsr_grm_xor(lfs, grm_buf, LFSR_DATA_BUF(
                 &lfs->dgrm, LFSR_GRM_DSIZE));
         if (err) {
             return err;
@@ -3143,7 +3343,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         err = lfsr_rbyd_appendattr(lfs, rbyd, -1,
                 // opportunistically remove this tag if delta is all zero
                 (size == 0 ? LFSR_TAG_RM(GRM) : LFSR_TAG_GRM), 0,
-                LFSR_DATA(grm_buf, size));
+                LFSR_DATA_BUF(grm_buf, size));
         if (err) {
             return err;
         }
@@ -3521,7 +3721,7 @@ static int lfsr_btree_lookupnext_(lfs_t *lfs,
             *weight_ = lfsr_btree_weight(btree);
         }
         if (data_) {
-            *data_ = LFSR_DATA(btree->u.inlined.buf, btree->u.inlined.size);
+            *data_ = LFSR_DATA_BUF(btree->u.inlined.buf, btree->u.inlined.size);
         }
         return 0;
     }
@@ -4314,7 +4514,7 @@ static int lfsr_btree_namelookup(lfs_t *lfs, const lfsr_btree_t *btree,
             *weight_ = lfsr_btree_weight(btree);
         }
         if (data_) {
-            *data_ = LFSR_DATA(btree->u.inlined.buf, btree->u.inlined.size);
+            *data_ = LFSR_DATA_BUF(btree->u.inlined.buf, btree->u.inlined.size);
         }
         return 0;
     }
@@ -4416,7 +4616,9 @@ static int lfsr_btree_traversal_next(lfs_t *lfs, const lfsr_btree_t *btree,
                 *weight_ = lfsr_btree_weight(btree);
             }
             if (data_) {
-                *data_ = LFSR_DATA(btree->u.inlined.buf, btree->u.inlined.size);
+                *data_ = LFSR_DATA_BUF(
+                        btree->u.inlined.buf,
+                        btree->u.inlined.size);
             }
             return 0;
         }
@@ -4440,7 +4642,9 @@ static int lfsr_btree_traversal_next(lfs_t *lfs, const lfsr_btree_t *btree,
                 }
                 if (data_) {
                     // note btrees are returned decoded
-                    *data_ = LFSR_DATA(&traversal->branch, sizeof(lfsr_rbyd_t));
+                    *data_ = LFSR_DATA_BUF(
+                            &traversal->branch,
+                            sizeof(lfsr_rbyd_t));
                 }
                 return 0;
             }
@@ -4499,7 +4703,9 @@ static int lfsr_btree_traversal_next(lfs_t *lfs, const lfsr_btree_t *btree,
                 }
                 if (data_) {
                     // note btrees are returned decoded
-                    *data_ = LFSR_DATA(&traversal->branch, sizeof(lfsr_rbyd_t));
+                    *data_ = LFSR_DATA_BUF(
+                            &traversal->branch,
+                            sizeof(lfsr_rbyd_t));
                 }
                 return 0;
             }
@@ -5005,7 +5211,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // weighted moves are not supported
                 LFS_ASSERT(attrs[i].delta == 0);
                 const lfsr_mdir_t *mdir__
-                        = (const lfsr_mdir_t*)attrs[i].data.u.buffer.buffer;
+                        = (const lfsr_mdir_t*)attrs[i].data.u.direct.buffer;
 
                 // skip the name tag, this is always replaced by upper layers
                 lfsr_tag_t tag = LFSR_TAG_STRUCT-1;
@@ -5035,7 +5241,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             } else if (attrs[i].tag == LFSR_TAG_SHRUBATTRS) {
                 const lfsr_shrubattrs_t *shrubattrs
                         = (const lfsr_shrubattrs_t*)
-                            attrs[i].data.u.buffer.buffer;
+                            attrs[i].data.u.direct.buffer;
 
                 // swap out our trunk/weight temporarily, note we're operating
                 // on a copy so if this fails not _too_ many things will get
@@ -5072,7 +5278,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             //
             // TODO should we preserve mode for all of these?
             } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_SHRUBTRUNK) {
-                lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)attrs[i].data.u.buffer.buffer;
+                lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)attrs[i].data.u.direct.buffer;
 
                 uint8_t trunk_buf[LFSR_TRUNK_DSIZE];
                 int err = lfsr_rbyd_appendattr(lfs, &mdir_.u.rbyd,
@@ -5435,12 +5641,12 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     for (lfs_size_t i = 0; i < attr_count; i++) {
         if (attrs[i].tag == LFSR_TAG_GRM) {
             // encode to disk
-            lfsr_grm_t *grm = (lfsr_grm_t*)attrs[i].data.u.buffer.buffer;
+            lfsr_grm_t *grm = (lfsr_grm_t*)attrs[i].data.u.direct.buffer;
             lfsr_data_fromgrm(grm, lfs->dgrm);
 
             // xor with our current gstate to find our initial gdelta
             int err = lfsr_grm_xor(lfs, lfs->dgrm,
-                    LFSR_DATA(lfs->ggrm, LFSR_GRM_DSIZE));
+                    LFSR_DATA_BUF(lfs->ggrm, LFSR_GRM_DSIZE));
             if (err) {
                 return err;
             }
@@ -5687,7 +5893,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             //
             // gd' = gd xor (grm' xor grm)
             //
-            lfsr_grm_t *grm = (lfsr_grm_t*)attrs[i].data.u.buffer.buffer;
+            lfsr_grm_t *grm = (lfsr_grm_t*)attrs[i].data.u.direct.buffer;
             uint8_t grm_buf[LFSR_GRM_DSIZE];
             err = lfsr_grm_xor(lfs, lfs->dgrm,
                     lfsr_data_fromgrm(grm, grm_buf));
@@ -5862,7 +6068,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     for (lfs_size_t i = 0; i < attr_count; i++) {
         // update gstate
         if (attrs[i].tag == LFSR_TAG_GRM) {
-            lfs->grm = *(lfsr_grm_t*)attrs[i].data.u.buffer.buffer;
+            lfs->grm = *(lfsr_grm_t*)attrs[i].data.u.direct.buffer;
 
             // keep track of the exact encoding on-disk
             lfsr_data_fromgrm(&lfs->grm, lfs->ggrm);
@@ -6284,7 +6490,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             *tag_ = LFSR_TAG_MDIR;
         }
         if (data_) {
-            *data_ = LFSR_DATA(&traversal->mdir, sizeof(lfsr_mdir_t));
+            *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
         }
         return 0;
 
@@ -6348,7 +6554,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
                 *tag_ = LFSR_TAG_MDIR;
             }
             if (data_) {
-                *data_ = LFSR_DATA(&traversal->mdir, sizeof(lfsr_mdir_t));
+                *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
             }
             return 0;
 
@@ -6398,7 +6604,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         // validate our btree nodes if requested, this just means we need
         // to do a full rbyd fetch and make sure the checksums match
         if (traversal->flags & LFSR_MTREE_TRAVERSAL_VALIDATE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.u.buffer.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.u.direct.buffer;
             lfsr_rbyd_t branch_;
             err = lfsr_rbyd_fetch(lfs, &branch_,
                     branch->block, branch->trunk);
@@ -6468,7 +6674,7 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             *tag_ = tag;
         }
         if (data_) {
-            *data_ = LFSR_DATA(&traversal->mdir, sizeof(lfsr_mdir_t));
+            *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
         }
         return 0;
 
@@ -6594,7 +6800,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
             continue;
         }
 
-        lfsr_mdir_t *mdir = (lfsr_mdir_t*)data.u.buffer.buffer;
+        lfsr_mdir_t *mdir = (lfsr_mdir_t*)data.u.direct.buffer;
         // found an mroot?
         if (mdir->mid == -1) {
             // has magic string?
@@ -6943,7 +7149,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
     memcpy(lfs->ggrm, lfs->dgrm, LFSR_GRM_DSIZE);
 
     // decode grm so we can report any removed files as missing
-    int err = lfsr_data_readgrm(lfs, &LFSR_DATA(lfs->ggrm, LFSR_GRM_DSIZE),
+    int err = lfsr_data_readgrm(lfs, &LFSR_DATA_BUF(lfs->ggrm, LFSR_GRM_DSIZE),
             &lfs->grm);
     if (err) {
         return err;
@@ -6992,7 +7198,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
         // - the root's bookmark tag, which reserves did = 0 for the root
         err = lfsr_rbyd_commit(lfs, &rbyd, LFSR_ATTRS(
                 LFSR_ATTR(-1, MAGIC, 0, BUF("littlefs", 8)),
-                LFSR_ATTR(-1, VERSION, 0, BUF(((const uint8_t[2]){
+                LFSR_ATTR(-1, VERSION, 0, IMM(((const uint8_t[2]){
                     LFS_DISK_VERSION_MAJOR,
                     LFS_DISK_VERSION_MINOR}), 2)),
                 LFSR_ATTR(-1, BLOCKLIMIT, 0, LEB128(lfs->cfg->block_size-1)),
@@ -7000,7 +7206,7 @@ static int lfsr_formatinited(lfs_t *lfs) {
                 LFSR_ATTR(-1, MLEAFLIMIT, 0, LEB128(lfsr_mleafweight(lfs)-1)),
                 LFSR_ATTR(-1, SIZELIMIT, 0, LEB128(0x7fffffff)),
                 LFSR_ATTR(-1, NAMELIMIT, 0, LEB128(0xff)),
-                LFSR_ATTR(0, BOOKMARK, +1, NAME(0, NULL, 0))));
+                LFSR_ATTR(0, BOOKMARK, +1, LEB128(0))));
         if (err) {
             return err;
         }
@@ -7161,12 +7367,12 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
 
             // mark any blocks we see at in-use, including any btree/mdir blocks
             if (tag == LFSR_TAG_MDIR) {
-                lfsr_mdir_t *mdir = (lfsr_mdir_t*)data.u.buffer.buffer;
+                lfsr_mdir_t *mdir = (lfsr_mdir_t*)data.u.direct.buffer;
                 lfs_alloc_setinuse(lfs, mdir->u.m.blocks[1]);
                 lfs_alloc_setinuse(lfs, mdir->u.m.blocks[0]);
 
             } else if (tag == LFSR_TAG_BTREE) {
-                lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.u.buffer.buffer;
+                lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.u.direct.buffer;
                 lfs_alloc_setinuse(lfs, branch->block);
             }
         }
@@ -7344,7 +7550,10 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // commit our new directory into our parent, creating a grm to self-remove
     // in case of powerloss
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_ATTRS(
-            LFSR_ATTR(mdir.mid, DIR, +1, NAME(did, name, name_size)),
+            LFSR_ATTR(mdir.mid,
+                DIR, +1, CAT(
+                    LFSR_DATA_LEB128(did),
+                    LFSR_DATA_BUF(name, name_size))),
             LFSR_ATTR(mdir.mid, DID, 0, LEB128(did_)),
             LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{mdir.mid, -1}})))));
     if (err) {
@@ -7356,7 +7565,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // commit our bookmark and zero the grm, the bookmark tag is an empty
     // entry that marks our did as allocated
     err = lfsr_mdir_commit(lfs, &bookmark.mdir, LFSR_ATTRS(
-            LFSR_ATTR(bookmark.mdir.mid, BOOKMARK, +1, NAME(did_, NULL, 0)),
+            LFSR_ATTR(bookmark.mdir.mid, BOOKMARK, +1, LEB128(did_)),
             LFSR_ATTR(-1, GRM, 0, GRM(&((lfsr_grm_t){{-1, -1}})))));
     if (err) {
         return err;
@@ -7578,7 +7787,9 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
                 ? LFSR_ATTR(new_mdir.mid, RM, -1, NULL)
                 : LFSR_ATTR_NOOP),
             LFSR_ATTR(new_mdir.mid,
-                TAG(old_tag), +1, NAME(new_did, new_name, new_name_size)),
+                TAG(old_tag), +1, CAT(
+                    LFSR_DATA_LEB128(new_did),
+                    LFSR_DATA_BUF(new_name, new_name_size))),
             LFSR_ATTR(new_mdir.mid, MOVE, 0, MOVE(&old_mdir)),
             LFSR_ATTR(-1, GRM, 0, GRM(&grm))));
     if (err) {
@@ -7941,7 +8152,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         // TODO or is it? ;)
         err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
                 LFSR_ATTR(file->m.mdir.mid,
-                    REG, +1, NAME(did, name, name_size))));
+                    REG, +1, CAT(
+                        LFSR_DATA_LEB128(did),
+                        LFSR_DATA_BUF(name, name_size)))));
         if (err) {
             return err;
         }

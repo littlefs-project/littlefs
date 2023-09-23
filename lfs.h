@@ -432,19 +432,36 @@ typedef struct lfsr_data {
         // After removing the sign bit, the size always encodes the resulting
         // size on-disk.
         //
+        // After this the count field indicates the in-device representation,
+        // which has a few forms:
+        // - count == 0 => data inlined in data struct
+        // - count == 1 => direct pointer to data
+        // - count >= 2 => indirect pointer to array of datas
+        //
+        // The indirect pointer can point to inlined/direct datas or even
+        // on-disk datas, but not more indirect datas as that would require
+        // recursion.
+        //
         lfs_ssize_t size;
         struct {
             lfs_ssize_t size;
-            // This leb128 field is a bit of a hack that allows a single leb128
-            // to be injected into lfsr_bd_progdata. Outside of
-            // lfsr_bd_progdata, this field is invalid!
-            int32_t leb128;
-            const uint8_t *buffer;
-        } buffer;
+            uint8_t count;
+            uint8_t buf[5];
+        } inlined;
         struct {
             lfs_ssize_t size;
-            lfs_size_t off;
+            uint8_t count;
+            const uint8_t *buffer;
+        } direct;
+        struct {
+            lfs_ssize_t size;
+            uint8_t count;
+            const struct lfsr_data *datas;
+        } indirect;
+        struct {
+            lfs_ssize_t size;
             lfs_block_t block;
+            lfs_size_t off;
         } disk;
     } u;
 } lfsr_data_t;

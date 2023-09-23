@@ -3465,7 +3465,7 @@ code = '''
         }
 
         if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.buffer.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -3475,7 +3475,7 @@ code = '''
             // keep track of seen blocks
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.buffer.buffer;
+            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -3589,7 +3589,7 @@ code = '''
         }
 
         if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.buffer.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -3599,7 +3599,7 @@ code = '''
             // keep track of seen blocks
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.buffer.buffer;
+            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -3724,7 +3724,7 @@ code = '''
         }
 
         if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.buffer.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -3734,7 +3734,7 @@ code = '''
             // keep track of seen blocks
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.buffer.buffer;
+            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -3851,7 +3851,7 @@ code = '''
         }
 
         if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.buffer.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -3861,7 +3861,7 @@ code = '''
             // keep track of seen blocks
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.buffer.buffer;
+            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -3989,7 +3989,7 @@ code = '''
         }
 
         if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.buffer.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -3999,7 +3999,7 @@ code = '''
             // keep track of seen blocks
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.buffer.buffer;
+            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -4159,7 +4159,7 @@ code = '''
         }
 
         if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.buffer.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -4169,7 +4169,7 @@ code = '''
             // keep track of seen blocks
             seen[branch->block / 8] |= 1 << (branch->block % 8);
         } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.buffer.buffer;
+            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
@@ -4267,14 +4267,14 @@ code = '''
         }
 
         if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.buffer.buffer;
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
                     tag_,
                     branch->block, branch->trunk);
         } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.buffer.buffer;
+            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
             printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
                     mid_ >> lfs.mleaf_bits,
                     mid_ & lfsr_midrmask(&lfs),
