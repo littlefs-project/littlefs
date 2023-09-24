@@ -1027,12 +1027,11 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
     ((lfsr_data_t){.u.direct.buffer=(const void*)(lfsr_grm_t*){_grm}})
 
 // writing to an unrelated trunk in the rbyd
-#define LFSR_DATA_SHRUBATTRS(_file, ...) \
+#define LFSR_DATA_SHRUBATTRS(_file, _attrs, _attr_count) \
     ((lfsr_data_t){.u.direct.buffer=(const void*)&(const lfsr_shrubattrs_t){ \
         .file=_file, \
-        .attrs=(const lfsr_attr_t[]){__VA_ARGS__}, \
-        .attr_count=sizeof((const lfsr_attr_t[]){__VA_ARGS__}) \
-            / sizeof(lfsr_attr_t)}})
+        .attrs=_attrs, \
+        .attr_count=_attr_count}})
 
 // the reason for lazily encoding inlined trunks is because they can change
 // underneath us during mdir compaction, the horror
@@ -4338,27 +4337,25 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         bid -= rid - (rbyd.weight-1);
         LFS_ASSERT(rbyd_.weight > 0);
         LFS_ASSERT(sibling.weight > 0);
+        lfsr_attr_t *attrs_ = scratch_attrs;
         if (rbyd.weight == 0) {
-            scratch_attrs[0] = LFSR_ATTR(bid,
+            *attrs_++ = LFSR_ATTR(bid,
                     BTREE, +rbyd_.weight, FROMBTREE(&rbyd_, scratch_buf));
-            scratch_attrs[1] = LFSR_ATTR_NOOP;
         } else {
-            scratch_attrs[0] = LFSR_ATTR(bid+rid,
+            *attrs_++ = LFSR_ATTR(bid+rid,
                     BTREE, 0, FROMBTREE(&rbyd_, scratch_buf));
-            scratch_attrs[1] = LFSR_ATTR(bid+rid,
+            *attrs_++ = LFSR_ATTR(bid+rid,
                     GROW, -rbyd.weight + rbyd_.weight, NULL);
         }
-        scratch_attrs[2] = LFSR_ATTR(bid+rid - rbyd.weight + rbyd_.weight + 1,
+        *attrs_++ = LFSR_ATTR(bid+rid - rbyd.weight + rbyd_.weight + 1,
                 BTREE, +sibling.weight, FROMBTREE(&sibling, scratch_buf_));
         if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
-            scratch_attrs[3] = LFSR_ATTR(
+            *attrs_++ = LFSR_ATTR(
                     bid+rid - rbyd.weight + rbyd_.weight + sibling.weight,
                     BRANCH, 0, DATA(split_data));
-        } else {
-            scratch_attrs[3] = LFSR_ATTR_NOOP;
         }
         attrs = scratch_attrs;
-        attr_count = 4;
+        attr_count = attrs_ - scratch_attrs;
 
         rbyd = parent;
         continue;
@@ -4444,14 +4441,15 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         // prepare commit to parent, tail recursing upwards
         bid -= rid - (rbyd.weight-1);
         LFS_ASSERT(rbyd_.weight > 0);
-        scratch_attrs[0] = LFSR_ATTR(bid+rid+sibling.weight,
+        attrs_ = scratch_attrs;
+        *attrs_++ = LFSR_ATTR(bid+rid+sibling.weight,
                 RM, -sibling.weight, NULL);
-        scratch_attrs[1] = LFSR_ATTR(bid+rid,
+        *attrs_++ = LFSR_ATTR(bid+rid,
                 BTREE, 0, FROMBTREE(&rbyd_, scratch_buf));
-        scratch_attrs[2] = LFSR_ATTR(bid+rid,
+        *attrs_++ = LFSR_ATTR(bid+rid,
                 GROW, -rbyd.weight + rbyd_.weight, NULL);
         attrs = scratch_attrs;
-        attr_count = 3;
+        attr_count = attrs_ - scratch_attrs;
 
         rbyd = parent;
         continue;
@@ -4476,19 +4474,18 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         // note that since we defer merges to compaction time, we can
         // end up removing an rbyd here
         bid -= rid - (rbyd.weight-1);
+        attrs_ = scratch_attrs;
         if (rbyd_.weight == 0) {
-            scratch_attrs[0] = LFSR_ATTR(bid+rid,
+            *attrs_++ = LFSR_ATTR(bid+rid,
                     RM, -rbyd.weight, NULL);
-            attrs = scratch_attrs;
-            attr_count = 1;
         } else {
-            scratch_attrs[0] = LFSR_ATTR(bid+rid,
+            *attrs_++ = LFSR_ATTR(bid+rid,
                     BTREE, 0, FROMBTREE(&rbyd_, scratch_buf));
-            scratch_attrs[1] = LFSR_ATTR(bid+rid,
+            *attrs_++ = LFSR_ATTR(bid+rid,
                     GROW, -rbyd.weight + rbyd_.weight, NULL);
-            attrs = scratch_attrs;
-            attr_count = 2;
         }
+        attrs = scratch_attrs;
+        attr_count = attrs_ - scratch_attrs;
 
         rbyd = parent;
     }
@@ -8371,42 +8368,50 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
     while (file->buffer_size > 0) {
         // figure out how to flush
-        lfsr_attr_t hole_attr = LFSR_ATTR_NOOP;
+        lfsr_attr_t scratch_attrs[5];
+        lfsr_attr_t *attrs_ = scratch_attrs;
+
         lfs_off_t pos = file->buffer_pos;
-        lfs_off_t weight = file->buffer_size;
-        lfsr_data_t datas[3] = {
-            LFSR_DATA_NULL,
-            LFSR_DATA_BUF(file->buffer, file->buffer_size),
-            LFSR_DATA_NULL,
-        };
+        lfs_off_t weight = 0;
+        lfsr_data_t scratch_datas[3];
+        lfsr_data_t *datas_ = scratch_datas;
 
         // have inlined data?
         if (!lfsr_file_hasshrub(file)) {
-            // merge/carve inlined data and our buffer?
-            if (lfsr_data_size(&file->inlined.u.data) >= file->buffer_pos) {
-                pos = 0;
-                weight = lfs_max32(
-                        file->buffer_pos + file->buffer_size,
-                        lfsr_data_size(&file->inlined.u.data));
-                datas[0] = LFSR_DATA_DISK(
-                        file->inlined.u.data.u.disk.block,
-                        file->inlined.u.data.u.disk.off,
-                        lfs_min32(
-                            lfsr_data_size(&file->inlined.u.data),
-                            file->buffer_pos));
-                datas[2] = LFSR_DATA_DISK(
-                        file->inlined.u.data.u.disk.block,
-                        file->inlined.u.data.u.disk.off
-                            + file->buffer_pos + file->buffer_size,
-                        lfsr_data_size(&file->inlined.u.data) - lfs_min32(
-                            file->buffer_pos + file->buffer_size,
-                            lfsr_data_size(&file->inlined.u.data)));
-
-            // we can't merge if we have a hole, create two-leaf shrub
-            } else {
-                hole_attr = LFSR_ATTR(0,
+            // need a hole?
+            if (file->buffer_pos > lfsr_data_size(&file->inlined.u.data)) {
+                *attrs_++ = LFSR_ATTR(0,
                         SHRUB(INLINED), +file->buffer_pos, DATA(
                             file->inlined.u.data));
+
+            // left data?
+            } else if (file->buffer_pos > 0) {
+                lfs_size_t left_size = file->buffer_pos;
+                pos = 0;
+                weight += left_size;
+                *datas_++ = LFSR_DATA_DISK(
+                        file->inlined.u.data.u.disk.block,
+                        file->inlined.u.data.u.disk.off,
+                        left_size);
+            }
+
+            // buffer data?
+            *datas_++ = LFSR_DATA_BUF(file->buffer, file->buffer_size);
+            weight += file->buffer_size;
+
+            // right data?
+            if (lfsr_data_size(&file->inlined.u.data)
+                    > file->buffer_pos + file->buffer_size) {
+                lfs_size_t right_size
+                        = lfsr_data_size(&file->inlined.u.data)
+                        - (file->buffer_pos + file->buffer_size);
+                weight += right_size;
+                *datas_++ = LFSR_DATA_DISK(
+                        file->inlined.u.data.u.disk.block,
+                        file->inlined.u.data.u.disk.off
+                            + lfsr_data_size(&file->inlined.u.data)
+                            - right_size,
+                        right_size);
             }
 
         // have a shrub?
@@ -8415,171 +8420,118 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
             // should revert to an inlined file
             LFS_ASSERT(file->inlined.u.rbyd.weight > 0);
 
-            // find left sibling
-            lfsr_srid_t left_rid;
-            lfsr_tag_t left_tag;
-            lfsr_rid_t left_weight;
-            lfsr_data_t left_data;
-            int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
-                    lfs_min32(
-                        file->buffer_pos,
-                        file->inlined.u.rbyd.weight)-1, 0,
-                    &left_rid, &left_tag, &left_weight, &left_data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(INLINED));
+            // left sibling?
+            if (file->buffer_pos > 0) {
+                lfsr_srid_t left_rid;
+                lfsr_tag_t left_tag;
+                lfsr_rid_t left_weight;
+                lfsr_data_t left_data;
+                int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
+                        lfs_min32(
+                            file->buffer_pos,
+                            file->inlined.u.rbyd.weight)-1, 0,
+                        &left_rid, &left_tag, &left_weight, &left_data);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(INLINED));
 
-            // left sibling overlaps? need to merge/carve
-            // left sibling touches? only merge if we won't end up
-            // carving later
-            lfs_soff_t left_overlap
-                    = (left_rid-(left_weight-1) + lfsr_data_size(&left_data))
-                    - file->buffer_pos;
-            if (left_overlap > 0
-                    || (left_overlap == 0
-                        && weight + lfsr_data_size(&left_data)
-                            <= lfs->cfg->coalesce_size)) {
-                pos = left_rid - (left_weight-1);
-                weight += file->buffer_pos - pos;
-                datas[0] = LFSR_DATA_DISK(
-                        left_data.u.disk.block,
-                        left_data.u.disk.off,
-                        file->buffer_pos - pos);
-            } else {
-                // need a hole?
-                if (left_overlap < 0) {
-                    hole_attr = LFSR_ATTR(left_rid, GROW, -left_overlap, NULL);
+                // need to grow/shrink a hole?
+                if (file->buffer_pos != (lfs_off_t)left_rid+1
+                        && file->buffer_pos
+                            >= left_rid-(left_weight-1)
+                                + lfsr_data_size(&left_data)) {
+                    *attrs_++ = LFSR_ATTR(left_rid,
+                            GROW, +file->buffer_pos - (left_rid+1), NULL);
+
+                // left data?
+                } else if (file->buffer_pos
+                        < left_rid-(left_weight-1)
+                            + lfsr_data_size(&left_data)) {
+                    lfs_size_t left_size
+                            = file->buffer_pos
+                            - (left_rid-(left_weight-1));
+                    pos = left_rid-(left_weight-1);
+                    weight += left_size;
+                    *datas_++ = LFSR_DATA_DISK(
+                            left_data.u.disk.block,
+                            left_data.u.disk.off,
+                            left_size);
                 }
             }
 
-            // find right sibling
-            lfsr_srid_t right_rid;
-            lfsr_tag_t right_tag;
-            lfsr_rid_t right_weight;
-            lfsr_data_t right_data;
-            err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
-                    file->buffer_pos + file->buffer_size, 0,
-                    &right_rid, &right_tag, &right_weight, &right_data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-            LFS_ASSERT(err == LFS_ERR_NOENT
-                    || right_tag == LFSR_TAG_SHRUB(INLINED));
+            // buffer data?
+            *datas_++ = LFSR_DATA_BUF(file->buffer, file->buffer_size);
+            weight += file->buffer_size;
 
-            if (err != LFS_ERR_NOENT) {
-                // right sibling overlaps? need to merge/carve
-                // right sibling touches? only merge if we won't end up
-                // carving later
-                lfs_soff_t right_overlap
-                        = (file->buffer_pos + file->buffer_size)
-                        - (right_rid - (right_weight-1));
-                LFS_ASSERT(right_overlap >= 0);
-                if (right_overlap > 0
-                        || (right_overlap == 0
-                            && weight + lfsr_data_size(&right_data)
-                                <= lfs->cfg->coalesce_size)) {
-                    // note physical right data size risks going negative here
-                    // because of holes
-                    weight += right_weight - right_overlap;
-                    datas[2] = LFSR_DATA_DISK(
+            // right sibling?
+            if (file->buffer_pos + file->buffer_size
+                    < (lfs_off_t)file->inlined.u.rbyd.weight) {
+                lfsr_srid_t right_rid;
+                lfsr_tag_t right_tag;
+                lfsr_rid_t right_weight;
+                lfsr_data_t right_data;
+                int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
+                        file->buffer_pos + file->buffer_size, 0,
+                        &right_rid, &right_tag, &right_weight, &right_data);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                LFS_ASSERT(right_tag == LFSR_TAG_SHRUB(INLINED));
+
+                // right data?
+                if (right_rid-(right_weight-1) + lfsr_data_size(&right_data)
+                        > file->buffer_pos + file->buffer_size) {
+                    lfs_size_t right_size
+                            = (right_rid-(right_weight-1)
+                                + lfsr_data_size(&right_data))
+                            - (file->buffer_pos + file->buffer_size);
+                    *datas_++ = LFSR_DATA_DISK(
                             right_data.u.disk.block,
-                            right_data.u.disk.off + right_overlap,
-                            lfsr_data_size(&right_data) - lfs_min32(
-                                right_overlap,
-                                lfsr_data_size(&right_data)));
+                            right_data.u.disk.off
+                                + lfsr_data_size(&right_data)
+                                - right_size,
+                            right_size);
                 }
+
+                // need to bring over a hole?
+                weight += right_rid+1 - (file->buffer_pos + file->buffer_size);
             }
+
+            // make sure we remove any data we're overwriting
+            *attrs_++ = LFSR_ATTR(
+                    lfs_min32(
+                        pos + weight,
+                        file->inlined.u.rbyd.weight)-1,
+                    RM,
+                    -(lfs_min32(
+                            pos + weight,
+                            file->inlined.u.rbyd.weight)
+                        - pos),
+                    NULL);
         }
 
-        // can we coalesce any of our data?
-        // TODO a better way to do this?
-        lfsr_attr_t coalesce_attrs[3] = {
-            LFSR_ATTR_NOOP,
-            LFSR_ATTR_NOOP,
-            LFSR_ATTR_NOOP,
-        };
-        if (lfsr_data_size(&datas[0])
-                    + lfsr_data_size(&datas[1])
-                    + lfsr_data_size(&datas[2])
-                // make sure to never write null siblings, even when
-                // buffer > cache size
-                <= lfs_max32(lfs->cfg->coalesce_size, file->buffer_size)) {
-            coalesce_attrs[0] = LFSR_ATTR(pos,
-                    SHRUB(INLINED),
-                    +weight,
-                    DATA(lfsr_data_fromcat(datas, 3)));
-        } else if (lfsr_data_size(&datas[0])
-                    + lfsr_data_size(&datas[1])
-                // make sure to never write null siblings, even when
-                // buffer > cache size
-                <= lfs_max32(lfs->cfg->coalesce_size, file->buffer_size)) {
-            coalesce_attrs[0] = LFSR_ATTR(pos,
-                    SHRUB(INLINED),
-                    +lfsr_data_size(&datas[0])
-                        + lfsr_data_size(&datas[1]),
-                    DATA(lfsr_data_fromcat(datas, 2)));
-            coalesce_attrs[1] = LFSR_ATTR(pos
-                        + lfsr_data_size(&datas[0])
-                        + lfsr_data_size(&datas[1]),
-                    SHRUB(INLINED),
-                    +weight
-                        - lfsr_data_size(&datas[0])
-                        - lfsr_data_size(&datas[1]),
-                    DATA(datas[2]));
-        } else {
-            coalesce_attrs[0] = LFSR_ATTR(pos,
-                    SHRUB(INLINED),
-                    +lfsr_data_size(&datas[0]),
-                    DATA(datas[0]));
-            if (lfsr_data_size(&datas[1])
-                        + lfsr_data_size(&datas[2])
-                    // make sure to never write null siblings, even when
-                    // buffer > cache size
-                    <= lfs_max32(lfs->cfg->coalesce_size, file->buffer_size)) {
-                coalesce_attrs[1] = LFSR_ATTR(pos + lfsr_data_size(&datas[0]),
-                        SHRUB(INLINED),
-                        +weight - lfsr_data_size(&datas[0]),
-                        DATA(lfsr_data_fromcat(datas + 1, 2)));
-            } else {
-                coalesce_attrs[1] = LFSR_ATTR(pos + lfsr_data_size(&datas[0]),
-                        SHRUB(INLINED),
-                        lfsr_data_size(&datas[1]),
-                        DATA(datas[1]));
-                coalesce_attrs[2] = LFSR_ATTR(pos
-                            + lfsr_data_size(&datas[0])
-                            + lfsr_data_size(&datas[1]),
-                        SHRUB(INLINED),
-                        +weight
-                            - lfsr_data_size(&datas[0])
-                            - lfsr_data_size(&datas[1]),
-                        DATA(datas[2]));
-            }
+        // compile our data references into attributes
+        const lfsr_data_t *datas = scratch_datas;
+        lfs_size_t data_count = datas_ - scratch_datas;
+        for (lfs_size_t i = 0; i < data_count; i++) {
+            *attrs_++ = LFSR_ATTR(pos,
+                    // include the remaining weight if we are the last data
+                    SHRUB(INLINED), +(i == data_count-1
+                        ? weight
+                        : lfsr_data_size(&datas[i])),
+                    DATA(datas[i]));
+            pos += lfsr_data_size(&datas[i]);
+            weight -= lfsr_data_size(&datas[i]);
         }
 
         // commit our attributes
         int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
                 LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
-                    // adjust a hole?
-                    hole_attr,
-                    // remove any data in the way
-                    (lfsr_file_hasshrub(file)
-                        ? LFSR_ATTR(
-                            lfs_min32(
-                                pos + weight,
-                                file->inlined.u.rbyd.weight)-1,
-                            RM,
-                            -(lfs_min32(
-                                    pos + weight,
-                                    file->inlined.u.rbyd.weight)
-                                - pos),
-                            NULL)
-                        : LFSR_ATTR_NOOP),
-                    // and then append our data
-                    coalesce_attrs[0],
-                    coalesce_attrs[1],
-                    coalesce_attrs[2]))));
+                        scratch_attrs,
+                        attrs_ - scratch_attrs))));
         if (err) {
             return err;
         }
