@@ -8439,9 +8439,8 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                     - file->buffer_pos;
             if (left_overlap > 0
                     || (left_overlap == 0
-                        // TODO use a different heuristic than cache_size here?
                         && weight + lfsr_data_size(&left_data)
-                            <= lfs->cfg->cache_size)) {
+                            <= lfs->cfg->coalesce_size)) {
                 pos = left_rid - (left_weight-1);
                 weight += file->buffer_pos - pos;
                 datas[0] = LFSR_DATA_DISK(
@@ -8479,10 +8478,8 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                 LFS_ASSERT(right_overlap >= 0);
                 if (right_overlap > 0
                         || (right_overlap == 0
-                            // TODO use a different heuristic than cache_size
-                            // here?
                             && weight + lfsr_data_size(&right_data)
-                                <= lfs->cfg->cache_size)) {
+                                <= lfs->cfg->coalesce_size)) {
                     // note physical right data size risks going negative here
                     // because of holes
                     weight += right_weight - right_overlap;
@@ -8506,22 +8503,18 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
         if (lfsr_data_size(&datas[0])
                     + lfsr_data_size(&datas[1])
                     + lfsr_data_size(&datas[2])
-                // TODO use a different heuristic than cache_size here?
-                //
                 // make sure to never write null siblings, even when
                 // buffer > cache size
-                <= lfs_max32(lfs->cfg->cache_size, file->buffer_size)) {
+                <= lfs_max32(lfs->cfg->coalesce_size, file->buffer_size)) {
             coalesce_attrs[0] = LFSR_ATTR(pos,
                     SHRUB(INLINED),
                     +weight,
                     DATA(lfsr_data_fromcat(datas, 3)));
         } else if (lfsr_data_size(&datas[0])
                     + lfsr_data_size(&datas[1])
-                // TODO use a different heuristic than cache_size here?
-                //
                 // make sure to never write null siblings, even when
                 // buffer > cache size
-                <= lfs_max32(lfs->cfg->cache_size, file->buffer_size)) {
+                <= lfs_max32(lfs->cfg->coalesce_size, file->buffer_size)) {
             coalesce_attrs[0] = LFSR_ATTR(pos,
                     SHRUB(INLINED),
                     +lfsr_data_size(&datas[0])
@@ -8542,11 +8535,9 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                     DATA(datas[0]));
             if (lfsr_data_size(&datas[1])
                         + lfsr_data_size(&datas[2])
-                    // TODO use a different heuristic than cache_size here?
-                    //
                     // make sure to never write null siblings, even when
                     // buffer > cache size
-                    <= lfs_max32(lfs->cfg->cache_size, file->buffer_size)) {
+                    <= lfs_max32(lfs->cfg->coalesce_size, file->buffer_size)) {
                 coalesce_attrs[1] = LFSR_ATTR(pos + lfsr_data_size(&datas[0]),
                         SHRUB(INLINED),
                         +weight - lfsr_data_size(&datas[0]),

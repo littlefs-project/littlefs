@@ -1412,25 +1412,15 @@ static void run_powerloss_none(
         .prog               = lfs_emubd_prog,
         .erase              = lfs_emubd_erase,
         .sync               = lfs_emubd_sync,
-        .read_size          = READ_SIZE,
-        .prog_size          = PROG_SIZE,
-        .block_size         = BLOCK_SIZE,
-        .block_count        = BLOCK_COUNT,
-        .block_cycles       = BLOCK_CYCLES,
-        .cache_size         = CACHE_SIZE,
-        .inline_size        = INLINE_SIZE,
-        .bud_size           = BUD_SIZE,
-        .lookahead_size     = LOOKAHEAD_SIZE,
+        TEST_CFG
     };
 
     struct lfs_emubd_config bdcfg = {
-        .erase_value        = ERASE_VALUE,
-        .erase_cycles       = ERASE_CYCLES,
-        .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
+        TEST_BDCFG
     };
 
     int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
@@ -1483,21 +1473,10 @@ static void run_powerloss_linear(
         .prog               = lfs_emubd_prog,
         .erase              = lfs_emubd_erase,
         .sync               = lfs_emubd_sync,
-        .read_size          = READ_SIZE,
-        .prog_size          = PROG_SIZE,
-        .block_size         = BLOCK_SIZE,
-        .block_count        = BLOCK_COUNT,
-        .block_cycles       = BLOCK_CYCLES,
-        .cache_size         = CACHE_SIZE,
-        .inline_size        = INLINE_SIZE,
-        .bud_size           = BUD_SIZE,
-        .lookahead_size     = LOOKAHEAD_SIZE,
+        TEST_CFG
     };
 
     struct lfs_emubd_config bdcfg = {
-        .erase_value        = ERASE_VALUE,
-        .erase_cycles       = ERASE_CYCLES,
-        .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1506,6 +1485,7 @@ static void run_powerloss_linear(
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
+        TEST_BDCFG
     };
 
     int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
@@ -1571,21 +1551,10 @@ static void run_powerloss_log(
         .prog               = lfs_emubd_prog,
         .erase              = lfs_emubd_erase,
         .sync               = lfs_emubd_sync,
-        .read_size          = READ_SIZE,
-        .prog_size          = PROG_SIZE,
-        .block_size         = BLOCK_SIZE,
-        .block_count        = BLOCK_COUNT,
-        .block_cycles       = BLOCK_CYCLES,
-        .cache_size         = CACHE_SIZE,
-        .inline_size        = INLINE_SIZE,
-        .bud_size           = BUD_SIZE,
-        .lookahead_size     = LOOKAHEAD_SIZE,
+        TEST_CFG
     };
 
     struct lfs_emubd_config bdcfg = {
-        .erase_value        = ERASE_VALUE,
-        .erase_cycles       = ERASE_CYCLES,
-        .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1594,6 +1563,7 @@ static void run_powerloss_log(
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
+        TEST_BDCFG
     };
 
     int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
@@ -1657,21 +1627,10 @@ static void run_powerloss_cycles(
         .prog               = lfs_emubd_prog,
         .erase              = lfs_emubd_erase,
         .sync               = lfs_emubd_sync,
-        .read_size          = READ_SIZE,
-        .prog_size          = PROG_SIZE,
-        .block_size         = BLOCK_SIZE,
-        .block_count        = BLOCK_COUNT,
-        .block_cycles       = BLOCK_CYCLES,
-        .cache_size         = CACHE_SIZE,
-        .inline_size        = INLINE_SIZE,
-        .bud_size           = BUD_SIZE,
-        .lookahead_size     = LOOKAHEAD_SIZE,
+        TEST_CFG
     };
 
     struct lfs_emubd_config bdcfg = {
-        .erase_value        = ERASE_VALUE,
-        .erase_cycles       = ERASE_CYCLES,
-        .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1680,6 +1639,7 @@ static void run_powerloss_cycles(
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
+        TEST_BDCFG
     };
 
     int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
@@ -1841,21 +1801,10 @@ static void run_powerloss_exhaustive(
         .prog               = lfs_emubd_prog,
         .erase              = lfs_emubd_erase,
         .sync               = lfs_emubd_sync,
-        .read_size          = READ_SIZE,
-        .prog_size          = PROG_SIZE,
-        .block_size         = BLOCK_SIZE,
-        .block_count        = BLOCK_COUNT,
-        .block_cycles       = BLOCK_CYCLES,
-        .cache_size         = CACHE_SIZE,
-        .inline_size        = INLINE_SIZE,
-        .bud_size           = BUD_SIZE,
-        .lookahead_size     = LOOKAHEAD_SIZE,
+        TEST_CFG
     };
 
     struct lfs_emubd_config bdcfg = {
-        .erase_value        = ERASE_VALUE,
-        .erase_cycles       = ERASE_CYCLES,
-        .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1863,6 +1812,7 @@ static void run_powerloss_exhaustive(
         .powerloss_behavior = POWERLOSS_BEHAVIOR,
         .powerloss_cb       = powerloss_exhaustive_branch,
         .powerloss_data     = NULL,
+        TEST_BDCFG
     };
 
     int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);

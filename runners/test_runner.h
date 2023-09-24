@@ -97,7 +97,7 @@ intmax_t test_define(size_t define);
 
 // a few preconfigured defines that control how tests run
 
-#define TEST_IMPLICIT_DEFINE_COUNT 14
+#define TEST_IMPLICIT_DEFINE_COUNT 15
 #define TEST_GEOMETRY_DEFINE_COUNT 3
 
 #define READ_SIZE_i          0
@@ -107,13 +107,14 @@ intmax_t test_define(size_t define);
 #define DISK_SIZE_i          4
 #define CACHE_SIZE_i         5
 #define INLINE_SIZE_i        6
-#define BUD_SIZE_i           7
-#define LOOKAHEAD_SIZE_i     8
-#define BLOCK_CYCLES_i       9
-#define ERASE_VALUE_i        10
-#define ERASE_CYCLES_i       11
-#define BADBLOCK_BEHAVIOR_i  12
-#define POWERLOSS_BEHAVIOR_i 13
+#define COALESCE_SIZE_i      7
+#define CRYSTALLIZE_SIZE_i   8
+#define LOOKAHEAD_SIZE_i     9
+#define BLOCK_CYCLES_i       10
+#define ERASE_VALUE_i        11
+#define ERASE_CYCLES_i       12
+#define BADBLOCK_BEHAVIOR_i  13
+#define POWERLOSS_BEHAVIOR_i 14
 
 #define READ_SIZE           TEST_DEFINE(READ_SIZE_i)
 #define PROG_SIZE           TEST_DEFINE(PROG_SIZE_i)
@@ -122,7 +123,8 @@ intmax_t test_define(size_t define);
 #define DISK_SIZE           TEST_DEFINE(DISK_SIZE_i)
 #define CACHE_SIZE          TEST_DEFINE(CACHE_SIZE_i)
 #define INLINE_SIZE         TEST_DEFINE(INLINE_SIZE_i)
-#define BUD_SIZE            TEST_DEFINE(BUD_SIZE_i)
+#define COALESCE_SIZE       TEST_DEFINE(COALESCE_SIZE_i)
+#define CRYSTALLIZE_SIZE    TEST_DEFINE(CRYSTALLIZE_SIZE_i)
 #define LOOKAHEAD_SIZE      TEST_DEFINE(LOOKAHEAD_SIZE_i)
 #define BLOCK_CYCLES        TEST_DEFINE(BLOCK_CYCLES_i)
 #define ERASE_VALUE         TEST_DEFINE(ERASE_VALUE_i)
@@ -139,7 +141,8 @@ intmax_t test_define(size_t define);
     TEST_DEF(DISK_SIZE,          1024*1024                                  ) \
     TEST_DEF(CACHE_SIZE,         lfs_max(16, lfs_max(READ_SIZE, PROG_SIZE)) ) \
     TEST_DEF(INLINE_SIZE,        BLOCK_SIZE/8                               ) \
-    TEST_DEF(BUD_SIZE,           BLOCK_SIZE/4                               ) \
+    TEST_DEF(COALESCE_SIZE,      CACHE_SIZE                                 ) \
+    TEST_DEF(CRYSTALLIZE_SIZE,   BLOCK_SIZE/4                               ) \
     TEST_DEF(LOOKAHEAD_SIZE,     16                                         ) \
     TEST_DEF(BLOCK_CYCLES,       -1                                         ) \
     TEST_DEF(ERASE_VALUE,        0xff                                       ) \
@@ -154,6 +157,23 @@ intmax_t test_define(size_t define);
     TEST_GEO("emmc",    512,       512,       512           ) \
     TEST_GEO("nor",     1,         1,         4096          ) \
     TEST_GEO("nand",    4096,      4096,      32768         )
+
+#define TEST_CFG \
+    .read_size          = READ_SIZE,        \
+    .prog_size          = PROG_SIZE,        \
+    .block_size         = BLOCK_SIZE,       \
+    .block_count        = BLOCK_COUNT,      \
+    .block_cycles       = BLOCK_CYCLES,     \
+    .cache_size         = CACHE_SIZE,       \
+    .inline_size        = INLINE_SIZE,      \
+    .coalesce_size      = COALESCE_SIZE,    \
+    .crystallize_size   = CRYSTALLIZE_SIZE, \
+    .lookahead_size     = LOOKAHEAD_SIZE,
+
+#define TEST_BDCFG \
+    .erase_value        = ERASE_VALUE,          \
+    .erase_cycles       = ERASE_CYCLES,         \
+    .badblock_behavior  = BADBLOCK_BEHAVIOR,
 
 
 #endif

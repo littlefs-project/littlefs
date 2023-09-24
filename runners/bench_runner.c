@@ -1381,25 +1381,15 @@ void perm_run(
         .prog               = lfs_emubd_prog,
         .erase              = lfs_emubd_erase,
         .sync               = lfs_emubd_sync,
-        .read_size          = READ_SIZE,
-        .prog_size          = PROG_SIZE,
-        .block_size         = BLOCK_SIZE,
-        .block_count        = BLOCK_COUNT,
-        .block_cycles       = BLOCK_CYCLES,
-        .cache_size         = CACHE_SIZE,
-        .inline_size        = INLINE_SIZE,
-        .bud_size           = BUD_SIZE,
-        .lookahead_size     = LOOKAHEAD_SIZE,
+        BENCH_CFG
     };
 
     struct lfs_emubd_config bdcfg = {
-        .erase_value        = ERASE_VALUE,
-        .erase_cycles       = ERASE_CYCLES,
-        .badblock_behavior  = BADBLOCK_BEHAVIOR,
         .disk_path          = bench_disk_path,
         .read_sleep         = bench_read_sleep,
         .prog_sleep         = bench_prog_sleep,
         .erase_sleep        = bench_erase_sleep,
+        BENCH_BDCFG
     };
 
     int err = lfs_emubd_createcfg(&cfg, bench_disk_path, &bdcfg);

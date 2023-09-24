@@ -279,7 +279,8 @@ struct lfs_config {
 
     // TODO document
     lfs_size_t inline_size;
-    lfs_size_t bud_size;
+    lfs_size_t coalesce_size;
+    lfs_size_t crystallize_size;
 };
 
 // File info structure
