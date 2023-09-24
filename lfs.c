@@ -8368,50 +8368,40 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
     while (file->buffer_size > 0) {
         // figure out how to flush
-        lfsr_attr_t scratch_attrs[5];
+        lfsr_attr_t scratch_attrs[4];
         lfsr_attr_t *attrs_ = scratch_attrs;
-
-        lfs_off_t pos = file->buffer_pos;
-        lfs_off_t weight = 0;
-        lfsr_data_t scratch_datas[3];
-        lfsr_data_t *datas_ = scratch_datas;
 
         // have inlined data?
         if (!lfsr_file_hasshrub(file)) {
-            // need a hole?
-            if (file->buffer_pos > lfsr_data_size(&file->inlined.u.data)) {
+            // left data? this may create a hole
+            if (file->buffer_pos > 0) {
                 *attrs_++ = LFSR_ATTR(0,
-                        SHRUB(INLINED), +file->buffer_pos, DATA(
-                            file->inlined.u.data));
-
-            // left data?
-            } else if (file->buffer_pos > 0) {
-                lfs_size_t left_size = file->buffer_pos;
-                pos = 0;
-                weight += left_size;
-                *datas_++ = LFSR_DATA_DISK(
-                        file->inlined.u.data.u.disk.block,
-                        file->inlined.u.data.u.disk.off,
-                        left_size);
+                        SHRUB(INLINED), +file->buffer_pos, DISK(
+                            file->inlined.u.data.u.disk.block,
+                            file->inlined.u.data.u.disk.off,
+                            lfs_min32(
+                                lfsr_data_size(&file->inlined.u.data),
+                                file->buffer_pos)));
             }
 
-            // buffer data?
-            *datas_++ = LFSR_DATA_BUF(file->buffer, file->buffer_size);
-            weight += file->buffer_size;
+            // append our buffer
+            *attrs_++ = LFSR_ATTR(file->buffer_pos,
+                    SHRUB(INLINED), +file->buffer_size, BUF(
+                        file->buffer, file->buffer_size));
 
             // right data?
             if (lfsr_data_size(&file->inlined.u.data)
                     > file->buffer_pos + file->buffer_size) {
-                lfs_size_t right_size
-                        = lfsr_data_size(&file->inlined.u.data)
-                        - (file->buffer_pos + file->buffer_size);
-                weight += right_size;
-                *datas_++ = LFSR_DATA_DISK(
-                        file->inlined.u.data.u.disk.block,
-                        file->inlined.u.data.u.disk.off
-                            + lfsr_data_size(&file->inlined.u.data)
-                            - right_size,
-                        right_size);
+                *attrs_++ = LFSR_ATTR(file->buffer_pos + file->buffer_size,
+                        SHRUB(INLINED), +lfsr_data_size(&file->inlined.u.data)
+                            - (file->buffer_pos + file->buffer_size),
+                        DISK(
+                            file->inlined.u.data.u.disk.block,
+                            file->inlined.u.data.u.disk.off
+                                + (file->buffer_pos + file->buffer_size),
+                            lfsr_data_size(&file->inlined.u.data)
+                                - (file->buffer_pos + file->buffer_size)));
+                        
             }
 
         // have a shrub?
@@ -8421,6 +8411,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
             LFS_ASSERT(file->inlined.u.rbyd.weight > 0);
 
             // left sibling?
+            lfs_soff_t left_overlap = 0;
             if (file->buffer_pos > 0) {
                 lfsr_srid_t left_rid;
                 lfsr_tag_t left_tag;
@@ -8437,41 +8428,38 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(INLINED));
 
-                // need to grow/shrink a hole?
-                if (file->buffer_pos != (lfs_off_t)left_rid+1
+                // this can be negative!
+                left_overlap = (left_rid+1) - file->buffer_pos;
+
+                // can we get away with a simple grow attr? this may
+                // create a hole
+                if (left_overlap != 0
                         && file->buffer_pos
                             >= left_rid-(left_weight-1)
                                 + lfsr_data_size(&left_data)) {
-                    *attrs_++ = LFSR_ATTR(left_rid,
-                            GROW, +file->buffer_pos - (left_rid+1), NULL);
+                    *attrs_++ = LFSR_ATTR(left_rid, GROW, -left_overlap, NULL);
 
-                // left data?
-                } else if (file->buffer_pos
-                        < left_rid-(left_weight-1)
-                            + lfsr_data_size(&left_data)) {
-                    lfs_size_t left_size
-                            = file->buffer_pos
-                            - (left_rid-(left_weight-1));
-                    pos = left_rid-(left_weight-1);
-                    weight += left_size;
-                    *datas_++ = LFSR_DATA_DISK(
-                            left_data.u.disk.block,
-                            left_data.u.disk.off,
-                            left_size);
+                // need to carve out left data?
+                } else if (left_overlap > 0) {
+                    *attrs_++ = LFSR_ATTR(left_rid,
+                            GROW(SHRUB(INLINED)), -left_overlap,
+                            DISK(
+                                left_data.u.disk.block,
+                                left_data.u.disk.off,
+                                lfsr_data_size(&left_data) - left_overlap));
                 }
             }
 
-            // buffer data?
-            *datas_++ = LFSR_DATA_BUF(file->buffer, file->buffer_size);
-            weight += file->buffer_size;
-
             // right sibling?
+            //
+            // this gets messy, keep in mind right sibling can be the same
+            // attr as the left sibling
+            lfsr_rid_t right_weight = 0;
+            lfsr_data_t right_data = LFSR_DATA_NULL;
             if (file->buffer_pos + file->buffer_size
                     < (lfs_off_t)file->inlined.u.rbyd.weight) {
                 lfsr_srid_t right_rid;
                 lfsr_tag_t right_tag;
-                lfsr_rid_t right_weight;
-                lfsr_data_t right_data;
                 int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
                         file->buffer_pos + file->buffer_size, 0,
                         &right_rid, &right_tag, &right_weight, &right_data);
@@ -8481,50 +8469,51 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
                 LFS_ASSERT(right_tag == LFSR_TAG_SHRUB(INLINED));
 
-                // right data?
-                if (right_rid-(right_weight-1) + lfsr_data_size(&right_data)
-                        > file->buffer_pos + file->buffer_size) {
-                    lfs_size_t right_size
-                            = (right_rid-(right_weight-1)
-                                + lfsr_data_size(&right_data))
-                            - (file->buffer_pos + file->buffer_size);
-                    *datas_++ = LFSR_DATA_DISK(
-                            right_data.u.disk.block,
-                            right_data.u.disk.off
-                                + lfsr_data_size(&right_data)
-                                - right_size,
-                            right_size);
-                }
+                lfs_soff_t right_overlap
+                        = file->buffer_pos + file->buffer_size
+                        - (right_rid-(right_weight-1));
 
-                // need to bring over a hole?
-                weight += right_rid+1 - (file->buffer_pos + file->buffer_size);
+                // need to carve out right data?
+                if (right_overlap > 0) {
+                    right_data = LFSR_DATA_DISK(
+                            right_data.u.disk.block,
+                            right_data.u.disk.off + right_overlap,
+                            lfsr_data_size(&right_data) - lfs_min32(
+                                right_overlap,
+                                lfsr_data_size(&right_data)));
+                    right_weight -= right_overlap;
+                }
             }
 
-            // make sure we remove any data we're overwriting
+            // remove any data we're overwriting, note we need to account for
+            // left_sibling changes
             *attrs_++ = LFSR_ATTR(
                     lfs_min32(
-                        pos + weight,
+                        file->buffer_pos + file->buffer_size
+                            + right_weight - left_overlap,
                         file->inlined.u.rbyd.weight)-1,
                     RM,
                     -(lfs_min32(
-                            pos + weight,
+                            file->buffer_pos + file->buffer_size
+                                + right_weight - left_overlap,
                             file->inlined.u.rbyd.weight)
-                        - pos),
+                        - file->buffer_pos),
                     NULL);
-        }
 
-        // compile our data references into attributes
-        const lfsr_data_t *datas = scratch_datas;
-        lfs_size_t data_count = datas_ - scratch_datas;
-        for (lfs_size_t i = 0; i < data_count; i++) {
-            *attrs_++ = LFSR_ATTR(pos,
-                    // include the remaining weight if we are the last data
-                    SHRUB(INLINED), +(i == data_count-1
-                        ? weight
-                        : lfsr_data_size(&datas[i])),
-                    DATA(datas[i]));
-            pos += lfsr_data_size(&datas[i]);
-            weight -= lfsr_data_size(&datas[i]);
+            if (lfsr_data_size(&right_data) == 0) {
+                // append our buffer with any remaining weight
+                *attrs_++ = LFSR_ATTR(file->buffer_pos,
+                        SHRUB(INLINED), +file->buffer_size + right_weight, BUF(
+                            file->buffer, file->buffer_size));
+            } else {
+                // append our buffer
+                *attrs_++ = LFSR_ATTR(file->buffer_pos,
+                        SHRUB(INLINED), +file->buffer_size, BUF(
+                            file->buffer, file->buffer_size));
+                // and any right data
+                *attrs_++ = LFSR_ATTR(file->buffer_pos + file->buffer_size,
+                        SHRUB(INLINED), +right_weight, DATA(right_data));
+            }
         }
 
         // commit our attributes
