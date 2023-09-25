@@ -8487,18 +8487,13 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
 
             // remove any data we're overwriting, note we need to account for
             // left_sibling changes
-            *attrs_++ = LFSR_ATTR(
-                    lfs_min32(
-                        file->buffer_pos + file->buffer_size
-                            + right_weight - left_overlap,
-                        file->inlined.u.rbyd.weight)-1,
-                    RM,
-                    -(lfs_min32(
-                            file->buffer_pos + file->buffer_size
-                                + right_weight - left_overlap,
-                            file->inlined.u.rbyd.weight)
-                        - file->buffer_pos),
-                    NULL);
+            lfs_off_t rm_size = lfs_min32(
+                    file->buffer_pos + file->buffer_size
+                        + right_weight - left_overlap,
+                    file->inlined.u.rbyd.weight - left_overlap)
+                    - file->buffer_pos;
+            *attrs_++ = LFSR_ATTR(file->buffer_pos + rm_size - 1,
+                    RM, -rm_size, NULL);
 
             if (lfsr_data_size(&right_data) == 0) {
                 // append our buffer with any remaining weight
@@ -8591,11 +8586,6 @@ failed:;
     return err;
 }
 
-int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
-    // TODO
-    return 0;
-}
-
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     if (lfsr_file_iserrored(file->flags)) {
         // it's not safe to do anything if our file errored
@@ -8680,6 +8670,43 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 failed:;
     file->flags |= LFS_F_ERRORED;
     return err;
+}
+
+lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
+        lfs_soff_t off, uint8_t whence) {
+    // TODO check for out-of-range?
+
+    // figure out our new file position
+    lfs_off_t pos_;
+    if (whence == LFS_SEEK_SET) {
+        pos_ = off;
+    } else if (whence == LFS_SEEK_CUR) {
+        pos_ = file->pos + off;
+    } else if (whence == LFS_SEEK_END) {
+        pos_ = file->size + off;
+    } else {
+        LFS_UNREACHABLE();
+    }
+
+    // out of range?
+    if (pos_ > lfs->size_limit) {
+        return LFS_ERR_INVAL;
+    }
+
+    // update file position
+    file->pos = pos_;
+    return pos_;
+}
+
+lfs_soff_t lfsr_file_tell(lfs_t *lfs, lfsr_file_t *file) {
+    (void)lfs;
+    return file->pos;
+}
+
+lfs_soff_t lfsr_file_rewind(lfs_t *lfs, lfsr_file_t *file) {
+    (void)lfs;
+    file->pos = 0;
+    return 0;
 }
 
 lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file) {
