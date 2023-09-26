@@ -2446,7 +2446,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // ignore noops
     // TODO is there a better way to represent noops?
-    if ((tag == LFSR_TAG_GROW || tag == LFSR_TAG_RM) && delta == 0) {
+    if (!lfsr_tag_iswide(tag) && !lfsr_tag_key(tag) && delta == 0) {
         return 0;
     }
 
@@ -2905,8 +2905,10 @@ leaf:;
     // note we always need a non-alt to terminate the trunk, otherwise we
     // can't find trunks during fetch
     lfs_ssize_t d = lfsr_bd_progtag(lfs, rbyd->block, rbyd->eoff,
-            // rm => null, otherwise strip off control bits
-            (lfsr_tag_isrm(tag) ? LFSR_TAG_NULL : lfsr_tag_shrubkey(tag)),
+            // rm => null or shrubnull, otherwise strip off control bits
+            (lfsr_tag_isrm(tag)
+                ? lfsr_tag_mode(lfsr_tag_shrubkey(tag))
+                : lfsr_tag_shrubkey(tag)),
             upper_rid - lower_rid - 1 + delta,
             lfsr_data_size(&data),
             &rbyd->cksum);
@@ -4837,6 +4839,36 @@ static bool lfsr_mdir_isopened(lfs_t *lfs, int type,
     return false;
 }
 
+// we also need some inlined-data accessors for mdir commit to update
+// inlined files correct
+#define LFSR_FILE_INLINED 0x80000000
+
+static inline bool lfsr_inlined_isnull(const lfsr_inlined_t *inlined) {
+    return inlined->u.weight == 0;
+}
+
+static inline bool lfsr_inlined_hassprout(const lfsr_inlined_t *inlined) {
+    // this checks that both the inlineddata bit and non-zero
+    return (lfs_size_t)inlined->u.weight > (LFSR_FILE_INLINED | 0);
+}
+
+static inline bool lfsr_inlined_hasshrub(const lfsr_inlined_t *inlined) {
+    return !(inlined->u.weight & LFSR_FILE_INLINED);
+}
+
+static lfs_off_t lfsr_inlined_size(const lfsr_inlined_t *inlined) {
+    return inlined->u.weight & ~LFSR_FILE_INLINED;
+}
+
+static lfs_block_t lfsr_inlined_block(const lfsr_inlined_t *inlined) {
+    if (!lfsr_inlined_hasshrub(inlined)) {
+        return inlined->u.data.u.disk.block;
+    } else {
+        return inlined->u.rbyd.block;
+    }
+}
+
+
 
 // actual mdir functions
 static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
@@ -5248,15 +5280,16 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 // messed up
                 //
                 // it is important that these rbyds share eoff/cksum/etc
-                mdir_.u.m.trunk = shrubattrs->file->inlined_.u.rbyd.trunk;
-                mdir_.u.m.weight = shrubattrs->file->inlined_.u.rbyd.weight;
-
-                // if weight's sign=1, we were inlined data and need to zero
-                // things, we do this here to avoid compaction clobbering
-                // things
-                if (mdir_.u.m.weight & 0x80000000) {
+                //
+                // if our file was a simple inlined file, we need to zero
+                // things, we do this here to avoid issues with compaction
+                // clobbering file->inlined_
+                if (!lfsr_inlined_hasshrub(&shrubattrs->file->inlined_)) {
                     mdir_.u.m.trunk = 0;
                     mdir_.u.m.weight = 0;
+                } else {
+                    mdir_.u.m.trunk = shrubattrs->file->inlined_.u.rbyd.trunk;
+                    mdir_.u.m.weight = shrubattrs->file->inlined_.u.rbyd.weight;
                 }
 
                 // append any shrub attributes
@@ -5354,13 +5387,6 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
     return 0;
 }
 
-// needed by lfsr_mdir_compact__
-//
-// TODO should we declare file flag stuff before mdirs?
-static bool lfsr_file_hasinlined(const lfsr_file_t *file);
-static bool lfsr_file_hasshrub(const lfsr_file_t *file);
-static bool lfsr_file_isunsynced(uint32_t flags);
-
 static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
         const lfsr_mdir_t *mdir) {
@@ -5410,17 +5436,18 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                     opened;
                     opened = opened->next) {
                 lfsr_file_t *file = (lfsr_file_t*)opened;
-                if (lfsr_file_hasinlined(file)
+                if (lfsr_inlined_hasshrub(&file->inlined_)
                         && file->inlined.u.data.u.disk.block
                             == data.u.disk.block
-                        && file->inlined.u.data.u.disk.off == data.u.disk.off) {
-                    // this is a bit tricky see we don't know the tag size,
-                    // but we have enough enough info
+                        && file->inlined.u.data.u.disk.off
+                            == data.u.disk.off) {
+                    // this is a bit tricky since we don't know the tag size,
+                    // but we have just enough info
                     file->inlined_.u.data = LFSR_DATA_DISK(
                             mdir_->u.rbyd.block,
                             mdir_->u.rbyd.eoff
-                                - lfsr_data_size(&file->inlined.u.data),
-                            lfsr_data_size(&file->inlined.u.data));
+                                - lfsr_data_size(&file->inlined_.u.data),
+                            lfsr_data_size(&file->inlined_.u.data));
                 }
             }
 
@@ -5468,9 +5495,9 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                     opened;
                     opened = opened->next) {
                 lfsr_file_t *file = (lfsr_file_t*)opened;
-                if (lfsr_file_hasshrub(file)
-                        && file->inlined.u.rbyd.block == mdir->u.rbyd.block
-                        && file->inlined.u.rbyd.trunk == shrub.trunk) {
+                if (lfsr_inlined_hasshrub(&file->inlined_)
+                        && file->inlined_.u.rbyd.block == mdir->u.rbyd.block
+                        && file->inlined_.u.rbyd.trunk == shrub.trunk) {
                     file->inlined_.u.rbyd.block = mdir_->u.rbyd.block;
                     file->inlined_.u.rbyd.trunk = mdir_->u.rbyd.trunk;
                     file->inlined_.u.rbyd.weight = mdir_->u.rbyd.weight;
@@ -5507,29 +5534,29 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             opened = opened->next) {
         lfsr_file_t *file = (lfsr_file_t*)opened;
         // inlined data?
-        if (lfsr_file_hasinlined(file)
-                && lfsr_file_isunsynced(file->flags)
-                && file->inlined.u.data.u.disk.block == mdir->u.rbyd.block) {
+        if (lfsr_inlined_hassprout(&file->inlined_)
+                // note, if already committed, block will mismatch
+                && file->inlined_.u.data.u.disk.block == mdir->u.rbyd.block) {
             // write the data as a shrub tag
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.rbyd,
-                    LFSR_TAG_SHRUB(INLINED), 0, file->inlined.u.data);
+                    LFSR_TAG_SHRUB(INLINED), 0, file->inlined_.u.data);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_RANGE);
                 return err;
             }
 
-            // this is a bit tricky see we don't know the tag size,
-            // but we have enough enough info
+            // this is a bit tricky since we don't know the tag size,
+            // but we have just enough info
             file->inlined_.u.data = LFSR_DATA_DISK(
                     mdir_->u.rbyd.block,
                     mdir_->u.rbyd.eoff
-                        - lfsr_data_size(&file->inlined.u.data),
-                    lfsr_data_size(&file->inlined.u.data));
+                        - lfsr_data_size(&file->inlined_.u.data),
+                    lfsr_data_size(&file->inlined_.u.data));
 
         // inlined tree?
-        } else if (lfsr_file_hasshrub(file)
-                && lfsr_file_isunsynced(file->flags)
-                && file->inlined.u.rbyd.block == mdir->u.rbyd.block) {
+        } else if (lfsr_inlined_hasshrub(&file->inlined_)
+                // note, if already committed, block will mismatch
+                && file->inlined_.u.rbyd.block == mdir->u.rbyd.block) {
             // save our current off/trunk/weight
             lfs_size_t off = mdir_->u.rbyd.eoff;
             lfs_size_t trunk = mdir_->u.rbyd.trunk;
@@ -5583,6 +5610,18 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
 
 compact:;
     // can't commit, try to compact
+
+    // before we do anything else we need to revert any changes to inlined
+    // files in this mdir
+    for (lfsr_openedmdir_t *opened = lfs->opened[
+                LFS_TYPE_REG-LFS_TYPE_REG];
+            opened;
+            opened = opened->next) {
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        if (lfsr_inlined_block(&file->inlined_) == mdir->u.rbyd.block) {
+            file->inlined_ = file->inlined;
+        }
+    }
 
     // check if we're within our compaction threshold
     lfs_ssize_t estimate = lfsr_rbyd_estimate(lfs, &mdir->u.rbyd,
@@ -8062,57 +8101,91 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 
 /// File operations ///
 
-#define LFSR_FILE_INLINED 0x80000000
+static inline bool lfsr_file_isnull(const lfsr_file_t *file) {
+    return lfsr_inlined_isnull(&file->inlined);
+}
 
-static inline bool lfsr_file_hasinlined(const lfsr_file_t *file) {
-    // this checks that both the inlineddata bit and non-zero
-    return (lfs_size_t)file->inlined.u.weight > (LFSR_FILE_INLINED | 0);
+static inline bool lfsr_file_hassprout(const lfsr_file_t *file) {
+    return lfsr_inlined_hassprout(&file->inlined);
 }
 
 static inline bool lfsr_file_hasshrub(const lfsr_file_t *file) {
-    return !(file->inlined.u.weight & LFSR_FILE_INLINED);
+    return lfsr_inlined_hasshrub(&file->inlined);
 }
 
 static lfs_off_t lfsr_file_inlinedsize(const lfsr_file_t *file) {
-    return file->inlined.u.weight & ~LFSR_FILE_INLINED;
+    return lfsr_inlined_size(&file->inlined);
 }
 
-static inline bool lfsr_file_isreadable(uint32_t flags) {
+static inline bool lfsr_flags_isreadable(uint32_t flags) {
     return (flags & LFS_O_RDONLY) == LFS_O_RDONLY;
 }
 
-static inline bool lfsr_file_iswriteable(uint32_t flags) {
+static inline bool lfsr_flags_iswriteable(uint32_t flags) {
     return (flags & LFS_O_WRONLY) == LFS_O_WRONLY;
 }
 
-static inline bool lfsr_file_iscreat(uint32_t flags) {
+static inline bool lfsr_flags_iscreat(uint32_t flags) {
     return flags & LFS_O_CREAT;
 }
 
-static inline bool lfsr_file_isexcl(uint32_t flags) {
+static inline bool lfsr_flags_isexcl(uint32_t flags) {
     return flags & LFS_O_EXCL;
 }
 
-static inline bool lfsr_file_istrunc(uint32_t flags) {
+static inline bool lfsr_flags_istrunc(uint32_t flags) {
     return flags & LFS_O_TRUNC;
 }
 
-static inline bool lfsr_file_isappend(uint32_t flags) {
+static inline bool lfsr_flags_isappend(uint32_t flags) {
     return flags & LFS_O_APPEND;
 }
 
-static inline bool lfsr_file_isunsynced(uint32_t flags) {
+static inline bool lfsr_flags_isunsynced(uint32_t flags) {
     return flags & LFS_F_UNSYNCED;
 }
 
-static inline bool lfsr_file_iserrored(uint32_t flags) {
+static inline bool lfsr_flags_iserrored(uint32_t flags) {
     return flags & LFS_F_ERRORED;
 }
+
+static inline bool lfsr_file_isreadable(const lfsr_file_t *file) {
+    return lfsr_flags_isreadable(file->flags);
+}
+
+static inline bool lfsr_file_iswriteable(const lfsr_file_t *file) {
+    return lfsr_flags_iswriteable(file->flags);
+}
+
+static inline bool lfsr_file_iscreat(const lfsr_file_t *file) {
+    return lfsr_flags_iscreat(file->flags);
+}
+
+static inline bool lfsr_file_isexcl(const lfsr_file_t *file) {
+    return lfsr_flags_isexcl(file->flags);
+}
+
+static inline bool lfsr_file_istrunc(const lfsr_file_t *file) {
+    return lfsr_flags_istrunc(file->flags);
+}
+
+static inline bool lfsr_file_isappend(const lfsr_file_t *file) {
+    return lfsr_flags_isappend(file->flags);
+}
+
+static inline bool lfsr_file_isunsynced(const lfsr_file_t *file) {
+    return lfsr_flags_isunsynced(file->flags);
+}
+
+static inline bool lfsr_file_iserrored(const lfsr_file_t *file) {
+    return lfsr_flags_iserrored(file->flags);
+}
+
 
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs_file_config *cfg) {
-    if (lfsr_file_iswriteable(flags)) {
+    if (lfsr_flags_iswriteable(flags)) {
         // prepare our filesystem for writing
         int err = lfsr_fs_preparemutation(lfs);
         if (err) {
@@ -8143,10 +8216,10 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
     // creating a new entry?
     if (err == LFS_ERR_NOENT) {
-        if (!lfsr_file_iscreat(flags)) {
+        if (!lfsr_flags_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
-        LFS_ASSERT(lfsr_file_iswriteable(flags));
+        LFS_ASSERT(lfsr_flags_iswriteable(flags));
 
         // check that name fits
         if (name_size > lfs->name_limit) {
@@ -8168,7 +8241,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             return err;
         }
     } else {
-        if (lfsr_file_isexcl(flags)) {
+        if (lfsr_flags_isexcl(flags)) {
             // oh, we really wanted to create a new entry
             return LFS_ERR_EXIST;
         }
@@ -8180,7 +8253,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
         // if we're truncating don't bother to read any state, we're
         // just going to truncate after all
-        if (!lfsr_file_istrunc(flags)) {
+        if (!lfsr_flags_istrunc(flags)) {
             // read the inline state
             lfsr_data_t data;
             err = lfsr_mdir_lookup(lfs, &file->m.mdir,
@@ -8293,7 +8366,7 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
         }
 
         // is the data inlined?
-        if (lfsr_file_hasinlined(file)
+        if (lfsr_file_hassprout(file)
                 && pos < lfsr_file_inlinedsize(file)) {
             lfsr_data_t data = file->inlined.u.data;
             lfsr_data_add(&data, pos);
@@ -8353,7 +8426,7 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
 
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
-    LFS_ASSERT(lfsr_file_isreadable(file->flags));
+    LFS_ASSERT(lfsr_file_isreadable(file));
 
     lfs_ssize_t d = lfs_min32(size, file->size - file->pos);
     int err = lfsr_file_read_(lfs, file, file->pos, buffer, d);
@@ -8437,12 +8510,13 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                         && file->buffer_pos
                             >= left_rid-(left_weight-1)
                                 + lfsr_data_size(&left_data)) {
-                    *attrs_++ = LFSR_ATTR(left_rid, GROW, -left_overlap, NULL);
+                    *attrs_++ = LFSR_ATTR(left_rid,
+                            SHRUB(GROW), -left_overlap, NULL);
 
                 // need to carve out left data?
                 } else if (left_overlap > 0) {
                     *attrs_++ = LFSR_ATTR(left_rid,
-                            GROW(SHRUB(INLINED)), -left_overlap,
+                            SHRUB(GROW(INLINED)), -left_overlap,
                             DISK(
                                 left_data.u.disk.block,
                                 left_data.u.disk.off,
@@ -8493,7 +8567,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                     file->inlined.u.rbyd.weight - left_overlap)
                     - file->buffer_pos;
             *attrs_++ = LFSR_ATTR(file->buffer_pos + rm_size - 1,
-                    RM, -rm_size, NULL);
+                    SHRUB(RM), -rm_size, NULL);
 
             if (lfsr_data_size(&right_data) == 0) {
                 // append our buffer with any remaining weight
@@ -8531,12 +8605,12 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
 
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size) {
-    LFS_ASSERT(lfsr_file_iswriteable(file->flags));
+    LFS_ASSERT(lfsr_file_iswriteable(file));
     LFS_ASSERT(size <= 0x7fffffff);
 
     // update pos if we are appending
     // TODO wait, what does POSIX do here if we've seeked past the eof?
-    if (lfsr_file_isappend(file->flags) && file->pos < file->size) {
+    if (lfsr_file_isappend(file) && file->pos < file->size) {
         file->pos = file->size;
     }
 
@@ -8587,7 +8661,7 @@ failed:;
 }
 
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
-    if (lfsr_file_iserrored(file->flags)) {
+    if (lfsr_file_iserrored(file)) {
         // it's not safe to do anything if our file errored
         return 0;
     }
@@ -8598,12 +8672,12 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // do nothing if our file is readonly
-    if (!lfsr_file_iswriteable(file->flags)) {
+    if (!lfsr_file_iswriteable(file)) {
         return 0;
     }
 
     int err;
-    if (lfsr_file_isunsynced(file->flags)) {
+    if (lfsr_file_isunsynced(file)) {
         // TODO what if buffer_size > inlined_size?
         // TODO should we also update file to be unbuffered after syncing
         // inlined data?
@@ -8648,7 +8722,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 goto failed;
             }
 
-            LFS_ASSERT(!lfsr_file_hasinlined(file));
+            LFS_ASSERT(!lfsr_file_hassprout(file));
 
             // now commit our file's metadata
             //
