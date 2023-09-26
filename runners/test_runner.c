@@ -469,7 +469,7 @@ extern size_t test_geometry_count;
 
 extern const test_powerloss_t *test_powerlosses;
 extern size_t test_powerloss_count;
-bool test_pl = false;
+size_t test_pls = 0;
 
 const test_id_t *test_ids = (const test_id_t[]) {
     {NULL, NULL, 0, NULL, 0},
@@ -762,7 +762,6 @@ static void case_forperm(
 
             // explicit powerloss cycles?
             if (cycles) {
-                test_pl = true;
                 cb(data, suite, case_, &(test_powerloss_t){
                         .run=run_powerloss_cycles,
                         .cycles=cycles,
@@ -770,8 +769,8 @@ static void case_forperm(
             } else {
                 for (size_t p = 0; p < test_powerloss_count; p++) {
                     // skip non-reentrant tests when powerloss testing
-                    test_pl = test_powerlosses[p].run != run_powerloss_none;
-                    if (test_pl && !(case_->flags & TEST_REENTRANT)) {
+                    if (test_powerlosses[p].run != run_powerloss_none
+                            && !(case_->flags & TEST_REENTRANT)) {
                         continue;
                     }
 
@@ -812,7 +811,6 @@ static void case_forperm(
                 }
 
                 if (cycles) {
-                    test_pl = true;
                     cb(data, suite, case_, &(test_powerloss_t){
                             .run=run_powerloss_cycles,
                             .cycles=cycles,
@@ -820,8 +818,8 @@ static void case_forperm(
                 } else {
                     for (size_t p = 0; p < test_powerloss_count; p++) {
                         // skip non-reentrant tests when powerloss testing
-                        test_pl = test_powerlosses[p].run != run_powerloss_none;
-                        if (test_pl && !(case_->flags & TEST_REENTRANT)) {
+                        if (test_powerlosses[p].run != run_powerloss_none
+                                && !(case_->flags & TEST_REENTRANT)) {
                             continue;
                         }
 
@@ -854,6 +852,8 @@ void perm_count(
 
     state->total += 1;
 
+    // set pls to 1 if running under powerloss so it useful for if predicates
+    test_pls = (powerloss->run != run_powerloss_none);
     if (case_->if_ && !case_->if_()) {
         return;
     }
@@ -1434,6 +1434,9 @@ static void run_powerloss_none(
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
+    // zero pls
+    test_pls = 0;
+
     case_->run(&cfg);
 
     printf("finished ");
@@ -1499,6 +1502,9 @@ static void run_powerloss_linear(
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
+    // zero pls before first run
+    test_pls = 0;
+
     while (true) {
         if (!setjmp(powerloss_jmp)) {
             // run the test
@@ -1515,6 +1521,8 @@ static void run_powerloss_linear(
         }
         printf("\n");
 
+        // increment pls
+        test_pls += 1;
         i += 1;
         lfs_emubd_setpowercycles(&cfg, i);
     }
@@ -1577,6 +1585,9 @@ static void run_powerloss_log(
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
+    // zero pls before first run
+    test_pls = 0;
+
     while (true) {
         if (!setjmp(powerloss_jmp)) {
             // run the test
@@ -1593,6 +1604,8 @@ static void run_powerloss_log(
         }
         printf("\n");
 
+        // increment pls
+        test_pls += 1;
         i *= 2;
         lfs_emubd_setpowercycles(&cfg, i);
     }
@@ -1653,6 +1666,9 @@ static void run_powerloss_cycles(
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
+    // zero pls before first run
+    test_pls = 0;
+
     while (true) {
         if (!setjmp(powerloss_jmp)) {
             // run the test
@@ -1666,6 +1682,8 @@ static void run_powerloss_cycles(
         perm_printid(suite, case_, cycles, i+1);
         printf("\n");
 
+        // increment pls
+        test_pls += 1;
         i += 1;
         lfs_emubd_setpowercycles(&cfg,
                 (i < cycle_count) ? cycles[i] : 0);
@@ -1727,7 +1745,8 @@ static void run_powerloss_exhaustive_layer(
         const struct test_case *case_,
         struct lfs_config *cfg,
         struct lfs_emubd_config *bdcfg,
-        size_t depth) {
+        size_t depth,
+        size_t pls) {
     (void)suite;
 
     struct powerloss_exhaustive_state state = {
@@ -1741,6 +1760,9 @@ static void run_powerloss_exhaustive_layer(
     // branches as we do so
     lfs_emubd_setpowercycles(state.cfg, depth > 0 ? 1 : 0);
     bdcfg->powerloss_data = &state;
+
+    // make the number of pls currently seen available to tests/debugging
+    test_pls = pls;
 
     // run the tests
     case_->run(cfg);
@@ -1774,7 +1796,7 @@ static void run_powerloss_exhaustive_layer(
         cfg->context = &state.branches[i];
         run_powerloss_exhaustive_layer(cycles,
                 suite, case_,
-                cfg, bdcfg, depth-1);
+                cfg, bdcfg, depth-1, pls+1);
 
         // pop the cycle
         cycles->cycle_count -= 1;
@@ -1830,7 +1852,7 @@ static void run_powerloss_exhaustive(
     run_powerloss_exhaustive_layer(
             &(struct powerloss_exhaustive_cycles){NULL, 0, 0},
             suite, case_,
-            &cfg, &bdcfg, cycle_count);
+            &cfg, &bdcfg, cycle_count, 0);
 
     printf("finished ");
     perm_printid(suite, case_, NULL, 0);
@@ -1910,6 +1932,8 @@ void perm_run(
     }
     test_step += 1;
 
+    // set pls to 1 if running under powerloss so it useful for if predicates
+    test_pls = (powerloss->run != run_powerloss_none);
     // filter?
     if (case_->if_ && !case_->if_()) {
         printf("skipped ");
@@ -1918,6 +1942,7 @@ void perm_run(
         return;
     }
 
+    // run the test, possibly under powerloss
     powerloss->run(
             powerloss->cycles, powerloss->cycle_count,
             suite, case_);
@@ -2628,7 +2653,8 @@ step_unknown:
                 char *parsed = NULL;
                 test_trace_period = strtoumax(optarg, &parsed, 0);
                 if (parsed == optarg) {
-                    fprintf(stderr, "error: invalid trace-period: %s\n", optarg);
+                    fprintf(stderr, "error: invalid trace-period: %s\n",
+                            optarg);
                     exit(-1);
                 }
                 break;

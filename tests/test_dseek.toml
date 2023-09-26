@@ -1432,7 +1432,7 @@ defines.PARENT = [false, true]
 # 2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 32'
+if = '!TEST_PLS || N <= 32'
 reentrant = true
 code = '''
     // format once per test
@@ -1445,7 +1445,7 @@ code = '''
 
     if (PARENT) {
         err = lfsr_mkdir(&lfs, "pricklypear");
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     }
 
     // make this many directories
@@ -1453,7 +1453,7 @@ code = '''
         char name[256];
         sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     }
 
     // check that our mkdir worked
@@ -1558,7 +1558,7 @@ defines.PARENT = [0, 1, 2]
 # 2 => rewind then seek
 defines.SEEK = [0, 1, 2]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 32'
+if = '!TEST_PLS || N <= 32'
 reentrant = true
 code = '''
     // format once per test
@@ -1571,10 +1571,10 @@ code = '''
 
     if (PARENT) {
         err = lfsr_mkdir(&lfs, "pricklypear");
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
         if (PARENT >= 2) {
             err = lfsr_mkdir(&lfs, "quiabentia");
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
         }
     }
 
@@ -1596,7 +1596,7 @@ code = '''
             char name[256];
             sprintf(name, "%s/dir%04d", (PARENT ? "pricklypear" : ""), i);
             err = lfsr_mkdir(&lfs, name);
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
         }
 
         // check that our mkdir worked
@@ -1664,7 +1664,7 @@ code = '''
                 (BEFORE ? "0" : ""),
                 &info.name[strlen("dir")]);
         err = lfsr_rename(&lfs, old_path, new_path);
-        assert(!err || (TEST_PL && err == LFS_ERR_NOENT));
+        assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
         // seek between renames? this tests that the internal position is
         // updated correctly

@@ -72,10 +72,11 @@ extern const struct test_suite *const test_suites[];
 extern const size_t test_suite_count;
 
 
-// this is defined as true when powerloss-testing
-extern bool test_pl;
+// this variable tracks the number of powerlosses triggered during the
+// current test permutation, this is useful for both tests and debugging
+extern size_t test_pls;
 
-#define TEST_PL test_pl
+#define TEST_PLS test_pls
 
 // deterministic prng for pseudo-randomness in testes
 uint32_t test_prng(uint32_t *state);

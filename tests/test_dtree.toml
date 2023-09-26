@@ -17,7 +17,7 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -160,7 +160,7 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // make the same directory, should error
     lfsr_mkdir(&lfs, "ardvark") => LFS_ERR_EXIST;
@@ -212,7 +212,7 @@ code = '''
     // check if dir exists before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "ardvark", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool exists = !err;
 
     // and with dir_read
@@ -234,7 +234,7 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == exists);
 
     // remount?
@@ -286,7 +286,7 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // try to make root, which doesn't make sense
     err = lfsr_mkdir(&lfs, "/");
@@ -338,7 +338,7 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // make a nonsense directory, should error
     lfsr_mkdir(&lfs, "no/hmm") => LFS_ERR_NOENT;
@@ -392,13 +392,13 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "ardvark", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "banana", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
     err = lfsr_stat(&lfs, "cat", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool c_exists = !err;
 
     lfsr_dir_t dir;
@@ -429,13 +429,13 @@ code = '''
 
     // make some directories
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
     err = lfsr_mkdir(&lfs, "banana");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == b_exists);
     err = lfsr_mkdir(&lfs, "cat");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == c_exists);
 
     // remount?
@@ -494,13 +494,13 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "ardvark", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "ardvark/banana", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
     err = lfsr_stat(&lfs, "ardvark/banana/cat", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool c_exists = !err;
 
     lfsr_dir_t dir;
@@ -520,7 +520,7 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
 
     err = lfsr_dir_open(&lfs, &dir, "/ardvark");
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     assert(!err == a_exists);
     if (a_exists) {
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -539,7 +539,7 @@ code = '''
     }
 
     err = lfsr_dir_open(&lfs, &dir, "/ardvark/banana");
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     assert(!err == b_exists);
     if (b_exists) {
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -559,13 +559,13 @@ code = '''
 
     // make some directories
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
     err = lfsr_mkdir(&lfs, "ardvark/banana");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == b_exists);
     err = lfsr_mkdir(&lfs, "ardvark/banana/cat");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == c_exists);
 
     // remount?
@@ -633,7 +633,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 32'
+if = '!TEST_PLS || N <= 32'
 reentrant = true
 code = '''
     // format once per test
@@ -649,7 +649,7 @@ code = '''
         char name[256];
         sprintf(name, "dir%04d", i);
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
         // remount?
         if (REMOUNT) {
@@ -696,7 +696,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 32'
+if = '!TEST_PLS || N <= 32'
 reentrant = true
 code = '''
     // format once per test
@@ -712,7 +712,7 @@ code = '''
         char name[256];
         sprintf(name, "dir%04d", (int)(N-1-i));
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
         // remount?
         if (REMOUNT) {
@@ -759,7 +759,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 4'
+if = '!TEST_PLS || N <= 4'
 reentrant = true
 code = '''
     // format once per test
@@ -775,13 +775,13 @@ code = '''
         char name[256];
         sprintf(name, "dir%04d", i);
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
         // containing this many directories
         for (lfs_size_t j = 0; j < N; j++) {
             sprintf(name, "dir%04d/child%04d", i, j);
             err = lfsr_mkdir(&lfs, name);
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
             // remount?
             if (REMOUNT) {
@@ -860,7 +860,7 @@ code = '''
 defines.N = [1, 2, 4]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 2'
+if = '!TEST_PLS || N <= 2'
 reentrant = true
 code = '''
     // format once per test
@@ -876,19 +876,19 @@ code = '''
         char name[256];
         sprintf(name, "dir%04d", i);
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
         // containing this many directories
         for (lfs_size_t j = 0; j < N; j++) {
             sprintf(name, "dir%04d/child%04d", i, j);
             err = lfsr_mkdir(&lfs, name);
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
             // containing this many directories
             for (lfs_size_t k = 0; k < N; k++) {
                 sprintf(name, "dir%04d/child%04d/grandchild%04d", i, j, k);
                 err = lfsr_mkdir(&lfs, name);
-                assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+                assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
                 // remount?
                 if (REMOUNT) {
@@ -999,7 +999,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 16'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
@@ -1016,7 +1016,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         sprintf(&name[strlen(name)], "/dir%04d", i);
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
         // remount?
         if (REMOUNT) {
@@ -1071,7 +1071,7 @@ defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
 defines.SEED = 'range(10)'
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 64'
+if = '!TEST_PLS || N <= 64'
 reentrant = true
 code = '''
     // format once per test
@@ -1084,7 +1084,7 @@ code = '''
 
     if (PARENT) {
         err = lfsr_mkdir(&lfs, "pricklypear");
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     }
 
     // set up a simulation to compare against
@@ -1188,22 +1188,22 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "a_SNmwMTHH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "b_skvjpWJH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
     err = lfsr_stat(&lfs, "c_OnOQhVPH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool c_exists = !err;
     err = lfsr_stat(&lfs, "d_puMpPjRH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool d_exists = !err;
     err = lfsr_stat(&lfs, "e_LptKHkHH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool e_exists = !err;
     err = lfsr_stat(&lfs, "f_lUoVuhJH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool f_exists = !err;
 
     lfsr_dir_t dir;
@@ -1249,22 +1249,22 @@ code = '''
 
     // make directories
     err = lfsr_mkdir(&lfs, "a_SNmwMTHH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
     err = lfsr_mkdir(&lfs, "b_skvjpWJH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == b_exists);
     err = lfsr_mkdir(&lfs, "c_OnOQhVPH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == c_exists);
     err = lfsr_mkdir(&lfs, "d_puMpPjRH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == d_exists);
     err = lfsr_mkdir(&lfs, "e_LptKHkHH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == e_exists);
     err = lfsr_mkdir(&lfs, "f_lUoVuhJH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == f_exists);
 
     // remount?
@@ -1349,22 +1349,22 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "a_IplRNrPH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "b_iUwOsqRH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
     err = lfsr_stat(&lfs, "c_UPNtkpHH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool c_exists = !err;
     err = lfsr_stat(&lfs, "d_jKLUSLJH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool d_exists = !err;
     err = lfsr_stat(&lfs, "e_VNunKMPH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool e_exists = !err;
     err = lfsr_stat(&lfs, "f_vknsvNRH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool f_exists = !err;
 
     lfsr_dir_t dir;
@@ -1410,22 +1410,22 @@ code = '''
 
     // make directories
     err = lfsr_mkdir(&lfs, "a_IplRNrPH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
     err = lfsr_mkdir(&lfs, "b_iUwOsqRH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == b_exists);
     err = lfsr_mkdir(&lfs, "c_UPNtkpHH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == c_exists);
     err = lfsr_mkdir(&lfs, "d_jKLUSLJH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == d_exists);
     err = lfsr_mkdir(&lfs, "e_VNunKMPH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == e_exists);
     err = lfsr_mkdir(&lfs, "f_vknsvNRH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == f_exists);
 
     // remount?
@@ -1512,22 +1512,22 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "a_iomlVKPH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "b_IJvqkHRH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
     err = lfsr_stat(&lfs, "c_uOOJsIHH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool c_exists = !err;
     err = lfsr_stat(&lfs, "d_JTMkKuJH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool d_exists = !err;
     err = lfsr_stat(&lfs, "e_vQtPStPH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool e_exists = !err;
     err = lfsr_stat(&lfs, "f_VtoMnwRH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool f_exists = !err;
 
     lfsr_dir_t dir;
@@ -1573,22 +1573,22 @@ code = '''
 
     // make directories
     err = lfsr_mkdir(&lfs, "a_iomlVKPH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
     err = lfsr_mkdir(&lfs, "b_IJvqkHRH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == b_exists);
     err = lfsr_mkdir(&lfs, "c_uOOJsIHH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == c_exists);
     err = lfsr_mkdir(&lfs, "d_JTMkKuJH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == d_exists);
     err = lfsr_mkdir(&lfs, "e_vQtPStPH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == e_exists);
     err = lfsr_mkdir(&lfs, "f_VtoMnwRH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == f_exists);
 
     // remount?
@@ -1675,22 +1675,22 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "a_IOtUptRH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "b_nquQsKHH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
     err = lfsr_stat(&lfs, "c_vwQtKjHH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool c_exists = !err;
     err = lfsr_stat(&lfs, "d_sVrvrWHH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool d_exists = !err;
     err = lfsr_stat(&lfs, "e_thrRIsRH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool e_exists = !err;
     err = lfsr_stat(&lfs, "f_pNtQTPJH", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool f_exists = !err;
 
     lfsr_dir_t dir;
@@ -1736,22 +1736,22 @@ code = '''
 
     // make directories
     err = lfsr_mkdir(&lfs, "a_IOtUptRH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
     err = lfsr_mkdir(&lfs, "b_nquQsKHH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == b_exists);
     err = lfsr_mkdir(&lfs, "c_vwQtKjHH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == c_exists);
     err = lfsr_mkdir(&lfs, "d_sVrvrWHH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == d_exists);
     err = lfsr_mkdir(&lfs, "e_thrRIsRH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == e_exists);
     err = lfsr_mkdir(&lfs, "f_pNtQTPJH");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == f_exists);
 
     // remount?
@@ -1830,7 +1830,7 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -1904,7 +1904,7 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // try to remove a nonsense directory
     lfsr_remove(&lfs, "no") => LFS_ERR_NOENT;
@@ -1961,11 +1961,11 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // fill it with stuff
     err = lfsr_mkdir(&lfs, "ardvark/banana");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // try to remove the parent directory
     lfsr_remove(&lfs, "ardvark") => LFS_ERR_NOTEMPTY;
@@ -2033,7 +2033,7 @@ code = '''
     // check if dir exists before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "ardvark", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool exists = !err;
 
     // and with dir_read
@@ -2055,7 +2055,7 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == exists);
 
     // remount?
@@ -2131,7 +2131,7 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // try to remove root, which doesn't really make sense
     //
@@ -2185,13 +2185,13 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "ardvark", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "banana", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
     err = lfsr_stat(&lfs, "cat", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool c_exists = !err;
 
     lfsr_dir_t dir;
@@ -2222,13 +2222,13 @@ code = '''
 
     // make some directories
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
     err = lfsr_mkdir(&lfs, "banana");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == b_exists);
     err = lfsr_mkdir(&lfs, "cat");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == c_exists);
 
     // remount?
@@ -2380,13 +2380,13 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "ardvark", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "ardvark/banana", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
     err = lfsr_stat(&lfs, "ardvark/banana/cat", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool c_exists = !err;
 
     lfsr_dir_t dir;
@@ -2406,7 +2406,7 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
 
     err = lfsr_dir_open(&lfs, &dir, "/ardvark");
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     assert(!err == a_exists);
     if (a_exists) {
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -2425,7 +2425,7 @@ code = '''
     }
 
     err = lfsr_dir_open(&lfs, &dir, "/ardvark/banana");
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     assert(!err == b_exists);
     if (b_exists) {
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -2445,13 +2445,13 @@ code = '''
 
     // make some directories
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
     err = lfsr_mkdir(&lfs, "ardvark/banana");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == b_exists);
     err = lfsr_mkdir(&lfs, "ardvark/banana/cat");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == c_exists);
 
     // remount?
@@ -2645,7 +2645,7 @@ defines.REMOUNT = [false, true]
 if = [
     'N > REMAINING',
     # limit powerloss testing due to time
-    '!TEST_PL || N <= 32',
+    '!TEST_PLS || N <= 32',
 ]
 reentrant = true
 code = '''
@@ -2662,7 +2662,7 @@ code = '''
         char name[256];
         sprintf(name, "dir%04d", i);
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     }
 
     // remount?
@@ -2760,7 +2760,7 @@ defines.REMOUNT = [false, true]
 if = [
     'N > REMAINING',
     # limit powerloss testing due to time
-    '!TEST_PL || N <= 32',
+    '!TEST_PLS || N <= 32',
 ]
 reentrant = true
 code = '''
@@ -2777,7 +2777,7 @@ code = '''
         char name[256];
         sprintf(name, "dir%04d", (int)(N-1-i));
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     }
 
     // remount?
@@ -2875,7 +2875,7 @@ defines.REMOUNT = [false, true]
 if = [
     'N > REMAINING',
     # limit powerloss testing due to time
-    '!TEST_PL || N <= 4',
+    '!TEST_PLS || N <= 4',
 ]
 reentrant = true
 code = '''
@@ -2892,13 +2892,13 @@ code = '''
         char name[256];
         sprintf(name, "dir%04d", i);
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
         // containing this many directories
         for (lfs_size_t j = 0; j < N; j++) {
             sprintf(name, "dir%04d/child%04d", i, j);
             err = lfsr_mkdir(&lfs, name);
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
         }
     }
 
@@ -3079,7 +3079,7 @@ defines.REMOUNT = [false, true]
 if = [
     'N > REMAINING',
     # limit powerloss testing due to time
-    '!TEST_PL || N <= 2',
+    '!TEST_PLS || N <= 2',
 ]
 reentrant = true
 code = '''
@@ -3096,19 +3096,19 @@ code = '''
         char name[256];
         sprintf(name, "dir%04d", i);
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
         // containing this many directories
         for (lfs_size_t j = 0; j < N; j++) {
             sprintf(name, "dir%04d/child%04d", i, j);
             err = lfsr_mkdir(&lfs, name);
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
             // containing this many directories
             for (lfs_size_t k = 0; k < N; k++) {
                 sprintf(name, "dir%04d/child%04d/grandchild%04d", i, j, k);
                 err = lfsr_mkdir(&lfs, name);
-                assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+                assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
             }
         }
     }
@@ -3377,7 +3377,7 @@ defines.REMOUNT = [false, true]
 if = [
     'N > REMAINING',
     # limit powerloss testing due to time
-    '!TEST_PL || N <= 16',
+    '!TEST_PLS || N <= 16',
 ]
 reentrant = true
 code = '''
@@ -3395,7 +3395,7 @@ code = '''
     for (lfs_size_t i = 0; i < N; i++) {
         sprintf(&name[strlen(name)], "/dir%04d", i);
         err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     }
 
     // remount?
@@ -3499,7 +3499,7 @@ defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
 defines.SEED = 'range(10)'
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 64'
+if = '!TEST_PLS || N <= 64'
 reentrant = true
 code = '''
     // format once per test
@@ -3512,7 +3512,7 @@ code = '''
 
     if (PARENT) {
         err = lfsr_mkdir(&lfs, "pricklypear");
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     }
 
     // set up a simulation to compare against
@@ -3627,10 +3627,10 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // clean up interrupted renames
-    if (TEST_PL) {
+    if (TEST_PLS) {
         err = lfsr_remove(&lfs, "banana");
         assert(!err || err == LFS_ERR_NOENT);
     }
@@ -3713,9 +3713,9 @@ code = '''
 
     // make directories
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     err = lfsr_mkdir(&lfs, "banana");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -3798,7 +3798,7 @@ code = '''
 
     // make directories
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // remount?
     if (REMOUNT) {
@@ -3877,7 +3877,7 @@ code = '''
 
     // make directories
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // try to rename a nonsense directory
     lfsr_rename(&lfs, "no", "ardvark") => LFS_ERR_NOENT;
@@ -3937,12 +3937,12 @@ code = '''
 
     // make directories
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     err = lfsr_mkdir(&lfs, "banana");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     // fill dest with stuff
     err = lfsr_mkdir(&lfs, "banana/cat");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // try to rename
     lfsr_rename(&lfs, "ardvark", "banana") => LFS_ERR_NOTEMPTY;
@@ -4016,10 +4016,10 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "ardvark", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "banana", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
 
     // and with dir_read
@@ -4046,11 +4046,11 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
 
     // clean up interrupted renames
-    if (TEST_PL) {
+    if (TEST_PLS) {
         err = lfsr_remove(&lfs, "banana");
         assert(!err || err == LFS_ERR_NOENT);
         assert(!err == b_exists);
@@ -4135,7 +4135,7 @@ code = '''
 
     // make a directory
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
     // try to rename root, which doesn't really make sense
     lfsr_rename(&lfs, "/", "notroot") => LFS_ERR_INVAL;
@@ -4186,22 +4186,22 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "ardvark", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "banana", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
     err = lfsr_stat(&lfs, "cat", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool c_exists = !err;
     err = lfsr_stat(&lfs, "disco", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool d_exists = !err;
     err = lfsr_stat(&lfs, "eggplant", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool e_exists = !err;
     err = lfsr_stat(&lfs, "fish", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool f_exists = !err;
 
     lfsr_dir_t dir;
@@ -4247,17 +4247,17 @@ code = '''
 
     // make some directories
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
     err = lfsr_mkdir(&lfs, "banana");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == b_exists);
     err = lfsr_mkdir(&lfs, "cat");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == c_exists);
 
     // clean up interrupted renames
-    if (TEST_PL) {
+    if (TEST_PLS) {
         err = lfsr_remove(&lfs, "disco");
         assert(!err || err == LFS_ERR_NOENT);
         assert(!err == d_exists);
@@ -4448,31 +4448,31 @@ code = '''
     // check if dirs exist before mkconsistent
     struct lfs_info info;
     err = lfsr_stat(&lfs, "ardvark", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool a_exists = !err;
     err = lfsr_stat(&lfs, "ardvark/banana", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool b_exists = !err;
     err = lfsr_stat(&lfs, "ardvark/banana/cat", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool c_exists = !err;
     err = lfsr_stat(&lfs, "disco", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool d_exists = !err;
     err = lfsr_stat(&lfs, "disco/eggplant", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool e_exists = !err;
     err = lfsr_stat(&lfs, "disco/eggplant/fish", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool f_exists = !err;
     err = lfsr_stat(&lfs, "disco/banana", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool db_exists = !err;
     err = lfsr_stat(&lfs, "disco/banana/cat", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool dbc_exists = !err;
     err = lfsr_stat(&lfs, "disco/eggplant/cat", &info);
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     bool dec_exists = !err;
 
     lfsr_dir_t dir;
@@ -4497,7 +4497,7 @@ code = '''
     lfsr_dir_close(&lfs, &dir) => 0;
 
     err = lfsr_dir_open(&lfs, &dir, "/ardvark");
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     assert(!err == a_exists);
     if (a_exists) {
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -4516,7 +4516,7 @@ code = '''
     }
 
     err = lfsr_dir_open(&lfs, &dir, "/ardvark/banana");
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     assert(!err == b_exists);
     if (b_exists) {
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -4535,7 +4535,7 @@ code = '''
     }
 
     err = lfsr_dir_open(&lfs, &dir, "/disco");
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     assert(!err == d_exists);
     if (d_exists) {
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -4559,7 +4559,7 @@ code = '''
     }
 
     err = lfsr_dir_open(&lfs, &dir, "/disco/eggplant");
-    assert(err == LFS_ERR_NOENT || (TEST_PL && !err));
+    assert(err == LFS_ERR_NOENT || (TEST_PLS && !err));
     assert(!err == e_exists);
     if (e_exists) {
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -4584,17 +4584,17 @@ code = '''
 
     // make some directories
     err = lfsr_mkdir(&lfs, "ardvark");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == a_exists);
     err = lfsr_mkdir(&lfs, "ardvark/banana");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == b_exists);
     err = lfsr_mkdir(&lfs, "ardvark/banana/cat");
-    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     assert((err == LFS_ERR_EXIST) == c_exists);
 
     // clean up interrupted renames
-    if (TEST_PL) {
+    if (TEST_PLS) {
         err = lfsr_remove(&lfs, "disco/eggplant/fish");
         assert(!err || err == LFS_ERR_NOENT);
         assert(!err == f_exists);
@@ -4864,7 +4864,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 32'
+if = '!TEST_PLS || N <= 32'
 reentrant = true
 code = '''
     // format once per test
@@ -4884,7 +4884,7 @@ code = '''
             char name[256];
             sprintf(name, "dir%04d", i);
             err = lfsr_mkdir(&lfs, name);
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
         }
 
         // remount?
@@ -4932,7 +4932,7 @@ code = '''
         char new_name[256];
         sprintf(new_name, "%smved%04d", (BEFORE ? "0" : ""), i);
         int err = lfsr_rename(&lfs, old_name, new_name);
-        assert(!err || (TEST_PL && err == LFS_ERR_NOENT));
+        assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
         // remount?
         if (REMOUNT) {
@@ -4979,7 +4979,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 32'
+if = '!TEST_PLS || N <= 32'
 reentrant = true
 code = '''
     // format once per test
@@ -4999,7 +4999,7 @@ code = '''
             char name[256];
             sprintf(name, "dir%04d", (int)(N-1-i));
             err = lfsr_mkdir(&lfs, name);
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
         }
 
         // remount?
@@ -5047,7 +5047,7 @@ code = '''
         char new_name[256];
         sprintf(new_name, "%smved%04d", (BEFORE ? "0" : ""), i);
         int err = lfsr_rename(&lfs, old_name, new_name);
-        assert(!err || (TEST_PL && err == LFS_ERR_NOENT));
+        assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
         // remount?
         if (REMOUNT) {
@@ -5094,7 +5094,7 @@ defines.N = [1, 2, 4, 8, 16]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 4'
+if = '!TEST_PLS || N <= 4'
 reentrant = true
 code = '''
     // format once per test
@@ -5114,13 +5114,13 @@ code = '''
             char name[256];
             sprintf(name, "dir%04d", i);
             err = lfsr_mkdir(&lfs, name);
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
             // containing this many directories
             for (lfs_size_t j = 0; j < N; j++) {
                 sprintf(name, "dir%04d/child%04d", i, j);
                 err = lfsr_mkdir(&lfs, name);
-                assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+                assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
             }
         }
 
@@ -5200,7 +5200,7 @@ code = '''
         char new_name[256];
         sprintf(new_name, "%smved%04d", (BEFORE ? "0" : ""), i);
         int err = lfsr_rename(&lfs, old_name, new_name);
-        assert(!err || (TEST_PL && err == LFS_ERR_NOENT));
+        assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
         // remount?
         if (REMOUNT) {
@@ -5219,7 +5219,7 @@ code = '''
                     (BEFORE ? "0" : ""), i,
                     (BEFORE ? "0" : ""), j);
             int err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || (TEST_PL && err == LFS_ERR_NOENT));
+            assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
             // remount?
             if (REMOUNT) {
@@ -5299,7 +5299,7 @@ defines.N = [1, 2, 4]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 2'
+if = '!TEST_PLS || N <= 2'
 reentrant = true
 code = '''
     // format once per test
@@ -5319,19 +5319,19 @@ code = '''
             char name[256];
             sprintf(name, "dir%04d", i);
             err = lfsr_mkdir(&lfs, name);
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
             // containing this many directories
             for (lfs_size_t j = 0; j < N; j++) {
                 sprintf(name, "dir%04d/child%04d", i, j);
                 err = lfsr_mkdir(&lfs, name);
-                assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+                assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
 
                 // containing this many directories
                 for (lfs_size_t k = 0; k < N; k++) {
                     sprintf(name, "dir%04d/child%04d/grandchild%04d", i, j, k);
                     err = lfsr_mkdir(&lfs, name);
-                    assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+                    assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
                 }
             }
         }
@@ -5443,7 +5443,7 @@ code = '''
         char new_name[256];
         sprintf(new_name, "%smved%04d", (BEFORE ? "0" : ""), i);
         int err = lfsr_rename(&lfs, old_name, new_name);
-        assert(!err || (TEST_PL && err == LFS_ERR_NOENT));
+        assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
         // remount?
         if (REMOUNT) {
@@ -5462,7 +5462,7 @@ code = '''
                     (BEFORE ? "0" : ""), i,
                     (BEFORE ? "0" : ""), j);
             int err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || (TEST_PL && err == LFS_ERR_NOENT));
+            assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
             // remount?
             if (REMOUNT) {
@@ -5483,7 +5483,7 @@ code = '''
                         (BEFORE ? "0" : ""), j,
                         (BEFORE ? "0" : ""), k);
                 int err = lfsr_rename(&lfs, old_name, new_name);
-                assert(!err || (TEST_PL && err == LFS_ERR_NOENT));
+                assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
                 // remount?
                 if (REMOUNT) {
@@ -5601,7 +5601,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.BEFORE = [false, true]
 defines.REMOUNT = [false, true]
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 16'
+if = '!TEST_PLS || N <= 16'
 reentrant = true
 code = '''
     // format once per test
@@ -5622,7 +5622,7 @@ code = '''
         for (lfs_size_t i = 0; i < N; i++) {
             sprintf(&name[strlen(name)], "/dir%04d", i);
             err = lfsr_mkdir(&lfs, name);
-            assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+            assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
         }
 
         // remount?
@@ -5679,7 +5679,7 @@ code = '''
         sprintf(&new_name[strlen(new_name)], "/%smved%04d",
                 (BEFORE ? "0" : ""), i);
         err = lfsr_rename(&lfs, old_name, new_name);
-        assert(!err || (TEST_PL && err == LFS_ERR_NOENT));
+        assert(!err || (TEST_PLS && err == LFS_ERR_NOENT));
 
         // remount?
         if (REMOUNT) {
@@ -5738,7 +5738,7 @@ defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
 defines.SEED = 'range(10)'
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 64'
+if = '!TEST_PLS || N <= 64'
 reentrant = true
 code = '''
     // format once per test
@@ -5751,7 +5751,7 @@ code = '''
 
     if (PARENT) {
         err = lfsr_mkdir(&lfs, "pricklypear");
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     }
 
     // set up a simulation to compare against
@@ -5879,7 +5879,7 @@ defines.PARENT = [false, true]
 defines.REMOUNT = [false, true]
 defines.SEED = 'range(10)'
 # limit powerloss testing due to time
-if = '!TEST_PL || N <= 64'
+if = '!TEST_PLS || N <= 64'
 reentrant = true
 code = '''
     // format once per test
@@ -5892,7 +5892,7 @@ code = '''
 
     if (PARENT) {
         err = lfsr_mkdir(&lfs, "pricklypear");
-        assert(!err || (TEST_PL && err == LFS_ERR_EXIST));
+        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
     }
 
     // set up a simulation to compare against
