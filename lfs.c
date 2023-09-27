@@ -5452,7 +5452,7 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
                     opened;
                     opened = opened->next) {
                 lfsr_file_t *file = (lfsr_file_t*)opened;
-                if (lfsr_inlined_hasshrub(&file->inlined)
+                if (lfsr_inlined_hassprout(&file->inlined)
                         && file->inlined.u.data.u.disk.block
                             == data.u.disk.block
                         && file->inlined.u.data.u.disk.off
@@ -5550,15 +5550,15 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_file_t *file = (lfsr_file_t*)opened;
         // belongs to our mdir?
         if (lfsr_file_isunsynced(file)
-                && lfsr_inlined_block(&file->inlined) == mdir->u.rbyd.block
+                && (file->m.mdir.mid & lfsr_midbmask(lfs))
+                        == (mdir->mid & lfsr_midbmask(lfs))
                 && (file->m.mdir.mid & lfsr_midrmask(lfs)) >= start_rid
                 && (lfs_size_t)(file->m.mdir.mid & lfsr_midrmask(lfs))
                     < (lfs_size_t)end_rid) {
             // inlined null? we don't write a tag for these but we do need to
             // update them, they may have been clobbered in a failed commit
             if (lfsr_inlined_hasnull(&file->inlined)) {
-                file->inlined_.u.data = LFSR_DATA_DISK(
-                        mdir_->u.rbyd.block, 0, 0);
+                file->inlined_.u.data = LFSR_DATA_DISK(0, 0, 0);
 
             // inlined data?
             } else if (lfsr_inlined_hassprout(&file->inlined)) {
@@ -5677,7 +5677,8 @@ static lfs_ssize_t lfsr_mdir_estimate_(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_file_t *file = (lfsr_file_t*)opened;
         // belongs to our mdir?
         if (lfsr_file_isunsynced(file)
-                && lfsr_inlined_block(&file->inlined) == mdir->u.rbyd.block
+                && (file->m.mdir.mid & lfsr_midbmask(lfs))
+                        == (mdir->mid & lfsr_midbmask(lfs))
                 && (file->m.mdir.mid & lfsr_midrmask(lfs)) == rid) {
             // inlined data?
             if (lfsr_inlined_hassprout(&file->inlined)) {
@@ -8351,6 +8352,13 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         }
     }
 
+    // setup file state
+    file->flags = flags;
+    file->cfg = cfg;
+    file->pos = 0;
+    // default inlined state
+    file->inlined.u.data = LFSR_DATA_DISK(0, 0, 0);
+
     // lookup our parent
     lfsr_tag_t tag;
     lfsr_did_t did;
@@ -8362,15 +8370,6 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     if (err && err != LFS_ERR_NOENT) {
         return err;
     }
-
-    // setup file state
-    file->flags = flags;
-    file->cfg = cfg;
-    file->pos = 0;
-    // default inlined state
-    // note we still keep track of the block when inlined is null, it's
-    // a nice invariant to have
-    file->inlined.u.data = LFSR_DATA_DISK(file->m.mdir.u.m.blocks[0], 0, 0);
 
     // creating a new entry?
     if (err == LFS_ERR_NOENT) {
