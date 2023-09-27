@@ -3360,6 +3360,19 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 // the following are mostly btree helpers, but since they operate on rbyds,
 // exist in the rbyd namespace
 
+// determine the upper-bound cost of a single rbyd attr after compaction
+//
+// note that with rebalancing during compaction, we know the number
+// of inner nodes is roughly the same as the number of tags. Each node
+// has two alts and is terminated by a 4-byte null tag.
+//
+static inline lfs_size_t lfsr_data_estimate(const lfsr_data_t *data) {
+    return LFSR_TAG_DSIZE + lfsr_data_size(data)
+            + LFSR_TAG_DSIZE
+            + LFSR_TAG_DSIZE
+            + 4;
+}
+
 // Calculate the maximum possible disk usage required by this rid after
 // compaction. This uses a conservative estimate so the actual on-disk cost
 // should be smaller.
@@ -3391,15 +3404,8 @@ static lfs_ssize_t lfsr_rbyd_estimate_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         rid = rid__;
         weight += weight_;
 
-        // determine the upper-bound of alt pointers, tags, and data
-        // after compaction
-        //
-        // note that with rebalancing during compaction, we know the number
-        // of inner nodes is the same as the number of tags. Each node has
-        // two alts and is terminated by a 4-byte null tag.
-        //
-        dsize += 2*LFSR_TAG_DSIZE + 4
-                + LFSR_TAG_DSIZE + lfsr_data_size(&data);
+        // include the cost of this tag
+        dsize += lfsr_data_estimate(&data);
     }
 
     if (rid_) {
@@ -3457,9 +3463,12 @@ static lfs_ssize_t lfsr_rbyd_estimate(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
     }
 
     // include -1 tags in our final dsize
-    lfs_ssize_t dsize = lfsr_rbyd_estimate_(lfs, rbyd, -1, NULL, NULL);
-    if (dsize < 0) {
-        return dsize;
+    lfs_ssize_t dsize = 0;
+    if (start_rid == -1) {
+        dsize = lfsr_rbyd_estimate_(lfs, rbyd, -1, NULL, NULL);
+        if (dsize < 0) {
+            return dsize;
+        }
     }
 
     if (split_rid_) {
@@ -5212,6 +5221,9 @@ static int lfsr_mdir_swap(lfs_t *lfs, lfsr_mdir_t *mdir_,
     return 0;
 }
 
+// needed in lfsr_mdir_compact__/estimate
+static inline bool lfsr_file_isunsynced(const lfsr_file_t *file);
+
 // low-level mdir commit, does not handle mtree/mlist/compaction/etc
 static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfsr_srid_t start_rid, lfsr_srid_t end_rid,
@@ -5535,8 +5547,11 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         lfsr_file_t *file = (lfsr_file_t*)opened;
         // inlined data?
         if (lfsr_inlined_hassprout(&file->inlined_)
-                // note, if already committed, block will mismatch
-                && file->inlined_.u.data.u.disk.block == mdir->u.rbyd.block) {
+                && lfsr_file_isunsynced(file)
+                && file->inlined_.u.data.u.disk.block == mdir->u.rbyd.block
+                && (file->m.mdir.mid & lfsr_midrmask(lfs)) >= start_rid
+                && (lfs_size_t)(file->m.mdir.mid & lfsr_midrmask(lfs))
+                    < (lfs_size_t)end_rid) {
             // write the data as a shrub tag
             err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.rbyd,
                     LFSR_TAG_SHRUB(INLINED), 0, file->inlined_.u.data);
@@ -5555,8 +5570,11 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
 
         // inlined tree?
         } else if (lfsr_inlined_hasshrub(&file->inlined_)
-                // note, if already committed, block will mismatch
-                && file->inlined_.u.rbyd.block == mdir->u.rbyd.block) {
+                && lfsr_file_isunsynced(file)
+                && file->inlined_.u.rbyd.block == mdir->u.rbyd.block
+                && (file->m.mdir.mid & lfsr_midrmask(lfs)) >= start_rid
+                && (lfs_size_t)(file->m.mdir.mid & lfsr_midrmask(lfs))
+                    < (lfs_size_t)end_rid) {
             // save our current off/trunk/weight
             lfs_size_t off = mdir_->u.rbyd.eoff;
             lfs_size_t trunk = mdir_->u.rbyd.trunk;
@@ -5589,6 +5607,153 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
     }
 
     return 0;
+}
+
+static lfs_ssize_t lfsr_mdir_estimate_(lfs_t *lfs, const lfsr_mdir_t *mdir,
+        lfsr_srid_t rid) {
+    // this is basically the same as lfsr_rbyd_estimate_, except we assume all
+    // rids have weight 1 and have extra handling for opened files, shrubs, etc
+    lfsr_tag_t tag = 0;
+    lfs_size_t dsize = 0;
+    while (true) {
+        lfsr_srid_t rid__;
+        lfsr_data_t data;
+        int err = lfsr_rbyd_lookupnext(lfs, &mdir->u.rbyd,
+                rid, tag+1,
+                &rid__, &tag, NULL, &data);
+        if (err) {
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+            return err;
+        }
+        if (rid__ != rid) {
+            break;
+        }
+
+        // special handling for shrub trunks, we need to include the compacted
+        // cost of the shrub in our estimate
+        //
+        // this is what would make lfsr_rbyd_estimate recursive, and why we
+        // need a second function...
+        if (tag == LFSR_TAG_TRUNK) {
+            lfsr_rbyd_t shrub;
+            err = lfsr_data_readtrunk(lfs, &data, &shrub);
+            if (err) {
+                return err;
+            }
+            shrub.block = mdir->u.rbyd.block;
+
+            lfs_ssize_t dsize_ = lfsr_rbyd_estimate(lfs, &shrub, -1, -1, NULL);
+            if (dsize_ < 0) {
+                return dsize_;
+            }
+
+            // make sure to include the actual tag cost
+            dsize += lfsr_data_estimate(&LFSR_DATA_BUF(NULL, LFSR_TRUNK_DSIZE))
+                    + dsize_;
+
+        // include the cost of this tag
+        } else {
+            dsize += lfsr_data_estimate(&data);
+        }
+    }
+
+    // include any opened+unsynced inlined shrubs
+    //
+    // this risks ending up O(n^2) if we have many opened files... though
+    // if needed this could be brought down by sorting our opened files
+    // by mid...
+    for (lfsr_openedmdir_t *opened = lfs->opened[
+                LFS_TYPE_REG-LFS_TYPE_REG];
+            opened;
+            opened = opened->next) {
+        lfsr_file_t *file = (lfsr_file_t*)opened;
+        // inlined data?
+        if (lfsr_inlined_hassprout(&file->inlined_)
+                && lfsr_file_isunsynced(file)
+                && file->inlined_.u.data.u.disk.block == mdir->u.rbyd.block
+                && (file->m.mdir.mid & lfsr_midrmask(lfs)) == rid) {
+            dsize += lfsr_data_estimate(&file->inlined_.u.data);
+
+        // inlined tree?
+        } else if (lfsr_inlined_hasshrub(&file->inlined_)
+                && lfsr_file_isunsynced(file)
+                && file->inlined_.u.rbyd.block == mdir->u.rbyd.block
+                && (file->m.mdir.mid & lfsr_midrmask(lfs)) == rid) {
+            lfs_ssize_t dsize_ = lfsr_rbyd_estimate(lfs,
+                    &file->inlined.u.rbyd, -1, -1, NULL);
+            if (dsize_ < 0) {
+                return dsize_;
+            }
+
+            // make sure to include the actual tag cost
+            dsize += lfsr_data_estimate(&LFSR_DATA_BUF(NULL, LFSR_TRUNK_DSIZE))
+                    + dsize_;
+        }
+    }
+
+    return dsize;
+}
+
+// TODO do we need to include commit overhead here?
+static lfs_ssize_t lfsr_mdir_estimate(lfs_t *lfs, const lfsr_mdir_t *mdir,
+        lfsr_srid_t start_rid, lfsr_srid_t end_rid,
+        lfsr_srid_t *split_rid_) {
+    // yet another function that is just begging to be deduplicated, but we
+    // can't because it would be recursive
+    //
+    // this is basically the same as lfsr_rbyd_estimate, except we assume all
+    // rids have weight 1 and have extra handling for opened files, shrubs, etc
+
+    // calculate dsize by starting from the outside ids and working inwards,
+    // this naturally gives us a split rid
+    //
+    // note that we don't include -1 tags yet, -1 tags are always cleaned up
+    // during a split so they shouldn't affect the split_rid
+    //
+    lfsr_srid_t lower_rid = lfs_smax32(start_rid, 0);
+    lfsr_srid_t upper_rid = lfs_min32(mdir->u.m.weight, end_rid)-1;
+    lfs_size_t lower_dsize = 0;
+    lfs_size_t upper_dsize = 0;
+
+    while (lower_rid <= upper_rid) {
+        if (lower_dsize <= upper_dsize) {
+            lfs_ssize_t dsize = lfsr_mdir_estimate_(lfs, mdir, lower_rid);
+            if (dsize < 0) {
+                return dsize;
+            }
+
+            lower_rid += 1;
+            lower_dsize += dsize;
+        } else {
+            lfs_ssize_t dsize = lfsr_mdir_estimate_(lfs, mdir, upper_rid);
+            if (dsize < 0) {
+                return dsize;
+            }
+
+            upper_rid -= 1;
+            upper_dsize += dsize;
+        }
+    }
+
+    // include -1 tags in our final dsize
+    //
+    // go directly to lfsr_rbyd_estimate_ here because lfsr_mdir_estimate_
+    // can't handle -1 rids
+    lfs_ssize_t dsize = 0;
+    if (start_rid == -1) {
+        dsize = lfsr_rbyd_estimate_(lfs, &mdir->u.rbyd, -1, NULL, NULL);
+        if (dsize < 0) {
+            return dsize;
+        }
+    }
+
+    if (split_rid_) {
+        *split_rid_ = lower_rid;
+    }
+
+    return dsize + lower_dsize + upper_dsize;
 }
 
 // mid-level mdir commit, this one will at least compact on overflow
@@ -5624,8 +5789,7 @@ compact:;
     }
 
     // check if we're within our compaction threshold
-    lfs_ssize_t estimate = lfsr_rbyd_estimate(lfs, &mdir->u.rbyd,
-            start_rid, end_rid,
+    lfs_ssize_t estimate = lfsr_mdir_estimate(lfs, mdir, start_rid, end_rid,
             split_rid_);
     if (estimate < 0) {
         return estimate;
