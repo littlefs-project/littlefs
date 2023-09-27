@@ -8685,7 +8685,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                             DISK(
                                 left_data.u.disk.block,
                                 left_data.u.disk.off,
-                                lfsr_data_size(&left_data) - left_overlap));
+                                left_weight - left_overlap));
                 }
             }
 
