@@ -5548,74 +5548,67 @@ static int lfsr_mdir_compact__(lfs_t *lfs, lfsr_mdir_t *mdir_,
             opened;
             opened = opened->next) {
         lfsr_file_t *file = (lfsr_file_t*)opened;
-        // no inlined data? we don't write a tag for these but we DO need to
-        // update them, they may have been clobbered in a failed commit
-        if (lfsr_inlined_hasnull(&file->inlined)
-                && lfsr_file_isunsynced(file)
-                && file->inlined.u.data.u.disk.block == mdir->u.rbyd.block
+        // belongs to our mdir?
+        if (lfsr_file_isunsynced(file)
+                && lfsr_inlined_block(&file->inlined) == mdir->u.rbyd.block
                 && (file->m.mdir.mid & lfsr_midrmask(lfs)) >= start_rid
                 && (lfs_size_t)(file->m.mdir.mid & lfsr_midrmask(lfs))
                     < (lfs_size_t)end_rid) {
-            file->inlined_.u.data = LFSR_DATA_DISK(mdir_->u.rbyd.block, 0, 0);
+            // inlined null? we don't write a tag for these but we do need to
+            // update them, they may have been clobbered in a failed commit
+            if (lfsr_inlined_hasnull(&file->inlined)) {
+                file->inlined_.u.data = LFSR_DATA_DISK(
+                        mdir_->u.rbyd.block, 0, 0);
 
-        // inlined data?
-        } else if (lfsr_inlined_hassprout(&file->inlined)
-                && lfsr_file_isunsynced(file)
-                && file->inlined.u.data.u.disk.block == mdir->u.rbyd.block
-                && (file->m.mdir.mid & lfsr_midrmask(lfs)) >= start_rid
-                && (lfs_size_t)(file->m.mdir.mid & lfsr_midrmask(lfs))
-                    < (lfs_size_t)end_rid) {
-            // write the data as a shrub tag
-            err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.rbyd,
-                    LFSR_TAG_SHRUB(INLINED), 0, file->inlined.u.data);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
+            // inlined data?
+            } else if (lfsr_inlined_hassprout(&file->inlined)) {
+                // write the data as a shrub tag
+                err = lfsr_rbyd_appendcompactattr(lfs, &mdir_->u.rbyd,
+                        LFSR_TAG_SHRUB(INLINED), 0, file->inlined.u.data);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    return err;
+                }
+
+                // this is a bit tricky since we don't know the tag size,
+                // but we have just enough info
+                file->inlined_.u.data = LFSR_DATA_DISK(
+                        mdir_->u.rbyd.block,
+                        mdir_->u.rbyd.eoff
+                            - lfsr_data_size(&file->inlined.u.data),
+                        lfsr_data_size(&file->inlined.u.data));
+
+            // inlined tree?
+            } else if (lfsr_inlined_hasshrub(&file->inlined)) {
+                // save our current off/trunk/weight
+                lfs_size_t off = mdir_->u.rbyd.eoff;
+                lfs_size_t trunk = mdir_->u.rbyd.trunk;
+                lfsr_srid_t weight = mdir_->u.rbyd.weight;
+
+                // compact our inlined tree
+                err = lfsr_rbyd_appendcompactrbyd(lfs, &mdir_->u.rbyd, -1, -1,
+                        &file->inlined.u.rbyd);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    return err;
+                }
+
+                err = lfsr_rbyd_compact(lfs, &mdir_->u.rbyd, true, off);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_RANGE);
+                    return err;
+                }
+
+                // stage our new trunk and revert to mdir trunk/weight
+                file->inlined_.u.rbyd.block = mdir_->u.rbyd.block;
+                file->inlined_.u.rbyd.trunk = mdir_->u.rbyd.trunk;
+                file->inlined_.u.rbyd.weight = mdir_->u.rbyd.weight;
+                file->inlined_.u.shrub.overhead
+                        = file->inlined.u.shrub.overhead;
+
+                mdir_->u.rbyd.trunk = trunk;
+                mdir_->u.rbyd.weight = weight;
             }
-
-            // this is a bit tricky since we don't know the tag size,
-            // but we have just enough info
-            file->inlined_.u.data = LFSR_DATA_DISK(
-                    mdir_->u.rbyd.block,
-                    mdir_->u.rbyd.eoff
-                        - lfsr_data_size(&file->inlined.u.data),
-                    lfsr_data_size(&file->inlined.u.data));
-
-        // inlined tree?
-        } else if (lfsr_inlined_hasshrub(&file->inlined)
-                && lfsr_file_isunsynced(file)
-                && file->inlined.u.rbyd.block == mdir->u.rbyd.block
-                && (file->m.mdir.mid & lfsr_midrmask(lfs)) >= start_rid
-                && (lfs_size_t)(file->m.mdir.mid & lfsr_midrmask(lfs))
-                    < (lfs_size_t)end_rid) {
-            // save our current off/trunk/weight
-            lfs_size_t off = mdir_->u.rbyd.eoff;
-            lfs_size_t trunk = mdir_->u.rbyd.trunk;
-            lfsr_srid_t weight = mdir_->u.rbyd.weight;
-            
-            // compact our inlined tree
-            err = lfsr_rbyd_appendcompactrbyd(lfs, &mdir_->u.rbyd, -1, -1,
-                    &file->inlined.u.rbyd);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            err = lfsr_rbyd_compact(lfs, &mdir_->u.rbyd, true, off);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_RANGE);
-                return err;
-            }
-
-            // stage our new trunk and revert to mdir trunk/weight
-            file->inlined_.u.rbyd.block = mdir_->u.rbyd.block;
-            file->inlined_.u.rbyd.trunk = mdir_->u.rbyd.trunk;
-            file->inlined_.u.rbyd.weight = mdir_->u.rbyd.weight;
-            file->inlined_.u.shrub.overhead
-                    = file->inlined.u.shrub.overhead;
-
-            mdir_->u.rbyd.trunk = trunk;
-            mdir_->u.rbyd.weight = weight;
         }
     }
 
@@ -5682,27 +5675,27 @@ static lfs_ssize_t lfsr_mdir_estimate_(lfs_t *lfs, const lfsr_mdir_t *mdir,
             opened;
             opened = opened->next) {
         lfsr_file_t *file = (lfsr_file_t*)opened;
-        // inlined data?
-        if (lfsr_inlined_hassprout(&file->inlined)
-                && lfsr_file_isunsynced(file)
-                && file->inlined.u.data.u.disk.block == mdir->u.rbyd.block
+        // belongs to our mdir?
+        if (lfsr_file_isunsynced(file)
+                && lfsr_inlined_block(&file->inlined) == mdir->u.rbyd.block
                 && (file->m.mdir.mid & lfsr_midrmask(lfs)) == rid) {
-            dsize += lfsr_data_estimate(&file->inlined.u.data);
+            // inlined data?
+            if (lfsr_inlined_hassprout(&file->inlined)) {
+                dsize += lfsr_data_estimate(&file->inlined.u.data);
 
-        // inlined tree?
-        } else if (lfsr_inlined_hasshrub(&file->inlined)
-                && lfsr_file_isunsynced(file)
-                && file->inlined.u.rbyd.block == mdir->u.rbyd.block
-                && (file->m.mdir.mid & lfsr_midrmask(lfs)) == rid) {
-            lfs_ssize_t dsize_ = lfsr_rbyd_estimate(lfs,
-                    &file->inlined.u.rbyd, -1, -1, NULL);
-            if (dsize_ < 0) {
-                return dsize_;
+            // inlined tree?
+            } else if (lfsr_inlined_hasshrub(&file->inlined)) {
+                lfs_ssize_t dsize_ = lfsr_rbyd_estimate(lfs,
+                        &file->inlined.u.rbyd, -1, -1, NULL);
+                if (dsize_ < 0) {
+                    return dsize_;
+                }
+
+                // make sure to include the actual tag cost
+                dsize += lfsr_data_estimate(
+                            &LFSR_DATA_BUF(NULL, LFSR_TRUNK_DSIZE))
+                        + dsize_;
             }
-
-            // make sure to include the actual tag cost
-            dsize += lfsr_data_estimate(&LFSR_DATA_BUF(NULL, LFSR_TRUNK_DSIZE))
-                    + dsize_;
         }
     }
 
