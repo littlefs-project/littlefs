@@ -8585,7 +8585,9 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size) {
     LFS_ASSERT(lfsr_file_isreadable(file));
 
-    lfs_ssize_t d = lfs_min32(size, file->size - file->pos);
+    lfs_ssize_t d = lfs_min32(
+            size,
+            file->size - lfs_min32(file->pos, file->size));
     int err = lfsr_file_read_(lfs, file, file->pos, buffer, d);
     if (err < 0) {
         return err;
@@ -8765,11 +8767,21 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     LFS_ASSERT(lfsr_file_iswriteable(file));
     LFS_ASSERT(size <= 0x7fffffff);
 
+    // size=0 is a bit special and is gauranteed to have no effects on the
+    // underlying file, this means no updating file pos or file size
+    //
+    // since we need to test for this, just return early
+    if (size == 0) {
+        return 0;
+    }
+
     // update pos if we are appending
     // TODO wait, what does POSIX do here if we've seeked past the eof?
     if (lfsr_file_isappend(file) && file->pos < file->size) {
         file->pos = file->size;
     }
+
+    // TODO do we need to prepare mutation?
 
     lfs_off_t pos = file->pos;
     const uint8_t *buffer_ = buffer;

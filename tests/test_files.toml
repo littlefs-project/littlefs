@@ -1163,10 +1163,10 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
 
-    // create a file, truncating in case of powerloss
+    // create a file
     lfsr_file_t file;
     lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     // simulate our file in ram
     uint8_t sim[SIZE];
     lfs_off_t size;
@@ -1283,10 +1283,10 @@ code = '''
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
 
-    // create a file, truncating in case of powerloss
+    // create a file
     lfsr_file_t file;
     lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
     // simulate our file in ram
     uint8_t sim[SIZE];
     lfs_off_t size;
@@ -1394,6 +1394,442 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+
+# more seek testing
+[cases.test_files_r_seek]
+defines.N = 100
+defines.SEED = 'range(10)'
+defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
+defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+# chunk is more an upper limit here
+defines.CHUNK = ['CACHE_SIZE/2', '4']
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // simulate our file in ram
+    uint8_t sim[SIZE];
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+    lfs_soff_t off_ = 0;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose a random location
+        lfs_soff_t off = TEST_PRNG(&prng) % SIZE;
+        // and a random size, up to the chunk size
+        lfs_size_t chunk = lfs_min32(
+                TEST_PRNG(&prng) % CHUNK,
+                SIZE - off);
+
+        // test different seek methods
+        if (WHENCE == LFS_SEEK_SET) {
+            lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
+        } else if (WHENCE == LFS_SEEK_CUR) {
+            lfsr_file_seek(&lfs, &file, off-off_, LFS_SEEK_CUR) => off;
+        } else if (WHENCE == LFS_SEEK_END) {
+            lfsr_file_seek(&lfs, &file, off-SIZE, LFS_SEEK_END) => off;
+        }
+
+        // tell should always report the correct position
+        lfsr_file_tell(&lfs, &file) => off;
+
+        // read the file and assert we got the correct data
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, chunk) => chunk;
+        assert(memcmp(rbuf, &sim[off], chunk) == 0);
+
+        // tell should report the new position
+        lfsr_file_tell(&lfs, &file) => off + chunk;
+
+        // keep track of previous off for LFS_SEEK_CUR
+        off_ = off + chunk;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# this is pretty much the same as earlier fuzz testing, except we test
+# different seek methods
+[cases.test_files_w_seek]
+defines.N = 100
+defines.SEED = 'range(10)'
+defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
+defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+# chunk is more an upper limit here
+defines.CHUNK = ['CACHE_SIZE/2', '4']
+defines.INIT = [false, true]
+defines.SYNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // simulate our file in ram
+    uint8_t sim[SIZE];
+    lfs_off_t size;
+    uint32_t prng = SEED;
+    if (INIT) {
+        for (lfs_size_t i = 0; i < SIZE; i++) {
+            sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
+        size = SIZE;
+    } else {
+        memset(sim, 0, SIZE);
+        size = 0;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    lfs_soff_t off_ = 0;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose a random location
+        lfs_off_t off = TEST_PRNG(&prng) % SIZE;
+        // and a random size, up to the chunk size
+        lfs_size_t chunk = lfs_min32(
+                TEST_PRNG(&prng) % CHUNK,
+                SIZE - off);
+
+        // test different seek methods
+        if (WHENCE == LFS_SEEK_SET) {
+            lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
+        } else if (WHENCE == LFS_SEEK_CUR) {
+            lfsr_file_seek(&lfs, &file, off-off_, LFS_SEEK_CUR) => off;
+        } else if (WHENCE == LFS_SEEK_END) {
+            lfsr_file_seek(&lfs, &file, off-size, LFS_SEEK_END) => off;
+        }
+
+        // tell should always report the correct position
+        lfsr_file_tell(&lfs, &file) => off;
+
+        // update the sim
+        for (lfs_size_t j = 0; j < chunk; j++) {
+            sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        if (chunk != 0) {
+            size = lfs_max32(size, off+chunk);
+        }
+
+        // update the file
+        lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+    
+        // tell should report the new position
+        lfsr_file_tell(&lfs, &file) => off + chunk;
+
+        // keep track of previous off for LFS_SEEK_CUR
+        off_ = off + chunk;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // check our file with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "hello", &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == size);
+
+    // and with dir read
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == size);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // try reading our file
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+    // is size correct?
+    lfsr_file_size(&lfs, &file) => size;
+    // try reading
+    uint8_t rbuf[2*SIZE];
+    memset(rbuf, 0xaa, 2*SIZE);
+    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+    // does our file match our simulation?
+    assert(memcmp(rbuf, sim, size) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# the above was just warmup, here's the real seek test
+[cases.test_files_rw_seek]
+defines.N = 100
+defines.SEED = 'range(100)'
+defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
+defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+# chunk is more an upper limit here
+defines.CHUNK = ['CACHE_SIZE/2', '4']
+defines.INIT = [false, true]
+defines.SYNC = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // simulate our file in ram
+    uint8_t sim[SIZE];
+    lfs_off_t size;
+    uint32_t prng = SEED;
+    if (INIT) {
+        for (lfs_size_t i = 0; i < SIZE; i++) {
+            sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
+        size = SIZE;
+    } else {
+        memset(sim, 0, SIZE);
+        size = 0;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDWR) => 0;
+    lfs_soff_t off_ = 0;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // choose a random location
+        lfs_off_t off = TEST_PRNG(&prng) % SIZE;
+        // and a random size, up to the chunk size
+        lfs_size_t chunk = lfs_min32(
+                TEST_PRNG(&prng) % CHUNK,
+                SIZE - off);
+        // and if we are reading or writing
+        uint8_t op = TEST_PRNG(&prng) % 2;
+
+        // test different seek methods
+        if (WHENCE == LFS_SEEK_SET) {
+            lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
+        } else if (WHENCE == LFS_SEEK_CUR) {
+            lfsr_file_seek(&lfs, &file, off-off_, LFS_SEEK_CUR) => off;
+        } else if (WHENCE == LFS_SEEK_END) {
+            lfsr_file_seek(&lfs, &file, off-size, LFS_SEEK_END) => off;
+        }
+
+        // tell should always report the correct position
+        lfsr_file_tell(&lfs, &file) => off;
+
+        // writing?
+        if (op == 0) {
+            // update the sim
+            for (lfs_size_t j = 0; j < chunk; j++) {
+                sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            if (chunk != 0) {
+                size = lfs_max32(size, off+chunk);
+            }
+
+            // update the file
+            lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
+
+            // sync?
+            if (SYNC) {
+                lfsr_file_sync(&lfs, &file) => 0;
+            }
+    
+            // tell should report the new position
+            lfsr_file_tell(&lfs, &file) => off + chunk;
+
+            // keep track of previous off for LFS_SEEK_CUR
+            off_ = off + chunk;
+
+        // reading?
+        } else if (op == 1) {
+            // we may read less than chunk if we're past eof
+            lfs_off_t expected = lfs_min32(
+                    chunk,
+                    size - lfs_min32(off, size));
+
+            // read the file and assert we got the correct data
+            uint8_t rbuf[2*SIZE];
+            memset(rbuf, 0xaa, 2*SIZE);
+            lfsr_file_read(&lfs, &file, rbuf, chunk) => expected;
+            assert(memcmp(rbuf, &sim[off], expected) == 0);
+
+            // tell should report the new position
+            lfsr_file_tell(&lfs, &file) => off + expected;
+
+            // keep track of previous off for LFS_SEEK_CUR
+            off_ = off + expected;
+        }
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // check our file with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "hello", &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == size);
+
+    // and with dir read
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == size);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // try reading our file
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+    // is size correct?
+    lfsr_file_size(&lfs, &file) => size;
+    // try reading
+    uint8_t rbuf[2*SIZE];
+    memset(rbuf, 0xaa, 2*SIZE);
+    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+    // does our file match our simulation?
+    assert(memcmp(rbuf, sim, size) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test other corner conditions
+[cases.test_files_seek_negative]
+defines.WHENCE = ['LFS_SEEK_SET', 'LFS_SEEK_CUR', 'LFS_SEEK_END']
+defines.SIZE = ['CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.INIT = [false, true]
+defines.MODE = ['LFS_O_RDONLY', 'LFS_O_WRONLY', 'LFS_O_RDWR']
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // simulate our file in ram
+    uint8_t sim[SIZE];
+    lfs_off_t size;
+    uint32_t prng = 42;
+    if (INIT) {
+        for (lfs_size_t i = 0; i < SIZE; i++) {
+            sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
+        size = SIZE;
+    } else {
+        memset(sim, 0, SIZE);
+        size = 0;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // try to seek before the beginning of the file, this should fail
+    lfsr_file_open(&lfs, &file, "hello", MODE) => 0;
+    if (WHENCE == LFS_SEEK_SET) {
+        lfsr_file_seek(&lfs, &file, -1, LFS_SEEK_SET) => LFS_ERR_INVAL;
+    } else if (WHENCE == LFS_SEEK_CUR) {
+        lfsr_file_seek(&lfs, &file, -1, LFS_SEEK_CUR) => LFS_ERR_INVAL;
+    } else if (WHENCE == LFS_SEEK_END) {
+        lfsr_file_seek(&lfs, &file, -(size+1), LFS_SEEK_END) => LFS_ERR_INVAL;
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // check our file with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "hello", &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == size);
+
+    // and with dir read
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == size);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // try reading our file
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+    // is size correct?
+    lfsr_file_size(&lfs, &file) => size;
+    // try reading
+    uint8_t rbuf[2*SIZE];
+    memset(rbuf, 0xaa, 2*SIZE);
+    lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+    // does our file match our simulation?
+    assert(memcmp(rbuf, sim, size) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+# TODO
+# [cases.test_files_truncate] ?
+# [cases.test_files_fruncate] ?
+# [cases.test_files_no_hidden_data]
+# [cases.test_files_rwtf_fuzz] ?
+# [cases.test_files_push] ?
+# [cases.test_files_pop] ?
+# [cases.test_files_rwtfpp_fuzz] ?
+
+# [cases.test_files_rm]
+# [cases.test_files_mv]
+# [cases.test_files_mvrm]
+# [cases.test_files_rmed]
+# [cases.test_files_mved]
+# [cases.test_files_mvrmed]
+# [cases.test_files_multi_readers]
+# [cases.test_files_multi_readers_one_writer]
+# [cases.test_files_multi_writers]
+# [cases.test_files_multi_readers_multi_writers]
+
+# [cases.test_files_many]
+# [cases.test_files_interleaved]
+# [cases.test_files_interleaved_fuzz]
+# [cases.test_files_interleaved_fuzz_fuzz]
+# [cases.test_files_dtree_fuzz]
+# [cases.test_files_dtree_fuzz_fuzz]
 
 
 
