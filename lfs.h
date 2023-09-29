@@ -785,10 +785,24 @@ lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
         lfs_soff_t off, uint8_t whence);
 
 #ifndef LFS_READONLY
-// Truncates the size of the file to the specified size
+// Truncate/grow the size of the file to the specified size
+//
+// If size is larger than the current file size, a hole is created, appearing
+// as if the file was filled with zeros.
 //
 // Returns a negative error code on failure.
 int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
+int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size);
+#endif
+
+#ifndef LFS_READONLY
+// Truncate/grow the file, but from the front
+//
+// If size is larger than the current file size, a hole is created, appearing
+// as if the file was filled with zeros.
+//
+// Returns a negative error code on failure.
+int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size);
 #endif
 
 // Return the position of the file

@@ -5322,6 +5322,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
             // us due to mdir compactions
             //
             // TODO should we preserve mode for all of these?
+            // TODO should we do the same for sprouts?
             } else if (lfsr_tag_key(attrs[i].tag) == LFSR_TAG_SHRUBTRUNK) {
                 lfsr_file_t *file = (lfsr_file_t*)attrs[i].data.u.direct.buffer;
 
@@ -8603,7 +8604,7 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
         lfsr_attr_t scratch_attrs[4];
         lfsr_attr_t *attrs_ = scratch_attrs;
 
-        // have inlined data?
+        // have a sprout/null?
         if (!lfsr_file_hasshrub(file)) {
             // left data? this may create a hole
             if (file->buffer_pos > 0) {
@@ -8747,8 +8748,8 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
         // commit our attributes
         int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
                 LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
-                        scratch_attrs,
-                        attrs_ - scratch_attrs))));
+                    scratch_attrs,
+                    attrs_ - scratch_attrs))));
         if (err) {
             return err;
         }
@@ -8767,6 +8768,11 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     LFS_ASSERT(lfsr_file_iswriteable(file));
     LFS_ASSERT(size <= 0x7fffffff);
 
+    // would this write make our file larger than our size limit?
+    if (size > lfs->size_limit - file->pos) {
+        return LFS_ERR_FBIG;
+    }
+
     // size=0 is a bit special and is gauranteed to have no effects on the
     // underlying file, this means no updating file pos or file size
     //
@@ -8780,8 +8786,6 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     if (lfsr_file_isappend(file) && file->pos < file->size) {
         file->pos = file->size;
     }
-
-    // TODO do we need to prepare mutation?
 
     lfs_off_t pos = file->pos;
     const uint8_t *buffer_ = buffer;
@@ -8855,7 +8859,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         // inlined file in that case
         if (file->buffer_size >= file->size) {
             LFS_ASSERT(file->buffer_size == file->size);
-            LFS_ASSERT(file->buffer_pos == 0);
+            LFS_ASSERT(file->buffer_pos == 0 || file->buffer_size == 0);
 
             // commit our file's metadata
             err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
@@ -8873,13 +8877,15 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             // we risk runaway O(n^2) behavior
             file->buffer_size = 0;
 
-            // we need to look up the inlined data again...
-            // TODO deduplicate?
-            err = lfsr_mdir_lookup(lfs, &file->m.mdir,
-                    file->m.mdir.mid, LFSR_TAG_INLINED,
-                    NULL, &file->inlined.u.data);
-            if (err) {
-                return err;
+            if (file->size > 0) {
+                // we need to look up the inlined data again...
+                // TODO deduplicate?
+                err = lfsr_mdir_lookup(lfs, &file->m.mdir,
+                        file->m.mdir.mid, LFSR_TAG_INLINED,
+                        NULL, &file->inlined.u.data);
+                if (err) {
+                    return err;
+                }
             }
         } else {
             // first make sure to flush our buffer
@@ -8955,6 +8961,145 @@ lfs_soff_t lfsr_file_rewind(lfs_t *lfs, lfsr_file_t *file) {
 lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
     return file->size;
+}
+
+int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
+    // exceeds our size limit?
+    if (size > lfs->size_limit) {
+        return LFS_ERR_FBIG;
+    }
+
+    // do nothing if our size does not change
+    if (file->size == size) {
+        return 0;
+    }
+
+    // TODO make this recoverable on failure
+
+    // mark as unsynced before we commit anything
+    file->flags |= LFS_F_UNSYNCED;
+
+    lfsr_attr_t scratch_attrs[2];
+    lfsr_attr_t *attrs_ = scratch_attrs;
+
+    // if our truncated file is contained entirely in our buffer,
+    // revert to a sprout
+    lfs_size_t buffer_size = lfs_min32(
+            file->buffer_size,
+            size - lfs_min32(file->buffer_pos, size));
+    if (buffer_size >= size) {
+        file->inlined.u.data = LFSR_DATA_DISK(0, 0, 0);
+
+    // have a sprout/null? convert to a shrub
+    } else if (!lfsr_file_hasshrub(file)) {
+        *attrs_++ = LFSR_ATTR(0,
+                SHRUB(INLINED), +size, DISK(
+                    file->inlined.u.data.u.disk.block,
+                    file->inlined.u.data.u.disk.off,
+                    lfs_min32(
+                        lfsr_data_size(&file->inlined.u.data),
+                        size)));
+
+    // have a shrub?
+    } else if (lfsr_file_hasshrub(file)) {
+        // TODO can this be deduplicated with flushbuffer? some sort of
+        // lfsr_file_shrubcarveleft?
+
+        // this should never happen, every route to zero-weight shrub
+        // should revert to an inlined file
+        LFS_ASSERT(file->inlined.u.rbyd.weight > 0);
+        LFS_ASSERT(size > 0);
+
+        // left sibling?
+        lfs_soff_t left_overlap = 0;
+        lfsr_srid_t left_rid;
+        lfsr_tag_t left_tag;
+        lfsr_rid_t left_weight;
+        lfsr_data_t left_data;
+        int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
+                lfs_min32(
+                    size,
+                    file->inlined.u.rbyd.weight)-1, 0,
+                &left_rid, &left_tag, &left_weight, &left_data);
+        if (err && err != LFS_ERR_NOENT) {
+            return err;
+        }
+        LFS_ASSERT(err != LFS_ERR_NOENT);
+        LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(INLINED));
+
+        // this can be negative!
+        left_overlap = (left_rid+1) - size;
+
+        // can we get away with a simple grow attr? this may
+        // create a hole
+        if (left_overlap != 0
+                && size
+                    >= left_rid-(left_weight-1)
+                        + lfsr_data_size(&left_data)) {
+            *attrs_++ = LFSR_ATTR(left_rid,
+                    SHRUB(GROW), -left_overlap, NULL);
+
+        // need to carve out left data?
+        } else if (left_overlap > 0) {
+            *attrs_++ = LFSR_ATTR(left_rid,
+                    SHRUB(GROW(INLINED)), -left_overlap,
+                    DISK(
+                        left_data.u.disk.block,
+                        left_data.u.disk.off,
+                        left_weight - left_overlap));
+        }
+
+        // remove any data we're truncating
+        *attrs_++ = LFSR_ATTR(file->inlined.u.rbyd.weight
+                    - left_overlap - 1,
+                SHRUB(RM), -(file->inlined.u.rbyd.weight
+                    - size - left_overlap), NULL);
+    }
+
+    // commit any shrub changes
+    if (attrs_ > scratch_attrs) {
+        int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+                LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
+                    scratch_attrs,
+                    attrs_ - scratch_attrs))));
+        if (err) {
+            return err;
+        }
+    }
+
+    // TODO update btree
+
+    // update our buffer
+    file->buffer_size = buffer_size;
+
+    // update our internal file size
+    // 
+    // if this grows our file, leave it up to lfsr_file_sync to update
+    // on on-disk metadata
+    file->size = size;
+
+    return 0;
+}
+
+int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
+    // exceeds our size limit?
+    if (size > lfs->size_limit) {
+        return LFS_ERR_FBIG;
+    }
+
+//    // TODO does this risk overflow?
+//    // if we're increasing the file size, just update our internal size/off
+//    // and leave it to lfsr_file_sync to do most of the work
+//    if (size > file->size) {
+//        file->off += 
+//        file->size = size;
+//        return 0;
+//    }
+
+    // TODO
+    LFS_ASSERT(false);
+
+    return 0;
 }
 
 
