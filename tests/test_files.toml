@@ -988,6 +988,9 @@ code = '''
 
     // truncate to new size
     lfsr_file_truncate(&lfs, &file, TO) => 0;
+    if (TO < FROM) {
+        memset(sim+TO, 0, FROM-TO);
+    }
 
     // close
     lfsr_file_close(&lfs, &file) => 0;
@@ -1035,11 +1038,124 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# the main purpose of this test is to check that data is not hidden
+# one purpose of this test is to check that data is not hidden
 # and then revealed by truncate, that would be bad
 [cases.test_files_truncate_2]
 defines.FROM = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
 defines.AND = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.TO = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, CFG);
+    if (err) {
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // create a file, truncating in case of powerloss
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+    // simulate our file in ram
+    uint8_t sim[lfs_max32(FROM,lfs_max32(AND,TO))];
+    memset(sim, 0, lfs_max32(FROM,lfs_max32(AND,TO)));
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < FROM; i++) {
+        sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, sim, FROM) => FROM;
+
+    // sync?
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_file_close(&lfs, &file) => 0;
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    }
+
+    // truncate to intermediate size
+    lfsr_file_truncate(&lfs, &file, AND) => 0;
+    if (AND < FROM) {
+        memset(sim+AND, 0, FROM-AND);
+    }
+
+    // sync?
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_file_close(&lfs, &file) => 0;
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    }
+
+    // truncate to new size
+    lfsr_file_truncate(&lfs, &file, TO) => 0;
+    if (TO < AND) {
+        memset(sim+TO, 0, AND-TO);
+    }
+
+    // close
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // check our file with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "hello", &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == TO);
+
+    // and with dir read
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == TO);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // try reading our file
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+    // is size correct?
+    lfsr_file_size(&lfs, &file) => TO;
+    // try reading
+    uint8_t rbuf[2*TO];
+    memset(rbuf, 0xaa, 2*TO);
+    lfsr_file_read(&lfs, &file, rbuf, 2*TO) => TO;
+    assert(memcmp(rbuf, sim, TO) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# simple fruncate test
+[cases.test_files_fruncate]
+defines.FROM = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
 defines.TO = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
 defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
@@ -1079,26 +1195,15 @@ code = '''
         lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
     }
 
-    // truncate to intermediate size
-    lfsr_file_truncate(&lfs, &file, AND) => 0;
-    memset(&sim[AND], 0, lfs_max32(FROM,TO)
-            - lfs_min32(AND, lfs_max32(FROM,TO)));
-
-    // sync?
-    if (SYNC) {
-        lfsr_file_sync(&lfs, &file) => 0;
+    // fruncate to new size
+    lfsr_file_fruncate(&lfs, &file, TO) => 0;
+    if (TO > FROM) {
+        memmove(sim+TO-FROM, sim, FROM);
+        memset(sim, 0, TO-FROM);
+    } else if (TO < FROM) {
+        memmove(sim, sim+FROM-TO, TO);
+        memset(sim+TO, 0, FROM-TO);
     }
-
-    // remount?
-    if (REMOUNT) {
-        lfsr_file_close(&lfs, &file) => 0;
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, CFG) => 0;
-        lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
-    }
-
-    // truncate to new size
-    lfsr_file_truncate(&lfs, &file, TO) => 0;
 
     // close
     lfsr_file_close(&lfs, &file) => 0;
@@ -1146,9 +1251,128 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# TODO
-# [cases.test_files_fruncate]
-# [cases.test_files_fruncate_2]
+# one purpose of this test is to check that data is not hidden
+# and then revealed by fruncate, that would be bad
+[cases.test_files_fruncate_2]
+defines.FROM = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.AND = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.TO = ['0', 'CACHE_SIZE/2', '2*CACHE_SIZE']
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, CFG);
+    if (err) {
+        lfsr_format(&lfs, CFG) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // create a file, truncating in case of powerloss
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+    // simulate our file in ram
+    uint8_t sim[lfs_max32(FROM,lfs_max32(AND,TO))];
+    memset(sim, 0, lfs_max32(FROM,lfs_max32(AND,TO)));
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < FROM; i++) {
+        sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, sim, FROM) => FROM;
+
+    // sync?
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_file_close(&lfs, &file) => 0;
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    }
+
+    // fruncate to intermediate size
+    lfsr_file_fruncate(&lfs, &file, AND) => 0;
+    if (AND > FROM) {
+        memmove(sim+AND-FROM, sim, FROM);
+        memset(sim, 0, AND-FROM);
+    } else if (AND < FROM) {
+        memmove(sim, sim+FROM-AND, AND);
+        memset(sim+AND, 0, FROM-AND);
+    }
+
+    // sync?
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_file_close(&lfs, &file) => 0;
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    }
+
+    // fruncate to new size
+    lfsr_file_fruncate(&lfs, &file, TO) => 0;
+    if (TO > AND) {
+        memmove(sim+TO-AND, sim, AND);
+        memset(sim, 0, TO-AND);
+    } else if (TO < AND) {
+        memmove(sim, sim+AND-TO, TO);
+        memset(sim+TO, 0, AND-TO);
+    }
+
+    // close
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // check our file with stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "hello", &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == TO);
+
+    // and with dir read
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "hello") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == TO);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // try reading our file
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+    // is size correct?
+    lfsr_file_size(&lfs, &file) => TO;
+    // try reading
+    uint8_t rbuf[2*TO];
+    memset(rbuf, 0xaa, 2*TO);
+    lfsr_file_read(&lfs, &file, rbuf, 2*TO) => TO;
+    assert(memcmp(rbuf, sim, TO) == 0);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
 
 # writing any data structure backwards always reveals issues
 [cases.test_files_reversed]
@@ -1958,7 +2182,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# heavy fuzz test with rw seeks, truncate, and TODO fruncate
+# heavy fuzz test with rw seeks, truncate, and fruncate
 [cases.test_files_rwtf_fuzz]
 defines.N = 100
 defines.SEED = 'range(100)'
@@ -2013,8 +2237,8 @@ code = '''
     }
 
     for (lfs_size_t i = 0; i < N; i++) {
-        // and if we are reading, writing, or truncating
-        uint8_t op = TEST_PRNG(&prng) % 3;
+        // and if we are reading, writing, truncating, or fruncating
+        uint8_t op = TEST_PRNG(&prng) % 4;
 
         // writing?
         if (op == 0) {
@@ -2081,11 +2305,30 @@ code = '''
             lfs_off_t size_ = TEST_PRNG(&prng) % SIZE;
 
             // update the sim
-            memset(&sim[size_], 0, size - lfs_min32(size_, size));
+            if (size_ < size) {
+                memset(sim+size_, 0, size-size_);
+            }
             size = size_;
 
             // truncate the file
             lfsr_file_truncate(&lfs, &file, size_) => 0;
+
+        } else if (op == 3) {
+            // choose a random new file size
+            lfs_off_t size_ = TEST_PRNG(&prng) % SIZE;
+
+            // update the sim
+            if (size_ > size) {
+                memmove(sim+size_-size, sim, size);
+                memset(sim, 0, size_-size);
+            } else if (size_ < size) {
+                memmove(sim, sim+size-size_, size_);
+                memset(sim+size_, 0, size-size_);
+            }
+            size = size_;
+
+            // truncate the file
+            lfsr_file_fruncate(&lfs, &file, size_) => 0;
         }
     }
     lfsr_file_close(&lfs, &file) => 0;
@@ -2130,7 +2373,6 @@ code = '''
 
 
 # TODO
-# [cases.test_files_rwtf_fuzz] ?
 # [cases.test_files_push] ?
 # [cases.test_files_pop] ?
 # [cases.test_files_rwtfpp_fuzz] ?

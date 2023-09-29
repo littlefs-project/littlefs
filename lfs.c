@@ -8524,8 +8524,7 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
         }
 
         // is the data inlined?
-        if (lfsr_file_hassprout(file)
-                && pos < lfsr_file_inlinedsize(file)) {
+        if (lfsr_file_hassprout(file) && pos < lfsr_file_inlinedsize(file)) {
             lfsr_data_t data = file->inlined.u.data;
             lfsr_data_add(&data, pos);
             d = lfsr_data_read(lfs, &data, buffer_, d);
@@ -8540,19 +8539,19 @@ int lfsr_file_read_(lfs_t *lfs, const lfsr_file_t *file,
         }
 
         // is the data in an inlined tree?
-        if (lfsr_file_hasshrub(file)
-                && pos < lfsr_file_inlinedsize(file)) {
+        if (lfsr_file_hasshrub(file) && pos < lfsr_file_inlinedsize(file)) {
             lfsr_srid_t rid;
             lfsr_tag_t tag;
             lfsr_rid_t weight;
             lfsr_data_t data;
             int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd, pos, 0,
                     &rid, &tag, &weight, &data);
-            if (err && err != LFS_ERR_NOENT) {
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
                 return err;
             }
-            LFS_ASSERT(err == LFS_ERR_NOENT
-                    || tag == LFSR_TAG_SHRUB(INLINED));
+            LFS_ASSERT(tag == LFSR_TAG_SHRUB(INLINED));
+            LFS_ASSERT(lfsr_data_size(&data) <= weight);
 
             if (pos < rid-(weight-1) + lfsr_data_size(&data)) {
                 lfsr_data_add(&data, pos - (rid-(weight-1)));
@@ -8655,11 +8654,12 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                             file->buffer_pos,
                             file->inlined.u.rbyd.weight)-1, 0,
                         &left_rid, &left_tag, &left_weight, &left_data);
-                if (err && err != LFS_ERR_NOENT) {
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_NOENT);
                     return err;
                 }
-                LFS_ASSERT(err != LFS_ERR_NOENT);
                 LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(INLINED));
+                LFS_ASSERT(lfsr_data_size(&left_data) <= left_weight);
 
                 // this can be negative!
                 left_overlap = (left_rid+1) - file->buffer_pos;
@@ -8694,40 +8694,44 @@ static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
                     < (lfs_off_t)file->inlined.u.rbyd.weight) {
                 lfsr_srid_t right_rid;
                 lfsr_tag_t right_tag;
+                lfsr_rid_t right_weight_;
+                lfsr_data_t right_data_;
                 int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
                         file->buffer_pos + file->buffer_size, 0,
-                        &right_rid, &right_tag, &right_weight, &right_data);
-                if (err && err != LFS_ERR_NOENT) {
+                        &right_rid, &right_tag, &right_weight_, &right_data_);
+                if (err) {
+                    LFS_ASSERT(err != LFS_ERR_NOENT);
                     return err;
                 }
-                LFS_ASSERT(err != LFS_ERR_NOENT);
                 LFS_ASSERT(right_tag == LFSR_TAG_SHRUB(INLINED));
+                LFS_ASSERT(lfsr_data_size(&right_data) <= right_weight);
 
                 lfs_soff_t right_overlap
                         = file->buffer_pos + file->buffer_size
-                        - (right_rid-(right_weight-1));
+                        - (right_rid-(right_weight_-1));
 
-                // need to carve out right data?
-                if (right_overlap > 0) {
+                // need to carve out right data? note we eagerly merge with
+                // data-less holes
+                if (right_overlap > 0 || lfsr_data_size(&right_data_) == 0) {
                     right_data = LFSR_DATA_DISK(
-                            right_data.u.disk.block,
-                            right_data.u.disk.off + right_overlap,
-                            lfsr_data_size(&right_data) - lfs_min32(
+                            right_data_.u.disk.block,
+                            right_data_.u.disk.off + right_overlap,
+                            lfsr_data_size(&right_data_) - lfs_min32(
                                 right_overlap,
-                                lfsr_data_size(&right_data)));
-                    right_weight -= right_overlap;
+                                lfsr_data_size(&right_data_)));
+                    right_weight = right_weight_ - right_overlap;
                 }
             }
 
             // remove any data we're overwriting, note we need to account for
             // left_sibling changes
-            lfs_off_t rm_size = lfs_min32(
+            lfs_off_t rm = lfs_min32(
                     file->buffer_pos + file->buffer_size
                         + right_weight - left_overlap,
                     file->inlined.u.rbyd.weight - left_overlap)
                     - file->buffer_pos;
-            *attrs_++ = LFSR_ATTR(file->buffer_pos + rm_size - 1,
-                    SHRUB(RM), -rm_size, NULL);
+            *attrs_++ = LFSR_ATTR(file->buffer_pos + rm - 1,
+                    SHRUB(RM), -rm, NULL);
 
             if (lfsr_data_size(&right_data) == 0) {
                 // append our buffer with any remaining weight
@@ -9008,7 +9012,6 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         // this should never happen, every route to zero-weight shrub
         // should revert to an inlined file
         LFS_ASSERT(file->inlined.u.rbyd.weight > 0);
-        LFS_ASSERT(size > 0);
 
         // left sibling?
         lfs_soff_t left_overlap = 0;
@@ -9021,11 +9024,12 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
                     size,
                     file->inlined.u.rbyd.weight)-1, 0,
                 &left_rid, &left_tag, &left_weight, &left_data);
-        if (err && err != LFS_ERR_NOENT) {
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
-        LFS_ASSERT(err != LFS_ERR_NOENT);
         LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(INLINED));
+        LFS_ASSERT(lfsr_data_size(&left_data) <= left_weight);
 
         // this can be negative!
         left_overlap = (left_rid+1) - size;
@@ -9073,9 +9077,6 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     file->buffer_size = buffer_size;
 
     // update our internal file size
-    // 
-    // if this grows our file, leave it up to lfsr_file_sync to update
-    // on on-disk metadata
     file->size = size;
 
     return 0;
@@ -9087,17 +9088,133 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
         return LFS_ERR_FBIG;
     }
 
-//    // TODO does this risk overflow?
-//    // if we're increasing the file size, just update our internal size/off
-//    // and leave it to lfsr_file_sync to do most of the work
-//    if (size > file->size) {
-//        file->off += 
-//        file->size = size;
-//        return 0;
-//    }
+    // do nothing if our size does not change
+    if (file->size == size) {
+        return 0;
+    }
 
-    // TODO
-    LFS_ASSERT(false);
+    // TODO make this recoverable on failure
+
+    // mark as unsynced before we commit anything
+    file->flags |= LFS_F_UNSYNCED;
+
+    lfsr_attr_t scratch_attrs[2];
+    lfsr_attr_t *attrs_ = scratch_attrs;
+
+    // if our truncated file is contained entirely in our buffer,
+    // revert to a sprout
+    lfs_size_t buffer_size = file->buffer_size - lfs_min32(
+            lfs_smax32(file->size - size - file->buffer_pos, 0),
+            file->buffer_size);
+    if (size < file->size
+            && file->size - size >= lfsr_file_inlinedsize(file)) {
+        file->inlined.u.data = LFSR_DATA_DISK(0, 0, 0);
+
+    // have a sprout/null? convert to a shrub
+    } else if (!lfsr_file_hasshrub(file)) {
+        if (lfsr_data_size(&file->inlined.u.data) != 0) {
+            *attrs_++ = LFSR_ATTR(0,
+                    SHRUB(INLINED), +lfsr_data_size(&file->inlined.u.data)
+                        - lfs_smax32(file->size - size, 0),
+                    DISK(
+                        file->inlined.u.data.u.disk.block,
+                        file->inlined.u.data.u.disk.off
+                            + lfs_smax32(file->size - size, 0),
+                        lfsr_data_size(&file->inlined.u.data)
+                            - lfs_smax32(file->size - size, 0)));
+        }
+
+        // need to prefix with a hole?
+        if (size > file->size) {
+            *attrs_++ = LFSR_ATTR(0,
+                    SHRUB(INLINED), +size - file->size, NULL);
+        }
+
+    // have a shrub?
+    } else if (lfsr_file_hasshrub(file)) {
+        // TODO can this be deduplicated with flushbuffer? some sort of
+        // lfsr_file_shrubcarveright?
+
+        // this should never happen, every route to zero-weight shrub
+        // should revert to an inlined file
+        LFS_ASSERT(file->inlined.u.rbyd.weight > 0);
+
+        // TODO wait a second... are we always copying right sibling in
+        // flushbuffer? even with no carve?
+
+        // right sibling?
+        lfsr_rid_t right_weight = 0;
+        lfsr_data_t right_data = LFSR_DATA_NULL;
+        if (lfs_smax32(file->size - size, 0) < file->inlined.u.rbyd.weight) {
+            lfsr_srid_t right_rid;
+            lfsr_tag_t right_tag;
+            lfsr_rid_t right_weight_;
+            lfsr_data_t right_data_;
+            int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
+                    lfs_smax32(file->size - size, 0), 0,
+                    &right_rid, &right_tag, &right_weight_, &right_data_);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
+            LFS_ASSERT(right_tag == LFSR_TAG_SHRUB(INLINED));
+            LFS_ASSERT(lfsr_data_size(&right_data) <= right_weight);
+
+            lfs_soff_t right_overlap
+                    = lfs_smax32(file->size - size, 0)
+                    - (right_rid-(right_weight_-1));
+
+            // need to carve out right data? note we eagerly merge with
+            // data-less holes
+            if (right_overlap > 0 || lfsr_data_size(&right_data_) == 0) {
+                right_data = LFSR_DATA_DISK(
+                        right_data_.u.disk.block,
+                        right_data_.u.disk.off + right_overlap,
+                        lfsr_data_size(&right_data_) - lfs_min32(
+                            right_overlap,
+                            lfsr_data_size(&right_data_)));
+                right_weight = right_weight_ - right_overlap;
+            }
+        }
+
+        // remove any data we're fruncating
+        *attrs_++ = LFSR_ATTR(lfs_smax32(file->size - size, 0)
+                    + right_weight - 1,
+                SHRUB(RM), -(lfs_smax32(file->size - size, 0)
+                    + right_weight), NULL);
+
+        // write any carved data or a hole, note we take care to consume any
+        // existing data-less holes to avoid fragmenting literally nothing
+        if (lfs_smax32(size - file->size, 0) + right_weight > 0) {
+            *attrs_++ = LFSR_ATTR(0,
+                    SHRUB(INLINED), +lfs_smax32(size - file->size, 0)
+                        + right_weight,
+                    DATA(right_data));
+        }
+    }
+
+    // commit any shrub changes
+    if (attrs_ > scratch_attrs) {
+        int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
+                LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
+                    scratch_attrs,
+                    attrs_ - scratch_attrs))));
+        if (err) {
+            return err;
+        }
+    }
+
+    // TODO update btree
+
+    // update our buffer
+    file->buffer_pos -= lfs_smin32(file->size - size, file->buffer_pos);
+    memmove(file->buffer,
+            file->buffer + (file->buffer_size - buffer_size),
+            buffer_size);
+    file->buffer_size = buffer_size;
+
+    // update our internal file size
+    file->size = size;
 
     return 0;
 }
