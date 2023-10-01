@@ -776,8 +776,8 @@ static inline bool lfsr_tag_follow(
                 || (rid == upper - (lfsr_srid_t)weight - 1
                     && lfsr_tag_key(tag) > lfsr_tag_key(alt));
     } else {
-        return rid < lower + (lfsr_srid_t)weight
-                || (rid == lower + (lfsr_srid_t)weight
+        return rid < lower + (lfsr_srid_t)weight - 1
+                || (rid == lower + (lfsr_srid_t)weight - 1
                     && lfsr_tag_key(tag) <= lfsr_tag_key(alt));
     }
 }
@@ -804,13 +804,13 @@ static inline bool lfsr_tag_prune2(
                 alt, weight,
                 alt2, weight2,
                 lower_rid, upper_rid,
-                lower_rid, lower_tag);
+                lower_rid-1, lower_tag);
     } else {
         return lfsr_tag_follow2(
                 alt, weight,
                 alt2, weight2,
                 lower_rid, upper_rid,
-                upper_rid-1, upper_tag-0x1);
+                upper_rid-1, upper_tag-1);
     }
 }
 
@@ -818,7 +818,7 @@ static inline void lfsr_tag_flip(
         lfsr_tag_t *alt, lfsr_rid_t *weight,
         lfsr_srid_t lower, lfsr_srid_t upper) {
     *alt = *alt ^ LFSR_TAG_GT;
-    *weight = (upper-lower) - *weight - 1;
+    *weight = (upper - lower) - *weight;
 }
 
 static inline void lfsr_tag_flip2(
@@ -839,12 +839,12 @@ static inline void lfsr_tag_trim(
     if (lfsr_tag_isgt(alt)) {
         *upper_rid -= weight;
         if (upper_tag) {
-            *upper_tag = alt + 0x1;
+            *upper_tag = alt + 1;
         }
     } else {
         *lower_rid += weight;
         if (lower_tag) {
-            *lower_tag = alt + 0x1;
+            *lower_tag = alt + 1;
         }
     }
 }
@@ -2208,7 +2208,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 
     // keep track of bounds as we descend down the tree
     lfs_size_t branch = rbyd->trunk;
-    lfsr_srid_t lower = -1;
+    lfsr_srid_t lower = 0;
     lfsr_srid_t upper = rbyd->weight;
 
     // no trunk yet?
@@ -2262,7 +2262,7 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
                 *tag_ = tag__;
             }
             if (weight_) {
-                *weight_ = rid__ - lower;
+                *weight_ = upper - lower;
             }
             if (data_) {
                 *data_ = LFSR_DATA_DISK(rbyd->block, branch + d, jump);
@@ -2520,7 +2520,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // track of both the lower and upper bounds of diverging paths
     // in the case of range deletions
     lfs_size_t branch = rbyd->trunk;
-    lfsr_srid_t lower_rid = -1;
+    lfsr_srid_t lower_rid = 0;
     lfsr_srid_t upper_rid = rbyd->weight;
     lfsr_tag_t lower_tag = 0;
     lfsr_tag_t upper_tag = 0xffff;
@@ -2839,7 +2839,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALT(GT, B, 0);
-            weight = upper_rid - lower_rid - 1 + delta;
+            weight = upper_rid - lower_rid + delta;
             upper_rid -= weight;
         } else {
             // split less than
@@ -2849,7 +2849,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                         ? LFSR_TAG_R
                         : LFSR_TAG_B),
                     lfsr_tag_key(tag_));
-            weight = rid_ - lower_rid;
+            weight = (rid_+1) - lower_rid;
             lower_rid += weight;
         }
 
@@ -2863,7 +2863,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         if (lfsr_tag_isrm(tag) || !lfsr_tag_key(tag)) {
             // if removed, make our tag unreachable
             alt = LFSR_TAG_ALT(GT, B, 0);
-            weight = upper_rid - lower_rid - 1 + delta;
+            weight = upper_rid - lower_rid + delta;
             upper_rid -= weight;
         } else {
             // split greater than
@@ -2873,7 +2873,7 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                         ? LFSR_TAG_R
                         : LFSR_TAG_B),
                     lfsr_tag_key(tag));
-            weight = upper_rid - rid - 1;
+            weight = upper_rid - (rid+1);
             upper_rid -= weight;
         }
     }
@@ -2909,7 +2909,7 @@ leaf:;
             (lfsr_tag_isrm(tag)
                 ? lfsr_tag_mode(lfsr_tag_shrubkey(tag))
                 : lfsr_tag_shrubkey(tag)),
-            upper_rid - lower_rid - 1 + delta,
+            upper_rid - lower_rid + delta,
             lfsr_data_size(&data),
             &rbyd->cksum);
     if (d < 0) {

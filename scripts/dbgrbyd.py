@@ -602,7 +602,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
     # lookup a tag, returning also the search path for decoration
     # purposes
     def lookup(rid, tag):
-        lower = -1
+        lower = 0
         upper = weight
         path = []
 
@@ -616,9 +616,9 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                 # follow?
                 if ((rid, tag & 0xfff) > (upper-w-1, alt & 0xfff)
                         if alt & TAG_GT
-                        else ((rid, tag & 0xfff) <= (lower+w, alt & 0xfff))):
-                    lower += upper-lower-1-w if alt & TAG_GT else 0
-                    upper -= upper-lower-1-w if not alt & TAG_GT else 0
+                        else ((rid, tag & 0xfff) <= (lower+w-1, alt & 0xfff))):
+                    lower += upper-lower-w if alt & TAG_GT else 0
+                    upper -= upper-lower-w if not alt & TAG_GT else 0
                     j = j - jump
 
                     # figure out which color
@@ -651,7 +651,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
             else:
                 rid_ = upper-1
                 tag_ = alt
-                w_ = rid_-lower
+                w_ = upper-lower
 
                 done = not tag_ or (rid_, tag_) < (rid, tag)
 

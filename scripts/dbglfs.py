@@ -358,7 +358,7 @@ class Rbyd:
         if not self:
             return True, 0, -1, 0, 0, 0, b'', []
 
-        lower = -1
+        lower = 0
         upper = self.weight
         path = []
 
@@ -373,9 +373,9 @@ class Rbyd:
                 if ((rid, tag & 0xfff) > (upper-weight_-1, alt & 0xfff)
                         if alt & TAG_GT
                         else ((rid, tag & 0xfff)
-                            <= (lower+weight_, alt & 0xfff))):
-                    lower += upper-lower-1-weight_ if alt & TAG_GT else 0
-                    upper -= upper-lower-1-weight_ if not alt & TAG_GT else 0
+                            <= (lower+weight_-1, alt & 0xfff))):
+                    lower += upper-lower-weight_ if alt & TAG_GT else 0
+                    upper -= upper-lower-weight_ if not alt & TAG_GT else 0
                     j = j - jump
 
                     # figure out which color
@@ -408,7 +408,7 @@ class Rbyd:
             else:
                 rid_ = upper-1
                 tag_ = alt
-                w_ = rid_-lower
+                w_ = upper-lower
 
                 done = not tag_ or (rid_, tag_) < (rid, tag)
 
