@@ -803,7 +803,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
     w_width = 2*m.ceil(m.log10(max(1, weight)+1))+1
 
     rid, tag = -1, 0
-    while True:
+    for i in it.count():
         done, rid, tag, w, j, d, size, path = lookup(rid, tag+0x1)
         # found end of tree?
         if done:
@@ -816,7 +816,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
             '%*s %-22s%s' % (
                 w_width, '%d-%d' % (rid-(w-1), rid)
                     if w > 1 else rid
-                    if w > 0 else '',
+                    if w > 0 or i == 0 else '',
                 tagrepr(tag, w, size, j),
                 '  %s' % next(xxd(
                         data[j+d:j+d+min(size, 8)], 8), '')
