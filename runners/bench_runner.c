@@ -835,7 +835,7 @@ void perm_count(
 
 // operations we can do
 static void summary(void) {
-    printf("%-23s  %7s %7s %7s %11s\n",
+    printf("%-23s  %7s %7s %7s %15s\n",
             "", "flags", "suites", "cases", "perms");
     size_t suites = 0;
     size_t cases = 0;
@@ -877,7 +877,7 @@ static void summary(void) {
     sprintf(flag_buf, "%s%s",
             (flags & BENCH_INTERNAL)  ? "i" : "",
             (!flags)                  ? "-" : "");
-    printf("%-23s  %7s %7zu %7zu %11s\n",
+    printf("%-23s  %7s %7zu %7zu %15s\n",
             "TOTAL",
             flag_buf,
             suites,
@@ -896,7 +896,7 @@ static void list_suites(void) {
     }
     name_width = 4*((name_width+1+4-1)/4)-1;
 
-    printf("%-*s  %7s %7s %11s\n",
+    printf("%-*s  %7s %7s %15s\n",
             name_width, "suite", "flags", "cases", "perms");
     for (size_t t = 0; t < bench_id_count; t++) {
         for (size_t i = 0; i < bench_suite_count; i++) {
@@ -936,7 +936,7 @@ static void list_suites(void) {
             sprintf(flag_buf, "%s%s",
                     (bench_suites[i]->flags & BENCH_INTERNAL)  ? "i" : "",
                     (!bench_suites[i]->flags)                  ? "-" : "");
-            printf("%-*s  %7s %7zu %11s\n",
+            printf("%-*s  %7s %7zu %15s\n",
                     name_width,
                     bench_suites[i]->name,
                     flag_buf,
@@ -959,7 +959,7 @@ static void list_cases(void) {
     }
     name_width = 4*((name_width+1+4-1)/4)-1;
 
-    printf("%-*s  %7s %11s\n", name_width, "case", "flags", "perms");
+    printf("%-*s  %7s %15s\n", name_width, "case", "flags", "perms");
     for (size_t t = 0; t < bench_id_count; t++) {
         for (size_t i = 0; i < bench_suite_count; i++) {
             bench_define_suite(bench_suites[i]);
@@ -991,7 +991,7 @@ static void list_cases(void) {
                             ? "i" : "",
                         (!bench_suites[i]->cases[j].flags)
                             ? "-" : "");
-                printf("%-*s  %7s %11s\n",
+                printf("%-*s  %7s %15s\n",
                         name_width,
                         bench_suites[i]->cases[j].name,
                         flag_buf,

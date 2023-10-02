@@ -1458,14 +1458,13 @@ if __name__ == "__main__":
     # test flags
     test_parser = parser.add_argument_group('test options')
     test_parser.add_argument(
-        'runner',
-        nargs='?',
-        type=lambda x: x.split(),
-        help="Test runner to use for testing. Defaults to %r." % RUNNER_PATH)
-    test_parser.add_argument(
         'test_ids',
         nargs='*',
         help="Description of tests to run.")
+    test_parser.add_argument(
+        '-R', '--runner',
+        type=lambda x: x.split(),
+        help="Test runner to use for testing. Defaults to %r." % RUNNER_PATH)
     test_parser.add_argument(
         '-Y', '--summary',
         action='store_true',

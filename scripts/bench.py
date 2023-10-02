@@ -1430,14 +1430,13 @@ if __name__ == "__main__":
     # bench flags
     bench_parser = parser.add_argument_group('bench options')
     bench_parser.add_argument(
-        'runner',
-        nargs='?',
-        type=lambda x: x.split(),
-        help="Bench runner to use for benching. Defaults to %r." % RUNNER_PATH)
-    bench_parser.add_argument(
         'bench_ids',
         nargs='*',
         help="Description of benches to run.")
+    bench_parser.add_argument(
+        '-R', '--runner',
+        type=lambda x: x.split(),
+        help="Bench runner to use for benching. Defaults to %r." % RUNNER_PATH)
     bench_parser.add_argument(
         '-Y', '--summary',
         action='store_true',

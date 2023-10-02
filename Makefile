@@ -378,12 +378,12 @@ endif
 ## Run the tests, -j enables parallel tests
 .PHONY: test
 test: test-runner
-	./scripts/test.py $(TEST_RUNNER) $(TESTFLAGS)
+	./scripts/test.py -R$(TEST_RUNNER) $(TESTFLAGS)
 
 ## List the tests
 .PHONY: test-list
 test-list: test-runner
-	./scripts/test.py $(TEST_RUNNER) $(TESTFLAGS) -l
+	./scripts/test.py -R$(TEST_RUNNER) $(TESTFLAGS) -l
 
 ## Summarize the testmarks
 .PHONY: testmarks
@@ -430,12 +430,12 @@ endif
 ## Run the benchmarks, -j enables parallel benchmarks
 .PHONY: bench
 bench: bench-runner
-	./scripts/bench.py $(BENCH_RUNNER) $(BENCHFLAGS)
+	./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS)
 
 ## List the benchmarks
 .PHONY: bench-list
 bench-list: bench-runner
-	./scripts/bench.py $(BENCH_RUNNER) $(BENCHFLAGS) -l
+	./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) -l
 
 ## Summarize the benchmarks
 .PHONY: benchmarks
