@@ -2242,9 +2242,9 @@ static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         // found end of tree?
         } else {
             // update the tag rid
+            LFS_ASSERT(lfsr_tag_shrubmode(alt) == 0x0000);
             lfsr_srid_t rid__ = upper-1;
             lfsr_tag_t tag__ = alt;
-            LFS_ASSERT(lfsr_tag_shrubmode(tag__) == 0x0000);
 
             // not what we're looking for?
             if (!lfsr_tag_key(tag__)
@@ -2773,7 +2773,6 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             // - preserve diverged state
             LFS_ASSERT(lfsr_tag_shrubmode(alt) == 0x0000);
             tag_ = lfsr_tag_mode(tag_ & ~LFSR_TAG_RM) | alt;
-            rid_ = upper_rid-1;
 
             // done?
             if (!lfsr_tag_hasdiverged(tag_) || !lfsr_tag_isrm(other_tag_)) {
@@ -2803,7 +2802,6 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         if (lfsr_tag_isdivergedlower(tag_)) {
             // finished on lower path
             tag_ = other_tag_;
-            rid_ = other_rid_;
             branch = other_branch;
             upper_rid = other_upper_rid;
         } else {
@@ -2830,8 +2828,8 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     lfsr_tag_t alt = 0;
     lfsr_rid_t weight = 0;
     if (lfsr_tag_key(tag_)
-            && (rid_ < rid-lfs_smax32(-delta, 0)
-                || (rid_ == rid-lfs_smax32(-delta, 0)
+            && (upper_rid-1 < rid-lfs_smax32(-delta, 0)
+                || (upper_rid-1 == rid-lfs_smax32(-delta, 0)
                     && ((delta > 0 && !lfsr_tag_isgrow(tag))
                         || (lfsr_tag_iswide(tag)
                             ? lfsr_tag_supkey(tag_) < lfsr_tag_supkey(tag)
@@ -2849,13 +2847,13 @@ static int lfsr_rbyd_appendattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
                         ? LFSR_TAG_R
                         : LFSR_TAG_B),
                     lfsr_tag_key(tag_));
-            weight = (rid_+1) - lower_rid;
+            weight = upper_rid - lower_rid;
             lower_rid += weight;
         }
 
     } else if (lfsr_tag_key(tag_)
-            && (rid_ > rid
-                || (rid_ == rid
+            && (upper_rid-1 > rid
+                || (upper_rid-1 == rid
                     && ((delta > 0 && !lfsr_tag_isgrow(tag))
                         || (lfsr_tag_iswide(tag)
                             ? lfsr_tag_supkey(tag_) > lfsr_tag_supkey(tag)
