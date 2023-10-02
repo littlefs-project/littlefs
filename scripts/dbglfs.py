@@ -1094,7 +1094,7 @@ def main(disk, mroots=None, *,
             corrupted = True
 
         # are we going to end up rendering the dtree?
-        dtree = args.get('dtree') or not (
+        dtree = args.get('files') or not (
             args.get('config') or args.get('gstate'))
 
         # do a pass to find the width that fits file names+tree, this
@@ -1436,9 +1436,9 @@ if __name__ == "__main__":
         action='store_true',
         help="Show the gdelta that xors into the global-state.")
     parser.add_argument(
-        '-t', '--dtree', '--tree',
+        '-f', '--files',
         action='store_true',
-        help="Show the directory tree (default).")
+        help="Show the files and directory tree (default).")
     parser.add_argument(
         '-A', '--attrs',
         action='store_true',
