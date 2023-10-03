@@ -358,6 +358,14 @@ typedef struct lfsr_rbyd {
     lfs_block_t block;
 } lfsr_rbyd_t;
 
+typedef struct lfsr_bptr {
+    // note size lines up with weight in lfsr_btree_t
+    lfs_soff_t size;
+    lfs_block_t block;
+    lfs_size_t off;
+    // TODO how do we track ecksum?
+} lfsr_bptr_t;
+
 // The maximum size of inlined pointers in a btree, this depends on littlefs's
 // on-disk pointer representations (there are several), but doesn't change at
 // runtime.
@@ -464,6 +472,12 @@ typedef struct lfsr_data {
             lfs_block_t block;
             lfs_size_t off;
         } disk;
+        // TODO doc
+        struct {
+            lfs_ssize_t size;
+            lfs_block_t block;
+            const struct lfsr_file *file;
+        } file;
     } u;
 } lfsr_data_t;
 
@@ -517,7 +531,7 @@ typedef struct lfsr_inlined {
         struct {
             lfs_soff_t weight;
             lfs_size_t trunk;
-            lfs_size_t overhead;
+            lfs_off_t estimate;
         } shrub;
     } u;
 } lfsr_inlined_t;
@@ -537,6 +551,12 @@ typedef struct lfsr_file {
     // inlined files may be opened
     lfsr_inlined_t inlined;
     lfsr_inlined_t inlined_;
+
+    union {
+        lfs_soff_t size;
+        lfsr_bptr_t bptr;
+        lfsr_btree_t btree;
+    } u;
 
     const struct lfs_file_config *cfg;
 } lfsr_file_t;
