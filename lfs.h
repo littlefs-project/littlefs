@@ -475,7 +475,7 @@ typedef struct lfsr_data {
         // TODO doc
         struct {
             lfs_ssize_t size;
-            lfs_block_t block;
+            lfs_off_t pos;
             const struct lfsr_file *file;
         } file;
     } u;

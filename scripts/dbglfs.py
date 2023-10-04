@@ -906,7 +906,7 @@ def frepr(mdir, rid, tag):
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_INLINED)
         if not done and rid_ == rid and tag_ == TAG_INLINED:
             size = max(size, len(data))
-            structs.append('inlined 0x%x.%x %d' % (mdir.block, j+d, len(data)))
+            structs.append('inlined w%d 0x%x.%x' % (len(data), mdir.block, j+d))
         # inlined tree?
         done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_TRUNK)
         if not done and rid_ == rid and tag_ == TAG_TRUNK:
@@ -914,8 +914,27 @@ def frepr(mdir, rid, tag):
             trunk, d_ = fromleb128(data[d:]); d += d_
             weight, d_ = fromleb128(data[d:]); d += d_
             size = max(size, weight)
-            structs.append('trunk 0x%x.%x' % (mdir.block, trunk))
-        return 'reg %s' % ', '.join(it.chain(['%d' % size], structs))
+            structs.append('trunk w%d 0x%x.%x' % (weight, mdir.block, trunk))
+        # direct block?
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BLOCK)
+        if not done and rid_ == rid and tag_ == TAG_BLOCK:
+            d = 0
+            block, d_ = fromleb128(data[d:]); d += d_
+            off, d_ = fromleb128(data[d:]); d += d_
+            size_, d_ = fromleb128(data[d:]); d += d_
+            size = max(size, size_)
+            structs.append('block w%d 0x%x.%x' % (size_, block, off))
+        # indirect btree?
+        done, rid_, tag_, w_, j, d, data, _ = mdir.lookup(rid, TAG_BTREE)
+        if not done and rid_ == rid and tag_ == TAG_BTREE:
+            d = 0
+            block, d_ = fromleb128(data[d:]); d += d_
+            trunk, d_ = fromleb128(data[d:]); d += d_
+            weight, d_ = fromleb128(data[d:]); d += d_
+            cksum = fromle32(data[d:]); d += 4
+            size = max(size, weight)
+            structs.append('btree w%d 0x%x.%x' % (weight, block, trunk))
+        return 'reg w%s' % ', '.join(it.chain(['%d' % size], structs))
 
     else:
         return 'type 0x%02x' % (tag & 0xff)
