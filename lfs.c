@@ -2377,6 +2377,40 @@ static int lfsr_rbyd_fetch(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     return 0;
 }
 
+// a more aggressive fetch when checksum is known
+static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
+        lfs_block_t block, lfs_size_t trunk, lfsr_rid_t weight,
+        uint32_t cksum) {
+    int err = lfsr_rbyd_fetch(lfs, rbyd, block, trunk);
+    if (err) {
+        if (err == LFS_ERR_CORRUPT) {
+            LFS_ERROR("Found corrupted rbyd "
+                    "(0x%"PRIx32".%"PRIx32", 0x%08"PRIx32")",
+                    block, trunk, cksum);
+        }
+        return err;
+    }
+
+    // test that our cksum matches what's expected
+    //
+    // it should be noted that this is very unlikely to happen without the
+    // above fetch failing, since that would require the rbyd to have the
+    // same trunk and pass its internal cksum
+    if (rbyd->cksum != cksum) {
+        LFS_ERROR("Found rbyd cksum mismatch "
+                "(0x%"PRIx32".%"PRIx32", 0x%08"PRIx32" != 0x%08"PRIx32")",
+                rbyd->block, rbyd->trunk, rbyd->cksum, cksum);
+        return LFS_ERR_CORRUPT;
+    }
+
+    // if trunk/weight mismatch _after_ cksums match, that's not a storage
+    // error, that's a programming error
+    LFS_ASSERT(rbyd->trunk == trunk);
+    LFS_ASSERT((lfsr_rid_t)rbyd->weight == weight);
+    return 0;
+}
+
+
 static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_srid_t rid, lfsr_tag_t tag,
         lfsr_srid_t *rid_,
@@ -4218,7 +4252,8 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         //
         // a funny benefit is we cache the root of our btree this way
         if (!lfsr_rbyd_isfetched(&rbyd)) {
-            int err = lfsr_rbyd_fetch(lfs, &rbyd, rbyd.block, rbyd.trunk);
+            int err = lfsr_rbyd_fetchvalidate(lfs, &rbyd,
+                    rbyd.block, rbyd.trunk, rbyd.weight, rbyd.cksum);
             if (err) {
                 return err;
             }
@@ -4923,7 +4958,6 @@ static int lfsr_btree_traversal_next(lfs_t *lfs, const lfsr_btree_t *btree,
         }
     }
 }
-
 
 
 
@@ -6823,6 +6857,7 @@ next:;
 typedef struct lfsr_mtree_traversal {
     // core traversal state
     uint8_t flags;
+    uint8_t state;
     lfsr_mdir_t mdir;
     union {
         // cycle detection state, only valid when mdir.mid.bid == -1
@@ -6837,13 +6872,25 @@ typedef struct lfsr_mtree_traversal {
 } lfsr_mtree_traversal_t;
 
 enum {
-    LFSR_MTREE_TRAVERSAL_VALIDATE = 0x1,
+    // traverse all blocks in the filesystem
+    LFSR_MTREE_TRAVERSAL_ALL = 0x1,
+    // validate checksums while traversing
+    LFSR_MTREE_TRAVERSAL_VALIDATE = 0x2,
+};
+
+// traversing littlefs is a bit complex, so we use a state machine to keep
+// track of where we are
+enum {
+    LFSR_MTREE_TRAVERSAL_MROOTANCHOR = 0,
+    LFSR_MTREE_TRAVERSAL_MROOTCHAIN  = 1,
+    LFSR_MTREE_TRAVERSAL_MTREE       = 2,
+    LFSR_MTREE_TRAVERSAL_BTREE       = 3,
 };
 
 #define LFSR_MTREE_TRAVERSAL(_flags) \
     ((lfsr_mtree_traversal_t){ \
         .flags=_flags, \
-        .mdir.u.m.trunk=0, \
+        .state=LFSR_MTREE_TRAVERSAL_MROOTANCHOR, \
         .u.tortoise.blocks={0, 0}, \
         .u.tortoise.step=0, \
         .u.tortoise.power=0})
@@ -6851,17 +6898,21 @@ enum {
 static int lfsr_mtree_traversal_next(lfs_t *lfs,
         lfsr_mtree_traversal_t *traversal,
         lfsr_smid_t *mid_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    // new traversal? start with 0x{0,1}
+    switch (traversal->state) {
+    // start with the mrootanchor 0x{0,1}
     //
     // note we make sure to include all mroots in our mroot chain!
     //
-    if (traversal->mdir.u.m.trunk == 0) {
+    case LFSR_MTREE_TRAVERSAL_MROOTANCHOR:;
         // fetch the first mroot 0x{0,1}
         int err = lfsr_mdir_fetch(lfs, &traversal->mdir,
                 -1, LFSR_MBLOCKS_MROOTANCHOR());
         if (err) {
             return err;
         }
+
+        // transition to traversing the mroot chain
+        traversal->state = LFSR_MTREE_TRAVERSAL_MROOTCHAIN;
 
         if (mid_) {
             *mid_ = -1;
@@ -6874,21 +6925,22 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
         }
         return 0;
 
-    // check for mroot/mtree/mdir
-    } else if (traversal->mdir.mid == -1) {
+    // traverse the mroot chain, checking for mroot/mtree/mdir
+    case LFSR_MTREE_TRAVERSAL_MROOTCHAIN:;
         // lookup mroot, if we find one this is a fake mroot
         lfsr_tag_t tag;
         lfsr_data_t data;
-        int err = lfsr_mdir_lookup(lfs, &traversal->mdir,
+        err = lfsr_mdir_lookup(lfs, &traversal->mdir,
                 -1, LFSR_TAG_WIDE(STRUCT),
                 &tag, &data);
-        if (err && err != LFS_ERR_NOENT) {
+        if (err) {
             return err;
         }
 
         // found a new mroot
-        if (err != LFS_ERR_NOENT && tag == LFSR_TAG_MROOT) {
-            err = lfsr_data_readmblocks(lfs, &data, traversal->mdir.u.m.blocks);
+        if (tag == LFSR_TAG_MROOT) {
+            err = lfsr_data_readmblocks(lfs, &data,
+                    traversal->mdir.u.m.blocks);
             if (err) {
                 return err;
             }
@@ -6938,129 +6990,176 @@ static int lfsr_mtree_traversal_next(lfs_t *lfs,
             }
             return 0;
 
-        // no more mroots, which makes this our real mroot
-        } else {
-            // update our mroot
-            lfs->mroot = traversal->mdir;
-
-            // do we have an mtree? mdir?
-            if (err == LFS_ERR_NOENT) {
-                lfs->mtree = LFSR_BTREE_NULL;
-            } else if (tag == LFSR_TAG_MDIR) {
-                err = lfsr_data_readbtreeinlined(lfs, &data,
-                        LFSR_TAG_MDIR, lfsr_mleafweight(lfs),
-                        &lfs->mtree);
-                if (err) {
-                    return err;
-                }
-            } else if (tag == LFSR_TAG_MTREE) {
-                err = lfsr_data_readbtree(lfs, &data, &lfs->mtree.u.rbyd);
-                if (err) {
-                    return err;
-                }
-            } else {
-                LFS_ERROR("Weird mstruct? (0x%"PRIx32")", tag);
-                return LFS_ERR_CORRUPT;
-            }
-
-            // initialize our mtree traversal
-            traversal->u.traversal = LFSR_BTREE_TRAVERSAL();
-        }
-    }
-
-    // traverse through the mtree
-    lfsr_bid_t bid;
-    lfsr_tag_t tag;
-    lfsr_data_t data;
-    int err = lfsr_btree_traversal_next(
-            lfs, &lfs->mtree, &traversal->u.traversal,
-            &bid, &tag, NULL, &data);
-    if (err) {
-        return err;
-    }
-
-    // inner btree nodes already decoded
-    if (tag == LFSR_TAG_BTREE) {
-        // validate our btree nodes if requested, this just means we need
-        // to do a full rbyd fetch and make sure the checksums match
-        if (traversal->flags & LFSR_MTREE_TRAVERSAL_VALIDATE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.u.direct.buffer;
-            lfsr_rbyd_t branch_;
-            err = lfsr_rbyd_fetch(lfs, &branch_,
-                    branch->block, branch->trunk);
+        // found an mdir?
+        } else if (tag == LFSR_TAG_MDIR) {
+            // fetch this mdir
+            err = lfsr_data_readmblocks(lfs, &data,
+                    traversal->mdir.u.m.blocks);
             if (err) {
-                if (err == LFS_ERR_CORRUPT) {
-                    LFS_ERROR("Corrupted rbyd during mtree traversal "
-                            "(0x%"PRIx32".%"PRIx32", 0x%08"PRIx32")",
-                            branch->block, branch->trunk, branch->cksum);
-                }
                 return err;
             }
 
-            // test that our branch's cksum matches what's expected
-            //
-            // it should be noted it's very unlikely for this to be hit without
-            // the above fetch failing since it includes both an internal
-            // cksum check and trunk check
-            if (branch_.cksum != branch->cksum) {
-                LFS_ERROR("Checksum mismatch during mtree traversal "
-                        "(0x%"PRIx32".%"PRIx32", "
-                        "0x%08"PRIx32" != 0x%08"PRIx32")",
-                        branch->block, branch->trunk,
-                        branch_.cksum, branch->cksum);
-                return LFS_ERR_CORRUPT;
+            err = lfsr_mdir_fetch(lfs, &traversal->mdir,
+                    0, traversal->mdir.u.m.blocks);
+            if (err) {
+                return err;
             }
 
-            LFS_ASSERT(branch_.trunk == branch->trunk);
-            LFS_ASSERT(branch_.weight == branch->weight);
+            // TODO this is ugly
+            // transition to traversing the mtree, but skip our mdir
+            traversal->state = LFSR_MTREE_TRAVERSAL_MTREE;
+            lfsr_btree_t mtree = LFSR_BTREE_NULL;
+            err = lfsr_data_readbtreeinlined(lfs, &data,
+                    LFSR_TAG_MDIR, lfsr_mleafweight(lfs),
+                    &mtree);
+            if (err) {
+                return err;
+            }
+            traversal->u.traversal = LFSR_BTREE_TRAVERSAL();
+            err = lfsr_btree_traversal_next(
+                    lfs, &mtree,
+                    &traversal->u.traversal,
+                    NULL, NULL, NULL, NULL);
+            if (err) {
+                return err;
+            }
 
-            // TODO is this useful at all?
-            // change our branch to the fetched version
-            *branch = branch_;
+            if (mid_) {
+                *mid_ = 0;
+            }
+            if (tag_) {
+                *tag_ = LFSR_TAG_MDIR;
+            }
+            if (data_) {
+                *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
+            }
+            return 0;
+
+        // found an mtree?
+        } else if (tag == LFSR_TAG_MTREE) {
+            // read the root of the mtree and return it, lfs->mtree may not
+            // be initialized yet
+            // TODO uh, should we make traversal->mdir a different type?
+            err = lfsr_data_readbtree(lfs, &data, &traversal->mdir.u.rbyd);
+            if (err) {
+                return err;
+            }
+
+            // validate our btree nodes if requested, this just means we need
+            // to do a full rbyd fetch and make sure the checksums match
+            if (traversal->flags & LFSR_MTREE_TRAVERSAL_VALIDATE) {
+                err = lfsr_rbyd_fetchvalidate(lfs, &traversal->mdir.u.rbyd,
+                        traversal->mdir.u.rbyd.block,
+                        traversal->mdir.u.rbyd.trunk,
+                        traversal->mdir.u.rbyd.weight,
+                        traversal->mdir.u.rbyd.cksum);
+                if (err) {
+                    return err;
+                }
+            }
+
+            // transition to traversing the mtree, but skip the root
+            traversal->state = LFSR_MTREE_TRAVERSAL_MTREE;
+            traversal->u.traversal = LFSR_BTREE_TRAVERSAL();
+            err = lfsr_btree_traversal_next(
+                    lfs, (lfsr_btree_t*)&traversal->mdir.u.rbyd,
+                    &traversal->u.traversal,
+                    NULL, NULL, NULL, NULL);
+            if (err) {
+                return err;
+            }
+
+            if (mid_) {
+                *mid_ = 0;
+            }
+            if (tag_) {
+                *tag_ = LFSR_TAG_BTREE;
+            }
+            if (data_) {
+                *data_ = LFSR_DATA_BUF(&traversal->mdir.u.rbyd,
+                        sizeof(lfsr_rbyd_t));
+            }
+            return 0;
+
+        } else {
+            LFS_ERROR("Weird mtree entry? (0x%"PRIx32")", tag);
+            return LFS_ERR_CORRUPT;
         }
 
-        // still update our mdir mid so we don't get stuck in a loop
-        // traversing mroots
-        traversal->mdir.mid = bid;
-
-        if (mid_) {
-            *mid_ = bid;
-        }
-        if (tag_) {
-            *tag_ = tag;
-        }
-        if (data_) {
-            *data_ = data;
-        }
-        return 0;
-
-    // fetch mdir if we're on a leaf
-    } else if (tag == LFSR_TAG_MDIR) {
-        err = lfsr_data_readmblocks(lfs, &data, traversal->mdir.u.m.blocks);
+    // traverse the mtree, including both inner btree nodes and mdirs
+    case LFSR_MTREE_TRAVERSAL_MTREE:;
+        // traverse through the mtree
+        lfsr_bid_t bid;
+        err = lfsr_btree_traversal_next(
+                lfs, &lfs->mtree, &traversal->u.traversal,
+                &bid, &tag, NULL, &data);
         if (err) {
             return err;
         }
 
-        err = lfsr_mdir_fetch(lfs, &traversal->mdir,
-                bid, traversal->mdir.u.m.blocks);
-        if (err) {
-            return err;
+        // inner btree nodes already decoded
+        if (tag == LFSR_TAG_BTREE) {
+            // validate our btree nodes if requested, this just means we need
+            // to do a full rbyd fetch and make sure the checksums match
+            if (traversal->flags & LFSR_MTREE_TRAVERSAL_VALIDATE) {
+                lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.u.direct.buffer;
+                err = lfsr_rbyd_fetchvalidate(lfs, branch,
+                        branch->block, branch->trunk, branch->weight,
+                        branch->cksum);
+                if (err) {
+                    return err;
+                }
+            }
+
+            if (mid_) {
+                *mid_ = bid;
+            }
+            if (tag_) {
+                *tag_ = LFSR_TAG_BTREE;
+            }
+            if (data_) {
+                *data_ = data;
+            }
+            return 0;
+
+        // fetch mdir if we're on a leaf
+        } else if (tag == LFSR_TAG_MDIR) {
+            err = lfsr_data_readmblocks(lfs, &data,
+                    traversal->mdir.u.m.blocks);
+            if (err) {
+                return err;
+            }
+
+            err = lfsr_mdir_fetch(lfs, &traversal->mdir,
+                    bid, traversal->mdir.u.m.blocks);
+            if (err) {
+                return err;
+            }
+
+            if (mid_) {
+                *mid_ = bid;
+            }
+            if (tag_) {
+                *tag_ = LFSR_TAG_MDIR;
+            }
+            if (data_) {
+                *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
+            }
+            return 0;
+
+        } else {
+            LFS_ERROR("Weird mtree entry? (0x%"PRIx32")", tag);
+            return LFS_ERR_CORRUPT;
         }
 
-        if (mid_) {
-            *mid_ = bid;
-        }
-        if (tag_) {
-            *tag_ = tag;
-        }
-        if (data_) {
-            *data_ = LFSR_DATA_BUF(&traversal->mdir, sizeof(lfsr_mdir_t));
-        }
+    // traverse any file btree, including both inner btree nodes and
+    // block pointers
+    case LFSR_MTREE_TRAVERSAL_BTREE:;
+        // TODO
         return 0;
 
-    } else {
-        LFS_ERROR("Weird mtree entry? (0x%"PRIx32")", tag);
-        return LFS_ERR_CORRUPT;
+    default:;
+        LFS_UNREACHABLE();
     }
 }
 
@@ -7153,6 +7252,10 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // zero gdeltas, we'll read these from our mdirs
     lfsr_fs_flushgdelta(lfs);
 
+    // default to no mtree, this is allowed and implies all files are inlined
+    // in the mroot
+    lfs->mtree = LFSR_BTREE_NULL;
+
     // traverse the mtree rooted at mroot 0x{1,0}
     //
     // note that lfsr_mtree_traversal_next will update our mroot/mtree
@@ -7175,344 +7278,381 @@ static int lfsr_mountinited(lfs_t *lfs) {
             return err;
         }
 
-        // we only care about mdirs here
-        if (tag != LFSR_TAG_MDIR) {
-            continue;
-        }
+        // found an mdir?
+        if (tag == LFSR_TAG_MDIR) {
+            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data.u.direct.buffer;
 
-        lfsr_mdir_t *mdir = (lfsr_mdir_t*)data.u.direct.buffer;
-        // found an mroot?
-        if (mdir->mid == -1) {
-            // has magic string?
-            lfsr_data_t data;
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_MAGIC,
-                    NULL, &data);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
+            // found an mroot?
+            if (mdir->mid == -1) {
+                // has magic string?
+                lfsr_data_t data;
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_MAGIC,
+                        NULL, &data);
+                if (err) {
+                    if (err == LFS_ERR_NOENT) {
+                        LFS_ERROR("No littlefs magic found");
+                        return LFS_ERR_INVAL;
+                    }
+                    return err;
+                }
+
+                lfs_scmp_t cmp = lfsr_data_cmp(lfs, &data, "littlefs", 8);
+                if (cmp < 0) {
+                    return cmp;
+                }
+
+                // treat corrupted magic as no magic
+                if (lfs_cmp(cmp) != 0) {
                     LFS_ERROR("No littlefs magic found");
                     return LFS_ERR_INVAL;
                 }
-                return err;
+
+                // check the disk version
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_VERSION,
+                        NULL, &data);
+                if (err) {
+                    if (err == LFS_ERR_NOENT) {
+                        LFS_ERROR("No littlefs version found");
+                        return LFS_ERR_INVAL;
+                    }
+                    return err;
+                }
+
+                uint32_t major_version;
+                err = lfsr_data_readleb128(lfs, &data,
+                        (int32_t*)&major_version);
+                if (err && err != LFS_ERR_CORRUPT) {
+                    return err;
+                }
+                if (err == LFS_ERR_CORRUPT) {
+                    major_version = -1;
+                }
+
+                uint32_t minor_version;
+                err = lfsr_data_readleb128(lfs, &data,
+                        (int32_t*)&minor_version);
+                if (err && err != LFS_ERR_CORRUPT) {
+                    return err;
+                }
+                if (err == LFS_ERR_CORRUPT) {
+                    minor_version = -1;
+                }
+
+                if (major_version != LFS_DISK_VERSION_MAJOR
+                        || minor_version > LFS_DISK_VERSION_MINOR) {
+                    LFS_ERROR("Incompatible version v%"PRId32".%"PRId32
+                            " (!= v%"PRId32".%"PRId32")",
+                            major_version,
+                            minor_version,
+                            LFS_DISK_VERSION_MAJOR,
+                            LFS_DISK_VERSION_MINOR);
+                    return LFS_ERR_INVAL;
+                }
+
+                // check for any flags
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_FLAGS,
+                        NULL, &data);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+
+                uint32_t flags = 0;
+                if (err != LFS_ERR_NOENT) {
+                    err = lfsr_data_readleb128(lfs, &data, (int32_t*)&flags);
+                    if (err && err != LFS_ERR_CORRUPT) {
+                        return err;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        flags = -1;
+                    }
+                }
+
+                if (flags != 0) {
+                    LFS_ERROR("Incompatible flags 0x%"PRIx32, flags);
+                    return LFS_ERR_INVAL;
+                }
+
+                // check checksum type
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_CKSUMTYPE,
+                        NULL, &data);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+
+                uint32_t cksum_type = 0;
+                if (err != LFS_ERR_NOENT) {
+                    err = lfsr_data_readleb128(lfs, &data,
+                            (int32_t*)&cksum_type);
+                    if (err && err != LFS_ERR_CORRUPT) {
+                        return err;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        cksum_type = -1;
+                    }
+                }
+
+                if (cksum_type != 0) {
+                    LFS_ERROR("Incompatible cksum type 0x%"PRId32, cksum_type);
+                    return LFS_ERR_INVAL;
+                }
+
+                // check redundancy type
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_REDUNDTYPE,
+                        NULL, &data);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+
+                uint32_t redund_type = 0;
+                if (err != LFS_ERR_NOENT) {
+                    err = lfsr_data_readleb128(lfs, &data,
+                            (int32_t*)&redund_type);
+                    if (err && err != LFS_ERR_CORRUPT) {
+                        return err;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        redund_type = -1;
+                    }
+                }
+
+                if (redund_type != 0) {
+                    LFS_ERROR("Incompatible redund type 0x%"PRId32,
+                            redund_type);
+                    return LFS_ERR_INVAL;
+                }
+
+                // check block limit / block size
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_BLOCKLIMIT,
+                        NULL, &data);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+
+                uint32_t block_limit = 0;
+                if (err != LFS_ERR_NOENT) {
+                    err = lfsr_data_readleb128(lfs, &data,
+                            (int32_t*)&block_limit);
+                    if (err && err != LFS_ERR_CORRUPT) {
+                        return err;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        block_limit = -1;
+                    }
+                }
+
+                if (block_limit != lfs->cfg->block_size-1) {
+                    LFS_ERROR("Incompatible block size %"PRId32" "
+                            "(!= %"PRId32")",
+                            block_limit+1,
+                            lfs->cfg->block_size);
+                    return LFS_ERR_INVAL;
+                }
+
+                // check disk limit / block count
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_DISKLIMIT,
+                        NULL, &data);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+
+                uint32_t disk_limit = 0;
+                if (err != LFS_ERR_NOENT) {
+                    err = lfsr_data_readleb128(lfs, &data,
+                            (int32_t*)&disk_limit);
+                    if (err && err != LFS_ERR_CORRUPT) {
+                        return err;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        disk_limit = -1;
+                    }
+                }
+
+                if (disk_limit != lfs->cfg->block_count-1) {
+                    LFS_ERROR("Incompatible block count %"PRId32" "
+                            "(!= %"PRId32")",
+                            disk_limit+1,
+                            lfs->cfg->block_count);
+                    return LFS_ERR_INVAL;
+                }
+
+                // read the mleaf limit
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_MLEAFLIMIT,
+                        NULL, &data);
+                if (err) {
+                    if (err == LFS_ERR_NOENT) {
+                        LFS_ERROR("No mleaf limit found");
+                        return LFS_ERR_INVAL;
+                    }
+                    return err;
+                }
+
+                uint32_t mleaf_limit;
+                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&mleaf_limit);
+                if (err && err != LFS_ERR_CORRUPT) {
+                    return err;
+                }
+                if (err == LFS_ERR_CORRUPT) {
+                    mleaf_limit = -1;
+                }
+
+                // we only support power-of-two mleaf weights, this unlikely to
+                // ever to change since mleaf weights are pretty arbitrary
+                if (lfs_popc(mleaf_limit+1) != 1) {
+                    LFS_ERROR("Incompatible mleaf weight %"PRId32,
+                            mleaf_limit+1);
+                    return LFS_ERR_INVAL;
+                }
+
+                lfs->mleaf_bits = lfs_nlog2(mleaf_limit);
+
+                // read the size limit
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_SIZELIMIT,
+                        NULL, &data);
+                if (err) {
+                    if (err == LFS_ERR_NOENT) {
+                        LFS_ERROR("No size limit found");
+                        return LFS_ERR_INVAL;
+                    }
+                    return err;
+                }
+
+                uint32_t size_limit;
+                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&size_limit);
+                if (err && err != LFS_ERR_CORRUPT) {
+                    return err;
+                }
+                if (err == LFS_ERR_CORRUPT) {
+                    size_limit = -1;
+                }
+
+                if (size_limit > lfs->size_limit) {
+                    LFS_ERROR("Incompatible size limit (%"PRId32" > %"PRId32")",
+                            size_limit,
+                            lfs->size_limit);
+                    return LFS_ERR_INVAL;
+                }
+
+                lfs->size_limit = size_limit;
+
+                // read the name limit
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_NAMELIMIT,
+                        NULL, &data);
+                if (err) {
+                    if (err == LFS_ERR_NOENT) {
+                        LFS_ERROR("No name limit found");
+                        return LFS_ERR_INVAL;
+                    }
+                    return err;
+                }
+
+                uint32_t name_limit;
+                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&name_limit);
+                if (err && err != LFS_ERR_CORRUPT) {
+                    return err;
+                }
+                if (err == LFS_ERR_CORRUPT) {
+                    name_limit = -1;
+                }
+
+                if (name_limit > lfs->name_limit) {
+                    LFS_ERROR("Incompatible name limit (%"PRId32" > %"PRId32")",
+                            name_limit,
+                            lfs->name_limit);
+                    return LFS_ERR_INVAL;
+                }
+
+                lfs->name_limit = name_limit;
+
+                // check the utag limit
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_UTAGLIMIT,
+                        NULL, &data);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+
+                if (err != LFS_ERR_NOENT) {
+                    uint32_t utag_limit;
+                    err = lfsr_data_readleb128(lfs, &data,
+                            (int32_t*)&utag_limit);
+                    if (err && err != LFS_ERR_CORRUPT) {
+                        return err;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        utag_limit = -1;
+                    }
+
+                    // only 7-bit utags are supported
+                    if (utag_limit != 0x7f) {
+                        LFS_ERROR("Incompatible utag limit "
+                                "(%"PRId32" != %"PRId32")",
+                                utag_limit,
+                                0x7f);
+                        return LFS_ERR_INVAL;
+                    }
+                }
+
+                // check the uattr limit
+                err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_UATTRLIMIT,
+                        NULL, &data);
+                if (err && err != LFS_ERR_NOENT) {
+                    return err;
+                }
+
+                if (err != LFS_ERR_NOENT) {
+                    uint32_t uattr_limit;
+                    err = lfsr_data_readleb128(lfs, &data,
+                            (int32_t*)&uattr_limit);
+                    if (err && err != LFS_ERR_CORRUPT) {
+                        return err;
+                    }
+                    if (err == LFS_ERR_CORRUPT) {
+                        uattr_limit = -1;
+                    }
+
+                    // only >=block_size uattrs are (implicitly) supported
+                    if (uattr_limit < lfs->cfg->block_size-1) {
+                        LFS_ERROR("Incompatible uattr limit "
+                                "(%"PRId32" < %"PRId32")",
+                                uattr_limit,
+                                lfs->cfg->block_size-1);
+                        return LFS_ERR_INVAL;
+                    }
+                }
+
+                // keep track of the last mroot we see, this is the "real" mroot
+                lfs->mroot = *mdir;
+
+            } else {
+                // found a direct mdir? keep track of this as our "mtree"
+                if (lfsr_btree_isnull(&lfs->mtree)) {
+                    // TODO this works but is super weird, get rid of inlined
+                    // btrees?
+                    uint8_t mdir_buf[LFSR_MDIR_DSIZE];
+                    err = lfsr_btree_commit(lfs, &lfs->mtree, LFSR_ATTRS(
+                            LFSR_ATTR(0,
+                                MDIR, +lfsr_mleafweight(lfs),
+                                FROMMBLOCKS(mdir->u.m.blocks, mdir_buf))));
+                    LFS_ASSERT(!err);
+                }
             }
 
-            lfs_scmp_t cmp = lfsr_data_cmp(lfs, &data, "littlefs", 8);
-            if (cmp < 0) {
-                return cmp;
-            }
-
-            // treat corrupted magic as no magic
-            if (lfs_cmp(cmp) != 0) {
-                LFS_ERROR("No littlefs magic found");
-                return LFS_ERR_INVAL;
-            }
-
-            // check the disk version
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_VERSION,
-                    NULL, &data);
+            // collect any gdeltas from this mdir
+            err = lfsr_fs_consumegdelta(lfs, mdir);
             if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    LFS_ERROR("No littlefs version found");
-                    return LFS_ERR_INVAL;
-                }
                 return err;
             }
 
-            uint32_t major_version;
-            err = lfsr_data_readleb128(lfs, &data, (int32_t*)&major_version);
-            if (err && err != LFS_ERR_CORRUPT) {
-                return err;
-            }
-            if (err == LFS_ERR_CORRUPT) {
-                major_version = -1;
-            }
+        // found an mtree inner-node?
+        } else if (tag == LFSR_TAG_BTREE) {
+            lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.u.direct.buffer;
 
-            uint32_t minor_version;
-            err = lfsr_data_readleb128(lfs, &data, (int32_t*)&minor_version);
-            if (err && err != LFS_ERR_CORRUPT) {
-                return err;
-            }
-            if (err == LFS_ERR_CORRUPT) {
-                minor_version = -1;
+            // found the root of the mtree?
+            if (lfsr_btree_isnull(&lfs->mtree)) {
+                lfs->mtree.u.rbyd = *branch;
             }
 
-            if (major_version != LFS_DISK_VERSION_MAJOR
-                    || minor_version > LFS_DISK_VERSION_MINOR) {
-                LFS_ERROR("Incompatible version v%"PRId32".%"PRId32
-                        " (!= v%"PRId32".%"PRId32")",
-                        major_version,
-                        minor_version,
-                        LFS_DISK_VERSION_MAJOR,
-                        LFS_DISK_VERSION_MINOR);
-                return LFS_ERR_INVAL;
-            }
-
-            // check for any flags
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_FLAGS,
-                    NULL, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            uint32_t flags = 0;
-            if (err != LFS_ERR_NOENT) {
-                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&flags);
-                if (err && err != LFS_ERR_CORRUPT) {
-                    return err;
-                }
-                if (err == LFS_ERR_CORRUPT) {
-                    flags = -1;
-                }
-            }
-
-            if (flags != 0) {
-                LFS_ERROR("Incompatible flags 0x%"PRIx32, flags);
-                return LFS_ERR_INVAL;
-            }
-
-            // check checksum type
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_CKSUMTYPE,
-                    NULL, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            uint32_t cksum_type = 0;
-            if (err != LFS_ERR_NOENT) {
-                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&cksum_type);
-                if (err && err != LFS_ERR_CORRUPT) {
-                    return err;
-                }
-                if (err == LFS_ERR_CORRUPT) {
-                    cksum_type = -1;
-                }
-            }
-
-            if (cksum_type != 0) {
-                LFS_ERROR("Incompatible cksum type 0x%"PRId32, cksum_type);
-                return LFS_ERR_INVAL;
-            }
-
-            // check redundancy type
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_REDUNDTYPE,
-                    NULL, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            uint32_t redund_type = 0;
-            if (err != LFS_ERR_NOENT) {
-                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&redund_type);
-                if (err && err != LFS_ERR_CORRUPT) {
-                    return err;
-                }
-                if (err == LFS_ERR_CORRUPT) {
-                    redund_type = -1;
-                }
-            }
-
-            if (redund_type != 0) {
-                LFS_ERROR("Incompatible redund type 0x%"PRId32, redund_type);
-                return LFS_ERR_INVAL;
-            }
-
-            // check block limit / block size
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_BLOCKLIMIT,
-                    NULL, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            uint32_t block_limit = 0;
-            if (err != LFS_ERR_NOENT) {
-                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&block_limit);
-                if (err && err != LFS_ERR_CORRUPT) {
-                    return err;
-                }
-                if (err == LFS_ERR_CORRUPT) {
-                    block_limit = -1;
-                }
-            }
-
-            if (block_limit != lfs->cfg->block_size-1) {
-                LFS_ERROR("Incompatible block size %"PRId32" "
-                        "(!= %"PRId32")",
-                        block_limit+1,
-                        lfs->cfg->block_size);
-                return LFS_ERR_INVAL;
-            }
-
-            // check disk limit / block count
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_DISKLIMIT,
-                    NULL, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            uint32_t disk_limit = 0;
-            if (err != LFS_ERR_NOENT) {
-                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&disk_limit);
-                if (err && err != LFS_ERR_CORRUPT) {
-                    return err;
-                }
-                if (err == LFS_ERR_CORRUPT) {
-                    disk_limit = -1;
-                }
-            }
-
-            if (disk_limit != lfs->cfg->block_count-1) {
-                LFS_ERROR("Incompatible block count %"PRId32" "
-                        "(!= %"PRId32")",
-                        disk_limit+1,
-                        lfs->cfg->block_count);
-                return LFS_ERR_INVAL;
-            }
-
-            // read the mleaf limit
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_MLEAFLIMIT,
-                    NULL, &data);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    LFS_ERROR("No mleaf limit found");
-                    return LFS_ERR_INVAL;
-                }
-                return err;
-            }
-
-            uint32_t mleaf_limit;
-            err = lfsr_data_readleb128(lfs, &data, (int32_t*)&mleaf_limit);
-            if (err && err != LFS_ERR_CORRUPT) {
-                return err;
-            }
-            if (err == LFS_ERR_CORRUPT) {
-                mleaf_limit = -1;
-            }
-
-            // we only support power-of-two mleaf weights, this unlikely to
-            // ever to change since mleaf weights are pretty arbitrary
-            if (lfs_popc(mleaf_limit+1) != 1) {
-                LFS_ERROR("Incompatible mleaf weight %"PRId32, mleaf_limit+1);
-                return LFS_ERR_INVAL;
-            }
-
-            lfs->mleaf_bits = lfs_nlog2(mleaf_limit);
-
-            // read the size limit
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_SIZELIMIT,
-                    NULL, &data);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    LFS_ERROR("No size limit found");
-                    return LFS_ERR_INVAL;
-                }
-                return err;
-            }
-
-            uint32_t size_limit;
-            err = lfsr_data_readleb128(lfs, &data, (int32_t*)&size_limit);
-            if (err && err != LFS_ERR_CORRUPT) {
-                return err;
-            }
-            if (err == LFS_ERR_CORRUPT) {
-                size_limit = -1;
-            }
-
-            if (size_limit > lfs->size_limit) {
-                LFS_ERROR("Incompatible size limit (%"PRId32" > %"PRId32")",
-                        size_limit,
-                        lfs->size_limit);
-                return LFS_ERR_INVAL;
-            }
-
-            lfs->size_limit = size_limit;
-
-            // read the name limit
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_NAMELIMIT,
-                    NULL, &data);
-            if (err) {
-                if (err == LFS_ERR_NOENT) {
-                    LFS_ERROR("No name limit found");
-                    return LFS_ERR_INVAL;
-                }
-                return err;
-            }
-
-            uint32_t name_limit;
-            err = lfsr_data_readleb128(lfs, &data, (int32_t*)&name_limit);
-            if (err && err != LFS_ERR_CORRUPT) {
-                return err;
-            }
-            if (err == LFS_ERR_CORRUPT) {
-                name_limit = -1;
-            }
-
-            if (name_limit > lfs->name_limit) {
-                LFS_ERROR("Incompatible name limit (%"PRId32" > %"PRId32")",
-                        name_limit,
-                        lfs->name_limit);
-                return LFS_ERR_INVAL;
-            }
-
-            lfs->name_limit = name_limit;
-
-            // check the utag limit
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_UTAGLIMIT,
-                    NULL, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            if (err != LFS_ERR_NOENT) {
-                uint32_t utag_limit;
-                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&utag_limit);
-                if (err && err != LFS_ERR_CORRUPT) {
-                    return err;
-                }
-                if (err == LFS_ERR_CORRUPT) {
-                    utag_limit = -1;
-                }
-
-                // only 7-bit utags are supported
-                if (utag_limit != 0x7f) {
-                    LFS_ERROR("Incompatible utag limit "
-                            "(%"PRId32" != %"PRId32")",
-                            utag_limit,
-                            0x7f);
-                    return LFS_ERR_INVAL;
-                }
-            }
-
-            // check the uattr limit
-            err = lfsr_mdir_lookup(lfs, mdir, -1, LFSR_TAG_UATTRLIMIT,
-                    NULL, &data);
-            if (err && err != LFS_ERR_NOENT) {
-                return err;
-            }
-
-            if (err != LFS_ERR_NOENT) {
-                uint32_t uattr_limit;
-                err = lfsr_data_readleb128(lfs, &data, (int32_t*)&uattr_limit);
-                if (err && err != LFS_ERR_CORRUPT) {
-                    return err;
-                }
-                if (err == LFS_ERR_CORRUPT) {
-                    uattr_limit = -1;
-                }
-
-                // only >=block_size uattrs are (implicitly) supported
-                if (uattr_limit < lfs->cfg->block_size-1) {
-                    LFS_ERROR("Incompatible uattr limit "
-                            "(%"PRId32" < %"PRId32")",
-                            uattr_limit,
-                            lfs->cfg->block_size-1);
-                    return LFS_ERR_INVAL;
-                }
-            }
-        }
-
-        // collect any gdeltas from this mdir
-        err = lfsr_fs_consumegdelta(lfs, mdir);
-        if (err) {
-            return err;
+        } else {
+            LFS_UNREACHABLE();
         }
     }
 
@@ -7754,6 +7894,9 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
             } else if (tag == LFSR_TAG_BTREE) {
                 lfsr_rbyd_t *branch = (lfsr_rbyd_t*)data.u.direct.buffer;
                 lfs_alloc_setinuse(lfs, branch->block);
+
+            } else {
+                LFS_UNREACHABLE();
             }
         }
     }
