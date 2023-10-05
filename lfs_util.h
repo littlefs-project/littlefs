@@ -95,6 +95,8 @@ extern "C"
 #ifndef LFS_ASSERT
 #ifndef LFS_NO_ASSERT
 #define LFS_ASSERT(test) assert(test)
+#elif !defined(LFS_NO_INTRINSICS)
+#define LFS_ASSERT(test) ((test) ? (void)0 : __builtin_unreachable())
 #else
 #define LFS_ASSERT(test)
 #endif
@@ -102,9 +104,11 @@ extern "C"
 
 #ifndef LFS_UNREACHABLE
 #ifndef LFS_NO_ASSERT
+#define LFS_UNREACHABLE() LFS_ASSERT(false)
+#elif !defined(LFS_NO_INTRINSICS)
 #define LFS_UNREACHABLE() __builtin_unreachable()
 #else
-#define LFS_UNREACHABLE() LFS_ASSERT(false)
+#define LFS_UNREACHABLE()
 #endif
 #endif
 
