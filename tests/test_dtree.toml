@@ -1,5 +1,5 @@
 # Test directory operations
-after = ['test_mtree', 'test_alloc']
+after = 'test_mtree'
 
 ## mkdir tests
 

@@ -294,7 +294,7 @@ def compile(bench_paths, **args):
                 pending_[suite.name] = suite
 
         if len(pending_) == len(pending):
-            print('%serror:%s cycle detected in suite ordering, %s' % (
+            print('%serror:%s cycle detected in suite ordering: {%s}' % (
                 '\x1b[01;31m' if args['color'] else '',
                 '\x1b[m' if args['color'] else '',
                 ', '.join(suite.name for suite in pending.values())))

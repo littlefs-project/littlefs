@@ -3447,62 +3447,52 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
-            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
-
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(
+            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        assert(i < 2*1);
+        assert(i < 2*BLOCK_COUNT);
 
-        lfs_ssize_t mid_;
-        lfsr_tag_t tag_;
-        lfsr_data_t data_;
-        int err = lfsr_mtree_traversal_next(&lfs, &traversal,
-                &mid_, &tag_, &data_);
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(&lfs, &traversal, &tinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
 
-        if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    branch->block, branch->trunk);
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            printf("traversal: 0x%x mdir 0x{%x,%x}\n",
+                    tinfo.tag,
+                    tinfo.u.mdir.u.m.blocks[0], tinfo.u.mdir.u.m.blocks[1]);
 
             // keep track of seen blocks
-            seen[branch->block / 8] |= 1 << (branch->block % 8);
-        } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
+            seen[tinfo.u.mdir.u.m.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[1] % 8);
+            seen[tinfo.u.mdir.u.m.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
+
+        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            printf("traversal: 0x%x btree 0x%x.%x\n",
+                    tinfo.tag,
+                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
-            seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
+            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+
         } else {
             // this shouldn't happen
-            printf("traversal: %d.%d 0x%x %d\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    lfsr_data_size(&data_));
+            printf("traversal: 0x%x\n", tinfo.tag);
             assert(false);
         }
     }
 
     // if traversal worked, we should be able to clobber all other blocks
-    uint8_t buffer_[BLOCK_SIZE];
-    memset(buffer_, 0xcc, BLOCK_SIZE);
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
             CFG->erase(CFG, block) => 0;
-            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -3571,62 +3561,52 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
-            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
-
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(
+            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        assert(i < 2*2);
+        assert(i < 2*BLOCK_COUNT);
 
-        lfs_ssize_t mid_;
-        lfsr_tag_t tag_;
-        lfsr_data_t data_;
-        int err = lfsr_mtree_traversal_next(&lfs, &traversal,
-                &mid_, &tag_, &data_);
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(&lfs, &traversal, &tinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
 
-        if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    branch->block, branch->trunk);
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            printf("traversal: 0x%x mdir 0x{%x,%x}\n",
+                    tinfo.tag,
+                    tinfo.u.mdir.u.m.blocks[0], tinfo.u.mdir.u.m.blocks[1]);
 
             // keep track of seen blocks
-            seen[branch->block / 8] |= 1 << (branch->block % 8);
-        } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
+            seen[tinfo.u.mdir.u.m.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[1] % 8);
+            seen[tinfo.u.mdir.u.m.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
+
+        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            printf("traversal: 0x%x btree 0x%x.%x\n",
+                    tinfo.tag,
+                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
-            seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
+            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+
         } else {
             // this shouldn't happen
-            printf("traversal: %d.%d 0x%x %d\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    lfsr_data_size(&data_));
+            printf("traversal: 0x%x\n", tinfo.tag);
             assert(false);
         }
     }
 
     // if traversal worked, we should be able to clobber all other blocks
-    uint8_t buffer_[BLOCK_SIZE];
-    memset(buffer_, 0xcc, BLOCK_SIZE);
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
             CFG->erase(CFG, block) => 0;
-            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -3706,62 +3686,52 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
-            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
-
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(
+            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        assert(i < 2*3);
+        assert(i < 2*BLOCK_COUNT);
 
-        lfs_ssize_t mid_;
-        lfsr_tag_t tag_;
-        lfsr_data_t data_;
-        int err = lfsr_mtree_traversal_next(&lfs, &traversal,
-                &mid_, &tag_, &data_);
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(&lfs, &traversal, &tinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
 
-        if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    branch->block, branch->trunk);
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            printf("traversal: 0x%x mdir 0x{%x,%x}\n",
+                    tinfo.tag,
+                    tinfo.u.mdir.u.m.blocks[0], tinfo.u.mdir.u.m.blocks[1]);
 
             // keep track of seen blocks
-            seen[branch->block / 8] |= 1 << (branch->block % 8);
-        } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
+            seen[tinfo.u.mdir.u.m.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[1] % 8);
+            seen[tinfo.u.mdir.u.m.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
+
+        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            printf("traversal: 0x%x btree 0x%x.%x\n",
+                    tinfo.tag,
+                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
-            seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
+            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+
         } else {
             // this shouldn't happen
-            printf("traversal: %d.%d 0x%x %d\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    lfsr_data_size(&data_));
+            printf("traversal: 0x%x\n", tinfo.tag);
             assert(false);
         }
     }
 
     // if traversal worked, we should be able to clobber all other blocks
-    uint8_t buffer_[BLOCK_SIZE];
-    memset(buffer_, 0xcc, BLOCK_SIZE);
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
             CFG->erase(CFG, block) => 0;
-            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -3833,62 +3803,52 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
-            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
-
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(
+            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        assert(i < 2*3);
+        assert(i < 2*BLOCK_COUNT);
 
-        lfs_ssize_t mid_;
-        lfsr_tag_t tag_;
-        lfsr_data_t data_;
-        int err = lfsr_mtree_traversal_next(&lfs, &traversal,
-                &mid_, &tag_, &data_);
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(&lfs, &traversal, &tinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
 
-        if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    branch->block, branch->trunk);
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            printf("traversal: 0x%x mdir 0x{%x,%x}\n",
+                    tinfo.tag,
+                    tinfo.u.mdir.u.m.blocks[0], tinfo.u.mdir.u.m.blocks[1]);
 
             // keep track of seen blocks
-            seen[branch->block / 8] |= 1 << (branch->block % 8);
-        } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
+            seen[tinfo.u.mdir.u.m.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[1] % 8);
+            seen[tinfo.u.mdir.u.m.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
+
+        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            printf("traversal: 0x%x btree 0x%x.%x\n",
+                    tinfo.tag,
+                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
-            seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
+            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+
         } else {
             // this shouldn't happen
-            printf("traversal: %d.%d 0x%x %d\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    lfsr_data_size(&data_));
+            printf("traversal: 0x%x\n", tinfo.tag);
             assert(false);
         }
     }
 
     // if traversal worked, we should be able to clobber all other blocks
-    uint8_t buffer_[BLOCK_SIZE];
-    memset(buffer_, 0xcc, BLOCK_SIZE);
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
             CFG->erase(CFG, block) => 0;
-            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -3971,62 +3931,52 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
-            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
-
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(
+            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        assert(i < 2*(1+N));
+        assert(i < 2*BLOCK_COUNT);
 
-        lfs_ssize_t mid_;
-        lfsr_tag_t tag_;
-        lfsr_data_t data_;
-        int err = lfsr_mtree_traversal_next(&lfs, &traversal,
-                &mid_, &tag_, &data_);
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(&lfs, &traversal, &tinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
 
-        if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    branch->block, branch->trunk);
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            printf("traversal: 0x%x mdir 0x{%x,%x}\n",
+                    tinfo.tag,
+                    tinfo.u.mdir.u.m.blocks[0], tinfo.u.mdir.u.m.blocks[1]);
 
             // keep track of seen blocks
-            seen[branch->block / 8] |= 1 << (branch->block % 8);
-        } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
+            seen[tinfo.u.mdir.u.m.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[1] % 8);
+            seen[tinfo.u.mdir.u.m.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
+
+        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            printf("traversal: 0x%x btree 0x%x.%x\n",
+                    tinfo.tag,
+                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
-            seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
+            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+
         } else {
             // this shouldn't happen
-            printf("traversal: %d.%d 0x%x %d\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    lfsr_data_size(&data_));
+            printf("traversal: 0x%x\n", tinfo.tag);
             assert(false);
         }
     }
 
     // if traversal worked, we should be able to clobber all other blocks
-    uint8_t buffer_[BLOCK_SIZE];
-    memset(buffer_, 0xcc, BLOCK_SIZE);
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
             CFG->erase(CFG, block) => 0;
-            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -4141,62 +4091,52 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
-            VALIDATE ? LFSR_MTREE_TRAVERSAL_VALIDATE : 0);
-
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(
+            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        assert(i < 2*(1+N));
+        assert(i < 2*BLOCK_COUNT);
 
-        lfs_ssize_t mid_;
-        lfsr_tag_t tag_;
-        lfsr_data_t data_;
-        int err = lfsr_mtree_traversal_next(&lfs, &traversal,
-                &mid_, &tag_, &data_);
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(&lfs, &traversal, &tinfo);
         assert(!err || err == LFS_ERR_NOENT);
         if (err == LFS_ERR_NOENT) {
             break;
         }
 
-        if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    branch->block, branch->trunk);
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            printf("traversal: 0x%x mdir 0x{%x,%x}\n",
+                    tinfo.tag,
+                    tinfo.u.mdir.u.m.blocks[0], tinfo.u.mdir.u.m.blocks[1]);
 
             // keep track of seen blocks
-            seen[branch->block / 8] |= 1 << (branch->block % 8);
-        } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
+            seen[tinfo.u.mdir.u.m.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[1] % 8);
+            seen[tinfo.u.mdir.u.m.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
+
+        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            printf("traversal: 0x%x btree 0x%x.%x\n",
+                    tinfo.tag,
+                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
 
             // keep track of seen blocks
-            seen[mdir->u.m.blocks[1] / 8] |= 1 << (mdir->u.m.blocks[1] % 8);
-            seen[mdir->u.m.blocks[0] / 8] |= 1 << (mdir->u.m.blocks[0] % 8);
+            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+
         } else {
             // this shouldn't happen
-            printf("traversal: %d.%d 0x%x %d\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    lfsr_data_size(&data_));
+            printf("traversal: 0x%x\n", tinfo.tag);
             assert(false);
         }
     }
 
     // if traversal worked, we should be able to clobber all other blocks
-    uint8_t buffer_[BLOCK_SIZE];
-    memset(buffer_, 0xcc, BLOCK_SIZE);
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
     for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
         if (!(seen[block / 8] & (1 << (block % 8)))) {
             CFG->erase(CFG, block) => 0;
-            CFG->prog(CFG, block, 0, buffer_, BLOCK_SIZE) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
         }
     }
     free(seen);
@@ -4249,44 +4189,31 @@ code = '''
                 MROOT, 0, FROMMBLOCKS(LFSR_MBLOCKS_MROOTANCHOR(), buf)))) => 0;
 
     // technically, cycle detection only needs to work when we're validating
-    lfsr_mtree_traversal_t traversal = LFSR_MTREE_TRAVERSAL(
-            LFSR_MTREE_TRAVERSAL_VALIDATE);
-
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(LFSR_TRAVERSAL_VALIDATE);
     for (lfs_block_t i = 0;; i++) {
         // assert that we detect the cycle in a reasonable number of iterations
-        assert(i < 1024);
+        assert(i < 2*BLOCK_COUNT);
 
-        lfs_ssize_t mid_;
-        lfsr_tag_t tag_;
-        lfsr_data_t data_;
-        int err = lfsr_mtree_traversal_next(&lfs, &traversal,
-                &mid_, &tag_, &data_);
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(&lfs, &traversal, &tinfo);
         assert(!err || err == LFS_ERR_CORRUPT);
         if (err == LFS_ERR_CORRUPT) {
             break;
         }
 
-        if (tag_ == LFSR_TAG_BTREE) {
-            lfsr_rbyd_t *branch = (lfsr_rbyd_t *)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x btree 0x%x.%x\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    branch->block, branch->trunk);
-        } else if (tag_ == LFSR_TAG_MDIR) {
-            lfsr_mdir_t *mdir = (lfsr_mdir_t*)data_.u.direct.buffer;
-            printf("traversal: %d.%d 0x%x mdir 0x{%x,%x}\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    mdir->u.m.blocks[0], mdir->u.m.blocks[1]);
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            printf("traversal: 0x%x mdir 0x{%x,%x}\n",
+                    tinfo.tag,
+                    tinfo.u.mdir.u.m.blocks[0], tinfo.u.mdir.u.m.blocks[1]);
+
+        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            printf("traversal: 0x%x btree 0x%x.%x\n",
+                    tinfo.tag,
+                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+
         } else {
             // this shouldn't happen
-            printf("traversal: %d.%d 0x%x %d\n",
-                    mid_ >> lfs.mleaf_bits,
-                    mid_ & lfsr_midrmask(&lfs),
-                    tag_,
-                    lfsr_data_size(&data_));
+            printf("traversal: 0x%x\n", tinfo.tag);
             assert(false);
         }
     }

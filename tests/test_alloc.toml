@@ -1,5 +1,13 @@
 # Tests covering properties of the block allocator
-after = 'test_mtree'
+
+# The ordering of these tests vs higher-level tests (files/dirs/etc) gets
+# a bit weird because there is an inherent cyclic dependency
+#
+# It's counter-intuitive, but we run the alloc tests _after_ file/dir tests,
+# since you can usually ignore allocator issues temporarily by making the test
+# device really big (-DDISK_SIZE=16777216, etc)
+#
+after = ['test_mtree', 'test_dtree', 'test_files']
 
 
 # TODO test all of these with weird block sizes? would be nice to make this
@@ -7,7 +15,7 @@ after = 'test_mtree'
 # config limit the block count by a couple blocks
 
 # test that we can alloc
-[cases.test_alloc_blocks]
+[cases.test_alloc_alloc]
 in = 'lfs.c'
 code = '''
     lfs_t lfs;
@@ -94,89 +102,621 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-# test that we can alloc an mtree, the difference between this and mtree tests
-# is we expect this to be able to handle wrap-around
-[cases.test_alloc_mtree]
+
+# clobber tests test that our traversal algorithm works
+[cases.test_alloc_clobber_dirs]
+defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+defines.VALIDATE = [false, true]
+defines.REMOUNT = [false, true]
 in = 'lfs.c'
 code = '''
-    const char *alphas = "abcdefghijklmnopqrstuvwxyz";
     lfs_t lfs;
     lfsr_format(&lfs, CFG) => 0;
     lfsr_mount(&lfs, CFG) => 0;
-    lfs_alloc_ack(&lfs);
-    // remove root dstart for now 
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_ATTRS(
-            LFSR_ATTR(0, RM, -1, NULL))) => 0;
 
-    lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0*lfsr_mleafweight(&lfs)+0,
-            &mdir) => 0;
+    // create this many directories
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_mkdir(&lfs, name) => 0;
+    }
 
-    lfs_size_t count = 0;
-    while (true) {
-        // at least try to catch infinite loops
-        assert(count < BLOCK_SIZE * BLOCK_COUNT/2);
+    // check that our mkdir worked
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
 
-        // ack before each commit to reset the allocator
-        lfs_alloc_ack(&lfs);
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
-        // keep creating new metadata entries until we run out of space
-        int err = lfsr_mdir_commit(&lfs, &mdir, LFSR_ATTRS(
-                LFSR_ATTR(mdir.mid, REG, +1,
-                    BUF(&alphas[count % 26], 1))));
-        assert(!err || err == LFS_ERR_NOSPC);
-        if (err == LFS_ERR_NOSPC) {
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // first traverse the tree to find all blocks in use
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(
+            VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0);
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(&lfs, &traversal, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
             break;
         }
 
-        uint8_t buffer[4];
-        lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-                buffer, 4) => 1;
-        assert(memcmp(buffer, &alphas[count % 26], 1) == 0);
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            printf("traversal: 0x%x mdir 0x{%x,%x}\n",
+                    tinfo.tag,
+                    tinfo.u.mdir.u.m.blocks[0], tinfo.u.mdir.u.m.blocks[1]);
 
-        mdir.mid += 1;
-        count += 1;
-    }
+            // keep track of seen blocks
+            seen[tinfo.u.mdir.u.m.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[1] % 8);
+            seen[tinfo.u.mdir.u.m.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
 
-    printf("alloced %d metadata entries in %d blocks\n",
-            count, (lfs_block_t)BLOCK_COUNT);
+        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            printf("traversal: 0x%x btree 0x%x.%x\n",
+                    tinfo.tag,
+                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
 
-    // test that all of our metadata entries are still there
-    lfs_size_t i = 0;
-    for (lfs_ssize_t mid = 0;
-            mid < lfs_smax32(
-                lfsr_mtree_weight(&lfs),
-                lfsr_mleafweight(&lfs));
-            mid += lfsr_mleafweight(&lfs)) {
-        lfsr_mdir_t mdir;
-        lfsr_mtree_lookup(&lfs, mid, &mdir) => 0;
-        for (; (mdir.mid & lfsr_midrmask(&lfs))
-                    < (lfs_ssize_t)mdir.u.m.weight;
-                mdir.mid += 1) {
-            uint8_t buffer[4];
-            lfsr_mdir_get(&lfs, &mdir, mdir.mid, LFSR_TAG_REG,
-                    buffer, 4) => 1;
-            assert(memcmp(buffer, &alphas[i % 26], 1) == 0);
-            i += 1;
+            // keep track of seen blocks
+            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+
+        } else {
+            // this shouldn't happen
+            printf("traversal: 0x%x\n", tinfo.tag);
+            assert(false);
         }
     }
-    assert(i == count);
+
+    // then clobber every other block
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
+        }
+    }
+    free(seen);
+
+    // then check that we can read our directories after clobbering
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "dir%04d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_alloc_clobber_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.VALIDATE = [false, true]
+defines.REMOUNT = [false, true]
+in = 'lfs.c'
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many files
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "file%04d", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // check that our writes worked
+    prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "file%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file, note we reset prng above
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // first traverse the tree to find all blocks in use
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(
+            (VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0)
+                | LFSR_TRAVERSAL_ALL);
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(&lfs, &traversal, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            printf("traversal: 0x%x mdir 0x{%x,%x}\n",
+                    tinfo.tag,
+                    tinfo.u.mdir.u.m.blocks[0], tinfo.u.mdir.u.m.blocks[1]);
+
+            // keep track of seen blocks
+            seen[tinfo.u.mdir.u.m.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[1] % 8);
+            seen[tinfo.u.mdir.u.m.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
+
+        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            printf("traversal: 0x%x btree 0x%x.%x\n",
+                    tinfo.tag,
+                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+
+            // keep track of seen blocks
+            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+
+        } else if (tinfo.tag == LFSR_TAG_BLOCK) {
+            printf("traversal: 0x%x block 0x%x\n",
+                    tinfo.tag,
+                    tinfo.u.bptr.block);
+
+            // keep track of seen blocks
+            seen[tinfo.u.bptr.block / 8] |= 1 << (tinfo.u.bptr.block % 8);
+
+        } else {
+            // this shouldn't happen
+            printf("traversal: 0x%x\n", tinfo.tag);
+            assert(false);
+        }
+    }
+
+    // then clobber every other block
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
+        }
+    }
+    free(seen);
+
+    // then check that reading our files still works after clobbering
+    prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "file%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file, note we reset prng above
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# open files need to be tracked internally to make sure this doesn't break
+[cases.test_alloc_clobber_open_files]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.VALIDATE = [false, true]
+defines.REMOUNT = [false, true]
+in = 'lfs.c'
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
+
+    // create this many files
+    lfsr_file_t files[N];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "file%04d", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_open(&lfs, &files[i], name,
+                LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfsr_file_write(&lfs, &files[i], wbuf, SIZE) => SIZE;
+    }
+
+    // check that our writes worked
+    prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // try reading the file, note we reset prng above
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    // first traverse the tree to find all blocks in use
+    uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
+    memset(seen, 0, (BLOCK_COUNT+7)/8);
+
+    lfsr_traversal_t traversal = LFSR_TRAVERSAL(
+            (VALIDATE ? LFSR_TRAVERSAL_VALIDATE : 0)
+                | LFSR_TRAVERSAL_ALL);
+    for (lfs_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfsr_tinfo_t tinfo;
+        int err = lfsr_traversal_read(&lfs, &traversal, &tinfo);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        if (tinfo.tag == LFSR_TAG_MDIR) {
+            printf("traversal: 0x%x mdir 0x{%x,%x}\n",
+                    tinfo.tag,
+                    tinfo.u.mdir.u.m.blocks[0], tinfo.u.mdir.u.m.blocks[1]);
+
+            // keep track of seen blocks
+            seen[tinfo.u.mdir.u.m.blocks[1] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[1] % 8);
+            seen[tinfo.u.mdir.u.m.blocks[0] / 8]
+                    |= 1 << (tinfo.u.mdir.u.m.blocks[0] % 8);
+
+        } else if (tinfo.tag == LFSR_TAG_BTREE) {
+            printf("traversal: 0x%x btree 0x%x.%x\n",
+                    tinfo.tag,
+                    tinfo.u.rbyd.block, tinfo.u.rbyd.trunk);
+
+            // keep track of seen blocks
+            seen[tinfo.u.rbyd.block / 8] |= 1 << (tinfo.u.rbyd.block % 8);
+
+        } else if (tinfo.tag == LFSR_TAG_BLOCK) {
+            printf("traversal: 0x%x block 0x%x\n",
+                    tinfo.tag,
+                    tinfo.u.bptr.block);
+
+            // keep track of seen blocks
+            seen[tinfo.u.bptr.block / 8] |= 1 << (tinfo.u.bptr.block % 8);
+
+        } else {
+            // this shouldn't happen
+            printf("traversal: 0x%x\n", tinfo.tag);
+            assert(false);
+        }
+    }
+
+    // then clobber every other block
+    uint8_t clobber_buf[BLOCK_SIZE];
+    memset(clobber_buf, 0xcc, BLOCK_SIZE);
+    for (lfs_block_t block = 0; block < BLOCK_COUNT; block++) {
+        if (!(seen[block / 8] & (1 << (block % 8)))) {
+            CFG->erase(CFG, block) => 0;
+            CFG->prog(CFG, block, 0, clobber_buf, BLOCK_SIZE) => 0;
+        }
+    }
+    free(seen);
+
+    // then check that reading our files still works after clobbering
+    prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // try reading the file, note we reset prng above
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        uint8_t rbuf[SIZE];
+        lfsr_file_rewind(&lfs, &files[i]) => 0;
+        lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    // and everything is fine after saving the files
+    for (lfs_size_t i = 0; i < N; i++) {
+        lfsr_file_close(&lfs, &files[i]) => 0;
+    }
+
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    prng = 42;
+    for (lfs_size_t i = 0; i < N; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "file%04d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file, note we reset prng above
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     lfsr_unmount(&lfs) => 0;
 '''
 
 
+# TODO more nospc tests (opened files? other?)
 
+# nospc tests mostly test that things still work when block allocation
+# wraparound occurs
+[cases.test_alloc_nospc_dirs]
+defines.REMOUNT = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
+    // create directories until we run out of space
+    lfs_size_t n = 0;
+    for (;; n++) {
+        char name[256];
+        sprintf(name, "dir%08d", n);
+        int err = lfsr_mkdir(&lfs, name);
+        assert(!err || err == LFS_ERR_NOSPC);
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+    }
 
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
 
+    // check that our mkdir worked until we ran out of space
+    for (lfs_size_t i = 0; i < n; i++) {
+        char name[256];
+        sprintf(name, "dir%08d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
 
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    struct lfs_info info;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    for (lfs_size_t i = 0; i < n; i++) {
+        char name[256];
+        sprintf(name, "dir%08d", i);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_DIR);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
 
+    lfsr_unmount(&lfs) => 0;
+'''
 
+[cases.test_alloc_nospc_files]
+defines.SIZE = [
+    '0',
+    'CACHE_SIZE/2',
+    '2*CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.REMOUNT = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, CFG) => 0;
+    lfsr_mount(&lfs, CFG) => 0;
 
+    // create files until we run out of space
+    uint32_t prng = 42;
+    lfs_size_t n = 0;
+    for (;; n++) {
+        char name[256];
+        sprintf(name, "file%08d", n);
 
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
 
+        lfsr_file_t file;
+        int err = lfsr_file_open(&lfs, &file, name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
+        assert(!err || err == LFS_ERR_NOSPC);
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
 
+        lfs_ssize_t size = lfsr_file_write(&lfs, &file, wbuf, SIZE);
+        assert(size == SIZE || size == LFS_ERR_NOSPC);
+        if (size == LFS_ERR_NOSPC) {
+            lfsr_file_close(&lfs, &file) => 0;
+            break;
+        }
+
+        err = lfsr_file_close(&lfs, &file);
+        assert(!err || err == LFS_ERR_NOSPC);
+        if (err == LFS_ERR_NOSPC) {
+            break;
+        }
+    }
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, CFG) => 0;
+    }
+
+    // check that our file writes worked until we ran out of space
+    prng = 42;
+    for (lfs_size_t i = 0; i < n; i++) {
+        // check with stat
+        char name[256];
+        sprintf(name, "file%08d", i);
+        struct lfs_info info;
+        lfsr_stat(&lfs, name, &info) => 0;
+        assert(strcmp(info.name, name) == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // try reading the file, note we reset prng above
+        uint8_t wbuf[SIZE];
+        for (lfs_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfsr_file_t file;
+        uint8_t rbuf[SIZE];
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
 
 
 

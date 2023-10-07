@@ -1,5 +1,5 @@
 # Test basic file operations
-after = ['test_dtree']
+after = ['test_dtree', 'test_btree']
 
 
 # test creation/deletion
