@@ -9195,7 +9195,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 
 // TODO deduplicate carveshrub and flushinlined
 // TODO buildcarveshrub?
-static int lfsr_file_carveshrub(lfs_t *lfs, lfsr_file_t *file,
+static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
         lfsr_data_t data) {
     // we should never try to shove more data into less weight
@@ -9229,10 +9229,12 @@ static int lfsr_file_carveshrub(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // append our data
-        *attrs_++ = LFSR_ATTR(pos,
-                SHRUB(INLINED), +weight + delta, DATA(data));
-        estimate += LFSR_ATTR_ESTIMATE
-                + lfsr_data_size(&data);
+        if (weight + delta > 0) {
+            *attrs_++ = LFSR_ATTR(pos,
+                    SHRUB(INLINED), +weight + delta, DATA(data));
+            estimate += LFSR_ATTR_ESTIMATE
+                    + lfsr_data_size(&data);
+        }
 
         // right data?
         if (lfsr_data_size(&file->inlined.u.data) > pos + weight) {
@@ -9345,31 +9347,40 @@ static int lfsr_file_carveshrub(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t rm = lfs_min32(
                 pos + weight + right_weight - left_overlap,
                 file->inlined.u.rbyd.weight - left_overlap) - pos;
-        *attrs_++ = LFSR_ATTR(pos + rm - 1, SHRUB(RM), -rm, NULL);
+        if (rm > 0) {
+            *attrs_++ = LFSR_ATTR(pos + rm - 1, SHRUB(RM), -rm, NULL);
 
-        // updating our estimate gets a bit tricky here
-        lfs_ssize_t rm_estimate = lfsr_rbyd_estimate(lfs,
-                &file->inlined.u.rbyd,
-                pos + left_overlap,
-                pos + left_overlap + rm,
-                NULL);
-        if (rm_estimate < 0) {
-            return rm_estimate;
+            // updating our estimate gets a bit tricky here
+            lfs_ssize_t rm_estimate = lfsr_rbyd_estimate(lfs,
+                    &file->inlined.u.rbyd,
+                    pos + left_overlap,
+                    pos + left_overlap + rm,
+                    NULL);
+            if (rm_estimate < 0) {
+                return rm_estimate;
+            }
+            estimate -= rm_estimate;
         }
-        estimate -= rm_estimate;
 
+        // TODO there's probably a way to restructure this that makes more
+        // sense...
         if (lfsr_data_size(&right_data) == 0) {
             // append our buffer with any remaining weight
-            *attrs_++ = LFSR_ATTR(pos,
-                    SHRUB(INLINED), +weight + delta + right_weight, DATA(data));
-            estimate += LFSR_ATTR_ESTIMATE
-                    + lfsr_data_size(&data);
+            if (weight + delta + right_weight > 0) {
+                *attrs_++ = LFSR_ATTR(pos,
+                        SHRUB(INLINED), +weight + delta + right_weight,
+                        DATA(data));
+                estimate += LFSR_ATTR_ESTIMATE
+                        + lfsr_data_size(&data);
+            }
         } else {
             // append our buffer
-            *attrs_++ = LFSR_ATTR(pos,
-                    SHRUB(INLINED), +weight + delta, DATA(data));
-            estimate += LFSR_ATTR_ESTIMATE
-                    + lfsr_data_size(&data);
+            if (weight + delta > 0) {
+                *attrs_++ = LFSR_ATTR(pos,
+                        SHRUB(INLINED), +weight + delta, DATA(data));
+                estimate += LFSR_ATTR_ESTIMATE
+                        + lfsr_data_size(&data);
+            }
             // and any right data
             *attrs_++ = LFSR_ATTR(pos + weight + delta,
                     SHRUB(INLINED), +right_weight, DATA(right_data));
@@ -9378,23 +9389,24 @@ static int lfsr_file_carveshrub(lfs_t *lfs, lfsr_file_t *file,
         }
     }
 
+    // TODO can this happen? should we even have special handling here?
+    // this is a noop?
+    if (attrs_ == scratch_attrs) {
+        return 0;
+    }
+
     // TODO
     // we can't let our inline shrub overflow our inline size, so if our
     // estimate overflows, we need to flush inlined data
-//        printf("estimate: %d -> %d (%+d)\n",
-//                (!lfsr_file_hasshrub(file)
-//                    ? 0
-//                    : file->inlined.u.shrub.estimate),
-//                estimate,
-//                estimate - (!lfsr_file_hasshrub(file)
-//                    ? 0
-//                    : file->inlined.u.shrub.estimate));
     LFS_ASSERT((lfs_soff_t)estimate >= 0);
+    // TODO can truncate/fruncate trigger this? say fruncate creates a hole,
+    // should carveinlined just call flushinlined if we overflow?
     if (estimate > lfs->cfg->inline_size) {
-        return LFS_ERR_RANGE;
+        //return LFS_ERR_RANGE;
     }
 
     // commit our attributes
+    // TODO can we ever end up with no attrs here?
     int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
             LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
                 scratch_attrs,
@@ -9624,8 +9636,7 @@ static int lfsr_file_carvebtree(lfs_t *lfs, lfsr_file_t *file,
     return 0;
 }
 
-static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file,
-        lfs_off_t overflow) {
+static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file) {
 // TODO should we aim for overflow?
 //    while (overflow > 0) {
         // TODO is there some way to deduplicate this "read" loop? seems
@@ -10042,7 +10053,7 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file,
         // note this clears any data from 0, we should never have data < pos
         // in our current flushinlined implementation and this coalesces any
         // holes together
-        err = lfsr_file_carveshrub(lfs, file, 0, pos_ + size_, 0,
+        err = lfsr_file_carveinlined(lfs, file, 0, pos_ + size_, 0,
                 LFSR_DATA_NULL);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_RANGE);
@@ -10070,231 +10081,28 @@ static int lfsr_file_flushinlined(lfs_t *lfs, lfsr_file_t *file,
 }
 
 static int lfsr_file_flushbuffer(lfs_t *lfs, lfsr_file_t *file) {
+    // TODO restructure this based on how flushinlined interacts with
+    // our buffer?
     while (file->buffer_size > 0) {
-        // build up attributes that flush our buffer, at this point
-        // this has basically turned into a tiny compiler
-        lfsr_attr_t scratch_attrs[4];
-        lfsr_attr_t *attrs_ = scratch_attrs;
-
-        // keep track of how our changes affect our estimate
-        lfs_off_t estimate;
-
-        // have a sprout/null?
-        if (!lfsr_file_hasshrub(file)) {
-            estimate = 0;
-
-            // left data? this may create a hole
-            if (file->buffer_pos > 0) {
-                *attrs_++ = LFSR_ATTR(0,
-                        SHRUB(INLINED), +file->buffer_pos, DISK(
-                            file->inlined.u.data.u.disk.block,
-                            file->inlined.u.data.u.disk.off,
-                            lfs_min32(
-                                lfsr_data_size(&file->inlined.u.data),
-                                file->buffer_pos)));
-                estimate += LFSR_ATTR_ESTIMATE
-                        + lfs_min32(
-                            lfsr_data_size(&file->inlined.u.data),
-                            file->buffer_pos);
-            }
-
-            // append our buffer
-            *attrs_++ = LFSR_ATTR(file->buffer_pos,
-                    SHRUB(INLINED), +file->buffer_size, BUF(
-                        file->buffer, file->buffer_size));
-            estimate += LFSR_ATTR_ESTIMATE
-                    + file->buffer_size;
-
-            // right data?
-            if (lfsr_data_size(&file->inlined.u.data)
-                    > file->buffer_pos + file->buffer_size) {
-                *attrs_++ = LFSR_ATTR(file->buffer_pos + file->buffer_size,
-                        SHRUB(INLINED), +lfsr_data_size(&file->inlined.u.data)
-                            - (file->buffer_pos + file->buffer_size),
-                        DISK(
-                            file->inlined.u.data.u.disk.block,
-                            file->inlined.u.data.u.disk.off
-                                + (file->buffer_pos + file->buffer_size),
-                            lfsr_data_size(&file->inlined.u.data)
-                                - (file->buffer_pos + file->buffer_size)));
-                estimate += LFSR_ATTR_ESTIMATE
-                        + lfsr_data_size(&file->inlined.u.data)
-                            - (file->buffer_pos + file->buffer_size);
-            }
-
-        // have a shrub?
-        } else {
-            // this should never happen, every route to zero-weight shrub
-            // should revert to an inlined file
-            LFS_ASSERT(file->inlined.u.rbyd.weight > 0);
-
-            estimate = file->inlined.u.shrub.estimate;
-
-            // left sibling?
-            lfs_soff_t left_overlap = 0;
-            if (file->buffer_pos > 0) {
-                lfsr_srid_t left_rid;
-                lfsr_tag_t left_tag;
-                lfsr_rid_t left_weight;
-                lfsr_data_t left_data;
-                int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
-                        lfs_min32(
-                            file->buffer_pos,
-                            file->inlined.u.rbyd.weight)-1, 0,
-                        &left_rid, &left_tag, &left_weight, &left_data);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_NOENT);
-                    return err;
-                }
-                LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(INLINED));
-                LFS_ASSERT(lfsr_data_size(&left_data) <= left_weight);
-
-                // this can be negative!
-                left_overlap = (left_rid+1) - file->buffer_pos;
-
-                // can we get away with a simple grow attr? this may
-                // create a hole
-                if (left_overlap != 0
-                        && file->buffer_pos
-                            >= left_rid-(left_weight-1)
-                                + lfsr_data_size(&left_data)) {
-                    *attrs_++ = LFSR_ATTR(left_rid,
-                            SHRUB(GROW), -left_overlap, NULL);
-
-                // need to carve out left data?
-                } else if (left_overlap > 0) {
-                    *attrs_++ = LFSR_ATTR(left_rid,
-                            SHRUB(GROW(INLINED)), -left_overlap,
-                            DISK(
-                                left_data.u.disk.block,
-                                left_data.u.disk.off,
-                                left_weight - left_overlap));
-                    estimate -= lfsr_data_size(&left_data)
-                            - (left_weight - left_overlap);
-                }
-            }
-
-            // right sibling?
-            //
-            // this gets messy, keep in mind right sibling can be the same
-            // attr as the left sibling
-            lfsr_rid_t right_weight = 0;
-            lfsr_data_t right_data = LFSR_DATA_NULL;
-            if (file->buffer_pos + file->buffer_size
-                    < (lfs_off_t)file->inlined.u.rbyd.weight) {
-                lfsr_srid_t right_rid;
-                lfsr_tag_t right_tag;
-                lfsr_rid_t right_weight_;
-                lfsr_data_t right_data_;
-                int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
-                        file->buffer_pos + file->buffer_size, 0,
-                        &right_rid, &right_tag, &right_weight_, &right_data_);
-                if (err) {
-                    LFS_ASSERT(err != LFS_ERR_NOENT);
-                    return err;
-                }
-                LFS_ASSERT(right_tag == LFSR_TAG_SHRUB(INLINED));
-                LFS_ASSERT(lfsr_data_size(&right_data) <= right_weight);
-
-                lfs_soff_t right_overlap
-                        = file->buffer_pos + file->buffer_size
-                        - (right_rid-(right_weight_-1));
-
-                // need to carve out right data? note we eagerly merge with
-                // data-less holes
-                if (right_overlap > 0 || lfsr_data_size(&right_data_) == 0) {
-                    right_data = LFSR_DATA_DISK(
-                            right_data_.u.disk.block,
-                            right_data_.u.disk.off + right_overlap,
-                            lfsr_data_size(&right_data_) - lfs_min32(
-                                right_overlap,
-                                lfsr_data_size(&right_data_)));
-                    right_weight = right_weight_ - right_overlap;
-                }
-            }
-
-            // remove any data we're overwriting, note we need to account for
-            // left_sibling changes
-            lfs_off_t rm = lfs_min32(
-                    file->buffer_pos + file->buffer_size
-                        + right_weight - left_overlap,
-                    file->inlined.u.rbyd.weight - left_overlap)
-                    - file->buffer_pos;
-            *attrs_++ = LFSR_ATTR(file->buffer_pos + rm - 1,
-                    SHRUB(RM), -rm, NULL);
-
-            // updating our estimate gets a bit tricky here
-            lfs_ssize_t rm_estimate = lfsr_rbyd_estimate(lfs,
-                    &file->inlined.u.rbyd,
-                    file->buffer_pos + left_overlap,
-                    file->buffer_pos + left_overlap + rm,
-                    NULL);
-            if (rm_estimate < 0) {
-                return rm_estimate;
-            }
-            estimate -= rm_estimate;
-
-            if (lfsr_data_size(&right_data) == 0) {
-                // append our buffer with any remaining weight
-                *attrs_++ = LFSR_ATTR(file->buffer_pos,
-                        SHRUB(INLINED), +file->buffer_size + right_weight, BUF(
-                            file->buffer, file->buffer_size));
-                estimate += LFSR_ATTR_ESTIMATE
-                        + file->buffer_size;
-            } else {
-                // append our buffer
-                *attrs_++ = LFSR_ATTR(file->buffer_pos,
-                        SHRUB(INLINED), +file->buffer_size, BUF(
-                            file->buffer, file->buffer_size));
-                estimate += LFSR_ATTR_ESTIMATE
-                        + file->buffer_size;
-                // and any right data
-                *attrs_++ = LFSR_ATTR(file->buffer_pos + file->buffer_size,
-                        SHRUB(INLINED), +right_weight, DATA(right_data));
-                estimate += LFSR_ATTR_ESTIMATE
-                        + lfsr_data_size(&right_data);
-            }
-        }
-
-        // TODO
-        // we can't let our inline shrub overflow our inline size, so if our
-        // estimate overflows, we need to flush inlined data
-//        printf("estimate: %d -> %d (%+d)\n",
-//                (!lfsr_file_hasshrub(file)
-//                    ? 0
-//                    : file->inlined.u.shrub.estimate),
-//                estimate,
-//                estimate - (!lfsr_file_hasshrub(file)
-//                    ? 0
-//                    : file->inlined.u.shrub.estimate));
-        LFS_ASSERT((lfs_soff_t)estimate >= 0);
-        if (estimate > lfs->cfg->inline_size) {
-            int err = lfsr_file_flushinlined(lfs, file,
-                    estimate - lfs->cfg->inline_size);
-            if (err) {
-                return err;
-            }
-
-            continue;
-        }
-
-        // commit our attributes
-        int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
-                    scratch_attrs,
-                    attrs_ - scratch_attrs))));
+        // try to flush our buffer into our shrub
+        int err = lfsr_file_carveinlined(lfs, file,
+                file->buffer_pos, file->buffer_size, 0,
+                LFSR_DATA_BUF(file->buffer, file->buffer_size));
         if (err) {
+            // uh oh, doesn't fit? flush inlined data and try again
+            if (err == LFS_ERR_RANGE) {
+                err = lfsr_file_flushinlined(lfs, file);
+                if (err) {
+                    return err;
+                }
+
+                continue;
+            }
             return err;
         }
 
-        // update estimate
-        file->inlined.u.shrub.estimate = estimate;
-
         // we've flushed our buffer
         file->buffer_size = 0;
-        continue;
-
-        // TODO check overhead?
     }
 
     return 0;
@@ -10527,9 +10335,6 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     // mark as unsynced before we commit anything
     file->flags |= LFS_F_UNSYNCED;
 
-    lfsr_attr_t scratch_attrs[2];
-    lfsr_attr_t *attrs_ = scratch_attrs;
-
     // if our truncated file is contained entirely in our buffer,
     // revert to a sprout
     lfs_size_t buffer_size = lfs_min32(
@@ -10538,84 +10343,22 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     if (buffer_size >= size) {
         file->inlined.u.data = LFSR_DATA_DISK(0, 0, 0);
 
-    // have a sprout/null? convert to a shrub
-    } else if (!lfsr_file_hasshrub(file)) {
-        *attrs_++ = LFSR_ATTR(0,
-                SHRUB(INLINED), +size, DISK(
-                    file->inlined.u.data.u.disk.block,
-                    file->inlined.u.data.u.disk.off,
-                    lfs_min32(
-                        lfsr_data_size(&file->inlined.u.data),
-                        size)));
-
-    // have a shrub?
-    } else if (lfsr_file_hasshrub(file)) {
-        // TODO can this be deduplicated with flushbuffer? some sort of
-        // lfsr_file_shrubcarveleft?
-
-        // this should never happen, every route to zero-weight shrub
-        // should revert to an inlined file
-        LFS_ASSERT(file->inlined.u.rbyd.weight > 0);
-
-        // left sibling?
-        lfs_soff_t left_overlap = 0;
-        lfsr_srid_t left_rid;
-        lfsr_tag_t left_tag;
-        lfsr_rid_t left_weight;
-        lfsr_data_t left_data;
-        int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
-                lfs_min32(
-                    size,
-                    file->inlined.u.rbyd.weight)-1, 0,
-                &left_rid, &left_tag, &left_weight, &left_data);
+    // TODO, wait, could we just update file->size and leave it to
+    // lfsr_file_sync to update the shrub?
+    // otherwise, we need to modify our sprout/shrub
+    } else {
+        int err = lfsr_file_carveinlined(lfs, file,
+                lfs_min32(file->size, size),
+                file->size - lfs_min32(file->size, size),
+                +size - file->size,
+                LFSR_DATA_NULL);
         if (err) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
-        }
-        LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(INLINED));
-        LFS_ASSERT(lfsr_data_size(&left_data) <= left_weight);
-
-        // this can be negative!
-        left_overlap = (left_rid+1) - size;
-
-        // can we get away with a simple grow attr? this may
-        // create a hole
-        if (left_overlap != 0
-                && size
-                    >= left_rid-(left_weight-1)
-                        + lfsr_data_size(&left_data)) {
-            *attrs_++ = LFSR_ATTR(left_rid,
-                    SHRUB(GROW), -left_overlap, NULL);
-
-        // need to carve out left data?
-        } else if (left_overlap > 0) {
-            *attrs_++ = LFSR_ATTR(left_rid,
-                    SHRUB(GROW(INLINED)), -left_overlap,
-                    DISK(
-                        left_data.u.disk.block,
-                        left_data.u.disk.off,
-                        left_weight - left_overlap));
-        }
-
-        // remove any data we're truncating
-        *attrs_++ = LFSR_ATTR(file->inlined.u.rbyd.weight
-                    - left_overlap - 1,
-                SHRUB(RM), -(file->inlined.u.rbyd.weight
-                    - size - left_overlap), NULL);
-    }
-
-    // commit any shrub changes
-    if (attrs_ > scratch_attrs) {
-        int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
-                    scratch_attrs,
-                    attrs_ - scratch_attrs))));
-        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
             return err;
         }
     }
 
-    // TODO update btree
+    // TODO update btree?
 
     // update our buffer
     file->buffer_size = buffer_size;
@@ -10642,9 +10385,6 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
     // mark as unsynced before we commit anything
     file->flags |= LFS_F_UNSYNCED;
 
-    lfsr_attr_t scratch_attrs[2];
-    lfsr_attr_t *attrs_ = scratch_attrs;
-
     // if our truncated file is contained entirely in our buffer,
     // revert to a sprout
     lfs_size_t buffer_size = file->buffer_size - lfs_min32(
@@ -10654,95 +10394,13 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size) {
             && file->size - size >= lfsr_file_inlinedsize(file)) {
         file->inlined.u.data = LFSR_DATA_DISK(0, 0, 0);
 
-    // have a sprout/null? convert to a shrub
-    } else if (!lfsr_file_hasshrub(file)) {
-        if (lfsr_data_size(&file->inlined.u.data) != 0) {
-            *attrs_++ = LFSR_ATTR(0,
-                    SHRUB(INLINED), +lfsr_data_size(&file->inlined.u.data)
-                        - lfs_smax32(file->size - size, 0),
-                    DISK(
-                        file->inlined.u.data.u.disk.block,
-                        file->inlined.u.data.u.disk.off
-                            + lfs_smax32(file->size - size, 0),
-                        lfsr_data_size(&file->inlined.u.data)
-                            - lfs_smax32(file->size - size, 0)));
-        }
-
-        // need to prefix with a hole?
-        if (size > file->size) {
-            *attrs_++ = LFSR_ATTR(0,
-                    SHRUB(INLINED), +size - file->size, NULL);
-        }
-
-    // have a shrub?
-    } else if (lfsr_file_hasshrub(file)) {
-        // TODO can this be deduplicated with flushbuffer? some sort of
-        // lfsr_file_shrubcarveright?
-
-        // this should never happen, every route to zero-weight shrub
-        // should revert to an inlined file
-        LFS_ASSERT(file->inlined.u.rbyd.weight > 0);
-
-        // TODO wait a second... are we always copying right sibling in
-        // flushbuffer? even with no carve?
-
-        // right sibling?
-        lfsr_rid_t right_weight = 0;
-        lfsr_data_t right_data = LFSR_DATA_NULL;
-        if (lfs_smax32(file->size - size, 0) < file->inlined.u.rbyd.weight) {
-            lfsr_srid_t right_rid;
-            lfsr_tag_t right_tag;
-            lfsr_rid_t right_weight_;
-            lfsr_data_t right_data_;
-            int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
-                    lfs_smax32(file->size - size, 0), 0,
-                    &right_rid, &right_tag, &right_weight_, &right_data_);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                return err;
-            }
-            LFS_ASSERT(right_tag == LFSR_TAG_SHRUB(INLINED));
-            LFS_ASSERT(lfsr_data_size(&right_data) <= right_weight);
-
-            lfs_soff_t right_overlap
-                    = lfs_smax32(file->size - size, 0)
-                    - (right_rid-(right_weight_-1));
-
-            // need to carve out right data? note we eagerly merge with
-            // data-less holes
-            if (right_overlap > 0 || lfsr_data_size(&right_data_) == 0) {
-                right_data = LFSR_DATA_DISK(
-                        right_data_.u.disk.block,
-                        right_data_.u.disk.off + right_overlap,
-                        lfsr_data_size(&right_data_) - lfs_min32(
-                            right_overlap,
-                            lfsr_data_size(&right_data_)));
-                right_weight = right_weight_ - right_overlap;
-            }
-        }
-
-        // remove any data we're fruncating
-        *attrs_++ = LFSR_ATTR(lfs_smax32(file->size - size, 0)
-                    + right_weight - 1,
-                SHRUB(RM), -(lfs_smax32(file->size - size, 0)
-                    + right_weight), NULL);
-
-        // write any carved data or a hole, note we take care to consume any
-        // existing data-less holes to avoid fragmenting literally nothing
-        if (lfs_smax32(size - file->size, 0) + right_weight > 0) {
-            *attrs_++ = LFSR_ATTR(0,
-                    SHRUB(INLINED), +lfs_smax32(size - file->size, 0)
-                        + right_weight,
-                    DATA(right_data));
-        }
-    }
-
-    // commit any shrub changes
-    if (attrs_ > scratch_attrs) {
-        int err = lfsr_mdir_commit(lfs, &file->m.mdir, LFSR_ATTRS(
-                LFSR_ATTR_(file->m.mdir.mid, SHRUBATTRS, 0, SHRUBATTRS(file,
-                    scratch_attrs,
-                    attrs_ - scratch_attrs))));
+    // otherwise, we need to modify our sprout/shrub and btree
+    } else {
+        int err = lfsr_file_carveinlined(lfs, file,
+                0,
+                lfs_smax32(file->size - size, 0),
+                +size - file->size,
+                LFSR_DATA_NULL);
         if (err) {
             return err;
         }
