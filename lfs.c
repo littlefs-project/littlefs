@@ -9219,17 +9219,70 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
 
         // left data? this may create a hole
         if (pos > 0) {
-            *attrs_++ = LFSR_ATTR(0,
-                    SHRUB(INLINED), +pos, DISK(
+            // can coalesce?
+            if (lfsr_data_size(&file->inlined.u.data) >= pos
+                    && pos+weight+delta <= lfs->cfg->coalesce_size) {
+                scratch_datas[0] = LFSR_DATA_DISK(
                         file->inlined.u.data.u.disk.block,
                         file->inlined.u.data.u.disk.off,
-                        lfs_min32(
-                            lfsr_data_size(&file->inlined.u.data),
-                            pos)));
-            estimate += LFSR_ATTR_ESTIMATE
-                    + lfs_min32(
-                        lfsr_data_size(&file->inlined.u.data),
                         pos);
+                scratch_datas[1] = data;
+                datas_ = &scratch_datas[2];
+                data = lfsr_data_fromcat(&scratch_datas[0], 2);
+                weight += pos;
+                pos = 0;
+
+            // need to carve
+            } else {
+                *attrs_++ = LFSR_ATTR(0,
+                        SHRUB(INLINED), +pos, DISK(
+                            file->inlined.u.data.u.disk.block,
+                            file->inlined.u.data.u.disk.off,
+                            lfs_min32(
+                                lfsr_data_size(&file->inlined.u.data),
+                                pos)));
+                estimate += LFSR_ATTR_ESTIMATE
+                        + lfs_min32(
+                            lfsr_data_size(&file->inlined.u.data),
+                            pos);
+            }
+        }
+
+        // right data? this may also create a hole if delta > 0
+        if (lfsr_data_size(&file->inlined.u.data) > pos + weight) {
+            // can coalesce?
+            if (lfsr_data_size(&data) == weight + delta
+                    && lfsr_data_size(&data)
+                            + lfsr_data_size(&file->inlined.u.data)
+                            - (pos + weight)
+                        <= lfs->cfg->coalesce_size) {
+                *datas_++ = LFSR_DATA_DISK(
+                        file->inlined.u.data.u.disk.block,
+                        file->inlined.u.data.u.disk.off
+                            + (pos + weight),
+                        lfsr_data_size(&file->inlined.u.data)
+                            - (pos + weight));
+                data = lfsr_data_fromcat(
+                        scratch_datas,
+                        datas_ - scratch_datas);
+                weight += lfsr_data_size(&file->inlined.u.data)
+                        - (pos + weight);
+
+            // need to carve
+            } else {
+                *attrs_++ = LFSR_ATTR(pos,
+                        SHRUB(INLINED), +lfsr_data_size(&file->inlined.u.data)
+                            - (pos + weight),
+                        DISK(
+                            file->inlined.u.data.u.disk.block,
+                            file->inlined.u.data.u.disk.off
+                                + (pos + weight),
+                            lfsr_data_size(&file->inlined.u.data)
+                                - (pos + weight)));
+                estimate += LFSR_ATTR_ESTIMATE
+                        + lfsr_data_size(&file->inlined.u.data)
+                            - (pos + weight);
+            }
         }
 
         // append our data
@@ -9238,22 +9291,6 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
                     SHRUB(INLINED), +weight + delta, DATA(data));
             estimate += LFSR_ATTR_ESTIMATE
                     + lfsr_data_size(&data);
-        }
-
-        // right data?
-        if (lfsr_data_size(&file->inlined.u.data) > pos + weight) {
-            *attrs_++ = LFSR_ATTR(pos + weight + delta,
-                    SHRUB(INLINED), +lfsr_data_size(&file->inlined.u.data)
-                        - (pos + weight),
-                    DISK(
-                        file->inlined.u.data.u.disk.block,
-                        file->inlined.u.data.u.disk.off
-                            + (pos + weight),
-                        lfsr_data_size(&file->inlined.u.data)
-                            - (pos + weight)));
-            estimate += LFSR_ATTR_ESTIMATE
-                    + lfsr_data_size(&file->inlined.u.data)
-                        - (pos + weight);
         }
 
     // have a shrub?
@@ -9305,8 +9342,8 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
                 scratch_datas[1] = data;
                 datas_ = &scratch_datas[2];
                 data = lfsr_data_fromcat(&scratch_datas[0], 2);
-                pos = left_rid-(left_weight-1);
                 weight += left_weight - left_overlap;
+                pos = left_rid-(left_weight-1);
                 left_overlap = 0;
 
             // need to carve out left data?
