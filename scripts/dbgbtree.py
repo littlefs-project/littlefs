@@ -845,7 +845,7 @@ def main(disk, roots=None, *,
 
 
         # dynamically size the id field
-        w_width = 2*m.ceil(m.log10(max(1, btree.weight)+1))+1
+        w_width = m.ceil(m.log10(max(1, btree.weight)+1))
 
         # prbyd here means the last rendered rbyd, we update
         # in dbg_branch to always print interleaved addresses
@@ -855,32 +855,30 @@ def main(disk, roots=None, *,
 
             # show human-readable representation
             for i, (tag, j, d, data) in enumerate(tags):
-                print('%10s %s%*s %-22s  %s' % (
+                print('%10s %s%*s %-*s  %s' % (
                     '%04x.%04x:' % (rbyd.block, rbyd.trunk)
                         if prbyd is None or rbyd != prbyd
                         else '',
                     treerepr(bid, w, bd, rid, tag)
                         if args.get('tree') or args.get('btree') else '',
-                    w_width, '' if i != 0
+                    2*w_width+1, '' if i != 0
                         else '%d-%d' % (bid-(w-1), bid) if w > 1
                         else bid if w > 0
                         else '',
-                    tagrepr(tag, w if i == 0 else 0, len(data), None),
-                    next(xxd(data, 8), '') if not args.get('no_truncate')
+                    21+w_width, tagrepr(
+                        tag, w if i == 0 else 0, len(data), None),
+                    next(xxd(data, 8), '')
+                        if not args.get('raw') and not args.get('no_truncate')
                         else ''))
                 prbyd = rbyd
 
                 # show in-device representation
                 if args.get('device'):
-                    print('%9s  %*s%*s %-22s%s' % (
+                    print('%9s  %*s%*s %04x %08x %07x' % (
                         '',
                         t_width, '',
-                        w_width, '',
-                        '%04x %08x %07x' % (tag, w if i == 0 else 0, len(data)),
-                        '  %s' % ' '.join(
-                            '%08x' % fromle32(
-                                rbyd.data[j+d+i*4 : j+d + min(i*4+4,len(data))])
-                            for i in range(min(m.ceil(len(data)/4), 3)))[:23]))
+                        2*w_width+1, '',
+                        tag, w if i == 0 else 0, len(data)))
 
                 # show on-disk encoding of tags/data
                 if args.get('raw'):
@@ -888,14 +886,14 @@ def main(disk, roots=None, *,
                         print('%9s: %*s%*s %s' % (
                             '%04x' % (j + o*16),
                             t_width, '',
-                            w_width, '',
+                            2*w_width+1, '',
                             line))
                 if args.get('raw') or args.get('no_truncate'):
                     for o, line in enumerate(xxd(data)):
                         print('%9s: %*s%*s %s' % (
                             '%04x' % (j+d + o*16),
                             t_width, '',
-                            w_width, '',
+                            2*w_width+1, '',
                             line))
 
 

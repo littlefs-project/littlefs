@@ -1337,39 +1337,31 @@ def main(disk, mroots=None, *,
         def dbg_mdir(mdir, mbid, mw, md):
             for i, (rid, tag, w, j, d, data) in enumerate(mdir):
                 # show human-readable tag representation
-                print('%12s %s%-57s' % (
+                print('%12s %s%s' % (
                     '{%s}:' % ','.join('%04x' % block
                         for block in it.chain([mdir.block],
                             mdir.redund_blocks))
                         if i == 0 else '',
                     treerepr(mbid-max(mw-1, 0), 0, md, 0, rid, tag)
                         if args.get('tree') or args.get('btree') else '',
-                    '%*s %-22s%s' % (
-                        w_width, '%d.%d-%d' % (
+                    '%*s %-*s%s' % (
+                        2*w_width+1, '%d.%d-%d' % (
                                 mbid//mleaf_weight, rid-(w-1), rid)
                             if w > 1 else '%d.%d' % (mbid//mleaf_weight, rid)
                             if w > 0 or i == 0 else '',
-                        tagrepr(tag, w, len(data), j),
+                        21+w_width, tagrepr(tag, w, len(data), j),
                         '  %s' % next(xxd(data, 8), '')
-                            if not args.get('no_truncate') else '')))
+                            if not args.get('raw')
+                                and not args.get('no_truncate')
+                            else '')))
 
                 # show in-device representation
                 if args.get('device'):
-                    print('%11s  %*s%*s %s' % (
+                    print('%11s  %*s%*s %04x %08x %07x' % (
                         '',
                         t_width, '',
-                        w_width, '',
-                        '%-22s%s' % (
-                            '%04x %08x %07x' % (tag, w, len(data)),
-                            '  %s' % ' '.join(
-                                    '%08x' % fromle32(
-                                        mdir.data[j+d+i*4
-                                            : j+d+min(i*4+4,len(data))])
-                                    for i in range(
-                                        min(m.ceil(len(data)/4),
-                                        3)))[:23]
-                                if not args.get('no_truncate')
-                                    and not tag & TAG_ALT else '')))
+                        2*w_width+1, '',
+                        tag, w, len(data)));
 
                 # show on-disk encoding of tags
                 if args.get('raw'):
@@ -1377,7 +1369,7 @@ def main(disk, mroots=None, *,
                         print('%11s: %*s%*s %s' % (
                             '%04x' % (j + o*16),
                             t_width, '',
-                            w_width, '',
+                            2*w_width+1, '',
                             line))
                 if args.get('raw') or args.get('no_truncate'):
                     if not tag & TAG_ALT:
@@ -1385,7 +1377,7 @@ def main(disk, mroots=None, *,
                             print('%11s: %*s%*s %s' % (
                                 '%04x' % (j+d + o*16),
                                 t_width, '',
-                                w_width, '',
+                                2*w_width+1, '',
                                 line))
 
         # prbyd here means the last rendered rbyd, we update
@@ -1396,36 +1388,33 @@ def main(disk, mroots=None, *,
 
             # show human-readable representation
             for i, (tag, j, d, data) in enumerate(tags):
-                print('%12s %s%*s %-22s  %s' % (
+                print('%12s %s%*s %-*s  %s' % (
                     '%04x.%04x:' % (rbyd.block, rbyd.trunk)
                         if prbyd is None or rbyd != prbyd
                         else '',
                     treerepr(bid, w, bd, rid, 0, tag)
                         if args.get('tree') or args.get('btree') else '',
-                    w_width, '' if i != 0
+                    2*w_width+1, '' if i != 0
                         else '%d-%d' % (
                                 (bid-(w-1))//mleaf_weight,
                                 bid//mleaf_weight)
                             if (w//mleaf_weight) > 1
                         else bid//mleaf_weight if w > 0
                         else '',
-                    tagrepr(tag, w if i == 0 else 0, len(data), None),
-                    # note we render names a bit different here
-                    next(xxd(data, 8), '') if not args.get('no_truncate')
+                    21+w_width, tagrepr(
+                        tag, w if i == 0 else 0, len(data), None),
+                    next(xxd(data, 8), '')
+                        if not args.get('raw') and not args.get('no_truncate')
                         else ''))
                 prbyd = rbyd
 
                 # show in-device representation
                 if args.get('device'):
-                    print('%11s  %*s%*s %-22s%s' % (
+                    print('%11s  %*s%*s %04x %08x %07x' % (
                         '',
                         t_width, '',
-                        w_width, '',
-                        '%04x %08x %07x' % (tag, w if i == 0 else 0, len(data)),
-                        '  %s' % ' '.join(
-                            '%08x' % fromle32(
-                                rbyd.data[j+d+i*4 : j+d + min(i*4+4,len(data))])
-                            for i in range(min(m.ceil(len(data)/4), 3)))[:23]))
+                        2*w_width+1, '',
+                        tag, w if i == 0 else 0, len(data)));
 
                 # show on-disk encoding of tags/data
                 if args.get('raw'):
@@ -1433,14 +1422,14 @@ def main(disk, mroots=None, *,
                         print('%11s: %*s%*s %s' % (
                             '%04x' % (j + o*16),
                             t_width, '',
-                            w_width, '',
+                            2*w_width+1, '',
                             line))
                 if args.get('raw') or args.get('no_truncate'):
                     for o, line in enumerate(xxd(data)):
                         print('%11s: %*s%*s %s' % (
                             '%04x' % (j+d + o*16),
                             t_width, '',
-                            w_width, '',
+                            2*w_width+1, '',
                             line))
 
 
@@ -1451,9 +1440,11 @@ def main(disk, mroots=None, *,
             mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight))
 
         # dynamically size the id field
-        w_width = (m.ceil(m.log10(max(1, bweight//mleaf_weight)+1))
-            + 2*m.ceil(m.log10(max(1, rweight)+1))
-            + 2)
+        w_width = max(
+            m.ceil(m.log10(max(1, bweight//mleaf_weight)+1)),
+            m.ceil(m.log10(max(1, rweight)+1)),
+            # in case of -1.-1
+            2)
 
         # show each mroot
         prbyd = None

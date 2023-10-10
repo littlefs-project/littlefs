@@ -1345,8 +1345,7 @@ def dbg_fstruct(f, block_size, btree, inlined=False, *,
 
 
     # dynamically size the id field
-    w_width = 0 if inlined else 2*m.ceil(m.log10(max(1, btree.weight)+1))+1
-    i_width = 0 if inlined else 1
+    w_width = m.ceil(m.log10(max(1, btree.weight)+1))
 
     # prbyd here means the last rendered rbyd, we update
     # in dbg_branch to always print interleaved addresses
@@ -1356,55 +1355,48 @@ def dbg_fstruct(f, block_size, btree, inlined=False, *,
 
         # show human-readable representation
         for i, (tag, j, d, data) in enumerate(tags):
-            print('%12s %*s %s%*s%*s%-22s  %s' % (
+            print('%12s %*s %s%s%-*s  %s' % (
                 '%04x.%04x:' % (rbyd.block, rbyd.trunk)
                     if prbyd is None or rbyd != prbyd
                     else '',
                 m_width, '',
                 treerepr(bid, w, bd, rid, tag, False)
                     if args.get('tree') or args.get('btree') else '',
-                w_width, '' if i != 0
+                '%*s ' % (2*w_width+1, '' if i != 0
                     else '%d-%d' % (bid-(w-1), bid) if w > 1
                     else bid if w > 0
-                    else '',
-                i_width, '',
-                tagrepr(tag, w if i == 0 else 0, len(data), None),
-                next(xxd(data, 8), '') if not args.get('no_truncate')
+                    else '') if not inlined else '',
+                21+w_width, tagrepr(tag, w if i == 0 else 0, len(data), None),
+                next(xxd(data, 8), '')
+                    if not args.get('raw') and not args.get('no_truncate')
                     else ''))
             prbyd = rbyd
 
             # show in-device representation
             if args.get('device'):
-                print('%11s  %*s %*s%*s%*s%-22s%s' % (
+                print('%11s  %*s %*s%s%04x %08x %07x' % (
                     '',
                     m_width, '',
                     t_width, '',
-                    w_width, '',
-                    i_width, '',
-                    '%04x %08x %07x' % (tag, w if i == 0 else 0, len(data)),
-                    '  %s' % ' '.join(
-                        '%08x' % fromle32(
-                            rbyd.data[j+d+i*4 : j+d + min(i*4+4,len(data))])
-                        for i in range(min(m.ceil(len(data)/4), 3)))[:23]))
+                    '%*s ' % (2*w_width+1, '') if not inlined else '',
+                    tag, w if i == 0 else 0, len(data)))
 
             # show on-disk encoding of tags/data
             if args.get('raw'):
                 for o, line in enumerate(xxd(rbyd.data[j:j+d])):
-                    print('%11s: %*s %*s%*s%*s%s' % (
+                    print('%11s: %*s %*s%s%s' % (
                         '%04x' % (j + o*16),
                         m_width, '',
                         t_width, '',
-                        w_width, '',
-                        i_width, '',
+                        '%*s ' % (2*w_width+1, '') if not inlined else '',
                         line))
             if args.get('raw') or args.get('no_truncate'):
                 for o, line in enumerate(xxd(data)):
-                    print('%11s: %*s %*s%*s%*s%s' % (
+                    print('%11s: %*s %*s%s%s' % (
                         '%04x' % (j+d + o*16),
                         m_width, '',
                         t_width, '',
-                        w_width, '',
-                        i_width, '',
+                        '%*s ' % (2*w_width+1, '') if not inlined else '',
                         line))
 
     def dbg_block(bid, w, rbyd, rid, bptr, block, off, size, data, bd):
@@ -1412,69 +1404,61 @@ def dbg_fstruct(f, block_size, btree, inlined=False, *,
         tag, _, _, _ = bptr
 
         # show human-readable representation
-        print('%12s %*s %s%*s%*s%-22s  %s' % (
+        print('%12s %*s %s%s%-*s  %s' % (
             '%04x.%04x:' % (rbyd.block, rbyd.trunk)
                 if prbyd is None or rbyd != prbyd
                 else '',
             m_width, '',
             treerepr(bid, w, bd, rid, tag, True)
                 if args.get('tree') or args.get('btree') else '',
-            w_width, '%d-%d' % (bid-(w-1), bid) if w > 1
+            '%*s ' % (2*w_width+1, '%d-%d' % (bid-(w-1), bid) if w > 1
                 else bid if w > 0
-                else '',
-            i_width, '',
-            'block%s 0x%x.%x %d' % (
+                else '') if not inlined else '',
+            21+w_width, 'block%s 0x%x.%x %d' % (
                 ' w%d' % w if w else '',
                 block, off, size),
-            next(xxd(data, 8), '') if not args.get('no_truncate')
+            next(xxd(data, 8), '')
+                if not args.get('raw') and not args.get('no_truncate')
                 else ''))
         prbyd = rbyd
 
         # show in-device representation
         if args.get('device'):
             _, j, d, data_ = bptr
-            print('%11s  %*s %*s%*s%*s%-22s%s' % (
+            print('%11s  %*s %*s%s%04x %08x %07x' % (
                 '',
                 m_width, '',
                 t_width, '',
-                w_width, '',
-                i_width, '',
-                '%04x %08x %07x' % (tag, w, len(data_)),
-                '  %s' % ' '.join(
-                    '%08x' % fromle32(
-                        rbyd.data[j+d+i*4 : j+d + min(i*4+4,len(data_))])
-                    for i in range(min(m.ceil(len(data_)/4), 3)))[:23]))
+                '%*s ' % (2*w_width+1, '') if not inlined else '',
+                tag, w, len(data_)))
 
         # show on-disk encoding of tags/bptr/data
         if args.get('raw'):
             _, j, d, data_ = bptr
             for o, line in enumerate(xxd(rbyd.data[j:j+d])):
-                print('%11s: %*s %*s%*s%*s%s' % (
+                print('%11s: %*s %*s%s%s' % (
                     '%04x' % (j + o*16),
                     m_width, '',
                     t_width, '',
-                    w_width, '',
-                    i_width, '',
+                    '%*s ' % (2*w_width+1, '') if not inlined else '',
                     line))
         if args.get('raw'):
             _, j, d, data_ = bptr
             for o, line in enumerate(xxd(data_)):
-                print('%11s: %*s %*s%*s%*s%s' % (
+                print('%11s: %*s %*s%s%s' % (
                     '%04x' % (j+d + o*16),
                     m_width, '',
                     t_width, '',
-                    w_width, '',
-                    i_width, '',
+                    '%*s ' % (2*w_width+1, '') if not inlined else '',
                     line))
         if args.get('raw') or args.get('no_truncate'):
             for o, line in enumerate(xxd(data)):
-                print('%11s: %*s %*s%*s%*s%s' % (
+                print('%11s: %*s %*s%s%s' % (
                     '%04x.%04x' % (block, off + o*16) if o == 0
                         else '%04x' % (off + o*16),
                     m_width, '',
                     t_width, '',
-                    w_width, '',
-                    i_width, '',
+                    '%*s ' % (2*w_width+1, '') if not inlined else '',
                     line))
             # if we show non-truncated file contents we need to
             # reset the rbyd address
@@ -1782,40 +1766,35 @@ def main(disk, mroots=None, *,
             mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight))
 
         # dynamically size the id field
-        w_width = (m.ceil(m.log10(max(1, bweight//mleaf_weight)+1))
-            + 2*m.ceil(m.log10(max(1, rweight)+1))
-            + 2)
+        w_width = max(
+            m.ceil(m.log10(max(1, bweight//mleaf_weight)+1)),
+            m.ceil(m.log10(max(1, rweight)+1)),
+            # in case of -1.-1
+            2)
 
         # print config?
         if args.get('config'):
             for i, (repr_, tag, j, data) in enumerate(config.repr()):
                 print('%12s %-*s  %s' % (
                     'config:' if i == 0 else '',
-                    w_width + 23, repr_,
+                    2*w_width+1 + 21+w_width + 1, repr_,
                     next(xxd(data, 8), '')
-                        if not args.get('no_truncate') else ''))
+                        if not args.get('raw')
+                            and not args.get('no_truncate') else ''))
 
                 # show in-device representation
                 if args.get('device'):
-                    print('%11s  %*s %s' % (
+                    print('%11s  %*s %04x %08x %07x' % (
                         '',
-                        w_width, '',
-                        '%-22s%s' % (
-                            '%04x %08x %07x' % (tag, 0, len(data)),
-                            '  %s' % ' '.join(
-                                    '%08x' % fromle32(
-                                        data[i*4 : min(i*4+4,len(data))])
-                                    for i in range(
-                                        min(m.ceil(len(data)/4),
-                                        3)))[:23]
-                                if not args.get('no_truncate') else '')))
+                        2*w_width+1, '',
+                        tag, 0, len(data)))
 
                 # show on-disk encoding
                 if args.get('raw') or args.get('no_truncate'):
                     for o, line in enumerate(xxd(data)):
                         print('%11s: %*s %s' % (
                             '%04x' % (j + o*16),
-                            w_width, '',
+                            2*w_width+1, '',
                             line))
 
         # print gstate?
@@ -1823,76 +1802,53 @@ def main(disk, mroots=None, *,
             for i, (repr_, tag, data) in enumerate(gstate.repr()):
                 print('%12s %-*s  %s' % (
                     'gstate:' if i == 0 else '',
-                    w_width + 23, repr_,
+                    2*w_width+1 + 21+w_width + 1, repr_,
                     next(xxd(data, 8), '')
-                        if not args.get('no_truncate') else ''))
-
-                # show in-device representation
-                if args.get('device'):
-                    print('%11s  %*s %s' % (
-                        '',
-                        w_width, '',
-                        '%-22s%s' % (
-                            '',
-                            '  %s' % ' '.join(
-                                    '%08x' % fromle32(
-                                        data[i*4 : min(i*4+4,len(data))])
-                                    for i in range(
-                                        min(m.ceil(len(data)/4),
-                                        3)))[:23]
-                                if not args.get('no_truncate') else '')))
+                        if not args.get('raw')
+                            and not args.get('no_truncate') else ''))
 
                 # show on-disk encoding
                 if args.get('raw') or args.get('no_truncate'):
                     for o, line in enumerate(xxd(data)):
                         print('%11s: %*s %s' % (
                             '%04x' % (o*16),
-                            w_width, '',
+                            2*w_width+1, '',
                             line))
 
                 # print gdeltas?
                 if args.get('gdelta'):
                     for mbid, mw, mdir, j, d, data in gstate.gdelta[tag]:
-                        print('%s{%s}: %*s %-22s  %s%s' % (
+                        print('%s{%s}: %*s %-*s  %s%s' % (
                             '\x1b[90m' if color else '',
                             ','.join('%04x' % block
                                 for block in it.chain([mdir.block],
                                     mdir.redund_blocks)),
-                            w_width, mbid//mleaf_weight,
-                            tagrepr(tag, 0, len(data)),
+                            2*w_width+1, mbid//mleaf_weight,
+                            21+w_width, tagrepr(tag, 0, len(data)),
                             next(xxd(data, 8), '')
-                                if not args.get('no_truncate') else '',
+                                if not args.get('raw')
+                                    and not args.get('no_truncate') else '',
                             '\x1b[m' if color else ''))
 
                         # show in-device representation
                         if args.get('device'):
-                            print('%11s  %*s %s' % (
+                            print('%11s  %*s %04x %08x %07x' % (
                                 '',
-                                w_width, '',
-                                '%-22s%s' % (
-                                    '%04x %08x %07x' % (tag, 0, len(data)),
-                                    '  %s' % ' '.join(
-                                            '%08x' % fromle32(
-                                                data[i*4
-                                                    : min(i*4+4,len(data))])
-                                            for i in range(
-                                                min(m.ceil(len(data)/4),
-                                                3)))[:23]
-                                        if not args.get('no_truncate')
-                                            else '')))
+                                2*w_width+1, '',
+                                tag, 0, len(data)))
 
                         # show on-disk encoding
                         if args.get('raw'):
                             for o, line in enumerate(xxd(mdir.data[j:j+d])):
                                 print('%11s: %*s %s' % (
                                     '%04x' % (j + o*16),
-                                    w_width, '',
+                                    2*w_width+1, '',
                                     line))
                         if args.get('raw') or args.get('no_truncate'):
                             for o, line in enumerate(xxd(data)):
                                 print('%11s: %*s %s' % (
                                     '%04x' % (j+d + o*16),
-                                    w_width, '',
+                                    2*w_width+1, '',
                                     line))
 
         # print dtree?
@@ -1960,7 +1916,7 @@ def main(disk, mroots=None, *,
                             for block in it.chain([mdir.block],
                                 mdir.redund_blocks))
                             if mbid != pmbid else '',
-                        w_width, '%d.%d-%d' % (
+                        2*w_width+1, '%d.%d-%d' % (
                                 mbid//mleaf_weight, rid-(w-1), rid)
                             if w > 1 else '%d.%d' % (mbid//mleaf_weight, rid)
                             if w > 0 else '',
@@ -1986,43 +1942,34 @@ def main(disk, mroots=None, *,
                             if done or rid_ != rid:
                                 break
 
-                            print('%12s %*s %-22s  %s' % (
+                            print('%12s %*s %-*s  %s' % (
                                 '',
-                                w_width, '',
-                                tagrepr(tag_, w_, len(data)),
+                                2*w_width+1, '',
+                                21+w_width, tagrepr(tag_, w_, len(data)),
                                 next(xxd(data, 8), '')
-                                    if not args.get('no_truncate') else ''))
+                                    if not args.get('raw')
+                                        and not args.get('no_truncate')
+                                    else ''))
 
                             # show in-device representation
                             if args.get('device'):
-                                print('%11s  %*s %s' % (
+                                print('%11s  %*s %04x %08x %07x' % (
                                     '',
-                                    w_width, '',
-                                    '%-22s%s' % (
-                                        '%04x %08x %07x' % (
-                                            tag_, w_, len(data)),
-                                        '  %s' % ' '.join(
-                                                '%08x' % fromle32(
-                                                    data[i*4
-                                                        : min(i*4+4,len(data))])
-                                                for i in range(
-                                                    min(m.ceil(len(data)/4),
-                                                    3)))[:23]
-                                            if not args.get('no_truncate')
-                                                else '')))
+                                    2*w_width+1, '',
+                                    tag_, w_, len(data)))
 
                             # show on-disk encoding
                             if args.get('raw'):
                                 for o, line in enumerate(xxd(mdir.data[j:j+d])):
                                     print('%11s: %*s %s' % (
                                         '%04x' % (j + o*16),
-                                        w_width, '',
+                                        2*w_width+1, '',
                                         line))
                             if args.get('raw') or args.get('no_truncate'):
                                 for o, line in enumerate(xxd(data)):
                                     print('%11s: %*s %s' % (
                                         '%04x' % (j+d + o*16),
-                                        w_width, '',
+                                        2*w_width+1, '',
                                         line))
 
                     # print file contents?
@@ -2042,7 +1989,7 @@ def main(disk, mroots=None, *,
                                     j,
                                     0),
                                 inlined=True,
-                                m_width=w_width,
+                                m_width=2*w_width+1,
                                 color=color,
                                 args=args)
 
@@ -2055,7 +2002,7 @@ def main(disk, mroots=None, *,
                             weight, d_ = fromleb128(data[d:]); d += d_
                             dbg_fstruct(f, block_size,
                                 Rbyd.fetch(f, block_size, mdir.block, trunk),
-                                m_width=w_width,
+                                m_width=2*w_width+1,
                                 color=color,
                                 args=args)
 
@@ -2074,7 +2021,7 @@ def main(disk, mroots=None, *,
                                     j,
                                     0),
                                 inlined=True,
-                                m_width=w_width,
+                                m_width=2*w_width+1,
                                 color=color,
                                 args=args)
 
@@ -2089,7 +2036,7 @@ def main(disk, mroots=None, *,
                             cksum = fromle32(data[d:]); d += 4
                             dbg_fstruct(f, block_size,
                                 Rbyd.fetch(f, block_size, block, trunk),
-                                m_width=w_width,
+                                m_width=2*w_width+1,
                                 color=color,
                                 args=args)
 

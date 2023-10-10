@@ -478,14 +478,14 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                 # found new weight?
                 weight_ = max(weight_, weight__)
 
-    w_width = 2*m.ceil(m.log10(max(1, weight_)+1))+1
+    w_width = m.ceil(m.log10(max(1, weight_)+1))
 
     # print revision count
     if args.get('raw'):
         print('%8s: %*s%*s %s' % (
             '%04x' % 0,
             lifetime_width, '',
-            w_width, '',
+            2*w_width+1, '',
             next(xxd(data[0:4]))))
 
     # print tags
@@ -530,20 +530,20 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                 rid = lower_ + w-1
 
         # show human-readable tag representation
-        print('%s%08x:%s %*s%s%*s %-57s%s%s' % (
+        print('%s%08x:%s %*s%s%*s %-*s%s%s' % (
             '\x1b[90m' if color and j >= eoff else '',
             j,
             '\x1b[m' if color and j >= eoff else '',
             lifetime_width, lifetimerepr(j) if args.get('lifetimes') else '',
             '\x1b[90m' if color and j >= eoff else '',
-            w_width, '' if (tag & 0xe000) != 0x0000
+            2*w_width+1, '' if (tag & 0xe000) != 0x0000
                 else '%d-%d' % (rid-(w-1), rid) if w > 1
                 else rid,
-            '%-22s%s' % (
-                tagrepr(tag, w, size, j),
+            56+w_width, '%-*s%s' % (
+                21+w_width, tagrepr(tag, w, size, j),
                 '  %s' % next(xxd(
                         data[j+d:j+d+min(size, 8)], 8), '')
-                    if not args.get('no_truncate')
+                    if not args.get('raw') and not args.get('no_truncate')
                         and not tag & TAG_ALT else ''),
             '\x1b[m' if color and j >= eoff else '',
             ' (%s)' % ', '.join(notes) if notes
@@ -554,19 +554,12 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
         # show in-device representation, including some extra
         # cksum/parity info
         if args.get('device'):
-            print('%s%8s  %*s%*s %-47s  %08x %x%s' % (
+            print('%s%8s  %*s%*s %-*s  %08x %x%s' % (
                 '\x1b[90m' if color and j >= eoff else '',
                 '',
                 lifetime_width, '',
-                w_width, '',
-                '%-22s%s' % (
-                    '%04x %08x %07x' % (tag, w, size),
-                    '  %s' % ' '.join(
-                            '%08x' % fromle32(
-                                data[j+d+i*4:j+d+min(i*4+4,size)])
-                            for i in range(min(m.ceil(size/4), 3)))[:23]
-                        if not args.get('no_truncate')
-                            and not tag & TAG_ALT else ''),
+                2*w_width+1, '',
+                21+w_width, '%04x %08x %07x' % (tag, w, size),
                 cksum,
                 popc(cksum) & 1,
                 '\x1b[m' if color and j >= eoff else ''))
@@ -578,7 +571,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                     '\x1b[90m' if color and j >= eoff else '',
                     '%04x' % (j + o*16),
                     lifetime_width, '',
-                    w_width, '',
+                    2*w_width+1, '',
                     line,
                     '\x1b[m' if color and j >= eoff else ''))
         if args.get('raw') or args.get('no_truncate'):
@@ -588,7 +581,7 @@ def dbg_log(data, block_size, rev, eoff, weight, *,
                         '\x1b[90m' if color and j >= eoff else '',
                         '%04x' % (j+d + o*16),
                         lifetime_width, '',
-                        w_width, '',
+                        2*w_width+1, '',
                         line,
                         '\x1b[m' if color and j >= eoff else ''))
 
@@ -800,7 +793,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
 
 
     # dynamically size the id field
-    w_width = 2*m.ceil(m.log10(max(1, weight)+1))+1
+    w_width = m.ceil(m.log10(max(1, weight)+1))
 
     rid, tag = -1, 0
     for i in it.count():
@@ -810,33 +803,26 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
             break
 
         # show human-readable tag representation
-        print('%08x: %s%-57s' % (
+        print('%08x: %s%s' % (
             j,
             treerepr(rid, tag) if args.get('tree') else '',
-            '%*s %-22s%s' % (
-                w_width, '%d-%d' % (rid-(w-1), rid)
+            '%*s %-*s%s' % (
+                2*w_width+1, '%d-%d' % (rid-(w-1), rid)
                     if w > 1 else rid
                     if w > 0 or i == 0 else '',
-                tagrepr(tag, w, size, j),
+                21+w_width, tagrepr(tag, w, size, j),
                 '  %s' % next(xxd(
                         data[j+d:j+d+min(size, 8)], 8), '')
-                    if not args.get('no_truncate')
+                    if not args.get('raw') and not args.get('no_truncate')
                         and not tag & TAG_ALT else '')))
 
         # show in-device representation
         if args.get('device'):
-            print('%8s  %*s%*s %s' % (
+            print('%8s  %*s%*s %04x %08x %07x' % (
                 '',
                 t_width, '',
-                w_width, '',
-                '%-22s%s' % (
-                    '%04x %08x %07x' % (tag, w, size),
-                    '  %s' % ' '.join(
-                            '%08x' % fromle32(
-                                data[j+d+i*4:j+d+min(i*4+4,size)])
-                            for i in range(min(m.ceil(size/4), 3)))[:23]
-                        if not args.get('no_truncate')
-                            and not tag & TAG_ALT else '')))
+                2*w_width+1, '',
+                tag, w, size))
 
         # show on-disk encoding of tags
         if args.get('raw'):
@@ -844,7 +830,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                 print('%8s: %*s%*s %s' % (
                     '%04x' % (j + o*16),
                     t_width, '',
-                    w_width, '',
+                    2*w_width+1, '',
                     line))
         if args.get('raw') or args.get('no_truncate'):
             if not tag & TAG_ALT:
@@ -852,7 +838,7 @@ def dbg_tree(data, block_size, rev, trunk, weight, *,
                     print('%8s: %*s%*s %s' % (
                         '%04x' % (j+d + o*16),
                         t_width, '',
-                        w_width, '',
+                        2*w_width+1, '',
                         line))
 
 
