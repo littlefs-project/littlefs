@@ -9209,110 +9209,28 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
     lfsr_data_t *datas_ = scratch_datas;
     *datas_++ = data;
 
+    // TODO what happens if another driver wrote a zero-weight shrub? need
+    // to test this...
+
     // keep track of how our changes affect our estimate
-    lfs_off_t estimate;
+    lfs_off_t estimate = (!lfsr_file_hasshrub(file))
+            ? 0
+            : file->inlined.u.shrub.estimate;
 
-    // have a sprout/null?
-    // TODO should we catch when we can stay inlined?
-    if (!lfsr_file_hasshrub(file)) {
-        estimate = 0;
+    lfs_soff_t left_overlap = 0;
+    lfs_soff_t right_overlap = 0;
 
-        // left data? this may create a hole
-        if (pos > 0) {
-            // can coalesce?
-            if (lfsr_data_size(&file->inlined.u.data) >= pos
-                    && pos+weight+delta <= lfs->cfg->coalesce_size) {
-                scratch_datas[0] = LFSR_DATA_DISK(
-                        file->inlined.u.data.u.disk.block,
-                        file->inlined.u.data.u.disk.off,
-                        pos);
-                scratch_datas[1] = data;
-                datas_ = &scratch_datas[2];
-                data = lfsr_data_fromcat(&scratch_datas[0], 2);
-                weight += pos;
-                pos = 0;
-
-            // need to carve
-            } else {
-                *attrs_++ = LFSR_ATTR(0,
-                        SHRUB(INLINED), +pos, DISK(
-                            file->inlined.u.data.u.disk.block,
-                            file->inlined.u.data.u.disk.off,
-                            lfs_min32(
-                                lfsr_data_size(&file->inlined.u.data),
-                                pos)));
-                estimate += LFSR_ATTR_ESTIMATE
-                        + lfs_min32(
-                            lfsr_data_size(&file->inlined.u.data),
-                            pos);
-            }
-        }
-
-        // right data? this may also create a hole if delta > 0
-        if (lfsr_data_size(&file->inlined.u.data) > pos + weight) {
-            // can coalesce?
-            if (lfsr_data_size(&data) == weight + delta
-                    && lfsr_data_size(&data)
-                            + lfsr_data_size(&file->inlined.u.data)
-                            - (pos + weight)
-                        <= lfs->cfg->coalesce_size) {
-                *datas_++ = LFSR_DATA_DISK(
-                        file->inlined.u.data.u.disk.block,
-                        file->inlined.u.data.u.disk.off
-                            + (pos + weight),
-                        lfsr_data_size(&file->inlined.u.data)
-                            - (pos + weight));
-                data = lfsr_data_fromcat(
-                        scratch_datas,
-                        datas_ - scratch_datas);
-                weight += lfsr_data_size(&file->inlined.u.data)
-                        - (pos + weight);
-
-            // need to carve
-            } else {
-                *attrs_++ = LFSR_ATTR(pos,
-                        SHRUB(INLINED), +lfsr_data_size(&file->inlined.u.data)
-                            - (pos + weight),
-                        DISK(
-                            file->inlined.u.data.u.disk.block,
-                            file->inlined.u.data.u.disk.off
-                                + (pos + weight),
-                            lfsr_data_size(&file->inlined.u.data)
-                                - (pos + weight)));
-                estimate += LFSR_ATTR_ESTIMATE
-                        + lfsr_data_size(&file->inlined.u.data)
-                            - (pos + weight);
-            }
-        }
-
-        // append our data
-        if (weight + delta > 0) {
-            *attrs_++ = LFSR_ATTR(pos,
-                    SHRUB(INLINED), +weight + delta, DATA(data));
-            estimate += LFSR_ATTR_ESTIMATE
-                    + lfsr_data_size(&data);
-        }
-
-    // have a shrub?
-    } else {
-        // TODO what if another driver wrote a zero-weight shrub? need to
-        // test this
-        //
-        // this should never happen, every route to zero-weight shrub
-        // should revert to an inlined file
-        LFS_ASSERT(file->inlined.u.rbyd.weight > 0);
-
-        estimate = file->inlined.u.shrub.estimate;
-
-        lfs_soff_t left_overlap = 0;
-        lfs_soff_t right_overlap = 0;
-
-        // has left sibling?
-        if (pos > 0) {
-            lfsr_srid_t left_rid;
+    // has left sibling?
+    if (pos > 0) {
+        lfsr_srid_t left_rid;
+        lfsr_rid_t left_weight;
+        lfsr_data_t left_data;
+        if (!lfsr_file_hasshrub(file)) {
+            left_rid = lfsr_data_size(&file->inlined.u.data)-1;
+            left_weight = lfsr_data_size(&file->inlined.u.data);
+            left_data = file->inlined.u.data;
+        } else {
             lfsr_tag_t left_tag;
-            lfsr_rid_t left_weight;
-            lfsr_data_t left_data;
             int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
                     lfs_min32(
                         pos,
@@ -9324,55 +9242,73 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
             }
             LFS_ASSERT(left_tag == LFSR_TAG_SHRUB(INLINED));
             LFS_ASSERT(lfsr_data_size(&left_data) <= left_weight);
-
-            // this can be negative!
-            left_overlap = (left_rid+1) - pos;
-            LFS_ASSERT(left_overlap >= 0
-                    || (lfs_off_t)file->inlined.u.rbyd.weight < pos);
-
-            // can we coalesce left data?
-            if (left_rid-(left_weight-1) + lfsr_data_size(&left_data)
-                        >= pos
-                    && pos+weight+delta - (left_rid-(left_weight-1))
-                        <= lfs->cfg->coalesce_size) {
-                scratch_datas[0] = LFSR_DATA_DISK(
-                        left_data.u.disk.block,
-                        left_data.u.disk.off,
-                        left_weight - left_overlap);
-                scratch_datas[1] = data;
-                datas_ = &scratch_datas[2];
-                data = lfsr_data_fromcat(&scratch_datas[0], 2);
-                weight += left_weight - left_overlap;
-                pos = left_rid-(left_weight-1);
-                left_overlap = 0;
-
-            // need to carve out left data?
-            } else if (left_rid-(left_weight-1) + lfsr_data_size(&left_data)
-                    > pos) {
-                *attrs_++ = LFSR_ATTR(left_rid,
-                        SHRUB(GROW(INLINED)), -left_overlap,
-                        DISK(
-                            left_data.u.disk.block,
-                            left_data.u.disk.off,
-                            left_weight - left_overlap));
-
-                estimate -= left_rid-(left_weight-1)
-                        + lfsr_data_size(&left_data)
-                        - pos;
-
-            // adjust left sibling with a grow attr, this may create a hole
-            } else if (left_overlap != 0) {
-                *attrs_++ = LFSR_ATTR(left_rid,
-                        SHRUB(GROW), -left_overlap, NULL);
-            }
         }
 
-        // has right sibling?
-        if (pos + weight < (lfs_off_t)file->inlined.u.rbyd.weight) {
-            lfsr_srid_t right_rid;
+        // this can be negative!
+        left_overlap = (left_rid+1) - pos;
+        LFS_ASSERT(left_overlap >= 0
+                || lfsr_file_inlinedsize(file) < pos);
+
+        // can we coalesce left data?
+        if (left_rid-(left_weight-1) + lfsr_data_size(&left_data)
+                    >= pos
+                && pos+weight+delta - (left_rid-(left_weight-1))
+                    <= lfs->cfg->coalesce_size) {
+            scratch_datas[0] = LFSR_DATA_DISK(
+                    left_data.u.disk.block,
+                    left_data.u.disk.off,
+                    left_weight - left_overlap);
+            scratch_datas[1] = data;
+            datas_ = &scratch_datas[2];
+            data = lfsr_data_fromcat(&scratch_datas[0], 2);
+            weight += left_weight - left_overlap;
+            pos = left_rid-(left_weight-1);
+            left_overlap = 0;
+
+        // need to append left data? this can happend if we're
+        // transitioning from a sprout to a shrub
+        } else if (!lfsr_file_hasshrub(file)) {
+            *attrs_++ = LFSR_ATTR(left_rid-(left_weight-1),
+                    SHRUB(INLINED), +left_weight - left_overlap, DISK(
+                        left_data.u.disk.block,
+                        left_data.u.disk.off,
+                        left_weight - lfs_smax32(left_overlap, 0)));
+
+            estimate += LFSR_ATTR_ESTIMATE
+                    + (left_weight - lfs_smax32(left_overlap, 0));
+
+        // need to carve out left data?
+        } else if (left_rid-(left_weight-1) + lfsr_data_size(&left_data)
+                > pos) {
+            *attrs_++ = LFSR_ATTR(left_rid,
+                    SHRUB(GROW(INLINED)), -left_overlap,
+                    DISK(
+                        left_data.u.disk.block,
+                        left_data.u.disk.off,
+                        left_weight - left_overlap));
+
+            estimate -= left_rid-(left_weight-1)
+                    + lfsr_data_size(&left_data)
+                    - pos;
+
+        // adjust left sibling with a grow attr, avoiding a data copy
+        } else if (left_overlap != 0) {
+            *attrs_++ = LFSR_ATTR(left_rid,
+                    SHRUB(GROW), -left_overlap, NULL);
+        }
+    }
+
+    // has right sibling?
+    if (pos + weight < lfsr_file_inlinedsize(file)) {
+        lfsr_srid_t right_rid;
+        lfsr_rid_t right_weight;
+        lfsr_data_t right_data;
+        if (!lfsr_file_hasshrub(file)) {
+            right_rid = lfsr_data_size(&file->inlined.u.data)-1;
+            right_weight = lfsr_data_size(&file->inlined.u.data);
+            right_data = file->inlined.u.data;
+        } else {
             lfsr_tag_t right_tag;
-            lfsr_rid_t right_weight;
-            lfsr_data_t right_data;
             int err = lfsr_rbyd_lookupnext(lfs, &file->inlined.u.rbyd,
                     pos + weight, 0,
                     &right_rid, &right_tag, &right_weight, &right_data);
@@ -9382,72 +9318,70 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
             }
             LFS_ASSERT(right_tag == LFSR_TAG_SHRUB(INLINED));
             LFS_ASSERT(lfsr_data_size(&right_data) <= right_weight);
+        }
 
-            right_overlap = pos + weight
-                    - (right_rid-(right_weight-1));
-            LFS_ASSERT(right_overlap >= 0);
+        right_overlap = pos + weight
+                - (right_rid-(right_weight-1));
+        LFS_ASSERT(right_overlap >= 0);
 
-            // can we coalesce right data?
-            if ((lfsr_data_size(&data) == weight + delta
-                        || lfsr_data_size(&right_data) - right_overlap == 0)
-                    && (lfs_soff_t)(lfsr_data_size(&data)
-                            + lfsr_data_size(&right_data)
-                            - right_overlap)
-                        <= (lfs_soff_t)lfs->cfg->coalesce_size) {
-                *datas_++ = LFSR_DATA_DISK(
+        // can we coalesce right data?
+        if ((lfsr_data_size(&data) == weight + delta
+                    || lfsr_data_size(&right_data) - right_overlap == 0)
+                && (lfs_soff_t)(lfsr_data_size(&data)
+                        + lfsr_data_size(&right_data)
+                        - right_overlap)
+                    <= (lfs_soff_t)lfs->cfg->coalesce_size) {
+            *datas_++ = LFSR_DATA_DISK(
+                    right_data.u.disk.block,
+                    right_data.u.disk.off + right_overlap,
+                    lfsr_data_size(&right_data) - lfs_min32(
+                        right_overlap,
+                        lfsr_data_size(&right_data)));
+            data = lfsr_data_fromcat(
+                    scratch_datas,
+                    datas_ - scratch_datas);
+            weight += right_weight - right_overlap;
+            right_overlap = 0;
+
+        // need to append right data? this can happen if we're
+        // transitioning from sprout to shrub, or left and right sibling
+        // are the same
+        } else if (!lfsr_file_hasshrub(file)
+                || right_overlap > (lfs_soff_t)weight) {
+            *attrs_++ = LFSR_ATTR(pos - left_overlap,
+                    SHRUB(INLINED), +right_weight - right_overlap,
+                    DISK(
                         right_data.u.disk.block,
                         right_data.u.disk.off + right_overlap,
                         lfsr_data_size(&right_data) - lfs_min32(
                             right_overlap,
-                            lfsr_data_size(&right_data)));
-                data = lfsr_data_fromcat(
-                        scratch_datas,
-                        datas_ - scratch_datas);
-                weight += right_weight - right_overlap;
-                right_overlap = 0;
+                            lfsr_data_size(&right_data))));
 
-            // is right sibling the same as left sibling? need to
-            // split right data and handle this a bit differently
-            } else if (right_overlap > (lfs_soff_t)weight) {
-                *attrs_++ = LFSR_ATTR(right_rid+1 - left_overlap,
-                        SHRUB(INLINED), +right_weight - right_overlap,
-                        DISK(
-                            right_data.u.disk.block,
-                            right_data.u.disk.off + right_overlap,
-                            lfsr_data_size(&right_data) - lfs_min32(
-                                right_overlap,
-                                lfsr_data_size(&right_data))));
+            estimate += LFSR_ATTR_ESTIMATE
+                    + lfsr_data_size(&right_data) - lfs_min32(
+                        right_overlap,
+                        lfsr_data_size(&right_data));
 
-                estimate += LFSR_ATTR_ESTIMATE
-                        + lfsr_data_size(&right_data) - lfs_min32(
+        // need to carve out right data?
+        } else if (right_overlap > 0) {
+            *attrs_++ = LFSR_ATTR(right_rid - left_overlap,
+                    SHRUB(GROW(INLINED)), -right_overlap,
+                    DISK(
+                        right_data.u.disk.block,
+                        right_data.u.disk.off + right_overlap,
+                        lfsr_data_size(&right_data) - lfs_min32(
                             right_overlap,
-                            lfsr_data_size(&right_data));
+                            lfsr_data_size(&right_data))));
 
-            // need to carve out right data?
-            } else if (right_overlap > 0) {
-                *attrs_++ = LFSR_ATTR(right_rid - left_overlap,
-                        SHRUB(GROW(INLINED)), -right_overlap,
-                        DISK(
-                            right_data.u.disk.block,
-                            right_data.u.disk.off + right_overlap,
-                            lfsr_data_size(&right_data) - lfs_min32(
-                                right_overlap,
-                                lfsr_data_size(&right_data))));
-
-                estimate -= right_overlap;
-            }
+            estimate -= right_overlap;
         }
+    }
 
-        // remove any data we're overwriting, accounting for sibling changes
-//        lfs_soff_t rm = lfs_smin32(
-//                    weight - left_overlap - right_overlap,
-//                    file->inlined.u.rbyd.weight
-//                        - lfs_min32(
-//                            pos + left_overlap,
-//                            file->inlined.u.rbyd.weight));
+    // remove any data we're overwriting, accounting for sibling changes
+    if (lfsr_file_hasshrub(file)) {
         lfs_soff_t rm = lfs_smin32(
                     weight,
-                    file->inlined.u.rbyd.weight - pos)
+                    lfsr_file_inlinedsize(file) - pos)
                 - left_overlap
                 - right_overlap;
         if (rm > 0) {
@@ -9464,15 +9398,15 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
             }
             estimate -= rm_estimate;
         }
+    }
 
-        // append our buffer
-        if (weight + delta > 0) {
-            *attrs_++ = LFSR_ATTR(pos,
-                    SHRUB(INLINED), +weight + delta, DATA(data));
+    // append our buffer
+    if (weight + delta > 0) {
+        *attrs_++ = LFSR_ATTR(pos,
+                SHRUB(INLINED), +weight + delta, DATA(data));
 
-            estimate += LFSR_ATTR_ESTIMATE
-                    + lfsr_data_size(&data);
-        }
+        estimate += LFSR_ATTR_ESTIMATE
+                + lfsr_data_size(&data);
     }
 
     // TODO can this happen? should we even have special handling here?
