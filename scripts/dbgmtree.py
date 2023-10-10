@@ -1573,7 +1573,7 @@ def main(disk, mroots=None, *,
                                 for tag, j, d, data in tags
                                 if tag & 0x7f00 != TAG_NAME]
 
-                    # find mdir in the tags
+                    # found an mdir in the tags?
                     mdir__ = None
                     if (not args.get('depth')
                             or mdepth+len(path) < args.get('depth')):
@@ -1582,7 +1582,7 @@ def main(disk, mroots=None, *,
                             if tag == TAG_MDIR),
                             None)
 
-                    # print btree entries in certain cases
+                    # show other btree entries in certain cases
                     if args.get('inner') or not mdir__:
                         dbg_branch(mbid, mw, rbyd, rid, tags, len(path)-1)
 
@@ -1657,10 +1657,6 @@ if __name__ == "__main__":
         action='store_true',
         help="Don't truncate, show the full contents.")
     parser.add_argument(
-        '-i', '--inner',
-        action='store_true',
-        help="Show inner branches.")
-    parser.add_argument(
         '-t', '--tree',
         action='store_true',
         help="Show the underlying rbyd trees.")
@@ -1668,6 +1664,10 @@ if __name__ == "__main__":
         '-b', '--btree',
         action='store_true',
         help="Show the underlying B-tree.")
+    parser.add_argument(
+        '-i', '--inner',
+        action='store_true',
+        help="Show inner branches.")
     parser.add_argument(
         '-Z', '--depth',
         nargs='?',

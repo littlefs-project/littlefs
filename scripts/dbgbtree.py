@@ -1003,10 +1003,6 @@ if __name__ == "__main__":
         action='store_true',
         help="Don't truncate, show the full contents.")
     parser.add_argument(
-        '-i', '--inner',
-        action='store_true',
-        help="Show inner branches.")
-    parser.add_argument(
         '-t', '--tree',
         action='store_true',
         help="Show the underlying rbyd trees.")
@@ -1014,6 +1010,10 @@ if __name__ == "__main__":
         '-b', '--btree',
         action='store_true',
         help="Show the underlying B-tree.")
+    parser.add_argument(
+        '-i', '--inner',
+        action='store_true',
+        help="Show inner branches.")
     parser.add_argument(
         '-Z', '--depth',
         nargs='?',
