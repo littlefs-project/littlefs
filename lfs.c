@@ -2384,8 +2384,8 @@ static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     int err = lfsr_rbyd_fetch(lfs, rbyd, block, trunk);
     if (err) {
         if (err == LFS_ERR_CORRUPT) {
-            LFS_ERROR("Found corrupted rbyd "
-                    "(0x%"PRIx32".%"PRIx32", 0x%08"PRIx32")",
+            LFS_ERROR("Found corrupted rbyd 0x%"PRIx32".%"PRIx32", "
+                    "cksum 0x%08"PRIx32,
                     block, trunk, cksum);
         }
         return err;
@@ -2397,8 +2397,8 @@ static int lfsr_rbyd_fetchvalidate(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // above fetch failing, since that would require the rbyd to have the
     // same trunk and pass its internal cksum
     if (rbyd->cksum != cksum) {
-        LFS_ERROR("Found rbyd cksum mismatch "
-                "(0x%"PRIx32".%"PRIx32", 0x%08"PRIx32" != 0x%08"PRIx32")",
+        LFS_ERROR("Found rbyd cksum mismatch rbyd 0x%"PRIx32".%"PRIx32", "
+                "cksum 0x%08"PRIx32" (!= 0x%08"PRIx32")",
                 rbyd->block, rbyd->trunk, rbyd->cksum, cksum);
         return LFS_ERR_CORRUPT;
     }
@@ -6955,7 +6955,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                         traversal->mdir.u.m.blocks,
                         traversal->u.mtortoise.blocks) == 0) {
                     LFS_ERROR("Cycle detected during mtree traversal "
-                            "(0x{%"PRIx32",%"PRIx32"})",
+                            "0x{%"PRIx32",%"PRIx32"}",
                             traversal->mdir.u.m.blocks[0],
                             traversal->mdir.u.m.blocks[1]);
                     return LFS_ERR_CORRUPT;
@@ -7041,7 +7041,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 return 0;
 
             } else {
-                LFS_ERROR("Weird mtree entry? (0x%"PRIx32")", tag);
+                LFS_ERROR("Weird mtree entry? 0x%"PRIx32, tag);
                 return LFS_ERR_CORRUPT;
             }
 
@@ -7119,7 +7119,7 @@ static int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *traversal,
                 return 0;
 
             } else {
-                LFS_ERROR("Weird mtree entry? (0x%"PRIx32")", binfo.tag);
+                LFS_ERROR("Weird mtree entry? 0x%"PRIx32, binfo.tag);
                 return LFS_ERR_CORRUPT;
             }
 
@@ -7878,9 +7878,16 @@ int lfsr_mount(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // TODO this should use any configured values
     LFS_DEBUG("Mounted littlefs v%"PRId32".%"PRId32" "
-            "(bs=%"PRId32", bc=%"PRId32")",
+            "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" "
+            "w%"PRId32".%"PRId32", "
+            "bd %"PRId32"x%"PRId32,
             LFS_DISK_VERSION_MAJOR,
             LFS_DISK_VERSION_MINOR,
+            lfs->mroot.u.m.blocks[0],
+            lfs->mroot.u.m.blocks[1],
+            lfs->mroot.u.m.trunk,
+            lfsr_mtree_weight(lfs) / lfsr_mleafweight(lfs),
+            lfsr_mleafweight(lfs),
             lfs->cfg->block_size,
             lfs->cfg->block_count);
 
@@ -7897,8 +7904,8 @@ int lfsr_format(lfs_t *lfs, const struct lfs_config *cfg) {
         return err;
     }
 
-    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32" "
-            "(bs=%"PRId32", bc=%"PRId32")",
+    LFS_DEBUG("Formatting littlefs v%"PRId32".%"PRId32", "
+            "bd %"PRId32"x%"PRId32,
             LFS_DISK_VERSION_MAJOR,
             LFS_DISK_VERSION_MINOR,
             lfs->cfg->block_size,

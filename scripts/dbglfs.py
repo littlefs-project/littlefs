@@ -1760,10 +1760,11 @@ def main(disk, mroots=None, *,
         #### actual debugging begins here
 
         # print some information about the filesystem
-        print('littlefs v%s.%s %s, rev %d, weight %d.%d' % (
+        print('littlefs v%s.%s %s, rev %d, weight %d.%d, bd %dx%d' % (
             config.version[0] if config.version[0] is not None else '?',
             config.version[1] if config.version[1] is not None else '?',
-            mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight))
+            mroot.addr(), mroot.rev, bweight//mleaf_weight, 1*mleaf_weight,
+            config.block_limit+1, config.disk_limit+1))
 
         # dynamically size the id field
         w_width = max(
