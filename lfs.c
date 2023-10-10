@@ -9213,12 +9213,25 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
     // to test this...
 
     // keep track of how our changes affect our estimate
-    lfs_off_t estimate = (!lfsr_file_hasshrub(file))
-            ? 0
-            : file->inlined.u.shrub.estimate;
+    lfs_off_t estimate;
 
-    lfs_soff_t left_overlap = 0;
-    lfs_soff_t right_overlap = 0;
+    // and any overlap that we need to adjust for when we remove data
+    lfs_soff_t left_overlap;
+    lfs_soff_t right_overlap;
+
+    // TODO is there a better way to do this?
+
+    // to handle sprout->shrub transitions, we set estimate to zero and
+    // pretend we've overlapped the entire data
+    if (!lfsr_file_hasshrub(file)) {
+        estimate = 0;
+        left_overlap = lfsr_file_inlinedsize(file);
+        right_overlap = lfsr_file_inlinedsize(file);
+    } else {
+        estimate = file->inlined.u.shrub.estimate;
+        left_overlap = 0;
+        right_overlap = 0;
+    }
 
     // has left sibling?
     if (pos > 0) {
@@ -9263,7 +9276,10 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
             data = lfsr_data_fromcat(&scratch_datas[0], 2);
             weight += left_weight - left_overlap;
             pos = left_rid-(left_weight-1);
-            left_overlap = 0;
+            // only zero overlap if we're not transitioning from a sprout
+            if (lfsr_file_hasshrub(file)) {
+                left_overlap = 0;
+            }
 
         // need to append left data? this can happend if we're
         // transitioning from a sprout to a shrub
@@ -9320,8 +9336,7 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
             LFS_ASSERT(lfsr_data_size(&right_data) <= right_weight);
         }
 
-        right_overlap = pos + weight
-                - (right_rid-(right_weight-1));
+        right_overlap = (pos + weight) - (right_rid-(right_weight-1));
         LFS_ASSERT(right_overlap >= 0);
 
         // can we coalesce right data?
@@ -9341,14 +9356,17 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
                     scratch_datas,
                     datas_ - scratch_datas);
             weight += right_weight - right_overlap;
-            right_overlap = 0;
+            // only zero overlap if we're not transitioning from a sprout
+            if (lfsr_file_hasshrub(file)) {
+                right_overlap = 0;
+            }
 
         // need to append right data? this can happen if we're
         // transitioning from sprout to shrub, or left and right sibling
         // are the same
         } else if (!lfsr_file_hasshrub(file)
                 || right_overlap > (lfs_soff_t)weight) {
-            *attrs_++ = LFSR_ATTR(pos - left_overlap,
+            *attrs_++ = LFSR_ATTR(right_rid - left_overlap + 1,
                     SHRUB(INLINED), +right_weight - right_overlap,
                     DISK(
                         right_data.u.disk.block,
@@ -9378,26 +9396,28 @@ static int lfsr_file_carveinlined(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // remove any data we're overwriting, accounting for sibling changes
-    if (lfsr_file_hasshrub(file)) {
-        lfs_soff_t rm = lfs_smin32(
-                    weight,
-                    lfsr_file_inlinedsize(file) - pos)
-                - left_overlap
-                - right_overlap;
-        if (rm > 0) {
-            *attrs_++ = LFSR_ATTR(pos+rm-1, SHRUB(RM), -rm, NULL);
+    lfs_soff_t rm = lfs_smin32(
+                weight,
+                lfsr_file_inlinedsize(file) - pos)
+            - left_overlap
+            - right_overlap;
+    if (rm > 0) {
+        // we shouldn't remove anything if we're transitioning from a sprout
+        LFS_ASSERT(lfsr_file_hasshrub(file));
 
-            // updating our estimate gets a bit tricky here
-            lfs_ssize_t rm_estimate = lfsr_rbyd_estimate(lfs,
-                    &file->inlined.u.rbyd,
-                    pos + left_overlap,
-                    pos + left_overlap + rm,
-                    NULL);
-            if (rm_estimate < 0) {
-                return rm_estimate;
-            }
-            estimate -= rm_estimate;
+        // range remove any remaining attrs
+        *attrs_++ = LFSR_ATTR(pos+rm-1, SHRUB(RM), -rm, NULL);
+
+        // updating our estimate gets a bit tricky here
+        lfs_ssize_t rm_estimate = lfsr_rbyd_estimate(lfs,
+                &file->inlined.u.rbyd,
+                pos + left_overlap,
+                pos + left_overlap + rm,
+                NULL);
+        if (rm_estimate < 0) {
+            return rm_estimate;
         }
+        estimate -= rm_estimate;
     }
 
     // append our buffer

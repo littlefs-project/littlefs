@@ -1,6 +1,9 @@
 # Test basic file operations
 after = ['test_dtree', 'test_btree']
 
+# test both with and without coalescing
+defines.COALESCE_SIZE = ['0', 'CACHE_SIZE']
+
 
 # test creation/deletion
 [cases.test_files_create]
