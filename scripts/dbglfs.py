@@ -1081,23 +1081,23 @@ class Config:
             elif tag == TAG_FLAGS:
                 return 'flags 0x%x' % self.flags
             elif tag == TAG_CKSUMTYPE:
-                return 'cksum_type %d' % self.cksum_type
+                return 'cksumtype %d' % self.cksum_type
             elif tag == TAG_REDUNDTYPE:
-                return 'redund_type %d' % self.redund_type
+                return 'redundtype %d' % self.redund_type
             elif tag == TAG_BLOCKLIMIT:
-                return 'block_limit %d' % self.block_limit
+                return 'blocklimit %d' % self.block_limit
             elif tag == TAG_DISKLIMIT:
-                return 'disk_limit %d' % self.disk_limit
+                return 'disklimit %d' % self.disk_limit
             elif tag == TAG_MLEAFLIMIT:
-                return 'mleaf_limit %d' % self.mleaf_limit
+                return 'mleaflimit %d' % self.mleaf_limit
             elif tag == TAG_SIZELIMIT:
-                return 'size_limit %d' % self.size_limit
+                return 'sizelimit %d' % self.size_limit
             elif tag == TAG_NAMELIMIT:
-                return 'name_limit %d' % self.name_limit
+                return 'namelimit %d' % self.name_limit
             elif tag == TAG_UTAGLIMIT:
-                return 'utag_limit %d' % self.utag_limit
+                return 'utaglimit %d' % self.utag_limit
             elif tag == TAG_UATTRLIMIT:
-                return 'uattr_limit %d' % self.uattr_limit
+                return 'uattrlimit %d' % self.uattr_limit
             else:
                 return 'config 0x%02x %d' % (tag, len(data))
 
@@ -1775,9 +1775,14 @@ def main(disk, mroots=None, *,
         # print config?
         if args.get('config'):
             for i, (repr_, tag, j, data) in enumerate(config.repr()):
-                print('%12s %-*s  %s' % (
-                    'config:' if i == 0 else '',
-                    2*w_width+1 + 21+w_width + 1, repr_,
+                print('%12s %*s %-*s  %s' % (
+                    '{%s}:' % ','.join('%04x' % block
+                        for block in it.chain([mroot.block],
+                            mroot.redund_blocks))
+                        if i == 0 else '',
+                    2*w_width+1, '%d.%d' % (-1, -1)
+                        if i == 0 else '',
+                    21+w_width, repr_,
                     next(xxd(data, 8), '')
                         if not args.get('raw')
                             and not args.get('no_truncate') else ''))
@@ -1800,12 +1805,20 @@ def main(disk, mroots=None, *,
         # print gstate?
         if args.get('gstate'):
             for i, (repr_, tag, data) in enumerate(gstate.repr()):
-                print('%12s %-*s  %s' % (
+                print('%12s %*s %-*s  %s' % (
                     'gstate:' if i == 0 else '',
-                    2*w_width+1 + 21+w_width + 1, repr_,
+                    2*w_width+1, 'g' if i == 0 else '',
+                    21+w_width, repr_,
                     next(xxd(data, 8), '')
                         if not args.get('raw')
                             and not args.get('no_truncate') else ''))
+
+                # show in-device representation
+                if args.get('device'):
+                    print('%11s  %*s %04x %08x %07x' % (
+                        '',
+                        2*w_width+1, '',
+                        tag, 0, len(data)))
 
                 # show on-disk encoding
                 if args.get('raw') or args.get('no_truncate'):
@@ -1823,7 +1836,7 @@ def main(disk, mroots=None, *,
                             ','.join('%04x' % block
                                 for block in it.chain([mdir.block],
                                     mdir.redund_blocks)),
-                            2*w_width+1, mbid//mleaf_weight,
+                            2*w_width+1, '%d.%d' % (mbid//mleaf_weight, -1),
                             21+w_width, tagrepr(tag, 0, len(data)),
                             next(xxd(data, 8), '')
                                 if not args.get('raw')
